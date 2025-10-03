@@ -1,0 +1,3 @@
+[submodule "sisub"]
+	path = sisub
+	url = https://github.com/IEFA-FAB/sisub.git
