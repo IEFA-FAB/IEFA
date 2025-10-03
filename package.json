@@ -3,15 +3,18 @@
   "private": true,
   "packageManager": "pnpm@10.18.0",
   "overrides": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel --filter ./apps/* run dev",
-    "build": "pnpm -r --filter ./apps/* run build",
-    "typecheck": "pnpm -r run typecheck"
+    "dev": "pnpm -w -r --parallel --filter './apps/**' run dev",
+    "build": "pnpm -w -r --filter './apps/**' run build",
+    "typecheck": "pnpm -w -r run typecheck",
+    "dev:sisub": "pnpm -C ./apps/sisub dev",
+    "dev:iefa": "pnpm -C ./apps/iefa dev"
   },
   "dependencies": {
-    "@iefa/ui": "workspace:*"
+    "@iefa/ui": "workspace:*",
+    "@iefa/auth": "workspace:^"
   }
 }
