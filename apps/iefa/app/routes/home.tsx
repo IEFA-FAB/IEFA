@@ -22,6 +22,13 @@ type AppItem = {
   external?: boolean;
 };
 
+export function meta() {
+  return [
+    { title: "IEFA" },
+    { name: "description", content: "Suite de Soluções do IEFA" },
+  ];
+}
+
 function AppCard({ app }: { app: AppItem }) {
   const isExternal = app.external && app.href;
   const Content = (
@@ -113,7 +120,7 @@ export default function Home() {
     {
       title: "Facilidades do Pregoeiro",
       description: "Ferramentas auxiliares para o fluxo do pregoeiro.",
-      to: "/pregoeiro/facilidades",
+      to: "/facilidades/pregoeiro",
       icon: <Wrench className="h-5 w-5 text-primary" />,
       badges: ["Ferramentas", "Produtividade"],
     },

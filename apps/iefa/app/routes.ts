@@ -8,6 +8,6 @@ import {
 export default [
   layout("routes/layout.tsx", [
     index("routes/home.tsx"),
-    route("pregoeiro/facilidades", "routes/pregoeiro/facilities.tsx"),
+    route("facilidades/pregoeiro", "routes/facilities/pregoeiro.tsx"),
   ]),
 ] satisfies RouteConfig;

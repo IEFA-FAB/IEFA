@@ -32,7 +32,7 @@ export default function RootLayout() {
               {/* Navegação desktop */}
               <nav className="hidden md:flex items-center gap-1">
                 <NavLink
-                  to="/pregoeiro/facilidades"
+                  to="/facilidades/pregoeiro"
                   end
                   className={navLinkClass}
                 >

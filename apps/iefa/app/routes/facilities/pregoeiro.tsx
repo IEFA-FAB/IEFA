@@ -13,7 +13,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@iefa/ui";
 import { Button } from "@iefa/ui";
 import OrientationWarning from "@/components/orientation-warning";
 import { useWindowSize } from "@uidotdev/usehooks";
-export default function Facilidades() {
+
+export function meta() {
+  return [
+    { title: "Facilidades do Pregoeiro" },
+    { name: "description", content: "Suite de Soluções do IEFA" },
+  ];
+}
+
+export default function Pregoeiro() {
   const size = useWindowSize();
 
   const [env, setEnv] = useState<FacilidadesTableProps>({
