@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    "module": "nodenext",
     "strict": true,
     "skipLibCheck": true,
     "allowJs": false,
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,

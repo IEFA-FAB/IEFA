@@ -1,7 +1,7 @@
 {
   "name": "iefa",
   "private": true,
-  "packageManager": "pnpm@10.18.0",
+  "packageManager": "pnpm@10.18.2",
   "overrides": {
     "react": "19.1.1",
     "react-dom": "19.1.1"
@@ -14,7 +14,7 @@
     "dev:iefa": "pnpm -C ./apps/iefa dev"
   },
   "dependencies": {
-    "@iefa/ui": "workspace:*",
-    "@iefa/auth": "workspace:^"
+    "@iefa/auth": "workspace:^",
+    "@iefa/ui": "workspace:*"
   }
 }
