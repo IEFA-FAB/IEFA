@@ -1,7 +1,7 @@
 // src/api/factory.ts
 import type { Context, Next } from "hono";
 import type { MiddlewareHandler } from "hono";
-import supabase from "../lib/supabase";
+import supabase from "../lib/supabase.js";
 
 type OrderRule = { column: string; ascending?: boolean | null };
 

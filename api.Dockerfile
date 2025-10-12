@@ -13,6 +13,6 @@ RUN pnpm build
 FROM base AS runtime
 COPY --from=build /repo/ /repo
 EXPOSE 3000
-WORKDIR /repo/apps/sisub/
+WORKDIR /repo/apps/api/
 CMD ["pnpm", "start"]
 

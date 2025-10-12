@@ -33,4 +33,4 @@ primary_region = "gru"
     soft_limit = 20
 
 [processes]
-  app = "npm start"
+  app = "pnpm start"

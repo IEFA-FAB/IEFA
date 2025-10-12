@@ -1,7 +1,7 @@
 // src/index.ts
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import api from "./api/routes";
+import api from "./api/routes.js";
 
 const app = new Hono();
 

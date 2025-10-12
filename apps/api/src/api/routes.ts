@@ -1,7 +1,7 @@
 // src/api/routes.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { createApiHandler } from "./factory";
+import { createApiHandler } from "./factory.js";
 
 export const api = new Hono();
 
