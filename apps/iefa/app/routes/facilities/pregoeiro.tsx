@@ -44,7 +44,7 @@ export default function Pregoeiro() {
   return (
     <div className="flex flex-col items-center justify-center w-full p-6 gap-8 pt-20">
       <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200">
-        Facilidades
+        Pregoeiro
       </h1>
       <Card className="w-full max-w-2xl p-4">
         <Collapsible

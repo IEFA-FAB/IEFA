@@ -6,6 +6,7 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
+import { ThemeProvider } from "@iefa/ui";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -24,17 +25,41 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+const noFlashScript = `
+(function() {
+  try {
+    var key = 'iefa-theme';
+    var stored = localStorage.getItem(key);
+    var mql = window.matchMedia('(prefers-color-scheme: dark)');
+    var system = mql.matches ? 'dark' : 'light';
+    var theme = stored || 'system';
+    var resolved = theme === 'dark' || (theme === 'system' && system === 'dark') ? 'dark' : 'light';
+    var root = document.documentElement;
+    if (resolved === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+    root.style.colorScheme = resolved; // ajusta scrollbars/controles nativos
+  } catch (e) {}
+})();`;
+
   return (
     <html lang="pt-br">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="dark light" />
         <link rel="icon" type="image/svg" href="/favicon.svg"></link>
         <Meta />
+        <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
         <Links />
       </head>
-      <body>
-        {children}
+      <body
+        className="min-h-dvh bg-background text-foreground"
+        suppressHydrationWarning
+      >
+        <ThemeProvider 
+          defaultTheme="system"
+          storageKey="iefa-theme">
+            {children}
+            </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
