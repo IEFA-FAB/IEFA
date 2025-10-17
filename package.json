@@ -11,7 +11,9 @@
     "build": "pnpm -w -r --filter './apps/**' run build",
     "typecheck": "pnpm -w -r run typecheck",
     "dev:sisub": "pnpm -C ./apps/sisub dev",
-    "dev:iefa": "pnpm -C ./apps/iefa dev"
+    "dev:iefa": "pnpm -C ./apps/iefa dev",
+    "dev:api": "pnpm -C ./apps/api dev",
+    "dev:docs": "pnpm -C ./apps/docs dev"
   },
   "dependencies": {
     "@iefa/auth": "workspace:^",
