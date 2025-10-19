@@ -1,14 +1,17 @@
 {
-  "name": "apps-docs",
+  "name": "red-resonance",
   "type": "module",
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
+    "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.14.5"
+    "@astrojs/starlight": "^0.36.1",
+    "astro": "^5.6.1",
+    "sharp": "^0.34.2"
   }
 }
