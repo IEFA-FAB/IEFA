@@ -8,7 +8,7 @@ FROM base AS build
 COPY . /repo/
 WORKDIR /repo
 RUN pnpm install
-RUN pnpm build
+RUN pnpm  -w -r --filter './apps/iefa' run build
 
 FROM base AS runtime
 COPY --from=build /repo/ /repo

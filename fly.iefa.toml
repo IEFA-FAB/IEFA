@@ -23,7 +23,7 @@ primary_region = "gru"
     path = "/healthz"
     interval = "15s"
     timeout = "5s"
-    grace_period = "10s"  # aumente se sua app demora a iniciar
+    grace_period = "15s"  # aumente se sua app demora a iniciar
     tls_skip_verify = false
 
   [http_service.concurrency]
