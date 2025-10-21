@@ -9,7 +9,7 @@ import {
   Button,
   Badge,
 } from "@iefa/ui";
-import { ExternalLink, Wrench, UtensilsCrossed } from "lucide-react";
+import { ExternalLink, Wrench, UtensilsCrossed, Book, BookOpen } from "lucide-react";
 
 type AppItem = {
   title: string;
@@ -125,6 +125,14 @@ export default function Home() {
       badges: ["Produtividade", "Padronização"],
     },
     {
+      title: "Chat RADA",
+      description:
+        "Ferramenta de Recuperação de conhecimento sobre o Regulamento de Adminitração da Aeronáutica.",
+      to: "/chat/rada",
+      icon: <Wrench className="h-5 w-5" aria-hidden="true" />,
+      badges: ["Chat", "RADA"],
+    },
+    {
       title: "Previsão de Rancho (SISUB)",
       description:
         "Selecione refeições dos próximos 30 dias para estimar a demanda. Login seguro via Supabase.",
@@ -132,6 +140,15 @@ export default function Home() {
       external: true,
       icon: <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />,
       badges: ["30 dias", "4 refeições", "Login seguro"],
+    },
+    {
+      title: "Documentação dos Sistemas IEFA",
+      description:
+        "Entenda melhor os sistemas desenvolvidos pelo IEFA, com guias e manuais detalhados.",
+      href: "https://iefa-docs.fly.dev/",
+      external: true,
+      icon: <BookOpen className="h-5 w-5" aria-hidden="true" />,
+      badges: ["Documentação", "Guias"],
     },
   ];
 

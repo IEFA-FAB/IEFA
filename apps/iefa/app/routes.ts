@@ -10,6 +10,7 @@ export default [
 
   layout("routes/layout.tsx", [
     index("routes/home.tsx"),
+    route("chat/rada", "routes/chatRada.tsx"),
     route("facilidades/pregoeiro", "routes/facilities/pregoeiro.tsx"),
   ]),
 ] satisfies RouteConfig;
