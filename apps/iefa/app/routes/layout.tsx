@@ -148,7 +148,7 @@ export default function RootLayout() {
           <div
             className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}
           >
-            © {new Date().getFullYear()} IEFA. Alguns serviços são externos e
+            © {new Date().getFullYear()} IEFA.<b> Desenvolvido por Ten Nanni (IEFA) </b>. Alguns serviços são externos e
             podem exigir login próprio.
           </div>
         </footer>
