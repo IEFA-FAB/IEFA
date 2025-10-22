@@ -9,7 +9,21 @@ import {
   Button,
   Badge,
 } from "@iefa/ui";
-import { ExternalLink, Wrench, UtensilsCrossed, Book, BookOpen } from "lucide-react";
+import {
+  ExternalLink,
+  Wrench,
+  UtensilsCrossed,
+  BookOpen,
+  Sheet,
+  Github,
+  User,
+} from "lucide-react";
+
+type Contributor = {
+  label: string; // string personalizável (nome/descrição)
+  url?: string; // link opcional (ex.: GitHub)
+  icon?: React.ReactNode; // ícone opcional para este contribuidor
+};
 
 type AppItem = {
   title: string;
@@ -19,6 +33,7 @@ type AppItem = {
   icon?: React.ReactNode;
   badges?: string[];
   external?: boolean;
+  contributors?: Contributor[]; // nova seção de contribuidores
 };
 
 export function meta() {
@@ -31,13 +46,10 @@ export function meta() {
 function AppCard({ app }: { app: AppItem }) {
   const isExternal = app.external && !!app.href;
 
-  // Card não é embrulhado por link para evitar links aninhados.
-  // O CTA único fica no footer.
   return (
     <Card className="group h-full border border-border bg-card text-card-foreground transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-2">
-          {/* Ícones decorativos não precisam de leitura por screen readers */}
           <span aria-hidden="true" className="text-primary">
             {app.icon}
           </span>
@@ -54,6 +66,7 @@ function AppCard({ app }: { app: AppItem }) {
         <p className="text-sm sm:text-base text-muted-foreground text-pretty">
           {app.description}
         </p>
+
         {app.badges && app.badges.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {app.badges.map((b) => (
@@ -61,6 +74,57 @@ function AppCard({ app }: { app: AppItem }) {
                 {b}
               </Badge>
             ))}
+          </div>
+        ) : null}
+
+        {app.contributors && app.contributors.length > 0 ? (
+          <div className="pt-1">
+            <div className="text-xs font-medium tracking-wide text">
+              {app.contributors.length > 1 ? "Contribuidores" : "Contribuição"}
+            </div>
+            <ul className="mt-2 flex flex-row gap-x-8 gap-1.5">
+              {app.contributors.map((c, idx) => {
+                const isGithub = c.url?.includes("github.com");
+                const iconEl =
+                  c.icon ??
+                  (isGithub ? (
+                    <Github className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <User className="h-4 w-4" aria-hidden="true" />
+                  ));
+
+                return (
+                  <li
+                    key={`${c.label}-${idx}`}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="text-muted-foreground" aria-hidden="true">
+                      {iconEl}
+                    </span>
+
+                    {c.url ? (
+                      <a
+                        href={c.url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex items-center gap-1.5 text-sm hover:underline underline-offset-4"
+                        aria-label={`Abrir perfil de ${c.label} em nova aba`}
+                      >
+                        <span>{c.label}</span>
+                        <ExternalLink
+                          className="h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
+                      </a>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {c.label}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         ) : null}
       </CardContent>
@@ -123,6 +187,28 @@ export default function Home() {
       to: "/facilidades/pregoeiro",
       icon: <Wrench className="h-5 w-5" aria-hidden="true" />,
       badges: ["Produtividade", "Padronização"],
+      contributors: [
+        {
+          label: "Ten Nanni (IEFA)",
+          url: "https://github.com/userNanni",
+        },
+      ],
+    },
+    {
+      title: "Gerador de Relatório de Licitação",
+      description:
+        "Extraia informações de Licitações Finalizadas em planilhas no formato do SILOMS.",
+      href: "https://consultalicitacaofinalizada.onrender.com/",
+      external: true,
+      icon: <Sheet className="h-5 w-5" aria-hidden="true" />,
+      badges: ["Produtividade", "Padronização"],
+      // Sem URL de GitHub fornecida — apenas string personalizável:
+      contributors: [
+        {
+          label: "Ten Fazzolo (CELOG)",
+          url: "https://github.com/JoaoPedroFazzolo",
+        },
+      ],
     },
     {
       title: "Chat RADA",
@@ -131,6 +217,12 @@ export default function Home() {
       to: "/chat/rada",
       icon: <Wrench className="h-5 w-5" aria-hidden="true" />,
       badges: ["Chat", "RADA"],
+      contributors: [
+        {
+          label: "Ten Nanni (IEFA)",
+          url: "https://github.com/userNanni",
+        },
+      ],
     },
     {
       title: "Previsão de Rancho (SISUB)",
@@ -140,6 +232,16 @@ export default function Home() {
       external: true,
       icon: <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />,
       badges: ["30 dias", "4 refeições", "Login seguro"],
+      contributors: [
+        {
+          label: "Ten Nanni (IEFA)",
+          url: "https://github.com/userNanni",
+        },
+        {
+          label: "Ten Bruno (GAP-MN)",
+          url: "https://github.com/brunodff",
+        },
+      ],
     },
     {
       title: "Documentação dos Sistemas IEFA",
@@ -149,15 +251,20 @@ export default function Home() {
       external: true,
       icon: <BookOpen className="h-5 w-5" aria-hidden="true" />,
       badges: ["Documentação", "Guias"],
+      contributors: [
+        {
+          label: "Ten Nanni (IEFA)",
+          url: "https://github.com/userNanni",
+        },
+      ],
     },
   ];
 
-  // Parallax suave nos blobs (desativado em redução de movimento)
   const y = motionOK ? offsetY * 0.12 : 0;
 
   return (
     <div className="relative flex flex-col items-center justify-center w-full bg-background text-foreground">
-      {/* Blobs de gradiente com blur (modern SaaS), responsivos ao tema */}
+      {/* Blobs */}
       <div
         className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
         aria-hidden="true"
