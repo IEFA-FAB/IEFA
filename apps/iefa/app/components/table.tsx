@@ -212,7 +212,7 @@ export const columns: ColumnDef<Facilidades_pregoeiro>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <div className="capitalize whitespace-pre-wrap break-words">
+      <div className="whitespace-pre-wrap break-words">
         {row.getValue("title")}
       </div>
     ),
@@ -391,7 +391,6 @@ export function FacilidadesTable({
         </DropdownMenu>
       </div>
 
-      {/* Sem scroll horizontal: removido overflow-x-auto e forçada quebra de linha */}
       <div className="rounded-md border overflow-hidden">
         <Table className="w-full table-auto">
           <TableHeader>

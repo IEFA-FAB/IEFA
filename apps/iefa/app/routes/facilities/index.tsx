@@ -40,6 +40,12 @@ export function meta() {
   ];
 }
 
+/**
+ * Normalizadores de nome para bater com as chaves do lucide:
+ * - lucide usa nomes originais em kebab-case no mapa dinâmico (ex: "utensils-crossed", "wrench")
+ * - componentes estáticos usam PascalCase (ex: UtensilsCrossed, Wrench)
+ * Aqui cobrimos as 3 possibilidades: entrada direta, kebab-case e PascalCase.
+ */
 const toPascalName = (name: string) =>
   name
     .trim()
@@ -49,12 +55,20 @@ const toPascalName = (name: string) =>
 const toKebabName = (name: string) =>
   name
     .trim()
+    // "UtensilsCrossed" -> "Utensils-Crossed"
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    // separadores para hífen
     .replace(/[\s_]+/g, "-")
     .toLowerCase();
 
 const FALLBACK_ICON = "wrench" as const;
 
+/**
+ * Escolhe o loader de ícone do mapa dinâmico do lucide.
+ * Fontes:
+ * - dynamicIconImports e uso com React.lazy [lucide-react – npm]
+ * - chaves do mapa são os nomes originais dos ícones (kebab-case) [lucide-react – npm]
+ */
 function resolveIconLoader(name?: string | null) {
   const map = dynamicIconImports as Record<
     string,
@@ -73,6 +87,10 @@ function resolveIconLoader(name?: string | null) {
   return map[FALLBACK_ICON];
 }
 
+/**
+ * Ícone dinâmico com code-splitting via React.lazy + Suspense.
+ * Aceita nome em vários formatos ("utensils_crossed", "utensils-crossed", "UtensilsCrossed").
+ */
 function DynamicIcon({
   name,
   className = "h-5 w-5",
@@ -265,7 +283,7 @@ export default function Home() {
           )
         `
         )
-        .order("title", { ascending: true }).limit(6);
+        .order("title", { ascending: true });
 
       if (error) {
         setFetchError(error.message);
@@ -302,50 +320,9 @@ export default function Home() {
   const y = motionOK ? offsetY * 0.12 : 0;
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full text-foreground">
-      {/* Hero */}
-      <header className="relative w-full">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-8 md:pt-12">
-          <div
-            className="relative w-full overflow-hidden rounded-3xl border border-border
-                       bg-gradient-to-b from-background/60 via-background/40 to-background/20
-                       backdrop-blur supports-[backdrop-filter]:backdrop-blur-md"
-            role="region"
-            aria-label="Cabeçalho do Portal IEFA"
-          >
-            <div className="relative mx-auto flex min-h-[40vh] sm:min-h-[50vh] flex-col items-center justify-center text-center p-6 md:p-10">
-              <h1 className="text-balance text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-                Portal IEFA
-              </h1>
-              <p className="mt-4 max-w-3xl text-pretty text-base sm:text-lg text-muted-foreground">
-                Suite de aplicações do Instituto de Economia, Finanças e
-                Administração.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button asChild size="lg" variant="default">
-                  <a
-                    href="/facilidades/#apps"
-                    aria-label="Ver aplicações da suite"
-                  >
-                    Ver aplicações
-                  </a>
-                </Button>
-                <Button asChild size="lg" variant="secondary">
-                  <a
-                    href="https://app.previsaosisub.com.br/"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    aria-label="Acessar Previsão de Rancho (SISUB) em nova aba"
-                  >
-                    Acessar SISUB
-                    <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-                  </a>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="relative flex flex-col items-center justify-center w-full  text-foreground">
+  
+
       {/* Seção Apps */}
       <section
         id="apps"

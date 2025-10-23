@@ -52,7 +52,6 @@ const noFlashScript = `
         <Links />
       </head>
       <body
-        className="min-h-dvh bg-background text-foreground"
         suppressHydrationWarning
       >
         <ThemeProvider 

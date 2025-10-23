@@ -34,6 +34,6 @@ export default defineConfig({
   },
   ssr: {
     // Se o sisub roda SSR em dev (React Router v7), garanta que a lib é empacotada pelo Vite
-    noExternal: ["@iefa/ui", "@iefa/auth"],
+    noExternal: ["@iefa/ui", "@iefa/auth", 'lucide-react'],
   },
 });
