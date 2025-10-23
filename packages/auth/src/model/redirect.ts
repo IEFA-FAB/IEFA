@@ -1,4 +1,5 @@
-// app/auth/redirect.ts
+// packages/auth/src/model/redirect.ts
+import { resolveAuthConfig } from "../config";
 
 function getSafeSessionStorage(): Storage | null {
   try {
@@ -8,17 +9,14 @@ function getSafeSessionStorage(): Storage | null {
     ) {
       return window.sessionStorage;
     }
-  } catch {
-    // Safari Private Mode ou políticas de bloqueio podem lançar erro
-  }
+  } catch {}
   return null;
 }
 
-// Lê redirectTo de query, state e sessionStorage (seguro para SSR)
 export function getRedirectCandidates(
   locationSearch: string,
-  locationState?: any,
-  redirectKey = "auth:redirectTo"
+  locationState: any | undefined,
+  redirectKey: string
 ) {
   const params = new URLSearchParams(locationSearch || "");
   const qsTarget = params.get("redirectTo");
@@ -46,25 +44,22 @@ export function getRedirectTo(
 
 export function safeRedirect(
   target: string | null | undefined,
-  fallback = "/rancho"
+  fallback = "/"
 ): string {
   if (!target) return fallback;
   let decoded = target;
   try {
     decoded = decodeURIComponent(target);
-  } catch {
-    // mantém original
-  }
+  } catch {}
   if (decoded.startsWith("/") && !decoded.startsWith("//")) {
     return decoded;
   }
   return fallback;
 }
 
-// Persiste o redirectTo quando estiver presente na query string (seguro para SSR)
 export function preserveRedirectFromQuery(
   locationSearch: string,
-  redirectKey = "auth:redirectTo"
+  redirectKey: string
 ) {
   const params = new URLSearchParams(locationSearch || "");
   const qsRedirect = params.get("redirectTo");
@@ -72,4 +67,23 @@ export function preserveRedirectFromQuery(
     const ss = getSafeSessionStorage();
     ss?.setItem(redirectKey, qsRedirect);
   }
+}
+
+// Ajuda a resolver defaultRedirect da config:
+export function resolveTarget(
+  locationSearch: string,
+  locationState: any | undefined,
+  defaultRedirect: string,
+  redirectKey: string
+) {
+  const { qsTarget, stateTarget, stored } = getRedirectCandidates(
+    locationSearch,
+    locationState,
+    redirectKey
+  );
+  const target = safeRedirect(
+    qsTarget ?? stored ?? stateTarget,
+    defaultRedirect
+  );
+  return { target, stored };
 }

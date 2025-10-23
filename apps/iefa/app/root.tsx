@@ -10,6 +10,7 @@ import { ThemeProvider } from "@iefa/ui";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { AuthProvider } from "@iefa/auth";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -57,7 +58,9 @@ const noFlashScript = `
         <ThemeProvider 
           defaultTheme="system"
           storageKey="iefa-theme">
+            <AuthProvider>
             {children}
+            </AuthProvider>
             </ThemeProvider>
         <ScrollRestoration />
         <Scripts />

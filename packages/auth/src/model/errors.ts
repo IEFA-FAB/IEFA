@@ -1,3 +1,4 @@
+// packages/auth/src/model/errors.ts
 import { AuthError } from "@supabase/supabase-js";
 
 export type NormalizedAuthError = {

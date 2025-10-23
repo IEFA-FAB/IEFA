@@ -16,5 +16,11 @@ export default [
       index("routes/facilities/index.tsx"),
       route("pregoeiro", "routes/facilities/pregoeiro.tsx"),
     ]),
+
+    layout("routes/auth/layout.tsx", [
+      route("login", "routes/auth/login.tsx"),
+      route("register", "routes/auth/register.tsx"),
+      route("/auth/reset-password", "routes/auth/resetPassword.tsx"),
+    ]),
   ]),
 ] satisfies RouteConfig;

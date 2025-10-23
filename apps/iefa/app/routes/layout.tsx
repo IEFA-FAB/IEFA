@@ -150,7 +150,10 @@ export default function RootLayout() {
       </header>
 
       {/* Conteúdo */}
-      <main id="conteudo" className="flex-1">
+      <main
+        id="conteudo"
+        className="flex-1 flex items-center align-middle content-center"
+      >
         <div className={`${container} py-8 md:py-10`}>
           <Outlet />
         </div>

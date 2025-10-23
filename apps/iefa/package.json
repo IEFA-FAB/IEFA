@@ -9,7 +9,7 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
-    "@iefa/auth": "workspace:^",
+    "@iefa/auth": "workspace:*",
     "@iefa/ui": "workspace:*",
     "@react-router/node": "^7.9.2",
     "@react-router/serve": "^7.9.2",
