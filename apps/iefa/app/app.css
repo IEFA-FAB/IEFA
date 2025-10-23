@@ -14,12 +14,19 @@
 html,
 body {
   height: 100%;
-
-  @apply bg-white dark:bg-gray-950;
+  min-height: 100%; 
+  background: transparent;  
 
   @media (prefers-color-scheme: dark) {
     color-scheme: dark;
   }
+}
+
+::before{
+  @keyframes slow-pan {
+  0%, 100% { transform: translate3d(0,0,0); }
+  50%      { transform: translate3d(-2%,-2%,0); }
+}
 }
 
 @theme inline {
