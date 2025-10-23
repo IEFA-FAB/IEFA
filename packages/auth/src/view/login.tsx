@@ -1,7 +1,6 @@
-// app/auth/login.tsx
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
-import { useAuth } from "../model/auth";
+import { useAuth } from "../model/auth-provider";
 import { FAB_EMAIL_REGEX, STORAGE_KEYS } from "../model/constants";
 import { safeRedirect, getRedirectTo } from "../model/redirect";
 
@@ -28,6 +27,12 @@ import {
 } from "lucide-react";
 import { cn } from "@iefa/ui";
 
+function preserveRedirectTo(path: string, search: string) {
+  const qs = new URLSearchParams(search);
+  const query = qs.toString();
+  return `${path}${query ? `?${query}` : ""}`;
+}
+
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,12 +46,13 @@ export function Login() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   const { signIn, resetPassword, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [passwordError, setPasswordError] = useState("");
 
+  // Carrega email salvo (remember me)
   useEffect(() => {
     const savedEmail = localStorage.getItem(STORAGE_KEYS.rememberEmail);
     if (savedEmail) {
@@ -66,15 +72,6 @@ export function Login() {
     }
   }, [isAuthenticated, isLoading, navigate, location.search, location.state]);
 
-  // Carrega email salvo (remember me)
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("fab_remember_email");
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
-    }
-  }, []);
-
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value;
     setEmail(newEmail);
@@ -86,6 +83,7 @@ export function Login() {
       setEmailError("");
     }
   };
+
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
     setApiError("");
@@ -125,9 +123,9 @@ export function Login() {
 
       // Persistência do email conforme "Lembrar email"
       if (rememberMe) {
-        localStorage.setItem("fab_remember_email", email);
+        localStorage.setItem(STORAGE_KEYS.rememberEmail, email);
       } else {
-        localStorage.removeItem("fab_remember_email");
+        localStorage.removeItem(STORAGE_KEYS.rememberEmail);
       }
 
       // Redireciona imediatamente após login com base no redirectTo/state
@@ -181,12 +179,7 @@ export function Login() {
     }
   };
 
-  // Mantém redirectTo na navegação para registro
-  const registerHref = (() => {
-    const qs = new URLSearchParams(location.search);
-    const query = qs.toString();
-    return `/register${query ? `?${query}` : ""}`;
-  })();
+  const registerHref = preserveRedirectTo("/register", location.search);
 
   // Loading
   if (isLoading) {

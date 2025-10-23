@@ -1,6 +1,6 @@
 {
   "name": "@iefa/auth",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -17,6 +17,7 @@
   "dependencies": {
     "@iefa/ui": "workspace:*",
     "@supabase/supabase-js": "^2.50.5",
+    "@supabase/ssr": "^0.7.0",
     "lucide-react": "^0.537.0",
     "react-router": "^7.6.3"
   },

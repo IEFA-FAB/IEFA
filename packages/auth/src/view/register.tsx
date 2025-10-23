@@ -1,8 +1,8 @@
-// app/auth/register.tsx
 import { FAB_EMAIL_REGEX } from "../model/constants";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
-import { useAuth } from "../model/auth";
+import { useAuth } from "../model/auth-provider";
+import { safeRedirect, getRedirectTo } from "../model/redirect";
 
 import { Button } from "@iefa/ui";
 import { Input } from "@iefa/ui";
@@ -29,8 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@iefa/ui";
 
-// Password strength validation
-const getPasswordStrength = (password: string) => {
+function getPasswordStrength(password: string) {
   let score = 0;
   const checks = {
     length: password.length >= 8,
@@ -39,15 +38,19 @@ const getPasswordStrength = (password: string) => {
     numbers: /\d/.test(password),
     special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
   };
-
   score = Object.values(checks).filter(Boolean).length;
-
   return {
     score,
     checks,
     strength: score < 2 ? "weak" : score < 4 ? "medium" : "strong",
   };
-};
+}
+
+function preserveRedirectTo(path: string, search: string) {
+  const qs = new URLSearchParams(search);
+  const query = qs.toString();
+  return `${path}${query ? `?${query}` : ""}`;
+}
 
 export function Register() {
   const [formData, setFormData] = useState({
@@ -58,7 +61,6 @@ export function Register() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -74,13 +76,16 @@ export function Register() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (unificado: safeRedirect + getRedirectTo)
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const from = location.state?.from?.pathname || "/rancho";
-      navigate(from, { replace: true });
+      const target = safeRedirect(
+        getRedirectTo(location.search, location.state),
+        "/rancho"
+      );
+      navigate(target, { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate, location]);
+  }, [isAuthenticated, isLoading, navigate, location.search, location.state]);
 
   // Real-time validation
   useEffect(() => {
@@ -112,7 +117,8 @@ export function Register() {
     }
 
     setFieldErrors(newErrors);
-  }, [formData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.email, formData.password, formData.confirmPassword]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -122,9 +128,7 @@ export function Register() {
   const passwordStrength = getPasswordStrength(formData.password);
   const hasErrors = Object.values(fieldErrors).some((error) => error !== "");
   const isFormValid =
-    Object.values(formData).every((value) => value.trim() !== "") &&
-    !hasErrors; /*  &&
-    acceptTerms */
+    Object.values(formData).every((value) => value.trim() !== "") && !hasErrors;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,14 +147,16 @@ export function Register() {
     } catch (err: any) {
       console.error("Falha no registro:", err);
       setApiError(
-        err.message || "Ocorreu um erro ao criar a conta. Tente novamente."
+        err?.message || "Ocorreu um erro ao criar a conta. Tente novamente."
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Show loading state while checking authentication
+  const loginHref = preserveRedirectTo("/login", location.search);
+
+  // Loading state
   if (isLoading) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -182,7 +188,7 @@ export function Register() {
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex flex-col space-y-3">
-          <Link to="/login" className="w-full">
+          <Link to={loginHref} className="w-full">
             <Button className="w-full">Ir para Login</Button>
           </Link>
           <Button
@@ -427,38 +433,6 @@ export function Register() {
               </p>
             )}
           </div>
-
-          {/* Terms and Conditions */}
-          {/* <div className="flex items-start space-x-2 pt-2">
-            <input
-              id="terms"
-              type="checkbox"
-              checked={acceptTerms}
-              onChange={(e) => setAcceptTerms(e.target.checked)}
-              className="rounded border-gray-300 mt-1"
-              disabled={isSubmitting}
-              title="Aceitar os Termos de Uso e Política de Privacidade"
-              placeholder="Aceitar os Termos"
-            />
-            <Label htmlFor="terms" className="text-sm font-normal leading-5">
-              Eu aceito os{" "}
-              <Link
-                to="/terms"
-                className="text-primary hover:underline"
-                target="_blank"
-              >
-                Termos de Uso
-              </Link>{" "}
-              e a{" "}
-              <Link
-                to="/privacy"
-                className="text-primary hover:underline"
-                target="_blank"
-              >
-                Política de Privacidade
-              </Link>
-            </Label>
-          </div> */}
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">
@@ -474,7 +448,7 @@ export function Register() {
           <p className="text-sm text-center text-muted-foreground">
             Já tem uma conta?{" "}
             <Link
-              to="/login"
+              to={loginHref}
               className="text-primary hover:underline font-medium"
             >
               Faça login

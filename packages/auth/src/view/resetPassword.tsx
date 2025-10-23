@@ -1,12 +1,12 @@
-// app/auth/resetPassword.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
   useLocation,
   useNavigate,
   type Location as RouterLocation,
 } from "react-router";
-import supabase from "../utils/supabase";
-import { useAuth } from "../model/auth";
+import supabase from "../utils/supabase.client";
+import { useAuth } from "../model/auth-provider";
+import { safeRedirect, getRedirectTo } from "../model/redirect";
 
 import { Button } from "@iefa/ui";
 import { Input } from "@iefa/ui";
@@ -62,7 +62,7 @@ export function ResetPassword() {
     const tHash =
       hashParams.get("token_hash") ||
       queryParams.get("token_hash") ||
-      hashParams.get("token") || // fallback se você nomeou como 'token'
+      hashParams.get("token") ||
       queryParams.get("token") ||
       null;
 
@@ -83,7 +83,6 @@ export function ResetPassword() {
         const { data: sessionData, error: sessionErr } =
           await supabase.auth.getSession();
         if (sessionErr) {
-          // Não bloqueia; tentaremos com token_hash
           console.warn("getSession error:", sessionErr.message);
         }
         if (sessionData?.session?.user) {
@@ -119,9 +118,7 @@ export function ResetPassword() {
           }
         }
 
-        // 3) Caso seja o link de recovery padrão do Supabase (#type=recovery),
-        // o supabase-js normalmente cria a sessão automaticamente ao inicializar.
-        // Tentamos pegar novamente:
+        // 3) Caso seja o link de recovery padrão do Supabase (#type=recovery)
         if (isRecoveryLink) {
           const { data: s2 } = await supabase.auth.getSession();
           if (s2?.session?.user) {
@@ -154,7 +151,7 @@ export function ResetPassword() {
     return () => {
       isMounted = false;
     };
-  }, [tokenHash, isRecoveryLink, navigate]);
+  }, [tokenHash, isRecoveryLink, navigate, location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,8 +178,6 @@ export function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        // Erros comuns: token/sessão expirada, link inválido, etc.
-        // Mensagens amigáveis:
         const msg =
           error.message === "Invalid token: token-type not supported"
             ? "Link inválido ou expirado. Solicite novamente."
@@ -192,15 +187,15 @@ export function ResetPassword() {
 
       setSuccess(true);
 
-      // Opcional: signOut para forçar novo login
-      // await supabase.auth.signOut();
-      // navigate("/login", { replace: true });
-
-      // Manter logado e ir para home
-      setTimeout(() => navigate("/rancho", { replace: true }), 1500);
+      // Navega usando mesmo padrão de redirect (se houver)
+      const target = safeRedirect(
+        getRedirectTo(location.search, location.state),
+        "/rancho"
+      );
+      setTimeout(() => navigate(target, { replace: true }), 1200);
     } catch (err: any) {
       setApiError(
-        err.message || "Falha ao atualizar a senha. Tente novamente."
+        err?.message || "Falha ao atualizar a senha. Tente novamente."
       );
     } finally {
       setSubmitting(false);
