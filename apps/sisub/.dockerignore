@@ -1,0 +1,11 @@
+node_modules
+README.md
+
+.git
+
+.pnpm-store
+**/dist
+coverage
+.next
+.turbo
+.DS_Store
