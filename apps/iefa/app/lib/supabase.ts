@@ -1,8 +1,18 @@
-import { createClient } from "@supabase/supabase-js";
+// supabase.app.ts (client do app)
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const url = import.meta.env.VITE_SUPABASE_URL!;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-export default supabase;
-export { supabase };
+declare global {
+  var __supabase_app__: SupabaseClient | undefined;
+}
+
+export const supabaseApp =
+  globalThis.__supabase_app__ ??
+  (globalThis.__supabase_app__ = createClient(url, anon, {
+    auth: {
+      persistSession: true,
+      storageKey: "sb_iefa_app", 
+    },
+  }));

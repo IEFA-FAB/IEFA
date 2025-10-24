@@ -7,7 +7,7 @@ import {
 } from "@react-router/dev/routes";
 
 export default [
-  route("healthz", "routes/health.tsx"),
+  route("health", "routes/health.tsx"),
 
   layout("routes/layout.tsx", [
     index("routes/home.tsx"),

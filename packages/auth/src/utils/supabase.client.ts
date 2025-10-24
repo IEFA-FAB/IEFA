@@ -21,6 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     detectSessionInUrl: true,
     autoRefreshToken: true,
+    storageKey: "sb_iefa_auth",
     flowType: "pkce",
   },
 });
