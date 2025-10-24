@@ -219,7 +219,7 @@ export default function Home() {
                 Suite de aplicações do Instituto de Economia, Finanças e
                 Administração.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
                 <Button asChild size="lg" variant="default">
                   <a
                     href="/facilidades/#apps"
