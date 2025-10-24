@@ -21,7 +21,7 @@ primary_region = "gru"
   [[http_service.checks]]
     type = "http"
     method = "GET"
-    path = "/healthz"
+    path = "/health"
     interval = "15s"
     timeout = "5s"
     grace_period = "10s"  # aumente se sua app demora a iniciar

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink } from "react-router";
 
 import {
@@ -12,9 +12,8 @@ import {
 } from "@iefa/ui";
 
 import { ExternalLink, Github, User } from "lucide-react";
-import type { LucideProps } from "lucide-react";
-import dynamicIconImports from "lucide-react/dynamicIconImports";
-import { supabase } from "@/lib/supabase"; // ajuste conforme seu projeto
+import { useAppsData } from "@/hook/useAppsData"; // novo import do hook
+import { DynamicIcon } from "@/components/dynamicIcon";
 
 type Contributor = {
   label: string;
@@ -38,52 +37,6 @@ export function meta() {
     { title: "IEFA" },
     { name: "description", content: "Suite de Soluções do IEFA" },
   ];
-}
-
-const toPascalName = (name: string) =>
-  name
-    .trim()
-    .replace(/[-_ ]+(\w)/g, (_, c: string) => c.toUpperCase())
-    .replace(/^\w/, (c) => c.toUpperCase());
-
-const toKebabName = (name: string) =>
-  name
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/[\s_]+/g, "-")
-    .toLowerCase();
-
-const FALLBACK_ICON = "wrench" as const;
-
-function resolveIconLoader(name?: string | null) {
-  const map = dynamicIconImports as Record<
-    string,
-    () => Promise<{ default: React.ComponentType<LucideProps> }>
-  >;
-
-  if (name) {
-    const direct = name;
-    const kebab = toKebabName(name);
-    const pascal = toPascalName(name);
-
-    if (map[direct]) return map[direct];
-    if (map[kebab]) return map[kebab];
-    if (map[pascal]) return map[pascal];
-  }
-  return map[FALLBACK_ICON];
-}
-
-function DynamicIcon({
-  name,
-  className = "h-5 w-5",
-  ...rest
-}: { name?: string | null } & Omit<LucideProps, "ref">) {
-  const LazyIcon = lazy(resolveIconLoader(name));
-  return (
-    <Suspense fallback={<span className={className} aria-hidden="true" />}>
-      <LazyIcon aria-hidden="true" className={className} {...rest} />
-    </Suspense>
-  );
 }
 
 function AppCard({ app }: { app: AppItem }) {
@@ -202,31 +155,11 @@ function AppCard({ app }: { app: AppItem }) {
   );
 }
 
-type DbContributor = {
-  label: string;
-  url: string | null;
-  icon_key: string | null;
-};
-
-type DbApp = {
-  title: string;
-  description: string;
-  to_path: string | null;
-  href: string | null;
-  icon_key: string | null;
-  external: boolean | null;
-  badges: string[] | null;
-  contributors: DbContributor[] | null;
-};
-
 export default function Home() {
   const [offsetY, setOffsetY] = useState(0);
   const [motionOK, setMotionOK] = useState(true);
 
-  const [apps, setApps] = useState<AppItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
+  // efeito só para motion
   useEffect(() => {
     const onScroll = () => setOffsetY(window.scrollY);
     window.addEventListener("scroll", onScroll);
@@ -242,62 +175,27 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    async function loadApps() {
-      setLoading(true);
-      setFetchError(null);
+  // usa TanStack Query
+  const { data, isLoading, error } = useAppsData(6);
 
-      const { data, error } = await supabase
-        .from("apps")
-        .select(
-          `
-          title,
-          description,
-          to_path,
-          href,
-          icon_key,
-          external,
-          badges,
-          contributors:app_contributors (
-            label,
-            url,
-            icon_key
-          )
-        `
-        )
-        .order("title", { ascending: true }).limit(6);
-
-      if (error) {
-        setFetchError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      const mapped: AppItem[] = (data as DbApp[]).map((a) => ({
-        title: a.title,
-        description: a.description,
-        to: a.to_path ?? undefined,
-        href: a.href ?? undefined,
-        icon: (
-          <DynamicIcon name={a.icon_key ?? undefined} className="h-5 w-5" />
-        ),
-        badges: a.badges ?? [],
-        external: !!a.external,
-        contributors: (a.contributors ?? []).map((c) => ({
-          label: c.label,
-          url: c.url ?? undefined,
-          icon: c.icon_key ? (
-            <DynamicIcon name={c.icon_key} className="h-4 w-4" />
-          ) : undefined,
-        })),
-      }));
-
-      setApps(mapped);
-      setLoading(false);
-    }
-
-    loadApps();
-  }, []);
+  // mapeia DbApp -> AppItem com React nodes (DynamicIcon)
+  const apps: AppItem[] =
+    (data ?? []).map((a) => ({
+      title: a.title,
+      description: a.description,
+      to: a.to_path ?? undefined,
+      href: a.href ?? undefined,
+      icon: <DynamicIcon name={a.icon_key ?? undefined} className="h-5 w-5" />,
+      badges: a.badges ?? [],
+      external: !!a.external,
+      contributors: (a.contributors ?? []).map((c) => ({
+        label: c.label,
+        url: c.url ?? undefined,
+        icon: c.icon_key ? (
+          <DynamicIcon name={c.icon_key} className="h-4 w-4" />
+        ) : undefined,
+      })),
+    })) ?? [];
 
   const y = motionOK ? offsetY * 0.12 : 0;
 
@@ -311,7 +209,7 @@ export default function Home() {
                        bg-gradient-to-b from-background/60 via-background/40 to-background/20
                        backdrop-blur supports-[backdrop-filter]:backdrop-blur-md"
             role="region"
-            aria-label="Cabeçalho do Portal IEFA"
+            aria-label="Cabeçalho do Portal IEFA"            
           >
             <div className="relative mx-auto flex min-h-[40vh] sm:min-h-[50vh] flex-col items-center justify-center text-center p-6 md:p-10">
               <h1 className="text-balance text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
@@ -346,6 +244,7 @@ export default function Home() {
           </div>
         </div>
       </header>
+
       {/* Seção Apps */}
       <section
         id="apps"
@@ -367,14 +266,15 @@ export default function Home() {
 
         <Separator className="my-6" />
 
-        {loading ? (
+        {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="h-40 animate-pulse rounded-xl bg-muted" />
             <div className="h-40 animate-pulse rounded-xl bg-muted" />
           </div>
-        ) : fetchError ? (
+        ) : error ? (
           <div className="text-sm text-destructive">
-            Erro ao carregar apps: {fetchError}
+            Erro ao carregar apps:{" "}
+            {error instanceof Error ? error.message : "Erro desconhecido"}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

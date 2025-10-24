@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -13,6 +13,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowUpDown, ChevronDown } from "lucide-react";
 
 import { Button } from "@iefa/ui";
@@ -32,7 +33,7 @@ import {
   TableRow,
 } from "@iefa/ui";
 import { type UUID } from "crypto";
-import supabase from "@/lib/supabase";
+import {supabaseApp} from "@/lib/supabase";
 import CopyButton from "./copy-button";
 
 export type Facilidades_pregoeiro = {
@@ -54,8 +55,6 @@ export interface FacilidadesTableProps {
 }
 
 function safeReplaceAll(str: string, search: string, replace: string) {
-  // Usa replaceAll se disponível, senão regex global
-  // Evita erro caso o conteúdo não tenha a tag
   try {
     // @ts-ignore
     if (typeof str.replaceAll === "function")
@@ -65,122 +64,51 @@ function safeReplaceAll(str: string, search: string, replace: string) {
   return str.replace(new RegExp(escaped, "g"), replace);
 }
 
-function useFacilidadesData(
-  OM: string,
-  DateStr: string,
-  Hour: string,
-  Hour_limit: string
-) {
-  const [data, setData] = useState<Facilidades_pregoeiro[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Hook com TanStack Query para buscar os registros crus (sem substituir placeholders)
+const FACILITIES_QUERY_KEY = ["facilities_pregoeiro"];
 
-  useEffect(() => {
-    async function getFacilidades() {
-      try {
-        setLoading(true);
-        const { data: fetched, error } = await supabase
-          .from("facilities_pregoeiro")
-          .select(); // busca todos os campos
+function useFacilitiesQuery() {
+  return useQuery<Facilidades_pregoeiro[]>({
+    queryKey: FACILITIES_QUERY_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabaseApp
+        .from("facilities_pregoeiro")
+        .select(); // busca todos os campos
 
-        if (error) throw error;
+      if (error) throw new Error(error.message);
 
-        const fallback: Facilidades_pregoeiro[] = [
-          {
-            id: "d7090840-5353-473b-8914-893dcccdd5cd" as UUID,
-            created_at: "2025-06-22 20:57:15.526856+00",
-            title: "Abertura da Sessão Pública",
-            phase: "Abertura",
-            content:
-              "Prezados Licitantes, ${OM} registra e agradece a participação de todos. Informa-se que a Sessão Pública está aberta e em condições para o início das atividades de hoje, ${date} às ${hour}. Encerramento estimado: ${hour_limit}. Mantenham-se conectados.",
-            tags: ["sessão", "abertura"],
-            owner_id: "00000000-0000-0000-0000-000000000000" as UUID,
-            default: true,
-          },
-        ];
+      // Fallback se a tabela estiver vazia
+      const fallback: Facilidades_pregoeiro[] = [
+        {
+          id: "d7090840-5353-473b-8914-893dcccdd5cd" as UUID,
+          created_at: "2025-06-22 20:57:15.526856+00",
+          title: "Abertura da Sessão Pública",
+          phase: "Abertura",
+          content:
+            "Prezados Licitantes, ${OM} registra e agradece a participação de todos. Informa-se que a Sessão Pública está aberta e em condições para o início das atividades de hoje, ${date} às ${hour}. Encerramento estimado: ${hour_limit}. Mantenham-se conectados.",
+          tags: ["sessão", "abertura"],
+          owner_id: "00000000-0000-0000-0000-000000000000" as UUID,
+          default: true,
+        },
+      ];
 
-        const finalData = fetched && fetched.length > 0 ? fetched : fallback;
-        setData(finalData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao carregar dados");
-        console.error("Erro ao buscar facilidades:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
+      const base = (
+        data && data.length > 0 ? data : fallback
+      ) as Facilidades_pregoeiro[];
 
-    getFacilidades();
-  }, []);
-
-  const processedData = useMemo(() => {
-    return data.map((item) => {
-      const raw = item.content ?? "";
-      const replaced = [
-        // faz todas as substituições de forma segura
-        ["${OM}", OM],
-        ["${date}", DateStr],
-        ["${hour}", Hour],
-        ["${hour_limit}", Hour_limit],
-      ].reduce((acc, [from, to]) => safeReplaceAll(acc, from, to), raw);
-
-      return {
+      // Normalize alguns campos aqui (sem mexer nos placeholders)
+      return base.map((item) => ({
         ...item,
-        content: replaced,
         tags: item.tags ?? [],
         default: item.default ?? false,
-      };
-    });
-  }, [data, OM, DateStr, Hour, Hour_limit]);
-
-  return { data: processedData, loading, error };
+      }));
+    },
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  });
 }
 
 export const columns: ColumnDef<Facilidades_pregoeiro>[] = [
-  /* {
-    accessorKey: "id",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-auto p-2"
-      >
-        ID
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const id = row.getValue("id") as string;
-      return (
-        <div className="flex flex-col gap-1">
-          <code className="text-xs break-words">{id}</code>
-          <div>
-            <CopyButton content={id} />
-          </div>
-        </div>
-      );
-    },
-  }, */
-  /* {
-    accessorKey: "created_at",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-auto p-2"
-      >
-        Criado em
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const value = row.getValue("created_at") as string;
-      const date = new Date(value);
-      const formatted = isNaN(date.getTime())
-        ? value
-        : date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-      return <div className="whitespace-pre-wrap break-words">{formatted}</div>;
-    },
-  }, */
   {
     accessorKey: "phase",
     header: ({ column }) => (
@@ -249,18 +177,6 @@ export const columns: ColumnDef<Facilidades_pregoeiro>[] = [
       );
     },
   },
-  /* {
-    accessorKey: "owner_id",
-    header: "Owner",
-    cell: ({ row }) => {
-      const owner = row.getValue("owner_id") as string | null;
-      if (!owner)
-        return <span className="text-muted-foreground text-sm">—</span>;
-      return (
-        <code className="text-xs whitespace-pre-wrap break-words">{owner}</code>
-      );
-    },
-  }, */
   {
     accessorKey: "default",
     header: ({ column }) => (
@@ -309,12 +225,26 @@ export function FacilidadesTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
 
-  const { data, loading, error } = useFacilidadesData(
-    OM,
-    DateStr,
-    Hour,
-    Hour_limit
-  );
+  // Busca dados crus com TanStack Query
+  const { data: baseData = [], isLoading, error } = useFacilitiesQuery();
+
+  // Aplica substituições de placeholders sem re-fetch
+  const data = useMemo(() => {
+    return baseData.map((item) => {
+      const raw = item.content ?? "";
+      const replaced = [
+        ["${OM}", OM],
+        ["${date}", DateStr],
+        ["${hour}", Hour],
+        ["${hour_limit}", Hour_limit],
+      ].reduce((acc, [from, to]) => safeReplaceAll(acc, from, to), raw);
+
+      return {
+        ...item,
+        content: replaced,
+      };
+    });
+  }, [baseData, OM, DateStr, Hour, Hour_limit]);
 
   const table = useReactTable({
     data,
@@ -328,7 +258,7 @@ export function FacilidadesTable({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     initialState: {
-      pagination: {pageSize:50},
+      pagination: { pageSize: 50 },
     },
     state: {
       sorting,
@@ -338,7 +268,7 @@ export function FacilidadesTable({
     },
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="w-full flex items-center justify-center py-8">
         <div className="text-center">Carregando...</div>
@@ -350,7 +280,8 @@ export function FacilidadesTable({
     return (
       <div className="w-full flex items-center justify-center py-8">
         <div className="text-center text-red-500">
-          Erro ao carregar dados: {error}
+          Erro ao carregar dados:{" "}
+          {error instanceof Error ? error.message : "Erro desconhecido"}
         </div>
       </div>
     );

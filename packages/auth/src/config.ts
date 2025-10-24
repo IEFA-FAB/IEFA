@@ -61,7 +61,7 @@ export const DEFAULT_CONFIG: Required<Pick<
     "/login",
     "/register",
     "/auth/reset-password",
-    "/healthz",
+    "/health",
     "/favicon.ico",
     "/favicon.svg",
     (p) => p.startsWith("/assets"),

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router";
 
 import {
@@ -12,9 +12,8 @@ import {
 } from "@iefa/ui";
 
 import { ExternalLink, Github, User } from "lucide-react";
-import type { LucideProps } from "lucide-react";
-import dynamicIconImports from "lucide-react/dynamicIconImports";
-import { supabase } from "@/lib/supabase"; // ajuste conforme seu projeto
+import { useAppsData } from "@/hook/useAppsData"; // novo import do hook
+import { DynamicIcon } from "@/components/dynamicIcon";
 
 type Contributor = {
   label: string;
@@ -40,69 +39,6 @@ export function meta() {
   ];
 }
 
-/**
- * Normalizadores de nome para bater com as chaves do lucide:
- * - lucide usa nomes originais em kebab-case no mapa dinâmico (ex: "utensils-crossed", "wrench")
- * - componentes estáticos usam PascalCase (ex: UtensilsCrossed, Wrench)
- * Aqui cobrimos as 3 possibilidades: entrada direta, kebab-case e PascalCase.
- */
-const toPascalName = (name: string) =>
-  name
-    .trim()
-    .replace(/[-_ ]+(\w)/g, (_, c: string) => c.toUpperCase())
-    .replace(/^\w/, (c) => c.toUpperCase());
-
-const toKebabName = (name: string) =>
-  name
-    .trim()
-    // "UtensilsCrossed" -> "Utensils-Crossed"
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    // separadores para hífen
-    .replace(/[\s_]+/g, "-")
-    .toLowerCase();
-
-const FALLBACK_ICON = "wrench" as const;
-
-/**
- * Escolhe o loader de ícone do mapa dinâmico do lucide.
- * Fontes:
- * - dynamicIconImports e uso com React.lazy [lucide-react – npm]
- * - chaves do mapa são os nomes originais dos ícones (kebab-case) [lucide-react – npm]
- */
-function resolveIconLoader(name?: string | null) {
-  const map = dynamicIconImports as Record<
-    string,
-    () => Promise<{ default: React.ComponentType<LucideProps> }>
-  >;
-
-  if (name) {
-    const direct = name;
-    const kebab = toKebabName(name);
-    const pascal = toPascalName(name);
-
-    if (map[direct]) return map[direct];
-    if (map[kebab]) return map[kebab];
-    if (map[pascal]) return map[pascal];
-  }
-  return map[FALLBACK_ICON];
-}
-
-/**
- * Ícone dinâmico com code-splitting via React.lazy + Suspense.
- * Aceita nome em vários formatos ("utensils_crossed", "utensils-crossed", "UtensilsCrossed").
- */
-function DynamicIcon({
-  name,
-  className = "h-5 w-5",
-  ...rest
-}: { name?: string | null } & Omit<LucideProps, "ref">) {
-  const LazyIcon = lazy(resolveIconLoader(name));
-  return (
-    <Suspense fallback={<span className={className} aria-hidden="true" />}>
-      <LazyIcon aria-hidden="true" className={className} {...rest} />
-    </Suspense>
-  );
-}
 
 function AppCard({ app }: { app: AppItem }) {
   const isExternal = app.external && !!app.href;
@@ -220,31 +156,11 @@ function AppCard({ app }: { app: AppItem }) {
   );
 }
 
-type DbContributor = {
-  label: string;
-  url: string | null;
-  icon_key: string | null;
-};
-
-type DbApp = {
-  title: string;
-  description: string;
-  to_path: string | null;
-  href: string | null;
-  icon_key: string | null;
-  external: boolean | null;
-  badges: string[] | null;
-  contributors: DbContributor[] | null;
-};
-
 export default function Home() {
   const [offsetY, setOffsetY] = useState(0);
   const [motionOK, setMotionOK] = useState(true);
 
-  const [apps, setApps] = useState<AppItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
+  // efeito só para motion
   useEffect(() => {
     const onScroll = () => setOffsetY(window.scrollY);
     window.addEventListener("scroll", onScroll);
@@ -260,69 +176,34 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    async function loadApps() {
-      setLoading(true);
-      setFetchError(null);
+  // usa TanStack Query
+  const { data, isLoading, error } = useAppsData(6);
 
-      const { data, error } = await supabase
-        .from("apps")
-        .select(
-          `
-          title,
-          description,
-          to_path,
-          href,
-          icon_key,
-          external,
-          badges,
-          contributors:app_contributors (
-            label,
-            url,
-            icon_key
-          )
-        `
-        )
-        .order("title", { ascending: true });
-
-      if (error) {
-        setFetchError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      const mapped: AppItem[] = (data as DbApp[]).map((a) => ({
-        title: a.title,
-        description: a.description,
-        to: a.to_path ?? undefined,
-        href: a.href ?? undefined,
-        icon: (
-          <DynamicIcon name={a.icon_key ?? undefined} className="h-5 w-5" />
-        ),
-        badges: a.badges ?? [],
-        external: !!a.external,
-        contributors: (a.contributors ?? []).map((c) => ({
-          label: c.label,
-          url: c.url ?? undefined,
-          icon: c.icon_key ? (
-            <DynamicIcon name={c.icon_key} className="h-4 w-4" />
-          ) : undefined,
-        })),
-      }));
-
-      setApps(mapped);
-      setLoading(false);
-    }
-
-    loadApps();
-  }, []);
+  // mapeia DbApp -> AppItem com React nodes (DynamicIcon)
+  const apps: AppItem[] = useMemo(() => {
+    return (data ?? []).map((a) => ({
+      title: a.title,
+      description: a.description,
+      to: a.to_path ?? undefined,
+      href: a.href ?? undefined,
+      icon: <DynamicIcon name={a.icon_key ?? undefined} className="h-5 w-5" />,
+      badges: a.badges ?? [],
+      external: !!a.external,
+      contributors: (a.contributors ?? []).map((c) => ({
+        label: c.label,
+        url: c.url ?? undefined,
+        icon: c.icon_key ? (
+          <DynamicIcon name={c.icon_key} className="h-4 w-4" />
+        ) : undefined,
+      })),
+    }));
+  }, [data]);
 
   const y = motionOK ? offsetY * 0.12 : 0;
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full  text-foreground">
-  
-
+    <div className="relative flex flex-col items-center justify-center w-full text-foreground">
+     
       {/* Seção Apps */}
       <section
         id="apps"
@@ -344,14 +225,15 @@ export default function Home() {
 
         <Separator className="my-6" />
 
-        {loading ? (
+        {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="h-40 animate-pulse rounded-xl bg-muted" />
             <div className="h-40 animate-pulse rounded-xl bg-muted" />
           </div>
-        ) : fetchError ? (
+        ) : error ? (
           <div className="text-sm text-destructive">
-            Erro ao carregar apps: {fetchError}
+            Erro ao carregar apps:{" "}
+            {error instanceof Error ? error.message : "Erro desconhecido"}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

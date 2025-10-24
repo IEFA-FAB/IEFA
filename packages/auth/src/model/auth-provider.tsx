@@ -1,11 +1,11 @@
-// packages/auth/src/model/auth-provider.tsx
+"use client";
+
 import {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
-  useMemo,
   type ReactNode,
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
@@ -105,11 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error("Sign out error:", e);
       } finally {
-        // Estado local é atualizado automaticamente pelo onAuthStateChange
         if (opts?.reload) {
           window.location.assign(opts.redirectTo ?? "/login");
         }
-        // Caso contrário, quem chamou decide navegar (SPA)
       }
     },
     []
@@ -134,29 +132,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(getAuthErrorMessage(error));
   }, []);
 
-  const value: AuthContextType = useMemo(
-    () => ({
-      user,
-      session,
-      isLoading,
-      isAuthenticated: !!user,
-      signIn,
-      signUp,
-      signOut,
-      resetPassword,
-      refreshSession,
-    }),
-    [
-      user,
-      session,
-      isLoading,
-      signIn,
-      signUp,
-      signOut,
-      resetPassword,
-      refreshSession,
-    ]
-  );
+  const value: AuthContextType = {
+    user,
+    session,
+    isLoading,
+    isAuthenticated: !!user,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    refreshSession,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

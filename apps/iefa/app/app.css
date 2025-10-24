@@ -22,13 +22,6 @@ body {
   }
 }
 
-::before{
-  @keyframes slow-pan {
-  0%, 100% { transform: translate3d(0,0,0); }
-  50%      { transform: translate3d(-2%,-2%,0); }
-}
-}
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
