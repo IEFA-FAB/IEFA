@@ -1,8 +1,8 @@
 // supabase.app.ts (client do app)
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL!;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+const url = import.meta.env.VITE_IEFA_SUPABASE_URL!;
+const anon = import.meta.env.VITE_IEFA_SUPABASE_ANON_KEY!;
 
 declare global {
   var __supabase_app__: SupabaseClient | undefined;
