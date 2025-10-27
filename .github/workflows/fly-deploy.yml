@@ -4,12 +4,17 @@ on:
     branches:
       - main
 
+# Opcional: permissões mínimas
+permissions:
+  contents: read
+
 jobs:
   deploy-api:
     name: Deploy API
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     concurrency:
-      group: fly-deploy-api-${{ github.ref }}
+      group: fly-deploy-api-${{ github.ref_name }}
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -19,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly app secrets
         run: |
@@ -27,10 +32,10 @@ jobs:
             API_PORT=${{ secrets.API_PORT }} \
             API_SUPABASE_ANON_KEY=${{ secrets.API_SUPABASE_ANON_KEY }} \
             API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }} \
-            --config fly.api.toml --stage
+            --config fly.api.toml
 
       - name: Deploy API (wait for health checks)
-        run: flyctl deploy -c fly.api.toml --remote-only
+        run: flyctl deploy -c fly.api.toml --remote-only --wait-timeout 180
 
       - name: Smoke test API
         shell: bash
@@ -55,8 +60,9 @@ jobs:
   deploy-docs:
     name: Deploy Docs
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     concurrency:
-      group: fly-deploy-docs-${{ github.ref }}
+      group: fly-deploy-docs-${{ github.ref_name }}
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -68,16 +74,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy Docs (wait for health checks)
-        run: flyctl deploy --remote-only
+        # Se o arquivo não for exatamente ./apps/docs/fly.toml, use: flyctl deploy -c fly.docs.toml --remote-only --wait-timeout 180
+        run: flyctl deploy --remote-only --wait-timeout 180
 
   deploy-iefa:
     name: Deploy IEFA
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     concurrency:
-      group: fly-deploy-iefa-${{ github.ref }}
+      group: fly-deploy-iefa-${{ github.ref_name }}
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -87,7 +95,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly app secrets (IEFA)
         run: |
@@ -97,27 +105,27 @@ jobs:
             VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
             VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }} \
             VITE_GITHUB_REPO_URL=${{ secrets.VITE_GITHUB_REPO_URL }} \
-            --config fly.iefa.toml --stage
+            --config fly.iefa.toml
 
       - name: Deploy IEFA (wait for health checks)
-        run: flyctl deploy -c fly.iefa.toml --remote-only
+        run: flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 180
 
-      - name: Smoke test API
+      - name: Smoke test IEFA
         shell: bash
         run: |
           if [ -z "$IEFA_HEALTH_URL" ]; then
             echo "IEFA_HEALTH_URL não definido; pulando smoke test."
             exit 0
           fi
-          echo "Esperando API responder em $IEFA_HEALTH_URL ..."
+          echo "Esperando IEFA responder em $IEFA_HEALTH_URL ..."
           for i in {1..30}; do
             status=$(curl -s -o /dev/null -w "%{http_code}" "$IEFA_HEALTH_URL" || true)
             if [ "$status" = "200" ]; then
-              echo "OK! API respondeu 200."
+              echo "OK! IEFA respondeu 200."
               exit 0
             fi
             echo "Tentativa $i/30 - status: $status - aguardando 10s..."
             sleep 10
           done
-          echo "Falha: API não respondeu 200 no tempo esperado."
+          echo "Falha: IEFA não respondeu 200 no tempo esperado."
           exit 1
