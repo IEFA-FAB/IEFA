@@ -30,7 +30,7 @@ jobs:
             --config fly.api.toml --stage
 
       - name: Deploy API (wait for health checks)
-        run: flyctl deploy -c fly.api.toml --remote-only --wait-timeout 120
+        run: flyctl deploy -c fly.api.toml --remote-only
 
       - name: Smoke test API
         shell: bash
@@ -100,7 +100,7 @@ jobs:
             --config fly.iefa.toml --stage
 
       - name: Deploy IEFA (wait for health checks)
-        run: flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 120
+        run: flyctl deploy -c fly.iefa.toml --remote-only
 
       - name: Smoke test API
         shell: bash
