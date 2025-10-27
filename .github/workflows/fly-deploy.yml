@@ -72,3 +72,52 @@ jobs:
 
       - name: Deploy Docs (wait for health checks)
         run: flyctl deploy --remote-only
+
+  deploy-iefa:
+    name: Deploy IEFA
+    runs-on: ubuntu-latest
+    concurrency:
+      group: fly-deploy-iefa-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      IEFA_HEALTH_URL: ${{ secrets.IEFA_HEALTH_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Set Fly app secrets (IEFA)
+        run: |
+          flyctl secrets set \
+            VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
+            VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
+            VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
+            VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }} \
+            VITE_GITHUB_REPO_URL=${{ secrets.VITE_GITHUB_REPO_URL }} \
+            --config fly.iefa.toml --stage
+
+      - name: Deploy IEFA (wait for health checks)
+        run: flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 120
+
+      - name: Smoke test API
+        shell: bash
+        run: |
+          if [ -z "$IEFA_HEALTH_URL" ]; then
+            echo "IEFA_HEALTH_URL não definido; pulando smoke test."
+            exit 0
+          fi
+          echo "Esperando API responder em $IEFA_HEALTH_URL ..."
+          for i in {1..30}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$IEFA_HEALTH_URL" || true)
+            if [ "$status" = "200" ]; then
+              echo "OK! API respondeu 200."
+              exit 0
+            fi
+            echo "Tentativa $i/30 - status: $status - aguardando 10s..."
+            sleep 10
+          done
+          echo "Falha: API não respondeu 200 no tempo esperado."
+          exit 1
