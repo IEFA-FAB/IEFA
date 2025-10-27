@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc",
-    "start": "node --env-file=.env dist/index.js"
+    "start": "node -r dotenv/config dist/index.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.5",
