@@ -78,7 +78,7 @@ jobs:
 
       - name: Deploy Docs (wait for health checks)
         # Se o arquivo não for exatamente ./apps/docs/fly.toml, use: flyctl deploy -c fly.docs.toml --remote-only --wait-timeout 180
-        run: flyctl deploy --remote-only --wait-timeout 180
+        run: flyctl deploy --remote-only --wait-timeout 240
 
   deploy-iefa:
     name: Deploy IEFA
@@ -109,7 +109,7 @@ jobs:
 
       - name: Deploy IEFA (wait for health checks)
         run: |
-          flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 180 \
+          flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 240 \
             --build-arg VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
             --build-arg VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
             --build-arg VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
