@@ -11,7 +11,7 @@ app.route("/api", api);
 // Healthcheck
 app.get("/health", (c) => c.text("ok"));
 
-const port = Number(process.env.PORT ?? 8787);
+const port = Number(process.env.API_PORT ?? 3000);
 serve({ fetch: app.fetch, port }, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

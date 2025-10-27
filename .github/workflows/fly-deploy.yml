@@ -1,5 +1,3 @@
-# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
-
 name: Fly Deploy
 on:
   push:
@@ -7,11 +5,34 @@ on:
       - main
 
 jobs:
-  deploy:
-    name: Deploy app
+  deploy-api:
+    name: Deploy API
     runs-on: ubuntu-latest
     concurrency:
-      group: fly-deploy-${{ github.ref }}
+      group: fly-deploy-api-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy API (from repo root)
+        run: |
+          # Passa os envs a partir dos secrets no momento do deploy
+          flyctl deploy -c fly.api.toml \
+            --env API_PORT=${{ secrets.API_PORT }} \
+            --env API_SUPABASE_ANON_KEY=${{ secrets.API_SUPABASE_ANON_KEY }} \
+            --env API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
+
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    concurrency:
+      group: fly-deploy-docs-${{ github.ref }}
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -19,6 +40,11 @@ jobs:
       run:
         working-directory: ./apps/docs
     steps:
-      - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy Docs
+        run: flyctl deploy --remote-only
