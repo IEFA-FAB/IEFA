@@ -20,13 +20,16 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy API (from repo root)
+      - name: Set Fly app secrets
         run: |
-          # Passa os envs a partir dos secrets no momento do deploy
-          flyctl deploy -c fly.api.toml \
-            --env API_PORT=${{ secrets.API_PORT }} \
-            --env API_SUPABASE_ANON_KEY=${{ secrets.API_SUPABASE_ANON_KEY }} \
-            --env API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
+          flyctl secrets set \
+            API_PORT=${{ secrets.API_PORT }} \
+            API_SUPABASE_ANON_KEY=${{ secrets.API_SUPABASE_ANON_KEY }} \
+            API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }} \
+            --config fly.api.toml --stage
+
+      - name: Deploy API
+        run: flyctl deploy -c fly.api.toml --remote-only
 
   deploy-docs:
     name: Deploy Docs
