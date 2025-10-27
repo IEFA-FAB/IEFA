@@ -108,7 +108,13 @@ jobs:
             --config fly.iefa.toml
 
       - name: Deploy IEFA (wait for health checks)
-        run: flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 180
+        run: |
+          flyctl deploy -c fly.iefa.toml --remote-only --wait-timeout 180 \
+            --build-arg VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
+            --build-arg VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
+            --build-arg VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
+            --build-arg VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
+          ```
 
       - name: Smoke test IEFA
         shell: bash

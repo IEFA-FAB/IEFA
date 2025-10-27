@@ -11,8 +11,8 @@ export function createSupabaseServerClient(
   request: Request,
   setCookieHeaders: Headers
 ) {
-  const url = process.env.SUPABASE_URL!;
-  const anon = process.env.SUPABASE_ANON_KEY!;
+  const url = process.env.VITE_AUTH_SUPABASE_URL!;
+  const anon = process.env.VITE_AUTH_SUPABASE_ANON_KEY!;
   const cookieHeader = request.headers.get("Cookie") ?? "";
 
   return createServerClient(url, anon, {
