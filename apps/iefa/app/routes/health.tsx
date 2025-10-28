@@ -1,4 +1,4 @@
-// app/routes/healthz.tsx
+// app/routes/health.tsx
 export async function loader() {
   return new Response("OK", { status: 200 });
 }

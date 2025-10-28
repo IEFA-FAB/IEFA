@@ -132,19 +132,17 @@ jobs:
             echo "IEFA_HEALTH_URL não definido; pulando smoke test."
             exit 0
           fi
-
-          # Remove backticks do valor (protege contra URLs coladas com `...`)
           SAFE_URL="${IEFA_HEALTH_URL//\`/}"
-
           echo "Esperando IEFA responder em $SAFE_URL ..."
           for i in {1..30}; do
-            status="$(curl -fsS -o /dev/null -w "%{http_code}" "$SAFE_URL" || true)"
-            if [[ "$status" == "200" ]]; then
-              echo "OK! IEFA respondeu 200."
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$SAFE_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then
+              echo "OK! IEFA respondeu $status."
               exit 0
             fi
-            echo "Tentativa $i/30 - status: $status - aguardando 10s..."
+            echo "Tentativa $i/30 - status: ${status:-(erro de conexão)} - aguardando 10s..."
             sleep 10
           done
-          echo "Falha: IEFA não respondeu 200 no tempo esperado."
+          echo "Falha: IEFA não respondeu 2xx no tempo esperado. Cadeia de redirects:"
+          curl -sIL --ipv4 --max-redirs 5 "$SAFE_URL" | awk '/^HTTP\/|^Location:/ {print}'
           exit 1
