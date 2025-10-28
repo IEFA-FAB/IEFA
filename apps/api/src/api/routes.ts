@@ -100,5 +100,32 @@ api.use(
   api.get("/wherewhowhen", headersMw, handler);
 }
 
+// /api/user-military-data
+{
+  const [headersMw, handler] = createApiHandler({
+    table: "user_military_data",
+    select:
+      "nrOrdem, nrCpf, nmGuerra, nmPessoa, sgPosto, sgOrg, dataAtualizacao",
+    dateColumn: "dataAtualizacao",
+    dateColumnType: "timestamp",
+    defaultOrder: [
+      { column: "dataAtualizacao", ascending: false },
+      { column: "sgOrg", ascending: true },
+      { column: "sgPosto", ascending: true },
+      { column: "nmGuerra", ascending: true },
+    ],
+    mapParams: {
+      nrOrdem: "nrOrdem",    // ?nrOrdem=123456 ou ?nrOrdem=123,456
+      nrCpf: "nrCpf",        // ?nrCpf=00000000000 ou ?nrCpf=111,222
+      nmGuerra: "nmGuerra",  // ?nmGuerra_ilike=silva
+      nmPessoa: "nmPessoa",  // ?nmPessoa_ilike=joao
+      sgPosto: "sgPosto",    // ?sgPosto=CB,SGT
+      sgOrg: "sgOrg",        // ?sgOrg=1CIA,2CIA ou ?sgOrg_ilike=CIA
+      // Filtro de data: ?date=YYYY-MM-DD (um dia) ou ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+    },
+    cacheControl: "public, max-age=300",
+  });
+  api.get("/user-military-data", headersMw, handler);
+}
 
 export default api;
