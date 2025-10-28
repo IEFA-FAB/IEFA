@@ -34,7 +34,7 @@ function formatDate(iso: string) {
 }
 
 // Garante que a URL do GitHub é http(s), caso contrário cai no default
-const DEFAULT_GITHUB_REPO_URL = "https://github.com/userNanni/sisub";
+const DEFAULT_GITHUB_REPO_URL = "https://github.com/IEFA-FAB/IEFA/";
 function getGithubRepoUrl() {
   const raw = import.meta.env.VITE_GITHUB_REPO_URL;
   if (typeof raw !== "string") return DEFAULT_GITHUB_REPO_URL;

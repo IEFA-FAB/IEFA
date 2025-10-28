@@ -146,3 +146,69 @@ jobs:
           echo "Falha: IEFA não respondeu 2xx no tempo esperado. Cadeia de redirects:"
           curl -sIL --ipv4 --max-redirs 5 "$SAFE_URL" | awk '/^HTTP\/|^Location:/ {print}'
           exit 1
+
+
+  deploy-sisub:
+      name: Deploy SISUB
+      runs-on: ubuntu-latest
+      timeout-minutes: 20
+      concurrency:
+        group: fly-deploy-sisub-${{ github.ref_name }}
+        cancel-in-progress: true
+      env:
+        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        SISUB_HEALTH_URL: ${{ secrets.SISUB_HEALTH_URL }}
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Setup flyctl
+          uses: superfly/flyctl-actions/setup-flyctl@v1
+
+        - name: Set Fly app secrets (SISUB)
+          env:
+            VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
+            VITE_SISUB_SUPABASE_ANON_KEY: ${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
+            VITE_AUTH_SUPABASE_URL: ${{ secrets.VITE_AUTH_SUPABASE_URL }}
+            VITE_AUTH_SUPABASE_ANON_KEY: ${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
+            VITE_GITHUB_REPO_URL: ${{ secrets.VITE_GITHUB_REPO_URL }}
+          run: |
+            set -euo pipefail
+            flyctl --config fly.sisub.toml secrets set \
+              VITE_SISUB_SUPABASE_URL="$VITE_SISUB_SUPABASE_URL" \
+              VITE_SISUB_SUPABASE_ANON_KEY="$VITE_SISUB_SUPABASE_ANON_KEY" \
+              VITE_AUTH_SUPABASE_URL="$VITE_AUTH_SUPABASE_URL" \
+              VITE_AUTH_SUPABASE_ANON_KEY="$VITE_AUTH_SUPABASE_ANON_KEY" \
+              VITE_GITHUB_REPO_URL="$VITE_GITHUB_REPO_URL" \
+              
+
+        - name: Deploy SISUB (wait for health checks)
+          run: |
+            flyctl deploy -c fly.sisub.toml --remote-only \
+              --build-arg VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }} \
+              --build-arg VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }} \
+              --build-arg VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
+              --build-arg VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
+
+        - name: Smoke test SISUB
+          shell: bash
+          run: |
+            set -Eeuo pipefail
+            if [[ -z "${SISUB_HEALTH_URL:-}" ]]; then
+              echo "SISUB_HEALTH_URL não definido; pulando smoke test."
+              exit 0
+            fi
+            SAFE_URL="${SISUB_HEALTH_URL//\`/}"
+            echo "Esperando SISUB responder em $SAFE_URL ..."
+            for i in {1..30}; do
+              status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$SAFE_URL" || true)"
+              if [[ "${status:0:1}" == "2" ]]; then
+                echo "OK! SISUB respondeu $status."
+                exit 0
+              fi
+              echo "Tentativa $i/30 - status: ${status:-(erro de conexão)} - aguardando 10s..."
+              sleep 10
+            done
+            echo "Falha: SISUB não respondeu 2xx no tempo esperado. Cadeia de redirects:"
+            curl -sIL --ipv4 --max-redirs 5 "$SAFE_URL" | awk '/^HTTP\/|^Location:/ {print}'
+            exit 1
