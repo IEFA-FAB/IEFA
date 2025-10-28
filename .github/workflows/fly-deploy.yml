@@ -40,14 +40,16 @@ jobs:
       - name: Smoke test API
         shell: bash
         run: |
-          if [ -z "$API_HEALTH_URL" ]; then
+          set -Eeuo pipefail
+          if [[ -z "${API_HEALTH_URL:-}" ]]; then
             echo "API_HEALTH_URL não definido; pulando smoke test."
             exit 0
           fi
-          echo "Esperando API responder em $API_HEALTH_URL ..."
+          SAFE_URL="${API_HEALTH_URL//\`/}"
+          echo "Esperando API responder em $SAFE_URL ..."
           for i in {1..30}; do
-            status=$(curl -s -o /dev/null -w "%{http_code}" "$API_HEALTH_URL" || true)
-            if [ "$status" = "200" ]; then
+            status="$(curl -fsS -o /dev/null -w "%{http_code}" "$SAFE_URL" || true)"
+            if [[ "$status" == "200" ]]; then
               echo "OK! API respondeu 200."
               exit 0
             fi
@@ -98,13 +100,20 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly app secrets (IEFA)
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
+          VITE_AUTH_SUPABASE_URL: ${{ secrets.VITE_AUTH_SUPABASE_URL }}
+          VITE_AUTH_SUPABASE_ANON_KEY: ${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
+          VITE_GITHUB_REPO_URL: ${{ secrets.VITE_GITHUB_REPO_URL }}
         run: |
+          set -euo pipefail
           flyctl secrets set \
-            VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
-            VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
-            VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
-            VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }} \
-            VITE_GITHUB_REPO_URL=${{ secrets.VITE_GITHUB_REPO_URL }} \
+            VITE_IEFA_SUPABASE_URL="$VITE_IEFA_SUPABASE_URL" \
+            VITE_IEFA_SUPABASE_ANON_KEY="$VITE_IEFA_SUPABASE_ANON_KEY" \
+            VITE_AUTH_SUPABASE_URL="$VITE_AUTH_SUPABASE_URL" \
+            VITE_AUTH_SUPABASE_ANON_KEY="$VITE_AUTH_SUPABASE_ANON_KEY" \
+            VITE_GITHUB_REPO_URL="$VITE_GITHUB_REPO_URL" \
             --config fly.iefa.toml
 
       - name: Deploy IEFA (wait for health checks)
@@ -119,14 +128,19 @@ jobs:
       - name: Smoke test IEFA
         shell: bash
         run: |
-          if [ -z "$IEFA_HEALTH_URL" ]; then
+          set -Eeuo pipefail
+          if [[ -z "${IEFA_HEALTH_URL:-}" ]]; then
             echo "IEFA_HEALTH_URL não definido; pulando smoke test."
             exit 0
           fi
-          echo "Esperando IEFA responder em $IEFA_HEALTH_URL ..."
+
+          # Remove backticks do valor (protege contra URLs coladas com `...`)
+          SAFE_URL="${IEFA_HEALTH_URL//\`/}"
+
+          echo "Esperando IEFA responder em $SAFE_URL ..."
           for i in {1..30}; do
-            status=$(curl -s -o /dev/null -w "%{http_code}" "$IEFA_HEALTH_URL" || true)
-            if [ "$status" = "200" ]; then
+            status="$(curl -fsS -o /dev/null -w "%{http_code}" "$SAFE_URL" || true)"
+            if [[ "$status" == "200" ]]; then
               echo "OK! IEFA respondeu 200."
               exit 0
             fi
