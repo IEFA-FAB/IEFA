@@ -59,8 +59,8 @@ export function createApiHandler(config: ApiConfig) {
     dateColumnType = "timestamp",
     defaultOrder = [],
     mapParams = {},
-    defaultLimit = 1000,
-    maxLimit = 10000,
+    defaultLimit = 100000,
+    maxLimit = 100000,
     cacheControl = "public, max-age=300",
     corsOrigin = "*",
   } = config;
