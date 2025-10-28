@@ -28,11 +28,11 @@ jobs:
 
       - name: Set Fly app secrets
         run: |
-          flyctl secrets set \
+          flyctl --config fly.api.toml secrets set \
             API_PORT=${{ secrets.API_PORT }} \
             API_SUPABASE_ANON_KEY=${{ secrets.API_SUPABASE_ANON_KEY }} \
             API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }} \
-            --config fly.api.toml
+            
 
       - name: Deploy API (wait for health checks)
         run: flyctl deploy -c fly.api.toml --remote-only
@@ -108,13 +108,13 @@ jobs:
           VITE_GITHUB_REPO_URL: ${{ secrets.VITE_GITHUB_REPO_URL }}
         run: |
           set -euo pipefail
-          flyctl secrets set \
+          flyctl --config fly.iefa.toml secrets set \
             VITE_IEFA_SUPABASE_URL="$VITE_IEFA_SUPABASE_URL" \
             VITE_IEFA_SUPABASE_ANON_KEY="$VITE_IEFA_SUPABASE_ANON_KEY" \
             VITE_AUTH_SUPABASE_URL="$VITE_AUTH_SUPABASE_URL" \
             VITE_AUTH_SUPABASE_ANON_KEY="$VITE_AUTH_SUPABASE_ANON_KEY" \
             VITE_GITHUB_REPO_URL="$VITE_GITHUB_REPO_URL" \
-            --config fly.iefa.toml
+            
 
       - name: Deploy IEFA (wait for health checks)
         run: |
@@ -123,7 +123,6 @@ jobs:
             --build-arg VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
             --build-arg VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
             --build-arg VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
-          ```
 
       - name: Smoke test IEFA
         shell: bash
