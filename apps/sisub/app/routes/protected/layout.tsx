@@ -14,7 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@iefa/ui";
-import { Button } from "@iefa/ui";
+import { Button, Input } from "@iefa/ui";
 
 type EvaluationResult = {
   shouldAsk: boolean;
@@ -23,15 +23,58 @@ type EvaluationResult = {
 
 async function syncIdEmail(user: User) {
   try {
-    const { error } = await supabase.from("user_email").upsert(
+    const { error } = await supabase.from("user_data").upsert(
       {
         id: user.id,
         email: user.email,
       },
       { onConflict: "id" }
     );
+    if (error) {
+      console.error("Erro ao sincronizar email do usuário:", error);
+    }
   } catch (e) {
     console.error("Erro ao sincronizar usuário:", e);
+  }
+}
+
+async function syncIdNrOrdem(user: User, nrOrdem: string) {
+  try {
+    const { error } = await supabase.from("user_data").upsert(
+      {
+        id: user.id,
+        email: user.email,
+        nrOrdem: nrOrdem,
+      },
+      { onConflict: "id" }
+    );
+    if (error) {
+      console.error("Erro ao sincronizar nrOrdem:", error);
+    }
+  } catch (e) {
+    console.error("Erro ao sincronizar usuário:", e);
+  }
+}
+
+async function fetchUserNrOrdem(userId: User["id"]): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("user_data")
+      .select("nrOrdem")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erro ao buscar nrOrdem:", error);
+      return null;
+    }
+
+    const value = data?.nrOrdem as string | number | null | undefined;
+    const asString = value != null ? String(value) : null;
+    return asString && asString.trim().length > 0 ? asString : null;
+  } catch (e) {
+    console.error("Erro inesperado ao buscar nrOrdem:", e);
+    return null;
   }
 }
 
@@ -81,6 +124,7 @@ export default function ProtectedLayout() {
   const navigate = useNavigate();
   const { user, isLoading, refreshSession, signOut } = useAuth();
   const location = useLocation();
+
   useEffect(() => {
     if (user) {
       syncIdEmail(user).catch(() => {});
@@ -98,9 +142,16 @@ export default function ProtectedLayout() {
   const [shouldAskEvaluation, setShouldAskEvaluation] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Interação
+  // Interação (avaliação)
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [submittingVote, setSubmittingVote] = useState(false);
+
+  // Estados do diálogo de nrOrdem
+  const [nrDialogOpen, setNrDialogOpen] = useState(false);
+  const [needsNrOrdem, setNeedsNrOrdem] = useState(false);
+  const [nrOrdem, setNrOrdem] = useState("");
+  const [savingNr, setSavingNr] = useState(false);
+  const [nrError, setNrError] = useState<string | null>(null);
 
   // Efeito de tentativa de recuperar sessão
   useEffect(() => {
@@ -147,6 +198,32 @@ export default function ProtectedLayout() {
     };
   }, [user?.id]);
 
+  // Verifica se precisa solicitar o nrOrdem ao usuário
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user?.id) {
+      setNeedsNrOrdem(false);
+      setNrDialogOpen(false);
+      setNrOrdem("");
+      return;
+    }
+
+    (async () => {
+      const current = await fetchUserNrOrdem(user.id);
+      if (cancelled) return;
+
+      const requires = !current;
+      setNeedsNrOrdem(requires);
+      setNrDialogOpen(requires);
+      if (current) setNrOrdem(String(current));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -177,6 +254,34 @@ export default function ProtectedLayout() {
       setDialogOpen(false);
     } finally {
       setSubmittingVote(false);
+    }
+  };
+
+  const handleSubmitNrOrdem = async () => {
+    const value = nrOrdem.trim();
+    const digitsOnly = value.replace(/\D/g, "");
+
+    if (!digitsOnly) {
+      setNrError("Informe seu número da Ordem.");
+      return;
+    }
+    if (digitsOnly.length < 7) {
+      setNrError("Nr. da Ordem parece curto. Confira e tente novamente.");
+      return;
+    }
+
+    try {
+      if (!user) return;
+      setSavingNr(true);
+      setNrError(null);
+      await syncIdNrOrdem(user as User, digitsOnly);
+      setNeedsNrOrdem(false);
+      setNrDialogOpen(false);
+    } catch (e) {
+      console.error(e);
+      setNrError("Não foi possível salvar. Tente novamente.");
+    } finally {
+      setSavingNr(false);
     }
   };
 
@@ -282,7 +387,67 @@ export default function ProtectedLayout() {
 
   return (
     <>
-      <Dialog open={dialogOpen && shouldAskEvaluation && !!evaluationQuestion}>
+      {/* Dialog obrigatório para informar o nrOrdem */}
+      <Dialog open={nrDialogOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Informe seu número da Ordem</DialogTitle>
+            <DialogDescription>
+              Para continuar, precisamos do seu número de registro na Ordem
+              (nrOrdem).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="nrOrdemInput">
+              nrOrdem
+            </label>
+            <Input
+              id="nrOrdemInput"
+              value={nrOrdem}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Ex.: 123456"
+              onChange={(e) => {
+                const v = e.target.value;
+                const onlyDigits = v.replace(/\D/g, "");
+                setNrOrdem(onlyDigits);
+                if (nrError) setNrError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSubmitNrOrdem();
+                }
+              }}
+            />
+            {nrError && <p className="text-sm text-red-600">{nrError}</p>}
+            <p className="text-xs text-muted-foreground">
+              Usaremos esse dado apenas para identificar seu registro.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={handleSubmitNrOrdem}
+              disabled={savingNr || nrOrdem.trim().length === 0}
+            >
+              {savingNr ? "Salvando..." : "Salvar e continuar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de avaliação (só abre após preencher nrOrdem) */}
+      <Dialog
+        open={
+          dialogOpen &&
+          !nrDialogOpen &&
+          shouldAskEvaluation &&
+          !!evaluationQuestion
+        }
+      >
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Avaliação rápida</DialogTitle>

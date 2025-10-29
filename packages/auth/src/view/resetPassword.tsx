@@ -4,7 +4,7 @@ import {
   useNavigate,
   type Location as RouterLocation,
 } from "react-router";
-import supabase from "../utils/supabase.client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAuth } from "../model/auth-provider";
 import { safeRedirect, getRedirectTo } from "../model/redirect";
 
@@ -38,7 +38,11 @@ function getSearchParams(location: RouterLocation) {
   return { hashParams, queryParams };
 }
 
-export function ResetPassword() {
+type ResetPasswordProps = {
+  supabase: SupabaseClient;
+};
+
+export function ResetPassword({ supabase }: ResetPasswordProps) {
   const { isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -151,7 +155,7 @@ export function ResetPassword() {
     return () => {
       isMounted = false;
     };
-  }, [tokenHash, isRecoveryLink, navigate, location.pathname]);
+  }, [tokenHash, isRecoveryLink, navigate, location.pathname, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
