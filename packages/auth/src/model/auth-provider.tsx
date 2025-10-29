@@ -6,10 +6,11 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
+  useRef,
   type ReactNode,
 } from "react";
-import type { User, Session } from "@supabase/supabase-js";
-import supabase from "../utils/supabase.client";
+import type { SupabaseClient, User, Session } from "@supabase/supabase-js";
 import { normalizeAuthError, getAuthErrorMessage } from "./errors";
 
 export interface AuthContextType {
@@ -30,119 +31,180 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export interface AuthProviderProps<DB = any, SN extends (string & Exclude<keyof DB, "__InternalSupabase">) | { PostgrestVersion: string; } = "public"> {
+  supabase: SupabaseClient<DB, SN>;
+  children: ReactNode;
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function AuthProvider<DB = any, SN extends (string & Exclude<keyof DB, "__InternalSupabase">) | { PostgrestVersion: string; } = "public">({
+  supabase,
+  children,
+}: AuthProviderProps<DB, SN>) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const mountedRef = useRef(true);
 
-  const handleAuthChange = useCallback(async (s: Session | null) => {
+  const handleAuthChange = useCallback((s: Session | null) => {
     setSession(s);
     setUser(s?.user ?? null);
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
-        if (error) console.error("Error getting initial session:", error);
-        if (mounted) await handleAuthChange(data?.session ?? null);
+        if (error) {
+          console.error("Error getting initial session:", error);
+        }
+        if (mountedRef.current) {
+          handleAuthChange(data?.session ?? null);
+        }
       } catch (e) {
         console.error("Error initializing auth:", e);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mountedRef.current) setIsLoading(false);
       }
     })();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
-      if (!mounted) return;
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!mountedRef.current) return;
       handleAuthChange(s ?? null);
       setIsLoading(false);
     });
 
     return () => {
-      mounted = false;
-      subscription.unsubscribe();
+      mountedRef.current = false;
+      data.subscription.unsubscribe();
     };
-  }, [handleAuthChange]);
+  }, [supabase, handleAuthChange]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
-    if (error) {
-      const normalized = normalizeAuthError(error);
-      const err: any = new Error(normalized.message);
-      err.code = normalized.code;
-      err.status = (error as any)?.status;
-      throw err;
-    }
-  }, []);
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: normalizeEmail(email),
+          password,
+        });
+        if (error) {
+          const normalized = normalizeAuthError(error);
+          const err: any = new Error(normalized.message);
+          err.code = normalized.code;
+          err.status = (error as any)?.status;
+          throw err;
+        }
+      } catch (e: any) {
+        // Garante mensagem amigável mesmo para erros inesperados
+        if (e?.message) throw e;
+        throw new Error("Não foi possível entrar. Tente novamente mais tarde.");
+      }
+    },
+    [supabase]
+  );
 
   const signUp = useCallback(
     async (email: string, password: string, redirectTo?: string) => {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          emailRedirectTo:
-            redirectTo ?? `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (error) throw new Error(getAuthErrorMessage(error));
+      try {
+        const { error } = await supabase.auth.signUp({
+          email: normalizeEmail(email),
+          password,
+          options: {
+            emailRedirectTo:
+              redirectTo ??
+              (typeof window !== "undefined"
+                ? `${window.location.origin}/auth/callback`
+                : undefined),
+          },
+        });
+        if (error) throw new Error(getAuthErrorMessage(error));
+      } catch (e: any) {
+        if (e?.message) throw e;
+        throw new Error(
+          "Não foi possível cadastrar. Tente novamente mais tarde."
+        );
+      }
     },
-    []
+    [supabase]
   );
 
   const signOut = useCallback(
     async (opts?: { redirectTo?: string; reload?: boolean }) => {
       try {
-        await supabase.auth.signOut();
+        // Otimista: já limpa o estado local
+        handleAuthChange(null);
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error("Sign out error:", error);
+        }
       } catch (e) {
         console.error("Sign out error:", e);
       } finally {
-        if (opts?.reload) {
+        if (opts?.reload && typeof window !== "undefined") {
           window.location.assign(opts.redirectTo ?? "/login");
         }
       }
     },
-    []
+    [supabase, handleAuthChange]
   );
 
   const resetPassword = useCallback(
     async (email: string, redirectTo?: string) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        {
-          redirectTo:
-            redirectTo ?? `${window.location.origin}/auth/reset-password`,
-        }
-      );
-      if (error) throw new Error(getAuthErrorMessage(error));
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          normalizeEmail(email),
+          {
+            redirectTo:
+              redirectTo ??
+              (typeof window !== "undefined"
+                ? `${window.location.origin}/auth/reset-password`
+                : undefined),
+          }
+        );
+        if (error) throw new Error(getAuthErrorMessage(error));
+      } catch (e: any) {
+        if (e?.message) throw e;
+        throw new Error("Não foi possível iniciar a recuperação de senha.");
+      }
     },
-    []
+    [supabase]
   );
 
   const refreshSession = useCallback(async () => {
-    const { error } = await supabase.auth.refreshSession();
+    const { data, error } = await supabase.auth.refreshSession();
     if (error) throw new Error(getAuthErrorMessage(error));
-  }, []);
+    // Atualiza o estado com a sessão renovada (se houver)
+    handleAuthChange(data?.session ?? null);
+  }, [supabase, handleAuthChange]);
 
-  const value: AuthContextType = {
-    user,
-    session,
-    isLoading,
-    isAuthenticated: !!user,
-    signIn,
-    signUp,
-    signOut,
-    resetPassword,
-    refreshSession,
-  };
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      session,
+      isLoading,
+      isAuthenticated: !!session?.user,
+      signIn,
+      signUp,
+      signOut,
+      resetPassword,
+      refreshSession,
+    }),
+    [
+      user,
+      session,
+      isLoading,
+      signIn,
+      signUp,
+      signOut,
+      resetPassword,
+      refreshSession,
+    ]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

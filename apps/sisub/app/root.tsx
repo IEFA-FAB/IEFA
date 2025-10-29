@@ -11,6 +11,7 @@ import type { Route } from "./+types/root";
 import { AuthProvider } from "@iefa/auth";
 import "./app.css";
 import { ThemeProvider } from "@iefa/ui";
+import supabase from "./utils/supabase";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -40,7 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <ThemeProvider defaultTheme="light">
-          <AuthProvider>
+          <AuthProvider supabase={supabase}>
             {children}
           </AuthProvider>
         </ThemeProvider>

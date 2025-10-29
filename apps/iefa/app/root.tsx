@@ -14,6 +14,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { AuthProvider } from "@iefa/auth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { supabaseApp } from "./lib/supabase";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -60,7 +61,7 @@ const noFlashScript = `
       <body suppressHydrationWarning>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider defaultTheme="system" storageKey="iefa-theme">
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider supabase={supabaseApp}>{children}</AuthProvider>
           </ThemeProvider>
           <ScrollRestoration />
           <Scripts />
