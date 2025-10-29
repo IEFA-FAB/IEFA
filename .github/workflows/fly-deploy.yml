@@ -103,17 +103,11 @@ jobs:
         env:
           VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
           VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
-          VITE_AUTH_SUPABASE_URL: ${{ secrets.VITE_AUTH_SUPABASE_URL }}
-          VITE_AUTH_SUPABASE_ANON_KEY: ${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
-          VITE_GITHUB_REPO_URL: ${{ secrets.VITE_GITHUB_REPO_URL }}
         run: |
           set -euo pipefail
           flyctl --config fly.iefa.toml secrets set \
             VITE_IEFA_SUPABASE_URL="$VITE_IEFA_SUPABASE_URL" \
             VITE_IEFA_SUPABASE_ANON_KEY="$VITE_IEFA_SUPABASE_ANON_KEY" \
-            VITE_AUTH_SUPABASE_URL="$VITE_AUTH_SUPABASE_URL" \
-            VITE_AUTH_SUPABASE_ANON_KEY="$VITE_AUTH_SUPABASE_ANON_KEY" \
-            VITE_GITHUB_REPO_URL="$VITE_GITHUB_REPO_URL" \
             
 
       - name: Deploy IEFA (wait for health checks)
@@ -121,8 +115,6 @@ jobs:
           flyctl deploy -c fly.iefa.toml --remote-only \
             --build-arg VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
             --build-arg VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
-            --build-arg VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
-            --build-arg VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
 
       - name: Smoke test IEFA
         shell: bash
@@ -169,17 +161,11 @@ jobs:
           env:
             VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
             VITE_SISUB_SUPABASE_ANON_KEY: ${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
-            VITE_AUTH_SUPABASE_URL: ${{ secrets.VITE_AUTH_SUPABASE_URL }}
-            VITE_AUTH_SUPABASE_ANON_KEY: ${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
-            VITE_GITHUB_REPO_URL: ${{ secrets.VITE_GITHUB_REPO_URL }}
           run: |
             set -euo pipefail
             flyctl --config fly.sisub.toml secrets set \
               VITE_SISUB_SUPABASE_URL="$VITE_SISUB_SUPABASE_URL" \
               VITE_SISUB_SUPABASE_ANON_KEY="$VITE_SISUB_SUPABASE_ANON_KEY" \
-              VITE_AUTH_SUPABASE_URL="$VITE_AUTH_SUPABASE_URL" \
-              VITE_AUTH_SUPABASE_ANON_KEY="$VITE_AUTH_SUPABASE_ANON_KEY" \
-              VITE_GITHUB_REPO_URL="$VITE_GITHUB_REPO_URL" \
               
 
         - name: Deploy SISUB (wait for health checks)
@@ -187,8 +173,6 @@ jobs:
             flyctl deploy -c fly.sisub.toml --remote-only \
               --build-arg VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }} \
               --build-arg VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }} \
-              --build-arg VITE_AUTH_SUPABASE_URL=${{ secrets.VITE_AUTH_SUPABASE_URL }} \
-              --build-arg VITE_AUTH_SUPABASE_ANON_KEY=${{ secrets.VITE_AUTH_SUPABASE_ANON_KEY }}
 
         - name: Smoke test SISUB
           shell: bash
