@@ -20,6 +20,7 @@ export default [
   ]),
 
   layout("./routes/layouts/app-layout.tsx", [
+    route("profile", "./routes/protected/profile.tsx"),
     route("rancho", "./routes/protected/rancho.tsx"),
     route("checkin", "./routes/protected/selfCheckIn.tsx"),
     route("fiscal", "./routes/protected/presence.tsx"),

@@ -12,7 +12,7 @@ import {
   AvatarImage,
   AvatarFallback,
 } from "@iefa/ui";
-import { EllipsisVertical, LogOut } from "lucide-react";
+import { EllipsisVertical, LogOut, User } from "lucide-react";
 
 type UserMeta = {
   name?: string;
@@ -99,7 +99,15 @@ export function UserMenu() {
             </div>
           </div>
         </DropdownMenuLabel>
-
+        <DropdownMenuItem
+          onSelect={async () => {
+            window.location.assign("/profile");
+          }}
+          className="cursor-pointer"
+        >
+          <User className="mr-2 h-4 w-4" />
+          Perfil
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={async () => {
             await signOut();
