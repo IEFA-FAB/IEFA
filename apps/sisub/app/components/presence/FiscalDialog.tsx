@@ -25,9 +25,12 @@ export default function FiscalDialog({
   confirmDialog,
   selectedUnit,
 }: FiscalDialogProps) {
+  const forecastIsYes = !!dialog.systemForecast;
+  const forecastIsNo = dialog.systemForecast === false;
+
   return (
     <>
-      {/* Dialogo de decisão do fiscal */}
+      {/* Diálogo de decisão do fiscal */}
       <AlertDialog
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
@@ -48,39 +51,51 @@ export default function FiscalDialog({
           </AlertDialogHeader>
 
           <div className="space-y-4">
+            {/* Está na previsão? (somente leitura) */}
             <div className="space-y-2">
               <div className="text-sm font-medium">Está na previsão?</div>
-              <div className="flex gap-2">
+              <div
+                className="flex gap-2"
+                role="group"
+                aria-label="Está na previsão"
+              >
                 <Button
                   disabled
-                  variant={!!dialog.systemForecast ? "default" : "outline"}
+                  variant={forecastIsYes ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={forecastIsYes}
                 >
                   Sim
                 </Button>
                 <Button
                   disabled
-                  variant={!dialog.systemForecast ? "default" : "outline"}
+                  variant={forecastIsNo ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={forecastIsNo}
                 >
                   Não
                 </Button>
               </div>
             </div>
 
+            {/* Vai entrar? (decisão do fiscal) */}
             <div className="space-y-2">
               <div className="text-sm font-medium">Vai entrar?</div>
-              <div className="flex gap-2">
+              <div className="flex gap-2" role="group" aria-label="Vai entrar">
                 <Button
                   variant={dialog.willEnter === "sim" ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={dialog.willEnter === "sim"}
                   onClick={() => setDialog((d) => ({ ...d, willEnter: "sim" }))}
                 >
                   Sim
                 </Button>
                 <Button
-                  variant={dialog.willEnter === "nao" ? "default" : "outline"}
+                  variant={
+                    dialog.willEnter === "nao" ? "destructive" : "outline"
+                  }
                   size="sm"
+                  aria-pressed={dialog.willEnter === "nao"}
                   onClick={() => setDialog((d) => ({ ...d, willEnter: "nao" }))}
                 >
                   Não
@@ -89,7 +104,7 @@ export default function FiscalDialog({
             </div>
 
             {selectedUnit && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-muted-foreground">
                 OM selecionada: {selectedUnit}
               </div>
             )}

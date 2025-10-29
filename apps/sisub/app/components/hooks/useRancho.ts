@@ -1,6 +1,6 @@
 // hooks/useRancho.ts
-import { useState, useEffect } from "react";
-import supabase from "~/utils/supabase"; // Ajuste o caminho para seu cliente supabase
+import { useQuery } from "@tanstack/react-query";
+import supabase from "~/utils/supabase";
 import {
   FALLBACK_RANCHOS,
   FALLBACK_UNIDADES,
@@ -13,46 +13,41 @@ export interface Unidade {
 }
 
 export const useRancho = () => {
-  // Inicia o estado com a lista de fallback
-  const [ranchos, setRanchos] = useState<readonly Unidade[]>(FALLBACK_RANCHOS);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [unidades, setUnidades] =
-    useState<readonly Unidade[]>(FALLBACK_UNIDADES);
+  const query = useQuery<readonly Unidade[], Error>({
+    queryKey: ["unidades_disponiveis"],
+    // Mantém o fallback na tela enquanto busca do Supabase
+    placeholderData: FALLBACK_RANCHOS,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("unidades_disponiveis")
+        .select("value, label")
+        .order("label", { ascending: true });
 
-  useEffect(() => {
-    const fetchUnidades = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+      if (error) throw error;
 
-        // Busca na tabela 'unidades_disponiveis'
-        // Assumindo que as colunas se chamam 'value' e 'label'
-        const { data, error: supabaseError } = await supabase
-          .from("unidades_disponiveis")
-          .select("value, label")
-          .order("label", { ascending: true }); // Ordenar por nome é uma boa prática
+      // Normalização defensiva
+      const parsed = (data ?? []).map((u) => ({
+        value: String(u.value),
+        label: String(u.label),
+      })) as Unidade[];
 
-        if (supabaseError) {
-          throw supabaseError;
-        }
+      return parsed;
+    },
+  });
 
-        // Se a busca retornar dados, atualiza o estado.
-        // Se não, o estado continua com o fallback.
-        if (data && data.length > 0) {
-          setRanchos(data);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar unidades:", err);
-        setError("Não foi possível carregar a lista de unidades.");
-        // Em caso de erro, o estado 'unidades' já contém o fallback, então nada precisa ser feito.
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUnidades();
-  }, []);
-
-  return { ranchos, unidades, isLoading, error };
+  return {
+    // Se a query falhar, continuamos exibindo o fallback
+    ranchos: query.data ?? FALLBACK_RANCHOS,
+    // Mantém o contrato original: "unidades" permanece com o fallback
+    unidades: FALLBACK_UNIDADES as readonly Unidade[],
+    // isLoading reflete estado de carregamento da query
+    isLoading: query.isPending || query.isFetching,
+    // Mensagem de erro amigável (ou null quando não há erro)
+    error: query.error
+      ? "Não foi possível carregar a lista de unidades."
+      : null,
+  };
 };

@@ -11,7 +11,7 @@ export default function IndicatorsCard() {
 
   return (
     <div
-      className={`bg-white rounded-2xl border border-blue-100 shadow-sm ${
+      className={`rounded-2xl border  shadow-sm ${
         expanded ? "p-0" : "p-6"
       }`}
     >
@@ -19,7 +19,7 @@ export default function IndicatorsCard() {
       <div
         className={`${expanded ? "px-4 py-3" : "mb-4"} flex items-center justify-between`}
       >
-        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs  border ">
           <AlertCircle className="h-4 w-4" aria-hidden="true" />
           Indicadores Gerais
         </div>
@@ -29,7 +29,7 @@ export default function IndicatorsCard() {
             onClick={() =>
               window.open(powerBiUrl, "_blank", "noopener,noreferrer")
             }
-            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700"
+            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border "
             aria-label="Abrir relatório em nova aba"
             title="Abrir em nova aba"
           >
@@ -39,7 +39,7 @@ export default function IndicatorsCard() {
 
           <button
             onClick={toggleExpanded}
-            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700"
+            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border "
             aria-pressed={expanded}
             aria-label={expanded ? "Reduzir" : "Expandir"}
             title={expanded ? "Reduzir" : "Expandir"}
@@ -54,10 +54,10 @@ export default function IndicatorsCard() {
         <div className={`${expanded ? "" : "px-6"} pb-4`}>
           {!expanded && (
             <>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold ">
                 Indicadores do Sistema
               </h2>
-              <p className="text-gray-600 text-sm">
+              <p className=" text-sm">
                 Acompanhe métricas gerais do SISUB. Expanda para tela cheia para
                 melhor visualização.
               </p>
@@ -66,7 +66,7 @@ export default function IndicatorsCard() {
         </div>
 
         <div className={`${expanded ? "" : "px-6"} pb-6`}>
-          <div className="rounded-2xl border border-gray-200 overflow-hidden bg-gray-50">
+          <div className="rounded-2xl border  overflow-hidden ">
             <iframe
               title="Sistema_sisub_FINALFINAL"
               className="w-full"
@@ -77,7 +77,7 @@ export default function IndicatorsCard() {
               referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
-          <div className="mt-3 text-xs text-gray-500 px-1">
+          <div className="mt-3 text-xs  px-1">
             Dica: use o botão de tela cheia dentro do relatório para melhor
             experiência.
           </div>

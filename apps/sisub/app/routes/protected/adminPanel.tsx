@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Route } from "./+types/adminPanel";
 import { Navigate } from "react-router";
 import { useAuth } from "@iefa/auth";
-import { checkUserLevel } from "~/components/UserLevel/AdminService";
+import { checkUserLevel } from "~/services/AdminService";
 
 // Componentes refatorados
 import AdminHero from "~/components/admin/AdminHero";
@@ -70,7 +70,7 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="min-h-screen ">
       {/* Hero */}
       <section
         id="hero"

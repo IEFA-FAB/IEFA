@@ -1,5 +1,7 @@
+// apps/sisub/app/components/hooks/useRanchoData.ts
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@iefa/auth";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import supabase from "../../utils/supabase";
 
 const DEFAULT_UNIT = "DIRAD - DIRAD";
@@ -32,7 +34,8 @@ export interface PendingChange {
 export interface RanchoDataHook {
   success: string;
   error: string;
-  isLoading: boolean;
+  isLoading: boolean; // carregamento inicial
+  isRefetching: boolean; // refetch em background
   pendingChanges: PendingChange[];
   isSavingBatch: boolean;
   selections: Selections;
@@ -59,13 +62,10 @@ const createEmptyDayMeals = (): DayMeals => ({
 });
 
 /**
- * Formata um objeto Date para uma string 'YYYY-MM-DD' respeitando o fuso horário local.
- * @param date O objeto Date a ser formatado.
- * @returns A data formatada como string.
+ * Formata um objeto Date para 'YYYY-MM-DD' respeitando o fuso local.
  */
 const toYYYYMMDD = (date: Date): string => {
   const year = date.getFullYear();
-  // getMonth() é 0-indexado (0-11), então somamos 1
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
@@ -78,7 +78,7 @@ const generateDates = (days: number): string[] => {
   for (let i = 0; i < days; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
-    dates.push(toYYYYMMDD(date)); // CORRIGIDO: Usa a função auxiliar para evitar problemas de fuso
+    dates.push(toYYYYMMDD(date));
   }
 
   return dates;
@@ -95,28 +95,33 @@ const labelOperacao = (n: number) => pluralize(n, "operação", "operações");
 
 export const useRanchoData = (): RanchoDataHook => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [isClient, setIsClient] = useState(false);
 
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const successTimerRef = useRef<NodeJS.Timeout | null>(null);
   const saveOperationRef = useRef<Promise<void> | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const hydratedOnceRef = useRef(false);
 
   const [success, setSuccessState] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [isSavingBatch, setIsSavingBatch] = useState<boolean>(false);
   const [selections, setSelections] = useState<Selections>({});
   const [dayUnits, setDayUnits] = useState<DayUnits>({});
   const [defaultUnit, setDefaultUnit] = useState<string>(DEFAULT_UNIT);
 
-  // Memorizar valores estáveis
+  // Datas e chaves estáveis
   const dates = useMemo(() => generateDates(DAYS_TO_SHOW), []);
-  const todayString = useMemo(() => toYYYYMMDD(new Date()), []); // CORRIGIDO: Usa a função auxiliar
+  const todayString = useMemo(() => toYYYYMMDD(new Date()), []);
+  const queryKey = useMemo(
+    () => ["ranchoPrevisoes", user?.id, dates[0], dates[dates.length - 1]],
+    [user?.id, dates]
+  );
 
-  // Callbacks estáveis
+  // Mensagens
   const clearMessages = useCallback(() => {
     setSuccessState("");
     setError("");
@@ -137,42 +142,50 @@ export const useRanchoData = (): RanchoDataHook => {
     }
   }, []);
 
-  // Callback estável para setError
   const setErrorWithClear = useCallback((msg: string) => {
     setError(msg);
     setSuccessState("");
   }, []);
 
-  // loadExistingPrevisoes com dependências estáveis
-  const loadExistingPrevisoes = useCallback(async (): Promise<void> => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    abortControllerRef.current = new AbortController();
-    const { signal } = abortControllerRef.current;
-
-    setIsLoading(true);
-    setErrorWithClear("");
-
-    try {
-      const { data: previsoes, error: supabaseError } = await supabase
+  // Query: previsões do período para o usuário
+  const {
+    data: previsoes,
+    isPending, // carregamento inicial
+    isFetching, // qualquer refetch ativo
+    refetch,
+  } = useQuery({
+    queryKey,
+    enabled: isClient && !!user?.id,
+    staleTime: 60_000, // mantém dados "frescos" por 1 min
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    keepPreviousData: true,
+    queryFn: async () => {
+      const { data, error: supabaseError } = await supabase
         .from("rancho_previsoes")
         .select("data, unidade, refeicao, vai_comer")
-        .eq("user_id", user.id)
+        .eq("user_id", user!.id)
         .gte("data", dates[0])
         .lte("data", dates[dates.length - 1])
         .order("data", { ascending: true });
 
-      if (signal.aborted) return;
+      if (supabaseError) {
+        throw supabaseError;
+      }
+      return data ?? [];
+    },
+  });
 
-      if (supabaseError) throw supabaseError;
+  // Hidratamos selections/dayUnits a partir da query quando:
+  // - primeira carga, ou
+  // - refetch terminar e NÃO houver pendingChanges e NÃO estivermos salvando.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!previsoes) return;
 
+    const canOverwrite = pendingChanges.length === 0 && !isSavingBatch;
+    if (!hydratedOnceRef.current || canOverwrite) {
       const initialSelections: Selections = {};
       const initialUnits: DayUnits = {};
 
@@ -181,34 +194,28 @@ export const useRanchoData = (): RanchoDataHook => {
         initialUnits[date] = defaultUnit;
       });
 
-      previsoes?.forEach((previsao) => {
-        const { data, unidade, refeicao, vai_comer } = previsao;
-
+      previsoes.forEach((p: any) => {
+        const { data, unidade, refeicao, vai_comer } = p;
         if (initialSelections[data] && refeicao in initialSelections[data]) {
-          initialSelections[data][refeicao as keyof DayMeals] = vai_comer;
-          initialUnits[data] = unidade;
+          initialSelections[data][refeicao as keyof DayMeals] = !!vai_comer;
+          initialUnits[data] = unidade || defaultUnit;
         }
       });
 
-      if (!signal.aborted) {
-        setSelections(initialSelections);
-        setDayUnits(initialUnits);
-      }
-    } catch (err) {
-      if (!signal.aborted) {
-        console.error("Erro ao carregar previsões:", err);
-        setErrorWithClear(
-          "Erro ao carregar previsões existentes. Tente novamente."
-        );
-      }
-    } finally {
-      if (!signal.aborted) {
-        setIsLoading(false);
-      }
+      setSelections(initialSelections);
+      setDayUnits(initialUnits);
+      hydratedOnceRef.current = true;
     }
-  }, [user?.id, dates, defaultUnit, setErrorWithClear]);
+  }, [
+    user?.id,
+    previsoes,
+    dates,
+    defaultUnit,
+    pendingChanges.length,
+    isSavingBatch,
+  ]);
 
-  // Função savePendingChanges melhorada e mais robusta
+  // Save em lote (mantido, mas invalida/atualiza a query no fim)
   const savePendingChanges = useCallback(async (): Promise<void> => {
     if (!user?.id || pendingChanges.length === 0) return;
 
@@ -225,7 +232,7 @@ export const useRanchoData = (): RanchoDataHook => {
       try {
         const changesToSave = [...pendingChanges];
 
-        // Agrupar mudanças por data e refeição para evitar operações duplicadas
+        // Agrupar por data-refeição para evitar duplicatas
         const changesByDateAndMeal = changesToSave.reduce(
           (acc, change) => {
             const key = `${change.date}-${change.meal}`;
@@ -235,12 +242,11 @@ export const useRanchoData = (): RanchoDataHook => {
           {} as { [key: string]: PendingChange }
         );
 
-        // Processar cada mudança individualmente com operações específicas
         const results = await Promise.allSettled(
           Object.values(changesByDateAndMeal).map(async (change) => {
             try {
               if (change.value) {
-                // Se vai_comer = true, fazer upsert (insert ou update)
+                // upsert
                 const { error: upsertError } = await supabase
                   .from("rancho_previsoes")
                   .upsert(
@@ -258,12 +264,7 @@ export const useRanchoData = (): RanchoDataHook => {
                   );
 
                 if (upsertError) {
-                  // Fallback: Se upsert falhar, tentar delete + insert
-                  console.warn(
-                    `Upsert falhou para ${change.date}-${change.meal}, tentando delete+insert:`,
-                    upsertError
-                  );
-
+                  // fallback delete + insert
                   await supabase
                     .from("rancho_previsoes")
                     .delete()
@@ -284,7 +285,7 @@ export const useRanchoData = (): RanchoDataHook => {
                   if (insertError) throw insertError;
                 }
               } else {
-                // Se vai_comer = false, deletar apenas o registro específico
+                // delete
                 const { error: deleteError } = await supabase
                   .from("rancho_previsoes")
                   .delete()
@@ -292,11 +293,11 @@ export const useRanchoData = (): RanchoDataHook => {
                   .eq("data", change.date)
                   .eq("refeicao", change.meal);
 
-                if (deleteError) {
-                  // Se o erro for "registro não encontrado", não é um erro crítico
-                  if (!deleteError.message.includes("No rows deleted")) {
-                    throw deleteError;
-                  }
+                if (
+                  deleteError &&
+                  !deleteError.message.includes("No rows deleted")
+                ) {
+                  throw deleteError;
                 }
               }
 
@@ -320,26 +321,23 @@ export const useRanchoData = (): RanchoDataHook => {
           })
         );
 
-        // Processar resultados e dar feedback detalhado
         const successful = results.filter(
-          (result) => result.status === "fulfilled" && result.value.success
+          (r) => r.status === "fulfilled" && r.value.success
         ) as PromiseFulfilledResult<{
           success: boolean;
           change: PendingChange;
-        }>[];
+        }>[]; // TS narrow
 
         const failed = results.filter(
-          (result) =>
-            result.status === "rejected" ||
-            (result.status === "fulfilled" && !result.value.success)
+          (r) =>
+            r.status === "rejected" ||
+            (r.status === "fulfilled" && !r.value.success)
         );
 
         if (failed.length === 0) {
-          // Todas as operações foram bem-sucedidas
           const n = changesToSave.length;
           setSuccess(`${n} ${labelAlteracao(n)} ${labelSalva(n)} com sucesso!`);
 
-          // Remover apenas as mudanças que foram processadas com sucesso
           setPendingChanges((prev) =>
             prev.filter(
               (change) =>
@@ -353,7 +351,6 @@ export const useRanchoData = (): RanchoDataHook => {
             )
           );
         } else if (successful.length > 0) {
-          // Algumas operações falharam, mas outras foram bem-sucedidas
           const nOk = successful.length;
           const nFail = failed.length;
 
@@ -363,9 +360,7 @@ export const useRanchoData = (): RanchoDataHook => {
             )} ${labelFalhou(nFail)}.`
           );
 
-          // Remover apenas as mudanças que foram salvas com sucesso
           const successfulChanges = successful.map((r) => r.value.change);
-
           setPendingChanges((prev) =>
             prev.filter(
               (change) =>
@@ -379,7 +374,6 @@ export const useRanchoData = (): RanchoDataHook => {
             )
           );
 
-          // Log detalhado dos erros para debug
           failed.forEach((result) => {
             if (result.status === "fulfilled") {
               console.error("Erro na operação:", result.value.error);
@@ -388,7 +382,6 @@ export const useRanchoData = (): RanchoDataHook => {
             }
           });
         } else {
-          // Todas as operações falharam
           const errorMessages = failed
             .map((result) => {
               if (result.status === "fulfilled") {
@@ -413,11 +406,15 @@ export const useRanchoData = (): RanchoDataHook => {
             );
           }
         }
+
+        // Após salvar, atualizamos em background os dados do servidor
+        // sem travar a UI
+        queryClient.invalidateQueries({ queryKey });
       } catch (err) {
         console.error("Erro crítico ao salvar mudanças:", err);
         setErrorWithClear(
           err instanceof Error
-            ? `Erro ao salvar ${labelAlteracao(1)}: ${err.message}` // "alteração" como conceito
+            ? `Erro ao salvar ${labelAlteracao(1)}: ${err.message}`
             : "Erro ao salvar alterações. Tente novamente."
         );
       } finally {
@@ -428,9 +425,16 @@ export const useRanchoData = (): RanchoDataHook => {
 
     saveOperationRef.current = saveOperation();
     return saveOperationRef.current;
-  }, [user?.id, pendingChanges, setSuccess, setErrorWithClear]);
+  }, [
+    user?.id,
+    pendingChanges,
+    setSuccess,
+    setErrorWithClear,
+    queryClient,
+    queryKey,
+  ]);
 
-  // Auto-save effect com dependência estável
+  // Auto-save (mantém fluidez e evita múltiplos saves)
   useEffect(() => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -454,14 +458,7 @@ export const useRanchoData = (): RanchoDataHook => {
     setIsClient(true);
   }, []);
 
-  // Carregar previsões quando o cliente estiver pronto
-  useEffect(() => {
-    if (isClient && user?.id) {
-      loadExistingPrevisoes();
-    }
-  }, [isClient, user?.id, loadExistingPrevisoes]);
-
-  // Cleanup effect
+  // Cleanup
   useEffect(() => {
     return () => {
       if (autoSaveTimerRef.current) {
@@ -470,16 +467,18 @@ export const useRanchoData = (): RanchoDataHook => {
       if (successTimerRef.current) {
         clearTimeout(successTimerRef.current);
       }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
     };
   }, []);
+
+  const loadExistingPrevisoes = useCallback(async (): Promise<void> => {
+    await refetch();
+  }, [refetch]);
 
   return {
     success,
     error,
-    isLoading,
+    isLoading: isPending,
+    isRefetching: isFetching,
     pendingChanges,
     isSavingBatch,
     selections,

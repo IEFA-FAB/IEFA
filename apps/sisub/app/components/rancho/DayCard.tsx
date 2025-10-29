@@ -1,10 +1,14 @@
 // components/DayCard.tsx
 import { memo, useCallback, useMemo } from "react";
 import { Calendar, Loader2, Clock } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@iefa/ui";
-import { Badge } from "@iefa/ui";
-import { Button } from "@iefa/ui";
-import { Skeleton } from "@iefa/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  Badge,
+  Button,
+  Skeleton,
+} from "@iefa/ui";
 import { MealButton } from "~/components/MealButton";
 import { UnitSelector } from "~/components/UnitSelector";
 import { MEAL_TYPES } from "~/components/constants/rancho";
@@ -39,10 +43,10 @@ const countSelectedMeals = (daySelections: DayMeals): number => {
   return Object.values(daySelections).filter(Boolean).length;
 };
 
-// Componente Skeleton usando shadcn/ui
+// Componente Skeleton usando shadcn/ui - usando apenas tokens
 const DayCardSkeleton = memo(() => {
   return (
-    <Card className="w-80 flex-shrink-0">
+    <Card className="w-80 flex-shrink-0 bg-card text-card-foreground border border-border">
       <CardHeader className="pb-3">
         <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
           {/* Header esquerdo */}
@@ -62,7 +66,7 @@ const DayCardSkeleton = memo(() => {
 
         {/* Progress bar skeleton */}
         <div className="h-12 flex items-center">
-          <div className="w-full bg-muted/50 rounded-lg p-2 border">
+          <div className="w-full bg-muted/50 rounded-lg p-2 border border-border">
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-24" />
               <div className="flex space-x-1">
@@ -78,7 +82,7 @@ const DayCardSkeleton = memo(() => {
       <CardContent>
         <div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
           {/* Unit selector skeleton */}
-          <div className="bg-muted/30 rounded-lg p-3 border">
+          <div className="bg-muted/30 rounded-lg p-3 border border-border">
             <Skeleton className="h-8 w-full" />
           </div>
 
@@ -154,21 +158,23 @@ export const DayCard = memo<DayCardProps>(
 
     const cardClasses = useMemo(() => {
       return cn(
+        // Base do card com tokens
         "w-80 flex-shrink-0 transition-all duration-200 hover:shadow-md relative",
+        "bg-card text-card-foreground border border-border",
         {
-          // Estados visuais principais
+          // Estados visuais principais (tokens)
           "ring-2 ring-primary shadow-lg bg-primary/5": isToday,
-          "ring-1 ring-orange-400 bg-orange-50":
+          "ring-1 ring-accent bg-accent/10":
             cardState.hasPendingChanges && !isToday,
           "opacity-75 grayscale-[0.3]": isDateNear && !isToday,
 
-          // Estados de preenchimento
-          "bg-green-50 border-green-200": cardState.isFull && !isToday,
-          "bg-yellow-50 border-yellow-200":
+          // Estados de preenchimento (tokens)
+          "bg-primary/10 border-primary/40": cardState.isFull && !isToday,
+          "bg-secondary/10 border-secondary/40":
             cardState.hasPartialSelection &&
             !isToday &&
             !cardState.hasPendingChanges,
-          "bg-muted/30":
+          "bg-muted/30 border-border":
             cardState.isEmpty && !isToday && !cardState.hasPendingChanges,
         }
       );
@@ -213,7 +219,7 @@ export const DayCard = memo<DayCardProps>(
               {isSaving && (
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
               )}
-              {isDateNear && <Clock className="h-4 w-4 text-orange-500" />}
+              {isDateNear && <Clock className="h-4 w-4 text-accent" />}
               {isToday && (
                 <Badge variant="default" className="text-xs px-2 py-0">
                   Hoje
@@ -222,7 +228,7 @@ export const DayCard = memo<DayCardProps>(
               {cardState.hasPendingChanges && (
                 <Badge
                   variant="outline"
-                  className="text-xs text-orange-600 px-2 py-0"
+                  className="text-xs px-2 py-0 border-accent text-accent"
                 >
                   Salvando
                 </Badge>
@@ -233,7 +239,7 @@ export const DayCard = memo<DayCardProps>(
           {/* Progress bar - altura fixa para evitar movimento */}
           <div className="h-12 flex items-center">
             {cardState.selectedCount > 0 && (
-              <div className="w-full bg-background/80 backdrop-blur-sm rounded-lg p-2 border border-border/50">
+              <div className="w-full bg-background/80 backdrop-blur-sm rounded-lg p-2 border border-border">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground">
                     {cardState.selectedCount}/4 refeições
@@ -248,7 +254,7 @@ export const DayCard = memo<DayCardProps>(
                           className={cn(
                             "w-2 h-2 rounded-full transition-all duration-200",
                             isSelected
-                              ? "bg-green-500 scale-110"
+                              ? "bg-primary scale-110"
                               : "bg-muted-foreground/30"
                           )}
                           title={`${meal.label}: ${
@@ -268,7 +274,7 @@ export const DayCard = memo<DayCardProps>(
           {/* Layout principal em grid com altura mínima fixa */}
           <div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
             {/* Unit selector - sempre presente */}
-            <div className="bg-primary/5 backdrop-blur-sm rounded-lg p-3 border border-primary/20">
+            <div className="bg-accent/10 backdrop-blur-sm rounded-lg p-3 border border-accent/30">
               <UnitSelector
                 value={dayUnit}
                 onChange={handleUnitChange}

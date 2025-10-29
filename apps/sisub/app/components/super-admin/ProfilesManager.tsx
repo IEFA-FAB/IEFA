@@ -17,31 +17,31 @@ import {
 
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 
-import { Button } from "@iefa/ui";
-import { Checkbox } from "@iefa/ui";
 import {
+  Button,
+  Checkbox,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@iefa/ui";
-import { Input } from "@iefa/ui";
-import {
+  Input,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  Badge,
 } from "@iefa/ui";
 
 import AddUserDialog, { NewUserPayload } from "./AddUserDialog";
 import EditUserDialog, { EditUserPayload } from "./EditUserDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
 import { useRancho } from "~/components/hooks/useRancho";
-import { UserLevelOrNull } from "@iefa/auth";
+import type { UserLevelOrNull } from "../../services/AdminService";
+
 
 // Tipos
 export type ProfileAdmin = {
@@ -245,6 +245,24 @@ export default function ProfilesManager() {
     }
   };
 
+  // Badge de role (cores via variantes padrão do shadcn)
+  const RoleBadge = ({ role }: { role: UserLevel }) => {
+    if (!role) return <span className="text-muted-foreground">N/A</span>;
+    const variant =
+      role === "superadmin"
+        ? "destructive"
+        : role === "admin"
+          ? "default"
+          : "secondary";
+    const label =
+      role === "superadmin"
+        ? "Superadmin"
+        : role === "admin"
+          ? "Admin"
+          : "User";
+    return <Badge variant={variant as any}>{label}</Badge>;
+  };
+
   // Colunas da Tabela
   const columns = React.useMemo<ColumnDef<ProfileAdmin>[]>(
     () => [
@@ -281,36 +299,48 @@ export default function ProfilesManager() {
           </Button>
         ),
         cell: ({ row }) => (
-          <div className="lowercase text-gray-900">{row.getValue("email")}</div>
+          <div className="lowercase text-foreground">
+            {row.getValue("email")}
+          </div>
         ),
       },
       {
         accessorKey: "name",
         header: "Nome",
         cell: ({ row }) => (
-          <div className="text-gray-700">{row.getValue("name") || "N/A"}</div>
+          <div className="text-foreground">
+            {row.getValue("name") || (
+              <span className="text-muted-foreground">N/A</span>
+            )}
+          </div>
         ),
       },
       {
         accessorKey: "role",
         header: "Role",
-        cell: ({ row }) => (
-          <div className="capitalize font-medium">
-            {row.getValue("role") || "N/A"}
-          </div>
-        ),
+        cell: ({ row }) => <RoleBadge role={row.getValue("role")} />,
       },
       {
         accessorKey: "saram",
         header: "SARAM",
         cell: ({ row }) => (
-          <div className="tabular-nums">{row.getValue("saram") || "N/A"}</div>
+          <div className="tabular-nums">
+            {row.getValue("saram") || (
+              <span className="text-muted-foreground">N/A</span>
+            )}
+          </div>
         ),
       },
       {
         accessorKey: "om",
         header: "OM",
-        cell: ({ row }) => <div>{row.getValue("om") || "N/A"}</div>,
+        cell: ({ row }) => (
+          <div>
+            {row.getValue("om") || (
+              <span className="text-muted-foreground">N/A</span>
+            )}
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -389,24 +419,8 @@ export default function ProfilesManager() {
     table.resetColumnFilters();
   };
 
-  // Skeleton inicial (primeira carga)
-  /* if (loading && profiles.length === 0) {
-    return (
-      <div className="grid grid-cols-1 gap-6 lg:gap-8">
-        <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-10 w-40" />
-          </div>
-          <Skeleton className="h-12 w-full rounded-md mb-3" />
-          <Skeleton className="h-64 w-full rounded-md" />
-        </div>
-      </div>
-    );
-  } */
-
   return (
-    <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-6">
+    <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 py-2">
         <div className="flex-1 flex flex-col sm:flex-row gap-2">
@@ -420,7 +434,7 @@ export default function ProfilesManager() {
           />
           <div className="flex items-center gap-2">
             <select
-              className="w-full sm:w-[200px] h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="w-full sm:w-[200px] h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               value={roleFilter || ""}
               onChange={(e) =>
                 table
@@ -482,13 +496,13 @@ export default function ProfilesManager() {
       </div>
 
       {/* Tabela */}
-      <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-border">
         <Table>
-          <TableHeader className="bg-gray-50">
+          <TableHeader className="bg-muted/50">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="text-muted-foreground">
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -508,26 +522,8 @@ export default function ProfilesManager() {
                   colSpan={table.getAllColumns().length}
                   className="h-24"
                 >
-                  <div className="flex items-center justify-center gap-2 text-gray-600">
-                    <svg
-                      className="animate-spin h-4 w-4 text-gray-400"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        fill="none"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v4l3.5-3.5L12 0v4a8 8 0 100 16v4l3.5-3.5L12 20v4a8 8 0 01-8-8z"
-                      />
-                    </svg>
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-b-transparent" />
                     Carregando...
                   </div>
                 </TableCell>
@@ -537,10 +533,13 @@ export default function ProfilesManager() {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-gray-50"
+                  className="
+                    hover:bg-accent/50
+                    data-[state=selected]:bg-accent/40
+                  "
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="align-middle">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -553,7 +552,7 @@ export default function ProfilesManager() {
               <TableRow>
                 <TableCell
                   colSpan={table.getAllColumns().length}
-                  className="h-24 text-center text-gray-600"
+                  className="h-24 text-center text-muted-foreground"
                 >
                   Nenhum resultado encontrado.
                 </TableCell>
@@ -594,7 +593,7 @@ export default function ProfilesManager() {
         open={isAddUserOpen}
         onOpenChange={setIsAddUserOpen}
         isLoading={isAdding}
-        unidades={unidades || []}
+        unidades={unidades ? [...unidades] : []}
         isLoadingUnidades={isLoadingUnidades}
         unidadesError={unidadesError}
         onSubmit={handleAddUser}
@@ -605,7 +604,7 @@ export default function ProfilesManager() {
         onOpenChange={setIsEditUserOpen}
         isLoading={isUpdating}
         profile={selectedProfile}
-        unidades={unidades || []}
+        unidades={unidades ? [...unidades] : []}
         isLoadingUnidades={isLoadingUnidades}
         unidadesError={unidadesError}
         onSubmit={handleUpdateUser}

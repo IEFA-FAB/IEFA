@@ -26,22 +26,16 @@ import { usePresenceManagement } from "~/components/hooks/usePresenceManagement"
 import { Switch } from "@iefa/ui";
 import { Label } from "@iefa/ui";
 import { useAuth } from "@iefa/auth";
-import { checkUserLevel } from "~/components/UserLevel/AdminService";
+import { checkUserLevel } from "~/services/AdminService";
 import { Navigate } from "react-router";
 
 // ===== NOVO: Regex de UUID e helper de extração =====
-// Aceita UUIDs v1–v5, com variantes 8|9|a|b, case-insensitive, e funciona se o QR "contiver" um UUID.
 const UUID_REGEX =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
-
-// Se quiser exigir que TODO o conteúdo do QR seja apenas o UUID, use esta versão e troque no extractUuid:
-// const UUID_FULL_MATCH = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function extractUuid(payload: string): string | null {
   if (!payload) return null;
   const match = payload.match(UUID_REGEX);
-  // Para exigir match completo, troque a linha acima por:
-  // const match = payload.match(UUID_FULL_MATCH);
   return match ? match[0].toLowerCase() : null;
 }
 
@@ -75,8 +69,6 @@ export function meta() {
   ];
 }
 
-// Garante que os valores retornados existem em MealKey:
-// 'cafe' | 'almoco' | 'jantar' | 'ceia'
 export function inferDefaultMeal(now: Date = new Date()): MealKey {
   const toMin = (h: number, m = 0) => h * 60 + m;
   const minutes = now.getHours() * 60 + now.getMinutes();
@@ -86,10 +78,9 @@ export function inferDefaultMeal(now: Date = new Date()): MealKey {
   if (inRange(toMin(4), toMin(9))) return "cafe";
   if (inRange(toMin(9), toMin(15))) return "almoco";
   if (inRange(toMin(15), toMin(20))) return "janta";
-  return "ceia"; // cobre 20:00–24:00 e 00:00–04:00
+  return "ceia";
 }
 
-// Reducer para gerenciar o estado do scanner
 const scannerReducer = (
   state: ScannerState,
   action: ScannerAction
@@ -202,7 +193,6 @@ export default function Qr() {
       return;
     }
 
-    // Use a ref para garantir que pegamos os filtros atuais
     const { date, meal, unit } = currentFiltersRef.current;
 
     if (!date || !meal || !unit) {
@@ -215,10 +205,10 @@ export default function Qr() {
     setIsAddingOther(true);
     try {
       const { error } = await supabase.from("others_presence").insert({
-        admin_id: user.id, // UUID do fiscal logado
-        date, // 'date' (tipo date no banco) no formato 'YYYY-MM-DD'
-        meal, // texto (ex.: 'cafe' | 'almoco' | 'jantar' | 'ceia')
-        unidade: unit, // texto da unidade
+        admin_id: user.id,
+        date,
+        meal,
+        unidade: unit,
       });
 
       if (error) throw error;
@@ -226,9 +216,6 @@ export default function Qr() {
       toast.success("Outro registrado", {
         description: "Entrada sem cadastro adicionada com sucesso.",
       });
-
-      // Caso queira disparar alguma atualização na tela após inserir, faça aqui.
-      // Como está em outra tabela, não interfere em presences diretamente.
     } catch (err: any) {
       console.error("Erro ao registrar Outros:", err);
       toast.error("Erro", {
@@ -321,16 +308,12 @@ export default function Qr() {
     };
   }, []);
 
-  // 2) Antirreentrância + cooldown + cache + pausa do scanner durante o processamento
   const onScanSuccess = async (result: QrScanner.ScanResult) => {
     const raw = (result?.data || "").trim();
     if (!raw) return;
 
-    // NOVO: só continue se houver um UUID no conteúdo do QR
     const uuid = extractUuid(raw);
     if (!uuid) {
-      // Sem UUID válido: ignore silenciosamente (sem cooldown).
-      // Opcional: pode exibir um toast com throttling se quiser feedback.
       return;
     }
 
@@ -342,7 +325,6 @@ export default function Qr() {
     lastScanAtRef.current = now;
     setIsProcessing(true);
 
-    // Pausa imediatamente para reduzir carga até abrir diálogo
     try {
       await scannerRef.current?.stop();
     } catch {}
@@ -367,14 +349,12 @@ export default function Qr() {
         willEnter: "sim",
       });
 
-      // Marca UUID como processado recentemente (cache LRU)
       markScanned(uuid);
     } catch (err) {
       console.error("Erro ao preparar diálogo:", err);
       toast.error("Erro", { description: "Falha ao processar QR." });
     } finally {
       setIsProcessing(false);
-      // O efeito de dialog.open controla start/stop automaticamente (alteração 1)
     }
   };
 
@@ -393,7 +373,6 @@ export default function Qr() {
       console.error("Falha ao confirmar presença:", err);
     } finally {
       setDialog((d) => ({ ...d, open: false, uuid: null }));
-      // Scanner será retomado pelo efeito de dialog.open (alteração 1)
     }
   }, [dialog.uuid, dialog.willEnter, confirmPresence]);
 
@@ -414,7 +393,6 @@ export default function Qr() {
     }
   }, [scannerState.isScanning]);
 
-  // 5) Refresh com stop antes de start + tratamento de erros
   const refresh = useCallback(async () => {
     const scanner = scannerRef.current;
     if (!scanner) return;
@@ -429,7 +407,6 @@ export default function Qr() {
     }
   }, []);
 
-  // 3) Auto-fechamento reseta por UUID
   useEffect(() => {
     if (!dialog.open || !autoCloseDialog || !dialog.uuid) return;
 
@@ -440,7 +417,6 @@ export default function Qr() {
     return () => clearTimeout(timerId);
   }, [dialog.open, dialog.uuid, autoCloseDialog, handleConfirmDialog]);
 
-  // 1) Pausar scanner quando o diálogo está aberto e retomar quando fechar
   useEffect(() => {
     const scanner = scannerRef.current;
     if (!scanner) return;
@@ -467,7 +443,7 @@ export default function Qr() {
   );
 
   return (
-    <div className="space-y-6 min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 container mx-auto max-w-screen-2xl px-4">
+    <div className="pt-10 space-y-6 min-h-screen container mx-auto max-w-screen-2xl px-4">
       <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
         <Filters
           selectedDate={filters.date}
@@ -543,23 +519,25 @@ export default function Qr() {
         </div>
       </div>
 
-      <div className="qr-reader relative">
+      {/* Leitor de QR em card */}
+      <div className="qr-reader relative rounded-xl border border-border bg-card text-card-foreground p-3">
         <video
           ref={videoRef}
           className="rounded-md w-full max-h-[60vh] object-cover"
         />
         {!scannerState.hasPermission && scannerState.isReady && (
-          <div className="text-center p-4 border rounded-md bg-destructive/10 text-destructive">
+          <div className="mt-3 text-center p-4 border border-border rounded-md bg-destructive/10 text-destructive text-sm">
             <p>{scannerState.error || "Acesso à câmera negado."}</p>
           </div>
         )}
         <div ref={qrBoxRef} className="qr-box pointer-events-none" />
         {lastScanResult && (
-          <p className="absolute top-2 left-2 z-50 text-white bg-black/60 rounded px-2 py-1">
+          <p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs shadow">
             Último UUID: {lastScanResult}
           </p>
         )}
       </div>
+
       <PresenceTable
         selectedDate={filters.date}
         selectedMeal={filters.meal}
@@ -567,6 +545,7 @@ export default function Qr() {
         forecastMap={forecastMap}
         actions={actions}
       />
+
       <FiscalDialog
         setDialog={setDialog}
         dialog={dialog}

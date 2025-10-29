@@ -10,7 +10,7 @@ import {
 } from "@iefa/ui";
 import { LogOut, User, Home, QrCode, X } from "lucide-react";
 import { useState, useEffect, type JSX } from "react";
-import { checkUserLevel, UserLevelOrNull } from "../UserLevel/AdminService";
+import { checkUserLevel, UserLevelOrNull } from "../../services/AdminService";
 import { AuthContextType } from "@iefa/auth";
 import { QRCodeCanvas } from "qrcode.react"; // novo import
 import RouteSelector from "../routeSelector";

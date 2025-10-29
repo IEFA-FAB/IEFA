@@ -6,7 +6,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@iefa/ui";
-import { Label } from "@iefa/ui"
+import { Label } from "@iefa/ui";
 import { Badge } from "@iefa/ui";
 import { UnitSelector } from "~/components/UnitSelector";
 import { MEAL_LABEL, MealKey } from "~/utils/FiscalUtils";
@@ -21,6 +21,7 @@ interface FiltersProps {
   setSelectedUnit: (unit: string) => void;
   dates: string[];
 }
+
 export default function Filters({
   selectedDate,
   setSelectedDate,
@@ -30,30 +31,23 @@ export default function Filters({
   setSelectedUnit,
   dates,
 }: FiltersProps) {
+  // Estilos base de trigger alinhados ao tema shadcn
+  const baseTrigger =
+    "w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background " +
+    "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 " +
+    "disabled:cursor-not-allowed disabled:opacity-50";
+
   return (
     <>
+      {/* Dia */}
       <div className="flex-1">
         {(() => {
           const isValidDate = !selectedDate || dates.includes(selectedDate);
-          const size: "sm" | "md" | "lg" = "md";
           const disabled = false;
-          const base = "w-full transition-all duration-200";
-          const sizeMap = { sm: "text-sm", md: "", lg: "text-lg" };
-          let trigger = `${base} ${sizeMap[size]}`;
-
-          if (disabled) {
-            trigger += " cursor-not-allowed opacity-60";
-          } else {
-            trigger += " cursor-pointer hover:border-gray-400";
-          }
-          // Azul como padrão, vermelho em erro (igual UnitSelector)
-          trigger += " focus:border-blue-400 focus:ring-blue-200";
-          if (selectedDate && !isValidDate) {
-            trigger += " border-red-300 bg-red-50";
-          }
+          const isInvalid = Boolean(selectedDate && !isValidDate);
 
           const labelCls = `text-sm font-medium flex items-center justify-between ${
-            disabled ? "text-gray-500" : "text-gray-700"
+            disabled ? "text-muted-foreground" : "text-foreground"
           }`;
 
           return (
@@ -64,15 +58,12 @@ export default function Filters({
                   <span>Dia:</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {selectedDate && !isValidDate && (
+                  {isInvalid && (
                     <>
-                      <Badge
-                        variant="outline"
-                        className="text-xs text-red-600 border-red-300 bg-red-50"
-                      >
+                      <Badge variant="destructive" className="text-xs">
                         Inválido
                       </Badge>
-                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <AlertCircle className="h-4 w-4 text-destructive" />
                     </>
                   )}
                 </div>
@@ -83,7 +74,12 @@ export default function Filters({
                 onValueChange={(v) => setSelectedDate(v)}
                 disabled={disabled}
               >
-                <SelectTrigger className={trigger}>
+                <SelectTrigger
+                  className={`${baseTrigger} ${
+                    isInvalid ? "border-destructive/50 bg-destructive/10" : ""
+                  }`}
+                  aria-invalid={isInvalid}
+                >
                   <SelectValue placeholder="Selecione o dia">
                     {selectedDate && (
                       <div className="flex items-center space-x-2">
@@ -94,21 +90,21 @@ export default function Filters({
                 </SelectTrigger>
 
                 <SelectContent className="max-h-60">
-                  <div className="p-2 text-xs text-gray-500 border-b">
+                  <div className="p-2 text-xs text-muted-foreground border-b border-border">
                     Selecione o dia do cardápio
                   </div>
                   {dates.map((d) => {
                     const selected = d === selectedDate;
                     return (
                       <SelectItem
-                        className="cursor-pointer hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+                        className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 transition-colors"
                         value={d}
                         key={d}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span>{formatDate(d)}</span>
                           {selected && (
-                            <Check className="h-4 w-4 text-green-600 ml-2" />
+                            <Check className="h-4 w-4 text-primary ml-2" />
                           )}
                         </div>
                       </SelectItem>
@@ -117,8 +113,8 @@ export default function Filters({
                 </SelectContent>
               </Select>
 
-              {selectedDate && !isValidDate && (
-                <div className="text-xs text-red-600 flex items-center space-x-1">
+              {isInvalid && (
+                <div className="text-xs text-destructive flex items-center space-x-1">
                   <AlertCircle className="h-3 w-3" />
                   <span>Data inválida selecionada</span>
                 </div>
@@ -128,28 +124,16 @@ export default function Filters({
         })()}
       </div>
 
+      {/* Refeição */}
       <div className="flex-1">
         {(() => {
           const mealKeys = Object.keys(MEAL_LABEL) as MealKey[];
           const isValidMeal = !selectedMeal || mealKeys.includes(selectedMeal);
-          const size: "sm" | "md" | "lg" = "md";
           const disabled = false;
-          const base = "w-full transition-all duration-200";
-          const sizeMap = { sm: "text-sm", md: "", lg: "text-lg" };
-          let trigger = `${base} ${sizeMap[size]}`;
-
-          if (disabled) {
-            trigger += " cursor-not-allowed opacity-60";
-          } else {
-            trigger += " cursor-pointer hover:border-gray-400";
-          }
-          trigger += " focus:border-blue-400 focus:ring-blue-200";
-          if (selectedMeal && !isValidMeal) {
-            trigger += " border-red-300 bg-red-50";
-          }
+          const isInvalid = Boolean(selectedMeal && !isValidMeal);
 
           const labelCls = `text-sm font-medium flex items-center justify-between ${
-            disabled ? "text-gray-500" : "text-gray-700"
+            disabled ? "text-muted-foreground" : "text-foreground"
           }`;
 
           return (
@@ -160,15 +144,12 @@ export default function Filters({
                   <span>Refeição:</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {selectedMeal && !isValidMeal && (
+                  {isInvalid && (
                     <>
-                      <Badge
-                        variant="outline"
-                        className="text-xs text-red-600 border-red-300 bg-red-50"
-                      >
+                      <Badge variant="destructive" className="text-xs">
                         Inválida
                       </Badge>
-                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <AlertCircle className="h-4 w-4 text-destructive" />
                     </>
                   )}
                 </div>
@@ -176,13 +157,15 @@ export default function Filters({
 
               <Select
                 value={selectedMeal}
-                onValueChange={(v) => {
-                  console.log("Refeição selecionada:", v);
-                  setSelectedMeal(v as MealKey);
-                }}
+                onValueChange={(v) => setSelectedMeal(v as MealKey)}
                 disabled={disabled}
               >
-                <SelectTrigger className={trigger}>
+                <SelectTrigger
+                  className={`${baseTrigger} ${
+                    isInvalid ? "border-destructive/50 bg-destructive/10" : ""
+                  }`}
+                  aria-invalid={isInvalid}
+                >
                   <SelectValue placeholder="Selecione a refeição">
                     {selectedMeal && (
                       <div className="flex items-center space-x-2">
@@ -193,21 +176,21 @@ export default function Filters({
                 </SelectTrigger>
 
                 <SelectContent className="max-h-60">
-                  <div className="p-2 text-xs text-gray-500 border-b">
+                  <div className="p-2 text-xs text-muted-foreground border-b border-border">
                     Selecione o tipo de refeição
                   </div>
                   {mealKeys.map((k) => {
                     const selected = k === selectedMeal;
                     return (
                       <SelectItem
-                        className="cursor-pointer hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+                        className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 transition-colors"
                         value={k}
                         key={k}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span>{MEAL_LABEL[k]}</span>
                           {selected && (
-                            <Check className="h-4 w-4 text-green-600 ml-2" />
+                            <Check className="h-4 w-4 text-primary ml-2" />
                           )}
                         </div>
                       </SelectItem>
@@ -216,8 +199,8 @@ export default function Filters({
                 </SelectContent>
               </Select>
 
-              {selectedMeal && !isValidMeal && (
-                <div className="text-xs text-red-600 flex items-center space-x-1">
+              {isInvalid && (
+                <div className="text-xs text-destructive flex items-center space-x-1">
                   <AlertCircle className="h-3 w-3" />
                   <span>Refeição inválida selecionada</span>
                 </div>
@@ -226,6 +209,8 @@ export default function Filters({
           );
         })()}
       </div>
+
+      {/* OM */}
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <div className="w-full sm:w-64">

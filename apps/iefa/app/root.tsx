@@ -9,7 +9,6 @@ import {
 
 import { ThemeProvider } from "@iefa/ui";
 
-
 import type { Route } from "./+types/root";
 import "./app.css";
 import { AuthProvider } from "@iefa/auth";
