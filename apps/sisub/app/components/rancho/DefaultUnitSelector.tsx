@@ -7,17 +7,15 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from "@iefa/ui";
-import { Label } from "@iefa/ui";
-import { Button } from "@iefa/ui";
-import {
+  Label,
+  Button,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Badge,
 } from "@iefa/ui";
-import { Badge } from "@iefa/ui";
 import { useRancho } from "../hooks/useRancho";
 
 interface DefaultUnitSelectorProps {
@@ -40,7 +38,7 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
   }) => {
     const { ranchos } = useRancho();
 
-    // Dados computados (corrigidas dependências para evitar label “stale”)
+    // Dados computados
     const selectorData = useMemo(() => {
       const cardsCount = cardsWithoutUnit.length;
       const hasCardsToApply = cardsCount > 0;
@@ -58,56 +56,6 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
         hasUnits,
       };
     }, [cardsWithoutUnit, defaultUnit, ranchos]);
-
-    // Classes por tema (accent = laranja)
-    const cardClasses = useMemo(
-      () =>
-        [
-          "group relative overflow-hidden",
-          "border border-orange-200 bg-orange-50/70",
-          "shadow-sm transition-all duration-300",
-          "hover:shadow-md hover:border-orange-300",
-          "rounded-2xl",
-        ].join(" "),
-      []
-    );
-
-    const headerChipClasses = useMemo(
-      () =>
-        "inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white text-orange-700 ring-1 ring-orange-200",
-      []
-    );
-
-    const selectTriggerClasses = useMemo(
-      () =>
-        [
-          "w-full cursor-pointer",
-          "border-orange-200 bg-white",
-          "focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2",
-          "hover:border-orange-300",
-        ].join(" "),
-      []
-    );
-
-    const cancelButtonClasses = useMemo(
-      () =>
-        [
-          "border-orange-200 text-orange-700",
-          "hover:bg-orange-100/60",
-          "focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2",
-        ].join(" "),
-      []
-    );
-
-    const applyButtonClasses = useMemo(
-      () =>
-        [
-          "bg-orange-600 hover:bg-orange-700 text-white",
-          "focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2",
-          "disabled:opacity-60 disabled:cursor-not-allowed",
-        ].join(" "),
-      []
-    );
 
     // Handlers
     const handleUnitChange = useCallback(
@@ -131,7 +79,7 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
       onCancel();
     }, [isApplying, onCancel]);
 
-    // Itens do select (corrigido deps para ranchos)
+    // Itens do select
     const selectItems = useMemo(() => {
       if (!ranchos || ranchos.length === 0) {
         return (
@@ -142,9 +90,13 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
       }
       return ranchos.map((rancho) => (
         <SelectItem
-          className="cursor-pointer focus:bg-orange-50 hover:bg-orange-50"
           key={rancho.value}
           value={rancho.value}
+          className="
+            cursor-pointer
+            data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground
+            focus:bg-accent/20
+          "
         >
           {rancho.label}
         </SelectItem>
@@ -155,22 +107,33 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
       selectorData;
 
     return (
-      <Card className={cardClasses}>
-        {/* Decoração sutil */}
+      <Card
+        className="
+          group relative overflow-hidden rounded-2xl
+          bg-card text-card-foreground border border-border
+          shadow-sm transition-all duration-300 hover:shadow-md hover:border-accent
+        "
+      >
+        {/* Decorações sutis com tokens */}
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full bg-orange-200/30 blur-2xl"
+          className="pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full bg-accent/20 blur-2xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-10 -left-8 h-24 w-24 rounded-full bg-amber-200/30 blur-2xl"
+          className="pointer-events-none absolute -bottom-10 -left-8 h-24 w-24 rounded-full bg-secondary/20 blur-2xl"
         />
 
         <CardHeader className="pb-4">
-          <div className="flex items-start justify-between">
-            <CardTitle className="text-orange-900">
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="text-foreground">
               <span className="flex items-center gap-2">
-                <span className={headerChipClasses}>
+                <span
+                  className="
+                    inline-flex items-center justify-center h-8 w-8 rounded-lg
+                    bg-background text-foreground ring-1 ring-border
+                  "
+                >
                   <Settings className="h-4.5 w-4.5" />
                 </span>
                 <span className="font-semibold">Configurar Unidade Padrão</span>
@@ -179,19 +142,23 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
 
             <Badge
               variant="outline"
-              className={[
-                "border",
+              className={
                 cardsCount > 0
-                  ? "border-orange-300 text-orange-700"
-                  : "border-gray-300 text-gray-600",
-              ].join(" ")}
+                  ? "border-accent text-accent"
+                  : "border-border text-muted-foreground"
+              }
             >
               {cardsCount} card{cardsCount !== 1 ? "s" : ""}
             </Badge>
           </div>
 
           <CardDescription className="mt-3">
-            <div className="flex gap-2 rounded-md border border-orange-200 bg-orange-100/70 p-2.5 text-orange-800">
+            <div
+              className="
+                flex gap-2 rounded-md border p-2.5
+                bg-accent/10 text-accent-foreground border-accent/30
+              "
+            >
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
               <span className="text-sm">
                 Defina uma unidade padrão para os cards que ainda não possuem
@@ -204,7 +171,7 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
 
         <CardContent className="space-y-6">
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-orange-900">
+            <Label className="text-sm font-medium text-foreground">
               Selecione a unidade padrão:
             </Label>
 
@@ -213,7 +180,14 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
               onValueChange={handleUnitChange}
               disabled={isApplying || !hasUnits}
             >
-              <SelectTrigger className={selectTriggerClasses}>
+              <SelectTrigger
+                className="
+                  w-full cursor-pointer
+                  bg-background border border-border
+                  focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                  hover:border-accent
+                "
+              >
                 <SelectValue
                   placeholder={
                     hasUnits
@@ -226,11 +200,16 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
             </Select>
 
             {defaultUnit && (
-              <div className="flex items-center gap-2 text-xs text-orange-700 bg-orange-100 p-2 rounded-md border border-orange-200">
+              <div
+                className="
+                  flex items-center gap-2 text-xs rounded-md border p-2
+                  bg-muted text-muted-foreground border-border
+                "
+              >
                 <CheckCircle className="h-3.5 w-3.5" />
                 <span>
                   Unidade selecionada:{" "}
-                  <strong className="text-orange-900">
+                  <strong className="text-foreground">
                     {selectedUnitLabel}
                   </strong>
                 </span>
@@ -238,12 +217,12 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
             )}
           </div>
 
-          <div className="border-t border-orange-200 pt-4">
+          <div className="border-t border-border pt-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div
                 className={[
                   "text-sm flex items-center gap-2",
-                  hasCardsToApply ? "text-orange-800" : "text-gray-500",
+                  hasCardsToApply ? "text-foreground" : "text-muted-foreground",
                 ].join(" ")}
               >
                 <CheckCircle className="h-4 w-4" />
@@ -259,7 +238,10 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
                   size="sm"
                   onClick={handleCancel}
                   disabled={isApplying}
-                  className={cancelButtonClasses}
+                  className="
+                    hover:bg-muted
+                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                  "
                 >
                   Cancelar
                 </Button>
@@ -268,7 +250,11 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
                   size="sm"
                   onClick={handleApply}
                   disabled={isApplying || !hasCardsToApply || !defaultUnit}
-                  className={applyButtonClasses}
+                  className="
+                    bg-primary text-primary-foreground hover:bg-primary/90
+                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
                 >
                   {isApplying ? (
                     <>
@@ -287,11 +273,16 @@ export const DefaultUnitSelector = memo<DefaultUnitSelectorProps>(
           </div>
 
           {/* Informação adicional */}
-          <div className="text-xs text-orange-700 bg-orange-50 p-3 rounded-md border border-orange-200">
+          <div
+            className="
+              text-xs rounded-md border p-3
+              bg-muted text-muted-foreground border-border
+            "
+          >
             <div className="flex items-start gap-2">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <p className="font-medium">Importante</p>
+                <p className="font-medium text-foreground">Importante</p>
                 <ul className="space-y-1">
                   <li>
                     • Esta ação não afetará cards que já possuem unidade

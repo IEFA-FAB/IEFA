@@ -32,32 +32,45 @@ export default function PresenceTable({
   return (
     <>
       {/* Lista de presenças */}
-      <div className="bg-white rounded-lg border shadow-sm">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
+      <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/50">
           <div>
             <h3 className="font-semibold">Presenças registradas</h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Dia {formatDate(selectedDate)} · {MEAL_LABEL[selectedMeal]}
             </p>
           </div>
           <Badge variant="secondary">{presences.length}</Badge>
         </div>
+
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>UUID</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Refeição</TableHead>
-                <TableHead>Previsão</TableHead>
-                <TableHead>Registrado em</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="text-muted-foreground">UUID</TableHead>
+                <TableHead className="text-muted-foreground">Data</TableHead>
+                <TableHead className="text-muted-foreground">
+                  Refeição
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  Previsão
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  Registrado em
+                </TableHead>
+                <TableHead className="text-right text-muted-foreground">
+                  Ações
+                </TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {presences.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500">
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     Nenhuma presença registrada ainda.
                   </TableCell>
                 </TableRow>
@@ -65,7 +78,7 @@ export default function PresenceTable({
                 presences.map((row) => {
                   const saidWouldAttend = forecastMap[row.user_id] ?? false;
                   return (
-                    <TableRow key={row.id}>
+                    <TableRow key={row.id} className="hover:bg-accent/50">
                       <TableCell className="font-mono text-xs">
                         {row.user_id}
                       </TableCell>
@@ -73,26 +86,23 @@ export default function PresenceTable({
                       <TableCell>{MEAL_LABEL[row.meal]}</TableCell>
                       <TableCell>
                         {saidWouldAttend ? (
-                          <Badge className="bg-green-100 text-green-700 border border-green-200">
-                            Sim
-                          </Badge>
+                          <Badge variant="default">Sim</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-gray-600">
-                            Não
-                          </Badge>
+                          <Badge variant="outline">Não</Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        {" "}
                         {new Date(row.created_at).toLocaleString("pt-BR")}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="text-destructive hover:bg-destructive/10"
                           onClick={() => actions.removePresence(row)}
+                          aria-label="Remover presença"
                         >
-                          <Trash2 className="h-4 w-4 text-red-600" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>

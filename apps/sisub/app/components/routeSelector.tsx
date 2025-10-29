@@ -15,8 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@iefa/ui";
-
-import type { UserLevelOrNull } from "@iefa/auth";
+import type { UserLevelOrNull } from "../services/AdminService";
 
 interface RouteSelectorProps {
   userLevel: UserLevelOrNull;

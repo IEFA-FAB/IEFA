@@ -12,10 +12,10 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  Badge,
+  Label,
+  Button,
 } from "@iefa/ui";
-import { Badge } from "@iefa/ui";
-import { Label } from "@iefa/ui";
-import { Button } from "@iefa/ui";
 import { MealButton } from "~/components/MealButton";
 import { MEAL_TYPES } from "~/components/constants/rancho";
 import { createEmptyDayMeals, type DayMeals } from "~/utils/RanchoUtils";
@@ -23,11 +23,8 @@ import { createEmptyDayMeals, type DayMeals } from "~/utils/RanchoUtils";
 type ApplyMode = "fill-missing" | "override";
 
 interface BulkMealSelectorProps {
-  // Datas (YYYY-MM-DD) que receberão o template
-  targetDates: string[];
-  // Template inicial de refeições; se ausente, inicia tudo desmarcado
-  initialTemplate?: Partial<DayMeals>;
-  // Ao aplicar, retorna o template final e o modo escolhido
+  targetDates: string[]; // Datas (YYYY-MM-DD) que receberão o template
+  initialTemplate?: Partial<DayMeals>; // Template inicial
   onApply: (template: DayMeals, options: { mode: ApplyMode }) => Promise<void>;
   onCancel: () => void;
   isApplying: boolean;
@@ -51,27 +48,22 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
     const cardsCount = targetDates.length;
     const hasCardsToApply = cardsCount > 0;
 
-    // Classes (tema “verde” para refeições, espelhando o estilo do DefaultUnitSelector)
+    // Tokens shadcn/ui
     const cardClasses = useMemo(
       () =>
-        "border-green-200 bg-green-50 shadow-sm transition-all duration-200",
+        [
+          "relative overflow-hidden rounded-2xl",
+          "bg-card text-card-foreground border border-border",
+          "shadow-sm transition-all duration-300",
+          "hover:shadow-md hover:border-accent",
+        ].join(" "),
       []
     );
-    const cancelButtonClasses = useMemo(
-      () =>
-        "border-green-200 text-green-700 hover:bg-green-100 cursor-pointer transition-colors",
-      []
-    );
-    const applyButtonClasses = useMemo(
-      () =>
-        "bg-green-600 hover:bg-green-700 text-white cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-      []
-    );
-    const modeButtonBase =
-      "text-xs sm:text-sm h-8 px-3 border cursor-pointer transition-colors";
-    const modeButtonSelected = "bg-green-600 text-white border-green-700";
-    const modeButtonUnselected =
-      "border-green-200 text-green-700 hover:bg-green-100";
+
+    const modeBtnBase =
+      "text-xs sm:text-sm h-8 px-3 border rounded-md transition-colors";
+    const modeBtnSelected = "bg-primary text-primary-foreground border-primary";
+    const modeBtnUnselected = "border-border text-foreground hover:bg-muted";
 
     const selectedCount = useMemo(
       () => Object.values(template).filter(Boolean).length,
@@ -128,44 +120,73 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
 
     return (
       <Card className={cardClasses}>
+        {/* Decorações sutis com tokens */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full bg-accent/20 blur-2xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-10 -left-8 h-24 w-24 rounded-full bg-secondary/20 blur-2xl"
+        />
+
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between text-green-800">
-            <div className="flex items-center space-x-2">
-              <UtensilsCrossed className="h-5 w-5" />
+          <CardTitle className="flex items-center justify-between text-foreground">
+            <div className="flex items-center gap-2">
+              <span
+                className="
+                  inline-flex items-center justify-center h-8 w-8 rounded-lg
+                  bg-background text-primary ring-1 ring-border
+                "
+              >
+                <UtensilsCrossed className="h-5 w-5" />
+              </span>
               <span>Aplicar Refeições em Massa</span>
             </div>
+
             <Badge
               variant="outline"
-              className="text-green-700 border-green-300"
+              className={
+                hasCardsToApply
+                  ? "border-accent text-accent"
+                  : "border-border text-muted-foreground"
+              }
             >
               {cardsCount} card{cardsCount !== 1 ? "s" : ""}
             </Badge>
           </CardTitle>
 
-          <CardDescription className="text-green-700 flex items-start space-x-2">
-            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <span>
-              Selecione o conjunto de refeições e aplique a vários cards de uma
-              vez. Você pode escolher entre preencher somente onde está vazio ou
-              sobrescrever tudo.
-            </span>
+          <CardDescription className="text-foreground/80 mt-3">
+            <div
+              className="
+                flex items-start gap-2 rounded-md border p-2.5
+                bg-accent/10 text-accent-foreground border-accent/30
+              "
+            >
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span className="text-sm">
+                Selecione o conjunto de refeições e aplique a vários cards de
+                uma vez. Você pode escolher entre preencher somente onde está
+                vazio ou sobrescrever tudo.
+              </span>
+            </div>
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {/* Modo de aplicação */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-green-800">
+            <Label className="text-sm font-medium text-foreground">
               Modo de aplicação:
             </Label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className={`${modeButtonBase} ${
+                className={`${modeBtnBase} ${
                   applyMode === "fill-missing"
-                    ? modeButtonSelected
-                    : modeButtonUnselected
+                    ? modeBtnSelected
+                    : modeBtnUnselected
                 }`}
                 onClick={() => setApplyMode("fill-missing")}
                 disabled={isApplying}
@@ -175,10 +196,8 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
               <Button
                 type="button"
                 variant="outline"
-                className={`${modeButtonBase} ${
-                  applyMode === "override"
-                    ? modeButtonSelected
-                    : modeButtonUnselected
+                className={`${modeBtnBase} ${
+                  applyMode === "override" ? modeBtnSelected : modeBtnUnselected
                 }`}
                 onClick={() => setApplyMode("override")}
                 disabled={isApplying}
@@ -186,14 +205,16 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
                 Sobrescrever tudo
               </Button>
             </div>
-            <p className="text-xs text-green-700">
-              Selecionadas: <strong>{selectedCount}</strong> de 4 refeições.
+            <p className="text-xs text-muted-foreground">
+              Selecionadas:{" "}
+              <strong className="text-foreground">{selectedCount}</strong> de 4
+              refeições.
             </p>
           </div>
 
           {/* Grid de refeições (padrão do DayCard) */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-green-800">
+            <Label className="text-sm font-medium text-foreground">
               Escolha as refeições:
             </Label>
             <div className="grid grid-cols-2 gap-2">
@@ -213,14 +234,14 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
             </div>
 
             {/* Presets rápidos */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setAll(true)}
                 disabled={isApplying}
-                className="text-xs"
+                className="text-xs hover:bg-muted"
               >
                 Todas
               </Button>
@@ -230,7 +251,7 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
                 size="sm"
                 onClick={() => setAll(false)}
                 disabled={isApplying}
-                className="text-xs"
+                className="text-xs hover:bg-muted"
               >
                 Nenhuma
               </Button>
@@ -240,7 +261,7 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
                 size="sm"
                 onClick={setWorkdayPreset}
                 disabled={isApplying}
-                className="text-xs"
+                className="text-xs hover:bg-muted"
               >
                 Padrão Dias Úteis
               </Button>
@@ -248,26 +269,29 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
           </div>
 
           {/* Rodapé com ações */}
-          <div className="border-t border-green-200 pt-4">
+          <div className="border-t border-border pt-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="text-sm text-green-700">
-                <span>
-                  Aplicar template selecionado a {cardsCount} card
-                  {cardsCount !== 1 ? "s" : ""} (
-                  {applyMode === "fill-missing"
-                    ? "preencher onde está vazio"
-                    : "sobrescrever"}
-                  ).
-                </span>
+              <div className="text-sm text-muted-foreground">
+                Aplicar template selecionado a{" "}
+                <span className="text-foreground">{cardsCount}</span> card
+                {cardsCount !== 1 ? "s" : ""} (
+                {applyMode === "fill-missing"
+                  ? "preencher onde está vazio"
+                  : "sobrescrever"}
+                ).
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleCancel}
                   disabled={isApplying}
-                  className={cancelButtonClasses}
+                  className="
+                    hover:bg-muted
+                    focus-visible:ring-2 focus-visible:ring-ring
+                    focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                  "
                 >
                   Cancelar
                 </Button>
@@ -278,7 +302,12 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
                   disabled={
                     isApplying || !hasCardsToApply || selectedCount === 0
                   }
-                  className={applyButtonClasses}
+                  className="
+                    bg-primary text-primary-foreground hover:bg-primary/90
+                    focus-visible:ring-2 focus-visible:ring-ring
+                    focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  "
                 >
                   {isApplying ? (
                     <>
@@ -296,11 +325,18 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
             </div>
 
             {/* Informação adicional */}
-            <div className="mt-4 text-xs text-green-700 bg-green-50 p-3 rounded-md border border-green-200">
-              <div className="flex items-start space-x-2">
-                <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+            <div
+              className="
+                mt-4 text-xs rounded-md border p-3
+                bg-muted text-muted-foreground border-border
+              "
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-medium mb-1">Importante:</p>
+                  <p className="font-medium text-foreground mb-1">
+                    Importante:
+                  </p>
                   <ul className="space-y-1">
                     <li>
                       • “Preencher onde está vazio” não desmarca seleções já

@@ -57,20 +57,20 @@ export default function QRAutoCheckinCard({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-6">
+    <div className="rounded-2xl border  shadow-sm p-6">
       <div className="flex items-center justify-between mb-2">
-        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs   border ">
           <QrCode className="h-4 w-4" aria-hidden="true" />
           Auto Check-In
         </div>
         {currentOm ? (
-          <span className="text-xs text-gray-500">OM: {currentOm}</span>
+          <span className="text-xs ">OM: {currentOm}</span>
         ) : (
-          <span className="text-xs text-gray-400">OM não definida</span>
+          <span className="text-xs ">OM não definida</span>
         )}
       </div>
 
-      <h2 className="text-xl font-bold text-gray-900 mb-4">
+      <h2 className="text-xl font-bold  mb-4">
         QR Code de Auto Check-In
       </h2>
 
@@ -87,14 +87,14 @@ export default function QRAutoCheckinCard({
         />
       </div>
 
-      <div className="text-gray-600 text-sm mb-4">
+      <div className=" text-sm mb-4">
         Exiba este QR no ponto de acesso. Usuários autorizados farão check-in
         pela câmera do celular.
       </div>
 
       <div
         ref={qrWrapRef}
-        className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-6"
+        className="flex flex-col items-center justify-center rounded-xl border   p-6"
       >
         {currentOm ? (
           <QRCodeCanvas
@@ -108,7 +108,7 @@ export default function QRAutoCheckinCard({
           />
         ) : (
           <div
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700"
+            className="inline-flex items-center gap-2 rounded-lg border  px-3 py-2 "
             role="status"
             aria-live="polite"
           >
@@ -124,8 +124,8 @@ export default function QRAutoCheckinCard({
           disabled={!currentOm}
           className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-150 shadow-sm ${
             currentOm
-              ? "bg-emerald-600 text-white hover:bg-emerald-700"
-              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              ? " ver:bg-emerald-700"
+              : "  cursor-not-allowed"
           }`}
         >
           {copied ? (
@@ -145,8 +145,8 @@ export default function QRAutoCheckinCard({
           disabled={!currentOm}
           className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-150 border ${
             currentOm
-              ? "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+              ? "border-gray-300   hover:bg-gray-50"
+              : "border-gray-200  cursor-not-allowed"
           }`}
         >
           <Download className="h-4 w-4" aria-hidden="true" />

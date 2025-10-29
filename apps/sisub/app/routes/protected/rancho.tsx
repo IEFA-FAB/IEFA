@@ -1,4 +1,4 @@
-// Rancho.tsx
+// apps/sisub/app/routes/rancho.tsx
 
 import {
   lazy,
@@ -8,12 +8,7 @@ import {
   useMemo,
   type JSX,
 } from "react";
-import {
-  Loader2,
-  Settings,
-  RefreshCw,
-  UtensilsCrossed,
-} from "lucide-react";
+import { Loader2, Settings, RefreshCw, UtensilsCrossed } from "lucide-react";
 
 import { Button } from "@iefa/ui";
 import {
@@ -68,9 +63,9 @@ const pluralize = (count: number, singular: string, plural: string) =>
 const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações");
 const labelCard = (n: number) => pluralize(n, "card", "cards");
 const labelDiaUtil = (n: number) => pluralize(n, "dia útil", "dias úteis");
-const labelTem = (n: number) => pluralize(n, "tem", "têm"); // concordância verbal
+const labelTem = (n: number) => pluralize(n, "tem", "têm");
 
-// Função pura para calcular dados do card (sem hooks)
+// Função pura para calcular dados do card
 const getDayCardData = (
   date: string,
   todayString: string,
@@ -114,6 +109,7 @@ export default function Rancho(): JSX.Element {
     success,
     error,
     isLoading,
+    isRefetching, // NOVO: refetch em background
     pendingChanges,
     isSavingBatch,
     selections,
@@ -254,6 +250,7 @@ export default function Rancho(): JSX.Element {
   );
 
   const handleRefresh = useCallback((): void => {
+    // Agora usa o refetch do TanStack Query por trás do hook
     loadExistingPrevisoes();
   }, [loadExistingPrevisoes]);
 
@@ -305,11 +302,10 @@ export default function Rancho(): JSX.Element {
         });
       }
 
-      // Pluralização de "card"
       setSuccess(
-        `Unidade padrão "${defaultUnit}" aplicada a ${
+        `Unidade padrão "${defaultUnit}" aplicada a ${cardsWithoutUnit.length} ${labelCard(
           cardsWithoutUnit.length
-        } ${labelCard(cardsWithoutUnit.length)}!`
+        )}!`
       );
       setShowDefaultUnitSelector(false);
     } catch (err) {
@@ -404,7 +400,6 @@ export default function Rancho(): JSX.Element {
           return [...filtered, ...newChanges];
         });
 
-        // Pluralização de dia útil e alteração
         const diasStr = `${targetDates.length} ${labelDiaUtil(
           targetDates.length
         )}`;
@@ -446,7 +441,7 @@ export default function Rancho(): JSX.Element {
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-screen-2xl w-full">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Carregando previsões...</p>
+          <p className="">Carregando previsões...</p>
         </div>
       </div>
     );
@@ -459,11 +454,11 @@ export default function Rancho(): JSX.Element {
      ============================ */
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="min-h-screen ">
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+          <h1 className="text-lg sm:text-xl font-semibold">
             Previsão SISUB
           </h1>
 
@@ -472,7 +467,7 @@ export default function Rancho(): JSX.Element {
               variant="outline"
               size="sm"
               onClick={handleToggleUnitSelector}
-              className="text-orange-600 border-orange-600 hover:bg-orange-50 cursor-pointer"
+              className=" hover:bg-orange-50 cursor-pointer"
               aria-label="Definir unidade padrão"
             >
               <Settings className="h-4 w-4 mr-2" />
@@ -484,7 +479,7 @@ export default function Rancho(): JSX.Element {
               size="sm"
               onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
               disabled={isLoading}
-              className="text-green-600 border-green-600 hover:bg-green-50 cursor-pointer"
+              className=" hover:bg-green-50 cursor-pointer"
               aria-label="Aplicar refeições em massa"
             >
               <UtensilsCrossed className="h-4 w-4 mr-2" />
@@ -495,12 +490,12 @@ export default function Rancho(): JSX.Element {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isLoading}
+              disabled={isLoading || isRefetching}
               className="cursor-pointer"
               aria-label="Recarregar previsões"
             >
               <RefreshCw
-                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
               />
             </Button>
           </div>
@@ -509,7 +504,7 @@ export default function Rancho(): JSX.Element {
         {/* Controles */}
         <section className="space-y-4">
           {showDefaultUnitSelector && (
-            <div className="rounded-lg border bg-white shadow-sm">
+            <div className="rounded-lg border  shadow-sm">
               <div className="p-4 sm:p-5">
                 <DefaultUnitSelector
                   defaultUnit={defaultUnit}
@@ -524,7 +519,7 @@ export default function Rancho(): JSX.Element {
           )}
 
           {showBulkMealSelector && (
-            <div className="rounded-lg border bg-white shadow-sm">
+            <div className="rounded-lg border  shadow-sm">
               <div className="p-4 sm:p-5">
                 <BulkMealSelector
                   targetDates={weekdayTargets}
@@ -534,7 +529,7 @@ export default function Rancho(): JSX.Element {
                   isApplying={isApplyingMealTemplate}
                 />
                 {weekdayTargetsNeedingFillCount > 0 && (
-                  <p className="mt-3 text-xs text-gray-500">
+                  <p className="mt-3 text-xs ">
                     Dica: {weekdayTargetsNeedingFillCount}{" "}
                     {labelDiaUtil(weekdayTargetsNeedingFillCount)}{" "}
                     {labelTem(weekdayTargetsNeedingFillCount)} refeições
@@ -560,7 +555,7 @@ export default function Rancho(): JSX.Element {
         </section>
 
         {/* Estatísticas */}
-        <section className="rounded-lg border bg-white shadow-sm">
+        <section className="rounded-lg border  shadow-sm">
           <div className="p-4 sm:p-5">
             <Suspense fallback={<SimplifiedMilitaryStatsSkeleton />}>
               <SimplifiedMilitaryStats selections={selections} dates={dates} />
@@ -587,33 +582,6 @@ export default function Rancho(): JSX.Element {
           </div>
         </section>
       </div>
-
-      {/* Botão de salvar */}
-      {/* {pendingChanges.length > 0 && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 px-4 w-full sm:w-auto">
-          <div className="mx-auto max-w-screen-2xl">
-            <div className="flex justify-center">
-              <Button
-                onClick={savePendingChanges}
-                disabled={isSavingBatch}
-                className="shadow-lg cursor-pointer w-full sm:w-auto"
-                size="lg"
-                aria-label={`Salvar ${pendingChanges.length} ${labelAlteracao(
-                  pendingChanges.length
-                )}`}
-              >
-                {isSavingBatch ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Salvar {pendingChanges.length}{" "}
-                {labelAlteracao(pendingChanges.length)}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )} */}
     </div>
   );
 }

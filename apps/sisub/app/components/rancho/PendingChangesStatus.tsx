@@ -23,28 +23,57 @@ export const PendingChangesStatus = memo<PendingChangesStatusProps>(
     const count = pendingChanges.length;
     if (count === 0) return null;
 
+    const base = "rounded-lg border p-3 sm:p-4 transition-colors w-full";
+    const savingClasses = "bg-primary/10 border-primary/30 text-primary";
+    const pendingClasses =
+      "bg-accent/10 border-accent/30 text-accent-foreground";
+
     return (
-      <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+      <div
+        className={`${base} ${isSavingBatch ? savingClasses : pendingClasses}`}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             {isSavingBatch ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-orange-600" />
-                <span className="text-sm text-orange-700">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm font-medium">
                   Salvando {count} {labelAlteracao(count)}...
                 </span>
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 text-orange-600" />
-                <span className="text-sm text-orange-700">
-                  {count} {labelAlteracao(count)} {labelPendente(count)} -
+                <Save className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {count} {labelAlteracao(count)} {labelPendente(count)} —
                   salvamento automático em andamento
                 </span>
               </>
             )}
           </div>
+
+          {/* Chip com a contagem usando apenas tokens */}
+          <span
+            className="
+              inline-flex items-center rounded-md
+              bg-background/70 text-foreground/80
+              border border-border px-2 py-0.5 text-xs
+            "
+            aria-label={`${count} ${labelAlteracao(count)}`}
+          >
+            {count}
+          </span>
         </div>
+
+        {/* Linha auxiliar em tom discreto */}
+        {!isSavingBatch && (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Você pode continuar usando o sistema enquanto salvamos suas
+            alterações.
+          </p>
+        )}
       </div>
     );
   }

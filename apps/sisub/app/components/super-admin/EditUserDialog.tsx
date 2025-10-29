@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@iefa/ui";
 import type { ProfileAdmin } from "./ProfilesManager";
-import { UserLevelOrNull } from "@iefa/auth";
+import type { UserLevelOrNull } from "../../services/AdminService";
 
 export type EditUserPayload = {
   saram: string;

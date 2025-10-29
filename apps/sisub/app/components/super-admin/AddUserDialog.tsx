@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@iefa/ui";
-import { UserLevelOrNull } from "@iefa/auth";
+import type { UserLevelOrNull } from "../../services/AdminService";
 
 export type NewUserPayload = {
   id: string;
