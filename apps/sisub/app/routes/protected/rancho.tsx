@@ -30,13 +30,11 @@ import {
 } from "~/utils/RanchoUtils";
 import { NEAR_DATE_THRESHOLD } from "~/components/constants/rancho";
 import { DayCardSkeleton } from "~/components/rancho/DayCard";
-import SimplifiedMilitaryStatsSkeleton from "~/components/rancho/SimplifiedMilitaryStatsSkeleton";
 import BulkMealSelector from "~/components/rancho/BulkMealSelector";
 import type { Route } from "./+types/rancho";
 
-const SimplifiedMilitaryStats = lazy(
-  () => import("~/components/rancho/SimplifiedMilitaryStats")
-);
+import SimplifiedMilitaryStats from "~/components/rancho/SimplifiedMilitaryStats";
+
 const DayCard = lazy(() => import("~/components/rancho/DayCard"));
 
 /* ============================
@@ -458,9 +456,7 @@ export default function Rancho(): JSX.Element {
       <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-lg sm:text-xl font-semibold">
-            Previsão SISUB
-          </h1>
+          <h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -557,9 +553,13 @@ export default function Rancho(): JSX.Element {
         {/* Estatísticas */}
         <section className="rounded-lg border  shadow-sm">
           <div className="p-4 sm:p-5">
-            <Suspense fallback={<SimplifiedMilitaryStatsSkeleton />}>
-              <SimplifiedMilitaryStats selections={selections} dates={dates} />
-            </Suspense>
+            <div className="p-4 sm:p-5">
+              <SimplifiedMilitaryStats
+                selections={selections}
+                dates={dates}
+                isLoading={isRefetching}
+              />
+            </div>
           </div>
         </section>
 
