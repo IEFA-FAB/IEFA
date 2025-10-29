@@ -128,4 +128,25 @@ api.use(
   api.get("/user-military-data", headersMw, handler);
 }
 
+// /api/user-data
+{
+  const [headersMw, handler] = createApiHandler({
+    table: "user_data",
+    select: 'id, created_at, email, "nrOrdem"',
+    dateColumn: "created_at",
+    dateColumnType: "timestamp",
+    defaultOrder: [
+      { column: "created_at", ascending: false },
+      { column: "email", ascending: true },
+    ],
+    mapParams: {
+      id: "id",            // ?id=uuid ou ?id=uuid1,uuid2
+      email: "email",      // ?email=foo@bar.com ou ?email_ilike=foo
+      nrOrdem: "nrOrdem",  // ?nrOrdem=123456 ou ?nrOrdem_ilike=123
+    },
+    cacheControl: "public, max-age=300",
+  });
+  api.get("/user-data", headersMw, handler);
+}
+
 export default api;
