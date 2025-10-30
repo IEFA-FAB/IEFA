@@ -2,5 +2,9 @@
 import { AuthLayout } from "@iefa/auth";
 
 export default function Layout() {
-  return <AuthLayout variant="strip" />;
+  return (
+    <div className="flex-1 h-full flex items-center align-middle content-center">
+      <AuthLayout variant="strip" />
+    </div>
+  );
 }

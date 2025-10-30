@@ -2,6 +2,7 @@
 import { Outlet, NavLink } from "react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@iefa/auth";
 import supabase from "~/utils/supabase";
@@ -33,6 +34,7 @@ import {
   Settings,
   FileText,
   QrCode,
+  XIcon,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -494,10 +496,7 @@ function AppShell() {
 
       {/* user QR dialog */}
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent
-          className="w-[95vw] max-w-md p-0 overflow-hidden"
-          showCloseButton
-        >
+        <DialogContent className="w-[95vw] max-w-md p-0 overflow-hidden">
           <div className="bg-primary text-primary-foreground px-4 sm:px-6 py-3 sm:py-4">
             <DialogHeader>
               <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
@@ -509,6 +508,13 @@ function AppShell() {
               <DialogDescription className="text-primary-foreground/80 mt-1 sm:mt-2 text-sm">
                 Use este código para identificação rápida no sistema
               </DialogDescription>
+              <DialogPrimitive.Close
+                data-slot="dialog-close"
+                className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-90 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              >
+                <XIcon className="stroke-background" />
+                <span className="sr-only">Close</span>
+              </DialogPrimitive.Close>
             </DialogHeader>
           </div>
 
@@ -516,10 +522,10 @@ function AppShell() {
             <div className="flex flex-col items-center gap-3 sm:gap-4">
               <div className="bg-foreground p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-lg border-2 sm:border-4">
                 {/* Responsivo sem usar window: tamanhos via breakpoints */}
-                <div className="sm:hidden bg-foreground">
+                <div className="sm:hidden bg-white">
                   <QRCodeCanvas value={user?.id || ""} size={140} level="M" />
                 </div>
-                <div className="hidden sm:block bg-foreground">
+                <div className="hidden sm:block bg-white">
                   <QRCodeCanvas value={user?.id || ""} size={180} level="M" />
                 </div>
               </div>
