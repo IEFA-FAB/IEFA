@@ -64,6 +64,16 @@ async function upsertEvalConfig(cfg: EvalConfig): Promise<EvalConfig> {
   };
 }
 
+export function meta() {
+  return [
+    { title: "Painel SuperAdmin" },
+    {
+      name: "description",
+      content: "Controle o sistema de subsistência",
+    },
+  ];
+}
+
 function SuperAdminPanelInner() {
   // fade-in
   const [mounted, setMounted] = useState(false);

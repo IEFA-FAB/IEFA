@@ -242,9 +242,9 @@ export default function Home() {
                     <Icon className="h-8 w-8 text-foreground/80" />
                   </div>
                   <CardTitle className="text-lg">{meal.label}</CardTitle>
-                  <CardDescription className="text-muted-foreground">
+                  {/* <CardDescription className="text-muted-foreground">
                     {meal.time}
-                  </CardDescription>
+                  </CardDescription> */}
                 </CardHeader>
               </Card>
             );
