@@ -520,7 +520,7 @@ function AppShell() {
 
           <div className="px-3 sm:px-6 py-4 sm:py-8 bg-muted">
             <div className="flex flex-col items-center gap-3 sm:gap-4">
-              <div className="bg-foreground p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-lg border-2 sm:border-4">
+              <div className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-lg border-2 sm:border-4">
                 {/* Responsivo sem usar window: tamanhos via breakpoints */}
                 <div className="sm:hidden bg-white">
                   <QRCodeCanvas value={user?.id || ""} size={140} level="M" />
