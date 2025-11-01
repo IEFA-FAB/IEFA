@@ -16,7 +16,8 @@ export default [
       index("routes/facilities/index.tsx"),
       route("pregoeiro", "routes/facilities/pregoeiro.tsx"),
     ]),
-
+    route("dashboard", "routes/overseerDashboard.tsx"),
+    
     layout("routes/auth/layout.tsx", [
       route("login", "routes/auth/login.tsx"),
       route("register", "routes/auth/register.tsx"),
