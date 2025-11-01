@@ -24,14 +24,19 @@ import {
   Clock,
   Globe,
   Server,
+  Share2,
+  Link as LinkIcon,
 } from "lucide-react";
 
 type RawHealthPayload =
   | {
       status?: string;
-      services?: Array<
-        string | { name?: string; url?: string; healthPath?: string }
-      >;
+      services?:
+        | Array<string | { name?: string; url?: string; healthPath?: string }>
+        | Record<
+            string,
+            string | { name?: string; url?: string; healthPath?: string }
+          >;
       [k: string]: any;
     }
   | Array<string | { name?: string; url?: string; healthPath?: string }>
@@ -52,6 +57,8 @@ type ProbeResult = {
   bodyStatus?: string;
   lastCheckedAt?: number;
   note?: string; // CORS, timeout, etc.
+  redirected?: boolean;
+  finalUrl?: string;
 };
 
 const API_BASE = "https://iefa-rag.fly.dev";
@@ -111,7 +118,7 @@ function joinUrl(base: string, path: string) {
     }
     return u.toString();
   } catch {
-    // fallback tos concatenation
+    // fallback to concatenation
     return base.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, "");
   }
 }
@@ -124,15 +131,28 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(input, { ...init, signal: controller.signal });
+    const res = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
     return res;
   } finally {
     clearTimeout(id);
   }
 }
 
+function normalizeBodyStatus(
+  s?: string
+): "ok" | "degraded" | "down" | string | undefined {
+  if (!s) return undefined;
+  const v = String(s).trim().toLowerCase();
+  if (["ok", "healthy", "up", "pass", "passing"].includes(v)) return "ok";
+  if (["warn", "warning", "degraded"].includes(v)) return "degraded";
+  if (["fail", "failing", "down"].includes(v)) return "down";
+  return v; // devolve o valor (normalizado) caso seja algo custom
+}
+
 async function probeService(target: ServiceTarget): Promise<ProbeResult> {
-  const started = performance.now();
   const stamp = Date.now();
 
   const tryUrls: string[] = [];
@@ -149,17 +169,34 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
     const method: "GET" | "HEAD" = i === 0 ? "GET" : "HEAD";
 
     try {
-      const res = await fetchWithTimeout(url, { method, cache: "no-store" });
-      const latencyMs = Math.max(1, Math.round(performance.now() - started));
+      const attemptStarted = performance.now();
+      const res = await fetchWithTimeout(
+        url,
+        {
+          method,
+          cache: "no-store",
+          headers: {
+            Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
+          },
+        },
+        REQ_TIMEOUT_MS
+      );
+      const latencyMs = Math.max(
+        1,
+        Math.round(performance.now() - attemptStarted)
+      );
       const httpStatus = res.status;
 
       let bodyStatus: string | undefined;
       if (method === "GET") {
         // tentar extrair { status: "ok" } do JSON
         try {
+          // Tenta JSON se der; se não, ignora
           const json = await res.clone().json();
-          bodyStatus =
+          const raw =
             typeof json?.status === "string" ? json.status : undefined;
+          const normalized = normalizeBodyStatus(raw);
+          bodyStatus = normalized;
         } catch {
           // ignore JSON errors
         }
@@ -167,13 +204,26 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 
       // Heurística de status
       if (httpStatus >= 200 && httpStatus < 300) {
-        if (bodyStatus && bodyStatus.toLowerCase() !== "ok") {
+        if (bodyStatus === "down") {
+          return {
+            status: "down",
+            httpStatus,
+            latencyMs,
+            bodyStatus,
+            lastCheckedAt: stamp,
+            redirected: res.redirected,
+            finalUrl: res.url,
+          };
+        }
+        if (bodyStatus && bodyStatus !== "ok") {
           return {
             status: "degraded",
             httpStatus,
             latencyMs,
             bodyStatus,
             lastCheckedAt: stamp,
+            redirected: res.redirected,
+            finalUrl: res.url,
           };
         }
         return {
@@ -182,6 +232,8 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
           latencyMs,
           bodyStatus,
           lastCheckedAt: stamp,
+          redirected: res.redirected,
+          finalUrl: res.url,
         };
       }
       if (httpStatus === 503 || httpStatus === 502 || httpStatus === 500) {
@@ -191,6 +243,8 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
           latencyMs,
           bodyStatus,
           lastCheckedAt: stamp,
+          redirected: res.redirected,
+          finalUrl: res.url,
         };
       }
       // HTTP fora do 2xx mas não hard-down
@@ -200,9 +254,14 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
         latencyMs,
         bodyStatus,
         lastCheckedAt: stamp,
+        redirected: res.redirected,
+        finalUrl: res.url,
       };
     } catch (e: any) {
-      const latencyMs = Math.max(1, Math.round(performance.now() - started));
+      const latencyMs = Math.max(
+        1,
+        Math.round(performance.now() - performance.now())
+      ); // não conseguimos medir -> 1ms
       if (e?.name === "AbortError") {
         // timeout
         return {
@@ -219,7 +278,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
         return {
           status: "unknown",
           httpStatus: undefined,
-          latencyMs,
+          latencyMs: undefined,
           lastCheckedAt: stamp,
           note: "cors/network",
         };
@@ -236,11 +295,13 @@ function deriveTargetsFromHealth(
 ): ServiceTarget[] {
   if (!data) return [];
 
-  // Caso 1: objeto com `services: [...]`
+  // Caso 1: objeto com `services`
   if (typeof (data as any)?.services !== "undefined") {
-    const arr = (data as any).services;
-    if (Array.isArray(arr)) {
-      return arr
+    const sv = (data as any).services;
+
+    // 1a) services como array
+    if (Array.isArray(sv)) {
+      const list = sv
         .map((item) => {
           if (typeof item === "string") {
             return { name: hostToName(item), url: item } as ServiceTarget;
@@ -254,15 +315,36 @@ function deriveTargetsFromHealth(
           return null;
         })
         .filter(Boolean) as ServiceTarget[];
+      if (list.length) return list;
+    }
+
+    // 1b) services como objeto { chave: url | {url, name, healthPath} }
+    if (sv && typeof sv === "object" && !Array.isArray(sv)) {
+      const list = Object.entries(sv as Record<string, any>)
+        .map(([k, v]) => {
+          if (typeof v === "string" && v.startsWith("http")) {
+            return { name: k, url: v } as ServiceTarget;
+          }
+          if (v && typeof v === "object") {
+            const url = (v as any).url || "";
+            const name = (v as any).name || k || hostToName(url);
+            const healthPath = (v as any).healthPath;
+            if (url) return { name, url, healthPath };
+          }
+          return null;
+        })
+        .filter(Boolean) as ServiceTarget[];
+      if (list.length) return list;
     }
   }
 
   // Caso 2: o payload inteiro é um array
   if (Array.isArray(data)) {
-    return data
+    const list = data
       .map((item) => {
-        if (typeof item === "string")
+        if (typeof item === "string") {
           return { name: hostToName(item), url: item } as ServiceTarget;
+        }
         if (item && typeof item === "object") {
           const url = (item as any).url || "";
           const name = (item as any).name || hostToName(url);
@@ -272,6 +354,7 @@ function deriveTargetsFromHealth(
         return null;
       })
       .filter(Boolean) as ServiceTarget[];
+    if (list.length) return list;
   }
 
   // Caso 3: objeto genérico com chaves possivelmente sendo serviços
@@ -279,18 +362,23 @@ function deriveTargetsFromHealth(
     const entries = Object.entries(data as Record<string, any>);
     const candidates: ServiceTarget[] = [];
     for (const [k, v] of entries) {
+      if (k === "status" || k === "ok") continue; // ignora status geral
       // { sisub: "https://..." } ou { sisub: { url: "https://...", name: "SISUB" } }
       if (typeof v === "string" && v.startsWith("http")) {
         candidates.push({ name: k, url: v });
-      } else if (v && typeof v === "object" && typeof v.url === "string") {
+      } else if (
+        v &&
+        typeof v === "object" &&
+        typeof (v as any).url === "string"
+      ) {
         candidates.push({
-          name: v.name || k,
-          url: v.url,
-          healthPath: v.healthPath,
+          name: (v as any).name || k,
+          url: (v as any).url,
+          healthPath: (v as any).healthPath,
         });
       }
     }
-    return candidates;
+    if (candidates.length) return candidates;
   }
 
   return [];
@@ -306,6 +394,7 @@ function defaultTargets(): ServiceTarget[] {
     portal,
     { name: "SISUB", url: "https://app.previsaosisub.com.br" },
     { name: "RAG API", url: "https://iefa-rag.fly.dev" },
+    { name: "IEFA API", url: "https://iefa-api.fly.dev" },
   ];
 }
 
@@ -332,14 +421,21 @@ export default function OverseerDashboard() {
       const res = await fetch(`${API_BASE}/health`, {
         method: "GET",
         cache: "no-store",
+        headers: { Accept: "application/json" },
       });
       const data: RawHealthPayload | undefined = await res
         .json()
         .catch(() => undefined);
       const derived = deriveTargetsFromHealth(data);
-      setTargets(derived.length > 0 ? derived : defaultTargets());
+      const finalList = (derived.length > 0 ? derived : defaultTargets()).sort(
+        (a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })
+      );
+      setTargets(finalList);
     } catch {
-      setTargets(defaultTargets());
+      const finalList = defaultTargets().sort((a, b) =>
+        a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })
+      );
+      setTargets(finalList);
     } finally {
       setLoadingTargets(false);
     }
@@ -430,7 +526,6 @@ export default function OverseerDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            
             <Button
               onClick={refreshAll}
               disabled={refreshingAll || loadingTargets}
@@ -613,6 +708,30 @@ export default function OverseerDashboard() {
                               }
                             )
                           : "—"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Share2 className="h-3.5 w-3.5" />
+                        Redirect
+                      </div>
+                      <div className="mt-1 font-semibold">
+                        {typeof r?.redirected === "boolean"
+                          ? r.redirected
+                            ? "Sim"
+                            : "Não"
+                          : "—"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3 break-all">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <LinkIcon className="h-3.5 w-3.5" />
+                        URL final
+                      </div>
+                      <div className="mt-1 font-semibold">
+                        {r?.finalUrl ? r.finalUrl : "—"}
                       </div>
                     </div>
                   </div>
