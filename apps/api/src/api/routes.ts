@@ -81,7 +81,7 @@ api.use(
 {
   const [headersMw, handler] = createApiHandler({
     table: "rancho_presencas",
-    select: "user_id, date, unidade",
+    select: "user_id, date, unidade, meal",
     dateColumn: "date",
     dateColumnType: "date",
     defaultOrder: [
