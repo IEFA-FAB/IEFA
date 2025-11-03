@@ -47,7 +47,7 @@ export function TeamSwitcher({
               <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                 {/* <activeTeam.logo className="size-4" /> */}
                 <img
-                  src="/public/favicon.svg"
+                  src="/favicon.svg"
                   className="shrink-0 rounded-full"
                 />
               </div>
@@ -79,7 +79,7 @@ export function TeamSwitcher({
                     <team.logo className="size-3.5 shrink-0" />
                   ) : ( */
                     <img
-                      src="/public/favicon.svg"
+                      src="/favicon.svg"
                       className="shrink-0 rounded-full"
                     />
                     /* ) */
