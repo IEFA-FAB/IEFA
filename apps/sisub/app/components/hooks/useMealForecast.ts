@@ -32,7 +32,7 @@ export interface PendingChange {
   date: string;
   meal: keyof DayMeals;
   value: boolean;
-  messHallCode: string; // was 'unidade' in PT
+  messHallCode: string; // mess hall code (maps to sisub.mess_halls.code)
 }
 
 export interface MealForecastHook {
@@ -151,7 +151,14 @@ export const useMealForecast = (): MealForecastHook => {
     setSuccessState("");
   }, []);
 
-  // Query: forecasts for period for user
+  // Query: forecasts for period for user (new: sisub.meal_forecasts + join mess_halls for code)
+  type ForecastRow = {
+    date: string;
+    meal: keyof DayMeals;
+    will_eat: boolean | null;
+    mess_halls?: { code?: string | null } | null;
+  };
+
   const {
     data: forecasts,
     isPending, // initial load
@@ -164,21 +171,20 @@ export const useMealForecast = (): MealForecastHook => {
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    /* keepPreviousData: true, */
-    // Supabase query keeps original (PT) column names
     queryFn: async () => {
       const { data, error: supabaseError } = await supabase
-        .from("rancho_previsoes")
-        .select("data, unidade, refeicao, vai_comer")
+        .schema("sisub")
+        .from("meal_forecasts")
+        .select("date, meal, will_eat, mess_halls(code)")
         .eq("user_id", user!.id)
-        .gte("data", dates[0])
-        .lte("data", dates[dates.length - 1])
-        .order("data", { ascending: true });
+        .gte("date", dates[0])
+        .lte("date", dates[dates.length - 1])
+        .order("date", { ascending: true });
 
       if (supabaseError) {
         throw supabaseError;
       }
-      return data ?? [];
+      return (data ?? []) as ForecastRow[];
     },
   });
 
@@ -197,12 +203,15 @@ export const useMealForecast = (): MealForecastHook => {
         initialMessHalls[date] = defaultMessHallCode;
       });
 
-      forecasts.forEach((p: any) => {
-        const { data, unidade, refeicao, vai_comer } = p;
-        if (initialSelections[data] && refeicao in initialSelections[data]) {
-          initialSelections[data][refeicao as keyof DayMeals] = !!vai_comer;
-          // Here 'unidade' stores the mess hall code historically
-          initialMessHalls[data] = unidade || defaultMessHallCode;
+      forecasts.forEach((p: ForecastRow) => {
+        const { date, meal, will_eat, mess_halls } = p;
+        if (initialSelections[date] && meal in initialSelections[date]) {
+          initialSelections[date][meal as keyof DayMeals] = !!will_eat;
+          // mess_halls(code) via FK join
+          const code = mess_halls?.code || undefined;
+          if (code) {
+            initialMessHalls[date] = code;
+          }
         }
       });
 
@@ -224,7 +233,6 @@ export const useMealForecast = (): MealForecastHook => {
     async (codes: string[]): Promise<void> => {
       if (codes.length === 0) return;
 
-      // Fetch unique codes and validate existence
       const uniqueCodes = Array.from(new Set(codes));
       const { data, error } = await supabase
         .schema("sisub")
@@ -247,7 +255,30 @@ export const useMealForecast = (): MealForecastHook => {
     []
   );
 
-  // Batch save with validation and conflict handling
+  // Helper: map mess hall codes -> ids
+  const getMessHallIdsByCode = useCallback(
+    async (codes: string[]): Promise<Map<string, number>> => {
+      const unique = Array.from(new Set(codes));
+      if (unique.length === 0) return new Map();
+
+      const { data, error } = await supabase
+        .schema("sisub")
+        .from("mess_halls")
+        .select("id, code")
+        .in("code", unique);
+
+      if (error) throw error;
+
+      const map = new Map<string, number>();
+      (data ?? []).forEach((r: { id: number; code: string }) =>
+        map.set(r.code, r.id)
+      );
+      return map;
+    },
+    []
+  );
+
+  // Batch save with validation and conflict handling (now using meal_forecasts + mess_hall_id)
   const savePendingChanges = useCallback(async (): Promise<void> => {
     if (!user?.id || pendingChanges.length === 0) return;
 
@@ -270,6 +301,9 @@ export const useMealForecast = (): MealForecastHook => {
           .map((c) => c.messHallCode);
         await validateMessHallCodes(codesToValidate);
 
+        // Build code -> id map once
+        const codeToId = await getMessHallIdsByCode(codesToValidate);
+
         // Group by date-meal to avoid duplicates
         const changesByKey = changesToSave.reduce(
           (acc, change) => {
@@ -284,19 +318,27 @@ export const useMealForecast = (): MealForecastHook => {
           Object.values(changesByKey).map(async (change) => {
             try {
               if (change.value) {
-                // Upsert forecast (keep PT column names in the DB)
+                // Upsert forecast (new table/columns)
+                const messHallId = codeToId.get(change.messHallCode);
+                if (!messHallId) {
+                  throw new Error(
+                    `Código de rancho não mapeado para ID: ${change.messHallCode}`
+                  );
+                }
+
                 const { error: upsertError } = await supabase
-                  .from("rancho_previsoes")
+                  .schema("sisub")
+                  .from("meal_forecasts")
                   .upsert(
                     {
-                      data: change.date,
-                      unidade: change.messHallCode, 
+                      date: change.date,
                       user_id: user.id,
-                      refeicao: change.meal,
-                      vai_comer: true,
+                      meal: change.meal,
+                      will_eat: true,
+                      mess_hall_id: messHallId,
                     },
                     {
-                      onConflict: "user_id,data,refeicao",
+                      onConflict: "user_id,date,meal",
                       ignoreDuplicates: false,
                     }
                   );
@@ -304,36 +346,39 @@ export const useMealForecast = (): MealForecastHook => {
                 if (upsertError) {
                   // Fallback: delete + insert
                   await supabase
-                    .from("rancho_previsoes")
+                    .schema("sisub")
+                    .from("meal_forecasts")
                     .delete()
                     .eq("user_id", user.id)
-                    .eq("data", change.date)
-                    .eq("refeicao", change.meal);
+                    .eq("date", change.date)
+                    .eq("meal", change.meal);
 
                   const { error: insertError } = await supabase
-                    .from("rancho_previsoes")
+                    .schema("sisub")
+                    .from("meal_forecasts")
                     .insert({
-                      data: change.date,
-                      unidade: change.messHallCode,
+                      date: change.date,
                       user_id: user.id,
-                      refeicao: change.meal,
-                      vai_comer: true,
+                      meal: change.meal,
+                      will_eat: true,
+                      mess_hall_id: messHallId,
                     });
 
                   if (insertError) throw insertError;
                 }
               } else {
-                // Delete forecast
+                // Delete forecast by unique key
                 const { error: deleteError } = await supabase
-                  .from("rancho_previsoes")
+                  .schema("sisub")
+                  .from("meal_forecasts")
                   .delete()
                   .eq("user_id", user.id)
-                  .eq("data", change.date)
-                  .eq("refeicao", change.meal);
+                  .eq("date", change.date)
+                  .eq("meal", change.meal);
 
                 if (
                   deleteError &&
-                  !deleteError.message.includes("No rows deleted")
+                  !deleteError.message?.includes("No rows deleted")
                 ) {
                   throw deleteError;
                 }
@@ -469,6 +514,7 @@ export const useMealForecast = (): MealForecastHook => {
     queryClient,
     queryKey,
     validateMessHallCodes,
+    getMessHallIdsByCode,
   ]);
 
   // Auto-save
