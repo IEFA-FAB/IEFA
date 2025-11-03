@@ -18,12 +18,12 @@ import type { PostgrestError } from "@supabase/supabase-js";
 export interface FiscalFilters {
   date: string;
   meal: MealKey;
-  unit: string;
+  unit: string; // mess hall code
 }
 
-interface PrevisaoRow {
+interface ForecastRow {
   user_id: string;
-  vai_comer: boolean;
+  will_eat: boolean | null;
 }
 
 interface QueryResult {
@@ -79,11 +79,8 @@ const presenceKeys = {
 // ============================================================================
 // SUPABASE OPERATIONS
 // ============================================================================
-// OBS: Se você tiver os tipos gerados do Supabase (Database), recomendo:
-// type RanchoPresencasRow = Database["public"]["Tables"]["rancho_presencas"]["Row"];
-// type RanchoPrevisoesRow = Database["public"]["Tables"]["rancho_previsoes"]["Row"];
-// e então usar .select().returns<RanchoPresencasRow[]>()
-// Me diga se você já usa esses tipos que eu ajusto o código para eles.
+// OBS: Se você tiver os tipos gerados do Supabase (Database), recomendo tipar
+// .returns<...>() abaixo. Posso adaptar se você usar esses tipos.
 
 const fetchPresences = async (
   filters: FiscalFilters
@@ -112,18 +109,38 @@ const fetchForecasts = async (
   filters: FiscalFilters,
   userIds: string[]
 ): Promise<ForecastMap> => {
-  if (userIds.length === 0) {
+  if (userIds.length === 0) return {};
+  if (!filters.unit) return {};
+
+  // 1) Mapear code -> id (sisub.mess_halls)
+  const { data: mhRows, error: mhError } = await supabase
+    .schema("sisub")
+    .from("mess_halls")
+    .select("id")
+    .eq("code", filters.unit)
+    .limit(1);
+
+  if (mhError) {
+    console.warn("Falha ao buscar mess_hall_id:", mhError);
     return {};
   }
 
+  const messHallId = mhRows?.[0]?.id as number | undefined;
+  if (!messHallId) {
+    console.warn(`Código de rancho não encontrado: ${filters.unit}`);
+    return {};
+  }
+
+  // 2) Buscar previsões em sisub.meal_forecasts (após migração)
   const { data, error } = await supabase
-    .from("rancho_previsoes")
-    .select("user_id, vai_comer")
-    .eq("data", filters.date)
-    .eq("refeicao", filters.meal)
-    .eq("unidade", filters.unit)
+    .schema("sisub")
+    .from("meal_forecasts")
+    .select("user_id, will_eat")
+    .eq("date", filters.date)
+    .eq("meal", filters.meal)
+    .eq("mess_hall_id", messHallId)
     .in("user_id", userIds)
-    .returns<PrevisaoRow[]>();
+    .returns<ForecastRow[]>();
 
   if (error) {
     console.warn("Falha ao buscar previsões:", error);
@@ -132,7 +149,7 @@ const fetchForecasts = async (
 
   const forecastMap: ForecastMap = {};
   (data ?? []).forEach((row) => {
-    forecastMap[row.user_id] = Boolean(row.vai_comer);
+    forecastMap[row.user_id] = Boolean(row.will_eat);
   });
 
   return forecastMap;
