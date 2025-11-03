@@ -2,7 +2,7 @@
 import type { ComponentType, SVGProps } from "react";
 import { UtensilsCrossed, ShieldCheck, Settings, FileText, LucideIcon } from "lucide-react";
 import type { UserLevelOrNull } from "~/services/AdminService";
-import type { AppSidebarData, NavItemSection } from "./types";
+import type { AppSidebarData, NavItemSection } from "./SidebarTypes";
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 

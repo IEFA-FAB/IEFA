@@ -50,6 +50,19 @@ class UnitRequiredError extends Error {
   }
 }
 
+// Caso queira um type guard para PostgrestError (opcional)
+const isPostgrestError = (e: unknown): e is PostgrestError => {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "code" in e &&
+    typeof (e as any).code === "string"
+  );
+};
+
+// Erro das mutations (evita Error genérico)
+type MutationError = UnitRequiredError | PostgrestError;
+
 // ============================================================================
 // QUERY KEYS
 // ============================================================================
@@ -66,6 +79,12 @@ const presenceKeys = {
 // ============================================================================
 // SUPABASE OPERATIONS
 // ============================================================================
+// OBS: Se você tiver os tipos gerados do Supabase (Database), recomendo:
+// type RanchoPresencasRow = Database["public"]["Tables"]["rancho_presencas"]["Row"];
+// type RanchoPrevisoesRow = Database["public"]["Tables"]["rancho_previsoes"]["Row"];
+// e então usar .select().returns<RanchoPresencasRow[]>()
+// Me diga se você já usa esses tipos que eu ajusto o código para eles.
+
 const fetchPresences = async (
   filters: FiscalFilters
 ): Promise<PresenceRecord[]> => {
@@ -75,14 +94,15 @@ const fetchPresences = async (
     .eq("date", filters.date)
     .eq("meal", filters.meal)
     .eq("unidade", filters.unit)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<PresenceRecord[]>();
 
   if (error) {
     console.error("Erro ao buscar presenças:", error);
     toast.error("Erro", {
       description: "Não foi possível carregar as presenças.",
     });
-    throw error;
+    throw error; // PostgrestError
   }
 
   return data ?? [];
@@ -102,7 +122,8 @@ const fetchForecasts = async (
     .eq("data", filters.date)
     .eq("refeicao", filters.meal)
     .eq("unidade", filters.unit)
-    .in("user_id", userIds);
+    .in("user_id", userIds)
+    .returns<PrevisaoRow[]>();
 
   if (error) {
     console.warn("Falha ao buscar previsões:", error);
@@ -110,7 +131,7 @@ const fetchForecasts = async (
   }
 
   const forecastMap: ForecastMap = {};
-  (data ?? []).forEach((row: PrevisaoRow) => {
+  (data ?? []).forEach((row) => {
     forecastMap[row.user_id] = Boolean(row.vai_comer);
   });
 
@@ -133,7 +154,7 @@ const insertPresence = async (
   });
 
   if (error) {
-    throw error;
+    throw error; // PostgrestError
   }
 };
 
@@ -144,7 +165,7 @@ const deletePresence = async (presenceId: string): Promise<void> => {
     .eq("id", presenceId);
 
   if (error) {
-    throw error;
+    throw error; // PostgrestError
   }
 };
 
@@ -166,9 +187,7 @@ const handleConfirmPresenceError = (error: unknown): void => {
     return;
   }
 
-  const pgError = error as PostgrestError | undefined;
-
-  if (pgError?.code === "23505") {
+  if (isPostgrestError(error) && error.code === "23505") {
     toast.info("Já registrado", {
       description: "Este militar já foi marcado presente.",
     });
@@ -197,7 +216,10 @@ export interface UsePresenceManagementReturn {
   isLoading: boolean;
   isConfirming: boolean;
   isRemoving: boolean;
-  confirmPresence: (uuid: string, willEnter: boolean) => Promise<void>;
+  confirmPresence: (
+    uuid: string,
+    willEnter: boolean
+  ) => Promise<ConfirmPresenceResult>;
   removePresence: (row: PresenceRecord) => Promise<void>;
 }
 
@@ -210,7 +232,10 @@ export function usePresenceManagement(
   // ============================================================================
   // QUERY: Fetch Presences & Forecasts
   // ============================================================================
-  const presencesQuery: UseQueryResult<QueryResult, Error> = useQuery({
+  const presencesQuery: UseQueryResult<QueryResult, PostgrestError> = useQuery<
+    QueryResult,
+    PostgrestError
+  >({
     queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
     queryFn: async (): Promise<QueryResult> => {
       const presences = await fetchPresences(filters);
@@ -234,14 +259,12 @@ export function usePresenceManagement(
   // MUTATION: Confirm Presence
   // ============================================================================
   const confirmPresenceMutation: UseMutationResult<
-    ConfirmPresenceResult | void,
-    Error,
+    ConfirmPresenceResult,
+    MutationError,
     ConfirmPresenceParams
-  > = useMutation({
+  > = useMutation<ConfirmPresenceResult, MutationError, ConfirmPresenceParams>({
     mutationKey: presenceKeys.confirm(filters.date, filters.meal, filters.unit),
-    mutationFn: async (
-      params: ConfirmPresenceParams
-    ): Promise<ConfirmPresenceResult | void> => {
+    mutationFn: async (params): Promise<ConfirmPresenceResult> => {
       if (!params.willEnter) {
         toast.info("Registro atualizado", {
           description:
@@ -255,6 +278,7 @@ export function usePresenceManagement(
       toast.success("Presença registrada", {
         description: `UUID ${params.uuid} marcado.`,
       });
+      return { skipped: false };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -267,34 +291,36 @@ export function usePresenceManagement(
   // ============================================================================
   // MUTATION: Remove Presence
   // ============================================================================
-  const removePresenceMutation: UseMutationResult<void, Error, PresenceRecord> =
-    useMutation({
-      mutationKey: presenceKeys.remove(
-        filters.date,
-        filters.meal,
-        filters.unit
-      ),
-      mutationFn: async (row: PresenceRecord): Promise<void> => {
-        await deletePresence(row.id);
+  const removePresenceMutation: UseMutationResult<
+    void,
+    PostgrestError,
+    PresenceRecord
+  > = useMutation<void, PostgrestError, PresenceRecord>({
+    mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.unit),
+    mutationFn: async (row): Promise<void> => {
+      await deletePresence(row.id);
 
-        toast.success("Excluído", {
-          description: "Registro removido.",
-        });
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
-        });
-      },
-      onError: handleRemovePresenceError,
-    });
+      toast.success("Excluído", {
+        description: "Registro removido.",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
+      });
+    },
+    onError: handleRemovePresenceError,
+  });
 
   // ============================================================================
   // CALLBACKS
   // ============================================================================
   const confirmPresence = useCallback(
-    async (uuid: string, willEnter: boolean): Promise<void> => {
-      await confirmPresenceMutation.mutateAsync({ uuid, willEnter });
+    async (
+      uuid: string,
+      willEnter: boolean
+    ): Promise<ConfirmPresenceResult> => {
+      return await confirmPresenceMutation.mutateAsync({ uuid, willEnter });
     },
     [confirmPresenceMutation]
   );

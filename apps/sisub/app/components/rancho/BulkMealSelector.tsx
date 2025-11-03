@@ -4,15 +4,12 @@ import {
   UtensilsCrossed,
   CheckCircle,
   Loader2,
-  AlertTriangle,
 } from "lucide-react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
-  Badge,
   Label,
   Button,
 } from "@iefa/ui";
@@ -47,18 +44,6 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
 
     const cardsCount = targetDates.length;
     const hasCardsToApply = cardsCount > 0;
-
-    // Tokens shadcn/ui
-    const cardClasses = useMemo(
-      () =>
-        [
-          "relative overflow-hidden rounded-2xl",
-          "bg-card text-card-foreground border border-border",
-          "shadow-sm transition-all duration-300",
-          "hover:shadow-md hover:border-accent",
-        ].join(" "),
-      []
-    );
 
     const modeBtnBase =
       "text-xs sm:text-sm h-8 px-3 border rounded-md transition-colors";
@@ -119,58 +104,22 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
     }, [isApplying, onCancel]);
 
     return (
-      <Card className={cardClasses}>
-        {/* Decorações sutis com tokens */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full bg-accent/20 blur-2xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-10 -left-8 h-24 w-24 rounded-full bg-secondary/20 blur-2xl"
-        />
-
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between text-foreground">
-            <div className="flex items-center gap-2">
-              <span
-                className="
+      <Card
+        className="group relative w-full h-fit bg-card text-card-foreground border border-border shadow-sm transition-all duration-300 hover:shadow-md hover:border-accent max-w-xl
+        "
+      >
+        <CardHeader className="">
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <span
+              className="
                   inline-flex items-center justify-center h-8 w-8 rounded-lg
                   bg-background text-primary ring-1 ring-border
                 "
-              >
-                <UtensilsCrossed className="h-5 w-5" />
-              </span>
-              <span>Aplicar Refeições em Massa</span>
-            </div>
-
-            <Badge
-              variant="outline"
-              className={
-                hasCardsToApply
-                  ? "border-accent text-accent"
-                  : "border-border text-muted-foreground"
-              }
             >
-              {cardsCount} card{cardsCount !== 1 ? "s" : ""}
-            </Badge>
+              <UtensilsCrossed className="h-5 w-5" />
+            </span>
+            Aplicar Refeições em Massa
           </CardTitle>
-
-          <CardDescription className="text-foreground/80 mt-3">
-            <div
-              className="
-                flex items-start gap-2 rounded-md border p-2.5
-                bg-accent/10 text-accent-foreground border-accent/30
-              "
-            >
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span className="text-sm">
-                Selecione o conjunto de refeições e aplique a vários cards de
-                uma vez. Você pode escolher entre preencher somente onde está
-                vazio ou sobrescrever tudo.
-              </span>
-            </div>
-          </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -269,91 +218,44 @@ export const BulkMealSelector = memo<BulkMealSelectorProps>(
           </div>
 
           {/* Rodapé com ações */}
-          <div className="border-t border-border pt-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="text-sm text-muted-foreground">
-                Aplicar template selecionado a{" "}
-                <span className="text-foreground">{cardsCount}</span> card
-                {cardsCount !== 1 ? "s" : ""} (
-                {applyMode === "fill-missing"
-                  ? "preencher onde está vazio"
-                  : "sobrescrever"}
-                ).
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={isApplying}
-                  className="
+          <div className="flex flex-row-reverse gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancel}
+              disabled={isApplying}
+              className="
                     hover:bg-muted
                     focus-visible:ring-2 focus-visible:ring-ring
                     focus-visible:ring-offset-2 focus-visible:ring-offset-background
                   "
-                >
-                  Cancelar
-                </Button>
+            >
+              Cancelar
+            </Button>
 
-                <Button
-                  size="sm"
-                  onClick={handleApply}
-                  disabled={
-                    isApplying || !hasCardsToApply || selectedCount === 0
-                  }
-                  className="
+            <Button
+              size="sm"
+              onClick={handleApply}
+              disabled={isApplying || !hasCardsToApply || selectedCount === 0}
+              className="
                     bg-primary text-primary-foreground hover:bg-primary/90
                     focus-visible:ring-2 focus-visible:ring-ring
                     focus-visible:ring-offset-2 focus-visible:ring-offset-background
                     disabled:opacity-50 disabled:cursor-not-allowed
                   "
-                >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Aplicando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Aplicar a {cardsCount} card{cardsCount !== 1 ? "s" : ""}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* Informação adicional */}
-            <div
-              className="
-                mt-4 text-xs rounded-md border p-3
-                bg-muted text-muted-foreground border-border
-              "
             >
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <div>
-                  <p className="font-medium text-foreground mb-1">
-                    Importante:
-                  </p>
-                  <ul className="space-y-1">
-                    <li>
-                      • “Preencher onde está vazio” não desmarca seleções já
-                      existentes
-                    </li>
-                    <li>
-                      • “Sobrescrever tudo” redefine as refeições conforme o
-                      template
-                    </li>
-                    <li>
-                      • Datas muito próximas podem ser ignoradas pelo fluxo de
-                      negócio
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+              {isApplying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Aplicando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Aplicar a {cardsCount} card{cardsCount !== 1 ? "s" : ""}
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>

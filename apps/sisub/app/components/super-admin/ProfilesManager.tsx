@@ -45,7 +45,7 @@ import {
 import AddUserDialog, { NewUserPayload } from "./AddUserDialog";
 import EditUserDialog, { EditUserPayload } from "./EditUserDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
-import { useRancho } from "~/components/hooks/useRancho";
+import { useMessHalls } from "../hooks/useMessHalls";
 import type { UserLevelOrNull } from "../../services/AdminService";
 
 // Tipos
@@ -69,10 +69,10 @@ export default function ProfilesManager() {
 
   // Hook de OMs
   const {
-    unidades,
-    isLoading: isLoadingUnidades,
-    error: unidadesError,
-  } = useRancho();
+    units,
+    isLoading: isLoadingunits,
+    error: unitsError,
+  } = useMessHalls();
 
   // Estados dos diálogos e seleção
   const [selectedProfile, setSelectedProfile] =
@@ -618,9 +618,9 @@ export default function ProfilesManager() {
         open={isAddUserOpen}
         onOpenChange={setIsAddUserOpen}
         isLoading={isAdding}
-        unidades={unidades ? [...unidades] : []}
-        isLoadingUnidades={isLoadingUnidades}
-        unidadesError={unidadesError}
+        units={units ? [...units] : []}
+        isLoadingUnits={isLoadingunits}
+        unitsError={unitsError}
         onSubmit={handleAddUser}
       />
 
@@ -629,9 +629,9 @@ export default function ProfilesManager() {
         onOpenChange={setIsEditUserOpen}
         isLoading={isUpdating}
         profile={selectedProfile}
-        unidades={unidades ? [...unidades] : []}
-        isLoadingUnidades={isLoadingUnidades}
-        unidadesError={unidadesError}
+        units={units ? [...units] : []}
+        isLoadingUnits={isLoadingunits}
+        unitsError={unitsError}
         onSubmit={handleUpdateUser}
       />
 

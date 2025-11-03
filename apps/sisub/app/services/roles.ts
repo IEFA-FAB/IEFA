@@ -1,6 +1,5 @@
 // ~/services/roles.ts
 import { useQuery } from "@tanstack/react-query";
-import supabase from "~/utils/supabase";
 // ou reutilize sua função existente:
 import { checkUserLevel } from "~/services/AdminService";
 

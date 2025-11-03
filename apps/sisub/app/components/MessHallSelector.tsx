@@ -1,4 +1,4 @@
-// components/UnitSelector.tsx
+// components/MessHallSelector.tsx (previously UnitSelector.tsx)
 import { memo, useCallback, useMemo } from "react";
 import { MapPin, AlertCircle, Check } from "lucide-react";
 import { Label } from "@iefa/ui";
@@ -10,47 +10,50 @@ import {
   SelectValue,
 } from "@iefa/ui";
 import { Badge } from "@iefa/ui";
-import { useRancho } from "./hooks/useRancho";
+import { useMessHalls } from "./hooks/useMessHalls";
 
-interface UnidadeDisponivel {
-  value: string;
-  label: string;
-}
-
-interface UnitSelectorProps {
+interface MessHallSelectorProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
-  hasDefaultUnit?: boolean;
+  // Prefer hasDefaultMessHall; keep hasDefaultUnit for backward compatibility
+  hasDefaultMessHall?: boolean;
+  hasDefaultUnit?: boolean; // deprecated, kept for compatibility during migration
   showValidation?: boolean;
   size?: "sm" | "md" | "lg";
   placeholder?: string;
 }
 
-export const UnitSelector = memo<UnitSelectorProps>(
+export const MessHallSelector = memo<MessHallSelectorProps>(
   ({
     value,
     onChange,
     disabled = false,
-    hasDefaultUnit = false,
+    hasDefaultMessHall,
+    hasDefaultUnit, // deprecated
     showValidation = false,
     size = "md",
-    placeholder = "Selecione uma unidade...",
+    placeholder = "Selecione um rancho...",
   }) => {
-    const { ranchos } = useRancho();
+    const { messHalls } = useMessHalls();
+
+    // Unify default flag (support old prop name for now)
+    const hasDefault = hasDefaultMessHall ?? hasDefaultUnit ?? false;
 
     // Dados memoizados
     const selectorData = useMemo(() => {
-      const selectedUnit = ranchos.find((unit) => unit.value === value);
-      const isValidSelection = Boolean(selectedUnit);
-      const displayLabel = selectedUnit?.label || value;
+      const selectedMessHall = (messHalls ?? []).find(
+        (mh) => mh.code === value
+      );
+      const isValidSelection = Boolean(selectedMessHall);
+      const displayLabel = selectedMessHall?.name || value;
 
       return {
-        selectedUnit,
+        selectedMessHall,
         isValidSelection,
         displayLabel,
       };
-    }, [JSON.stringify(ranchos), value]);
+    }, [JSON.stringify(messHalls), value]);
 
     // Base de estilos de trigger alinhado ao shadcn
     const baseTrigger =
@@ -68,15 +71,15 @@ export const UnitSelector = memo<UnitSelectorProps>(
       const isInvalid =
         showValidation && !selectorData.isValidSelection && Boolean(value);
 
-      // Destaque opcional para unidade padrão
-      const defaultUnitTint = hasDefaultUnit ? " bg-accent/10" : "";
+      // Destaque opcional para rancho padrão
+      const defaultTint = hasDefault ? " bg-accent/10" : "";
 
       // Estado inválido usa tokens destrutivos
       const invalidTint = isInvalid
         ? " border-destructive/50 bg-destructive/10"
         : "";
 
-      const triggerClasses = `${baseTrigger} ${sizeCls}${defaultUnitTint}${invalidTint}`;
+      const triggerClasses = `${baseTrigger} ${sizeCls}${defaultTint}${invalidTint}`;
 
       return {
         trigger: triggerClasses,
@@ -89,7 +92,7 @@ export const UnitSelector = memo<UnitSelectorProps>(
     }, [
       baseTrigger,
       disabled,
-      hasDefaultUnit,
+      hasDefault,
       showValidation,
       selectorData.isValidSelection,
       value,
@@ -108,28 +111,28 @@ export const UnitSelector = memo<UnitSelectorProps>(
     // Itens do select
     const selectItems = useMemo(
       () =>
-        ranchos.map((unidade: UnidadeDisponivel) => (
+        (messHalls ?? []).map((mh) => (
           <SelectItem
             className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 data-[state=checked]:bg-accent/60 data-[state=checked]:text-accent-foreground transition-colors"
-            key={unidade.value}
-            value={unidade.value}
+            key={mh.code}
+            value={mh.code}
           >
             <div className="flex items-center justify-between w-full">
-              <span>{unidade.label}</span>
-              {value === unidade.value && (
+              <span>{mh.name ?? mh.code}</span>
+              {value === mh.code && (
                 <Check className="h-4 w-4 text-primary ml-2" />
               )}
             </div>
           </SelectItem>
         )),
-      [JSON.stringify(ranchos), value]
+      [JSON.stringify(messHalls), value]
     );
 
     // Badges/indicadores à direita do label
     const indicators = useMemo(() => {
       const badges = [];
 
-      if (hasDefaultUnit) {
+      if (hasDefault) {
         badges.push(
           <Badge key="default" variant="secondary" className="text-xs">
             Padrão
@@ -140,13 +143,13 @@ export const UnitSelector = memo<UnitSelectorProps>(
       if (classes.isInvalid) {
         badges.push(
           <Badge key="invalid" variant="destructive" className="text-xs">
-            Inválida
+            Inválido
           </Badge>
         );
       }
 
       return badges;
-    }, [hasDefaultUnit, classes.isInvalid]);
+    }, [hasDefault, classes.isInvalid]);
 
     const { isInvalid } = classes;
     const { isValidSelection, displayLabel } = selectorData;
@@ -156,7 +159,7 @@ export const UnitSelector = memo<UnitSelectorProps>(
         <Label className={classes.label}>
           <div className="flex items-center space-x-1">
             <MapPin className="h-4 w-4" />
-            <span>Unidade:</span>
+            <span>Rancho:</span>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -171,7 +174,7 @@ export const UnitSelector = memo<UnitSelectorProps>(
               {value && (
                 <div className="flex items-center space-x-2">
                   <span>{displayLabel}</span>
-                  {hasDefaultUnit && (
+                  {hasDefault && (
                     <Badge variant="secondary" className="text-xs">
                       Padrão
                     </Badge>
@@ -183,17 +186,17 @@ export const UnitSelector = memo<UnitSelectorProps>(
 
           <SelectContent className="max-h-60">
             <div className="p-2 text-xs text-muted-foreground border-b border-border">
-              Selecione a unidade responsável
+              Selecione o rancho responsável
             </div>
             {selectItems}
           </SelectContent>
         </Select>
 
-        {/* Informação adicional para unidade padrão */}
-        {hasDefaultUnit && (
+        {/* Informação adicional para rancho padrão */}
+        {hasDefault && (
           <div className="text-xs text-muted-foreground flex items-center space-x-1">
             <AlertCircle className="h-3 w-3" />
-            <span>Esta é a unidade padrão configurada</span>
+            <span>Este é o rancho padrão configurado</span>
           </div>
         )}
 
@@ -201,7 +204,7 @@ export const UnitSelector = memo<UnitSelectorProps>(
         {showValidation && !isValidSelection && value && (
           <div className="text-xs text-destructive flex items-center space-x-1">
             <AlertCircle className="h-3 w-3" />
-            <span>Unidade não encontrada: "{value}"</span>
+            <span>Rancho não encontrado: "{value}"</span>
           </div>
         )}
       </div>
@@ -209,4 +212,10 @@ export const UnitSelector = memo<UnitSelectorProps>(
   }
 );
 
-UnitSelector.displayName = "UnitSelector";
+MessHallSelector.displayName = "MessHallSelector";
+
+// Temporary alias for backward compatibility during migration.
+// This allows existing imports of UnitSelector to continue working.
+export const UnitSelector = MessHallSelector;
+
+export default MessHallSelector;

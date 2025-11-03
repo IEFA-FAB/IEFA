@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   Download,
 } from "lucide-react";
-import { UnitSelector } from "~/components/UnitSelector";
+import { UnitSelector } from "~/components/MessHallSelector";
 
 type AdminStatus = "checking" | "authorized" | "unauthorized";
 

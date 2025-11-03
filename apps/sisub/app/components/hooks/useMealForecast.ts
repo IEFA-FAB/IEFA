@@ -1,14 +1,16 @@
-// apps/sisub/app/components/hooks/useRanchoData.ts
+// hooks/useMealForecast.ts
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAuth } from "@iefa/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import supabase from "../../utils/supabase";
+import { useAuth } from "@iefa/auth";
+import supabase from "~/utils/supabase";
 
-const DEFAULT_UNIT = "DIRAD - DIRAD";
+// Business defaults and timings
+const DEFAULT_MESS_HALL_CODE = "DIRAD - DIRAD"; // keep your existing default, now named in English
 const DAYS_TO_SHOW = 30;
 const AUTO_SAVE_DELAY = 1500;
 const SUCCESS_MESSAGE_DURATION = 3000;
 
+// Meals structure (English)
 export interface DayMeals {
   cafe: boolean;
   almoco: boolean;
@@ -16,40 +18,42 @@ export interface DayMeals {
   ceia: boolean;
 }
 
-export interface Selections {
+export interface SelectionsByDate {
   [date: string]: DayMeals;
 }
 
-export interface DayUnits {
+// Selected Mess Hall by date (stores mess hall code)
+export interface MessHallByDate {
   [date: string]: string;
 }
 
+// Change to persist
 export interface PendingChange {
   date: string;
   meal: keyof DayMeals;
   value: boolean;
-  unidade: string;
+  messHallCode: string; // was 'unidade' in PT
 }
 
-export interface RanchoDataHook {
+export interface MealForecastHook {
   success: string;
   error: string;
-  isLoading: boolean; // carregamento inicial
-  isRefetching: boolean; // refetch em background
+  isLoading: boolean; // initial load
+  isRefetching: boolean; // background refetch
   pendingChanges: PendingChange[];
   isSavingBatch: boolean;
-  selections: Selections;
-  dayUnits: DayUnits;
-  defaultUnit: string;
+  selections: SelectionsByDate;
+  dayMessHalls: MessHallByDate;
+  defaultMessHallCode: string;
   dates: string[];
   todayString: string;
   setSuccess: (msg: string) => void;
   setError: (msg: string) => void;
   setPendingChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
-  setSelections: React.Dispatch<React.SetStateAction<Selections>>;
-  setDayUnits: React.Dispatch<React.SetStateAction<DayUnits>>;
-  setDefaultUnit: (unit: string) => void;
-  loadExistingPrevisoes: () => Promise<void>;
+  setSelections: React.Dispatch<React.SetStateAction<SelectionsByDate>>;
+  setDayMessHalls: React.Dispatch<React.SetStateAction<MessHallByDate>>;
+  setDefaultMessHallCode: (code: string) => void;
+  loadExistingForecasts: () => Promise<void>;
   savePendingChanges: () => Promise<void>;
   clearMessages: () => void;
 }
@@ -62,7 +66,7 @@ const createEmptyDayMeals = (): DayMeals => ({
 });
 
 /**
- * Formata um objeto Date para 'YYYY-MM-DD' respeitando o fuso local.
+ * Format Date -> 'YYYY-MM-DD' in local timezone
  */
 const toYYYYMMDD = (date: Date): string => {
   const year = date.getFullYear();
@@ -80,11 +84,10 @@ const generateDates = (days: number): string[] => {
     date.setDate(today.getDate() + i);
     dates.push(toYYYYMMDD(date));
   }
-
   return dates;
 };
 
-// Helpers de pluralização
+// Helpers (PT messages kept for UX continuity)
 const pluralize = (count: number, singular: string, plural: string) =>
   count === 1 ? singular : plural;
 
@@ -93,7 +96,7 @@ const labelSalva = (n: number) => pluralize(n, "salva", "salvas");
 const labelFalhou = (n: number) => pluralize(n, "falhou", "falharam");
 const labelOperacao = (n: number) => pluralize(n, "operação", "operações");
 
-export const useRanchoData = (): RanchoDataHook => {
+export const useMealForecast = (): MealForecastHook => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -102,26 +105,27 @@ export const useRanchoData = (): RanchoDataHook => {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const successTimerRef = useRef<NodeJS.Timeout | null>(null);
   const saveOperationRef = useRef<Promise<void> | null>(null);
-
   const hydratedOnceRef = useRef(false);
 
   const [success, setSuccessState] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [isSavingBatch, setIsSavingBatch] = useState<boolean>(false);
-  const [selections, setSelections] = useState<Selections>({});
-  const [dayUnits, setDayUnits] = useState<DayUnits>({});
-  const [defaultUnit, setDefaultUnit] = useState<string>(DEFAULT_UNIT);
+  const [selections, setSelections] = useState<SelectionsByDate>({});
+  const [dayMessHalls, setDayMessHalls] = useState<MessHallByDate>({});
+  const [defaultMessHallCode, setDefaultMessHallCode] = useState<string>(
+    DEFAULT_MESS_HALL_CODE
+  );
 
-  // Datas e chaves estáveis
+  // Stable dates and keys
   const dates = useMemo(() => generateDates(DAYS_TO_SHOW), []);
   const todayString = useMemo(() => toYYYYMMDD(new Date()), []);
   const queryKey = useMemo(
-    () => ["ranchoPrevisoes", user?.id, dates[0], dates[dates.length - 1]],
+    () => ["mealForecasts", user?.id, dates[0], dates[dates.length - 1]],
     [user?.id, dates]
   );
 
-  // Mensagens
+  // Messages
   const clearMessages = useCallback(() => {
     setSuccessState("");
     setError("");
@@ -147,20 +151,21 @@ export const useRanchoData = (): RanchoDataHook => {
     setSuccessState("");
   }, []);
 
-  // Query: previsões do período para o usuário
+  // Query: forecasts for period for user
   const {
-    data: previsoes,
-    isPending, // carregamento inicial
-    isFetching, // qualquer refetch ativo
+    data: forecasts,
+    isPending, // initial load
+    isFetching, // any refetch
     refetch,
   } = useQuery({
     queryKey,
     enabled: isClient && !!user?.id,
-    staleTime: 60_000, // mantém dados "frescos" por 1 min
+    staleTime: 60_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    keepPreviousData: true,
+    /* keepPreviousData: true, */
+    // Supabase query keeps original (PT) column names
     queryFn: async () => {
       const { data, error: supabaseError } = await supabase
         .from("rancho_previsoes")
@@ -177,49 +182,76 @@ export const useRanchoData = (): RanchoDataHook => {
     },
   });
 
-  // Hidratamos selections/dayUnits a partir da query quando:
-  // - primeira carga, ou
-  // - refetch terminar e NÃO houver pendingChanges e NÃO estivermos salvando.
+  // Hydrate selections and dayMessHalls from query with defensive defaults
   useEffect(() => {
     if (!user?.id) return;
-    if (!previsoes) return;
+    if (!forecasts) return;
 
     const canOverwrite = pendingChanges.length === 0 && !isSavingBatch;
     if (!hydratedOnceRef.current || canOverwrite) {
-      const initialSelections: Selections = {};
-      const initialUnits: DayUnits = {};
+      const initialSelections: SelectionsByDate = {};
+      const initialMessHalls: MessHallByDate = {};
 
       dates.forEach((date) => {
         initialSelections[date] = createEmptyDayMeals();
-        initialUnits[date] = defaultUnit;
+        initialMessHalls[date] = defaultMessHallCode;
       });
 
-      previsoes.forEach((p: any) => {
+      forecasts.forEach((p: any) => {
         const { data, unidade, refeicao, vai_comer } = p;
         if (initialSelections[data] && refeicao in initialSelections[data]) {
           initialSelections[data][refeicao as keyof DayMeals] = !!vai_comer;
-          initialUnits[data] = unidade || defaultUnit;
+          // Here 'unidade' stores the mess hall code historically
+          initialMessHalls[data] = unidade || defaultMessHallCode;
         }
       });
 
       setSelections(initialSelections);
-      setDayUnits(initialUnits);
+      setDayMessHalls(initialMessHalls);
       hydratedOnceRef.current = true;
     }
   }, [
     user?.id,
-    previsoes,
+    forecasts,
     dates,
-    defaultUnit,
+    defaultMessHallCode,
     pendingChanges.length,
     isSavingBatch,
   ]);
 
-  // Save em lote (mantido, mas invalida/atualiza a query no fim)
+  // Validate mess hall codes against sisub.mess_halls before saving
+  const validateMessHallCodes = useCallback(
+    async (codes: string[]): Promise<void> => {
+      if (codes.length === 0) return;
+
+      // Fetch unique codes and validate existence
+      const uniqueCodes = Array.from(new Set(codes));
+      const { data, error } = await supabase
+        .schema("sisub")
+        .from("mess_halls")
+        .select("code")
+        .in("code", uniqueCodes);
+
+      if (error) throw error;
+
+      const existing = new Set((data ?? []).map((r) => r.code));
+      const missing = uniqueCodes.filter((c) => !existing.has(c));
+      if (missing.length > 0) {
+        throw new Error(
+          `Os seguintes códigos de rancho são inválidos ou não existem: ${missing.join(
+            ", "
+          )}`
+        );
+      }
+    },
+    []
+  );
+
+  // Batch save with validation and conflict handling
   const savePendingChanges = useCallback(async (): Promise<void> => {
     if (!user?.id || pendingChanges.length === 0) return;
 
-    // Evitar múltiplas operações simultâneas
+    // Avoid parallel saves
     if (saveOperationRef.current) {
       await saveOperationRef.current;
       return;
@@ -232,8 +264,14 @@ export const useRanchoData = (): RanchoDataHook => {
       try {
         const changesToSave = [...pendingChanges];
 
-        // Agrupar por data-refeição para evitar duplicatas
-        const changesByDateAndMeal = changesToSave.reduce(
+        // Pre-validate business rule: mess hall codes must exist in sisub.mess_halls
+        const codesToValidate = changesToSave
+          .filter((c) => c.value) // only for upserts
+          .map((c) => c.messHallCode);
+        await validateMessHallCodes(codesToValidate);
+
+        // Group by date-meal to avoid duplicates
+        const changesByKey = changesToSave.reduce(
           (acc, change) => {
             const key = `${change.date}-${change.meal}`;
             acc[key] = change;
@@ -243,16 +281,16 @@ export const useRanchoData = (): RanchoDataHook => {
         );
 
         const results = await Promise.allSettled(
-          Object.values(changesByDateAndMeal).map(async (change) => {
+          Object.values(changesByKey).map(async (change) => {
             try {
               if (change.value) {
-                // upsert
+                // Upsert forecast (keep PT column names in the DB)
                 const { error: upsertError } = await supabase
                   .from("rancho_previsoes")
                   .upsert(
                     {
                       data: change.date,
-                      unidade: change.unidade,
+                      unidade: change.messHallCode, 
                       user_id: user.id,
                       refeicao: change.meal,
                       vai_comer: true,
@@ -264,7 +302,7 @@ export const useRanchoData = (): RanchoDataHook => {
                   );
 
                 if (upsertError) {
-                  // fallback delete + insert
+                  // Fallback: delete + insert
                   await supabase
                     .from("rancho_previsoes")
                     .delete()
@@ -276,7 +314,7 @@ export const useRanchoData = (): RanchoDataHook => {
                     .from("rancho_previsoes")
                     .insert({
                       data: change.date,
-                      unidade: change.unidade,
+                      unidade: change.messHallCode,
                       user_id: user.id,
                       refeicao: change.meal,
                       vai_comer: true,
@@ -285,7 +323,7 @@ export const useRanchoData = (): RanchoDataHook => {
                   if (insertError) throw insertError;
                 }
               } else {
-                // delete
+                // Delete forecast
                 const { error: deleteError } = await supabase
                   .from("rancho_previsoes")
                   .delete()
@@ -306,16 +344,15 @@ export const useRanchoData = (): RanchoDataHook => {
                 change,
                 operation: change.value ? "upsert" : "delete",
               };
-            } catch (error) {
+            } catch (err) {
               console.error(
                 `Erro ao processar mudança para ${change.date}-${change.meal}:`,
-                error
+                err
               );
               return {
                 success: false,
                 change,
-                error:
-                  error instanceof Error ? error.message : "Erro desconhecido",
+                error: err instanceof Error ? err.message : "Erro desconhecido",
               };
             }
           })
@@ -326,7 +363,7 @@ export const useRanchoData = (): RanchoDataHook => {
         ) as PromiseFulfilledResult<{
           success: boolean;
           change: PendingChange;
-        }>[]; // TS narrow
+        }>[];
 
         const failed = results.filter(
           (r) =>
@@ -346,7 +383,7 @@ export const useRanchoData = (): RanchoDataHook => {
                     saved.date === change.date &&
                     saved.meal === change.meal &&
                     saved.value === change.value &&
-                    saved.unidade === change.unidade
+                    saved.messHallCode === change.messHallCode
                 )
             )
           );
@@ -369,7 +406,7 @@ export const useRanchoData = (): RanchoDataHook => {
                     ok.date === change.date &&
                     ok.meal === change.meal &&
                     ok.value === change.value &&
-                    ok.unidade === change.unidade
+                    ok.messHallCode === change.messHallCode
                 )
             )
           );
@@ -407,8 +444,7 @@ export const useRanchoData = (): RanchoDataHook => {
           }
         }
 
-        // Após salvar, atualizamos em background os dados do servidor
-        // sem travar a UI
+        // Background refresh
         queryClient.invalidateQueries({ queryKey });
       } catch (err) {
         console.error("Erro crítico ao salvar mudanças:", err);
@@ -432,9 +468,10 @@ export const useRanchoData = (): RanchoDataHook => {
     setErrorWithClear,
     queryClient,
     queryKey,
+    validateMessHallCodes,
   ]);
 
-  // Auto-save (mantém fluidez e evita múltiplos saves)
+  // Auto-save
   useEffect(() => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -470,7 +507,7 @@ export const useRanchoData = (): RanchoDataHook => {
     };
   }, []);
 
-  const loadExistingPrevisoes = useCallback(async (): Promise<void> => {
+  const loadExistingForecasts = useCallback(async (): Promise<void> => {
     await refetch();
   }, [refetch]);
 
@@ -482,8 +519,8 @@ export const useRanchoData = (): RanchoDataHook => {
     pendingChanges,
     isSavingBatch,
     selections,
-    dayUnits,
-    defaultUnit,
+    dayMessHalls,
+    defaultMessHallCode,
     dates,
     todayString,
 
@@ -491,10 +528,10 @@ export const useRanchoData = (): RanchoDataHook => {
     setError: setErrorWithClear,
     setPendingChanges,
     setSelections,
-    setDayUnits,
-    setDefaultUnit,
+    setDayMessHalls,
+    setDefaultMessHallCode,
 
-    loadExistingPrevisoes,
+    loadExistingForecasts,
     savePendingChanges,
     clearMessages,
   };

@@ -1,5 +1,5 @@
 import { Button, ModeToggle, SidebarTrigger } from "@iefa/ui";
-import { NavItem } from "~/components/sidebar/nav-items";
+import { NavItem } from "~/components/sidebar/NavItems";
 import { QrCode } from "lucide-react";
 
 export type TopbarProps = {
@@ -15,7 +15,7 @@ export type TopbarProps = {
 
 export function Topbar({ onOpenQr, userId }: TopbarProps) {
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4 flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+    <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4 shrink-0 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex w-full items-center">
         {/* Esquerda: apenas o trigger do sidebar */}
         <div className="flex items-center">

@@ -12,15 +12,13 @@ import { Loader2, Settings, RefreshCw, UtensilsCrossed } from "lucide-react";
 
 import { Button } from "@iefa/ui";
 import {
-  useRanchoData,
+  useMealForecast,
   type PendingChange,
-  type Selections,
-  type DayUnits,
-} from "~/components/hooks/useRanchoData";
+  type SelectionsByDate,
+  type MessHallByDate,
+} from "~/components/hooks/useMealForecast";
 
-import { DefaultUnitSelector } from "~/components/rancho/DefaultUnitSelector";
-import { AlertMessages } from "~/components/AlertMessage";
-import { PendingChangesStatus } from "~/components/rancho/PendingChangesStatus";
+import { DefaultMessHallSelector } from "~/components/rancho/DefaultMessHallSelector";
 import {
   createEmptyDayMeals,
   formatDate,
@@ -34,14 +32,13 @@ import BulkMealSelector from "~/components/rancho/BulkMealSelector";
 import type { Route } from "./+types/rancho";
 
 import SimplifiedMilitaryStats from "~/components/rancho/SimplifiedMilitaryStats";
+import { UnifiedStatusToasts } from "~/components/rancho/UnifiedStatusToasts";
 
 const DayCard = lazy(() => import("~/components/rancho/DayCard"));
 
 /* ============================
    Constantes, utilitários e helpers de texto
    ============================ */
-
-const DIRAD_UNIT = "DIRAD" as const;
 
 const WORKDAY_TEMPLATE_MEALS: ReadonlyArray<keyof DayMeals> = [
   "cafe",
@@ -51,7 +48,7 @@ const WORKDAY_TEMPLATE_MEALS: ReadonlyArray<keyof DayMeals> = [
 interface CardData {
   date: string;
   daySelections: DayMeals;
-  dayUnit: string;
+  dayUnit: string; // mapped to DayCard's prop name
 }
 
 // Pluralização simples
@@ -107,27 +104,30 @@ export default function Rancho(): JSX.Element {
     success,
     error,
     isLoading,
-    isRefetching, // NOVO: refetch em background
+    isRefetching, // refetch em background
     pendingChanges,
     isSavingBatch,
     selections,
-    dayUnits,
-    defaultUnit,
+    dayMessHalls,
+    defaultMessHallCode,
     dates,
     todayString,
     setSuccess,
     setError,
     setPendingChanges,
     setSelections,
-    setDayUnits,
-    setDefaultUnit,
-    loadExistingPrevisoes,
-    savePendingChanges,
+    setDayMessHalls,
+    setDefaultMessHallCode,
+    loadExistingForecasts,
+    savePendingChanges, // disponível caso você precise em outro fluxo
     clearMessages,
-  } = useRanchoData();
+  } = useMealForecast();
 
-  const [showDefaultUnitSelector, setShowDefaultUnitSelector] = useState(false);
-  const [isApplyingDefaultUnit, setIsApplyingDefaultUnit] = useState(false);
+  
+  const [showDefaultMessHallSelector, setShowDefaultMessHallSelector] =
+    useState(false);
+  const [isApplyingDefaultMessHall, setIsApplyingDefaultMessHall] =
+    useState(false);
 
   // Seletor de refeições em massa
   const [showBulkMealSelector, setShowBulkMealSelector] = useState(false);
@@ -153,19 +153,32 @@ export default function Rancho(): JSX.Element {
   }, [weekdayTargets, selections]);
 
   const computedData = useMemo(() => {
-    const cardsWithoutUnit = dates.filter((date) => {
-      const unit = dayUnits[date];
-      return !unit || unit === DIRAD_UNIT;
+    // "Cards sem rancho" = datas sem um código de rancho definido (falsy)
+    const cardsWithoutMessHall = dates.filter((date) => {
+      const mh = dayMessHalls[date];
+      return !mh;
     });
 
     const cardData: CardData[] = dates.map((date) => ({
       date,
       daySelections: selections[date] || createEmptyDayMeals(),
-      dayUnit: dayUnits[date] || defaultUnit,
+      dayUnit: dayMessHalls[date] || defaultMessHallCode, // mapeado para DayCard
     }));
 
-    return { cardsWithoutUnit, cardData };
-  }, [dates, dayUnits, selections, defaultUnit]);
+    return { cardsWithoutMessHall, cardData };
+  }, [dates, dayMessHalls, selections, defaultMessHallCode]);
+
+  // Mapear pendingChanges (com messHallCode) para o formato que o DayCard espera (unidade)
+  const pendingChangesForCard = useMemo(
+    () =>
+      (pendingChanges ?? []).map((c) => ({
+        date: c.date,
+        meal: c.meal,
+        value: c.value,
+        unidade: c.messHallCode,
+      })),
+    [pendingChanges]
+  );
 
   const dayCardsProps = useMemo(() => {
     return computedData.cardData.map(({ date, daySelections, dayUnit }) => {
@@ -174,14 +187,13 @@ export default function Rancho(): JSX.Element {
         key: date,
         date,
         daySelections,
-        dayUnit,
-        defaultUnit,
+        dayUnit, // DayCard prop
+        defaultUnit: defaultMessHallCode, // DayCard prop
         ...dayCardData,
-        pendingChanges,
         isSaving: false,
       };
     });
-  }, [computedData.cardData, todayString, defaultUnit, pendingChanges]);
+  }, [computedData.cardData, todayString, defaultMessHallCode]);
 
   /* ============================
      Callbacks
@@ -193,9 +205,9 @@ export default function Rancho(): JSX.Element {
 
       const currentValue = selections[date]?.[meal] || false;
       const newValue = !currentValue;
-      const unidade = dayUnits[date] || defaultUnit;
+      const messHallCode = dayMessHalls[date] || defaultMessHallCode;
 
-      setSelections((prev: Selections) => {
+      setSelections((prev: SelectionsByDate) => {
         const existing = prev[date] ?? createEmptyDayMeals();
         return {
           ...prev,
@@ -210,20 +222,29 @@ export default function Rancho(): JSX.Element {
         const idx = prev.findIndex((c) => c.date === date && c.meal === meal);
         if (idx >= 0) {
           const copy = [...prev];
-          copy[idx] = { date, meal, value: newValue, unidade };
+          copy[idx] = { date, meal, value: newValue, messHallCode };
           return copy;
         }
-        return [...prev, { date, meal, value: newValue, unidade }];
+        return [...prev, { date, meal, value: newValue, messHallCode }];
       });
     },
-    [selections, dayUnits, defaultUnit, setSelections, setPendingChanges]
+    [
+      selections,
+      dayMessHalls,
+      defaultMessHallCode,
+      setSelections,
+      setPendingChanges,
+    ]
   );
 
-  const handleUnitChange = useCallback(
-    (date: string, newUnit: string): void => {
+  const handleMessHallChange = useCallback(
+    (date: string, newMessHallCode: string): void => {
       if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
 
-      setDayUnits((prev: DayUnits) => ({ ...prev, [date]: newUnit }));
+      setDayMessHalls((prev: MessHallByDate) => ({
+        ...prev,
+        [date]: newMessHallCode,
+      }));
 
       const dayMeals = selections[date];
       if (!dayMeals) return;
@@ -234,7 +255,7 @@ export default function Rancho(): JSX.Element {
           date,
           meal: meal as keyof DayMeals,
           value,
-          unidade: newUnit,
+          messHallCode: newMessHallCode,
         }));
 
       if (!selectedMeals.length) return;
@@ -244,38 +265,37 @@ export default function Rancho(): JSX.Element {
         return [...filtered, ...selectedMeals];
       });
     },
-    [selections, setDayUnits, setPendingChanges]
+    [selections, setDayMessHalls, setPendingChanges]
   );
 
   const handleRefresh = useCallback((): void => {
-    // Agora usa o refetch do TanStack Query por trás do hook
-    loadExistingPrevisoes();
-  }, [loadExistingPrevisoes]);
+    loadExistingForecasts();
+  }, [loadExistingForecasts]);
 
-  const handleToggleUnitSelector = useCallback((): void => {
-    setShowDefaultUnitSelector((prev) => !prev);
+  const handleToggleMessHallSelector = useCallback((): void => {
+    setShowDefaultMessHallSelector((prev) => !prev);
   }, []);
 
-  const handleCancelUnitSelector = useCallback((): void => {
-    setShowDefaultUnitSelector(false);
+  const handleCancelMessHallSelector = useCallback((): void => {
+    setShowDefaultMessHallSelector(false);
   }, []);
 
-  const applyDefaultUnitToAll = useCallback(async (): Promise<void> => {
-    const { cardsWithoutUnit } = computedData;
-    if (cardsWithoutUnit.length === 0) return;
+  const applyDefaultMessHallToAll = useCallback(async (): Promise<void> => {
+    const { cardsWithoutMessHall } = computedData;
+    if (cardsWithoutMessHall.length === 0) return;
 
-    setIsApplyingDefaultUnit(true);
+    setIsApplyingDefaultMessHall(true);
 
     try {
-      const updatedUnits: DayUnits = { ...dayUnits };
-      cardsWithoutUnit.forEach((date) => {
-        updatedUnits[date] = defaultUnit;
+      const updatedMessHalls: MessHallByDate = { ...dayMessHalls };
+      cardsWithoutMessHall.forEach((date) => {
+        updatedMessHalls[date] = defaultMessHallCode;
       });
-      setDayUnits(updatedUnits);
+      setDayMessHalls(updatedMessHalls);
 
       const newPendingChanges: PendingChange[] = [];
 
-      cardsWithoutUnit.forEach((date) => {
+      cardsWithoutMessHall.forEach((date) => {
         const dayMeals = selections[date];
         if (!dayMeals) return;
 
@@ -286,7 +306,7 @@ export default function Rancho(): JSX.Element {
               date,
               meal: meal as keyof DayMeals,
               value,
-              unidade: defaultUnit,
+              messHallCode: defaultMessHallCode,
             });
           });
       });
@@ -294,30 +314,30 @@ export default function Rancho(): JSX.Element {
       if (newPendingChanges.length > 0) {
         setPendingChanges((prev: PendingChange[]) => {
           const filtered = prev.filter(
-            (change) => !cardsWithoutUnit.includes(change.date)
+            (change) => !cardsWithoutMessHall.includes(change.date)
           );
           return [...filtered, ...newPendingChanges];
         });
       }
 
       setSuccess(
-        `Unidade padrão "${defaultUnit}" aplicada a ${cardsWithoutUnit.length} ${labelCard(
-          cardsWithoutUnit.length
+        `Rancho padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(
+          cardsWithoutMessHall.length
         )}!`
       );
-      setShowDefaultUnitSelector(false);
+      setShowDefaultMessHallSelector(false);
     } catch (err) {
-      console.error("Erro ao aplicar unidade padrão:", err);
-      setError("Erro ao aplicar unidade padrão. Tente novamente.");
+      console.error("Erro ao aplicar rancho padrão:", err);
+      setError("Erro ao aplicar rancho padrão. Tente novamente.");
     } finally {
-      setIsApplyingDefaultUnit(false);
+      setIsApplyingDefaultMessHall(false);
     }
   }, [
     computedData,
-    dayUnits,
-    defaultUnit,
+    dayMessHalls,
+    defaultMessHallCode,
     selections,
-    setDayUnits,
+    setDayMessHalls,
     setPendingChanges,
     setSuccess,
     setError,
@@ -353,10 +373,10 @@ export default function Rancho(): JSX.Element {
             });
           }
 
-          const unidadeParaDia =
-            dayUnits[date] && dayUnits[date] !== DIRAD_UNIT
-              ? dayUnits[date]
-              : defaultUnit;
+          const messHallForDay =
+            dayMessHalls[date] && dayMessHalls[date] !== ""
+              ? dayMessHalls[date]
+              : defaultMessHallCode;
 
           (Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
             if (after[k] !== before[k]) {
@@ -364,7 +384,7 @@ export default function Rancho(): JSX.Element {
                 date,
                 meal: k,
                 value: after[k],
-                unidade: unidadeParaDia,
+                messHallCode: messHallForDay,
               });
             }
           });
@@ -381,7 +401,7 @@ export default function Rancho(): JSX.Element {
         }
 
         setSelections((prev) => {
-          const next: Selections = { ...prev };
+          const next: SelectionsByDate = { ...prev };
           targetDates.forEach((date) => {
             next[date] = afterByDate[date];
           });
@@ -421,8 +441,8 @@ export default function Rancho(): JSX.Element {
     [
       weekdayTargets,
       selections,
-      dayUnits,
-      defaultUnit,
+      dayMessHalls,
+      defaultMessHallCode,
       setSelections,
       setPendingChanges,
       setSuccess,
@@ -430,149 +450,133 @@ export default function Rancho(): JSX.Element {
     ]
   );
 
-  const { cardsWithoutUnit } = computedData;
+  
 
   /* ============================
      Render
      ============================ */
 
   return (
-    <div className="h-full shrink-0">
-      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
+    <div className="h-full container flex-col mx-auto px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
+      {/* Header */}
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleToggleUnitSelector}
-              className=" hover:bg-orange-50 cursor-pointer"
-              aria-label="Definir unidade padrão"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Unidade Padrão ({cardsWithoutUnit.length})
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
-              disabled={isLoading}
-              className=" hover:bg-green-50 cursor-pointer"
-              aria-label="Aplicar refeições em massa"
-            >
-              <UtensilsCrossed className="h-4 w-4 mr-2" />
-              Refeições em Massa ({weekdayTargets.length})
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading || isRefetching}
-              className="cursor-pointer"
-              aria-label="Recarregar previsões"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
-              />
-            </Button>
-          </div>
-        </header>
-
-        {/* Controles */}
-        <section className="space-y-4">
-          {showDefaultUnitSelector && (
-            <div className="">
-              <div className="p-4 sm:p-5">
-                <DefaultUnitSelector
-                  defaultUnit={defaultUnit}
-                  setDefaultUnit={setDefaultUnit}
-                  cardsWithoutUnit={cardsWithoutUnit}
-                  onApply={applyDefaultUnitToAll}
-                  onCancel={handleCancelUnitSelector}
-                  isApplying={isApplyingDefaultUnit}
-                />
-              </div>
-            </div>
-          )}
-
-          {showBulkMealSelector && (
-            <div className=" border">
-              <div className="p-4 sm:p-5">
-                <BulkMealSelector
-                  targetDates={weekdayTargets}
-                  initialTemplate={{ cafe: true, almoco: true }}
-                  onApply={applyMealTemplateToAll}
-                  onCancel={() => setShowBulkMealSelector(false)}
-                  isApplying={isApplyingMealTemplate}
-                />
-                {weekdayTargetsNeedingFillCount > 0 && (
-                  <p className="mt-3 text-xs ">
-                    Dica: {weekdayTargetsNeedingFillCount}{" "}
-                    {labelDiaUtil(weekdayTargetsNeedingFillCount)}{" "}
-                    {labelTem(weekdayTargetsNeedingFillCount)} refeições
-                    faltando no template.
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Alertas e status */}
-        <section className="space-y-3">
-          <AlertMessages
-            success={success}
-            error={error}
-            onClearMessages={clearMessages}
-          />
-          <PendingChangesStatus
-            pendingChanges={pendingChanges}
-            isSavingBatch={isSavingBatch}
-          />
-        </section>
-
-        {/* Estatísticas */}
-        <section className="">
-          <div className="p-4 sm:p-5">
-            <div className="p-4 sm:p-5">
-              <SimplifiedMilitaryStats
-                selections={selections}
-                dates={dates}
-                isLoading={isRefetching}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Cards */}
-        <section aria-labelledby="cards-title">
-          <h2 id="cards-title" className="sr-only">
-            Previsão por dia
-          </h2>
-
-          <div
-            className="flex flex-row columns-auto justify-center items-center w-full flex-wrap gap-8"
-            role="region"
-            aria-label="Lista de cards por dia"
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToggleMessHallSelector}
+            className=" hover:bg-orange-50 cursor-pointer"
+            aria-label="Definir rancho padrão"
           >
-            {dayCardsProps.map((cardProps) => (
-              <Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
-                <div className="snap-center">
-                  <DayCard
-                    {...cardProps}
-                    onMealToggle={handleMealToggle}
-                    onUnitChange={handleUnitChange}
-                  />
-                </div>
-              </Suspense>
-            ))}
-          </div>
-        </section>
+            <Settings className="h-4 w-4 mr-2" />
+            Rancho Padrão
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
+            disabled={isLoading}
+            className=" hover:bg-green-50 cursor-pointer"
+            aria-label="Aplicar refeições em massa"
+          >
+            <UtensilsCrossed className="h-4 w-4 mr-2" />
+            Refeições em Massa ({weekdayTargets.length})
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading || isRefetching}
+            className="cursor-pointer"
+            aria-label="Recarregar previsões"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
+            />
+          </Button>
+        </div>
+      </header>
+
+      {/* Controles */}
+      <section className="gap-8 flex flex-row w-full">
+        {showDefaultMessHallSelector && (
+          <DefaultMessHallSelector
+            defaultMessHallCode={defaultMessHallCode}
+            setDefaultMessHallCode={setDefaultMessHallCode}
+            onApply={applyDefaultMessHallToAll}
+            onCancel={handleCancelMessHallSelector}
+            isApplying={isApplyingDefaultMessHall}
+          />
+        )}
+
+        {showBulkMealSelector && (
+          <BulkMealSelector
+            targetDates={weekdayTargets}
+            initialTemplate={{ cafe: true, almoco: true }}
+            onApply={applyMealTemplateToAll}
+            onCancel={() => setShowBulkMealSelector(false)}
+            isApplying={isApplyingMealTemplate}
+          />
+        )}
+      </section>
+
+      {/* Overlay: Toasts unificados (bottom-center) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
+        <UnifiedStatusToasts
+          success={success}
+          error={error}
+          onClearMessages={clearMessages}
+          pendingChanges={pendingChanges}
+          isSavingBatch={isSavingBatch}
+           autoHideSuccessMs={6000}
+        />
       </div>
+
+      {/* Estatísticas */}
+      <section className="w-full">
+        <div className="p-4 sm:p-5">
+          <div className="p-4 sm:p-5">
+            <SimplifiedMilitaryStats
+              selections={selections}
+              dates={dates}
+              isLoading={isRefetching}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Cards */}
+      <section aria-labelledby="cards-title">
+        <h2 id="cards-title" className="sr-only">
+          Previsão por dia
+        </h2>
+
+        <div
+          className="flex flex-row columns-auto justify-center items-center w-full flex-wrap gap-8"
+          role="region"
+          aria-label="Lista de cards por dia"
+        >
+          {dayCardsProps.map((cardProps) => (
+            <Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
+              <div className="snap-center">
+                <DayCard
+                  {...cardProps}
+                  // Ajuste de nomes para o DayCard
+                  // - dayUnit e defaultUnit já preparados em dayCardsProps
+                  // - pendingChanges deve ter 'unidade' em vez de 'messHallCode'
+                  pendingChanges={pendingChangesForCard}
+                  onMealToggle={handleMealToggle}
+                  onMessHallChange={handleMessHallChange}
+                />
+              </div>
+            </Suspense>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

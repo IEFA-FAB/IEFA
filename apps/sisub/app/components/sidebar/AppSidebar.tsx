@@ -8,10 +8,10 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@iefa/ui";
-import { NavMain } from "./nav-main";
-import { NavUser } from "./nav-user";
-import { TeamSwitcher } from "./team-switcher";
-import type { AppSidebarData } from "./types";
+import { NavMain } from "./NavMain";
+import { NavUser } from "./NavUser";
+import { TeamSwitcher } from "./TeamSwitcher";
+import type { AppSidebarData } from "./SidebarTypes";
 
 export function AppSidebar({
   data,

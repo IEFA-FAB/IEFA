@@ -8,7 +8,7 @@ import {
 } from "@iefa/ui";
 import { Label } from "@iefa/ui";
 import { Badge } from "@iefa/ui";
-import { UnitSelector } from "~/components/UnitSelector";
+import { UnitSelector } from "~/components/MessHallSelector";
 import { MEAL_LABEL, MealKey } from "~/utils/FiscalUtils";
 import { formatDate } from "~/utils/RanchoUtils";
 
