@@ -10,7 +10,7 @@ import {
   Skeleton,
 } from "@iefa/ui";
 import { MealButton } from "~/components/MealButton";
-import { UnitSelector } from "~/components/UnitSelector";
+import { UnitSelector } from "~/components/MessHallSelector";
 import { MEAL_TYPES } from "~/components/constants/rancho";
 import type { DayMeals } from "~/utils/RanchoUtils";
 import { cn } from "~/utils/utils";
@@ -28,7 +28,7 @@ interface DayCardProps {
   dayUnit: string;
   defaultUnit: string;
   onMealToggle: (date: string, meal: keyof DayMeals) => void;
-  onUnitChange: (date: string, newUnit: string) => void;
+  onMessHallChange: (date: string, newUnit: string) => void;
   formattedDate: string;
   dayOfWeek: string;
   isToday: boolean;
@@ -115,7 +115,7 @@ export const DayCard = memo<DayCardProps>(
     dayUnit,
     defaultUnit,
     onMealToggle,
-    onUnitChange,
+    onMessHallChange,
     formattedDate,
     dayOfWeek,
     isToday,
@@ -189,9 +189,9 @@ export const DayCard = memo<DayCardProps>(
 
     const handleUnitChange = useCallback(
       (newUnit: string) => {
-        onUnitChange(date, newUnit);
+        onMessHallChange(date, newUnit);
       },
-      [date, onUnitChange]
+      [date, onMessHallChange]
     );
 
     const isDisabled = isSaving || isDateNear;

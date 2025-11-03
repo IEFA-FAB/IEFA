@@ -3,7 +3,7 @@ import supabase from "~/utils/supabase";
 
 import {  SidebarProvider } from "@iefa/ui";
 
-import { ProtectedBoundary } from "~/auth/protected-boundary";
+import { ProtectedBoundary } from "~/auth/ProtectedBoundary";
 
 /* ========= Utils ========= */
 export const QUERY_STALE_TIME = 5 * 60_000;

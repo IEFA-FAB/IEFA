@@ -242,7 +242,7 @@ function SuperAdminPanelInner() {
   );
 }
 
-import { RoleGuard } from "~/auth/role-guard";
+import { RoleGuard } from "~/auth/RoleGuard";
 
 export default function SuperAdminPanelRoute() {
   return (

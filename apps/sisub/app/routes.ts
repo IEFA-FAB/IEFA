@@ -28,4 +28,6 @@ export default [
     route("admin", "./routes/protected/adminPanel.tsx"),
     route("superadmin", "./routes/protected/superAdminPanel.tsx"),
   ]),
+
+  route("*", "./routes/public/notFound.tsx"),
 ] satisfies RouteConfig;

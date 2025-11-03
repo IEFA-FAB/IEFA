@@ -19,6 +19,7 @@ import {
 } from "@iefa/ui";
 import type { ProfileAdmin } from "./ProfilesManager";
 import type { UserLevelOrNull } from "../../services/AdminService";
+import { Unit } from "../hooks/useMessHalls";
 
 export type EditUserPayload = {
   saram: string;
@@ -33,18 +34,18 @@ export default function EditUserDialog({
   onOpenChange,
   isLoading,
   profile,
-  unidades,
-  isLoadingUnidades,
-  unidadesError,
+  units,
+  isLoadingUnits,
+  unitsError,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isLoading: boolean;
   profile: ProfileAdmin | null;
-  unidades: Option[];
-  isLoadingUnidades: boolean;
-  unidadesError?: string | null;
+  units: Unit[];
+  isLoadingUnits: boolean;
+  unitsError?: string | null;
   onSubmit: (payload: EditUserPayload) => void | Promise<void>;
 }) {
   const [saram, setSaram] = React.useState("");
@@ -97,19 +98,19 @@ export default function EditUserDialog({
             <Select
               value={om || ""}
               onValueChange={(value) => setOm(value)}
-              disabled={isLoadingUnidades}
+              disabled={isLoadingUnits}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue
                   placeholder={
-                    isLoadingUnidades ? "Carregando OMs..." : "Selecione a OM"
+                    isLoadingUnits ? "Carregando OMs..." : "Selecione a OM"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {(unidades || []).map((u) => (
-                  <SelectItem key={u.value} value={u.value}>
-                    {u.label}
+                {(units || []).map((u) => (
+                  <SelectItem key={u.code} value={u.code}>
+                    {u.name ? u.name : u.code}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -135,10 +136,8 @@ export default function EditUserDialog({
             </Select>
           </div>
 
-          {unidadesError && (
-            <p className="col-span-4 text-sm text-destructive">
-              {unidadesError}
-            </p>
+          {unitsError && (
+            <p className="col-span-4 text-sm text-destructive">{unitsError}</p>
           )}
         </div>
 

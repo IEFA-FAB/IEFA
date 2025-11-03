@@ -12,16 +12,16 @@ import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@iefa/auth";
 import supabase from "~/utils/supabase";
 
-import { SidebarInset } from "@iefa/ui";
+import { SidebarInset, Toaster } from "@iefa/ui";
 import {
   buildSidebarData,
   getNavItemsForLevel,
   type NavItem,
-} from "~/components/sidebar/nav-items";
+} from "~/components/sidebar/NavItems";
 
-import { UserQrDialog } from "~/components/layout/userQrDialog";
-import { EvaluationDialog } from "~/components/layout/evaluationDialog";
-import { SaramDialog } from "~/components/layout/saramDialog";
+import { UserQrDialog } from "~/components/layout/UserQrDialog";
+import { EvaluationDialog } from "~/components/layout/EvaluationDialog";
+import { SaramDialog } from "~/components/layout/SaramDialog";
 
 import { useUserLevel } from "~/services/AdminService";
 import {
@@ -36,7 +36,7 @@ import {
 
 import { Topbar } from "./TopBar";
 import { MainSurface } from "../sidebar/MainSurface";
-import { AppSidebar } from "../sidebar/app-sidebar";
+import { AppSidebar } from "../sidebar/AppSidebar";
 
 const NR_ORDEM_MIN_LEN = 7;
 
@@ -331,33 +331,38 @@ export function AppShell() {
         hasCopied={hasCopiedId}
       />
 
-      
-        {showSidebar && sidebarData ? <AppSidebar data={sidebarData} /> : null}
+      {showSidebar && sidebarData ? <AppSidebar data={sidebarData} /> : null}
 
-        <SidebarInset>
-          <div className="flex min-h-[100svh] w-full flex-col supports-[height:100dvh]:min-h-[100dvh]">
-            <Topbar
-              showSidebar={showSidebar}
-              navItems={navItems}
-              sheetOpen={sheetOpen}
-              onSheetOpenChange={setSheetOpen}
-              onSidebarNavigate={() => setSheetOpen(false)}
-              showGlobalProgress={showGlobalProgress}
-              onOpenQr={() => setQrOpen(true)}
-              userId={userId}
-            />
+      <SidebarInset>
+        <div className="flex min-h-[100svh] w-full flex-col supports-[height:100dvh]:min-h-[100dvh]">
+          <Topbar
+            showSidebar={showSidebar}
+            navItems={navItems}
+            sheetOpen={sheetOpen}
+            onSheetOpenChange={setSheetOpen}
+            onSidebarNavigate={() => setSheetOpen(false)}
+            showGlobalProgress={showGlobalProgress}
+            onOpenQr={() => setQrOpen(true)}
+            userId={userId}
+          />
 
-            <main id="conteudo" className="flex-1">
-              <MainSurface
-                showInitialError={showInitialError}
-                showInitialLoading={showInitialLoading}
-                onRetry={handleRetry}
-              >
-                <Outlet />
-              </MainSurface>
-            </main>
-          </div>
-        </SidebarInset>
+          <main id="conteudo" className="flex-1">
+            <MainSurface
+              showInitialError={showInitialError}
+              showInitialLoading={showInitialLoading}
+              onRetry={handleRetry}
+            >
+              <Outlet />
+            </MainSurface>
+          </main>
+        </div>
+      </SidebarInset>
+      <Toaster
+        position="bottom-center"
+        richColors
+        expand
+        className="z-[2147483647]" // garante ficar acima de tudo
+      />
     </>
   );
 }

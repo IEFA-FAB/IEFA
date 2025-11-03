@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@iefa/ui";
 import type { UserLevelOrNull } from "../../services/AdminService";
+import { Unit } from "../hooks/useMessHalls";
 
 export type NewUserPayload = {
   id: string;
@@ -34,17 +35,17 @@ export default function AddUserDialog({
   open,
   onOpenChange,
   isLoading,
-  unidades,
-  isLoadingUnidades,
-  unidadesError,
+  units,
+  isLoadingUnits,
+  unitsError,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isLoading: boolean;
-  unidades: Option[];
-  isLoadingUnidades: boolean;
-  unidadesError?: string | null;
+  units: Unit[];
+  isLoadingUnits: boolean;
+  unitsError?: string | null;
   onSubmit: (payload: NewUserPayload) => void | Promise<void>;
 }) {
   const [id, setId] = React.useState("");
@@ -163,30 +164,30 @@ export default function AddUserDialog({
             <Select
               value={om || ""}
               onValueChange={(value) => setOm(value)}
-              disabled={isLoadingUnidades}
+              disabled={isLoadingUnits}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue
                   placeholder={
-                    isLoadingUnidades
+                    isLoadingUnits
                       ? "Carregando OMs..."
                       : "Selecione a OM (opcional)"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {(unidades || []).map((u) => (
-                  <SelectItem key={u.value} value={u.value}>
-                    {u.label}
+                {(units || []).map((u) => (
+                  <SelectItem key={u.code} value={u.code}>
+                    {u.name ? u.name : u.code}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {unidadesError && (
+          {unitsError && (
             <p className="col-span-4 text-sm text-destructive">
-              {unidadesError}
+              {unitsError}
             </p>
           )}
         </div>

@@ -1,7 +1,6 @@
 // routes/home/tutorial.tsx
 import { JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import Footer from "~/components/Footer";
 import type { Route } from "./+types/tutorial";
 import type { LucideIcon } from "lucide-react";
 import {

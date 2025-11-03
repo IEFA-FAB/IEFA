@@ -1,5 +1,6 @@
 // routes/changelog.tsx
 import { Link } from "react-router";
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -27,7 +28,7 @@ type PageResult = {
   hasMore: boolean;
 };
 
-// Âncoras seguras
+// Utilitários
 function safeAnchorId(id: string) {
   return `chlg-${String(id)}`.replace(/[^A-Za-z0-9\-_:.]/g, "-");
 }
@@ -53,12 +54,10 @@ function transformLinkUri(href?: string) {
   }
 }
 
-// Helper: badge com tom baseado em tokens do tema shadcn
-// Gera classes reativas usando as CSS vars do tema (sem hardcode de cores)
+// Gera classes reativas usando as CSS vars do tema
 function toneBadge(
   tone: "primary" | "secondary" | "accent" | "destructive" | "muted" = "muted"
 ) {
-  // Usa HSL(var(--token)) para alinhar com app.css do shadcn
   return [
     `bg-[hsl(var(--${tone}))]/12`,
     `text-[hsl(var(--${tone}-foreground, var(--${tone})))]`,
@@ -66,8 +65,8 @@ function toneBadge(
   ].join(" ");
 }
 
-// Mapa de estilos por tag → token do tema
-const TAG_TONE: Record<string, ReturnType<typeof toneBadge>> = {
+// Mapa de estilos por tag → tom
+const TAG_TONE: Record<string, string> = {
   feat: toneBadge("primary"),
   fix: toneBadge("destructive"),
   docs: toneBadge("secondary"),
@@ -107,12 +106,48 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-// Subcomponentes reativos ao tema
+// Markdown components (definidos fora para não recriar a cada render)
+const markdownComponents = {
+  a: ({ node, href, ...props }: any) => (
+    <a
+      {...props}
+      href={transformLinkUri(href)}
+      className="text-[hsl(var(--primary))] hover:text-[hsl(var(--primary))]/90 underline"
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+    />
+  ),
+  ul: ({ node, ...props }: any) => <ul {...props} className="list-disc pl-6" />,
+  ol: ({ node, ...props }: any) => (
+    <ol {...props} className="list-decimal pl-6" />
+  ),
+  code: (props: any) => {
+    const { inline, className, children, ...rest } = props;
+    if (inline) {
+      return (
+        <code
+          {...rest}
+          className={`rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground ${className ?? ""}`}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <pre className="bg-muted text-foreground p-4 rounded-lg overflow-x-auto">
+        <code {...rest} className={className}>
+          {children}
+        </code>
+      </pre>
+    );
+  },
+};
 
+// Subcomponentes simples
 function SkeletonList() {
   return (
     <div className="max-w-3xl mx-auto space-y-4">
-      {[...Array(3)].map((_, i) => (
+      {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
           className="bg-card rounded-xl border border-border p-6 animate-pulse"
@@ -128,39 +163,35 @@ function SkeletonList() {
   );
 }
 
-function ErrorBox({
+function MessageBox({
+  tone = "muted",
+  title,
   message,
-  onRetry,
+  action,
 }: {
+  tone?: "muted" | "destructive";
+  title?: string;
   message: string;
-  onRetry: () => void;
+  action?: { label: string; onClick: () => void; busy?: boolean };
 }) {
+  const toneClasses =
+    tone === "destructive"
+      ? "bg-[hsl(var(--destructive))]/10 border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive-foreground, var(--destructive)))]"
+      : "bg-card border-border text-foreground";
   return (
-    <div className="max-w-3xl mx-auto mb-8">
-      <div
-        className="bg-[hsl(var(--destructive))]/10 border border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive-foreground, var(--destructive)))] rounded-xl p-4"
-        role="alert"
-      >
-        <p className="font-semibold mb-1">Erro ao carregar</p>
+    <div className="max-w-3xl mx-auto mb-8" aria-live="polite">
+      <div className={`border rounded-xl p-4 ${toneClasses}`}>
+        {title && <p className="font-semibold mb-1">{title}</p>}
         <p className="text-sm text-muted-foreground">{message}</p>
-        <button
-          onClick={onRetry}
-          className="mt-3 inline-flex items-center gap-2 bg-background border border-border text-foreground hover:bg-accent/10 px-3 py-1.5 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          Tentar novamente
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-card border border-border rounded-xl p-6 text-center">
-        <p className="text-muted-foreground">
-          Nenhuma publicação encontrada ainda. Volte em breve!
-        </p>
+        {action && (
+          <button
+            onClick={action.onClick}
+            className="mt-3 inline-flex items-center gap-2 bg-background border border-border text-foreground hover:bg-accent/10 px-3 py-1.5 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-busy={action.busy}
+          >
+            {action.busy ? "Carregando..." : action.label}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -168,46 +199,10 @@ function EmptyState() {
 
 function MarkdownContent({ children }: { children: string }) {
   return (
-    <div className="prose max-w-none leading-relaxed prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:underline dark:prose-invert">
+    <div className="prose max-w-none leading-relaxed dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
-        components={{
-          a: ({ node, href, ...props }) => (
-            <a
-              {...props}
-              href={transformLinkUri(href)}
-              className="text-[hsl(var(--primary))] hover:text-[hsl(var(--primary))]/90"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-            />
-          ),
-          ul: ({ node, ...props }) => (
-            <ul {...props} className="list-disc pl-6" />
-          ),
-          ol: ({ node, ...props }) => (
-            <ol {...props} className="list-decimal pl-6" />
-          ),
-          code: (props: any) => {
-            const { inline, className, children, ...rest } = props;
-            if (inline) {
-              return (
-                <code
-                  {...rest}
-                  className={`rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground ${className ?? ""}`}
-                >
-                  {children}
-                </code>
-              );
-            }
-            return (
-              <pre className="bg-muted text-foreground p-4 rounded-lg overflow-x-auto">
-                <code {...rest} className={className}>
-                  {children}
-                </code>
-              </pre>
-            );
-          },
-        }}
+        components={markdownComponents as any}
       >
         {children}
       </ReactMarkdown>
@@ -215,20 +210,29 @@ function MarkdownContent({ children }: { children: string }) {
   );
 }
 
-function TagBadge({ id, tag }: { id: string; tag: string }) {
+const TagBadge = React.memo(function TagBadge({
+  id,
+  tag,
+}: {
+  id: string;
+  tag: string;
+}) {
   const key = (tag ?? "").toLowerCase();
   const tone = TAG_TONE[key] ?? toneBadge("muted");
   return (
     <span
-      key={`${id}-${tag}`}
       className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${tone}`}
     >
       {tag}
     </span>
   );
-}
+});
 
-function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
+const ChangelogCard = React.memo(function ChangelogCard({
+  entry,
+}: {
+  entry: ChangelogEntry;
+}) {
   const anchorId = safeAnchorId(entry.id);
   return (
     <article
@@ -266,43 +270,20 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
         </time>
       </div>
 
-      {entry.tags && entry.tags.length > 0 && (
+      {entry.tags?.length ? (
         <div className="flex flex-wrap gap-2 mb-4">
           {entry.tags.map((t) => (
             <TagBadge key={`${entry.id}-${t}`} id={entry.id} tag={t} />
           ))}
         </div>
-      )}
+      ) : null}
 
       <MarkdownContent>{entry.body ?? ""}</MarkdownContent>
     </article>
   );
-}
+});
 
-function LoadMore({
-  disabled,
-  onClick,
-  busy,
-}: {
-  disabled: boolean;
-  onClick: () => void;
-  busy: boolean;
-}) {
-  return (
-    <div className="flex justify-center pt-2">
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        aria-busy={busy}
-        className="inline-flex items-center gap-2 bg-background border border-border text-foreground hover:bg-accent/10 px-4 py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        {busy ? "Carregando..." : "Carregar mais"}
-      </button>
-    </div>
-  );
-}
-
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 10 as const;
 
 export default function Changelog() {
   const {
@@ -321,14 +302,19 @@ export default function Changelog() {
     staleTime: 5 * 60 * 1000, // 5min
     gcTime: 10 * 60 * 1000, // 10min
     retry: 2,
+    refetchOnWindowFocus: false,
   });
 
-  const items = data?.pages.flatMap((p) => p.items) ?? [];
+  const items = React.useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data]
+  );
+
   const GITHUB_REPO_URL =
     import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/";
 
   return (
-    <div className="min-h-screen flex flex-col  text-foreground">
+    <div className="min-h-screen flex flex-col text-foreground">
       {/* Hero */}
       <section className="container mx-auto px-4 pt-14 pb-8">
         <div className="text-center">
@@ -353,13 +339,17 @@ export default function Changelog() {
         {isLoading && <SkeletonList />}
 
         {!isLoading && error && (
-          <ErrorBox
+          <MessageBox
+            tone="destructive"
+            title="Erro ao carregar"
             message={(error as Error).message}
-            onRetry={() => refetch()}
+            action={{ label: "Tentar novamente", onClick: () => refetch() }}
           />
         )}
 
-        {!isLoading && !error && items.length === 0 && <EmptyState />}
+        {!isLoading && !error && items.length === 0 && (
+          <MessageBox message="Nenhuma publicação encontrada ainda. Volte em breve!" />
+        )}
 
         {!isLoading && !error && items.length > 0 && (
           <div className="max-w-3xl mx-auto space-y-6">
@@ -367,20 +357,24 @@ export default function Changelog() {
               <ChangelogCard key={entry.id} entry={entry} />
             ))}
 
-            {/* Paginação */}
             {hasNextPage && (
-              <LoadMore
-                disabled={isFetchingNextPage}
-                busy={isFetchingNextPage}
-                onClick={() => fetchNextPage()}
-              />
+              <div className="flex justify-center pt-2">
+                <button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  aria-busy={isFetchingNextPage}
+                  className="inline-flex items-center gap-2 bg-background border border-border text-foreground hover:bg-accent/10 px-4 py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {isFetchingNextPage ? "Carregando..." : "Carregar mais"}
+                </button>
+              </div>
             )}
           </div>
         )}
       </main>
 
       {/* CTA GitHub */}
-      <Card className="py-12 ">
+      <Card className="py-12">
         <div className="container mx-auto px-4 text-center">
           <h3 className="text-2xl font-bold mb-3">Quer contribuir?</h3>
           <p className="text-[hsl(var(--primary-foreground))]/80 max-w-2xl mx-auto mb-6">
