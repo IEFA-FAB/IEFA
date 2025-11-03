@@ -34,6 +34,12 @@ import {
   TableHeader,
   TableRow,
   Badge,
+  // novos: Select do shadcn/ui via @iefa/ui
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@iefa/ui";
 
 import AddUserDialog, { NewUserPayload } from "./AddUserDialog";
@@ -41,7 +47,6 @@ import EditUserDialog, { EditUserPayload } from "./EditUserDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
 import { useRancho } from "~/components/hooks/useRancho";
 import type { UserLevelOrNull } from "../../services/AdminService";
-
 
 // Tipos
 export type ProfileAdmin = {
@@ -432,21 +437,24 @@ export default function ProfilesManager() {
             }
             className="max-w-sm"
           />
+
           <div className="flex items-center gap-2">
-            <select
-              className="w-full sm:w-[200px] h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              value={roleFilter || ""}
-              onChange={(e) =>
-                table
-                  .getColumn("role")
-                  ?.setFilterValue(e.target.value || undefined)
+            {/* Select do shadcn/ui para filtrar por role */}
+            <Select
+              value={roleFilter ?? ""}
+              onValueChange={(v) =>
+                table.getColumn("role")?.setFilterValue(v || undefined)
               }
             >
-              <option value="">Filtrar por role</option>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-              <option value="superadmin">Superadmin</option>
-            </select>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Filtrar por role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="superadmin">Superadmin</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Button
               variant="outline"
@@ -569,6 +577,23 @@ export default function ProfilesManager() {
           {table.getFilteredRowModel().rows.length} linha(s) selecionada(s).
         </div>
         <div className="flex items-center gap-2">
+          {/* Select para tamanho da página */}
+          <Select
+            value={String(table.getState().pagination?.pageSize ?? 10)}
+            onValueChange={(v) => table.setPageSize(Number(v))}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Itens por página" />
+            </SelectTrigger>
+            <SelectContent>
+              {[10, 20, 30, 50, 100].map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size} por página
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             size="sm"

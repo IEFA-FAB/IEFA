@@ -33,6 +33,8 @@ export function AuthLayout({ variant = "full", config, LoaderIcon }: Props) {
     "/auth/reset-password"
   );
 
+  
+
   // Loading (evita flicker) - só renderiza na variação "full"
   if (isLoading && variant === "full") {
     return (
@@ -80,7 +82,7 @@ export function AuthLayout({ variant = "full", config, LoaderIcon }: Props) {
   // Páginas de auth com UI (login/register/reset)
   return (
     <div className="h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
           {cfg.brand.logoUrl ? (
             <img
