@@ -111,8 +111,7 @@ export default function PublicLayout() {
         <div
           className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}
         >
-          © {new Date().getFullYear()} SISUB • Alguns serviços são externos e
-          podem exigir login próprio.
+          © {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Temn. Bruno (GAP-MN).
         </div>
       </footer>
     </div>
