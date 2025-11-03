@@ -63,7 +63,7 @@ export default function SelfCheckin() {
     null
   );
 
-  // ÚNICO parâmetro esperado no QR: unidade
+  // ÚNICO parâmetro esperado no QR: unidade (mess hall code)
   const unitParam = search.get("unit") ?? search.get("u");
   const unidade = useMemo(() => unitParam ?? "DIRAD - DIRAD", [unitParam]);
 
@@ -118,7 +118,7 @@ export default function SelfCheckin() {
     [navigate]
   );
 
-  // Autenticação + busca de previsão
+  // Autenticação + busca de previsão (agora em sisub.meal_forecasts via mess_hall_id)
   useEffect(() => {
     let cancelled = false;
 
@@ -147,20 +147,44 @@ export default function SelfCheckin() {
         return;
       }
 
-      // Busca previsão do sistema — se falhar, segue com defaults
       try {
+        setUuid(userId);
+
+        // 1) Buscar mess_hall_id pelo code
+        const { data: mh, error: mhError } = await supabase
+          .schema("sisub")
+          .from("mess_halls")
+          .select("id")
+          .eq("code", unidade)
+          .maybeSingle();
+
+        if (mhError) {
+          console.error("Erro ao buscar mess_hall_id:", mhError);
+          setSystemForecast(false);
+          setWillEnter("sim");
+          return;
+        }
+
+        const messHallId = mh?.id as number | undefined;
+        if (!messHallId) {
+          console.warn(`Código de rancho não encontrado: ${unidade}`);
+          setSystemForecast(false);
+          setWillEnter("sim");
+          return;
+        }
+
+        // 2) Buscar previsão em sisub.meal_forecasts
         const { data: previsao, error } = await supabase
-          .from("rancho_previsoes")
-          .select("vai_comer")
+          .schema("sisub")
+          .from("meal_forecasts")
+          .select("will_eat")
           .eq("user_id", userId)
-          .eq("data", date)
-          .eq("refeicao", meal)
-          .eq("unidade", unidade)
+          .eq("date", date)
+          .eq("meal", meal)
+          .eq("mess_hall_id", messHallId)
           .maybeSingle();
 
         if (cancelled) return;
-
-        setUuid(userId);
 
         if (error) {
           // Resiliente: loga, mantém systemForecast=false e segue
@@ -174,14 +198,13 @@ export default function SelfCheckin() {
         }
 
         // Não encontrado => false (não previsto)
-        setSystemForecast(previsao ? !!previsao.vai_comer : false);
+        setSystemForecast(previsao ? !!previsao.will_eat : false);
         setWillEnter("sim");
       } catch (err) {
         if (cancelled) return;
         console.error("Erro inesperado ao preparar informações:", err);
         toast.error("Erro", { description: "Falha ao carregar informações." });
         // Mantém estados default (uuid só se auth ok)
-        setUuid(userId);
         setSystemForecast(false);
         setWillEnter("sim");
         return;
@@ -213,7 +236,7 @@ export default function SelfCheckin() {
         return; // early return
       }
 
-      // Tenta inserir presença
+      // Tenta inserir presença (mantido em rancho_presencas com 'unidade' code)
       const { error } = await supabase.from("rancho_presencas").insert({
         user_id: uuid,
         date,

@@ -16,7 +16,7 @@ interface FiscalDialogProps {
   setDialog: Dispatch<SetStateAction<DialogState>>;
   dialog: DialogState;
   confirmDialog: () => void;
-  selectedUnit: string;
+  selectedUnit: string; // mess hall code
 }
 
 export default function FiscalDialog({
@@ -26,7 +26,7 @@ export default function FiscalDialog({
   selectedUnit,
 }: FiscalDialogProps) {
   const forecastIsYes = !!dialog.systemForecast;
-  const forecastIsNo = dialog.systemForecast === false;
+  const forecastIsNo = !dialog.systemForecast;
 
   return (
     <>
@@ -105,7 +105,7 @@ export default function FiscalDialog({
 
             {selectedUnit && (
               <div className="text-xs text-muted-foreground">
-                OM selecionada: {selectedUnit}
+                Rancho selecionado: {selectedUnit}
               </div>
             )}
           </div>

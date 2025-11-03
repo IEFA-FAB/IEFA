@@ -56,7 +56,7 @@ type ScannerAction =
 interface FiscalFilters {
   date: string;
   meal: MealKey;
-  unit: string;
+  unit: string; // mess hall code
 }
 
 export function meta() {
@@ -186,6 +186,32 @@ export default function Qr() {
     systemForecast: null,
     willEnter: "sim",
   });
+
+  // Cache simples de code -> mess_hall_id para reduzir round-trips
+  const messHallIdCacheRef = useRef<Map<string, number>>(new Map());
+  const getMessHallIdByCode = useCallback(
+    async (code: string): Promise<number | undefined> => {
+      if (!code) return undefined;
+      const cached = messHallIdCacheRef.current.get(code);
+      if (cached) return cached;
+
+      const { data, error } = await supabase
+        .schema("sisub")
+        .from("mess_halls")
+        .select("id")
+        .eq("code", code)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Falha ao buscar mess_hall_id:", error);
+        return undefined;
+      }
+      const id = data?.id as number | undefined;
+      if (id) messHallIdCacheRef.current.set(code, id);
+      return id;
+    },
+    []
+  );
 
   const addOtherPresence = useCallback(async () => {
     if (!user?.id) {
@@ -332,20 +358,33 @@ export default function Qr() {
     const { date, meal, unit } = currentFiltersRef.current;
 
     try {
-      const { data: previsao } = await supabase
-        .from("rancho_previsoes")
-        .select("vai_comer")
-        .eq("user_id", uuid)
-        .eq("data", date)
-        .eq("refeicao", meal)
-        .eq("unidade", unit)
-        .maybeSingle();
+      // NOVO: Buscar mess_hall_id pelo code e depois a previsão em sisub.meal_forecasts
+      let systemForecast: boolean | null = null;
+      const messHallId = await getMessHallIdByCode(unit);
+
+      if (messHallId) {
+        const { data: forecast, error: fErr } = await supabase
+          .schema("sisub")
+          .from("meal_forecasts")
+          .select("will_eat")
+          .eq("user_id", uuid)
+          .eq("date", date)
+          .eq("meal", meal)
+          .eq("mess_hall_id", messHallId)
+          .maybeSingle();
+
+        if (!fErr && forecast) {
+          systemForecast = !!forecast.will_eat;
+        }
+      } else {
+        console.warn(`Código de rancho não encontrado: ${unit}`);
+      }
 
       setLastScanResult(uuid);
       setDialog({
         open: true,
         uuid,
-        systemForecast: previsao ? !!previsao.vai_comer : null,
+        systemForecast,
         willEnter: "sim",
       });
 
