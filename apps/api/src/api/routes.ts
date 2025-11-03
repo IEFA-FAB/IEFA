@@ -74,14 +74,34 @@ api.use(
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/rancho", headersMw, handler);
+  api.get("/rancho_agregado", headersMw, handler);
+}
+
+{
+  const [headersMw, handler] = createApiHandler({
+    table: "rancho_previsoes",
+    select: "user_id, data, unidade, refeicao",
+    dateColumn: "data",
+    dateColumnType: "date",
+    defaultOrder: [
+      { column: "data", ascending: false },
+      { column: "unidade", ascending: true },
+      { column: "refeicao", ascending: true },
+    ],
+    mapParams: {
+      unidade: "unidade",
+      refeicao: "refeicao",
+    },
+    cacheControl: "public, max-age=300",
+  });
+  api.get("/rancho_previsoes", headersMw, handler);
 }
 
 // /api/wherewhowhen (era apiPresences.tsx)
 {
   const [headersMw, handler] = createApiHandler({
     table: "rancho_presencas",
-    select: "user_id, date, unidade",
+    select: "user_id, date, unidade, meal",
     dateColumn: "date",
     dateColumnType: "date",
     defaultOrder: [
