@@ -77,6 +77,7 @@ export default function SelfCheckin() {
   const [systemForecast, setSystemForecast] = useState<boolean>(false);
   const [willEnter, setWillEnter] = useState<WillEnter>("sim");
   const [submitting, setSubmitting] = useState(false);
+  const [messHallId, setMessHallId] = useState<number | null>(null);
 
   // Countdown de redirecionamento
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
@@ -162,16 +163,19 @@ export default function SelfCheckin() {
           console.error("Erro ao buscar mess_hall_id:", mhError);
           setSystemForecast(false);
           setWillEnter("sim");
+          setMessHallId(null);
           return;
         }
 
-        const messHallId = mh?.id as number | undefined;
-        if (!messHallId) {
+        const id = (mh?.id as number | undefined) ?? null;
+        if (!id) {
           console.warn(`Código de rancho não encontrado: ${unidade}`);
           setSystemForecast(false);
           setWillEnter("sim");
+          setMessHallId(null);
           return;
         }
+        setMessHallId(id);
 
         // 2) Buscar previsão em sisub.meal_forecasts
         const { data: previsao, error } = await supabase
@@ -181,7 +185,7 @@ export default function SelfCheckin() {
           .eq("user_id", userId)
           .eq("date", date)
           .eq("meal", meal)
-          .eq("mess_hall_id", messHallId)
+          .eq("mess_hall_id", id)
           .maybeSingle();
 
         if (cancelled) return;
@@ -207,6 +211,7 @@ export default function SelfCheckin() {
         // Mantém estados default (uuid só se auth ok)
         setSystemForecast(false);
         setWillEnter("sim");
+        setMessHallId(null);
         return;
       }
     };
@@ -236,13 +241,36 @@ export default function SelfCheckin() {
         return; // early return
       }
 
-      // Tenta inserir presença (mantido em rancho_presencas com 'unidade' code)
-      const { error } = await supabase.from("rancho_presencas").insert({
-        user_id: uuid,
-        date,
-        meal,
-        unidade,
-      });
+      // Garantir mess_hall_id (tenta fallback se não estiver em memória)
+      let effectiveMessHallId = messHallId;
+      if (!effectiveMessHallId) {
+        const { data: mh, error: mhError } = await supabase
+          .schema("sisub")
+          .from("mess_halls")
+          .select("id")
+          .eq("code", unidade)
+          .maybeSingle();
+
+        if (mhError || !mh?.id) {
+          toast.error("Rancho inválido", {
+            description: "Código de rancho não encontrado.",
+          });
+          return; // early return
+        }
+        effectiveMessHallId = mh.id as number;
+        setMessHallId(effectiveMessHallId);
+      }
+
+      // Tenta inserir presença na nova tabela normalizada
+      const { error } = await supabase
+        .schema("sisub")
+        .from("meal_presences")
+        .insert({
+          user_id: uuid,
+          date,
+          meal,
+          mess_hall_id: effectiveMessHallId,
+        });
 
       if (!error) {
         toast.success("Presença registrada", {
@@ -276,7 +304,16 @@ export default function SelfCheckin() {
     } finally {
       setSubmitting(false);
     }
-  }, [uuid, willEnter, date, meal, unidade, submitting, scheduleRedirect]);
+  }, [
+    uuid,
+    willEnter,
+    date,
+    meal,
+    unidade,
+    submitting,
+    scheduleRedirect,
+    messHallId,
+  ]);
 
   const goHome = useCallback(() => {
     if (redirectCountdown !== null) return; // evita interromper countdown

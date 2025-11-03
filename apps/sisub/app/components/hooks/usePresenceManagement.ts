@@ -26,6 +26,15 @@ interface ForecastRow {
   will_eat: boolean | null;
 }
 
+interface PresenceRow {
+  id: string;
+  user_id: string;
+  date: string;
+  meal: MealKey;
+  created_at: string;
+  mess_hall_id: number;
+}
+
 interface QueryResult {
   presences: PresenceRecord[];
   forecastMap: Record<string, boolean>;
@@ -77,22 +86,57 @@ const presenceKeys = {
 } as const;
 
 // ============================================================================
+// HELPERS (code -> mess_hall_id com cache)
+// ============================================================================
+const messHallIdCache = new Map<string, number>();
+
+async function getMessHallIdByCode(code: string): Promise<number | undefined> {
+  if (!code) return undefined;
+  const cached = messHallIdCache.get(code);
+  if (cached) return cached;
+
+  const { data, error } = await supabase
+    .schema("sisub")
+    .from("mess_halls")
+    .select("id")
+    .eq("code", code)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Falha ao buscar mess_hall_id:", error);
+    return undefined;
+  }
+  const id = data?.id as number | undefined;
+  if (id) messHallIdCache.set(code, id);
+  return id;
+}
+
+// ============================================================================
 // SUPABASE OPERATIONS
 // ============================================================================
-// OBS: Se você tiver os tipos gerados do Supabase (Database), recomendo tipar
-// .returns<...>() abaixo. Posso adaptar se você usar esses tipos.
 
 const fetchPresences = async (
   filters: FiscalFilters
 ): Promise<PresenceRecord[]> => {
+  if (!filters.unit) return [];
+
+  // 1) Mapear code -> mess_hall_id
+  const messHallId = await getMessHallIdByCode(filters.unit);
+  if (!messHallId) {
+    console.warn(`Código de rancho não encontrado: ${filters.unit}`);
+    return [];
+  }
+
+  // 2) Buscar presenças na nova tabela normalizada
   const { data, error } = await supabase
-    .from("rancho_presencas")
-    .select("id, user_id, date, meal, unidade, created_at")
+    .schema("sisub")
+    .from("meal_presences")
+    .select("id, user_id, date, meal, created_at, mess_hall_id")
     .eq("date", filters.date)
     .eq("meal", filters.meal)
-    .eq("unidade", filters.unit)
+    .eq("mess_hall_id", messHallId)
     .order("created_at", { ascending: false })
-    .returns<PresenceRecord[]>();
+    .returns<PresenceRow[]>();
 
   if (error) {
     console.error("Erro ao buscar presenças:", error);
@@ -102,7 +146,18 @@ const fetchPresences = async (
     throw error; // PostgrestError
   }
 
-  return data ?? [];
+  // 3) Mapear para PresenceRecord esperado pela UI (repondo unidade = code)
+  const rows = data ?? [];
+  const mapped: PresenceRecord[] = rows.map((r) => ({
+    id: r.id,
+    user_id: r.user_id,
+    date: r.date,
+    meal: r.meal,
+    created_at: r.created_at,
+    unidade: filters.unit, // compat: UI ainda usa 'unidade' como code
+  }));
+
+  return mapped;
 };
 
 const fetchForecasts = async (
@@ -112,26 +167,13 @@ const fetchForecasts = async (
   if (userIds.length === 0) return {};
   if (!filters.unit) return {};
 
-  // 1) Mapear code -> id (sisub.mess_halls)
-  const { data: mhRows, error: mhError } = await supabase
-    .schema("sisub")
-    .from("mess_halls")
-    .select("id")
-    .eq("code", filters.unit)
-    .limit(1);
-
-  if (mhError) {
-    console.warn("Falha ao buscar mess_hall_id:", mhError);
-    return {};
-  }
-
-  const messHallId = mhRows?.[0]?.id as number | undefined;
+  const messHallId = await getMessHallIdByCode(filters.unit);
   if (!messHallId) {
     console.warn(`Código de rancho não encontrado: ${filters.unit}`);
     return {};
   }
 
-  // 2) Buscar previsões em sisub.meal_forecasts (após migração)
+  // Previsões na nova tabela
   const { data, error } = await supabase
     .schema("sisub")
     .from("meal_forecasts")
@@ -163,12 +205,20 @@ const insertPresence = async (
     throw new UnitRequiredError();
   }
 
-  const { error } = await supabase.from("rancho_presencas").insert({
-    user_id: params.uuid,
-    date: filters.date,
-    meal: filters.meal,
-    unidade: filters.unit,
-  });
+  const messHallId = await getMessHallIdByCode(filters.unit);
+  if (!messHallId) {
+    throw new UnitRequiredError(); // ou um erro mais específico
+  }
+
+  const { error } = await supabase
+    .schema("sisub")
+    .from("meal_presences")
+    .insert({
+      user_id: params.uuid,
+      date: filters.date,
+      meal: filters.meal,
+      mess_hall_id: messHallId,
+    });
 
   if (error) {
     throw error; // PostgrestError
@@ -177,7 +227,8 @@ const insertPresence = async (
 
 const deletePresence = async (presenceId: string): Promise<void> => {
   const { error } = await supabase
-    .from("rancho_presencas")
+    .schema("sisub")
+    .from("meal_presences")
     .delete()
     .eq("id", presenceId);
 
@@ -198,8 +249,8 @@ const isValidFilters = (filters: FiscalFilters): boolean => {
 // ============================================================================
 const handleConfirmPresenceError = (error: unknown): void => {
   if (error instanceof UnitRequiredError) {
-    toast.error("Selecione a OM", {
-      description: "É necessário informar a unidade.",
+    toast.error("Selecione o rancho", {
+      description: "É necessário informar a unidade (rancho).",
     });
     return;
   }
