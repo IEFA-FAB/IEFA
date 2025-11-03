@@ -106,21 +106,21 @@ export function UserQrDialog({
 
         <div className="bg-muted px-3 py-4 sm:px-6 sm:py-8">
           <div className="flex flex-col items-center gap-4 sm:gap-5">
-            <div className="rounded-xl border-2 bg-white p-3 shadow-lg sm:rounded-2xl sm:border-4 sm:p-6">
+            <div className="rounded-xl border-2 bg-white shadow-lg sm:rounded-2xl sm:border-4 p-2">
               {canInteract ? (
                 <QRCodeCanvas
                   role="img"
                   aria-label={`QR Code para o usuário ${userId}`}
                   value={userId ?? ""}
                   // Canvas interno a 180px para download nítido
-                  size={180}
+                  size={240}
                   level="M"
                   includeMargin
                   bgColor="#ffffff"
                   fgColor="#111827"
                   ref={qrCanvasRef}
                   // Escala visual controlada por Tailwind
-                  className="h-[140px] w-[140px] sm:h-[180px] sm:w-[180px]"
+                  className="w-full h-full rounded-2xl"
                 />
               ) : (
                 <div
