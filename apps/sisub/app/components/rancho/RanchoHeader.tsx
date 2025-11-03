@@ -93,7 +93,7 @@ export default function RanchoHeader({ user, signOut }: RanchoHeaderProps) {
                 </Button>
               </AlertDialogTrigger>
 
-              <AlertDialogContent className="w-[95vw] max-w-md mx-auto p-0 overflow-hidden">
+              <AlertDialogContent className=" max-w-md mx-auto p-0 overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 sm:px-6 py-3 sm:py-4 text-white relative">
                   <AlertDialogCancel className="absolute top-2 sm:top-4 right-2 sm:right-4 h-7 w-7 sm:h-8 sm:w-8 p-0 bg-white/20 hover:bg-white/30 border-0 text-white rounded-full transition-colors">
                     <X className="h-3 w-3 sm:h-4 sm:w-4" />

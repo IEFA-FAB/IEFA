@@ -430,21 +430,6 @@ export default function Rancho(): JSX.Element {
     ]
   );
 
-  /* ============================
-     Loading state
-     ============================ */
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-screen-2xl w-full">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="">Carregando previsões...</p>
-        </div>
-      </div>
-    );
-  }
-
   const { cardsWithoutUnit } = computedData;
 
   /* ============================
@@ -452,8 +437,8 @@ export default function Rancho(): JSX.Element {
      ============================ */
 
   return (
-    <div className="min-h-screen ">
-      <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
+    <div className="h-full shrink-0">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
@@ -500,7 +485,7 @@ export default function Rancho(): JSX.Element {
         {/* Controles */}
         <section className="space-y-4">
           {showDefaultUnitSelector && (
-            <div className="rounded-lg border  shadow-sm">
+            <div className="">
               <div className="p-4 sm:p-5">
                 <DefaultUnitSelector
                   defaultUnit={defaultUnit}
@@ -515,7 +500,7 @@ export default function Rancho(): JSX.Element {
           )}
 
           {showBulkMealSelector && (
-            <div className="rounded-lg border  shadow-sm">
+            <div className=" border">
               <div className="p-4 sm:p-5">
                 <BulkMealSelector
                   targetDates={weekdayTargets}
@@ -551,7 +536,7 @@ export default function Rancho(): JSX.Element {
         </section>
 
         {/* Estatísticas */}
-        <section className="rounded-lg border  shadow-sm">
+        <section className="">
           <div className="p-4 sm:p-5">
             <div className="p-4 sm:p-5">
               <SimplifiedMilitaryStats
@@ -564,21 +549,27 @@ export default function Rancho(): JSX.Element {
         </section>
 
         {/* Cards */}
-        <section>
-          <div className="overflow-x-auto pb-2 -mx-2 px-2">
-            <div className="flex space-x-4 min-w-max p-1 snap-x snap-mandatory">
-              {dayCardsProps.map((cardProps) => (
-                <Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
-                  <div className="snap-start">
-                    <DayCard
-                      {...cardProps}
-                      onMealToggle={handleMealToggle}
-                      onUnitChange={handleUnitChange}
-                    />
-                  </div>
-                </Suspense>
-              ))}
-            </div>
+        <section aria-labelledby="cards-title">
+          <h2 id="cards-title" className="sr-only">
+            Previsão por dia
+          </h2>
+
+          <div
+            className="flex flex-row columns-auto justify-center items-center w-full flex-wrap gap-8"
+            role="region"
+            aria-label="Lista de cards por dia"
+          >
+            {dayCardsProps.map((cardProps) => (
+              <Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
+                <div className="snap-center">
+                  <DayCard
+                    {...cardProps}
+                    onMealToggle={handleMealToggle}
+                    onUnitChange={handleUnitChange}
+                  />
+                </div>
+              </Suspense>
+            ))}
           </div>
         </section>
       </div>
