@@ -1,7 +1,6 @@
 // apps/sisub/app/routes/public-layout.tsx
 import { Outlet, NavLink } from "react-router";
 import { ModeToggle, Separator, Button } from "@iefa/ui";
-import { UserMenu } from "~/components/user-menu";
 
 export default function PublicLayout() {
   const container =
