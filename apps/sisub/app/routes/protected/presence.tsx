@@ -10,7 +10,7 @@ import QrScanner from "qr-scanner";
 import supabase from "~/utils/supabase";
 
 // UI & Icons
-import { Button } from "@iefa/ui";
+import { Button, Switch, Label } from "@iefa/ui";
 import { Camera, RefreshCw, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,13 +23,11 @@ import {
 import FiscalDialog from "~/components/presence/FiscalDialog";
 import PresenceTable from "~/components/presence/PresenceTable";
 import { usePresenceManagement } from "~/components/hooks/usePresenceManagement";
-import { Switch } from "@iefa/ui";
-import { Label } from "@iefa/ui";
 import { useAuth } from "@iefa/auth";
 import { checkUserLevel } from "~/services/AdminService";
 import { Navigate } from "react-router";
 
-// ===== NOVO: Regex de UUID e helper de extração =====
+// ===== Regex de UUID e helper de extração =====
 const UUID_REGEX =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
 
@@ -146,7 +144,7 @@ export default function Qr() {
     unit: "DIRAD - DIRAD",
   });
 
-  // 2) Cooldown + cache de UUIDs (LRU simples)
+  // Cooldown + cache de UUIDs (LRU simples)
   const COOLDOWN_MS = 800;
   const MAX_CACHE = 300;
   const lastScanAtRef = useRef(0);
@@ -230,6 +228,7 @@ export default function Qr() {
 
     setIsAddingOther(true);
     try {
+      // Mantido em others_presence (modelo separado que aceita entradas sem user_id)
       const { error } = await supabase.from("others_presence").insert({
         admin_id: user.id,
         date,
@@ -358,7 +357,7 @@ export default function Qr() {
     const { date, meal, unit } = currentFiltersRef.current;
 
     try {
-      // NOVO: Buscar mess_hall_id pelo code e depois a previsão em sisub.meal_forecasts
+      // Buscar mess_hall_id pelo code e depois a previsão em sisub.meal_forecasts
       let systemForecast: boolean | null = null;
       const messHallId = await getMessHallIdByCode(unit);
 
