@@ -3,36 +3,27 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@iefa/auth";
 import supabase from "~/utils/supabase";
+import type { DayMeals } from "~/utils/RanchoUtils";
 
-// Business defaults and timings
-const DEFAULT_MESS_HALL_CODE = "DIRAD - DIRAD"; // keep your existing default, now named in English
+// Business timings
 const DAYS_TO_SHOW = 30;
 const AUTO_SAVE_DELAY = 1500;
 const SUCCESS_MESSAGE_DURATION = 3000;
 
-// Meals structure (English)
-export interface DayMeals {
-  cafe: boolean;
-  almoco: boolean;
-  janta: boolean;
-  ceia: boolean;
-}
-
+// Tipos expostos
 export interface SelectionsByDate {
   [date: string]: DayMeals;
 }
 
-// Selected Mess Hall by date (stores mess hall code)
 export interface MessHallByDate {
-  [date: string]: string;
+  [date: string]: string; // code
 }
 
-// Change to persist
 export interface PendingChange {
   date: string;
   meal: keyof DayMeals;
   value: boolean;
-  messHallCode: string; // mess hall code (maps to sisub.mess_halls.code)
+  messHallId: string; // ID (string) -> sisub.mess_halls.id
 }
 
 export interface MealForecastHook {
@@ -43,8 +34,8 @@ export interface MealForecastHook {
   pendingChanges: PendingChange[];
   isSavingBatch: boolean;
   selections: SelectionsByDate;
-  dayMessHalls: MessHallByDate;
-  defaultMessHallCode: string;
+  dayMessHalls: MessHallByDate; // CODE por data
+  defaultMessHallId: string; // ID preferido do usuário (string)
   dates: string[];
   todayString: string;
   setSuccess: (msg: string) => void;
@@ -52,7 +43,7 @@ export interface MealForecastHook {
   setPendingChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
   setSelections: React.Dispatch<React.SetStateAction<SelectionsByDate>>;
   setDayMessHalls: React.Dispatch<React.SetStateAction<MessHallByDate>>;
-  setDefaultMessHallCode: (code: string) => void;
+  setDefaultMessHallId: (id: string) => Promise<void>;
   loadExistingForecasts: () => Promise<void>;
   savePendingChanges: () => Promise<void>;
   clearMessages: () => void;
@@ -65,32 +56,27 @@ const createEmptyDayMeals = (): DayMeals => ({
   ceia: false,
 });
 
-/**
- * Format Date -> 'YYYY-MM-DD' in local timezone
- */
+// YYYY-MM-DD local
 const toYYYYMMDD = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 };
 
 const generateDates = (days: number): string[] => {
-  const dates: string[] = [];
+  const out: string[] = [];
   const today = new Date();
-
   for (let i = 0; i < days; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    dates.push(toYYYYMMDD(date));
+    const dt = new Date(today);
+    dt.setDate(today.getDate() + i);
+    out.push(toYYYYMMDD(dt));
   }
-  return dates;
+  return out;
 };
 
-// Helpers (PT messages kept for UX continuity)
-const pluralize = (count: number, singular: string, plural: string) =>
-  count === 1 ? singular : plural;
-
+// Helpers (labels PT)
+const pluralize = (n: number, s: string, p: string) => (n === 1 ? s : p);
 const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações");
 const labelSalva = (n: number) => pluralize(n, "salva", "salvas");
 const labelFalhou = (n: number) => pluralize(n, "falhou", "falharam");
@@ -106,6 +92,7 @@ export const useMealForecast = (): MealForecastHook => {
   const successTimerRef = useRef<NodeJS.Timeout | null>(null);
   const saveOperationRef = useRef<Promise<void> | null>(null);
   const hydratedOnceRef = useRef(false);
+  const defaultHydratedRef = useRef(false); // controla load do default do user_data
 
   const [success, setSuccessState] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -113,19 +100,18 @@ export const useMealForecast = (): MealForecastHook => {
   const [isSavingBatch, setIsSavingBatch] = useState<boolean>(false);
   const [selections, setSelections] = useState<SelectionsByDate>({});
   const [dayMessHalls, setDayMessHalls] = useState<MessHallByDate>({});
-  const [defaultMessHallCode, setDefaultMessHallCode] = useState<string>(
-    DEFAULT_MESS_HALL_CODE
-  );
+  const [defaultMessHallId, setDefaultMessHallIdState] = useState<string>("");
 
-  // Stable dates and keys
+  // Datas/keys estáveis
   const dates = useMemo(() => generateDates(DAYS_TO_SHOW), []);
   const todayString = useMemo(() => toYYYYMMDD(new Date()), []);
-  const queryKey = useMemo(
+  const forecastsQueryKey = useMemo(
     () => ["mealForecasts", user?.id, dates[0], dates[dates.length - 1]],
     [user?.id, dates]
   );
+  const userDataQueryKey = useMemo(() => ["userData", user?.id], [user?.id]);
 
-  // Messages
+  // Mensagens
   const clearMessages = useCallback(() => {
     setSuccessState("");
     setError("");
@@ -134,15 +120,12 @@ export const useMealForecast = (): MealForecastHook => {
   const setSuccess = useCallback((msg: string) => {
     setSuccessState(msg);
     setError("");
-
-    if (successTimerRef.current) {
-      clearTimeout(successTimerRef.current);
-    }
-
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
     if (msg) {
-      successTimerRef.current = setTimeout(() => {
-        setSuccessState("");
-      }, SUCCESS_MESSAGE_DURATION);
+      successTimerRef.current = setTimeout(
+        () => setSuccessState(""),
+        SUCCESS_MESSAGE_DURATION
+      );
     }
   }, []);
 
@@ -151,7 +134,7 @@ export const useMealForecast = (): MealForecastHook => {
     setSuccessState("");
   }, []);
 
-  // Query: forecasts for period for user (new: sisub.meal_forecasts + join mess_halls for code)
+  // Query 1: carrega forecasts + code do rancho (join)
   type ForecastRow = {
     date: string;
     meal: keyof DayMeals;
@@ -163,9 +146,9 @@ export const useMealForecast = (): MealForecastHook => {
     data: forecasts,
     isPending, // initial load
     isFetching, // any refetch
-    refetch,
+    refetch: refetchForecasts,
   } = useQuery({
-    queryKey,
+    queryKey: forecastsQueryKey,
     enabled: isClient && !!user?.id,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
@@ -181,14 +164,54 @@ export const useMealForecast = (): MealForecastHook => {
         .lte("date", dates[dates.length - 1])
         .order("date", { ascending: true });
 
-      if (supabaseError) {
-        throw supabaseError;
-      }
+      if (supabaseError) throw supabaseError;
       return (data ?? []) as ForecastRow[];
     },
   });
 
-  // Hydrate selections and dayMessHalls from query with defensive defaults
+  // Query 2: carrega default_mess_hall_id de user_data
+  type UserDataRow = {
+    default_mess_hall_id: number | null;
+  };
+
+  const {
+    data: userData,
+    isFetching: isFetchingUserData,
+    refetch: refetchUserData,
+  } = useQuery({
+    queryKey: userDataQueryKey,
+    enabled: isClient && !!user?.id,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .schema("sisub")
+        .from("user_data")
+        .select("default_mess_hall_id")
+        .eq("id", user!.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data ?? null) as UserDataRow | null;
+    },
+  });
+
+  // Hidrata defaultMessHallId quando vier do banco (uma vez ou quando ainda não setado)
+  useEffect(() => {
+    if (!user?.id) return;
+    if (defaultHydratedRef.current) return;
+    if (isFetchingUserData) return;
+
+    const id = userData?.default_mess_hall_id;
+    if (id && !defaultMessHallId) {
+      setDefaultMessHallIdState(String(id));
+    }
+    defaultHydratedRef.current = true;
+  }, [user?.id, userData, isFetchingUserData, defaultMessHallId]);
+
+  // Hidrata selections e dayMessHalls com os dados do período
   useEffect(() => {
     if (!user?.id) return;
     if (!forecasts) return;
@@ -200,18 +223,16 @@ export const useMealForecast = (): MealForecastHook => {
 
       dates.forEach((date) => {
         initialSelections[date] = createEmptyDayMeals();
-        initialMessHalls[date] = defaultMessHallCode;
+        // deixe ""; a UI faz fallback para o default (convertido por useMessHalls)
+        initialMessHalls[date] = "";
       });
 
-      forecasts.forEach((p: ForecastRow) => {
+      forecasts.forEach((p) => {
         const { date, meal, will_eat, mess_halls } = p;
         if (initialSelections[date] && meal in initialSelections[date]) {
-          initialSelections[date][meal as keyof DayMeals] = !!will_eat;
-          // mess_halls(code) via FK join
+          initialSelections[date][meal] = !!will_eat;
           const code = mess_halls?.code || undefined;
-          if (code) {
-            initialMessHalls[date] = code;
-          }
+          if (code) initialMessHalls[date] = code;
         }
       });
 
@@ -219,70 +240,46 @@ export const useMealForecast = (): MealForecastHook => {
       setDayMessHalls(initialMessHalls);
       hydratedOnceRef.current = true;
     }
-  }, [
-    user?.id,
-    forecasts,
-    dates,
-    defaultMessHallCode,
-    pendingChanges.length,
-    isSavingBatch,
-  ]);
+  }, [user?.id, forecasts, dates, pendingChanges.length, isSavingBatch]);
 
-  // Validate mess hall codes against sisub.mess_halls before saving
-  const validateMessHallCodes = useCallback(
-    async (codes: string[]): Promise<void> => {
-      if (codes.length === 0) return;
+  // Persistência do default_mess_hall_id no user_data (upsert)
+  const setDefaultMessHallId = useCallback(
+    async (id: string) => {
+      setDefaultMessHallIdState(id);
+      if (!user?.id) return;
 
-      const uniqueCodes = Array.from(new Set(codes));
-      const { data, error } = await supabase
-        .schema("sisub")
-        .from("mess_halls")
-        .select("code")
-        .in("code", uniqueCodes);
-
-      if (error) throw error;
-
-      const existing = new Set((data ?? []).map((r) => r.code));
-      const missing = uniqueCodes.filter((c) => !existing.has(c));
-      if (missing.length > 0) {
-        throw new Error(
-          `Os seguintes códigos de rancho são inválidos ou não existem: ${missing.join(
-            ", "
-          )}`
-        );
+      const idNum = Number(id);
+      if (!Number.isFinite(idNum) || idNum <= 0) {
+        console.warn("setDefaultMessHallId: id inválido", id);
+        return;
       }
-    },
-    []
-  );
 
-  // Helper: map mess hall codes -> ids
-  const getMessHallIdsByCode = useCallback(
-    async (codes: string[]): Promise<Map<string, number>> => {
-      const unique = Array.from(new Set(codes));
-      if (unique.length === 0) return new Map();
-
-      const { data, error } = await supabase
-        .schema("sisub")
-        .from("mess_halls")
-        .select("id, code")
-        .in("code", unique);
-
-      if (error) throw error;
-
-      const map = new Map<string, number>();
-      (data ?? []).forEach((r: { id: number; code: string }) =>
-        map.set(r.code, r.id)
+      const { error } = await supabase.schema("sisub").from("user_data").upsert(
+        {
+          id: user.id,
+          default_mess_hall_id: idNum,
+          email: user.email,
+          // opcional: updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id", ignoreDuplicates: false }
       );
-      return map;
+
+      if (error) {
+        console.error("Falha ao salvar default_mess_hall_id:", error);
+        setErrorWithClear("Não foi possível salvar o rancho padrão.");
+        return;
+      }
+
+      // Mantém cache coerente
+      queryClient.invalidateQueries({ queryKey: userDataQueryKey });
     },
-    []
+    [user?.id, queryClient, userDataQueryKey, setErrorWithClear]
   );
 
-  // Batch save with validation and conflict handling (now using meal_forecasts + mess_hall_id)
+  // Salva alterações pendentes (usa messHallId direto)
   const savePendingChanges = useCallback(async (): Promise<void> => {
     if (!user?.id || pendingChanges.length === 0) return;
 
-    // Avoid parallel saves
     if (saveOperationRef.current) {
       await saveOperationRef.current;
       return;
@@ -295,34 +292,23 @@ export const useMealForecast = (): MealForecastHook => {
       try {
         const changesToSave = [...pendingChanges];
 
-        // Pre-validate business rule: mess hall codes must exist in sisub.mess_halls
-        const codesToValidate = changesToSave
-          .filter((c) => c.value) // only for upserts
-          .map((c) => c.messHallCode);
-        await validateMessHallCodes(codesToValidate);
-
-        // Build code -> id map once
-        const codeToId = await getMessHallIdsByCode(codesToValidate);
-
-        // Group by date-meal to avoid duplicates
-        const changesByKey = changesToSave.reduce(
-          (acc, change) => {
-            const key = `${change.date}-${change.meal}`;
-            acc[key] = change;
+        // Dedup por date-meal
+        const byKey = changesToSave.reduce(
+          (acc, ch) => {
+            acc[`${ch.date}-${ch.meal}`] = ch;
             return acc;
           },
-          {} as { [key: string]: PendingChange }
+          {} as Record<string, PendingChange>
         );
 
         const results = await Promise.allSettled(
-          Object.values(changesByKey).map(async (change) => {
+          Object.values(byKey).map(async (change) => {
             try {
               if (change.value) {
-                // Upsert forecast (new table/columns)
-                const messHallId = codeToId.get(change.messHallCode);
-                if (!messHallId) {
+                const messHallIdNum = Number(change.messHallId);
+                if (!Number.isFinite(messHallIdNum) || messHallIdNum <= 0) {
                   throw new Error(
-                    `Código de rancho não mapeado para ID: ${change.messHallCode}`
+                    `messHallId inválido: "${change.messHallId}" para ${change.date}-${change.meal}`
                   );
                 }
 
@@ -335,16 +321,13 @@ export const useMealForecast = (): MealForecastHook => {
                       user_id: user.id,
                       meal: change.meal,
                       will_eat: true,
-                      mess_hall_id: messHallId,
+                      mess_hall_id: messHallIdNum,
                     },
-                    {
-                      onConflict: "user_id,date,meal",
-                      ignoreDuplicates: false,
-                    }
+                    { onConflict: "user_id,date,meal", ignoreDuplicates: false }
                   );
 
                 if (upsertError) {
-                  // Fallback: delete + insert
+                  // fallback: delete + insert
                   await supabase
                     .schema("sisub")
                     .from("meal_forecasts")
@@ -361,13 +344,12 @@ export const useMealForecast = (): MealForecastHook => {
                       user_id: user.id,
                       meal: change.meal,
                       will_eat: true,
-                      mess_hall_id: messHallId,
+                      mess_hall_id: messHallIdNum,
                     });
 
                   if (insertError) throw insertError;
                 }
               } else {
-                // Delete forecast by unique key
                 const { error: deleteError } = await supabase
                   .schema("sisub")
                   .from("meal_forecasts")
@@ -384,14 +366,10 @@ export const useMealForecast = (): MealForecastHook => {
                 }
               }
 
-              return {
-                success: true,
-                change,
-                operation: change.value ? "upsert" : "delete",
-              };
+              return { success: true, change };
             } catch (err) {
               console.error(
-                `Erro ao processar mudança para ${change.date}-${change.meal}:`,
+                `Erro ao processar ${change.date}-${change.meal}:`,
                 err
               );
               return {
@@ -403,94 +381,80 @@ export const useMealForecast = (): MealForecastHook => {
           })
         );
 
-        const successful = results.filter(
+        const ok = results.filter(
           (r) => r.status === "fulfilled" && r.value.success
         ) as PromiseFulfilledResult<{
           success: boolean;
           change: PendingChange;
         }>[];
 
-        const failed = results.filter(
+        const fail = results.filter(
           (r) =>
             r.status === "rejected" ||
             (r.status === "fulfilled" && !r.value.success)
         );
 
-        if (failed.length === 0) {
+        if (fail.length === 0) {
           const n = changesToSave.length;
           setSuccess(`${n} ${labelAlteracao(n)} ${labelSalva(n)} com sucesso!`);
-
           setPendingChanges((prev) =>
             prev.filter(
-              (change) =>
+              (c) =>
                 !changesToSave.some(
-                  (saved) =>
-                    saved.date === change.date &&
-                    saved.meal === change.meal &&
-                    saved.value === change.value &&
-                    saved.messHallCode === change.messHallCode
+                  (s) =>
+                    s.date === c.date &&
+                    s.meal === c.meal &&
+                    s.value === c.value &&
+                    s.messHallId === c.messHallId
                 )
             )
           );
-        } else if (successful.length > 0) {
-          const nOk = successful.length;
-          const nFail = failed.length;
-
+        } else if (ok.length > 0) {
+          const nOk = ok.length;
+          const nFail = fail.length;
           setSuccess(
             `${nOk} ${labelAlteracao(nOk)} ${labelSalva(nOk)}. ${nFail} ${labelAlteracao(
               nFail
             )} ${labelFalhou(nFail)}.`
           );
-
-          const successfulChanges = successful.map((r) => r.value.change);
+          const okChanges = ok.map((r) => r.value.change);
           setPendingChanges((prev) =>
             prev.filter(
-              (change) =>
-                !successfulChanges.some(
-                  (ok) =>
-                    ok.date === change.date &&
-                    ok.meal === change.meal &&
-                    ok.value === change.value &&
-                    ok.messHallCode === change.messHallCode
+              (c) =>
+                !okChanges.some(
+                  (s) =>
+                    s.date === c.date &&
+                    s.meal === c.meal &&
+                    s.value === c.value &&
+                    s.messHallId === c.messHallId
                 )
             )
           );
-
-          failed.forEach((result) => {
-            if (result.status === "fulfilled") {
-              console.error("Erro na operação:", result.value.error);
+          fail.forEach((r) => {
+            if (r.status === "fulfilled") {
+              console.error("Erro na operação:", r.value.error);
             } else {
-              console.error("Promise rejeitada:", result.reason);
+              console.error("Promise rejeitada:", r.reason);
             }
           });
         } else {
-          const errorMessages = failed
-            .map((result) => {
-              if (result.status === "fulfilled") {
-                return (result as PromiseFulfilledResult<any>).value.error;
-              } else {
-                return (
-                  (result as PromiseRejectedResult).reason?.message ||
-                  "Erro desconhecido"
-                );
-              }
-            })
+          const msg = fail
+            .map((r) =>
+              r.status === "fulfilled"
+                ? (r.value as any).error
+                : (r.reason?.message as string) || "Erro desconhecido"
+            )
             .join(", ");
-
           const count = changesToSave.length;
-          if (count === 1) {
-            throw new Error(
-              `A ${labelOperacao(count)} ${labelFalhou(count)}: ${errorMessages}`
-            );
-          } else {
-            throw new Error(
-              `Todas as ${count} ${labelOperacao(count)} ${labelFalhou(count)}: ${errorMessages}`
-            );
-          }
+          throw new Error(
+            count === 1
+              ? `A ${labelOperacao(count)} ${labelFalhou(count)}: ${msg}`
+              : `Todas as ${count} ${labelOperacao(count)} ${labelFalhou(count)}: ${msg}`
+          );
         }
 
-        // Background refresh
-        queryClient.invalidateQueries({ queryKey });
+        // refresh em background
+        queryClient.invalidateQueries({ queryKey: forecastsQueryKey });
       } catch (err) {
         console.error("Erro crítico ao salvar mudanças:", err);
         setErrorWithClear(
@@ -509,64 +473,49 @@ export const useMealForecast = (): MealForecastHook => {
   }, [
     user?.id,
     pendingChanges,
-    setSuccess,
-    setErrorWithClear,
     queryClient,
-    queryKey,
-    validateMessHallCodes,
-    getMessHallIdsByCode,
+    forecastsQueryKey,
+    setErrorWithClear,
+    setSuccess,
   ]);
 
   // Auto-save
   useEffect(() => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     if (pendingChanges.length === 0) return;
-
     autoSaveTimerRef.current = setTimeout(() => {
       savePendingChanges();
     }, AUTO_SAVE_DELAY);
-
     return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
   }, [pendingChanges, savePendingChanges]);
 
   // Client-side hydration
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => setIsClient(true), []);
 
   // Cleanup
   useEffect(() => {
     return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
-      if (successTimerRef.current) {
-        clearTimeout(successTimerRef.current);
-      }
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
     };
   }, []);
 
   const loadExistingForecasts = useCallback(async (): Promise<void> => {
-    await refetch();
-  }, [refetch]);
+    await Promise.all([refetchForecasts(), refetchUserData()]);
+  }, [refetchForecasts, refetchUserData]);
 
   return {
     success,
     error,
     isLoading: isPending,
-    isRefetching: isFetching,
+    isRefetching: isFetching || isFetchingUserData,
     pendingChanges,
     isSavingBatch,
     selections,
     dayMessHalls,
-    defaultMessHallCode,
+    defaultMessHallId,
     dates,
     todayString,
 
@@ -575,7 +524,7 @@ export const useMealForecast = (): MealForecastHook => {
     setPendingChanges,
     setSelections,
     setDayMessHalls,
-    setDefaultMessHallCode,
+    setDefaultMessHallId,
 
     loadExistingForecasts,
     savePendingChanges,

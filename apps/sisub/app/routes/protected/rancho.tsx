@@ -1,5 +1,4 @@
 // apps/sisub/app/routes/rancho.tsx
-
 import {
   lazy,
   Suspense,
@@ -8,14 +7,14 @@ import {
   useMemo,
   type JSX,
 } from "react";
-import { Loader2, Settings, RefreshCw, UtensilsCrossed } from "lucide-react";
+import { Settings, RefreshCw, UtensilsCrossed } from "lucide-react";
 
 import { Button } from "@iefa/ui";
 import {
   useMealForecast,
   type PendingChange,
   type SelectionsByDate,
-  type MessHallByDate,
+  type MessHallByDate, // agora representa Record<date, messHallCode>
 } from "~/components/hooks/useMealForecast";
 
 import { DefaultMessHallSelector } from "~/components/rancho/DefaultMessHallSelector";
@@ -33,6 +32,7 @@ import type { Route } from "./+types/rancho";
 
 import SimplifiedMilitaryStats from "~/components/rancho/SimplifiedMilitaryStats";
 import { UnifiedStatusToasts } from "~/components/rancho/UnifiedStatusToasts";
+import { useMessHalls } from "~/components/hooks/useMessHalls";
 
 const DayCard = lazy(() => import("~/components/rancho/DayCard"));
 
@@ -48,7 +48,7 @@ const WORKDAY_TEMPLATE_MEALS: ReadonlyArray<keyof DayMeals> = [
 interface CardData {
   date: string;
   daySelections: DayMeals;
-  dayUnit: string; // mapped to DayCard's prop name
+  dayMessHallCode: string; // UI usa CODE
 }
 
 // Pluralização simples
@@ -58,9 +58,8 @@ const pluralize = (count: number, singular: string, plural: string) =>
 const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações");
 const labelCard = (n: number) => pluralize(n, "card", "cards");
 const labelDiaUtil = (n: number) => pluralize(n, "dia útil", "dias úteis");
-const labelTem = (n: number) => pluralize(n, "tem", "têm");
 
-// Função pura para calcular dados do card
+// Função pura para calcular dados do card (derivados visuais)
 const getDayCardData = (
   date: string,
   todayString: string,
@@ -108,8 +107,7 @@ export default function Rancho(): JSX.Element {
     pendingChanges,
     isSavingBatch,
     selections,
-    dayMessHalls,
-    defaultMessHallCode,
+    dayMessHalls, // Record<date, messHallCode> (padronizado para CODE na UI)
     dates,
     todayString,
     setSuccess,
@@ -117,13 +115,55 @@ export default function Rancho(): JSX.Element {
     setPendingChanges,
     setSelections,
     setDayMessHalls,
-    setDefaultMessHallCode,
     loadExistingForecasts,
-    savePendingChanges, // disponível caso você precise em outro fluxo
     clearMessages,
+
+    defaultMessHallId,
+    setDefaultMessHallId,
   } = useMealForecast();
 
-  
+  // Mapeia ID <-> CODE para falar com os Selectors (que operam por "code")
+  const { messHalls } = useMessHalls();
+
+  const defaultMessHallCode = useMemo(() => {
+    if (!defaultMessHallId) return "";
+    const mh = messHalls.find(
+      (m) => String(m.id) === String(defaultMessHallId)
+    );
+    return mh?.code ?? "";
+  }, [defaultMessHallId, messHalls]);
+
+  const setDefaultMessHallCode = useCallback(
+    (code: string) => {
+      const mh = messHalls.find((m) => m.code === code);
+      if (mh?.id != null) {
+        // No store, mantemos como ID (string)
+        setDefaultMessHallId(String(mh.id));
+      }
+    },
+    [messHalls, setDefaultMessHallId]
+  );
+
+  // Helpers: resolver ID por CODE (para PendingChange/salvar)
+  const getMessHallIdByCode = useCallback(
+    (code?: string | null): string => {
+      if (!code) return "";
+      const match = messHalls.find((m) => m.code === code);
+      return match?.id != null ? String(match.id) : "";
+    },
+    [messHalls]
+  );
+
+  // Por data: ui code -> id (com fallback no default)
+  const resolveMessHallIdForDate = useCallback(
+    (date: string): string => {
+      const code = dayMessHalls[date] || defaultMessHallCode || "";
+      const idFromCode = getMessHallIdByCode(code);
+      return idFromCode || (defaultMessHallId ? String(defaultMessHallId) : "");
+    },
+    [dayMessHalls, defaultMessHallCode, defaultMessHallId, getMessHallIdByCode]
+  );
+
   const [showDefaultMessHallSelector, setShowDefaultMessHallSelector] =
     useState(false);
   const [isApplyingDefaultMessHall, setIsApplyingDefaultMessHall] =
@@ -145,54 +185,40 @@ export default function Rancho(): JSX.Element {
     [dates]
   );
 
-  const weekdayTargetsNeedingFillCount = useMemo(() => {
-    return weekdayTargets.filter((date) => {
-      const dm = selections[date] || createEmptyDayMeals();
-      return WORKDAY_TEMPLATE_MEALS.some((meal) => !dm[meal]);
-    }).length;
-  }, [weekdayTargets, selections]);
-
   const computedData = useMemo(() => {
-    // "Cards sem rancho" = datas sem um código de rancho definido (falsy)
+    // "Cards sem rancho" = datas sem um messHallCode definido (falsy)
     const cardsWithoutMessHall = dates.filter((date) => {
-      const mh = dayMessHalls[date];
-      return !mh;
+      const code = dayMessHalls[date];
+      return !code;
     });
 
     const cardData: CardData[] = dates.map((date) => ({
       date,
       daySelections: selections[date] || createEmptyDayMeals(),
-      dayUnit: dayMessHalls[date] || defaultMessHallCode, // mapeado para DayCard
+      // UI sempre com CODE
+      dayMessHallCode: dayMessHalls[date] || defaultMessHallCode || "",
     }));
 
     return { cardsWithoutMessHall, cardData };
   }, [dates, dayMessHalls, selections, defaultMessHallCode]);
 
-  // Mapear pendingChanges (com messHallCode) para o formato que o DayCard espera (unidade)
-  const pendingChangesForCard = useMemo(
-    () =>
-      (pendingChanges ?? []).map((c) => ({
-        date: c.date,
-        meal: c.meal,
-        value: c.value,
-        unidade: c.messHallCode,
-      })),
-    [pendingChanges]
-  );
-
   const dayCardsProps = useMemo(() => {
-    return computedData.cardData.map(({ date, daySelections, dayUnit }) => {
-      const dayCardData = getDayCardData(date, todayString, daySelections);
-      return {
-        key: date,
-        date,
-        daySelections,
-        dayUnit, // DayCard prop
-        defaultUnit: defaultMessHallCode, // DayCard prop
-        ...dayCardData,
-        isSaving: false,
-      };
-    });
+    return computedData.cardData.map(
+      ({ date, daySelections, dayMessHallCode }) => {
+        const dayCardData = getDayCardData(date, todayString, daySelections);
+        return {
+          key: date,
+          date,
+          daySelections,
+          // DayCard e MessHallSelector trabalham com CODE (mantemos nome por compat)
+          dayMessHallId: dayMessHallCode,
+          // Também passamos o default como CODE
+          defaultMessHallId: defaultMessHallCode,
+          ...dayCardData,
+          isSaving: false,
+        };
+      }
+    );
   }, [computedData.cardData, todayString, defaultMessHallCode]);
 
   /* ============================
@@ -205,7 +231,9 @@ export default function Rancho(): JSX.Element {
 
       const currentValue = selections[date]?.[meal] || false;
       const newValue = !currentValue;
-      const messHallCode = dayMessHalls[date] || defaultMessHallCode;
+
+      // Resolve ID correto para o dia (a partir do CODE em UI)
+      const messHallId = resolveMessHallIdForDate(date);
 
       setSelections((prev: SelectionsByDate) => {
         const existing = prev[date] ?? createEmptyDayMeals();
@@ -222,25 +250,20 @@ export default function Rancho(): JSX.Element {
         const idx = prev.findIndex((c) => c.date === date && c.meal === meal);
         if (idx >= 0) {
           const copy = [...prev];
-          copy[idx] = { date, meal, value: newValue, messHallCode };
+          copy[idx] = { date, meal, value: newValue, messHallId };
           return copy;
         }
-        return [...prev, { date, meal, value: newValue, messHallCode }];
+        return [...prev, { date, meal, value: newValue, messHallId }];
       });
     },
-    [
-      selections,
-      dayMessHalls,
-      defaultMessHallCode,
-      setSelections,
-      setPendingChanges,
-    ]
+    [selections, resolveMessHallIdForDate, setSelections, setPendingChanges]
   );
 
   const handleMessHallChange = useCallback(
     (date: string, newMessHallCode: string): void => {
       if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
 
+      // Na UI persistimos CODE por data
       setDayMessHalls((prev: MessHallByDate) => ({
         ...prev,
         [date]: newMessHallCode,
@@ -249,13 +272,17 @@ export default function Rancho(): JSX.Element {
       const dayMeals = selections[date];
       if (!dayMeals) return;
 
+      // Para alterações existentes no dia, atualizamos o mess_hall_id (ID)
+      const messHallId = getMessHallIdByCode(newMessHallCode);
+      if (!messHallId) return;
+
       const selectedMeals: PendingChange[] = Object.entries(dayMeals)
         .filter(([, isSelected]) => isSelected)
         .map(([meal, value]) => ({
           date,
           meal: meal as keyof DayMeals,
           value,
-          messHallCode: newMessHallCode,
+          messHallId,
         }));
 
       if (!selectedMeals.length) return;
@@ -265,7 +292,7 @@ export default function Rancho(): JSX.Element {
         return [...filtered, ...selectedMeals];
       });
     },
-    [selections, setDayMessHalls, setPendingChanges]
+    [selections, setDayMessHalls, setPendingChanges, getMessHallIdByCode]
   );
 
   const handleRefresh = useCallback((): void => {
@@ -287,6 +314,7 @@ export default function Rancho(): JSX.Element {
     setIsApplyingDefaultMessHall(true);
 
     try {
+      // UI: grava CODE nos dias sem rancho
       const updatedMessHalls: MessHallByDate = { ...dayMessHalls };
       cardsWithoutMessHall.forEach((date) => {
         updatedMessHalls[date] = defaultMessHallCode;
@@ -294,6 +322,10 @@ export default function Rancho(): JSX.Element {
       setDayMessHalls(updatedMessHalls);
 
       const newPendingChanges: PendingChange[] = [];
+
+      // Backend: usa ID
+      const messHallIdForDefault =
+        defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || "";
 
       cardsWithoutMessHall.forEach((date) => {
         const dayMeals = selections[date];
@@ -306,7 +338,7 @@ export default function Rancho(): JSX.Element {
               date,
               meal: meal as keyof DayMeals,
               value,
-              messHallCode: defaultMessHallCode,
+              messHallId: String(messHallIdForDefault),
             });
           });
       });
@@ -336,11 +368,13 @@ export default function Rancho(): JSX.Element {
     computedData,
     dayMessHalls,
     defaultMessHallCode,
+    defaultMessHallId,
     selections,
     setDayMessHalls,
     setPendingChanges,
     setSuccess,
     setError,
+    getMessHallIdByCode,
   ]);
 
   const applyMealTemplateToAll = useCallback(
@@ -373,10 +407,14 @@ export default function Rancho(): JSX.Element {
             });
           }
 
-          const messHallForDay =
-            dayMessHalls[date] && dayMessHalls[date] !== ""
+          // UI (CODE) -> Backend (ID)
+          const codeForDay =
+            (dayMessHalls[date] && dayMessHalls[date] !== ""
               ? dayMessHalls[date]
-              : defaultMessHallCode;
+              : defaultMessHallCode) || "";
+          const idForDay =
+            getMessHallIdByCode(codeForDay) ||
+            (defaultMessHallId ? String(defaultMessHallId) : "");
 
           (Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
             if (after[k] !== before[k]) {
@@ -384,7 +422,7 @@ export default function Rancho(): JSX.Element {
                 date,
                 meal: k,
                 value: after[k],
-                messHallCode: messHallForDay,
+                messHallId: idForDay,
               });
             }
           });
@@ -443,14 +481,14 @@ export default function Rancho(): JSX.Element {
       selections,
       dayMessHalls,
       defaultMessHallCode,
+      defaultMessHallId,
       setSelections,
       setPendingChanges,
       setSuccess,
       setError,
+      getMessHallIdByCode,
     ]
   );
-
-  
 
   /* ============================
      Render
@@ -505,6 +543,7 @@ export default function Rancho(): JSX.Element {
       <section className="gap-8 flex flex-row w-full">
         {showDefaultMessHallSelector && (
           <DefaultMessHallSelector
+            // Selector opera por "code"; aqui fazemos o bridge ID <-> code
             defaultMessHallCode={defaultMessHallCode}
             setDefaultMessHallCode={setDefaultMessHallCode}
             onApply={applyDefaultMessHallToAll}
@@ -532,7 +571,7 @@ export default function Rancho(): JSX.Element {
           onClearMessages={clearMessages}
           pendingChanges={pendingChanges}
           isSavingBatch={isSavingBatch}
-           autoHideSuccessMs={6000}
+          autoHideSuccessMs={6000}
         />
       </div>
 
@@ -565,10 +604,10 @@ export default function Rancho(): JSX.Element {
               <div className="snap-center">
                 <DayCard
                   {...cardProps}
-                  // Ajuste de nomes para o DayCard
-                  // - dayUnit e defaultUnit já preparados em dayCardsProps
-                  // - pendingChanges deve ter 'unidade' em vez de 'messHallCode'
-                  pendingChanges={pendingChangesForCard}
+                  // IMPORTANTE: DayCard espera valores como CODE, então:
+                  // - dayMessHallId (prop) recebe CODE
+                  // - defaultMessHallId (prop) recebe CODE
+                  pendingChanges={pendingChanges}
                   onMealToggle={handleMealToggle}
                   onMessHallChange={handleMessHallChange}
                 />

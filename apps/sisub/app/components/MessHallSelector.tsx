@@ -1,16 +1,16 @@
 // components/MessHallSelector.tsx (previously UnitSelector.tsx)
 import { memo, useCallback, useMemo } from "react";
 import { MapPin, AlertCircle, Check } from "lucide-react";
-import { Label } from "@iefa/ui";
 import {
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Badge,
 } from "@iefa/ui";
-import { Badge } from "@iefa/ui";
-import { useMessHalls } from "./hooks/useMessHalls";
+import { useMessHalls } from "~/components/hooks/useMessHalls";
 
 interface MessHallSelectorProps {
   value: string;
