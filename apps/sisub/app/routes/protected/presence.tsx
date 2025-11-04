@@ -211,6 +211,32 @@ export default function Qr() {
     []
   );
 
+  
+
+  const [othersCount, setOthersCount] = useState<number>(0);
+
+  const loadOthersCount = useCallback(async () => {
+    const { date, meal, unit } = currentFiltersRef.current;
+    if (!date || !meal || !unit) return;
+
+    // Converte CODE -> ID antes de contar
+    const messHallId = await getMessHallIdByCode(unit);
+    if (!messHallId) {
+      setOthersCount(0);
+      return;
+    }
+
+    const { error, count } = await supabase
+      .schema("sisub")
+      .from("other_presences")
+      .select("*", { count: "exact", head: true })
+      .eq("date", date)
+      .eq("meal", meal)
+      .eq("mess_hall_id", messHallId);
+
+    if (!error) setOthersCount(count ?? 0);
+  }, [getMessHallIdByCode]);
+
   const addOtherPresence = useCallback(async () => {
     if (!user?.id) {
       toast.error("Erro", { description: "Usuário não autenticado." });
@@ -228,13 +254,25 @@ export default function Qr() {
 
     setIsAddingOther(true);
     try {
-      // Mantido em others_presence (modelo separado que aceita entradas sem user_id)
-      const { error } = await supabase.from("others_presence").insert({
-        admin_id: user.id,
-        date,
-        meal,
-        unidade: unit,
-      });
+      // Converte CODE -> ID conforme schema da tabela
+      const messHallId = await getMessHallIdByCode(unit);
+      if (!messHallId) {
+        toast.error("Unidade inválida", {
+          description:
+            "Não foi possível mapear o código de rancho para o ID. Verifique a unidade selecionada.",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .schema("sisub")
+        .from("other_presences")
+        .insert({
+          admin_id: user.id,
+          date,
+          meal,
+          mess_hall_id: messHallId,
+        });
 
       if (error) throw error;
 
@@ -250,23 +288,7 @@ export default function Qr() {
       await loadOthersCount();
       setIsAddingOther(false);
     }
-  }, [user?.id]);
-
-  const [othersCount, setOthersCount] = useState<number>(0);
-
-  const loadOthersCount = useCallback(async () => {
-    const { date, meal, unit } = currentFiltersRef.current;
-    if (!date || !meal || !unit) return;
-
-    const { error, count } = await supabase
-      .from("others_presence")
-      .select("*", { count: "exact", head: true })
-      .eq("date", date)
-      .eq("meal", meal)
-      .eq("unidade", unit);
-
-    if (!error) setOthersCount(count ?? 0);
-  }, []);
+  }, [user?.id, getMessHallIdByCode, loadOthersCount]);
 
   useEffect(() => {
     loadOthersCount();
