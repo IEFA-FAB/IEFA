@@ -43,7 +43,8 @@ export interface MealForecastHook {
   setPendingChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
   setSelections: React.Dispatch<React.SetStateAction<SelectionsByDate>>;
   setDayMessHalls: React.Dispatch<React.SetStateAction<MessHallByDate>>;
-  setDefaultMessHallId: (id: string) => Promise<void>;
+  setDefaultMessHallId: (id: string) => void; // setter local
+  persistDefaultMessHallId: () => Promise<void>; // persiste no banco
   loadExistingForecasts: () => Promise<void>;
   savePendingChanges: () => Promise<void>;
   clearMessages: () => void;
@@ -91,8 +92,7 @@ export const useMealForecast = (): MealForecastHook => {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const successTimerRef = useRef<NodeJS.Timeout | null>(null);
   const saveOperationRef = useRef<Promise<void> | null>(null);
-  const hydratedOnceRef = useRef(false);
-  const defaultHydratedRef = useRef(false); // controla load do default do user_data
+  const hydratedOnceRef = useRef(false); // controla hidratação de forecasts/dayMessHalls
 
   const [success, setSuccessState] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -198,18 +198,20 @@ export const useMealForecast = (): MealForecastHook => {
     },
   });
 
-  // Hidrata defaultMessHallId quando vier do banco (uma vez ou quando ainda não setado)
+  // Hidrata defaultMessHallId quando vier do banco (apenas quando local estiver vazio)
   useEffect(() => {
     if (!user?.id) return;
-    if (defaultHydratedRef.current) return;
     if (isFetchingUserData) return;
-
-    const id = userData?.default_mess_hall_id;
+    const id = userData?.default_mess_hall_id ?? null;
     if (id && !defaultMessHallId) {
       setDefaultMessHallIdState(String(id));
     }
-    defaultHydratedRef.current = true;
-  }, [user?.id, userData, isFetchingUserData, defaultMessHallId]);
+  }, [
+    user?.id,
+    userData?.default_mess_hall_id,
+    isFetchingUserData,
+    defaultMessHallId,
+  ]);
 
   // Hidrata selections e dayMessHalls com os dados do período
   useEffect(() => {
@@ -242,39 +244,50 @@ export const useMealForecast = (): MealForecastHook => {
     }
   }, [user?.id, forecasts, dates, pendingChanges.length, isSavingBatch]);
 
+  // Setter local do default (sem persistir)
+  const setDefaultMessHallIdLocal = useCallback((id: string) => {
+    setDefaultMessHallIdState(id);
+  }, []);
+
   // Persistência do default_mess_hall_id no user_data (upsert)
-  const setDefaultMessHallId = useCallback(
-    async (id: string) => {
-      setDefaultMessHallIdState(id);
-      if (!user?.id) return;
+  const persistDefaultMessHallId = useCallback(async (): Promise<void> => {
+    if (!user?.id) return;
 
-      const idNum = Number(id);
-      if (!Number.isFinite(idNum) || idNum <= 0) {
-        console.warn("setDefaultMessHallId: id inválido", id);
-        return;
-      }
+    const idNum = Number(defaultMessHallId);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+      setErrorWithClear("Rancho padrão inválido. Selecione um rancho válido.");
+      return;
+    }
 
-      const { error } = await supabase.schema("sisub").from("user_data").upsert(
-        {
-          id: user.id,
-          default_mess_hall_id: idNum,
-          email: user.email,
-          // opcional: updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id", ignoreDuplicates: false }
-      );
+    const prev = userData?.default_mess_hall_id; // para reverter em caso de erro
 
-      if (error) {
-        console.error("Falha ao salvar default_mess_hall_id:", error);
-        setErrorWithClear("Não foi possível salvar o rancho padrão.");
-        return;
-      }
+    const { error } = await supabase.schema("sisub").from("user_data").upsert(
+      {
+        id: user.id,
+        default_mess_hall_id: idNum,
+        email: user.email,
+      },
+      { onConflict: "id", ignoreDuplicates: false }
+    );
 
-      // Mantém cache coerente
-      queryClient.invalidateQueries({ queryKey: userDataQueryKey });
-    },
-    [user?.id, queryClient, userDataQueryKey, setErrorWithClear]
-  );
+    if (error) {
+      // Reverter estado local para manter coerência com DB (fonte da verdade)
+      if (prev != null) setDefaultMessHallIdState(String(prev));
+      setErrorWithClear("Não foi possível salvar o rancho padrão.");
+      return;
+    }
+
+    // Mantém cache coerente
+    queryClient.invalidateQueries({ queryKey: userDataQueryKey });
+  }, [
+    user?.id,
+    user?.email,
+    defaultMessHallId,
+    userData?.default_mess_hall_id,
+    queryClient,
+    userDataQueryKey,
+    setErrorWithClear,
+  ]);
 
   // Salva alterações pendentes (usa messHallId direto)
   const savePendingChanges = useCallback(async (): Promise<void> => {
@@ -524,7 +537,10 @@ export const useMealForecast = (): MealForecastHook => {
     setPendingChanges,
     setSelections,
     setDayMessHalls,
-    setDefaultMessHallId,
+
+    // default mess hall controls
+    setDefaultMessHallId: setDefaultMessHallIdLocal,
+    persistDefaultMessHallId,
 
     loadExistingForecasts,
     savePendingChanges,
