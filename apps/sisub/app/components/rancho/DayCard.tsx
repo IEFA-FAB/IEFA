@@ -217,7 +217,7 @@ export const DayCard = memo<DayCardProps>(
               {isDateNear && <Clock className="h-4 w-4 text-accent" />}
               {isToday && (
                 <Badge variant="default" className="text-xs px-2 py-0">
-                  Today
+                  Hoje
                 </Badge>
               )}
               {cardState.hasPendingChanges && (
