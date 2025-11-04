@@ -552,7 +552,7 @@ export default function Rancho(): JSX.Element {
             aria-label="Aplicar refeições em massa"
           >
             <UtensilsCrossed className="h-4 w-4 mr-2" />
-            Refeições em Massa ({weekdayTargets.length})
+            Refeições em Massa
           </Button>
 
           <Button
