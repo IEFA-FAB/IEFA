@@ -142,4 +142,43 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
   api.get("/user-data", headersMw, handler);
 }
 
+// /api/units -> sisub.units
+{
+  const [headersMw, handler] = createApiHandler({
+    table: "units",
+    select: "id, code, display_name",
+    defaultOrder: [
+      { column: "code", ascending: true },
+      { column: "id", ascending: true },
+    ],
+    mapParams: {
+      id: "id", // ?id=1 ou ?id=1,2,3
+      code: "code", // ?code=ABC ou ?code_ilike=abc
+      display_name: "display_name", // ?display_name_ilike=brigada
+    },
+    cacheControl: "public, max-age=300",
+  });
+  api.get("/units", headersMw, handler);
+}
+
+// /api/mess-halls -> sisub.mess_halls
+{
+  const [headersMw, handler] = createApiHandler({
+    table: "mess_halls",
+    select: "id, unit_id, code, display_name",
+    defaultOrder: [
+      { column: "unit_id", ascending: true },
+      { column: "code", ascending: true },
+    ],
+    mapParams: {
+      id: "id", // ?id=10 ou ?id=10,11
+      unit_id: "unit_id", // ?unit_id=1 ou ?unit_id=1,2
+      code: "code", // ?code=XYZ ou ?code_ilike=xyz
+      display_name: "display_name", // ?display_name_ilike=refeitório
+    },
+    cacheControl: "public, max-age=300",
+  });
+  api.get("/mess-halls", headersMw, handler);
+}
+
 export default api;
