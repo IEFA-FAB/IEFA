@@ -9,7 +9,12 @@ import {
   AlertDialogTitle,
 } from "@iefa/ui";
 import { Button } from "@iefa/ui";
-import type { Dispatch, SetStateAction } from "react";
+import React, {
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type { DialogState } from "~/utils/FiscalUtils";
 
 interface FiscalDialogProps {
@@ -17,16 +22,66 @@ interface FiscalDialogProps {
   dialog: DialogState;
   confirmDialog: () => void;
   selectedUnit: string; // mess hall code
+  // Função que deve consultar a view e retornar o display_name ou null se não encontrar
+  resolveDisplayName?: (userId: string) => Promise<string | null>;
 }
+
+// Cache simples em memória para evitar chamadas repetidas
+const nameCache = new Map<string, string>();
 
 export default function FiscalDialog({
   setDialog,
   dialog,
   confirmDialog,
   selectedUnit,
+  resolveDisplayName,
 }: FiscalDialogProps) {
   const forecastIsYes = !!dialog.systemForecast;
   const forecastIsNo = !dialog.systemForecast;
+
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [loadingName, setLoadingName] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const id = dialog.uuid?.trim();
+    if (!id || !resolveDisplayName) {
+      setDisplayName(null);
+      return;
+    }
+
+    // Retorna do cache se já disponível
+    if (nameCache.has(id)) {
+      setDisplayName(nameCache.get(id) ?? null);
+      return;
+    }
+
+    setLoadingName(true);
+    resolveDisplayName(id)
+      .then((name) => {
+        if (cancelled) return;
+        const normalized = name?.trim() || null;
+        if (normalized) {
+          nameCache.set(id, normalized);
+        }
+        setDisplayName(normalized);
+      })
+      .catch(() => {
+        if (!cancelled) return;
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingName(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dialog.uuid, resolveDisplayName]);
+
+  const personLine = loadingName
+    ? "Carregando..."
+    : displayName || dialog.uuid || "—";
 
   return (
     <>
@@ -39,7 +94,7 @@ export default function FiscalDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar entrada do militar</AlertDialogTitle>
             <AlertDialogDescription>
-              UUID: {dialog.uuid}
+              Pessoa: {personLine}
               <br />
               Previsão do sistema:{" "}
               {dialog.systemForecast === null

@@ -22,6 +22,9 @@ interface PresenceTableProps {
   };
 }
 
+// Tipo auxiliar apenas para leitura do campo extra
+type PresenceRowUI = PresenceRecord & { display_name?: string | null };
+
 export default function PresenceTable({
   selectedDate,
   selectedMeal,
@@ -47,7 +50,7 @@ export default function PresenceTable({
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="text-muted-foreground">UUID</TableHead>
+                <TableHead className="text-muted-foreground">Pessoa</TableHead>
                 <TableHead className="text-muted-foreground">Data</TableHead>
                 <TableHead className="text-muted-foreground">
                   Refeição
@@ -76,12 +79,22 @@ export default function PresenceTable({
                 </TableRow>
               ) : (
                 presences.map((row) => {
+                  const uiRow = row as PresenceRowUI;
                   const saidWouldAttend = forecastMap[row.user_id] ?? false;
+                  const name = uiRow.display_name?.trim() || row.user_id;
+
                   return (
                     <TableRow key={row.id} className="hover:bg-accent/50">
-                      <TableCell className="font-mono text-xs">
-                        {row.user_id}
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{name}</span>
+                          {/* Mostra sempre o UUID em menor destaque */}
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {row.user_id}
+                          </span>
+                        </div>
                       </TableCell>
+
                       <TableCell>{formatDate(row.date)}</TableCell>
                       <TableCell>{MEAL_LABEL[row.meal]}</TableCell>
                       <TableCell>
