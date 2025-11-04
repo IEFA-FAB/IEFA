@@ -127,35 +127,50 @@ const fetchPresences = async (
     return [];
   }
 
-  // 2) Buscar presenças na nova tabela normalizada
+  // 2) Buscar presenças na VIEW com display_name
+  type PresenceRowWithUser = {
+    id: string;
+    user_id: string;
+    date: string;
+    meal: MealKey;
+    created_at: string;
+    mess_hall_id: number;
+    display_name: string | null;
+  };
+
   const { data, error } = await supabase
-    .schema("sisub")
-    .from("meal_presences")
-    .select("id, user_id, date, meal, created_at, mess_hall_id")
+    .from("v_meal_presences_with_user")
+    .select("id, user_id, date, meal, created_at, mess_hall_id, display_name")
     .eq("date", filters.date)
     .eq("meal", filters.meal)
     .eq("mess_hall_id", messHallId)
     .order("created_at", { ascending: false })
-    .returns<PresenceRow[]>();
+    .returns<PresenceRowWithUser[]>();
 
   if (error) {
     console.error("Erro ao buscar presenças:", error);
     toast.error("Erro", {
       description: "Não foi possível carregar as presenças.",
     });
-    throw error; // PostgrestError
+    throw error;
   }
 
-  // 3) Mapear para PresenceRecord esperado pela UI (repondo unidade = code)
   const rows = data ?? [];
-  const mapped: PresenceRecord[] = rows.map((r) => ({
-    id: r.id,
-    user_id: r.user_id,
-    date: r.date,
-    meal: r.meal,
-    created_at: r.created_at,
-    unidade: filters.unit, // compat: UI ainda usa 'unidade' como code
-  }));
+
+  // 3) Mapear para PresenceRecord esperado pela UI (mantendo unidade = code)
+  //    Carregamos display_name como campo extra (permanece disponível em runtime).
+  const mapped: PresenceRecord[] = rows.map((r) => {
+    const base: PresenceRecord = {
+      id: r.id,
+      user_id: r.user_id,
+      date: r.date,
+      meal: r.meal,
+      created_at: r.created_at,
+      unidade: filters.unit,
+    };
+    // Anexa display_name sem quebrar o tipo de retorno:
+    return Object.assign(base, { display_name: r.display_name ?? null });
+  });
 
   return mapped;
 };
