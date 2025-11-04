@@ -1,5 +1,5 @@
 // components/DefaultMessHallSelector.tsx
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Settings, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import {
   Card,
@@ -16,6 +16,9 @@ import {
   SelectValue,
 } from "@iefa/ui";
 import { useMessHalls } from "~/components/hooks/useMessHalls";
+import supabase from "~/utils/supabase";
+import { toast } from "sonner";
+import { useAuth } from "@iefa/auth";
 
 interface DefaultMessHallSelectorProps {
   defaultMessHallCode: string;
@@ -29,26 +32,52 @@ export const DefaultMessHallSelector = memo<DefaultMessHallSelectorProps>(
   ({
     defaultMessHallCode,
     setDefaultMessHallCode,
-
     onApply,
     onCancel,
     isApplying,
   }) => {
     const { messHalls } = useMessHalls();
+    const { user } = useAuth();
+    const [saving, setSaving] = useState(false);
 
     // Dados computados
     const selectorData = useMemo(() => {
-      const selectedMessHallLabel =
-        messHalls.find((mh) => mh.code === defaultMessHallCode)?.name ||
-        defaultMessHallCode;
-
+      const selected = messHalls.find((mh) => mh.code === defaultMessHallCode);
+      const selectedMessHallLabel = selected?.name || defaultMessHallCode;
       const hasMessHalls = (messHalls?.length ?? 0) > 0;
-
       return {
         selectedMessHallLabel,
         hasMessHalls,
       };
     }, [defaultMessHallCode, messHalls]);
+
+    // Helper: obter mess_hall_id a partir do code
+    const getMessHallIdByCode = useCallback(
+      async (code: string): Promise<number | null> => {
+        if (!code) return null;
+
+        // 1) Tenta via cache local do hook
+        const local = messHalls.find((mh) => mh.code === code) as
+          | { id?: number }
+          | undefined;
+        if (local?.id) return local.id;
+
+        // 2) Fallback: consulta no banco
+        const { data, error } = await supabase
+          .schema("sisub")
+          .from("mess_halls")
+          .select("id")
+          .eq("code", code)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Erro ao buscar mess_hall_id:", error);
+          return null;
+        }
+        return (data?.id as number | undefined) ?? null;
+      },
+      [messHalls]
+    );
 
     // Handlers
     const handleMessHallChange = useCallback(
@@ -59,18 +88,82 @@ export const DefaultMessHallSelector = memo<DefaultMessHallSelectorProps>(
     );
 
     const handleApply = useCallback(async () => {
-      if (isApplying) return;
+      if (isApplying || saving) return;
+
       try {
+        if (!user?.id || !user?.email) {
+          toast.error("Erro", {
+            description: "Usuário não autenticado ou sem e-mail.",
+          });
+          return;
+        }
+        if (!defaultMessHallCode) {
+          toast.error("Seleção inválida", {
+            description: "Escolha um rancho para continuar.",
+          });
+          return;
+        }
+
+        setSaving(true);
+
+        const messHallId = await getMessHallIdByCode(defaultMessHallCode);
+        if (!messHallId) {
+          toast.error("Rancho inválido", {
+            description: "Código de rancho não encontrado.",
+          });
+          return;
+        }
+
+        // Upsert em sisub.user_data para o usuário atual
+        const { error } = await supabase
+          .schema("sisub")
+          .from("user_data")
+          .upsert(
+            {
+              id: user.id, // PK = auth.users.id
+              email: user.email, // not null + unique
+              default_mess_hall_id: messHallId,
+            },
+            { onConflict: "id" }
+          );
+
+        if (error) {
+          console.error("Falha ao salvar preferência:", error);
+          toast.error("Erro ao salvar preferência", {
+            description:
+              "Não foi possível salvar seu rancho padrão. Tente novamente.",
+          });
+          return;
+        }
+
+        toast.success("Preferência salva", {
+          description: "Rancho padrão atualizado com sucesso.",
+        });
+
+        // Mantém integração com fluxo existente
         await onApply();
-      } catch (error) {
-        console.error("Erro ao aplicar rancho padrão:", error);
+      } catch (err) {
+        console.error("Erro inesperado ao aplicar rancho padrão:", err);
+        toast.error("Erro", {
+          description: "Falha inesperada ao salvar sua preferência.",
+        });
+      } finally {
+        setSaving(false);
       }
-    }, [isApplying, onApply]);
+    }, [
+      isApplying,
+      saving,
+      user?.id,
+      user?.email,
+      defaultMessHallCode,
+      getMessHallIdByCode,
+      onApply,
+    ]);
 
     const handleCancel = useCallback(() => {
-      if (isApplying) return;
+      if (isApplying || saving) return;
       onCancel();
-    }, [isApplying, onCancel]);
+    }, [isApplying, saving, onCancel]);
 
     // Itens do select
     const selectItems = useMemo(() => {
@@ -147,7 +240,7 @@ export const DefaultMessHallSelector = memo<DefaultMessHallSelectorProps>(
             <Select
               value={defaultMessHallCode}
               onValueChange={handleMessHallChange}
-              disabled={isApplying || !hasMessHalls}
+              disabled={isApplying || saving || !hasMessHalls}
             >
               <SelectTrigger
                 className="
@@ -190,14 +283,14 @@ export const DefaultMessHallSelector = memo<DefaultMessHallSelectorProps>(
             <Button
               size="sm"
               onClick={handleApply}
-              disabled={isApplying || !defaultMessHallCode}
+              disabled={isApplying || saving || !defaultMessHallCode}
               className="
-                    bg-primary text-primary-foreground hover:bg-primary/90
-                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  "
+                bg-primary text-primary-foreground hover:bg-primary/90
+                focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
             >
-              {isApplying ? (
+              {isApplying || saving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Aplicando...
@@ -213,11 +306,11 @@ export const DefaultMessHallSelector = memo<DefaultMessHallSelectorProps>(
               variant="outline"
               size="sm"
               onClick={handleCancel}
-              disabled={isApplying}
+              disabled={isApplying || saving}
               className="
-                    hover:bg-muted
-                    focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
-                  "
+                hover:bg-muted
+                focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+              "
             >
               Cancelar
             </Button>

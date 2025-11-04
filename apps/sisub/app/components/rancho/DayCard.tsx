@@ -10,25 +10,19 @@ import {
   Skeleton,
 } from "@iefa/ui";
 import { MealButton } from "~/components/MealButton";
-import { UnitSelector } from "~/components/MessHallSelector";
+import { MessHallSelector } from "~/components/MessHallSelector";
 import { MEAL_TYPES } from "~/components/constants/rancho";
 import type { DayMeals } from "~/utils/RanchoUtils";
+import type { PendingChange } from "~/components/hooks/useMealForecast";
 import { cn } from "~/utils/utils";
-
-interface PendingChange {
-  date: string;
-  meal: keyof DayMeals;
-  value: boolean;
-  unidade: string;
-}
 
 interface DayCardProps {
   date: string;
   daySelections: DayMeals;
-  dayUnit: string;
-  defaultUnit: string;
+  dayMessHallId: string;
+  defaultMessHallId: string;
   onMealToggle: (date: string, meal: keyof DayMeals) => void;
-  onMessHallChange: (date: string, newUnit: string) => void;
+  onMessHallChange: (date: string, newMessHallId: string) => void;
   formattedDate: string;
   dayOfWeek: string;
   isToday: boolean;
@@ -43,13 +37,13 @@ const countSelectedMeals = (daySelections: DayMeals): number => {
   return Object.values(daySelections).filter(Boolean).length;
 };
 
-// Componente Skeleton usando shadcn/ui - usando apenas tokens
+// Skeleton using shadcn/ui tokens
 const DayCardSkeleton = memo(() => {
   return (
     <Card className="w-80 flex-shrink-0 bg-card text-card-foreground border border-border">
       <CardHeader className="pb-3">
         <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
-          {/* Header esquerdo */}
+          {/* Left header */}
           <div className="flex items-center space-x-2">
             <Skeleton className="h-4 w-4" />
             <div className="space-y-1">
@@ -58,7 +52,7 @@ const DayCardSkeleton = memo(() => {
             </div>
           </div>
 
-          {/* Header direito */}
+          {/* Right header */}
           <div className="flex items-center space-x-1">
             <Skeleton className="h-6 w-12 rounded-full" />
           </div>
@@ -81,7 +75,7 @@ const DayCardSkeleton = memo(() => {
 
       <CardContent>
         <div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
-          {/* Unit selector skeleton */}
+          {/* Mess hall selector skeleton */}
           <div className="bg-muted/30 rounded-lg p-3 border border-border">
             <Skeleton className="h-8 w-full" />
           </div>
@@ -112,8 +106,8 @@ export const DayCard = memo<DayCardProps>(
   ({
     date,
     daySelections,
-    dayUnit,
-    defaultUnit,
+    dayMessHallId,
+    defaultMessHallId,
     onMealToggle,
     onMessHallChange,
     formattedDate,
@@ -125,7 +119,7 @@ export const DayCard = memo<DayCardProps>(
     selectedMealsCount,
     isLoading = false,
   }) => {
-    // Se está carregando, mostra o skeleton
+    // Skeleton while loading
     if (isLoading) {
       return <DayCardSkeleton />;
     }
@@ -136,13 +130,14 @@ export const DayCard = memo<DayCardProps>(
       );
       const selectedCount =
         selectedMealsCount ?? countSelectedMeals(daySelections);
-      const isUsingNonDefaultUnit =
-        dayUnit && dayUnit !== defaultUnit && dayUnit !== "DIRAD";
+
+      const isUsingNonDefaultMessHall =
+        dayMessHallId && dayMessHallId !== defaultMessHallId;
 
       return {
         hasPendingChanges,
         selectedCount,
-        isUsingNonDefaultUnit,
+        isUsingNonDefaultMessHall,
         isEmpty: selectedCount === 0,
         isFull: selectedCount === 4,
         hasPartialSelection: selectedCount > 0 && selectedCount < 4,
@@ -151,24 +146,24 @@ export const DayCard = memo<DayCardProps>(
       pendingChanges,
       date,
       daySelections,
-      dayUnit,
-      defaultUnit,
+      dayMessHallId,
+      defaultMessHallId,
       selectedMealsCount,
     ]);
 
     const cardClasses = useMemo(() => {
       return cn(
-        // Base do card com tokens
+        // Base card with tokens
         "w-80 flex-shrink-0 transition-all duration-200 hover:shadow-md relative",
         "bg-card text-card-foreground border border-border",
         {
-          // Estados visuais principais (tokens)
+          // Main visual states
           "ring-2 ring-primary shadow-lg bg-primary/5": isToday,
           "ring-1 ring-accent bg-accent/10":
             cardState.hasPendingChanges && !isToday,
           "opacity-75 grayscale-[0.3]": isDateNear && !isToday,
 
-          // Estados de preenchimento (tokens)
+          // Fill states
           "bg-primary/10 border-primary/40": cardState.isFull && !isToday,
           "bg-secondary/10 border-secondary/40":
             cardState.hasPartialSelection &&
@@ -187,9 +182,9 @@ export const DayCard = memo<DayCardProps>(
       [date, onMealToggle]
     );
 
-    const handleUnitChange = useCallback(
-      (newUnit: string) => {
-        onMessHallChange(date, newUnit);
+    const handleMessHallChange = useCallback(
+      (newMessHallId: string) => {
+        onMessHallChange(date, newMessHallId);
       },
       [date, onMessHallChange]
     );
@@ -199,9 +194,9 @@ export const DayCard = memo<DayCardProps>(
     return (
       <Card className={cardClasses}>
         <CardHeader className="pb-3">
-          {/* Header com grid para manter posições fixas */}
+          {/* Header with fixed grid */}
           <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
-            {/* Seção esquerda - sempre presente */}
+            {/* Left section */}
             <div className="flex items-center space-x-2 min-w-0">
               <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <div className="min-w-0">
@@ -214,7 +209,7 @@ export const DayCard = memo<DayCardProps>(
               </div>
             </div>
 
-            {/* Seção direita - badges e indicadores */}
+            {/* Right section - badges/indicators */}
             <div className="flex items-center space-x-1 flex-shrink-0">
               {isSaving && (
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -222,7 +217,7 @@ export const DayCard = memo<DayCardProps>(
               {isDateNear && <Clock className="h-4 w-4 text-accent" />}
               {isToday && (
                 <Badge variant="default" className="text-xs px-2 py-0">
-                  Hoje
+                  Today
                 </Badge>
               )}
               {cardState.hasPendingChanges && (
@@ -230,23 +225,23 @@ export const DayCard = memo<DayCardProps>(
                   variant="outline"
                   className="text-xs px-2 py-0 border-accent text-accent"
                 >
-                  Salvando
+                  Saving
                 </Badge>
               )}
             </div>
           </div>
 
-          {/* Progress bar - altura fixa para evitar movimento */}
+          {/* Progress bar - fixed height */}
           <div className="h-12 flex items-center">
             {cardState.selectedCount > 0 && (
               <div className="w-full bg-background/80 backdrop-blur-sm rounded-lg p-2 border border-border">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground">
-                    {cardState.selectedCount}/4 refeições
+                    {cardState.selectedCount}/4 meals
                   </span>
                   <div className="flex space-x-1">
                     {MEAL_TYPES.map((meal) => {
-                      const mealKey = meal.value as keyof DayMeals;
+                      const mealKey = meal.value as keyof DayMeals; // aligns to DB: cafe/almoco/janta/ceia
                       const isSelected = daySelections[mealKey];
                       return (
                         <div
@@ -258,7 +253,7 @@ export const DayCard = memo<DayCardProps>(
                               : "bg-muted-foreground/30"
                           )}
                           title={`${meal.label}: ${
-                            isSelected ? "Confirmado" : "Não vai"
+                            isSelected ? "Confirmed" : "Not going"
                           }`}
                         />
                       );
@@ -271,22 +266,22 @@ export const DayCard = memo<DayCardProps>(
         </CardHeader>
 
         <CardContent>
-          {/* Layout principal em grid com altura mínima fixa */}
+          {/* Main grid with fixed min height */}
           <div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
-            {/* Unit selector - sempre presente */}
+            {/* Mess hall selector */}
             <div className="bg-accent/10 backdrop-blur-sm rounded-lg p-3 border border-accent/30">
-              <UnitSelector
-                value={dayUnit}
-                onChange={handleUnitChange}
+              <MessHallSelector
+                value={dayMessHallId}
+                onChange={handleMessHallChange}
                 disabled={isDisabled}
-                hasDefaultUnit={false}
+                hasDefaultMessHall={false}
               />
             </div>
 
-            {/* Grid de refeições - sempre 2x2 */}
+            {/* Meals grid 2x2 */}
             <div className="grid grid-cols-2 gap-2">
               {MEAL_TYPES.map((meal) => {
-                const mealKey = meal.value as keyof DayMeals;
+                const mealKey = meal.value as keyof DayMeals; // cafe/almoco/janta/ceia
                 return (
                   <MealButton
                     key={meal.value}
@@ -300,7 +295,7 @@ export const DayCard = memo<DayCardProps>(
               })}
             </div>
 
-            {/* Botões de ação - altura fixa */}
+            {/* Action buttons */}
             <div className="h-9 flex items-center">
               {!isDisabled && (
                 <div className="flex gap-2 w-full">
@@ -346,7 +341,7 @@ export const DayCard = memo<DayCardProps>(
 
 DayCard.displayName = "DayCard";
 
-// Hooks permanecem iguais
+// Hooks unchanged in behavior (strings already in English)
 export const useDayCardData = (
   date: string,
   todayString: string,

@@ -1,10 +1,6 @@
 // hooks/useMessHalls.ts
 import { useQuery } from "@tanstack/react-query";
 import supabase from "~/utils/supabase";
-import {
-  FALLBACK_RANCHOS as FALLBACK_MESS_HALLS_PT,
-  FALLBACK_UNIDADES as FALLBACK_UNITS_PT,
-} from "~/components/constants/rancho";
 
 // Domain types (English)
 export interface Unit {
