@@ -14,7 +14,7 @@ import {
   useMealForecast,
   type PendingChange,
   type SelectionsByDate,
-  type MessHallByDate, // agora representa Record<date, messHallCode>
+  type MessHallByDate, // Record<date, messHallCode>
 } from "~/components/hooks/useMealForecast";
 
 import { DefaultMessHallSelector } from "~/components/rancho/DefaultMessHallSelector";
@@ -37,13 +37,8 @@ import { useMessHalls } from "~/components/hooks/useMessHalls";
 const DayCard = lazy(() => import("~/components/rancho/DayCard"));
 
 /* ============================
-   Constantes, utilitários e helpers de texto
+   Utilitários e helpers de texto
    ============================ */
-
-const WORKDAY_TEMPLATE_MEALS: ReadonlyArray<keyof DayMeals> = [
-  "cafe",
-  "almoco",
-] as const;
 
 interface CardData {
   date: string;
@@ -59,7 +54,7 @@ const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações"
 const labelCard = (n: number) => pluralize(n, "card", "cards");
 const labelDiaUtil = (n: number) => pluralize(n, "dia útil", "dias úteis");
 
-// Função pura para calcular dados do card (derivados visuais)
+// Dados derivados por card
 const getDayCardData = (
   date: string,
   todayString: string,
@@ -107,7 +102,7 @@ export default function Rancho(): JSX.Element {
     pendingChanges,
     isSavingBatch,
     selections,
-    dayMessHalls, // Record<date, messHallCode> (padronizado para CODE na UI)
+    dayMessHalls, // Record<date, messHallCode> (UI usa CODE)
     dates,
     todayString,
     setSuccess,
@@ -118,8 +113,9 @@ export default function Rancho(): JSX.Element {
     loadExistingForecasts,
     clearMessages,
 
-    defaultMessHallId,
-    setDefaultMessHallId,
+    defaultMessHallId, // ID (string)
+    setDefaultMessHallId, // setter local (string)
+    persistDefaultMessHallId, // persiste no user_data
   } = useMealForecast();
 
   // Mapeia ID <-> CODE para falar com os Selectors (que operam por "code")
@@ -137,7 +133,7 @@ export default function Rancho(): JSX.Element {
     (code: string) => {
       const mh = messHalls.find((m) => m.code === code);
       if (mh?.id != null) {
-        // No store, mantemos como ID (string)
+        // apenas local, sem persistir
         setDefaultMessHallId(String(mh.id));
       }
     },
@@ -229,11 +225,15 @@ export default function Rancho(): JSX.Element {
     (date: string, meal: keyof DayMeals): void => {
       if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
 
-      const currentValue = selections[date]?.[meal] || false;
-      const newValue = !currentValue;
-
       // Resolve ID correto para o dia (a partir do CODE em UI)
       const messHallId = resolveMessHallIdForDate(date);
+      if (!messHallId) {
+        setError("Defina seu rancho padrão antes de marcar refeições.");
+        return;
+      }
+
+      const currentValue = selections[date]?.[meal] || false;
+      const newValue = !currentValue;
 
       setSelections((prev: SelectionsByDate) => {
         const existing = prev[date] ?? createEmptyDayMeals();
@@ -256,7 +256,13 @@ export default function Rancho(): JSX.Element {
         return [...prev, { date, meal, value: newValue, messHallId }];
       });
     },
-    [selections, resolveMessHallIdForDate, setSelections, setPendingChanges]
+    [
+      selections,
+      resolveMessHallIdForDate,
+      setSelections,
+      setPendingChanges,
+      setError,
+    ]
   );
 
   const handleMessHallChange = useCallback(
@@ -311,9 +317,16 @@ export default function Rancho(): JSX.Element {
     const { cardsWithoutMessHall } = computedData;
     if (cardsWithoutMessHall.length === 0) return;
 
-    setIsApplyingDefaultMessHall(true);
-
     try {
+      // Backend: usa ID (precisa estar resolvido)
+      const messHallIdForDefault =
+        defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || "";
+
+      if (!messHallIdForDefault) {
+        setError("Defina e salve um rancho padrão antes de aplicar aos cards.");
+        return;
+      }
+
       // UI: grava CODE nos dias sem rancho
       const updatedMessHalls: MessHallByDate = { ...dayMessHalls };
       cardsWithoutMessHall.forEach((date) => {
@@ -322,10 +335,6 @@ export default function Rancho(): JSX.Element {
       setDayMessHalls(updatedMessHalls);
 
       const newPendingChanges: PendingChange[] = [];
-
-      // Backend: usa ID
-      const messHallIdForDefault =
-        defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || "";
 
       cardsWithoutMessHall.forEach((date) => {
         const dayMeals = selections[date];
@@ -361,8 +370,6 @@ export default function Rancho(): JSX.Element {
     } catch (err) {
       console.error("Erro ao aplicar rancho padrão:", err);
       setError("Erro ao aplicar rancho padrão. Tente novamente.");
-    } finally {
-      setIsApplyingDefaultMessHall(false);
     }
   }, [
     computedData,
@@ -418,6 +425,10 @@ export default function Rancho(): JSX.Element {
 
           (Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
             if (after[k] !== before[k]) {
+              if (!idForDay) {
+                // se não há ID resolvido, não empilha alteração inválida
+                return;
+              }
               newChanges.push({
                 date,
                 meal: k,
@@ -490,6 +501,26 @@ export default function Rancho(): JSX.Element {
     ]
   );
 
+  const handleApplyDefault = useCallback(async () => {
+    setIsApplyingDefaultMessHall(true);
+    try {
+      // Persiste o default no user_data
+      await persistDefaultMessHallId();
+
+      // Aplica default aos cards (UI + pendingChanges) e mensagem
+      await applyDefaultMessHallToAll();
+
+      // Refaz fetch (default + forecasts) para refletir tudo da fonte de verdade
+      await loadExistingForecasts();
+    } finally {
+      setIsApplyingDefaultMessHall(false);
+    }
+  }, [
+    persistDefaultMessHallId,
+    applyDefaultMessHallToAll,
+    loadExistingForecasts,
+  ]);
+
   /* ============================
      Render
      ============================ */
@@ -546,7 +577,7 @@ export default function Rancho(): JSX.Element {
             // Selector opera por "code"; aqui fazemos o bridge ID <-> code
             defaultMessHallCode={defaultMessHallCode}
             setDefaultMessHallCode={setDefaultMessHallCode}
-            onApply={applyDefaultMessHallToAll}
+            onApply={handleApplyDefault}
             onCancel={handleCancelMessHallSelector}
             isApplying={isApplyingDefaultMessHall}
           />
