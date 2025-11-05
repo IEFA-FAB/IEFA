@@ -9,28 +9,50 @@ primary_region = "gru"
   NODE_ENV = "production"
   PORT = "3000"
   VITE_SUPABASE_URL = "https://jgigqdpdjgnnuwajtayh.supabase.co"
-  
+
 [http_service]
   internal_port = 3000
   force_https = true
+
+  # Economia quando ociosas + 1 quente para evitar cold start
   auto_stop_machines = true
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1          # manter 1 máquina quente reduz p95/p99
+  max_machines_running = 3          # teto para não explodir custos
   processes = ["app"]
+
+  # Escala por requisições simultâneas (geralmente mais previsível para HTTP/Node)
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 15
+    hard_limit = 30
 
   [[http_service.checks]]
     type = "http"
     method = "GET"
     path = "/health"
-    interval = "15s"
-    timeout = "5s"
-    grace_period = "10s"  # aumente se sua app demora a iniciar
+    interval = "10s"
+    timeout = "3s"
+    grace_period = "20s"            # aumente se o boot demorar
     tls_skip_verify = false
 
-  [http_service.concurrency]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
+# Se você gera build estático (ex.: Vite) e serve via Node,
+# deixe o proxy da Fly servir esses arquivos diretamente.
+# Ajuste o caminho de acordo com sua imagem.
+# [[statics]]
+#  guest_path = "/app/dist"
+#  url_prefix = "/"
+
+# Faz deploys gradativos mantendo uma instância saudável no ar.
+[deploy]
+  strategy = "rolling"
 
 [processes]
+  # Garanta que o comando é realmente de produção (sem dev server do Vite)
   app = "pnpm start"
+
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
