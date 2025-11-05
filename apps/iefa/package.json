@@ -2,6 +2,15 @@
   "name": "@iefa/iefa",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "build",
+    "package.json",
+    "server.js",
+    "README.md"
+  ],
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev --port 5174",
