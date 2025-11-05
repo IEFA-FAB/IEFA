@@ -33,7 +33,7 @@ RUN apk add --no-cache libc6-compat
 ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
-COPY --from=build --chown=node:node /out/ ./
+COPY --from=build --chown=node:node /repo/out/ ./
 USER node
 EXPOSE 3000
 CMD ["node", "./build/server/index.js"]
