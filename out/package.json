@@ -1,0 +1,72 @@
+{
+  "name": "sisub",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "build",
+    "package.json",
+    "server.js",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev --port 5173",
+    "start": "react-router-serve ./build/server/index.js",
+    "typecheck": "react-router typegen && tsc",
+    "test": "nx jest:test --config=./jest.config.ts"
+  },
+  "dependencies": {
+    "@iefa/auth": "@iefa/auth@file:///home/usernanni/Projects/IEFA/packages/auth(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(next-themes@0.4.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(tailwindcss@4.1.14)",
+    "@iefa/ui": "@iefa/ui@file:///home/usernanni/Projects/IEFA/packages/ui(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(next-themes@0.4.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(tailwindcss@4.1.14)",
+    "@react-router/node": "7.9.4(react-router@7.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(typescript@5.9.3)",
+    "@react-router/serve": "7.9.4(react-router@7.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(typescript@5.9.3)",
+    "@supabase/supabase-js": "2.75.0",
+    "@tanstack/react-query": "5.90.5(react@19.2.0)",
+    "@tanstack/react-table": "8.21.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)",
+    "@vitejs/plugin-react": "5.0.4(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "date-fns": "4.1.0",
+    "isbot": "5.1.31",
+    "lucide-react": "0.537.0(react@19.2.0)",
+    "next-themes": "0.4.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)",
+    "qr-scanner": "1.4.2",
+    "qrcode.react": "4.2.0(react@19.2.0)",
+    "react": "19.2.0",
+    "react-dom": "19.2.0(react@19.2.0)",
+    "react-markdown": "10.1.0(@types/react@19.2.2)(react@19.2.0)",
+    "react-router": "7.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)",
+    "remark-breaks": "4.0.0",
+    "remark-gfm": "4.0.1",
+    "sonner": "2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)",
+    "tailwind-merge": "3.3.1",
+    "tw-animate-css": "1.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "30.2.0",
+    "@react-router/dev": "7.9.4(@react-router/serve@7.9.4(react-router@7.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(typescript@5.9.3))(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(react-router@7.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(tsx@4.20.6)(typescript@5.9.3)(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))",
+    "@tailwindcss/vite": "4.1.14(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))",
+    "@tanstack/eslint-plugin-query": "5.91.2(eslint@9.38.0(jiti@2.6.1))(typescript@5.9.3)",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.7.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.1(@types/react@19.2.2)",
+    "jest": "30.2.0(@types/node@24.7.1)(ts-node@10.9.2(@types/node@24.7.1)(typescript@5.9.3))",
+    "jest-environment-jsdom": "30.2.0",
+    "rollup-plugin-visualizer": "6.0.4(rollup@4.52.4)",
+    "tailwindcss": "4.1.14",
+    "ts-jest": "29.4.5(@babel/core@7.28.4)(@jest/transform@30.2.0)(@jest/types@30.2.0)(babel-jest@30.2.0(@babel/core@7.28.4))(jest-util@30.2.0)(jest@30.2.0(@types/node@24.7.1)(ts-node@10.9.2(@types/node@24.7.1)(typescript@5.9.3)))(typescript@5.9.3)",
+    "ts-node": "10.9.2(@types/node@24.7.1)(typescript@5.9.3)",
+    "tslib": "2.8.1",
+    "typescript": "5.9.3",
+    "vite": "7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6)",
+    "vite-tsconfig-paths": "5.1.4(typescript@5.9.3)(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))"
+  },
+  "optionalDependencies": {},
+  "pnpm": {}
+}
