@@ -49,7 +49,7 @@ primary_region = "gru"
 
 [processes]
   # Garanta que o comando é realmente de produção (sem dev server do Vite)
-  app = "pnpm start"
+  app = "node ./build/server/index.js"
 
 
 [[vm]]
