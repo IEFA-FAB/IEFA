@@ -12,3 +12,17 @@ coverage
 .next
 .turbo
 .DS_Store
+
+.git
+node_modules
+pnpm-store
+**/node_modules
+**/.turbo
+**/.next
+**/dist
+**/build
+*.log
+.env
+.env.*
+Dockerfile
+docker-compose.yml
