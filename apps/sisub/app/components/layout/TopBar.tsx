@@ -1,6 +1,8 @@
 import { Button, ModeToggle, SidebarTrigger } from "@iefa/ui";
 import { NavItem } from "~/components/sidebar/NavItems";
 import { QrCode } from "lucide-react";
+import { NavUser } from "../sidebar/NavUser";
+import { UserLevelOrNull } from "~/services/AdminService";
 
 export type TopbarProps = {
   showSidebar: boolean;
@@ -11,16 +13,23 @@ export type TopbarProps = {
   showGlobalProgress: boolean;
   onOpenQr: () => void;
   userId: string | null;
+  userLevel: UserLevelOrNull | undefined
 };
 
-export function Topbar({ onOpenQr, userId }: TopbarProps) {
+export function Topbar({ onOpenQr, userId,userLevel }: TopbarProps) {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-4 shrink-0 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex w-full items-center">
         {/* Esquerda: apenas o trigger do sidebar */}
-        <div className="flex items-center">
-          <SidebarTrigger />
-        </div>
+        {userLevel ? (
+          <div className="flex items-center">
+            <SidebarTrigger />
+          </div>
+        ) : (
+          <div className="flex items-center">
+            <NavUser/>
+          </div>
+        )}
 
         {/* Direita: todas as ações */}
         <div

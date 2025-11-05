@@ -9,7 +9,7 @@ dist-ssr
 .cache
 server/dist
 public/dist
-
+build
 
 .nx/cache
 .nx/workspace-data
