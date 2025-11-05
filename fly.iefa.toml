@@ -8,28 +8,37 @@ primary_region = "gru"
 [env]
   NODE_ENV = "production"
   PORT = "3000"
-  
+
 [http_service]
   internal_port = 3000
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
+  max_machines_running = 3
   processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 15
+    hard_limit = 30
 
   [[http_service.checks]]
     type = "http"
     method = "GET"
     path = "/health"
-    interval = "15s"
-    timeout = "5s"
-    grace_period = "15s"  # aumente se sua app demora a iniciar
+    interval = "10s"
+    timeout = "3s"
+    grace_period = "20s"
     tls_skip_verify = false
 
-  [http_service.concurrency]
-    type = "connections"
-    hard_limit = 25
-    soft_limit = 20
+[deploy]
+  strategy = "rolling"
 
 [processes]
-  app = "pnpm start"
+  app = "npm start"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
