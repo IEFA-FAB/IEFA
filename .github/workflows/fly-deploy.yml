@@ -165,14 +165,13 @@ jobs:
             set -euo pipefail
             flyctl --config fly.sisub.toml secrets set \
               VITE_SISUB_SUPABASE_URL="$VITE_SISUB_SUPABASE_URL" \
-              VITE_SISUB_SUPABASE_ANON_KEY="$VITE_SISUB_SUPABASE_ANON_KEY" \
-              
+              VITE_SISUB_SUPABASE_ANON_KEY="$VITE_SISUB_SUPABASE_ANON_KEY"
 
         - name: Deploy SISUB (wait for health checks)
           run: |
             flyctl deploy -c fly.sisub.toml --remote-only \
-              --build-arg VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }} \
-              --build-arg VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }} \
+              --build-arg VITE_SISUB_SUPABASE_URL="${{ secrets.VITE_SISUB_SUPABASE_URL }}" \
+              --build-arg VITE_SISUB_SUPABASE_ANON_KEY='${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}'
 
         - name: Smoke test SISUB
           shell: bash
