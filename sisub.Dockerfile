@@ -23,7 +23,7 @@ ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_ANON_KEY
 ENV VITE_SISUB_SUPABASE_URL=$VITE_SISUB_SUPABASE_URL \
     VITE_SISUB_SUPABASE_ANON_KEY=$VITE_SISUB_SUPABASE_ANON_KEY
-RUN pnpm install -r --offline --frozen-lockfile
+RUN pnpm install -r --prefer-offline --frozen-lockfile
 RUN pnpm -F apps/sisub build
 RUN pnpm -F apps/sisub deploy --prod /out
 
