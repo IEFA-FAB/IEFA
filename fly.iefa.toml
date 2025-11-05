@@ -36,7 +36,7 @@ primary_region = "gru"
   strategy = "rolling"
 
 [processes]
-  app = "npm start"
+  app = "pnpm start"
 
 [[vm]]
   memory = "512mb"
