@@ -30,12 +30,11 @@ RUN pnpm -F ./apps/iefa build
 RUN pnpm -F ./apps/iefa deploy --prod ./out
 
 # Runtime
-FROM node:22-alpine AS runtime
-RUN apk add --no-cache libc6-compat
+FROM base AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/out/ ./
 USER node
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
