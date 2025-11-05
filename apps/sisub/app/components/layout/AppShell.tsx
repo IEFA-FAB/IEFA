@@ -344,6 +344,7 @@ export function AppShell() {
             showGlobalProgress={showGlobalProgress}
             onOpenQr={() => setQrOpen(true)}
             userId={userId}
+            userLevel={userLevel}
           />
 
           <main id="conteudo" className="flex-1">
