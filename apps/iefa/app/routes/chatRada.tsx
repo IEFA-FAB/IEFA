@@ -1,3 +1,6 @@
+/* Dependencies necessárias:
+   npm i react-markdown remark-gfm remark-breaks
+*/
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Badge } from "@iefa/ui";
 import {
@@ -13,6 +16,9 @@ import {
   ArrowDown,
   Sparkles,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 
 type HealthStatus = "loading" | "ok" | "error";
 
@@ -58,49 +64,117 @@ function isLikelyUrl(s: string) {
   }
 }
 
-/* === NOVO: helpers para extrair referências e identificar fonte prioritária === */
+/* === NOVO: helpers para extrair referências em Markdown e identificar fonte prioritária === */
 type ParsedRef = { num: string; title: string; page?: string };
 
-function extractReferences(text: string): {
-  mainText: string;
-  refs: ParsedRef[];
-  priority?: ParsedRef;
-} {
-  // Separa o texto antes/depois de "Referências:"
-  const parts = text.split(/\n+Refer[eê]ncias:\s*/i);
-  const mainText = (parts[0] ?? text).trim();
-  const refBlock = (parts[1] ?? "").trim();
-
-  const refs: ParsedRef[] = [];
-  if (refBlock) {
-    const lines = refBlock.split(/\n+/);
-    for (const line of lines) {
-      // Ex.: [3] Fonte: B - Manual..., pág. 3
-      const m = line.match(
-        /^\s*\[(\d+)\]\s*(?:Fonte:\s*)?(.+?)(?:,\s*p[aá]g\.?\s*(\d+))?\s*$/i
-      );
-      if (m) {
-        refs.push({ num: m[1], title: m[2].trim(), page: m[3] });
-      }
-    }
-  }
-
-  // Prioriza a primeira referência que tenha número de página
-  const priority = refs.find((r) => !!r.page) || undefined;
-  return { mainText, refs, priority };
+/** Remove marcações simples de MD para facilitar matching de título/seção */
+function stripMd(s: string) {
+  return s.replace(/\*\*|__/g, "").trim();
 }
 
+/** Normaliza strings para matching tolerante (sem extensão, acentos, pontuação, caixa) */
 function normalizeName(s: string) {
   return s
     .replace(/\.(pdf|docx?)$/i, "")
-    .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[^a-z0-9]+/g, " ") // normaliza pontuação/espaços
+    .trim();
 }
 
 function matchSourceName(a: string, b: string) {
   const na = normalizeName(a);
   const nb = normalizeName(b);
   return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+/** Extrai a seção de Referências escrita em Markdown e retorna texto sem a seção + refs */
+function extractReferencesMd(text: string): {
+  mainText: string;
+  refs: ParsedRef[];
+  priority?: ParsedRef;
+} {
+  const lines = text.split(/\r?\n/);
+
+  // encontra início da seção "Referências" (com/sem negrito/acentos/dois pontos)
+  let refStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const norm = stripMd(lines[i])
+      .replace(/\s*:\s*$/, "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""); // remove acentos
+    if (norm === "referencias") {
+      refStart = i;
+      break;
+    }
+  }
+
+  let mainText = text;
+  let refs: ParsedRef[] = [];
+
+  if (refStart >= 0) {
+    const before = lines.slice(0, refStart).join("\n").trimEnd();
+    const after = lines.slice(refStart + 1); // após o título da seção
+
+    // captura o bloco de bullets da lista de referências
+    const bulletBlock: string[] = [];
+    let started = false;
+    for (const l of after) {
+      const t = l.trim();
+      if (/^[-*]\s+/.test(t)) {
+        bulletBlock.push(l);
+        started = true;
+      } else if (t === "" && started) {
+        // permite linhas em branco dentro do bloco
+        bulletBlock.push(l);
+      } else if (started) {
+        // terminou a lista ao encontrar linha não-vazia que não é bullet
+        break;
+      }
+    }
+
+    // regex para número de referência e página
+    const pageRe = /p[aá]g\.?\s*([\d]+)\b/i; // suporta "pág. 3" / "pag. 3"
+    const numRe = /\[(\d+)\]/;
+
+    refs = bulletBlock
+      .map((raw) => raw.replace(/^\s*[-*]\s+/, "").trim())
+      .map((l) => {
+        const clean = stripMd(l);
+        const numMatch = clean.match(numRe);
+        const pageMatch = clean.match(pageRe);
+
+        // remove prefixo "[n]" e travessões iniciais; título até antes de "pág. X"
+        let rest = clean.replace(numRe, "").trim();
+        rest = rest.replace(/^[–—-]\s*/, "").trim();
+        if (pageMatch && typeof pageMatch.index === "number") {
+          rest = rest
+            .slice(0, pageMatch.index)
+            .trim()
+            .replace(/[–—.,;:]\s*$/, "");
+        }
+        const title = rest;
+
+        if (numMatch) {
+          return {
+            num: String(numMatch[1]),
+            title,
+            page: pageMatch ? String(pageMatch[1]) : undefined,
+          } as ParsedRef;
+        }
+        return null;
+      })
+      .filter(Boolean) as ParsedRef[];
+
+    mainText = before.trim();
+  }
+
+  // prioriza a primeira com página; se nenhuma tiver, usa a primeira
+  const priority = refs.find((r) => !!r.page) || refs[0] || undefined;
+  return { mainText, refs, priority };
 }
 /* === FIM helpers === */
 
@@ -204,16 +278,15 @@ export default function ChatRada() {
         throw new Error(errText || `HTTP ${res.status}`);
       }
 
-      /* === MUDOU: parse robusto do corpo (limpa '%' no fim, se houver) === */
+      // Parse robusto (remove '%' finais se vierem)
       const raw = await res.text();
       let data: { answer: string; sources: string[] };
       try {
         data = JSON.parse(raw);
       } catch {
-        const cleaned = raw.trim().replace(/%+$/, ""); // remove '%' finais
+        const cleaned = raw.trim().replace(/%+$/, "");
         data = JSON.parse(cleaned);
       }
-      /* === FIM parse robusto === */
 
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -324,7 +397,7 @@ export default function ChatRada() {
         </div>
       </header>
 
-      {/* Aviso aprimorado */}
+      {/* Aviso */}
       {messages.length === 0 && (
         <div className="flex-shrink-0 px-4 md:px-6 py-4">
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3 backdrop-blur-sm">
@@ -373,12 +446,12 @@ export default function ChatRada() {
                   const isUser = m.role === "user";
                   const isError = !!m.error;
 
-                  /* === NOVO: preparar conteúdo/refs para msgs do assistente === */
+                  // Preparar conteúdo/refs para msgs do assistente
                   const parsed =
                     m.role === "assistant"
-                      ? extractReferences(m.content)
+                      ? extractReferencesMd(m.content)
                       : null;
-                  const displayContent = parsed?.mainText ?? m.content;
+                  const displayMarkdown = parsed?.mainText ?? m.content;
                   const priority = parsed?.priority;
                   const otherSources =
                     m.role === "assistant" && m.sources
@@ -387,7 +460,6 @@ export default function ChatRada() {
                             !(priority && matchSourceName(s, priority.title))
                         )
                       : [];
-                  /* === FIM preparo === */
 
                   return (
                     <li
@@ -397,7 +469,7 @@ export default function ChatRada() {
                         isUser && "flex-row-reverse",
                       ].join(" ")}
                     >
-                      {/* Avatar aprimorado */}
+                      {/* Avatar */}
                       <div
                         className={[
                           "flex-shrink-0 h-9 w-9 rounded-xl flex items-center justify-center text-sm font-medium shadow-sm",
@@ -415,7 +487,7 @@ export default function ChatRada() {
                         )}
                       </div>
 
-                      {/* Conteúdo aprimorado */}
+                      {/* Conteúdo */}
                       <div
                         className={[
                           "flex-1 min-w-0 space-y-2",
@@ -441,19 +513,62 @@ export default function ChatRada() {
 
                         <div
                           className={[
-                            "text-sm leading-relaxed whitespace-pre-wrap px-4 py-3 rounded-2xl inline-block max-w-[85%] shadow-sm",
+                            "px-4 py-3 rounded-2xl inline-block max-w-[85%] shadow-sm",
                             isUser
-                              ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10"
+                              ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10 text-sm leading-relaxed whitespace-pre-wrap"
                               : isError
-                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-sm leading-relaxed"
                                 : "bg-card border border-border/50 text-foreground",
                           ].join(" ")}
                         >
-                          {/* MUDOU: exibir conteúdo sem a seção 'Referências' */}
-                          {displayContent}
+                          {!isUser && !isError ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm, remarkBreaks]}
+                              components={{
+                                a: (props) => (
+                                  <a
+                                    {...props}
+                                    className="text-primary hover:underline"
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                  />
+                                ),
+                                p: (props) => (
+                                  <p
+                                    {...props}
+                                    className="mb-3 last:mb-0 text-sm leading-relaxed"
+                                  />
+                                ),
+                                ul: (props) => (
+                                  <ul
+                                    {...props}
+                                    className="list-disc pl-5 my-2 text-sm leading-relaxed"
+                                  />
+                                ),
+                                ol: (props) => (
+                                  <ol
+                                    {...props}
+                                    className="list-decimal pl-5 my-2 text-sm leading-relaxed"
+                                  />
+                                ),
+                                code: (props) => (
+                                  <code
+                                    {...props}
+                                    className="bg-muted/70 px-1.5 py-0.5 rounded border border-border/30"
+                                  />
+                                ),
+                              }}
+                            >
+                              {displayMarkdown}
+                            </ReactMarkdown>
+                          ) : (
+                            <span className="text-sm leading-relaxed">
+                              {m.content}
+                            </span>
+                          )}
                         </div>
 
-                        {/* NOVO: Fonte prioritária (com página) inline */}
+                        {/* Fonte prioritária (com página) inline */}
                         {!isUser && !isError && priority && (
                           <div className="max-w-[85%] inline-flex items-center gap-2 text-xs bg-muted/50 border border-border/40 px-3 py-2 rounded-xl">
                             <Badge
@@ -473,7 +588,7 @@ export default function ChatRada() {
                           </div>
                         )}
 
-                        {/* Fontes: collapsible para as demais */}
+                        {/* Outras fontes consultadas (collapsible) */}
                         {!isUser &&
                           !isError &&
                           otherSources &&
@@ -513,7 +628,7 @@ export default function ChatRada() {
                             </details>
                           )}
 
-                        {/* Botão copiar aprimorado */}
+                        {/* Botão copiar */}
                         <button
                           className={[
                             "opacity-0 group-hover:opacity-100 transition-all inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/50",
@@ -538,7 +653,7 @@ export default function ChatRada() {
                   );
                 })}
 
-                {/* Estado enviando aprimorado */}
+                {/* Estado enviando */}
                 {sending && (
                   <li className="flex gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex-shrink-0 h-9 w-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-muted to-muted/80 border border-border/50 shadow-sm">
@@ -570,7 +685,7 @@ export default function ChatRada() {
           </div>
         </div>
 
-        {/* Botão voltar ao fim aprimorado */}
+        {/* Botão voltar ao fim */}
         {!isAtBottom && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <button
@@ -584,7 +699,7 @@ export default function ChatRada() {
         )}
       </div>
 
-      {/* Input area aprimorada */}
+      {/* Input area */}
       <div className="flex-shrink-0 border-t border-border/50 bg-background/95 backdrop-blur-xl px-4 md:px-6 py-4">
         <div className="flex items-end gap-3">
           <div className="flex-1 relative">
