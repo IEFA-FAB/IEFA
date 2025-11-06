@@ -1,6 +1,3 @@
-/* Dependencies necessárias:
-   npm i react-markdown remark-gfm remark-breaks
-*/
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Badge } from "@iefa/ui";
 import {
