@@ -58,6 +58,52 @@ function isLikelyUrl(s: string) {
   }
 }
 
+/* === NOVO: helpers para extrair referências e identificar fonte prioritária === */
+type ParsedRef = { num: string; title: string; page?: string };
+
+function extractReferences(text: string): {
+  mainText: string;
+  refs: ParsedRef[];
+  priority?: ParsedRef;
+} {
+  // Separa o texto antes/depois de "Referências:"
+  const parts = text.split(/\n+Refer[eê]ncias:\s*/i);
+  const mainText = (parts[0] ?? text).trim();
+  const refBlock = (parts[1] ?? "").trim();
+
+  const refs: ParsedRef[] = [];
+  if (refBlock) {
+    const lines = refBlock.split(/\n+/);
+    for (const line of lines) {
+      // Ex.: [3] Fonte: B - Manual..., pág. 3
+      const m = line.match(
+        /^\s*\[(\d+)\]\s*(?:Fonte:\s*)?(.+?)(?:,\s*p[aá]g\.?\s*(\d+))?\s*$/i
+      );
+      if (m) {
+        refs.push({ num: m[1], title: m[2].trim(), page: m[3] });
+      }
+    }
+  }
+
+  // Prioriza a primeira referência que tenha número de página
+  const priority = refs.find((r) => !!r.page) || undefined;
+  return { mainText, refs, priority };
+}
+
+function normalizeName(s: string) {
+  return s
+    .replace(/\.(pdf|docx?)$/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+function matchSourceName(a: string, b: string) {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+/* === FIM helpers === */
+
 export function meta() {
   return [
     { title: "Chat RADA" },
@@ -158,7 +204,17 @@ export default function ChatRada() {
         throw new Error(errText || `HTTP ${res.status}`);
       }
 
-      const data: { answer: string; sources: string[] } = await res.json();
+      /* === MUDOU: parse robusto do corpo (limpa '%' no fim, se houver) === */
+      const raw = await res.text();
+      let data: { answer: string; sources: string[] };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        const cleaned = raw.trim().replace(/%+$/, ""); // remove '%' finais
+        data = JSON.parse(cleaned);
+      }
+      /* === FIM parse robusto === */
+
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -317,6 +373,22 @@ export default function ChatRada() {
                   const isUser = m.role === "user";
                   const isError = !!m.error;
 
+                  /* === NOVO: preparar conteúdo/refs para msgs do assistente === */
+                  const parsed =
+                    m.role === "assistant"
+                      ? extractReferences(m.content)
+                      : null;
+                  const displayContent = parsed?.mainText ?? m.content;
+                  const priority = parsed?.priority;
+                  const otherSources =
+                    m.role === "assistant" && m.sources
+                      ? m.sources.filter(
+                          (s) =>
+                            !(priority && matchSourceName(s, priority.title))
+                        )
+                      : [];
+                  /* === FIM preparo === */
+
                   return (
                     <li
                       key={m.id}
@@ -377,46 +449,69 @@ export default function ChatRada() {
                                 : "bg-card border border-border/50 text-foreground",
                           ].join(" ")}
                         >
-                          {m.content}
+                          {/* MUDOU: exibir conteúdo sem a seção 'Referências' */}
+                          {displayContent}
                         </div>
 
-                        {/* Fontes aprimoradas */}
-                        {m.role === "assistant" &&
-                        m.sources &&
-                        m.sources.length > 0 ? (
-                          <div className="mt-2 pt-3 border-t border-border/30 max-w-[85%]">
-                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-2">
-                              <LinkIcon className="h-3.5 w-3.5" />
-                              Fontes consultadas
-                            </div>
-                            <ul className="space-y-1.5">
-                              {m.sources.map((s, idx) => (
-                                <li
-                                  key={`${m.id}-src-${idx}`}
-                                  className="flex items-start gap-2"
-                                >
-                                  <span className="text-xs text-muted-foreground mt-0.5">
-                                    •
-                                  </span>
-                                  {isLikelyUrl(s) ? (
-                                    <a
-                                      className="text-xs text-primary hover:underline break-all hover:text-primary/80 transition-colors"
-                                      href={s}
-                                      target="_blank"
-                                      rel="noreferrer noopener"
-                                    >
-                                      {s}
-                                    </a>
-                                  ) : (
-                                    <code className="text-xs bg-muted/70 px-2 py-1 rounded-md border border-border/30">
-                                      {s}
-                                    </code>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
+                        {/* NOVO: Fonte prioritária (com página) inline */}
+                        {!isUser && !isError && priority && (
+                          <div className="max-w-[85%] inline-flex items-center gap-2 text-xs bg-muted/50 border border-border/40 px-3 py-2 rounded-xl">
+                            <Badge
+                              variant="secondary"
+                              className="h-5 rounded-md text-[11px]"
+                            >
+                              Fonte [{priority.num}]
+                            </Badge>
+                            <span className="text-foreground/90 font-medium">
+                              {priority.title}
+                            </span>
+                            {priority.page && (
+                              <span className="text-muted-foreground">
+                                pág. {priority.page}
+                              </span>
+                            )}
                           </div>
-                        ) : null}
+                        )}
+
+                        {/* Fontes: collapsible para as demais */}
+                        {!isUser &&
+                          !isError &&
+                          otherSources &&
+                          otherSources.length > 0 && (
+                            <details className="mt-1 pt-3 border-t border-border/30 max-w-[85%] group">
+                              <summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                                <LinkIcon className="h-3.5 w-3.5" />
+                                Outras fontes consultadas ({otherSources.length}
+                                )
+                              </summary>
+                              <ul className="space-y-1.5 mt-2">
+                                {otherSources.map((s, idx) => (
+                                  <li
+                                    key={`${m.id}-src-${idx}`}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <span className="text-xs text-muted-foreground mt-0.5">
+                                      •
+                                    </span>
+                                    {isLikelyUrl(s) ? (
+                                      <a
+                                        className="text-xs text-primary hover:underline break-all hover:text-primary/80 transition-colors"
+                                        href={s}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                      >
+                                        {s}
+                                      </a>
+                                    ) : (
+                                      <code className="text-xs bg-muted/70 px-2 py-1 rounded-md border border-border/30">
+                                        {s}
+                                      </code>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
 
                         {/* Botão copiar aprimorado */}
                         <button
