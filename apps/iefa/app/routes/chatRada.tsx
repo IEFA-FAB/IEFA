@@ -24,6 +24,12 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   sources?: string[];
+  references?: Array<{
+    n: number;
+    source: string;
+    page?: number;
+    snippet?: string;
+  }>;
   error?: boolean;
   createdAt: number;
 };
@@ -277,7 +283,16 @@ export default function ChatRada() {
 
       // Parse robusto (remove '%' finais se vierem)
       const raw = await res.text();
-      let data: { answer: string; sources: string[] };
+      let data: {
+        answer: string;
+        sources: string[];
+        references?: Array<{
+          n: number;
+          source: string;
+          page?: number;
+          snippet?: string;
+        }>;
+      };
       try {
         data = JSON.parse(raw);
       } catch {
@@ -290,6 +305,7 @@ export default function ChatRada() {
         role: "assistant",
         content: data?.answer ?? "(sem resposta)",
         sources: Array.isArray(data?.sources) ? data.sources : [],
+        references: Array.isArray(data?.references) ? data.references : [],
         createdAt: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -335,7 +351,7 @@ export default function ChatRada() {
         aria-hidden="true"
       >
         <div
-          className="absolute left-1/2 top-[-20%] h-[50rem] w-[50rem] -translate-x-1/2 rounded-full blur-3xl
+          className="absolute left-1/2 top-[-20%] h-200 w-[50rem] -translate-x-1/2 rounded-full blur-3xl
                      bg-gradient-to-br from-primary/20 via-violet-500/10 to-transparent
                      dark:from-primary/25 dark:via-violet-400/10 animate-pulse"
           style={{ animationDuration: "4s" }}
@@ -458,6 +474,9 @@ export default function ChatRada() {
                         )
                       : [];
 
+                  // Processar referências do campo references (se existir)
+                  const hasReferences = m.references && m.references.length > 0;
+
                   return (
                     <li
                       key={m.id}
@@ -565,42 +584,64 @@ export default function ChatRada() {
                           )}
                         </div>
 
-                        {/* Fonte prioritária (com página) inline */}
-                        {!isUser && !isError && priority && (
-                          <div className="max-w-[85%] inline-flex items-center gap-2 text-xs bg-muted/50 border border-border/40 px-3 py-2 rounded-xl">
-                            <Badge
-                              variant="secondary"
-                              className="h-5 rounded-md text-[11px]"
-                            >
-                              Fonte [{priority.num}]
-                            </Badge>
-                            <span className="text-foreground/90 font-medium">
-                              {priority.title}
-                            </span>
-                            {priority.page && (
-                              <span className="text-muted-foreground">
-                                pág. {priority.page}
-                              </span>
-                            )}
-                          </div>
+                        {/* Referências (collapsible) */}
+                        {!isUser && !isError && hasReferences && (
+                          <details className="mt-2 max-w-[85%] group">
+                            <summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/30 border border-border/40 px-3 py-2 rounded-xl">
+                              <LinkIcon className="h-3.5 w-3.5" />
+                              Referências ({m.references?.length})
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {m.references?.map((ref, idx) => (
+                                <details
+                                  key={`${m.id}-ref-${idx}`}
+                                  className="bg-muted/20 border border-border/30 rounded-lg p-2"
+                                >
+                                  <summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-5 rounded-md text-[11px]"
+                                    >
+                                      [{ref.n}]
+                                    </Badge>
+                                    <span className="text-xs font-medium truncate">
+                                      {ref.source}
+                                    </span>
+                                    {ref.page && (
+                                      <span className="text-xs text-muted-foreground">
+                                        pág. {ref.page}
+                                      </span>
+                                    )}
+                                  </summary>
+                                  {ref.snippet && (
+                                    <div className="mt-2 text-xs text-muted-foreground pl-2 border-l-2 border-border/40">
+                                      <p className="italic">
+                                        {ref.snippet.substring(0, 200)}
+                                        {ref.snippet.length > 200 ? "..." : ""}
+                                      </p>
+                                    </div>
+                                  )}
+                                </details>
+                              ))}
+                            </div>
+                          </details>
                         )}
 
-                        {/* Outras fontes consultadas (collapsible) */}
+                        {/* Fontes consultadas (collapsible) */}
                         {!isUser &&
                           !isError &&
                           otherSources &&
                           otherSources.length > 0 && (
-                            <details className="mt-1 pt-3 border-t border-border/30 max-w-[85%] group">
-                              <summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                            <details className="mt-2 max-w-[85%] group">
+                              <summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/30 border border-border/40 px-3 py-2 rounded-xl">
                                 <LinkIcon className="h-3.5 w-3.5" />
-                                Outras fontes consultadas ({otherSources.length}
-                                )
+                                Fontes consultadas ({otherSources.length})
                               </summary>
-                              <ul className="space-y-1.5 mt-2">
+                              <ul className="mt-2 space-y-1.5">
                                 {otherSources.map((s, idx) => (
                                   <li
                                     key={`${m.id}-src-${idx}`}
-                                    className="flex items-start gap-2"
+                                    className="flex items-start gap-2 bg-muted/20 border border-border/30 rounded-lg p-2"
                                   >
                                     <span className="text-xs text-muted-foreground mt-0.5">
                                       •
