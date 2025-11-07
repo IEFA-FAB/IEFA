@@ -16,14 +16,14 @@
   },
   "dependencies": {
     "@iefa/ui": "workspace:*",
-    "@supabase/supabase-js": "^2.50.5",
     "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.80.0",
     "lucide-react": "^0.537.0",
-    "react-router": "^7.6.3"
+    "react-router": "^7.9.5"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "tailwindcss": "^4.1.4"
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
