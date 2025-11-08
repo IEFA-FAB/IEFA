@@ -33,7 +33,7 @@ app.get(
   Scalar({
     url: "/doc",
     pageTitle: "Sisub API - Documentação",
-    theme: "kepler"
+    theme: "kepler",
   })
 );
 
