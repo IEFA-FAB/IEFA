@@ -8,8 +8,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.6",
+    "@hono/zod-openapi": "^1.1.4",
+    "@hono/zod-validator": "^0.7.4",
+    "@scalar/hono-api-reference": "^0.9.24",
+    "@scalar/openapi-to-markdown": "^0.3.2",
     "@supabase/supabase-js": "^2.80.0",
-    "hono": "^4.10.4"
+    "hono": "^4.10.4",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^20.19.24",
