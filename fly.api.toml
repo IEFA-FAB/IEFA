@@ -38,6 +38,6 @@ primary_region = 'gru'
     tls_skip_verify = false
 
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
