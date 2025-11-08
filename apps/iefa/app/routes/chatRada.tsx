@@ -58,15 +58,17 @@ type AskResponse = {
 
 type RemoteMessage = {
   role: "user" | "assistant" | "system";
-  content: string;
-  content_json?: {
-    type?: "user" | "assistant" | "system";
-    question?: string;
-    answer?: string;
-    references?: AskReference[];
-    sources?: string[];
-    content?: string;
-  };
+  content: string; // não utilizado para hidratação do histórico
+  content_json?:
+    | {
+        type?: "user" | "assistant" | "system";
+        question?: string;
+        answer?: string;
+        references?: AskReference[];
+        sources?: string[];
+        content?: string;
+      }
+    | string; // pode vir serializado do banco
   created_at: string; // ISO
 };
 
@@ -253,6 +255,20 @@ function extractReferencesMd(text: string): {
 }
 /* === FIM helpers === */
 
+/** Parse seguro para lidar com content_json vindo como string ou objeto */
+function parseContentJson(input: unknown): any {
+  if (!input) return {};
+  if (typeof input === "string") {
+    try {
+      return JSON.parse(input);
+    } catch {
+      return {};
+    }
+  }
+  if (typeof input === "object") return input as any;
+  return {};
+}
+
 export function meta() {
   return [
     { title: "Chat RADA" },
@@ -398,19 +414,32 @@ export default function ChatRada() {
         const data: RemoteMessage[] = await res.json();
 
         const hydrated: ChatMessage[] = data.map((r, i) => {
+          // forçamos uso do content_json (não usar content do registro)
           const role =
             r.role === "system"
               ? ("assistant" as const)
               : (r.role as "user" | "assistant");
-          const cj = r.content_json || {};
+
+          const cj = parseContentJson(r.content_json);
+
+          // No histórico:
+          // - assistant => usar cj.answer (string)
+          // - user => usar cj.question (string)
+          // - system (mapeado para assistant) => cj.content (opcional) senão vazio
           const content =
             role === "assistant"
-              ? (cj.answer ?? r.content ?? "")
+              ? String(cj?.answer ?? "")
               : role === "user"
-                ? (cj.question ?? r.content ?? "")
-                : (cj.content ?? r.content ?? "");
-          const references = Array.isArray(cj.references) ? cj.references : [];
-          const sources = Array.isArray(cj.sources) ? cj.sources : [];
+                ? String(cj?.question ?? "")
+                : String(cj?.content ?? "");
+
+          const references: AskReference[] = Array.isArray(cj?.references)
+            ? cj.references
+            : [];
+          const sources: string[] = Array.isArray(cj?.sources)
+            ? cj.sources
+            : [];
+
           return {
             id: `${sessionId}-${i}`,
             role,
@@ -1016,16 +1045,6 @@ export default function ChatRada() {
                           : null;
                       const displayMarkdown = parsed?.mainText ?? m.content;
                       const priority = parsed?.priority;
-                      const otherSources =
-                        m.role === "assistant" && m.sources
-                          ? m.sources.filter(
-                              (s) =>
-                                !(
-                                  priority && matchSourceName(s, priority.title)
-                                )
-                            )
-                          : [];
-
                       const hasReferences =
                         m.references && m.references.length > 0;
 
