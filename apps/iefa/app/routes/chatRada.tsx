@@ -308,6 +308,8 @@ export default function ChatRada() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
+  const credentialsMode: RequestCredentials = isLoggedIn ? "include" : "omit";
+
   // Verificação de saúde
   const checkHealth = async () => {
     setHealth("loading");
@@ -561,7 +563,7 @@ export default function ChatRada() {
             ...authHeaders(isLoggedIn, userId),
             Accept: "text/event-stream",
           },
-          credentials: "include",
+          credentials: credentialsMode, // <- aqui
           body: JSON.stringify(buildPayload()),
         });
 
