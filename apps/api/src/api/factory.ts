@@ -1,7 +1,7 @@
-// src/api/factory.ts
-import type { Context, Next } from "hono";
+import type { Context } from "hono";
 import type { MiddlewareHandler } from "hono";
 import supabase from "../lib/supabase.js";
+import { z } from "zod";
 
 type OrderRule = { column: string; ascending?: boolean | null };
 
@@ -15,8 +15,15 @@ export type ApiConfig = {
   defaultLimit?: number;
   maxLimit?: number;
   cacheControl?: string;
-  corsOrigin?: string; // usado para header manual adicional
+  corsOrigin?: string;
 };
+
+// Schema de erro para respostas
+export const ErrorResponseSchema = z.object({
+  error: z.string(),
+  details: z.string().optional(),
+  timestamp: z.string().optional(),
+});
 
 function toInt(v: string | null | undefined, d: number) {
   const n = v ? parseInt(v, 10) : NaN;
@@ -65,17 +72,12 @@ export function createApiHandler(config: ApiConfig) {
     corsOrigin = "*",
   } = config;
 
-  // Opcional: middleware para cache-control em cada resposta de sucesso
-  const setDefaultHeaders: MiddlewareHandler = async (
-    c: Context,
-    next: Next
-  ) => {
+  // Middleware para cache-control e CORS
+  const setDefaultHeaders: MiddlewareHandler = async (c, next) => {
     await next();
-    // Se ainda não setado por outra parte, garanta headers padrão
     if (!c.res.headers.get("Cache-Control")) {
       c.header("Cache-Control", cacheControl);
     }
-    // CORS headers extra (além do middleware cors do Hono, se usado)
     if (!c.res.headers.get("Access-Control-Allow-Origin")) {
       c.header("Access-Control-Allow-Origin", corsOrigin);
       c.header("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -84,24 +86,22 @@ export function createApiHandler(config: ApiConfig) {
     c.header("Content-Type", "application/json; charset=utf-8");
   };
 
-  // O handler GET que replica o loader
+  // Handler principal
   const handler = async (c: Context) => {
     try {
-      // Em Hono, só entra aqui se a rota for GET, então não precisa checar método.
       const url = new URL(c.req.url);
       const sp = url.searchParams;
 
-      // Inicia query
-      let query = supabase.from(table).select(select);
-
-      // Limite com proteção
+      // Validação básica dos parâmetros
       const limit = Math.min(
         Math.max(1, toInt(sp.get("limit"), defaultLimit)),
         maxLimit
       );
-      query = query.limit(limit);
 
-      // Filtros mapeados simples (eq, in, ilike)
+      // Inicia query
+      let query = supabase.from(table).select(select).limit(limit);
+
+      // Filtros mapeados
       for (const [param, column] of Object.entries(mapParams)) {
         const ilikeVal = sp.get(`${param}_ilike`);
         if (ilikeVal) {
@@ -120,9 +120,9 @@ export function createApiHandler(config: ApiConfig) {
 
       // Filtro por data
       if (dateColumn) {
-        const dateEq = sp.get("date"); // Um único dia
-        const startDate = sp.get("startDate"); // Início do intervalo
-        const endDate = sp.get("endDate"); // Fim do intervalo
+        const dateEq = sp.get("date");
+        const startDate = sp.get("startDate");
+        const endDate = sp.get("endDate");
 
         if (dateEq) {
           if (dateColumnType === "timestamp") {
@@ -159,7 +159,7 @@ export function createApiHandler(config: ApiConfig) {
         query = query.order(ord.column, { ascending: ord.ascending ?? true });
       }
 
-      // Executa
+      // Executa query
       const { data: rows, error } = await query;
       if (error) {
         console.error("Erro Supabase:", error);
@@ -172,7 +172,6 @@ export function createApiHandler(config: ApiConfig) {
         );
       }
 
-      // Retorno puro
       return c.json(rows ?? [], 200);
     } catch (err: any) {
       console.error("Erro crítico no endpoint API:", err);
@@ -186,6 +185,5 @@ export function createApiHandler(config: ApiConfig) {
     }
   };
 
-  // Retornamos um pequeno “routerzinho” com middleware de headers
   return [setDefaultHeaders, handler] as const;
 }

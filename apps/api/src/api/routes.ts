@@ -1,11 +1,111 @@
-// src/api/routes.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createApiHandler } from "./factory.js";
+import { z } from "zod";
+import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 
-export const api = new Hono();
+// Schemas de resposta base
+const ErrorSchema = z.object({
+  error: z.string(),
+  details: z.string().optional(),
+  timestamp: z.string().optional(),
+});
 
-// CORS global para todos os endpoints da API (Power BI consome via browser)
+const PaginationSchema = z.object({
+  limit: z.string().optional().openapi({
+    description: "Número máximo de registros (padrão: 100000, máx: 100000)",
+    example: "1000",
+  }),
+  order: z.string().optional().openapi({
+    description:
+      "Ordenação: coluna:asc ou coluna:desc (múltiplos separados por vírgula)",
+    example: "created_at:desc,nmGuerra:asc",
+  }),
+});
+
+// Schema para filtros de data
+const DateFilterSchema = z.object({
+  date: z.string().optional().openapi({
+    description: "Data específica (YYYY-MM-DD)",
+    example: "2024-01-15",
+  }),
+  startDate: z.string().optional().openapi({
+    description: "Data inicial do intervalo (YYYY-MM-DD)",
+    example: "2024-01-01",
+  }),
+  endDate: z.string().optional().openapi({
+    description: "Data final do intervalo (YYYY-MM-DD)",
+    example: "2024-01-31",
+  }),
+});
+
+// Schemas específicos para cada endpoint
+const OpinionSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string().datetime(),
+  value: z.string(),
+  question: z.string(),
+  userId: z.string().uuid(),
+});
+
+const MealForecastSchema = z.object({
+  user_id: z.string().uuid(),
+  date: z.string().date(),
+  meal: z.enum(["cafe", "almoco", "janta", "ceia"]),
+  will_eat: z.boolean(),
+  mess_hall_id: z.number(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+
+const MealPresenceSchema = z.object({
+  user_id: z.string().uuid(),
+  date: z.string().date(),
+  meal: z.enum(["cafe", "almoco", "janta", "ceia"]),
+  mess_hall_id: z.number(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+
+const UserMilitaryDataSchema = z.object({
+  nrOrdem: z.string(),
+  nrCpf: z.string(),
+  nmGuerra: z.string(),
+  nmPessoa: z.string(),
+  sgPosto: z.string(),
+  sgOrg: z.string(),
+  dataAtualizacao: z.string().datetime(),
+});
+
+const UserDataSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string().datetime(),
+  email: z.string().email(),
+  nrOrdem: z.string(),
+});
+
+const UnitSchema = z.object({
+  id: z.number(),
+  code: z.string(),
+  display_name: z.string(),
+});
+
+const MessHallSchema = z.object({
+  id: z.number(),
+  unit_id: z.number(),
+  code: z.string(),
+  display_name: z.string(),
+});
+
+// Schema para parâmetros de filtro com múltiplos valores
+const MultiValueParamSchema = z.string().openapi({
+  description: "Valor único ou múltiplos separados por vírgula",
+  example: "uuid1,uuid2 ou 123,456",
+});
+
+export const api = new OpenAPIHono();
+
+// CORS global para todos os endpoints da API
 api.use(
   "/*",
   cors({
@@ -16,7 +116,66 @@ api.use(
   })
 );
 
-// /api/opinion  (era apiEvaluation.tsx) -> opinions
+// Helper para criar rotas documentadas
+function createDocumentedRoute(config: {
+  path: string;
+  tags: string[];
+  summary: string;
+  description: string;
+  parameters?: any[];
+  responseSchema: z.ZodTypeAny;
+  handler: any;
+}) {
+  const route = createRoute({
+    method: "get",
+    path: config.path,
+    tags: config.tags,
+    summary: config.summary,
+    description: config.description,
+    parameters: [
+      ...(config.parameters || []),
+      {
+        name: "limit",
+        in: "query",
+        schema: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100000,
+          default: 100000,
+        },
+        description: "Número máximo de registros",
+      },
+      {
+        name: "order",
+        in: "query",
+        schema: { type: "string" },
+        description: "Ordenação: coluna:asc/desc",
+      },
+    ],
+    responses: {
+      200: {
+        description: "Sucesso",
+        content: {
+          "application/json": {
+            schema: z.array(config.responseSchema),
+          },
+        },
+      },
+      500: {
+        description: "Erro interno do servidor",
+        content: {
+          "application/json": {
+            schema: ErrorSchema,
+          },
+        },
+      },
+    },
+  });
+
+  return api.openapi(route, config.handler);
+}
+
+// /api/opinion -> opinions
 {
   const [headersMw, handler] = createApiHandler({
     table: "opinions",
@@ -25,25 +184,42 @@ api.use(
     dateColumnType: "timestamp",
     defaultOrder: [{ column: "created_at", ascending: false }],
     mapParams: {
-      userId: "userId", // ?userId=uuid ou ?userId=uuid1,uuid2
-      question: "question", // ?question_ilike=...
+      userId: "userId",
+      question: "question",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/opinion", headersMw, handler);
+
+  createDocumentedRoute({
+    path: "/opinion",
+    tags: ["Opiniões"],
+    summary: "Lista opiniões dos usuários",
+    description:
+      "Retorna todas as opiniões registradas com filtros opcionais por usuário e pergunta",
+    parameters: [
+      {
+        name: "userId",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do usuário",
+      },
+      {
+        name: "question",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por texto da pergunta (exato)",
+      },
+      {
+        name: "question_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por texto da pergunta (contém, case-insensitive)",
+      },
+    ],
+    responseSchema: OpinionSchema,
+    handler,
+  });
 }
-
-/*
-REMOVIDO: /api/presences agregado
-Motivo: a tabela 'rancho_presencas_agregado' não existe mais. Caso precise novamente,
-podemos criar uma view baseada em meal_presences e expor por aqui.
-*/
-
-/*
-REMOVIDO: /api/rancho_agregado
-Motivo: a tabela 'rancho_agregado' não existe mais. Caso precise novamente (ex.: total_vai_comer),
-podemos criar uma view ou endpoint específico agregando meal_forecasts (will_eat).
-*/
 
 // /api/rancho_previsoes -> meal_forecasts
 {
@@ -59,18 +235,52 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
       { column: "meal", ascending: true },
     ],
     mapParams: {
-      user_id: "user_id", // ?user_id=uuid1,uuid2
-      meal: "meal", // ?meal=cafe,almoco,janta,ceia
-      mess_hall_id: "mess_hall_id", // ?mess_hall_id=1,2
-      // Filtro de data: ?date=YYYY-MM-DD ou ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-      will_eat: "will_eat", // ?will_eat=true/false
+      user_id: "user_id",
+      meal: "meal",
+      mess_hall_id: "mess_hall_id",
+      will_eat: "will_eat",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/rancho_previsoes", headersMw, handler);
+
+  createDocumentedRoute({
+    path: "/rancho_previsoes",
+    tags: ["Previsões de Refeições"],
+    summary: "Lista previsões de refeições",
+    description: "Retorna previsões de quem vai comer em cada refeitório",
+    parameters: [
+      {
+        name: "user_id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do usuário",
+      },
+      {
+        name: "meal",
+        in: "query",
+        schema: z.enum(["cafe", "almoco", "janta", "ceia"]).openapi({
+          description: "Filtrar por tipo de refeição",
+        }),
+      },
+      {
+        name: "mess_hall_id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do refeitório",
+      },
+      {
+        name: "will_eat",
+        in: "query",
+        schema: { type: "boolean" },
+        description: "Filtrar por quem vai comer (true/false)",
+      },
+    ],
+    responseSchema: MealForecastSchema,
+    handler,
+  });
 }
 
-// /api/wherewhowhen (era apiPresences.tsx) -> meal_presences
+// /api/wherewhowhen -> meal_presences
 {
   const [headersMw, handler] = createApiHandler({
     table: "meal_presences",
@@ -83,14 +293,42 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
       { column: "user_id", ascending: true },
     ],
     mapParams: {
-      user_id: "user_id", // ?user_id=uuid1,uuid2
-      meal: "meal", // ?meal=cafe,almoco,janta,ceia
-      mess_hall_id: "mess_hall_id", // ?mess_hall_id=1,2
-      // Filtro de data: ?date=YYYY-MM-DD ou ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+      user_id: "user_id",
+      meal: "meal",
+      mess_hall_id: "mess_hall_id",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/wherewhowhen", headersMw, handler);
+
+  createDocumentedRoute({
+    path: "/wherewhowhen",
+    tags: ["Presenças"],
+    summary: "Lista presenças em refeições",
+    description: "Retorna registros de presença confirmada nos refeitórios",
+    parameters: [
+      {
+        name: "user_id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do usuário",
+      },
+      {
+        name: "meal",
+        in: "query",
+        schema: z.enum(["cafe", "almoco", "janta", "ceia"]).openapi({
+          description: "Filtrar por tipo de refeição",
+        }),
+      },
+      {
+        name: "mess_hall_id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do refeitório",
+      },
+    ],
+    responseSchema: MealPresenceSchema,
+    handler,
+  });
 }
 
 // /api/user-military-data -> user_military_data
@@ -108,17 +346,82 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
       { column: "nmGuerra", ascending: true },
     ],
     mapParams: {
-      nrOrdem: "nrOrdem", // ?nrOrdem=123456 ou ?nrOrdem=123,456
-      nrCpf: "nrCpf", // ?nrCpf=00000000000 ou ?nrCpf=111,222
-      nmGuerra: "nmGuerra", // ?nmGuerra_ilike=silva
-      nmPessoa: "nmPessoa", // ?nmPessoa_ilike=joao
-      sgPosto: "sgPosto", // ?sgPosto=CB,SGT
-      sgOrg: "sgOrg", // ?sgOrg=... ou ?sgOrg_ilike=...
-      // Filtro de data: ?date=YYYY-MM-DD ou ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+      nrOrdem: "nrOrdem",
+      nrCpf: "nrCpf",
+      nmGuerra: "nmGuerra",
+      nmPessoa: "nmPessoa",
+      sgPosto: "sgPosto",
+      sgOrg: "sgOrg",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/user-military-data", headersMw, handler);
+
+  createDocumentedRoute({
+    path: "/user-military-data",
+    tags: ["Dados Militares"],
+    summary: "Lista dados militares dos usuários",
+    description:
+      "Retorna dados cadastrais militares com informações de posto, organização, etc",
+    parameters: [
+      {
+        name: "nrOrdem",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por número de ordem",
+      },
+      {
+        name: "nrCpf",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por CPF",
+      },
+      {
+        name: "nmGuerra",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por nome de guerra (exato)",
+      },
+      {
+        name: "nmGuerra_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por nome de guerra (contém, case-insensitive)",
+      },
+      {
+        name: "nmPessoa",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por nome completo (exato)",
+      },
+      {
+        name: "nmPessoa_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por nome completo (contém, case-insensitive)",
+      },
+      {
+        name: "sgPosto",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por sigla do posto",
+      },
+      {
+        name: "sgOrg",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por sigla da organização (exato)",
+      },
+      {
+        name: "sgOrg_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description:
+          "Filtrar por sigla da organização (contém, case-insensitive)",
+      },
+    ],
+    responseSchema: UserMilitaryDataSchema,
+    handler,
+  });
 }
 
 // /api/user-data -> user_data
@@ -133,13 +436,53 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
       { column: "email", ascending: true },
     ],
     mapParams: {
-      id: "id", // ?id=uuid ou ?id=uuid1,uuid2
-      email: "email", // ?email=foo@bar.com ou ?email_ilike=foo
-      nrOrdem: "nrOrdem", // ?nrOrdem=123456 ou ?nrOrdem_ilike=123
+      id: "id",
+      email: "email",
+      nrOrdem: "nrOrdem",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/user-data", headersMw, handler);
+
+  createDocumentedRoute({
+    path: "/user-data",
+    tags: ["Dados de Usuário"],
+    summary: "Lista dados básicos dos usuários",
+    description: "Retorna informações básicas de cadastro dos usuários",
+    parameters: [
+      {
+        name: "id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do usuário",
+      },
+      {
+        name: "email",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por email (exato)",
+      },
+      {
+        name: "email_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por email (contém, case-insensitive)",
+      },
+      {
+        name: "nrOrdem",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por número de ordem (exato)",
+      },
+      {
+        name: "nrOrdem_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por número de ordem (contém)",
+      },
+    ],
+    responseSchema: UserDataSchema,
+    handler,
+  });
 }
 
 // /api/units -> sisub.units
@@ -152,13 +495,53 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
       { column: "id", ascending: true },
     ],
     mapParams: {
-      id: "id", // ?id=1 ou ?id=1,2,3
-      code: "code", // ?code=ABC ou ?code_ilike=abc
-      display_name: "display_name", // ?display_name_ilike=brigada
+      id: "id",
+      code: "code",
+      display_name: "display_name",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/units", headersMw, handler);
+
+  createDocumentedRoute({
+    path: "/units",
+    tags: ["Unidades"],
+    summary: "Lista unidades organizacionais",
+    description: "Retorna todas as unidades cadastradas no sistema",
+    parameters: [
+      {
+        name: "id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) da unidade",
+      },
+      {
+        name: "code",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por código (exato)",
+      },
+      {
+        name: "code_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por código (contém, case-insensitive)",
+      },
+      {
+        name: "display_name",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por nome de exibição (exato)",
+      },
+      {
+        name: "display_name_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por nome de exibição (contém, case-insensitive)",
+      },
+    ],
+    responseSchema: UnitSchema,
+    handler,
+  });
 }
 
 // /api/mess-halls -> sisub.mess_halls
@@ -171,14 +554,58 @@ podemos criar uma view ou endpoint específico agregando meal_forecasts (will_ea
       { column: "code", ascending: true },
     ],
     mapParams: {
-      id: "id", // ?id=10 ou ?id=10,11
-      unit_id: "unit_id", // ?unit_id=1 ou ?unit_id=1,2
-      code: "code", // ?code=XYZ ou ?code_ilike=xyz
-      display_name: "display_name", // ?display_name_ilike=refeitório
+      id: "id",
+      unit_id: "unit_id",
+      code: "code",
+      display_name: "display_name",
     },
     cacheControl: "public, max-age=300",
   });
-  api.get("/mess-halls", headersMw, handler);
-}
 
-export default api;
+  createDocumentedRoute({
+    path: "/mess-halls",
+    tags: ["Refeitórios"],
+    summary: "Lista refeitórios",
+    description: "Retorna todos os refeitórios cadastrados",
+    parameters: [
+      {
+        name: "id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) do refeitório",
+      },
+      {
+        name: "unit_id",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por ID(s) da unidade",
+      },
+      {
+        name: "code",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por código (exato)",
+      },
+      {
+        name: "code_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por código (contém, case-insensitive)",
+      },
+      {
+        name: "display_name",
+        in: "query",
+        schema: MultiValueParamSchema,
+        description: "Filtrar por nome de exibição (exato)",
+      },
+      {
+        name: "display_name_ilike",
+        in: "query",
+        schema: { type: "string" },
+        description: "Filtrar por nome de exibição (contém, case-insensitive)",
+      },
+    ],
+    responseSchema: MessHallSchema,
+    handler,
+  });
+}
