@@ -6,25 +6,16 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   Avatar,
   AvatarImage,
   AvatarFallback,
-} from "@iefa/ui"; // ajuste estes imports conforme seu projeto
-import {
-  ExternalLink,
-  Menu,
-  EllipsisVertical,
-  User as UserIcon,
-  CreditCard,
-  Bell,
-  LogOut,
-} from "lucide-react";
+} from "@iefa/ui";
+import { ExternalLink, Menu, EllipsisVertical, LogOut } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@iefa/auth"; // ajuste conforme seu projeto (ex.: "@/auth" ou outro alias)
+import { useAuth } from "@iefa/auth";
 
 type UserMeta = {
   name?: string;
@@ -114,27 +105,6 @@ function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {/* <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <NavLink to="/conta">
-              <UserIcon className="mr-2 h-4 w-4" />
-              Conta
-            </NavLink>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <NavLink to="/billing">
-              <CreditCard className="mr-2 h-4 w-4" />
-              Cobranças
-            </NavLink>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <NavLink to="/notificacoes">
-              <Bell className="mr-2 h-4 w-4" />
-              Notificações
-            </NavLink>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator /> */}
         <DropdownMenuItem
           onSelect={async () => {
             await signOut({ redirectTo: "/login", reload: true });
@@ -169,7 +139,7 @@ export default function RootLayout() {
     <div
       className="
         relative isolate flex flex-col bg-background text-foreground
-        min-h-[100svh] supports-[height:100dvh]:min-h-[100dvh]
+        min-h-svh supports-[height:100dvh]:min-h-dvh
 
         before:content-[''] before:absolute before:inset-0 before:-z-10 before:pointer-events-none
         before:bg-[radial-gradient(1200px_800px_at_10%_-10%,rgb(52_211_153/0.14),transparent_60%),radial-gradient(900px_600px_at_90%_0%,rgb(6_182_212/0.12),transparent_60%),radial-gradient(800px_800px_at_50%_100%,rgb(139_92_246/0.10),transparent_60%)]
@@ -179,21 +149,21 @@ export default function RootLayout() {
 
         after:content-[''] after:pointer-events-none after:absolute after:inset-0 after:-z-10
         after:bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.8)_1px,transparent_1px)]
-        after:bg-[length:12px_12px] after:opacity-[0.02]
+        after:bg-size-[12px_12px] after:opacity-[0.02]
         dark:after:opacity-[0.04]
       "
     >
       {/* Skip link para acessibilidade */}
       <a
         href="#conteudo"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100]
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100
                      rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground shadow"
       >
         Ir para o conteúdo
       </a>
 
       {/* Cabeçalho (sticky sem transform) */}
-      <header className="sticky top-0 z-50 border-b backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 border-b backdrop-blur supports-backdrop-filter:bg-background/60">
         <div
           className={`${container} h-14 flex items-center justify-between gap-3`}
         >
