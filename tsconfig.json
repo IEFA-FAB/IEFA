@@ -1,14 +1,14 @@
 {
-  "compilerOptions": {
-    "target": "es2024",
-    "module": "nodenext",
-    "strict": true,
-    "skipLibCheck": true,
-    "allowJs": false,
-    "moduleResolution": "nodenext",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "allowSyntheticDefaultImports": true,
-    "baseUrl": "."
-  }
+    "compilerOptions": {
+        "target": "es2024",
+        "module": "nodenext",
+        "strict": true,
+        "skipLibCheck": true,
+        "allowJs": false,
+        "moduleResolution": "nodenext",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "allowSyntheticDefaultImports": true,
+        "baseUrl": "."
+    }
 }

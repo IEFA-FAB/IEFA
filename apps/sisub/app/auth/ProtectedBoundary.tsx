@@ -4,34 +4,32 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@iefa/auth";
 
 export function ProtectedBoundary({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const { user, isLoading, refreshSession } = useAuth();
+    const location = useLocation();
+    const { user, isLoading, refreshSession } = useAuth();
 
-  // tentativa de recuperar sessão (uma vez)
-  const attemptedRecoveryRef = useRef(false);
-  const [recovering, setRecovering] = useState(false);
+    // tentativa de recuperar sessão (uma vez)
+    const attemptedRecoveryRef = useRef(false);
+    const [recovering, setRecovering] = useState(false);
 
-  useEffect(() => {
-    if (isLoading || user || attemptedRecoveryRef.current) return;
-    attemptedRecoveryRef.current = true;
-    setRecovering(true);
+    useEffect(() => {
+        if (isLoading || user || attemptedRecoveryRef.current) return;
+        attemptedRecoveryRef.current = true;
+        setRecovering(true);
 
-    (async () => {
-      try {
-        await refreshSession().catch(() => {});
-        await new Promise((r) => setTimeout(r, 50));
-      } finally {
-        setRecovering(false);
-      }
-    })();
-  }, [isLoading, user, refreshSession]);
+        (async () => {
+            try {
+                await refreshSession().catch(() => {});
+                await new Promise((r) => setTimeout(r, 50));
+            } finally {
+                setRecovering(false);
+            }
+        })();
+    }, [isLoading, user, refreshSession]);
 
-  if (!user) {
-    const redirectTo = encodeURIComponent(
-      `${location.pathname}${location.search}`
-    );
-    return <Navigate to={`/login?redirectTo=${redirectTo}`} replace />;
-  }
+    if (!user) {
+        const redirectTo = encodeURIComponent(`${location.pathname}${location.search}`);
+        return <Navigate to={`/login?redirectTo=${redirectTo}`} replace />;
+    }
 
-  return <>{children}</>;
+    return <>{children}</>;
 }

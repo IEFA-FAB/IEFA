@@ -3,32 +3,32 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseApp } from "@/lib/supabase";
 
 export type DbContributor = {
-  label: string;
-  url: string | null;
-  icon_key: string | null;
+    label: string;
+    url: string | null;
+    icon_key: string | null;
 };
 
 export type DbApp = {
-  title: string;
-  description: string;
-  to_path: string | null;
-  href: string | null;
-  icon_key: string | null;
-  external: boolean | null;
-  badges: string[] | null;
-  contributors: DbContributor[] | null;
+    title: string;
+    description: string;
+    to_path: string | null;
+    href: string | null;
+    icon_key: string | null;
+    external: boolean | null;
+    badges: string[] | null;
+    contributors: DbContributor[] | null;
 };
 
 export const APPS_QUERY_KEY = "appsData";
 
 export function useAppsData(limit = 6) {
-  return useQuery({
-    queryKey: [APPS_QUERY_KEY, limit],
-    queryFn: async (): Promise<DbApp[]> => {
-      const { data, error } = await supabaseApp
-        .from("apps")
-        .select(
-          `
+    return useQuery({
+        queryKey: [APPS_QUERY_KEY, limit],
+        queryFn: async (): Promise<DbApp[]> => {
+            const { data, error } = await supabaseApp
+                .from("apps")
+                .select(
+                    `
           title,
           description,
           to_path,
@@ -41,16 +41,16 @@ export function useAppsData(limit = 6) {
             url,
             icon_key
           )
-        `
-        )
-        .order("title", { ascending: true })
-        .limit(limit);
+        `,
+                )
+                .order("title", { ascending: true })
+                .limit(limit);
 
-      if (error) {
-        throw new Error(error.message);
-      }
-      return (data ?? []) as DbApp[];
-    },
-    staleTime: 1000 * 60 * 10, // 10 minutos
-  });
+            if (error) {
+                throw new Error(error.message);
+            }
+            return (data ?? []) as DbApp[];
+        },
+        staleTime: 1000 * 60 * 10, // 10 minutos
+    });
 }

@@ -1,26 +1,24 @@
-import { LucideIcon } from "lucide-react";
-import type { ComponentType, SVGProps } from "react";
-
+import type { LucideIcon } from "lucide-react";
 
 export type Team = {
-  name: string;
-  logo: any; 
-  plan: string;
+    name: string;
+    logo: string;
+    plan: string;
 };
 
 export type NavItemLeaf = {
-  title: string;
-  url: string;
+    title: string;
+    url: string;
 };
 
 export type NavItemSection = {
-  title: string;
-  icon?: LucideIcon;
-  isActive?: boolean;
-  items?: NavItemLeaf[];
+    title: string;
+    icon?: LucideIcon;
+    isActive?: boolean;
+    items?: NavItemLeaf[];
 };
 
 export type AppSidebarData = {
-  teams: Team[];
-  navMain: NavItemSection[];
+    teams: Team[];
+    navMain: NavItemSection[];
 };
