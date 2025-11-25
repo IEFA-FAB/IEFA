@@ -1,8 +1,9 @@
-import React, { useCallback, useId, useRef } from "react";
-import { QrCode, XIcon, Download as DownloadIcon, Copy as CopyIcon } from "lucide-react";
-import { QRCodeCanvas } from "qrcode.react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Button } from "@iefa/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@iefa/ui";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { Copy as CopyIcon, Download as DownloadIcon, QrCode, XIcon } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
+import type React from "react";
+import { useCallback, useId, useRef } from "react";
 
 type UserQrDialogProps = {
     open: boolean;
@@ -16,8 +17,6 @@ export function UserQrDialog({ open, onOpenChange, userId, onCopy, hasCopied }: 
     const titleId = useId();
     const descId = useId();
 
-    // Mantemos o canvas interno com 180px para qualidade do PNG;
-    // o ajuste visual é feito por Tailwind (escala para 140px no mobile).
     const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const canInteract = Boolean(userId);
 
@@ -30,7 +29,6 @@ export function UserQrDialog({ open, onOpenChange, userId, onCopy, hasCopied }: 
             a.download = `user-${userId}-qrcode.png`;
             a.click();
         } catch {
-            // Silencia falhas de download (ex.: restrições do navegador)
         }
     }, [userId]);
 

@@ -1,14 +1,15 @@
 import {
+    Button,
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogFooter,
-    DialogDescription,
     Input,
-    Button,
 } from "@iefa/ui";
-import React, { useCallback, useId } from "react";
+import type React from "react";
+import { useCallback, useId } from "react";
 
 type NrOrdemDialogProps = {
     open: boolean;
@@ -113,11 +114,7 @@ export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onCh
                         >
                             {isSaving ? (
                                 <span className="inline-flex items-center gap-2">
-                                    <span
-                                        className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent"
-                                        role="status"
-                                        aria-label="Salvando"
-                                    />
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent" />
                                     Salvando...
                                 </span>
                             ) : (

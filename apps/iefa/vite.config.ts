@@ -1,35 +1,42 @@
-import { fileURLToPath, URL } from "node:url";
-import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
+import { devtools } from "@tanstack/devtools-vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
+import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
+import viteTsConfigPaths from "vite-tsconfig-paths";
 
-/* 
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const rootNodeModules = path.resolve(__dirname, '../../node_modules')
- */
-export default defineConfig({
-    plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+const config = defineConfig({
+    plugins: [
+        devtools(),
+        // this is the plugin that enables path aliases
+        viteTsConfigPaths({
+            projects: ["./tsconfig.json"],
+        }),
+        tailwindcss(),
+        tanstackStart(),
+        viteReact({
+            babel: {
+                plugins: ["babel-plugin-react-compiler"],
+            },
+        }),
+    ],
     resolve: {
         dedupe: ["react", "react-dom"],
-        // preserveSymlinks: true,
         alias: {
             "@iefa/auth": fileURLToPath(new URL("../../packages/auth/src", import.meta.url)),
             "@iefa/ui": fileURLToPath(new URL("../../packages/ui/src", import.meta.url)),
         },
     },
     server: {
-        fs: { allow: [".."] }, // permite ler ../../packages/*
+        fs: { allow: [".."] }, 
     },
     optimizeDeps: {
-        // Evita prebundle estranho do pacote linkado
         exclude: ["@iefa/ui", "@iefa/auth"],
     },
     ssr: {
-        // Se o sisub roda SSR em dev (React Router v7), garanta que a lib é empacotada pelo Vite
         noExternal: ["@iefa/ui", "@iefa/auth", "lucide-react"],
     },
 });
+
+export default config;

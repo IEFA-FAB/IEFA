@@ -1,14 +1,14 @@
-import React from "react";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
     Button,
     cn,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from "@iefa/ui";
+import type React from "react";
 
 export type EvaluationDialogProps = {
     open: boolean;
@@ -118,11 +118,7 @@ export function EvaluationDialog({
                         >
                             {isSubmitting ? (
                                 <span className="inline-flex items-center gap-2">
-                                    <span
-                                        className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent"
-                                        role="status"
-                                        aria-label="Enviando"
-                                    />
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent" />
                                     Enviando...
                                 </span>
                             ) : (
