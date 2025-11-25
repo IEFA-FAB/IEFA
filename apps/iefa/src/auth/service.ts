@@ -1,5 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
-import { supabaseApp } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export interface AuthContextType {
 	user: User | null;
@@ -40,7 +40,7 @@ function getAuthErrorMessage(error: any): string {
 
 export const authActions = {
 	signIn: async (email: string, password: string) => {
-		const { error } = await supabaseApp.auth.signInWithPassword({
+		const { error } = await supabase.auth.signInWithPassword({
 			email: normalizeEmail(email),
 			password,
 		});
@@ -48,7 +48,7 @@ export const authActions = {
 	},
 
 	signUp: async (email: string, password: string, redirectTo?: string) => {
-		const { error } = await supabaseApp.auth.signUp({
+		const { error } = await supabase.auth.signUp({
 			email: normalizeEmail(email),
 			password,
 			options: {
@@ -63,14 +63,14 @@ export const authActions = {
 	},
 
 	signOut: async (opts?: { redirectTo?: string; reload?: boolean }) => {
-		await supabaseApp.auth.signOut();
+		await supabase.auth.signOut();
 		if (opts?.reload && typeof window !== "undefined") {
 			window.location.assign(opts.redirectTo ?? "/login");
 		}
 	},
 
 	resetPassword: async (email: string, redirectTo?: string) => {
-		const { error } = await supabaseApp.auth.resetPasswordForEmail(
+		const { error } = await supabase.auth.resetPasswordForEmail(
 			normalizeEmail(email),
 			{
 				redirectTo:
@@ -84,7 +84,7 @@ export const authActions = {
 	},
 
 	refreshSession: async () => {
-		const { error } = await supabaseApp.auth.refreshSession();
+		const { error } = await supabase.auth.refreshSession();
 		if (error) throw new Error(getAuthErrorMessage(error));
 	},
 };

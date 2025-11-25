@@ -72,11 +72,11 @@ function DataTableColumnHeader<TData, TValue>({
 	title,
 	className,
 }: {
-	column: any;
+	column: import("@tanstack/react-table").Column<TData, TValue>;
 	title: string;
 	className?: string;
 }) {
-	if (!column?.getCanSort?.()) {
+	if (!column.getCanSort()) {
 		return <div className={className}>{title}</div>;
 	}
 	const isSorted = column.getIsSorted();
@@ -486,6 +486,7 @@ export function FacilidadesTable({
 			columnVisibility,
 			pagination: { pageIndex: 0, pageSize },
 		},
+		filterFns: {} as Record<string, never>,
 	});
 
 	// Atualiza pageSize no TanStack Table quando o estado local muda

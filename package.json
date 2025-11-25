@@ -11,7 +11,7 @@
         "build": "pnpm -w -r --filter './apps/**' run build",
         "typecheck": "pnpm -w -r run typecheck",
         "sisub:dev": "pnpm -C ./apps/sisub dev",
-        "iefa:dev": "pnpm -C ./apps/iefa-ts dev",
+        "iefa:dev": "pnpm -C ./apps/iefa dev",
         "api:dev": "pnpm -C ./apps/api dev",
         "docs:dev": "pnpm -C ./apps/docs dev",
         "format": "biome format --write .",

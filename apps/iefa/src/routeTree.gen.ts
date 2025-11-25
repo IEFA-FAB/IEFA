@@ -8,46 +8,20 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root.tsx'
-import { Route as OverseerDashboardRouteImport } from './routes/overseerDashboard.tsx'
-import { Route as HealthRouteImport } from './routes/health.tsx'
-import { Route as ChatRadaRouteImport } from './routes/chatRada.tsx'
-import { Route as AuthRouteRouteImport } from './routes/auth/route.tsx'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as FacilitiesIndexRouteImport } from './routes/facilities/index'
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as AuthRouteRouteImport } from './routes/auth/route'
+import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
-import { Route as FacilitiesPregoeiroRouteImport } from './routes/facilities/pregoeiro.tsx'
-import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query.tsx'
-import { Route as DemoTanchatRouteImport } from './routes/demo/tanchat.tsx'
-import { Route as DemoTableRouteImport } from './routes/demo/table.tsx'
-import { Route as DemoStrapiRouteImport } from './routes/demo/strapi.tsx'
-import { Route as DemoStoreRouteImport } from './routes/demo/store.tsx'
-import { Route as ExampleGuitarsIndexRouteImport } from './routes/example.guitars/index'
-import { Route as ExampleGuitarsGuitarIdRouteImport } from './routes/example.guitars/$guitarId.tsx'
-import { Route as DemoStrapiArticleIdRouteImport } from './routes/demo/strapi_.$articleId.tsx'
-import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.server-funcs.tsx'
-import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request.tsx'
-import { Route as DemoApiTqTodosRouteImport } from './routes/demo/api.tq-todos.ts'
-import { Route as DemoApiTanchatRouteImport } from './routes/demo/api.tanchat.ts'
-import { Route as DemoApiNamesRouteImport } from './routes/demo/api.names.ts'
-import { Route as DemoStartSsrIndexRouteImport } from './routes/demo/start.ssr.index.tsx'
-import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr.spa-mode.tsx'
-import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr.tsx'
-import { Route as DemoStartSsrDataOnlyRouteImport } from './routes/demo/start.ssr.data-only.tsx'
+import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
+import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
+import { Route as PublicFacilitiesIndexRouteImport } from './routes/_public/facilities/index'
+import { Route as PublicFacilitiesPregoeiroRouteImport } from './routes/_public/facilities/pregoeiro'
 
-const OverseerDashboardRoute = OverseerDashboardRouteImport.update({
-  id: '/overseerDashboard',
-  path: '/overseerDashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
   path: '/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatRadaRoute = ChatRadaRouteImport.update({
-  id: '/chatRada',
-  path: '/chatRada',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -55,14 +29,8 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FacilitiesIndexRoute = FacilitiesIndexRouteImport.update({
-  id: '/facilities/',
-  path: '/facilities/',
+const PublicRouteRoute = PublicRouteRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
@@ -70,309 +38,110 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const FacilitiesPregoeiroRoute = FacilitiesPregoeiroRouteImport.update({
-  id: '/facilities/pregoeiro',
-  path: '/facilities/pregoeiro',
-  getParentRoute: () => rootRouteImport,
+const PublicIndexRoute = PublicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PublicRouteRoute,
 } as any)
-const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
-  id: '/demo/tanstack-query',
-  path: '/demo/tanstack-query',
-  getParentRoute: () => rootRouteImport,
+const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
+  id: '/overseerDashboard',
+  path: '/overseerDashboard',
+  getParentRoute: () => PublicRouteRoute,
 } as any)
-const DemoTanchatRoute = DemoTanchatRouteImport.update({
-  id: '/demo/tanchat',
-  path: '/demo/tanchat',
-  getParentRoute: () => rootRouteImport,
+const PublicChatRadaRoute = PublicChatRadaRouteImport.update({
+  id: '/chatRada',
+  path: '/chatRada',
+  getParentRoute: () => PublicRouteRoute,
 } as any)
-const DemoTableRoute = DemoTableRouteImport.update({
-  id: '/demo/table',
-  path: '/demo/table',
-  getParentRoute: () => rootRouteImport,
+const PublicFacilitiesIndexRoute = PublicFacilitiesIndexRouteImport.update({
+  id: '/facilities/',
+  path: '/facilities/',
+  getParentRoute: () => PublicRouteRoute,
 } as any)
-const DemoStrapiRoute = DemoStrapiRouteImport.update({
-  id: '/demo/strapi',
-  path: '/demo/strapi',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStoreRoute = DemoStoreRouteImport.update({
-  id: '/demo/store',
-  path: '/demo/store',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExampleGuitarsIndexRoute = ExampleGuitarsIndexRouteImport.update({
-  id: '/example/guitars/',
-  path: '/example/guitars/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExampleGuitarsGuitarIdRoute = ExampleGuitarsGuitarIdRouteImport.update({
-  id: '/example/guitars/$guitarId',
-  path: '/example/guitars/$guitarId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStrapiArticleIdRoute = DemoStrapiArticleIdRouteImport.update({
-  id: '/demo/strapi_/$articleId',
-  path: '/demo/strapi/$articleId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartServerFuncsRoute = DemoStartServerFuncsRouteImport.update({
-  id: '/demo/start/server-funcs',
-  path: '/demo/start/server-funcs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartApiRequestRoute = DemoStartApiRequestRouteImport.update({
-  id: '/demo/start/api-request',
-  path: '/demo/start/api-request',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoApiTqTodosRoute = DemoApiTqTodosRouteImport.update({
-  id: '/demo/api/tq-todos',
-  path: '/demo/api/tq-todos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoApiTanchatRoute = DemoApiTanchatRouteImport.update({
-  id: '/demo/api/tanchat',
-  path: '/demo/api/tanchat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoApiNamesRoute = DemoApiNamesRouteImport.update({
-  id: '/demo/api/names',
-  path: '/demo/api/names',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartSsrIndexRoute = DemoStartSsrIndexRouteImport.update({
-  id: '/demo/start/ssr/',
-  path: '/demo/start/ssr/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartSsrSpaModeRoute = DemoStartSsrSpaModeRouteImport.update({
-  id: '/demo/start/ssr/spa-mode',
-  path: '/demo/start/ssr/spa-mode',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartSsrFullSsrRoute = DemoStartSsrFullSsrRouteImport.update({
-  id: '/demo/start/ssr/full-ssr',
-  path: '/demo/start/ssr/full-ssr',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
-  id: '/demo/start/ssr/data-only',
-  path: '/demo/start/ssr/data-only',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const PublicFacilitiesPregoeiroRoute =
+  PublicFacilitiesPregoeiroRouteImport.update({
+    id: '/facilities/pregoeiro',
+    path: '/facilities/pregoeiro',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
-  '/chatRada': typeof ChatRadaRoute
   '/health': typeof HealthRoute
-  '/overseerDashboard': typeof OverseerDashboardRoute
-  '/demo/store': typeof DemoStoreRoute
-  '/demo/strapi': typeof DemoStrapiRoute
-  '/demo/table': typeof DemoTableRoute
-  '/demo/tanchat': typeof DemoTanchatRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/facilities/pregoeiro': typeof FacilitiesPregoeiroRoute
+  '/chatRada': typeof PublicChatRadaRoute
+  '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
-  '/facilities': typeof FacilitiesIndexRoute
-  '/demo/api/names': typeof DemoApiNamesRoute
-  '/demo/api/tanchat': typeof DemoApiTanchatRoute
-  '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
-  '/demo/start/api-request': typeof DemoStartApiRequestRoute
-  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
-  '/demo/strapi/$articleId': typeof DemoStrapiArticleIdRoute
-  '/example/guitars/$guitarId': typeof ExampleGuitarsGuitarIdRoute
-  '/example/guitars': typeof ExampleGuitarsIndexRoute
-  '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
-  '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
-  '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
-  '/demo/start/ssr': typeof DemoStartSsrIndexRoute
+  '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
+  '/facilities': typeof PublicFacilitiesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/chatRada': typeof ChatRadaRoute
   '/health': typeof HealthRoute
-  '/overseerDashboard': typeof OverseerDashboardRoute
-  '/demo/store': typeof DemoStoreRoute
-  '/demo/strapi': typeof DemoStrapiRoute
-  '/demo/table': typeof DemoTableRoute
-  '/demo/tanchat': typeof DemoTanchatRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/facilities/pregoeiro': typeof FacilitiesPregoeiroRoute
+  '/chatRada': typeof PublicChatRadaRoute
+  '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
-  '/facilities': typeof FacilitiesIndexRoute
-  '/demo/api/names': typeof DemoApiNamesRoute
-  '/demo/api/tanchat': typeof DemoApiTanchatRoute
-  '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
-  '/demo/start/api-request': typeof DemoStartApiRequestRoute
-  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
-  '/demo/strapi/$articleId': typeof DemoStrapiArticleIdRoute
-  '/example/guitars/$guitarId': typeof ExampleGuitarsGuitarIdRoute
-  '/example/guitars': typeof ExampleGuitarsIndexRoute
-  '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
-  '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
-  '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
-  '/demo/start/ssr': typeof DemoStartSsrIndexRoute
+  '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
+  '/facilities': typeof PublicFacilitiesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_public': typeof PublicRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
-  '/chatRada': typeof ChatRadaRoute
   '/health': typeof HealthRoute
-  '/overseerDashboard': typeof OverseerDashboardRoute
-  '/demo/store': typeof DemoStoreRoute
-  '/demo/strapi': typeof DemoStrapiRoute
-  '/demo/table': typeof DemoTableRoute
-  '/demo/tanchat': typeof DemoTanchatRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/facilities/pregoeiro': typeof FacilitiesPregoeiroRoute
+  '/_public/chatRada': typeof PublicChatRadaRoute
+  '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
-  '/facilities/': typeof FacilitiesIndexRoute
-  '/demo/api/names': typeof DemoApiNamesRoute
-  '/demo/api/tanchat': typeof DemoApiTanchatRoute
-  '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
-  '/demo/start/api-request': typeof DemoStartApiRequestRoute
-  '/demo/start/server-funcs': typeof DemoStartServerFuncsRoute
-  '/demo/strapi_/$articleId': typeof DemoStrapiArticleIdRoute
-  '/example/guitars/$guitarId': typeof ExampleGuitarsGuitarIdRoute
-  '/example/guitars/': typeof ExampleGuitarsIndexRoute
-  '/demo/start/ssr/data-only': typeof DemoStartSsrDataOnlyRoute
-  '/demo/start/ssr/full-ssr': typeof DemoStartSsrFullSsrRoute
-  '/demo/start/ssr/spa-mode': typeof DemoStartSsrSpaModeRoute
-  '/demo/start/ssr/': typeof DemoStartSsrIndexRoute
+  '/_public/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
+  '/_public/facilities/': typeof PublicFacilitiesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/auth'
-    | '/chatRada'
     | '/health'
+    | '/chatRada'
     | '/overseerDashboard'
-    | '/demo/store'
-    | '/demo/strapi'
-    | '/demo/table'
-    | '/demo/tanchat'
-    | '/demo/tanstack-query'
-    | '/facilities/pregoeiro'
+    | '/'
     | '/auth/'
+    | '/facilities/pregoeiro'
     | '/facilities'
-    | '/demo/api/names'
-    | '/demo/api/tanchat'
-    | '/demo/api/tq-todos'
-    | '/demo/start/api-request'
-    | '/demo/start/server-funcs'
-    | '/demo/strapi/$articleId'
-    | '/example/guitars/$guitarId'
-    | '/example/guitars'
-    | '/demo/start/ssr/data-only'
-    | '/demo/start/ssr/full-ssr'
-    | '/demo/start/ssr/spa-mode'
-    | '/demo/start/ssr'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/chatRada'
     | '/health'
+    | '/chatRada'
     | '/overseerDashboard'
-    | '/demo/store'
-    | '/demo/strapi'
-    | '/demo/table'
-    | '/demo/tanchat'
-    | '/demo/tanstack-query'
-    | '/facilities/pregoeiro'
+    | '/'
     | '/auth'
+    | '/facilities/pregoeiro'
     | '/facilities'
-    | '/demo/api/names'
-    | '/demo/api/tanchat'
-    | '/demo/api/tq-todos'
-    | '/demo/start/api-request'
-    | '/demo/start/server-funcs'
-    | '/demo/strapi/$articleId'
-    | '/example/guitars/$guitarId'
-    | '/example/guitars'
-    | '/demo/start/ssr/data-only'
-    | '/demo/start/ssr/full-ssr'
-    | '/demo/start/ssr/spa-mode'
-    | '/demo/start/ssr'
   id:
     | '__root__'
-    | '/'
+    | '/_public'
     | '/auth'
-    | '/chatRada'
     | '/health'
-    | '/overseerDashboard'
-    | '/demo/store'
-    | '/demo/strapi'
-    | '/demo/table'
-    | '/demo/tanchat'
-    | '/demo/tanstack-query'
-    | '/facilities/pregoeiro'
+    | '/_public/chatRada'
+    | '/_public/overseerDashboard'
+    | '/_public/'
     | '/auth/'
-    | '/facilities/'
-    | '/demo/api/names'
-    | '/demo/api/tanchat'
-    | '/demo/api/tq-todos'
-    | '/demo/start/api-request'
-    | '/demo/start/server-funcs'
-    | '/demo/strapi_/$articleId'
-    | '/example/guitars/$guitarId'
-    | '/example/guitars/'
-    | '/demo/start/ssr/data-only'
-    | '/demo/start/ssr/full-ssr'
-    | '/demo/start/ssr/spa-mode'
-    | '/demo/start/ssr/'
+    | '/_public/facilities/pregoeiro'
+    | '/_public/facilities/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  PublicRouteRoute: typeof PublicRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
-  ChatRadaRoute: typeof ChatRadaRoute
   HealthRoute: typeof HealthRoute
-  OverseerDashboardRoute: typeof OverseerDashboardRoute
-  DemoStoreRoute: typeof DemoStoreRoute
-  DemoStrapiRoute: typeof DemoStrapiRoute
-  DemoTableRoute: typeof DemoTableRoute
-  DemoTanchatRoute: typeof DemoTanchatRoute
-  DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
-  FacilitiesPregoeiroRoute: typeof FacilitiesPregoeiroRoute
-  FacilitiesIndexRoute: typeof FacilitiesIndexRoute
-  DemoApiNamesRoute: typeof DemoApiNamesRoute
-  DemoApiTanchatRoute: typeof DemoApiTanchatRoute
-  DemoApiTqTodosRoute: typeof DemoApiTqTodosRoute
-  DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
-  DemoStartServerFuncsRoute: typeof DemoStartServerFuncsRoute
-  DemoStrapiArticleIdRoute: typeof DemoStrapiArticleIdRoute
-  ExampleGuitarsGuitarIdRoute: typeof ExampleGuitarsGuitarIdRoute
-  ExampleGuitarsIndexRoute: typeof ExampleGuitarsIndexRoute
-  DemoStartSsrDataOnlyRoute: typeof DemoStartSsrDataOnlyRoute
-  DemoStartSsrFullSsrRoute: typeof DemoStartSsrFullSsrRoute
-  DemoStartSsrSpaModeRoute: typeof DemoStartSsrSpaModeRoute
-  DemoStartSsrIndexRoute: typeof DemoStartSsrIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/overseerDashboard': {
-      id: '/overseerDashboard'
-      path: '/overseerDashboard'
-      fullPath: '/overseerDashboard'
-      preLoaderRoute: typeof OverseerDashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/health': {
       id: '/health'
       path: '/health'
       fullPath: '/health'
       preLoaderRoute: typeof HealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chatRada': {
-      id: '/chatRada'
-      path: '/chatRada'
-      fullPath: '/chatRada'
-      preLoaderRoute: typeof ChatRadaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -382,18 +151,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/facilities/': {
-      id: '/facilities/'
-      path: '/facilities'
-      fullPath: '/facilities'
-      preLoaderRoute: typeof FacilitiesIndexRouteImport
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
@@ -403,134 +165,63 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/facilities/pregoeiro': {
-      id: '/facilities/pregoeiro'
+    '/_public/': {
+      id: '/_public/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/overseerDashboard': {
+      id: '/_public/overseerDashboard'
+      path: '/overseerDashboard'
+      fullPath: '/overseerDashboard'
+      preLoaderRoute: typeof PublicOverseerDashboardRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/chatRada': {
+      id: '/_public/chatRada'
+      path: '/chatRada'
+      fullPath: '/chatRada'
+      preLoaderRoute: typeof PublicChatRadaRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/facilities/': {
+      id: '/_public/facilities/'
+      path: '/facilities'
+      fullPath: '/facilities'
+      preLoaderRoute: typeof PublicFacilitiesIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/facilities/pregoeiro': {
+      id: '/_public/facilities/pregoeiro'
       path: '/facilities/pregoeiro'
       fullPath: '/facilities/pregoeiro'
-      preLoaderRoute: typeof FacilitiesPregoeiroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/tanstack-query': {
-      id: '/demo/tanstack-query'
-      path: '/demo/tanstack-query'
-      fullPath: '/demo/tanstack-query'
-      preLoaderRoute: typeof DemoTanstackQueryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/tanchat': {
-      id: '/demo/tanchat'
-      path: '/demo/tanchat'
-      fullPath: '/demo/tanchat'
-      preLoaderRoute: typeof DemoTanchatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/table': {
-      id: '/demo/table'
-      path: '/demo/table'
-      fullPath: '/demo/table'
-      preLoaderRoute: typeof DemoTableRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/strapi': {
-      id: '/demo/strapi'
-      path: '/demo/strapi'
-      fullPath: '/demo/strapi'
-      preLoaderRoute: typeof DemoStrapiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/store': {
-      id: '/demo/store'
-      path: '/demo/store'
-      fullPath: '/demo/store'
-      preLoaderRoute: typeof DemoStoreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/example/guitars/': {
-      id: '/example/guitars/'
-      path: '/example/guitars'
-      fullPath: '/example/guitars'
-      preLoaderRoute: typeof ExampleGuitarsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/example/guitars/$guitarId': {
-      id: '/example/guitars/$guitarId'
-      path: '/example/guitars/$guitarId'
-      fullPath: '/example/guitars/$guitarId'
-      preLoaderRoute: typeof ExampleGuitarsGuitarIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/strapi_/$articleId': {
-      id: '/demo/strapi_/$articleId'
-      path: '/demo/strapi/$articleId'
-      fullPath: '/demo/strapi/$articleId'
-      preLoaderRoute: typeof DemoStrapiArticleIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/server-funcs': {
-      id: '/demo/start/server-funcs'
-      path: '/demo/start/server-funcs'
-      fullPath: '/demo/start/server-funcs'
-      preLoaderRoute: typeof DemoStartServerFuncsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/api-request': {
-      id: '/demo/start/api-request'
-      path: '/demo/start/api-request'
-      fullPath: '/demo/start/api-request'
-      preLoaderRoute: typeof DemoStartApiRequestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/api/tq-todos': {
-      id: '/demo/api/tq-todos'
-      path: '/demo/api/tq-todos'
-      fullPath: '/demo/api/tq-todos'
-      preLoaderRoute: typeof DemoApiTqTodosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/api/tanchat': {
-      id: '/demo/api/tanchat'
-      path: '/demo/api/tanchat'
-      fullPath: '/demo/api/tanchat'
-      preLoaderRoute: typeof DemoApiTanchatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/api/names': {
-      id: '/demo/api/names'
-      path: '/demo/api/names'
-      fullPath: '/demo/api/names'
-      preLoaderRoute: typeof DemoApiNamesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/ssr/': {
-      id: '/demo/start/ssr/'
-      path: '/demo/start/ssr'
-      fullPath: '/demo/start/ssr'
-      preLoaderRoute: typeof DemoStartSsrIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/ssr/spa-mode': {
-      id: '/demo/start/ssr/spa-mode'
-      path: '/demo/start/ssr/spa-mode'
-      fullPath: '/demo/start/ssr/spa-mode'
-      preLoaderRoute: typeof DemoStartSsrSpaModeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/ssr/full-ssr': {
-      id: '/demo/start/ssr/full-ssr'
-      path: '/demo/start/ssr/full-ssr'
-      fullPath: '/demo/start/ssr/full-ssr'
-      preLoaderRoute: typeof DemoStartSsrFullSsrRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo/start/ssr/data-only': {
-      id: '/demo/start/ssr/data-only'
-      path: '/demo/start/ssr/data-only'
-      fullPath: '/demo/start/ssr/data-only'
-      preLoaderRoute: typeof DemoStartSsrDataOnlyRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof PublicFacilitiesPregoeiroRouteImport
+      parentRoute: typeof PublicRouteRoute
     }
   }
 }
+
+interface PublicRouteRouteChildren {
+  PublicChatRadaRoute: typeof PublicChatRadaRoute
+  PublicOverseerDashboardRoute: typeof PublicOverseerDashboardRoute
+  PublicIndexRoute: typeof PublicIndexRoute
+  PublicFacilitiesPregoeiroRoute: typeof PublicFacilitiesPregoeiroRoute
+  PublicFacilitiesIndexRoute: typeof PublicFacilitiesIndexRoute
+}
+
+const PublicRouteRouteChildren: PublicRouteRouteChildren = {
+  PublicChatRadaRoute: PublicChatRadaRoute,
+  PublicOverseerDashboardRoute: PublicOverseerDashboardRoute,
+  PublicIndexRoute: PublicIndexRoute,
+  PublicFacilitiesPregoeiroRoute: PublicFacilitiesPregoeiroRoute,
+  PublicFacilitiesIndexRoute: PublicFacilitiesIndexRoute,
+}
+
+const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
+  PublicRouteRouteChildren,
+)
 
 interface AuthRouteRouteChildren {
   AuthIndexRoute: typeof AuthIndexRoute
@@ -545,30 +236,9 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  PublicRouteRoute: PublicRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
-  ChatRadaRoute: ChatRadaRoute,
   HealthRoute: HealthRoute,
-  OverseerDashboardRoute: OverseerDashboardRoute,
-  DemoStoreRoute: DemoStoreRoute,
-  DemoStrapiRoute: DemoStrapiRoute,
-  DemoTableRoute: DemoTableRoute,
-  DemoTanchatRoute: DemoTanchatRoute,
-  DemoTanstackQueryRoute: DemoTanstackQueryRoute,
-  FacilitiesPregoeiroRoute: FacilitiesPregoeiroRoute,
-  FacilitiesIndexRoute: FacilitiesIndexRoute,
-  DemoApiNamesRoute: DemoApiNamesRoute,
-  DemoApiTanchatRoute: DemoApiTanchatRoute,
-  DemoApiTqTodosRoute: DemoApiTqTodosRoute,
-  DemoStartApiRequestRoute: DemoStartApiRequestRoute,
-  DemoStartServerFuncsRoute: DemoStartServerFuncsRoute,
-  DemoStrapiArticleIdRoute: DemoStrapiArticleIdRoute,
-  ExampleGuitarsGuitarIdRoute: ExampleGuitarsGuitarIdRoute,
-  ExampleGuitarsIndexRoute: ExampleGuitarsIndexRoute,
-  DemoStartSsrDataOnlyRoute: DemoStartSsrDataOnlyRoute,
-  DemoStartSsrFullSsrRoute: DemoStartSsrFullSsrRoute,
-  DemoStartSsrSpaModeRoute: DemoStartSsrSpaModeRoute,
-  DemoStartSsrIndexRoute: DemoStartSsrIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

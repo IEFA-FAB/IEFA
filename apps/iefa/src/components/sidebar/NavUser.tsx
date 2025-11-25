@@ -1,20 +1,20 @@
-import { useNavigate } from "@tanstack/react-router";
-import { ChevronsUpDown, LogOut, User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+	Avatar,
+	AvatarFallback,
+	AvatarImage,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 	useSidebar,
-} from "@/components/ui/sidebar";
+} from "@iefa/ui";
+import { useNavigate } from "@tanstack/react-router";
+import { ChevronsUpDown, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 function getInitials(nameOrEmail?: string) {

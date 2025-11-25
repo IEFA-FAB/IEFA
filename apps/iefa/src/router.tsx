@@ -8,7 +8,7 @@ import {
 	type Theme,
 	type ThemeContextType,
 } from "@/components/themeService";
-import { supabaseApp } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider";
 import { routeTree } from "./routeTree.gen";
 
@@ -101,13 +101,13 @@ export const getRouter = () => {
 	};
 
 	// A. Check Inicial
-	supabaseApp.auth.getSession().then(({ data: { session } }) => {
+	supabase.auth.getSession().then(({ data: { session } }) => {
 		updateAuth(session, false);
 		router.invalidate(); // Força re-verificação das rotas (beforeLoad)
 	});
 
 	// B. Listener de Mudanças
-	supabaseApp.auth.onAuthStateChange((_event, session) => {
+	supabase.auth.onAuthStateChange((_event, session) => {
 		updateAuth(session, false);
 		router.invalidate();
 

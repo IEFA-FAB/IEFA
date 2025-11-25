@@ -4,7 +4,7 @@ import {
 	SidebarFooter,
 	SidebarHeader,
 	SidebarRail,
-} from "@/components/ui/sidebar";
+} from "@iefa/ui";
 import { NavMain } from "./NavMain";
 import { NavUser } from "./NavUser";
 import type { AppSidebarData } from "./SidebarTypes";

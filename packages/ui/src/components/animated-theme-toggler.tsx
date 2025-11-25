@@ -1,20 +1,20 @@
-import { useTheme } from "@iefa/ui";
 import { Moon, Sun } from "lucide-react";
 import { useRef } from "react";
 import { flushSync } from "react-dom";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 interface AnimatedThemeTogglerProps
 	extends React.ComponentPropsWithoutRef<"button"> {
 	duration?: number;
+	toggle: () => void;
 }
 
 export const AnimatedThemeToggler = ({
 	className,
 	duration = 400,
+	toggle,
 	...props
 }: AnimatedThemeTogglerProps) => {
-	const { toggle } = useTheme();
 	const buttonRef = useRef<HTMLButtonElement>(null);
 
 	const handleToggle = async () => {
