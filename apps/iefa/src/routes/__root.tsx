@@ -1,4 +1,6 @@
 // src/routes/__root.tsx
+
+import { Toaster } from "@iefa/ui";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -9,11 +11,12 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import type { AuthContextType } from "@/auth/service";
+import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
+import { NotFound } from "@/components/NotFound";
 import type { ThemeContextType } from "@/components/themeService";
 import { ThemeScript } from "@/components/themeService";
-import { Toaster } from "@iefa/ui";
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-import "../styles.css";
+import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
+import AppStyles from "@/styles.css?url";
 
 export interface MyRouterContext {
 	queryClient: QueryClient;
@@ -28,15 +31,29 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 			{ title: "Portal IEFA" },
 		],
+		favicon: "/favicon.svg",
 		links: [
-			{ rel: "stylesheet", href: "../styles.css" },
+			{ rel: "stylesheet", href: AppStyles },
+			{
+				rel: "icon",
+				type: "image/svg+xml",
+				sizes: "any",
+				href: "/favicon.svg",
+			},
+			{
+				rel: "manifest",
+				href: "/manifest.json",
+			},
+			{ rel: "icon", href: "/favicon.svg" },
 			{
 				rel: "stylesheet",
 				href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
 			},
 		],
 	}),
-	component: RootDocument,
+	errorComponent: DefaultCatchBoundary,
+	notFoundComponent: () => <NotFound />,
+	shellComponent: RootDocument,
 });
 
 function RootDocument() {

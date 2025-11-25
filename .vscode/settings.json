@@ -1,11 +1,11 @@
 {
-    "files.autoSave": "afterDelay",
-    "editor.formatOnSave": true,
-    "editor.formatOnPaste": true,
-    "editor.formatOnType": true,
-    "editor.defaultFormatter": "biomejs.biome",
-    "editor.wordWrap": "on",
-    "explorer.openEditors.sortOrder": "alphabetical",
-    "dotnet.formatting.organizeImportsOnFormat": true,
-    "importSorter.generalConfiguration.sortOnBeforeSave": true
+	"files.autoSave": "afterDelay",
+	"editor.formatOnSave": true,
+	"editor.formatOnPaste": true,
+	"editor.formatOnType": true,
+	"editor.defaultFormatter": "biomejs.biome",
+	"editor.wordWrap": "on",
+	"explorer.openEditors.sortOrder": "alphabetical",
+	"dotnet.formatting.organizeImportsOnFormat": true,
+	"importSorter.generalConfiguration.sortOnBeforeSave": true
 }

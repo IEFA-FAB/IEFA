@@ -49,9 +49,6 @@ function AuthLayout() {
 					<h1 className="mt-6 text-2xl font-bold tracking-tight text-white">
 						Bem-vindo ao IEFA
 					</h1>
-					<p className="text-muted-foreground mt-2 text-sm">
-						Cadastro de Facilidades Aeroportuárias
-					</p>
 				</div>
 
 				{/* Onde as páginas (Login, Register) serão renderizadas */}

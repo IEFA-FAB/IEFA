@@ -89,7 +89,7 @@ function AppCard({ app }: { app: AppItem }) {
 										<Github className="h-4 w-4" aria-hidden="true" />
 									) : (
 										<User className="h-4 w-4" aria-hidden="true" />
-									))
+									));
 
 								return (
 									<li
@@ -120,7 +120,7 @@ function AppCard({ app }: { app: AppItem }) {
 											</span>
 										)}
 									</li>
-								)
+								);
 							})}
 						</ul>
 					</div>
@@ -152,7 +152,7 @@ function AppCard({ app }: { app: AppItem }) {
 				) : null}
 			</CardFooter>
 		</Card>
-	)
+	);
 }
 
 function Home() {
@@ -176,7 +176,7 @@ function Home() {
 					<DynamicIcon name={c.icon_key} className="h-4 w-4" />
 				) : undefined,
 			})),
-		}))
+		}));
 	}, [data]);
 
 	return (
@@ -220,5 +220,5 @@ function Home() {
 				)}
 			</section>
 		</div>
-	)
+	);
 }

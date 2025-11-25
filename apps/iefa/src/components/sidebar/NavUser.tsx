@@ -95,7 +95,7 @@ export function NavUser() {
 							</div>
 						</DropdownMenuLabel>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
+						<DropdownMenuItem onClick={() => navigate({ to: "/" })}>
 							<User className="mr-2 h-4 w-4" />
 							Perfil
 						</DropdownMenuItem>

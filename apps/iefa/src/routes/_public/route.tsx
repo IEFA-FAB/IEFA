@@ -10,5 +10,5 @@ function RouteComponent() {
 		<AppLayout>
 			<Outlet />
 		</AppLayout>
-	)
+	);
 }

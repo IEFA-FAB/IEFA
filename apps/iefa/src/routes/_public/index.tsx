@@ -93,7 +93,7 @@ function AppCard({ app }: { app: AppItem }) {
 
 								return (
 									<li
-										key={"${c.label}-${idx}"}
+										key={`${c.label}-${idx}`}
 										className="flex items-center gap-2"
 									>
 										<span className="text-muted-foreground" aria-hidden="true">
@@ -199,12 +199,9 @@ function Home() {
 							</p>
 							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
 								<Button asChild size="lg" variant="default">
-									<a
-										href="/facilidades/#apps"
-										aria-label="Ver aplicações da suite"
-									>
+									<Link to="/facilities" aria-label="Ver aplicações da suite">
 										Ver aplicações
-									</a>
+									</Link>
 								</Button>
 								<Button asChild size="lg" variant="secondary">
 									<a

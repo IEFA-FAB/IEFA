@@ -44,7 +44,7 @@ type RawHealthPayload =
 				| Record<
 						string,
 						string | { name?: string; url?: string; healthPath?: string }
-				  >
+				  >;
 			[k: string]: any;
 	  }
 	| Array<string | { name?: string; url?: string; healthPath?: string }>
@@ -81,13 +81,13 @@ function StatusDot({ status }: { status: ProbeStatus }) {
 		error: "bg-rose-600",
 		unknown: "bg-slate-400",
 		loading: "bg-amber-400 animate-pulse",
-	}
+	};
 	return (
 		<span
 			className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${map[status]}`}
 			aria-hidden="true"
 		/>
-	)
+	);
 }
 
 function statusLabel(s: ProbeStatus) {
@@ -142,7 +142,7 @@ async function fetchWithTimeout(
 		const res = await fetch(input, {
 			...init,
 			signal: controller.signal,
-		})
+		});
 		return res;
 	} finally {
 		clearTimeout(id);
@@ -188,11 +188,11 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 					},
 				},
 				REQ_TIMEOUT_MS,
-			)
+			);
 			const latencyMs = Math.max(
 				1,
 				Math.round(performance.now() - attemptStarted),
-			)
+			);
 			const httpStatus = res.status;
 
 			let bodyStatus: string | undefined;
@@ -221,7 +221,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 						lastCheckedAt: stamp,
 						redirected: res.redirected,
 						finalUrl: res.url,
-					}
+					};
 				}
 				if (bodyStatus && bodyStatus !== "ok") {
 					return {
@@ -232,7 +232,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 						lastCheckedAt: stamp,
 						redirected: res.redirected,
 						finalUrl: res.url,
-					}
+					};
 				}
 				return {
 					status: "ok",
@@ -242,7 +242,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 					lastCheckedAt: stamp,
 					redirected: res.redirected,
 					finalUrl: res.url,
-				}
+				};
 			}
 			if (httpStatus === 503 || httpStatus === 502 || httpStatus === 500) {
 				return {
@@ -253,7 +253,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 					lastCheckedAt: stamp,
 					redirected: res.redirected,
 					finalUrl: res.url,
-				}
+				};
 			}
 			// HTTP fora do 2xx mas não hard-down
 			return {
@@ -264,7 +264,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 				lastCheckedAt: stamp,
 				redirected: res.redirected,
 				finalUrl: res.url,
-			}
+			};
 		} catch (e: any) {
 			const latencyMs = Math.max(
 				1,
@@ -278,7 +278,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 					latencyMs,
 					lastCheckedAt: stamp,
 					note: "timeout",
-				}
+				};
 			}
 			// Pode ser CORS/network
 			// Tente próxima estratégia, a menos que seja o último fallback
@@ -289,7 +289,7 @@ async function probeService(target: ServiceTarget): Promise<ProbeResult> {
 					latencyMs: undefined,
 					lastCheckedAt: stamp,
 					note: "cors/network",
-				}
+				};
 			}
 		}
 	}
@@ -320,7 +320,7 @@ function deriveTargetsFromHealth(
 						const healthPath = (item as any).healthPath;
 						if (url) return { name, url, healthPath };
 					}
-					return null
+					return null;
 				})
 				.filter(Boolean) as ServiceTarget[];
 			if (list.length) return list;
@@ -339,7 +339,7 @@ function deriveTargetsFromHealth(
 						const healthPath = (v as any).healthPath;
 						if (url) return { name, url, healthPath };
 					}
-					return null
+					return null;
 				})
 				.filter(Boolean) as ServiceTarget[];
 			if (list.length) return list;
@@ -359,7 +359,7 @@ function deriveTargetsFromHealth(
 					const healthPath = (item as any).healthPath;
 					if (url) return { name, url, healthPath };
 				}
-				return null
+				return null;
 			})
 			.filter(Boolean) as ServiceTarget[];
 		if (list.length) return list;
@@ -383,7 +383,7 @@ function deriveTargetsFromHealth(
 					name: (v as any).name || k,
 					url: (v as any).url,
 					healthPath: (v as any).healthPath,
-				})
+				});
 			}
 		}
 		if (candidates.length) return candidates;
@@ -403,7 +403,7 @@ function defaultTargets(): ServiceTarget[] {
 		{ name: "SISUB", url: "https://app.previsaosisub.com.br" },
 		{ name: "RAG API", url: "https://iefa-rag.fly.dev" },
 		{ name: "IEFA API", url: "https://iefa-api.fly.dev" },
-	]
+	];
 }
 
 function OverseerDashboard() {
@@ -420,7 +420,7 @@ function OverseerDashboard() {
 				method: "GET",
 				cache: "no-store",
 				headers: { Accept: "application/json" },
-			})
+			});
 			const data: RawHealthPayload | undefined = await res
 				.json()
 				.catch(() => undefined);
@@ -428,12 +428,12 @@ function OverseerDashboard() {
 			const finalList = (derived.length > 0 ? derived : defaultTargets()).sort(
 				(a, b) =>
 					a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
-			)
+			);
 			setTargets(finalList);
 		} catch {
 			const finalList = defaultTargets().sort((a, b) =>
 				a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
-			)
+			);
 			setTargets(finalList);
 		} finally {
 			setLoadingTargets(false);
@@ -444,7 +444,7 @@ function OverseerDashboard() {
 		setResults((prev) => ({
 			...prev,
 			[t.url]: { ...(prev[t.url] ?? {}), status: "loading" } as ProbeResult,
-		}))
+		}));
 		const r = await probeService(t);
 		setResults((prev) => ({ ...prev, [t.url]: r }));
 	}, []);
@@ -467,7 +467,7 @@ function OverseerDashboard() {
 			timerRef.current = window.setInterval(refreshAll, AUTO_REFRESH_MS);
 			return () => {
 				if (timerRef.current) window.clearInterval(timerRef.current);
-			}
+			};
 		}
 	}, [targets, refreshAll]);
 
@@ -484,24 +484,24 @@ function OverseerDashboard() {
 			const r = results[t.url];
 			switch (r?.status) {
 				case "ok":
-					ok++
-					break
+					ok++;
+					break;
 				case "degraded":
-					degraded++
-					break
+					degraded++;
+					break;
 				case "down":
-					down++
-					break
+					down++;
+					break;
 				case "unknown":
-					unknown++
-					break
+					unknown++;
+					break;
 				case "error":
-					error++
-					break
+					error++;
+					break;
 				case "loading":
 				default:
-					loading++
-					break
+					loading++;
+					break;
 			}
 		}
 		return { total, ok, degraded, down, unknown, error, loading };
@@ -764,10 +764,10 @@ function OverseerDashboard() {
 									</div>
 								</CardFooter>
 							</Card>
-						)
+						);
 					})}
 				</div>
 			)}
 		</div>
-	)
+	);
 }

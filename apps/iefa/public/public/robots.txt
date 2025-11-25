@@ -1,9 +1,0 @@
-# public/robots.txt
-
-User-agent: *
-Allow: /
-
-# Nunca bloqueie CSS/JS essenciais (isso prejudica avaliação de qualidade)
-# Referencie o sitemap:
-Sitemap: https://portal.iefa.com.br/sitemap.xml
-
