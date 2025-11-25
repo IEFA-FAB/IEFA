@@ -1,3 +1,20 @@
+import {
+	Alert,
+	AlertDescription,
+	Button,
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+	Input,
+	Label,
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@iefa/ui";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import {
 	AlertCircle,
@@ -12,19 +29,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
@@ -325,8 +329,7 @@ function AuthPage() {
 			});
 			if (error) throw error;
 			alert("Senha atualizada com sucesso!");
-			// Limpa a URL e redireciona
-			await router.navigate({ to: "/panel" });
+			await router.navigate({ to: "/" });
 		} catch (err) {
 			const errorMsg =
 				err instanceof Error ? err.message : "Erro ao atualizar senha.";

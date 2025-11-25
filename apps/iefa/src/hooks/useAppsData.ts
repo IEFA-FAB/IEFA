@@ -1,6 +1,6 @@
 // hooks/useAppsData.ts
 import { useQuery } from "@tanstack/react-query";
-import { supabaseApp } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export type DbContributor = {
 	label: string;
@@ -25,7 +25,7 @@ export function useAppsData(limit = 6) {
 	return useQuery({
 		queryKey: [APPS_QUERY_KEY, limit],
 		queryFn: async (): Promise<DbApp[]> => {
-			const { data, error } = await supabaseApp
+			const { data, error } = await supabase
 				.from("apps")
 				.select(
 					`

@@ -41,7 +41,7 @@ function AuthLayout() {
 						className="inline-block hover:opacity-80 transition-opacity"
 					>
 						<img
-							src="/LogoIEFABranco.svg"
+							src="/favicon.svg"
 							alt="IEFA"
 							className="h-16 w-auto mx-auto drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
 						/>
