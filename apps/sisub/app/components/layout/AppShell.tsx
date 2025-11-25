@@ -83,7 +83,6 @@ export function AppShell() {
         ],
     });
 
-    // Sincroniza e-mail no Supabase quando usuário fica disponível (ou muda)
     const syncEmailMutation = useMutation({
         mutationFn: syncIdEmail,
         onError: (error) => console.error("Erro ao sincronizar email:", error),
@@ -91,21 +90,16 @@ export function AppShell() {
 
     useEffect(() => {
         if (user) syncEmailMutation.mutate(user);
-        // Dispara apenas quando o id muda
     }, [user?.id, syncEmailMutation.mutate, user]);
 
-    // Estado e regras do SARAM (nrOrdem)
     const [nrDialogOpenState, setNrDialogOpenState] = useState(false);
     const [nrOrdem, setNrOrdem] = useState("");
     const [nrError, setNrError] = useState<string | null>(null);
 
-    // Deriva se o diálogo deve ser forçado (sem depender de efeito)
     const shouldForceNrDialog = !!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data;
 
-    // Abre efetivo = forçado OU aberto manualmente
     const nrDialogOpen = shouldForceNrDialog || nrDialogOpenState;
 
-    // Sincroniza valor inicial quando query retorna
     useEffect(() => {
         if (!userId) {
             setNrDialogOpenState(false);
@@ -146,7 +140,6 @@ export function AppShell() {
 
     const handleNrDialogOpenChange = useCallback(
         (open: boolean) => {
-            // Impede fechar enquanto for obrigatório
             if (!open && shouldForceNrDialog) return;
             setNrDialogOpenState(open);
         },
@@ -175,11 +168,9 @@ export function AppShell() {
         saveNrMutation.mutate(digitsOnly);
     }, [nrOrdem, saveNrMutation, user]);
 
-    // Estado e regras da avaliação
     const [evaluationDismissed, setEvaluationDismissed] = useState(false);
     const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
-    // Reset ao mudar a pergunta
     useEffect(() => {
         setEvaluationDismissed(false);
         setSelectedRating(null);
@@ -188,11 +179,6 @@ export function AppShell() {
     const evaluationQuestion = evaluationQuery.data?.question ?? null;
     const evaluationShouldAsk = Boolean(evaluationQuery.data?.shouldAsk && evaluationQuestion);
 
-    // Mostra avaliação somente quando:
-    // - há userId
-    // - query concluiu e quer perguntar
-    // - o diálogo de nrOrdem não está aberto/forçado
-    // - não foi dispensado nesta sessão
     const shouldShowEvaluationDialog =
         !!userId && evaluationQuery.isSuccess && evaluationShouldAsk && !nrDialogOpen && !evaluationDismissed;
 
@@ -211,7 +197,7 @@ export function AppShell() {
                 {
                     value: payload.value,
                     question: payload.question,
-                    userId: user!.id,
+                    userId: user?.id,
                 },
             ]);
             if (error) throw error;
@@ -233,7 +219,6 @@ export function AppShell() {
         submitVoteMutation.mutate({ value: selectedRating, question });
     }, [evaluationQuestion, selectedRating, submitVoteMutation, userId]);
 
-    // QR dialog + copiar ID
     const [sheetOpen, setSheetOpen] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
     const [hasCopiedId, setHasCopiedId] = useState(false);
@@ -258,13 +243,11 @@ export function AppShell() {
         };
     }, []);
 
-    // Progressos globais
     const globalFetching = useIsFetching();
     const globalMutating = useIsMutating();
     const showGlobalProgress =
         globalFetching + globalMutating > 0 || levelLoading || nrOrdemQuery.isFetching || evaluationQuery.isFetching;
 
-    // Estados iniciais
     const isSavingNrReal = saveNrMutation.isPending;
     const isSubmittingVote = submitVoteMutation.isPending;
     const showInitialLoading = levelLoading && !userLevel;
@@ -307,7 +290,7 @@ export function AppShell() {
             {showSidebar && sidebarData ? <AppSidebar data={sidebarData} /> : null}
 
             <SidebarInset>
-                <div className="flex min-h-[100svh] w-full flex-col supports-[height:100dvh]:min-h-[100dvh]">
+                <div className="flex min-h-svh w-full flex-col supports-[height:100dvh]:min-h-dvh">
                     <Topbar
                         showSidebar={showSidebar}
                         navItems={navItems}
@@ -335,7 +318,7 @@ export function AppShell() {
                 position="bottom-center"
                 richColors
                 expand
-                className="z-[2147483647]" // garante ficar acima de tudo
+                className="z-2147483647"
             />
         </>
     );

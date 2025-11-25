@@ -10,10 +10,10 @@
         "dev": "pnpm -w -r --parallel --filter './apps/**' run dev",
         "build": "pnpm -w -r --filter './apps/**' run build",
         "typecheck": "pnpm -w -r run typecheck",
-        "dev:sisub": "pnpm -C ./apps/sisub dev",
-        "dev:iefa": "pnpm -C ./apps/iefa dev",
-        "dev:api": "pnpm -C ./apps/api dev",
-        "dev:docs": "pnpm -C ./apps/docs dev",
+        "sisub:dev": "pnpm -C ./apps/sisub dev",
+        "iefa:dev": "pnpm -C ./apps/iefa-ts dev",
+        "api:dev": "pnpm -C ./apps/api dev",
+        "docs:dev": "pnpm -C ./apps/docs dev",
         "format": "biome format --write .",
         "lint": "biome lint .",
         "check": "biome check .",
@@ -24,6 +24,6 @@
         "@iefa/ui": "workspace:*"
     },
     "devDependencies": {
-        "@biomejs/biome": "^2.3.5"
+        "@biomejs/biome": "^2.3.7"
     }
 }

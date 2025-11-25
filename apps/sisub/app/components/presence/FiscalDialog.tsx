@@ -16,12 +16,10 @@ interface FiscalDialogProps {
     setDialog: Dispatch<SetStateAction<DialogState>>;
     dialog: DialogState;
     confirmDialog: () => void;
-    selectedUnit: string; // mess hall code
-    // Função que deve consultar a view e retornar o display_name ou null se não encontrar
+    selectedUnit: string;
     resolveDisplayName?: (userId: string) => Promise<string | null>;
 }
 
-// Cache simples em memória para evitar chamadas repetidas
 const nameCache = new Map<string, string>();
 
 export default function FiscalDialog({
@@ -46,7 +44,6 @@ export default function FiscalDialog({
             return;
         }
 
-        // Retorna do cache se já disponível
         if (nameCache.has(id)) {
             setDisplayName(nameCache.get(id) ?? null);
             return;
