@@ -1,0 +1,123 @@
+---
+import { sanityClient } from "sanity:client";
+import type { SanityDocument } from "@sanity/client";
+import "../../styles/global.css";
+
+const DOCS_QUERY = `*[
+  _type == "docs"
+  && defined(slug.current)
+]|order(publishedAt desc)[0...12]{
+  _id,
+  title,
+  slug,
+  publishedAt,
+  image
+}`;
+
+const docs = await sanityClient.fetch<SanityDocument[]>(DOCS_QUERY);
+
+import imageUrlBuilder from "@sanity/image-url";
+import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
+
+const { projectId, dataset } = sanityClient.config();
+const urlFor = (source: SanityImageSource) =>
+	projectId && dataset
+		? imageUrlBuilder({ projectId, dataset }).image(source)
+		: null;
+---
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentação | IEFA</title>
+    <link href="../../styles/global.css" rel="stylesheet" />
+  </head>
+  <body class="min-h-screen bg-background text-foreground">
+    <!-- Hero Section -->
+    <div class="relative w-full border-b border-border bg-gradient-to-b from-background via-background/95 to-background">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-12 md:py-20">
+        <div class="text-center space-y-6">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium border border-primary/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Documentação
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-balance">
+            Centro de <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">Conhecimento</span>
+          </h1>
+          
+          <p class="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+            Explore guias, tutoriais e documentação técnica para aproveitar ao máximo as soluções IEFA
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Docs Grid -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-12 md:py-16">
+      <div class="mb-8">
+        <h2 class="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+          Artigos Recentes
+        </h2>
+        <p class="text-muted-foreground">
+          Acesse rapidamente os documentos mais recentes
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {docs.map((doc) => {
+          const imageUrl = doc.image && urlFor(doc.image)?.width(600).height(400).url();
+          
+          return (
+            <a 
+              href={`/docs/${doc.slug.current}`}
+              class="group block"
+            >
+              <div class="h-full rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-primary/40 overflow-hidden">
+                {imageUrl && (
+                  <div class="aspect-video overflow-hidden bg-muted">
+                    <img 
+                      src={imageUrl} 
+                      alt={doc.title}
+                      class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                )}
+                
+                <div class="p-6">
+                  <div class="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <time datetime={doc.publishedAt}>
+                      {new Date(doc.publishedAt).toLocaleDateString('pt-BR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </time>
+                  </div>
+                  
+                  <h3 class="text-xl font-semibold text-card-foreground group-hover:text-primary transition-colors mb-2 line-clamp-2">
+                    {doc.title}
+                  </h3>
+                  
+                  <div class="flex items-center text-sm text-primary font-medium">
+                    Ler artigo
+                    <svg class="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  </body>
+</html>
