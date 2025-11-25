@@ -1,7 +1,7 @@
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+import type { ReactNode } from "react";
 import { type AuthContextType, authActions } from "@/auth/service";
-
 import {
 	applyThemeToDom,
 	getStoredTheme,
@@ -25,7 +25,6 @@ export const getRouter = () => {
 	};
 
 	// --- THEME SETUP ---
-	// 1. Lê o tema inicial (síncrono)
 	const initialTheme = getStoredTheme();
 
 	// --- ROUTER CREATION ---
@@ -36,12 +35,13 @@ export const getRouter = () => {
 			auth: initialAuth,
 			theme: {
 				theme: initialTheme,
-				setTheme: () => {}, // Placeholder, será sobrescrito
-				toggle: () => {}, // Placeholder
+				setTheme: () => {},
+				toggle: () => {},
 			} as ThemeContextType,
 		},
 		defaultPreload: "intent",
-		Wrap: (props: { children: React.ReactNode }) => {
+		scrollRestoration: true,
+		Wrap: (props: { children: ReactNode }) => {
 			return (
 				<TanstackQuery.Provider {...rqContext}>
 					{props.children}
@@ -50,12 +50,10 @@ export const getRouter = () => {
 		},
 	});
 
-	// 2. Define as ações de tema que atualizam o Router E o DOM
 	const themeActions: ThemeContextType = {
 		theme: initialTheme,
 		setTheme: (newTheme: Theme) => {
 			applyThemeToDom(newTheme);
-			// Atualiza o contexto do router para re-renderizar ícones/botões
 			router.update({
 				context: {
 					...router.options.context,
@@ -83,8 +81,6 @@ export const getRouter = () => {
 		queryClient: rqContext.queryClient,
 	});
 
-	// 3. Lógica de Autenticação (Fora do React!)
-	// Função para atualizar o contexto do router
 	const updateAuth = (session: any | null, isLoading = false) => {
 		router.update({
 			context: {
@@ -100,18 +96,14 @@ export const getRouter = () => {
 		});
 	};
 
-	// A. Check Inicial
 	supabase.auth.getSession().then(({ data: { session } }) => {
 		updateAuth(session, false);
-		router.invalidate(); // Força re-verificação das rotas (beforeLoad)
+		router.invalidate();
 	});
 
-	// B. Listener de Mudanças
 	supabase.auth.onAuthStateChange((_event, session) => {
 		updateAuth(session, false);
 		router.invalidate();
-
-		// Opcional: Redirecionar no logout
 		if (_event === "SIGNED_OUT") {
 			router.navigate({ to: "/auth" });
 		}
@@ -119,9 +111,3 @@ export const getRouter = () => {
 
 	return router;
 };
-
-declare module "@tanstack/react-router" {
-	interface Register {
-		router: ReturnType<typeof getRouter>;
-	}
-}

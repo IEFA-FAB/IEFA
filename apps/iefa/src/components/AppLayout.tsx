@@ -14,7 +14,7 @@ import {
 } from "@iefa/ui";
 import { Link } from "@tanstack/react-router";
 import { EllipsisVertical, ExternalLink, LogOut, Menu } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -29,6 +29,11 @@ function getInitials(nameOrEmail?: string) {
 
 function UserMenu() {
 	const { user, isAuthenticated, isLoading, signOut } = useAuth();
+	const [isHydrated, setIsHydrated] = useState(false);
+
+	useEffect(() => {
+		setIsHydrated(true);
+	}, []);
 
 	const meta = (user?.user_metadata ?? {}) as {
 		name?: string;
@@ -41,7 +46,8 @@ function UserMenu() {
 	const displayName = meta.name || meta.full_name || email || "Usuário";
 	const avatarUrl = meta.avatar_url || meta.picture || "";
 
-	if (isLoading) {
+	// Durante SSR e hidratação inicial, sempre mostre loading
+	if (!isHydrated || isLoading) {
 		return (
 			<div
 				className="h-8 w-8 rounded-lg bg-muted animate-pulse"
@@ -106,7 +112,7 @@ function UserMenu() {
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					onSelect={async () => {
-						await signOut({ redirectTo: "/login", reload: true });
+						await signOut({ redirectTo: "/", reload: true });
 					}}
 					className="text-red-600 focus:text-red-600 cursor-pointer"
 				>
@@ -175,10 +181,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 							Portal IEFA
 						</Link>
 
-						<Separator
-							orientation="vertical"
-							className="h-6 hidden sm:block"
-						/>
+						<Separator orientation="vertical" className="h-6 hidden sm:block" />
 
 						<nav
 							className="hidden md:flex items-center gap-1"
@@ -269,8 +272,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 					className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}
 				>
 					© {new Date().getFullYear()} IEFA.{" "}
-					<b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns serviços são
-					externos e podem exigir login próprio.
+					<b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns serviços são externos
+					e podem exigir login próprio.
 				</div>
 			</footer>
 		</div>
