@@ -194,7 +194,7 @@ export function ResetPassword({ supabase }: ResetPasswordProps) {
 			// Navega usando mesmo padrão de redirect (se houver)
 			const target = safeRedirect(
 				getRedirectTo(location.search, location.state),
-				"/rancho",
+				"/forecast",
 			);
 			setTimeout(() => navigate(target, { replace: true }), 1200);
 		} catch (err: any) {

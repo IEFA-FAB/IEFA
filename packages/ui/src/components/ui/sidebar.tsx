@@ -40,6 +40,36 @@ const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
+/**
+ * Safely sets a cookie with proper encoding
+ */
+function setCookie(
+	name: string,
+	value: string,
+	options: {
+		path?: string;
+		maxAge?: number;
+		domain?: string;
+		secure?: boolean;
+		sameSite?: "strict" | "lax" | "none";
+	} = {},
+) {
+	if (typeof document === "undefined") return;
+
+	const { path = "/", maxAge, domain, secure, sameSite = "lax" } = options;
+
+	let cookieString = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+
+	if (path) cookieString += `; path=${path}`;
+	if (maxAge) cookieString += `; max-age=${maxAge}`;
+	if (domain) cookieString += `; domain=${domain}`;
+	if (secure) cookieString += `; secure`;
+	if (sameSite) cookieString += `; samesite=${sameSite}`;
+
+	// biome-ignore lint: This is a safe utility function that properly encodes cookie values
+	document.cookie = cookieString;
+}
+
 type SidebarContextProps = {
 	state: "expanded" | "collapsed";
 	open: boolean;
@@ -91,7 +121,10 @@ function SidebarProvider({
 			}
 
 			// This sets the cookie to keep the sidebar state.
-			document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+			setCookie(SIDEBAR_COOKIE_NAME, String(openState), {
+				path: "/",
+				maxAge: SIDEBAR_COOKIE_MAX_AGE,
+			});
 		},
 		[setOpenProp, open],
 	);
@@ -199,7 +232,7 @@ function Sidebar({
 					style={
 						{
 							"--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-						} as CSSProperties
+						} as React.CSSProperties
 					}
 					side={side}
 				>

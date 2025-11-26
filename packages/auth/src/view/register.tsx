@@ -81,7 +81,7 @@ export function Register() {
 		if (!isLoading && isAuthenticated) {
 			const target = safeRedirect(
 				getRedirectTo(location.search, location.state),
-				"/rancho",
+				"/forecast",
 			);
 			navigate(target, { replace: true });
 		}

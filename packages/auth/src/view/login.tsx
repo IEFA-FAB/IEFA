@@ -66,7 +66,7 @@ export function Login() {
 		if (!isLoading && isAuthenticated) {
 			const target = safeRedirect(
 				getRedirectTo(location.search, location.state),
-				"/rancho",
+				"/forecast",
 			);
 			navigate(target, { replace: true });
 		}
@@ -131,7 +131,7 @@ export function Login() {
 			// Redireciona imediatamente após login com base no redirectTo/state
 			const target = safeRedirect(
 				getRedirectTo(location.search, location.state),
-				"/rancho",
+				"/forecast",
 			);
 			navigate(target, { replace: true });
 		} catch (err: any) {

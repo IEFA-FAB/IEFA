@@ -42,7 +42,7 @@ export type FetchUserMeta = (user: User) => Promise<Record<string, unknown>>;
 
 export type AuthConfig = {
 	loginPath?: string; // ex: "/login"
-	defaultRedirect?: string; // ex: "/rancho"
+	defaultRedirect?: string; // ex: "/forecast"
 	publicPaths?: PublicPath[]; // rotas públicas
 	emailRegex?: RegExp; // ex: /^[...]+@fab\.mil\.br$/
 	storageKeys?: StorageKeys; // remember/redirect keys
@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG: Required<
 	>
 > = {
 	loginPath: "/login",
-	defaultRedirect: "/rancho",
+	defaultRedirect: "/forecast",
 	publicPaths: [
 		"/login",
 		"/register",
