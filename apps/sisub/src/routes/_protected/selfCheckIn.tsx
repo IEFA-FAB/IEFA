@@ -1,0 +1,426 @@
+// routes/protected/presence/selfCheckin.tsx
+
+import { Button } from "@iefa/ui";
+import {
+	createFileRoute,
+	useLocation,
+	useNavigate,
+	useSearch,
+} from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
+import type { MealKey } from "@/utils/FiscalUtils";
+import supabase from "@/utils/supabase";
+
+// Schema for search params validation
+const selfCheckInSearchSchema = z.object({
+	unit: z.string().optional(),
+	u: z.string().optional(),
+});
+
+export const Route = createFileRoute("/_protected/selfCheckIn")({
+	component: SelfCheckin,
+	validateSearch: selfCheckInSearchSchema,
+});
+
+// Mesmas regras usadas no presence
+function inferDefaultMeal(now: Date = new Date()): MealKey {
+	const toMin = (h: number, m = 0) => h * 60 + m;
+	const minutes = now.getHours() * 60 + now.getMinutes();
+	const inRange = (start: number, end: number) =>
+		minutes >= start && minutes < end;
+
+	if (inRange(toMin(4), toMin(9))) return "cafe";
+	if (inRange(toMin(9), toMin(15))) return "almoco";
+	if (inRange(toMin(15), toMin(20))) return "janta";
+	return "ceia";
+}
+
+function todayISO(): string {
+	return new Date().toISOString().split("T")[0];
+}
+
+// Monta o redirectTo com base na URL atual e faz sanitização simples
+function buildRedirectTo(
+	pathname: string,
+	search: string,
+	fallback = "/forecast",
+) {
+	const raw = `${pathname}${search || ""}`;
+	const safe = raw.startsWith("/") && !raw.startsWith("//") ? raw : fallback;
+	return encodeURIComponent(safe);
+}
+
+type WillEnter = "sim" | "nao";
+const REDIRECT_DELAY_SECONDS = 3;
+
+function isDuplicateOrConflict(err: unknown): boolean {
+	const e = err as any;
+	const code = e?.code;
+	const status = e?.status;
+	const msg = String(e?.message || "").toLowerCase();
+
+	return (
+		code === "23505" ||
+		code === 23505 ||
+		code === "409" ||
+		status === 409 ||
+		msg.includes("duplicate key") ||
+		msg.includes("conflict")
+	);
+}
+
+function SelfCheckin() {
+	const search = useSearch({ from: "/_protected/selfCheckIn" });
+	const navigate = useNavigate();
+	const location = useLocation();
+
+	const redirectedRef = useRef(false); // evita múltiplos navigates em strict mode
+	const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+		null,
+	);
+
+	// ÚNICO parâmetro esperado no QR: unidade (mess hall code)
+	const unitParam = search.unit ?? search.u;
+	const unidade = useMemo(() => unitParam ?? "DIRAD - DIRAD", [unitParam]);
+
+	// Autoinferência de data e refeição (mesmas regras do presence)
+	const date = useMemo(() => todayISO(), []);
+	const meal = useMemo<MealKey>(() => inferDefaultMeal(), []);
+
+	// Estado local
+	const [uuid, setUuid] = useState<string | null>(null);
+	// Se não encontrar previsão, considerar como NÃO previsto (false)
+	const [systemForecast, setSystemForecast] = useState<boolean>(false);
+	const [willEnter, setWillEnter] = useState<WillEnter>("sim");
+	const [submitting, setSubmitting] = useState(false);
+	const [messHallId, setMessHallId] = useState<number | null>(null);
+
+	// Countdown de redirecionamento
+	const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
+		null,
+	);
+
+	// Limpa interval de countdown ao desmontar
+	useEffect(() => {
+		return () => {
+			if (countdownIntervalRef.current) {
+				clearInterval(countdownIntervalRef.current);
+			}
+		};
+	}, []);
+
+	const scheduleRedirect = useCallback(
+		(seconds = REDIRECT_DELAY_SECONDS) => {
+			if (redirectedRef.current) return; // já indo redirecionar
+
+			setRedirectCountdown(seconds);
+			// Atualiza countdown
+			countdownIntervalRef.current = setInterval(() => {
+				setRedirectCountdown((s) => {
+					const next = (s ?? 1) - 1;
+					if (next <= 0) {
+						if (countdownIntervalRef.current) {
+							clearInterval(countdownIntervalRef.current);
+						}
+						if (!redirectedRef.current) {
+							redirectedRef.current = true;
+							navigate("/forecast", { replace: true });
+						}
+						return null;
+					}
+					return next;
+				});
+			}, 1000);
+		},
+		[navigate],
+	);
+
+	// Autenticação + busca de previsão (agora em sisub.meal_forecasts via mess_hall_id)
+	useEffect(() => {
+		let cancelled = false;
+
+		const run = async () => {
+			// Early return: autenticação
+			const { data: authData, error: authErr } = await supabase.auth.getUser();
+			if (authErr || !authData?.user) {
+				if (!redirectedRef.current) {
+					const redirectTo = buildRedirectTo(
+						location.pathname,
+						location.search,
+					);
+					redirectedRef.current = true;
+					navigate(`/login?redirectTo=${redirectTo}`, { replace: true });
+				}
+				return;
+			}
+
+			const userId = authData.user.id;
+
+			// Early return: unidade ausente
+			if (!unidade) {
+				toast.error("QR inválido", {
+					description: "A unidade não foi informada.",
+				});
+				return;
+			}
+
+			try {
+				setUuid(userId);
+
+				// 1) Buscar mess_hall_id pelo code
+				const { data: mh, error: mhError } = await supabase
+					.schema("sisub")
+					.from("mess_halls")
+					.select("id")
+					.eq("code", unidade)
+					.maybeSingle();
+
+				if (mhError) {
+					console.error("Erro ao buscar mess_hall_id:", mhError);
+					setSystemForecast(false);
+					setWillEnter("sim");
+					setMessHallId(null);
+					return;
+				}
+
+				const id = (mh?.id as number | undefined) ?? null;
+				if (!id) {
+					console.warn(`Código de rancho não encontrado: ${unidade}`);
+					setSystemForecast(false);
+					setWillEnter("sim");
+					setMessHallId(null);
+					return;
+				}
+				setMessHallId(id);
+
+				// 2) Buscar previsão em sisub.meal_forecasts
+				const { data: previsao, error } = await supabase
+					.schema("sisub")
+					.from("meal_forecasts")
+					.select("will_eat")
+					.eq("user_id", userId)
+					.eq("date", date)
+					.eq("meal", meal)
+					.eq("mess_hall_id", id)
+					.maybeSingle();
+
+				if (cancelled) return;
+
+				if (error) {
+					// Resiliente: loga, mantém systemForecast=false e segue
+					console.error("Erro ao buscar previsão:", error);
+					toast.message(
+						"Não foi possível carregar a previsão. Seguindo sem ela.",
+					);
+					setSystemForecast(false);
+					setWillEnter("sim");
+					return;
+				}
+
+				// Não encontrado => false (não previsto)
+				setSystemForecast(previsao ? !!previsao.will_eat : false);
+				setWillEnter("sim");
+			} catch (err) {
+				if (cancelled) return;
+				console.error("Erro inesperado ao preparar informações:", err);
+				toast.error("Erro", { description: "Falha ao carregar informações." });
+				// Mantém estados default (uuid só se auth ok)
+				setSystemForecast(false);
+				setWillEnter("sim");
+				setMessHallId(null);
+				return;
+			}
+		};
+
+		run();
+		return () => {
+			cancelled = true;
+		};
+	}, [date, meal, unidade, navigate, location.pathname, location.search]);
+
+	const handleSubmit = useCallback(async () => {
+		// Early returns
+		if (submitting) return;
+		if (!uuid) {
+			toast.error("Usuário não carregado.");
+			return;
+		}
+
+		setSubmitting(true);
+
+		try {
+			// Se não vai entrar, apenas registrar decisão localmente (toast) e sair
+			if (willEnter !== "sim") {
+				toast.info("Decisão registrada", {
+					description: "Você optou por não entrar para a refeição.",
+				});
+				return; // early return
+			}
+
+			// Garantir mess_hall_id (tenta fallback se não estiver em memória)
+			let effectiveMessHallId = messHallId;
+			if (!effectiveMessHallId) {
+				const { data: mh, error: mhError } = await supabase
+					.schema("sisub")
+					.from("mess_halls")
+					.select("id")
+					.eq("code", unidade)
+					.maybeSingle();
+
+				if (mhError || !mh?.id) {
+					toast.error("Rancho inválido", {
+						description: "Código de rancho não encontrado.",
+					});
+					return; // early return
+				}
+				effectiveMessHallId = mh.id as number;
+				setMessHallId(effectiveMessHallId);
+			}
+
+			// Tenta inserir presença na nova tabela normalizada
+			const { error } = await supabase
+				.schema("sisub")
+				.from("meal_presences")
+				.insert({
+					user_id: uuid,
+					date,
+					meal,
+					mess_hall_id: effectiveMessHallId,
+				});
+
+			if (!error) {
+				toast.success("Presença registrada", {
+					description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
+				});
+				scheduleRedirect(REDIRECT_DELAY_SECONDS);
+				return; // early return
+			}
+
+			// Trata conflitos/duplicados: 23505 (unique) e 409 (conflict)
+			if (isDuplicateOrConflict(error)) {
+				toast.info("Já registrado", {
+					description: `Sua presença já está registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
+				});
+				scheduleRedirect(REDIRECT_DELAY_SECONDS);
+				return; // early return
+			}
+
+			// Outros erros
+			console.error("Erro ao registrar presença:", error);
+			toast.error("Erro", {
+				description: "Não foi possível registrar sua presença.",
+			});
+			return; // early return
+		} catch (err) {
+			console.error("Falha inesperada no envio:", err);
+			toast.error("Erro", {
+				description: "Falha inesperada ao enviar a presença.",
+			});
+			return; // early return
+		} finally {
+			setSubmitting(false);
+		}
+	}, [
+		uuid,
+		willEnter,
+		date,
+		meal,
+		unidade,
+		submitting,
+		scheduleRedirect,
+		messHallId,
+	]);
+
+	const goHome = useCallback(() => {
+		if (redirectCountdown !== null) return; // evita interromper countdown
+		navigate("/forecast");
+	}, [navigate, redirectCountdown]);
+
+	return (
+		<div className="max-w-md mx-auto p-6 text-center space-y-6">
+			<h1 className="text-xl font-semibold">Check-in de Refeição</h1>
+
+			<p className="text-sm text-muted-foreground">
+				Unidade: <b>{unidade}</b> • Data: <b>{date}</b> • Refeição:{" "}
+				<b>{meal}</b>
+			</p>
+
+			<div className="rounded-md border p-4 text-left space-y-4">
+				{/* Está na previsão? — desabilitado, mas selecionado conforme a previsão */}
+				<div className="space-y-2">
+					<div className="text-sm font-medium">Está na previsão?</div>
+					<div className="flex gap-2">
+						<Button
+							disabled
+							variant={systemForecast ? "default" : "outline"}
+							size="sm"
+						>
+							Sim
+						</Button>
+						<Button
+							disabled
+							variant={!systemForecast ? "default" : "outline"}
+							size="sm"
+						>
+							Não
+						</Button>
+					</div>
+					{uuid && (
+						<div className="text-xs text-muted-foreground mt-1">
+							UUID: {uuid}
+						</div>
+					)}
+				</div>
+
+				{/* Vai entrar? — interação do usuário */}
+				<div className="space-y-2">
+					<div className="text-sm font-medium">Vai entrar?</div>
+					<div className="flex gap-2">
+						<Button
+							variant={willEnter === "sim" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setWillEnter("sim")}
+							disabled={!uuid || submitting || redirectCountdown !== null}
+						>
+							Sim
+						</Button>
+						<Button
+							variant={willEnter === "nao" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setWillEnter("nao")}
+							disabled={!uuid || submitting || redirectCountdown !== null}
+						>
+							Não
+						</Button>
+					</div>
+				</div>
+			</div>
+
+			<div className="flex flex-col items-center justify-center gap-2">
+				<div className="flex items-center justify-center gap-3">
+					<Button
+						onClick={handleSubmit}
+						disabled={!uuid || submitting || redirectCountdown !== null}
+					>
+						{submitting ? "Enviando..." : "Enviar"}
+					</Button>
+					<Button
+						variant="outline"
+						onClick={goHome}
+						disabled={submitting || redirectCountdown !== null}
+					>
+						Voltar
+					</Button>
+				</div>
+
+				{redirectCountdown !== null && (
+					<div className="text-xs text-muted-foreground">
+						Redirecionando para o rancho em {redirectCountdown}s...
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
