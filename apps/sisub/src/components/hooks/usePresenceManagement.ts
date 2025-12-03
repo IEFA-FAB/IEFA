@@ -1,4 +1,5 @@
 // hooks/usePresenceManagement.ts
+// Uses centralized types from @/types/domain as per design system guidelines.
 
 import type { PostgrestError } from "@supabase/supabase-js";
 import {
@@ -10,49 +11,25 @@ import {
 } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import type {
+	ConfirmPresenceParams,
+	ConfirmPresenceResult,
+	FiscalFilters,
+	ForecastMap,
+	ForecastRow,
+	QueryResult,
+	UsePresenceManagementReturn,
+} from "@/types/domain";
 import type { MealKey, PresenceRecord } from "@/utils/FiscalUtils";
 import supabase from "@/utils/supabase";
 
 // ============================================================================
-// TYPES
+// INTERNAL TYPES & ERROR CLASSES
 // ============================================================================
-export interface FiscalFilters {
-	date: string;
-	meal: MealKey;
-	unit: string; // mess hall code
-}
 
-interface ForecastRow {
-	user_id: string;
-	will_eat: boolean | null;
-}
-
-interface PresenceRow {
-	id: string;
-	user_id: string;
-	date: string;
-	meal: MealKey;
-	created_at: string;
-	mess_hall_id: number;
-}
-
-interface QueryResult {
-	presences: PresenceRecord[];
-	forecastMap: Record<string, boolean>;
-}
-
-interface ConfirmPresenceParams {
-	uuid: string;
-	willEnter: boolean;
-}
-
-interface ConfirmPresenceResult {
-	skipped: boolean;
-}
-
-type ForecastMap = Record<string, boolean>;
-
-// Custom error types
+/**
+ * Custom error thrown when a unit/mess hall code is required but not provided.
+ */
 class UnitRequiredError extends Error {
 	constructor() {
 		super("unit_required");
@@ -60,7 +37,11 @@ class UnitRequiredError extends Error {
 	}
 }
 
-// Caso queira um type guard para PostgrestError (opcional)
+/**
+ * Type guard to check if an error is a PostgrestError.
+ * @param e - Unknown error object
+ * @returns True if the error is a PostgrestError
+ */
 const isPostgrestError = (e: unknown): e is PostgrestError => {
 	return (
 		typeof e === "object" &&
@@ -70,7 +51,9 @@ const isPostgrestError = (e: unknown): e is PostgrestError => {
 	);
 };
 
-// Erro das mutations (evita Error genérico)
+/**
+ * Union type for mutation errors.
+ */
 type MutationError = UnitRequiredError | PostgrestError;
 
 // ============================================================================
@@ -91,6 +74,13 @@ const presenceKeys = {
 // ============================================================================
 const messHallIdCache = new Map<string, number>();
 
+/**
+ * Helper function to resolve a mess hall code to its database ID.
+ * Results are cached to minimize database queries.
+ *
+ * @param code - Mess hall code to lookup
+ * @returns Mess hall ID if found, undefined otherwise
+ */
 async function getMessHallIdByCode(code: string): Promise<number | undefined> {
 	if (!code) return undefined;
 	const cached = messHallIdCache.get(code);
@@ -116,6 +106,13 @@ async function getMessHallIdByCode(code: string): Promise<number | undefined> {
 // SUPABASE OPERATIONS
 // ============================================================================
 
+/**
+ * Fetches meal presence records for the given filters.
+ * Joins with user data to include display names.
+ *
+ * @param filters - Query filters (date, meal, unit code)
+ * @returns Array of presence records with user information
+ */
 const fetchPresences = async (
 	filters: FiscalFilters,
 ): Promise<PresenceRecord[]> => {
@@ -176,6 +173,14 @@ const fetchPresences = async (
 	return mapped;
 };
 
+/**
+ * Fetches meal forecast data for a list of users.
+ * Maps forecast information to a user ID -> forecast boolean map.
+ *
+ * @param filters - Query filters (date, meal, unit code)
+ * @param userIds - Array of user IDs to fetch forecasts for
+ * @returns Map of user IDs to forecast status
+ */
 const fetchForecasts = async (
 	filters: FiscalFilters,
 	userIds: string[],
@@ -213,6 +218,14 @@ const fetchForecasts = async (
 	return forecastMap;
 };
 
+/**
+ * Inserts a new presence record for a user.
+ *
+ * @param params - Presence parameters (uuid, willEnter flag)
+ * @param filters - Query filters to determine meal and date
+ * @throws {UnitRequiredError} If unit code is missing
+ * @throws {PostgrestError} If database operation fails
+ */
 const insertPresence = async (
 	params: ConfirmPresenceParams,
 	filters: FiscalFilters,
@@ -241,6 +254,12 @@ const insertPresence = async (
 	}
 };
 
+/**
+ * Deletes a presence record by its ID.
+ *
+ * @param presenceId - ID of the presence record to delete
+ * @throws {PostgrestError} If database operation fails
+ */
 const deletePresence = async (presenceId: string): Promise<void> => {
 	const { error } = await supabase
 		.schema("sisub")
@@ -291,22 +310,40 @@ const handleRemovePresenceError = (error: unknown): void => {
 	});
 };
 
-// ============================================================================
-// HOOK
-// ============================================================================
-export interface UsePresenceManagementReturn {
-	presences: PresenceRecord[];
-	forecastMap: ForecastMap;
-	isLoading: boolean;
-	isConfirming: boolean;
-	isRemoving: boolean;
-	confirmPresence: (
-		uuid: string,
-		willEnter: boolean,
-	) => Promise<ConfirmPresenceResult>;
-	removePresence: (row: PresenceRecord) => Promise<void>;
-}
-
+/**
+ * Custom hook for managing meal presences with real-time queries.
+ *
+ * @remarks
+ * This hook provides functionality to:
+ * - Query presence records for a specific date, meal, and unit
+ * - Fetch forecast data for users with presence records
+ * - Confirm new presences with optimistic updates
+ * - Remove existing presence records
+ *
+ * All mutations automatically invalidate and refetch the presence list.
+ * Toast notifications are shown for all user actions.
+ *
+ * @param filters - Query filters (date, meal, unit code)
+ * @returns UsePresenceManagementReturn object with state and mutation methods
+ *
+ * @example
+ * ```tsx
+ * const filters = { date: '2025-12-03', meal: 'almoco', unit: 'RANCHO_01' };
+ * const {
+ *   presences,
+ *   forecastMap,
+ *   isLoading,
+ *   confirmPresence,
+ *   removePresence,
+ * } = usePresenceManagement(filters);
+ *
+ * // Confirm a user's presence
+ * await confirmPresence('user-uuid-123', true);
+ *
+ * // Remove a presence record
+ * await removePresence(presences[0]);
+ * ```
+ */
 export function usePresenceManagement(
 	filters: FiscalFilters,
 ): UsePresenceManagementReturn {

@@ -17,11 +17,8 @@ import { usePresenceManagement } from "@/components/hooks/usePresenceManagement"
 import FiscalDialog from "@/components/presence/FiscalDialog";
 import PresenceTable from "@/components/presence/PresenceTable";
 import { useAuth } from "@/hooks/useAuth";
-import {
-	type DialogState,
-	generateRestrictedDates,
-	type MealKey,
-} from "@/utils/FiscalUtils";
+import type { DialogState, FiscalFilters, MealKey } from "@/types/domain";
+import { generateRestrictedDates, inferDefaultMeal } from "@/utils/FiscalUtils";
 import supabase from "@/utils/supabase";
 
 export const Route = createFileRoute("/_protected/presence")({
@@ -86,23 +83,7 @@ type ScannerAction =
 	| { type: "TOGGLE_SCAN"; isScanning: boolean }
 	| { type: "REFRESH" };
 
-interface FiscalFilters {
-	date: string;
-	meal: MealKey;
-	unit: string; // mess hall code
-}
 
-export function inferDefaultMeal(now: Date = new Date()): MealKey {
-	const toMin = (h: number, m = 0) => h * 60 + m;
-	const minutes = now.getHours() * 60 + now.getMinutes();
-	const inRange = (start: number, end: number) =>
-		minutes >= start && minutes < end;
-
-	if (inRange(toMin(4), toMin(9))) return "cafe";
-	if (inRange(toMin(9), toMin(15))) return "almoco";
-	if (inRange(toMin(15), toMin(20))) return "janta";
-	return "ceia";
-}
 
 const scannerReducer = (
 	state: ScannerState,
@@ -520,7 +501,7 @@ function Qr() {
 	);
 
 	return (
-		<div className="pt-10 space-y-6 min-h-screen container mx-auto max-w-screen-2xl px-4">
+		<div className="h-full w-full mx-auto flex-col px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
 			<div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
 				<Filters
 					selectedDate={filters.date}

@@ -1,4 +1,4 @@
-// shadcn (via seu kit). Ajuste o import conforme o seu projeto caso necessário.
+// UI Components (from @iefa/ui)
 import {
 	Badge,
 	Button,
@@ -9,7 +9,11 @@ import {
 	CardTitle,
 	Separator,
 } from "@iefa/ui";
+
+// Routing
 import { createFileRoute, Link } from "@tanstack/react-router";
+
+// Icons
 import type { LucideIcon } from "lucide-react";
 import {
 	BarChart3,
@@ -31,25 +35,43 @@ import {
 	Users,
 	UtensilsCrossed,
 } from "lucide-react";
+
+// React
 import type { JSX } from "react";
 import { useEffect, useRef, useState } from "react";
 
-/* =========================
-   Tipos e Dados (unificados)
-   ========================= */
+/* ========================================================================
+   TYPE DEFINITIONS
+   ======================================================================== */
+
+/**
+ * Representa um passo do tutorial/workflow do sistema
+ */
 
 export type Step = {
+	/** Título do passo */
 	title: string;
+	/** Descrição detalhada do passo */
 	description: string;
+	/** Ícone do Lucide React */
 	icon: LucideIcon;
 };
 
+/**
+ * Representa um tipo de refeição disponível no sistema
+ */
 export type MealType = {
+	/** Nome da refeição (ex: "Café da Manhã") */
 	label: string;
+	/** Horário de disponibilidade (ex: "06:00 - 08:00") */
 	time: string;
+	/** Ícone do Lucide React */
 	icon: LucideIcon;
 };
 
+/**
+ * Representa uma funcionalidade do sistema
+ */
 export type Feature = {
 	title: string;
 	description: string;
@@ -77,6 +99,10 @@ export const steps: Step[] = [
 	},
 ];
 
+/**
+ * Tipos de refeição disponíveis no SISUB
+ * Exibidos na seção "Tipos de refeição disponíveis"
+ */
 export const mealTypes: MealType[] = [
 	{ icon: Coffee, label: "Café da Manhã", time: "06:00 - 08:00" },
 	{ icon: UtensilsCrossed, label: "Almoço", time: "11:30 - 13:30" },
@@ -84,6 +110,10 @@ export const mealTypes: MealType[] = [
 	{ icon: Cake, label: "Ceia", time: "21:00 - 22:00" },
 ];
 
+/**
+ * Funcionalidades principais do SISUB
+ * Exibidas na seção "Principais funcionalidades" com sistema de seleção interativa
+ */
 export const features: Feature[] = [
 	{
 		icon: BarChart3,
@@ -123,10 +153,14 @@ export const features: Feature[] = [
 	},
 ];
 
-/* =========================
-   Route Definition (TanStack Start)
-   ========================= */
+/* ========================================================================
+   ROUTE DEFINITION
+   ======================================================================== */
 
+/**
+ * Rota pública da página inicial do SISUB
+ * Define meta tags para SEO e renderiza o componente Home
+ */
 export const Route = createFileRoute("/_public/")({
 	head: () => ({
 		meta: [
@@ -137,9 +171,21 @@ export const Route = createFileRoute("/_public/")({
 	component: Home,
 });
 
-/* =========================
-   Página
-   ========================= */
+/* ========================================================================
+   MAIN COMPONENT
+   ======================================================================== */
+
+/**
+ * Página inicial pública do SISUB
+ *
+ * Seções:
+ * 1. Hero - Apresentação principal com CTA
+ * 2. Como Funciona - 3 passos explicativos
+ * 3. Tipos de Refeição - 4 tipos disponíveis
+ * 4. Funcionalidades - Features interativas
+ * 5. Tutorial + Changelog - Links para documentação
+ * 6. CTA Final - Chamada para ação
+ */
 
 function Home() {
 	const [currentFeature, setCurrentFeature] = useState(0);
@@ -416,9 +462,14 @@ function Home() {
 	);
 }
 
-/* =========================
-   Subcomponentes utilitários
-   ========================= */
+/* ========================================================================
+   UTILITY COMPONENTS
+   ======================================================================== */
+
+/**
+ * Hero da página inicial
+ * Apresenta o título principal, descrição e CTA para acessar o sistema
+ */
 
 function HomeHero() {
 	return (
@@ -465,6 +516,10 @@ function HomeHero() {
 	);
 }
 
+/**
+ * Badge com ícone de escudo para indicar segurança
+ * Usado no Hero e CTA final
+ */
 function ShieldBadge() {
 	return (
 		<span className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-primary/10 text-primary">
@@ -473,10 +528,20 @@ function ShieldBadge() {
 	);
 }
 
+/**
+ * Props para o componente InfoChip
+ */
 type InfoChip = {
+	/** Componente de ícone React */
 	icon: React.ComponentType<{ className?: string }>;
+	/** Texto a ser exibido */
 	text: string;
 };
+
+/**
+ * Card informativo com badge, título, descrição, chips e CTA
+ * Usado nas seções Tutorial e Changelog
+ */
 
 function InfoCard(props: {
 	badgeIcon: React.ComponentType<{ className?: string }>;
@@ -532,6 +597,20 @@ function InfoCard(props: {
 	);
 }
 
+/**
+ * Componente wrapper para animação de aparecimento ao scroll
+ * Utiliza IntersectionObserver para detectar quando o elemento entra na viewport
+ *
+ * @param id - ID opcional para o elemento
+ * @param as - Tag HTML a ser renderizada (padrão: "section")
+ * @param className - Classes CSS adicionais
+ * @param inClass - Classes quando visível (padrão: "opacity-100 translate-y-0")
+ * @param outClass - Classes quando invisível (padrão: "opacity-0 translate-y-8")
+ * @param duration - Duração da transição (padrão: "duration-700")
+ * @param delayClass - Delay da animação (ex: "delay-100")
+ * @param threshold - Porcentagem mínima visível para ativar (padrão: 0.12)
+ * @param rootMargin - Margem do IntersectionObserver (padrão: "0px 0px -10% 0px")
+ */
 function Appear(props: {
 	id?: string;
 	as?: keyof JSX.IntrinsicElements;

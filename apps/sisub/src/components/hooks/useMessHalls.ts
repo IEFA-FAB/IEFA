@@ -1,31 +1,44 @@
 // hooks/useMessHalls.ts
+// Uses centralized types from @/types/domain as per design system guidelines.
+
 import { useQuery } from "@tanstack/react-query";
+import type { MessHall, Unit } from "@/types/domain";
 import supabase from "@/utils/supabase";
 
-// Domain types (English)
-export interface Unit {
-	id: number;
-	code: string;
-	name: string | null;
-}
-
-export interface MessHall {
-	id: number;
-	unitId: number;
-	code: string;
-	name: string | null;
-}
-
-// Lightweight UI options
-export interface Option {
-	code: string;
-	name: string;
-}
-
 /**
- * Fetch Units and Mess Halls from sisub schema.
- * - Keeps English naming in code.
- * - Supabase queries use actual table/column names.
+ * Custom hook to fetch and manage organizational units and mess halls.
+ *
+ * @remarks
+ * This hook fetches data from the sisub schema and maintains English naming
+ * conventions in code while using actual table/column names for Supabase queries.
+ *
+ * Data is cached with a 2-minute stale time and automatically refetches on reconnection.
+ * Window focus refetching is disabled to prevent unnecessary requests.
+ *
+ * @returns Object containing:
+ * - `units` - Array of all organizational units
+ * - `messHalls` - Array of all mess halls
+ * - `messHallsByUnitId` - Map of mess halls grouped by unit ID
+ * - `isLoading` - True during initial data fetch
+ * - `isRefetching` - True during background refetches
+ * - `error` - Error message if any query fails, null otherwise
+ *
+ * @example
+ * ```tsx
+ * const { units, messHalls, messHallsByUnitId, isLoading } = useMessHalls();
+ *
+ * if (isLoading) return <Skeleton />;
+ *
+ * return (
+ *   <Select>
+ *     {messHalls.map(mh => (
+ *       <SelectItem key={mh.id} value={mh.code}>
+ *         {mh.name}
+ *       </SelectItem>
+ *     ))}
+ *   </Select>
+ * );
+ * ```
  */
 export const useMessHalls = () => {
 	// We reuse the client but set the schema explicitly to sisub for these tables.
@@ -83,7 +96,10 @@ export const useMessHalls = () => {
 		messHallsByUnitId:
 			(messHallsQuery.data ?? []).reduce<Record<number, MessHall[]>>(
 				(acc, mh) => {
-					(acc[mh.unitId] ??= []).push(mh);
+					if (!acc[mh.unitId]) {
+						acc[mh.unitId] = [];
+					}
+					acc[mh.unitId].push(mh);
 					return acc;
 				},
 				{},

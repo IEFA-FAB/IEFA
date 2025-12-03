@@ -11,9 +11,9 @@ import {
 import { Calendar, Clock, Loader2 } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
 import { MEAL_TYPES } from "@/components/constants/rancho";
-import type { PendingChange } from "@/components/hooks/useMealForecast";
 import { MealButton } from "@/components/MealButton";
 import { MessHallSelector } from "@/components/MessHallSelector";
+import type { PendingChange } from "@/types/domain";
 import type { DayMeals } from "@/utils/RanchoUtils";
 import { cn } from "@/utils/utils";
 
@@ -38,31 +38,32 @@ const countSelectedMeals = (daySelections: DayMeals): number => {
 	return Object.values(daySelections).filter(Boolean).length;
 };
 
+// Skeleton using shadcn/ui tokens
 const DayCardSkeleton = memo(() => {
 	return (
-		<Card className="w-80 shrink-0 bg-card text-card-foreground border border-border">
+		<Card className="w-80 flex-shrink-0 bg-card text-card-foreground border border-border">
 			<CardHeader className="pb-3">
 				<div className="grid grid-cols-[1fr_auto] gap-4 items-start">
 					{/* Left header */}
 					<div className="flex items-center space-x-2">
-						<Skeleton className="h-4 w-4 rounded-sm" />
-						<div className="space-y-1.5">
-							<Skeleton className="h-5 w-24 rounded-md" />
-							<Skeleton className="h-3 w-16 rounded-md" />
+						<Skeleton className="h-4 w-4" />
+						<div className="space-y-1">
+							<Skeleton className="h-5 w-20" />
+							<Skeleton className="h-4 w-16" />
 						</div>
 					</div>
 
 					{/* Right header */}
 					<div className="flex items-center space-x-1">
-						<Skeleton className="h-5 w-12 rounded-full" />
+						<Skeleton className="h-6 w-12 rounded-full" />
 					</div>
 				</div>
 
 				{/* Progress bar skeleton */}
 				<div className="h-12 flex items-center">
-					<div className="w-full bg-muted/20 rounded-lg p-2 border border-border/50">
+					<div className="w-full bg-muted/50 rounded-lg p-2 border border-border">
 						<div className="flex items-center justify-between">
-							<Skeleton className="h-4 w-24 rounded-md" />
+							<Skeleton className="h-4 w-24" />
 							<div className="flex space-x-1">
 								{[...Array(4)].map((_, i) => (
 									<Skeleton key={i} className="w-2 h-2 rounded-full" />
@@ -76,25 +77,22 @@ const DayCardSkeleton = memo(() => {
 			<CardContent>
 				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
 					{/* Mess hall selector skeleton */}
-					<div className="bg-muted/20 rounded-lg p-3 border border-border/50 space-y-2">
-						<div className="flex justify-between items-center">
-							<Skeleton className="h-3 w-20 rounded-md" />
-						</div>
-						<Skeleton className="h-10 w-full rounded-md" />
+					<div className="bg-muted/30 rounded-lg p-3 border border-border">
+						<Skeleton className="h-8 w-full" />
 					</div>
 
 					{/* Meals grid skeleton */}
 					<div className="grid grid-cols-2 gap-2">
 						{[...Array(4)].map((_, i) => (
-							<Skeleton key={i} className="h-16 rounded-lg" />
+							<Skeleton key={i} className="h-12 rounded-lg" />
 						))}
 					</div>
 
 					{/* Action buttons skeleton */}
 					<div className="h-9 flex items-center">
 						<div className="flex gap-2 w-full">
-							<Skeleton className="flex-1 h-7 rounded-md" />
-							<Skeleton className="flex-1 h-7 rounded-md" />
+							<Skeleton className="flex-1 h-7" />
+							<Skeleton className="flex-1 h-7" />
 						</div>
 					</div>
 				</div>
@@ -120,10 +118,7 @@ export const DayCard = memo<DayCardProps>(
 		pendingChanges,
 		isSaving = false,
 		selectedMealsCount,
-		isLoading = false,
 	}) => {
-		// Skeleton while loading
-
 		const cardState = useMemo(() => {
 			const hasPendingChanges = pendingChanges.some(
 				(change) => change.date === date,
@@ -191,10 +186,6 @@ export const DayCard = memo<DayCardProps>(
 
 		const isDisabled = isSaving || isDateNear;
 
-		if (isLoading) {
-			return <DayCardSkeleton />;
-		}
-
 		return (
 			<Card className={cardClasses}>
 				<CardHeader className="pb-3">
@@ -202,7 +193,7 @@ export const DayCard = memo<DayCardProps>(
 					<div className="grid grid-cols-[1fr_auto] gap-4 items-start">
 						{/* Left section */}
 						<div className="flex items-center space-x-2 min-w-0">
-							<Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+							<Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 							<div className="min-w-0">
 								<h3 className="font-semibold text-foreground truncate">
 									{formattedDate}
@@ -214,7 +205,7 @@ export const DayCard = memo<DayCardProps>(
 						</div>
 
 						{/* Right section - badges/indicators */}
-						<div className="flex items-center space-x-1 shrink-0">
+						<div className="flex items-center space-x-1 flex-shrink-0">
 							{isSaving && (
 								<Loader2 className="h-4 w-4 animate-spin text-primary" />
 							)}
@@ -256,7 +247,9 @@ export const DayCard = memo<DayCardProps>(
 															? "bg-primary scale-110"
 															: "bg-muted-foreground/30",
 													)}
-													title={`${meal.label}: ${isSelected ? "Confirmed" : "Not going"}`}
+													title={`${meal.label}: ${
+														isSelected ? "Confirmed" : "Not going"
+													}`}
 												/>
 											);
 										})}

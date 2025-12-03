@@ -10,7 +10,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { MealKey } from "@/utils/FiscalUtils";
+import type { MealKey, WillEnter } from "@/types/domain";
+import { inferDefaultMeal } from "@/utils/FiscalUtils";
 import supabase from "@/utils/supabase";
 
 // Schema for search params validation
@@ -23,19 +24,6 @@ export const Route = createFileRoute("/_protected/selfCheckIn")({
 	component: SelfCheckin,
 	validateSearch: selfCheckInSearchSchema,
 });
-
-// Mesmas regras usadas no presence
-function inferDefaultMeal(now: Date = new Date()): MealKey {
-	const toMin = (h: number, m = 0) => h * 60 + m;
-	const minutes = now.getHours() * 60 + now.getMinutes();
-	const inRange = (start: number, end: number) =>
-		minutes >= start && minutes < end;
-
-	if (inRange(toMin(4), toMin(9))) return "cafe";
-	if (inRange(toMin(9), toMin(15))) return "almoco";
-	if (inRange(toMin(15), toMin(20))) return "janta";
-	return "ceia";
-}
 
 function todayISO(): string {
 	return new Date().toISOString().split("T")[0];
@@ -52,7 +40,6 @@ function buildRedirectTo(
 	return encodeURIComponent(safe);
 }
 
-type WillEnter = "sim" | "nao";
 const REDIRECT_DELAY_SECONDS = 3;
 
 function isDuplicateOrConflict(err: unknown): boolean {
@@ -126,7 +113,7 @@ function SelfCheckin() {
 						}
 						if (!redirectedRef.current) {
 							redirectedRef.current = true;
-							navigate("/forecast", { replace: true });
+							navigate({ to: "/forecast", replace: true });
 						}
 						return null;
 					}
@@ -148,10 +135,10 @@ function SelfCheckin() {
 				if (!redirectedRef.current) {
 					const redirectTo = buildRedirectTo(
 						location.pathname,
-						location.search,
+						location.searchStr,
 					);
 					redirectedRef.current = true;
-					navigate(`/login?redirectTo=${redirectTo}`, { replace: true });
+					navigate({ to: `/login?redirectTo=${redirectTo}`,  replace: true });
 				}
 				return;
 			}
@@ -238,7 +225,7 @@ function SelfCheckin() {
 		return () => {
 			cancelled = true;
 		};
-	}, [date, meal, unidade, navigate, location.pathname, location.search]);
+	}, [date, meal, unidade, navigate, location.pathname, location.searchStr]);
 
 	const handleSubmit = useCallback(async () => {
 		// Early returns
@@ -335,11 +322,11 @@ function SelfCheckin() {
 
 	const goHome = useCallback(() => {
 		if (redirectCountdown !== null) return; // evita interromper countdown
-		navigate("/forecast");
+		navigate({ to: "/forecast" });
 	}, [navigate, redirectCountdown]);
 
 	return (
-		<div className="max-w-md mx-auto p-6 text-center space-y-6">
+		<div className="w-full mx-auto p-6 text-center space-y-6">
 			<h1 className="text-xl font-semibold">Check-in de Refeição</h1>
 
 			<p className="text-sm text-muted-foreground">
