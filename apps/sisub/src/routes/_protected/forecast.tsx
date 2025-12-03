@@ -12,47 +12,32 @@ import {
 	useState,
 } from "react";
 import { NEAR_DATE_THRESHOLD } from "@/components/constants/rancho";
-import {
-	type MessHallByDate, // Record<date, messHallCode>
-	type PendingChange,
-	type SelectionsByDate,
-	useMealForecast,
-} from "@/components/hooks/useMealForecast";
+import { useMealForecast } from "@/components/hooks/useMealForecast";
 import { useMessHalls } from "@/components/hooks/useMessHalls";
 import BulkMealSelector from "@/components/rancho/BulkMealSelector";
 import { DayCardSkeleton } from "@/components/rancho/DayCard";
 import { DefaultMessHallSelector } from "@/components/rancho/DefaultMessHallSelector";
 import SimplifiedMilitaryStats from "@/components/rancho/SimplifiedMilitaryStats";
 import { UnifiedStatusToasts } from "@/components/rancho/UnifiedStatusToasts";
+import type {
+	CardData,
+	DayMeals,
+	MessHallByDate,
+	PendingChange,
+	SelectionsByDate,
+} from "@/types/domain";
 import {
 	createEmptyDayMeals,
-	type DayMeals,
 	formatDate,
 	getDayOfWeek,
 	isDateNear,
 } from "@/utils/RanchoUtils";
-
-export const Route = createFileRoute("/_protected/forecast")({
-	component: Rancho,
-	head: () => ({
-		meta: [
-			{ title: "Previsão SISUB" },
-			{ name: "description", content: "Faça sua previsão" },
-		],
-	}),
-});
 
 const DayCard = lazy(() => import("@/components/rancho/DayCard"));
 
 /* ============================
    Utilitários e helpers de texto
    ============================ */
-
-interface CardData {
-	date: string;
-	daySelections: DayMeals;
-	dayMessHallCode: string; // UI usa CODE
-}
 
 // Pluralização simples
 const pluralize = (count: number, singular: string, plural: string) =>
@@ -81,7 +66,7 @@ const getDayCardData = (
 		selectedMealsCount,
 		isDateNear: isDateNearValue,
 		isToday,
-	}
+	};
 };
 
 const isWeekday = (dateString: string): boolean => {
@@ -90,11 +75,20 @@ const isWeekday = (dateString: string): boolean => {
 	return dow >= 1 && dow <= 5;
 };
 
+export const Route = createFileRoute("/_protected/forecast")({
+	component: Forecast,
+	head: () => ({
+		meta: [
+			{ title: "Previsão SISUB" },
+			{ name: "description", content: "Faça sua previsão" },
+		],
+	}),
+});
 /* ============================
    Componente principal
    ============================ */
 
-function Rancho(): JSX.Element {
+export default function Forecast(): JSX.Element {
 	const {
 		success,
 		error,
@@ -126,7 +120,7 @@ function Rancho(): JSX.Element {
 		if (!defaultMessHallId) return "";
 		const mh = messHalls.find(
 			(m) => String(m.id) === String(defaultMessHallId),
-		)
+		);
 		return mh?.code ?? "";
 	}, [defaultMessHallId, messHalls]);
 
@@ -139,7 +133,7 @@ function Rancho(): JSX.Element {
 			}
 		},
 		[messHalls, setDefaultMessHallId],
-	)
+	);
 
 	// Helpers: resolver ID por CODE (para PendingChange/salvar)
 	const getMessHallIdByCode = useCallback(
@@ -149,7 +143,7 @@ function Rancho(): JSX.Element {
 			return match?.id != null ? String(match.id) : "";
 		},
 		[messHalls],
-	)
+	);
 
 	// Por data: ui code -> id (com fallback no default)
 	const resolveMessHallIdForDate = useCallback(
@@ -159,7 +153,7 @@ function Rancho(): JSX.Element {
 			return idFromCode || (defaultMessHallId ? String(defaultMessHallId) : "");
 		},
 		[dayMessHalls, defaultMessHallCode, defaultMessHallId, getMessHallIdByCode],
-	)
+	);
 
 	const [showDefaultMessHallSelector, setShowDefaultMessHallSelector] =
 		useState(false);
@@ -177,24 +171,25 @@ function Rancho(): JSX.Element {
 	const weekdayTargets = useMemo(
 		() =>
 			dates.filter(
-				(date) => isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD),
+				(date: string) =>
+					isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD),
 			),
 		[dates],
-	)
+	);
 
 	const computedData = useMemo(() => {
 		// "Cards sem rancho" = datas sem um messHallCode definido (falsy)
-		const cardsWithoutMessHall = dates.filter((date) => {
+		const cardsWithoutMessHall = dates.filter((date: string) => {
 			const code = dayMessHalls[date];
 			return !code;
-		})
+		});
 
-		const cardData: CardData[] = dates.map((date) => ({
+		const cardData: CardData[] = dates.map((date: string) => ({
 			date,
 			daySelections: selections[date] || createEmptyDayMeals(),
 			// UI sempre com CODE
 			dayMessHallCode: dayMessHalls[date] || defaultMessHallCode || "",
-		}))
+		}));
 
 		return { cardsWithoutMessHall, cardData };
 	}, [dates, dayMessHalls, selections, defaultMessHallCode]);
@@ -213,9 +208,9 @@ function Rancho(): JSX.Element {
 					defaultMessHallId: defaultMessHallCode,
 					...dayCardData,
 					isSaving: false,
-				}
+				};
 			},
-		)
+		);
 	}, [computedData.cardData, todayString, defaultMessHallCode]);
 
 	/* ============================
@@ -230,7 +225,7 @@ function Rancho(): JSX.Element {
 			const messHallId = resolveMessHallIdForDate(date);
 			if (!messHallId) {
 				setError("Defina seu rancho padrão antes de marcar refeições.");
-				return
+				return;
 			}
 
 			const currentValue = selections[date]?.[meal] || false;
@@ -244,18 +239,18 @@ function Rancho(): JSX.Element {
 						...existing,
 						[meal]: newValue,
 					},
-				}
-			})
+				};
+			});
 
 			setPendingChanges((prev: PendingChange[]) => {
 				const idx = prev.findIndex((c) => c.date === date && c.meal === meal);
 				if (idx >= 0) {
 					const copy = [...prev];
 					copy[idx] = { date, meal, value: newValue, messHallId };
-					return copy
+					return copy;
 				}
 				return [...prev, { date, meal, value: newValue, messHallId }];
-			})
+			});
 		},
 		[
 			selections,
@@ -264,7 +259,7 @@ function Rancho(): JSX.Element {
 			setPendingChanges,
 			setError,
 		],
-	)
+	);
 
 	const handleMessHallChange = useCallback(
 		(date: string, newMessHallCode: string): void => {
@@ -274,7 +269,7 @@ function Rancho(): JSX.Element {
 			setDayMessHalls((prev: MessHallByDate) => ({
 				...prev,
 				[date]: newMessHallCode,
-			}))
+			}));
 
 			const dayMeals = selections[date];
 			if (!dayMeals) return;
@@ -284,23 +279,23 @@ function Rancho(): JSX.Element {
 			if (!messHallId) return;
 
 			const selectedMeals: PendingChange[] = Object.entries(dayMeals)
-				.filter(([, isSelected]) => isSelected)
+				.filter(([, isSelected]) => Boolean(isSelected))
 				.map(([meal, value]) => ({
 					date,
 					meal: meal as keyof DayMeals,
-					value,
+					value: Boolean(value),
 					messHallId,
-				}))
+				}));
 
 			if (!selectedMeals.length) return;
 
 			setPendingChanges((prev: PendingChange[]) => {
 				const filtered = prev.filter((c) => c.date !== date);
 				return [...filtered, ...selectedMeals];
-			})
+			});
 		},
 		[selections, setDayMessHalls, setPendingChanges, getMessHallIdByCode],
-	)
+	);
 
 	const handleRefresh = useCallback((): void => {
 		loadExistingForecasts();
@@ -325,48 +320,48 @@ function Rancho(): JSX.Element {
 
 			if (!messHallIdForDefault) {
 				setError("Defina e salve um rancho padrão antes de aplicar aos cards.");
-				return
+				return;
 			}
 
 			// UI: grava CODE nos dias sem rancho
 			const updatedMessHalls: MessHallByDate = { ...dayMessHalls };
-			cardsWithoutMessHall.forEach((date) => {
+			cardsWithoutMessHall.forEach((date: string) => {
 				updatedMessHalls[date] = defaultMessHallCode;
-			})
+			});
 			setDayMessHalls(updatedMessHalls);
 
 			const newPendingChanges: PendingChange[] = [];
 
-			cardsWithoutMessHall.forEach((date) => {
+			cardsWithoutMessHall.forEach((date: string) => {
 				const dayMeals = selections[date];
 				if (!dayMeals) return;
 
 				Object.entries(dayMeals)
-					.filter(([, isSelected]) => isSelected)
+					.filter(([, isSelected]) => Boolean(isSelected))
 					.forEach(([meal, value]) => {
 						newPendingChanges.push({
 							date,
 							meal: meal as keyof DayMeals,
-							value,
+							value: Boolean(value),
 							messHallId: String(messHallIdForDefault),
-						})
-					})
-			})
+						});
+					});
+			});
 
 			if (newPendingChanges.length > 0) {
 				setPendingChanges((prev: PendingChange[]) => {
 					const filtered = prev.filter(
 						(change) => !cardsWithoutMessHall.includes(change.date),
-					)
+					);
 					return [...filtered, ...newPendingChanges];
-				})
+				});
 			}
 
 			setSuccess(
 				`Rancho padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(
 					cardsWithoutMessHall.length,
 				)}!`,
-			)
+			);
 			setShowDefaultMessHallSelector(false);
 		} catch (err) {
 			console.error("Erro ao aplicar rancho padrão:", err);
@@ -383,7 +378,7 @@ function Rancho(): JSX.Element {
 		setSuccess,
 		setError,
 		getMessHallIdByCode,
-	])
+	]);
 
 	const applyMealTemplateToAll = useCallback(
 		async (
@@ -393,7 +388,7 @@ function Rancho(): JSX.Element {
 			const targetDates = weekdayTargets;
 			if (!targetDates.length) {
 				setShowBulkMealSelector(false);
-				return
+				return;
 			}
 
 			setIsApplyingMealTemplate(true);
@@ -408,11 +403,11 @@ function Rancho(): JSX.Element {
 					if (options.mode === "override") {
 						(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
 							after[k] = Boolean(template[k]);
-						})
+						});
 					} else {
 						(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
 							if (template[k]) after[k] = after[k] || true;
-						})
+						});
 					}
 
 					// UI (CODE) -> Backend (ID)
@@ -428,54 +423,58 @@ function Rancho(): JSX.Element {
 						if (after[k] !== before[k]) {
 							if (!idForDay) {
 								// se não há ID resolvido, não empilha alteração inválida
-								return
+								return;
 							}
 							newChanges.push({
 								date,
 								meal: k,
 								value: after[k],
 								messHallId: idForDay,
-							})
+							});
 						}
-					})
+					});
 
 					afterByDate[date] = after;
-				})
+				});
 
 				if (newChanges.length === 0) {
 					setSuccess(
 						"Nenhuma alteração necessária para aplicar o template em dias úteis.",
-					)
+					);
 					setShowBulkMealSelector(false);
-					return
+					return;
 				}
 
-				setSelections((prev) => {
+				setSelections((prev: SelectionsByDate) => {
 					const next: SelectionsByDate = { ...prev };
-					targetDates.forEach((date) => {
+					targetDates.forEach((date: string) => {
 						next[date] = afterByDate[date];
-					})
-					return next
-				})
+					});
+					return next;
+				});
 
-				setPendingChanges((prev) => {
+				setPendingChanges((prev: PendingChange[]) => {
 					const toRemove = new Set(
 						newChanges.map((c) => `${c.date}|${String(c.meal)}`),
-					)
+					);
 					const filtered = prev.filter(
 						(c) => !toRemove.has(`${c.date}|${String(c.meal)}`),
-					)
+					);
 					return [...filtered, ...newChanges];
-				})
+				});
 
-				const diasStr = `${targetDates.length} ${labelDiaUtil(targetDates.length)}`;
-				const alteracoesStr = `${newChanges.length} ${labelAlteracao(newChanges.length)}`;
+				const diasStr = `${targetDates.length} ${labelDiaUtil(
+					targetDates.length,
+				)}`;
+				const alteracoesStr = `${newChanges.length} ${labelAlteracao(
+					newChanges.length,
+				)}`;
 
 				setSuccess(
 					`Template de refeições aplicado a ${diasStr} no modo ${
 						options.mode === "override" ? "sobrescrever" : "preencher"
 					}: ${alteracoesStr}.`,
-				)
+				);
 				setShowBulkMealSelector(false);
 			} catch (err) {
 				console.error("Erro ao aplicar template de refeições:", err);
@@ -496,7 +495,7 @@ function Rancho(): JSX.Element {
 			setError,
 			getMessHallIdByCode,
 		],
-	)
+	);
 
 	const handleApplyDefault = useCallback(async () => {
 		setIsApplyingDefaultMessHall(true);
@@ -516,14 +515,14 @@ function Rancho(): JSX.Element {
 		persistDefaultMessHallId,
 		applyDefaultMessHallToAll,
 		loadExistingForecasts,
-	])
+	]);
 
 	/* ============================
      Render
      ============================ */
 
 	return (
-		<div className="h-full container flex-col mx-auto px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
+		<div className="h-full w-full mx-auto flex-col px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
 			{/* Header */}
 			<header className="flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
@@ -533,7 +532,7 @@ function Rancho(): JSX.Element {
 						variant="outline"
 						size="sm"
 						onClick={handleToggleMessHallSelector}
-						className=" hover:bg-orange-50 cursor-pointer"
+						className="hover:bg-accent/10 cursor-pointer"
 						aria-label="Definir rancho padrão"
 					>
 						<Settings className="h-4 w-4 mr-2" />
@@ -545,7 +544,7 @@ function Rancho(): JSX.Element {
 						size="sm"
 						onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
 						disabled={isLoading}
-						className=" hover:bg-green-50 cursor-pointer"
+						className="hover:bg-accent/10 cursor-pointer"
 						aria-label="Aplicar refeições em massa"
 					>
 						<UtensilsCrossed className="h-4 w-4 mr-2" />
@@ -638,5 +637,5 @@ function Rancho(): JSX.Element {
 				</div>
 			</section>
 		</div>
-	)
+	);
 }

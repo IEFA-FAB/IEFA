@@ -134,7 +134,7 @@ const markdownComponents = {
 				>
 					{children}
 				</code>
-			)
+			);
 		}
 		return (
 			<pre className="bg-muted text-foreground p-4 rounded-lg overflow-x-auto">
@@ -142,7 +142,7 @@ const markdownComponents = {
 					{children}
 				</code>
 			</pre>
-		)
+		);
 	},
 };
 
@@ -179,7 +179,7 @@ function MessageBox({
 				)}
 			</div>
 		</div>
-	)
+	);
 }
 
 function MarkdownContent({ children }: { children: string }) {
@@ -192,7 +192,7 @@ function MarkdownContent({ children }: { children: string }) {
 				{children}
 			</ReactMarkdown>
 		</div>
-	)
+	);
 }
 
 const TagBadge = memo(function TagBadge({ tag }: { id: string; tag: string }) {
@@ -204,7 +204,7 @@ const TagBadge = memo(function TagBadge({ tag }: { id: string; tag: string }) {
 		>
 			{tag}
 		</span>
-	)
+	);
 });
 
 const ChangelogCard = memo(function ChangelogCard({
@@ -259,7 +259,7 @@ const ChangelogCard = memo(function ChangelogCard({
 
 			<MarkdownContent>{entry.body ?? ""}</MarkdownContent>
 		</article>
-	)
+	);
 });
 
 const PAGE_SIZE = 10 as const;
@@ -282,12 +282,12 @@ export default function Changelog() {
 		gcTime: 10 * 60 * 1000, // 10min
 		retry: 2,
 		refetchOnWindowFocus: false,
-	})
+	});
 
 	const items = useMemo(
 		() => data?.pages.flatMap((p) => p.items) ?? [],
 		[data],
-	)
+	);
 
 	const GITHUB_REPO_URL =
 		import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/";
@@ -381,5 +381,5 @@ export default function Changelog() {
 				</div>
 			</Card>
 		</div>
-	)
+	);
 }

@@ -52,7 +52,7 @@ async function fetchEvalConfig(): Promise<EvalConfig> {
 				: data?.value == null
 					? ""
 					: String(data.value),
-	}
+	};
 }
 
 async function upsertEvalConfig(cfg: EvalConfig): Promise<EvalConfig> {
@@ -75,7 +75,7 @@ async function upsertEvalConfig(cfg: EvalConfig): Promise<EvalConfig> {
 				: data?.value == null
 					? ""
 					: String(data.value),
-	}
+	};
 }
 
 function SuperAdminPanelInner() {
@@ -93,7 +93,7 @@ function SuperAdminPanelInner() {
 		queryKey: ["super-admin", "evaluation-config"],
 		queryFn: fetchEvalConfig,
 		staleTime: 60_000,
-	})
+	});
 
 	// form state controlado localmente
 	const [form, setForm] = useState<EvalConfig>({ active: false, value: "" });
@@ -122,7 +122,7 @@ function SuperAdminPanelInner() {
 		onSuccess: (saved) => {
 			queryClient.setQueryData(["super-admin", "evaluation-config"], saved);
 		},
-	})
+	});
 
 	const loading = evalQuery.isLoading;
 	const saving = saveMutation.isPending;
@@ -243,7 +243,7 @@ function SuperAdminPanelInner() {
 				</div>
 			</section>
 		</div>
-	)
+	);
 }
 
 function SuperAdminPanelRoute() {
@@ -251,5 +251,5 @@ function SuperAdminPanelRoute() {
 		<RoleGuard requireAny={["superadmin"]} redirectTo="/forecast">
 			<SuperAdminPanelInner />
 		</RoleGuard>
-	)
+	);
 }

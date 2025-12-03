@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import type { MilitaryDataRow, UserDataRow } from "@/types/domain";
 import supabase from "@/utils/supabase";
 
 export const Route = createFileRoute("/_protected/profile")({
@@ -17,22 +18,6 @@ export const Route = createFileRoute("/_protected/profile")({
 		],
 	}),
 });
-
-type UserDataRow = {
-	id: string;
-	email: string;
-	nrOrdem: string | null;
-};
-
-type MilitaryDataRow = {
-	nrOrdem: string | null;
-	nrCpf: string;
-	nmGuerra: string | null;
-	nmPessoa: string | null;
-	sgPosto: string | null;
-	sgOrg: string | null;
-	dataAtualizacao: string | null; // timestamp with time zone -> string
-};
 
 /* ============ Data access ============ */
 
@@ -187,18 +172,19 @@ function ProfilePage() {
 			await upsertUserData(user, newNr);
 		},
 		onMutate: async (newNr) => {
+			if (!user) return { prev: null };
 			setNrError(null);
 			// otimista: atualiza cache de user_data
 			await queryClient.cancelQueries({
-				queryKey: ["user_data", user?.id],
+				queryKey: ["user_data", user.id],
 			});
 			const prev = queryClient.getQueryData<UserDataRow | null>([
 				"user_data",
-				user?.id,
+				user.id,
 			]);
 			const optimistic: UserDataRow = {
-				id: user!.id,
-				email: user!.email ?? prev?.email ?? "",
+				id: user.id,
+				email: user.email ?? prev?.email ?? "",
 				nrOrdem: newNr && newNr.trim().length > 0 ? newNr.trim() : null,
 			};
 			queryClient.setQueryData(["user_data", user?.id], optimistic);
@@ -240,7 +226,7 @@ function ProfilePage() {
 	const military = militaryQuery.data ?? null;
 
 	return (
-		<div className="mx-auto w-full max-w-5xl p-3 sm:p-6">
+		<div className="mx-auto w-full p-3 sm:p-6">
 			<div className="mb-4 sm:mb-6">
 				<h1 className="text-xl sm:text-2xl font-bold tracking-tight">Perfil</h1>
 				<p className="text-sm text-muted-foreground mt-1">
