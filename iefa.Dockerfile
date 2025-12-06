@@ -21,8 +21,8 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 # Copia a estrutura de pastas (necessário para o pnpm entender o workspace)
 # Dica: Se possível, copie apenas os package.json internos para otimizar o cache, 
 # mas copiar as pastas funciona se o contexto de build for a raiz.
-# COPY packages ./packages
-# COPY apps ./apps
+COPY packages ./packages
+COPY apps ./apps
 
 # Baixa dependências para o store (cache)
 RUN pnpm fetch
