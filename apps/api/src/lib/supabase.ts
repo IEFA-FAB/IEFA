@@ -6,8 +6,8 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.API_SUPABASE_ANON_KEY!;
 
 // auth.persistSession false em ambiente server
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  db: { schema: "sisub" },
-  auth: { persistSession: false },
+	db: { schema: "sisub" },
+	auth: { persistSession: false },
 });
 
 export default supabase;

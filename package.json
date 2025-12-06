@@ -1,22 +1,29 @@
 {
-  "name": "iefa",
-  "private": true,
-  "packageManager": "pnpm@10.20.0+sha512.cf9998222162dd85864d0a8102e7892e7ba4ceadebbf5a31f9c2fce48dfce317a9c53b9f6464d1ef9042cba2e02ae02a9f7c143a2b438cd93c91840f0192b9dd",
-  "overrides": {
-    "react": "^19.2",
-    "react-dom": "^19.2"
-  },
-  "scripts": {
-    "dev": "pnpm -w -r --parallel --filter './apps/**' run dev",
-    "build": "pnpm -w -r --filter './apps/**' run build",
-    "typecheck": "pnpm -w -r run typecheck",
-    "dev:sisub": "pnpm -C ./apps/sisub dev",
-    "dev:iefa": "pnpm -C ./apps/iefa dev",
-    "dev:api": "pnpm -C ./apps/api dev",
-    "dev:docs": "pnpm -C ./apps/docs dev"
-  },
-  "dependencies": {
-    "@iefa/auth": "workspace:^",
-    "@iefa/ui": "workspace:*"
-  }
+    "name": "iefa",
+    "private": true,
+    "packageManager": "pnpm@10.20.0+sha512.cf9998222162dd85864d0a8102e7892e7ba4ceadebbf5a31f9c2fce48dfce317a9c53b9f6464d1ef9042cba2e02ae02a9f7c143a2b438cd93c91840f0192b9dd",
+    "overrides": {
+        "react": "^19.2",
+        "react-dom": "^19.2"
+    },
+    "scripts": {
+        "dev": "pnpm -w -r --parallel --filter './apps/**' run dev",
+        "build": "pnpm -w -r --filter './apps/**' run build",
+        "typecheck": "pnpm -w -r run typecheck",
+        "sisub:dev": "pnpm -C ./apps/sisub dev",
+        "iefa:dev": "pnpm -C ./apps/iefa dev",
+        "api:dev": "pnpm -C ./apps/api dev",
+        "docs:dev": "pnpm -C ./apps/docs dev",
+        "format": "biome format --write .",
+        "lint": "biome lint .",
+        "check": "biome check .",
+        "fix": "biome check --apply ."
+    },
+    "dependencies": {
+        "@iefa/auth": "workspace:^",
+        "@iefa/ui": "workspace:*"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.3.8"
+    }
 }

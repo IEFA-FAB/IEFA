@@ -1,13 +1,16 @@
 {
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "composite": false,
-    "module": "ES2022",
-    "moduleResolution": "bundler",
-    "declaration": false,
-    "noEmit": true,
-    "jsx": "react-jsx"
-  },
-  "include": ["src"]
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"]
+        },
+        "composite": false,
+        "module": "ES2022",
+        "moduleResolution": "bundler",
+        "declaration": false,
+        "noEmit": true,
+        "jsx": "react-jsx"
+    },
+    "include": ["src"]
 }
