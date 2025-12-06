@@ -5,6 +5,7 @@ import viteReact from "@vitejs/plugin-react";
 import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 import viteTsConfigPaths from "vite-tsconfig-paths";
+import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
     plugins: [
@@ -20,6 +21,7 @@ const config = defineConfig({
                 plugins: ["babel-plugin-react-compiler"],
             },
         }),
+        nitro()
     ],
     resolve: {
         dedupe: ["react", "react-dom"],
@@ -37,6 +39,7 @@ const config = defineConfig({
     ssr: {
         noExternal: ["@iefa/ui", "@iefa/auth", "lucide-react"],
     },
+    nitro: {preset: 'node-server'},
 });
 
 export default config;

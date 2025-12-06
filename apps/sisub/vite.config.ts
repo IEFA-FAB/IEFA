@@ -5,6 +5,7 @@ import viteReact from "@vitejs/plugin-react";
 import { fileURLToPath } from "url";
 import { defineConfig } from "vite";
 import viteTsConfigPaths from "vite-tsconfig-paths";
+import { nitro } from 'nitro/vite'
 
 export default defineConfig({
 	plugins: [
@@ -23,7 +24,8 @@ export default defineConfig({
 			},
 		}),
 		// Tailwind CSS
-		tailwindcss()
+		tailwindcss(),
+		nitro()
 	],
 	resolve: {
 		// Dedupe critical dependencies to avoid multiple instances
@@ -199,4 +201,5 @@ export default defineConfig({
 		legalComments: "none",
 		treeShaking: true,
 	},
+	nitro: {preset: 'node-server'},
 });
