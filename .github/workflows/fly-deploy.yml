@@ -18,7 +18,8 @@ jobs:
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      API_HEALTH_URL: ${{ secrets.API_HEALTH_URL }}
+      # Alterado de secrets para vars
+      API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,7 +92,8 @@ jobs:
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      IEFA_HEALTH_URL: ${{ secrets.IEFA_HEALTH_URL }}
+      # Alterado de secrets para vars
+      IEFA_HEALTH_URL: ${{ vars.IEFA_HEALTH_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -155,7 +157,8 @@ jobs:
         cancel-in-progress: true
       env:
         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        SISUB_HEALTH_URL: ${{ secrets.SISUB_HEALTH_URL }}
+        # Alterado de secrets para vars
+        SISUB_HEALTH_URL: ${{ vars.SISUB_HEALTH_URL }}
       steps:
         - name: Checkout
           uses: actions/checkout@v4
