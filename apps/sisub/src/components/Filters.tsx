@@ -9,7 +9,7 @@ import {
 } from "@iefa/ui";
 import { AlertCircle, Calendar, Check, Utensils } from "lucide-react";
 import { UnitSelector } from "@/components/MessHallSelector";
-import { MEAL_LABEL, MealKey } from "@/utils/FiscalUtils";
+import { MEAL_LABEL, type MealKey } from "@/utils/FiscalUtils";
 import { formatDate } from "@/utils/RanchoUtils";
 
 interface FiltersProps {

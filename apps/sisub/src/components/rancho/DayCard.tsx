@@ -10,9 +10,9 @@ import {
 } from "@iefa/ui";
 import { Calendar, Clock, Loader2 } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
-import { MEAL_TYPES } from "@/components/constants/rancho";
 import { MealButton } from "@/components/MealButton";
 import { MessHallSelector } from "@/components/MessHallSelector";
+import { MEAL_TYPES } from "@/constants/rancho";
 import type { PendingChange } from "@/types/domain";
 import type { DayMeals } from "@/utils/RanchoUtils";
 import { cn } from "@/utils/utils";

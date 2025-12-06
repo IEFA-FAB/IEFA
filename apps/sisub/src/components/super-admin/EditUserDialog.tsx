@@ -15,8 +15,8 @@ import {
 	SelectValue,
 } from "@iefa/ui";
 import * as React from "react";
-import type { UserLevelOrNull } from "../../services/AdminService";
-import type { Unit } from "../hooks/useMessHalls";
+import type { UserLevelOrNull } from "@/services/AdminService";
+import type { Unit } from "@/types/domain";
 import type { ProfileAdmin } from "./ProfilesManager";
 
 export type EditUserPayload = {

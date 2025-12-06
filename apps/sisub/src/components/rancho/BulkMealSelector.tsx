@@ -10,8 +10,8 @@ import {
 } from "@iefa/ui";
 import { CheckCircle, Loader2, UtensilsCrossed } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
-import { MEAL_TYPES } from "@/components/constants/rancho";
 import { MealButton } from "@/components/MealButton";
+import { MEAL_TYPES } from "@/constants/rancho";
 import { createEmptyDayMeals, type DayMeals } from "@/utils/RanchoUtils";
 
 type ApplyMode = "fill-missing" | "override";

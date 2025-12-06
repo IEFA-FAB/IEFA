@@ -39,7 +39,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import type { UserLevelOrNull } from "@/services/AdminService";
 import supabase from "@/utils/supabase";
-import { useMessHalls } from "../hooks/useMessHalls";
+import { useMessHalls } from "../../hooks/useMessHalls";
 import AddUserDialog, { type NewUserPayload } from "./AddUserDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
 import EditUserDialog, { type EditUserPayload } from "./EditUserDialog";
@@ -380,7 +380,7 @@ export default function ProfilesManager() {
 				},
 			},
 		],
-		[],
+		[<RoleBadge role={row.getValue("role")} />],
 	);
 
 	// Tabela

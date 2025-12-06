@@ -103,11 +103,15 @@ jobs:
         env:
           VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
           VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
+          VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
+          VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
           flyctl --config fly.iefa.toml secrets set \
             VITE_IEFA_SUPABASE_URL="$VITE_IEFA_SUPABASE_URL" \
             VITE_IEFA_SUPABASE_ANON_KEY="$VITE_IEFA_SUPABASE_ANON_KEY" \
+            VITE_RAG_SUPABASE_URL="$VITE_RAG_SUPABASE_URL" \
+            VITE_RAG_SUPABASE_SERVICE_ROLE_KEY="$VITE_RAG_SUPABASE_SERVICE_ROLE_KEY" \
             
 
       - name: Deploy IEFA (wait for health checks)
@@ -115,6 +119,8 @@ jobs:
           flyctl deploy -c fly.iefa.toml --remote-only \
             --build-arg VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
             --build-arg VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
+            --build-arg VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }} \
+            --build-arg VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }} \
 
       - name: Smoke test IEFA
         shell: bash
