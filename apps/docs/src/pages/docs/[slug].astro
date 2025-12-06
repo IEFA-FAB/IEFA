@@ -1,0 +1,133 @@
+---
+import { sanityClient } from "sanity:client";
+import type { SanityDocument } from "@sanity/client";
+import imageUrlBuilder from "@sanity/image-url";
+import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
+import { marked } from "marked";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+
+// Fetch all docs for static paths
+export async function getStaticPaths() {
+	const docs =
+		await sanityClient.fetch(`*[_type == "docs" && defined(slug.current)]{
+    "slug": slug.current
+  }`);
+
+	return docs.map((doc: { slug: string }) => ({
+		params: { slug: doc.slug },
+	}));
+}
+
+const { slug } = Astro.params;
+
+// Fetch the current doc
+const DOCS_QUERY = `*[_type == "docs" && slug.current == $slug][0]{
+  _id,
+  title,
+  slug,
+  publishedAt,
+  image,
+  body
+}`;
+const page = await sanityClient.fetch<SanityDocument>(DOCS_QUERY, { slug });
+
+// Handle 404
+if (!page) {
+	return Astro.redirect("/404");
+}
+
+// Fetch sidebar navigation
+const sidebar =
+	await sanityClient.fetch(`*[_type == "docs" && defined(slug.current)] | order(publishedAt desc){
+  title,
+  "slug": slug.current
+}`);
+
+// Setup image URL builder
+const { projectId, dataset } = sanityClient.config();
+const urlFor = (source: SanityImageSource) =>
+	projectId && dataset
+		? imageUrlBuilder({ projectId, dataset }).image(source)
+		: null;
+
+const docsImageUrl = page.image
+	? urlFor(page.image)?.width(1200).height(630).url()
+	: null;
+---
+
+<DocsLayout sidebar={sidebar} title={page.title}>
+  <article class="relative">
+    <!-- Breadcrumb -->
+    <nav class="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
+      <a href="/docs" class="hover:text-foreground transition-colors">Documentação</a>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+      <span class="text-foreground font-medium">{page.title}</span>
+    </nav>
+
+    <!-- Hero Image -->
+    {docsImageUrl && (
+      <div class="mb-12 rounded-2xl overflow-hidden border border-border shadow-lg">
+        <img
+          src={docsImageUrl}
+          alt={page.title}
+          class="w-full aspect-video object-cover"
+        />
+      </div>
+    )}
+    
+    <!-- Article Header -->
+    <header class="mb-10 pb-8 border-b border-border">
+      <div class="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <time datetime={page.publishedAt}>
+          Publicado em {new Date(page.publishedAt).toLocaleDateString('pt-BR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </time>
+      </div>
+      
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-balance mb-4">
+        {page.title}
+      </h1>
+    </header>
+
+    <!-- Article Content -->
+    {page.body && (
+      <div 
+        class="prose prose-slate prose-lg max-w-none
+               prose-headings:font-bold prose-headings:tracking-tight
+               prose-h1:text-4xl prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6
+               prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4
+               prose-p:text-card-foreground prose-p:leading-relaxed
+               prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+               prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
+               prose-pre:bg-muted prose-pre:border prose-pre:border-border
+               prose-img:rounded-xl prose-img:border prose-img:border-border prose-img:shadow-md
+               prose-hr:border-border
+               prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r
+               prose-ul:text-card-foreground prose-ol:text-card-foreground
+               prose-li:marker:text-primary"
+        set:html={marked.parse(page.body)} 
+      />
+    )}
+
+    <!-- Back to docs link -->
+    <div class="mt-16 pt-8 border-t border-border">
+      <a 
+        href="/docs"
+        class="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        Voltar para documentação
+      </a>
+    </div>
+  </article>
+</DocsLayout>

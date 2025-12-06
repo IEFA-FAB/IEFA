@@ -1,0 +1,21 @@
+{
+  "short_name": "IEFA",
+  "name": "Portal IEFA",
+  "description": "Sistema de Gestão IEFA",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#242127",
+  "background_color": "#F5F1E9",
+  "scope": "/",
+  "lang": "pt-BR",
+  "dir": "ltr"
+}

@@ -1,9 +1,7 @@
-# public/robots.txt
-
+# https://www.robotstxt.org/robotstxt.html
 User-agent: *
+Disallow:
 Allow: /
 
-# Nunca bloqueie CSS/JS essenciais (isso prejudica avaliação de qualidade)
-# Referencie o sitemap:
 Sitemap: https://portal.iefa.com.br/sitemap.xml
 
