@@ -16,8 +16,8 @@ WORKDIR /repo
 # --- Deps (Cache de dependências do Monorepo) ---
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY packages ./packages
-COPY apps ./apps
+#COPY packages ./packages
+#COPY apps ./apps
 RUN pnpm fetch
 
 # --- Build ---
