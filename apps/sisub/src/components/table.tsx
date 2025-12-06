@@ -30,7 +30,7 @@ import {
 import { ArrowUpDown, ChevronDown } from "lucide-react";
 import * as React from "react";
 import { useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import supabase from "@/utils/supabase";
 import CopyButton from "./copy-button";
 
 /* ---------------------------------------------------------

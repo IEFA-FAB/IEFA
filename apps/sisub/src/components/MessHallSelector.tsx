@@ -11,7 +11,7 @@ import {
 } from "@iefa/ui";
 import { AlertCircle, Check, MapPin } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
-import { useMessHalls } from "@/components/hooks/useMessHalls";
+import { useMessHalls } from "@/hooks/useMessHalls";
 
 interface MessHallSelectorProps {
 	value: string;
@@ -54,7 +54,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				isValidSelection,
 				displayLabel,
 			};
-		}, [JSON.stringify(messHalls), value]);
+		}, [value, messHalls]);
 
 		// Base de estilos de trigger alinhado ao shadcn
 		const baseTrigger =
@@ -91,7 +91,6 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				isInvalid,
 			};
 		}, [
-			baseTrigger,
 			disabled,
 			hasDefault,
 			showValidation,
@@ -126,7 +125,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 						</div>
 					</SelectItem>
 				)),
-			[JSON.stringify(messHalls), value],
+			[value, messHalls],
 		);
 
 		// Badges/indicadores à direita do label

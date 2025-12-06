@@ -13,10 +13,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 import Filters from "@/components/Filters";
-import { usePresenceManagement } from "@/components/hooks/usePresenceManagement";
 import FiscalDialog from "@/components/presence/FiscalDialog";
 import PresenceTable from "@/components/presence/PresenceTable";
 import { useAuth } from "@/hooks/useAuth";
+import { usePresenceManagement } from "@/hooks/usePresenceManagement";
 import type { DialogState, FiscalFilters, MealKey } from "@/types/domain";
 import { generateRestrictedDates, inferDefaultMeal } from "@/utils/FiscalUtils";
 import supabase from "@/utils/supabase";
@@ -82,8 +82,6 @@ type ScannerAction =
 	| { type: "INITIALIZE_ERROR"; error: string }
 	| { type: "TOGGLE_SCAN"; isScanning: boolean }
 	| { type: "REFRESH" };
-
-
 
 const scannerReducer = (
 	state: ScannerState,

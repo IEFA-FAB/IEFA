@@ -17,7 +17,7 @@ import {
 import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useMessHalls } from "@/components/hooks/useMessHalls";
+import { useMessHalls } from "@/hooks/useMessHalls";
 
 interface DefaultMessHallSelectorProps {
 	defaultMessHallCode: string;

@@ -15,8 +15,8 @@ import {
 	SelectValue,
 } from "@iefa/ui";
 import * as React from "react";
-import type { UserLevelOrNull } from "../../services/AdminService";
-import { Unit } from "../hooks/useMessHalls";
+import type { UserLevelOrNull } from "@/services/AdminService";
+import type { Unit } from "@/types/domain";
 
 export type NewUserPayload = {
 	id: string;
@@ -26,8 +26,6 @@ export type NewUserPayload = {
 	role: UserLevelOrNull;
 	om?: string | null;
 };
-
-type Option = { value: string; label: string };
 
 export default function AddUserDialog({
 	open,
