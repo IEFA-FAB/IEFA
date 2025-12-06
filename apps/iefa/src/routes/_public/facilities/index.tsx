@@ -81,7 +81,7 @@ function AppCard({ app }: { app: AppItem }) {
 							{app.contributors.length > 1 ? "Contribuidores" : "Contribuição"}
 						</div>
 						<ul className="mt-2 flex flex-row gap-x-8 gap-1.5">
-							{app.contributors.map((c, idx) => {
+							{app.contributors.map((c) => {
 								const isGithub = c.url?.includes("github.com");
 								const iconEl =
 									c.icon ??
