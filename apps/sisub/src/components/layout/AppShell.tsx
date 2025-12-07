@@ -57,7 +57,9 @@ export function AppShell() {
 
 	const navItems: NavItem[] = userLevel ? getNavItemsForLevel(userLevel) : [];
 
-	const showSidebar = !!sidebarData && !levelError;
+	// Show sidebar if we have data OR if we are loading the level (to show skeleton)
+	// But don't show if there was an error fetching the level
+	const showSidebar = (!!sidebarData || levelLoading) && !levelError;
 
 	const nrOrdemQuery = useUserNrOrdem(userId);
 	const evaluationQuery = useEvaluation(userId);
@@ -243,7 +245,9 @@ export function AppShell() {
 				hasCopied={hasCopiedId}
 			/>
 
-			{showSidebar && sidebarData ? <AppSidebar data={sidebarData} /> : null}
+			{showSidebar ? (
+				<AppSidebar data={sidebarData ?? undefined} isLoading={levelLoading} />
+			) : null}
 
 			<SidebarInset>
 				<div className="flex min-h-svh w-full flex-col supports-[height:100dvh]:min-h-dvh">
