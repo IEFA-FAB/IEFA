@@ -91,10 +91,10 @@ function usePregoeiroPreferences() {
 		supabase.auth.getUser().then(({ data }) => {
 			if (!mounted) return;
 			setUserId(data.user?.id ?? null);
-		})
+		});
 		return () => {
 			mounted = false;
-		}
+		};
 	}, []);
 
 	// Carrega preferências (Supabase se autenticado, senão localStorage)
@@ -109,7 +109,7 @@ function usePregoeiroPreferences() {
 						.from("pregoeiro_preferences")
 						.select("*")
 						.eq("user_id", userId)
-						.maybeSingle()
+						.maybeSingle();
 
 					if (error) throw error;
 
@@ -117,7 +117,7 @@ function usePregoeiroPreferences() {
 						const env = {
 							...DEFAULT_PREFS.env,
 							...(data.env || {}),
-						}
+						};
 						const is_open = data.is_open ?? DEFAULT_PREFS.is_open;
 						setPrefs({ env, is_open });
 					} else {
@@ -126,7 +126,7 @@ function usePregoeiroPreferences() {
 							user_id: userId,
 							env: DEFAULT_PREFS.env,
 							is_open: DEFAULT_PREFS.is_open,
-						})
+						});
 						setPrefs(DEFAULT_PREFS);
 					}
 				} else {
@@ -138,7 +138,7 @@ function usePregoeiroPreferences() {
 						setPrefs({
 							env: { ...DEFAULT_PREFS.env, ...(parsed.env || {}) },
 							is_open: parsed.is_open ?? DEFAULT_PREFS.is_open,
-						})
+						});
 					} else {
 						setPrefs(DEFAULT_PREFS);
 					}
@@ -154,7 +154,7 @@ function usePregoeiroPreferences() {
 		load();
 		return () => {
 			mounted = false;
-		}
+		};
 	}, [userId]);
 
 	// Salva com debounce (Supabase ou localStorage)
@@ -168,7 +168,7 @@ function usePregoeiroPreferences() {
 						env: next.env,
 						is_open: next.is_open,
 						updated_at: new Date().toISOString(),
-					})
+					});
 				} else if (typeof window !== "undefined") {
 					localStorage.setItem(LS_KEY, JSON.stringify(next));
 				}
@@ -176,7 +176,7 @@ function usePregoeiroPreferences() {
 				// manter silencioso; UI não deve travar por causa disso
 			}
 		}, 900);
-	}
+	};
 
 	// Setters
 	const setEnv = (
@@ -186,8 +186,8 @@ function usePregoeiroPreferences() {
 			const next: Prefs = { ...prev, env: updater(prev.env) };
 			persist(next);
 			return next;
-		})
-	}
+		});
+	};
 
 	const setIsOpen = (value: boolean | ((prev: boolean) => boolean)) => {
 		setPrefs((prev) => {
@@ -196,8 +196,8 @@ function usePregoeiroPreferences() {
 			const next: Prefs = { ...prev, is_open: nextIsOpen };
 			persist(next);
 			return next;
-		})
-	}
+		});
+	};
 
 	return { prefs, setEnv, setIsOpen, loading, userId };
 }
@@ -254,15 +254,15 @@ function PhraseModal({
 	const handleSave = async () => {
 		if (!currentUserId) {
 			alert("Você precisa estar autenticado para salvar suas frases.");
-			return
+			return;
 		}
 		if (!title.trim() || !content.trim()) {
 			alert("Título e Conteúdo são obrigatórios.");
-			return
+			return;
 		}
 		if (isEdit && !canEdit) {
 			alert("Você não tem permissão para editar esta frase.");
-			return
+			return;
 		}
 
 		setSaving(true);
@@ -274,7 +274,7 @@ function PhraseModal({
 				tags: parseTags(tagsText),
 				owner_id: currentUserId,
 				default: false,
-			}
+			};
 
 			if (isEdit && initial?.id) {
 				const { error } = await supabase
@@ -292,7 +292,7 @@ function PhraseModal({
 
 			await queryClient.invalidateQueries({
 				queryKey: ["facilities_pregoeiro"],
-			})
+			});
 			onOpenChange(false);
 			onSaved?.();
 		} catch (e: any) {
@@ -300,7 +300,7 @@ function PhraseModal({
 		} finally {
 			setSaving(false);
 		}
-	}
+	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -369,7 +369,7 @@ function PhraseModal({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	)
+	);
 }
 
 /* -----------------------------------------------
@@ -392,12 +392,12 @@ function Pregoeiro() {
 	const handleOpenCreate = () => {
 		setPhraseEditing(null);
 		setPhraseOpen(true);
-	}
+	};
 
 	const handleEditFromRow = (row: Facility) => {
 		setPhraseEditing(row);
 		setPhraseOpen(true);
-	}
+	};
 
 	return (
 		<div className="flex flex-col items-center justify-center w-full p-6 gap-8 pt-20">
@@ -548,5 +548,5 @@ function Pregoeiro() {
 				currentUserId={userId}
 			/>
 		</div>
-	)
+	);
 }

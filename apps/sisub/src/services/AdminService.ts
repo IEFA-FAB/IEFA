@@ -4,10 +4,9 @@ import {
 	type UseQueryOptions,
 	useQuery,
 } from "@tanstack/react-query";
+import type { UserLevelOrNull } from "@/types/domain";
 import supabase from "@/utils/supabase";
 
-export type UserLevel = "user" | "admin" | "superadmin";
-export type UserLevelOrNull = UserLevel | null;
 export type UserOm = string | null;
 
 export type AdminProfile = {

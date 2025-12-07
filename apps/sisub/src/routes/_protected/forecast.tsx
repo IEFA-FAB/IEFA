@@ -3,19 +3,12 @@
 import { Button } from "@iefa/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react";
-import {
-	type JSX,
-	lazy,
-	Suspense,
-	useCallback,
-	useMemo,
-	useState,
-} from "react";
-import BulkMealSelector from "@/components/rancho/BulkMealSelector";
-import { DayCardSkeleton } from "@/components/rancho/DayCard";
-import { DefaultMessHallSelector } from "@/components/rancho/DefaultMessHallSelector";
-import SimplifiedMilitaryStats from "@/components/rancho/SimplifiedMilitaryStats";
-import { UnifiedStatusToasts } from "@/components/rancho/UnifiedStatusToasts";
+import { type JSX, lazy, Suspense, useState } from "react";
+import { BulkMealSelector } from "@/components/forecast/BulkMealSelector";
+import { DayCardSkeleton } from "@/components/forecast/DayCard";
+import { DefaultMessHallSelector } from "@/components/forecast/DefaultMessHallSelector";
+import SimplifiedMilitaryStats from "@/components/forecast/SimplifiedMilitaryStats";
+import { UnifiedStatusToasts } from "@/components/forecast/UnifiedStatusToasts";
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho";
 import { useMealForecast } from "@/hooks/useMealForecast";
 import { useMessHalls } from "@/hooks/useMessHalls";
@@ -33,7 +26,7 @@ import {
 	isDateNear,
 } from "@/utils/RanchoUtils";
 
-const DayCard = lazy(() => import("@/components/rancho/DayCard"));
+const DayCard = lazy(() => import("@/components/forecast/DayCard"));
 
 /* ============================
    Utilitários e helpers de texto
@@ -116,44 +109,36 @@ export default function Forecast(): JSX.Element {
 	// Mapeia ID <-> CODE para falar com os Selectors (que operam por "code")
 	const { messHalls } = useMessHalls();
 
-	const defaultMessHallCode = useMemo(() => {
+	// Derived state (No useMemo - React Compiler handles this)
+	const defaultMessHallCode = (() => {
 		if (!defaultMessHallId) return "";
 		const mh = messHalls.find(
 			(m) => String(m.id) === String(defaultMessHallId),
 		);
 		return mh?.code ?? "";
-	}, [defaultMessHallId, messHalls]);
+	})();
 
-	const setDefaultMessHallCode = useCallback(
-		(code: string) => {
-			const mh = messHalls.find((m) => m.code === code);
-			if (mh?.id != null) {
-				// apenas local, sem persistir
-				setDefaultMessHallId(String(mh.id));
-			}
-		},
-		[messHalls, setDefaultMessHallId],
-	);
+	const setDefaultMessHallCode = (code: string) => {
+		const mh = messHalls.find((m) => m.code === code);
+		if (mh?.id != null) {
+			// apenas local, sem persistir
+			setDefaultMessHallId(String(mh.id));
+		}
+	};
 
 	// Helpers: resolver ID por CODE (para PendingChange/salvar)
-	const getMessHallIdByCode = useCallback(
-		(code?: string | null): string => {
-			if (!code) return "";
-			const match = messHalls.find((m) => m.code === code);
-			return match?.id != null ? String(match.id) : "";
-		},
-		[messHalls],
-	);
+	const getMessHallIdByCode = (code?: string | null): string => {
+		if (!code) return "";
+		const match = messHalls.find((m) => m.code === code);
+		return match?.id != null ? String(match.id) : "";
+	};
 
 	// Por data: ui code -> id (com fallback no default)
-	const resolveMessHallIdForDate = useCallback(
-		(date: string): string => {
-			const code = dayMessHalls[date] || defaultMessHallCode || "";
-			const idFromCode = getMessHallIdByCode(code);
-			return idFromCode || (defaultMessHallId ? String(defaultMessHallId) : "");
-		},
-		[dayMessHalls, defaultMessHallCode, defaultMessHallId, getMessHallIdByCode],
-	);
+	const resolveMessHallIdForDate = (date: string): string => {
+		const code = dayMessHalls[date] || defaultMessHallCode || "";
+		const idFromCode = getMessHallIdByCode(code);
+		return idFromCode || (defaultMessHallId ? String(defaultMessHallId) : "");
+	};
 
 	const [showDefaultMessHallSelector, setShowDefaultMessHallSelector] =
 		useState(false);
@@ -165,19 +150,14 @@ export default function Forecast(): JSX.Element {
 	const [isApplyingMealTemplate, setIsApplyingMealTemplate] = useState(false);
 
 	/* ============================
-     Derivações e memos
+     Derivações
      ============================ */
 
-	const weekdayTargets = useMemo(
-		() =>
-			dates.filter(
-				(date: string) =>
-					isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD),
-			),
-		[dates],
+	const weekdayTargets = dates.filter(
+		(date: string) => isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD),
 	);
 
-	const computedData = useMemo(() => {
+	const computedData = (() => {
 		// "Cards sem rancho" = datas sem um messHallCode definido (falsy)
 		const cardsWithoutMessHall = dates.filter((date: string) => {
 			const code = dayMessHalls[date];
@@ -192,124 +172,113 @@ export default function Forecast(): JSX.Element {
 		}));
 
 		return { cardsWithoutMessHall, cardData };
-	}, [dates, dayMessHalls, selections, defaultMessHallCode]);
+	})();
 
-	const dayCardsProps = useMemo(() => {
-		return computedData.cardData.map(
-			({ date, daySelections, dayMessHallCode }) => {
-				const dayCardData = getDayCardData(date, todayString, daySelections);
-				return {
-					key: date,
-					date,
-					daySelections,
-					// DayCard e MessHallSelector trabalham com CODE (mantemos nome por compat)
-					dayMessHallId: dayMessHallCode,
-					// Também passamos o default como CODE
-					defaultMessHallId: defaultMessHallCode,
-					...dayCardData,
-					isSaving: false,
-				};
-			},
-		);
-	}, [computedData.cardData, todayString, defaultMessHallCode]);
+	const dayCardsProps = computedData.cardData.map(
+		({ date, daySelections, dayMessHallCode }) => {
+			const dayCardData = getDayCardData(date, todayString, daySelections);
+			return {
+				key: date,
+				date,
+				daySelections,
+				// DayCard e MessHallSelector trabalham com CODE (mantemos nome por compat)
+				dayMessHallId: dayMessHallCode,
+				// Também passamos o default como CODE
+				defaultMessHallId: defaultMessHallCode,
+				...dayCardData,
+				isSaving: false,
+			};
+		},
+	);
 
 	/* ============================
-     Callbacks
+     Event Handlers
      ============================ */
 
-	const handleMealToggle = useCallback(
-		(date: string, meal: keyof DayMeals): void => {
-			if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
+	const handleMealToggle = (date: string, meal: keyof DayMeals): void => {
+		if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
 
-			// Resolve ID correto para o dia (a partir do CODE em UI)
-			const messHallId = resolveMessHallIdForDate(date);
-			if (!messHallId) {
-				setError("Defina seu rancho padrão antes de marcar refeições.");
-				return;
-			}
+		// Resolve ID correto para o dia (a partir do CODE em UI)
+		const messHallId = resolveMessHallIdForDate(date);
+		if (!messHallId) {
+			setError("Defina seu rancho padrão antes de marcar refeições.");
+			return;
+		}
 
-			const currentValue = selections[date]?.[meal] || false;
-			const newValue = !currentValue;
+		const currentValue = selections[date]?.[meal] || false;
+		const newValue = !currentValue;
 
-			setSelections((prev: SelectionsByDate) => {
-				const existing = prev[date] ?? createEmptyDayMeals();
-				return {
-					...prev,
-					[date]: {
-						...existing,
-						[meal]: newValue,
-					},
-				};
-			});
-
-			setPendingChanges((prev: PendingChange[]) => {
-				const idx = prev.findIndex((c) => c.date === date && c.meal === meal);
-				if (idx >= 0) {
-					const copy = [...prev];
-					copy[idx] = { date, meal, value: newValue, messHallId };
-					return copy;
-				}
-				return [...prev, { date, meal, value: newValue, messHallId }];
-			});
-		},
-		[
-			selections,
-			resolveMessHallIdForDate,
-			setSelections,
-			setPendingChanges,
-			setError,
-		],
-	);
-
-	const handleMessHallChange = useCallback(
-		(date: string, newMessHallCode: string): void => {
-			if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
-
-			// Na UI persistimos CODE por data
-			setDayMessHalls((prev: MessHallByDate) => ({
+		setSelections((prev: SelectionsByDate) => {
+			const existing = prev[date] ?? createEmptyDayMeals();
+			return {
 				...prev,
-				[date]: newMessHallCode,
+				[date]: {
+					...existing,
+					[meal]: newValue,
+				},
+			};
+		});
+
+		setPendingChanges((prev: PendingChange[]) => {
+			const idx = prev.findIndex((c) => c.date === date && c.meal === meal);
+			if (idx >= 0) {
+				const copy = [...prev];
+				copy[idx] = { date, meal, value: newValue, messHallId };
+				return copy;
+			}
+			return [...prev, { date, meal, value: newValue, messHallId }];
+		});
+	};
+
+	const handleMessHallChange = (
+		date: string,
+		newMessHallCode: string,
+	): void => {
+		if (isDateNear(date, NEAR_DATE_THRESHOLD)) return;
+
+		// Na UI persistimos CODE por data
+		setDayMessHalls((prev: MessHallByDate) => ({
+			...prev,
+			[date]: newMessHallCode,
+		}));
+
+		const dayMeals = selections[date];
+		if (!dayMeals) return;
+
+		// Para alterações existentes no dia, atualizamos o mess_hall_id (ID)
+		const messHallId = getMessHallIdByCode(newMessHallCode);
+		if (!messHallId) return;
+
+		const selectedMeals: PendingChange[] = Object.entries(dayMeals)
+			.filter(([, isSelected]) => Boolean(isSelected))
+			.map(([meal, value]) => ({
+				date,
+				meal: meal as keyof DayMeals,
+				value: Boolean(value),
+				messHallId,
 			}));
 
-			const dayMeals = selections[date];
-			if (!dayMeals) return;
+		if (!selectedMeals.length) return;
 
-			// Para alterações existentes no dia, atualizamos o mess_hall_id (ID)
-			const messHallId = getMessHallIdByCode(newMessHallCode);
-			if (!messHallId) return;
+		setPendingChanges((prev: PendingChange[]) => {
+			const filtered = prev.filter((c) => c.date !== date);
+			return [...filtered, ...selectedMeals];
+		});
+	};
 
-			const selectedMeals: PendingChange[] = Object.entries(dayMeals)
-				.filter(([, isSelected]) => Boolean(isSelected))
-				.map(([meal, value]) => ({
-					date,
-					meal: meal as keyof DayMeals,
-					value: Boolean(value),
-					messHallId,
-				}));
-
-			if (!selectedMeals.length) return;
-
-			setPendingChanges((prev: PendingChange[]) => {
-				const filtered = prev.filter((c) => c.date !== date);
-				return [...filtered, ...selectedMeals];
-			});
-		},
-		[selections, setDayMessHalls, setPendingChanges, getMessHallIdByCode],
-	);
-
-	const handleRefresh = useCallback((): void => {
+	const handleRefresh = (): void => {
 		loadExistingForecasts();
-	}, [loadExistingForecasts]);
+	};
 
-	const handleToggleMessHallSelector = useCallback((): void => {
+	const handleToggleMessHallSelector = (): void => {
 		setShowDefaultMessHallSelector((prev) => !prev);
-	}, []);
+	};
 
-	const handleCancelMessHallSelector = useCallback((): void => {
+	const handleCancelMessHallSelector = (): void => {
 		setShowDefaultMessHallSelector(false);
-	}, []);
+	};
 
-	const applyDefaultMessHallToAll = useCallback(async (): Promise<void> => {
+	const applyDefaultMessHallToAll = async (): Promise<void> => {
 		const { cardsWithoutMessHall } = computedData;
 		if (cardsWithoutMessHall.length === 0) return;
 
@@ -367,137 +336,112 @@ export default function Forecast(): JSX.Element {
 			console.error("Erro ao aplicar rancho padrão:", err);
 			setError("Erro ao aplicar rancho padrão. Tente novamente.");
 		}
-	}, [
-		computedData,
-		dayMessHalls,
-		defaultMessHallCode,
-		defaultMessHallId,
-		selections,
-		setDayMessHalls,
-		setPendingChanges,
-		setSuccess,
-		setError,
-		getMessHallIdByCode,
-	]);
+	};
 
-	const applyMealTemplateToAll = useCallback(
-		async (
-			template: DayMeals,
-			options: { mode: "fill-missing" | "override" },
-		): Promise<void> => {
-			const targetDates = weekdayTargets;
-			if (!targetDates.length) {
+	const applyMealTemplateToAll = async (
+		template: DayMeals,
+		options: { mode: "fill-missing" | "override" },
+	): Promise<void> => {
+		const targetDates = weekdayTargets;
+		if (!targetDates.length) {
+			setShowBulkMealSelector(false);
+			return;
+		}
+
+		setIsApplyingMealTemplate(true);
+		try {
+			const newChanges: PendingChange[] = [];
+			const afterByDate: Record<string, DayMeals> = {};
+
+			targetDates.forEach((date) => {
+				const before = selections[date] || createEmptyDayMeals();
+				const after: DayMeals = { ...before };
+
+				if (options.mode === "override") {
+					(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
+						after[k] = Boolean(template[k]);
+					});
+				} else {
+					(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
+						if (template[k]) after[k] = after[k] || true;
+					});
+				}
+
+				// UI (CODE) -> Backend (ID)
+				const codeForDay =
+					(dayMessHalls[date] && dayMessHalls[date] !== ""
+						? dayMessHalls[date]
+						: defaultMessHallCode) || "";
+				const idForDay =
+					getMessHallIdByCode(codeForDay) ||
+					(defaultMessHallId ? String(defaultMessHallId) : "");
+
+				(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
+					if (after[k] !== before[k]) {
+						if (!idForDay) {
+							// se não há ID resolvido, não empilha alteração inválida
+							return;
+						}
+						newChanges.push({
+							date,
+							meal: k,
+							value: after[k],
+							messHallId: idForDay,
+						});
+					}
+				});
+
+				afterByDate[date] = after;
+			});
+
+			if (newChanges.length === 0) {
+				setSuccess(
+					"Nenhuma alteração necessária para aplicar o template em dias úteis.",
+				);
 				setShowBulkMealSelector(false);
 				return;
 			}
 
-			setIsApplyingMealTemplate(true);
-			try {
-				const newChanges: PendingChange[] = [];
-				const afterByDate: Record<string, DayMeals> = {};
-
-				targetDates.forEach((date) => {
-					const before = selections[date] || createEmptyDayMeals();
-					const after: DayMeals = { ...before };
-
-					if (options.mode === "override") {
-						(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
-							after[k] = Boolean(template[k]);
-						});
-					} else {
-						(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
-							if (template[k]) after[k] = after[k] || true;
-						});
-					}
-
-					// UI (CODE) -> Backend (ID)
-					const codeForDay =
-						(dayMessHalls[date] && dayMessHalls[date] !== ""
-							? dayMessHalls[date]
-							: defaultMessHallCode) || "";
-					const idForDay =
-						getMessHallIdByCode(codeForDay) ||
-						(defaultMessHallId ? String(defaultMessHallId) : "");
-
-					(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
-						if (after[k] !== before[k]) {
-							if (!idForDay) {
-								// se não há ID resolvido, não empilha alteração inválida
-								return;
-							}
-							newChanges.push({
-								date,
-								meal: k,
-								value: after[k],
-								messHallId: idForDay,
-							});
-						}
-					});
-
-					afterByDate[date] = after;
+			setSelections((prev: SelectionsByDate) => {
+				const next: SelectionsByDate = { ...prev };
+				targetDates.forEach((date: string) => {
+					next[date] = afterByDate[date];
 				});
+				return next;
+			});
 
-				if (newChanges.length === 0) {
-					setSuccess(
-						"Nenhuma alteração necessária para aplicar o template em dias úteis.",
-					);
-					setShowBulkMealSelector(false);
-					return;
-				}
-
-				setSelections((prev: SelectionsByDate) => {
-					const next: SelectionsByDate = { ...prev };
-					targetDates.forEach((date: string) => {
-						next[date] = afterByDate[date];
-					});
-					return next;
-				});
-
-				setPendingChanges((prev: PendingChange[]) => {
-					const toRemove = new Set(
-						newChanges.map((c) => `${c.date}|${String(c.meal)}`),
-					);
-					const filtered = prev.filter(
-						(c) => !toRemove.has(`${c.date}|${String(c.meal)}`),
-					);
-					return [...filtered, ...newChanges];
-				});
-
-				const diasStr = `${targetDates.length} ${labelDiaUtil(
-					targetDates.length,
-				)}`;
-				const alteracoesStr = `${newChanges.length} ${labelAlteracao(
-					newChanges.length,
-				)}`;
-
-				setSuccess(
-					`Template de refeições aplicado a ${diasStr} no modo ${
-						options.mode === "override" ? "sobrescrever" : "preencher"
-					}: ${alteracoesStr}.`,
+			setPendingChanges((prev: PendingChange[]) => {
+				const toRemove = new Set(
+					newChanges.map((c) => `${c.date}|${String(c.meal)}`),
 				);
-				setShowBulkMealSelector(false);
-			} catch (err) {
-				console.error("Erro ao aplicar template de refeições:", err);
-				setError("Erro ao aplicar template de refeições. Tente novamente.");
-			} finally {
-				setIsApplyingMealTemplate(false);
-			}
-		},
-		[
-			weekdayTargets,
-			selections,
-			dayMessHalls,
-			defaultMessHallCode,
-			defaultMessHallId,
-			setSelections,
-			setPendingChanges,
-			setSuccess,
-			setError,
-			getMessHallIdByCode,
-		],
-	);
+				const filtered = prev.filter(
+					(c) => !toRemove.has(`${c.date}|${String(c.meal)}`),
+				);
+				return [...filtered, ...newChanges];
+			});
 
-	const handleApplyDefault = useCallback(async () => {
+			const diasStr = `${targetDates.length} ${labelDiaUtil(
+				targetDates.length,
+			)}`;
+			const alteracoesStr = `${newChanges.length} ${labelAlteracao(
+				newChanges.length,
+			)}`;
+
+			setSuccess(
+				`Template de refeições aplicado a ${diasStr} no modo ${
+					options.mode === "override" ? "sobrescrever" : "preencher"
+				}: ${alteracoesStr}.`,
+			);
+			setShowBulkMealSelector(false);
+		} catch (err) {
+			console.error("Erro ao aplicar template de refeições:", err);
+			setError("Erro ao aplicar template de refeições. Tente novamente.");
+		} finally {
+			setIsApplyingMealTemplate(false);
+		}
+	};
+
+	const handleApplyDefault = async () => {
 		setIsApplyingDefaultMessHall(true);
 		try {
 			// Persiste o default no user_data
@@ -511,18 +455,14 @@ export default function Forecast(): JSX.Element {
 		} finally {
 			setIsApplyingDefaultMessHall(false);
 		}
-	}, [
-		persistDefaultMessHallId,
-		applyDefaultMessHallToAll,
-		loadExistingForecasts,
-	]);
+	};
 
 	/* ============================
      Render
      ============================ */
 
 	return (
-		<div className="h-full w-full mx-auto flex-col px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
+		<div className="w-full mx-auto flex flex-col p-4 sm:p-6 space-y-6">
 			{/* Header */}
 			<header className="flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
@@ -591,7 +531,7 @@ export default function Forecast(): JSX.Element {
 			</section>
 
 			{/* Overlay: Toasts unificados (bottom-center) */}
-			<div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-9999 pointer-events-none">
+			<div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
 				<UnifiedStatusToasts
 					success={success}
 					error={error}
@@ -621,7 +561,7 @@ export default function Forecast(): JSX.Element {
 					Previsão por dia
 				</h2>
 
-				<div className="flex flex-row columns-auto justify-center items-center w-full flex-wrap gap-8">
+				<div className="flex flex-row flex-wrap justify-center items-center w-full gap-8">
 					{dayCardsProps.map((cardProps) => (
 						<Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
 							<div className="snap-center">

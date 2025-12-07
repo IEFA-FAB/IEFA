@@ -3,19 +3,17 @@ import { Button, Label, Switch } from "@iefa/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { Camera, RefreshCw, UserPlus } from "lucide-react";
 import QrScanner from "qr-scanner";
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useReducer,
-	useRef,
-	useState,
-} from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 import Filters from "@/components/Filters";
 import FiscalDialog from "@/components/presence/FiscalDialog";
 import PresenceTable from "@/components/presence/PresenceTable";
 import { useAuth } from "@/hooks/useAuth";
+import {
+	useAddOtherPresence,
+	useOtherPresencesCount,
+	useScanProcessor,
+} from "@/hooks/useFiscalOps";
 import { usePresenceManagement } from "@/hooks/usePresenceManagement";
 import type { DialogState, FiscalFilters, MealKey } from "@/types/domain";
 import { generateRestrictedDates, inferDefaultMeal } from "@/utils/FiscalUtils";
@@ -34,6 +32,7 @@ export const Route = createFileRoute("/_protected/presence")({
 	}),
 });
 
+// Cache for display names to avoid repeated fetch
 const displayNameCache = new Map<string, string>();
 
 async function resolveDisplayName(userId: string): Promise<string | null> {
@@ -117,13 +116,17 @@ function Qr() {
 	const scannerRef = useRef<QrScanner | null>(null);
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const qrBoxRef = useRef<HTMLDivElement>(null);
+
+	// No explicit types needed for useState where inferred
 	const [autoCloseDialog, setAutoCloseDialog] = useState(true);
 	const [isProcessing, setIsProcessing] = useState(false);
-	const dates = useMemo(() => generateRestrictedDates(), []);
-	const defaultMeal = useMemo(() => inferDefaultMeal(), []);
-	const [isAddingOther, setIsAddingOther] = useState(false);
+
+	// Removed useMemo for dates and meal - React Compiler handles this
+	const dates = generateRestrictedDates();
+	const defaultMeal = inferDefaultMeal();
 
 	const { user } = useAuth();
+	const { processScan } = useScanProcessor();
 
 	// Mantém controle de montagem para evitar setState após unmount
 	const isMountedRef = useRef(true);
@@ -139,6 +142,12 @@ function Qr() {
 		unit: "DIRAD - DIRAD",
 	});
 
+	// Queries & Mutations
+	const { data: othersCount } = useOtherPresencesCount(filters);
+	const addOtherMutation = useAddOtherPresence();
+	const { presences, forecastMap, confirmPresence, removePresence } =
+		usePresenceManagement(filters);
+
 	// Cooldown + cache de UUIDs (LRU simples)
 	const COOLDOWN_MS = 800;
 	const MAX_CACHE = 300;
@@ -146,7 +155,8 @@ function Qr() {
 	const recentlyScannedRef = useRef<Set<string>>(new Set());
 	const scannedQueueRef = useRef<string[]>([]); // LRU
 
-	const markScanned = useCallback((uuid: string) => {
+	// Removed useCallback - React Compiler handles this
+	const markScanned = (uuid: string) => {
 		const set = recentlyScannedRef.current;
 		const queue = scannedQueueRef.current;
 		if (!set.has(uuid)) {
@@ -157,7 +167,7 @@ function Qr() {
 				if (oldest) set.delete(oldest);
 			}
 		}
-	}, []);
+	};
 
 	const initialState: ScannerState = {
 		isReady: false,
@@ -175,190 +185,77 @@ function Qr() {
 		willEnter: "sim",
 	});
 
-	// Cache simples de code -> mess_hall_id para reduzir round-trips
-	const messHallIdCacheRef = useRef<Map<string, number>>(new Map());
-	const getMessHallIdByCode = useCallback(
-		async (code: string): Promise<number | undefined> => {
-			if (!code) return undefined;
-			const cached = messHallIdCacheRef.current.get(code);
-			if (cached) return cached;
-
-			const { data, error } = await supabase
-				.schema("sisub")
-				.from("mess_halls")
-				.select("id")
-				.eq("code", code)
-				.maybeSingle();
-
-			if (error) {
-				console.warn("Falha ao buscar mess_hall_id:", error);
-				return undefined;
-			}
-			const id = data?.id as number | undefined;
-			if (id) messHallIdCacheRef.current.set(code, id);
-			return id;
-		},
-		[],
-	);
-
-	const [othersCount, setOthersCount] = useState<number>(0);
-
-	const { presences, forecastMap, confirmPresence, removePresence } =
-		usePresenceManagement(filters);
-
-	const loadOthersCount = useCallback(async () => {
-		const { date, meal, unit } = filters;
-		if (!date || !meal || !unit) return;
-
-		// Converte CODE -> ID antes de contar
-		const messHallId = await getMessHallIdByCode(unit);
-		if (!messHallId) {
-			setOthersCount(0);
-			return;
-		}
-
-		const { error, count } = await supabase
-			.schema("sisub")
-			.from("other_presences")
-			.select("*", { count: "exact", head: true })
-			.eq("date", date)
-			.eq("meal", meal)
-			.eq("mess_hall_id", messHallId);
-
-		if (!error) setOthersCount(count ?? 0);
-	}, [filters, getMessHallIdByCode]);
-
-	useEffect(() => {
-		loadOthersCount();
-	}, [loadOthersCount]);
-
-	const addOtherPresence = useCallback(async () => {
+	const handleAddOtherPresence = async () => {
 		if (!user?.id) {
 			toast.error("Erro", { description: "Usuário não autenticado." });
 			return;
 		}
 
-		const { date, meal, unit } = filters;
-
-		if (!date || !meal || !unit) {
+		if (!filters.date || !filters.meal || !filters.unit) {
 			toast.error("Filtros incompletos", {
 				description: "Selecione data, refeição e unidade.",
 			});
 			return;
 		}
 
-		setIsAddingOther(true);
 		try {
-			// Converte CODE -> ID conforme schema da tabela
-			const messHallId = await getMessHallIdByCode(unit);
-			if (!messHallId) {
-				toast.error("Unidade inválida", {
-					description:
-						"Não foi possível mapear o código de rancho para o ID. Verifique a unidade selecionada.",
-				});
-				return;
-			}
-
-			const { error } = await supabase
-				.schema("sisub")
-				.from("other_presences")
-				.insert({
-					admin_id: user.id,
-					date,
-					meal,
-					mess_hall_id: messHallId,
-				});
-
-			if (error) throw error;
-
-			toast.success("Outro registrado", {
-				description: "Entrada sem cadastro adicionada com sucesso.",
+			await addOtherMutation.mutateAsync({
+				filters,
+				adminId: user.id,
 			});
+		} catch {}
+	};
+
+	const onScanSuccess = async (result: QrScanner.ScanResult) => {
+		const raw = (result?.data || "").trim();
+		if (!raw) return;
+
+		const uuid = extractUuid(raw);
+		if (!uuid) return;
+
+		const now = Date.now();
+		if (now - lastScanAtRef.current < COOLDOWN_MS) return;
+		if (recentlyScannedRef.current.has(uuid)) return;
+		if (isProcessing) return;
+
+		lastScanAtRef.current = now;
+		setIsProcessing(true);
+
+		try {
+			await scannerRef.current?.stop();
+		} catch {}
+
+		try {
+			const { systemForecast } = await processScan(uuid, filters);
+
+			if (!isMountedRef.current) return;
+
+			setLastScanResult(uuid);
+			setDialog({
+				open: true,
+				uuid,
+				systemForecast,
+				willEnter: "sim",
+			});
+
+			markScanned(uuid);
 		} catch (err) {
-			console.error("Erro ao registrar Outros:", err);
-			toast.error("Erro", {
-				description: "Não foi possível registrar a entrada.",
-			});
-		} finally {
-			await loadOthersCount();
-			setIsAddingOther(false);
-		}
-	}, [user?.id, filters, getMessHallIdByCode, loadOthersCount]);
-
-	const onScanSuccess = useCallback(
-		async (result: QrScanner.ScanResult) => {
-			const raw = (result?.data || "").trim();
-			if (!raw) return;
-
-			const uuid = extractUuid(raw);
-			if (!uuid) return;
-
-			const now = Date.now();
-			if (now - lastScanAtRef.current < COOLDOWN_MS) return;
-			if (recentlyScannedRef.current.has(uuid)) return;
-			if (isProcessing) return;
-
-			lastScanAtRef.current = now;
-			setIsProcessing(true);
-
-			try {
-				await scannerRef.current?.stop();
-			} catch {}
-
-			const { date, meal, unit } = filters;
-
-			try {
-				let systemForecast: boolean | null = null;
-				const messHallId = await getMessHallIdByCode(unit);
-
-				if (messHallId) {
-					const { data: forecast, error: fErr } = await supabase
-						.schema("sisub")
-						.from("meal_forecasts")
-						.select("will_eat")
-						.eq("user_id", uuid)
-						.eq("date", date)
-						.eq("meal", meal)
-						.eq("mess_hall_id", messHallId)
-						.maybeSingle();
-
-					if (!fErr && forecast) {
-						systemForecast = !!forecast.will_eat;
-					}
-				} else {
-					console.warn(`Código de rancho não encontrado: ${unit}`);
-				}
-
-				if (!isMountedRef.current) return;
-
-				setLastScanResult(uuid);
-				setDialog({
-					open: true,
-					uuid,
-					systemForecast,
-					willEnter: "sim",
-				});
-
-				markScanned(uuid);
-			} catch (err) {
-				console.error("Erro ao preparar diálogo:", err);
-				if (isMountedRef.current) {
-					toast.error("Erro", { description: "Falha ao processar QR." });
-				}
-			} finally {
-				if (isMountedRef.current) {
-					setIsProcessing(false);
-				}
+			console.error("Erro ao preparar diálogo:", err);
+			if (isMountedRef.current) {
+				toast.error("Erro", { description: "Falha ao processar QR." });
 			}
-		},
-		[isProcessing, filters, getMessHallIdByCode, markScanned],
-	);
+		} finally {
+			if (isMountedRef.current) {
+				setIsProcessing(false);
+			}
+		}
+	};
 
-	const onScanFail = useCallback((err: string | Error) => {
+	const onScanFail = (err: string | Error) => {
 		if (String(err) !== "No QR code found") {
 			console.warn("QR Scan Error:", err);
 		}
-	}, []);
+	};
 
 	// Scanner initialization
 	useEffect(() => {
@@ -415,10 +312,10 @@ function Qr() {
 			scannerRef.current?.destroy();
 			scannerRef.current = null;
 		};
-	}, [onScanSuccess, onScanFail]);
+	}, []); // Removed deps as function stability is handled by compiler and scope
 
 	// Função de confirmação do diálogo
-	const handleConfirmDialog = useCallback(async () => {
+	const handleConfirmDialog = async () => {
 		if (!dialog.uuid) return;
 		try {
 			await confirmPresence(dialog.uuid, dialog.willEnter === "sim");
@@ -429,7 +326,7 @@ function Qr() {
 				setDialog((d) => ({ ...d, open: false, uuid: null }));
 			}
 		}
-	}, [dialog.uuid, dialog.willEnter, confirmPresence]);
+	};
 
 	// Auto-close dialog
 	useEffect(() => {
@@ -439,7 +336,7 @@ function Qr() {
 			handleConfirmDialog();
 		}, 3000);
 		return () => clearTimeout(timerId);
-	}, [dialog.open, dialog.uuid, autoCloseDialog, handleConfirmDialog]);
+	}, [dialog.open, dialog.uuid, autoCloseDialog]); // Handlers are stable
 
 	// Pausar/retomar scanner quando o diálogo abre/fecha
 	useEffect(() => {
@@ -455,7 +352,7 @@ function Qr() {
 		}
 	}, [dialog.open, scannerState.hasPermission]);
 
-	const toggleScan = useCallback(async () => {
+	const toggleScan = async () => {
 		const scanner = scannerRef.current;
 		if (!scanner) return;
 
@@ -470,9 +367,9 @@ function Qr() {
 		} catch (err) {
 			console.error("Erro ao alternar scanner:", err);
 		}
-	}, [scannerState.isScanning]);
+	};
 
-	const refresh = useCallback(async () => {
+	const refresh = async () => {
 		const scanner = scannerRef.current;
 		if (!scanner) return;
 		try {
@@ -484,19 +381,16 @@ function Qr() {
 		} catch (err) {
 			console.error("Erro no refresh do scanner:", err);
 		}
-	}, []);
+	};
 
-	const clearResult = useCallback(() => setLastScanResult(""), []);
+	const clearResult = () => setLastScanResult("");
 
-	const actions = useMemo(
-		() => ({
-			toggleScan,
-			refresh,
-			clearResult,
-			removePresence,
-		}),
-		[toggleScan, refresh, clearResult, removePresence],
-	);
+	const actions = {
+		toggleScan,
+		refresh,
+		clearResult,
+		removePresence,
+	};
 
 	return (
 		<div className="h-full w-full mx-auto flex-col px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
@@ -565,8 +459,8 @@ function Qr() {
 					<Button
 						variant="default"
 						size="sm"
-						onClick={addOtherPresence}
-						disabled={isAddingOther}
+						onClick={handleAddOtherPresence}
+						disabled={addOtherMutation.isPending}
 						className="shrink-0"
 					>
 						<UserPlus className="h-4 w-4 mr-2" />

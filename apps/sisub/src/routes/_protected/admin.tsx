@@ -1,11 +1,11 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-// Componentes refatorados
+
 import AdminHero from "@/components/admin/AdminHero";
 import IndicatorsCard from "@/components/admin/IndicatorsCard";
 import QRAutoCheckinCard from "@/components/admin/QRAutoCheckinCard";
 import { useAuth } from "@/hooks/useAuth";
-import { checkUserLevel } from "@/services/AdminService";
+import { useUserLevel } from "@/services/AdminService";
 
 export const Route = createFileRoute("/_protected/admin")({
 	component: AdminPanel,
@@ -17,13 +17,11 @@ export const Route = createFileRoute("/_protected/admin")({
 	}),
 });
 
-type AdminStatus = "checking" | "authorized" | "unauthorized";
-
 function AdminPanel() {
 	const { user } = useAuth();
 
-	const [status, setStatus] = useState<AdminStatus>("checking");
-	const [error, setError] = useState<string | null>(null);
+	// Busca nível de usuário (data já vem null se não autorizado/erro)
+	const { data: userLevel, isLoading, isError } = useUserLevel(user?.id);
 
 	// Unidade selecionada no QR
 	const [selectedOm, setSelectedOm] = useState<string>("");
@@ -35,42 +33,23 @@ function AdminPanel() {
 		return () => clearTimeout(t);
 	}, []);
 
-	// Checagem de nível de usuário
-	useEffect(() => {
-		let active = true;
-		const fetchUserLevel = async () => {
-			if (!user?.id) return;
-			setStatus("checking");
-			setError(null);
-			try {
-				const userLevel = await checkUserLevel(user.id);
-				if (!active) return;
-				if (userLevel === "admin" || userLevel === "superadmin") {
-					setStatus("authorized");
-				} else {
-					setStatus("unauthorized");
-				}
-			} catch (_) {
-				if (!active) return;
-				setError(
-					"Não foi possível verificar suas permissões. Tente novamente.",
-				);
-				setStatus("unauthorized");
-			}
-		};
-		fetchUserLevel();
-		return () => {
-			active = false;
-		};
-	}, [user?.id]);
+	// Cálculo do status
+	const isAuthorized = userLevel === "admin" || userLevel === "superadmin";
 
-	// Redirect se não tem permissão
-	if (status === "unauthorized") {
+	if (isLoading) {
+		// Loading discreto ou null enquanto verifica (evita flash)
+		return <div className="min-h-screen" />;
+	}
+
+	if (!isAuthorized && !isLoading) {
+		// Se terminou de carregar e não é autorizado (ou deu erro), redirect
 		return <Navigate to="/forecast" replace />;
 	}
 
+	const error = isError ? "Não foi possível verificar suas permissões." : null;
+
 	return (
-		<div className="min-h-screen ">
+		<div className="min-h-screen">
 			{/* Hero */}
 			<section
 				id="hero"
@@ -93,7 +72,7 @@ function AdminPanel() {
 					<QRAutoCheckinCard
 						selectedOm={selectedOm}
 						onChangeSelectedOm={setSelectedOm}
-						status={status}
+						status="authorized"
 					/>
 				</div>
 			</section>

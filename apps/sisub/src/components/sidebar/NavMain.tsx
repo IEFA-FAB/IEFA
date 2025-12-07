@@ -13,6 +13,7 @@ import {
 	SidebarMenuSubButton,
 	SidebarMenuSubItem,
 } from "@iefa/ui";
+import { Link } from "@tanstack/react-router";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 
 export function NavMain({
@@ -52,9 +53,9 @@ export function NavMain({
 									{item.items?.map((subItem) => (
 										<SidebarMenuSubItem key={subItem.title}>
 											<SidebarMenuSubButton asChild>
-												<a href={subItem.url}>
+												<Link to={subItem.url}>
 													<span>{subItem.title}</span>
-												</a>
+												</Link>
 											</SidebarMenuSubButton>
 										</SidebarMenuSubItem>
 									))}

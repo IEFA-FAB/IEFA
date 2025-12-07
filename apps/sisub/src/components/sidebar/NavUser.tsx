@@ -16,6 +16,7 @@ import {
 	SidebarMenuItem,
 	useSidebar,
 } from "@iefa/ui";
+import { useNavigate } from "@tanstack/react-router";
 import { EllipsisVertical, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -37,6 +38,7 @@ function getInitials(nameOrEmail?: string) {
 export function NavUser() {
 	const { isMobile } = useSidebar();
 	const { user, isAuthenticated, isLoading, signOut } = useAuth();
+	const navigate = useNavigate();
 
 	const meta = (user?.user_metadata ?? {}) as UserMeta;
 	const email = user?.email ?? "";
@@ -55,7 +57,7 @@ export function NavUser() {
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => window.location.assign("/login")}
+						onClick={() => navigate({ to: "/auth" })}
 					>
 						Entrar
 					</Button>
@@ -109,7 +111,7 @@ export function NavUser() {
 
 							<DropdownMenuItem
 								onSelect={() => {
-									window.location.assign("/profile");
+									navigate({ to: "/profile" });
 								}}
 								className="cursor-pointer"
 							>
@@ -120,7 +122,7 @@ export function NavUser() {
 							<DropdownMenuItem
 								onSelect={async () => {
 									await signOut();
-									window.location.assign("/login");
+									navigate({ to: "/auth" });
 								}}
 								className="text-red-600 focus:text-red-600 cursor-pointer"
 							>

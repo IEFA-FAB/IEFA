@@ -10,13 +10,13 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import type { AuthContextType } from "@/auth/service";
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import type { ThemeContextType } from "@/components/themeService";
 import { ThemeScript } from "@/components/themeService";
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
 import AppStyles from "@/styles.css?url";
+import type { AuthContextType } from "@/types/auth";
 
 export interface MyRouterContext {
 	queryClient: QueryClient;
