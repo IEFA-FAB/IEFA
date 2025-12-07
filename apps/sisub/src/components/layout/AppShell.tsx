@@ -1,14 +1,8 @@
 import { SidebarInset } from "@iefa/ui";
-import type { User } from "@supabase/supabase-js";
-import {
-	useIsFetching,
-	useIsMutating,
-	useMutation,
-	useQueries,
-	useQueryClient,
-} from "@tanstack/react-query";
+
+import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Outlet, useLocation } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EvaluationDialog } from "@/components/layout/EvaluationDialog";
 import { SaramDialog } from "@/components/layout/SaramDialog";
 
@@ -19,17 +13,11 @@ import {
 	type NavItem,
 } from "@/components/sidebar/NavItems";
 import { useAuth } from "@/hooks/useAuth";
-import {
-	fetchEvaluationForUser,
-	fetchUserNrOrdem,
-	QUERY_GC_TIME,
-	QUERY_STALE_TIME,
-	queryKeys,
-	syncIdEmail,
-	syncIdNrOrdem,
-} from "@/routes/_protected/route";
+import { useEvaluation, useSubmitEvaluation } from "@/hooks/useEvaluation";
+import { useUpdateNrOrdem, useUserNrOrdem } from "@/hooks/useUserNrOrdem";
+import { useSyncUserEmail } from "@/hooks/useUserSync";
 import { useUserLevel } from "@/services/AdminService";
-import supabase from "@/utils/supabase";
+
 import { AppSidebar } from "../sidebar/AppSidebar";
 import { MainSurface } from "../sidebar/MainSurface";
 import { Topbar } from "./TopBar";
@@ -38,7 +26,6 @@ const NR_ORDEM_MIN_LEN = 7;
 
 export function AppShell() {
 	const location = useLocation();
-	const queryClient = useQueryClient();
 	const { user } = useAuth();
 	const userId = user?.id ?? null;
 
@@ -48,58 +35,34 @@ export function AppShell() {
 		isError: levelError,
 	} = useUserLevel(user?.id);
 
-	const userDisplay = useMemo(() => {
-		if (!user) {
-			return { name: "Usuário", email: "", avatar: "" };
-		}
+	let userDisplay = { name: "Usuário", email: "", avatar: "" };
+	if (user) {
 		const name =
 			(user.user_metadata?.full_name as string | undefined) ??
 			(user.user_metadata?.name as string | undefined) ??
 			user.email ??
 			"Usuário";
 		const avatar = (user.user_metadata?.avatar_url as string | undefined) ?? "";
-		return { name, email: user.email ?? "", avatar };
-	}, [user]);
+		userDisplay = { name, email: user.email ?? "", avatar };
+	}
 
-	const sidebarData = useMemo(() => {
-		if (!userLevel || !user) return null;
-		return buildSidebarData({
+	let sidebarData = null;
+	if (userLevel && user) {
+		sidebarData = buildSidebarData({
 			level: userLevel,
 			activePath: location.pathname,
 			user: userDisplay,
 		});
-	}, [location.pathname, user, userLevel, userDisplay]);
+	}
 
-	const navItems: NavItem[] = useMemo(() => {
-		if (!userLevel) return [];
-		return getNavItemsForLevel(userLevel);
-	}, [userLevel]);
+	const navItems: NavItem[] = userLevel ? getNavItemsForLevel(userLevel) : [];
 
 	const showSidebar = !!sidebarData && !levelError;
 
-	const [nrOrdemQuery, evaluationQuery] = useQueries({
-		queries: [
-			{
-				queryKey: queryKeys.userNrOrdem(userId),
-				queryFn: () => fetchUserNrOrdem(userId as string),
-				enabled: !!userId,
-				staleTime: QUERY_STALE_TIME,
-				gcTime: QUERY_GC_TIME,
-			},
-			{
-				queryKey: queryKeys.evaluation(userId),
-				queryFn: () => fetchEvaluationForUser(userId as string),
-				enabled: !!userId,
-				staleTime: QUERY_STALE_TIME,
-				gcTime: QUERY_GC_TIME,
-			},
-		],
-	});
+	const nrOrdemQuery = useUserNrOrdem(userId);
+	const evaluationQuery = useEvaluation(userId);
 
-	const syncEmailMutation = useMutation({
-		mutationFn: syncIdEmail,
-		onError: (error) => console.error("Erro ao sincronizar email:", error),
-	});
+	const syncEmailMutation = useSyncUserEmail();
 
 	useEffect(() => {
 		if (user) syncEmailMutation.mutate(user);
@@ -124,51 +87,33 @@ export function AppShell() {
 		setNrOrdem(current ? String(current) : "");
 	}, [userId, nrOrdemQuery.data]);
 
-	const saveNrMutation = useMutation({
-		mutationFn: (value: string) => syncIdNrOrdem(user as User, value),
-		onMutate: async (value) => {
-			if (!userId) return undefined;
-			setNrError(null);
-			const queryKey = queryKeys.userNrOrdem(userId);
-			await queryClient.cancelQueries({ queryKey });
-			const previous = queryClient.getQueryData(queryKey);
-			queryClient.setQueryData(queryKey, value);
-			return { previous, queryKey };
-		},
-		onError: (error, _value, context) => {
-			console.error("Erro ao salvar nrOrdem:", error);
-			if (context?.previous) {
-				queryClient.setQueryData(context.queryKey, context.previous);
-			}
+	const saveNrMutation = useUpdateNrOrdem();
+
+	// Effect to update error state from mutation if needed
+	useEffect(() => {
+		if (saveNrMutation.isError) {
 			setNrError("Não foi possível salvar. Tente novamente.");
-		},
-		onSuccess: () => setNrDialogOpenState(false),
-		onSettled: () => {
-			if (userId) {
-				queryClient.invalidateQueries({
-					queryKey: queryKeys.userNrOrdem(userId),
-				});
-			}
-		},
-	});
+		}
+	}, [saveNrMutation.isError]);
 
-	const handleNrDialogOpenChange = useCallback(
-		(open: boolean) => {
-			if (!open && shouldForceNrDialog) return;
-			setNrDialogOpenState(open);
-		},
-		[shouldForceNrDialog],
-	);
+	// Effect to close dialog on success
+	useEffect(() => {
+		if (saveNrMutation.isSuccess) {
+			setNrDialogOpenState(false);
+		}
+	}, [saveNrMutation.isSuccess]);
 
-	const handleNrOrdemChange = useCallback(
-		(value: string) => {
-			setNrOrdem(value);
-			if (nrError) setNrError(null);
-		},
-		[nrError],
-	);
+	const handleNrDialogOpenChange = (open: boolean) => {
+		if (!open && shouldForceNrDialog) return;
+		setNrDialogOpenState(open);
+	};
 
-	const handleSubmitNrOrdem = useCallback(() => {
+	const handleNrOrdemChange = (value: string) => {
+		setNrOrdem(value);
+		if (nrError) setNrError(null);
+	};
+
+	const handleSubmitNrOrdem = () => {
 		const digitsOnly = nrOrdem.replace(/\D/g, "").trim();
 		if (!digitsOnly) {
 			setNrError("Informe seu número da Ordem.");
@@ -179,8 +124,8 @@ export function AppShell() {
 			return;
 		}
 		if (!user) return;
-		saveNrMutation.mutate(digitsOnly);
-	}, [nrOrdem, saveNrMutation, user]);
+		saveNrMutation.mutate({ user, nrOrdem: digitsOnly });
+	};
 
 	const [evaluationDismissed, setEvaluationDismissed] = useState(false);
 	const [selectedRating, setSelectedRating] = useState<number | null>(null);
@@ -202,49 +147,37 @@ export function AppShell() {
 		!nrDialogOpen &&
 		!evaluationDismissed;
 
-	const handleEvaluationOpenChange = useCallback((open: boolean) => {
+	const handleEvaluationOpenChange = (open: boolean) => {
 		if (!open) {
 			setEvaluationDismissed(true);
 			setSelectedRating(null);
 		} else {
 			setEvaluationDismissed(false);
 		}
-	}, []);
+	};
 
-	const submitVoteMutation = useMutation({
-		mutationFn: async (payload: { value: number; question: string }) => {
-			const { error } = await supabase.from("opinions").insert([
-				{
-					value: payload.value,
-					question: payload.question,
-					userId: user?.id,
-				},
-			]);
-			if (error) throw error;
-		},
-		onError: (error) => console.error("Erro ao registrar voto:", error),
-		onSuccess: () => handleEvaluationOpenChange(false),
-		onSettled: () => {
-			if (userId) {
-				queryClient.invalidateQueries({
-					queryKey: queryKeys.evaluation(userId),
-				});
-			}
-		},
-	});
+	const submitVoteMutation = useSubmitEvaluation();
 
-	const handleSubmitVote = useCallback(() => {
+	// Effect to close evaluation on success
+	// biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles this
+	useEffect(() => {
+		if (submitVoteMutation.isSuccess) {
+			handleEvaluationOpenChange(false);
+		}
+	}, [submitVoteMutation.isSuccess]);
+
+	const handleSubmitVote = () => {
 		const question = evaluationQuestion;
 		if (!userId || !question || selectedRating == null) return;
-		submitVoteMutation.mutate({ value: selectedRating, question });
-	}, [evaluationQuestion, selectedRating, submitVoteMutation, userId]);
+		submitVoteMutation.mutate({ value: selectedRating, question, userId });
+	};
 
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [qrOpen, setQrOpen] = useState(false);
 	const [hasCopiedId, setHasCopiedId] = useState(false);
 	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	const handleCopyUserId = useCallback(async () => {
+	const handleCopyUserId = async () => {
 		if (!user?.id) return;
 		if (typeof navigator === "undefined" || !navigator.clipboard) return;
 		try {
@@ -255,7 +188,7 @@ export function AppShell() {
 		} catch (error) {
 			console.error("Erro ao copiar ID:", error);
 		}
-	}, [user]);
+	};
 
 	useEffect(() => {
 		return () => {
@@ -276,9 +209,9 @@ export function AppShell() {
 	const showInitialLoading = levelLoading && !userLevel;
 	const showInitialError = !levelLoading && levelError;
 
-	const handleRetry = useCallback(() => {
+	const handleRetry = () => {
 		if (typeof window !== "undefined") window.location.reload();
-	}, []);
+	};
 
 	return (
 		<>

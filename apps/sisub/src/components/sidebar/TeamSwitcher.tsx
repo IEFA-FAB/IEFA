@@ -1,6 +1,9 @@
 "use client";
 
 import {
+	Avatar,
+	AvatarFallback,
+	AvatarImage,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -39,11 +42,12 @@ export function TeamSwitcher({
 							size="lg"
 							className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 						>
-							<img
-								src="/favicon.svg"
-								className="text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
-								aria-label="icon"
-							/>
+							<Avatar className="h-8 w-8 rounded-lg">
+								<AvatarImage src="/favicon.svg" alt={activeTeam.name} />
+								<AvatarFallback className="rounded-lg">
+									{activeTeam.name.slice(0, 2)}
+								</AvatarFallback>
+							</Avatar>
 
 							<div className="grid flex-1 text-left text-sm leading-tight">
 								<span className="truncate font-medium">{activeTeam.name}</span>
@@ -71,11 +75,12 @@ export function TeamSwitcher({
 									/* team.logo ? (
                     <team.logo className="size-3.5 shrink-0" />
                   ) : ( */
-									<img
-										src="/favicon.svg"
-										className="flex size-6 items-center justify-center rounded-md border"
-										aria-label="icon"
-									/>
+									<Avatar className="h-6 w-6 rounded-md border">
+										<AvatarImage src="/favicon.svg" alt={team.name} />
+										<AvatarFallback className="rounded-md">
+											{team.name.slice(0, 2)}
+										</AvatarFallback>
+									</Avatar>
 									/* ) */
 								}
 

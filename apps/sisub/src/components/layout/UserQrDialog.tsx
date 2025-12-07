@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import type React from "react";
-import { useCallback, useId, useRef } from "react";
+import { useId, useRef } from "react";
 
 type UserQrDialogProps = {
 	open: boolean;
@@ -38,7 +38,7 @@ export function UserQrDialog({
 	const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 	const canInteract = Boolean(userId);
 
-	const handleDownload = useCallback(() => {
+	const handleDownload = () => {
 		if (!qrCanvasRef.current || !userId) return;
 		try {
 			const url = qrCanvasRef.current.toDataURL("image/png");
@@ -47,19 +47,16 @@ export function UserQrDialog({
 			a.download = `user-${userId}-qrcode.png`;
 			a.click();
 		} catch {}
-	}, [userId]);
+	};
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			const isCopy =
-				(e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && canInteract;
-			if (isCopy) {
-				e.preventDefault();
-				onCopy();
-			}
-		},
-		[onCopy, canInteract],
-	);
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		const isCopy =
+			(e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && canInteract;
+		if (isCopy) {
+			e.preventDefault();
+			onCopy();
+		}
+	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

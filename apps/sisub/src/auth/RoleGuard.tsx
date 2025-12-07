@@ -1,31 +1,27 @@
-// ~/auth/role-guard.tsx
-
 import { Navigate, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { type UserLevelOrNull, useUserLevel } from "@/services/AdminService";
+import { useUserLevel } from "@/services/AdminService";
+import type { UserLevelOrNull } from "@/types/domain";
+
+interface RoleGuardProps {
+	requireAny: NonNullable<UserLevelOrNull>[];
+	redirectTo?: string;
+	children: React.ReactNode;
+}
 
 export function RoleGuard({
 	requireAny,
 	redirectTo = "/forecast",
 	children,
-}: {
-	// Passe explicitamente os níveis permitidos em cada rota
-	requireAny: Exclude<UserLevelOrNull, null>[];
-	redirectTo?: string;
-	children: React.ReactNode;
-}) {
+}: RoleGuardProps) {
 	const location = useLocation();
 	const { user } = useAuth();
-	const {
-		data: level,
-
-		isError,
-	} = useUserLevel(user?.id);
+	const { data: level, isError } = useUserLevel(user?.id);
 
 	// Não autenticado => mandar para login com redirect back
 	if (!user) {
-		const to = encodeURIComponent(`${location.pathname}${location.search}`);
-		return <Navigate to={`/login?redirectTo=${to}`} replace />;
+		const to = `${location.pathname}${location.search}`;
+		return <Navigate to="/auth" search={{ redirect: to }} replace />;
 	}
 
 	// Em erro ou sem perfil na tabela => tratar como sem acesso

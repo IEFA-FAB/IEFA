@@ -7,7 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@iefa/ui";
-import type { ProfileAdmin } from "./ProfilesManager";
+import type { ProfileAdmin } from "@/types/domain";
 
 export default function DeleteUserDialog({
 	open,

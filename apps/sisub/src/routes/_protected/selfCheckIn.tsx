@@ -138,7 +138,7 @@ function SelfCheckin() {
 						location.searchStr,
 					);
 					redirectedRef.current = true;
-					navigate({ to: `/login?redirectTo=${redirectTo}`,  replace: true });
+					navigate({ to: `/login?redirectTo=${redirectTo}`, replace: true });
 				}
 				return;
 			}

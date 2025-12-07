@@ -1,5 +1,5 @@
 import { Button } from "@iefa/ui";
-import { AlertCircle, ExternalLink, Maximize2 } from "lucide-react";
+import { BarChart3, ExternalLink, Maximize2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export default function IndicatorsCard() {
@@ -8,19 +8,19 @@ export default function IndicatorsCard() {
 	const toggleExpanded = () => setExpanded((e) => !e);
 
 	const powerBiUrl =
-		"https://app.powerbi.com/view?r=eyJrIjoiMmQ5MDYwODMtODJjNy00NzVkLWFjYzgtYjljYzE4NmM0ZDgxIiwidCI6IjNhMzY0ZGI2LTg2NmEtNDRkOS1iMzY5LWM1ODk1OWQ0NDhmOCJ9";
+		"https://app.powerbi.com/view?r=eyJrIjoiMDY4YjMzMzItNGExMy00ZDc0LTlkNTYtNjc5MTcwNzdiMzI1IiwidCI6ImNmNzJlMmJjLTdhOGQtNDI3Yy05OWFjLTM1M2M1MTgzYjJkMSJ9";
 
 	return (
 		<div
-			className={`rounded-2xl border  shadow-sm ${expanded ? "p-0" : "p-6"}`}
+			className={` rounded-2xl border shadow-sm ${expanded ? "p-0" : "p-6"}`}
 		>
 			{/* Barra superior */}
 			<div
 				className={`${expanded ? "px-4 py-3" : "mb-4"} flex items-center justify-between`}
 			>
-				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs  border ">
-					<AlertCircle className="h-4 w-4" aria-hidden="true" />
-					Indicadores Gerais
+				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border">
+					<BarChart3 className="h-4 w-4" aria-hidden="true" />
+					Indicadores
 				</div>
 
 				<div className="flex items-center gap-2">
@@ -28,7 +28,7 @@ export default function IndicatorsCard() {
 						onClick={() =>
 							window.open(powerBiUrl, "_blank", "noopener,noreferrer")
 						}
-						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border "
+						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50"
 						aria-label="Abrir relatório em nova aba"
 						title="Abrir em nova aba"
 					>
@@ -38,7 +38,7 @@ export default function IndicatorsCard() {
 
 					<Button
 						onClick={toggleExpanded}
-						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border "
+						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 "
 						aria-pressed={expanded}
 						aria-label={expanded ? "Reduzir" : "Expandir"}
 						title={expanded ? "Reduzir" : "Expandir"}
@@ -49,26 +49,29 @@ export default function IndicatorsCard() {
 				</div>
 			</div>
 
+			{/* Wrapper full-bleed quando expandido */}
 			<div className={expanded ? "" : "px-0"}>
-				<div className={`${expanded ? "" : "px-6"} pb-4`}>
+				{/* Cabeçalho do card (quando não expandido) */}
+				<div className={`${expanded ? "" : "px-6"} pb-4 flex flex-col gap-3`}>
 					{!expanded && (
 						<>
-							<h2 className="text-xl font-bold ">Indicadores do Sistema</h2>
+							<h2 className="text-xl font-bold ">Indicadores da Unidade</h2>
 							<p className=" text-sm">
-								Acompanhe métricas gerais do SISUB. Expanda para tela cheia para
-								melhor visualização.
+								Acompanhe métricas e relatórios consolidados. Expanda para tela
+								cheia para melhor visualização.
 							</p>
 						</>
 					)}
 				</div>
 
+				{/* Container do iframe */}
 				<div className={`${expanded ? "" : "px-6"} pb-6`}>
 					<div className="rounded-2xl border  overflow-hidden ">
 						<iframe
-							title="Sistema_sisub_FINALFINAL"
+							title="Indicadores SISUB - Power BI"
+							src={powerBiUrl}
 							className="w-full"
 							style={{ height: frameHeight }}
-							src={powerBiUrl}
 							allowFullScreen
 							loading="lazy"
 							referrerPolicy="no-referrer-when-downgrade"

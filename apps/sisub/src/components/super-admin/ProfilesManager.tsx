@@ -35,33 +35,44 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 import * as React from "react";
-import { useMemo } from "react";
-import { toast } from "sonner";
-import type { UserLevelOrNull } from "@/services/AdminService";
-import supabase from "@/utils/supabase";
-import { useMessHalls } from "../../hooks/useMessHalls";
-import AddUserDialog, { type NewUserPayload } from "./AddUserDialog";
+import {
+	useAddProfile,
+	useAdminProfiles,
+	useDeleteProfile,
+	useUpdateProfile,
+} from "@/hooks/useAdminProfiles";
+import { useMessHalls } from "@/hooks/useMessHalls";
+import type {
+	EditUserPayload,
+	NewUserPayload,
+	ProfileAdmin,
+	UserLevelOrNull,
+} from "@/types/domain";
+import AddUserDialog from "./AddUserDialog";
 import DeleteUserDialog from "./DeleteUserDialog";
-import EditUserDialog, { type EditUserPayload } from "./EditUserDialog";
-
-// Tipos
-export type ProfileAdmin = {
-	id: string;
-	saram: string | null;
-	name: string | null;
-	email: string;
-	role: UserLevelOrNull;
-	om: string | null;
-	created_at: string;
-	updated_at: string;
-};
+import EditUserDialog from "./EditUserDialog";
 
 type UserLevel = UserLevelOrNull;
+// Badge de role (cores via variantes padrão do shadcn)
+const RoleBadge = ({ role }: { role: UserLevel }) => {
+	if (!role) return <span className="text-muted-foreground">N/A</span>;
+	const variant =
+		role === "superadmin"
+			? "destructive"
+			: role === "admin"
+				? "default"
+				: "secondary";
+	const label =
+		role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : "User";
+	return <Badge variant={variant as any}>{label}</Badge>;
+};
 
 export default function ProfilesManager() {
-	// Dados
-	const [profiles, setProfiles] = React.useState<ProfileAdmin[]>([]);
-	const [loading, setLoading] = React.useState(true);
+	// Dados via Hook
+	const { data: profiles = [], isLoading: loading } = useAdminProfiles();
+	const addProfile = useAddProfile();
+	const updateProfile = useUpdateProfile();
+	const deleteProfile = useDeleteProfile();
 
 	// Hook de OMs
 	const {
@@ -77,311 +88,139 @@ export default function ProfilesManager() {
 	const [isEditUserOpen, setIsEditUserOpen] = React.useState(false);
 	const [isDeleteUserOpen, setIsDeleteUserOpen] = React.useState(false);
 
-	// Loading states de ações
-	const [isAdding, setIsAdding] = React.useState(false);
-	const [isUpdating, setIsUpdating] = React.useState(false);
-	const [isDeleting, setIsDeleting] = React.useState(false);
-
-	// Buscar perfis
-	const fetchProfiles = React.useCallback(async () => {
-		setLoading(true);
-		const { data, error } = await supabase
-			.from("profiles_admin")
-			.select("*")
-			.order("created_at", { ascending: false });
-
-		if (error) {
-			console.error("Error fetching profiles:", error);
-			toast.error("Erro ao buscar perfis", {
-				description: error.message,
-			});
-		} else {
-			setProfiles(data || []);
-		}
-		setLoading(false);
-	}, []);
-
-	React.useEffect(() => {
-		fetchProfiles();
-	}, [fetchProfiles]);
-
 	// Ações: Adicionar
 	const handleAddUser = async (payload: NewUserPayload) => {
-		const id = payload.id.trim();
-		const email = payload.email.trim().toLowerCase();
-		const name = payload.name.trim();
-		const saram = payload.saram.trim();
-		const role = payload.role;
-		const om = payload.om || null;
-
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		const uuidRegex =
-			/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-		if (!uuidRegex.test(id)) {
-			toast.error("Erro de Validação", {
-				description: "ID inválido. Informe um UUID válido do usuário admin.",
-			});
-			return;
-		}
-		if (!emailRegex.test(email)) {
-			toast.error("Erro de Validação", { description: "Email inválido." });
-			return;
-		}
-		if (!name) {
-			toast.error("Erro de Validação", {
-				description: "O nome é obrigatório.",
-			});
-			return;
-		}
-		if (!/^\d{7}$/.test(saram)) {
-			toast.error("SARAM inválido", {
-				description: "O SARAM deve conter exatamente 7 números.",
-			});
-			return;
-		}
-		if (!role) {
-			toast.error("Erro de Validação", {
-				description: "Selecione uma role para o usuário.",
-			});
-			return;
-		}
-
-		try {
-			setIsAdding(true);
-			const { error } = await supabase.from("profiles_admin").insert([
-				{
-					id,
-					email,
-					name,
-					saram,
-					role,
-					om,
-				},
-			]);
-			if (error) throw error;
-
-			toast.success("Sucesso!", {
-				description: `Usuário ${email} adicionado.`,
-			});
-
-			setIsAddUserOpen(false);
-			await fetchProfiles();
-		} catch (err: any) {
-			toast.error("Erro ao adicionar usuário", {
-				description:
-					err?.message ?? "Ocorreu um erro ao salvar. Tente novamente.",
-			});
-		} finally {
-			setIsAdding(false);
-		}
+		await addProfile.mutateAsync(payload);
+		setIsAddUserOpen(false);
 	};
 
 	// Ações: Atualizar
 	const handleUpdateUser = async (payload: EditUserPayload) => {
 		if (!selectedProfile) return;
-
-		if (payload.saram && !/^\d{7}$/.test(payload.saram)) {
-			toast.error("SARAM inválido", {
-				description: "O SARAM deve conter exatamente 7 números.",
-			});
-			return;
-		}
-
-		try {
-			setIsUpdating(true);
-			const { error } = await supabase
-				.from("profiles_admin")
-				.update({
-					role: payload.role,
-					saram: payload.saram || null,
-					om: payload.om || null,
-				})
-				.eq("id", selectedProfile.id);
-
-			if (error) throw error;
-
-			toast.success("Sucesso!", {
-				description: `Perfil de ${selectedProfile.email} atualizado.`,
-			});
-
-			setIsEditUserOpen(false);
-			setSelectedProfile(null);
-			await fetchProfiles();
-		} catch (err: any) {
-			toast.error("Erro ao atualizar", {
-				description: err?.message ?? "Não foi possível atualizar o registro.",
-			});
-		} finally {
-			setIsUpdating(false);
-		}
+		await updateProfile.mutateAsync({ id: selectedProfile.id, payload });
+		setIsEditUserOpen(false);
+		setSelectedProfile(null);
 	};
 
 	// Ações: Excluir
 	const handleDeleteUser = async () => {
 		if (!selectedProfile) return;
-
-		try {
-			setIsDeleting(true);
-			const { error } = await supabase
-				.from("profiles_admin")
-				.delete()
-				.eq("id", selectedProfile.id);
-
-			if (error) throw error;
-
-			toast.success("Registro excluído", {
-				description: `Usuário ${selectedProfile.email} removido.`,
-			});
-
-			setIsDeleteUserOpen(false);
-			setSelectedProfile(null);
-			await fetchProfiles();
-		} catch (err: any) {
-			toast.error("Erro ao excluir", {
-				description: err?.message ?? "Não foi possível excluir o registro.",
-			});
-		} finally {
-			setIsDeleting(false);
-		}
+		await deleteProfile.mutateAsync(selectedProfile.id);
+		setIsDeleteUserOpen(false);
+		setSelectedProfile(null);
 	};
 
-	// Badge de role (cores via variantes padrão do shadcn)
-	const RoleBadge = ({ role }: { role: UserLevel }) => {
-		if (!role) return <span className="text-muted-foreground">N/A</span>;
-		const variant =
-			role === "superadmin"
-				? "destructive"
-				: role === "admin"
-					? "default"
-					: "secondary";
-		const label =
-			role === "superadmin"
-				? "Superadmin"
-				: role === "admin"
-					? "Admin"
-					: "User";
-		return <Badge variant={variant as any}>{label}</Badge>;
-	};
-
-	// Colunas da Tabela
-	const columns = useMemo<ColumnDef<ProfileAdmin>[]>(
-		() => [
-			{
-				id: "select",
-				header: ({ table }) => (
-					<Checkbox
-						checked={table.getIsAllPageRowsSelected()}
-						onCheckedChange={(value) =>
-							table.toggleAllPageRowsSelected(!!value)
-						}
-						aria-label="Selecionar todos"
-					/>
-				),
-				cell: ({ row }) => (
-					<Checkbox
-						checked={row.getIsSelected()}
-						onCheckedChange={(value) => row.toggleSelected(!!value)}
-						aria-label="Selecionar linha"
-					/>
-				),
-				enableSorting: false,
-				enableHiding: false,
+	// Colunas da Tabela (React Compiler otimiza, sem useMemo)
+	const columns: ColumnDef<ProfileAdmin>[] = [
+		{
+			id: "select",
+			header: ({ table }) => (
+				<Checkbox
+					checked={table.getIsAllPageRowsSelected()}
+					onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+					aria-label="Selecionar todos"
+				/>
+			),
+			cell: ({ row }) => (
+				<Checkbox
+					checked={row.getIsSelected()}
+					onCheckedChange={(value) => row.toggleSelected(!!value)}
+					aria-label="Selecionar linha"
+				/>
+			),
+			enableSorting: false,
+			enableHiding: false,
+		},
+		{
+			accessorKey: "email",
+			header: ({ column }) => (
+				<Button
+					variant="ghost"
+					className="px-0"
+					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+				>
+					Email <ArrowUpDown className="ml-2 h-4 w-4" />
+				</Button>
+			),
+			cell: ({ row }) => (
+				<div className="lowercase text-foreground">{row.getValue("email")}</div>
+			),
+		},
+		{
+			accessorKey: "name",
+			header: "Nome",
+			cell: ({ row }) => (
+				<div className="text-foreground">
+					{row.getValue("name") || (
+						<span className="text-muted-foreground">N/A</span>
+					)}
+				</div>
+			),
+		},
+		{
+			accessorKey: "role",
+			header: "Role",
+			cell: ({ row }) => <RoleBadge role={row.getValue("role")} />,
+		},
+		{
+			accessorKey: "saram",
+			header: "SARAM",
+			cell: ({ row }) => (
+				<div className="tabular-nums">
+					{row.getValue("saram") || (
+						<span className="text-muted-foreground">N/A</span>
+					)}
+				</div>
+			),
+		},
+		{
+			accessorKey: "om",
+			header: "OM",
+			cell: ({ row }) => (
+				<div>
+					{row.getValue("om") || (
+						<span className="text-muted-foreground">N/A</span>
+					)}
+				</div>
+			),
+		},
+		{
+			id: "actions",
+			cell: ({ row }) => {
+				const profile = row.original;
+				return (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" className="h-8 w-8 p-0">
+								<span className="sr-only">Abrir menu</span>
+								<MoreHorizontal className="h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuLabel>Ações</DropdownMenuLabel>
+							<DropdownMenuItem
+								onClick={() => {
+									setSelectedProfile(profile);
+									setIsEditUserOpen(true);
+								}}
+							>
+								Editar
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								className="text-destructive focus:text-destructive"
+								onClick={() => {
+									setSelectedProfile(profile);
+									setIsDeleteUserOpen(true);
+								}}
+							>
+								Excluir
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				);
 			},
-			{
-				accessorKey: "email",
-				header: ({ column }) => (
-					<Button
-						variant="ghost"
-						className="px-0"
-						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-					>
-						Email <ArrowUpDown className="ml-2 h-4 w-4" />
-					</Button>
-				),
-				cell: ({ row }) => (
-					<div className="lowercase text-foreground">
-						{row.getValue("email")}
-					</div>
-				),
-			},
-			{
-				accessorKey: "name",
-				header: "Nome",
-				cell: ({ row }) => (
-					<div className="text-foreground">
-						{row.getValue("name") || (
-							<span className="text-muted-foreground">N/A</span>
-						)}
-					</div>
-				),
-			},
-			{
-				accessorKey: "role",
-				header: "Role",
-				cell: ({ row }) => <RoleBadge role={row.getValue("role")} />,
-			},
-			{
-				accessorKey: "saram",
-				header: "SARAM",
-				cell: ({ row }) => (
-					<div className="tabular-nums">
-						{row.getValue("saram") || (
-							<span className="text-muted-foreground">N/A</span>
-						)}
-					</div>
-				),
-			},
-			{
-				accessorKey: "om",
-				header: "OM",
-				cell: ({ row }) => (
-					<div>
-						{row.getValue("om") || (
-							<span className="text-muted-foreground">N/A</span>
-						)}
-					</div>
-				),
-			},
-			{
-				id: "actions",
-				cell: ({ row }) => {
-					const profile = row.original;
-					return (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" className="h-8 w-8 p-0">
-									<span className="sr-only">Abrir menu</span>
-									<MoreHorizontal className="h-4 w-4" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								<DropdownMenuLabel>Ações</DropdownMenuLabel>
-								<DropdownMenuItem
-									onClick={() => {
-										setSelectedProfile(profile);
-										setIsEditUserOpen(true);
-									}}
-								>
-									Editar
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									className="text-destructive focus:text-destructive"
-									onClick={() => {
-										setSelectedProfile(profile);
-										setIsDeleteUserOpen(true);
-									}}
-								>
-									Excluir
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					);
-				},
-			},
-		],
-		[<RoleBadge role={row.getValue("role")} />],
-	);
+		},
+	];
 
 	// Tabela
 	const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -613,7 +452,7 @@ export default function ProfilesManager() {
 			<AddUserDialog
 				open={isAddUserOpen}
 				onOpenChange={setIsAddUserOpen}
-				isLoading={isAdding}
+				isLoading={addProfile.isPending}
 				units={units ? [...units] : []}
 				isLoadingUnits={isLoadingunits}
 				unitsError={unitsError}
@@ -623,7 +462,7 @@ export default function ProfilesManager() {
 			<EditUserDialog
 				open={isEditUserOpen}
 				onOpenChange={setIsEditUserOpen}
-				isLoading={isUpdating}
+				isLoading={updateProfile.isPending}
 				profile={selectedProfile}
 				units={units ? [...units] : []}
 				isLoadingUnits={isLoadingunits}
@@ -634,7 +473,7 @@ export default function ProfilesManager() {
 			<DeleteUserDialog
 				open={isDeleteUserOpen}
 				onOpenChange={setIsDeleteUserOpen}
-				isLoading={isDeleting}
+				isLoading={deleteProfile.isPending}
 				profile={selectedProfile}
 				onConfirm={handleDeleteUser}
 			/>

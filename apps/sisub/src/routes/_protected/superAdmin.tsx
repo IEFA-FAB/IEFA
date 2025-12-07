@@ -1,4 +1,4 @@
-// ~/components/super-admin/SuperAdminPanelInner.tsx
+// ~/routes/_protected/superAdmin.tsx
 
 import {
 	Button,
@@ -12,14 +12,17 @@ import {
 	Switch,
 	Textarea,
 } from "@iefa/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
+
 import { RoleGuard } from "@/auth/RoleGuard";
 import IndicatorsCard from "@/components/super-admin/IndicatorsCard";
 import ProfilesManager from "@/components/super-admin/ProfilesManager";
 import SuperAdminHero from "@/components/super-admin/SuperAdminHero";
-import supabase from "@/utils/supabase";
+import { useEvalConfig } from "@/hooks/useEvalConfig";
+import type { EvalConfig } from "@/types/domain";
 
 export const Route = createFileRoute("/_protected/superAdmin")({
 	component: SuperAdminPanelRoute,
@@ -34,113 +37,21 @@ export const Route = createFileRoute("/_protected/superAdmin")({
 	}),
 });
 
-type EvalConfig = { active: boolean; value: string };
-
-async function fetchEvalConfig(): Promise<EvalConfig> {
-	const { data, error } = await supabase
-		.from("super_admin_controller")
-		.select("key, active, value")
-		.eq("key", "evaluation")
-		.maybeSingle();
-	if (error) throw error;
-
-	return {
-		active: !!data?.active,
-		value:
-			typeof data?.value === "string"
-				? data.value
-				: data?.value == null
-					? ""
-					: String(data.value),
-	};
-}
-
-async function upsertEvalConfig(cfg: EvalConfig): Promise<EvalConfig> {
-	const { data, error } = await supabase
-		.from("super_admin_controller")
-		.upsert(
-			{ key: "evaluation", active: cfg.active, value: cfg.value },
-			{ onConflict: "key" },
-		)
-		.select("key, active, value")
-		.maybeSingle();
-
-	if (error) throw error;
-
-	return {
-		active: !!data?.active,
-		value:
-			typeof data?.value === "string"
-				? data.value
-				: data?.value == null
-					? ""
-					: String(data.value),
-	};
-}
+// Schema de validação
+const evalSchema = z.object({
+	active: z.boolean(),
+	value: z.string().max(240, "Máximo de 240 caracteres"),
+});
 
 function SuperAdminPanelInner() {
-	// fade-in
-	const [mounted, setMounted] = useState(false);
-	useEffect(() => {
-		const t = setTimeout(() => setMounted(true), 10);
-		return () => clearTimeout(t);
-	}, []);
-
-	const queryClient = useQueryClient();
-
-	// load config
-	const evalQuery = useQuery({
-		queryKey: ["super-admin", "evaluation-config"],
-		queryFn: fetchEvalConfig,
-		staleTime: 60_000,
-	});
-
-	// form state controlado localmente
-	const [form, setForm] = useState<EvalConfig>({ active: false, value: "" });
-
-	// sincroniza form com data carregada
-	useEffect(() => {
-		if (evalQuery.data && !evalQuery.isFetching) {
-			setForm(evalQuery.data);
-		}
-	}, [evalQuery.data, evalQuery.isFetching]);
-
-	const dirty = useMemo(() => {
-		const d = evalQuery.data;
-		if (!d) return false;
-		return d.active !== form.active || d.value !== form.value;
-	}, [evalQuery.data, form]);
-
-	const invalid = useMemo(() => {
-		if (evalQuery.isLoading) return true;
-		if (form.active && !form.value.trim()) return true;
-		return false;
-	}, [evalQuery.isLoading, form]);
-
-	const saveMutation = useMutation({
-		mutationFn: upsertEvalConfig,
-		onSuccess: (saved) => {
-			queryClient.setQueryData(["super-admin", "evaluation-config"], saved);
-		},
-	});
-
-	const loading = evalQuery.isLoading;
-	const saving = saveMutation.isPending;
-	const saveError = saveMutation.isError
-		? ((saveMutation.error as any)?.message ?? "Não foi possível salvar.")
-		: null;
-	const saveOk = saveMutation.isSuccess
-		? "Configuração salva com sucesso."
-		: null;
+	const { config, isLoading, updateConfig, isSaving } = useEvalConfig();
 
 	return (
-		<div className="min-h-screen ">
+		<div className="min-h-screen">
 			{/* Hero */}
 			<section
 				id="hero"
-				className={`container mx-auto max-w-screen-2xl px-4 pt-10 md:pt-14 transition-all duration-500 ${
-					mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-				}`}
+				className="container mx-auto max-w-screen-2xl px-4 pt-10 md:pt-14"
 			>
 				<SuperAdminHero />
 			</section>
@@ -148,9 +59,7 @@ function SuperAdminPanelInner() {
 			{/* Conteúdo */}
 			<section
 				id="content"
-				className={`container mx-auto max-w-screen-2xl px-4 py-10 md:py-14 transition-all duration-500 delay-100 ${
-					mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-				}`}
+				className="container mx-auto max-w-screen-2xl px-4 py-10 md:py-14"
 			>
 				<div className="grid grid-cols-1 gap-6 lg:gap-8">
 					<IndicatorsCard />
@@ -165,71 +74,147 @@ function SuperAdminPanelInner() {
 							</CardDescription>
 						</CardHeader>
 
-						<CardContent className="space-y-6">
-							<div className="flex items-center justify-between gap-4">
-								<div>
-									<Label htmlFor="evaluation-active" className="text-base">
-										Ativar pergunta
-									</Label>
-									<p className="text-sm text-muted-foreground">
-										Quando ativo, usuários que ainda não responderam verão a
-										pergunta.
-									</p>
-								</div>
-								<Switch
-									id="evaluation-active"
-									className="cursor-pointer"
-									checked={form.active}
-									onCheckedChange={(v: boolean) =>
-										setForm((p) => ({ ...p, active: v }))
-									}
-									disabled={loading || saving}
-								/>
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="evaluation-question">Texto da pergunta</Label>
-								<Textarea
-									id="evaluation-question"
-									placeholder="Ex.: Como você avalia sua experiência no Rancho?"
-									value={form.value}
-									onChange={(e) =>
-										setForm((p) => ({ ...p, value: e.target.value }))
-									}
-									disabled={loading || saving}
-									rows={3}
-									maxLength={240}
-									className="resize-y"
-								/>
-								<div className="flex justify-end text-xs text-muted-foreground">
-									{form.value.length}/240
-								</div>
-							</div>
-
-							{loading && (
-								<p className="text-sm text-muted-foreground">
+						<CardContent>
+							{isLoading ? (
+								<div className="py-8 text-center text-muted-foreground">
 									Carregando configuração...
-								</p>
+								</div>
+							) : config ? (
+								<EvaluationForm
+									initialData={config}
+									onSubmit={updateConfig}
+									isSaving={isSaving}
+								/>
+							) : (
+								<div className="py-8 text-center text-destructive">
+									Erro ao carregar configuração.
+								</div>
 							)}
-							{saveError && <p className="text-sm ">{saveError}</p>}
-							{saveOk && <p className="text-sm ">{saveOk}</p>}
 						</CardContent>
+					</Card>
+				</div>
+			</section>
+		</div>
+	);
+}
 
-						<CardFooter className="flex items-center justify-end gap-2">
+interface EvaluationFormProps {
+	initialData: EvalConfig;
+	onSubmit: (data: EvalConfig) => Promise<EvalConfig>;
+	isSaving: boolean;
+}
+
+function EvaluationForm({
+	initialData,
+	onSubmit,
+	isSaving,
+}: EvaluationFormProps) {
+	const form = useForm({
+		defaultValues: initialData,
+		validators: {
+			onChange: ({ value }) => {
+				const result = evalSchema.safeParse(value);
+				if (result.success) return undefined;
+				const errors: Record<string, string> = {};
+				result.error.issues.forEach((issue) => {
+					errors[issue.path.join(".")] = issue.message;
+				});
+				return errors;
+			},
+		},
+		onSubmit: async ({ value }) => {
+			try {
+				await onSubmit(value);
+				toast.success("Configuração salva com sucesso.");
+			} catch (error: any) {
+				toast.error("Erro ao salvar configuração", {
+					description: error?.message || "Ocorreu um erro desconhecido",
+				});
+			}
+		},
+	});
+
+	return (
+		<form
+			onSubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				form.handleSubmit();
+			}}
+			className="space-y-6"
+		>
+			<form.Field name="active">
+				{(field) => (
+					<div className="flex items-center justify-between gap-4">
+						<div>
+							<Label htmlFor={field.name} className="text-base">
+								Ativar pergunta
+							</Label>
+							<p className="text-sm text-muted-foreground">
+								Quando ativo, usuários que ainda não responderam verão a
+								pergunta.
+							</p>
+						</div>
+						<Switch
+							id={field.name}
+							className="cursor-pointer"
+							checked={field.state.value}
+							onCheckedChange={field.handleChange}
+							disabled={isSaving || form.state.isSubmitting}
+						/>
+					</div>
+				)}
+			</form.Field>
+
+			<form.Field name="value">
+				{(field) => (
+					<div className="space-y-2">
+						<Label htmlFor={field.name}>Texto da pergunta</Label>
+						<Textarea
+							id={field.name}
+							placeholder="Ex.: Como você avalia sua experiência no Rancho?"
+							value={field.state.value}
+							onBlur={field.handleBlur}
+							onChange={(e) => field.handleChange(e.target.value)}
+							disabled={isSaving || form.state.isSubmitting}
+							rows={3}
+							className="resize-y"
+						/>
+						<div className="flex justify-between text-xs">
+							<span className="text-destructive">
+								{field.state.meta.errors.join(", ")}
+							</span>
+							<span className="text-muted-foreground">
+								{field.state.value.length}/240
+							</span>
+						</div>
+					</div>
+				)}
+			</form.Field>
+
+			<CardFooter className="-mx-6 -mb-6 flex items-center justify-end gap-2 bg-muted/20 px-6 py-4 mt-6">
+				<form.Subscribe
+					selector={(state) => [
+						state.isDirty,
+						state.canSubmit,
+						state.isSubmitting,
+					]}
+				>
+					{([isDirty, canSubmit, isSubmitting]) => (
+						<>
 							<Button
 								type="button"
 								variant="ghost"
-								onClick={() => evalQuery.data && setForm(evalQuery.data)}
-								disabled={!dirty || saving || loading}
+								onClick={() => form.reset()}
+								disabled={!isDirty || isSaving || isSubmitting}
 							>
 								Reverter
 							</Button>
 							<Button
-								type="button"
-								onClick={() => saveMutation.mutate(form)}
-								disabled={!dirty || invalid || saving}
+								type="submit"
+								disabled={!canSubmit || isSaving || isSubmitting}
 							>
-								{saving ? (
+								{isSaving || isSubmitting ? (
 									<span className="inline-flex items-center gap-2">
 										<span className="h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
 										Salvando...
@@ -238,11 +223,11 @@ function SuperAdminPanelInner() {
 									"Salvar alterações"
 								)}
 							</Button>
-						</CardFooter>
-					</Card>
-				</div>
-			</section>
-		</div>
+						</>
+					)}
+				</form.Subscribe>
+			</CardFooter>
+		</form>
 	);
 }
 

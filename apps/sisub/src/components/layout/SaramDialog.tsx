@@ -9,7 +9,7 @@ import {
 	Input,
 } from "@iefa/ui";
 import type React from "react";
-import { useCallback, useId } from "react";
+import { useId } from "react";
 
 type NrOrdemDialogProps = {
 	open: boolean;
@@ -37,34 +37,25 @@ export function SaramDialog({
 
 	const canSubmit = nrOrdem.trim().length > 0 && !isSaving;
 
-	const normalizeDigits = useCallback((value: string) => {
+	const normalizeDigits = (value: string) => {
 		const digits = value.replace(/\D/g, "");
 		return digits.slice(0, NR_ORDEM_MAXLEN);
-	}, []);
+	};
 
-	const handleChange = useCallback(
-		(e: React.ChangeEvent<HTMLInputElement>) => {
-			onChange(normalizeDigits(e.target.value));
-		},
-		[onChange, normalizeDigits],
-	);
+	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		onChange(normalizeDigits(e.target.value));
+	};
 
-	const handlePaste = useCallback(
-		(e: React.ClipboardEvent<HTMLInputElement>) => {
-			e.preventDefault();
-			const pasted = e.clipboardData.getData("text");
-			onChange(normalizeDigits(pasted));
-		},
-		[onChange, normalizeDigits],
-	);
+	const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+		e.preventDefault();
+		const pasted = e.clipboardData.getData("text");
+		onChange(normalizeDigits(pasted));
+	};
 
-	const handleSubmit = useCallback(
-		(e: React.FormEvent<HTMLFormElement>) => {
-			e.preventDefault();
-			if (canSubmit) onSubmit();
-		},
-		[canSubmit, onSubmit],
-	);
+	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		if (canSubmit) onSubmit();
+	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
