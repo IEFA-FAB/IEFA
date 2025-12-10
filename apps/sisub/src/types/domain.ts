@@ -269,3 +269,5 @@ export type EditUserPayload = {
 	role: UserLevelOrNull;
 	om?: string | null;
 };
+
+export type AdminStatus = "checking" | "authorized" | "unauthorized";

@@ -13,19 +13,36 @@ import {
 	Textarea,
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { RoleGuard } from "@/auth/RoleGuard";
 import IndicatorsCard from "@/components/super-admin/IndicatorsCard";
 import ProfilesManager from "@/components/super-admin/ProfilesManager";
 import SuperAdminHero from "@/components/super-admin/SuperAdminHero";
+import { useAuth } from "@/hooks/useAuth";
 import { useEvalConfig } from "@/hooks/useEvalConfig";
+import { adminProfileQueryOptions } from "@/services/AdminService";
 import type { EvalConfig } from "@/types/domain";
 
 export const Route = createFileRoute("/_protected/superAdmin")({
-	component: SuperAdminPanelRoute,
+	beforeLoad: async ({ context }) => {
+		const userId = context.auth.user?.id;
+
+		if (!userId) {
+			throw redirect({ to: "/auth" });
+		}
+
+		const profile = await context.queryClient.ensureQueryData(
+			adminProfileQueryOptions(userId),
+		);
+
+		if (profile?.role !== "superadmin") {
+			throw redirect({ to: "/forecast" });
+		}
+	},
+	component: SuperAdminPanel,
 	head: () => ({
 		meta: [
 			{ title: "Painel SuperAdmin" },
@@ -43,8 +60,19 @@ const evalSchema = z.object({
 	value: z.string().max(240, "Máximo de 240 caracteres"),
 });
 
-function SuperAdminPanelInner() {
-	const { config, isLoading, updateConfig, isSaving } = useEvalConfig();
+function SuperAdminPanel() {
+	const { user } = useAuth();
+
+	// Ensure hook order
+	// Suspense Query for Admin Profile (kept for pattern consistency)
+	useSuspenseQuery(adminProfileQueryOptions(user?.id ?? ""));
+
+	// Suspense Query for Eval Config is inside useEvalConfig
+	const { config, updateConfig, isSaving } = useEvalConfig();
+
+	if (!user) {
+		return null;
+	}
 
 	return (
 		<div className="min-h-screen">
@@ -75,21 +103,11 @@ function SuperAdminPanelInner() {
 						</CardHeader>
 
 						<CardContent>
-							{isLoading ? (
-								<div className="py-8 text-center text-muted-foreground">
-									Carregando configuração...
-								</div>
-							) : config ? (
-								<EvaluationForm
-									initialData={config}
-									onSubmit={updateConfig}
-									isSaving={isSaving}
-								/>
-							) : (
-								<div className="py-8 text-center text-destructive">
-									Erro ao carregar configuração.
-								</div>
-							)}
+							<EvaluationForm
+								initialData={config}
+								onSubmit={updateConfig}
+								isSaving={isSaving}
+							/>
 						</CardContent>
 					</Card>
 				</div>
@@ -228,13 +246,5 @@ function EvaluationForm({
 				</form.Subscribe>
 			</CardFooter>
 		</form>
-	);
-}
-
-function SuperAdminPanelRoute() {
-	return (
-		<RoleGuard requireAny={["superadmin"]} redirectTo="/forecast">
-			<SuperAdminPanelInner />
-		</RoleGuard>
 	);
 }

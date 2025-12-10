@@ -1,10 +1,10 @@
 import { Button } from "@iefa/ui";
 import { BarChart3, ExternalLink, Maximize2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 export default function IndicatorsCard() {
 	const [expanded, setExpanded] = useState(false);
-	const frameHeight = useMemo(() => "clamp(520px, 78vh, 1000px)", []);
+	const frameHeight = "clamp(520px, 78vh, 1000px)";
 	const toggleExpanded = () => setExpanded((e) => !e);
 
 	const powerBiUrl =

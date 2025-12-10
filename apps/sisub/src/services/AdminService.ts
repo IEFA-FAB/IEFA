@@ -1,6 +1,7 @@
 // adminService.ts
 import {
 	type QueryClient,
+	queryOptions,
 	type UseQueryOptions,
 	useQuery,
 } from "@tanstack/react-query";
@@ -21,6 +22,15 @@ export const QUERY_KEYS = {
 			["admin", "profile", userId ?? null] as const,
 	},
 } as const;
+
+export const adminProfileQueryOptions = (userId: string) =>
+	queryOptions({
+		queryKey: QUERY_KEYS.admin.profile(userId),
+		queryFn: () => fetchAdminProfile(userId),
+		staleTime: 10 * 60 * 1000,
+		gcTime: 30 * 60 * 1000,
+		refetchOnWindowFocus: false,
+	});
 
 // Sanitizador para garantir o tipo
 function sanitizeRole(input: unknown): UserLevelOrNull {

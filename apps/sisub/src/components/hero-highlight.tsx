@@ -53,7 +53,7 @@ export const HeroHighlight = ({
 			</div>
 
 			{/* Vignette */}
-			<div className="absolute inset-0 bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
+			<div className="absolute inset-0 bg-background mask-[radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
 
 			<motion.div
 				className="pointer-events-none absolute inset-0 opacity-0 transition duration-300 group-hover:opacity-100"

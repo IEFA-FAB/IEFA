@@ -56,7 +56,7 @@ type UserLevel = UserLevelOrNull;
 // Badge de role (cores via variantes padrão do shadcn)
 const RoleBadge = ({ role }: { role: UserLevel }) => {
 	if (!role) return <span className="text-muted-foreground">N/A</span>;
-	const variant =
+	const variant: "destructive" | "default" | "secondary" =
 		role === "superadmin"
 			? "destructive"
 			: role === "admin"
@@ -64,7 +64,7 @@ const RoleBadge = ({ role }: { role: UserLevel }) => {
 				: "secondary";
 	const label =
 		role === "superadmin" ? "Superadmin" : role === "admin" ? "Admin" : "User";
-	return <Badge variant={variant as any}>{label}</Badge>;
+	return <Badge variant={variant}>{label}</Badge>;
 };
 
 export default function ProfilesManager() {

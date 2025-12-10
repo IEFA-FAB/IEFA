@@ -7,10 +7,9 @@ import {
 	QrCode,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { UnitSelector } from "@/components/MessHallSelector";
-
-type AdminStatus = "checking" | "authorized" | "unauthorized";
+import type { AdminStatus } from "@/types/domain";
 
 export default function QRAutoCheckinCard({
 	selectedOm,
@@ -24,12 +23,10 @@ export default function QRAutoCheckinCard({
 	const baseUrl = "https://app.previsaosisub.com.br/checkin";
 	const currentOm = selectedOm?.trim();
 
-	const qrValue = useMemo(() => {
-		const url = new URL(baseUrl);
-		const om = (currentOm ?? "").normalize("NFKC").trim();
-		url.searchParams.set("u", om);
-		return url.toString();
-	}, [currentOm]);
+	const url = new URL(baseUrl);
+	const om = (currentOm ?? "").normalize("NFKC").trim();
+	url.searchParams.set("u", om);
+	const qrValue = url.toString();
 
 	// Ações do QR (copiar / baixar)
 	const qrWrapRef = useRef<HTMLDivElement | null>(null);

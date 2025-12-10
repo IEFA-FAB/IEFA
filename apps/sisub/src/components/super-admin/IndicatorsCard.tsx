@@ -1,10 +1,10 @@
 import { Button } from "@iefa/ui";
 import { BarChart3, ExternalLink, Maximize2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 export default function IndicatorsCard() {
 	const [expanded, setExpanded] = useState(false);
-	const frameHeight = useMemo(() => "clamp(520px, 78vh, 1000px)", []);
+	const frameHeight = "clamp(520px, 78vh, 1000px)";
 	const toggleExpanded = () => setExpanded((e) => !e);
 
 	const powerBiUrl =
@@ -56,7 +56,7 @@ export default function IndicatorsCard() {
 					{!expanded && (
 						<>
 							<h2 className="text-xl font-bold ">Indicadores da Unidade</h2>
-							<p className=" text-sm">
+							<p className="text-sm text-muted-foreground">
 								Acompanhe métricas e relatórios consolidados. Expanda para tela
 								cheia para melhor visualização.
 							</p>
@@ -77,7 +77,7 @@ export default function IndicatorsCard() {
 							referrerPolicy="no-referrer-when-downgrade"
 						/>
 					</div>
-					<div className="mt-3 text-xs  px-1">
+					<div className="mt-3 text-xs text-muted-foreground px-1">
 						Dica: use o botão de tela cheia dentro do relatório para melhor
 						experiência.
 					</div>

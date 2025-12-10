@@ -76,262 +76,239 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE SCHEMA IF NOT EXISTS sisub;
 
--- =============================================================================
--- 0. ESTRUTURA ORGANIZACIONAL (OMs e Ranchos)
--- =============================================================================
-
-CREATE TABLE IF NOT EXISTS sisub.unidades_militares (
-    id UUID PRIMARY KEY, 
-    nome TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS sisub.ranchos (
-    id UUID PRIMARY KEY, 
-    unidade_militar_id UUID, 
-    nome TEXT NOT NULL,
-    CONSTRAINT fk_rancho_om FOREIGN KEY (unidade_militar_id) REFERENCES sisub.unidades_militares(id)
-);
+-- Mocks
+CREATE TABLE IF NOT EXISTS sisub.units (id UUID PRIMARY KEY, name TEXT);
+CREATE TABLE IF NOT EXISTS sisub.mess_halls (id UUID PRIMARY KEY, unit_id UUID, name TEXT);
 
 -- =============================================================================
--- 1. CATÁLOGO DE INSUMOS E NUTRIÇÃO
+-- 1. ESTRUTURA DE PRODUTOS (Árvore & Itens de Compra)
 -- =============================================================================
 
--- 1.1 Categorias (Antigo Folder)
-CREATE TABLE sisub.categorias_insumos (
+CREATE TABLE sisub.product_groups (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    descricao TEXT NOT NULL,
-    categoria_pai_id UUID,
-    deletado_em TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_categoria_pai FOREIGN KEY (categoria_pai_id) REFERENCES sisub.categorias_insumos(id)
+    description TEXT NOT NULL,
+    parent_group_id UUID,
+    group_type TEXT NOT NULL CHECK (group_type IN ('FOLDER', 'LEAF')),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_parent_group FOREIGN KEY (parent_group_id) REFERENCES sisub.product_groups(id)
 );
 
--- 1.2 Insumos (Antigo Gênero Alimentício / Leaf)
--- Ex: "Arroz Agulhinha Tipo 1", "Feijão Preto", "Carne Bovina Coxão Mole"
-CREATE TABLE sisub.insumos (
+-- O Item de Compra (Logístico/Pregão) - Ex: "Arroz Tio João 5kg"
+CREATE TABLE sisub.ingredients (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    descricao TEXT NOT NULL,
-    categoria_id UUID NOT NULL,
-    
-    -- Unidade usada na Ficha Técnica
-    unidade_consumo TEXT NOT NULL CHECK (unidade_consumo IN ('KG', 'LT', 'UN', 'MC')), 
-    
-    fator_correcao_padrao DECIMAL(10, 4) DEFAULT 1.00,
-    deletado_em TIMESTAMP WITH TIME ZONE,
-    
-    CONSTRAINT fk_insumo_categoria FOREIGN KEY (categoria_id) REFERENCES sisub.categorias_insumos(id)
-);
-
--- 1.3 Nutrientes do Insumo (Alterado para ser flexível)
--- Permite cadastrar N nutrientes para 1 insumo
-CREATE TABLE sisub.nutrientes_insumo (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    insumo_id UUID NOT NULL,
-    
-    nome_nutriente TEXT NOT NULL, -- Ex: "Proteína", "Sódio", "Vitamina C"
-    quantidade DECIMAL(10, 4) NOT NULL, -- Valor numérico
-    unidade_medida TEXT NOT NULL, -- Ex: "g", "mg", "kcal", "mcg"
-    
-    fonte_dados TEXT, -- Ex: "TACO", "Rótulo"
-    
-    CONSTRAINT fk_nutri_insumo FOREIGN KEY (insumo_id) REFERENCES sisub.insumos(id) ON DELETE CASCADE,
-    -- Garante que não duplique o mesmo nutriente para o mesmo insumo
-    CONSTRAINT uq_insumo_nutriente UNIQUE (insumo_id, nome_nutriente)
-);
-
--- 1.4 Itens de Compra / Pregão
-CREATE TABLE sisub.itens_compra (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    descricao TEXT NOT NULL, 
-    insumo_id UUID NOT NULL, -- Link atualizado para Insumo
-    
-    unidade_compra TEXT NOT NULL, 
-    quantidade_conteudo DECIMAL(10,4) NOT NULL, 
-    
-    codigo_catmat TEXT,
-    deletado_em TIMESTAMP WITH TIME ZONE,
-    
-    CONSTRAINT fk_item_insumo FOREIGN KEY (insumo_id) REFERENCES sisub.insumos(id)
-);
-
--- =============================================================================
--- 2. ENGENHARIA DE CARDÁPIOS (Fichas Técnicas)
--- =============================================================================
-
-CREATE TABLE sisub.fichas_tecnicas (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    nome TEXT NOT NULL,
-    modo_preparo TEXT,
-    rendimento_porcoes DECIMAL(10, 2) NOT NULL, 
-    tempo_preparo_minutos INTEGER,
-    
-    unidade_militar_id UUID,
-    ficha_base_id UUID,
-    
-    versao INTEGER DEFAULT 1,
-    criado_em TIMESTAMP DEFAULT NOW(),
-    deletado_em TIMESTAMP WITH TIME ZONE,
-
-    CONSTRAINT fk_ficha_om FOREIGN KEY (unidade_militar_id) REFERENCES sisub.unidades_militares(id),
-    CONSTRAINT fk_ficha_base FOREIGN KEY (ficha_base_id) REFERENCES sisub.fichas_tecnicas(id)
-);
-
-CREATE TABLE sisub.insumos_ficha_tecnica (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    ficha_tecnica_id UUID NOT NULL,
-    
-    -- VÍNCULO TÉCNICO: Aponta para o Insumo
-    insumo_id UUID NOT NULL, 
-    
-    quantidade_liquida DECIMAL(12, 4) NOT NULL,
-    e_opcional BOOLEAN DEFAULT FALSE,
-    
-    CONSTRAINT fk_insumo_ficha FOREIGN KEY (ficha_tecnica_id) REFERENCES sisub.fichas_tecnicas(id) ON DELETE CASCADE,
-    CONSTRAINT fk_ift_insumo FOREIGN KEY (insumo_id) REFERENCES sisub.insumos(id)
-);
-
--- Substituições / Equivalentes
-CREATE TABLE sisub.substituicoes_ficha_tecnica (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    insumo_ficha_tecnica_id UUID NOT NULL,
-    insumo_id UUID NOT NULL, -- O insumo substituto
+    description TEXT NOT NULL, 
+    product_group_id UUID NOT NULL, -- Link para a LEAF "Arroz Branco"
   
-    quantidade_liquida DECIMAL(12, 4) NOT NULL,
-    ordem_prioridade INTEGER DEFAULT 1, 
+    -- Unidade usada na Ficha Técnica (Nutricional)
+    consumption_unit TEXT NOT NULL CHECK (consumption_unit IN ('KG', 'LT', 'UN')), 
   
-    CONSTRAINT fk_subst_pai FOREIGN KEY (insumo_ficha_tecnica_id) REFERENCES sisub.insumos_ficha_tecnica(id) ON DELETE CASCADE,
-    CONSTRAINT fk_subst_insumo FOREIGN KEY (insumo_id) REFERENCES sisub.insumos(id)
-);
-
--- =============================================================================
--- 3. PLANEJAMENTO & ARRANCHAMENTO
--- =============================================================================
-
-CREATE TABLE sisub.etapas (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    descricao TEXT NOT NULL,
-    unidade_militar_id UUID, 
-    ordem_exibicao INTEGER DEFAULT 0,
-    deletado_em TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_etapa_om FOREIGN KEY (unidade_militar_id) REFERENCES sisub.unidades_militares(id)
-);
-
-CREATE TABLE sisub.modelos_cardapio (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    nome TEXT NOT NULL,
-    descricao TEXT,
-    unidade_militar_id UUID, 
-    modelo_base_id UUID,
-    deletado_em TIMESTAMP WITH TIME ZONE,
-
-    CONSTRAINT fk_modelo_om FOREIGN KEY (unidade_militar_id) REFERENCES sisub.unidades_militares(id),
-    CONSTRAINT fk_modelo_base FOREIGN KEY (modelo_base_id) REFERENCES sisub.modelos_cardapio(id)
-);
-
-CREATE TABLE sisub.itens_modelo_cardapio (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    modelo_cardapio_id UUID NOT NULL,
-    dia_da_semana INTEGER NOT NULL CHECK (dia_da_semana BETWEEN 1 AND 7),
-    etapa_id UUID NOT NULL,
-    ficha_tecnica_id UUID NOT NULL,
+    -- Unidade usada na Licitação/Compra (Logística)
+    purchase_unit TEXT NOT NULL, -- "SACO", "CAIXA"
+    unit_content_qty DECIMAL(10,4) NOT NULL, -- Ex: 5.000 (Fator de conversão implícito)
   
-    CONSTRAINT fk_imc_modelo FOREIGN KEY (modelo_cardapio_id) REFERENCES sisub.modelos_cardapio(id) ON DELETE CASCADE,
-    CONSTRAINT fk_imc_etapa FOREIGN KEY (etapa_id) REFERENCES sisub.etapas(id),
-    CONSTRAINT fk_imc_ficha FOREIGN KEY (ficha_tecnica_id) REFERENCES sisub.fichas_tecnicas(id)
-);
-CREATE UNIQUE INDEX idx_modelo_dia_etapa ON sisub.itens_modelo_cardapio (modelo_cardapio_id, dia_da_semana, etapa_id);
-
-CREATE TABLE sisub.cardapios_diarios (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    rancho_id UUID NOT NULL,
-    data_servico DATE NOT NULL,
-    etapa_id UUID NOT NULL, 
-    
-    efetivo_previsto INTEGER NOT NULL,
-    status TEXT DEFAULT 'PLANEJADO',
-    deletado_em TIMESTAMP WITH TIME ZONE,
-    
-    CONSTRAINT uq_cardapio_rancho_data UNIQUE(rancho_id, data_servico, etapa_id),
-    CONSTRAINT fk_cardapio_rancho FOREIGN KEY (rancho_id) REFERENCES sisub.ranchos(id),
-    CONSTRAINT fk_cardapio_etapa FOREIGN KEY (etapa_id) REFERENCES sisub.etapas(id)
+    correction_factor DECIMAL(10, 4) DEFAULT 1.00, -- Fator de Limpeza/Cocção
+  
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_ing_group FOREIGN KEY (product_group_id) REFERENCES sisub.product_groups(id)
 );
 
-CREATE TABLE sisub.preparacoes_cardapio (
+-- Trigger para garantir integridade Folder/Leaf
+CREATE OR REPLACE FUNCTION fn_check_group_leaf() RETURNS TRIGGER AS $$
+DECLARE v_type TEXT;
+BEGIN
+    SELECT group_type INTO v_type FROM sisub.product_groups WHERE id = NEW.product_group_id;
+    IF v_type <> 'LEAF' THEN RAISE EXCEPTION 'Itens só podem ser vinculados a grupos LEAF.'; END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_check_ing_leaf BEFORE INSERT OR UPDATE ON sisub.ingredients FOR EACH ROW EXECUTE FUNCTION fn_check_group_leaf();
+
+-- =============================================================================
+-- 2. ENGENHARIA DE RECEITAS (Imutável & Alternativas)
+-- =============================================================================
+
+CREATE TABLE sisub.recipes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    cardapio_diario_id UUID NOT NULL,
-    ficha_tecnica_id UUID NOT NULL,
-    porcoes_planejadas INTEGER NOT NULL,
-    excluir_do_pedido BOOLEAN DEFAULT FALSE,
-    
-    -- Substituições pontuais: [{"insumo_id": "...", "qtd_manual": 10.5}]
-    substituicoes JSONB DEFAULT '[]'::JSONB,
-    
-    deletado_em TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_pc_cardapio FOREIGN KEY (cardapio_diario_id) REFERENCES sisub.cardapios_diarios(id) ON DELETE CASCADE,
-    CONSTRAINT fk_pc_ficha FOREIGN KEY (ficha_tecnica_id) REFERENCES sisub.fichas_tecnicas(id)
+    name TEXT NOT NULL,
+    preparation_method TEXT,
+    portion_yield DECIMAL(10, 2) NOT NULL, 
+    preparation_time_minutes INTEGER,
+  
+    unit_id UUID, -- NULL = Global
+    base_recipe_id UUID, -- Aponta para a receita original (se for fork)
+  
+    version INTEGER DEFAULT 1,
+    upstream_version_snapshot INTEGER, -- Rastreia versão original para alertas de update
+  
+    created_at TIMESTAMP DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    CONSTRAINT fk_recipe_unit FOREIGN KEY (unit_id) REFERENCES sisub.units(id),
+    CONSTRAINT fk_recipe_base FOREIGN KEY (base_recipe_id) REFERENCES sisub.recipes(id)
+);
+
+CREATE TABLE sisub.recipe_ingredients (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    recipe_id UUID NOT NULL,
+  
+    -- VÍNCULO TÉCNICO: Aponta para o Grupo Leaf (Necessidade), não para o Item de Compra
+    product_group_id UUID NOT NULL, 
+  
+    net_quantity DECIMAL(12, 4) NOT NULL, 
+    is_optional BOOLEAN DEFAULT FALSE,
+  
+    CONSTRAINT fk_ri_recipe FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ri_group FOREIGN KEY (product_group_id) REFERENCES sisub.product_groups(id)
+);
+
+-- Tabela de Alternativas (RF06)
+-- Resolve o problema da Manteiga vs Margarina (quantidades diferentes)
+CREATE TABLE sisub.recipe_ingredient_alternatives (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    recipe_ingredient_id UUID NOT NULL, -- Link com o item principal da receita
+    product_group_id UUID NOT NULL, -- O grupo substituto (ex: Margarina)
+
+    net_quantity DECIMAL(12, 4) NOT NULL, -- Quantidade específica para ESTE substituto
+    priority_order INTEGER DEFAULT 1, 
+
+    CONSTRAINT fk_ria_parent FOREIGN KEY (recipe_ingredient_id) REFERENCES sisub.recipe_ingredients(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ria_group FOREIGN KEY (product_group_id) REFERENCES sisub.product_groups(id)
 );
 
 -- =============================================================================
--- 4. FUNÇÕES & VIEWS
+-- 3. PLANEJAMENTO & EXECUÇÃO (Templates & Diário)
 -- =============================================================================
 
-CREATE OR REPLACE FUNCTION fn_aplicar_modelo_cardapio(
-    p_modelo_id UUID,
-    p_rancho_alvo_id UUID,
-    p_data_inicio DATE,
-    p_efetivo_padrao INTEGER
+CREATE TABLE sisub.meal_types (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    description TEXT NOT NULL, -- Café, Almoço, Jantar
+    unit_id UUID, 
+    sort_order INTEGER DEFAULT 0,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_meal_type_unit FOREIGN KEY (unit_id) REFERENCES sisub.units(id)
+);
+
+-- 3.1 Templates Semanais (RF07)
+CREATE TABLE sisub.menu_templates (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL, 
+    description TEXT,
+    unit_id UUID, 
+    base_template_id UUID,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    CONSTRAINT fk_template_unit FOREIGN KEY (unit_id) REFERENCES sisub.units(id),
+    CONSTRAINT fk_template_base FOREIGN KEY (base_template_id) REFERENCES sisub.menu_templates(id)
+);
+
+CREATE TABLE sisub.menu_template_items (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    menu_template_id UUID NOT NULL,
+    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 1 AND 7), -- 1=Segunda
+    meal_type_id UUID NOT NULL,
+    recipe_id UUID NOT NULL,
+
+    CONSTRAINT fk_mti_template FOREIGN KEY (menu_template_id) REFERENCES sisub.menu_templates(id) ON DELETE CASCADE,
+    CONSTRAINT fk_mti_meal_type FOREIGN KEY (meal_type_id) REFERENCES sisub.meal_types(id),
+    CONSTRAINT fk_mti_recipe FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id)
+);
+CREATE UNIQUE INDEX idx_template_day_meal ON sisub.menu_template_items (menu_template_id, day_of_week, meal_type_id);
+
+-- 3.2 Cardápio Diário Real
+CREATE TABLE sisub.daily_menus (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    mess_hall_id UUID NOT NULL,
+    service_date DATE NOT NULL,
+    meal_type_id UUID NOT NULL, 
+  
+    forecasted_headcount INTEGER NOT NULL,
+    status TEXT DEFAULT 'PLANNED',
+    deleted_at TIMESTAMP WITH TIME ZONE,
+  
+    CONSTRAINT uq_menu_hall_date UNIQUE(mess_hall_id, service_date, meal_type_id),
+    CONSTRAINT fk_menu_mess_hall FOREIGN KEY (mess_hall_id) REFERENCES sisub.mess_halls(id),
+    CONSTRAINT fk_menu_meal_type FOREIGN KEY (meal_type_id) REFERENCES sisub.meal_types(id)
+);
+
+CREATE TABLE sisub.menu_items (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    daily_menu_id UUID NOT NULL,
+    recipe_id UUID NOT NULL,
+    planned_portions_qty INTEGER NOT NULL,
+    exclude_from_procurement BOOLEAN DEFAULT FALSE,
+  
+    -- Substituições: [{"product_group_id": "...", "quantity_override": 10.5, "manual_ingredient_id": "..."}]
+    substitutions JSONB DEFAULT '[]'::JSONB,
+  
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT fk_mi_menu FOREIGN KEY (daily_menu_id) REFERENCES sisub.daily_menus(id) ON DELETE CASCADE,
+    CONSTRAINT fk_mi_recipe FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id)
+);
+
+-- =============================================================================
+-- 4. FUNÇÕES DE NEGÓCIO & VIEWS
+-- =============================================================================
+
+-- Função de "Pintura" (RF08)
+CREATE OR REPLACE FUNCTION fn_apply_menu_template(
+    p_template_id UUID,
+    p_target_mess_hall_id UUID,
+    p_start_date DATE, -- Segunda-feira
+    p_default_headcount INTEGER
 )
 RETURNS VOID 
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_item RECORD;
-    v_data_alvo DATE;
-    v_cardapio_id UUID;
+    v_target_date DATE;
+    v_daily_menu_id UUID;
 BEGIN
     FOR v_item IN 
-        SELECT * FROM sisub.itens_modelo_cardapio WHERE modelo_cardapio_id = p_modelo_id
+        SELECT * FROM sisub.menu_template_items WHERE menu_template_id = p_template_id
     LOOP
-        v_data_alvo := p_data_inicio + (v_item.dia_da_semana - 1);
+        v_target_date := p_start_date + (v_item.day_of_week - 1);
 
-        INSERT INTO sisub.cardapios_diarios (rancho_id, data_servico, etapa_id, efetivo_previsto, status) 
-        VALUES (p_rancho_alvo_id, v_data_alvo, v_item.etapa_id, p_efetivo_padrao, 'PLANEJADO')
-        ON CONFLICT (rancho_id, data_servico, etapa_id) 
-        DO UPDATE SET deletado_em = NULL
-        RETURNING id INTO v_cardapio_id;
+        INSERT INTO sisub.daily_menus (mess_hall_id, service_date, meal_type_id, forecasted_headcount, status) 
+        VALUES (p_target_mess_hall_id, v_target_date, v_item.meal_type_id, p_default_headcount, 'PLANNED')
+        ON CONFLICT (mess_hall_id, service_date, meal_type_id) 
+        DO UPDATE SET deleted_at = NULL
+        RETURNING id INTO v_daily_menu_id;
 
-        DELETE FROM sisub.preparacoes_cardapio WHERE cardapio_diario_id = v_cardapio_id;
-        
-        INSERT INTO sisub.preparacoes_cardapio (cardapio_diario_id, ficha_tecnica_id, porcoes_planejadas) 
-        VALUES (v_cardapio_id, v_item.ficha_tecnica_id, p_efetivo_padrao);
+        -- Limpa anterior e insere novo (Sobrescrita)
+        DELETE FROM sisub.menu_items WHERE daily_menu_id = v_daily_menu_id;
+        INSERT INTO sisub.menu_items (daily_menu_id, recipe_id, planned_portions_qty) 
+        VALUES (v_daily_menu_id, v_item.recipe_id, p_default_headcount);
     END LOOP;
 END;
 $$;
 
--- View de Consumo Realizado (Atualizada para usar Insumos)
-CREATE OR REPLACE VIEW sisub.vw_previsao_consumo AS
+-- View que consolida o que foi REALMENTE consumido (Planejado vs Substituído)
+CREATE OR REPLACE VIEW sisub.vw_realized_consumption AS
 SELECT 
-    pc.cardapio_diario_id,
-    pc.ficha_tecnica_id,
-    -- Lógica: Se existe override no JSON, usa ele. Senão, usa o cálculo da ficha.
+    mi.daily_menu_id,
+    mi.recipe_id,
+    -- Lógica: Se existe override no JSON, usa ele. Senão, usa o cálculo da receita.
     COALESCE(
-        (sub.value->>'qtd_manual')::DECIMAL, 
-        ift.quantidade_liquida * pc.porcoes_planejadas
-    ) as quantidade_final,
-    
+        (sub.value->>'quantity_override')::DECIMAL, 
+        ri.net_quantity * mi.planned_portions_qty
+    ) as final_quantity,
+  
     -- Lógica: Se trocou o insumo (ex: Manteiga -> Margarina), pega o ID novo.
     COALESCE(
-        (sub.value->>'insumo_id')::UUID,
-        ift.insumo_id
-    ) as insumo_final_id,
-    
-    CASE WHEN sub.value IS NOT NULL THEN 'SUBSTITUIDO' ELSE 'PLANEJADO' END as tipo_origem
-FROM sisub.preparacoes_cardapio pc
-JOIN sisub.insumos_ficha_tecnica ift ON ift.ficha_tecnica_id = pc.ficha_tecnica_id
-LEFT JOIN LATERAL jsonb_array_elements(pc.substituicoes) sub ON TRUE
-WHERE pc.deletado_em IS NULL AND pc.excluir_do_pedido IS FALSE;
+        (sub.value->>'product_group_id')::UUID,
+        ri.product_group_id
+    ) as final_product_group_id,
+  
+    CASE WHEN sub.value IS NOT NULL THEN 'SUBSTITUTED' ELSE 'PLANNED' END as source_type
+FROM sisub.menu_items mi
+JOIN sisub.recipe_ingredients ri ON ri.recipe_id = mi.recipe_id
+LEFT JOIN LATERAL jsonb_array_elements(mi.substitutions) sub ON TRUE
+WHERE mi.deleted_at IS NULL AND mi.exclude_from_procurement IS FALSE;
 
 ```
----
+
+----
 
 ### 5. Especificação de Frontend (UX/UI & TanStack Architecture)
 
