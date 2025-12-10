@@ -16,7 +16,9 @@ import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
 import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
+import { Route as PublicPostsIndexRouteImport } from './routes/_public/posts/index'
 import { Route as PublicFacilitiesIndexRouteImport } from './routes/_public/facilities/index'
+import { Route as PublicPostsSlugRouteImport } from './routes/_public/posts/$slug'
 import { Route as PublicFacilitiesPregoeiroRouteImport } from './routes/_public/facilities/pregoeiro'
 
 const HealthRoute = HealthRouteImport.update({
@@ -53,9 +55,19 @@ const PublicChatRadaRoute = PublicChatRadaRouteImport.update({
   path: '/chatRada',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicPostsIndexRoute = PublicPostsIndexRouteImport.update({
+  id: '/posts/',
+  path: '/posts/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const PublicFacilitiesIndexRoute = PublicFacilitiesIndexRouteImport.update({
   id: '/facilities/',
   path: '/facilities/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPostsSlugRoute = PublicPostsSlugRouteImport.update({
+  id: '/posts/$slug',
+  path: '/posts/$slug',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const PublicFacilitiesPregoeiroRoute =
@@ -73,7 +85,9 @@ export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
+  '/posts/$slug': typeof PublicPostsSlugRoute
   '/facilities': typeof PublicFacilitiesIndexRoute
+  '/posts': typeof PublicPostsIndexRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
@@ -82,7 +96,9 @@ export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
   '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
+  '/posts/$slug': typeof PublicPostsSlugRoute
   '/facilities': typeof PublicFacilitiesIndexRoute
+  '/posts': typeof PublicPostsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,7 +110,9 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/_public/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
+  '/_public/posts/$slug': typeof PublicPostsSlugRoute
   '/_public/facilities/': typeof PublicFacilitiesIndexRoute
+  '/_public/posts/': typeof PublicPostsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,7 +124,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth/'
     | '/facilities/pregoeiro'
+    | '/posts/$slug'
     | '/facilities'
+    | '/posts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
@@ -115,7 +135,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/facilities/pregoeiro'
+    | '/posts/$slug'
     | '/facilities'
+    | '/posts'
   id:
     | '__root__'
     | '/_public'
@@ -126,7 +148,9 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/auth/'
     | '/_public/facilities/pregoeiro'
+    | '/_public/posts/$slug'
     | '/_public/facilities/'
+    | '/_public/posts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -186,11 +210,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicChatRadaRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/posts/': {
+      id: '/_public/posts/'
+      path: '/posts'
+      fullPath: '/posts'
+      preLoaderRoute: typeof PublicPostsIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/facilities/': {
       id: '/_public/facilities/'
       path: '/facilities'
       fullPath: '/facilities'
       preLoaderRoute: typeof PublicFacilitiesIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/posts/$slug': {
+      id: '/_public/posts/$slug'
+      path: '/posts/$slug'
+      fullPath: '/posts/$slug'
+      preLoaderRoute: typeof PublicPostsSlugRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/facilities/pregoeiro': {
@@ -208,7 +246,9 @@ interface PublicRouteRouteChildren {
   PublicOverseerDashboardRoute: typeof PublicOverseerDashboardRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicFacilitiesPregoeiroRoute: typeof PublicFacilitiesPregoeiroRoute
+  PublicPostsSlugRoute: typeof PublicPostsSlugRoute
   PublicFacilitiesIndexRoute: typeof PublicFacilitiesIndexRoute
+  PublicPostsIndexRoute: typeof PublicPostsIndexRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
@@ -216,7 +256,9 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicOverseerDashboardRoute: PublicOverseerDashboardRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicFacilitiesPregoeiroRoute: PublicFacilitiesPregoeiroRoute,
+  PublicPostsSlugRoute: PublicPostsSlugRoute,
   PublicFacilitiesIndexRoute: PublicFacilitiesIndexRoute,
+  PublicPostsIndexRoute: PublicPostsIndexRoute,
 }
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
