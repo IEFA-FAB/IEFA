@@ -119,6 +119,15 @@ importers:
       '@iefa/ui':
         specifier: workspace:*
         version: file:packages/ui(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(next-themes@0.4.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(tailwindcss@4.1.17)
+      '@portabletext/react':
+        specifier: ^6.0.0
+        version: 6.0.0(react@19.2.0)
+      '@sanity/client':
+        specifier: ^7.13.0
+        version: 7.13.0(debug@4.4.3)
+      '@sanity/image-url':
+        specifier: ^2.0.2
+        version: 2.0.2
       '@tailwindcss/vite':
         specifier: ^4.0.6
         version: 4.1.17(vite@7.2.4(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
@@ -2162,6 +2171,13 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@noble/ed25519@3.0.0':
+    resolution: {integrity: sha512-QyteqMNm0GLqfa5SoYbSC3+Pvykwpn95Zgth4MFVSMKBB75ELl9tX1LAVsN4c3HXOrakHsF2gL4zWDAYCcsnzg==}
+
+  '@noble/hashes@2.0.1':
+    resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
+    engines: {node: '>= 20.19.0'}
+
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -2503,6 +2519,12 @@ packages:
     peerDependencies:
       react: ^18.2 || ^19
 
+  '@portabletext/react@6.0.0':
+    resolution: {integrity: sha512-8jzmFruC6fhC8A47c+RdiFfldzRq/rRW/FwRsr5ZMeNeCf3S0dXVlM/LJQRWH5JLQXbH3oxINN1UV2mbuZQJ9w==}
+    engines: {node: '>=20.19 <22 || >=22.12'}
+    peerDependencies:
+      react: ^18.2 || ^19
+
   '@portabletext/sanity-bridge@1.2.4':
     resolution: {integrity: sha512-ph94+vTx3+sHhnnJutf72Gy7PFFeCR512VpD0T0g4x/gPNVpeIUGidtM/8PTUsoXGNqfp99AaRtrJ7tRmOU+gg==}
     engines: {node: '>=20.19 <22 || >=22.12'}
@@ -2522,8 +2544,16 @@ packages:
     resolution: {integrity: sha512-Jj/QIy3vzZCNcxiUGM7KjGhUhyVjch+9pOzotWRARPNe07R6nbF/cRsKL70q5Xizf+6PVtFYwks4CSXKInC+wg==}
     engines: {node: '>=20.19 <22 || >=22.12'}
 
+  '@portabletext/toolkit@5.0.0':
+    resolution: {integrity: sha512-jcDOv1RKO/j08pdnc/6i5tULcAzEYCR41XDVYOqmmX8bvEJbWJabhpVjHT1ls6p27v9gtA4NG2SO5xdMpgWSQQ==}
+    engines: {node: '>=20.19 <22 || >=22.12'}
+
   '@portabletext/types@3.0.0':
     resolution: {integrity: sha512-7U8+bFcnguNtXr4rwMDj0EvJJDRzLaaof2mQqCjUcqxuuJpAppFaATZgrKmPI1uBgtFMi4unk1nIaOOmLHrX8Q==}
+    engines: {node: '>=20.19 <22 || >=22.12'}
+
+  '@portabletext/types@4.0.0':
+    resolution: {integrity: sha512-mEoN82OQckrshqRx8idp+x8B/OpMfUMSjQp1w1wZFM3hf8cplGhK59Sa/UuGU6XdgAnFq90vJtnj5ejOmZmhvw==}
     engines: {node: '>=20.19 <22 || >=22.12'}
 
   '@radix-ui/number@1.1.1':
@@ -3316,6 +3346,10 @@ packages:
     resolution: {integrity: sha512-pYRhti+lDi22it+npWXkEGuYyzbXJLF+d0TYLiyWbKu46JHhYhTDKkp6zmGu4YKF5cXUjT6pnUjFsaf2vlB9nQ==}
     engines: {node: '>=10.0.0'}
 
+  '@sanity/image-url@2.0.2':
+    resolution: {integrity: sha512-JnwFIHATLXHGVTCKmVwV0xy3xKwGlgVfeUB9cWxu72xJZMsQUyFgGiTz4zD9gRXuncAndkmtzHeIG+2vhKgxHA==}
+    engines: {node: '>=20.19.0'}
+
   '@sanity/import@3.38.3':
     resolution: {integrity: sha512-tWEcM5+RN+VDFuouWy6Imqmveko8tzksNYPyeMkqlkF8+s2OI2rGtMQVWvStu6zk4jVQoWXnG9hnt7TAUqKeTQ==}
     engines: {node: '>=18'}
@@ -3419,6 +3453,9 @@ packages:
   '@sanity/sdk@2.1.2':
     resolution: {integrity: sha512-gRBMDNvMUqlFTVoNgOLtcOFDO+e8Fh6v+BrEA4C5F18oi949ObjMmPB2aZMoyP3N3GQuqwVQP6L2PrhH70H7Bw==}
     engines: {node: '>=20.0.0'}
+
+  '@sanity/signed-urls@2.0.1':
+    resolution: {integrity: sha512-/u++FnDbaXDWHiHxG1Q4rbGsKRPf6lmTKsXeZ3bbbty/kNHDhVRUA5mRA+TtXlbPrse4ksv3a2vAerKNUNDZOw==}
 
   '@sanity/telemetry@0.8.1':
     resolution: {integrity: sha512-YybPb6s3IO2HmHZ4dLC3JCX+IAwAnVk5/qmhH4CWbC3iL/VsikRbz4FfOIIIt0cj2UOKrahL/wpSPBR/3quQzg==}
@@ -10714,6 +10751,10 @@ snapshots:
   '@next/swc-win32-x64-msvc@15.5.4':
     optional: true
 
+  '@noble/ed25519@3.0.0': {}
+
+  '@noble/hashes@2.0.1': {}
+
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -11025,6 +11066,12 @@ snapshots:
       '@portabletext/types': 3.0.0
       react: 19.2.0
 
+  '@portabletext/react@6.0.0(react@19.2.0)':
+    dependencies:
+      '@portabletext/toolkit': 5.0.0
+      '@portabletext/types': 4.0.0
+      react: 19.2.0
+
   '@portabletext/sanity-bridge@1.2.4(@sanity/schema@4.18.0(@types/react@19.2.7)(debug@4.4.3))(@sanity/types@4.18.0(@types/react@19.2.7))':
     dependencies:
       '@portabletext/schema': 2.0.0
@@ -11043,7 +11090,13 @@ snapshots:
     dependencies:
       '@portabletext/types': 3.0.0
 
+  '@portabletext/toolkit@5.0.0':
+    dependencies:
+      '@portabletext/types': 4.0.0
+
   '@portabletext/types@3.0.0': {}
+
+  '@portabletext/types@4.0.0': {}
 
   '@radix-ui/number@1.1.1': {}
 
@@ -11864,6 +11917,10 @@ snapshots:
 
   '@sanity/image-url@1.2.0': {}
 
+  '@sanity/image-url@2.0.2':
+    dependencies:
+      '@sanity/signed-urls': 2.0.1
+
   '@sanity/import@3.38.3(@types/react@19.2.7)':
     dependencies:
       '@sanity/asset-utils': 2.3.0
@@ -12119,6 +12176,11 @@ snapshots:
       - immer
       - react
       - use-sync-external-store
+
+  '@sanity/signed-urls@2.0.1':
+    dependencies:
+      '@noble/ed25519': 3.0.0
+      '@noble/hashes': 2.0.1
 
   '@sanity/telemetry@0.8.1(react@19.2.0)':
     dependencies:
