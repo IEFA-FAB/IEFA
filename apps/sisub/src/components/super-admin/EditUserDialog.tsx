@@ -15,6 +15,7 @@ import {
 	SelectValue,
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
+import { zodValidator } from "@tanstack/zod-form-adapter";
 import * as React from "react";
 import { z } from "zod";
 import type {
@@ -56,16 +57,10 @@ export default function EditUserDialog({
 			role: (profile?.role || "user") as UserLevelOrNull,
 			om: profile?.om || "",
 		},
+		// @ts-ignore
+		validatorAdapter: zodValidator(),
 		validators: {
-			onChange: ({ value }) => {
-				const result = editUserSchema.safeParse(value);
-				if (result.success) return undefined;
-				const errors: Record<string, string> = {};
-				result.error.issues.forEach((issue) => {
-					errors[issue.path.join(".")] = issue.message;
-				});
-				return errors;
-			},
+			onChange: editUserSchema,
 		},
 		onSubmit: async ({ value }) => {
 			if (!profile) return;
@@ -74,7 +69,6 @@ export default function EditUserDialog({
 				role: value.role,
 				om: value.om || null,
 			});
-			// Form state might need sync only when re-opening or profile changes
 		},
 	});
 

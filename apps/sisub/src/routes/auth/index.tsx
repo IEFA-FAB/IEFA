@@ -361,13 +361,19 @@ function AuthPage() {
 	}, [currentView, search.token_hash, search.type]);
 
 	// --- COMMON STYLES ---
+	// Removed Glassmorphism, using standard Card tokens
 	const cardClasses =
-		"w-full max-w-2xl justify-self-center border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden";
+		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground";
+
 	const inputClasses =
-		"bg-white/5 border-white/10 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all hover:bg-white/10 text-base";
+		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base";
+
 	const buttonClasses =
 		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5";
-	const labelClasses = "text-zinc-400 font-medium ml-1 text-sm";
+
+	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm";
+	const iconClasses =
+		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors";
 
 	// Loading state during auth check
 	if (isLoading) {
@@ -389,17 +395,14 @@ function AuthPage() {
 					<CardTitle className="text-3xl font-bold tracking-tight">
 						Nova Senha
 					</CardTitle>
-					<CardDescription className="text-zinc-400 text-base">
+					<CardDescription className="text-muted-foreground text-base">
 						Defina sua nova senha segura.
 					</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleResetPassword}>
 					<CardContent className="space-y-6 px-8">
 						{error && (
-							<Alert
-								variant="destructive"
-								className="bg-red-500/10 border-red-500/20 text-red-400"
-							>
+							<Alert variant="destructive">
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
@@ -407,7 +410,7 @@ function AuthPage() {
 						<div className="space-y-2.5">
 							<Label className={labelClasses}>Nova Senha</Label>
 							<div className="relative group">
-								<Lock className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+								<Lock className={iconClasses} />
 								<Input
 									type="password"
 									className={`${inputClasses} pl-11`}
@@ -435,7 +438,7 @@ function AuthPage() {
 						<Button
 							variant="ghost"
 							type="button"
-							className="w-full rounded-full text-zinc-400 hover:text-white hover:bg-white/5 h-10"
+							className="w-full rounded-full text-muted-foreground hover:text-foreground hover:bg-accent h-10"
 							onClick={() => switchView("auth")}
 						>
 							Voltar ao Login
@@ -454,23 +457,20 @@ function AuthPage() {
 					<CardTitle className="text-3xl font-bold tracking-tight">
 						Recuperar Senha
 					</CardTitle>
-					<CardDescription className="text-zinc-400 text-base">
+					<CardDescription className="text-muted-foreground text-base">
 						Digite seu email para receber um link de redefinição.
 					</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleForgotPassword}>
 					<CardContent className="space-y-6 px-8">
 						{error && (
-							<Alert
-								variant="destructive"
-								className="bg-red-500/10 border-red-500/20 text-red-400"
-							>
+							<Alert variant="destructive">
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
 						)}
 						{successMessage && (
-							<Alert className="bg-green-500/10 border-green-500/20 text-green-400">
+							<Alert className="bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400">
 								<CheckCircle2 className="h-4 w-4" />
 								<AlertDescription>{successMessage}</AlertDescription>
 							</Alert>
@@ -478,7 +478,7 @@ function AuthPage() {
 						<div className="space-y-2.5">
 							<Label className={labelClasses}>Email</Label>
 							<div className="relative group">
-								<Mail className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+								<Mail className={iconClasses} />
 								<Input
 									type="email"
 									placeholder="seu.nome@fab.mil.br"
@@ -505,7 +505,7 @@ function AuthPage() {
 						<Button
 							variant="ghost"
 							type="button"
-							className="w-full rounded-full text-zinc-400 hover:text-white hover:bg-white/5 h-10"
+							className="w-full rounded-full text-muted-foreground hover:text-foreground hover:bg-accent h-10"
 							onClick={() => switchView("auth")}
 						>
 							<ArrowLeft className="mr-2 h-4 w-4" />
@@ -525,16 +525,17 @@ function AuthPage() {
 				onValueChange={handleTabChange}
 				className="w-full"
 			>
-				<TabsList className="grid w-full grid-cols-2 mb-8 bg-black/20 p-1.5 rounded-full border border-white/10 h-14">
+				{/* dark style specified directly because of bug in shadcn tabs that dark mode don't work in this specific case unless it is directly specified */}
+				<TabsList className="grid w-full grid-cols-2 mb-8 bg-muted p-1.5 rounded-full h-14">
 					<TabsTrigger
 						value="login"
-						className="rounded-full h-full text-base font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all duration-300"
+						className="rounded-full h-full text-base font-medium data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-md dark:data-[state=active]:bg-foreground dark:data-[state=active]:text-background dark:data-[state=active]:shadow-md transition-all duration-300"
 					>
 						Entrar
 					</TabsTrigger>
 					<TabsTrigger
 						value="register"
-						className="rounded-full h-full text-base font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all duration-300"
+						className="rounded-full h-full text-base font-medium data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-md dark:data-[state=active]:bg-foreground dark:data-[state=active]:text-background dark:data-[state=active]:shadow-md transition-all duration-300"
 					>
 						Cadastrar
 					</TabsTrigger>
@@ -547,7 +548,7 @@ function AuthPage() {
 							<CardTitle className="text-3xl font-bold tracking-tight">
 								Bem-vindo de volta
 							</CardTitle>
-							<CardDescription className="text-zinc-400 text-base">
+							<CardDescription className="text-muted-foreground text-base">
 								Acesso restrito a emails @fab.mil.br
 							</CardDescription>
 						</CardHeader>
@@ -555,16 +556,13 @@ function AuthPage() {
 						<form onSubmit={handleLogin}>
 							<CardContent className="space-y-6 px-8">
 								{error && (
-									<Alert
-										variant="destructive"
-										className="bg-red-500/10 border-red-500/20 text-red-400"
-									>
+									<Alert variant="destructive">
 										<AlertCircle className="h-4 w-4" />
 										<AlertDescription>{error}</AlertDescription>
 									</Alert>
 								)}
 								{successMessage && (
-									<Alert className="bg-green-500/10 border-green-500/20 text-green-400">
+									<Alert className="bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400">
 										<CheckCircle2 className="h-4 w-4" />
 										<AlertDescription>{successMessage}</AlertDescription>
 									</Alert>
@@ -575,11 +573,11 @@ function AuthPage() {
 										Email Institucional
 									</Label>
 									<div className="relative group">
-										<Mail className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+										<Mail className={iconClasses} />
 										<Input
 											type="email"
 											placeholder="seu.nome@fab.mil.br"
-											className={`${inputClasses} pl-11 ${emailError ? "border-red-500" : ""}`}
+											className={`${inputClasses} pl-11 ${emailError ? "border-destructive ring-destructive/20" : ""}`}
 											value={loginEmail}
 											onChange={handleLoginEmailChange}
 											required
@@ -588,7 +586,7 @@ function AuthPage() {
 										/>
 									</div>
 									{emailError && (
-										<p className="text-sm text-red-400 mt-1 flex items-center">
+										<p className="text-sm text-destructive mt-1 flex items-center">
 											<AlertCircle className="h-3 w-3 mr-1" />
 											{emailError}
 										</p>
@@ -609,11 +607,11 @@ function AuthPage() {
 										</button>
 									</div>
 									<div className="relative group">
-										<Lock className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+										<Lock className={iconClasses} />
 										<Input
-											type={showPassword ? "text" : "password"}
+											type="password"
 											placeholder="••••••••"
-											className={`${inputClasses} pl-11 pr-11 ${passwordError ? "border-red-500" : ""}`}
+											className={`${inputClasses} pl-11 pr-11 ${passwordError ? "border-destructive ring-destructive/20" : ""}`}
 											value={loginPassword}
 											onChange={handleLoginPasswordChange}
 											required
@@ -624,7 +622,7 @@ function AuthPage() {
 										<button
 											type="button"
 											onClick={() => setShowPassword(!showPassword)}
-											className="absolute right-4 top-4 text-zinc-500 hover:text-zinc-300 transition-colors"
+											className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
 										>
 											{showPassword ? (
 												<EyeOff className="h-4 w-4" />
@@ -634,7 +632,7 @@ function AuthPage() {
 										</button>
 									</div>
 									{passwordError && (
-										<p className="text-sm text-red-400 mt-1 flex items-center">
+										<p className="text-sm text-destructive mt-1 flex items-center">
 											<AlertCircle className="h-3 w-3 mr-1" />
 											{passwordError}
 										</p>
@@ -647,12 +645,12 @@ function AuthPage() {
 										type="checkbox"
 										checked={rememberMe}
 										onChange={handleRememberMeChange}
-										className="rounded border-gray-300"
+										className="rounded border-gray-300 dark:border-gray-600"
 										disabled={isSubmitting}
 									/>
 									<Label
 										htmlFor="remember"
-										className="text-sm font-normal text-zinc-400"
+										className="text-sm font-normal text-muted-foreground"
 									>
 										Lembrar email
 									</Label>
@@ -682,17 +680,14 @@ function AuthPage() {
 							<CardTitle className="text-3xl font-bold tracking-tight">
 								Criar conta
 							</CardTitle>
-							<CardDescription className="text-zinc-400 text-base">
+							<CardDescription className="text-muted-foreground text-base">
 								Acesso restrito a emails @fab.mil.br
 							</CardDescription>
 						</CardHeader>
 						<form onSubmit={handleRegister}>
 							<CardContent className="space-y-6 px-8">
 								{error && (
-									<Alert
-										variant="destructive"
-										className="bg-red-500/10 border-red-500/20 text-red-400"
-									>
+									<Alert variant="destructive">
 										<AlertCircle className="h-4 w-4" />
 										<AlertDescription>{error}</AlertDescription>
 									</Alert>
@@ -700,7 +695,7 @@ function AuthPage() {
 								<div className="space-y-2.5">
 									<Label className={labelClasses}>Nome</Label>
 									<div className="relative group">
-										<User className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+										<User className={iconClasses} />
 										<Input
 											placeholder="Seu nome"
 											className={`${inputClasses} pl-11`}
@@ -720,11 +715,11 @@ function AuthPage() {
 								<div className="space-y-2.5">
 									<Label className={labelClasses}>Email Institucional</Label>
 									<div className="relative group">
-										<Mail className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+										<Mail className={iconClasses} />
 										<Input
 											type="email"
 											placeholder="seu.nome@fab.mil.br"
-											className={`${inputClasses} pl-11 ${registerEmailError ? "border-red-500" : ""}`}
+											className={`${inputClasses} pl-11 ${registerEmailError ? "border-destructive ring-destructive/20" : ""}`}
 											value={registerData.email}
 											onChange={handleRegisterEmailChange}
 											required
@@ -733,7 +728,7 @@ function AuthPage() {
 										/>
 									</div>
 									{registerEmailError && (
-										<p className="text-sm text-red-400 mt-1 flex items-center">
+										<p className="text-sm text-destructive mt-1 flex items-center">
 											<AlertCircle className="h-3 w-3 mr-1" />
 											{registerEmailError}
 										</p>
@@ -742,7 +737,7 @@ function AuthPage() {
 								<div className="space-y-2.5">
 									<Label className={labelClasses}>Senha</Label>
 									<div className="relative group">
-										<Lock className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+										<Lock className={iconClasses} />
 										<Input
 											type="password"
 											placeholder="••••••••"
@@ -764,7 +759,7 @@ function AuthPage() {
 								<div className="space-y-2.5">
 									<Label className={labelClasses}>Confirmar Senha</Label>
 									<div className="relative group">
-										<Lock className="absolute left-4 top-4 h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+										<Lock className={iconClasses} />
 										<Input
 											type="password"
 											placeholder="••••••••"

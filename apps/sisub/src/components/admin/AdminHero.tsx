@@ -1,6 +1,10 @@
 import { AlertCircle, Shield } from "lucide-react";
 
-export default function AdminHero({ error }: { error: string | null }) {
+interface AdminHeroProps {
+	error: string | null;
+}
+
+export default function AdminHero({ error }: AdminHeroProps) {
 	return (
 		<div className="text-center">
 			<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm border mb-3">

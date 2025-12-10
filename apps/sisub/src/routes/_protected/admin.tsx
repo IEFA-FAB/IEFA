@@ -1,13 +1,33 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import AdminHero from "@/components/admin/AdminHero";
 import IndicatorsCard from "@/components/admin/IndicatorsCard";
 import QRAutoCheckinCard from "@/components/admin/QRAutoCheckinCard";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserLevel } from "@/services/AdminService";
+import { adminProfileQueryOptions } from "@/services/AdminService";
 
 export const Route = createFileRoute("/_protected/admin")({
+	beforeLoad: async ({ context }) => {
+		const userId = context.auth.user?.id;
+
+		if (!userId) {
+			// Should be handled by parent _protected, but safe guard
+			throw redirect({ to: "/auth" });
+		}
+
+		const profile = await context.queryClient.ensureQueryData(
+			adminProfileQueryOptions(userId),
+		);
+
+		const isAuthorized =
+			profile?.role === "admin" || profile?.role === "superadmin";
+
+		if (!isAuthorized) {
+			throw redirect({ to: "/forecast" });
+		}
+	},
 	component: AdminPanel,
 	head: () => ({
 		meta: [
@@ -20,8 +40,9 @@ export const Route = createFileRoute("/_protected/admin")({
 function AdminPanel() {
 	const { user } = useAuth();
 
-	// Busca nível de usuário (data já vem null se não autorizado/erro)
-	const { data: userLevel, isLoading, isError } = useUserLevel(user?.id);
+	// Suspense Query: dado estará disponível e tipado
+	// beforeLoad já garantiu a existência e autorização
+	useSuspenseQuery(adminProfileQueryOptions(user?.id ?? ""));
 
 	// Unidade selecionada no QR
 	const [selectedOm, setSelectedOm] = useState<string>("");
@@ -33,20 +54,9 @@ function AdminPanel() {
 		return () => clearTimeout(t);
 	}, []);
 
-	// Cálculo do status
-	const isAuthorized = userLevel === "admin" || userLevel === "superadmin";
-
-	if (isLoading) {
-		// Loading discreto ou null enquanto verifica (evita flash)
-		return <div className="min-h-screen" />;
+	if (!user) {
+		return null;
 	}
-
-	if (!isAuthorized && !isLoading) {
-		// Se terminou de carregar e não é autorizado (ou deu erro), redirect
-		return <Navigate to="/forecast" replace />;
-	}
-
-	const error = isError ? "Não foi possível verificar suas permissões." : null;
 
 	return (
 		<div className="min-h-screen">
@@ -57,7 +67,7 @@ function AdminPanel() {
 					mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
 				}`}
 			>
-				<AdminHero error={error} />
+				<AdminHero error={null} />
 			</section>
 
 			{/* Conteúdo */}

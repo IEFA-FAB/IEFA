@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	queryOptions,
+	useMutation,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import type { EvalConfig } from "@/types/domain";
 import supabase from "@/utils/supabase";
 
@@ -45,14 +50,16 @@ async function upsertEvalConfig(cfg: EvalConfig): Promise<EvalConfig> {
 	};
 }
 
+export const evalConfigQueryOptions = queryOptions({
+	queryKey: ["super-admin", "evaluation-config"],
+	queryFn: fetchEvalConfig,
+	staleTime: 60_000,
+});
+
 export function useEvalConfig() {
 	const queryClient = useQueryClient();
 
-	const query = useQuery({
-		queryKey: ["super-admin", "evaluation-config"],
-		queryFn: fetchEvalConfig,
-		staleTime: 60_000,
-	});
+	const query = useSuspenseQuery(evalConfigQueryOptions);
 
 	const mutation = useMutation({
 		mutationFn: upsertEvalConfig,
@@ -63,7 +70,7 @@ export function useEvalConfig() {
 
 	return {
 		config: query.data,
-		isLoading: query.isLoading,
+		isLoading: false, // Suspense handles loading
 		isFetching: query.isFetching,
 		isSaving: mutation.isPending,
 		saveError: mutation.error,

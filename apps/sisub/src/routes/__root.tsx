@@ -29,7 +29,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		meta: [
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
-			{ title: "Portal IEFA" },
+			{ title: "Previsão SISUB" },
 		],
 		favicon: "/favicon.svg",
 		links: [

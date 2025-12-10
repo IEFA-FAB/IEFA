@@ -1,7 +1,7 @@
 {
-  "short_name": "IEFA",
-  "name": "Portal IEFA",
-  "description": "Sistema de Gestão IEFA",
+  "short_name": "SISUB",
+  "name": "Previsão SISUB",
+  "description": "Previsão de refeições do SISUB",
   "icons": [
     {
       "src": "favicon.svg",

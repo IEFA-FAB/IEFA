@@ -15,6 +15,7 @@ import {
 	SelectValue,
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
+import { zodValidator } from "@tanstack/zod-form-adapter";
 import { z } from "zod";
 import type { NewUserPayload, Unit, UserLevelOrNull } from "@/types/domain";
 
@@ -55,19 +56,13 @@ export default function AddUserDialog({
 			email: "",
 			name: "",
 			saram: "",
-			role: "user" as UserLevelOrNull, // Default value to avoid null issues in form
+			role: "user" as UserLevelOrNull,
 			om: "",
 		},
+		// @ts-ignore
+		validatorAdapter: zodValidator(),
 		validators: {
-			onChange: ({ value }) => {
-				const result = addUserSchema.safeParse(value);
-				if (result.success) return undefined;
-				const errors: Record<string, string> = {};
-				result.error.issues.forEach((issue) => {
-					errors[issue.path.join(".")] = issue.message;
-				});
-				return errors;
-			},
+			onChange: addUserSchema,
 		},
 		onSubmit: async ({ value }) => {
 			await onSubmit({

@@ -10,7 +10,7 @@ export default function SuperAdminHero() {
 			<h1 className="text-3xl md:text-4xl font-bold  mb-3">
 				Controle do Sistema
 			</h1>
-			<p className=" max-w-2xl mx-auto">
+			<p className="text-muted-foreground max-w-2xl mx-auto">
 				Gerencie permissões, cadastre administradores e acompanhe indicadores
 				gerais do SISUB.
 			</p>

@@ -3,7 +3,7 @@ import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui";
 
 // Routing
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-
+import { useAuth } from "@/hooks/useAuth";
 // Hooks
 import { useTheme } from "@/hooks/useTheme";
 
@@ -85,6 +85,7 @@ export const Route = createFileRoute("/_public")({
  */
 function PublicLayout() {
 	const { toggle } = useTheme();
+	const { isAuthenticated } = useAuth();
 
 	return (
 		<div className={ANIMATED_BACKGROUND_CLASSES}>
@@ -142,9 +143,16 @@ function PublicLayout() {
 
 					{/* Actions: Login + Theme Toggle */}
 					<div className="flex items-center gap-2">
-						<Button asChild size="sm">
-							<Link to="/auth">Entrar</Link>
-						</Button>
+						{isAuthenticated ? (
+							<Button asChild size="sm">
+								<Link to="/forecast">Acessar Sistema</Link>
+							</Button>
+						) : (
+							<Button asChild size="sm">
+								<Link to="/auth">Entrar</Link>
+							</Button>
+						)}
+
 						<AnimatedThemeToggler toggle={toggle} />
 					</div>
 				</div>
