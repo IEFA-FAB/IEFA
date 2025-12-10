@@ -16,72 +16,19 @@ import {
 	Trash2,
 	User,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "@/hooks/useAuth";
-
-/* =========================
-   Tipos
-========================= */
-
-type HealthStatus = "loading" | "ok" | "error";
-
-type ChatMessage = {
-	id: string;
-	role: "user" | "assistant";
-	content: string;
-	sources?: string[];
-	references?: Array<{
-		n: number;
-		source: string;
-		page?: number;
-		snippet?: string;
-		rank?: number;
-		doc_id?: string;
-	}>;
-	error?: boolean;
-	createdAt: number;
-};
-
-type AskReference = {
-	n: number;
-	source: string;
-	page?: number;
-	snippet?: string;
-	rank?: number;
-	doc_id?: string;
-};
-
-type AskResponse = {
-	answer: string;
-	references: AskReference[];
-	sources: string[];
-	session_id: string;
-};
-
-type RemoteMessage = {
-	role: "user" | "assistant" | "system";
-	content: string;
-	content_json?:
-		| {
-				type?: "user" | "assistant" | "system";
-				question?: string;
-				answer?: string;
-				references?: AskReference[];
-				sources?: string[];
-				content?: string;
-		  }
-		| string;
-	created_at: string; // ISO
-};
-
-type SessionSummary = {
-	id: string;
-	created_at: string; // ISO
-	last_message_at?: string | null; // ISO
-};
+import type {
+	AskReference,
+	AskResponse,
+	ChatMessage,
+	HealthStatus,
+	RemoteMessage,
+	SessionSummary,
+} from "@/types/chat";
 
 /* =========================
    Constantes
@@ -317,70 +264,68 @@ async function ragFetch(
 
 function useRagClient(userId: string | null) {
 	const withAuth = !!userId;
-	return useMemo(
-		() => ({
-			sessions: async () => {
-				const res = await ragFetch(
-					"/sessions",
-					{ method: "GET" },
-					{ withAuth, userId },
-				);
-				if (!res.ok) throw new Error("Falha ao buscar sessões");
-				const data: SessionSummary[] = await res.json();
-				return data;
-			},
-			sessionMessages: async (sid: string) => {
-				const res = await ragFetch(
-					`/sessions/${sid}/messages`,
-					{ method: "GET" },
-					{ withAuth, userId },
-				);
-				if (!res.ok) throw new Error("Falha ao buscar mensagens");
-				const data: RemoteMessage[] = await res.json();
-				return data;
-			},
-			deleteSession: async (sid: string) => {
-				const res = await ragFetch(
-					`/sessions/${sid}`,
-					{ method: "DELETE" },
-					{ withAuth, userId },
-				);
-				if (!res.ok) throw new Error("Falha ao apagar sessão");
-				return true;
-			},
-			ask: async (payload: any) => {
-				const res = await ragFetch(
-					"/ask",
-					{ method: "POST", jsonBody: payload },
-					{ withAuth, userId },
-				);
-				if (!res.ok) {
-					const errText = await res.text().catch(() => "Erro desconhecido");
-					throw new Error(errText || `HTTP ${res.status}`);
-				}
-				const data: AskResponse = await res.json();
-				return data;
-			},
-			askStream: async (payload: any, init?: { signal?: AbortSignal }) => {
-				const res = await ragFetch(
-					"/ask/stream",
-					{
-						method: "POST",
-						jsonBody: payload,
-						headers: { Accept: "text/event-stream" },
-						signal: init?.signal,
-					},
-					{ withAuth, userId },
-				);
-				if (!res.ok) {
-					const errText = await res.text().catch(() => "Erro desconhecido");
-					throw new Error(errText || `HTTP ${res.status}`);
-				}
-				return res;
-			},
-		}),
-		[userId, withAuth],
-	);
+
+	return {
+		sessions: async () => {
+			const res = await ragFetch(
+				"/sessions",
+				{ method: "GET" },
+				{ withAuth, userId },
+			);
+			if (!res.ok) throw new Error("Falha ao buscar sessões");
+			const data: SessionSummary[] = await res.json();
+			return data;
+		},
+		sessionMessages: async (sid: string) => {
+			const res = await ragFetch(
+				`/sessions/${sid}/messages`,
+				{ method: "GET" },
+				{ withAuth, userId },
+			);
+			if (!res.ok) throw new Error("Falha ao buscar mensagens");
+			const data: RemoteMessage[] = await res.json();
+			return data;
+		},
+		deleteSession: async (sid: string) => {
+			const res = await ragFetch(
+				`/sessions/${sid}`,
+				{ method: "DELETE" },
+				{ withAuth, userId },
+			);
+			if (!res.ok) throw new Error("Falha ao apagar sessão");
+			return true;
+		},
+		ask: async (payload: any) => {
+			const res = await ragFetch(
+				"/ask",
+				{ method: "POST", jsonBody: payload },
+				{ withAuth, userId },
+			);
+			if (!res.ok) {
+				const errText = await res.text().catch(() => "Erro desconhecido");
+				throw new Error(errText || `HTTP ${res.status}`);
+			}
+			const data: AskResponse = await res.json();
+			return data;
+		},
+		askStream: async (payload: any, init?: { signal?: AbortSignal }) => {
+			const res = await ragFetch(
+				"/ask/stream",
+				{
+					method: "POST",
+					jsonBody: payload,
+					headers: { Accept: "text/event-stream" },
+					signal: init?.signal,
+				},
+				{ withAuth, userId },
+			);
+			if (!res.ok) {
+				const errText = await res.text().catch(() => "Erro desconhecido");
+				throw new Error(errText || `HTTP ${res.status}`);
+			}
+			return res;
+		},
+	};
 }
 
 /* =========================
@@ -388,7 +333,14 @@ function useRagClient(userId: string | null) {
 ========================= */
 
 function useHealthQuery() {
-	return useQuery({
+	const [retryCount, setRetryCount] = useState(0);
+
+	// Fibonacci sequence capped at 30s: 1, 2, 3, 5, 8, 13, 21, 30
+	const fibIntervals = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 30000];
+	const currentInterval =
+		fibIntervals[Math.min(retryCount, fibIntervals.length - 1)];
+
+	const query = useQuery({
 		queryKey: QUERY_KEYS.health,
 		queryFn: async () => {
 			try {
@@ -401,11 +353,20 @@ function useHealthQuery() {
 				return "error" as const;
 			}
 		},
-		refetchInterval: 60_000,
-		staleTime: 30_000,
-		gcTime: 5 * 60_000,
+		refetchInterval: currentInterval,
 		initialData: "loading" as const,
 	});
+
+	// Increase retry count on each fetch attempt (error or success, to keep checking "if it works")
+	// The user requirement implies we start fast and slow down.
+	useEffect(() => {
+		if (query.isFetched) {
+			setRetryCount((c) => c + 1);
+		}
+		// biome-ignore lint/correctness/useExhaustiveDependencies: We intentionally track dataUpdatedAt to increment on each fetch result
+	}, [query.dataUpdatedAt, query.isFetched]);
+
+	return query;
 }
 
 function useSessionsQuery(
@@ -782,7 +743,7 @@ function ChatRada() {
 
 	const healthQuery = useHealthQuery();
 	const health: HealthStatus = healthQuery.data ?? "loading";
-	const checkHealth = useCallback(() => healthQuery.refetch(), [healthQuery]);
+	const checkHealth = () => healthQuery.refetch();
 
 	const { data: sessions = [] } = useSessionsQuery(client, isLoggedIn, userId);
 
@@ -829,61 +790,59 @@ function ChatRada() {
 	}, [isLoggedIn, userId, sessionId, sessionMessages]);
 
 	// Auto-scroll para o fim quando novas mensagens chegam e o usuário está no fim
-	const scrollToBottom = useCallback(() => {
+	const scrollToBottom = () => {
 		const el = scrollRef.current;
 		if (!el) return;
 		el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-	}, []);
+	};
 
 	useEffect(() => {
 		if (isAtBottom && messages.length > 0) {
 			scrollToBottom();
 		}
-	}, [messages, isAtBottom, scrollToBottom]);
+		// biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles stability
+	}, [messages, isAtBottom]);
 
-	const onScrollMessages = useCallback(() => {
+	const onScrollMessages = () => {
 		const el = scrollRef.current;
 		if (!el) return;
 		const threshold = 48;
 		const atBottom =
 			el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
 		setIsAtBottom(atBottom);
-	}, []);
+	};
 
-	const startNewSession = useCallback(() => {
+	const startNewSession = () => {
 		if (isLoggedIn) {
 			clearSessionId();
 			setSessionId(null);
 		}
 		setMessages([]);
-	}, [isLoggedIn]);
+	};
 
-	const selectSession = useCallback(
-		(sid: string) => {
-			if (!isLoggedIn) return;
-			if (!sid || sid === sessionId) return;
-			saveSessionId(sid);
-			setSessionId(sid);
-			setMessages([]);
-		},
-		[isLoggedIn, sessionId],
-	);
+	const selectSession = (sid: string) => {
+		if (!isLoggedIn) return;
+		if (!sid || sid === sessionId) return;
+		saveSessionId(sid);
+		setSessionId(sid);
+		setMessages([]);
+	};
 
-	const deleteSession = useCallback(
-		async (sid: string, e?: React.MouseEvent<HTMLButtonElement>) => {
-			if (!isLoggedIn || !userId) return;
-			e?.stopPropagation();
-			try {
-				await deleteSessionMutation.mutateAsync(sid);
-				if (sessionId === sid) {
-					startNewSession();
-				}
-			} catch {
-				// Erro já tratado pela mutation
+	const deleteSession = async (
+		sid: string,
+		e?: React.MouseEvent<HTMLButtonElement>,
+	) => {
+		if (!isLoggedIn || !userId) return;
+		e?.stopPropagation();
+		try {
+			await deleteSessionMutation.mutateAsync(sid);
+			if (sessionId === sid) {
+				startNewSession();
 			}
-		},
-		[isLoggedIn, userId, deleteSessionMutation, sessionId, startNewSession],
-	);
+		} catch {
+			// Erro já tratado pela mutation
+		}
+	};
 
 	// Cancela SSE ativo ao desmontar
 	useEffect(() => {
@@ -895,16 +854,13 @@ function ChatRada() {
 		};
 	}, []);
 
-	const buildPayload = useCallback(
-		(question: string) => {
-			const base: Record<string, any> = { question };
-			if (isLoggedIn && sessionId) base.session_id = sessionId;
-			return base;
-		},
-		[isLoggedIn, sessionId],
-	);
+	const buildPayload = (question: string) => {
+		const base: Record<string, any> = { question };
+		if (isLoggedIn && sessionId) base.session_id = sessionId;
+		return base;
+	};
 
-	const onSubmit = useCallback(async () => {
+	const onSubmit = async () => {
 		const question = input.trim();
 		if (!question || sending) return;
 
@@ -925,24 +881,9 @@ function ChatRada() {
 		setSending(true);
 
 		const assistantId = crypto?.randomUUID?.() ?? `${Date.now()}-assistant`;
-		const insertAssistantShell = () => {
-			setMessages((prev) => [
-				...prev,
-				{
-					id: assistantId,
-					role: "assistant",
-					content: "",
-					sources: [],
-					references: [],
-					createdAt: Date.now(),
-				},
-			]);
-		};
 
 		try {
 			if (USE_STREAM) {
-				insertAssistantShell();
-
 				const ctrl = new AbortController();
 				sseAbortRef.current = ctrl;
 
@@ -957,15 +898,31 @@ function ChatRada() {
 				const reader = res.body.getReader();
 				const decoder = new TextDecoder();
 				let buffer = "";
+				let hasInserted = false;
 
 				const applyDelta = (delta: string) => {
-					setMessages((prev) =>
-						prev.map((m) =>
+					setMessages((prev) => {
+						if (!hasInserted) {
+							hasInserted = true;
+							setSending(false); // Stop loading indicator once we have content
+							return [
+								...prev,
+								{
+									id: assistantId,
+									role: "assistant", // Type cast handled by loop or simple string
+									content: delta,
+									sources: [],
+									references: [],
+									createdAt: Date.now(),
+								} as ChatMessage,
+							];
+						}
+						return prev.map((m) =>
 							m.id === assistantId
 								? { ...m, content: (m.content || "") + delta }
 								: m,
-						),
-					);
+						);
+					});
 				};
 
 				const applyFinal = async (finalPayload: any) => {
@@ -980,13 +937,29 @@ function ChatRada() {
 						finalPayload.session_id || finalPayload.sessionId || "",
 					);
 
-					setMessages((prev) =>
-						prev.map((m) =>
-							m.id === assistantId
-								? { ...m, content: answer, references: refs, sources: srcs }
-								: m,
-						),
-					);
+					if (!hasInserted) {
+						hasInserted = true;
+						setSending(false);
+						setMessages((prev) => [
+							...prev,
+							{
+								id: assistantId,
+								role: "assistant",
+								content: answer,
+								references: refs,
+								sources: srcs,
+								createdAt: Date.now(),
+							} as ChatMessage,
+						]);
+					} else {
+						setMessages((prev) =>
+							prev.map((m) =>
+								m.id === assistantId
+									? { ...m, content: answer, references: refs, sources: srcs }
+									: m,
+							),
+						);
+					}
 
 					if (isLoggedIn && sid) {
 						setSessionId(sid);
@@ -1040,6 +1013,7 @@ function ChatRada() {
 			} else {
 				const data = await client.ask(buildPayload(question));
 
+				setSending(false);
 				const assistantMsg: ChatMessage = {
 					id: crypto?.randomUUID?.() ?? String(Date.now()),
 					role: "assistant",
@@ -1065,6 +1039,7 @@ function ChatRada() {
 			if (err?.name === "AbortError") {
 				return;
 			}
+			setSending(false);
 			const assistantErr: ChatMessage = {
 				id: crypto?.randomUUID?.() ?? String(Date.now()),
 				role: "assistant",
@@ -1075,24 +1050,26 @@ function ChatRada() {
 			};
 			setMessages((prev) => [...prev, assistantErr]);
 		} finally {
+			// Ensure sending is false if we exit loop (e.g. error or done)
+			// But careful not to flip it if we just inserted.
+			// Actually setSending(false) is called inside insert/error logic.
+			// Just a safety check?
+			// If hasInserted is true, sending is false.
 			setSending(false);
 			if (sseAbortRef.current) {
 				sseAbortRef.current = null;
 			}
 		}
-	}, [input, sending, buildPayload, client, isLoggedIn, userId, queryClient]);
+	};
 
-	const onKeyDown = useCallback(
-		(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-			if (e.key === "Enter" && !e.shiftKey) {
-				e.preventDefault();
-				onSubmit();
-			}
-		},
-		[onSubmit],
-	);
+	const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			onSubmit();
+		}
+	};
 
-	const copyMessage = useCallback(async (id: string, text: string) => {
+	const copyMessage = async (id: string, text: string) => {
 		try {
 			await navigator.clipboard.writeText(text);
 			setCopiedMsgId(id);
@@ -1100,18 +1077,17 @@ function ChatRada() {
 		} catch {
 			// noop
 		}
-	}, []);
+	};
 
-	const healthBadge = useMemo(
-		() => (
-			<div className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
-				<StatusDot status={health} />
-				<span className="font-medium text-muted-foreground">
-					{prettyStatusText(health)}
-				</span>
-			</div>
-		),
-		[health],
+	// React Compiler handles memoization automatically, but if we wanted to be explicit with variable,
+	// we would just assign it. However, since this is JSX, we can just render it directly in the return or Assign to a const
+	const healthBadge = (
+		<div className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
+			<StatusDot status={health} />
+			<span className="font-medium text-muted-foreground">
+				{prettyStatusText(health)}
+			</span>
+		</div>
 	);
 
 	return (
