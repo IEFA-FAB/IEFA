@@ -10,15 +10,15 @@ import { adminProfileQueryOptions } from "@/services/AdminService";
 
 export const Route = createFileRoute("/_protected/admin")({
 	beforeLoad: async ({ context }) => {
-		const userId = context.auth.user?.id;
+		const { user } = context.auth;
 
-		if (!userId) {
+		if (!user?.id) {
 			// Should be handled by parent _protected, but safe guard
 			throw redirect({ to: "/auth" });
 		}
 
 		const profile = await context.queryClient.ensureQueryData(
-			adminProfileQueryOptions(userId),
+			adminProfileQueryOptions(user.id),
 		);
 
 		const isAuthorized =

@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// Criar o QueryClient uma única vez no escopo do módulo
+// Isso garante que apenas uma instância existe durante toda a aplicação
+const queryClient = new QueryClient();
+
 export function getContext() {
-	const queryClient = new QueryClient();
 	return {
 		queryClient,
 	};

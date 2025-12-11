@@ -5,7 +5,6 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -195,7 +194,7 @@ function MarkdownContent({ children }: { children: string }) {
 	);
 }
 
-const TagBadge = memo(function TagBadge({ tag }: { id: string; tag: string }) {
+function TagBadge({ tag }: { id: string; tag: string }) {
 	const key = (tag ?? "").toLowerCase();
 	const tone = TAG_TONE[key] ?? toneBadge("muted");
 	return (
@@ -205,13 +204,9 @@ const TagBadge = memo(function TagBadge({ tag }: { id: string; tag: string }) {
 			{tag}
 		</span>
 	);
-});
+}
 
-const ChangelogCard = memo(function ChangelogCard({
-	entry,
-}: {
-	entry: ChangelogEntry;
-}) {
+function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 	const anchorId = safeAnchorId(entry.id);
 	return (
 		<article
@@ -260,7 +255,7 @@ const ChangelogCard = memo(function ChangelogCard({
 			<MarkdownContent>{entry.body ?? ""}</MarkdownContent>
 		</article>
 	);
-});
+}
 
 const PAGE_SIZE = 10 as const;
 
@@ -284,10 +279,8 @@ export default function Changelog() {
 		refetchOnWindowFocus: false,
 	});
 
-	const items = useMemo(
-		() => data?.pages.flatMap((p) => p.items) ?? [],
-		[data],
-	);
+	// React Compiler optimizes this - no manual useMemo needed
+	const items = data?.pages.flatMap((p) => p.items) ?? [];
 
 	const GITHUB_REPO_URL =
 		import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/";

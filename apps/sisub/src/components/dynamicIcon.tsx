@@ -1,7 +1,7 @@
 import type { LucideProps } from "lucide-react";
 import dynamicIconImports from "lucide-react/dynamicIconImports";
 import type React from "react";
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense } from "react";
 
 const FALLBACK_ICON = "wrench" as const;
 
@@ -55,8 +55,8 @@ export function DynamicIcon({
 	className = "h-5 w-5",
 	...rest
 }: { name?: string | null } & Omit<LucideProps, "ref">) {
-	// Estabiliza a referência; só muda se o "name" mudar
-	const LazyIcon = useMemo(() => getLazyIcon(name), [name]);
+	// Global cache already handles memoization - React Compiler optimizes this
+	const LazyIcon = getLazyIcon(name);
 	return (
 		<Suspense fallback={<span className={className} aria-hidden="true" />}>
 			<LazyIcon aria-hidden="true" className={className} {...rest} />
