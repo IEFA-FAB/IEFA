@@ -3,9 +3,9 @@ import { createClient } from "@sanity/client";
 import { createImageUrlBuilder } from "@sanity/image-url";
 
 export const client = createClient({
-	projectId: "ct3sbcgw", // Coloque seu ID aqui
+	projectId: "ct3sbcgw", 
 	dataset: "production",
-	useCdn: true, // true para cache rápido, false para dados frescos
+	useCdn: true, 
 	apiVersion: "2024-01-01",
 });
 

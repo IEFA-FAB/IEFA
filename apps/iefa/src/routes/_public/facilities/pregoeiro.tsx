@@ -29,9 +29,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Calendar, ChevronsUpDown, Clock } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import type { FacilidadesTableProps } from "@/components/table";
 import { FacilidadesTable } from "@/components/table";
 import { supabase } from "@/lib/supabase";
+import type { FacilidadesTableProps } from "@/types/domain";
 
 /* -----------------------------------------------
    Tipos auxiliares (alinhar com a tabela existente)

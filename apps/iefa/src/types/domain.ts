@@ -1,4 +1,5 @@
 import { PortableTextBlock } from "@sanity/types";
+import { SortingState, VisibilityState } from "@tanstack/react-table";
 
 export interface PostAuthor {
 	name: string;
@@ -26,3 +27,77 @@ export interface PostSummary {
 export interface PostDetail extends PostSummary {
 	body: (PortableTextBlock & { [key: string]: any })[];
 }
+
+export type Contributor = {
+	label: string;
+	url?: string;
+	icon?: React.ReactNode;
+};
+
+export type AppItem = {
+	title: string;
+	description: string;
+	to?: string;
+	href?: string;
+	icon?: React.ReactNode;
+	badges?: string[];
+	external?: boolean;
+	contributors?: Contributor[];
+};
+
+export type DbContributor = {
+	label: string;
+	url: string | null;
+	icon_key: string | null;
+};
+
+export type DbApp = {
+	title: string;
+	description: string;
+	to_path: string | null;
+	href: string | null;
+	icon_key: string | null;
+	external: boolean | null;
+	badges: string[] | null;
+	contributors: DbContributor[] | null;
+};
+
+export const FACILITIES_QUERY_KEY = ["facilities_pregoeiro"];
+
+export type TableSettings = {
+	columnVisibility?: VisibilityState;
+	sorting?: SortingState;
+	pageSize?: number;
+	titleFilter?: string;
+};
+
+export const LS_TABLE_SETTINGS_KEY = "pregoeiro_table_settings_v1";
+
+/* ---------------------------------------------------------
+   Tipos
+--------------------------------------------------------- */
+
+export type Facilidades_pregoeiro = {
+	id: string;
+	created_at: string;
+	phase: string;
+	title: string;
+	content: string;
+	tags: string[] | null;
+	owner_id: string | null;
+	default: boolean | null;
+};
+
+export interface FacilidadesTableProps {
+	OM: string;
+	Date: string;
+	Hour: string;
+	Hour_limit: string;
+	currentUserId?: string;
+	onEditRow?: (row: Facilidades_pregoeiro) => void;
+}
+
+export type TemplateContext = Record<
+	string,
+	string | number | null | undefined
+>;

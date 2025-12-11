@@ -45,10 +45,8 @@ export function NavUser() {
 	const handleLogout = async () => {
 		try {
 			await signOut();
-			navigate({ to: "/auth" });
 		} catch (error) {
 			console.error("Logout failed:", error);
-			// Optionally show user-facing error notification
 		}
 	};
 

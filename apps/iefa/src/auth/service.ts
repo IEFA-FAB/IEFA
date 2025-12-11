@@ -1,5 +1,13 @@
 import type { Session, User } from "@supabase/supabase-js";
+import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+
+export type AuthState = {
+	user: User | null;
+	session: Session | null;
+	isLoading: boolean;
+	isAuthenticated: boolean;
+};
 
 export interface AuthContextType {
 	user: User | null;
@@ -12,7 +20,7 @@ export interface AuthContextType {
 		password: string,
 		redirectTo?: string,
 	) => Promise<void>;
-	signOut: (opts?: { redirectTo?: string; reload?: boolean }) => Promise<void>;
+	signOut: () => Promise<void>;
 	resetPassword: (email: string, redirectTo?: string) => Promise<void>;
 	refreshSession: () => Promise<void>;
 }
@@ -62,10 +70,12 @@ export const authActions = {
 		if (error) throw new Error(getAuthErrorMessage(error));
 	},
 
-	signOut: async (opts?: { redirectTo?: string; reload?: boolean }) => {
-		await supabase.auth.signOut();
-		if (opts?.reload && typeof window !== "undefined") {
-			window.location.assign(opts.redirectTo ?? "/login");
+	signOut: async () => {
+		const { error } = await supabase.auth.signOut();
+		if (error) {
+			console.error("SignOut error:", error);
+			// Fallback to local signout if remote fails
+			await supabase.auth.signOut({ scope: "local" });
 		}
 	},
 
@@ -88,3 +98,33 @@ export const authActions = {
 		if (error) throw new Error(getAuthErrorMessage(error));
 	},
 };
+
+export const authQueryOptions = () =>
+	queryOptions({
+		queryKey: ["auth", "user"],
+		queryFn: async () => {
+			try {
+				const {
+					data: { user },
+				} = await supabase.auth.getUser();
+				const {
+					data: { session },
+				} = await supabase.auth.getSession();
+
+				return {
+					user,
+					session,
+					isAuthenticated: !!user,
+					isLoading: false,
+				} as AuthState;
+			} catch (_error) {
+				return {
+					user: null,
+					session: null,
+					isAuthenticated: false,
+					isLoading: false,
+				} as AuthState;
+			}
+		},
+		staleTime: 1000 * 60 * 5, // 5 minutes
+	});
