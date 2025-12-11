@@ -1,8 +1,12 @@
-import { useRouteContext } from "@tanstack/react-router";
-import { Route as RootRoute } from "@/routes/__root"; // Importe a rota raiz
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { authActions, authQueryOptions } from "@/auth/service";
 
 export function useAuth() {
-	// Pega o contexto tipado da rota raiz
-	const context = useRouteContext({ from: RootRoute.id });
-	return context.auth;
+	// Use suspense query for fresh, type-safe auth data
+	const { data } = useSuspenseQuery(authQueryOptions());
+
+	return {
+		...authActions, // signIn, signOut, etc
+		...data, // user, session, isAuthenticated
+	};
 }

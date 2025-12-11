@@ -17,7 +17,8 @@ export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
 	// Proteção Inversa: Se já estiver logado, não deixa ver login/register
 	beforeLoad: ({ context, search }) => {
-		if (context.auth.isAuthenticated) {
+		const { user } = context.auth;
+		if (user) {
 			throw redirect({ to: search.redirect || "/forecast" });
 		}
 	},

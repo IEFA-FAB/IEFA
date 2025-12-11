@@ -25,7 +25,6 @@ import {
 	Label,
 	Textarea,
 } from "@iefa/ui";
-import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Calendar, ChevronsUpDown, Clock } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -234,7 +233,6 @@ function PhraseModal({
 	const [content, setContent] = useState(initial?.content ?? "");
 	const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(", "));
 	const [saving, setSaving] = useState(false);
-	const queryClient = useQueryClient();
 
 	useEffect(() => {
 		if (open) {
@@ -290,7 +288,7 @@ function PhraseModal({
 				if (error) throw error;
 			}
 
-			await queryClient.invalidateQueries({
+			await invalidateQueries({
 				queryKey: ["facilities_pregoeiro"],
 			});
 			onOpenChange(false);

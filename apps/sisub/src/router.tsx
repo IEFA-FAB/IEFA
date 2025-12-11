@@ -1,7 +1,7 @@
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import type { ReactNode } from "react";
-import { type AuthContextType, authActions } from "@/auth/service";
+import { type AuthState, authActions, authQueryOptions } from "@/auth/service";
 import {
 	applyThemeToDom,
 	getStoredTheme,
@@ -16,12 +16,11 @@ export const getRouter = () => {
 	const rqContext = TanstackQuery.getContext();
 
 	// --- AUTH SETUP ---
-	const initialAuth: AuthContextType = {
+	const initialAuthData: AuthState = {
 		user: null,
 		session: null,
-		isLoading: true,
+		isLoading: false,
 		isAuthenticated: false,
-		...authActions,
 	};
 
 	// --- THEME SETUP ---
@@ -32,7 +31,8 @@ export const getRouter = () => {
 		routeTree,
 		context: {
 			...rqContext,
-			auth: initialAuth,
+			auth: initialAuthData,
+			authActions: authActions,
 			theme: {
 				theme: initialTheme,
 				setTheme: () => {},
@@ -81,31 +81,30 @@ export const getRouter = () => {
 		queryClient: rqContext.queryClient,
 	});
 
-	const updateAuth = (session: any | null, isLoading = false) => {
-		router.update({
-			context: {
-				...router.options.context, // Mantém o contexto do QueryClient e Theme
-				auth: {
-					...initialAuth,
-					session,
-					user: session?.user ?? null,
-					isAuthenticated: !!session?.user,
-					isLoading,
-				},
-			},
-		});
-	};
+	// No need for manual initial load - __root.tsx beforeLoad handles this
 
-	supabase.auth.getSession().then(({ data: { session } }) => {
-		updateAuth(session, false);
-		router.invalidate();
-	});
+	// Auth state change listener - Updates cache immediately
+	supabase.auth.onAuthStateChange(async (event, session) => {
+		// Immediately update cache based on auth events
+		// This ensures UI updates instantly without waiting for refetch
+		if (event === "SIGNED_IN" && session) {
+			rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
+				user: session.user,
+				session: session,
+				isAuthenticated: true,
+				isLoading: false,
+			});
+			router.invalidate();
+		}
 
-	supabase.auth.onAuthStateChange((_event, session) => {
-		updateAuth(session, false);
-		router.invalidate();
-		if (_event === "SIGNED_OUT") {
-			router.navigate({ to: "/auth" });
+		if (event === "SIGNED_OUT") {
+			rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
+				user: null,
+				session: null,
+				isAuthenticated: false,
+				isLoading: false,
+			});
+			router.invalidate();
 		}
 	});
 

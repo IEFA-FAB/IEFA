@@ -28,14 +28,14 @@ import type { EvalConfig } from "@/types/domain";
 
 export const Route = createFileRoute("/_protected/superAdmin")({
 	beforeLoad: async ({ context }) => {
-		const userId = context.auth.user?.id;
+		const { user } = context.auth;
 
-		if (!userId) {
+		if (!user?.id) {
 			throw redirect({ to: "/auth" });
 		}
 
 		const profile = await context.queryClient.ensureQueryData(
-			adminProfileQueryOptions(userId),
+			adminProfileQueryOptions(user.id),
 		);
 
 		if (profile?.role !== "superadmin") {

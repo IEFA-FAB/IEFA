@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+// Create QueryClient once at module scope
+// This ensures only one instance exists throughout the application lifecycle
+const queryClient = new QueryClient();
+
 export function getContext() {
-	const queryClient = new QueryClient();
 	return {
 		queryClient,
 	};

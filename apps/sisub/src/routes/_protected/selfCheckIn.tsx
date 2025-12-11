@@ -34,9 +34,9 @@ function todayISO(): string {
 export const Route = createFileRoute("/_protected/selfCheckIn")({
 	validateSearch: selfCheckInSearchSchema,
 	beforeLoad: async ({ context, search, location }) => {
-		const userId = context.auth.user?.id;
+		const { user } = context.auth;
 
-		if (!userId) {
+		if (!user?.id) {
 			throw redirect({
 				to: "/auth",
 				search: {
@@ -58,7 +58,7 @@ export const Route = createFileRoute("/_protected/selfCheckIn")({
 			const meal = inferDefaultMeal();
 			// Prefetch Forecast
 			await context.queryClient.ensureQueryData(
-				userMealForecastQueryOptions(userId, date, meal, messHall.id),
+				userMealForecastQueryOptions(user.id, date, meal, messHall.id),
 			);
 		}
 	},

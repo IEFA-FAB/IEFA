@@ -223,3 +223,236 @@ export function DayCard({ date, status, onToggle }: DayCardProps) {
   );
 }
 ```
+
+---
+
+## 9. Autenticação (Supabase Auth)
+
+### 9.1 Segurança: `getUser()` vs `getSession()`
+
+**SEMPRE** use `supabase.auth.getUser()` em vez de `getSession()` para validação de autenticação.
+
+*   **`getUser()`**: Valida a sessão no servidor Supabase, verificando se o token JWT ainda é válido.
+*   **`getSession()`**: Apenas lê a sessão do armazenamento local, **sem validação** no servidor.
+
+```typescript
+// ✅ CORRETO - Valida no servidor
+export const authQueryOptions = () =>
+  queryOptions({
+    queryKey: ["auth", "user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      return {
+        user,
+        session,
+        isAuthenticated: !!user,
+        isLoading: false,
+      } as AuthState;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+// ❌ INCORRETO - Apenas lê do storage local
+const { data: { session } } = await supabase.auth.getSession();
+const isAuthenticated = !!session; // Inseguro!
+```
+
+### 9.2 Gestão de Estado de Autenticação
+
+**Padrão Recomendado:** Use `onAuthStateChange` para atualizar o cache do React Query **imediatamente** após eventos de autenticação.
+
+#### Implementação no Router (`router.tsx`)
+
+```typescript
+supabase.auth.onAuthStateChange(async (event, session) => {
+  // Immediately update cache based on auth events
+  // This ensures UI updates instantly without waiting for refetch
+  if (event === "SIGNED_IN" && session) {
+    rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
+      user: session.user,
+      session: session,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    router.invalidate();
+  }
+  
+  if (event === "SIGNED_OUT") {
+    rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
+      user: null,
+      session: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+    router.invalidate();
+  }
+});
+```
+
+#### ✅ Boas Práticas:
+
+1.  **Use `setQueryData` diretamente:** Atualiza o cache imediatamente com os dados do evento.
+2.  **Evite `invalidateQueries` no `onAuthStateChange`:** Causa race conditions em operações consecutivas (login → logout → login).
+3.  **Use `router.invalidate()` apenas:** Revalida rotas (beforeLoad) sem forçar refetch de dados.
+4.  **Confie nos eventos do Supabase:** Os dados do evento (`session`) já são validados e confiáveis.
+
+#### ❌ Anti-Padrões:
+
+```typescript
+// ❌ NÃO faça isso - causa race conditions
+supabase.auth.onAuthStateChange(async (event) => {
+  await queryClient.invalidateQueries(authQueryOptions()); // Refetch desnecessário
+  router.invalidate();
+});
+
+// ❌ NÃO faça isso - navegação manual
+supabase.auth.onAuthStateChange(async (event) => {
+  if (event === "SIGNED_OUT") {
+    router.navigate({ to: "/auth" }); // Deixe os route guards fazerem isso
+  }
+});
+
+// ❌ NÃO faça isso - timeout pode causar falsos positivos
+signOut: async () => {
+  await Promise.race([
+    supabase.auth.signOut(),
+    new Promise((_, reject) => setTimeout(() => reject("timeout"), 5000))
+  ]); // Pode dar timeout mesmo com resposta 204
+};
+```
+
+### 9.3 Implementação de SignIn/SignOut
+
+#### SignOut Simples e Confiável
+
+```typescript
+export const authActions = {
+  signOut: async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("SignOut error:", error);
+      // Fallback to local signout if remote fails
+      await supabase.auth.signOut({ scope: "local" });
+    }
+  },
+};
+```
+
+**Por que essa abordagem:**
+*   Sem timeouts artificiais (evita falsos positivos)
+*   Fallback local apenas em caso de erro real
+*   `onAuthStateChange` cuida da atualização do estado e navegação
+
+#### SignIn
+
+```typescript
+export const authActions = {
+  signIn: async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: normalizeEmail(email),
+      password,
+    });
+    if (error) throw new Error(getAuthErrorMessage(error));
+    // onAuthStateChange atualizará o estado automaticamente
+  },
+};
+```
+
+### 9.4 Integração com TanStack Router
+
+#### Route Guards
+
+```typescript
+// __root.tsx
+export const Route = createRootRouteWithContext<MyRouterContext>()({
+  beforeLoad: async ({ context }) => {
+    const authState = await context.queryClient.ensureQueryData(
+      authQueryOptions(),
+    );
+    return { auth: authState };
+  },
+});
+
+// Rota protegida
+export const Route = createFileRoute("/_protected")({
+  beforeLoad: ({ context }) => {
+    if (!context.auth.isAuthenticated) {
+      throw redirect({ to: "/auth", search: { redirect: location.href } });
+    }
+  },
+});
+
+// Rota de autenticação (proteção inversa)
+export const Route = createFileRoute("/auth/")({
+  beforeLoad: ({ context, search }) => {
+    if (context.auth.isAuthenticated) {
+      throw redirect({ to: search.redirect || "/" });
+    }
+  },
+});
+```
+
+### 9.5 Hook Personalizado
+
+```typescript
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
+import { authQueryOptions } from "@/auth/service";
+import { Route as RootRoute } from "@/routes/__root";
+
+export function useAuth() {
+  const context = useRouteContext({ from: RootRoute.id });
+  const { data } = useSuspenseQuery(authQueryOptions());
+  
+  return {
+    ...context.authActions, // signIn, signOut, etc
+    ...data, // user, session, isAuthenticated
+  };
+}
+```
+
+### 9.6 Fluxo Completo
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI
+    participant authActions
+    participant Supabase
+    participant onAuthStateChange
+    participant QueryClient
+    participant Router
+    
+    User->>UI: Click "Entrar"
+    UI->>authActions: signIn(email, password)
+    authActions->>Supabase: signInWithPassword()
+    Supabase-->>authActions: { session, user }
+    Supabase->>onAuthStateChange: SIGNED_IN event
+    onAuthStateChange->>QueryClient: setQueryData(auth, session)
+    onAuthStateChange->>Router: invalidate()
+    Router->>Router: beforeLoad checks auth
+    Router-->>User: Redirect to protected route
+    
+    User->>UI: Click "Sair"
+    UI->>authActions: signOut()
+    authActions->>Supabase: signOut()
+    Supabase->>onAuthStateChange: SIGNED_OUT event
+    onAuthStateChange->>QueryClient: setQueryData(auth, null)
+    onAuthStateChange->>Router: invalidate()
+    Router->>Router: beforeLoad checks auth
+    Router-->>User: Redirect to /auth
+```
+
+### 9.7 Checklist de Implementação
+
+- [ ] Usar `getUser()` para validação, não `getSession()`
+- [ ] Implementar `onAuthStateChange` com `setQueryData`
+- [ ] **NÃO** usar `invalidateQueries` dentro do `onAuthStateChange`
+- [ ] **NÃO** usar timeouts artificiais no `signOut`
+- [ ] **NÃO** fazer navegação manual (deixar route guards handlerem)
+- [ ] Usar `router.invalidate()` para revalidar rotas
+- [ ] Implementar fallback local apenas para erros reais
+- [ ] Testar login/logout consecutivos (múltiplas vezes)
+- [ ] Verificar que não há tela branca ou loading infinito

@@ -1,7 +1,38 @@
+import { queryOptions } from "@tanstack/react-query";
 import type { AuthContextType } from "@/types/auth";
 import supabase from "@/utils/supabase";
 
 export type { AuthContextType };
+
+// Separate state from actions for router context typing
+export type AuthState = Pick<
+	AuthContextType,
+	"user" | "session" | "isLoading" | "isAuthenticated"
+>;
+
+// Auth Query Options - Secure validation using getUser()
+export const authQueryOptions = () =>
+	queryOptions({
+		queryKey: ["auth", "user"],
+		queryFn: async () => {
+			// ✅ CORRETO - Valida no servidor Supabase
+			const {
+				data: { user },
+			} = await supabase.auth.getUser();
+			const {
+				data: { session },
+			} = await supabase.auth.getSession();
+
+			return {
+				user,
+				session,
+				isAuthenticated: !!user,
+				isLoading: false,
+			} as AuthState;
+		},
+		staleTime: 1000 * 60 * 5, // 5 minutos
+	});
+
 
 function normalizeEmail(email: string) {
 	return email.trim().toLowerCase();
@@ -52,11 +83,14 @@ export const authActions = {
 		if (error) throw new Error(getAuthErrorMessage(error));
 	},
 
-	signOut: async (opts?: { redirectTo?: string; reload?: boolean }) => {
-		await supabase.auth.signOut();
-		if (opts?.reload && typeof window !== "undefined") {
-			window.location.assign(opts.redirectTo ?? "/login");
+	signOut: async () => {
+		const { error } = await supabase.auth.signOut();
+		if (error) {
+			console.error("SignOut error:", error);
+			// Fallback to local signout if remote fails
+			await supabase.auth.signOut({ scope: "local" });
 		}
+		// onAuthStateChange will handle state updates and navigation
 	},
 
 	resetPassword: async (email: string, redirectTo?: string) => {
