@@ -18,7 +18,7 @@ export const Route = createFileRoute("/auth")({
 	// Proteção Inversa: Se já estiver logado, não deixa ver login/register
 	beforeLoad: ({ context, search }) => {
 		if (context.auth.isAuthenticated) {
-			throw redirect({ to: search.redirect || "/panel" });
+			throw redirect({ to: search.redirect || "/" });
 		}
 	},
 	component: AuthLayout,

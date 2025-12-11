@@ -14,7 +14,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@iefa/ui";
-import { useQuery } from "@tanstack/react-query";
 import {
 	type ColumnDef,
 	type ColumnFiltersState,
@@ -30,7 +29,15 @@ import {
 import { ArrowUpDown, ChevronDown } from "lucide-react";
 import * as React from "react";
 import { useMemo, useRef, useState } from "react";
+import { useFacilitiesPregoeiroQuery } from "@/hooks/useFacilitiesPregoeiro";
 import { supabase } from "@/lib/supabase";
+import {
+	type Facilidades_pregoeiro,
+	type FacilidadesTableProps,
+	LS_TABLE_SETTINGS_KEY,
+	type TableSettings,
+	type TemplateContext,
+} from "@/types/domain";
 import CopyButton from "./copy-button";
 
 /* ---------------------------------------------------------
@@ -100,36 +107,6 @@ function DataTableColumnHeader<TData, TValue>({
 	);
 }
 
-/* ---------------------------------------------------------
-   Tipos
---------------------------------------------------------- */
-
-export type Facilidades_pregoeiro = {
-	id: string;
-	created_at: string;
-	phase: string;
-	title: string;
-	content: string;
-	tags: string[] | null;
-	owner_id: string | null;
-	default: boolean | null;
-};
-
-export interface FacilidadesTableProps {
-	OM: string;
-	Date: string;
-	Hour: string;
-	Hour_limit: string;
-	currentUserId?: string;
-	onEditRow?: (row: Facilidades_pregoeiro) => void;
-}
-
-/* ---------------------------------------------------------
-   Utils
---------------------------------------------------------- */
-
-type TemplateContext = Record<string, string | number | null | undefined>;
-
 /**
  * Substitui placeholders no formato ${chave} ou {{chave}} por valores do contexto.
  * - Mantém placeholders desconhecidos intactos (não substitui).
@@ -157,45 +134,6 @@ function renderPlaceholders(inputText: string, context: TemplateContext) {
 /* ---------------------------------------------------------
    Query (TanStack Query + Supabase)
 --------------------------------------------------------- */
-
-const FACILITIES_QUERY_KEY = ["facilities_pregoeiro"];
-
-function useFacilitiesQuery() {
-	return useQuery<Facilidades_pregoeiro[]>({
-		queryKey: FACILITIES_QUERY_KEY,
-		queryFn: async () => {
-			const { data, error } = await supabase
-				.from("facilities_pregoeiro")
-				.select("*");
-
-			if (error) throw new Error(error.message);
-
-			const base = data as Facilidades_pregoeiro[];
-
-			return base.map((item) => ({
-				...item,
-				tags: item.tags ?? [],
-				default: item.default ?? false,
-			}));
-		},
-		staleTime: 1000 * 60 * 10,
-		refetchOnWindowFocus: false,
-	});
-}
-
-/* ---------------------------------------------------------
-   Persistência de preferências da Tabela
-   - Salva/Carrega em Supabase (se logado) ou localStorage (anônimo)
---------------------------------------------------------- */
-
-type TableSettings = {
-	columnVisibility?: VisibilityState;
-	sorting?: SortingState;
-	pageSize?: number;
-	titleFilter?: string;
-};
-
-const LS_TABLE_SETTINGS_KEY = "pregoeiro_table_settings_v1";
 
 function useTableSettings(currentUserId?: string) {
 	const [settings, setSettings] = useState<TableSettings | null>(null);
@@ -414,7 +352,11 @@ export function FacilidadesTable({
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 	const [pageSize, setPageSize] = useState<number>(50);
 
-	const { data: baseData = [], isLoading, error } = useFacilitiesQuery();
+	const {
+		data: baseData = [],
+		isLoading,
+		error,
+	} = useFacilitiesPregoeiroQuery();
 
 	// Carrega e persiste configurações da tabela
 	const {

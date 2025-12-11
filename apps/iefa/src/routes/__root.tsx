@@ -8,9 +8,14 @@ import {
 	HeadContent,
 	Outlet,
 	Scripts,
+	useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import type { AuthContextType } from "@/auth/service";
+import {
+	type AuthContextType,
+	type AuthState,
+	authQueryOptions,
+} from "@/auth/service";
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import type { ThemeContextType } from "@/components/themeService";
@@ -20,11 +25,23 @@ import AppStyles from "@/styles.css?url";
 
 export interface MyRouterContext {
 	queryClient: QueryClient;
-	auth: AuthContextType;
+	auth: AuthState;
+	authActions: Omit<AuthContextType, keyof AuthState>;
 	theme: ThemeContextType;
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+	beforeLoad: async ({ context }) => {
+		try {
+			const authState = await context.queryClient.ensureQueryData(
+				authQueryOptions(),
+			);
+			return { auth: authState };
+		} catch (_error) {
+			// Return unauthenticated state on failure
+			return { auth: { user: null, isAuthenticated: false } };
+		}
+	},
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
@@ -57,6 +74,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 });
 
 function RootDocument() {
+	const isLoading = useRouterState({ select: (s) => s.isLoading });
 	return (
 		<html lang="pt-BR" suppressHydrationWarning>
 			<head>
@@ -64,6 +82,9 @@ function RootDocument() {
 				<ThemeScript />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
+				<div
+					className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`}
+				/>
 				<Outlet />
 				<Toaster />
 				<TanStackDevtools
