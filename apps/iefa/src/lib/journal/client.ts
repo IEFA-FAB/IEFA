@@ -19,6 +19,14 @@ import type {
 // USER PROFILES
 // ============================================
 
+/**
+ * Retrieves a user profile by user ID.
+ * Returns null if profile doesn't exist (user hasn't completed onboarding).
+ *
+ * @param userId - The UUID of the user
+ * @returns User profile or null if not found
+ * @throws {Error} Database error
+ */
 export async function getUserProfile(userId: string) {
 	const { data, error } = await supabase
 		.schema("journal")
@@ -31,6 +39,14 @@ export async function getUserProfile(userId: string) {
 	return data as UserProfile | null;
 }
 
+/**
+ * Creates a new user profile.
+ * Used during onboarding flow when user first accesses journal system.
+ *
+ * @param profile - Partial profile data (id is required)
+ * @returns Created profile
+ * @throws {Error} If profile already exists or validation fails
+ */
 export async function createUserProfile(profile: Partial<UserProfile>) {
 	const { data, error } = await supabase
 		.schema("journal")
@@ -43,6 +59,14 @@ export async function createUserProfile(profile: Partial<UserProfile>) {
 	return data as UserProfile;
 }
 
+/**
+ * Updates an existing user profile.
+ *
+ * @param userId - User ID to update
+ * @param updates - Partial profile data to update
+ * @returns Updated profile
+ * @throws {Error} If user not found or update fails
+ */
 export async function updateUserProfile(
 	userId: string,
 	updates: Partial<UserProfile>,
@@ -59,6 +83,13 @@ export async function updateUserProfile(
 	return data as UserProfile;
 }
 
+/**
+ * Creates or updates a user profile (upsert).
+ * Useful for ensuring profile exists without checking first.
+ *
+ * @param profile - Profile data with id
+ * @returns Created or updated profile
+ */
 export async function upsertUserProfile(profile: Partial<UserProfile>) {
 	const { data, error } = await supabase
 		.schema("journal")
@@ -163,6 +194,128 @@ export async function deleteArticle(articleId: string) {
 
 	if (error) throw error;
 	return data as Article;
+}
+
+/**
+ * Creates a new article submission.
+ * This is the main entry point for authors submitting articles.
+ * Sets initial status to 'submitted' and generates a submission number.
+ *
+ * @param data - Article data including bilingual metadata
+ * @returns Created article with generated submission_number
+ * @throws {Error} If validation fails or database error
+ */
+export async function createSubmission(data: CreateSubmissionInput) {
+	// Generate submission number (e.g., 2024-001)
+	const year = new Date().getFullYear();
+	const { count } = await supabase
+		.from("journal.articles")
+		.select("*", { count: "exact", head: true })
+		.gte("created_at", `${year}-01-01`);
+
+	const submissionNumber = `${year}-${String((count || 0) + 1).padStart(3, "0")}`;
+
+	const { data: article, error } = await supabase
+		.from("journal.articles")
+		.insert({
+			...data,
+			submission_number: submissionNumber,
+			status: "submitted",
+			submitted_at: new Date().toISOString(),
+		})
+		.select()
+		.single();
+
+	if (error) throw error;
+	return article as Article;
+}
+
+/**
+ * Accepts a review invitation via token.
+ * Updates assignment status and records acceptance timestamp.
+ *
+ * @param token - Unique invitation token from email
+ * @returns Updated review assignment
+ * @throws {Error} If token invalid or already responded
+ */
+export async function acceptReviewInvitation(token: string) {
+	const { data, error } = await supabase
+		.schema("journal")
+		.from("review_assignments")
+		.update({ status: "accepted", responded_at: new Date().toISOString() })
+		.eq("invitation_token", token)
+		.select()
+		.single();
+
+	if (error) throw error;
+	return data;
+}
+
+/**
+ * Declines a review invitation with optional reason.
+ *
+ * @param token - Invitation token
+ * @param reason - Optional decline reason (shown to editor)
+ * @returns Updated review assignment
+ */
+export async function declineReviewInvitation(token: string, reason?: string) {
+	const { data, error } = await supabase
+		.schema("journal")
+		.from("review_assignments")
+		.update({
+			status: "declined",
+			responded_at: new Date().toISOString(),
+			decline_reason: reason,
+		})
+		.eq("invitation_token", token)
+		.select()
+		.single();
+
+	if (error) throw error;
+	return data;
+}
+
+/**
+ * Submits a completed review for an article.
+ * Creates/updates review record and marks assignment as completed.
+ * This is a transaction-like operation that updates both tables.
+ *
+ * @param assignmentId - Review assignment ID
+ * @param reviewData - Review scores, comments, and recommendation
+ * @returns Created review record
+ * @throws {Error} If assignment not found or review submission fails
+ */
+export async function submitReview(
+	assignmentId: string,
+	reviewData: Partial<Review>,
+) {
+	// First create/update the review
+	const { data: review, error: reviewError } = await supabase
+		.schema("journal")
+		.from("reviews")
+		.upsert({
+			assignment_id: assignmentId,
+			...reviewData,
+			submitted_at: new Date().toISOString(),
+		})
+		.select()
+		.single();
+
+	if (reviewError) throw reviewError;
+
+	// Update assignment status
+	const { error: assignmentError } = await supabase
+		.schema("journal")
+		.from("review_assignments")
+		.update({
+			status: "completed",
+			completed_at: new Date().toISOString(),
+		})
+		.eq("id", assignmentId);
+
+	if (assignmentError) throw assignmentError;
+
+	return review;
 }
 
 // ============================================

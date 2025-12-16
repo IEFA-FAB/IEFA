@@ -1,364 +1,294 @@
-Welcome to your new TanStack app! 
+# IEFA Journal Management System
 
-# Getting Started
+Sistema completo de gestão de periódico científico desenvolvido com TanStack Start, React Query, e Supabase.
 
-To run this application:
+## 🎯 Visão Geral
+
+O IEFA Journal é um sistema moderno de gestão de publicações científicas que cobre todo o fluxo editorial:
+- Submissão de artigos (bilíngue PT/EN)
+- Revisão por pares
+- Gestão editorial (Kanban + Table view)
+- Publicação com DOI e metadados
+- Exportação para Crossref/JATS/Dublin Core
+
+## 🚀 Quick Start
 
 ```bash
+# Instalar dependências
 pnpm install
-pnpm start
+
+# Configurar variáveis de ambiente
+cp .env.example .env.local
+# Editar .env.local com suas credenciais Supabase
+
+# Rodar em desenvolvimento
+pnpm iefa:dev
+
+# Build para produção
+pnpm iefa:build
 ```
 
-# Building For Production
+## 📁 Estrutura do Projeto
 
-To build this application for production:
-
-```bash
-pnpm build
+```
+src/
+├── routes/
+│   └── journal/              # Todas as rotas do sistema de periódico
+│       ├── index.tsx         # Homepage do journal
+│       ├── submit.tsx        # Formulário de submissão
+│       ├── articles/         # Artigos públicos
+│       ├── submissions/      # Submissões do usuário
+│       ├── review/           # Sistema de revisão
+│       └── editorial/        # Dashboard editorial (protegido)
+├── components/
+│   └── journal/              # Componentes do journal
+│       ├── SubmissionForm/   # Multi-step submission
+│       └── editorial/        # Kanban, filters, metrics
+├── lib/
+│   └── journal/              # Lógica de negócio
+│       ├── client.ts         # Funções Supabase
+│       ├── hooks.ts          # React Query hooks
+│       └── types.ts          # TypeScript types
+└── lib/
+    └── i18n.tsx              # Sistema de traduções PT/EN
 ```
 
-## Testing
+## 🔑 Features Principais
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+### Para Autores
+- ✅ Submissão de artigos com metadados bilíngues
+- ✅ Upload de PDF e arquivos fonte
+- ✅ Acompanhamento de status das submissões
+- ✅ Visualização de artigos publicados
 
+### Para Revisores
+- ✅ Aceitação/recusa de convites via token
+- ✅ Dashboard de revisões pendentes
+- ✅ Formulário completo de revisão com scoring
+- ✅ Comentários para autores e editores
+
+### Para Editores
+- ✅ Dashboard com Kanban drag-and-drop
+- ✅ Visualização em tabela com ordenação
+- ✅ Filtros avançados (busca, status, tipo, data)
+- ✅ Workflow de publicação em 4 etapas
+- ✅ Atribuição de DOI
+- ✅ Exportação de metadados
+- ✅ Gerenciamento de volumes/edições
+
+## 🛠️ Stack Tecnológica
+
+### Frontend
+- **Framework:** TanStack Start (React)
+- **Routing:** TanStack Router (file-based)
+- **State:** TanStack Query (server state)
+- **Styling:** Tailwind CSS + @iefa/ui
+- **Forms:** TanStack Form + Zod
+- **Drag & Drop:** @dnd-kit
+- **i18n:** Custom type-safe system
+
+### Backend
+- **Database:** Supabase (PostgreSQL)
+- **Auth:** Supabase Auth
+- **Storage:** Supabase Storage (file uploads)
+- **Schema:** `journal.*` (dedicated schema)
+
+## 📊 Fluxos de Trabalho
+
+### Submissão de Artigo
+1. Autor preenche formulário em 6 etapas
+2. Upload de PDF e arquivos fonte
+3. Sistema gera número de submissão automático
+4. Status inicial: `submitted`
+
+### Revisão por Pares
+1. Editor convida revisor (token via email)
+2. Revisor aceita/recusa convite
+3. Revisor preenche formulário com scores e feedback
+4. Submissão atualiza status da revisão
+
+### Publicação
+1. Editor seleciona artigo aceito
+2. Atribui volume, edição, páginas, data
+3. Gera/atribui DOI
+4. Publica artigo (visível publicamente)
+
+## 🎨 Design System
+
+O projeto usa o design system `@iefa/ui` com:
+- Tema claro/escuro
+- Componentes acessíveis
+- Glassmorphism effects
+- Micro-animations
+- Loading skeletons
+- Empty states informativos
+
+## 🔐 Proteção de Rotas
+
+```typescript
+// Rotas públicas
+/journal                    # Homepage
+/journal/articles           # Browse articles
+/journal/articles/:id       # Article detail
+
+// Autenticadas
+/journal/submit             # Submit article
+/journal/submissions        # My submissions
+/journal/profile            # User profile
+/journal/review             # Reviewer dashboard
+
+// Apenas editores
+/journal/editorial/*        # Editorial features
+```
+
+## 📝 Desenvolvimento
+
+### Adicionando Nova Feature
+
+1. **Criar tipo** em `lib/journal/types.ts`
+```typescript
+export interface NewFeature {
+  id: string;
+  // ...
+}
+```
+
+2. **Adicionar client function** em `lib/journal/client.ts`
+```typescript
+/**
+ * Description of what this does
+ * @param param - Description
+ * @returns Description
+ */
+export async function getNewFeature(id: string) {
+  const { data, error } = await supabase
+    .schema('journal')
+    .from('table_name')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+```
+
+3. **Criar query option** em `lib/journal/hooks.ts`
+```typescript
+export const newFeatureQueryOptions = (id: string) =>
+  queryOptions({
+    queryKey: ['journal', 'new-feature', id],
+    queryFn: () => getNewFeature(id),
+    staleTime: 1000 * 60 * 5, // 5 min
+  });
+```
+
+4. **Usar em rota** com `useSuspenseQuery`
+```typescript
+export const Route = createFileRoute('/journal/feature/$id')({
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      newFeatureQueryOptions(params.id)
+    ),
+  component: FeatureComponent,
+});
+
+function FeatureComponent() {
+  const { id } = Route.useParams();
+  const { data } = useSuspenseQuery(newFeatureQueryOptions(id));
+  
+  return <div>{data.name}</div>;
+}
+```
+
+### Error Handling
+
+O TanStack Query já fornece error handling automático:
+
+```typescript
+// Em componentes
+const { data, error, isLoading } = useSuspenseQuery(query);
+
+// Error boundaries catch erros
+// Adicione <ErrorBoundary> nos layouts
+```
+
+### Internacionalização
+
+```typescript
+import { useT } from '@/lib/i18n';
+
+function MyComponent() {
+  const t = useT();
+  
+  return (
+    <div>
+      <button>{t.common.save}</button>
+      <p>{t.status.published}</p>
+      <ErrorMessage>{t.forms.required}</ErrorMessage>
+    </div>
+  );
+}
+```
+
+## 🧪 Testes
+
+### Integration Tests (Recomendado)
 ```bash
+# Setup
+pnpm add -D vitest @testing-library/react @testing-library/user-event
+
+# Rodar testes
 pnpm test
 ```
 
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
-
+### E2E Tests (Fluxos Críticos)
 ```bash
-pnpm lint
-pnpm format
-pnpm check
+# Setup
+pnpm add -D @playwright/test
+
+# Rodar E2E
+pnpm test:e2e
 ```
 
+## 🚀 Deploy
 
-## Shadcn
+### Pré-requisitos
+1. Database migrations aplicadas
+2. Supabase Storage bucket configurado
+3. Variáveis de ambiente setadas
+4. RLS policies verificadas
 
-Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
-
+### Build
 ```bash
-pnpx shadcn@latest add button
+pnpm iefa:build
 ```
 
-
-## Setting up Strapi
-
-The current setup shows an example of how to use Strapi with an articles collection which is part of the example structure & data.
-
-- Create a local running copy of the strapi admin
-
-```bash
-pnpx create-strapi@latest my-strapi-project
-cd my-strapi-project
-pnpm dev
-```
-
-- Login and publish the example articles to see them on the strapi demo page.
-- Set the `VITE_STRAPI_URL` environment variable in your `.env.local`. (For local it should be http://localhost:1337/api)
-
-
-# TanStack Chat Application
-
-Am example chat application built with TanStack Start, TanStack Store, and Claude AI.
-
-## .env Updates
-
+### Variáveis de Ambiente Necessárias
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-## ✨ Features
+## 📚 Documentação Adicional
 
-### AI Capabilities
-- 🤖 Powered by Claude 3.5 Sonnet 
-- 📝 Rich markdown formatting with syntax highlighting
-- 🎯 Customizable system prompts for tailored AI behavior
-- 🔄 Real-time message updates and streaming responses (coming soon)
+- **PRD:** `PRD.md` - Product Requirements Document
+- **Design System:** `design-system.md` - Padrões e guidelines
+- **Steps:** `steps.md` - Plano de implementação
+- **Audit Report:** `.gemini/*/audit_report.md` - Issues e melhorias
 
-### User Experience
-- 🎨 Modern UI with Tailwind CSS and Lucide icons
-- 🔍 Conversation management and history
-- 🔐 Secure API key management
-- 📋 Markdown rendering with code highlighting
+## 🤝 Contribuindo
 
-### Technical Features
-- 📦 Centralized state management with TanStack Store
-- 🔌 Extensible architecture for multiple AI providers
-- 🛠️ TypeScript for type safety
+1. Seguir padrões do design system
+2. Adicionar JSDoc em funções públicas
+3. Fazer testes de integração para flows críticos
+4. Usar TypeScript strict
+5. Testar em mobile e desktop
 
-## Architecture
+## 📄 Licença
 
-### Tech Stack
-- **Frontend Framework**: TanStack Start
-- **Routing**: TanStack Router
-- **State Management**: TanStack Store
-- **Styling**: Tailwind CSS
-- **AI Integration**: Anthropic's Claude API
+Propriedade do IEFA (Instituto de Estudos e Formação Avançada).
 
+---
 
-## Routing
-This project uses [TanStack Router](https://tanstack.com/router). The initial setup is a file based router. Which means that the routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add another a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you use the `<Outlet />` component.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-
-import { Link } from "@tanstack/react-router";
-
-export const Route = createRootRoute({
-  component: () => (
-    <>
-      <header>
-        <nav>
-          <Link to="/">Home</Link>
-          <Link to="/about">About</Link>
-        </nav>
-      </header>
-      <Outlet />
-      <TanStackRouterDevtools />
-    </>
-  ),
-})
-```
-
-The `<TanStackRouterDevtools />` component is not required so you can remove it if you don't want it in your layout.
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-const peopleRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/people",
-  loader: async () => {
-    const response = await fetch("https://swapi.dev/api/people");
-    return response.json() as Promise<{
-      results: {
-        name: string;
-      }[];
-    }>;
-  },
-  component: () => {
-    const data = peopleRoute.useLoaderData();
-    return (
-      <ul>
-        {data.results.map((person) => (
-          <li key={person.name}>{person.name}</li>
-        ))}
-      </ul>
-    );
-  },
-});
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-### React-Query
-
-React-Query is an excellent addition or alternative to route loading and integrating it into you application is a breeze.
-
-First add your dependencies:
-
-```bash
-pnpm add @tanstack/react-query @tanstack/react-query-devtools
-```
-
-Next we'll need to create a query client and provider. We recommend putting those in `main.tsx`.
-
-```tsx
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-// ...
-
-const queryClient = new QueryClient();
-
-// ...
-
-if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement);
-
-  root.render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  );
-}
-```
-
-You can also add TanStack Query Devtools to the root route (optional).
-
-```tsx
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-
-const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-      <ReactQueryDevtools buttonPosition="top-right" />
-      <TanStackRouterDevtools />
-    </>
-  ),
-});
-```
-
-Now you can use `useQuery` to fetch your data.
-
-```tsx
-import { useQuery } from "@tanstack/react-query";
-
-import "./App.css";
-
-function App() {
-  const { data } = useQuery({
-    queryKey: ["people"],
-    queryFn: () =>
-      fetch("https://swapi.dev/api/people")
-        .then((res) => res.json())
-        .then((data) => data.results as { name: string }[]),
-    initialData: [],
-  });
-
-  return (
-    <div>
-      <ul>
-        {data.map((person) => (
-          <li key={person.name}>{person.name}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export default App;
-```
-
-You can find out everything you need to know on how to use React-Query in the [React-Query documentation](https://tanstack.com/query/latest/docs/framework/react/overview).
-
-## State Management
-
-Another common requirement for React applications is state management. There are many options for state management in React. TanStack Store provides a great starting point for your project.
-
-First you need to add TanStack Store as a dependency:
-
-```bash
-pnpm add @tanstack/store
-```
-
-Now let's create a simple counter in the `src/App.tsx` file as a demonstration.
-
-```tsx
-import { useStore } from "@tanstack/react-store";
-import { Store } from "@tanstack/store";
-import "./App.css";
-
-const countStore = new Store(0);
-
-function App() {
-  const count = useStore(countStore);
-  return (
-    <div>
-      <button onClick={() => countStore.setState((n) => n + 1)}>
-        Increment - {count}
-      </button>
-    </div>
-  );
-}
-
-export default App;
-```
-
-One of the many nice features of TanStack Store is the ability to derive state from other state. That derived state will update when the base state updates.
-
-Let's check this out by doubling the count using derived state.
-
-```tsx
-import { useStore } from "@tanstack/react-store";
-import { Store, Derived } from "@tanstack/store";
-import "./App.css";
-
-const countStore = new Store(0);
-
-const doubledStore = new Derived({
-  fn: () => countStore.state * 2,
-  deps: [countStore],
-});
-doubledStore.mount();
-
-function App() {
-  const count = useStore(countStore);
-  const doubledCount = useStore(doubledStore);
-
-  return (
-    <div>
-      <button onClick={() => countStore.setState((n) => n + 1)}>
-        Increment - {count}
-      </button>
-      <div>Doubled - {doubledCount}</div>
-    </div>
-  );
-}
-
-export default App;
-```
-
-We use the `Derived` class to create a new store that is derived from another store. The `Derived` class has a `mount` method that will start the derived store updating.
-
-Once we've created the derived store we can use it in the `App` component just like we would any other store using the `useStore` hook.
-
-You can find out everything you need to know on how to use TanStack Store in the [TanStack Store documentation](https://tanstack.com/store/latest).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
+**Desenvolvido com ❤️ pela equipe IEFA**
