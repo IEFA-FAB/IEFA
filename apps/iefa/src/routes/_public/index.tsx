@@ -1,6 +1,5 @@
 import { Button, Separator } from "@iefa/ui";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink } from "lucide-react";
 import { AppCard } from "@/components/AppCard";
 import { DynamicIcon } from "@/components/dynamicIcon";
 import { useAppsData } from "@/hooks/useAppsData";
@@ -63,15 +62,12 @@ function Home() {
 									</Link>
 								</Button>
 								<Button asChild size="lg" variant="secondary">
-									<a
-										href="https://app.previsaosisub.com.br/"
-										target="_blank"
-										rel="noreferrer noopener"
-										aria-label="Acessar Previsão de Rancho (SISUB) em nova aba"
+									<Link
+										to="/journal"
+										aria-label="Acessar Sistema de Gestão de Publicações"
 									>
-										Acessar SISUB
-										<ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-									</a>
+										Gestão de Publicações
+									</Link>
 								</Button>
 							</div>
 						</div>

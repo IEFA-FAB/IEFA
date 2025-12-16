@@ -71,6 +71,10 @@ export function AppLayout({ children }: AppLayoutProps) {
 							<Link to="/facilities" className={navLinkClass}>
 								Facilidades
 							</Link>
+							<Link to="/journal" className={navLinkClass}>
+								Publicações
+							</Link>
+							{/* 
 							<a
 								href="https://app.previsaosisub.com.br/"
 								target="_blank"
@@ -84,7 +88,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 							>
 								SISUB
 								<ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-							</a>
+							</a> */}
 						</nav>
 					</div>
 
