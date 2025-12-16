@@ -10,6 +10,7 @@ export function useAppsData(limit = 50) {
 		queryKey: [APPS_QUERY_KEY, limit],
 		queryFn: async (): Promise<DbApp[]> => {
 			const { data, error } = await supabase
+				.schema("iefa")
 				.from("apps")
 				.select(
 					`
@@ -20,7 +21,7 @@ export function useAppsData(limit = 50) {
           icon_key,
           external,
           badges,
-          contributors:app_contributors (
+          contributors:app_contributors!app_contributors_app_id_fkey (
             label,
             url,
             icon_key

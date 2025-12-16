@@ -1,4 +1,5 @@
 // UI Components (from @iefa/ui)
+import { Feature, MealType, Step } from "@/types/domain";
 import {
 	Badge,
 	Button,
@@ -48,35 +49,7 @@ import { useEffect, useRef, useState } from "react";
  * Representa um passo do tutorial/workflow do sistema
  */
 
-export type Step = {
-	/** Título do passo */
-	title: string;
-	/** Descrição detalhada do passo */
-	description: string;
-	/** Ícone do Lucide React */
-	icon: LucideIcon;
-};
 
-/**
- * Representa um tipo de refeição disponível no sistema
- */
-export type MealType = {
-	/** Nome da refeição (ex: "Café da Manhã") */
-	label: string;
-	/** Horário de disponibilidade (ex: "06:00 - 08:00") */
-	time: string;
-	/** Ícone do Lucide React */
-	icon: LucideIcon;
-};
-
-/**
- * Representa uma funcionalidade do sistema
- */
-export type Feature = {
-	title: string;
-	description: string;
-	icon: LucideIcon;
-};
 
 export const steps: Step[] = [
 	{
@@ -486,7 +459,7 @@ function HomeHero() {
 					variant="secondary"
 					className="px-4 py-2 text-sm font-medium animate-pulse"
 				>
-					Sistema de Previsão de Rancho
+					Sistema de Previsão de Subsistência
 				</Badge>
 
 				<h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight">

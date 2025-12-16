@@ -288,9 +288,6 @@ function PhraseModal({
 				if (error) throw error;
 			}
 
-			await invalidateQueries({
-				queryKey: ["facilities_pregoeiro"],
-			});
 			onOpenChange(false);
 			onSaved?.();
 		} catch (e: any) {

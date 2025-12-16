@@ -12,14 +12,26 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
+import { Route as JournalIndexRouteImport } from './routes/journal/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
+import { Route as JournalProfileRouteImport } from './routes/journal/profile'
 import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
 import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
+import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
+import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
 import { Route as PublicPostsIndexRouteImport } from './routes/_public/posts/index'
 import { Route as PublicFacilitiesIndexRouteImport } from './routes/_public/facilities/index'
+import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
+import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
+import { Route as JournalReviewAssignmentIdRouteImport } from './routes/journal/review/$assignmentId'
+import { Route as JournalEditorialSettingsRouteImport } from './routes/journal/editorial/settings'
+import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
+import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
 import { Route as PublicPostsSlugRouteImport } from './routes/_public/posts/$slug'
 import { Route as PublicFacilitiesPregoeiroRouteImport } from './routes/_public/facilities/pregoeiro'
+import { Route as JournalEditorialArticlesIdRouteImport } from './routes/journal/editorial/articles/$id'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -35,6 +47,11 @@ const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JournalIndexRoute = JournalIndexRouteImport.update({
+  id: '/journal/',
+  path: '/journal/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -44,6 +61,16 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const JournalSubmitRoute = JournalSubmitRouteImport.update({
+  id: '/journal/submit',
+  path: '/journal/submit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalProfileRoute = JournalProfileRouteImport.update({
+  id: '/journal/profile',
+  path: '/journal/profile',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
   id: '/overseerDashboard',
@@ -55,6 +82,16 @@ const PublicChatRadaRoute = PublicChatRadaRouteImport.update({
   path: '/chatRada',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const JournalSubmissionsIndexRoute = JournalSubmissionsIndexRouteImport.update({
+  id: '/journal/submissions/',
+  path: '/journal/submissions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalArticlesIndexRoute = JournalArticlesIndexRouteImport.update({
+  id: '/journal/articles/',
+  path: '/journal/articles/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicPostsIndexRoute = PublicPostsIndexRouteImport.update({
   id: '/posts/',
   path: '/posts/',
@@ -64,6 +101,39 @@ const PublicFacilitiesIndexRoute = PublicFacilitiesIndexRouteImport.update({
   id: '/facilities/',
   path: '/facilities/',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const JournalSubmissionsIdRoute = JournalSubmissionsIdRouteImport.update({
+  id: '/journal/submissions/$id',
+  path: '/journal/submissions/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalReviewTokenRoute = JournalReviewTokenRouteImport.update({
+  id: '/journal/review/$token',
+  path: '/journal/review/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalReviewAssignmentIdRoute =
+  JournalReviewAssignmentIdRouteImport.update({
+    id: '/journal/review/$assignmentId',
+    path: '/journal/review/$assignmentId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const JournalEditorialSettingsRoute =
+  JournalEditorialSettingsRouteImport.update({
+    id: '/journal/editorial/settings',
+    path: '/journal/editorial/settings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const JournalEditorialDashboardRoute =
+  JournalEditorialDashboardRouteImport.update({
+    id: '/journal/editorial/dashboard',
+    path: '/journal/editorial/dashboard',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const JournalArticlesIdRoute = JournalArticlesIdRouteImport.update({
+  id: '/journal/articles/$id',
+  path: '/journal/articles/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PublicPostsSlugRoute = PublicPostsSlugRouteImport.update({
   id: '/posts/$slug',
@@ -76,29 +146,59 @@ const PublicFacilitiesPregoeiroRoute =
     path: '/facilities/pregoeiro',
     getParentRoute: () => PublicRouteRoute,
   } as any)
+const JournalEditorialArticlesIdRoute =
+  JournalEditorialArticlesIdRouteImport.update({
+    id: '/journal/editorial/articles/$id',
+    path: '/journal/editorial/articles/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/journal/profile': typeof JournalProfileRoute
+  '/journal/submit': typeof JournalSubmitRoute
   '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/journal': typeof JournalIndexRoute
   '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
   '/posts/$slug': typeof PublicPostsSlugRoute
+  '/journal/articles/$id': typeof JournalArticlesIdRoute
+  '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
+  '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
+  '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
+  '/journal/review/$token': typeof JournalReviewTokenRoute
+  '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/facilities': typeof PublicFacilitiesIndexRoute
   '/posts': typeof PublicPostsIndexRoute
+  '/journal/articles': typeof JournalArticlesIndexRoute
+  '/journal/submissions': typeof JournalSubmissionsIndexRoute
+  '/journal/editorial/articles/$id': typeof JournalEditorialArticlesIdRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/journal/profile': typeof JournalProfileRoute
+  '/journal/submit': typeof JournalSubmitRoute
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/journal': typeof JournalIndexRoute
   '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
   '/posts/$slug': typeof PublicPostsSlugRoute
+  '/journal/articles/$id': typeof JournalArticlesIdRoute
+  '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
+  '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
+  '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
+  '/journal/review/$token': typeof JournalReviewTokenRoute
+  '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/facilities': typeof PublicFacilitiesIndexRoute
   '/posts': typeof PublicPostsIndexRoute
+  '/journal/articles': typeof JournalArticlesIndexRoute
+  '/journal/submissions': typeof JournalSubmissionsIndexRoute
+  '/journal/editorial/articles/$id': typeof JournalEditorialArticlesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,12 +207,24 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/_public/chatRada': typeof PublicChatRadaRoute
   '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/journal/profile': typeof JournalProfileRoute
+  '/journal/submit': typeof JournalSubmitRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/journal/': typeof JournalIndexRoute
   '/_public/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
   '/_public/posts/$slug': typeof PublicPostsSlugRoute
+  '/journal/articles/$id': typeof JournalArticlesIdRoute
+  '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
+  '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
+  '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
+  '/journal/review/$token': typeof JournalReviewTokenRoute
+  '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/_public/facilities/': typeof PublicFacilitiesIndexRoute
   '/_public/posts/': typeof PublicPostsIndexRoute
+  '/journal/articles/': typeof JournalArticlesIndexRoute
+  '/journal/submissions/': typeof JournalSubmissionsIndexRoute
+  '/journal/editorial/articles/$id': typeof JournalEditorialArticlesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,23 +233,47 @@ export interface FileRouteTypes {
     | '/health'
     | '/chatRada'
     | '/overseerDashboard'
+    | '/journal/profile'
+    | '/journal/submit'
     | '/'
     | '/auth/'
+    | '/journal'
     | '/facilities/pregoeiro'
     | '/posts/$slug'
+    | '/journal/articles/$id'
+    | '/journal/editorial/dashboard'
+    | '/journal/editorial/settings'
+    | '/journal/review/$assignmentId'
+    | '/journal/review/$token'
+    | '/journal/submissions/$id'
     | '/facilities'
     | '/posts'
+    | '/journal/articles'
+    | '/journal/submissions'
+    | '/journal/editorial/articles/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
     | '/chatRada'
     | '/overseerDashboard'
+    | '/journal/profile'
+    | '/journal/submit'
     | '/'
     | '/auth'
+    | '/journal'
     | '/facilities/pregoeiro'
     | '/posts/$slug'
+    | '/journal/articles/$id'
+    | '/journal/editorial/dashboard'
+    | '/journal/editorial/settings'
+    | '/journal/review/$assignmentId'
+    | '/journal/review/$token'
+    | '/journal/submissions/$id'
     | '/facilities'
     | '/posts'
+    | '/journal/articles'
+    | '/journal/submissions'
+    | '/journal/editorial/articles/$id'
   id:
     | '__root__'
     | '/_public'
@@ -145,18 +281,42 @@ export interface FileRouteTypes {
     | '/health'
     | '/_public/chatRada'
     | '/_public/overseerDashboard'
+    | '/journal/profile'
+    | '/journal/submit'
     | '/_public/'
     | '/auth/'
+    | '/journal/'
     | '/_public/facilities/pregoeiro'
     | '/_public/posts/$slug'
+    | '/journal/articles/$id'
+    | '/journal/editorial/dashboard'
+    | '/journal/editorial/settings'
+    | '/journal/review/$assignmentId'
+    | '/journal/review/$token'
+    | '/journal/submissions/$id'
     | '/_public/facilities/'
     | '/_public/posts/'
+    | '/journal/articles/'
+    | '/journal/submissions/'
+    | '/journal/editorial/articles/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
+  JournalProfileRoute: typeof JournalProfileRoute
+  JournalSubmitRoute: typeof JournalSubmitRoute
+  JournalIndexRoute: typeof JournalIndexRoute
+  JournalArticlesIdRoute: typeof JournalArticlesIdRoute
+  JournalEditorialDashboardRoute: typeof JournalEditorialDashboardRoute
+  JournalEditorialSettingsRoute: typeof JournalEditorialSettingsRoute
+  JournalReviewAssignmentIdRoute: typeof JournalReviewAssignmentIdRoute
+  JournalReviewTokenRoute: typeof JournalReviewTokenRoute
+  JournalSubmissionsIdRoute: typeof JournalSubmissionsIdRoute
+  JournalArticlesIndexRoute: typeof JournalArticlesIndexRoute
+  JournalSubmissionsIndexRoute: typeof JournalSubmissionsIndexRoute
+  JournalEditorialArticlesIdRoute: typeof JournalEditorialArticlesIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/journal/': {
+      id: '/journal/'
+      path: '/journal'
+      fullPath: '/journal'
+      preLoaderRoute: typeof JournalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/': {
       id: '/auth/'
       path: '/'
@@ -195,6 +362,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/journal/submit': {
+      id: '/journal/submit'
+      path: '/journal/submit'
+      fullPath: '/journal/submit'
+      preLoaderRoute: typeof JournalSubmitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/profile': {
+      id: '/journal/profile'
+      path: '/journal/profile'
+      fullPath: '/journal/profile'
+      preLoaderRoute: typeof JournalProfileRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_public/overseerDashboard': {
       id: '/_public/overseerDashboard'
@@ -210,6 +391,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicChatRadaRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/journal/submissions/': {
+      id: '/journal/submissions/'
+      path: '/journal/submissions'
+      fullPath: '/journal/submissions'
+      preLoaderRoute: typeof JournalSubmissionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/articles/': {
+      id: '/journal/articles/'
+      path: '/journal/articles'
+      fullPath: '/journal/articles'
+      preLoaderRoute: typeof JournalArticlesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public/posts/': {
       id: '/_public/posts/'
       path: '/posts'
@@ -224,6 +419,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicFacilitiesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/journal/submissions/$id': {
+      id: '/journal/submissions/$id'
+      path: '/journal/submissions/$id'
+      fullPath: '/journal/submissions/$id'
+      preLoaderRoute: typeof JournalSubmissionsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/review/$token': {
+      id: '/journal/review/$token'
+      path: '/journal/review/$token'
+      fullPath: '/journal/review/$token'
+      preLoaderRoute: typeof JournalReviewTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/review/$assignmentId': {
+      id: '/journal/review/$assignmentId'
+      path: '/journal/review/$assignmentId'
+      fullPath: '/journal/review/$assignmentId'
+      preLoaderRoute: typeof JournalReviewAssignmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/editorial/settings': {
+      id: '/journal/editorial/settings'
+      path: '/journal/editorial/settings'
+      fullPath: '/journal/editorial/settings'
+      preLoaderRoute: typeof JournalEditorialSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/editorial/dashboard': {
+      id: '/journal/editorial/dashboard'
+      path: '/journal/editorial/dashboard'
+      fullPath: '/journal/editorial/dashboard'
+      preLoaderRoute: typeof JournalEditorialDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal/articles/$id': {
+      id: '/journal/articles/$id'
+      path: '/journal/articles/$id'
+      fullPath: '/journal/articles/$id'
+      preLoaderRoute: typeof JournalArticlesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public/posts/$slug': {
       id: '/_public/posts/$slug'
       path: '/posts/$slug'
@@ -237,6 +474,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/facilities/pregoeiro'
       preLoaderRoute: typeof PublicFacilitiesPregoeiroRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/journal/editorial/articles/$id': {
+      id: '/journal/editorial/articles/$id'
+      path: '/journal/editorial/articles/$id'
+      fullPath: '/journal/editorial/articles/$id'
+      preLoaderRoute: typeof JournalEditorialArticlesIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -281,6 +525,18 @@ const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HealthRoute: HealthRoute,
+  JournalProfileRoute: JournalProfileRoute,
+  JournalSubmitRoute: JournalSubmitRoute,
+  JournalIndexRoute: JournalIndexRoute,
+  JournalArticlesIdRoute: JournalArticlesIdRoute,
+  JournalEditorialDashboardRoute: JournalEditorialDashboardRoute,
+  JournalEditorialSettingsRoute: JournalEditorialSettingsRoute,
+  JournalReviewAssignmentIdRoute: JournalReviewAssignmentIdRoute,
+  JournalReviewTokenRoute: JournalReviewTokenRoute,
+  JournalSubmissionsIdRoute: JournalSubmissionsIdRoute,
+  JournalArticlesIndexRoute: JournalArticlesIndexRoute,
+  JournalSubmissionsIndexRoute: JournalSubmissionsIndexRoute,
+  JournalEditorialArticlesIdRoute: JournalEditorialArticlesIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -36,7 +36,12 @@
         "tailwind-merge": "^3.0.2",
         "tailwindcss": "^4.0.6",
         "vite-tsconfig-paths": "^5.1.4",
-        "zod": "^4.1.11"
+        "zod": "^4.1.11",
+        "react-dropzone": "^14.2.10",
+        "date-fns": "^4.1.0",
+        "@dnd-kit/core": "^6.3.1",
+        "@dnd-kit/sortable": "^9.0.0",
+        "@supabase/supabase-js": "^2.48.1"
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.4",
