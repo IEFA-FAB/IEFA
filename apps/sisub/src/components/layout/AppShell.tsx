@@ -262,7 +262,6 @@ export function AppShell() {
 						userId={userId}
 						userLevel={userLevel}
 					/>
-
 					<main id="conteudo" className="flex-1">
 						<MainSurface
 							showInitialError={showInitialError}

@@ -1,5 +1,6 @@
 // src/types/domain.ts
 
+import { LucideIcon } from "lucide-react";
 import type { DayMeals } from "@/utils/RanchoUtils";
 export type { DayMeals };
 
@@ -271,3 +272,33 @@ export type EditUserPayload = {
 };
 
 export type AdminStatus = "checking" | "authorized" | "unauthorized";
+
+export type Step = {
+	/** Título do passo */
+	title: string;
+	/** Descrição detalhada do passo */
+	description: string;
+	/** Ícone do Lucide React */
+	icon: LucideIcon;
+};
+
+/**
+ * Representa um tipo de refeição disponível no sistema
+ */
+export type MealType = {
+	/** Nome da refeição (ex: "Café da Manhã") */
+	label: string;
+	/** Horário de disponibilidade (ex: "06:00 - 08:00") */
+	time: string;
+	/** Ícone do Lucide React */
+	icon: LucideIcon;
+};
+
+/**
+ * Representa uma funcionalidade do sistema
+ */
+export type Feature = {
+	title: string;
+	description: string;
+	icon: LucideIcon;
+};

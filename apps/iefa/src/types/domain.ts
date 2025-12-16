@@ -1,5 +1,5 @@
-import { PortableTextBlock } from "@sanity/types";
-import { SortingState, VisibilityState } from "@tanstack/react-table";
+import type { PortableTextBlock } from "@sanity/types";
+import type { SortingState, VisibilityState } from "@tanstack/react-table";
 
 export interface PostAuthor {
 	name: string;
