@@ -18,17 +18,22 @@ import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
 import { Route as JournalProfileRouteImport } from './routes/journal/profile'
+import { Route as JournalAboutRouteImport } from './routes/journal/about'
 import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
 import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
 import { Route as JournalEditorialRouteRouteImport } from './routes/journal/editorial/route'
 import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
+import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/index'
 import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
 import { Route as PublicPostsIndexRouteImport } from './routes/_public/posts/index'
 import { Route as PublicFacilitiesIndexRouteImport } from './routes/_public/facilities/index'
 import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
 import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
 import { Route as JournalReviewAssignmentIdRouteImport } from './routes/journal/review/$assignmentId'
+import { Route as JournalEditorialVolumesRouteImport } from './routes/journal/editorial/volumes'
 import { Route as JournalEditorialSettingsRouteImport } from './routes/journal/editorial/settings'
+import { Route as JournalEditorialPublicationRouteImport } from './routes/journal/editorial/publication'
+import { Route as JournalEditorialMetadataExportRouteImport } from './routes/journal/editorial/metadata-export'
 import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
 import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
 import { Route as PublicPostsSlugRouteImport } from './routes/_public/posts/$slug'
@@ -79,6 +84,11 @@ const JournalProfileRoute = JournalProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => JournalRouteRoute,
 } as any)
+const JournalAboutRoute = JournalAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => JournalRouteRoute,
+} as any)
 const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
   id: '/overseerDashboard',
   path: '/overseerDashboard',
@@ -97,6 +107,11 @@ const JournalEditorialRouteRoute = JournalEditorialRouteRouteImport.update({
 const JournalSubmissionsIndexRoute = JournalSubmissionsIndexRouteImport.update({
   id: '/submissions/',
   path: '/submissions/',
+  getParentRoute: () => JournalRouteRoute,
+} as any)
+const JournalReviewIndexRoute = JournalReviewIndexRouteImport.update({
+  id: '/review/',
+  path: '/review/',
   getParentRoute: () => JournalRouteRoute,
 } as any)
 const JournalArticlesIndexRoute = JournalArticlesIndexRouteImport.update({
@@ -130,10 +145,27 @@ const JournalReviewAssignmentIdRoute =
     path: '/review/$assignmentId',
     getParentRoute: () => JournalRouteRoute,
   } as any)
+const JournalEditorialVolumesRoute = JournalEditorialVolumesRouteImport.update({
+  id: '/volumes',
+  path: '/volumes',
+  getParentRoute: () => JournalEditorialRouteRoute,
+} as any)
 const JournalEditorialSettingsRoute =
   JournalEditorialSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
+    getParentRoute: () => JournalEditorialRouteRoute,
+  } as any)
+const JournalEditorialPublicationRoute =
+  JournalEditorialPublicationRouteImport.update({
+    id: '/publication',
+    path: '/publication',
+    getParentRoute: () => JournalEditorialRouteRoute,
+  } as any)
+const JournalEditorialMetadataExportRoute =
+  JournalEditorialMetadataExportRouteImport.update({
+    id: '/metadata-export',
+    path: '/metadata-export',
     getParentRoute: () => JournalEditorialRouteRoute,
   } as any)
 const JournalEditorialDashboardRoute =
@@ -172,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/': typeof PublicIndexRoute
@@ -181,13 +214,17 @@ export interface FileRoutesByFullPath {
   '/posts/$slug': typeof PublicPostsSlugRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
+  '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
+  '/journal/editorial/publication': typeof JournalEditorialPublicationRoute
   '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
+  '/journal/editorial/volumes': typeof JournalEditorialVolumesRoute
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/facilities': typeof PublicFacilitiesIndexRoute
   '/posts': typeof PublicPostsIndexRoute
   '/journal/articles': typeof JournalArticlesIndexRoute
+  '/journal/review': typeof JournalReviewIndexRoute
   '/journal/submissions': typeof JournalSubmissionsIndexRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
 }
@@ -196,6 +233,7 @@ export interface FileRoutesByTo {
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/': typeof PublicIndexRoute
@@ -205,13 +243,17 @@ export interface FileRoutesByTo {
   '/posts/$slug': typeof PublicPostsSlugRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
+  '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
+  '/journal/editorial/publication': typeof JournalEditorialPublicationRoute
   '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
+  '/journal/editorial/volumes': typeof JournalEditorialVolumesRoute
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/facilities': typeof PublicFacilitiesIndexRoute
   '/posts': typeof PublicPostsIndexRoute
   '/journal/articles': typeof JournalArticlesIndexRoute
+  '/journal/review': typeof JournalReviewIndexRoute
   '/journal/submissions': typeof JournalSubmissionsIndexRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
 }
@@ -224,6 +266,7 @@ export interface FileRoutesById {
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/_public/chatRada': typeof PublicChatRadaRoute
   '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/_public/': typeof PublicIndexRoute
@@ -233,13 +276,17 @@ export interface FileRoutesById {
   '/_public/posts/$slug': typeof PublicPostsSlugRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
+  '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
+  '/journal/editorial/publication': typeof JournalEditorialPublicationRoute
   '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
+  '/journal/editorial/volumes': typeof JournalEditorialVolumesRoute
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/_public/facilities/': typeof PublicFacilitiesIndexRoute
   '/_public/posts/': typeof PublicPostsIndexRoute
   '/journal/articles/': typeof JournalArticlesIndexRoute
+  '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
 }
@@ -252,6 +299,7 @@ export interface FileRouteTypes {
     | '/journal/editorial'
     | '/chatRada'
     | '/overseerDashboard'
+    | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/'
@@ -261,13 +309,17 @@ export interface FileRouteTypes {
     | '/posts/$slug'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
+    | '/journal/editorial/metadata-export'
+    | '/journal/editorial/publication'
     | '/journal/editorial/settings'
+    | '/journal/editorial/volumes'
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
     | '/facilities'
     | '/posts'
     | '/journal/articles'
+    | '/journal/review'
     | '/journal/submissions'
     | '/journal/editorial/articles/$articleId'
   fileRoutesByTo: FileRoutesByTo
@@ -276,6 +328,7 @@ export interface FileRouteTypes {
     | '/journal/editorial'
     | '/chatRada'
     | '/overseerDashboard'
+    | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/'
@@ -285,13 +338,17 @@ export interface FileRouteTypes {
     | '/posts/$slug'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
+    | '/journal/editorial/metadata-export'
+    | '/journal/editorial/publication'
     | '/journal/editorial/settings'
+    | '/journal/editorial/volumes'
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
     | '/facilities'
     | '/posts'
     | '/journal/articles'
+    | '/journal/review'
     | '/journal/submissions'
     | '/journal/editorial/articles/$articleId'
   id:
@@ -303,6 +360,7 @@ export interface FileRouteTypes {
     | '/journal/editorial'
     | '/_public/chatRada'
     | '/_public/overseerDashboard'
+    | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/_public/'
@@ -312,13 +370,17 @@ export interface FileRouteTypes {
     | '/_public/posts/$slug'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
+    | '/journal/editorial/metadata-export'
+    | '/journal/editorial/publication'
     | '/journal/editorial/settings'
+    | '/journal/editorial/volumes'
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
     | '/_public/facilities/'
     | '/_public/posts/'
     | '/journal/articles/'
+    | '/journal/review/'
     | '/journal/submissions/'
     | '/journal/editorial/articles/$articleId'
   fileRoutesById: FileRoutesById
@@ -395,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalProfileRouteImport
       parentRoute: typeof JournalRouteRoute
     }
+    '/journal/about': {
+      id: '/journal/about'
+      path: '/about'
+      fullPath: '/journal/about'
+      preLoaderRoute: typeof JournalAboutRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
     '/_public/overseerDashboard': {
       id: '/_public/overseerDashboard'
       path: '/overseerDashboard'
@@ -421,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/submissions'
       fullPath: '/journal/submissions'
       preLoaderRoute: typeof JournalSubmissionsIndexRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
+    '/journal/review/': {
+      id: '/journal/review/'
+      path: '/review'
+      fullPath: '/journal/review'
+      preLoaderRoute: typeof JournalReviewIndexRouteImport
       parentRoute: typeof JournalRouteRoute
     }
     '/journal/articles/': {
@@ -465,11 +541,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalReviewAssignmentIdRouteImport
       parentRoute: typeof JournalRouteRoute
     }
+    '/journal/editorial/volumes': {
+      id: '/journal/editorial/volumes'
+      path: '/volumes'
+      fullPath: '/journal/editorial/volumes'
+      preLoaderRoute: typeof JournalEditorialVolumesRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
     '/journal/editorial/settings': {
       id: '/journal/editorial/settings'
       path: '/settings'
       fullPath: '/journal/editorial/settings'
       preLoaderRoute: typeof JournalEditorialSettingsRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/editorial/publication': {
+      id: '/journal/editorial/publication'
+      path: '/publication'
+      fullPath: '/journal/editorial/publication'
+      preLoaderRoute: typeof JournalEditorialPublicationRouteImport
+      parentRoute: typeof JournalEditorialRouteRoute
+    }
+    '/journal/editorial/metadata-export': {
+      id: '/journal/editorial/metadata-export'
+      path: '/metadata-export'
+      fullPath: '/journal/editorial/metadata-export'
+      preLoaderRoute: typeof JournalEditorialMetadataExportRouteImport
       parentRoute: typeof JournalEditorialRouteRoute
     }
     '/journal/editorial/dashboard': {
@@ -548,13 +645,19 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface JournalEditorialRouteRouteChildren {
   JournalEditorialDashboardRoute: typeof JournalEditorialDashboardRoute
+  JournalEditorialMetadataExportRoute: typeof JournalEditorialMetadataExportRoute
+  JournalEditorialPublicationRoute: typeof JournalEditorialPublicationRoute
   JournalEditorialSettingsRoute: typeof JournalEditorialSettingsRoute
+  JournalEditorialVolumesRoute: typeof JournalEditorialVolumesRoute
   JournalEditorialArticlesArticleIdRoute: typeof JournalEditorialArticlesArticleIdRoute
 }
 
 const JournalEditorialRouteRouteChildren: JournalEditorialRouteRouteChildren = {
   JournalEditorialDashboardRoute: JournalEditorialDashboardRoute,
+  JournalEditorialMetadataExportRoute: JournalEditorialMetadataExportRoute,
+  JournalEditorialPublicationRoute: JournalEditorialPublicationRoute,
   JournalEditorialSettingsRoute: JournalEditorialSettingsRoute,
+  JournalEditorialVolumesRoute: JournalEditorialVolumesRoute,
   JournalEditorialArticlesArticleIdRoute:
     JournalEditorialArticlesArticleIdRoute,
 }
@@ -566,6 +669,7 @@ const JournalEditorialRouteRouteWithChildren =
 
 interface JournalRouteRouteChildren {
   JournalEditorialRouteRoute: typeof JournalEditorialRouteRouteWithChildren
+  JournalAboutRoute: typeof JournalAboutRoute
   JournalProfileRoute: typeof JournalProfileRoute
   JournalSubmitRoute: typeof JournalSubmitRoute
   JournalIndexRoute: typeof JournalIndexRoute
@@ -574,11 +678,13 @@ interface JournalRouteRouteChildren {
   JournalReviewTokenRoute: typeof JournalReviewTokenRoute
   JournalSubmissionsIdRoute: typeof JournalSubmissionsIdRoute
   JournalArticlesIndexRoute: typeof JournalArticlesIndexRoute
+  JournalReviewIndexRoute: typeof JournalReviewIndexRoute
   JournalSubmissionsIndexRoute: typeof JournalSubmissionsIndexRoute
 }
 
 const JournalRouteRouteChildren: JournalRouteRouteChildren = {
   JournalEditorialRouteRoute: JournalEditorialRouteRouteWithChildren,
+  JournalAboutRoute: JournalAboutRoute,
   JournalProfileRoute: JournalProfileRoute,
   JournalSubmitRoute: JournalSubmitRoute,
   JournalIndexRoute: JournalIndexRoute,
@@ -587,6 +693,7 @@ const JournalRouteRouteChildren: JournalRouteRouteChildren = {
   JournalReviewTokenRoute: JournalReviewTokenRoute,
   JournalSubmissionsIdRoute: JournalSubmissionsIdRoute,
   JournalArticlesIndexRoute: JournalArticlesIndexRoute,
+  JournalReviewIndexRoute: JournalReviewIndexRoute,
   JournalSubmissionsIndexRoute: JournalSubmissionsIndexRoute,
 }
 

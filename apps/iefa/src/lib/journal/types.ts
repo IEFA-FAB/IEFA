@@ -263,3 +263,20 @@ export interface EditorialDashboardArticle {
 	completed_reviews: number;
 	pending_reviews: number;
 }
+
+// Input types for mutations
+export interface CreateSubmissionInput {
+	submitter_id: string;
+	title_pt: string;
+	title_en: string;
+	abstract_pt: string;
+	abstract_en: string;
+	keywords_pt: string[];
+	keywords_en: string[];
+	article_type: ArticleType;
+	subject_area: string;
+	conflict_of_interest: string;
+	funding_info?: string | null;
+	data_availability?: string | null;
+	ethics_approval?: string | null;
+}
