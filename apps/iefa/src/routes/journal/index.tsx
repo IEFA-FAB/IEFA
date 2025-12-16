@@ -11,6 +11,7 @@ import {
 	Users,
 } from "lucide-react";
 import { authQueryOptions } from "@/auth/service";
+import { ProfileOnboarding } from "@/components/journal/ProfileOnboarding";
 import { userProfileQueryOptions } from "@/lib/journal/hooks";
 
 export const Route = createFileRoute("/journal/")({
@@ -39,6 +40,11 @@ function RouteComponent() {
 		enabled: !!auth.user?.id && auth.isAuthenticated,
 		retry: false,
 	});
+
+	// Show onboarding if user is authenticated but doesn't have a profile
+	if (auth.isAuthenticated && !profile) {
+		return <ProfileOnboarding />;
+	}
 
 	const isEditor = profile?.role === "editor";
 	const isAuthenticated = auth.isAuthenticated;

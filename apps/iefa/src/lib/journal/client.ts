@@ -25,10 +25,10 @@ export async function getUserProfile(userId: string) {
 		.from("user_profiles")
 		.select("*")
 		.eq("id", userId)
-		.single();
+		.maybeSingle();
 
 	if (error) throw error;
-	return data as UserProfile;
+	return data as UserProfile | null;
 }
 
 export async function createUserProfile(profile: Partial<UserProfile>) {
