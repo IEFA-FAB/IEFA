@@ -1,12 +1,7 @@
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import type { ReactNode } from "react";
-import {
-	type AuthContextType,
-	type AuthState,
-	authActions,
-	authQueryOptions,
-} from "@/auth/service";
+import { type AuthState, authActions, authQueryOptions } from "@/auth/service";
 import {
 	applyThemeToDom,
 	getStoredTheme,

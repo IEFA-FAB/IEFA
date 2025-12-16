@@ -50,21 +50,69 @@ function RouteComponent() {
 	const isAuthenticated = auth.isAuthenticated;
 
 	return (
-		<div className="container mx-auto max-w-6xl px-4 py-12">
-			{/* Header */}
-			<div className="text-center mb-12">
-				<h1 className="text-4xl font-bold tracking-tight mb-4">
-					Sistema de Gestão de Publicações
-				</h1>
-				<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-					Plataforma completa para submissão, revisão e publicação de artigos
-					científicos
-				</p>
-			</div>
+		<div className="relative flex flex-col items-center justify-center w-full text-foreground">
+			{/* Hero */}
+			<header className="relative w-full">
+				<div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-8 md:pt-12">
+					<div
+						className="relative w-full overflow-hidden rounded-3xl border border-border
+                       bg-linear-to-b from-background/60 via-background/40 to-background/20
+                       backdrop-blur supports-backdrop-filter:backdrop-blur-md"
+					>
+						<div className="relative mx-auto flex min-h-[40vh] sm:min-h-[50vh] flex-col items-center justify-center text-center p-6 md:p-10">
+							<h1 className="text-balance text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
+								Sistema de Gestão de Publicações
+							</h1>
+							<p className="mt-4 max-w-3xl text-pretty text-base sm:text-lg text-muted-foreground">
+								Plataforma completa para submissão, revisão e publicação de
+								artigos científicos com suporte bilíngue (PT/EN).
+							</p>
+							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
+								{isAuthenticated ? (
+									<>
+										<Button asChild size="lg" variant="default">
+											<Link
+												to="/journal/submit"
+												aria-label="Submeter novo artigo"
+											>
+												Submeter Artigo
+											</Link>
+										</Button>
+										<Button asChild size="lg" variant="secondary">
+											<Link
+												to="/journal/submissions"
+												aria-label="Ver minhas submissões"
+											>
+												Minhas Submissões
+											</Link>
+										</Button>
+									</>
+								) : (
+									<>
+										<Button asChild size="lg" variant="default">
+											<Link to="/auth" aria-label="Fazer login">
+												Fazer Login
+											</Link>
+										</Button>
+										<Button asChild size="lg" variant="secondary">
+											<Link
+												to="/journal/articles"
+												aria-label="Ver artigos publicados"
+											>
+												Artigos Publicados
+											</Link>
+										</Button>
+									</>
+								)}
+							</div>
+						</div>
+					</div>
+				</div>
+			</header>
 
-			{/* Action Cards for Authors */}
-			<div className="mb-12">
-				<h2 className="text-2xl font-semibold mb-6">
+			{/* Action Cards Section */}
+			<section className="mt-10 md:mt-12 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+				<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
 					{isAuthenticated ? "Minhas Ações" : "Para Autores"}
 				</h2>
 
@@ -175,9 +223,8 @@ function RouteComponent() {
 						</p>
 					</div>
 				</div>
-			</div>
+			</section>
 
-			{/* Editorial Section - Only for Editors */}
 			{isEditor && (
 				<div className="border-t pt-12">
 					<h2 className="text-2xl font-semibold mb-6">Área Editorial</h2>

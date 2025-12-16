@@ -251,6 +251,7 @@ export interface PublishedArticle {
 export interface EditorialDashboardArticle {
 	id: string;
 	submission_number: string;
+	title_pt: string;
 	title_en: string;
 	status: ArticleStatus;
 	article_type: ArticleType;
@@ -258,6 +259,7 @@ export interface EditorialDashboardArticle {
 	submitted_at: string | null;
 	days_since_submission: number;
 	submitter_name: string;
+	review_count?: number;
 	completed_reviews: number;
 	pending_reviews: number;
 }
