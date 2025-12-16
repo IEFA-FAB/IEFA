@@ -133,6 +133,18 @@ Reference: PRD Section 3 (user\_profiles table)
 
 # **Phase 2: Submission Module (Week 3-4)**
 
+## ~~**Task 2.0: Profile Onboarding Flow**~~ ✅
+
+*Priority: CRITICAL | Estimated Time: 2-3 hours*
+
+**Status: COMPLETED**
+
+Implemented profile onboarding system to handle users without profiles:
+- Created `ProfileOnboarding` component to prompt profile completion
+- Modified `getUserProfile` to use `.maybeSingle()` for graceful null handling
+- Added conditional rendering in `/journal/index.tsx` to show onboarding when profile is missing
+- Users are now directed to complete their profile before accessing journal features
+
 ## **Task 2.1: Multi-Step Submission Form Structure**
 
 *Priority: CRITICAL | Estimated Time: 6-8 hours*

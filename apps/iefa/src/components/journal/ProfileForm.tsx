@@ -135,7 +135,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 						/>
 						{field.state.meta.errors?.length > 0 && (
 							<p className="text-sm text-destructive">
-								{field.state.meta.errors[0]}
+								{String(field.state.meta.errors[0])}
 							</p>
 						)}
 					</div>
@@ -175,7 +175,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 						/>
 						{field.state.meta.errors?.length > 0 ? (
 							<p className="text-sm text-destructive">
-								{field.state.meta.errors[0]}
+								{String(field.state.meta.errors[0])}
 							</p>
 						) : (
 							<p className="text-sm text-muted-foreground">
@@ -210,7 +210,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 						/>
 						{field.state.meta.errors?.length > 0 ? (
 							<p className="text-sm text-destructive">
-								{field.state.meta.errors[0]}
+								{String(field.state.meta.errors[0])}
 							</p>
 						) : (
 							<p className="text-sm text-muted-foreground">
