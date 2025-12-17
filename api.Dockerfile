@@ -32,7 +32,7 @@ RUN pnpm -F ./apps/api deploy --prod ./out
 # Runtime: sobe apenas a API
 FROM base AS runtime
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV API_PORT=3000
 WORKDIR /app
 # Copia o pacote deployado (contém node_modules de produção + dist + package.json)
 COPY --from=build --chown=node:node /repo/out/ ./
