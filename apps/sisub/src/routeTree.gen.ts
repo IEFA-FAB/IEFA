@@ -15,6 +15,7 @@ import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
 import { Route as ProtectedSuperAdminRouteImport } from './routes/_protected/superAdmin'
@@ -51,6 +52,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRouteRoute,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const PublicTutorialRoute = PublicTutorialRouteImport.update({
   id: '/tutorial',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/superAdmin': typeof ProtectedSuperAdminRoute
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
 }
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/superAdmin': typeof ProtectedSuperAdminRoute
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
 }
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/_protected/superAdmin': typeof ProtectedSuperAdminRoute
   '/_public/changelog': typeof PublicChangelogRoute
   '/_public/tutorial': typeof PublicTutorialRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
 }
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/superAdmin'
     | '/changelog'
     | '/tutorial'
+    | '/auth/reset-password'
     | '/'
     | '/auth/'
   fileRoutesByTo: FileRoutesByTo
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/superAdmin'
     | '/changelog'
     | '/tutorial'
+    | '/auth/reset-password'
     | '/'
     | '/auth'
   id:
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/_protected/superAdmin'
     | '/_public/changelog'
     | '/_public/tutorial'
+    | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
   fileRoutesById: FileRoutesById
@@ -233,6 +245,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
+    }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/_public/tutorial': {
       id: '/_public/tutorial'
@@ -332,10 +351,12 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
 )
 
 interface AuthRouteRouteChildren {
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthIndexRoute: typeof AuthIndexRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthIndexRoute: AuthIndexRoute,
 }
 
