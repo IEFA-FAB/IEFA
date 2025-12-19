@@ -246,10 +246,14 @@ export function AppShell() {
 			/>
 
 			{showSidebar ? (
-				<AppSidebar data={sidebarData ?? undefined} isLoading={levelLoading} />
+				<AppSidebar
+					variant="floating"
+					data={sidebarData ?? undefined}
+					isLoading={levelLoading}
+				/>
 			) : null}
 
-			<SidebarInset>
+			<SidebarInset className="rounded-lg">
 				<div className="flex min-h-svh w-full flex-col supports-[height:100dvh]:min-h-dvh">
 					<Topbar
 						showSidebar={showSidebar}
@@ -262,7 +266,7 @@ export function AppShell() {
 						userId={userId}
 						userLevel={userLevel}
 					/>
-					<main id="conteudo" className="flex-1">
+					<main id="conteudo" className="flex-1 rounded-lg">
 						<MainSurface
 							showInitialError={showInitialError}
 							showInitialLoading={showInitialLoading}
