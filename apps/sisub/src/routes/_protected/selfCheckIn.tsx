@@ -12,14 +12,14 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/auth/useAuth";
 import {
 	messHallByCodeQueryOptions,
 	userMealForecastQueryOptions,
 } from "@/services/SelfCheckInService";
 import type { WillEnter } from "@/types/domain";
-import { inferDefaultMeal } from "@/utils/FiscalUtils";
-import supabase from "@/utils/supabase";
+import { inferDefaultMeal } from "@/lib/fiscal";
+import supabase from "@/lib/supabase";
 
 // Schema for search params validation
 const selfCheckInSearchSchema = z.object({

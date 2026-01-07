@@ -129,62 +129,6 @@ export default defineConfig({
 		// Optimize chunks
 		rollupOptions: {
 			output: {
-				// Manual chunk splitting for better caching
-				manualChunks: (id) => {
-					// Vendor chunks para React e ecosystem
-					if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
-						return "react-vendor";
-					}
-					
-					// TanStack ecosystem
-					if (id.includes("node_modules/@tanstack/")) {
-						return "tanstack-vendor";
-					}
-					
-					// UI dependencies
-					if (
-						id.includes("node_modules/lucide-react/") ||
-						id.includes("node_modules/motion/") ||
-						id.includes("node_modules/class-variance-authority/")
-					) {
-						return "ui-vendor";
-					}
-					
-					// AI/MCP dependencies
-					if (
-						id.includes("node_modules/ai/") ||
-						id.includes("node_modules/@ai-sdk/") ||
-						id.includes("node_modules/@modelcontextprotocol/")
-					) {
-						return "ai-vendor";
-					}
-					
-					// Markdown rendering
-					if (
-						id.includes("node_modules/react-markdown/") ||
-						id.includes("node_modules/remark-") ||
-						id.includes("node_modules/rehype-") ||
-						id.includes("node_modules/highlight.js/")
-					) {
-						return "markdown-vendor";
-					}
-					
-					// QR code dependencies
-					if (
-						id.includes("node_modules/qrcode.react/") ||
-						id.includes("node_modules/qr-scanner/")
-					) {
-						return "qr-vendor";
-					}
-					
-					// Utilities
-					if (
-						id.includes("node_modules/clsx/") ||
-						id.includes("node_modules/tailwind-merge/")
-					) {
-						return "utils-vendor";
-					}
-				},
 				// Nomes de arquivo com hash para cache busting
 				entryFileNames: "assets/[name]-[hash].js",
 				chunkFileNames: "assets/[name]-[hash].js",

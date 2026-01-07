@@ -6,7 +6,7 @@ import {
 	redirect,
 } from "@tanstack/react-router";
 import { z } from "zod";
-import { HeroHighlight } from "@/components/hero-highlight";
+import { HeroHighlight } from "@/components/common/ui/HeroHighlight";
 
 // Validação para garantir que o redirect seja seguro e opcional
 const authSearchSchema = z.object({

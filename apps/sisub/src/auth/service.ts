@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { AuthContextType } from "@/types/auth";
-import supabase from "@/utils/supabase";
+import supabase from "@/lib/supabase";
 
 export type { AuthContextType };
 

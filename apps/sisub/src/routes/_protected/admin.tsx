@@ -2,10 +2,10 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import AdminHero from "@/components/admin/AdminHero";
-import IndicatorsCard from "@/components/admin/IndicatorsCard";
-import QRAutoCheckinCard from "@/components/admin/QRAutoCheckinCard";
-import { useAuth } from "@/hooks/useAuth";
+import AdminHero from "@/components/features/admin/AdminHero";
+import DashboardCard from "@/components/features/admin/DashboardCard";
+import QRAutoCheckinCard from "@/components/features/admin/QRAutoCheckinCard";
+import { useAuth } from "@/hooks/auth/useAuth";
 import { adminProfileQueryOptions } from "@/services/AdminService";
 
 export const Route = createFileRoute("/_protected/admin")({
@@ -42,7 +42,9 @@ function AdminPanel() {
 
 	// Suspense Query: dado estará disponível e tipado
 	// beforeLoad já garantiu a existência e autorização
-	useSuspenseQuery(adminProfileQueryOptions(user?.id ?? ""));
+	const { data: profile } = useSuspenseQuery(
+		adminProfileQueryOptions(user?.id ?? ""),
+	);
 
 	// Unidade selecionada no QR
 	const [selectedOm, setSelectedOm] = useState<string>("");
@@ -54,7 +56,7 @@ function AdminPanel() {
 		return () => clearTimeout(t);
 	}, []);
 
-	if (!user) {
+	if (!user || !profile) {
 		return null;
 	}
 
@@ -78,7 +80,7 @@ function AdminPanel() {
 				}`}
 			>
 				<div className="grid grid-cols-1 gap-6 lg:gap-8">
-					<IndicatorsCard />
+					<DashboardCard profile={profile} />
 					<QRAutoCheckinCard
 						selectedOm={selectedOm}
 						onChangeSelectedOm={setSelectedOm}

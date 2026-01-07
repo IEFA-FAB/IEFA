@@ -5,19 +5,19 @@ import { Camera, RefreshCw, UserPlus } from "lucide-react";
 import QrScanner from "qr-scanner";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
-import Filters from "@/components/Filters";
-import FiscalDialog from "@/components/presence/FiscalDialog";
-import PresenceTable from "@/components/presence/PresenceTable";
-import { useAuth } from "@/hooks/useAuth";
+import Filters from "@/components/features/forecast/Filters";
+import FiscalDialog from "@/components/features/presence/FiscalDialog";
+import PresenceTable from "@/components/features/presence/PresenceTable";
+import { useAuth } from "@/hooks/auth/useAuth";
 import {
 	useAddOtherPresence,
 	useOtherPresencesCount,
 	useScanProcessor,
-} from "@/hooks/useFiscalOps";
-import { usePresenceManagement } from "@/hooks/usePresenceManagement";
+} from "@/hooks/business/useFiscalOps";
+import { usePresenceManagement } from "@/hooks/data/usePresenceManagement";
 import type { DialogState, FiscalFilters, MealKey } from "@/types/domain";
-import { generateRestrictedDates, inferDefaultMeal } from "@/utils/FiscalUtils";
-import supabase from "@/utils/supabase";
+import { generateRestrictedDates, inferDefaultMeal } from "@/lib/fiscal";
+import supabase from "@/lib/supabase";
 
 export const Route = createFileRoute("/_protected/presence")({
 	component: Qr,

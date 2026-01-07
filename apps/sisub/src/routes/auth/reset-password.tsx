@@ -14,7 +14,7 @@ import {
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
-import supabase from "@/utils/supabase";
+import supabase from "@/lib/supabase";
 
 export const Route = createFileRoute("/auth/reset-password")({
 	component: ResetPasswordPage,

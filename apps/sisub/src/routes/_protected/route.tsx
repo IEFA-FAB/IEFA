@@ -3,7 +3,7 @@ import { SidebarProvider } from "@iefa/ui";
 // Routing
 import { createFileRoute, redirect } from "@tanstack/react-router";
 // Layout Components
-import { AppShell } from "@/components/layout/AppShell";
+import { AppShell } from "@/components/common/layout/AppShell";
 
 /**
  * Layout para rotas protegidas (requer autenticação)

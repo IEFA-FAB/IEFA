@@ -16,10 +16,10 @@ import {
 	type AuthState,
 	authQueryOptions,
 } from "@/auth/service";
-import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
-import { NotFound } from "@/components/NotFound";
-import type { ThemeContextType } from "@/components/themeService";
-import { ThemeScript } from "@/components/themeService";
+import { DefaultCatchBoundary } from "@/components/common/errors/DefaultCatchBoundary";
+import { NotFound } from "@/components/common/errors/NotFound";
+import type { ThemeContextType } from "@/components/common/shared/themeService";
+import { ThemeScript } from "@/components/common/shared/themeService";
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
 import AppStyles from "@/styles.css?url";
 
