@@ -23,7 +23,7 @@ FROM base AS build
 COPY --from=deps /pnpm/store /pnpm/store
 COPY . .
 # Instala apenas a API e suas dependências do workspace (com dev deps para compilar TypeScript)
-RUN pnpm install -r --prefer-offline --frozen-lockfile --filter ./apps/api...
+RUN pnpm install -r --prefer-offline --no-frozen-lockfile --filter ./apps/api...
 # Build da API
 RUN pnpm -F ./apps/api build
 # Gera um bundle “deployado” só da API com dependências de produção

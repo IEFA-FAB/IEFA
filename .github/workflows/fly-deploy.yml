@@ -60,28 +60,28 @@ jobs:
           echo "Falha: API não respondeu 200 no tempo esperado."
           exit 1
 
-  #deploy-docs:
-   # name: Deploy Docs
-    #runs-on: ubuntu-latest
-    #timeout-minutes: 20
-    #concurrency:
-    #  group: fly-deploy-docs-${{ github.ref_name }}
-    #  cancel-in-progress: true
-    #env:
-    #  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-    #defaults:
-    #  run:
-    #    working-directory: ./apps/docs
-    #steps:
-      #- name: Checkout
-      #  uses: actions/checkout@v4
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: fly-deploy-docs-${{ github.ref_name }}
+      cancel-in-progress: true
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    defaults:
+      run:
+        working-directory: ./apps/docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      #- name: Setup flyctl
-      #  uses: superfly/flyctl-actions/setup-flyctl@v1
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@v1
 
-      #- name: Deploy Docs (wait for health checks)
-      #  # Se o arquivo não for exatamente ./apps/docs/fly.toml, use: flyctl deploy -c fly.docs.toml --remote-only --wait-timeout 180
-      #  run: flyctl deploy --remote-only
+      - name: Deploy Docs (wait for health checks)
+       # Se o arquivo não for exatamente ./apps/docs/fly.toml, use: flyctl deploy -c fly.docs.toml --remote-only --wait-timeout 180
+        run: flyctl deploy --remote-only
 
   deploy-iefa:
     name: Deploy IEFA

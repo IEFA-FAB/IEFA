@@ -45,7 +45,7 @@ ENV VITE_IEFA_SUPABASE_URL=$VITE_IEFA_SUPABASE_URL \
     VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=$VITE_RAG_SUPABASE_SERVICE_ROLE_KEY
 
 # Instala dependências (incluindo devDeps para rodar o build)
-RUN pnpm install -r --prefer-offline --frozen-lockfile
+RUN pnpm install -r --prefer-offline --no-frozen-lockfile
 
 # Executa o build específico do app 'iefa'
 # Isso deve gerar a pasta .output dentro de apps/iefa/

@@ -33,7 +33,7 @@ ENV VITE_SISUB_SUPABASE_URL=$VITE_SISUB_SUPABASE_URL \
     VITE_SISUB_SUPABASE_ANON_KEY=$VITE_SISUB_SUPABASE_ANON_KEY
 
 # Instala dependências (incluindo devDeps para o build)
-RUN pnpm install -r --prefer-offline --frozen-lockfile
+RUN pnpm install -r --prefer-offline --no-frozen-lockfile
 
 # Executa o build do app 'sisub'
 RUN pnpm -F ./apps/sisub build
