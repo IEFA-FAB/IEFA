@@ -7,8 +7,8 @@ import {
 	getStoredTheme,
 	type Theme,
 	type ThemeContextType,
-} from "@/components/themeService";
-import supabase from "@/utils/supabase";
+} from "@/components/common/shared/themeService";
+import supabase from "@/lib/supabase";
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider";
 import { routeTree } from "./routeTree.gen";
 

@@ -6,7 +6,7 @@ import {
 	useQuery,
 } from "@tanstack/react-query";
 import type { UserLevelOrNull } from "@/types/domain";
-import supabase from "@/utils/supabase";
+import supabase from "@/lib/supabase";
 
 export type UserOm = string | null;
 

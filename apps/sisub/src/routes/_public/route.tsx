@@ -3,9 +3,9 @@ import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui";
 
 // Routing
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/auth/useAuth";
 // Hooks
-import { useTheme } from "@/hooks/useTheme";
+import { useTheme } from "@/hooks/ui/useTheme";
 
 /* ========================================================================
    STYLE CONSTANTS

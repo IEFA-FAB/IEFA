@@ -14,13 +14,335 @@ Sua missão é gerar código de produção, seguro, estritamente tipado e acess�
 *   **Backend/Auth:** Supabase (Client-side integration via Hooks).
 *   **State/Data:** TanStack Query (v5).
 
-## 2. Regras de Tipagem (Strict Types)
-*   **Centralização:** Todos os tipos compartilhados (Entidades do Banco, DTOs, Enums) devem residir em `/src/types`.
-*   **Verificação:** Antes de criar uma nova interface, **verifique** se ela já existe em `/src/types`.
-*   **Convenção:**
-    *   `src/types/database.types.ts` (Tipos gerados do Supabase).
-    *   `src/types/domain.ts` (Tipos de negócio, ex: `Meal`, `OmSettings`).
-*   **Proibido:** Não use `any`. Não declare interfaces de domínio dentro de componentes (`.tsx`).
+## 2. Organização do Projeto
+
+### 2.1 Estrutura de Pastas
+
+O projeto segue uma arquitetura em camadas com separação clara de responsabilidades:
+
+```
+src/
+├── components/
+│   ├── common/              # Componentes reutilizáveis cross-feature
+│   │   ├── ui/             # UI genéricos (Button, Table, etc)
+│   │   ├── layout/         # Layout global (AppShell, TopBar, Sidebar)
+│   │   ├── dialogs/        # Diálogos compartilhados
+│   │   ├── errors/         # Tratamento de erros (404, ErrorBoundary)
+│   │   └── shared/         # Utilitários compartilhados (theme, etc)
+│   │
+│   └── features/            # Componentes específicos de domínio
+│       ├── forecast/       # Previsão de refeições
+│       ├── admin/          # Administração
+│       ├── super-admin/    # Super administração
+│       └── presence/       # Controle de presença
+│
+├── hooks/
+│   ├── auth/               # Hooks de autenticação (useAuth, useProfile)
+│   ├── data/               # Hooks de data fetching (useMessHalls, useMealForecast)
+│   ├── business/           # Hooks de lógica de negócio (useFiscalOps, useEvalConfig)
+│   └── ui/                 # Hooks de UI/UX (useTheme, useUserSync)
+│
+├── lib/                     # Pure functions & helpers (zero dependencies)
+│   ├── fiscal.ts           # Helpers para fiscal/presence
+│   ├── meal.ts             # Helpers para meals/forecast
+│   ├── cn.ts               # Tailwind class helper
+│   └── supabase.ts         # Supabase client
+│
+├── services/                # Business logic & API layer
+│   ├── AdminService.ts     # Lógica de administração
+│   ├── SelfCheckInService.ts # Lógica de check-in
+│   └── roles.ts            # Utilitários de roles
+│
+└── types/
+    ├── domain/             # Types organizados por domínio
+    │   ├── auth.ts        # Types de autenticação
+    │   ├── meal.ts        # Types de refeições
+    │   ├── presence.ts    # Types de presença
+    │   └── admin.ts       # Types de admin
+    ├── domain.ts          # Re-export barrel (compatibilidade)
+    └── ui.ts              # Types de UI
+```
+
+### 2.2 Separação de Camadas
+
+O projeto utiliza três camadas principais com responsabilidades bem definidas:
+
+#### **lib/** - Pure Functions & Helpers
+
+**Responsabilidade:** Funções puras, utilitários, constantes.
+
+**Características:**
+- ✅ Sem side effects
+- ✅ Sem dependências de React
+- ✅ Sem dependências de React Query
+- ✅ Testáveis isoladamente
+- ✅ Reutilizáveis em qualquer contexto
+
+**Quando usar:**
+```typescript
+// ✅ CORRETO: Funções puras de formatação
+export function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("pt-BR");
+}
+
+// ✅ CORRETO: Helpers de validação
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// ✅ CORRETO: Constantes e enums
+export const MEAL_LABELS: Record<MealKey, string> = {
+  cafe: "Café",
+  almoco: "Almoço",
+  janta: "Jantar",
+  ceia: "Ceia",
+};
+```
+
+**Quando NÃO usar:**
+```typescript
+// ❌ ERRADO: Usa React hooks
+export function useFormattedDate(date: string) {
+  return useMemo(() => formatDate(date));
+}
+
+// ❌ ERRADO: Acessa API/banco de dados
+export async function fetchUserData(id: string) {
+  return await supabase.from("users").select();
+}
+```
+
+#### **services/** - Business Logic & API Layer
+
+**Responsabilidade:** Lógica de negócio, integração com APIs.
+
+**Características:**
+- ✅ Encapsula lógica de negócio complexa
+- ✅ Define query options para React Query
+- ✅ Interage com Supabase/APIs
+- ✅ Fornece interfaces para hooks
+- ✅ Pode incluir hooks básicos de data fetching
+
+**Quando usar:**
+```typescript
+// ✅ CORRETO: Fetchers de API
+export async function fetchAdminProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profiles_admin")
+    .select("role, om")
+    .eq("id", userId)
+    .maybeSingle();
+  
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// ✅ CORRETO: Query Options para React Query
+export const adminProfileQueryOptions = (userId: string) => queryOptions({
+  queryKey: ["admin", "profile", userId],
+  queryFn: () => fetchAdminProfile(userId),
+  staleTime: 10 * 60 * 1000,
+});
+
+// ✅ CORRETO: Hooks básicos (wrapper de 1 query)
+export function useAdminProfile(userId: string) {
+  return useQuery(adminProfileQueryOptions(userId));
+}
+```
+
+**Quando NÃO usar:**
+```typescript
+// ❌ ERRADO: Estado de UI complexo (isso é para hooks/)
+export function useMealSelections() {
+  const [selections, setSelections] = useState({});
+  const [pendingChanges, setPendingChanges] = useState([]);
+  // ... lógica complexa de UI
+}
+
+// ❌ ERRADO: Funções puras sem API (isso é para lib/)
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("pt-BR").format(value);
+}
+```
+
+#### **hooks/** - React State & Logic
+
+**Responsabilidade:** Estado React, lógica de componentes, orquestração.
+
+**Características:**
+- ✅ Usa React hooks (`useState`, `useEffect`, etc)
+- ✅ Orquestra múltiplos services
+- ✅ Gerencia estado de UI
+- ✅ Combina dados de múltiplas fontes
+- ✅ Depende de services para dados
+
+**Quando usar:**
+```typescript
+// ✅ CORRETO: Estado React complexo
+export function useMealForecast() {
+  const { user } = useAuth();
+  const [selections, setSelections] = useState<SelectionsByDate>({});
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const savePendingChanges = async () => {
+    setIsLoading(true);
+    try {
+      await supabase.from("forecasts").upsert(pendingChanges);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return { selections, setSelections, savePendingChanges, isLoading };
+}
+
+// ✅ CORRETO: Composição de múltiplos hooks/services
+export function useDashboardData() {
+  const profile = useAdminProfile(userId);
+  const meals = useMealForecast();
+  const presence = usePresenceManagement();
+  
+  return {
+    isLoading: profile.isLoading || meals.isLoading,
+    data: { profile: profile.data, meals: meals.data, presence: presence.data },
+  };
+}
+```
+
+**Quando NÃO usar:**
+```typescript
+// ❌ ERRADO: Função pura (isso é para lib/)
+export function useFormatDate(date: string): string {
+  return formatDate(date); // Não precisa de hook
+}
+
+// ❌ ERRADO: Apenas wrapper de fetch (isso é para services/)
+export function useFetchUser(id: string) {
+  return useQuery({
+    queryKey: ["user", id],
+    queryFn: () => fetchUser(id),
+  });
+}
+```
+
+### 2.3 Fluxo de Dados
+
+```
+Componente
+    ↓
+  Hook (hooks/)
+    ↓
+ Service (services/)
+    ↓
+  API/DB (Supabase)
+    ↑
+  Helper (lib/)
+```
+
+**Regras:**
+1. **Componentes** devem chamar **hooks**, nunca services diretamente
+2. **Hooks** chamam **services** para buscar dados
+3. **Services** usam **lib/** para processamento puro
+4. **lib/** nunca depende de outras camadas
+
+### 2.4 Convenções de Nomenclatura
+
+#### Componentes
+```typescript
+// common/ui/ - PascalCase descritivo
+CopyButton.tsx
+DynamicIcon.tsx
+HeroHighlight.tsx
+
+// features/ - PascalCase com contexto
+forecast/DayCard.tsx
+admin/ProfilesManager.tsx
+presence/FiscalDialog.tsx
+```
+
+#### Hooks
+```typescript
+// Sempre prefixo "use" + descrição clara
+hooks/auth/useAuth.ts
+hooks/data/useMealForecast.ts
+hooks/business/useFiscalOps.ts
+hooks/ui/useTheme.ts
+```
+
+#### Lib & Services
+```typescript
+// lib/ - camelCase descritivo
+lib/fiscal.ts     // não FiscalUtils.ts
+lib/meal.ts       // não RanchoUtils.ts
+lib/cn.ts         // específico da função
+
+// services/ - PascalCase + "Service"
+services/AdminService.ts
+services/SelfCheckInService.ts
+```
+
+### 2.5 Imports
+
+**Sempre use paths absolutos com `@/`:**
+
+```typescript
+// ✅ CORRETO
+import { Button } from "@iefa/ui";
+import { DayCard } from "@/components/features/forecast/DayCard";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { fetchAdminProfile } from "@/services/AdminService";
+import { formatDate } from "@/lib/meal";
+import type { MealKey } from "@/types/domain";
+
+// ❌ ERRADO: Imports relativos
+import { DayCard } from "../../components/features/forecast/DayCard";
+import { useAuth } from "../../../hooks/auth/useAuth";
+```
+
+**Barrel exports disponíveis:**
+```typescript
+// Pode usar barrel exports quando preferir
+import { useAuth, useProfile } from "@/hooks/auth";
+import { formatDate, getDayOfWeek } from "@/lib/meal";
+```
+
+## 3. Regras de Tipagem (Strict Types)
+
+**Centralização:** Todos os tipos compartilhados devem residir em `/src/types`.
+
+**Estrutura Organizada:**
+- `src/types/domain/` - Types organizados por domínio de negócio
+  - `auth.ts` - Tipos de autenticação e perfil
+  - `meal.ts` - Tipos de refeições e previsão
+  - `presence.ts` - Tipos de presença e fiscal
+  - `admin.ts` - Tipos de administração
+- `src/types/domain.ts` - Barrel export (re-exporta de `domain/`)
+- `src/types/ui.ts` - Types específicos de UI (CardData, Step, Feature)
+
+**Verificação:** Antes de criar uma nova interface, **verifique** se ela já existe em `/src/types/domain/`.
+
+**Proibido:** 
+- ❌ Não use `any`
+- ❌ Não declare interfaces de domínio dentro de componentes (`.tsx`)
+- ❌ Não duplique types que já existem
+
+**Importação:**
+```typescript
+// ✅ CORRETO: Import do barrel export
+import type { MealKey, MessHall, PresenceRecord } from "@/types/domain";
+import type { CardData, Feature } from "@/types/ui";
+
+// ✅ TAMBÉM CORRETO: Import direto do arquivo específico
+import type { MealKey } from "@/types/domain/meal";
+import type { PresenceRecord } from "@/types/domain/presence";
+
+// ❌ ERRADO: Duplicar types
+interface MealKey {  // Já existe em types/domain/meal.ts
+  cafe: boolean;
+}
+```
 
 ## 3. Diretrizes React 19+ (React Compiler)
 *   **Zero Manual Memoization:** **NÃO** utilize `useMemo`, `useCallback` ou `React.memo`.

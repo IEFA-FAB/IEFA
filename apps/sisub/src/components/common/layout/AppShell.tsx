@@ -1,0 +1,284 @@
+import { SidebarInset } from "@iefa/ui";
+
+import { useIsFetching, useIsMutating } from "@tanstack/react-query";
+import { Outlet, useLocation } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { EvaluationDialog } from "@/components/common/dialogs/EvaluationDialog";
+import { UserQrDialog } from "@/components/common/dialogs/UserQrDialog";
+import {
+	buildSidebarData,
+	getNavItemsForLevel,
+	type NavItem,
+} from "@/components/common/layout/sidebar/NavItems";
+import { SaramDialog } from "@/components/features/presence/SaramDialog";
+import { useAuth } from "@/hooks/auth/useAuth";
+import {
+	useUpdateNrOrdem,
+	useUserNrOrdem,
+} from "@/hooks/business/useUserNrOrdem";
+import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation";
+import { useSyncUserEmail } from "@/hooks/ui/useUserSync";
+import { useUserLevel } from "@/services/AdminService";
+
+import { AppSidebar } from "./sidebar/AppSidebar";
+import { MainSurface } from "./sidebar/MainSurface";
+import { Topbar } from "./TopBar";
+
+const NR_ORDEM_MIN_LEN = 7;
+
+export function AppShell() {
+	const location = useLocation();
+	const { user } = useAuth();
+	const userId = user?.id ?? null;
+
+	const {
+		data: userLevel,
+		isLoading: levelLoading,
+		isError: levelError,
+	} = useUserLevel(user?.id);
+
+	let userDisplay = { name: "Usuário", email: "", avatar: "" };
+	if (user) {
+		const name =
+			(user.user_metadata?.full_name as string | undefined) ??
+			(user.user_metadata?.name as string | undefined) ??
+			user.email ??
+			"Usuário";
+		const avatar = (user.user_metadata?.avatar_url as string | undefined) ?? "";
+		userDisplay = { name, email: user.email ?? "", avatar };
+	}
+
+	let sidebarData = null;
+	if (userLevel && user) {
+		sidebarData = buildSidebarData({
+			level: userLevel,
+			activePath: location.pathname,
+			user: userDisplay,
+		});
+	}
+
+	const navItems: NavItem[] = userLevel ? getNavItemsForLevel(userLevel) : [];
+
+	// Show sidebar if we have data OR if we are loading the level (to show skeleton)
+	// But don't show if there was an error fetching the level
+	const showSidebar = (!!sidebarData || levelLoading) && !levelError;
+
+	const nrOrdemQuery = useUserNrOrdem(userId);
+	const evaluationQuery = useEvaluation(userId);
+
+	const syncEmailMutation = useSyncUserEmail();
+
+	useEffect(() => {
+		if (user) syncEmailMutation.mutate(user);
+	}, [user?.id, syncEmailMutation.mutate, user]);
+
+	const [nrDialogOpenState, setNrDialogOpenState] = useState(false);
+	const [nrOrdem, setNrOrdem] = useState("");
+	const [nrError, setNrError] = useState<string | null>(null);
+
+	const shouldForceNrDialog =
+		!!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data;
+
+	const nrDialogOpen = shouldForceNrDialog || nrDialogOpenState;
+
+	useEffect(() => {
+		if (!userId) {
+			setNrDialogOpenState(false);
+			setNrOrdem("");
+			return;
+		}
+		const current = nrOrdemQuery.data;
+		setNrOrdem(current ? String(current) : "");
+	}, [userId, nrOrdemQuery.data]);
+
+	const saveNrMutation = useUpdateNrOrdem();
+
+	// Effect to update error state from mutation if needed
+	useEffect(() => {
+		if (saveNrMutation.isError) {
+			setNrError("Não foi possível salvar. Tente novamente.");
+		}
+	}, [saveNrMutation.isError]);
+
+	// Effect to close dialog on success
+	useEffect(() => {
+		if (saveNrMutation.isSuccess) {
+			setNrDialogOpenState(false);
+		}
+	}, [saveNrMutation.isSuccess]);
+
+	const handleNrDialogOpenChange = (open: boolean) => {
+		if (!open && shouldForceNrDialog) return;
+		setNrDialogOpenState(open);
+	};
+
+	const handleNrOrdemChange = (value: string) => {
+		setNrOrdem(value);
+		if (nrError) setNrError(null);
+	};
+
+	const handleSubmitNrOrdem = () => {
+		const digitsOnly = nrOrdem.replace(/\D/g, "").trim();
+		if (!digitsOnly) {
+			setNrError("Informe seu número da Ordem.");
+			return;
+		}
+		if (digitsOnly.length < NR_ORDEM_MIN_LEN) {
+			setNrError("Nr. da Ordem parece curto. Confira e tente novamente.");
+			return;
+		}
+		if (!user) return;
+		saveNrMutation.mutate({ user, nrOrdem: digitsOnly });
+	};
+
+	const [evaluationDismissed, setEvaluationDismissed] = useState(false);
+	const [selectedRating, setSelectedRating] = useState<number | null>(null);
+
+	useEffect(() => {
+		setEvaluationDismissed(false);
+		setSelectedRating(null);
+	}, []);
+
+	const evaluationQuestion = evaluationQuery.data?.question ?? null;
+	const evaluationShouldAsk = Boolean(
+		evaluationQuery.data?.shouldAsk && evaluationQuestion,
+	);
+
+	const shouldShowEvaluationDialog =
+		!!userId &&
+		evaluationQuery.isSuccess &&
+		evaluationShouldAsk &&
+		!nrDialogOpen &&
+		!evaluationDismissed;
+
+	const handleEvaluationOpenChange = (open: boolean) => {
+		if (!open) {
+			setEvaluationDismissed(true);
+			setSelectedRating(null);
+		} else {
+			setEvaluationDismissed(false);
+		}
+	};
+
+	const submitVoteMutation = useSubmitEvaluation();
+
+	// Effect to close evaluation on success
+	// biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles this
+	useEffect(() => {
+		if (submitVoteMutation.isSuccess) {
+			handleEvaluationOpenChange(false);
+		}
+	}, [submitVoteMutation.isSuccess]);
+
+	const handleSubmitVote = () => {
+		const question = evaluationQuestion;
+		if (!userId || !question || selectedRating == null) return;
+		submitVoteMutation.mutate({ value: selectedRating, question, userId });
+	};
+
+	const [sheetOpen, setSheetOpen] = useState(false);
+	const [qrOpen, setQrOpen] = useState(false);
+	const [hasCopiedId, setHasCopiedId] = useState(false);
+	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const handleCopyUserId = async () => {
+		if (!user?.id) return;
+		if (typeof navigator === "undefined" || !navigator.clipboard) return;
+		try {
+			await navigator.clipboard.writeText(user.id);
+			setHasCopiedId(true);
+			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+			copyTimeoutRef.current = setTimeout(() => setHasCopiedId(false), 1600);
+		} catch (error) {
+			console.error("Erro ao copiar ID:", error);
+		}
+	};
+
+	useEffect(() => {
+		return () => {
+			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+		};
+	}, []);
+
+	const globalFetching = useIsFetching();
+	const globalMutating = useIsMutating();
+	const showGlobalProgress =
+		globalFetching + globalMutating > 0 ||
+		levelLoading ||
+		nrOrdemQuery.isFetching ||
+		evaluationQuery.isFetching;
+
+	const isSavingNrReal = saveNrMutation.isPending;
+	const isSubmittingVote = submitVoteMutation.isPending;
+	const showInitialLoading = levelLoading && !userLevel;
+	const showInitialError = !levelLoading && levelError;
+
+	const handleRetry = () => {
+		if (typeof window !== "undefined") window.location.reload();
+	};
+
+	return (
+		<>
+			<SaramDialog
+				open={nrDialogOpen}
+				nrOrdem={nrOrdem}
+				error={nrError}
+				isSaving={isSavingNrReal}
+				onOpenChange={handleNrDialogOpenChange}
+				onChange={handleNrOrdemChange}
+				onSubmit={handleSubmitNrOrdem}
+			/>
+
+			<EvaluationDialog
+				open={shouldShowEvaluationDialog}
+				question={evaluationQuestion}
+				selectedRating={selectedRating}
+				isSubmitting={isSubmittingVote}
+				onOpenChange={handleEvaluationOpenChange}
+				onSelectRating={setSelectedRating}
+				onSubmit={handleSubmitVote}
+			/>
+
+			<UserQrDialog
+				open={qrOpen}
+				onOpenChange={setQrOpen}
+				userId={userId}
+				onCopy={handleCopyUserId}
+				hasCopied={hasCopiedId}
+			/>
+
+			{showSidebar ? (
+				<AppSidebar
+					variant="floating"
+					data={sidebarData ?? undefined}
+					isLoading={levelLoading}
+				/>
+			) : null}
+
+			<SidebarInset className="rounded-lg">
+				<div className="flex min-h-svh w-full flex-col supports-[height:100dvh]:min-h-dvh">
+					<Topbar
+						showSidebar={showSidebar}
+						navItems={navItems}
+						sheetOpen={sheetOpen}
+						onSheetOpenChange={setSheetOpen}
+						onSidebarNavigate={() => setSheetOpen(false)}
+						showGlobalProgress={showGlobalProgress}
+						onOpenQr={() => setQrOpen(true)}
+						userId={userId}
+						userLevel={userLevel}
+					/>
+					<main id="conteudo" className="flex-1 rounded-lg">
+						<MainSurface
+							showInitialError={showInitialError}
+							showInitialLoading={showInitialLoading}
+							onRetry={handleRetry}
+						>
+							<Outlet />
+						</MainSurface>
+					</main>
+				</div>
+			</SidebarInset>
+		</>
+	);
+}

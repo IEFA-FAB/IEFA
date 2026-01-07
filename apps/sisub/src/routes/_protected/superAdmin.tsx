@@ -18,11 +18,11 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import IndicatorsCard from "@/components/super-admin/IndicatorsCard";
-import ProfilesManager from "@/components/super-admin/ProfilesManager";
-import SuperAdminHero from "@/components/super-admin/SuperAdminHero";
-import { useAuth } from "@/hooks/useAuth";
-import { useEvalConfig } from "@/hooks/useEvalConfig";
+import IndicatorsCard from "@/components/features/super-admin/IndicatorsCard";
+import ProfilesManager from "@/components/features/super-admin/ProfilesManager";
+import SuperAdminHero from "@/components/features/super-admin/SuperAdminHero";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { useEvalConfig } from "@/hooks/business/useEvalConfig";
 import { adminProfileQueryOptions } from "@/services/AdminService";
 import type { EvalConfig } from "@/types/domain";
 

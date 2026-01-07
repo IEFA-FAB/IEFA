@@ -4,14 +4,14 @@ import { Button } from "@iefa/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react";
 import { type JSX, lazy, Suspense, useState } from "react";
-import { BulkMealSelector } from "@/components/forecast/BulkMealSelector";
-import { DayCardSkeleton } from "@/components/forecast/DayCard";
-import { DefaultMessHallSelector } from "@/components/forecast/DefaultMessHallSelector";
-import SimplifiedMilitaryStats from "@/components/forecast/SimplifiedMilitaryStats";
-import { UnifiedStatusToasts } from "@/components/forecast/UnifiedStatusToasts";
+import { BulkMealSelector } from "@/components/features/forecast/BulkMealSelector";
+import { DayCardSkeleton } from "@/components/features/forecast/DayCard";
+import { DefaultMessHallSelector } from "@/components/features/forecast/DefaultMessHallSelector";
+import SimplifiedMilitaryStats from "@/components/features/forecast/SimplifiedMilitaryStats";
+import { UnifiedStatusToasts } from "@/components/features/forecast/UnifiedStatusToasts";
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho";
-import { useMealForecast } from "@/hooks/useMealForecast";
-import { useMessHalls } from "@/hooks/useMessHalls";
+import { useMealForecast } from "@/hooks/data/useMealForecast";
+import { useMessHalls } from "@/hooks/data/useMessHalls";
 import type {
 	CardData,
 	DayMeals,
@@ -24,9 +24,9 @@ import {
 	formatDate,
 	getDayOfWeek,
 	isDateNear,
-} from "@/utils/RanchoUtils";
+} from "@/lib/meal";
 
-const DayCard = lazy(() => import("@/components/forecast/DayCard"));
+const DayCard = lazy(() => import("@/components/features/forecast/DayCard"));
 
 /* ============================
    Utilitários e helpers de texto

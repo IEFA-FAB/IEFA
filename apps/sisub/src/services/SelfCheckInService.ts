@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { MealKey } from "@/types/domain";
-import supabase from "@/utils/supabase";
+import supabase from "@/lib/supabase";
 
 export const QUERY_KEYS = {
 	messHall: (code: string) => ["messHall", code] as const,

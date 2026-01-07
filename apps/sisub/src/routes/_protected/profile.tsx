@@ -15,9 +15,9 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
 
-import { useAuth } from "@/hooks/useAuth";
-import { useMilitaryData, useUserData } from "@/hooks/useProfile";
-import { useUpdateNrOrdem } from "@/hooks/useUserNrOrdem";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile";
+import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem";
 
 export const Route = createFileRoute("/_protected/profile")({
 	component: ProfilePage,
