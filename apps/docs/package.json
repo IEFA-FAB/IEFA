@@ -1,28 +1,21 @@
 {
-  "name": "docs",
-  "type": "module",
-  "version": "0.0.1",
-  "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro"
-  },
-  "dependencies": {
-    "@astrojs/mdx": "^4.3.12",
-    "@sanity/astro": "^3.2.10",
-    "@sanity/client": "^7.13.0",
-    "@tailwindcss/vite": "^4.1.16",
-    "@types/canvas-confetti": "^1.9.0",
-    "astro": "^5.16.0",
-    "astro-portabletext": "^0.12.0",
-    "canvas-confetti": "^1.9.3",
-    "marked": "^17.0.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-is": "^19.2.0",
-    "sanity": "^4.18.0",
-    "styled-components": "^6.1.19",
-    "tailwindcss": "^4.1.16"
-  }
+    "name": "red-resonance",
+    "type": "module",
+    "version": "0.0.1",
+    "scripts": {
+        "dev": "astro dev",
+        "start": "astro dev",
+        "build": "astro build",
+        "preview": "astro preview",
+        "astro": "astro"
+    },
+    "dependencies": {
+        "@astrojs/starlight": "^0.36.3",
+        "astro": "^5.16.6",
+        "sharp": "^0.34.5"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.3.11",
+        "@flydotio/dockerfile": "^0.7.10"
+    }
 }
