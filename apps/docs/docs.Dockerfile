@@ -15,11 +15,11 @@ WORKDIR /app
 # --- Build ---
 FROM base AS build
 
-# Copia package.json e pnpm-lock.yaml para instalar dependências
-COPY package.json pnpm-lock.yaml ./
+# Copia package.json
+COPY package.json ./
 
-# Instala dependências
-RUN pnpm install --frozen-lockfile
+# Instala dependências (sem lockfile pois docs não tem pnpm-lock.yaml próprio)
+RUN pnpm install --no-frozen-lockfile
 
 # Copia o código fonte
 COPY . .
