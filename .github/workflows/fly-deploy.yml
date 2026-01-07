@@ -70,6 +70,9 @@ jobs:
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       DOCS_HEALTH_URL: ${{ vars.DOCS_HEALTH_URL }}
+    defaults:
+      run:
+        working-directory: ./apps/docs
     steps:
       - name: Checkout
         uses: actions/checkout@v4

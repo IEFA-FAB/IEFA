@@ -8,7 +8,6 @@ primary_region = 'gru'
 
 [build]
   dockerfile = 'docs.Dockerfile'
-  context = '.'
 
 [http_service]
   internal_port = 80
