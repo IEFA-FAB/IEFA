@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useUserLevel } from "@/services/AdminService";
-import type { UserLevelOrNull } from "@/types/domain";
+import type { UserLevelOrNull } from "@/types/domain/";
 
 interface RoleGuardProps {
 	requireAny: NonNullable<UserLevelOrNull>[];

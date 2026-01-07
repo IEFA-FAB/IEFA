@@ -6,7 +6,11 @@ import type { MealKey } from "./meal";
 // PRESENCE MANAGEMENT TYPES
 // ============================================================================
 
-export interface PresenceRecord {
+/**
+ * Fiscal presence record for presence management
+ * Usado para gerenciamento de presenças com fiscal
+ */
+export interface FiscalPresenceRecord {
 	id: string; // uuid do registro de presença
 	user_id: string; // uuid do militar (nome da coluna do banco mantido)
 	date: string; // yyyy-mm-dd
@@ -49,7 +53,7 @@ export interface PresenceRow {
  * Combined query result containing presences and forecast data.
  */
 export interface QueryResult {
-	presences: PresenceRecord[];
+	presences: FiscalPresenceRecord[];
 	forecastMap: Record<string, boolean>;
 }
 
@@ -81,7 +85,7 @@ export type ForecastMap = Record<string, boolean>;
  * Provides state and methods for managing meal presences.
  */
 export interface UsePresenceManagementReturn {
-	presences: PresenceRecord[];
+	presences: FiscalPresenceRecord[];
 	forecastMap: ForecastMap;
 	isLoading: boolean;
 	isConfirming: boolean;
@@ -90,7 +94,7 @@ export interface UsePresenceManagementReturn {
 		uuid: string,
 		willEnter: boolean,
 	) => Promise<ConfirmPresenceResult>;
-	removePresence: (row: PresenceRecord) => Promise<void>;
+	removePresence: (row: FiscalPresenceRecord) => Promise<void>;
 }
 
 export type WillEnter = "sim" | "nao";

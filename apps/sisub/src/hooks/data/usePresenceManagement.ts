@@ -11,6 +11,8 @@ import {
 } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import type { FiscalPresenceRecord, MealKey } from "@/lib/fiscal";
+import supabase from "@/lib/supabase";
 import type {
 	ConfirmPresenceParams,
 	ConfirmPresenceResult,
@@ -19,9 +21,7 @@ import type {
 	ForecastRow,
 	QueryResult,
 	UsePresenceManagementReturn,
-} from "@/types/domain";
-import type { MealKey, PresenceRecord } from "@/lib/fiscal";
-import supabase from "@/lib/supabase";
+} from "@/types/domain/presence";
 
 // ============================================================================
 // INTERNAL TYPES & ERROR CLASSES
@@ -115,7 +115,7 @@ async function getMessHallIdByCode(code: string): Promise<number | undefined> {
  */
 const fetchPresences = async (
 	filters: FiscalFilters,
-): Promise<PresenceRecord[]> => {
+): Promise<FiscalPresenceRecord[]> => {
 	if (!filters.unit) return [];
 
 	// 1) Mapear code -> mess_hall_id
@@ -155,10 +155,10 @@ const fetchPresences = async (
 
 	const rows = data ?? [];
 
-	// 3) Mapear para PresenceRecord esperado pela UI (mantendo unidade = code)
+	// 3) Mapear para FiscalPresenceRecord esperado pela UI (mantendo unidade = code)
 	//    Carregamos display_name como campo extra (permanece disponível em runtime).
-	const mapped: PresenceRecord[] = rows.map((r) => {
-		const base: PresenceRecord = {
+	const mapped: FiscalPresenceRecord[] = rows.map((r) => {
+		const base: FiscalPresenceRecord = {
 			id: r.id,
 			user_id: r.user_id,
 			date: r.date,
@@ -415,8 +415,8 @@ export function usePresenceManagement(
 	const removePresenceMutation: UseMutationResult<
 		void,
 		PostgrestError,
-		PresenceRecord
-	> = useMutation<void, PostgrestError, PresenceRecord>({
+		FiscalPresenceRecord
+	> = useMutation<void, PostgrestError, FiscalPresenceRecord>({
 		mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.unit),
 		mutationFn: async (row): Promise<void> => {
 			await deletePresence(row.id);
@@ -447,7 +447,7 @@ export function usePresenceManagement(
 	);
 
 	const removePresence = useCallback(
-		async (row: PresenceRecord): Promise<void> => {
+		async (row: FiscalPresenceRecord): Promise<void> => {
 			await removePresenceMutation.mutateAsync(row);
 		},
 		[removePresenceMutation],

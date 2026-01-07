@@ -8,7 +8,7 @@ import {
 	UtensilsCrossed,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
-import type { UserLevelOrNull } from "@/types/domain";
+import type { UserLevelOrNull } from "@/types/domain/";
 import type { AppSidebarData, NavItemSection } from "./SidebarTypes";
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>;

@@ -9,7 +9,7 @@ import {
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
 import { UnitSelector } from "@/components/features/forecast/MessHallSelector";
-import type { AdminStatus } from "@/types/domain";
+import type { AdminStatus } from "@/types/domain/";
 
 export default function QRAutoCheckinCard({
 	selectedOm,

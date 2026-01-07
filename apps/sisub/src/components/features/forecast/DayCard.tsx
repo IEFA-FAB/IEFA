@@ -12,8 +12,8 @@ import { Calendar, Clock, Loader2 } from "lucide-react";
 import { MealButton } from "@/components/features/forecast/MealButton";
 import { MessHallSelector } from "@/components/features/forecast/MessHallSelector";
 import { MEAL_TYPES } from "@/constants/rancho";
-import type { DayMeals, PendingChange } from "@/types/domain";
 import { cn } from "@/lib/cn";
+import type { DayMeals, PendingChange } from "@/types/domain/meal";
 
 interface DayCardProps {
 	date: string;
@@ -73,7 +73,7 @@ export function DayCardSkeleton() {
 			</CardHeader>
 
 			<CardContent>
-				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
+				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
 					{/* Mess hall selector skeleton */}
 					<div className="bg-muted/30 rounded-lg p-3 border border-border">
 						<Skeleton className="h-8 w-full" />
@@ -239,7 +239,7 @@ export function DayCard({
 
 			<CardContent>
 				{/* Main grid with fixed min height */}
-				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-[200px]">
+				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
 					{/* Mess hall selector */}
 					<div className="bg-accent/10 backdrop-blur-sm rounded-lg p-3 border border-accent/30">
 						<MessHallSelector

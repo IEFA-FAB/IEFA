@@ -1,5 +1,5 @@
 // UI Components (from @iefa/ui)
-import { Feature, MealType, Step } from "@/types/domain";
+
 import {
 	Badge,
 	Button,
@@ -10,12 +10,9 @@ import {
 	CardTitle,
 	Separator,
 } from "@iefa/ui";
-
 // Routing
 import { createFileRoute, Link } from "@tanstack/react-router";
-
 // Icons
-import type { LucideIcon } from "lucide-react";
 import {
 	BarChart3,
 	Bell,
@@ -36,10 +33,11 @@ import {
 	Users,
 	UtensilsCrossed,
 } from "lucide-react";
-
 // React
 import type { JSX } from "react";
 import { useEffect, useRef, useState } from "react";
+import type { Feature, Step } from "@/types/domain";
+import type { MealType } from "@/types/domain/";
 
 /* ========================================================================
    TYPE DEFINITIONS
@@ -48,8 +46,6 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Representa um passo do tutorial/workflow do sistema
  */
-
-
 
 export const steps: Step[] = [
 	{

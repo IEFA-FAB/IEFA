@@ -3,7 +3,7 @@ import { QrCode } from "lucide-react";
 import type { NavItem } from "@/components/common/layout/sidebar/NavItems";
 import { NavUser } from "@/components/common/layout/sidebar/NavUser";
 import { useTheme } from "@/hooks/ui/useTheme";
-import type { UserLevelOrNull } from "@/services/AdminService";
+import type { UserLevelOrNull } from "@/types/domain/";
 
 export type TopbarProps = {
 	showSidebar: boolean;

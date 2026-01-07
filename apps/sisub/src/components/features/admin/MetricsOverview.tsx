@@ -38,7 +38,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
 			{/* Total Card - Full width on mobile */}
-			<Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-2 col-span-2 lg:col-span-1">
+			<Card className="bg-linear-to-br from-primary/10 to-primary/5 border-2 col-span-2 lg:col-span-1">
 				<CardContent className="p-4 md:p-6">
 					<div className="flex items-center gap-3">
 						<div className="p-2 bg-primary/10 rounded-lg">
@@ -66,7 +66,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 				const iconColor = MEAL_ICON_COLORS[stat.meal];
 
 				return (
-					<Card key={stat.meal} className={`bg-gradient-to-br ${color} border`}>
+					<Card key={stat.meal} className={`bg-linear-to-br ${color} border`}>
 						<CardContent className="p-4 md:p-6">
 							<div className="flex items-center gap-2 md:gap-3">
 								<div className="p-2 bg-white/50 rounded-lg">

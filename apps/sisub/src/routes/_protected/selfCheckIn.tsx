@@ -13,13 +13,13 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useAuth } from "@/hooks/auth/useAuth";
+import { inferDefaultMeal } from "@/lib/fiscal";
+import supabase from "@/lib/supabase";
 import {
 	messHallByCodeQueryOptions,
 	userMealForecastQueryOptions,
 } from "@/services/SelfCheckInService";
-import type { WillEnter } from "@/types/domain";
-import { inferDefaultMeal } from "@/lib/fiscal";
-import supabase from "@/lib/supabase";
+import type { WillEnter } from "@/types/domain/";
 
 // Schema for search params validation
 const selfCheckInSearchSchema = z.object({

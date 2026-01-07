@@ -2,9 +2,9 @@
 
 import { queryOptions } from "@tanstack/react-query";
 import type {
+	DashboardPresenceRecord,
 	ForecastRecord,
 	MessHallAPI,
-	PresenceRecord,
 	UnitAPI,
 	UserDataAPI,
 	UserMilitaryDataAPI,
@@ -82,7 +82,7 @@ export async function fetchPresences(params: {
 	mess_hall_id?: number;
 	startDate?: string;
 	endDate?: string;
-}): Promise<PresenceRecord[]> {
+}): Promise<DashboardPresenceRecord[]> {
 	const url = new URL(`${IEFA_API_BASE}/api/wherewhowhen`);
 
 	if (params.mess_hall_id) {
@@ -100,7 +100,7 @@ export async function fetchPresences(params: {
 
 	// Client-side filtering by date range
 	if (params.startDate || params.endDate) {
-		return data.filter((record: PresenceRecord) => {
+		return data.filter((record: DashboardPresenceRecord) => {
 			if (params.startDate && record.date < params.startDate) return false;
 			if (params.endDate && record.date > params.endDate) return false;
 			return true;

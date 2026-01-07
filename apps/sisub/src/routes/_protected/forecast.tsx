@@ -12,19 +12,19 @@ import { UnifiedStatusToasts } from "@/components/features/forecast/UnifiedStatu
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho";
 import { useMealForecast } from "@/hooks/data/useMealForecast";
 import { useMessHalls } from "@/hooks/data/useMessHalls";
-import type {
-	CardData,
-	DayMeals,
-	MessHallByDate,
-	PendingChange,
-	SelectionsByDate,
-} from "@/types/domain";
 import {
 	createEmptyDayMeals,
 	formatDate,
 	getDayOfWeek,
 	isDateNear,
 } from "@/lib/meal";
+import type { CardData } from "@/types/domain";
+import type {
+	DayMeals,
+	MessHallByDate,
+	PendingChange,
+	SelectionsByDate,
+} from "@/types/domain/";
 
 const DayCard = lazy(() => import("@/components/features/forecast/DayCard"));
 

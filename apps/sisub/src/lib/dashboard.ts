@@ -3,11 +3,11 @@
 import type {
 	DailyMealStat,
 	DashboardMetrics,
+	DashboardPresenceRecord,
 	ForecastRecord,
 	MealTypeStat,
 	MessHallAPI,
 	MessHallStats,
-	PresenceRecord,
 	UserDataAPI,
 	UserMealDetail,
 	UserMilitaryDataAPI,
@@ -21,7 +21,7 @@ const MEAL_KEYS: MealKey[] = ["cafe", "almoco", "janta", "ceia"];
  */
 export function aggregateDashboardMetrics(
 	forecasts: ForecastRecord[],
-	presences: PresenceRecord[],
+	presences: DashboardPresenceRecord[],
 	messHalls: MessHallAPI[],
 	dateRange: { start: string; end: string },
 ): DashboardMetrics {
@@ -105,7 +105,7 @@ export function aggregateDashboardMetrics(
  */
 export function buildUserMealDetails(
 	forecasts: ForecastRecord[],
-	presences: PresenceRecord[],
+	presences: DashboardPresenceRecord[],
 	userData: UserDataAPI[],
 	militaryData: UserMilitaryDataAPI[],
 ): UserMealDetail[] {
@@ -164,7 +164,7 @@ export function calculatePercentage(part: number, total: number): number {
  */
 export function aggregatePresenceData(
 	forecasts: import("@/types/domain/dashboard").ForecastRecord[],
-	presences: import("@/types/domain/dashboard").PresenceRecord[],
+	presences: import("@/types/domain/dashboard").DashboardPresenceRecord[],
 	userData: import("@/types/domain/dashboard").UserDataAPI[],
 	militaryData: import("@/types/domain/dashboard").UserMilitaryDataAPI[],
 	messHalls: import("@/types/domain/dashboard").MessHallAPI[],

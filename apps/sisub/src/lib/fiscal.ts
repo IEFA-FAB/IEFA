@@ -1,6 +1,10 @@
-import type { DialogState, MealKey, PresenceRecord } from "@/types/domain";
+import type {
+	DialogState,
+	FiscalPresenceRecord,
+	MealKey,
+} from "@/types/domain";
 
-export type { DialogState, MealKey, PresenceRecord };
+export type { DialogState, FiscalPresenceRecord, MealKey };
 
 export interface ScannerState {
 	isReady: boolean;

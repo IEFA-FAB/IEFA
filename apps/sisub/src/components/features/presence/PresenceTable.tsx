@@ -10,24 +10,24 @@ import {
 } from "@iefa/ui";
 import { Trash2 } from "lucide-react";
 import {
+	type FiscalPresenceRecord,
 	MEAL_LABEL,
 	type MealKey,
-	type PresenceRecord,
 } from "@/lib/fiscal";
 import { formatDate } from "@/lib/meal";
 
 interface PresenceTableProps {
 	selectedDate: string;
 	selectedMeal: MealKey;
-	presences: PresenceRecord[];
+	presences: FiscalPresenceRecord[];
 	forecastMap: Record<string, boolean>;
 	actions: {
-		removePresence: (record: PresenceRecord) => void;
+		removePresence: (record: FiscalPresenceRecord) => void;
 	};
 }
 
 // Tipo auxiliar apenas para leitura do campo extra
-type PresenceRowUI = PresenceRecord & { display_name?: string | null };
+type PresenceRowUI = FiscalPresenceRecord & { display_name?: string | null };
 
 export default function PresenceTable({
 	selectedDate,

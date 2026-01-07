@@ -1,7 +1,6 @@
 import {
 	Avatar,
 	AvatarFallback,
-	AvatarImage,
 	Button,
 	Card,
 	CardContent,
@@ -38,14 +37,14 @@ import {
 } from "@/services/DashboardService";
 import type {
 	AggregatedPresenceRecord,
+	DashboardPresenceRecord,
 	ForecastRecord,
 	PersonDetail,
-	PresenceRecord,
 } from "@/types/domain/dashboard";
 
 interface PresenceTableProps {
 	forecasts: ForecastRecord[];
-	presences: PresenceRecord[];
+	presences: DashboardPresenceRecord[];
 }
 
 const MEAL_LABELS = {
@@ -260,7 +259,7 @@ export default function PresenceTable({
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-[40px]"></TableHead>
+								<TableHead className="w-10"></TableHead>
 								<TableHead>Data</TableHead>
 								<TableHead>Rancho</TableHead>
 								<TableHead>Refeição</TableHead>

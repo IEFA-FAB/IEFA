@@ -24,7 +24,7 @@ import SuperAdminHero from "@/components/features/super-admin/SuperAdminHero";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useEvalConfig } from "@/hooks/business/useEvalConfig";
 import { adminProfileQueryOptions } from "@/services/AdminService";
-import type { EvalConfig } from "@/types/domain";
+import type { EvalConfig } from "@/types/domain/";
 
 export const Route = createFileRoute("/_protected/superAdmin")({
 	beforeLoad: async ({ context }) => {

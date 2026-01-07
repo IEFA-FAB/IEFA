@@ -22,9 +22,9 @@ export interface ForecastRecord {
 
 /**
  * Presence record from /api/wherewhowhen
- * Representa a presença confirmada de um usuário em uma refeição
+ * Representa a presença confirmada de um usuário em uma refeição (dados da API para dashboard)
  */
-export interface PresenceRecord {
+export interface DashboardPresenceRecord {
 	user_id: string;
 	date: string; // YYYY-MM-DD
 	meal: MealKey;

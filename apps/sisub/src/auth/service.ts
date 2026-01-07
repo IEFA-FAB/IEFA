@@ -1,8 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
-import type { AuthContextType } from "@/types/auth";
 import supabase from "@/lib/supabase";
-
-export type { AuthContextType };
+import type { AuthContextType } from "../types/domain/";
 
 // Separate state from actions for router context typing
 export type AuthState = Pick<
@@ -32,7 +30,6 @@ export const authQueryOptions = () =>
 		},
 		staleTime: 1000 * 60 * 5, // 5 minutos
 	});
-
 
 function normalizeEmail(email: string) {
 	return email.trim().toLowerCase();

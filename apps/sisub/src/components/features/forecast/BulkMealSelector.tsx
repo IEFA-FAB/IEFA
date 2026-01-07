@@ -12,8 +12,8 @@ import { CheckCircle, Loader2, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { MealButton } from "@/components/features/forecast/MealButton";
 import { MEAL_TYPES } from "@/constants/rancho";
-import type { DayMeals } from "@/types/domain";
 import { createEmptyDayMeals } from "@/lib/meal";
+import type { DayMeals } from "@/types/domain/";
 
 type ApplyMode = "fill-missing" | "override";
 

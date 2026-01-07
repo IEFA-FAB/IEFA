@@ -72,7 +72,7 @@ export default function MealDistributionChart({
 						return (
 							<div
 								key={day.date}
-								className="flex flex-col items-center gap-2 min-w-[100px]"
+								className="flex flex-col items-center gap-2 min-w-25"
 							>
 								<div className="flex items-end gap-1 h-40">
 									{/* Café */}
