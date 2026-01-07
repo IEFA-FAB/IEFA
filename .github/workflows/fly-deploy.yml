@@ -69,9 +69,7 @@ jobs:
       cancel-in-progress: true
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-    defaults:
-      run:
-        working-directory: ./apps/docs
+      DOCS_HEALTH_URL: ${{ vars.DOCS_HEALTH_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,8 +78,29 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy Docs (wait for health checks)
-       # Se o arquivo não for exatamente ./apps/docs/fly.toml, use: flyctl deploy -c fly.docs.toml --remote-only --wait-timeout 180
-        run: flyctl deploy --remote-only
+        run: flyctl deploy -c fly.docs.toml --remote-only
+
+      - name: Smoke test Docs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${DOCS_HEALTH_URL:-}" ]]; then
+            echo "DOCS_HEALTH_URL não definido; pulando smoke test."
+            exit 0
+          fi
+          SAFE_URL="${DOCS_HEALTH_URL//\`/}"
+          echo "Esperando Docs responder em $SAFE_URL ..."
+          for i in {1..30}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$SAFE_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then
+              echo "OK! Docs respondeu $status."
+              exit 0
+            fi
+            echo "Tentativa $i/30 - status: ${status:-(erro de conexão)} - aguardando 10s..."
+            sleep 10
+          done
+          echo "Falha: Docs não respondeu 2xx no tempo esperado."
+          exit 1
 
   deploy-iefa:
     name: Deploy IEFA
