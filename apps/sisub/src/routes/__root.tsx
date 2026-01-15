@@ -18,6 +18,7 @@ import {
 } from "@/auth/service";
 import { DefaultCatchBoundary } from "@/components/common/errors/DefaultCatchBoundary";
 import { NotFound } from "@/components/common/errors/NotFound";
+import { RealtimeProvider } from "@/components/common/providers/RealtimeProvider";
 import type { ThemeContextType } from "@/components/common/shared/themeService";
 import { ThemeScript } from "@/components/common/shared/themeService";
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
@@ -94,7 +95,9 @@ function RootDocument() {
 				<div
 					className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`}
 				/>
-				<Outlet />
+				<RealtimeProvider>
+					<Outlet />
+				</RealtimeProvider>
 				<Toaster
 					position="bottom-center"
 					richColors

@@ -18,12 +18,18 @@ import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
-import { Route as ProtectedSuperAdminRouteImport } from './routes/_protected/superAdmin'
 import { Route as ProtectedSelfCheckInRouteImport } from './routes/_protected/selfCheckIn'
 import { Route as ProtectedProfileRouteImport } from './routes/_protected/profile'
 import { Route as ProtectedPresenceRouteImport } from './routes/_protected/presence'
 import { Route as ProtectedForecastRouteImport } from './routes/_protected/forecast'
-import { Route as ProtectedAdminRouteImport } from './routes/_protected/admin'
+import { Route as ProtectedSuperAdminIndexRouteImport } from './routes/_protected/superAdmin/index'
+import { Route as ProtectedAdminIndexRouteImport } from './routes/_protected/admin/index'
+import { Route as ProtectedSuperAdminIngredientsRouteImport } from './routes/_protected/superAdmin/ingredients'
+import { Route as ProtectedAdminProcurementRouteImport } from './routes/_protected/admin/procurement'
+import { Route as ProtectedAdminPlanningRouteImport } from './routes/_protected/admin/planning'
+import { Route as ProtectedAdminRecipesIndexRouteImport } from './routes/_protected/admin/recipes/index'
+import { Route as ProtectedAdminRecipesNewRouteImport } from './routes/_protected/admin/recipes/new'
+import { Route as ProtectedAdminRecipesRecipeIdRouteImport } from './routes/_protected/admin/recipes/$recipeId'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -68,11 +74,6 @@ const PublicChangelogRoute = PublicChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => PublicRouteRoute,
 } as any)
-const ProtectedSuperAdminRoute = ProtectedSuperAdminRouteImport.update({
-  id: '/superAdmin',
-  path: '/superAdmin',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
 const ProtectedSelfCheckInRoute = ProtectedSelfCheckInRouteImport.update({
   id: '/selfCheckIn',
   path: '/selfCheckIn',
@@ -93,40 +94,93 @@ const ProtectedForecastRoute = ProtectedForecastRouteImport.update({
   path: '/forecast',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedAdminRoute = ProtectedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const ProtectedSuperAdminIndexRoute =
+  ProtectedSuperAdminIndexRouteImport.update({
+    id: '/superAdmin/',
+    path: '/superAdmin/',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedAdminIndexRoute = ProtectedAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedSuperAdminIngredientsRoute =
+  ProtectedSuperAdminIngredientsRouteImport.update({
+    id: '/superAdmin/ingredients',
+    path: '/superAdmin/ingredients',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedAdminProcurementRoute =
+  ProtectedAdminProcurementRouteImport.update({
+    id: '/admin/procurement',
+    path: '/admin/procurement',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedAdminPlanningRoute = ProtectedAdminPlanningRouteImport.update({
+  id: '/admin/planning',
+  path: '/admin/planning',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
+const ProtectedAdminRecipesIndexRoute =
+  ProtectedAdminRecipesIndexRouteImport.update({
+    id: '/admin/recipes/',
+    path: '/admin/recipes/',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedAdminRecipesNewRoute =
+  ProtectedAdminRecipesNewRouteImport.update({
+    id: '/admin/recipes/new',
+    path: '/admin/recipes/new',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
+const ProtectedAdminRecipesRecipeIdRoute =
+  ProtectedAdminRecipesRecipeIdRouteImport.update({
+    id: '/admin/recipes/$recipeId',
+    path: '/admin/recipes/$recipeId',
+    getParentRoute: () => ProtectedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
-  '/admin': typeof ProtectedAdminRoute
   '/forecast': typeof ProtectedForecastRoute
   '/presence': typeof ProtectedPresenceRoute
   '/profile': typeof ProtectedProfileRoute
   '/selfCheckIn': typeof ProtectedSelfCheckInRoute
-  '/superAdmin': typeof ProtectedSuperAdminRoute
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/admin/planning': typeof ProtectedAdminPlanningRoute
+  '/admin/procurement': typeof ProtectedAdminProcurementRoute
+  '/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
+  '/admin': typeof ProtectedAdminIndexRoute
+  '/superAdmin': typeof ProtectedSuperAdminIndexRoute
+  '/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
+  '/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
+  '/admin/recipes': typeof ProtectedAdminRecipesIndexRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
-  '/admin': typeof ProtectedAdminRoute
   '/forecast': typeof ProtectedForecastRoute
   '/presence': typeof ProtectedPresenceRoute
   '/profile': typeof ProtectedProfileRoute
   '/selfCheckIn': typeof ProtectedSelfCheckInRoute
-  '/superAdmin': typeof ProtectedSuperAdminRoute
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/admin/planning': typeof ProtectedAdminPlanningRoute
+  '/admin/procurement': typeof ProtectedAdminProcurementRoute
+  '/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
+  '/admin': typeof ProtectedAdminIndexRoute
+  '/superAdmin': typeof ProtectedSuperAdminIndexRoute
+  '/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
+  '/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
+  '/admin/recipes': typeof ProtectedAdminRecipesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,65 +188,89 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
-  '/_protected/admin': typeof ProtectedAdminRoute
   '/_protected/forecast': typeof ProtectedForecastRoute
   '/_protected/presence': typeof ProtectedPresenceRoute
   '/_protected/profile': typeof ProtectedProfileRoute
   '/_protected/selfCheckIn': typeof ProtectedSelfCheckInRoute
-  '/_protected/superAdmin': typeof ProtectedSuperAdminRoute
   '/_public/changelog': typeof PublicChangelogRoute
   '/_public/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/_protected/admin/planning': typeof ProtectedAdminPlanningRoute
+  '/_protected/admin/procurement': typeof ProtectedAdminProcurementRoute
+  '/_protected/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
+  '/_protected/admin/': typeof ProtectedAdminIndexRoute
+  '/_protected/superAdmin/': typeof ProtectedSuperAdminIndexRoute
+  '/_protected/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
+  '/_protected/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
+  '/_protected/admin/recipes/': typeof ProtectedAdminRecipesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/auth'
     | '/health'
-    | '/admin'
     | '/forecast'
     | '/presence'
     | '/profile'
     | '/selfCheckIn'
-    | '/superAdmin'
     | '/changelog'
     | '/tutorial'
     | '/auth/reset-password'
     | '/'
     | '/auth/'
+    | '/admin/planning'
+    | '/admin/procurement'
+    | '/superAdmin/ingredients'
+    | '/admin'
+    | '/superAdmin'
+    | '/admin/recipes/$recipeId'
+    | '/admin/recipes/new'
+    | '/admin/recipes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
-    | '/admin'
     | '/forecast'
     | '/presence'
     | '/profile'
     | '/selfCheckIn'
-    | '/superAdmin'
     | '/changelog'
     | '/tutorial'
     | '/auth/reset-password'
     | '/'
     | '/auth'
+    | '/admin/planning'
+    | '/admin/procurement'
+    | '/superAdmin/ingredients'
+    | '/admin'
+    | '/superAdmin'
+    | '/admin/recipes/$recipeId'
+    | '/admin/recipes/new'
+    | '/admin/recipes'
   id:
     | '__root__'
     | '/_protected'
     | '/_public'
     | '/auth'
     | '/health'
-    | '/_protected/admin'
     | '/_protected/forecast'
     | '/_protected/presence'
     | '/_protected/profile'
     | '/_protected/selfCheckIn'
-    | '/_protected/superAdmin'
     | '/_public/changelog'
     | '/_public/tutorial'
     | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
+    | '/_protected/admin/planning'
+    | '/_protected/admin/procurement'
+    | '/_protected/superAdmin/ingredients'
+    | '/_protected/admin/'
+    | '/_protected/superAdmin/'
+    | '/_protected/admin/recipes/$recipeId'
+    | '/_protected/admin/recipes/new'
+    | '/_protected/admin/recipes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -267,13 +345,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicChangelogRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_protected/superAdmin': {
-      id: '/_protected/superAdmin'
-      path: '/superAdmin'
-      fullPath: '/superAdmin'
-      preLoaderRoute: typeof ProtectedSuperAdminRouteImport
-      parentRoute: typeof ProtectedRouteRoute
-    }
     '/_protected/selfCheckIn': {
       id: '/_protected/selfCheckIn'
       path: '/selfCheckIn'
@@ -302,32 +373,93 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedForecastRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/admin': {
-      id: '/_protected/admin'
+    '/_protected/superAdmin/': {
+      id: '/_protected/superAdmin/'
+      path: '/superAdmin'
+      fullPath: '/superAdmin'
+      preLoaderRoute: typeof ProtectedSuperAdminIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/admin/': {
+      id: '/_protected/admin/'
       path: '/admin'
       fullPath: '/admin'
-      preLoaderRoute: typeof ProtectedAdminRouteImport
+      preLoaderRoute: typeof ProtectedAdminIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/superAdmin/ingredients': {
+      id: '/_protected/superAdmin/ingredients'
+      path: '/superAdmin/ingredients'
+      fullPath: '/superAdmin/ingredients'
+      preLoaderRoute: typeof ProtectedSuperAdminIngredientsRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/admin/procurement': {
+      id: '/_protected/admin/procurement'
+      path: '/admin/procurement'
+      fullPath: '/admin/procurement'
+      preLoaderRoute: typeof ProtectedAdminProcurementRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/admin/planning': {
+      id: '/_protected/admin/planning'
+      path: '/admin/planning'
+      fullPath: '/admin/planning'
+      preLoaderRoute: typeof ProtectedAdminPlanningRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/admin/recipes/': {
+      id: '/_protected/admin/recipes/'
+      path: '/admin/recipes'
+      fullPath: '/admin/recipes'
+      preLoaderRoute: typeof ProtectedAdminRecipesIndexRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/admin/recipes/new': {
+      id: '/_protected/admin/recipes/new'
+      path: '/admin/recipes/new'
+      fullPath: '/admin/recipes/new'
+      preLoaderRoute: typeof ProtectedAdminRecipesNewRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
+    '/_protected/admin/recipes/$recipeId': {
+      id: '/_protected/admin/recipes/$recipeId'
+      path: '/admin/recipes/$recipeId'
+      fullPath: '/admin/recipes/$recipeId'
+      preLoaderRoute: typeof ProtectedAdminRecipesRecipeIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
   }
 }
 
 interface ProtectedRouteRouteChildren {
-  ProtectedAdminRoute: typeof ProtectedAdminRoute
   ProtectedForecastRoute: typeof ProtectedForecastRoute
   ProtectedPresenceRoute: typeof ProtectedPresenceRoute
   ProtectedProfileRoute: typeof ProtectedProfileRoute
   ProtectedSelfCheckInRoute: typeof ProtectedSelfCheckInRoute
-  ProtectedSuperAdminRoute: typeof ProtectedSuperAdminRoute
+  ProtectedAdminPlanningRoute: typeof ProtectedAdminPlanningRoute
+  ProtectedAdminProcurementRoute: typeof ProtectedAdminProcurementRoute
+  ProtectedSuperAdminIngredientsRoute: typeof ProtectedSuperAdminIngredientsRoute
+  ProtectedAdminIndexRoute: typeof ProtectedAdminIndexRoute
+  ProtectedSuperAdminIndexRoute: typeof ProtectedSuperAdminIndexRoute
+  ProtectedAdminRecipesRecipeIdRoute: typeof ProtectedAdminRecipesRecipeIdRoute
+  ProtectedAdminRecipesNewRoute: typeof ProtectedAdminRecipesNewRoute
+  ProtectedAdminRecipesIndexRoute: typeof ProtectedAdminRecipesIndexRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
-  ProtectedAdminRoute: ProtectedAdminRoute,
   ProtectedForecastRoute: ProtectedForecastRoute,
   ProtectedPresenceRoute: ProtectedPresenceRoute,
   ProtectedProfileRoute: ProtectedProfileRoute,
   ProtectedSelfCheckInRoute: ProtectedSelfCheckInRoute,
-  ProtectedSuperAdminRoute: ProtectedSuperAdminRoute,
+  ProtectedAdminPlanningRoute: ProtectedAdminPlanningRoute,
+  ProtectedAdminProcurementRoute: ProtectedAdminProcurementRoute,
+  ProtectedSuperAdminIngredientsRoute: ProtectedSuperAdminIngredientsRoute,
+  ProtectedAdminIndexRoute: ProtectedAdminIndexRoute,
+  ProtectedSuperAdminIndexRoute: ProtectedSuperAdminIndexRoute,
+  ProtectedAdminRecipesRecipeIdRoute: ProtectedAdminRecipesRecipeIdRoute,
+  ProtectedAdminRecipesNewRoute: ProtectedAdminRecipesNewRoute,
+  ProtectedAdminRecipesIndexRoute: ProtectedAdminRecipesIndexRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(

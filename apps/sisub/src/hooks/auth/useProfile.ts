@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import type { MilitaryDataRow, UserDataRow } from "@/types/domain";
 import supabase from "@/lib/supabase";
+import { useAdminProfile } from "@/services/AdminService";
+import type { MilitaryDataRow, UserDataRow } from "@/types/domain/";
+import { useAuth } from "./useAuth";
+
+export function useProfile() {
+	const { user } = useAuth();
+	return useAdminProfile(user?.id);
+}
 
 export function useUserData(userId: string | undefined) {
 	return useQuery({

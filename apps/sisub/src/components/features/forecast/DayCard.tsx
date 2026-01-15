@@ -12,6 +12,7 @@ import { Calendar, Clock, Loader2 } from "lucide-react";
 import { MealButton } from "@/components/features/forecast/MealButton";
 import { MessHallSelector } from "@/components/features/forecast/MessHallSelector";
 import { MEAL_TYPES } from "@/constants/rancho";
+import type { DishDetails } from "@/hooks/data/useDailyMenuContent";
 import { cn } from "@/lib/cn";
 import type { DayMeals, PendingChange } from "@/types/domain/meal";
 
@@ -30,6 +31,7 @@ interface DayCardProps {
 	isSaving?: boolean;
 	selectedMealsCount?: number;
 	isLoading?: boolean;
+	dishes?: { [mealKey: string]: DishDetails[] };
 }
 
 const countSelectedMeals = (daySelections: DayMeals): number => {
@@ -113,6 +115,7 @@ export function DayCard({
 	pendingChanges,
 	isSaving = false,
 	selectedMealsCount,
+	dishes,
 }: DayCardProps) {
 	const hasPendingChanges = pendingChanges.some(
 		(change) => change.date === date,
@@ -254,6 +257,8 @@ export function DayCard({
 					<div className="grid grid-cols-2 gap-2">
 						{MEAL_TYPES.map((meal) => {
 							const mealKey = meal.value as keyof DayMeals; // cafe/almoco/janta/ceia
+							const mealDishes = dishes?.[mealKey];
+
 							return (
 								<MealButton
 									key={meal.value}
@@ -262,6 +267,7 @@ export function DayCard({
 									onToggle={() => handleMealToggle(mealKey)}
 									disabled={isDisabled}
 									compact={true}
+									dishes={mealDishes}
 								/>
 							);
 						})}

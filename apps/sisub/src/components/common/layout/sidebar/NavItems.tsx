@@ -49,8 +49,15 @@ const DROPDOWN_ICON: Record<DisplayLevel, LucideIcon> = {
 const LEVEL_SUBITEMS: Record<DisplayLevel, { title: string; url: string }[]> = {
 	comensal: [{ title: "Previsão", url: "/forecast" }],
 	user: [{ title: "Leitor QrCode", url: "/presence" }],
-	admin: [{ title: "Painel do rancho", url: "/admin" }],
-	superadmin: [{ title: "Painel do sistema", url: "/superadmin" }],
+	admin: [
+		{ title: "Painel do rancho", url: "/admin" },
+		{ title: "Planejamento", url: "/admin/planning" },
+		{ title: "Receitas", url: "/admin/recipes" },
+	],
+	superadmin: [
+		{ title: "Painel do sistema", url: "/superAdmin" },
+		{ title: "Gestão de Insumos", url: "/superAdmin/ingredients" },
+	],
 };
 
 // Auxiliar: retorna os níveis acumulados até o nível informado

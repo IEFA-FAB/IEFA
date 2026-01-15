@@ -2,8 +2,8 @@
 // Uses centralized types from @/types/domain as per design system guidelines.
 
 import { useQuery } from "@tanstack/react-query";
-import type { MessHall, Unit } from "@/types/domain";
 import supabase from "@/lib/supabase";
+import type { MessHall, Unit } from "@/types/domain";
 
 /**
  * Custom hook to fetch and manage organizational units and mess halls.
@@ -75,7 +75,7 @@ export const useMessHalls = () => {
 		queryFn: async () => {
 			const { data, error } = await sisub
 				.from("mess_halls")
-				.select("id, unit_id, code, display_name")
+				.select("id, unit_id, code, display_name, kitchen_id")
 				.order("display_name", { ascending: true });
 
 			if (error) throw error;
@@ -85,6 +85,7 @@ export const useMessHalls = () => {
 				unitId: row.unit_id,
 				code: row.code,
 				name: row.display_name,
+				kitchenId: row.kitchen_id,
 			})) as MessHall[];
 		},
 	});

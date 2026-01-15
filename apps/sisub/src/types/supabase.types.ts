@@ -151,3 +151,5 @@ export type UserIdentity = Views<"v_user_identity">;
 // Enums
 export type KitchenType = Enums<"kitchen_type">;
 export type UnitType = Enums<"unit_type">;
+
+export * from "./domain/recipes";

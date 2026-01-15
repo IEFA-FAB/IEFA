@@ -1,14 +1,15 @@
+import { Card, CardDescription, CardHeader, CardTitle } from "@iefa/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Calendar, ChefHat, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
-
 import AdminHero from "@/components/features/admin/AdminHero";
 import DashboardCard from "@/components/features/admin/DashboardCard";
 import QRAutoCheckinCard from "@/components/features/admin/QRAutoCheckinCard";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { adminProfileQueryOptions } from "@/services/AdminService";
 
-export const Route = createFileRoute("/_protected/admin")({
+export const Route = createFileRoute("/_protected/admin/")({
 	beforeLoad: async ({ context }) => {
 		const { user } = context.auth;
 
@@ -72,7 +73,6 @@ function AdminPanel() {
 				<AdminHero error={null} />
 			</section>
 
-			{/* Conteúdo */}
 			<section
 				id="content"
 				className={`container mx-auto max-w-screen-2xl px-4 py-10 md:py-14 transition-all duration-500 delay-100 ${
@@ -80,6 +80,49 @@ function AdminPanel() {
 				}`}
 			>
 				<div className="grid grid-cols-1 gap-6 lg:gap-8">
+					{/* Gestão */}
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+						<Link to="/admin/recipes">
+							<Card className="hover:bg-muted/50 transition-colors cursor-pointer border-2 h-full">
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<ChefHat className="h-5 w-5 text-primary" />
+										Catálogo de Receitas
+									</CardTitle>
+									<CardDescription>
+										Gerencie fichas técnicas, versões e ingredientes.
+									</CardDescription>
+								</CardHeader>
+							</Card>
+						</Link>
+						<Link to="/admin/planning">
+							<Card className="hover:bg-muted/50 transition-colors cursor-pointer border-2 h-full">
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Calendar className="h-5 w-5 text-primary" />
+										Planejamento de Cardápio
+									</CardTitle>
+									<CardDescription>
+										Monte cardápios semanais e diários.
+									</CardDescription>
+								</CardHeader>
+							</Card>
+						</Link>
+						<Link to="/admin/procurement">
+							<Card className="hover:bg-muted/50 transition-colors cursor-pointer border-2 h-full">
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<ShoppingCart className="h-5 w-5 text-primary" />
+										Lista de Compras
+									</CardTitle>
+									<CardDescription>
+										Calcule necessidades de aquisição.
+									</CardDescription>
+								</CardHeader>
+							</Card>
+						</Link>
+					</div>
+
 					<DashboardCard profile={profile} />
 					<QRAutoCheckinCard
 						selectedOm={selectedOm}

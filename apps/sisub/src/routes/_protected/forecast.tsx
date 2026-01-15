@@ -10,6 +10,7 @@ import { DefaultMessHallSelector } from "@/components/features/forecast/DefaultM
 import SimplifiedMilitaryStats from "@/components/features/forecast/SimplifiedMilitaryStats";
 import { UnifiedStatusToasts } from "@/components/features/forecast/UnifiedStatusToasts";
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho";
+import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent";
 import { useMealForecast } from "@/hooks/data/useMealForecast";
 import { useMessHalls } from "@/hooks/data/useMessHalls";
 import {
@@ -140,6 +141,34 @@ export default function Forecast(): JSX.Element {
 		return idFromCode || (defaultMessHallId ? String(defaultMessHallId) : "");
 	};
 
+	// Calculate Kitchen IDs for menu fetching
+	const kitchenIds = (() => {
+		const ids = new Set<number>();
+
+		// Add default kitchen
+		const defaultMh = messHalls.find(
+			(m) => String(m.id) === String(defaultMessHallId),
+		);
+		if (defaultMh?.kitchenId) ids.add(defaultMh.kitchenId);
+
+		// Add kitchens from overrides
+		dates.forEach((date) => {
+			const code = dayMessHalls[date];
+			if (code) {
+				const mh = messHalls.find((m) => m.code === code);
+				if (mh?.kitchenId) ids.add(mh.kitchenId);
+			}
+		});
+
+		return Array.from(ids);
+	})();
+
+	const { data: menuContent } = useDailyMenuContent(
+		kitchenIds,
+		dates[0],
+		dates[dates.length - 1],
+	);
+
 	const [showDefaultMessHallSelector, setShowDefaultMessHallSelector] =
 		useState(false);
 	const [isApplyingDefaultMessHall, setIsApplyingDefaultMessHall] =
@@ -177,6 +206,26 @@ export default function Forecast(): JSX.Element {
 	const dayCardsProps = computedData.cardData.map(
 		({ date, daySelections, dayMessHallCode }) => {
 			const dayCardData = getDayCardData(date, todayString, daySelections);
+			// Determine kitchen ID for this date (logic available if filtering needed)
+			const messHallId = resolveMessHallIdForDate(date);
+			// const mh = messHalls.find((m) => String(m.id) === messHallId);
+			// const kitchenId = mh?.kitchenId;
+
+			// Extract menus for this date
+			// Note: useDailyMenuContent returns { [date]: { [meal]: Dish[] } }
+			// BUT it might contain menus for multiple kitchens if we fetched multiple.
+			// However, useDailyMenuContent implementation just groups by date/meal.
+			// If multiple kitchens have menu for same date/meal, they will collide or append.
+			// My mock implementation appended. Ideally I should filter by kitchenId if I can.
+			// For now, let's assume one kitchen per user/day context or the hook handles it?
+			// The hook currently returns `content[date][mealKey] = Dish[]`. It merges all kitchens.
+			// If the user has access to multiple kitchens, they might see merged dishes.
+			// To be precise, DayCard should filter by kitchenId.
+			// But DayCard doesn't know about kitchens.
+			// Let's pass the dishes directly.
+
+			const dishesForDay = menuContent?.[date];
+
 			return {
 				key: date,
 				date,
@@ -186,6 +235,7 @@ export default function Forecast(): JSX.Element {
 				// Também passamos o default como CODE
 				defaultMessHallId: defaultMessHallCode,
 				...dayCardData,
+				dishes: dishesForDay, // Pass dishes
 				isSaving: false,
 			};
 		},

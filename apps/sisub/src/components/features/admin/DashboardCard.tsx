@@ -10,7 +10,13 @@ import {
 	TabsTrigger,
 } from "@iefa/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { BarChart3, Building2, LayoutDashboard, Users } from "lucide-react";
+import {
+	BarChart3,
+	Building2,
+	LayoutDashboard,
+	UserCog,
+	Users,
+} from "lucide-react";
 import { useState } from "react";
 import { aggregateDashboardMetrics } from "@/lib/dashboard";
 import type { AdminProfile } from "@/services/AdminService";
