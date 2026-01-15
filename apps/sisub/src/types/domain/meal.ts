@@ -2,14 +2,46 @@
 
 import type { LucideIcon } from "lucide-react";
 import type { DayMeals } from "@/lib/meal";
+import type {
+	MealForecast,
+	MealForecastInsert,
+	MealForecastUpdate,
+	MessHall,
+	Unit,
+} from "@/types/supabase.types";
 
 export type { DayMeals };
 
-export type MealKey = "cafe" | "almoco" | "janta" | "ceia";
+// ============================================================================
+// BASE TYPES (Re-export de supabase.types.ts)
+// ============================================================================
+
+/**
+ * Mess Hall (Rancho) - tabela mess_halls
+ * Re-exportado de supabase.types.ts
+ */
+export type { MessHall };
+
+/**
+ * Unidade (OM) - tabela units
+ * Re-exportado de supabase.types.ts
+ */
+export type { Unit };
+
+/**
+ * Forecast de refeição - tabela meal_forecasts
+ * Re-exportado de supabase.types.ts
+ */
+export type { MealForecast, MealForecastInsert, MealForecastUpdate };
 
 // ============================================================================
-// MEAL FORECAST TYPES
+// DOMAIN TYPES (Tipos de Negócio)
 // ============================================================================
+
+/**
+ * Chaves válidas para tipos de refeição
+ */
+export type MealKey = "cafe" | "almoco" | "janta" | "ceia";
 
 /**
  * Map of dates to meal selections.
@@ -32,6 +64,7 @@ export interface MessHallByDate {
 /**
  * Represents a pending change to be synchronized with the server.
  * Used for optimistic updates and batch saving.
+ * Baseado em MealForecastInsert mas com campos específicos para o domínio
  */
 export interface PendingChange {
 	date: string;
@@ -69,26 +102,8 @@ export interface MealForecastHook {
 }
 
 /**
- * Represents a mess hall (rancho) belonging to a unit.
- */
-export interface MessHall {
-	id: number;
-	unitId: number;
-	code: string;
-	name: string | null;
-}
-
-/**
- * Represents an organizational unit (OM) in the system.
- */
-export interface Unit {
-	id: number;
-	code: string;
-	name: string | null;
-}
-
-/**
  * Lightweight option structure for UI selects and dropdowns.
+ * Tipo de UI derivado, não existe no banco
  */
 export interface Option {
 	code: string;
@@ -97,6 +112,7 @@ export interface Option {
 
 /**
  * Representa um tipo de refeição disponível no sistema
+ * Tipo de UI, não existe no banco
  */
 export type MealType = {
 	/** Nome da refeição (ex: "Café da Manhã") */

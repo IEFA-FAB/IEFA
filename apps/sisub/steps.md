@@ -50,75 +50,83 @@ Implementação da estrutura visual e navegação baseada em papéis.
 
 Este é o alicerce dos dados. Sem insumos, não há receitas.
 
-- [ ] **3.1. Hook de Dados (`useIngredients`)**
-    - Criar hook que busca a árvore completa de `product_groups`.
+- [ ] **3.1. Hook de Dados (`useProducts`)**
+    - Criar hook que busca a árvore completa de `folder` → `product` → `product_item`.
     - Implementar lógica de cache persistente (RF03).
 
-- [ ] **3.2. Componente `IngredientsTreeManager`**
-    - Implementar visualização de árvore (Tree View).
+- [ ] **3.2. Componente `ProductsTreeManager`**
+    - Implementar visualização de árvore hierárquica (Tree View).
     - Integrar `@tanstack/react-virtual` para renderizar listas longas com performance.
     - Implementar filtro client-side (busca instantânea).
+    - **Estrutura:** Folder (categoria) → Product (genérico) → Product Item (compra).
 
-- [ ] **3.3. Gestão de Folder/Leaf**
+- [ ] **3.3. Gestão da Hierarquia de 3 Níveis**
     - Criar formulários com TanStack Form + Zod para:
-        - Criar Grupo (Folder).
-        - Criar Família (Leaf) - *Validar regra: só dentro de Folder*.
-        - Criar Ingrediente (Item de Compra) - *Validar regra: só dentro de Leaf*.
+        - Criar/Editar Folder (permite hierarquia - folder dentro de folder).
+        - Criar/Editar Product (produto genérico vinculado a folder).
+        - Criar/Editar Product Item (item de compra com barcode, marca, embalagem).
 
 ---
 
 ### Fase 4: Engenharia de Receitas (Admin/Superadmin)
 
-Implementação do coração técnico do sistema (Versionamento e Forks).
+Implementação do coração técnico do sistema (Versionamento e Snapshots).
 
 - [ ] **4.1. Listagem de Receitas**
-    - Criar tabela com filtros (Global vs Local).
-    - Adicionar indicadores visuais de status e versão.
+    - Criar tabela com filtros (Global vs Local por Kitchen).
+    - Adicionar indicadores visuais de versão e kitchen de origem.
+    - **Visibilidade:** Receitas globais (`kitchen_id` NULL) vs receitas locais (kitchen específica).
 
 - [ ] **4.2. Formulário de Receita (TanStack Form)**
     - Criar formulário Mestre-Detalhe:
-        - Cabeçalho: Nome, Modo de Preparo, Rendimento.
-        - Detalhes: Lista de Ingredientes (`recipe_ingredients`).
-    - **Seletor de Insumos:** Reutilizar o `IngredientsTreeManager` em modo de seleção (apenas Leaf).
+        - **Cabeçalho:** Nome, Modo de Preparo, Rendimento, Kitchen (opcional), `cooking_factor`, `rational_id` (futuro).
+        - **Detalhes:** Lista de Ingredientes (`recipe_ingredients`).
+    - **Seletor de Produtos:** Reutilizar `ProductsTreeManager` em modo de seleção (apenas nível Product).
+    - **Campos novos:** `cooking_factor` (fator de cocção), `rational_id` (integração fornos).
 
 - [ ] **4.3. Lógica de Versionamento (Imutabilidade)**
-    - No submit de edição, garantir que o frontend envie um `INSERT` (nova versão) e não um `UPDATE`, conforme RF05.
+    - No submit de edição, garantir que o frontend envie um `INSERT` (nova versão) e não um `UPDATE`.
+    - Campo `version` é obrigatório e deve ser incrementado manualmente.
+    - `upstream_version_snapshot` rastreia versão original para alertas de atualização.
 
 - [ ] **4.4. Funcionalidade de Fork**
     - Implementar botão "Personalizar" em receitas globais.
-    - Preencher o formulário com os dados da receita base e setar `base_recipe_id`.
+    - Preencher o formulário com dados da receita base e setar `base_recipe_id` e `kitchen_id`.
 
 - [ ] **4.5. Componente `RecipeDiffViewer`**
     - Criar visualização lado a lado de duas versões.
-    - Implementar lógica visual (verde/vermelho) para destacar mudanças de quantidade ou ingredientes.
+    - Destacar mudanças em ingredientes, quantidades e campos especiais (`cooking_factor`).
 
 ---
 
 ### Fase 5: Planejamento de Cardápio (Admin)
 
-O módulo operacional mais complexo.
+O módulo operacional mais complexo, com snapshots e substituições.
 
 - [ ] **5.1. Componente `PlanningBoard`**
     - Implementar visualização de Calendário (Mensal/Semanal).
-    - Fetch de `daily_menus` por intervalo de datas.
+    - Fetch de `daily_menus` por intervalo de datas e kitchen.
 
 - [ ] **5.2. Editor de Dia (Drawer)**
     - Criar Drawer que abre ao clicar em um dia.
-    - Listar refeições (Café, Almoço, Jantar).
+    - Listar refeições (Café, Almoço, Jantar, Ceia) baseadas em `meal_type`.
     - Permitir adicionar receitas ao dia.
+    - **Snapshot:** Ao adicionar receita, criar snapshot JSON completo no campo `recipe` de `menu_items`.
 
-- [ ] **5.3. Gestão de Substituições (RF09)**
+- [ ] **5.3. Gestão de Substituições via Snapshot (RF09)**
     - Criar Modal de Substituição.
-    - Implementar lógica que manipula o JSONB `substitutions` localmente antes de enviar ao banco.
-    - Opção 1: Select de alternativos cadastrados.
-    - Opção 2: Busca livre na árvore de produtos (Ad-hoc).
+    - Trabalhar com o snapshot JSON já existente no `menu_items.recipe`.
+    - Implementar lógica que manipula campo `substitutions` (JSON) localmente.
+    - Opção 1: Select de alternativos cadastrados (`recipe_ingredient_alternatives`).
+    - Opção 2: Busca livre na árvore de produtos (substituição ad-hoc).
 
-- [ ] **5.4. Templates e Ações em Massa**
+- [ ] **5.4. Templates e Aplicação de Cardápio**
     - Implementar modo de seleção múltipla no calendário (Shift+Click).
-    - Criar modal "Aplicar Template" (Selecionar template -> Aplicar nos dias selecionados).
+    - Criar modal "Aplicar Template".
+    - **Frontend cuida da aplicação:** Não usar função SQL, implementar lógica no frontend para flexibilidade.
 
 - [ ] **5.5. Lixeira (Trash Bin)**
-    - Criar Drawer lateral para listar itens com `deleted_at` preenchido.
+    - Criar Drawer lateral para listar itens com `deleted_at` preenchido no mês corrente.
     - Ação de "Restaurar" (Setar `deleted_at` para NULL).
 
 ---

@@ -166,6 +166,56 @@ export function formatCurrency(value: number): string {
 }
 ```
 
+**Regras de Exposição de Loading States:**
+
+Baseado nas melhores práticas de UX resiliente:
+
+```typescript
+// ✅ CORRETO: Hook básico (wrapper de 1 query) - NÃO expõe loading
+export function useMealForecast(date: string) {
+  const query = useQuery(mealForecastOptions(date));
+  return {
+    forecasts: query.data,
+    error: query.error,
+    refetch: query.refetch,
+    // isLoading omitido - componente decide o skeleton
+  };
+}
+
+// ✅ CORRETO: Hook condicional - DEVE expor loading
+export function useForecastHistory(userId: string, isModalOpen: boolean) {
+  const query = useQuery({
+    ...historyOptions(userId),
+    enabled: isModalOpen && !!userId,
+  });
+  
+  return {
+    history: query.data,
+    historyLoading: query.isLoading, // ✅ Exposto pois é condicional
+    historyError: query.error,
+  };
+}
+
+// ✅ CORRETO: Mutation - SEMPRE expõe isPending
+export function useSaveForecast() {
+  const mutation = useMutation({
+    mutationFn: saveForecastFn,
+  });
+  
+  return {
+    save: mutation.mutateAsync,
+    isSaving: mutation.isPending, // ✅ Sempre expor
+    error: mutation.error,
+  };
+}
+```
+
+**Resumo:**
+- **Hooks básicos (sempre ativo):** NÃO expõem `isLoading` → componente usa skeleton local
+- **Hooks condicionais (`enabled`):** DEVEM expor `isLoading`
+- **Mutations:** SEMPRE expõem `isPending` (ou nome semântico como `isSaving`)
+
+
 #### **hooks/** - React State & Logic
 
 **Responsabilidade:** Estado React, lógica de componentes, orquestração.
@@ -313,6 +363,8 @@ import { formatDate, getDayOfWeek } from "@/lib/meal";
 **Centralização:** Todos os tipos compartilhados devem residir em `/src/types`.
 
 **Estrutura Organizada:**
+- `src/types/database.types.ts` - **FONTE OFICIAL** gerada via `npx supabase gen types`
+- `src/types/supabase.types.ts` - Helpers para facilitar uso do database.types.ts
 - `src/types/domain/` - Types organizados por domínio de negócio
   - `auth.ts` - Tipos de autenticação e perfil
   - `meal.ts` - Tipos de refeições e previsão
@@ -321,10 +373,178 @@ import { formatDate, getDayOfWeek } from "@/lib/meal";
 - `src/types/domain.ts` - Barrel export (re-exporta de `domain/`)
 - `src/types/ui.ts` - Types específicos de UI (CardData, Step, Feature)
 
-**Verificação:** Antes de criar uma nova interface, **verifique** se ela já existe em `/src/types/domain/`.
+### 3.1 Database Types (Schema Supabase)
+
+**REGRA CRÍTICA:** `src/types/database.types.ts` é a **ÚNICA** fonte oficial de tipos do banco de dados.
+
+#### Gerando database.types.ts
+
+```bash
+# No diretório apps/sisub
+npx supabase gen types typescript \
+  --project-id <project-id> \
+  --schema sisub \
+  > src/types/database.types.ts
+```
+
+> [!WARNING]
+> **NUNCA** edite `database.types.ts` manualmente. Este arquivo é gerado automaticamente e será sobrescrito.
+
+#### Sistema de Helpers (supabase.types.ts)
+
+Para facilitar o uso, crie helpers específicos para o schema `sisub` em `src/types/supabase.types.ts`:
+
+```typescript
+import type { Database } from "./database.types";
+
+// Helpers genéricos (schema-aware)
+export type Tables<T extends keyof Database["sisub"]["Tables"]> =
+  Database["sisub"]["Tables"][T]["Row"];
+
+export type TablesInsert<T extends keyof Database["sisub"]["Tables"]> =
+  Database["sisub"]["Tables"][T]["Insert"];
+
+export type TablesUpdate<T extends keyof Database["sisub"]["Tables"]> =
+  Database["sisub"]["Tables"][T]["Update"];
+
+export type Views<T extends keyof Database["sisub"]["Views"]> =
+  Database["sisub"]["Views"][T]["Row"];
+
+export type Enums<T extends keyof Database["sisub"]["Enums"]> =
+  Database["sisub"]["Enums"][T];
+
+// Exports específicos (autocomplete friendly)
+export type ProfileAdmin = Tables<"profiles_admin">;
+export type ProfileAdminInsert = TablesInsert<"profiles_admin">;
+export type ProfileAdminUpdate = TablesUpdate<"profiles_admin">;
+
+export type MealForecast = Tables<"meal_forecasts">;
+export type MealForecastInsert = TablesInsert<"meal_forecasts">;
+export type MealForecastUpdate = TablesUpdate<"meal_forecasts">;
+
+// ... outros tipos conforme necessário
+```
+
+#### Uso Correto
+
+```typescript
+// ✅ CORRETO: Uso dos helpers
+import type { MealForecast, MealForecastInsert } from "@/types/supabase.types";
+
+async function saveForecast(forecast: MealForecastInsert): Promise<MealForecast> {
+  const { data, error } = await supabase
+    .from("meal_forecasts")
+    .insert(forecast)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// ❌ ERRADO: Verboso e propenso a erros
+import type { Database } from "@/types/database.types";
+type MealForecast = Database["sisub"]["Tables"]["meal_forecasts"]["Row"];
+```
+
+**Benefícios:**
+- ✅ Type-safety completo com o schema do banco
+- ✅ Autocomplete de todos os campos
+- ✅ Validação em tempo de compilação
+- ✅ Sincroniza automaticamente quando o schema mudar
+- ✅ Código mais limpo e legível
+
+### 3.2 Types de Domínio
+
+**Separação de Responsabilidades:**
+- **database.types.ts / supabase.types.ts:** Tipos que espelham exatamente o schema do banco
+- **domain/*.ts:** Tipos derivados, composições, e tipos de negócio que não existem no banco
+
+**Verificação:** Antes de criar uma nova interface, **verifique**:
+1. Se já existe em `supabase.types.ts` (tipos de tabelas do banco)
+2. Se já existe em `/src/types/domain/` (tipos de negócio)
+
+#### Como domain/*.ts deve usar supabase.types.ts
+
+> [!IMPORTANT]
+> **NÃO duplique** tipos que já existem no banco. Use `supabase.types.ts` como base e derive/componha quando necessário.
+
+**❌ ERRADO: Duplicar estrutura de tabela**
+
+```typescript
+// domain/admin.ts
+export type ProfileAdmin = {
+  id: string;
+  saram: string | null;
+  name: string | null;
+  email: string;
+  role: UserLevelOrNull;
+  // ... duplicando exatamente a tabela profiles_admin
+};
+```
+
+**✅ CORRETO: Re-exportar e derivar**
+
+```typescript
+// domain/admin.ts
+import type { 
+  ProfileAdmin as ProfileAdminRow,
+  ProfileAdminInsert,
+  ProfileAdminUpdate 
+} from "@/types/supabase.types";
+
+// Re-export do tipo base (se necessário para compatibilidade)
+export type { ProfileAdminRow };
+
+// Derivar para payloads específicos do domínio
+export type NewUserPayload = Pick<ProfileAdminInsert, 
+  | "id" 
+  | "email" 
+  | "name" 
+  | "saram"
+> & {
+  role: UserLevelOrNull; // tipo de domínio
+  om?: string | null;
+};
+
+export type EditUserPayload = Pick<ProfileAdminUpdate,
+  | "saram"
+  | "om"
+> & {
+  role: UserLevelOrNull;
+};
+```
+
+**Quando criar tipos em domain/*.ts:**
+
+1. ✅ **Hook return types:** `MealForecastHook`, `UsePresenceManagementReturn`
+2. ✅ **Estados de UI:** `DialogState`, `AdminStatus`
+3. ✅ **Composições:** `UserWithMilitaryData = UserData & MilitaryData`
+4. ✅ **Derivados com campos adicionais:** 
+   ```typescript
+   export interface FiscalPresenceRecord extends MealPresenceRow {
+     unidade: string; // campo de UI, não existe no banco
+   }
+   ```
+5. ✅ **Payloads com validação de domínio:** `NewUserPayload`, `EditUserPayload`
+6. ✅ **Abstrações de negócio:** `MealKey = "cafe" | "almoco" | ...`
+
+**Use `Pick`, `Omit`, `Partial` para derivar:**
+
+```typescript
+// Apenas campos necessários para criação
+type CreatePayload = Pick<ProfileAdminInsert, "email" | "name" | "saram">;
+
+// Todos os campos opcionais para update parcial
+type PartialUpdate = Partial<ProfileAdminUpdate>;
+
+// Excluir campos automáticos
+type ManualFields = Omit<ProfileAdminInsert, "id" | "created_at">;
+```
 
 **Proibido:** 
 - ❌ Não use `any`
+- ❌ Não edite `database.types.ts` manualmente
 - ❌ Não declare interfaces de domínio dentro de componentes (`.tsx`)
 - ❌ Não duplique types que já existem
 
@@ -441,6 +661,197 @@ function RootComponent() {
   );
 }
 ```
+
+## 6.5 Padrões de Carregamento e Resiliência (UX Resiliente)
+
+> [!IMPORTANT]
+> O objetivo desta seção é garantir **boa UX** (sem "tela travada") e **falha graciosa** (sem "tela branca" em produção).
+>
+> Regra central: **carregamento e erro devem ser tratados o mais localmente possível**. Suspense no root + loading global bloqueante tende a piorar a experiência e amplificar falhas.
+
+### 6.5.1 Indicadores Globais (progresso sem bloquear a UI)
+
+O indicador global (`LoadingProgress`) em `__root.tsx` deve seguir estas regras:
+
+*   **Não bloquear a tela** apenas porque existem queries em andamento (`useIsFetching`).
+    *   `isFetching` inclui revalidações em background e refetch por foco — bloquear a UI por isso cria sensação de lentidão constante.
+*   **Bloqueio global (overlay)** é permitido somente em situações realmente globais, como:
+    *   **navegação de rota** (transição/loader de rota),
+    *   fluxos críticos (ex: redirect de autenticação),
+    *   mutações que explicitamente travam o app inteiro (caso raro e deliberado).
+
+**Recomendação:**  
+*   Use `useRouterState` para detectar navegação pendente (já implementado acima).
+*   Use `useIsFetching`/`useIsMutating` apenas para um **indicador não-bloqueante** (topbar/progress discreto), mantendo a UI interativa.
+
+```tsx
+// Refinamento opcional do __root.tsx
+import { useIsFetching, useIsMutating } from '@tanstack/react-query';
+
+function RootComponent() {
+  const isLoading = useRouterState({ select: (s) => s.isLoading });
+  const isFetching = useIsFetching(); // Queries em background
+  const isMutating = useIsMutating(); // Mutations ativas
+
+  return (
+    <>
+      {/* Barra de Progresso para navegação (bloqueante) */}
+      <div 
+        className={`
+          fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out
+          ${isLoading ? 'w-full opacity-100' : 'w-0 opacity-0'}
+        `} 
+        aria-hidden="true"
+      />
+      
+      {/* Indicador discreto de atividade (opcional, não-bloqueante) */}
+      {(isFetching > 0 || isMutating > 0) && (
+        <div 
+          className="fixed bottom-4 right-4 bg-muted px-3 py-2 rounded-full text-xs shadow-lg z-40"
+          aria-live="polite"
+        >
+          Sincronizando...
+        </div>
+      )}
+      
+      <Outlet />
+    </>
+  );
+}
+```
+
+### 6.5.2 Estratégia de Query: UI resiliente (não "Suspense em tudo")
+
+**Padrão recomendado para telas e features:** usar `useQuery` (sem suspense) e renderizar estados localmente por seção.
+
+**Motivos:**
+*   Permite mostrar o "shell" da página rapidamente (layout, headers, filtros) enquanto os dados carregam.
+*   Evita travar a tela inteira por uma query lenta.
+*   Permite tratamento de erro **inline**, com mensagem, ação e retry, sem derrubar o app.
+
+#### ✅ Recomendado (queries de página/feature)
+
+*   `useQuery` + skeleton/placeholder local (por card/tabela/seção).
+*   `keepPreviousData` (ou `placeholderData`) quando fizer sentido para evitar flicker em paginação/filtros.
+*   Erro inline com botão "Tentar novamente" (via `refetch`) e mensagens amigáveis.
+
+```tsx
+// Exemplo: Dashboard com múltiplas seções
+function Dashboard() {
+  const date = "2026-01-15";
+  
+  // Query 1: Crítica (auth) - usa suspense
+  const { data: user } = useSuspenseQuery(authQueryOptions());
+  
+  // Query 2: Não-crítica (resiliente)
+  const kpis = useQuery(kpiQueryOptions(date));
+  
+  // Query 3: Não-crítica (resiliente)
+  const charts = useQuery(chartsQueryOptions(date));
+  
+  return (
+    <div>
+      {/* Shell carrega sempre */}
+      <DashboardHeader user={user} />
+      
+      {/* KPIs com skeleton local */}
+      {kpis.isLoading && <KpisSkeleton />}
+      {kpis.error && (
+        <ErrorCard 
+          message="Erro ao carregar indicadores" 
+          onRetry={kpis.refetch} 
+        />
+      )}
+      {kpis.data && <KpiCards data={kpis.data} />}
+      
+      {/* Charts independentes */}
+      {charts.isLoading && <ChartSkeleton />}
+      {charts.error && (
+        <ErrorCard 
+          message="Erro ao carregar gráficos" 
+          onRetry={charts.refetch} 
+        />
+      )}
+      {charts.data && <Charts data={charts.data} />}
+    </div>
+  );
+}
+```
+
+#### ❌ Evitar como padrão
+
+*   `useSuspenseQuery` em todas as queries de página/feature.
+*   Centralizar loading/erro no root.
+*   Qualquer padrão que resulte em "tela travada" ou "tela branca" quando uma query falha.
+
+### 6.5.3 Quando usar `useSuspenseQuery` (uso cirúrgico)
+
+`useSuspenseQuery` é permitido quando **todas** as condições abaixo forem verdadeiras:
+
+1.  O dado é **estritamente necessário** para renderizar aquele bloco (sem fallback razoável).
+2.  Existe um **`<Suspense fallback>` local** (não no root) para aquele componente, **OU** você está usando o loader da rota.
+3.  Existe um **Error Boundary local** para capturar falhas e renderizar uma UI alternativa (fail gracefully).
+
+> [!IMPORTANT]
+> Nunca dependa de erro "subir" até o root. Se `useSuspenseQuery` falhar e não houver boundary adequado, isso pode resultar em comportamento ruim em produção (ex: tela branca).
+
+**Cenários válidos:**
+*   **Autenticação/Perfil:** Dados críticos que bloqueiam toda a aplicação.
+*   **Features principais da rota:** Ex: lista de previsões na rota `/forecast` (com loader).
+*   **Componentes pequenos e críticos:** Com `<Suspense>` e Error Boundary locais.
+
+### 6.5.4 Tratamento de Erros (Fail Gracefully)
+
+Regras para evitar "tela branca" e melhorar UX:
+
+*   **Toda rota deve ter tratamento de erro** (route-level error UI) para capturar exceções inesperadas.
+*   **Queries não-críticas** devem falhar com UI local:
+    *   mensagem curta e acionável,
+    *   opção de retry (`refetch`),
+    *   manter o restante da página funcionando.
+*   **Suspense (quando usado)** deve ter Error Boundary local com fallback amigável.
+
+```tsx
+// Exemplo: Error Boundary na rota
+export const Route = createFileRoute("/_protected/dashboard/")({\n  errorComponent: ({ error, reset }) => (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <h1 className="text-2xl font-bold">Algo deu errado</h1>
+      <p className="text-muted-foreground">{error.message}</p>
+      <Button onClick={reset}>Tentar Novamente</Button>
+    </div>
+  ),
+  component: Dashboard,
+});
+```
+
+O erro deve ser "comportado":
+*   Mostrar um bloco de erro no lugar do componente que falhou (ex: tabela), e não derrubar a rota inteira.
+*   Em produção, sempre renderizar uma UI recuperável (ex: "Tentar novamente", "Voltar", "Recarregar").
+
+### 6.5.5 Diretriz de UX: "Shell first"
+
+Sempre que possível, renderize primeiro:
+*   layout/headers,
+*   filtros e ações,
+*   estrutura da página (skeletons por área),
+
+e carregue os dados por seção.
+
+Isso reduz percepção de lentidão e evita que uma única query bloqueie toda a experiência.
+
+### 6.5.6 Resumo das Regras
+
+| Cenário | Use | Indicador de Loading | Tratamento de Erro |
+|---------|-----|----------------------|--------------------|
+| Seções de página (cards/tabelas/painéis) | `useQuery` | Local (skeleton/placeholder) | Inline + retry |
+| Navegação entre rotas | Router loader + `useSuspenseQuery` | Global (TopBar) | UI de erro da rota (`errorComponent`) |
+| Bloco pequeno e crítico | `useSuspenseQuery` | `<Suspense>` **local** | Error Boundary **local** |
+| Mutações (create/update/delete) | `useMutation` | `isPending` no componente | Inline/Toast + retry/recuperação |
+| Query condicional (modal, drawer) | `useQuery` + `enabled` | Local (loading permitido) | Inline no modal |
+| Dados críticos (auth, permissões) | `useSuspenseQuery` + loader | Global (via router) | Error component da rota |
+
+> [!IMPORTANT]
+> **Padrão do projeto: UI resiliente por seção.** Suspense é exceção, não regra. Isso garante carregamento suave e falhas controladas sem travar a aplicação.
 
 ## 7. Padrão de Formulários (TanStack Form + Zod)
 Utilize a biblioteca `@tanstack/react-form` com validação Zod.
@@ -785,3 +1196,125 @@ sequenceDiagram
 - [ ] Implementar fallback local apenas para erros reais
 - [ ] Testar login/logout consecutivos (múltiplas vezes)
 - [ ] Verificar que não há tela branca ou loading infinito
+
+---
+
+## 10. Checklist de Boas Práticas (Para IA e Desenvolvedores)
+
+> [!NOTE]
+> Esta seção consolida todas as regras críticas do design system em um checklist prático para uso durante o desenvolvimento e code reviews.
+
+### 10.1 Tipagem
+
+- [ ] **Database Types:** Usar tipos de `supabase.types.ts`, não acessar `Database["sisub"]["Tables"]` diretamente
+- [ ] **Sem `any`:** Nenhum uso de `any` no código
+- [ ] **Types centralizados:** Verificar se tipo já existe antes de criar novo
+- [ ] **Separação clara:**
+  - `supabase.types.ts` → tipos que espelham o banco
+  - `domain/*.ts` → tipos de negócio derivados
+  - `ui.ts` → tipos de componentes visuais
+
+### 10.2 Arquitetura de Camadas
+
+- [ ] **lib/:** Apenas funções puras (sem React, sem API calls)
+- [ ] **services/:** Lógica de negócio, query options, hooks básicos
+- [ ] **hooks/:** Orquestração, estado React, composição de services
+- [ ] **components/:** Apenas chamam hooks, nunca services diretamente
+
+### 10.3 Query Patterns (UX Resiliente)
+
+- [ ] **Queries de seções:** Usar `useQuery` com skeleton/erro local
+- [ ] **Queries críticas:** Usar `useSuspenseQuery` + loader + errorComponent
+- [ ] **Mutations:** Sempre expor `isPending` (ou nome semântico)
+- [ ] **Queries condicionais:** Usar `enabled` + expor loading state
+- [ ] **Error handling:** Tratamento local com botão retry
+- [ ] **Loading global:** Apenas para navegação de rota (não para fetching)
+
+### 10.4 Loading States
+
+**Regra de exposição em services/hooks:**
+
+- [ ] Hooks básicos (sempre ativo): **NÃO** expõem `isLoading`
+- [ ] Hooks condicionais (`enabled`): **DEVEM** expor `isLoading`
+- [ ] Mutations: **SEMPRE** expõem `isPending`
+
+### 10.5 React 19 & Compiler
+
+- [ ] **Zero memoization manual:** Não usar `useMemo`, `useCallback`, `React.memo`
+- [ ] **Código idiomático:** Escrever TypeScript simples e direto
+- [ ] **Confiar no compilador:** Não otimizar prematuramente
+
+### 10.6 Imports e Nomenclatura
+
+- [ ] **Paths absolutos:** Sempre usar `@/` nos imports
+- [ ] **Componentes:** PascalCase (`DayCard.tsx`, `UserProfile.tsx`)
+- [ ] **Hooks:** camelCase com prefixo `use` (`useAuth.ts`, `useMealForecast.ts`)
+- [ ] **Lib/Services:** camelCase para lib (`fiscal.ts`), PascalCase+Service para services (`AdminService.ts`)
+- [ ] **UI Components:** Importar de `@iefa/ui`, nunca instalar via CLI
+
+### 10.7 Acessibilidade
+
+- [ ] **aria-label:** Em todos os elementos interativos sem texto visível
+- [ ] **Foco visível:** `focus-visible:ring` em inputs e botões
+- [ ] **Roles:** `role`, `aria-expanded`, `aria-controls` corretos
+- [ ] **Live regions:** `aria-live="polite"` para updates dinâmicos
+
+### 10.8 Formulários
+
+- [ ] **TanStack Form + Zod:** Usar sempre que possível
+- [ ] **Schema externo:** Definir schemas Zod fora do componente
+- [ ] **Feedback de erro:** Usar `aria-invalid` e `role="alert"`
+
+### 10.9 Autenticação Supabase
+
+- [ ] **getUser():** Usar para validação (não `getSession()`)
+- [ ] **onAuthStateChange:** Com `setQueryData` (não `invalidateQueries`)
+- [ ] **router.invalidate():** Para revalidar rotas
+- [ ] **Route guards:** Em `beforeLoad`, não navegação manual
+
+### 10.10 Boas Práticas de UX
+
+- [ ] **Shell first:** Renderizar estrutura da página antes dos dados
+- [ ] **Skeletons locais:** Por seção, não global
+- [ ] **Erro gracioso:** Sempre UI recuperável (retry, voltar)
+- [ ] **Feedback imediato:** Toasts para sucesso/erro
+- [ ] **Stale time razoável:** 2-5 minutos para evitar refetch desnecessário
+
+---
+
+## 11. Como Usar Este Documento com IA
+
+> [!TIP]
+> Este design system foi criado para ser referenciado por assistentes de IA durante o desenvolvimento.
+
+**Para desenvolvimento assistido por IA:**
+
+1. **Contexto inicial:** Sempre forneça este documento como contexto quando iniciar uma sessão de desenvolvimento
+2. **Revisão de código:** Ao pedir review de código, referencie seções específicas (ex: "Verifique se segue seção 2.2")
+3. **Debugging:** Citar seções relevantes (ex: "Erro numa query, veja seção 6.5")
+4. **Novos recursos:** Referenciar padrões estabelecidos (ex: "Criar hook seguindo seção 2.2.2")
+
+**Prompts efetivos:**
+
+```
+✅ BOM: "Crie um componente de forecast seguindo o design-system.md, 
+        especificamente seção 2.1 (estrutura) e 6.5 (query patterns)"
+
+✅ BOM: "Refatore este hook para seguir as regras de exposição de loading 
+        states da seção 2.2.2"
+
+❌ RUIM: "Faça um componente de forecast"
+```
+
+**Verificação automática:**
+
+Sempre que criar código novo, pergunte à IA:
+- "Este código segue todas as regras do design-system.md?"
+- "Há alguma violação de tipagem ou arquitetura?"
+- "Os patterns de UX resiliente foram aplicados?"
+
+---
+
+**Versão:** 2.4  
+**Última atualização:** 2026-01-14  
+**Melhorias baseadas em:** Trainer Apps Design System (Patterns de UX Resiliente)

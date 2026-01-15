@@ -26,10 +26,11 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
 
 ### 2. Premissas e Dependências
 
-*   **P01 - Dualidade Técnica vs. Logística:**
-    *   **Receita (Técnica):** Define a necessidade genérica (ex: "Arroz Branco"). Aponta para um **Grupo Folha (Leaf)**.
-    *   **Compra/Estoque (Logística):** Define o item físico específico (ex: "Saco de Arroz Tio João 5kg"). Aponta para o mesmo Grupo Leaf.
-    *   *Justificativa:* O pregão compra itens específicos, mas a receita não pode ficar refém da marca ou embalagem do momento.
+*   **P01 - Hierarquia de Produtos (Três Níveis):**
+    *   **Folder (Categoria):** Agrupamento lógico de produtos (ex: "Grãos").
+    *   **Product (Produto Genérico):** Item técnico usado em receitas (ex: "Arroz Branco", "Feijão Carioca"). São ingredientes genéricos com mínima especificidade necessária para fazer a comida.
+    *   **Product Item (Item de Compra):** Item físico específico com marca e embalagem (ex: "Arroz Marca X Saco 5kg"). Possui barcode e especificações de aquisição.
+    *   *Justificativa:* As receitas trabalham com produtos genéricos, permitindo flexibilidade na compra. O pregão compra itens específicos, mas a receita não fica refém da marca ou embalagem do momento.
 *   **P02 - Integridade de Histórico:** Nenhum dado transacional ou de engenharia deve ser excluído fisicamente. O sistema deve utilizar **Soft Deletes** (`deleted_at`) globalmente.
 *   **P03 - Concorrência (Last Write Wins):** O sistema deve suportar múltiplos usuários (300+) editando simultaneamente. A interface deve reagir a mudanças externas via Realtime.
 
@@ -40,20 +41,21 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
 #### 3.1 Arquitetura de Dados
 *   **RF00 - UUID:** Todas as chaves primárias e estrangeiras devem ser `UUID` (v4).
 
-#### 3.2 Gestão de Insumos (Folder vs. Leaf)
+#### 3.2 Gestão de Insumos (Hierarquia de 3 Níveis)
 *   **RF01 - Padronização Global:** Insumos são estritamente globais (SDAB).
-*   **RF02 - Padrão Folder/Leaf:**
-    *   **FOLDER:** Agrupador lógico.
-    *   **LEAF (Família):** O nível mais baixo da árvore (ex: "Arroz Branco"). **É aqui que a Receita se conecta.**
-    *   **ITEM (Ingredient):** O item físico de estoque. Conecta-se à LEAF.
+*   **RF02 - Hierarquia Folder → Product → Product Item:**
+    *   **FOLDER:** Categoria lógica (ex: "Grãos", "Carnes"). Permite hierarquia (folders dentro de folders).
+    *   **PRODUCT:** Produto genérico usado em receitas (ex: "Arroz Branco", "Feijão Carioca"). **É aqui que a Receita se conecta.**
+    *   **PRODUCT ITEM:** Item físico de compra com marca e embalagem (ex: "Arroz Marca X Saco 5kg"). Possui barcode e unidade de compra.
 *   **RF03 - Performance de Catálogo:** A árvore de produtos deve utilizar cache local persistente (TanStack Query Persist) e virtualização (TanStack Virtual) para permitir filtragem instantânea de milhares de itens.
 
 #### 3.3 Engenharia de Receitas (Git-like & Imutabilidade)
-*   **RF04 - Visibilidade:** Receitas SDAB (`unit_id` NULL) visíveis para todos. Receitas Locais apenas para a unidade.
+*   **RF04 - Visibilidade:** Receitas globais (SDAB) têm `kitchen_id` NULL e são visíveis para todos. Receitas locais são vinculadas a uma kitchen específica.
 *   **RF05 - Versionamento Imutável (Append-Only):**
     *   Receitas publicadas nunca são editadas (`UPDATE`).
     *   Qualquer alteração gera uma nova versão (`INSERT`) com incremento de `version`.
     *   O histórico completo (v1, v2, v3) permanece no banco.
+    *   Campo `rational_id` reservado para integração futura com fornos Rational.
 *   **RF06 - Diff Viewer:** O sistema deve permitir comparar visualmente duas versões de uma receita, destacando diferenças.
 
 #### 3.4 Planejamento Operacional
@@ -61,70 +63,114 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
     *   Permitir selecionar múltiplos dias e aplicar templates.
     *   Lógica de substituição: Soft Delete nos dias selecionados -> Insert dos novos dados.
 *   **RF08 - Lixeira (Trash Bin):** Interface para visualizar e restaurar itens removidos logicamente (`deleted_at`) no mês corrente.
-*   **RF09 - Gestão de Substituições (Realizado vs. Planejado):**
-    *   Substituições são salvas em JSONB no item do cardápio.
-    *   Uma **View de Banco de Dados** deve explodir esse JSON para relatórios, priorizando a substituição sobre o planejado.
+*   **RF09 - Gestão de Substituições via Snapshot:**
+    *   Quando uma receita é aplicada ao `menu_items`, um snapshot JSON completo da receita é armazenado.
+    *   Substituições ad-hoc são salvas em campo `substitutions` (JSON).
+    *   Isso garante que alterações futuras na receita original não afetem o planejamento já executado (imutabilidade).
 
 #### 3.5 UX e Concorrência
 *   **RF10 - Realtime Feedback:** Se o Usuário A alterar o cardápio que o Usuário B está vendo, o Usuário B deve receber um Toast (`sonner`) e a interface deve atualizar automaticamente.
 
 ---
 
-### 4. Banco de Dados (SQL Final v3.2)
+### 4. Banco de Dados (SQL Final v4.0 - Implementação Atual)
+
+> [!NOTE]
+> Esta seção reflete o schema **implementado** em `database.types.ts`. As tabelas de Forecast e Presença não estão documentadas aqui pois fazem parte de módulos já implementados.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE SCHEMA IF NOT EXISTS sisub;
 
--- Mocks
-CREATE TABLE IF NOT EXISTS sisub.units (id UUID PRIMARY KEY, name TEXT);
-CREATE TABLE IF NOT EXISTS sisub.mess_halls (id UUID PRIMARY KEY, unit_id UUID, name TEXT);
-
 -- =============================================================================
--- 1. ESTRUTURA DE PRODUTOS (Árvore & Itens de Compra)
+-- 0. ESTRUTURA ORGANIZACIONAL (Units, Kitchens, Mess Halls)
 -- =============================================================================
 
-CREATE TABLE sisub.product_groups (
+-- Uma organização militar pode ter múltiplas units
+CREATE TABLE sisub.units (
+    id INTEGER PRIMARY KEY,
+    code TEXT NOT NULL,
+    display_name TEXT,
+    type TEXT CHECK (type IN ('consumption', 'purchase')) -- Unit de compra ou consumo
+);
+
+-- Uma unit pode ter múltiplas kitchens
+-- Uma kitchen pode ser `production` (prepara comida) ou `consumption` (finaliza/aquece - pista quente)
+CREATE TABLE sisub.kitchen (
+    id INTEGER PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT NOW(),
+    type TEXT CHECK (type IN ('consumption', 'production')),
+    
+    unit_id INTEGER, -- Unit dona da kitchen
+    purchase_unit_id INTEGER, -- Unit que compra insumos para esta kitchen
+    kitchen_id INTEGER, -- Auto-referência para hierarquia de kitchens
+    
+    FOREIGN KEY (unit_id) REFERENCES sisub.units(id),
+    FOREIGN KEY (purchase_unit_id) REFERENCES sisub.units(id),
+    FOREIGN KEY (kitchen_id) REFERENCES sisub.kitchen(id)
+);
+
+-- Uma kitchen serve múltiplos mess_halls (refeitórios)
+CREATE TABLE sisub.mess_halls (
+    id INTEGER PRIMARY KEY,
+    code TEXT NOT NULL,
+    display_name TEXT,
+    unit_id INTEGER NOT NULL,
+    kitchen_id INTEGER,
+    
+    FOREIGN KEY (unit_id) REFERENCES sisub.units(id),
+    FOREIGN KEY (kitchen_id) REFERENCES sisub.kitchen(id)
+);
+
+-- =============================================================================
+-- 1. ESTRUTURA DE PRODUTOS (Três Níveis: Folder → Product → Product Item)
+-- =============================================================================
+
+-- NÍVEL 1: Folder (Categoria) - ex: "Grãos", "Carnes", "Laticínios"
+CREATE TABLE sisub.folder (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    parent_id UUID, -- Permite hierarquia de folders
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    FOREIGN KEY (parent_id) REFERENCES sisub.folder(id)
+);
+
+-- NÍVEL 2: Product (Produto Genérico) - ex: "Arroz Branco", "Feijão Carioca"
+-- Este é o nível usado pelas RECEITAS (mínima especificidade para preparar comida)
+CREATE TABLE sisub.product (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     description TEXT NOT NULL,
-    parent_group_id UUID,
-    group_type TEXT NOT NULL CHECK (group_type IN ('FOLDER', 'LEAF')),
+    folder_id UUID,
+    
+    measure_unit TEXT, -- UN, KG, LT
+    correction_factor DECIMAL(10, 4) DEFAULT 1.00, -- Fator nutricional/correção
+    
+    created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_parent_group FOREIGN KEY (parent_group_id) REFERENCES sisub.product_groups(id)
+    
+    FOREIGN KEY (folder_id) REFERENCES sisub.folder(id)
 );
 
--- O Item de Compra (Logístico/Pregão) - Ex: "Arroz Tio João 5kg"
-CREATE TABLE sisub.ingredients (
+-- NÍVEL 3: Product Item (Item de Compra) - ex: "Arroz Marca X Saco 5kg"
+-- Item físico específico com marca e embalagem (usado em licitações)
+CREATE TABLE sisub.product_item (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    description TEXT NOT NULL, 
-    product_group_id UUID NOT NULL, -- Link para a LEAF "Arroz Branco"
-  
-    -- Unidade usada na Ficha Técnica (Nutricional)
-    consumption_unit TEXT NOT NULL CHECK (consumption_unit IN ('KG', 'LT', 'UN')), 
-  
-    -- Unidade usada na Licitação/Compra (Logística)
-    purchase_unit TEXT NOT NULL, -- "SACO", "CAIXA"
-    unit_content_qty DECIMAL(10,4) NOT NULL, -- Ex: 5.000 (Fator de conversão implícito)
-  
-    correction_factor DECIMAL(10, 4) DEFAULT 1.00, -- Fator de Limpeza/Cocção
-  
+    description TEXT NOT NULL,
+    product_id UUID NOT NULL, -- Link para o produto genérico
+    
+    barcode TEXT, -- Código de barras
+    purchase_measure_unit TEXT, -- "SACO", "CAIXA", etc
+    unit_content_quantity DECIMAL(10,4), -- Ex: 5.000 (5kg por saco)
+    correction_factor DECIMAL(10, 4) DEFAULT 1.00,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_ing_group FOREIGN KEY (product_group_id) REFERENCES sisub.product_groups(id)
+    
+    FOREIGN KEY (product_id) REFERENCES sisub.product(id)
 );
-
--- Trigger para garantir integridade Folder/Leaf
-CREATE OR REPLACE FUNCTION fn_check_group_leaf() RETURNS TRIGGER AS $$
-DECLARE v_type TEXT;
-BEGIN
-    SELECT group_type INTO v_type FROM sisub.product_groups WHERE id = NEW.product_group_id;
-    IF v_type <> 'LEAF' THEN RAISE EXCEPTION 'Itens só podem ser vinculados a grupos LEAF.'; END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-CREATE TRIGGER trg_check_ing_leaf BEFORE INSERT OR UPDATE ON sisub.ingredients FOR EACH ROW EXECUTE FUNCTION fn_check_group_leaf();
 
 -- =============================================================================
--- 2. ENGENHARIA DE RECEITAS (Imutável & Alternativas)
+-- 2. ENGENHARIA DE RECEITAS (Versionamento + Snapshots)
 -- =============================================================================
 
 CREATE TABLE sisub.recipes (
@@ -133,179 +179,159 @@ CREATE TABLE sisub.recipes (
     preparation_method TEXT,
     portion_yield DECIMAL(10, 2) NOT NULL, 
     preparation_time_minutes INTEGER,
-  
-    unit_id UUID, -- NULL = Global
-    base_recipe_id UUID, -- Aponta para a receita original (se for fork)
-  
-    version INTEGER DEFAULT 1,
-    upstream_version_snapshot INTEGER, -- Rastreia versão original para alertas de update
-  
+    
+    kitchen_id INTEGER, -- Kitchen responsável (NULL = Global/SDAB)
+    base_recipe_id UUID, -- Se for fork, aponta para receita original
+    
+    version INTEGER NOT NULL, -- Versão da receita (imutável)
+    upstream_version_snapshot INTEGER, -- Tracking de versão upstream (para alertas)
+    
+    cooking_factor DECIMAL(10,4), -- Fator de cocção
+    rational_id TEXT, -- ID da receita no sistema Rational (forno) - futuro
+    
     created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-
-    CONSTRAINT fk_recipe_unit FOREIGN KEY (unit_id) REFERENCES sisub.units(id),
-    CONSTRAINT fk_recipe_base FOREIGN KEY (base_recipe_id) REFERENCES sisub.recipes(id)
+    
+    FOREIGN KEY (kitchen_id) REFERENCES sisub.kitchen(id),
+    FOREIGN KEY (base_recipe_id) REFERENCES sisub.recipes(id)
 );
 
+-- Ingredientes de uma receita
+-- IMPORTANTE: Aponta para `product` (genérico), não para product_item
 CREATE TABLE sisub.recipe_ingredients (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     recipe_id UUID NOT NULL,
-  
-    -- VÍNCULO TÉCNICO: Aponta para o Grupo Leaf (Necessidade), não para o Item de Compra
-    product_group_id UUID NOT NULL, 
-  
-    net_quantity DECIMAL(12, 4) NOT NULL, 
+    product_id UUID NOT NULL, -- Produto genérico (ex: "Arroz Branco")
+    
+    net_quantity DECIMAL(12, 4) NOT NULL,
     is_optional BOOLEAN DEFAULT FALSE,
-  
-    CONSTRAINT fk_ri_recipe FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id) ON DELETE CASCADE,
-    CONSTRAINT fk_ri_group FOREIGN KEY (product_group_id) REFERENCES sisub.product_groups(id)
+    priority_order INTEGER,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES sisub.product(id)
 );
 
--- Tabela de Alternativas (RF06)
--- Resolve o problema da Manteiga vs Margarina (quantidades diferentes)
+-- Alternativas de ingredientes (ex: Manteiga ↔ Margarina)
+-- Substitui um product por outro, com quantidade diferente se necessário
 CREATE TABLE sisub.recipe_ingredient_alternatives (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    recipe_ingredient_id UUID NOT NULL, -- Link com o item principal da receita
-    product_group_id UUID NOT NULL, -- O grupo substituto (ex: Margarina)
-
-    net_quantity DECIMAL(12, 4) NOT NULL, -- Quantidade específica para ESTE substituto
-    priority_order INTEGER DEFAULT 1, 
-
-    CONSTRAINT fk_ria_parent FOREIGN KEY (recipe_ingredient_id) REFERENCES sisub.recipe_ingredients(id) ON DELETE CASCADE,
-    CONSTRAINT fk_ria_group FOREIGN KEY (product_group_id) REFERENCES sisub.product_groups(id)
+    recipe_ingredient_id UUID NOT NULL, 
+    product_id UUID NOT NULL, -- Produto substituto
+    
+    net_quantity DECIMAL(12, 4) NOT NULL, -- Quantidade específica do substituto
+    priority_order INTEGER DEFAULT 1,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    FOREIGN KEY (recipe_ingredient_id) REFERENCES sisub.recipe_ingredients(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES sisub.product(id)
 );
 
 -- =============================================================================
--- 3. PLANEJAMENTO & EXECUÇÃO (Templates & Diário)
+-- 3. PLANEJAMENTO & EXECUÇÃO (Templates & Daily Menus)
 -- =============================================================================
 
-CREATE TABLE sisub.meal_types (
+-- Tipos de refeição (Café, Almoço, Jantar, Ceia)
+CREATE TABLE sisub.meal_type (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    description TEXT NOT NULL, -- Café, Almoço, Jantar
-    unit_id UUID, 
+    name TEXT NOT NULL,
+    kitchen_id INTEGER,
     sort_order INTEGER DEFAULT 0,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_meal_type_unit FOREIGN KEY (unit_id) REFERENCES sisub.units(id)
+    
+    FOREIGN KEY (kitchen_id) REFERENCES sisub.kitchen(id)
 );
 
--- 3.1 Templates Semanais (RF07)
-CREATE TABLE sisub.menu_templates (
+-- 3.1 Templates Semanais (Ciclos de Cardápio)
+CREATE TABLE sisub.menu_template (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name TEXT NOT NULL, 
+    name TEXT NOT NULL,
     description TEXT,
-    unit_id UUID, 
-    base_template_id UUID,
+    kitchen_id INTEGER,
+    base_template_id UUID, -- Se for fork de outro template
+    
+    created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-
-    CONSTRAINT fk_template_unit FOREIGN KEY (unit_id) REFERENCES sisub.units(id),
-    CONSTRAINT fk_template_base FOREIGN KEY (base_template_id) REFERENCES sisub.menu_templates(id)
+    
+    FOREIGN KEY (kitchen_id) REFERENCES sisub.kitchen(id),
+    FOREIGN KEY (base_template_id) REFERENCES sisub.menu_template(id)
 );
 
 CREATE TABLE sisub.menu_template_items (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     menu_template_id UUID NOT NULL,
-    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 1 AND 7), -- 1=Segunda
+    day_of_week INTEGER CHECK (day_of_week BETWEEN 1 AND 7), -- 1=Segunda
     meal_type_id UUID NOT NULL,
     recipe_id UUID NOT NULL,
-
-    CONSTRAINT fk_mti_template FOREIGN KEY (menu_template_id) REFERENCES sisub.menu_templates(id) ON DELETE CASCADE,
-    CONSTRAINT fk_mti_meal_type FOREIGN KEY (meal_type_id) REFERENCES sisub.meal_types(id),
-    CONSTRAINT fk_mti_recipe FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id)
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    FOREIGN KEY (menu_template_id) REFERENCES sisub.menu_template(id) ON DELETE CASCADE,
+    FOREIGN KEY (meal_type_id) REFERENCES sisub.meal_type(id),
+    FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id)
 );
-CREATE UNIQUE INDEX idx_template_day_meal ON sisub.menu_template_items (menu_template_id, day_of_week, meal_type_id);
 
--- 3.2 Cardápio Diário Real
-CREATE TABLE sisub.daily_menus (
+-- 3.2 Cardápio Diário (Planejamento Real)
+CREATE TABLE sisub.daily_menu (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    mess_hall_id UUID NOT NULL,
-    service_date DATE NOT NULL,
-    meal_type_id UUID NOT NULL, 
-  
-    forecasted_headcount INTEGER NOT NULL,
-    status TEXT DEFAULT 'PLANNED',
+    service_date DATE,
+    meal_type_id UUID,
+    kitchen_id INTEGER, -- Kitchen responsável
+    
+    forecasted_headcount INTEGER, -- Previsão de comensais
+    status TEXT DEFAULT 'PLANNED', -- PLANNED, PUBLISHED, EXECUTED
+    
+    created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-  
-    CONSTRAINT uq_menu_hall_date UNIQUE(mess_hall_id, service_date, meal_type_id),
-    CONSTRAINT fk_menu_mess_hall FOREIGN KEY (mess_hall_id) REFERENCES sisub.mess_halls(id),
-    CONSTRAINT fk_menu_meal_type FOREIGN KEY (meal_type_id) REFERENCES sisub.meal_types(id)
+    
+    FOREIGN KEY (kitchen_id) REFERENCES sisub.kitchen(id),
+    FOREIGN KEY (meal_type_id) REFERENCES sisub.meal_type(id)
 );
 
+-- Itens do cardápio diário
+-- IMPORTANTE: Armazena SNAPSHOT da receita em JSON para imutabilidade
 CREATE TABLE sisub.menu_items (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     daily_menu_id UUID NOT NULL,
-    recipe_id UUID NOT NULL,
-    planned_portions_qty INTEGER NOT NULL,
-    exclude_from_procurement BOOLEAN DEFAULT FALSE,
-  
-    -- Substituições: [{"product_group_id": "...", "quantity_override": 10.5, "manual_ingredient_id": "..."}]
-    substitutions JSONB DEFAULT '[]'::JSONB,
-  
+    recipe_origin_id UUID, -- Referência à receita original (para tracking)
+    
+    recipe JSON, -- SNAPSHOT: Cópia da receita no momento do planejamento
+    planned_portion_quantity INTEGER, -- Quantidade de porções planejadas
+    excluded_from_procurement INTEGER, -- Mapeamento numérico (0/1) para excluir de compras
+    
+    substitutions JSON, -- Substituições ad-hoc realizadas
+    
+    created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_mi_menu FOREIGN KEY (daily_menu_id) REFERENCES sisub.daily_menus(id) ON DELETE CASCADE,
-    CONSTRAINT fk_mi_recipe FOREIGN KEY (recipe_id) REFERENCES sisub.recipes(id)
+    
+    FOREIGN KEY (daily_menu_id) REFERENCES sisub.daily_menu(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipe_origin_id) REFERENCES sisub.recipes(id)
 );
 
 -- =============================================================================
--- 4. FUNÇÕES DE NEGÓCIO & VIEWS
+-- 4. PERFIS E CONTROLE DE ACESSO
 -- =============================================================================
 
--- Função de "Pintura" (RF08)
-CREATE OR REPLACE FUNCTION fn_apply_menu_template(
-    p_template_id UUID,
-    p_target_mess_hall_id UUID,
-    p_start_date DATE, -- Segunda-feira
-    p_default_headcount INTEGER
-)
-RETURNS VOID 
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_item RECORD;
-    v_target_date DATE;
-    v_daily_menu_id UUID;
-BEGIN
-    FOR v_item IN 
-        SELECT * FROM sisub.menu_template_items WHERE menu_template_id = p_template_id
-    LOOP
-        v_target_date := p_start_date + (v_item.day_of_week - 1);
-
-        INSERT INTO sisub.daily_menus (mess_hall_id, service_date, meal_type_id, forecasted_headcount, status) 
-        VALUES (p_target_mess_hall_id, v_target_date, v_item.meal_type_id, p_default_headcount, 'PLANNED')
-        ON CONFLICT (mess_hall_id, service_date, meal_type_id) 
-        DO UPDATE SET deleted_at = NULL
-        RETURNING id INTO v_daily_menu_id;
-
-        -- Limpa anterior e insere novo (Sobrescrita)
-        DELETE FROM sisub.menu_items WHERE daily_menu_id = v_daily_menu_id;
-        INSERT INTO sisub.menu_items (daily_menu_id, recipe_id, planned_portions_qty) 
-        VALUES (v_daily_menu_id, v_item.recipe_id, p_default_headcount);
-    END LOOP;
-END;
-$$;
-
--- View que consolida o que foi REALMENTE consumido (Planejado vs Substituído)
-CREATE OR REPLACE VIEW sisub.vw_realized_consumption AS
-SELECT 
-    mi.daily_menu_id,
-    mi.recipe_id,
-    -- Lógica: Se existe override no JSON, usa ele. Senão, usa o cálculo da receita.
-    COALESCE(
-        (sub.value->>'quantity_override')::DECIMAL, 
-        ri.net_quantity * mi.planned_portions_qty
-    ) as final_quantity,
-  
-    -- Lógica: Se trocou o insumo (ex: Manteiga -> Margarina), pega o ID novo.
-    COALESCE(
-        (sub.value->>'product_group_id')::UUID,
-        ri.product_group_id
-    ) as final_product_group_id,
-  
-    CASE WHEN sub.value IS NOT NULL THEN 'SUBSTITUTED' ELSE 'PLANNED' END as source_type
-FROM sisub.menu_items mi
-JOIN sisub.recipe_ingredients ri ON ri.recipe_id = mi.recipe_id
-LEFT JOIN LATERAL jsonb_array_elements(mi.substitutions) sub ON TRUE
-WHERE mi.deleted_at IS NULL AND mi.exclude_from_procurement IS FALSE;
-
+-- Perfis administrativos (Fiscal, Admin, Superadmin)
+-- Comensais NÃO têm registro aqui (role = NULL significa comensal)
+CREATE TABLE sisub.profiles_admin (
+    id UUID PRIMARY KEY,
+    email TEXT NOT NULL,
+    saram TEXT NOT NULL, -- Identificação militar
+    name TEXT,
+    om TEXT, -- Organização Militar
+    role TEXT CHECK (role IN ('user', 'admin', 'superadmin')),
+    -- user = Fiscal (módulo de presença)
+    -- admin = Gestor da unidade
+    -- superadmin = SDAB (visão global do sistema)
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
 ```
 
 ----

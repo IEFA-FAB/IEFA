@@ -8,7 +8,8 @@
         "serve": "vite preview",
         "format": "biome format",
         "lint": "biome lint",
-        "check": "biome check"
+        "check": "biome check",
+        "supabase_gen_types": "pnpx supabase gen types typescript --project-id 'jgigqdpdjgnnuwajtayh' --schema sisub > ./src/types/database.types.ts"
     },
     "dependencies": {
         "@iefa/auth": "workspace:*",

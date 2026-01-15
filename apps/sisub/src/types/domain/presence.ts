@@ -1,22 +1,44 @@
 // Presence Domain Types
 
+import type {
+	MealPresence,
+	MealPresenceInsert,
+	MealPresenceUpdate,
+	MealPresenceWithUser,
+} from "@/types/supabase.types";
 import type { MealKey } from "./meal";
 
 // ============================================================================
-// PRESENCE MANAGEMENT TYPES
+// BASE TYPES (Re-export de supabase.types.ts)
+// ============================================================================
+
+/**
+ * Registro de presença em refeição - tabela meal_presences
+ * Re-exportado de supabase.types.ts
+ */
+export type PresenceRow = MealPresence;
+
+/**
+ * View de presença com dados do usuário
+ * Re-exportado de supabase.types.ts
+ */
+export type { MealPresenceWithUser };
+
+/**
+ * Types para Insert/Update de presenças
+ */
+export type { MealPresenceInsert, MealPresenceUpdate };
+
+// ============================================================================
+// DOMAIN TYPES (Tipos de Negócio)
 // ============================================================================
 
 /**
  * Fiscal presence record for presence management
- * Usado para gerenciamento de presenças com fiscal
+ * Estende PresenceRow com dados derivados de UI
  */
-export interface FiscalPresenceRecord {
-	id: string; // uuid do registro de presença
-	user_id: string; // uuid do militar (nome da coluna do banco mantido)
-	date: string; // yyyy-mm-dd
-	meal: MealKey;
-	unidade: string; // OM
-	created_at: string;
+export interface FiscalPresenceRecord extends MealPresence {
+	unidade: string; // OM (campo derivado, vem de join com mess_hall -> unit)
 }
 
 /**
@@ -31,22 +53,11 @@ export interface FiscalFilters {
 
 /**
  * Forecast row data as returned from the database.
+ * Subset de MealForecast focado em user_id e will_eat
  */
 export interface ForecastRow {
 	user_id: string;
 	will_eat: boolean | null;
-}
-
-/**
- * Presence row data structure from database.
- */
-export interface PresenceRow {
-	id: string;
-	user_id: string;
-	date: string;
-	meal: MealKey;
-	created_at: string;
-	mess_hall_id: number;
 }
 
 /**
@@ -97,8 +108,14 @@ export interface UsePresenceManagementReturn {
 	removePresence: (row: FiscalPresenceRecord) => Promise<void>;
 }
 
+/**
+ * Estados de confirmação de entrada
+ */
 export type WillEnter = "sim" | "nao";
 
+/**
+ * Estado do dialog de confirmação de presença
+ */
 export type DialogState = {
 	open: boolean;
 	uuid: string | null;
