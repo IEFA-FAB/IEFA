@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_protected/superAdmin/")({
 
 		const profile = await context.queryClient.ensureQueryData(
 			adminProfileQueryOptions(user.id),
-		)
+		);
 
 		if (profile?.role !== "superadmin") {
 			throw redirect({ to: "/forecast" });
@@ -113,7 +113,7 @@ function SuperAdminPanel() {
 				</div>
 			</section>
 		</div>
-	)
+	);
 }
 
 interface EvaluationFormProps {
@@ -136,7 +136,7 @@ function EvaluationForm({
 				const errors: Record<string, string> = {};
 				result.error.issues.forEach((issue) => {
 					errors[issue.path.join(".")] = issue.message;
-				})
+				});
 				return errors;
 			},
 		},
@@ -147,10 +147,10 @@ function EvaluationForm({
 			} catch (error: any) {
 				toast.error("Erro ao salvar configuração", {
 					description: error?.message || "Ocorreu um erro desconhecido",
-				})
+				});
 			}
 		},
-	})
+	});
 
 	return (
 		<form
@@ -246,5 +246,5 @@ function EvaluationForm({
 				</form.Subscribe>
 			</CardFooter>
 		</form>
-	)
+	);
 }

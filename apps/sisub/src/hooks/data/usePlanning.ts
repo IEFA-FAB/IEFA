@@ -165,13 +165,10 @@ export function useTemplates(kitchenId: number | null) {
 }
 
 export function useApplyTemplate() {
-	const queryClient = useQueryClient();
-
 	return useMutation({
 		mutationFn: async ({
 			templateId,
 			targetDates,
-			kitchenId,
 		}: {
 			templateId: string;
 			targetDates: Date[];
@@ -186,7 +183,7 @@ export function useApplyTemplate() {
 
 			return true;
 		},
-		onError: (error) => {
+		onError: (_error) => {
 			toast.error("Erro ao aplicar template");
 		},
 	});

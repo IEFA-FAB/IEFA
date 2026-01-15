@@ -1,10 +1,6 @@
 import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import supabase from "@/lib/supabase";
 import type {
-	FolderWithChildren,
-	ProductWithItems,
-} from "@/types/domain/products";
-import type {
 	Folder,
 	FolderInsert,
 	FolderUpdate,

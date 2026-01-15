@@ -11,11 +11,7 @@ import {
 	useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import {
-	type AuthContextType,
-	type AuthState,
-	authQueryOptions,
-} from "@/auth/service";
+import { type AuthState, authQueryOptions } from "@/auth/service";
 import { DefaultCatchBoundary } from "@/components/common/errors/DefaultCatchBoundary";
 import { NotFound } from "@/components/common/errors/NotFound";
 import { RealtimeProvider } from "@/components/common/providers/RealtimeProvider";
@@ -23,6 +19,7 @@ import type { ThemeContextType } from "@/components/common/shared/themeService";
 import { ThemeScript } from "@/components/common/shared/themeService";
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
 import AppStyles from "@/styles.css?url";
+import type { AuthContextType } from "@/types/domain/";
 
 export interface MyRouterContext {
 	queryClient: QueryClient;

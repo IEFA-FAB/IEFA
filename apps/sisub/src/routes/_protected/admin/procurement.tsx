@@ -1,4 +1,11 @@
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@iefa/ui";
+import {
+	Button,
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@iefa/ui";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Calendar, Download, ShoppingCart } from "lucide-react";
 import { useState } from "react";

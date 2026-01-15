@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { PlanningBoard } from "@/components/features/admin/planning/PlanningBoard";
 
 export const Route = createFileRoute("/_protected/admin/planning")({

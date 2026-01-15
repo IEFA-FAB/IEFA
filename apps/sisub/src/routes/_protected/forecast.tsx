@@ -207,7 +207,6 @@ export default function Forecast(): JSX.Element {
 		({ date, daySelections, dayMessHallCode }) => {
 			const dayCardData = getDayCardData(date, todayString, daySelections);
 			// Determine kitchen ID for this date (logic available if filtering needed)
-			const messHallId = resolveMessHallIdForDate(date);
 			// const mh = messHalls.find((m) => String(m.id) === messHallId);
 			// const kitchenId = mh?.kitchenId;
 

@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_protected/superAdmin/ingredients")({
 
 		const profile = await context.queryClient.ensureQueryData(
 			adminProfileQueryOptions(user.id),
-		)
+		);
 
 		if (profile?.role !== "superadmin") {
 			throw redirect({ to: "/forecast" });
@@ -83,5 +83,5 @@ function IngredientsPage() {
 				<ProductsTreeManager />
 			</section>
 		</div>
-	)
+	);
 }

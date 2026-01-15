@@ -15,9 +15,9 @@ import {
 	useScanProcessor,
 } from "@/hooks/business/useFiscalOps";
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement";
-import type { DialogState, FiscalFilters, MealKey } from "@/types/domain";
 import { generateRestrictedDates, inferDefaultMeal } from "@/lib/fiscal";
 import supabase from "@/lib/supabase";
+import type { DialogState, FiscalFilters, MealKey } from "@/types/domain";
 
 export const Route = createFileRoute("/_protected/presence")({
 	component: Qr,
