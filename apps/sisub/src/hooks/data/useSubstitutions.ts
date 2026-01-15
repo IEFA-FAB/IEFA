@@ -2,10 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import supabase from "@/lib/supabase";
 
-// Define Substitution type if not already in planning
-// We'll assume a structure for now
-// type Substitution = { original_product_id: string; new_product_id: string; rationale: string; ... }
-
 export function useUpdateSubstitutions() {
 	const queryClient = useQueryClient();
 

@@ -139,6 +139,95 @@ export function useAddMenuItem() {
 	});
 }
 
+export function useUpdateDailyMenu() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async ({
+			id,
+			updates,
+		}: {
+			id: string;
+			updates: Partial<{
+				forecasted_headcount: number | null;
+			}>;
+		}) => {
+			const { data, error } = await supabase
+				.from("daily_menu")
+				.update(updates)
+				.eq("id", id)
+				.select();
+
+			if (error) throw error;
+			return data;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] });
+			queryClient.invalidateQueries({ queryKey: ["planning", "day"] });
+			toast.success("Cardápio atualizado!");
+		},
+		onError: (error) => {
+			toast.error(`Erro ao atualizar cardápio: ${error.message}`);
+		},
+	});
+}
+
+export function useUpdateMenuItem() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async ({
+			id,
+			updates,
+		}: {
+			id: string;
+			updates: Partial<{
+				planned_portion_quantity: number | null;
+				excluded_from_procurement: boolean;
+			}>;
+		}) => {
+			const { data, error } = await supabase
+				.from("menu_items")
+				.update(updates)
+				.eq("id", id)
+				.select();
+
+			if (error) throw error;
+			return data;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] });
+			queryClient.invalidateQueries({ queryKey: ["planning", "day"] });
+		},
+		onError: (error) => {
+			toast.error(`Erro ao atualizar item: ${error.message}`);
+		},
+	});
+}
+
+export function useDeleteMenuItem() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (itemId: string) => {
+			const { error } = await supabase
+				.from("menu_items")
+				.update({ deleted_at: new Date().toISOString() })
+				.eq("id", itemId);
+
+			if (error) throw error;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] });
+			queryClient.invalidateQueries({ queryKey: ["planning", "day"] });
+			toast.success("Item removido!");
+		},
+		onError: (error) => {
+			toast.error(`Erro ao remover item: ${error.message}`);
+		},
+	});
+}
+
 // --- Templates ---
 
 export function useTemplates(kitchenId: number | null) {

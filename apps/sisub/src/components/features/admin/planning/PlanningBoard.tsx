@@ -16,37 +16,38 @@ import {
 	Calendar as CalendarIcon,
 	ChevronLeft,
 	ChevronRight,
+	Settings,
 	Trash2,
 	Users,
 } from "lucide-react";
 import { useState } from "react";
+import { useKitchenSelector } from "@/hooks/data/useKitchens";
 import { useDailyMenus } from "@/hooks/data/usePlanning";
 import type { DailyMenuWithItems } from "@/types/domain/planning";
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog";
 import { DayDrawer } from "./DayDrawer";
+import { KitchenSelector } from "./KitchenSelector";
+import { MealTypeManager } from "./MealTypeManager";
+import { TemplateManager } from "./TemplateManager";
 import { TrashDrawer } from "./TrashDrawer";
 
-// Mock kitchen ID for development
-const KITCHEN_ID = 1;
-
 export function PlanningBoard() {
+	const { kitchenId } = useKitchenSelector();
 	const [currentMonth, setCurrentMonth] = useState(new Date());
 	const [selectedDay, setSelectedDay] = useState<Date | null>(null); // For Drawer
 	const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set()); // For Bulk Actions
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 	const [isTrashOpen, setIsTrashOpen] = useState(false);
+	const [isMealTypeManagerOpen, setIsMealTypeManagerOpen] = useState(false);
+	const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
 
 	const monthStart = startOfMonth(currentMonth);
 	const monthEnd = endOfMonth(monthStart);
 	const startDate = startOfWeek(monthStart);
 	const endDate = endOfWeek(monthEnd);
 
-	const { data: menus, isLoading } = useDailyMenus(
-		KITCHEN_ID,
-		startDate,
-		endDate,
-	);
+	const { data: menus } = useDailyMenus(kitchenId, startDate, endDate);
 
 	const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
@@ -94,9 +95,13 @@ export function PlanningBoard() {
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-4">
-					<h2 className="text-2xl font-bold tracking-tight">
-						Planejamento: {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-					</h2>
+					<KitchenSelector />
+					<div className="flex flex-col">
+						<h2 className="text-2xl font-bold tracking-tight">
+							Planejamento:{" "}
+							{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+						</h2>
+					</div>
 					<div className="flex items-center gap-1 bg-muted rounded-md p-1">
 						<Button
 							variant="ghost"
@@ -123,6 +128,23 @@ export function PlanningBoard() {
 				</div>
 
 				<div className="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setIsTemplateManagerOpen(true)}
+						title="Gerenciar Templates"
+					>
+						<CalendarIcon className="w-4 h-4 mr-2" />
+						Templates
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() => setIsMealTypeManagerOpen(true)}
+						title="Gerenciar Tipos de Refeição"
+					>
+						<Settings className="w-4 h-4 text-muted-foreground" />
+					</Button>
 					<Button
 						variant="ghost"
 						size="icon"
@@ -247,13 +269,25 @@ export function PlanningBoard() {
 				open={isTemplateModalOpen}
 				onClose={() => setIsTemplateModalOpen(false)}
 				targetDates={Array.from(selectedDays)}
-				kitchenId={KITCHEN_ID}
+				kitchenId={kitchenId || 0}
 			/>
 
 			<TrashDrawer
 				open={isTrashOpen}
 				onClose={() => setIsTrashOpen(false)}
-				kitchenId={KITCHEN_ID}
+				kitchenId={kitchenId || 0}
+			/>
+
+			<MealTypeManager
+				open={isMealTypeManagerOpen}
+				onClose={() => setIsMealTypeManagerOpen(false)}
+				kitchenId={kitchenId}
+			/>
+
+			<TemplateManager
+				open={isTemplateManagerOpen}
+				onClose={() => setIsTemplateManagerOpen(false)}
+				kitchenId={kitchenId}
 			/>
 		</div>
 	);

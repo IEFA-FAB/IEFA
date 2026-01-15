@@ -185,6 +185,64 @@ Polimento final e requisitos não-funcionais.
 
 ---
 
+### Fase 9: Template Management & Custom Meal Types (Planejamento Avançado)
+
+Expansão do módulo de planejamento para suportar templates semanais reutilizáveis e tipos de refeição customizados por kitchen.
+
+- [ ] **9.1. Kitchen Selector no Planning Board**
+  - Adicionar dropdown de seleção de kitchen no topo da página `/admin/planning`.
+  - Hook `useUserKitchens()` para listar kitchens disponíveis para o usuário.
+  - Persistir kitchen selecionada em query param ou local storage.
+  - Recarregar calendário ao trocar kitchen selecionada.
+
+- [ ] **9.2. Custom Meal Types Management**
+  - Criar hook `useMealTypes(kitchenId)` que retorna meal_types genéricos + específicos da kitchen.
+  - Criar componente `MealTypeManager` para CRUD de meal_types:
+    - Form com campos: Nome, Sort Order.
+    - Lista de meal_types customizados com ações editar/soft-delete.
+    - Mostrar meal_types genéricos como read-only.
+  - Integrar no Planning Board como botão/dialog "Gerenciar Tipos de Refeição".
+
+- [ ] **9.3. Template CRUD - Data Layer**
+  - Criar hooks de data:
+    - `useMenuTemplates(kitchenId)` - fetch templates disponíveis (NULL + kitchen específica).
+    - `useTemplateItems(templateId)` - fetch itens de um template com receitas.
+    - `useCreateTemplate()` - mutation para criar template.
+    - `useUpdateTemplate()` - mutation para atualizar template.
+    - `useDeleteTemplate()` - soft-delete de template.
+
+- [ ] **9.4. Template Editor UI**
+  - Criar componente `TemplateEditor`:
+    - Grid de 7 colunas (dias) x N linhas (meal_types disponíveis).
+    - Cell clicável que abre selector de receitas.
+    - Permitir adicionar múltiplas receitas por célula (refeição + dia).
+    - Form header com Nome e Descrição do template.
+  - Integrar como modal/drawer acessível do Planning Board.
+
+- [ ] **9.5. Template Application Logic**
+  - Implementar lógica de aplicação de template em `ApplyTemplateDialog`:
+    - Selector de template disponível.
+    - Selector de "Starting Day" (qual dia do template = primeiro dia selecionado).
+    - Preview de quais dias serão afetados.
+    - Confirmação com soft-delete + insert logic.
+  - Implementar função que mapeia template items → daily_menus + menu_items.
+
+- [ ] **9.6. Flexible Portioning in DayDrawer**
+  - Atualizar `DayDrawer` para mostrar campo `forecasted_headcount` por daily_menu.
+  - Adicionar campo editável `planned_portion_quantity` por menu_item.
+  - Valor padrão de `planned_portion_quantity` = `forecasted_headcount` do daily_menu.
+  - Permitir override manual de quantidade de porções por preparação.
+  - Adicionar toggle `excluded_from_procurement` por menu_item.
+
+- [ ] **9.7. Enhanced Trash Bin**
+  - Atualizar `TrashDrawer` para incluir:
+    - Tabs: Daily Menus, Menu Items, Templates, Meal Types.
+    - Filtro por mês corrente.
+    - Ação de restaurar (set deleted_at = NULL).
+  - Implementar mutations de restore para cada entidade.
+
+---
+
 ### Ordem de Desenvolvimento Sugerida para o Desenvolvedor
 
 1. **Setup & Auth** (Fase 1 e 2) - Para ter o app rodando.
@@ -193,3 +251,4 @@ Polimento final e requisitos não-funcionais.
 4. **Planejamento** (Fase 5) - Onde o usuário Admin passa mais tempo.
 5. **Forecast** (Fase 6) - Interface do usuário final.
 6. **Realtime & Dashboards** (Fase 7 e 8) - A cereja do bolo.
+7. **Template Management** (Fase 9) - Planejamento avançado e reutilização de ciclos.

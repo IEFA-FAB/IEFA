@@ -44,3 +44,33 @@ export interface MenuDayData {
 	isCurrentMonth: boolean;
 	isToday: boolean;
 }
+
+// --- Template Management Types ---
+
+/**
+ * Draft item para criação/edição de templates
+ * Usado no TemplateEditor para state management
+ */
+export interface TemplateItemDraft {
+	day_of_week: number; // 1-7 (Monday-Sunday)
+	meal_type_id: string;
+	recipe_id: string;
+}
+
+/**
+ * Payload para aplicação de template em datas específicas
+ */
+export interface ApplyTemplatePayload {
+	templateId: string;
+	targetDates: string[]; // Array de datas no formato YYYY-MM-DD
+	startDayOfWeek: number; // 1-7, indica qual dia do template corresponde ao primeiro targetDate
+	kitchenId: number;
+}
+
+/**
+ * Template com contagem de items (para preview)
+ */
+export interface TemplateWithItemCounts extends MenuTemplate {
+	item_count: number;
+	recipe_count: number;
+}

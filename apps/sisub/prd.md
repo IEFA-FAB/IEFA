@@ -59,17 +59,47 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
 *   **RF06 - Diff Viewer:** O sistema deve permitir comparar visualmente duas versões de uma receita, destacando diferenças.
 
 #### 3.4 Planejamento Operacional
-*   **RF07 - Templates e Ações em Massa:**
-    *   Permitir selecionar múltiplos dias e aplicar templates.
-    *   Lógica de substituição: Soft Delete nos dias selecionados -> Insert dos novos dados.
-*   **RF08 - Lixeira (Trash Bin):** Interface para visualizar e restaurar itens removidos logicamente (`deleted_at`) no mês corrente.
-*   **RF09 - Gestão de Substituições via Snapshot:**
+*   **RF07 - Templates Semanais e Ações em Massa:**
+    *   Permitir criar templates de cardápio semanal (7 dias) que podem ser aplicados em múltiplos períodos.
+    *   Cada template pertence a uma kitchen específica ou é global (kitchen_id NULL).
+    *   Templates possuem nome, descrição e collection de itens organizados por dia da semana (1-7) e tipo de refeição.
+    *   Permitir selecionar múltiplos dias no calendário e aplicar templates escolhidos.
+    *   Lógica de aplicação: Soft Delete nos dias selecionados -> Insert dos novos dados baseados no template.
+    *   Ao aplicar template, permitir seleção de qual dia do template corresponde ao primeiro dia selecionado.
+
+*   **RF08 - Tipos de Refeição Customizados:**
+    *   O sistema possui 4 tipos de refeição genéricos (kitchen_id NULL): **Café, Almoço, Jantar, Ceia**.
+    *   Kitchens podem criar tipos de refeição customizados (ex: "Jantar Especial", "Lanche da Tarde").
+    *   Ao planejar para uma kitchen, usuário pode adicionar:
+        *   Qualquer tipo de refeição com kitchen_id NULL (genéricos).
+        *   Tipos de refeição criados pela kitchen específica (kitchen_id = X).
+    *   Tipos de refeição podem ser ordenados via campo `sort_order`.
+    *   Interface deve permitir criar, editar e soft-delete tipos de refeição customizados.
+
+*   **RF09 - Seleção de Kitchen no Planejamento:**
+    *   A página de planejamento deve permitir seleção da kitchen para a qual está sendo feito o planejamento.
+    *   Apenas usuários com permissão para aquela kitchen podem visualizar/editar seu planejamento.
+    *   Cada kitchen possui sua própria linha do tempo de cardápios (daily_menu.kitchen_id).
+    *   Filtros de meal_types disponíveis são baseados na kitchen selecionada (genéricos + específicos da kitchen).
+
+*   **RF10 - Gestão de Porcionamento Flexível:**
+    *   Ao definir um daily_menu, especificar `forecasted_headcount` (total de pessoas previstas).
+    *   Este valor se torna o padrão para `planned_portion_quantity` de cada preparação (menu_item).
+    *   Usuário pode ajustar manualmente a quantidade de porções para cada preparação individualmente.
+    *   **Exemplo:** 300 pessoas previstas -> Arroz: 300 porções, Macarrão: 150 porções (divisão manual).
+    *   Campo `excluded_from_procurement` permite marcar preparações que não devem entrar no cálculo de compras.
+
+*   **RF11 - Lixeira (Trash Bin):** 
+    *   Interface para visualizar e restaurar itens removidos logicamente (`deleted_at`) no mês corrente.
+    *   Aplica-se a: daily_menus, menu_items, menu_templates, meal_types.
+
+*   **RF12 - Gestão de Substituições via Snapshot:**
     *   Quando uma receita é aplicada ao `menu_items`, um snapshot JSON completo da receita é armazenado.
     *   Substituições ad-hoc são salvas em campo `substitutions` (JSON).
     *   Isso garante que alterações futuras na receita original não afetem o planejamento já executado (imutabilidade).
 
 #### 3.5 UX e Concorrência
-*   **RF10 - Realtime Feedback:** Se o Usuário A alterar o cardápio que o Usuário B está vendo, o Usuário B deve receber um Toast (`sonner`) e a interface deve atualizar automaticamente.
+*   **RF13 - Realtime Feedback:** Se o Usuário A alterar o cardápio que o Usuário B está vendo, o Usuário B deve receber um Toast (`sonner`) e a interface deve atualizar automaticamente.
 
 ---
 
@@ -382,12 +412,34 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
     *   **Atalhos:** Acesso rápido para o Planejamento e Lista de Compras.
 
 2.  **Painel de Planejamento (The Planning Board):**
-    *   **Visualização:** Calendário Mensal/Semanal.
-    *   **Ação "Pintar Template":** Botão "Aplicar Ciclo". Abre modal para escolher um Template (ex: "Ciclo Verão SDAB") e a data de início.
+    *   **Seletor de Kitchen:** Dropdown no topo da página para escolher qual kitchen está sendo planejada.
+        *   Lista apenas kitchens que o usuário tem permissão para acessar.
+        *   Ao trocar kitchen, todo o calendário é recarregado com os dados daquela kitchen específica.
+    *   **Visualização:** Calendário Mensal/Semanal exibindo daily_menus filtrados pela kitchen selecionada.
+    *   **Ação "Pintar Template":** 
+        *   Botão "Aplicar Template" (habilitado apenas quando há dias selecionados via Shift+Click).
+        *   Abre modal para escolher um template disponível (templates com kitchen_id NULL ou kitchen_id da kitchen selecionada).
+        *   Permite escolher qual dia do template (1-7) corresponde ao primeiro dia selecionado.
+        *   Aplica o template com soft-delete dos dados existentes nos dias selecionados.
+    *   **Gerenciamento de Templates:**
+        *   Botão/Tab "Gerenciar Templates" que abre lista de templates existentes.
+        *   Interface para criar novo template com nome, descrição e definir preparações para cada dia/refeição.
+        *   Permitir edição e soft-delete de templates da kitchen atual.
+        *   Templates globais (kitchen_id NULL) são visíveis mas não editáveis por kitchens.
     *   **Edição do Dia (Drawer/Modal):** Ao clicar em um dia:
-        *   **Input Headcount:** Campo numérico para definir o efetivo final. *Deve exibir ao lado o número consolidado de adesões dos comensais para auxiliar a decisão.*
-        *   **Lista de Itens:** Lista as receitas do dia.
-        *   **Ações por Item:** Toggle "Excluir da Compra" e Botão Substituir.
+        *   **Seletor de Tipos de Refeição:** Dropdown mostrando meal_types disponíveis (genéricos + customizados da kitchen).
+        *   **Botão "Adicionar Refeição":** Cria um novo daily_menu para o tipo de refeição selecionado.
+        *   **Input Headcount:** Campo numérico para definir o efetivo final (forecasted_headcount). *Deve exibir ao lado o número consolidado de adesões dos comensais para auxiliar a decisão.*
+        *   **Lista de Itens:** Lista as receitas/preparações do dia agrupadas por refeição.
+        *   **Porcionamento por Preparação:** Cada preparação mostra:
+            *   Quantidade de porções (editável, padrão = forecasted_headcount).
+            *   Toggle "Excluir da Compra" (`excluded_from_procurement`).
+            *   Botão "Substituir" para abrir modal de substituição.
+    *   **Gerenciamento de Tipos de Refeição Customizados:**
+        *   Botão "Criar Tipo de Refeição" que abre modal/dialog.
+        *   Form com campos: Nome, Sort Order.
+        *   Lista de tipos customizados da kitchen com opções de editar/soft-delete.
+        *   Tipos genéricos (kitchen_id NULL) são exibidos mas não editáveis.
 
 3.  **Modal de Substituição (Gestão de Crise):**
     *   **Contexto:** O usuário está editando o item "Arroz Branco" do dia 12/05.
@@ -430,9 +482,12 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
         *   Campos críticos: Unidade de Consumo (Select: KG, LT, UN) e Unidade de Compra (Texto livre + Fator de Conversão).
 
 4.  **Editor de Templates (Ciclos):**
-    *   **Interface:** Uma grade fixa de Segunda a Domingo (Colunas) x Refeições (Linhas).
-    *   **Interação:** O usuário clica na célula (ex: "Segunda - Almoço") e busca uma Receita Global para associar.
-    *   **Salvar:** Salva como um "Template Mestre" que ficará disponível para todas as unidades "pintarem" em seus calendários.
+    *   **Interface:** Uma grade de 7 colunas (Segunda a Domingo) x N linhas (Tipos de Refeição disponíveis).
+    *   **Tipos de Refeição Dinâmicos:** As linhas são geradas baseadas nos meal_types genéricos (kitchen_id NULL) + meal_types da kitchen selecionada (se aplicável).
+    *   **Interação:** O usuário clica na célula (ex: "Segunda - Almoço") e busca uma ou mais receitas para associar.
+    *   **Snapshot de Receitas:** Ao adicionar receitas ao template, armazenar referência (`recipe_id`) - o snapshot JSON completo só é criado ao aplicar o template ao daily_menu.
+    *   **Salvar como Template:** Salva com nome e descrição. Se criado por kitchen específica, `kitchen_id` é preenchido. Templates globais (SDAB) têm `kitchen_id` NULL.
+    *   **Aplicação:** Templates ficam disponíveis para todas as kitchens "pintarem" em seus calendários conforme regras de visibilidade (global vs local).
 
 #### 5.3 Componentes Chave (TanStack)
 
