@@ -139,9 +139,21 @@ export function buildUserMealDetails(
 /**
  * Formats date range for display
  */
+/**
+ * Parses a YYYY-MM-DD string into a local Date object (midnight)
+ * Avoids UTC conversion issues with new Date("YYYY-MM-DD")
+ */
+export function parseLocalDate(dateString: string): Date {
+	const [year, month, day] = dateString.split("-").map(Number);
+	return new Date(year, month - 1, day);
+}
+
+/**
+ * Formats date range for display
+ */
 export function formatDateRange(start: string, end: string): string {
-	const startDate = new Date(start);
-	const endDate = new Date(end);
+	const startDate = parseLocalDate(start);
+	const endDate = parseLocalDate(end);
 
 	const options: Intl.DateTimeFormatOptions = {
 		day: "2-digit",

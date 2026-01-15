@@ -30,7 +30,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTableSkeleton";
-import { aggregatePresenceData } from "@/lib/dashboard";
+import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard";
 import {
 	messHallsQueryOptions,
 	userDataQueryOptions,
@@ -308,15 +308,21 @@ export default function PresenceTable({
 											<TableCell className="font-medium">
 												<div className="flex flex-col">
 													<span>
-														{new Date(record.date).toLocaleDateString("pt-BR", {
-															day: "2-digit",
-															month: "2-digit",
-														})}
+														{parseLocalDate(record.date).toLocaleDateString(
+															"pt-BR",
+															{
+																day: "2-digit",
+																month: "2-digit",
+															},
+														)}
 													</span>
 													<span className="text-xs text-muted-foreground capitalize">
-														{new Date(record.date).toLocaleDateString("pt-BR", {
-															weekday: "short",
-														})}
+														{parseLocalDate(record.date).toLocaleDateString(
+															"pt-BR",
+															{
+																weekday: "short",
+															},
+														)}
 													</span>
 												</div>
 											</TableCell>

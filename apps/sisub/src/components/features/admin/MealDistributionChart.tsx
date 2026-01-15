@@ -6,6 +6,7 @@ import {
 	CardTitle,
 } from "@iefa/ui";
 import { BarChart3 } from "lucide-react";
+import { parseLocalDate } from "@/lib/dashboard";
 import type { DailyMealStat } from "@/types/domain/dashboard";
 
 interface MealDistributionChartProps {
@@ -59,8 +60,9 @@ export default function MealDistributionChart({
 			</CardHeader>
 			<CardContent>
 				<div className="flex gap-2 overflow-x-auto pb-4">
+					...
 					{data.map((day) => {
-						const dateObj = new Date(day.date);
+						const dateObj = parseLocalDate(day.date);
 						const formattedDate = dateObj.toLocaleDateString("pt-BR", {
 							day: "2-digit",
 							month: "2-digit",
