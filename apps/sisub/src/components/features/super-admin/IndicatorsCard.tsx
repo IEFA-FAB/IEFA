@@ -12,13 +12,13 @@ export default function IndicatorsCard() {
 
 	return (
 		<div
-			className={` rounded-2xl border shadow-sm ${expanded ? "p-0" : "p-6"}`}
+			className={`rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/5 shadow-sm ${expanded ? "p-0" : "p-6"}`}
 		>
-			{/* Barra superior */}
+			{/* Barra superior - Enhanced */}
 			<div
 				className={`${expanded ? "px-4 py-3" : "mb-4"} flex items-center justify-between`}
 			>
-				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border">
+				<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-sans font-medium border bg-muted/30">
 					<BarChart3 className="h-4 w-4" aria-hidden="true" />
 					Indicadores
 				</div>
@@ -28,7 +28,9 @@ export default function IndicatorsCard() {
 						onClick={() =>
 							window.open(powerBiUrl, "_blank", "noopener,noreferrer")
 						}
-						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+						variant="outline"
+						size="sm"
+						className="inline-flex items-center gap-2 font-sans hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
 						aria-label="Abrir relatório em nova aba"
 						title="Abrir em nova aba"
 					>
@@ -38,7 +40,9 @@ export default function IndicatorsCard() {
 
 					<Button
 						onClick={toggleExpanded}
-						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 "
+						variant="outline"
+						size="sm"
+						className="inline-flex items-center gap-2 font-sans hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all"
 						aria-pressed={expanded}
 						aria-label={expanded ? "Reduzir" : "Expandir"}
 						title={expanded ? "Reduzir" : "Expandir"}
@@ -55,8 +59,10 @@ export default function IndicatorsCard() {
 				<div className={`${expanded ? "" : "px-6"} pb-4 flex flex-col gap-3`}>
 					{!expanded && (
 						<>
-							<h2 className="text-xl font-bold ">Indicadores da Unidade</h2>
-							<p className="text-sm text-muted-foreground">
+							<h2 className="text-xl font-sans font-bold text-foreground">
+								Indicadores da Unidade
+							</h2>
+							<p className="text-sm font-sans text-muted-foreground">
 								Acompanhe métricas e relatórios consolidados. Expanda para tela
 								cheia para melhor visualização.
 							</p>
@@ -66,7 +72,7 @@ export default function IndicatorsCard() {
 
 				{/* Container do iframe */}
 				<div className={`${expanded ? "" : "px-6"} pb-6`}>
-					<div className="rounded-2xl border  overflow-hidden ">
+					<div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
 						<iframe
 							title="Indicadores SISUB - Power BI"
 							src={powerBiUrl}
@@ -77,7 +83,7 @@ export default function IndicatorsCard() {
 							referrerPolicy="no-referrer-when-downgrade"
 						/>
 					</div>
-					<div className="mt-3 text-xs text-muted-foreground px-1">
+					<div className="mt-3 text-xs font-sans text-muted-foreground px-1">
 						Dica: use o botão de tela cheia dentro do relatório para melhor
 						experiência.
 					</div>

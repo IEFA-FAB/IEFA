@@ -27,6 +27,7 @@ import { ProductsTreeNode } from "./ProductsTreeNode";
  * - Virtualização para performance (RF03)
  * - Filtro client-side instantâneo
  * - CRUD completo com formulários
+ * - Industrial-Technical aesthetic (frontend-design)
  */
 export function ProductsTreeManager() {
 	const [filterText, setFilterText] = useState("");
@@ -99,70 +100,126 @@ export function ProductsTreeManager() {
 	return (
 		<div className="space-y-6">
 			{/* Header com Ações */}
-			<div className="flex items-center justify-between gap-4">
+			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
 				<div className="flex-1 relative">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-transform group-focus-within:rotate-12" />
 					<Input
 						type="search"
 						placeholder="Buscar insumos, produtos ou itens..."
 						value={filterText}
 						onChange={(e) => setFilterText(e.target.value)}
-						className="pl-10"
+						className="pl-10 group"
 						aria-label="Buscar na árvore de produtos"
 					/>
 				</div>
 
-				<div className="flex gap-2">
+				<div className="flex flex-wrap gap-2">
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => handleOpenDialog("folder", "create")}
 						aria-label="Nova pasta"
+						className="flex-1 sm:flex-none transition-all active:scale-[0.98]"
 					>
 						<FolderPlus className="w-4 h-4 mr-2" />
-						Nova Pasta
+						<span className="hidden sm:inline">Nova Pasta</span>
+						<span className="sm:hidden">Pasta</span>
 					</Button>
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => handleOpenDialog("product", "create")}
 						aria-label="Novo produto"
+						className="flex-1 sm:flex-none transition-all active:scale-[0.98]"
 					>
 						<PackagePlus className="w-4 h-4 mr-2" />
-						Novo Produto
+						<span className="hidden sm:inline">Novo Produto</span>
+						<span className="sm:hidden">Produto</span>
 					</Button>
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => handleOpenDialog("product_item", "create")}
 						aria-label="Novo item de compra"
+						className="flex-1 sm:flex-none transition-all active:scale-[0.98]"
 					>
 						<ShoppingCart className="w-4 h-4 mr-2" />
-						Novo Item
+						<span className="hidden sm:inline">Novo Item</span>
+						<span className="sm:hidden">Item</span>
 					</Button>
 				</div>
 			</div>
 
-			{/* Stats */}
+			{/* Stats - Industrial-Technical Design */}
 			{stats && (
-				<div className="grid grid-cols-3 gap-4">
-					<Card className="p-4">
-						<div className="text-sm text-muted-foreground">Pastas</div>
-						<div className="text-2xl font-bold">{stats.totalFolders}</div>
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6">
+					{/* Folders Card - Dominant (col-span-5) */}
+					<Card className="group sm:col-span-1 lg:col-span-5 stagger-item transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg border border-border/50 bg-gradient-to-br from-card to-muted/10">
+						<div className="p-4 md:p-6">
+							<div className="flex items-center justify-between">
+								<div>
+									<div className="text-sm font-sans text-muted-foreground">
+										Pastas
+									</div>
+									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
+										{stats.totalFolders}
+									</div>
+								</div>
+								<div className="transition-transform duration-200 group-hover:rotate-12 opacity-50">
+									<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-amber-600 dark:text-amber-500" />
+								</div>
+							</div>
+						</div>
 					</Card>
-					<Card className="p-4">
-						<div className="text-sm text-muted-foreground">Produtos</div>
-						<div className="text-2xl font-bold">{stats.totalProducts}</div>
+
+					{/* Products Card - Medium (col-span-4) */}
+					<Card
+						className="group sm:col-span-1 lg:col-span-4 stagger-item transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg border border-border/50 bg-gradient-to-br from-card to-muted/10"
+						style={{ animationDelay: "0.1s" }}
+					>
+						<div className="p-4 md:p-6">
+							<div className="flex items-center justify-between">
+								<div>
+									<div className="text-sm font-sans text-muted-foreground">
+										Produtos
+									</div>
+									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
+										{stats.totalProducts}
+									</div>
+								</div>
+								<div className="transition-transform duration-200 group-hover:scale-110 opacity-50">
+									<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-blue-600 dark:text-blue-500" />
+								</div>
+							</div>
+						</div>
 					</Card>
-					<Card className="p-4">
-						<div className="text-sm text-muted-foreground">Itens de Compra</div>
-						<div className="text-2xl font-bold">{stats.totalItems}</div>
+
+					{/* Items Card - Compact (col-span-3) */}
+					<Card
+						className="group sm:col-span-2 lg:col-span-3 stagger-item transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg border border-border/50 bg-gradient-to-br from-card to-muted/10"
+						style={{ animationDelay: "0.15s" }}
+					>
+						<div className="p-4 md:p-6">
+							<div className="flex items-center justify-between">
+								<div>
+									<div className="text-sm font-sans text-muted-foreground">
+										Itens de Compra
+									</div>
+									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
+										{stats.totalItems}
+									</div>
+								</div>
+								<div className="transition-transform duration-200 group-hover:-rotate-12 opacity-50">
+									<ShoppingCart className="w-8 h-8 md:w-10 md:h-10 text-emerald-600 dark:text-emerald-500" />
+								</div>
+							</div>
+						</div>
 					</Card>
 				</div>
 			)}
 
-			{/* Árvore Virtualizada */}
-			<Card>
+			{/* Árvore Virtualizada - Enhanced Container */}
+			<Card className="border border-border/50 shadow-md">
 				<div
 					ref={parentRef}
 					className="h-150 overflow-auto"
@@ -170,10 +227,12 @@ export function ProductsTreeManager() {
 					aria-label="Árvore de produtos"
 				>
 					{flatTree && flatTree.nodes.length === 0 ? (
-						<div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-							<p>Nenhum item encontrado</p>
+						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+							<p className="font-sans">Nenhum item encontrado</p>
 							{filterText && (
-								<p className="text-sm">Tente ajustar os filtros de busca</p>
+								<p className="text-sm mt-2">
+									Tente ajustar os filtros de busca
+								</p>
 							)}
 						</div>
 					) : (

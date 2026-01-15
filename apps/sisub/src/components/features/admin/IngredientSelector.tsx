@@ -6,7 +6,7 @@ import {
 	Input,
 } from "@iefa/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy";
 import type { Product } from "@/types/domain/products";
@@ -34,27 +34,45 @@ export function IngredientSelector({
 		overscan: 10,
 	});
 
+	const handleClearSearch = () => {
+		setFilterText("");
+	};
+
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-				<DialogHeader>
-					<DialogTitle>Selecionar Insumo</DialogTitle>
+			<DialogContent className="max-w-full sm:max-w-3xl h-screen sm:h-[80vh] flex flex-col p-0 sm:p-6 gap-0 sm:gap-4">
+				<DialogHeader className="px-6 pt-6 sm:px-0 sm:pt-0">
+					<DialogTitle className="font-sans font-bold text-xl md:text-2xl">
+						Selecionar Insumo
+					</DialogTitle>
 				</DialogHeader>
 
-				<div className="flex items-center gap-2 mb-4">
-					<div className="relative flex-1">
-						<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+				{/* Search Bar - Enhanced */}
+				<div className="px-6 sm:px-0">
+					<div className="relative flex items-center">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform group-focus-within:scale-110" />
 						<Input
 							placeholder="Buscar produto..."
 							value={filterText}
 							onChange={(e) => setFilterText(e.target.value)}
-							className="pl-8"
+							className="pl-10 pr-10 group transition-all focus:ring-2 focus:ring-primary/50"
+							autoFocus
 						/>
+						{filterText && (
+							<button
+								type="button"
+								onClick={handleClearSearch}
+								className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
+								aria-label="Limpar busca"
+							>
+								<X className="h-3 w-3 text-muted-foreground" />
+							</button>
+						)}
 					</div>
 				</div>
 
 				{/* Content */}
-				<div className="flex-1 overflow-hidden min-h-0">
+				<div className="flex-1 overflow-hidden min-h-0 px-6 pb-6 sm:px-0 sm:pb-0">
 					{!flatTree && !error ? (
 						<div className="flex items-center justify-center h-full">
 							<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -66,7 +84,7 @@ export function IngredientSelector({
 					) : (
 						<div
 							ref={parentRef}
-							className="h-full overflow-auto border rounded-md"
+							className="h-full overflow-auto border rounded-md bg-gradient-to-br from-card to-muted/5"
 						>
 							<div
 								style={{
@@ -78,13 +96,18 @@ export function IngredientSelector({
 								{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 									const node = flatTree!.nodes[virtualRow.index];
 
-									// Only show Folders and Products, hide Items?
-									// Recipes link to PRODUCTS (generic).
-									// If node.type === 'product_item', skip rendering?
-									// Virtualizer counts indexes so we can't easily skip without filtering flatTree first.
-									// Ideally useProductsHierarchy should support filtering types.
-
+									// Only show Folders and Products, hide Items
 									if (node.type === "product_item") return null;
+
+									const isProduct = node.type === "product";
+									const iconBg =
+										node.type === "folder"
+											? "bg-amber-500/10 dark:bg-amber-500/20"
+											: "bg-blue-500/10 dark:bg-blue-500/20";
+									const iconColor =
+										node.type === "folder"
+											? "text-amber-600 dark:text-amber-500"
+											: "text-blue-600 dark:text-blue-500";
 
 									return (
 										<div
@@ -101,11 +124,15 @@ export function IngredientSelector({
 											{/* Render Node for Selection */}
 											<button
 												type="button"
-												className="flex items-center p-2 hover:bg-muted/50 cursor-pointer border-b w-full text-left"
-												style={{ paddingLeft: `${node.level * 20}px` }}
-												disabled={node.type !== "product"}
+												className={`flex items-center p-3 w-full text-left border-b border-border/50 transition-all duration-150 ${
+													isProduct
+														? "hover:bg-gradient-to-r hover:from-primary/5 hover:to-primary/10 cursor-pointer hover:border-l-2 hover:border-l-primary"
+														: "cursor-default opacity-60"
+												}`}
+												style={{ paddingLeft: `${node.level * 20 + 12}px` }}
+												disabled={!isProduct}
 												onClick={() => {
-													if (node.type === "product" && node.data) {
+													if (isProduct && node.data) {
 														onSelect(node.data as Product);
 														onClose();
 													}
@@ -113,7 +140,7 @@ export function IngredientSelector({
 												onKeyDown={(e) => {
 													if (
 														(e.key === "Enter" || e.key === " ") &&
-														node.type === "product" &&
+														isProduct &&
 														node.data
 													) {
 														e.preventDefault();
@@ -122,18 +149,27 @@ export function IngredientSelector({
 													}
 												}}
 											>
-												<span className="mr-2 text-muted-foreground">
-													{node.type === "folder" ? "📁" : "📦"}
-												</span>
+												{/* Icon with background */}
+												<div
+													className={`flex items-center justify-center w-7 h-7 rounded-md mr-3 ${iconBg} border border-border/30 transition-transform ${
+														isProduct ? "group-hover:scale-110" : ""
+													}`}
+												>
+													<span className={`text-base ${iconColor}`}>
+														{node.type === "folder" ? "📁" : "📦"}
+													</span>
+												</div>
+
 												<span
-													className={
-														node.type === "product" ? "font-medium" : ""
-													}
+													className={`flex-1 font-sans text-sm ${
+														isProduct ? "font-medium" : ""
+													}`}
 												>
 													{node.label}
 												</span>
-												{node.type === "product" && (
-													<span className="ml-auto text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+
+												{isProduct && (
+													<span className="ml-auto px-2.5 py-1 rounded-md text-xs font-mono tracking-wide bg-primary/10 text-primary border border-primary/20 transition-all opacity-0 group-hover:opacity-100">
 														Selecionar
 													</span>
 												)}

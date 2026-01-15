@@ -133,8 +133,12 @@ export const features: Feature[] = [
 export const Route = createFileRoute("/_public/")({
 	head: () => ({
 		meta: [
-			{ title: "Previsão SISUB" },
-			{ name: "description", content: "Ajude a melhorar o SISUB" },
+			{ title: "SISUB - Sistema de Subsistência" },
+			{
+				name: "description",
+				content:
+					"Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.",
+			},
 		],
 	}),
 	component: Home,
@@ -146,6 +150,7 @@ export const Route = createFileRoute("/_public/")({
 
 /**
  * Página inicial pública do SISUB
+ * Enhanced with Industrial-Technical aesthetic
  *
  * Seções:
  * 1. Hero - Apresentação principal com CTA
@@ -167,49 +172,57 @@ function Home() {
 			{/* Como Funciona */}
 			<Appear
 				id="steps"
-				className="py-16 md:py-20"
+				className="py-16 md:py-24 bg-gradient-to-b from-background via-muted/10 to-background"
 				aria-labelledby="steps-heading"
 			>
 				<div className="text-center mb-14">
-					<Badge variant="outline" className="mx-auto mb-3 gap-2">
+					<Badge
+						variant="outline"
+						className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30"
+					>
 						<Star className="h-4 w-4 text-primary" />
 						Passo a passo
 					</Badge>
 
 					<h2
 						id="steps-heading"
-						className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-4"
+						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
 					>
 						Como funciona o sistema
 					</h2>
-					<p className="text-muted-foreground max-w-2xl mx-auto">
+					<p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
 						Um processo simples e eficiente para gerenciar suas previsões de
 						refeições
 					</p>
 				</div>
 
 				<div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
-					{steps.map((step) => {
+					{steps.map((step, index) => {
 						const Icon = step.icon;
 						return (
 							<Card
 								key={step.title}
-								className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus-within:ring-1 focus-within:ring-ring"
+								className="group relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/10 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary/50 stagger-item"
+								style={{ animationDelay: `${index * 0.1}s` }}
 							>
-								<div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-primary/50 via-primary/20 to-primary/50" />
-								<CardHeader className="text-center">
-									<div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted ring-1 ring-inset ring-border">
+								{/* Top accent line */}
+								<div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
+
+								<CardHeader className="text-center pt-8">
+									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-inset ring-primary/20 transition-transform duration-300 group-hover:scale-110">
 										<Icon className="h-8 w-8 text-primary" />
 									</div>
-									<CardTitle className="text-xl">{step.title}</CardTitle>
-									<CardDescription className="text-muted-foreground">
+									<CardTitle className="text-xl font-sans font-bold">
+										{step.title}
+									</CardTitle>
+									<CardDescription className="text-muted-foreground leading-relaxed">
 										{step.description}
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
 									<div
 										aria-hidden
-										className="pointer-events-none absolute -right-10 -bottom-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl transition-all duration-300 group-hover:scale-110"
+										className="pointer-events-none absolute -right-10 -bottom-10 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-all duration-300 group-hover:scale-125"
 									/>
 								</CardContent>
 							</Card>
@@ -221,42 +234,61 @@ function Home() {
 			{/* Tipos de Refeição */}
 			<Appear
 				id="meals"
-				className="py-16 md:py-20"
+				className="py-16 md:py-24"
 				aria-labelledby="meals-heading"
 			>
 				<div className="text-center mb-14">
-					<Badge variant="outline" className="mx-auto mb-3 gap-2">
+					<Badge
+						variant="outline"
+						className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30"
+					>
 						<UtensilsCrossed className="h-4 w-4 text-primary" />
 						Refeições
 					</Badge>
-				</div>
 
-				<div className="text-center mb-6">
 					<h2
 						id="meals-heading"
-						className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-4"
+						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
 					>
 						Tipos de refeição disponíveis
 					</h2>
-					<p className="text-muted-foreground">
+					<p className="text-muted-foreground text-base md:text-lg leading-relaxed">
 						Marque quais refeições você irá consumir em cada dia
 					</p>
 				</div>
 
 				<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-					{mealTypes.map((meal) => {
+					{mealTypes.map((meal, index) => {
 						const Icon = meal.icon;
+						const colors = [
+							"amber", // Café
+							"blue", // Almoço
+							"orange", // Janta
+							"purple", // Ceia
+						];
+						const color = colors[index] || "blue";
+
 						return (
 							<Card
 								key={meal.label}
 								tabIndex={0}
-								className="group rounded-xl border border-border bg-card text-center shadow-sm ring-1 ring-inset ring-transparent hover:ring-border transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring"
+								className={`group rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/10 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-${color}-500/30 focus-visible:ring-2 focus-visible:ring-primary/50 stagger-item`}
+								style={{ animationDelay: `${index * 0.1}s` }}
 							>
-								<CardHeader>
-									<div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted ring-1 ring-inset ring-border">
-										<Icon className="h-8 w-8 text-foreground/80" />
+								<CardHeader className="pt-8">
+									<div
+										className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-${color}-500/10 ring-2 ring-inset ring-${color}-500/20 transition-transform duration-300 group-hover:scale-110`}
+									>
+										<Icon
+											className={`h-8 w-8 text-${color}-600 dark:text-${color}-500`}
+										/>
 									</div>
-									<CardTitle className="text-lg">{meal.label}</CardTitle>
+									<CardTitle className="text-lg font-sans font-bold">
+										{meal.label}
+									</CardTitle>
+									<p className="text-sm font-mono text-muted-foreground mt-1">
+										{meal.time}
+									</p>
 								</CardHeader>
 							</Card>
 						);
@@ -264,45 +296,53 @@ function Home() {
 				</div>
 			</Appear>
 
-			{/* Features (sem Tabs; simplificado) */}
+			{/* Features */}
 			<Appear
 				id="features"
-				className="py-16 md:py-20"
+				className="py-16 md:py-24 bg-gradient-to-b from-background via-muted/10 to-background"
 				aria-labelledby="features-heading"
 			>
 				<div className="text-center mb-14">
-					<Badge variant="outline" className="mx-auto mb-3 gap-2">
+					<Badge
+						variant="outline"
+						className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30"
+					>
 						<Star className="h-4 w-4 text-primary" />
 						Funcionalidades
 					</Badge>
 					<h2
 						id="features-heading"
-						className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-4"
+						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
 					>
 						Principais funcionalidades
 					</h2>
-					<p className="text-muted-foreground max-w-2xl mx-auto">
+					<p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
 						Desenvolvido especificamente para atender as necessidades do rancho
 						militar
 					</p>
 				</div>
 
 				{/* Destaque da feature atual */}
-				<div className="max-w-4xl mx-auto mb-8">
-					<div className="rounded-xl p-8 text-primary-foreground text-center shadow-lg ring-1 ring-inset ring-border/30 bg-linear-to-r from-primary to-primary/85">
-						<div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/10 ring-1 ring-inset ring-primary-foreground/20">
-							<CurrentFeatureIcon className="h-10 w-10 text-primary-foreground" />
+				<div className="max-w-4xl mx-auto mb-10">
+					<div className="relative rounded-2xl p-8 md:p-12 text-primary-foreground text-center shadow-xl ring-1 ring-inset ring-border/30 bg-gradient-to-br from-primary via-primary to-primary/85 overflow-hidden">
+						{/* Dot pattern overlay */}
+						<div className="absolute inset-0 bg-dot-pattern opacity-10 -z-0" />
+
+						<div className="relative z-10">
+							<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 ring-2 ring-inset ring-primary-foreground/30 backdrop-blur-sm">
+								<CurrentFeatureIcon className="h-10 w-10 text-primary-foreground" />
+							</div>
+							<h3 className="text-2xl md:text-3xl font-sans font-bold mb-4 drop-shadow-sm">
+								{features[currentFeature]?.title ?? "—"}
+							</h3>
+							<p className="text-base md:text-lg leading-relaxed text-primary-foreground/90 max-w-2xl mx-auto">
+								{features[currentFeature]?.description ?? ""}
+							</p>
 						</div>
-						<h3 className="text-2xl font-bold mb-3 drop-shadow-sm">
-							{features[currentFeature]?.title ?? "—"}
-						</h3>
-						<p className="text-base md:text-lg/relaxed text-primary-foreground/90">
-							{features[currentFeature]?.description ?? ""}
-						</p>
 					</div>
 				</div>
 
-				<Separator className="my-6" />
+				<Separator className="my-8 max-w-6xl mx-auto" />
 
 				{/* Grid de features com seleção */}
 				<div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -314,30 +354,30 @@ function Home() {
 								type="button"
 								key={feature.title}
 								onClick={() => setCurrentFeature(index)}
-								className={`group w-full text-left rounded-xl border bg-card p-6 shadow-sm transition-all duration-300 border-border ring-1 ring-inset ${
+								className={`group w-full text-left rounded-xl border bg-gradient-to-br from-card to-muted/10 p-6 shadow-sm transition-all duration-300 border-border/50 ring-2 ring-inset ${
 									active
-										? "ring-primary/40 shadow-md"
-										: "ring-transparent hover:-translate-y-0.5 hover:shadow-md hover:ring-border"
-								} focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
+										? "ring-primary/40 shadow-lg scale-[1.02]"
+										: "ring-transparent hover:-translate-y-1 hover:shadow-md hover:ring-border/50"
+								} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
 								aria-pressed={active}
 							>
 								<div className="mb-3 flex items-center gap-3">
 									<div
-										className={`flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ring-border ${
+										className={`flex h-12 w-12 items-center justify-center rounded-xl ring-2 ring-inset transition-all ${
 											active
-												? "bg-primary/10 text-primary"
-												: "bg-muted text-foreground/80"
+												? "bg-primary/15 text-primary ring-primary/30 scale-110"
+												: "bg-muted text-foreground/80 ring-border"
 										}`}
 									>
-										<Icon className="h-5 w-5" />
+										<Icon className="h-6 w-6" />
 									</div>
 									<h3
-										className={`text-lg font-bold ${active ? "text-primary" : "text-card-foreground"}`}
+										className={`text-lg font-sans font-bold ${active ? "text-primary" : "text-card-foreground"}`}
 									>
 										{feature.title}
 									</h3>
 								</div>
-								<p className="text-muted-foreground text-sm">
+								<p className="text-muted-foreground text-sm leading-relaxed">
 									{feature.description}
 								</p>
 							</button>
@@ -383,44 +423,60 @@ function Home() {
 			</section>
 
 			{/* CTA Final */}
-			<Appear id="cta" className="relative py-20" aria-labelledby="cta-heading">
-				<div className="relative text-center max-w-3xl mx-auto rounded-2xl bg-linear-to-r from-primary to-primary/85 text-primary-foreground shadow-lg ring-1 ring-inset ring-border/30 overflow-hidden p-10 px-20">
+			<Appear
+				id="cta"
+				className="relative py-20 md:py-24"
+				aria-labelledby="cta-heading"
+			>
+				<div className="relative text-center max-w-4xl mx-auto rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/85 text-primary-foreground shadow-2xl ring-1 ring-inset ring-border/30 overflow-hidden p-10 md:p-16">
+					{/* Dot pattern overlay */}
+					<div className="absolute inset-0 bg-dot-pattern opacity-10" />
+
+					{/* Radial gradient overlay */}
 					<div
 						aria-hidden
-						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_50%)]"
+						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.15),transparent_60%)]"
 					/>
-					<div className="relative">
+
+					<div className="relative z-10">
 						<h2
 							id="cta-heading"
-							className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4"
+							className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight mb-6"
 						>
 							Pronto para começar?
 						</h2>
-						<p className="text-primary-foreground/85 text-lg mb-8">
+						<p className="text-primary-foreground/90 text-base md:text-lg leading-relaxed mb-10 max-w-2xl mx-auto">
 							Faça parte da modernização do SISUB. Acesse agora e comece a
 							planejar suas refeições de forma inteligente.
 						</p>
 
-						<div className="flex flex-col items-center gap-3">
-							<Button asChild size="lg" variant="secondary" className="gap-2">
+						<div className="flex flex-col items-center gap-4">
+							<Button
+								asChild
+								size="lg"
+								variant="secondary"
+								className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+							>
 								<Link to="/auth" aria-label="Ir para a página de login">
 									Fazer Login
 									<ChevronRight className="h-5 w-5" />
 								</Link>
 							</Button>
 
-							<div className="mt-6 flex flex-wrap justify-center items-center gap-6 text-primary-foreground/85">
+							<div className="mt-8 flex flex-wrap justify-center items-center gap-6 md:gap-8 text-primary-foreground/85">
 								<div className="flex items-center gap-2">
 									<Users className="h-5 w-5" />
-									<span className="text-sm">Sistema colaborativo</span>
+									<span className="text-sm font-sans">
+										Sistema colaborativo
+									</span>
 								</div>
 								<div className="flex items-center gap-2">
 									<Clock className="h-5 w-5" />
-									<span className="text-sm">Disponível 24/7</span>
+									<span className="text-sm font-sans">Disponível 24/7</span>
 								</div>
 								<div className="flex items-center gap-2">
 									<ShieldBadge />
-									<span className="text-sm">Dados seguros</span>
+									<span className="text-sm font-sans">Dados seguros</span>
 								</div>
 							</div>
 						</div>
@@ -438,6 +494,7 @@ function Home() {
 /**
  * Hero da página inicial
  * Apresenta o título principal, descrição e CTA para acessar o sistema
+ * Enhanced with Industrial-Technical aesthetic
  */
 
 function HomeHero() {
@@ -445,39 +502,46 @@ function HomeHero() {
 		<Appear
 			id="hero"
 			as="div"
-			className="px-4 py-16"
+			className="relative px-4 py-20 md:py-28 overflow-hidden"
 			inClass="opacity-100 translate-y-0"
 			outClass="opacity-0 translate-y-10"
-			duration="duration-500"
+			duration="duration-700"
 		>
-			<div className="text-center space-y-6 max-w-4xl mx-auto">
+			{/* Dot pattern background */}
+			<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
+
+			<div className="relative text-center space-y-8 max-w-5xl mx-auto">
 				<Badge
 					variant="secondary"
-					className="px-4 py-2 text-sm font-medium animate-pulse"
+					className="px-4 py-2 text-sm font-sans font-medium border border-border/50"
 				>
 					Sistema de Previsão de Subsistência
 				</Badge>
 
-				<h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight">
+				<h1 className="text-4xl md:text-6xl lg:text-7xl font-sans font-bold text-foreground leading-tight tracking-tight">
 					Sistema de
-					<span className="block text-transparent bg-clip-text bg-linear-to-r from-primary to-primary/60">
+					<span className="block mt-2 text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-primary/60">
 						Subsistência
 					</span>
 				</h1>
 
-				<p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+				<p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
 					Sistema inteligente para previsão de demanda do rancho. Planeje suas
 					refeições, reduza desperdícios e otimize a gestão alimentar.
 				</p>
 
-				<div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-6">
-					<Button asChild size="lg" className="gap-2">
+				<div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
+					<Button
+						asChild
+						size="lg"
+						className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+					>
 						<Link to="/auth">Acessar Sistema</Link>
 					</Button>
 
 					<div className="flex items-center space-x-2 text-sm text-muted-foreground">
 						<ShieldBadge />
-						<span>Login seguro necessário</span>
+						<span className="font-sans">Login seguro necessário</span>
 					</div>
 				</div>
 			</div>
@@ -510,6 +574,7 @@ type InfoChip = {
 /**
  * Card informativo com badge, título, descrição, chips e CTA
  * Usado nas seções Tutorial e Changelog
+ * Enhanced with Industrial-Technical aesthetic
  */
 
 function InfoCard(props: {
@@ -530,14 +595,19 @@ function InfoCard(props: {
 	} = props;
 
 	return (
-		<Card className="transition-all duration-700">
+		<Card className="transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50 bg-gradient-to-br from-card to-muted/10">
 			<CardHeader className="items-center text-center">
-				<Badge variant="outline" className="mx-auto mb-1 gap-2">
+				<Badge
+					variant="outline"
+					className="mx-auto mb-3 gap-2 px-3 py-1.5 font-sans border-primary/30"
+				>
 					<BadgeIcon className="h-4 w-4 text-primary" />
 					{badgeText}
 				</Badge>
-				<CardTitle className="text-2xl md:text-3xl">{title}</CardTitle>
-				<CardDescription className="text-muted-foreground max-w-md mx-auto">
+				<CardTitle className="text-2xl md:text-3xl font-sans font-bold">
+					{title}
+				</CardTitle>
+				<CardDescription className="text-muted-foreground max-w-md mx-auto leading-relaxed">
 					{description}
 				</CardDescription>
 			</CardHeader>
@@ -547,7 +617,11 @@ function InfoCard(props: {
 						{chips.map((c) => {
 							const Icon = c.icon;
 							return (
-								<Badge key={c.text} variant="secondary" className="gap-1">
+								<Badge
+									key={c.text}
+									variant="secondary"
+									className="gap-1.5 px-2.5 py-1 font-mono text-xs"
+								>
 									<Icon className="h-3.5 w-3.5" />
 									{c.text}
 								</Badge>
@@ -555,8 +629,12 @@ function InfoCard(props: {
 						})}
 					</div>
 				)}
-				<Button asChild variant="default">
-					<Link to={cta.to} aria-label={cta.label} className="gap-2">
+				<Button
+					asChild
+					variant="default"
+					className="gap-2 font-sans font-semibold"
+				>
+					<Link to={cta.to} aria-label={cta.label}>
 						{cta.label}
 						<ChevronRight className="h-5 w-5" />
 					</Link>

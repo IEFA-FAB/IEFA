@@ -55,21 +55,29 @@ function IngredientsPage() {
 	return (
 		<div className="min-h-screen">
 			{/* Hero */}
-			<section id="hero" className="border-b bg-muted/20">
-				<div className="container mx-auto max-w-screen-2xl px-4 py-8 md:py-12">
-					<div className="flex flex-col gap-4">
-						<div>
-							<h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+			<section
+				id="hero"
+				className="relative border-b bg-gradient-to-br from-muted/30 via-background to-muted/20 overflow-hidden"
+			>
+				{/* Subtle dot pattern background */}
+				<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
+
+				<div className="container mx-auto max-w-screen-2xl px-4 py-8 md:py-12 lg:py-16">
+					<div className="flex flex-col gap-4 md:gap-6">
+						<div className="space-y-2 md:space-y-3">
+							<h1 className="font-sans font-bold text-3xl md:text-4xl lg:text-5xl tracking-tight">
 								Gestão de Insumos
 							</h1>
-							<p className="mt-2 text-lg text-muted-foreground">
+							<p className="mt-2 text-base md:text-lg leading-relaxed text-muted-foreground max-w-3xl">
 								Gerenciar a hierarquia de produtos: pastas, produtos genéricos e
 								itens de compra
 							</p>
 						</div>
-						<div className="flex items-center gap-2 text-sm text-muted-foreground">
-							<span className="font-semibold">Acesso:</span>
-							<span>Superadmin (SDAB)</span>
+						<div className="flex items-center gap-2 text-sm md:text-base text-muted-foreground">
+							<span className="font-sans font-medium">Acesso:</span>
+							<span className="inline-flex items-center px-2.5 py-1 rounded-md bg-primary/10 text-primary font-mono text-xs md:text-sm tracking-wide border border-primary/20">
+								Superadmin (SDAB)
+							</span>
 						</div>
 					</div>
 				</div>

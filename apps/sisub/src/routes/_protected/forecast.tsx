@@ -512,46 +512,58 @@ export default function Forecast(): JSX.Element {
 
 	return (
 		<div className="w-full mx-auto flex flex-col p-4 sm:p-6 space-y-6">
-			{/* Header */}
-			<header className="flex flex-wrap items-center justify-between gap-3">
-				<h1 className="text-lg sm:text-xl font-semibold">Previsão SISUB</h1>
+			{/* Header - Enhanced with Industrial-Technical aesthetic */}
+			<header className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 via-background to-muted/20 p-6 border border-border/50">
+				{/* Dot pattern overlay */}
+				<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
 
-				<div className="flex flex-wrap items-center gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={handleToggleMessHallSelector}
-						className="hover:bg-accent/10 cursor-pointer"
-						aria-label="Definir rancho padrão"
-					>
-						<Settings className="h-4 w-4 mr-2" />
-						Rancho Padrão
-					</Button>
+				<div className="relative flex flex-wrap items-center justify-between gap-4">
+					<div>
+						<h1 className="text-2xl sm:text-3xl font-sans font-bold text-foreground">
+							Previsão SISUB
+						</h1>
+						<p className="text-sm text-muted-foreground mt-1 font-sans">
+							Gerencie suas refeições para os próximos 30 dias
+						</p>
+					</div>
 
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
-						disabled={isLoading}
-						className="hover:bg-accent/10 cursor-pointer"
-						aria-label="Aplicar refeições em massa"
-					>
-						<UtensilsCrossed className="h-4 w-4 mr-2" />
-						Refeições em Massa
-					</Button>
+					<div className="flex flex-wrap items-center gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={handleToggleMessHallSelector}
+							className="hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all cursor-pointer"
+							aria-label="Definir rancho padrão"
+						>
+							<Settings className="h-4 w-4 mr-2" />
+							Rancho Padrão
+						</Button>
 
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={handleRefresh}
-						disabled={isLoading || isRefetching}
-						className="cursor-pointer"
-						aria-label="Recarregar previsões"
-					>
-						<RefreshCw
-							className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
-						/>
-					</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
+							disabled={isLoading}
+							className="hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all cursor-pointer"
+							aria-label="Aplicar refeições em massa"
+						>
+							<UtensilsCrossed className="h-4 w-4 mr-2" />
+							Refeições em Massa
+						</Button>
+
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={handleRefresh}
+							disabled={isLoading || isRefetching}
+							className="cursor-pointer hover:bg-secondary/10 hover:border-secondary/30 transition-all"
+							aria-label="Recarregar previsões"
+						>
+							<RefreshCw
+								className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`}
+							/>
+						</Button>
+					</div>
 				</div>
 			</header>
 

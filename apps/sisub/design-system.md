@@ -582,7 +582,343 @@ interface MealKey {  // Já existe em types/domain/meal.ts
     *   Use `aria-expanded`, `aria-controls` e `role` corretamente em componentes customizados.
     *   Garanta foco visível (`focus-visible:ring`) em todos os inputs e botões.
 
-## 5. Padrões de Design Visual (Tailwind v4)
+## 5. Estética Frontend: Industrial-Technical
+
+> [!NOTE]
+> Esta seção define a identidade visual única do SISUB, aplicando princípios da skill **frontend-design** para criar interfaces distintivas e memoráveis que evitam estéticas genéricas de "AI slop".
+
+### 5.1 Conceito \u0026 Filosofia
+
+**Industrial-Technical** é a direção estética que define a personalidade visual do SISUB. Ela equilibra a natureza utilitária de gestão de subsistência militar com sofisticação moderna, refletindo:
+
+- **Precisão Operacional:** Como a FAB opera - estruturado, confiável, eficiente
+- **Modernidade Técnica:** Interface contemporânea sem ser trendy ou efêmera
+- **Caos Estruturado:** Layouts assimétricos dentro de grids rigorosos
+- **Profundidade em Camadas:** Elevação visual através de sombras, borders e overlays sutis
+
+**O que NÃO é:**
+- ❌ Minimalismo extremo sem personalidade
+- ❌ Maximalismo caótico sem hierarquia
+- ❌ Design corporativo genérico (Inter/Roboto + cards brancos)
+- ❌ Gradientes purple/pink clichês de SaaS
+
+### 5.2 Tipografia
+
+A tipografia é o elemento mais crítico para estabelecer personalidade distintiva.
+
+#### Família de Fontes
+
+```css
+/* Google Fonts - Carregamento otimizado */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+```
+
+**Configuração Tailwind:**
+```javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['DM Sans', 'ui-sans-serif', 'system-ui'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+      },
+    },
+  },
+}
+```
+
+#### Aplicação por Contexto
+
+| Contexto | Fonte | Peso | Uso |
+|----------|-------|------|-----|
+| **Headlines** (H1-H3) | DM Sans | 700 (Bold) | Títulos de página, seções principais |
+| **Subheadings** (H4-H6) | DM Sans | 500 (Medium) | Subtítulos, labels de seção |
+| **Body Text** | DM Sans | 400 (Regular) | Parágrafos, descrições, conteúdo geral |
+| **UI Elements** | DM Sans | 500 (Medium) | Botões, badges, tabs |
+| **Data Display** | JetBrains Mono | 400-500 | Números, códigos, IDs, barcodes, timestamps |
+| **Code Blocks** | JetBrains Mono | 400 | Snippets, logs, JSON |
+
+#### Escala Tipográfica
+
+```tsx
+// Exemplos de uso
+<h1 className="font-sans font-bold text-3xl md:text-4xl lg:text-5xl tracking-tight">
+  Gestão de Insumos
+</h1>
+
+<p className="font-sans text-base leading-relaxed text-muted-foreground">
+  Descrição padrão de conteúdo com boa legibilidade.
+</p>
+
+<span className="font-mono text-sm tracking-wide">
+  #BR7894561234
+</span>
+```
+
+**Regras de Ouro:**
+- ✅ **Sempre** use `font-mono` para dados numéricos, IDs, códigos
+- ✅ **Sempre** use `font-sans` para texto legível (UI, parágrafos)
+- ✅ Combine pesos diferentes na mesma interface para criar hierarquia
+- ❌ **Nunca** use system fonts genéricos (Inter, Roboto, Arial) como primários
+- ❌ **Nunca** use mais de 2 famílias de fonte no projeto
+
+### 5.3 Layout \u0026 Composição Espacial
+
+#### Grids Assimétricos
+
+Evite layouts previsíveis de 3 colunas iguais. Prefira composições assimétricas dentro de grids estruturados:
+
+```tsx
+// ❌ EVITAR: Grid simétrico genérico
+<div className="grid grid-cols-3 gap-4">
+  <Card />
+  <Card />
+  <Card />
+</div>
+
+// ✅ PREFERIR: Assimetria intencional
+<div className="grid grid-cols-12 gap-4">
+  <Card className="col-span-5" /> {/* Elemento dominante */}
+  <Card className="col-span-4" />
+  <Card className="col-span-3" />
+</div>
+```
+
+#### Espaçamento Responsivo
+
+Use escala progressiva de espaçamento que cresce com o viewport:
+
+```tsx
+// Padding/Margin responsivo
+className="p-4 md:p-6 lg:p-10"
+
+// Gaps responsivos
+className="gap-4 md:gap-6 lg:gap-8"
+
+// Container com breathing room
+className="container mx-auto max-w-screen-2xl px-4 py-8 md:py-12 lg:py-16"
+```
+
+#### Elementos com Overlap
+
+Use sobreposição para criar profundidade:
+
+```tsx
+// Header com background gradient sobreposto
+<section className="relative">
+  <div className="absolute inset-0 bg-gradient-to-br from-muted/30 via-background to-muted/20 -z-10" />
+  <div className="relative">
+    {/* Conteúdo */}
+  </div>
+</section>
+```
+
+### 5.4 Motion \u0026 Micro-Interações
+
+Animações devem ter **propósito**, não serem apenas decorativas. Cada movimento deve comunicar estado, hierarquia, ou guiar atenção.
+
+#### Princípios de Animação
+
+1. **Duração:** 100-300ms para interações, 500-800ms para transições de página
+2. **Easing:** `ease-out` para entradas, `ease-in-out` para transformações
+3. **Stagger:** Elementos múltiplos aparecem sequencialmente (0.05-0.1s delay)
+4. **GPU-First:** Prefira `transform` e `opacity` sobre `width`, `height`, `top`, `left`
+
+#### Biblioteca de Micro-Interações
+
+```tsx
+// 1. Hover Lift (Cards, Buttons)
+className="transition-all duration-150 hover:-translate-y-0.5 hover:shadow-lg"
+
+// 2. Scale Press (Buttons)
+className="transition-transform active:scale-[0.98]"
+
+// 3. Fade \u0026 Slide In (Modals, Drawers)
+className="animate-in fade-in slide-in-from-bottom-4 duration-300"
+
+// 4. Staggered Reveals (Lists)
+// CSS
+.stagger-item {
+  animation: fadeSlideIn 0.3s ease-out forwards;
+  opacity: 0;
+}
+.stagger-item:nth-child(1) { animation-delay: 0.05s; }
+.stagger-item:nth-child(2) { animation-delay: 0.1s; }
+.stagger-item:nth-child(3) { animation-delay: 0.15s; }
+
+// 5. Gradient Border on Focus
+className="relative focus-within:after:absolute focus-within:after:inset-0 
+            focus-within:after:rounded-md focus-within:after:border-2
+            focus-within:after:border-primary focus-within:after:animate-pulse"
+
+// 6. Icon Rotation (Search, Expand)
+className="transition-transform group-hover:rotate-12"
+
+// 7. Shake on Error (Form Validation)
+// Use animation utility or custom keyframe
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+```
+
+#### Respeitar Preferências do Usuário
+
+**Sempre** implemente `prefers-reduced-motion`:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+### 5.5 Detalhes Visuais \u0026 Atmosfera
+
+#### Backgrounds \u0026 Texturas
+
+```tsx
+// 1. Subtle Dot Grid Pattern (Hero Sections)
+<div className="relative">
+  <div className="absolute inset-0 bg-dot-pattern opacity-5" />
+  {/* Conteúdo */}
+</div>
+
+// CSS para dot pattern
+.bg-dot-pattern {
+  background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+// 2. Gradient Overlays (Cards, Sections)
+className="bg-gradient-to-br from-muted/20 to-background"
+
+// 3. Noise Texture (Adiciona grão органico)
+// Aplique via CSS custom property ou SVG filter
+filter: url(#noiseFilter);
+```
+
+#### Sombras \u0026 Elevação
+
+Sistema de elevação em 4 níveis:
+
+```tsx
+// Level 1: Flat (default)
+className="shadow-none"
+
+// Level 2: Resting (cards em estado normal)
+className="shadow-sm" 
+// box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.06)
+
+// Level 3: Hover (cards, buttons em hover)
+className="shadow-md"
+// box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.12)
+
+// Level 4: Modal/Dialog (elementos flutuantes)
+className="shadow-xl"
+// box-shadow: 0 10px 40px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)
+```
+
+#### Borders \u0026 Separadores
+
+```tsx
+// Border padrão (subtle)
+className="border border-border/50"
+
+// Border com gradient (destaque)
+<div className="relative p-[1px] rounded-lg bg-gradient-to-r from-primary/50 to-primary/20">
+  <div className="bg-background rounded-lg p-4">
+    {/* Conteúdo */}
+  </div>
+</div>
+
+// Divider com fade
+className="border-t border-gradient-to-r from-transparent via-border to-transparent"
+```
+
+#### Paleta de Cores - Extensões
+
+Além das cores semânticas do design system (`primary`, `destructive`, `muted`), use:
+
+```tsx
+// Accent colors para tipos de dados
+const colorMap = {
+  folder: "text-amber-600 dark:text-amber-500 bg-amber-500/10",
+  product: "text-blue-600 dark:text-blue-500 bg-blue-500/10",
+  item: "text-emerald-600 dark:text-emerald-500 bg-emerald-500/10",
+}
+
+// Gradientes para actions
+className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+```
+
+### 5.6 Componentes Exemplo
+
+#### Card Elevado com Hover
+
+```tsx
+<Card className="
+  group
+  transition-all duration-200 ease-out
+  hover:-translate-y-1 hover:shadow-lg
+  border border-border/50
+  bg-gradient-to-br from-card to-muted/10
+">
+  <CardContent className="p-6">
+    <div className="flex items-center justify-between">
+      <h3 className="font-sans font-bold text-lg">
+        {title}
+      </h3>
+      <div className="
+        transition-transform duration-200
+        group-hover:rotate-12
+      ">
+        <Icon className="w-5 h-5 text-primary" />
+      </div>
+    </div>
+  </CardContent>
+</Card>
+```
+
+#### Data Badge (Monospace)
+
+```tsx
+<span className="
+  inline-flex items-center gap-1.5
+  px-2.5 py-1 rounded-md
+  font-mono text-xs tracking-wide
+  bg-muted/50 text-muted-foreground
+  border border-border/30
+">
+  <Hash className="w-3 h-3" />
+  {barcode}
+</span>
+```
+
+### 5.7 Checklist de Implementação
+
+Ao criar ou revisar componentes, verifique:
+
+- [ ] Fontes: DM Sans para UI, JetBrains Mono para dados?
+- [ ] Typography: Hierarquia clara com pesos variados?
+- [ ] Layout: Assimétrico mas estruturado?
+- [ ] Motion: Animações com propósito (hover, focus, load)?
+- [ ] Sombras: Elevação apropriada ao contexto?
+- [ ] Borders: Gradientes em elementos focados?
+- [ ] Colors: Paleta semântica + accents contextuais?
+- [ ] Responsividade: Breakpoints mobile/tablet/desktop testados?
+- [ ] Acessibilidade: ARIA, keyboard nav, reduced motion?
+
+---
+
+## 6. Padrões de Design Visual (Tailwind v4)
 *   **Cores Semânticas:** `bg-primary`, `bg-destructive`, `bg-muted`.
 *   **Layout:** Container padrão `w-full mx-auto`.
 *   **Feedback:** Use Toasts para sucesso/erro.

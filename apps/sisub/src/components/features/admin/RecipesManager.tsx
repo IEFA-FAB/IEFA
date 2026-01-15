@@ -34,27 +34,36 @@ export function RecipesManager() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex justify-between items-center">
-				<div>
-					<h2 className="text-2xl font-bold tracking-tight">Receitas</h2>
-					<p className="text-muted-foreground">
-						Gerencie o catálogo de receitas, versionamento e fichas técnicas.
-					</p>
+			{/* Header - Enhanced with Industrial-Technical aesthetic */}
+			<div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 via-background to-muted/20 p-6 border border-border/50">
+				{/* Dot pattern overlay */}
+				<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
+
+				<div className="relative flex justify-between items-center">
+					<div>
+						<h2 className="text-2xl md:text-3xl font-sans font-bold tracking-tight text-foreground">
+							Receitas
+						</h2>
+						<p className="text-sm md:text-base text-muted-foreground mt-1 font-sans">
+							Gerencie o catálogo de receitas, versionamento e fichas técnicas.
+						</p>
+					</div>
+					<Link to="/admin/recipes/new">
+						<Button className="gap-2 transition-all hover:scale-105">
+							<Plus className="w-4 h-4" />
+							Nova Receita
+						</Button>
+					</Link>
 				</div>
-				<Link to="/admin/recipes/new">
-					<Button>
-						<Plus className="w-4 h-4 mr-2" />
-						Nova Receita
-					</Button>
-				</Link>
 			</div>
 
-			<div className="flex gap-4 items-center bg-card p-4 rounded-lg border shadow-sm">
-				<div className="relative flex-1 max-w-sm">
-					<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+			{/* Search & Filters - Enhanced */}
+			<div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center bg-gradient-to-br from-card to-muted/10 p-5 rounded-xl border border-border/50 shadow-sm">
+				<div className="relative flex-1 max-w-md">
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform group-focus-within:scale-110" />
 					<Input
 						placeholder="Buscar receita..."
-						className="pl-8"
+						className="pl-10 group transition-all focus:ring-2 focus:ring-primary/50"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 					/>
@@ -64,6 +73,7 @@ export function RecipesManager() {
 						variant={filter === "all" ? "secondary" : "ghost"}
 						onClick={() => setFilter("all")}
 						size="sm"
+						className="transition-all"
 					>
 						Todas
 					</Button>
@@ -71,6 +81,7 @@ export function RecipesManager() {
 						variant={filter === "global" ? "secondary" : "ghost"}
 						onClick={() => setFilter("global")}
 						size="sm"
+						className="transition-all"
 					>
 						Globais (SDAB)
 					</Button>
@@ -78,21 +89,29 @@ export function RecipesManager() {
 						variant={filter === "local" ? "secondary" : "ghost"}
 						onClick={() => setFilter("local")}
 						size="sm"
+						className="transition-all"
 					>
 						Locais
 					</Button>
 				</div>
 			</div>
 
-			<div className="rounded-md border bg-card">
+			{/* Table - Enhanced */}
+			<div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/5 shadow-sm overflow-hidden">
 				<Table>
 					<TableHeader>
-						<TableRow>
-							<TableHead>Nome</TableHead>
-							<TableHead>Versão</TableHead>
-							<TableHead>Origem</TableHead>
-							<TableHead>Rendimento</TableHead>
-							<TableHead className="text-right">Ações</TableHead>
+						<TableRow className="border-b border-border/50 bg-muted/30">
+							<TableHead className="font-sans font-semibold pl-6">
+								Nome
+							</TableHead>
+							<TableHead className="font-sans font-semibold">Versão</TableHead>
+							<TableHead className="font-sans font-semibold">Origem</TableHead>
+							<TableHead className="font-sans font-semibold">
+								Rendimento
+							</TableHead>
+							<TableHead className="text-right font-sans font-semibold pr-6">
+								Ações
+							</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -113,24 +132,33 @@ export function RecipesManager() {
 							</TableRow>
 						) : (
 							filteredRecipes?.map((recipe) => (
-								<TableRow key={recipe.id}>
-									<TableCell className="font-medium">
+								<TableRow
+									key={recipe.id}
+									className="transition-all hover:bg-muted/30 border-b border-border/30"
+								>
+									<TableCell className="font-sans font-medium pl-6">
 										{recipe.name}
 										{recipe.base_recipe_id && (
-											<Badge variant="outline" className="ml-2 text-xs">
+											<Badge
+												variant="outline"
+												className="ml-2 text-xs font-sans"
+											>
 												Fork
 											</Badge>
 										)}
 									</TableCell>
 									<TableCell>
-										<Badge variant="secondary" className="rounded-full px-2">
+										<Badge
+											variant="secondary"
+											className="rounded-full px-2.5 py-0.5 font-mono text-xs"
+										>
 											v{recipe.version}
 										</Badge>
 									</TableCell>
 									<TableCell>
 										{recipe.kitchen_id ? (
-											<span className="flex items-center text-muted-foreground text-sm">
-												<ChefHat className="w-3 h-3 mr-1" /> Local
+											<span className="flex items-center text-muted-foreground text-sm font-sans">
+												<ChefHat className="w-3.5 h-3.5 mr-1.5" /> Local
 											</span>
 										) : (
 											<span className="flex items-center text-primary text-sm font-medium">
@@ -139,11 +167,17 @@ export function RecipesManager() {
 											</span>
 										)}
 									</TableCell>
-									<TableCell>{recipe.portion_yield} porções</TableCell>
-									<TableCell className="text-right space-x-2">
+									<TableCell className="font-mono text-sm">
+										{recipe.portion_yield} porções
+									</TableCell>
+									<TableCell className="text-right space-x-2 pr-6">
 										{/* Visualizar / Editar */}
-										<Link to={`/admin/recipes/${recipe.id}`}>
-											<Button variant="ghost" size="sm">
+										<Link to={`/admin/recipes/${recipe.id}` as any}>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="hover:bg-primary/10 hover:text-primary transition-all"
+											>
 												Detalhes
 											</Button>
 										</Link>
@@ -158,8 +192,9 @@ export function RecipesManager() {
 													variant="outline"
 													size="sm"
 													title="Criar cópia local"
+													className="hover:bg-accent/10 hover:border-accent/30 transition-all"
 												>
-													<GitFork className="w-3 h-3 mr-1" />
+													<GitFork className="w-3.5 h-3.5 mr-1.5" />
 													Personalizar
 												</Button>
 											</Link>
