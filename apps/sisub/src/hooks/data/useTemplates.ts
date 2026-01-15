@@ -182,6 +182,56 @@ export function useTemplate(templateId: string | null) {
 	return useQuery(templateQueryOptions(templateId));
 }
 
+/**
+ * Hook para buscar templates deletados da lixeira
+ *
+ * @param kitchenId - ID da kitchen
+ *
+ * @example
+ * ```tsx
+ * const { data: deletedTemplates } = useDeletedTemplates(kitchenId);
+ * ```
+ */
+export function useDeletedTemplates(kitchenId: number | null) {
+	return useQuery({
+		queryKey: ["deleted_templates", kitchenId],
+		queryFn: async (): Promise<TemplateWithItemCounts[]> => {
+			let query = supabase
+				.from("menu_template")
+				.select(
+					`
+          *,
+          items:menu_template_items(count)
+        `,
+					{ count: "exact" },
+				)
+				.not("deleted_at", "is", null)
+				.order("deleted_at", { ascending: false });
+
+			// Filtrar por kitchen
+			if (kitchenId !== null) {
+				query = query.or(`kitchen_id.is.null,kitchen_id.eq.${kitchenId}`);
+			} else {
+				query = query.is("kitchen_id", null);
+			}
+
+			const { data, error } = await query;
+
+			if (error) {
+				throw new Error(`Failed to fetch deleted templates: ${error.message}`);
+			}
+
+			return (data || []).map((template) => ({
+				...template,
+				item_count: template.items?.[0]?.count || 0,
+				recipe_count: template.items?.[0]?.count || 0,
+			}));
+		},
+		enabled: kitchenId !== null,
+		staleTime: 1 * 60 * 1000, // 1 minute
+	});
+}
+
 // --- Mutation Hooks ---
 
 /**

@@ -1,25 +1,34 @@
 import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-	SheetDescription,
-	Button,
 	Accordion,
+	AccordionContent,
 	AccordionItem,
 	AccordionTrigger,
-	AccordionContent,
 	Badge,
+	Button,
+	Input,
+	Label,
 	ScrollArea,
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
 } from "@iefa/ui";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 // import { useAuth } from "@/hooks/auth/useAuth"; // Unused
-import { ArrowLeftRight, Loader2, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeftRight, Loader2, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useCreateDailyMenu, useDayDetails } from "@/hooks/data/usePlanning";
+import {
+	useCreateDailyMenu,
+	useDayDetails,
+	useDeleteMenuItem,
+	useUpdateDailyMenu,
+	useUpdateMenuItem,
+} from "@/hooks/data/usePlanning";
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning";
+import { MenuItemCard } from "./MenuItemCard";
 import { SubstitutionModal } from "./SubstitutionModal";
 
 interface DayDrawerProps {
@@ -108,11 +117,62 @@ function MealSection({
 	onSubstitute: (item: MenuItem) => void;
 }) {
 	const { mutate: createMenu, isPending: isCreating } = useCreateDailyMenu();
+	const { mutate: updateDailyMenu } = useUpdateDailyMenu();
+	const { mutate: updateMenuItem } = useUpdateMenuItem();
+	const { mutate: deleteMenuItem } = useDeleteMenuItem();
+
+	// State for headcount editing
+	const [headcount, setHeadcount] = useState<number | null>(
+		menu?.forecasted_headcount ?? null,
+	);
+
+	// Update headcount when menu changes
+	useEffect(() => {
+		setHeadcount(menu?.forecasted_headcount ?? null);
+	}, [menu]);
 
 	const handleCreateMenu = () => {
 		if (!date) return;
 		createMenu([]); // Passing empty array as placeholder. Should invoke a real creation logic or modal.
 		toast.info("Funcionalidade de criar menu simplificada.");
+	};
+
+	const handleUpdateHeadcount = () => {
+		if (!menu) return;
+		updateDailyMenu({
+			id: menu.id,
+			updates: { forecasted_headcount: headcount },
+		});
+	};
+
+	const handleUpdatePortionQuantity = (
+		itemId: string,
+		quantity: number | null,
+	) => {
+		updateMenuItem({
+			id: itemId,
+			updates: { planned_portion_quantity: quantity },
+		});
+	};
+
+	const handleUpdateExcludedQuantity = (
+		itemId: string,
+		excludedQty: number | null,
+	) => {
+		updateMenuItem({
+			id: itemId,
+			updates: { excluded_from_procurement: excludedQty },
+		});
+	};
+
+	const handleDeleteItem = (itemId: string, recipeName: string) => {
+		if (
+			window.confirm(
+				`Remover "${recipeName}" do cardápio?\n\nPoderá ser recuperado na lixeira.`,
+			)
+		) {
+			deleteMenuItem(itemId);
+		}
 	};
 
 	return (
@@ -155,11 +215,32 @@ function MealSection({
 					</div>
 				) : (
 					<div className="space-y-4">
-						<div className="flex items-center gap-4 bg-muted/50 p-2 rounded text-sm">
-							<span className="text-muted-foreground">Efetivo Previsto:</span>
-							<span className="font-medium">
-								{menu.forecasted_headcount || "N/A"}
-							</span>
+						{/* Editable Forecasted Headcount */}
+						<div className="bg-muted/30 p-3 rounded-md space-y-2">
+							<Label
+								htmlFor={`headcount-${menu.id}`}
+								className="text-xs font-medium"
+							>
+								Previsão de Comensais
+							</Label>
+							<div className="flex items-center gap-2">
+								<Input
+									id={`headcount-${menu.id}`}
+									type="number"
+									value={headcount ?? ""}
+									onChange={(e) =>
+										setHeadcount(
+											e.target.value === ""
+												? null
+												: Number.parseInt(e.target.value),
+										)
+									}
+									onBlur={handleUpdateHeadcount}
+									placeholder="0"
+									className="h-8 w-24"
+								/>
+								<span className="text-xs text-muted-foreground">porções</span>
+							</div>
 						</div>
 
 						<div className="space-y-2">
@@ -172,55 +253,14 @@ function MealSection({
 								</div>
 							) : (
 								<div className="grid gap-2">
-									{menu.menu_items.map((item) => {
-										// Safe cast for display
-										const recipeName =
-											(item.recipe as any)?.name ||
-											item.recipe_origin?.name ||
-											"Receita sem nome";
-
-										return (
-											<div
-												key={item.id}
-												className="flex items-center justify-between border rounded p-3 bg-background group"
-											>
-												<div>
-													<p className="font-medium text-sm flex items-center gap-2">
-														{recipeName}
-														{item.substitutions && (
-															<Badge
-																variant="outline"
-																className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200"
-															>
-																Substituição Ativa
-															</Badge>
-														)}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{item.planned_portion_quantity} porções
-													</p>
-												</div>
-												<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-													<Button
-														size="icon"
-														variant="ghost"
-														className="h-8 w-8 text-muted-foreground hover:text-primary"
-														onClick={() => onSubstitute(item)}
-														title="Substituir ingredientes"
-													>
-														<ArrowLeftRight className="w-4 h-4" />
-													</Button>
-													<Button
-														size="icon"
-														variant="ghost"
-														className="h-8 w-8 text-destructive hover:bg-destructive/10"
-													>
-														<Trash2 className="w-4 h-4" />
-													</Button>
-												</div>
-											</div>
-										);
-									})}
+									{menu.menu_items.map((item) => (
+										<MenuItemCard
+											key={item.id}
+											item={item}
+											onSubstitute={onSubstitute}
+											onDelete={handleDeleteItem}
+										/>
+									))}
 								</div>
 							)}
 

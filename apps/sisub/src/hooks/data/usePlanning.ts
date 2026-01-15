@@ -183,7 +183,7 @@ export function useUpdateMenuItem() {
 			id: string;
 			updates: Partial<{
 				planned_portion_quantity: number | null;
-				excluded_from_procurement: boolean;
+				excluded_from_procurement: number | null;
 			}>;
 		}) => {
 			const { data, error } = await supabase
