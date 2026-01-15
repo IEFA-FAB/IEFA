@@ -14,7 +14,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@iefa/ui";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	AlertTriangle,
 	Check,
@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTableSkeleton";
 import { aggregatePresenceData } from "@/lib/dashboard";
 import {
 	messHallsQueryOptions,
@@ -143,34 +144,40 @@ export default function PresenceTable({
 		new Set([...forecastUserIds, ...presenceUserIds]),
 	);
 
-	// Fetch user data
-	const { data: userData = [] } = useSuspenseQuery(
+	// ✅ PARALELIZAÇÃO: userData e messHalls executam simultaneamente
+	const userDataQuery = useQuery(
 		userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined),
 	);
+	const messHallsQuery = useQuery(messHallsQueryOptions(undefined));
 
-	// Extract nrOrdens and fetch military data
-	const nrOrdemList = userData
-		.filter((u) => u.nrOrdem !== null)
-		.map((u) => u.nrOrdem as string);
+	// ❌ Esta query REALMENTE depende de userData - mantém sequencial
+	const nrOrdemList =
+		userDataQuery.data
+			?.filter((u) => u.nrOrdem !== null)
+			.map((u) => u.nrOrdem as string) ?? [];
 
-	const { data: militaryData = [] } = useSuspenseQuery(
+	const militaryDataQuery = useQuery(
 		userMilitaryDataQueryOptions(
 			nrOrdemList.length > 0 ? nrOrdemList : undefined,
 		),
 	);
 
-	// Fetch mess halls for names
-	const { data: messHalls = [] } = useSuspenseQuery(
-		messHallsQueryOptions(undefined),
-	);
+	// Consolidate loading states
+	const isLoading = userDataQuery.isLoading || messHallsQuery.isLoading;
+	const isLoadingMilitary = militaryDataQuery.isLoading;
 
-	// Aggregate data
+	// Show skeleton during initial load
+	if (isLoading || isLoadingMilitary) {
+		return <PresenceTableSkeleton />;
+	}
+
+	// Aggregate data when all queries are complete
 	const aggregatedData = aggregatePresenceData(
 		forecasts,
 		presences,
-		userData,
-		militaryData,
-		messHalls,
+		userDataQuery.data ?? [],
+		militaryDataQuery.data ?? [],
+		messHallsQuery.data ?? [],
 	);
 
 	const toggleOpen = (id: string) => {

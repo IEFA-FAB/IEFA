@@ -9,15 +9,10 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@iefa/ui";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import {
-	BarChart3,
-	Building2,
-	LayoutDashboard,
-	UserCog,
-	Users,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { BarChart3, Building2, LayoutDashboard, Users } from "lucide-react";
 import { useState } from "react";
+import { DashboardSkeleton } from "@/components/common/skeletons/DashboardSkeleton";
 import { aggregateDashboardMetrics } from "@/lib/dashboard";
 import type { AdminProfile } from "@/services/AdminService";
 import {
@@ -25,7 +20,6 @@ import {
 	dashboardPresencesQueryOptions,
 	messHallsQueryOptions,
 } from "@/services/DashboardService";
-
 import DashboardFilters from "./DashboardFilters";
 import MealDistributionChart from "./MealDistributionChart";
 import MessHallBreakdown from "./MessHallBreakdown";
@@ -55,14 +49,13 @@ export default function DashboardCard({ profile }: DashboardCardProps) {
 	// Determine unit_id based on role
 	const isSuperAdmin = profile.role === "superadmin";
 
-	const { data: messHalls = [] } = useSuspenseQuery(
-		messHallsQueryOptions(undefined),
-	);
+	// ✅ PARALELIZAÇÃO: Todas as 3 queries iniciam simultaneamente
+	const messHallsQuery = useQuery(messHallsQueryOptions(undefined));
 
 	// Filter mess halls by admin's om if admin (not superadmin)
 	const filteredMessHalls = isSuperAdmin
-		? messHalls
-		: messHalls.filter(() => {
+		? (messHallsQuery.data ?? [])
+		: (messHallsQuery.data ?? []).filter(() => {
 				// TODO: Proper filtering based on profile.om
 				return true;
 			});
@@ -71,7 +64,7 @@ export default function DashboardCard({ profile }: DashboardCardProps) {
 	const messHallIdParam =
 		selectedMessHall === "all" ? undefined : Number(selectedMessHall);
 
-	const { data: forecasts = [] } = useSuspenseQuery(
+	const forecastsQuery = useQuery(
 		dashboardForecastsQueryOptions({
 			mess_hall_id: messHallIdParam,
 			startDate: dateRange.start,
@@ -79,7 +72,7 @@ export default function DashboardCard({ profile }: DashboardCardProps) {
 		}),
 	);
 
-	const { data: presences = [] } = useSuspenseQuery(
+	const presencesQuery = useQuery(
 		dashboardPresencesQueryOptions({
 			mess_hall_id: messHallIdParam,
 			startDate: dateRange.start,
@@ -87,10 +80,16 @@ export default function DashboardCard({ profile }: DashboardCardProps) {
 		}),
 	);
 
-	// Aggregate metrics
+	// Consolidate loading state
+	const isLoading =
+		messHallsQuery.isLoading ||
+		forecastsQuery.isLoading ||
+		presencesQuery.isLoading;
+
+	// Aggregate metrics (only when data is available)
 	const metrics = aggregateDashboardMetrics(
-		forecasts,
-		presences,
+		forecastsQuery.data ?? [],
+		presencesQuery.data ?? [],
 		filteredMessHalls,
 		dateRange,
 	);
@@ -118,39 +117,49 @@ export default function DashboardCard({ profile }: DashboardCardProps) {
 					onMessHallChange={setSelectedMessHall}
 				/>
 
-				{/* Tabs for content organization */}
-				<Tabs defaultValue="overview" className="w-full">
-					<TabsList className="grid w-full grid-cols-3">
-						<TabsTrigger value="overview" className="gap-2">
-							<LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-							<span className="hidden sm:inline">Resumo</span>
-							<span className="sm:hidden">Resumo</span>
-						</TabsTrigger>
-						<TabsTrigger value="mess-halls" className="gap-2">
-							<Building2 className="h-4 w-4" aria-hidden="true" />
-							<span className="hidden sm:inline">Por Rancho</span>
-							<span className="sm:hidden">Ranchos</span>
-						</TabsTrigger>
-						<TabsTrigger value="presence" className="gap-2">
-							<Users className="h-4 w-4" aria-hidden="true" />
-							<span className="hidden sm:inline">Presenças</span>
-							<span className="sm:hidden">Pessoas</span>
-						</TabsTrigger>
-					</TabsList>
+				{/* Shell-First Approach: Skeleton durante loading */}
+				{isLoading ? (
+					<DashboardSkeleton />
+				) : (
+					<>
+						{/* Tabs for content organization */}
+						<Tabs defaultValue="overview" className="w-full">
+							<TabsList className="grid w-full grid-cols-3">
+								<TabsTrigger value="overview" className="gap-2">
+									<LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+									<span className="hidden sm:inline">Resumo</span>
+									<span className="sm:hidden">Resumo</span>
+								</TabsTrigger>
+								<TabsTrigger value="mess-halls" className="gap-2">
+									<Building2 className="h-4 w-4" aria-hidden="true" />
+									<span className="hidden sm:inline">Por Rancho</span>
+									<span className="sm:hidden">Ranchos</span>
+								</TabsTrigger>
+								<TabsTrigger value="presence" className="gap-2">
+									<Users className="h-4 w-4" aria-hidden="true" />
+									<span className="hidden sm:inline">Presenças</span>
+									<span className="sm:hidden">Pessoas</span>
+								</TabsTrigger>
+							</TabsList>
 
-					<TabsContent value="overview" className="space-y-6 mt-6">
-						<MetricsOverview metrics={metrics} />
-						<MealDistributionChart data={metrics.daily_distribution} />
-					</TabsContent>
+							<TabsContent value="overview" className="space-y-6 mt-6">
+								<MetricsOverview metrics={metrics} />
+								<MealDistributionChart data={metrics.daily_distribution} />
+							</TabsContent>
 
-					<TabsContent value="mess-halls" className="mt-6">
-						<MessHallBreakdown data={metrics.by_mess_hall} />
-					</TabsContent>
+							<TabsContent value="mess-halls" className="mt-6">
+								<MessHallBreakdown data={metrics.by_mess_hall} />
+							</TabsContent>
 
-					<TabsContent value="presence" className="mt-6">
-						<PresenceTable forecasts={forecasts} presences={presences} />
-					</TabsContent>
-				</Tabs>
+							<TabsContent value="presence" className="mt-6">
+								<PresenceTable
+									forecasts={forecastsQuery.data ?? []}
+									presences={presencesQuery.data ?? []}
+								/>
+							</TabsContent>
+						</Tabs>
+					</>
+				)}
 			</CardContent>
 		</Card>
 	);

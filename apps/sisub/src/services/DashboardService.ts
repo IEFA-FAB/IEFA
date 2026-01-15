@@ -218,7 +218,7 @@ export const dashboardPresencesQueryOptions = (params: {
 	queryOptions({
 		queryKey: DASHBOARD_QUERY_KEYS.presences(params),
 		queryFn: () => fetchPresences(params),
-		staleTime: 1000 * 60 * 2, // 2 minutes
+		staleTime: 1000 * 60 * 1, // 1 minute
 		gcTime: 1000 * 60 * 10,
 	});
 

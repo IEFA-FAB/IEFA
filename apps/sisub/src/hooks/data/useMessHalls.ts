@@ -48,7 +48,7 @@ export const useMessHalls = () => {
 	const unitsQuery = useQuery<readonly Unit[], Error>({
 		queryKey: ["sisub", "units"],
 		refetchOnWindowFocus: false,
-		staleTime: 120_000,
+		staleTime: 600_000, // 10 minutes
 		retry: 1,
 		queryFn: async () => {
 			const { data, error } = await sisub
@@ -70,7 +70,7 @@ export const useMessHalls = () => {
 	const messHallsQuery = useQuery<readonly MessHall[], Error>({
 		queryKey: ["sisub", "mess_halls"],
 		refetchOnWindowFocus: false,
-		staleTime: 120_000,
+		staleTime: 600_000, // 10 minutes
 		retry: 1,
 		queryFn: async () => {
 			const { data, error } = await sisub
