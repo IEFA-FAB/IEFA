@@ -1,5 +1,6 @@
 import { Badge, Button } from "@iefa/ui";
 import {
+	addDays,
 	addMonths,
 	eachDayOfInterval,
 	endOfMonth,
@@ -7,6 +8,7 @@ import {
 	format,
 	isSameDay,
 	isSameMonth,
+	startOfDay,
 	startOfMonth,
 	startOfWeek,
 	subMonths,
@@ -23,12 +25,13 @@ import {
 import { useState } from "react";
 import { useKitchenSelector } from "@/hooks/data/useKitchens";
 import { useDailyMenus } from "@/hooks/data/usePlanning";
-import type { DailyMenuWithItems } from "@/types/domain/planning";
+import { useMenuTemplates } from "@/hooks/data/useTemplates";
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog";
 import { DayDrawer } from "./DayDrawer";
 import { KitchenSelector } from "./KitchenSelector";
 import { MealTypeManager } from "./MealTypeManager";
 import { TemplateManager } from "./TemplateManager";
+import { TemplatePalette } from "./TemplatePalette";
 import { TrashDrawer } from "./TrashDrawer";
 
 export function PlanningBoard() {
@@ -42,18 +45,65 @@ export function PlanningBoard() {
 	const [isMealTypeManagerOpen, setIsMealTypeManagerOpen] = useState(false);
 	const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
 
+	// Template Brush System states
+	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+		null,
+	);
+	const [templateTargetDates, setTemplateTargetDates] = useState<string[]>([]);
+
 	const monthStart = startOfMonth(currentMonth);
 	const monthEnd = endOfMonth(monthStart);
 	const startDate = startOfWeek(monthStart);
 	const endDate = endOfWeek(monthEnd);
 
 	const { data: menus } = useDailyMenus(kitchenId, startDate, endDate);
+	const { data: templates, isLoading: templatesLoading } =
+		useMenuTemplates(kitchenId);
 
 	const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
 	const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+	// Week calculation helpers
+	const getWeekStart = (date: Date): Date => {
+		const d = startOfDay(date);
+		const day = d.getDay();
+		const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+		return new Date(d.setDate(diff));
+	};
+
+	const getWeekDays = (weekStart: Date): Date[] => {
+		return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+	};
+
+	const getWeekKey = (date: Date): string => {
+		return format(getWeekStart(date), "yyyy-MM-dd");
+	};
+
+	const isInWeek = (date: Date, weekKey: string | null): boolean => {
+		if (!weekKey) return false;
+		return getWeekKey(date) === weekKey;
+	};
+
+	const handleApplyTemplateToWeek = async (clickedDate: Date) => {
+		if (!selectedTemplateId || !kitchenId) return;
+
+		const weekStart = getWeekStart(clickedDate);
+		const weekDays = getWeekDays(weekStart);
+		const targetDates = weekDays.map((d) => format(d, "yyyy-MM-dd"));
+
+		// Set dates and open dialog
+		setTemplateTargetDates(targetDates);
+		setIsTemplateModalOpen(true);
+	};
+
 	const handleDayClick = (day: Date, e: React.MouseEvent) => {
+		// If template is selected, apply it to the week
+		if (selectedTemplateId) {
+			handleApplyTemplateToWeek(day);
+			return;
+		}
+
 		const dayStr = day.toISOString();
 
 		if (e.ctrlKey || e.metaKey || e.shiftKey) {
@@ -67,8 +117,6 @@ export function PlanningBoard() {
 			setSelectedDays(newSelected);
 		} else {
 			// Single selection (View Drawer)
-			// If we have multi-selection active, clearing it might be annoying, but standard behavior usually clears.
-			// Let's keep it simple: Click opens drawer.
 			setSelectedDay(day);
 			setIsDrawerOpen(true);
 		}
@@ -93,76 +141,97 @@ export function PlanningBoard() {
 	return (
 		<div className="space-y-4 h-full flex flex-col">
 			{/* Header */}
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-4">
+			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+				{/* Left side: Kitchen selector + Month navigation */}
+				<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center">
 					<KitchenSelector />
-					<div className="flex flex-col">
-						<h2 className="text-2xl font-bold tracking-tight">
-							Planejamento:{" "}
+					<div className="flex items-center gap-2">
+						<h2 className="text-xl sm:text-2xl font-bold tracking-tight capitalize">
 							{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
 						</h2>
-					</div>
-					<div className="flex items-center gap-1 bg-muted rounded-md p-1">
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => handleMonthChange(-1)}
-						>
-							<ChevronLeft className="w-4 h-4" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => handleMonthChange(0)}
-						>
-							Hoje
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => handleMonthChange(1)}
-						>
-							<ChevronRight className="w-4 h-4" />
-						</Button>
+						<div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => handleMonthChange(-1)}
+								aria-label="Mês anterior"
+								className="h-8 w-8 p-0"
+							>
+								<ChevronLeft className="w-4 h-4" />
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => handleMonthChange(0)}
+								className="h-8 px-2 text-xs"
+							>
+								Hoje
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => handleMonthChange(1)}
+								aria-label="Próximo mês"
+								className="h-8 w-8 p-0"
+							>
+								<ChevronRight className="w-4 h-4" />
+							</Button>
+						</div>
 					</div>
 				</div>
 
-				<div className="flex gap-2">
+				{/* Right side: Action buttons */}
+				<div className="flex flex-wrap gap-1.5">
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => setIsTemplateManagerOpen(true)}
 						title="Gerenciar Templates"
+						className="h-9"
 					>
-						<CalendarIcon className="w-4 h-4 mr-2" />
-						Templates
+						<CalendarIcon className="w-4 h-4 sm:mr-2" />
+						<span className="hidden sm:inline">Templates</span>
 					</Button>
 					<Button
 						variant="ghost"
-						size="icon"
+						size="sm"
 						onClick={() => setIsMealTypeManagerOpen(true)}
 						title="Gerenciar Tipos de Refeição"
+						className="h-9 w-9 p-0"
 					>
-						<Settings className="w-4 h-4 text-muted-foreground" />
+						<Settings className="w-4 h-4" />
 					</Button>
 					<Button
 						variant="ghost"
-						size="icon"
+						size="sm"
 						onClick={() => setIsTrashOpen(true)}
 						title="Lixeira"
+						className="h-9 w-9 p-0"
 					>
-						<Trash2 className="w-4 h-4 text-muted-foreground" />
+						<Trash2 className="w-4 h-4" />
 					</Button>
 					<Button
 						variant="outline"
+						size="sm"
 						onClick={() => setIsTemplateModalOpen(true)}
 						disabled={selectedDays.size === 0}
+						className="h-9"
 					>
-						<CalendarIcon className="w-4 h-4 mr-2" />
-						Aplicar Template ({selectedDays.size})
+						<CalendarIcon className="w-4 h-4 sm:mr-2" />
+						<span className="hidden sm:inline">Aplicar</span>
+						<span className="ml-1">({selectedDays.size})</span>
 					</Button>
 				</div>
 			</div>
+
+			{/* Template Palette - New! */}
+			<TemplatePalette
+				templates={templates || []}
+				selectedTemplateId={selectedTemplateId}
+				onSelectTemplate={setSelectedTemplateId}
+				onCreateNew={() => setIsTemplateManagerOpen(true)}
+				isLoading={templatesLoading}
+			/>
 
 			{/* Calendar Grid */}
 			<div className="border rounded-lg bg-card shadow-sm overflow-hidden select-none">
@@ -267,8 +336,11 @@ export function PlanningBoard() {
 
 			<ApplyTemplateDialog
 				open={isTemplateModalOpen}
-				onClose={() => setIsTemplateModalOpen(false)}
-				targetDates={Array.from(selectedDays)}
+				onClose={() => {
+					setIsTemplateModalOpen(false);
+					setTemplateTargetDates([]);
+				}}
+				targetDates={templateTargetDates}
 				kitchenId={kitchenId || 0}
 			/>
 

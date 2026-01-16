@@ -1,7 +1,10 @@
+import { Button } from "@iefa/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { DownloadIcon } from "lucide-react";
 import { ProductsTreeManager } from "@/components/features/super-admin/ProductsTreeManager";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { useExportProductsCSV } from "@/hooks/business/useExportProductsCSV";
 import { adminProfileQueryOptions } from "@/services/AdminService";
 import { productsTreeQueryOptions } from "@/services/ProductsService";
 
@@ -44,6 +47,7 @@ export const Route = createFileRoute("/_protected/superAdmin/ingredients")({
 
 function IngredientsPage() {
 	const { user } = useAuth();
+	const { exportCSV } = useExportProductsCSV();
 
 	// Ensure data é carregado (suspense query via loader)
 	useSuspenseQuery(productsTreeQueryOptions());
@@ -88,6 +92,21 @@ function IngredientsPage() {
 				id="content"
 				className="container mx-auto max-w-screen-2xl px-4 py-10 md:py-14"
 			>
+				{/* Toolbar */}
+				<div className="mb-6 flex justify-end">
+					{/* Export Button */}
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={exportCSV}
+						className="gap-2 transition-all active:scale-[0.98]"
+					>
+						<DownloadIcon className="h-4 w-4" />
+						Exportar CSV
+					</Button>
+				</div>
+
+				{/* Tree View */}
 				<ProductsTreeManager />
 			</section>
 		</div>

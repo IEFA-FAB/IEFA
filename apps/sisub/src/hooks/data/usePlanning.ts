@@ -43,10 +43,21 @@ export const dailyMenusQueryOptions = (
       `)
 				.eq("kitchen_id", kitchenId)
 				.gte("service_date", format(startDate, "yyyy-MM-dd"))
-				.lte("service_date", format(endDate, "yyyy-MM-dd"));
+				.lte("service_date", format(endDate, "yyyy-MM-dd"))
+				.is("deleted_at", null);
 
 			if (error) throw error;
-			return data as DailyMenuWithItems[];
+
+			// Filter deleted menu_items on the client side
+			const filtered =
+				data?.map((menu) => ({
+					...menu,
+					menu_items: (menu.menu_items || []).filter(
+						(item) => !item.deleted_at,
+					),
+				})) || [];
+
+			return filtered as DailyMenuWithItems[];
 		},
 		enabled: !!kitchenId,
 	});
@@ -63,16 +74,27 @@ export const dayDetailsQueryOptions = (kitchenId: number | null, date: Date) =>
 				.select(`
         *,
         meal_type:meal_type_id(*),
-         menu_items:menu_items(
+        menu_items:menu_items(
           *,
           recipe_origin:recipe_origin_id(*)
         )
       `)
 				.eq("kitchen_id", kitchenId)
-				.eq("service_date", dateStr);
+				.eq("service_date", dateStr)
+				.is("deleted_at", null);
 
 			if (error) throw error;
-			return data as DailyMenuWithItems[];
+
+			// Filter deleted menu_items on the client side
+			const filtered =
+				data?.map((menu) => ({
+					...menu,
+					menu_items: (menu.menu_items || []).filter(
+						(item) => !item.deleted_at,
+					),
+				})) || [];
+
+			return filtered as DailyMenuWithItems[];
 		},
 		enabled: !!kitchenId,
 	});
@@ -96,9 +118,13 @@ export function useCreateDailyMenu() {
 
 	return useMutation({
 		mutationFn: async (menus: DailyMenuInsert[]) => {
+			// Use upsert to handle conflicts gracefully
 			const { data, error } = await supabase
 				.from("daily_menu")
-				.insert(menus)
+				.upsert(menus, {
+					onConflict: "service_date,meal_type_id,kitchen_id",
+					ignoreDuplicates: true,
+				})
 				.select();
 
 			if (error) throw error;

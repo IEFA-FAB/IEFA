@@ -14,7 +14,8 @@ import {
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { CalendarDays, ChefHat, FolderTree, Users } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 

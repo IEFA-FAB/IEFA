@@ -1,6 +1,14 @@
 import { Button } from "@iefa/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { Edit, Folder, Package, ShoppingCart, Trash2 } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronRight,
+	Edit,
+	Folder,
+	Package,
+	ShoppingCart,
+	Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
 	useDeleteFolder,
@@ -12,6 +20,7 @@ import type { ProductTreeNode, TreeNodeType } from "@/types/domain/products";
 interface ProductsTreeNodeProps {
 	node: ProductTreeNode;
 	onEdit: (type: TreeNodeType, data: any) => void;
+	onToggle: (nodeId: string) => void;
 }
 
 /**
@@ -19,7 +28,11 @@ interface ProductsTreeNodeProps {
  * Renderização otimizada para virtualização
  * Enhanced with Industrial-Technical aesthetic
  */
-export function ProductsTreeNode({ node, onEdit }: ProductsTreeNodeProps) {
+export function ProductsTreeNode({
+	node,
+	onEdit,
+	onToggle,
+}: ProductsTreeNodeProps) {
 	const queryClient = useQueryClient();
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder();
 	const { deleteProduct, isDeleting: isDeletingProduct } = useDeleteProduct();
@@ -85,23 +98,74 @@ export function ProductsTreeNode({ node, onEdit }: ProductsTreeNodeProps) {
 
 	return (
 		<div
-			className="flex items-center justify-between px-4 py-2 hover:bg-muted/50 group border-b border-border/50 transition-all duration-150 hover:border-l-2 hover:border-l-primary/50"
+			className="group relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50 transition-all duration-150 hover:border-l-2 hover:border-l-primary/50"
 			style={{
-				paddingLeft: `${node.level * 20 + 16}px`,
+				paddingLeft: `${node.level * 24 + 8}px`,
 			}}
 			role="treeitem"
 			aria-level={node.level + 1}
+			aria-expanded={node.hasChildren ? node.isExpanded : undefined}
 		>
+			{/* Tree connector lines */}
+			{node.level > 0 && (
+				<>
+					{/* Vertical line from parent */}
+					<div
+						className="absolute top-0 bottom-1/2 w-px bg-border/40"
+						style={{ left: `${(node.level - 1) * 24 + 20}px` }}
+					/>
+					{/* Horizontal line to node */}
+					<div
+						className="absolute top-1/2 h-px bg-border/40"
+						style={{
+							left: `${(node.level - 1) * 24 + 20}px`,
+							width: "16px",
+						}}
+					/>
+				</>
+			)}
+
 			{/* Conteúdo */}
-			<div className="flex items-center gap-3 flex-1 min-w-0">
+			<div className="flex items-center gap-2 flex-1 min-w-0">
+				{/* Expand/Collapse Chevron - Only for folders/products */}
+				{node.hasChildren ? (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => onToggle(node.id)}
+						className="h-5 w-5 p-0 hover:bg-primary/10 transition-colors"
+						aria-label={node.isExpanded ? "Recolher" : "Expandir"}
+					>
+						{node.isExpanded ? (
+							<ChevronDown className="h-4 w-4 text-muted-foreground" />
+						) : (
+							<ChevronRight className="h-4 w-4 text-muted-foreground" />
+						)}
+					</Button>
+				) : (
+					/* Spacer for alignment */
+					<div className="w-5" />
+				)}
+
 				{/* Icon with colored background */}
 				<div
-					className={`flex items-center justify-center w-8 h-8 rounded-md ${style.iconBg} ${style.border} border transition-transform duration-200 group-hover:scale-110`}
+					className={`flex items-center justify-center w-7 h-7 rounded-md ${style.iconBg} ${style.border} border transition-transform duration-200 group-hover:scale-110`}
 				>
-					<Icon className={`w-4 h-4 ${style.iconColor}`} />
+					<Icon className={`w-3.5 h-3.5 ${style.iconColor}`} />
 				</div>
 
-				<span className="text-sm font-sans truncate">{node.label}</span>
+				{/* Label with hierarchy-based typography */}
+				<span
+					className={`text-sm truncate transition-colors ${
+						node.type === "folder"
+							? "font-sans font-semibold"
+							: node.type === "product"
+								? "font-sans font-normal"
+								: "font-sans text-muted-foreground text-xs"
+					}`}
+				>
+					{node.label}
+				</span>
 
 				{/* Badges informativos */}
 				{node.type === "product" && "measure_unit" in node.data && (
@@ -118,7 +182,7 @@ export function ProductsTreeNode({ node, onEdit }: ProductsTreeNodeProps) {
 					)}
 			</div>
 
-			{/* Ações - Staggered reveal on hover */}
+			{/* Ações - St aggered reveal on hover */}
 			<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				<Button
 					variant="ghost"

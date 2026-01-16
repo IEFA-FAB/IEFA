@@ -8,6 +8,10 @@ import {
 	Input,
 	Label,
 	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -58,6 +62,7 @@ export function ProductForm({
 				? Number(product.correction_factor)
 				: 1.0,
 		},
+		// @ts-ignore - TanStack Form type issue with validatorAdapter
 		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: productSchema,
@@ -136,15 +141,24 @@ export function ProductForm({
 							<div className="space-y-2">
 								<Label htmlFor={field.name}>Pasta (Categoria)</Label>
 								<Select
-									value={field.state.value || ""}
-									onValueChange={(value) => field.handleChange(value || null)}
+									value={field.state.value || "__SELECT__"}
+									onValueChange={(value) =>
+										field.handleChange(value === "__SELECT__" ? null : value)
+									}
 								>
-									<option value="">Selecione uma pasta</option>
-									{folders?.map((f) => (
-										<option key={f.id} value={f.id}>
-											{f.parent_id || "Sem Nome"}
-										</option>
-									))}
+									<SelectTrigger>
+										<SelectValue placeholder="Selecione uma pasta" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="__SELECT__">
+											Selecione uma pasta
+										</SelectItem>
+										{folders?.map((f) => (
+											<SelectItem key={f.id} value={f.id}>
+												{f.description || "Sem Nome"}
+											</SelectItem>
+										))}
+									</SelectContent>
 								</Select>
 								{field.state.meta.errors && (
 									<p className="text-sm text-destructive" role="alert">
@@ -161,15 +175,22 @@ export function ProductForm({
 							<div className="space-y-2">
 								<Label htmlFor={field.name}>Unidade de Medida</Label>
 								<Select
-									value={field.state.value || ""}
-									onValueChange={(value) => field.handleChange(value)}
+									value={field.state.value || "__SELECT__"}
+									onValueChange={(value) =>
+										field.handleChange(value === "__SELECT__" ? "" : value)
+									}
 								>
-									<option value="">Selecione</option>
-									<option value="UN">UN (Unidade)</option>
-									<option value="KG">KG (Quilograma)</option>
-									<option value="LT">LT (Litro)</option>
-									<option value="G">G (Grama)</option>
-									<option value="ML">ML (Mililitro)</option>
+									<SelectTrigger>
+										<SelectValue placeholder="Selecione" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="__SELECT__">Selecione</SelectItem>
+										<SelectItem value="UN">UN (Unidade)</SelectItem>
+										<SelectItem value="KG">KG (Quilograma)</SelectItem>
+										<SelectItem value="LT">LT (Litro)</SelectItem>
+										<SelectItem value="G">G (Grama)</SelectItem>
+										<SelectItem value="ML">ML (Mililitro)</SelectItem>
+									</SelectContent>
 								</Select>
 							</div>
 						)}

@@ -8,6 +8,10 @@ import {
 	Input,
 	Label,
 	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -45,6 +49,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 			description: folder?.description || "",
 			parent_id: folder?.parent_id || null,
 		},
+		// @ts-ignore - TanStack Form type issue with validatorAdapter
 		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: folderSchema,
@@ -121,17 +126,24 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 							<div className="space-y-2">
 								<Label htmlFor={field.name}>Pasta Pai (Opcional)</Label>
 								<Select
-									value={field.state.value || ""}
-									onValueChange={(value) => field.handleChange(value || null)}
+									value={field.state.value || "__NONE__"}
+									onValueChange={(value) =>
+										field.handleChange(value === "__NONE__" ? null : value)
+									}
 								>
-									<option value="">Nenhuma (Raiz)</option>
-									{folders
-										?.filter((f) => f.id !== folder?.id) // Evitar auto-referência
-										.map((f) => (
-											<option key={f.id} value={f.id}>
-												{f.description || "Sem Nome"}
-											</option>
-										))}
+									<SelectTrigger>
+										<SelectValue placeholder="Nenhuma (Raiz)" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="__NONE__">Nenhuma (Raiz)</SelectItem>
+										{folders
+											?.filter((f) => f.id !== folder?.id) // Evitar auto-referência
+											.map((f) => (
+												<SelectItem key={f.id} value={f.id}>
+													{f.description || "Sem Nome"}
+												</SelectItem>
+											))}
+									</SelectContent>
 								</Select>
 								{field.state.meta.errors && (
 									<p className="text-sm text-destructive" role="alert">

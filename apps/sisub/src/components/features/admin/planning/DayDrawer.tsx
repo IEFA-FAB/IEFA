@@ -3,6 +3,14 @@ import {
 	AccordionContent,
 	AccordionItem,
 	AccordionTrigger,
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
 	Badge,
 	Button,
 	Input,
@@ -16,19 +24,19 @@ import {
 } from "@iefa/ui";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-// import { useAuth } from "@/hooks/auth/useAuth"; // Unused
-import { ArrowLeftRight, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useMealTypes } from "@/hooks/data/useMealTypes";
 import {
+	useAddMenuItem,
 	useCreateDailyMenu,
 	useDayDetails,
 	useDeleteMenuItem,
 	useUpdateDailyMenu,
-	useUpdateMenuItem,
 } from "@/hooks/data/usePlanning";
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning";
 import { MenuItemCard } from "./MenuItemCard";
+import { RecipeSelector } from "./RecipeSelector";
 import { SubstitutionModal } from "./SubstitutionModal";
 
 interface DayDrawerProps {
@@ -41,19 +49,22 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 	// const { user } = useAuth(); // Unused
 	const kitchenId = 1; // HARDCODED
 
-	const { data: dayMenus, isLoading } = useDayDetails(
+	const { data: dayMenus, isLoading: menusLoading } = useDayDetails(
 		kitchenId,
 		date || new Date(),
 	);
 
-	const meals: Record<string, DailyMenuWithItems | undefined> = {
-		"Café da Manhã": dayMenus?.find(
-			(m) => m.meal_type?.name === "Café da Manhã",
-		),
-		Almoço: dayMenus?.find((m) => m.meal_type?.name === "Almoço"),
-		Jantar: dayMenus?.find((m) => m.meal_type?.name === "Jantar"),
-		Ceia: dayMenus?.find((m) => m.meal_type?.name === "Ceia"),
-	};
+	const { data: mealTypes, isLoading: mealTypesLoading } =
+		useMealTypes(kitchenId);
+
+	const isLoading = menusLoading || mealTypesLoading;
+
+	// Build meals dynamically based on meal types
+	const meals =
+		mealTypes?.map((mealType) => ({
+			mealType,
+			menu: dayMenus?.find((m) => m.meal_type_id === mealType.id),
+		})) || [];
 
 	const formattedDate = date
 		? format(date, "EEEE, dd 'de' MMMM", { locale: ptBR })
@@ -64,9 +75,33 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 		null,
 	);
 
+	// State for recipe selector
+	const [recipeSelectorMenu, setRecipeSelectorMenu] =
+		useState<DailyMenuWithItems | null>(null);
+
+	// State for delete confirmation
+	const [itemToDelete, setItemToDelete] = useState<{
+		id: string;
+		name: string;
+	} | null>(null);
+
+	const { mutate: deleteMenuItem } = useDeleteMenuItem();
+	const { mutate: addMenuItem } = useAddMenuItem();
+
+	const handleDeleteItem = (itemId: string, recipeName: string) => {
+		setItemToDelete({ id: itemId, name: recipeName });
+	};
+
+	const confirmDelete = () => {
+		if (itemToDelete) {
+			deleteMenuItem(itemToDelete.id);
+			setItemToDelete(null);
+		}
+	};
+
 	return (
 		<Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-			<SheetContent className="sm:max-w-xl w-full">
+			<SheetContent className="sm:max-w-xl w-full pl-4 ">
 				<SheetHeader className="mb-6">
 					<SheetTitle className="capitalize">{formattedDate}</SheetTitle>
 					<SheetDescription>Planejamento de cardápio do dia.</SheetDescription>
@@ -79,14 +114,16 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 				) : (
 					<ScrollArea className="h-[calc(100vh-180px)] pr-4">
 						<Accordion type="single" collapsible className="w-full space-y-4">
-							{Object.entries(meals).map(([mealName, menu]) => (
+							{meals.map(({ mealType, menu }) => (
 								<MealSection
-									key={mealName}
-									mealName={mealName}
+									key={mealType.id}
+									mealType={mealType}
 									menu={menu}
 									date={date}
 									kitchenId={kitchenId}
 									onSubstitute={(item) => setSubstitutionItem(item)}
+									onDelete={handleDeleteItem}
+									onAddRecipe={setRecipeSelectorMenu}
 								/>
 							))}
 						</Accordion>
@@ -98,28 +135,109 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 					onClose={() => setSubstitutionItem(null)}
 					menuItem={substitutionItem}
 				/>
+
+				<RecipeSelector
+					open={!!recipeSelectorMenu}
+					onClose={() => {
+						console.log("RecipeSelector closing");
+						setRecipeSelectorMenu(null);
+					}}
+					kitchenId={kitchenId}
+					selectedRecipeIds={[]}
+					onSelect={async (recipeIds) => {
+						if (!recipeSelectorMenu || recipeIds.length === 0) {
+							setRecipeSelectorMenu(null);
+							return;
+						}
+
+						console.log(
+							"Selected recipe IDs:",
+							recipeIds,
+							"for menu:",
+							recipeSelectorMenu.id,
+						);
+
+						// Create menu items for each selected recipe with snapshots
+						for (const recipeId of recipeIds) {
+							try {
+								// Import and fetch complete recipe data
+								const { fetchRecipeWithIngredients } = await import(
+									"@/hooks/data/useRecipes"
+								);
+								const recipeSnapshot =
+									await fetchRecipeWithIngredients(recipeId);
+
+								// Create menu item with recipe snapshot (PRD RF12)
+								addMenuItem({
+									daily_menu_id: recipeSelectorMenu.id,
+									recipe_origin_id: recipeId,
+									recipe: recipeSnapshot as any,
+									planned_portion_quantity:
+										recipeSelectorMenu.forecasted_headcount || 150,
+									excluded_from_procurement: 0,
+								});
+							} catch (error) {
+								console.error("Error fetching recipe:", recipeId, error);
+							}
+						}
+
+						setRecipeSelectorMenu(null);
+					}}
+					multiSelect={true}
+				/>
+
+				<AlertDialog
+					open={!!itemToDelete}
+					onOpenChange={(open) => !open && setItemToDelete(null)}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Remover Preparação</AlertDialogTitle>
+							<AlertDialogDescription>
+								Tem certeza que deseja remover "{itemToDelete?.name}" do
+								cardápio?
+								<br />
+								<br />
+								Esta preparação poderá ser recuperada na lixeira.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancelar</AlertDialogCancel>
+							<AlertDialogAction onClick={confirmDelete}>
+								Remover
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
 			</SheetContent>
 		</Sheet>
 	);
 }
 
 function MealSection({
-	mealName,
+	mealType,
 	menu,
 	date,
-	//   kitchenId, // Unused
+	kitchenId,
 	onSubstitute,
+	onDelete,
+	onAddRecipe,
 }: {
-	mealName: string;
+	mealType: {
+		id: string;
+		name: string | null;
+		sort_order: number | null;
+		kitchen_id: number | null;
+	};
 	menu?: DailyMenuWithItems;
 	date: Date | null;
 	kitchenId: number;
 	onSubstitute: (item: MenuItem) => void;
+	onDelete: (itemId: string, recipeName: string) => void;
+	onAddRecipe: (menu: DailyMenuWithItems) => void;
 }) {
 	const { mutate: createMenu, isPending: isCreating } = useCreateDailyMenu();
 	const { mutate: updateDailyMenu } = useUpdateDailyMenu();
-	const { mutate: updateMenuItem } = useUpdateMenuItem();
-	const { mutate: deleteMenuItem } = useDeleteMenuItem();
 
 	// State for headcount editing
 	const [headcount, setHeadcount] = useState<number | null>(
@@ -132,9 +250,17 @@ function MealSection({
 	}, [menu]);
 
 	const handleCreateMenu = () => {
-		if (!date) return;
-		createMenu([]); // Passing empty array as placeholder. Should invoke a real creation logic or modal.
-		toast.info("Funcionalidade de criar menu simplificada.");
+		if (!date || !kitchenId) return;
+		const serviceDate = format(date, "yyyy-MM-dd");
+		createMenu([
+			{
+				service_date: serviceDate,
+				meal_type_id: mealType.id,
+				kitchen_id: kitchenId,
+				status: "DRAFT",
+				forecasted_headcount: 0,
+			},
+		]);
 	};
 
 	const handleUpdateHeadcount = () => {
@@ -145,42 +271,15 @@ function MealSection({
 		});
 	};
 
-	const handleUpdatePortionQuantity = (
-		itemId: string,
-		quantity: number | null,
-	) => {
-		updateMenuItem({
-			id: itemId,
-			updates: { planned_portion_quantity: quantity },
-		});
-	};
-
-	const handleUpdateExcludedQuantity = (
-		itemId: string,
-		excludedQty: number | null,
-	) => {
-		updateMenuItem({
-			id: itemId,
-			updates: { excluded_from_procurement: excludedQty },
-		});
-	};
-
-	const handleDeleteItem = (itemId: string, recipeName: string) => {
-		if (
-			window.confirm(
-				`Remover "${recipeName}" do cardápio?\n\nPoderá ser recuperado na lixeira.`,
-			)
-		) {
-			deleteMenuItem(itemId);
-		}
-	};
-
 	return (
-		<AccordionItem value={mealName} className="border rounded-lg px-4 bg-card">
+		<AccordionItem
+			value={mealType.id}
+			className="border rounded-lg px-4 bg-card"
+		>
 			<AccordionTrigger className="hover:no-underline py-4">
 				<div className="flex items-center justify-between w-full mr-4">
 					<div className="flex items-center gap-2">
-						<span className="font-semibold">{mealName}</span>
+						<span className="font-semibold">{mealType.name}</span>
 						{menu && (
 							<Badge
 								variant={menu.status === "PUBLISHED" ? "default" : "secondary"}
@@ -201,7 +300,7 @@ function MealSection({
 				{!menu ? (
 					<div className="text-center py-6 space-y-3">
 						<p className="text-muted-foreground text-sm">
-							Nenhum cardápio criado para esta refeição.
+							Nenhum cardápio criado para {mealType.name || "esta refeição"}.
 						</p>
 						<Button
 							size="sm"
@@ -247,9 +346,9 @@ function MealSection({
 							<h4 className="text-sm font-medium text-muted-foreground">
 								Itens do Cardápio
 							</h4>
-							{menu.menu_items.length === 0 ? (
+							{!menu.menu_items || menu.menu_items.length === 0 ? (
 								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">
-									Nenhuma receita adicionada.
+									Nenhuma preparação adicionada.
 								</div>
 							) : (
 								<div className="grid gap-2">
@@ -258,15 +357,28 @@ function MealSection({
 											key={item.id}
 											item={item}
 											onSubstitute={onSubstitute}
-											onDelete={handleDeleteItem}
+											onDelete={onDelete}
 										/>
 									))}
 								</div>
 							)}
 
-							<Button size="sm" className="w-full mt-2" variant="outline">
+							<Button
+								size="sm"
+								className="w-full mt-2"
+								variant="outline"
+								onClick={() => {
+									if (menu) {
+										console.log(
+											"Adicionar Preparação clicked for menu:",
+											menu.id,
+										);
+										onAddRecipe(menu);
+									}
+								}}
+							>
 								<Plus className="w-4 h-4 mr-2" />
-								Adicionar Receita
+								Adicionar Preparação
 							</Button>
 						</div>
 					</div>

@@ -16,7 +16,7 @@ export function useRecipes(filters?: {
           *,
           ingredients:recipe_ingredients(
             *,
-            product:product(*)
+            product:product_id(*)
           )
         `)
 				.is("deleted_at", null)
@@ -40,4 +40,30 @@ export function useRecipes(filters?: {
 		},
 		staleTime: 5 * 60 * 1000, // 5 minutes
 	});
+}
+
+/**
+ * Fetch a single recipe with all ingredients and product details.
+ * Used when creating menu_items to generate the recipe snapshot.
+ */
+export async function fetchRecipeWithIngredients(
+	recipeId: string,
+): Promise<RecipeWithIngredients> {
+	const { data, error } = await supabase
+		.from("recipes")
+		.select(`
+      *,
+      ingredients:recipe_ingredients(
+        *,
+        product:product_id(*)
+      )
+    `)
+		.eq("id", recipeId)
+		.is("deleted_at", null)
+		.single();
+
+	if (error) throw error;
+	if (!data) throw new Error(`Recipe ${recipeId} not found`);
+
+	return data as RecipeWithIngredients;
 }

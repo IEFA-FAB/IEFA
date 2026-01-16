@@ -491,7 +491,7 @@ export function useApplyTemplate() {
 				.select(
 					`
           *,
-          recipe_origin:recipe_origin_id(*)
+          recipe_origin:recipe_id(*)
         `,
 				)
 				.eq("menu_template_id", templateId);

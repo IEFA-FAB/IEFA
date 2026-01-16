@@ -38,7 +38,15 @@ export function ProductsTreeManager() {
 	});
 
 	// Dados com hook personalizado
-	const { flatTree, stats, error, refetch } = useProductsHierarchy(filterText);
+	const {
+		flatTree,
+		stats,
+		error,
+		refetch,
+		toggleExpand,
+		expandAll,
+		collapseAll,
+	} = useProductsHierarchy(filterText);
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null);
@@ -114,6 +122,27 @@ export function ProductsTreeManager() {
 				</div>
 
 				<div className="flex flex-wrap gap-2">
+					{/* Bulk Expand/Collapse Controls */}
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={expandAll}
+						aria-label="Expandir tudo"
+						className="transition-all active:scale-[0.98]"
+					>
+						Expandir Tudo
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={collapseAll}
+						aria-label="Recolher tudo"
+						className="transition-all active:scale-[0.98]"
+					>
+						Recolher Tudo
+					</Button>
+
+					{/* Create Actions */}
 					<Button
 						variant="outline"
 						size="sm"
@@ -263,6 +292,7 @@ export function ProductsTreeManager() {
 											onEdit={(type, data) =>
 												handleOpenDialog(type, "edit", data)
 											}
+											onToggle={toggleExpand}
 										/>
 									</div>
 								);
