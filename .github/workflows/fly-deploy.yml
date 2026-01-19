@@ -11,7 +11,7 @@ permissions:
 jobs:
   deploy-api:
     name: Deploy API
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     concurrency:
       group: fly-deploy-api-${{ github.ref_name }}
@@ -62,7 +62,7 @@ jobs:
 
   deploy-docs:
     name: Deploy Docs
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     concurrency:
       group: fly-deploy-docs-${{ github.ref_name }}
@@ -107,7 +107,7 @@ jobs:
 
   deploy-iefa:
     name: Deploy IEFA
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     concurrency:
       group: fly-deploy-iefa-${{ github.ref_name }}
@@ -172,7 +172,7 @@ jobs:
 
   deploy-sisub:
       name: Deploy SISUB
-      runs-on: ubuntu-latest
+      runs-on: blacksmith-4vcpu-ubuntu-2404
       timeout-minutes: 20
       concurrency:
         group: fly-deploy-sisub-${{ github.ref_name }}
