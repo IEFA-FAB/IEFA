@@ -87,7 +87,7 @@ export default defineConfig({
 		],
 		// Force pre-bundle even if detected as ESM
 		esbuildOptions: {
-			target: "ES2022",
+			target: "esnext",
 		},
 	},
 	// SSR configuration for TanStack Start
@@ -117,7 +117,7 @@ export default defineConfig({
 	// Build optimizations
 	build: {
 		// Target modern browsers for better bundle size
-		target: "ES2022",
+		target: "esnext",
 		// Enable minification
 		minify: "esbuild",
 		// Source maps for production debugging
