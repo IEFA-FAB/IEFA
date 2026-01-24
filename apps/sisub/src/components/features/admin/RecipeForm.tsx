@@ -10,10 +10,11 @@ import {
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { PageHeader } from "@/components/common/layout/PageHeader";
 import {
 	useCreateRecipe,
 	useVersionRecipe,
@@ -112,30 +113,26 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 		},
 	});
 
+	// Dynamic Header Content
+	const pageTitle =
+		mode === "create"
+			? "Nova Receita"
+			: mode === "edit"
+				? `Editando: ${initialData?.name} (v${initialData?.version})`
+				: `Personalizando: ${initialData?.name}`;
+
+	const pageDescription =
+		mode === "edit"
+			? "Uma nova versão será criada automaticamente."
+			: "Preencha os dados da ficha técnica.";
+
 	return (
 		<div className="space-y-6 max-w-5xl mx-auto pb-20">
-			<div className="flex items-center gap-4">
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={() => window.history.back()}
-				>
-					<ArrowLeft className="w-5 h-5" />
-				</Button>
-				<div>
-					<h1 className="text-2xl font-bold">
-						{mode === "create" && "Nova Receita"}
-						{mode === "edit" &&
-							`Editando: ${initialData?.name} (v${initialData?.version})`}
-						{mode === "fork" && `Personalizando: ${initialData?.name}`}
-					</h1>
-					<p className="text-muted-foreground">
-						{mode === "edit"
-							? "Uma nova versão será criada automaticamente."
-							: "Preencha os dados da ficha técnica."}
-					</p>
-				</div>
-			</div>
+			<PageHeader
+				title={pageTitle}
+				description={pageDescription}
+				onBack={() => window.history.back()}
+			/>
 
 			<form
 				onSubmit={(e) => {

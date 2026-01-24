@@ -56,19 +56,27 @@ function Home() {
 								Administração.
 							</p>
 							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
-								<Button asChild size="lg" variant="default">
-									<Link to="/facilities" aria-label="Ver aplicações da suite">
-										Ver aplicações
-									</Link>
-								</Button>
-								<Button asChild size="lg" variant="secondary">
-									<Link
-										to="/journal"
-										aria-label="Acessar Sistema de Gestão de Publicações"
-									>
-										Gestão de Publicações
-									</Link>
-								</Button>
+								<Button
+									render={
+										<Link to="/facilities" aria-label="Ver aplicações da suite">
+											Ver aplicações
+										</Link>
+									}
+									size="lg"
+									variant="default"
+								/>
+								<Button
+									render={
+										<Link
+											to="/journal"
+											aria-label="Acessar Sistema de Gestão de Publicações"
+										>
+											Gestão de Publicações
+										</Link>
+									}
+									size="lg"
+									variant="secondary"
+								/>
 							</div>
 						</div>
 					</div>

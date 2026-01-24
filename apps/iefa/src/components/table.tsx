@@ -509,11 +509,13 @@ export function FacilidadesTable({
 					</select>
 
 					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="outline">
-								Colunas <ChevronDown className="ml-2 h-4 w-4" />
-							</Button>
-						</DropdownMenuTrigger>
+						<DropdownMenuTrigger
+							render={
+								<Button variant="outline">
+									Colunas <ChevronDown className="ml-2 h-4 w-4" />
+								</Button>
+							}
+						/>
 						<DropdownMenuContent align="end" className="max-h-72 overflow-auto">
 							{table
 								.getAllLeafColumns()

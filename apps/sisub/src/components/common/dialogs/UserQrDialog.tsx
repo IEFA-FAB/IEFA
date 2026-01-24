@@ -1,12 +1,12 @@
 import {
 	Button,
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@iefa/ui";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
 	Copy as CopyIcon,
 	Download as DownloadIcon,
@@ -65,6 +65,7 @@ export function UserQrDialog({
 				aria-describedby={descId}
 				onKeyDown={handleKeyDown}
 				className="w-[95vw] max-w-md overflow-hidden p-0"
+				showCloseButton={false}
 			>
 				<div className="bg-primary px-4 py-3 text-primary-foreground sm:px-6 sm:py-4">
 					<DialogHeader>
@@ -88,13 +89,10 @@ export function UserQrDialog({
 							Use este código para identificação rápida no sistema.
 						</DialogDescription>
 
-						<DialogPrimitive.Close
-							data-slot="dialog-close"
-							className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute right-4 top-4 rounded-xs opacity-90 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-						>
+						<DialogClose className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute right-4 top-4 rounded-xs opacity-90 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
 							<XIcon aria-hidden="true" className="stroke-background" />
 							<span className="sr-only">Fechar</span>
-						</DialogPrimitive.Close>
+						</DialogClose>
 					</DialogHeader>
 				</div>
 

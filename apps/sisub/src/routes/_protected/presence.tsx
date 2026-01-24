@@ -5,6 +5,7 @@ import { Camera, RefreshCw, UserPlus } from "lucide-react";
 import QrScanner from "qr-scanner";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/common/layout/PageHeader";
 import Filters from "@/components/features/forecast/Filters";
 import FiscalDialog from "@/components/features/presence/FiscalDialog";
 import PresenceTable from "@/components/features/presence/PresenceTable";
@@ -394,6 +395,7 @@ function Qr() {
 
 	return (
 		<div className="h-full w-full mx-auto flex-col px-4 sm:px-6 md:px-8 py-4 sm:py-6 space-y-6">
+			<PageHeader title="Fiscalização" />
 			<div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
 				<Filters
 					selectedDate={filters.date}

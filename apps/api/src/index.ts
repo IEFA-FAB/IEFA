@@ -1,4 +1,3 @@
-import { serve } from "@hono/node-server";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { Scalar } from "@scalar/hono-api-reference";
 import { api } from "./api/routes.js";
@@ -51,8 +50,12 @@ app.get(
 );
 
 const port = Number(process.env.API_PORT ?? 3000);
-serve({ fetch: app.fetch, port }, () => {
-	console.log(`🚀 Server running on http://localhost:${port}`);
-	console.log(`📚 API Docs on http://localhost:${port}/`);
-	console.log(`📄 OpenAPI Spec on http://localhost:${port}/doc`);
-});
+
+export default {
+	port,
+	fetch: app.fetch,
+};
+
+console.log(`🚀 Server running on http://localhost:${port}`);
+console.log(`📚 API Docs on http://localhost:${port}/`);
+console.log(`📄 OpenAPI Spec on http://localhost:${port}/doc`);

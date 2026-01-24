@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { PageHeader } from "@/components/common/layout/PageHeader";
 
 import { useAuth } from "@/hooks/auth/useAuth";
 import { inferDefaultMeal } from "@/lib/fiscal";
@@ -228,13 +229,11 @@ function SelfCheckin() {
 	if (!user) return null; // Should be handled by router but strict null check
 
 	return (
-		<div className="w-full mx-auto p-6 text-center space-y-6">
-			<h1 className="text-xl font-semibold">Check-in de Refeição</h1>
-
-			<p className="text-sm text-muted-foreground">
-				Unidade: <b>{unidade}</b> • Data: <b>{date}</b> • Refeição:{" "}
-				<b>{meal}</b>
-			</p>
+		<div className="w-full mx-auto p-6 space-y-6">
+			<PageHeader
+				title="Check-in de Refeição"
+				description={`Unidade: ${unidade} • Data: ${date} • Refeição: ${meal}`}
+			/>
 
 			<div className="rounded-md border p-4 text-left space-y-4">
 				{/* Está na previsão? */}

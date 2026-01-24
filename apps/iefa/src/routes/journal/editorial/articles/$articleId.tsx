@@ -33,12 +33,16 @@ function ArticleDetailEditor() {
 		<div className="space-y-6">
 			{/* Header with back button */}
 			<div className="flex items-center gap-4">
-				<Button asChild variant="outline" size="sm">
-					<Link to="/journal/editorial/dashboard">
-						<ArrowLeft className="size-4 mr-2" />
-						Voltar ao Dashboard
-					</Link>
-				</Button>
+				<Button
+					render={
+						<Link to="/journal/editorial/dashboard">
+							<ArrowLeft className="size-4 mr-2" />
+							Voltar ao Dashboard
+						</Link>
+					}
+					variant="outline"
+					size="sm"
+				/>
 			</div>
 
 			{/* Article Header */}

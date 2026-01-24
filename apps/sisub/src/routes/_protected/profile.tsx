@@ -14,6 +14,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { z } from "zod";
+import { PageHeader } from "@/components/common/layout/PageHeader";
 
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile";
@@ -115,12 +116,11 @@ function ProfilePage() {
 		<div className="mx-auto w-full max-w-5xl space-y-6 pt-6">
 			{" "}
 			{/* max-w-5xl to constrain width on large screens */}
-			<div className="space-y-1">
-				<h1 className="text-2xl font-bold tracking-tight">Perfil</h1>
-				<p className="text-sm text-muted-foreground">
-					Gerencie seu nrOrdem e visualize seus dados militares vinculados.
-				</p>
-			</div>
+			{/* max-w-5xl to constrain width on large screens */}
+			<PageHeader
+				title="Perfil"
+				description="Gerencie seu nrOrdem e visualize seus dados militares vinculados."
+			/>
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 				{/* Esquerda: Dados do Usuário */}
 				<Card>

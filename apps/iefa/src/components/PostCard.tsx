@@ -47,12 +47,15 @@ export function PostCard({ post }: { post: PostSummary }) {
 				)}
 			</CardContent>
 			<CardFooter className="pt-4">
-				<Button asChild className="w-full" variant="secondary">
-					{/* Link para a rota dinâmica */}
-					<Link to="/posts/$slug" params={{ slug: post.slug.current }}>
-						Ler Artigo
-					</Link>
-				</Button>
+				<Button
+					render={
+						<Link to="/posts/$slug" params={{ slug: post.slug.current }}>
+							Ler Artigo
+						</Link>
+					}
+					className="w-full"
+					variant="secondary"
+				/>
 			</CardFooter>
 		</Card>
 	);

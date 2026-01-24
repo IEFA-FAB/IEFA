@@ -70,38 +70,54 @@ function RouteComponent() {
 							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
 								{isAuthenticated ? (
 									<>
-										<Button asChild size="lg" variant="default">
-											<Link
-												to="/journal/submit"
-												aria-label="Submeter novo artigo"
-											>
-												Submeter Artigo
-											</Link>
-										</Button>
-										<Button asChild size="lg" variant="secondary">
-											<Link
-												to="/journal/submissions"
-												aria-label="Ver minhas submissões"
-											>
-												Minhas Submissões
-											</Link>
-										</Button>
+										<Button
+											render={
+												<Link
+													to="/journal/submit"
+													aria-label="Submeter novo artigo"
+												>
+													Submeter Artigo
+												</Link>
+											}
+											size="lg"
+											variant="default"
+										/>
+										<Button
+											render={
+												<Link
+													to="/journal/submissions"
+													aria-label="Ver minhas submissões"
+												>
+													Minhas Submissões
+												</Link>
+											}
+											size="lg"
+											variant="secondary"
+										/>
 									</>
 								) : (
 									<>
-										<Button asChild size="lg" variant="default">
-											<Link to="/auth" aria-label="Fazer login">
-												Fazer Login
-											</Link>
-										</Button>
-										<Button asChild size="lg" variant="secondary">
-											<Link
-												to="/journal/articles"
-												aria-label="Ver artigos publicados"
-											>
-												Artigos Publicados
-											</Link>
-										</Button>
+										<Button
+											render={
+												<Link to="/auth" aria-label="Fazer login">
+													Fazer Login
+												</Link>
+											}
+											size="lg"
+											variant="default"
+										/>
+										<Button
+											render={
+												<Link
+													to="/journal/articles"
+													aria-label="Ver artigos publicados"
+												>
+													Artigos Publicados
+												</Link>
+											}
+											size="lg"
+											variant="secondary"
+										/>
 									</>
 								)}
 							</div>

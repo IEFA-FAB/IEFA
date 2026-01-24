@@ -32,15 +32,15 @@ export function NavMain({
 					return (
 						<SidebarMenuItem key={item.title}>
 							<SidebarMenuButton
-								asChild
+								render={
+									<Link to={item.url}>
+										{item.icon && <item.icon />}
+										<span>{item.title}</span>
+									</Link>
+								}
 								tooltip={item.title}
 								isActive={isActive}
-							>
-								<Link to={item.url}>
-									{item.icon && <item.icon />}
-									<span>{item.title}</span>
-								</Link>
-							</SidebarMenuButton>
+							/>
 						</SidebarMenuItem>
 					);
 				})}

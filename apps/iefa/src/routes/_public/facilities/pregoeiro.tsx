@@ -416,17 +416,19 @@ function Pregoeiro() {
 					onOpenChange={setIsOpen}
 					className="flex flex-col gap-4"
 				>
-					<CollapsibleTrigger asChild>
-						<Button
-							variant="ghost"
-							className="flex w-full items-center place-content-between"
-						>
-							<CardHeader className="flex items-center justify-between w-full">
-								<CardTitle>Atributos</CardTitle>
-								<ChevronsUpDown />
-							</CardHeader>
-						</Button>
-					</CollapsibleTrigger>
+					<CollapsibleTrigger
+						render={
+							<Button
+								variant="ghost"
+								className="flex w-full items-center place-content-between"
+							>
+								<CardHeader className="flex items-center justify-between w-full">
+									<CardTitle>Atributos</CardTitle>
+									<ChevronsUpDown />
+								</CardHeader>
+							</Button>
+						}
+					/>
 
 					<CollapsibleContent className="flex flex-col gap-4">
 						{/* OM - Field */}

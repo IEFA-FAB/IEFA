@@ -3,7 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Calendar, ChefHat, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
-import AdminHero from "@/components/features/admin/AdminHero";
+import { PageHeader } from "@/components/common/layout/PageHeader";
 import DashboardCard from "@/components/features/admin/DashboardCard";
 import QRAutoCheckinCard from "@/components/features/admin/QRAutoCheckinCard";
 import { useAuth } from "@/hooks/auth/useAuth";
@@ -66,11 +66,15 @@ function AdminPanel() {
 			{/* Hero */}
 			<section
 				id="hero"
-				className={`container mx-auto max-w-screen-2xl px-4 pt-10 md:pt-14 transition-all duration-500 ${
+				className={`container mx-auto max-w-screen-2xl px-4 pt-10 transition-all duration-500 ${
 					mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
 				}`}
 			>
-				<AdminHero error={null} />
+				<PageHeader
+					title="Painel Administrativo"
+					description="Controles da sua OM"
+				/>
+				{/* AdminHero might serve as a sub-banner or alert if needed, but per plan we remove it mostly */}
 			</section>
 
 			<section

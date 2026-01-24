@@ -66,9 +66,10 @@ function ReviewInvitation() {
 					Este convite de revisão expirou. Se você ainda deseja revisar este
 					artigo, entre em contato com o editor.
 				</p>
-				<Button asChild variant="outline">
-					<Link to="/journal">Voltar à Página Inicial</Link>
-				</Button>
+				<Button
+					render={<Link to="/journal">Voltar à Página Inicial</Link>}
+					variant="outline"
+				/>
 			</div>
 		);
 	}
@@ -95,13 +96,14 @@ function ReviewInvitation() {
 				</p>
 				<div className="flex gap-3">
 					{invitation.status === "accepted" && (
-						<Button asChild>
-							<Link to="/journal/review">Ir para Dashboard</Link>
-						</Button>
+						<Button
+							render={<Link to="/journal/review">Ir para Dashboard</Link>}
+						/>
 					)}
-					<Button asChild variant="outline">
-						<Link to="/journal">Voltar à Página Inicial</Link>
-					</Button>
+					<Button
+						render={<Link to="/journal">Voltar à Página Inicial</Link>}
+						variant="outline"
+					/>
 				</div>
 			</div>
 		);

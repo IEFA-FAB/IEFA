@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button, Input } from "@iefa/ui";
-import { Plus, Edit, Trash2, BookOpen, Calendar } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { BookOpen, Calendar, Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/journal/editorial/volumes")({
@@ -114,14 +114,19 @@ function VolumeManagement() {
 							</div>
 
 							<div className="flex gap-2">
-								<Button asChild size="sm" variant="outline" className="flex-1">
-									<Link
-										to="/journal/editorial/volumes/$volumeId"
-										params={{ volumeId: volume.id }}
-									>
-										Ver Artigos
-									</Link>
-								</Button>
+								<Button
+									render={
+										<Link
+											to="/journal/editorial/volumes/$volumeId"
+											params={{ volumeId: volume.id }}
+										>
+											Ver Artigos
+										</Link>
+									}
+									size="sm"
+									variant="outline"
+									className="flex-1"
+								/>
 								<Button
 									size="sm"
 									variant="ghost"

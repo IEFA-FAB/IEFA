@@ -5,6 +5,7 @@ import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuTrigger,
@@ -190,31 +191,35 @@ export default function ProfilesManager() {
 				const profile = row.original;
 				return (
 					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" className="h-8 w-8 p-0">
-								<span className="sr-only">Abrir menu</span>
-								<MoreHorizontal className="h-4 w-4" />
-							</Button>
-						</DropdownMenuTrigger>
+						<DropdownMenuTrigger
+							render={
+								<Button variant="ghost" className="h-8 w-8 p-0">
+									<span className="sr-only">Abrir menu</span>
+									<MoreHorizontal className="h-4 w-4" />
+								</Button>
+							}
+						/>
 						<DropdownMenuContent align="end">
-							<DropdownMenuLabel>Ações</DropdownMenuLabel>
-							<DropdownMenuItem
-								onClick={() => {
-									setSelectedProfile(profile);
-									setIsEditUserOpen(true);
-								}}
-							>
-								Editar
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								className="text-destructive focus:text-destructive"
-								onClick={() => {
-									setSelectedProfile(profile);
-									setIsDeleteUserOpen(true);
-								}}
-							>
-								Excluir
-							</DropdownMenuItem>
+							<DropdownMenuGroup>
+								<DropdownMenuLabel>Ações</DropdownMenuLabel>
+								<DropdownMenuItem
+									onClick={() => {
+										setSelectedProfile(profile);
+										setIsEditUserOpen(true);
+									}}
+								>
+									Editar
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="text-destructive focus:text-destructive"
+									onClick={() => {
+										setSelectedProfile(profile);
+										setIsDeleteUserOpen(true);
+									}}
+								>
+									Excluir
+								</DropdownMenuItem>
+							</DropdownMenuGroup>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				);
@@ -312,27 +317,31 @@ export default function ProfilesManager() {
 
 					{/* Dropdown de Colunas */}
 					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="outline" className="whitespace-nowrap">
-								Colunas <ChevronDown className="ml-2 h-4 w-4" />
-							</Button>
-						</DropdownMenuTrigger>
+						<DropdownMenuTrigger
+							render={
+								<Button variant="outline" className="whitespace-nowrap">
+									Colunas <ChevronDown className="ml-2 h-4 w-4" />
+								</Button>
+							}
+						/>
 						<DropdownMenuContent align="end">
-							{table
-								.getAllColumns()
-								.filter((column) => column.getCanHide())
-								.map((column) => (
-									<DropdownMenuCheckboxItem
-										key={column.id}
-										className="capitalize"
-										checked={column.getIsVisible()}
-										onCheckedChange={(value) =>
-											column.toggleVisibility(!!value)
-										}
-									>
-										{column.id}
-									</DropdownMenuCheckboxItem>
-								))}
+							<DropdownMenuGroup>
+								{table
+									.getAllColumns()
+									.filter((column) => column.getCanHide())
+									.map((column) => (
+										<DropdownMenuCheckboxItem
+											key={column.id}
+											className="capitalize"
+											checked={column.getIsVisible()}
+											onCheckedChange={(value) =>
+												column.toggleVisibility(!!value)
+											}
+										>
+											{column.id}
+										</DropdownMenuCheckboxItem>
+									))}
+							</DropdownMenuGroup>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>

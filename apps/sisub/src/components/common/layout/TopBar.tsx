@@ -17,14 +17,19 @@ export type TopbarProps = {
 	userLevel: UserLevelOrNull | undefined;
 };
 
-export function Topbar({ onOpenQr, userId, userLevel }: TopbarProps) {
+export function Topbar({
+	onOpenQr,
+	userId,
+	userLevel,
+	showSidebar,
+}: TopbarProps) {
 	const { toggle } = useTheme();
 
 	return (
-		<header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background/80 px-3 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-4 shrink-0 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+		<header className=" top-2 mx-auto w-full max-w-7xl sticky rounded-full shadow-xl z-40 flex h-14 items-center border-b bg-background/80 px-3 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-4 shrink-0 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
 			<div className="flex w-full items-center">
-				{/* Esquerda: apenas o trigger do sidebar */}
-				{userLevel ? (
+				{/* Esquerda: trigger do sidebar (somente se disponível) ou NavUser */}
+				{userLevel && showSidebar ? (
 					<div className="flex items-center">
 						<SidebarTrigger />
 					</div>

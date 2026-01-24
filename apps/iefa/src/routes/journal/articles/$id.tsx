@@ -52,12 +52,15 @@ function PublicArticleDetail() {
 				<p className="text-muted-foreground mb-6">
 					Este artigo pode ainda estar em processo de revisão ou não existe.
 				</p>
-				<Button asChild variant="outline">
-					<Link to="/journal/articles">
-						<ArrowLeft className="size-4 mr-2" />
-						Voltar à listagem
-					</Link>
-				</Button>
+				<Button
+					render={
+						<Link to="/journal/articles">
+							<ArrowLeft className="size-4 mr-2" />
+							Voltar à listagem
+						</Link>
+					}
+					variant="outline"
+				/>
 			</div>
 		);
 	}
@@ -82,12 +85,16 @@ function PublicArticleDetail() {
 		<div className="space-y-8">
 			{/* Header */}
 			<div className="flex items-center gap-4">
-				<Button asChild variant="outline" size="sm">
-					<Link to="/journal/articles">
-						<ArrowLeft className="size-4 mr-2" />
-						Voltar
-					</Link>
-				</Button>
+				<Button
+					render={
+						<Link to="/journal/articles">
+							<ArrowLeft className="size-4 mr-2" />
+							Voltar
+						</Link>
+					}
+					variant="outline"
+					size="sm"
+				/>
 			</div>
 
 			{/* Article Content */}

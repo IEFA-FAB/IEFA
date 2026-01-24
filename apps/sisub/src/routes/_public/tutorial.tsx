@@ -75,22 +75,27 @@ function Tutorial() {
 								</p>
 							</div>
 							<div className="flex gap-3">
-								<Button asChild>
-									<Link
-										to={heroData.primaryButton.to}
-										aria-label="Ir para Previsão"
-									>
-										{heroData.primaryButton.label}
-									</Link>
-								</Button>
-								<Button asChild variant="outline">
-									<Link
-										to={heroData.secondaryButton.to}
-										aria-label="Ir para Fiscal"
-									>
-										{heroData.secondaryButton.label}
-									</Link>
-								</Button>
+								<Button
+									render={
+										<Link
+											to={heroData.primaryButton.to}
+											aria-label="Ir para Previsão"
+										>
+											{heroData.primaryButton.label}
+										</Link>
+									}
+								/>
+								<Button
+									render={
+										<Link
+											to={heroData.secondaryButton.to}
+											aria-label="Ir para Fiscal"
+										>
+											{heroData.secondaryButton.label}
+										</Link>
+									}
+									variant="outline"
+								/>
 							</div>
 						</div>
 					</CardContent>
@@ -171,12 +176,15 @@ function Tutorial() {
 					</div>
 
 					<div className="mt-10 text-center">
-						<Button asChild className="gap-2">
-							<Link to="/forecast">
-								Abrir página de Previsão
-								<ChevronRight className="w-4 h-4" />
-							</Link>
-						</Button>
+						<Button
+							render={
+								<Link to="/forecast">
+									Abrir página de Previsão
+									<ChevronRight className="w-4 h-4" />
+								</Link>
+							}
+							className="gap-2"
+						/>
 					</div>
 				</div>
 			</Appear>
@@ -222,12 +230,16 @@ function Tutorial() {
 						))}
 					</ul>
 					<div className="mt-4">
-						<Button asChild variant="outline" className="gap-2">
-							<Link to="/presence">
-								Abrir Leitor de QR
-								<QrCode className="w-4 h-4" />
-							</Link>
-						</Button>
+						<Button
+							render={
+								<Link to="/presence">
+									Abrir Leitor de QR
+									<QrCode className="w-4 h-4" />
+								</Link>
+							}
+							variant="outline"
+							className="gap-2"
+						/>
 					</div>
 				</Card>
 			</Appear>
@@ -365,16 +377,14 @@ function Tutorial() {
 							{ctaData.buttons.map((btn) => (
 								<Button
 									key={btn.label}
-									asChild
+									render={<Link to={btn.to}>{btn.label}</Link>}
 									variant={btn.variant === "outline" ? "outline" : "secondary"}
 									className={
 										btn.variant === "outline"
 											? "text-primary-foreground border-primary-foreground/70 hover:bg-primary-foreground/10"
 											: "text-primary shadow-none"
 									}
-								>
-									<Link to={btn.to}>{btn.label}</Link>
-								</Button>
+								/>
 							))}
 						</div>
 					</div>

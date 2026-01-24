@@ -1,11 +1,15 @@
 // ~/components/sidebar/nav-items.ts
 
 import {
+	Calendar,
+	ClipboardCheck,
 	FileText,
+	LayoutDashboard,
 	type LucideIcon,
 	Settings,
 	ShieldCheck,
 	UtensilsCrossed,
+	Wheat,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import type { UserLevelOrNull } from "@/types/domain/";
@@ -46,17 +50,20 @@ const DROPDOWN_ICON: Record<DisplayLevel, LucideIcon> = {
 // - Fiscal → "leitor QrCode" → /fiscal
 // - Gestor → "painel do rancho" → /admin
 // - SDAB → "painel do sistema" → /superadmin
-const LEVEL_SUBITEMS: Record<DisplayLevel, { title: string; url: string }[]> = {
-	comensal: [{ title: "Previsão", url: "/forecast" }],
-	user: [{ title: "Leitor QrCode", url: "/presence" }],
+const LEVEL_SUBITEMS: Record<
+	DisplayLevel,
+	{ title: string; url: string; icon: LucideIcon }[]
+> = {
+	comensal: [{ title: "Previsão", url: "/forecast", icon: Calendar }],
+	user: [{ title: "Leitor QrCode", url: "/presence", icon: ClipboardCheck }],
 	admin: [
-		{ title: "Painel do rancho", url: "/admin" },
-		{ title: "Planejamento", url: "/admin/planning" },
-		{ title: "Receitas", url: "/admin/recipes" },
+		{ title: "Painel do rancho", url: "/admin", icon: LayoutDashboard },
+		{ title: "Planejamento", url: "/admin/planning", icon: Calendar },
+		{ title: "Receitas", url: "/admin/recipes", icon: UtensilsCrossed },
 	],
 	superadmin: [
-		{ title: "Painel do sistema", url: "/superAdmin" },
-		{ title: "Gestão de Insumos", url: "/superAdmin/ingredients" },
+		{ title: "Painel do sistema", url: "/superAdmin", icon: Settings },
+		{ title: "Gestão de Insumos", url: "/superAdmin/ingredients", icon: Wheat },
 	],
 };
 
@@ -79,19 +86,19 @@ export type BuildSidebarDataParams = {
 
 export function buildSidebarData({
 	level,
-	activePath,
 }: BuildSidebarDataParams): AppSidebarData {
 	const levels = getAccumulatedLevels(level);
 
 	const navMain: NavItemSection[] = levels.map((lv) => {
 		const items = LEVEL_SUBITEMS[lv] ?? [];
-		const isActive = !!activePath && items.some((it) => it.url === activePath);
+		// const isActive =
+		// 	!!activePath && items.some((it) => it.url === activePath);
 
 		return {
 			title: DROPDOWN_TITLE[lv],
 			icon: DROPDOWN_ICON[lv],
-			isActive,
-			items, // NavMain espera items: { title, url }[]
+			isActive: true, // Always open/visible in the new group structure
+			items, // NavMain espera items: { title, url, icon }[]
 		};
 	});
 
@@ -121,7 +128,7 @@ export function getNavItemsForLevel(level: DisplayLevel): NavItem[] {
 		(LEVEL_SUBITEMS[lv] ?? []).map((it) => ({
 			to: it.url,
 			label: it.title,
-			icon: DROPDOWN_ICON[lv],
+			icon: it.icon,
 		})),
 	);
 }

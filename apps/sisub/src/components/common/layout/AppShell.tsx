@@ -1,35 +1,45 @@
-import { SidebarInset } from "@iefa/ui";
-
-import { useIsFetching, useIsMutating } from "@tanstack/react-query";
-import { Outlet, useLocation } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { EvaluationDialog } from "@/components/common/dialogs/EvaluationDialog";
-import { UserQrDialog } from "@/components/common/dialogs/UserQrDialog";
+import {
+	AnimatedThemeToggler,
+	Button,
+	Separator,
+	SidebarInset,
+	SidebarTrigger,
+} from "@iefa/ui";
+import { Link, Outlet, useLocation } from "@tanstack/react-router";
+import { QrCode } from "lucide-react";
+import { useEffect } from "react";
 import {
 	buildSidebarData,
 	getNavItemsForLevel,
 	type NavItem,
 } from "@/components/common/layout/sidebar/NavItems";
-import { SaramDialog } from "@/components/features/presence/SaramDialog";
-import { useAuth } from "@/hooks/auth/useAuth";
 import {
-	useUpdateNrOrdem,
-	useUserNrOrdem,
-} from "@/hooks/business/useUserNrOrdem";
-import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation";
-import { useSyncUserEmail } from "@/hooks/ui/useUserSync";
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { useTheme } from "@/hooks/ui/useTheme";
 import { useUserLevel } from "@/services/AdminService";
-
 import { AppSidebar } from "./sidebar/AppSidebar";
 import { MainSurface } from "./sidebar/MainSurface";
-import { Topbar } from "./TopBar";
 
-const NR_ORDEM_MIN_LEN = 7;
+interface AppShellProps {
+	onOpenQr: () => void;
+}
 
-export function AppShell() {
+const R = {
+	appName: "SISUB",
+	breadcrumbRoot: "Início",
+};
+
+export function AppShell({ onOpenQr }: AppShellProps) {
 	const location = useLocation();
 	const { user } = useAuth();
 	const userId = user?.id ?? null;
+	const { toggle } = useTheme();
 
 	const {
 		data: userLevel,
@@ -63,153 +73,6 @@ export function AppShell() {
 	// But don't show if there was an error fetching the level
 	const showSidebar = (!!sidebarData || levelLoading) && !levelError;
 
-	const nrOrdemQuery = useUserNrOrdem(userId);
-	const evaluationQuery = useEvaluation(userId);
-
-	const syncEmailMutation = useSyncUserEmail();
-
-	useEffect(() => {
-		if (user) syncEmailMutation.mutate(user);
-	}, [user?.id, syncEmailMutation.mutate, user]);
-
-	const [nrDialogOpenState, setNrDialogOpenState] = useState(false);
-	const [nrOrdem, setNrOrdem] = useState("");
-	const [nrError, setNrError] = useState<string | null>(null);
-
-	const shouldForceNrDialog =
-		!!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data;
-
-	const nrDialogOpen = shouldForceNrDialog || nrDialogOpenState;
-
-	useEffect(() => {
-		if (!userId) {
-			setNrDialogOpenState(false);
-			setNrOrdem("");
-			return;
-		}
-		const current = nrOrdemQuery.data;
-		setNrOrdem(current ? String(current) : "");
-	}, [userId, nrOrdemQuery.data]);
-
-	const saveNrMutation = useUpdateNrOrdem();
-
-	// Effect to update error state from mutation if needed
-	useEffect(() => {
-		if (saveNrMutation.isError) {
-			setNrError("Não foi possível salvar. Tente novamente.");
-		}
-	}, [saveNrMutation.isError]);
-
-	// Effect to close dialog on success
-	useEffect(() => {
-		if (saveNrMutation.isSuccess) {
-			setNrDialogOpenState(false);
-		}
-	}, [saveNrMutation.isSuccess]);
-
-	const handleNrDialogOpenChange = (open: boolean) => {
-		if (!open && shouldForceNrDialog) return;
-		setNrDialogOpenState(open);
-	};
-
-	const handleNrOrdemChange = (value: string) => {
-		setNrOrdem(value);
-		if (nrError) setNrError(null);
-	};
-
-	const handleSubmitNrOrdem = () => {
-		const digitsOnly = nrOrdem.replace(/\D/g, "").trim();
-		if (!digitsOnly) {
-			setNrError("Informe seu número da Ordem.");
-			return;
-		}
-		if (digitsOnly.length < NR_ORDEM_MIN_LEN) {
-			setNrError("Nr. da Ordem parece curto. Confira e tente novamente.");
-			return;
-		}
-		if (!user) return;
-		saveNrMutation.mutate({ user, nrOrdem: digitsOnly });
-	};
-
-	const [evaluationDismissed, setEvaluationDismissed] = useState(false);
-	const [selectedRating, setSelectedRating] = useState<number | null>(null);
-
-	useEffect(() => {
-		setEvaluationDismissed(false);
-		setSelectedRating(null);
-	}, []);
-
-	const evaluationQuestion = evaluationQuery.data?.question ?? null;
-	const evaluationShouldAsk = Boolean(
-		evaluationQuery.data?.shouldAsk && evaluationQuestion,
-	);
-
-	const shouldShowEvaluationDialog =
-		!!userId &&
-		evaluationQuery.isSuccess &&
-		evaluationShouldAsk &&
-		!nrDialogOpen &&
-		!evaluationDismissed;
-
-	const handleEvaluationOpenChange = (open: boolean) => {
-		if (!open) {
-			setEvaluationDismissed(true);
-			setSelectedRating(null);
-		} else {
-			setEvaluationDismissed(false);
-		}
-	};
-
-	const submitVoteMutation = useSubmitEvaluation();
-
-	// Effect to close evaluation on success
-	// biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles this
-	useEffect(() => {
-		if (submitVoteMutation.isSuccess) {
-			handleEvaluationOpenChange(false);
-		}
-	}, [submitVoteMutation.isSuccess]);
-
-	const handleSubmitVote = () => {
-		const question = evaluationQuestion;
-		if (!userId || !question || selectedRating == null) return;
-		submitVoteMutation.mutate({ value: selectedRating, question, userId });
-	};
-
-	const [sheetOpen, setSheetOpen] = useState(false);
-	const [qrOpen, setQrOpen] = useState(false);
-	const [hasCopiedId, setHasCopiedId] = useState(false);
-	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const handleCopyUserId = async () => {
-		if (!user?.id) return;
-		if (typeof navigator === "undefined" || !navigator.clipboard) return;
-		try {
-			await navigator.clipboard.writeText(user.id);
-			setHasCopiedId(true);
-			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-			copyTimeoutRef.current = setTimeout(() => setHasCopiedId(false), 1600);
-		} catch (error) {
-			console.error("Erro ao copiar ID:", error);
-		}
-	};
-
-	useEffect(() => {
-		return () => {
-			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-		};
-	}, []);
-
-	const globalFetching = useIsFetching();
-	const globalMutating = useIsMutating();
-	const showGlobalProgress =
-		globalFetching + globalMutating > 0 ||
-		levelLoading ||
-		nrOrdemQuery.isFetching ||
-		evaluationQuery.isFetching;
-
-	const isSavingNrReal = saveNrMutation.isPending;
-	const isSubmittingVote = submitVoteMutation.isPending;
 	const showInitialLoading = levelLoading && !userLevel;
 	const showInitialError = !levelLoading && levelError;
 
@@ -217,67 +80,116 @@ export function AppShell() {
 		if (typeof window !== "undefined") window.location.reload();
 	};
 
+	// Generate breadcrumbs from current path
+	const crumbs = (() => {
+		const path = location.pathname.replace(/\/+$/, "");
+		if (!path || path === "/") {
+			return [{ to: "/forecast", label: "Previsão" }];
+		}
+		const segments = path.split("/").filter(Boolean);
+		const mapLabel = (seg: string) => {
+			const found = navItems.find((n) => n.to.replace(/^\//, "") === seg);
+			if (found) return found.label;
+			return seg.charAt(0).toUpperCase() + seg.slice(1);
+		};
+		let acc = "";
+		return segments.map((seg) => {
+			acc += `/${seg}`;
+			return { to: acc, label: mapLabel(seg) };
+		});
+	})();
+
+	// Update document title based on breadcrumbs
+	useEffect(() => {
+		const last = crumbs[crumbs.length - 1]?.label || "Início";
+		document.title = `${R.appName} — ${last}`;
+	}, [crumbs]);
+
 	return (
 		<>
-			<SaramDialog
-				open={nrDialogOpen}
-				nrOrdem={nrOrdem}
-				error={nrError}
-				isSaving={isSavingNrReal}
-				onOpenChange={handleNrDialogOpenChange}
-				onChange={handleNrOrdemChange}
-				onSubmit={handleSubmitNrOrdem}
+			<AppSidebar
+				variant="floating"
+				data={sidebarData ?? undefined}
+				isLoading={levelLoading}
+				collapsible={showSidebar ? "icon" : "offcanvas"}
 			/>
 
-			<EvaluationDialog
-				open={shouldShowEvaluationDialog}
-				question={evaluationQuestion}
-				selectedRating={selectedRating}
-				isSubmitting={isSubmittingVote}
-				onOpenChange={handleEvaluationOpenChange}
-				onSelectRating={setSelectedRating}
-				onSubmit={handleSubmitVote}
-			/>
+			<SidebarInset className="bg-transparent h-full overflow-y-auto w-full flex flex-col">
+				<header className="max-w-6xl w-full mx-auto sticky top-2 z-40 border-b border-white/5 bg-background/40 backdrop-blur-md supports-backdrop-filter:bg-background/40 shrink-0 rounded-full shadow-xl shadow-foreground">
+					<div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center justify-between px-3 sm:px-6">
+						<div className="flex items-center gap-3">
+							<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-colors" />
+							<Separator
+								orientation="vertical"
+								className="mx-2 h-5 bg-border/50"
+							/>
+							<Breadcrumb>
+								<BreadcrumbList className="text-sm font-medium">
+									<BreadcrumbItem>
+										<BreadcrumbLink
+											render={
+												<Link
+													to="/forecast"
+													className="hover:text-primary transition-colors"
+												>
+													{R.breadcrumbRoot}
+												</Link>
+											}
+										/>
+									</BreadcrumbItem>
+									{crumbs.map((c, idx) => (
+										<span key={c.to} className="inline-flex items-center">
+											<BreadcrumbSeparator className="text-muted-foreground/50" />
+											<BreadcrumbItem>
+												{idx === crumbs.length - 1 ? (
+													<span className="text-foreground bg-primary/5 px-2 py-0.5 rounded-md">
+														{c.label}
+													</span>
+												) : (
+													<BreadcrumbLink
+														render={
+															<Link
+																to={c.to}
+																className="hover:text-primary transition-colors"
+															>
+																{c.label}
+															</Link>
+														}
+													/>
+												)}
+											</BreadcrumbItem>
+										</span>
+									))}
+								</BreadcrumbList>
+							</Breadcrumb>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={onOpenQr}
+								className="flex items-center gap-2 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+								aria-label="Abrir QR do usuário"
+								disabled={!userId}
+								title={userId ? "Mostrar QR" : "Usuário não identificado"}
+							>
+								<QrCode className="h-4 w-4" />
+								<span className="hidden font-medium sm:inline">QR</span>
+							</Button>
+							<AnimatedThemeToggler toggle={toggle} />
+						</div>
+					</div>
+				</header>
 
-			<UserQrDialog
-				open={qrOpen}
-				onOpenChange={setQrOpen}
-				userId={userId}
-				onCopy={handleCopyUserId}
-				hasCopied={hasCopiedId}
-			/>
-
-			{showSidebar ? (
-				<AppSidebar
-					variant="floating"
-					data={sidebarData ?? undefined}
-					isLoading={levelLoading}
-				/>
-			) : null}
-
-			<SidebarInset className="rounded-lg">
-				<div className="flex min-h-svh w-full flex-col supports-[height:100dvh]:min-h-dvh">
-					<Topbar
-						showSidebar={showSidebar}
-						navItems={navItems}
-						sheetOpen={sheetOpen}
-						onSheetOpenChange={setSheetOpen}
-						onSidebarNavigate={() => setSheetOpen(false)}
-						showGlobalProgress={showGlobalProgress}
-						onOpenQr={() => setQrOpen(true)}
-						userId={userId}
-						userLevel={userLevel}
-					/>
-					<main id="conteudo" className="flex-1 rounded-lg">
-						<MainSurface
-							showInitialError={showInitialError}
-							showInitialLoading={showInitialLoading}
-							onRetry={handleRetry}
-						>
-							<Outlet />
-						</MainSurface>
+				<MainSurface
+					showInitialError={showInitialError}
+					showInitialLoading={showInitialLoading}
+					onRetry={handleRetry}
+				>
+					<main className="mx-auto w-full max-w-screen-2xl flex-1 px-3 py-6 sm:px-6 md:py-8 focus:outline-none">
+						<Outlet />
 					</main>
-				</div>
+				</MainSurface>
 			</SidebarInset>
 		</>
 	);

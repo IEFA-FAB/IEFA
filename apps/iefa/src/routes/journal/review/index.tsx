@@ -169,24 +169,29 @@ function ReviewCard({ assignment, isPending }: ReviewCardProps) {
 
 				<div className="flex flex-col gap-2">
 					{isPending ? (
-						<Button asChild>
-							<Link
-								to="/journal/review/$assignmentId"
-								params={{ assignmentId: assignment.id }}
-							>
-								<FileText className="size-4 mr-2" />
-								Realizar Revisão
-							</Link>
-						</Button>
+						<Button
+							render={
+								<Link
+									to="/journal/review/$assignmentId"
+									params={{ assignmentId: assignment.id }}
+								>
+									<FileText className="size-4 mr-2" />
+									Realizar Revisão
+								</Link>
+							}
+						/>
 					) : (
-						<Button asChild variant="outline">
-							<Link
-								to="/journal/review/$assignmentId"
-								params={{ assignmentId: assignment.id }}
-							>
-								Ver Revisão
-							</Link>
-						</Button>
+						<Button
+							render={
+								<Link
+									to="/journal/review/$assignmentId"
+									params={{ assignmentId: assignment.id }}
+								>
+									Ver Revisão
+								</Link>
+							}
+							variant="outline"
+						/>
 					)}
 				</div>
 			</div>

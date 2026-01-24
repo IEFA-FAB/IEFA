@@ -5,6 +5,7 @@ import {
 	Button,
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -46,34 +47,38 @@ export function UserMenu() {
 
 	if (!isAuthenticated) {
 		return (
-			<Button asChild variant="outline" size="sm">
-				<Link to="/auth">Entrar</Link>
-			</Button>
+			<Button
+				render={<Link to="/auth">Entrar</Link>}
+				variant="outline"
+				size="sm"
+			/>
 		);
 	}
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button
-					variant="ghost"
-					className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground px-2"
-				>
-					<Avatar className="h-8 w-8 rounded-lg">
-						<AvatarImage src={avatarUrl} alt={displayName} />
-						<AvatarFallback className="rounded-lg">
-							{getInitials(displayName)}
-						</AvatarFallback>
-					</Avatar>
-					<div className="hidden sm:grid flex-1 text-left text-sm leading-tight ml-2">
-						<span className="truncate font-medium">{displayName}</span>
-						<span className="text-muted-foreground truncate text-xs">
-							{email}
-						</span>
-					</div>
-					<EllipsisVertical className="ml-2 h-4 w-4" aria-hidden="true" />
-				</Button>
-			</DropdownMenuTrigger>
+			<DropdownMenuTrigger
+				render={
+					<Button
+						variant="ghost"
+						className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground px-2"
+					>
+						<Avatar className="h-8 w-8 rounded-lg">
+							<AvatarImage src={avatarUrl} alt={displayName} />
+							<AvatarFallback className="rounded-lg">
+								{getInitials(displayName)}
+							</AvatarFallback>
+						</Avatar>
+						<div className="hidden sm:grid flex-1 text-left text-sm leading-tight ml-2">
+							<span className="truncate font-medium">{displayName}</span>
+							<span className="text-muted-foreground truncate text-xs">
+								{email}
+							</span>
+						</div>
+						<EllipsisVertical className="ml-2 h-4 w-4" aria-hidden="true" />
+					</Button>
+				}
+			/>
 
 			<DropdownMenuContent
 				className="min-w-56 rounded-lg"
@@ -81,32 +86,36 @@ export function UserMenu() {
 				align="end"
 				sideOffset={6}
 			>
-				<DropdownMenuLabel className="p-0 font-normal">
-					<div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
-						<Avatar className="h-8 w-8 rounded-lg">
-							<AvatarImage src={avatarUrl} alt={displayName} />
-							<AvatarFallback className="rounded-lg">
-								{getInitials(displayName)}
-							</AvatarFallback>
-						</Avatar>
-						<div className="grid flex-1 text-left text-sm leading-tight">
-							<span className="truncate font-medium">{displayName}</span>
-							<span className="text-muted-foreground truncate text-xs">
-								{email}
-							</span>
+				<DropdownMenuGroup>
+					<DropdownMenuLabel className="p-0 font-normal">
+						<div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
+							<Avatar className="h-8 w-8 rounded-lg">
+								<AvatarImage src={avatarUrl} alt={displayName} />
+								<AvatarFallback className="rounded-lg">
+									{getInitials(displayName)}
+								</AvatarFallback>
+							</Avatar>
+							<div className="grid flex-1 text-left text-sm leading-tight">
+								<span className="truncate font-medium">{displayName}</span>
+								<span className="text-muted-foreground truncate text-xs">
+									{email}
+								</span>
+							</div>
 						</div>
-					</div>
-				</DropdownMenuLabel>
+					</DropdownMenuLabel>
+				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem
-					onSelect={async () => {
-						await signOut();
-					}}
-					className="text-red-600 focus:text-red-600 cursor-pointer"
-				>
-					<LogOut className="mr-2 h-4 w-4" />
-					Sair
-				</DropdownMenuItem>
+				<DropdownMenuGroup>
+					<DropdownMenuItem
+						onSelect={async () => {
+							await signOut();
+						}}
+						className="text-red-600 focus:text-red-600 cursor-pointer"
+					>
+						<LogOut className="mr-2 h-4 w-4" />
+						Sair
+					</DropdownMenuItem>
+				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

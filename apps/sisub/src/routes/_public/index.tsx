@@ -452,16 +452,16 @@ function Home() {
 
 						<div className="flex flex-col items-center gap-4">
 							<Button
-								asChild
+								render={
+									<Link to="/auth" aria-label="Ir para a página de login">
+										Fazer Login
+										<ChevronRight className="h-5 w-5" />
+									</Link>
+								}
 								size="lg"
 								variant="secondary"
 								className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
-							>
-								<Link to="/auth" aria-label="Ir para a página de login">
-									Fazer Login
-									<ChevronRight className="h-5 w-5" />
-								</Link>
-							</Button>
+							/>
 
 							<div className="mt-8 flex flex-wrap justify-center items-center gap-6 md:gap-8 text-primary-foreground/85">
 								<div className="flex items-center gap-2">
@@ -532,12 +532,10 @@ function HomeHero() {
 
 				<div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
 					<Button
-						asChild
+						render={<Link to="/auth">Acessar Sistema</Link>}
 						size="lg"
 						className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
-					>
-						<Link to="/auth">Acessar Sistema</Link>
-					</Button>
+					/>
 
 					<div className="flex items-center space-x-2 text-sm text-muted-foreground">
 						<ShieldBadge />
@@ -630,15 +628,15 @@ function InfoCard(props: {
 					</div>
 				)}
 				<Button
-					asChild
+					render={
+						<Link to={cta.to} aria-label={cta.label}>
+							{cta.label}
+							<ChevronRight className="h-5 w-5" />
+						</Link>
+					}
 					variant="default"
 					className="gap-2 font-sans font-semibold"
-				>
-					<Link to={cta.to} aria-label={cta.label}>
-						{cta.label}
-						<ChevronRight className="h-5 w-5" />
-					</Link>
-				</Button>
+				/>
 			</CardContent>
 		</Card>
 	);

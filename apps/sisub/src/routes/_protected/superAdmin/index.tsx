@@ -14,14 +14,12 @@ import {
 } from "@iefa/ui";
 import { useForm } from "@tanstack/react-form";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { CalendarDays, ChefHat, FolderTree, Users } from "lucide-react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
-
+import { PageHeader } from "@/components/common/layout/PageHeader";
 import IndicatorsCard from "@/components/features/super-admin/IndicatorsCard";
 import ProfilesManager from "@/components/features/super-admin/ProfilesManager";
-import SuperAdminHero from "@/components/features/super-admin/SuperAdminHero";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useEvalConfig } from "@/hooks/business/useEvalConfig";
 import { adminProfileQueryOptions } from "@/services/AdminService";
@@ -80,9 +78,12 @@ function SuperAdminPanel() {
 			{/* Hero */}
 			<section
 				id="hero"
-				className="container mx-auto max-w-screen-2xl px-4 pt-10 md:pt-14"
+				className="container mx-auto max-w-screen-2xl px-4 pt-10"
 			>
-				<SuperAdminHero />
+				<PageHeader
+					title="Painel SuperAdmin"
+					description="Controle o sistema de subsistência"
+				/>
 			</section>
 
 			{/* Conteúdo */}

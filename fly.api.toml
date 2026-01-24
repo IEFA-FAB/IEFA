@@ -14,7 +14,7 @@ primary_region = 'gru'
   API_PORT = '3000'
 
 [processes]
-  app = 'pnpm start'
+  app = 'bun apps/api/dist/index.js'
 
 [http_service]
   internal_port = 3000

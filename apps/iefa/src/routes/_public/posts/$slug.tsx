@@ -122,12 +122,16 @@ function PostDetailComponent() {
 	return (
 		<article className="max-w-4xl mx-auto py-10 px-4 sm:px-6">
 			{/* Botão Voltar */}
-			<Button variant="ghost" className="mb-8 group" asChild>
-				<Link to="/posts">
-					<ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-					Voltar para lista
-				</Link>
-			</Button>
+			<Button
+				variant="ghost"
+				className="mb-8 group"
+				render={
+					<Link to="/posts">
+						<ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+						Voltar para lista
+					</Link>
+				}
+			/>
 
 			{/* Cabeçalho do Post */}
 			<header className="mb-10 text-center">
@@ -178,9 +182,7 @@ function PostDetailComponent() {
 			{/* Rodapé do artigo */}
 			<div className="text-center">
 				<p className="text-muted-foreground mb-4">Gostou deste artigo?</p>
-				<Button asChild>
-					<Link to="/posts">Ler mais artigos</Link>
-				</Button>
+				<Button render={<Link to="/posts">Ler mais artigos</Link>} />
 			</div>
 		</article>
 	);

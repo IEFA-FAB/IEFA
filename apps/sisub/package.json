@@ -3,9 +3,9 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "vite dev",
-        "build": "vite build",
-        "serve": "vite preview",
+        "dev": "bunx --bun vite dev",
+        "build": "bunx --bun vite build",
+        "serve": "bunx --bun vite preview",
         "format": "biome format",
         "lint": "biome lint",
         "check": "biome check",

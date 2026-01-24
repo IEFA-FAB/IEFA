@@ -37,7 +37,7 @@ export function AppCard({ app }: { app: AppItem }) {
 				{app.badges && app.badges.length > 0 ? (
 					<div className="flex flex-wrap gap-2">
 						{app.badges.map((b, idx) => (
-							<Badge key={`${b}-${idx}`} variant="outline">
+							<Badge key={b} variant="outline">
 								{b}
 							</Badge>
 						))}
@@ -98,26 +98,28 @@ export function AppCard({ app }: { app: AppItem }) {
 
 			<CardFooter>
 				{app.to ? (
-					<Button asChild className="w-full" aria-label={`Abrir ${app.title}`}>
-						<Link to={app.to}>Abrir</Link>
-					</Button>
+					<Button
+						render={<Link to={app.to}>Abrir</Link>}
+						className="w-full"
+						aria-label={`Abrir ${app.title}`}
+					/>
 				) : app.href ? (
 					<Button
-						asChild
+						render={
+							<a
+								href={app.href}
+								target={isExternal ? "_blank" : undefined}
+								rel={isExternal ? "noreferrer noopener" : undefined}
+							>
+								Acessar
+								{isExternal ? (
+									<ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
+								) : null}
+							</a>
+						}
 						className="w-full"
 						aria-label={`Acessar ${app.title}`}
-					>
-						<a
-							href={app.href}
-							target={isExternal ? "_blank" : undefined}
-							rel={isExternal ? "noreferrer noopener" : undefined}
-						>
-							Acessar
-							{isExternal ? (
-								<ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-							) : null}
-						</a>
-					</Button>
+					/>
 				) : null}
 			</CardFooter>
 		</Card>
