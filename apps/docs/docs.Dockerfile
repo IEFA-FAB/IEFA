@@ -2,14 +2,8 @@
 # Standalone Astro/Starlight app - não depende do monorepo
 
 # --- Base ---
-FROM node:22-alpine AS base
+FROM oven/bun:1.3.6-alpine AS base
 RUN apk add --no-cache libc6-compat
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-
-# Habilita corepack e prepara pnpm
-RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
-
 WORKDIR /app
 
 # --- Build ---
@@ -18,14 +12,14 @@ FROM base AS build
 # Copia package.json
 COPY package.json ./
 
-# Instala dependências (sem lockfile pois docs não tem pnpm-lock.yaml próprio)
-RUN pnpm install --no-frozen-lockfile
+# Instala dependências
+RUN bun install --no-save
 
 # Copia o código fonte
 COPY . .
 
 # Build da aplicação Astro
-RUN pnpm run build
+RUN bun run build
 
 # --- Runtime (nginx para servir estáticos) ---
 FROM nginx:alpine AS runtime

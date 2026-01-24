@@ -28,7 +28,7 @@ ENV VITE_SISUB_SUPABASE_URL=$VITE_SISUB_SUPABASE_URL \
 RUN bun install --frozen-lockfile
 
 # Executa o build do app 'sisub'
-RUN bun --filter ./apps/sisub run build
+RUN bun --filter='sisub' run build
 
 # --- Runtime ---
 FROM oven/bun:1.3.6-alpine AS runtime

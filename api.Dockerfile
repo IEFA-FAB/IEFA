@@ -21,7 +21,7 @@ COPY . .
 RUN bun install --frozen-lockfile
 
 # Build da API
-RUN bun --filter ./apps/api run build
+RUN bun --filter='api' run build
 
 # --- Runtime ---
 FROM oven/bun:1.3.6-alpine AS runtime

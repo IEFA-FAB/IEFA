@@ -32,7 +32,7 @@ ENV VITE_IEFA_SUPABASE_URL=$VITE_IEFA_SUPABASE_URL \
 RUN bun install --frozen-lockfile
 
 # Executa o build específico do app 'iefa'
-RUN bun --filter ./apps/iefa run build
+RUN bun --filter='iefa' run build
 
 # --- Runtime ---
 FROM oven/bun:1.3.6-alpine AS runtime
