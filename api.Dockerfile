@@ -33,7 +33,6 @@ RUN apk add --no-cache libc6-compat
 
 # Copia as dependências necessárias para runtime
 COPY --from=build --chown=bun:bun /repo/node_modules ./node_modules
-COPY --from=build --chown=bun:bun /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build --chown=bun:bun /repo/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=bun:bun /repo/apps/api/src ./apps/api/src
 
