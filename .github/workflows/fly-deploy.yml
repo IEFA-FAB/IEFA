@@ -9,7 +9,42 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      docs: ${{ steps.filter.outputs.docs }}
+      iefa: ${{ steps.filter.outputs.iefa }}
+      sisub: ${{ steps.filter.outputs.sisub }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'api.Dockerfile'
+              - 'fly.api.toml'
+            docs:
+              - 'apps/docs/**'
+              - 'fly.docs.toml'
+            iefa:
+              - 'apps/iefa/**'
+              - 'iefa.Dockerfile'
+              - 'fly.iefa.toml'
+              - 'packages/ui/**'
+              - 'packages/auth/**'
+            sisub:
+              - 'apps/sisub/**'
+              - 'sisub.Dockerfile'
+              - 'fly.sisub.toml'
+              - 'packages/ui/**'
+              - 'packages/auth/**'
+
   deploy-api:
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' }}
     name: Deploy API
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
@@ -74,6 +109,8 @@ jobs:
           exit 1
 
   deploy-docs:
+    needs: changes
+    if: ${{ needs.changes.outputs.docs == 'true' }}
     name: Deploy Docs
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
@@ -119,6 +156,8 @@ jobs:
           exit 1
 
   deploy-iefa:
+    needs: changes
+    if: ${{ needs.changes.outputs.iefa == 'true' }}
     name: Deploy IEFA
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
@@ -184,6 +223,8 @@ jobs:
 
 
   deploy-sisub:
+      needs: changes
+      if: ${{ needs.changes.outputs.sisub == 'true' }}
       name: Deploy SISUB
       runs-on: blacksmith-4vcpu-ubuntu-2404
       timeout-minutes: 20
