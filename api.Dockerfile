@@ -35,6 +35,7 @@ RUN apk add --no-cache libc6-compat
 COPY --from=build --chown=bun:bun /repo/node_modules ./node_modules
 COPY --from=build --chown=bun:bun /repo/apps/api/package.json ./apps/api/package.json
 COPY --from=build --chown=bun:bun /repo/apps/api/src ./apps/api/src
+COPY --from=build --chown=bun:bun /repo/apps/api/tsconfig.json ./apps/api/tsconfig.json
 
 USER bun
 EXPOSE 3000
