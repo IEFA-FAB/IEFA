@@ -10,7 +10,8 @@ export function useFacilitiesPregoeiroQuery() {
 		queryKey: FACILITIES_QUERY_KEY,
 		queryFn: async () => {
 			const { data, error } = await supabase
-				.from("iefa.facilities_pregoeiro")
+				.schema("iefa")
+				.from("facilities_pregoeiro")
 				.select("*");
 
 			if (error) throw new Error(error.message);
