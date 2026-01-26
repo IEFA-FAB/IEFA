@@ -14,8 +14,8 @@ export function AppCard({ app }: { app: AppItem }) {
 	const isExternal = app.external && !!app.href;
 
 	return (
-		<Card className="group h-full border border-border bg-card text-card-foreground transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40">
-			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+		<Card className="group flex h-full flex-col border border-border bg-card text-card-foreground transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40">
+			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 mt-0">
 				<div className="flex items-center gap-2">
 					<span aria-hidden="true" className="text-primary">
 						{app.icon}
@@ -29,7 +29,7 @@ export function AppCard({ app }: { app: AppItem }) {
 				) : null}
 			</CardHeader>
 
-			<CardContent className="space-y-3">
+			<CardContent className="flex-1 space-y-3 w-full">
 				<p className="text-sm sm:text-base text-muted-foreground text-pretty">
 					{app.description}
 				</p>
@@ -96,7 +96,7 @@ export function AppCard({ app }: { app: AppItem }) {
 				) : null}
 			</CardContent>
 
-			<CardFooter>
+			<CardFooter className="mb-0">
 				{app.to ? (
 					<Button
 						render={<Link to={app.to}>Abrir</Link>}
