@@ -25,7 +25,7 @@ export default defineConfig({
 		}),
 		// Tailwind CSS
 		tailwindcss(),
-		nitro()
+		nitro({preset: 'bun'})
 	],
 	resolve: {
 		// Dedupe critical dependencies to avoid multiple instances
@@ -144,6 +144,5 @@ export default defineConfig({
 		// Optimizações para produção
 		legalComments: "none",
 		treeShaking: true,
-	},
-	nitro: {preset: 'node-server'},
+	}
 });
