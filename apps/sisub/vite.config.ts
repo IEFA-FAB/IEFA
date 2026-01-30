@@ -85,10 +85,9 @@ export default defineConfig({
 			"clsx",
 			"tailwind-merge",
 		],
-		// Force pre-bundle even if detected as ESM
-		esbuildOptions: {
-			target: "esnext",
-		},
+		// Rolldown is now the default optimizer in Vite
+		// No specific options needed for Bun compatibility
+		rolldownOptions: {},
 	},
 	// SSR configuration for TanStack Start
 	ssr: {
