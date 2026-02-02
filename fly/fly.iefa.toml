@@ -2,7 +2,7 @@ app = "iefa"
 primary_region = "gru"
 
 [build]
-  dockerfile = "iefa.Dockerfile"
+  dockerfile = "docker/iefa.Dockerfile"
   context = "."
 
 [env]
@@ -36,7 +36,7 @@ primary_region = "gru"
   strategy = "rolling"
 
 [processes]
-  app = "bun apps/iefa/.output/server/index.mjs"
+  app = "node apps/iefa/.output/server/index.mjs"
 
 [[vm]]
   memory = "512mb"

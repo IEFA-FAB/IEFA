@@ -8,19 +8,19 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 	Button,
-} from "@iefa/ui";
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
-import type { DialogState } from "@/lib/fiscal";
+} from "@iefa/ui"
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react"
+import type { DialogState } from "@/lib/fiscal"
 
 interface FiscalDialogProps {
-	setDialog: Dispatch<SetStateAction<DialogState>>;
-	dialog: DialogState;
-	confirmDialog: () => void;
-	selectedUnit: string;
-	resolveDisplayName?: (userId: string) => Promise<string | null>;
+	setDialog: Dispatch<SetStateAction<DialogState>>
+	dialog: DialogState
+	confirmDialog: () => void
+	selectedUnit: string
+	resolveDisplayName?: (userId: string) => Promise<string | null>
 }
 
-const nameCache = new Map<string, string>();
+const nameCache = new Map<string, string>()
 
 export default function FiscalDialog({
 	setDialog,
@@ -29,59 +29,54 @@ export default function FiscalDialog({
 	selectedUnit,
 	resolveDisplayName,
 }: FiscalDialogProps) {
-	const forecastIsYes = !!dialog.systemForecast;
-	const forecastIsNo = !dialog.systemForecast;
+	const forecastIsYes = !!dialog.systemForecast
+	const forecastIsNo = !dialog.systemForecast
 
-	const [displayName, setDisplayName] = useState<string | null>(null);
-	const [loadingName, setLoadingName] = useState<boolean>(false);
+	const [displayName, setDisplayName] = useState<string | null>(null)
+	const [loadingName, setLoadingName] = useState<boolean>(false)
 
 	useEffect(() => {
-		let cancelled = false;
+		let cancelled = false
 
-		const id = dialog.uuid?.trim();
+		const id = dialog.uuid?.trim()
 		if (!id || !resolveDisplayName) {
-			setDisplayName(null);
-			return;
+			setDisplayName(null)
+			return
 		}
 
 		if (nameCache.has(id)) {
-			setDisplayName(nameCache.get(id) ?? null);
-			return;
+			setDisplayName(nameCache.get(id) ?? null)
+			return
 		}
 
-		setLoadingName(true);
+		setLoadingName(true)
 		resolveDisplayName(id)
 			.then((name) => {
-				if (cancelled) return;
-				const normalized = name?.trim() || null;
+				if (cancelled) return
+				const normalized = name?.trim() || null
 				if (normalized) {
-					nameCache.set(id, normalized);
+					nameCache.set(id, normalized)
 				}
-				setDisplayName(normalized);
+				setDisplayName(normalized)
 			})
 			.catch(() => {
-				if (!cancelled) return;
+				if (!cancelled) return
 			})
 			.finally(() => {
-				if (!cancelled) setLoadingName(false);
-			});
+				if (!cancelled) setLoadingName(false)
+			})
 
 		return () => {
-			cancelled = true;
-		};
-	}, [dialog.uuid, resolveDisplayName]);
+			cancelled = true
+		}
+	}, [dialog.uuid, resolveDisplayName])
 
-	const personLine = loadingName
-		? "Carregando..."
-		: displayName || dialog.uuid || "—";
+	const personLine = loadingName ? "Carregando..." : displayName || dialog.uuid || "—"
 
 	return (
 		<>
 			{/* Diálogo de decisão do fiscal */}
-			<AlertDialog
-				open={dialog.open}
-				onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
-			>
+			<AlertDialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Confirmar entrada do militar</AlertDialogTitle>
@@ -134,9 +129,7 @@ export default function FiscalDialog({
 									Sim
 								</Button>
 								<Button
-									variant={
-										dialog.willEnter === "nao" ? "destructive" : "outline"
-									}
+									variant={dialog.willEnter === "nao" ? "destructive" : "outline"}
 									size="sm"
 									aria-pressed={dialog.willEnter === "nao"}
 									onClick={() => setDialog((d) => ({ ...d, willEnter: "nao" }))}
@@ -154,17 +147,13 @@ export default function FiscalDialog({
 					</div>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel
-							onClick={() => setDialog((d) => ({ ...d, open: false }))}
-						>
+						<AlertDialogCancel onClick={() => setDialog((d) => ({ ...d, open: false }))}>
 							Cancelar
 						</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDialog}>
-							Confirmar
-						</AlertDialogAction>
+						<AlertDialogAction onClick={confirmDialog}>Confirmar</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
 		</>
-	);
+	)
 }

@@ -1,18 +1,18 @@
-import { Button, Input, Label } from "@iefa/ui";
-import { Search, X } from "lucide-react";
-import { useState } from "react";
+import { Button, Input, Label } from "@iefa/ui"
+import { Search, X } from "lucide-react"
+import { useState } from "react"
 
 interface FilterPanelProps {
-	onFilterChange: (filters: DashboardFilters) => void;
-	currentFilters: DashboardFilters;
+	onFilterChange: (filters: DashboardFilters) => void
+	currentFilters: DashboardFilters
 }
 
 export interface DashboardFilters {
-	search: string;
-	status: string[];
-	articleType: string[];
-	dateFrom: string;
-	dateTo: string;
+	search: string
+	status: string[]
+	articleType: string[]
+	dateFrom: string
+	dateTo: string
 }
 
 const statusOptions = [
@@ -22,51 +22,48 @@ const statusOptions = [
 	{ value: "accepted", label: "Aceito" },
 	{ value: "published", label: "Publicado" },
 	{ value: "rejected", label: "Rejeitado" },
-];
+]
 
 const articleTypeOptions = [
 	{ value: "research", label: "Pesquisa" },
 	{ value: "review", label: "Revisão" },
 	{ value: "short_communication", label: "Comunicação Curta" },
 	{ value: "editorial", label: "Editorial" },
-];
+]
 
-export function FilterPanel({
-	onFilterChange,
-	currentFilters,
-}: FilterPanelProps) {
-	const [localFilters, setLocalFilters] = useState(currentFilters);
+export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps) {
+	const [localFilters, setLocalFilters] = useState(currentFilters)
 
 	const handleSearchChange = (value: string) => {
-		const newFilters = { ...localFilters, search: value };
-		setLocalFilters(newFilters);
+		const newFilters = { ...localFilters, search: value }
+		setLocalFilters(newFilters)
 		// Debounce will be handled by parent
-		onFilterChange(newFilters);
-	};
+		onFilterChange(newFilters)
+	}
 
 	const toggleStatus = (status: string) => {
 		const newStatuses = localFilters.status.includes(status)
 			? localFilters.status.filter((s) => s !== status)
-			: [...localFilters.status, status];
-		const newFilters = { ...localFilters, status: newStatuses };
-		setLocalFilters(newFilters);
-		onFilterChange(newFilters);
-	};
+			: [...localFilters.status, status]
+		const newFilters = { ...localFilters, status: newStatuses }
+		setLocalFilters(newFilters)
+		onFilterChange(newFilters)
+	}
 
 	const toggleArticleType = (type: string) => {
 		const newTypes = localFilters.articleType.includes(type)
 			? localFilters.articleType.filter((t) => t !== type)
-			: [...localFilters.articleType, type];
-		const newFilters = { ...localFilters, articleType: newTypes };
-		setLocalFilters(newFilters);
-		onFilterChange(newFilters);
-	};
+			: [...localFilters.articleType, type]
+		const newFilters = { ...localFilters, articleType: newTypes }
+		setLocalFilters(newFilters)
+		onFilterChange(newFilters)
+	}
 
 	const handleDateChange = (field: "dateFrom" | "dateTo", value: string) => {
-		const newFilters = { ...localFilters, [field]: value };
-		setLocalFilters(newFilters);
-		onFilterChange(newFilters);
-	};
+		const newFilters = { ...localFilters, [field]: value }
+		setLocalFilters(newFilters)
+		onFilterChange(newFilters)
+	}
 
 	const clearAllFilters = () => {
 		const emptyFilters: DashboardFilters = {
@@ -75,17 +72,17 @@ export function FilterPanel({
 			articleType: [],
 			dateFrom: "",
 			dateTo: "",
-		};
-		setLocalFilters(emptyFilters);
-		onFilterChange(emptyFilters);
-	};
+		}
+		setLocalFilters(emptyFilters)
+		onFilterChange(emptyFilters)
+	}
 
 	const hasActiveFilters =
 		localFilters.search ||
 		localFilters.status.length > 0 ||
 		localFilters.articleType.length > 0 ||
 		localFilters.dateFrom ||
-		localFilters.dateTo;
+		localFilters.dateTo
 
 	return (
 		<div className="space-y-6 p-6 border rounded-lg bg-card">
@@ -124,10 +121,7 @@ export function FilterPanel({
 				<Label>Status</Label>
 				<div className="space-y-2">
 					{statusOptions.map((option) => (
-						<label
-							key={option.value}
-							className="flex items-center gap-2 cursor-pointer"
-						>
+						<label key={option.value} className="flex items-center gap-2 cursor-pointer">
 							<input
 								type="checkbox"
 								checked={localFilters.status.includes(option.value)}
@@ -145,10 +139,7 @@ export function FilterPanel({
 				<Label>Tipo de Artigo</Label>
 				<div className="space-y-2">
 					{articleTypeOptions.map((option) => (
-						<label
-							key={option.value}
-							className="flex items-center gap-2 cursor-pointer"
-						>
+						<label key={option.value} className="flex items-center gap-2 cursor-pointer">
 							<input
 								type="checkbox"
 								checked={localFilters.articleType.includes(option.value)}
@@ -190,5 +181,5 @@ export function FilterPanel({
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

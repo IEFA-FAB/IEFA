@@ -14,19 +14,19 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Calendar, ChevronRight, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { useApplyTemplate, useMenuTemplates } from "@/hooks/data/useTemplates";
-import { cn } from "@/lib/cn";
+} from "@iefa/ui"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Calendar, ChevronRight, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { useApplyTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
+import { cn } from "@/lib/cn"
 
 interface ApplyTemplateDialogProps {
-	open: boolean;
-	onClose: () => void;
-	targetDates: string[]; // ISO strings
-	kitchenId: number;
+	open: boolean
+	onClose: () => void
+	targetDates: string[] // ISO strings
+	kitchenId: number
 }
 
 const WEEKDAYS = [
@@ -37,7 +37,7 @@ const WEEKDAYS = [
 	{ value: 5, label: "Sexta-feira" },
 	{ value: 6, label: "Sábado" },
 	{ value: 7, label: "Domingo" },
-];
+]
 
 export function ApplyTemplateDialog({
 	open,
@@ -45,30 +45,28 @@ export function ApplyTemplateDialog({
 	targetDates,
 	kitchenId,
 }: ApplyTemplateDialogProps) {
-	const { data: templates, isLoading } = useMenuTemplates(kitchenId);
-	const { mutate: applyTemplate, isPending } = useApplyTemplate();
-	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-		null,
-	);
-	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1); // Monday
+	const { data: templates, isLoading } = useMenuTemplates(kitchenId)
+	const { mutate: applyTemplate, isPending } = useApplyTemplate()
+	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1) // Monday
 
 	// Calculate day mapping preview
 	const dayMappings = targetDates.map((dateStr) => {
-		const date = new Date(dateStr);
-		const jsDay = date.getDay();
-		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay; // 1-7
-		const offset = dateDayOfWeek - startDayOfWeek;
-		const templateDay = ((offset + 7) % 7) + 1;
+		const date = new Date(dateStr)
+		const jsDay = date.getDay()
+		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1-7
+		const offset = dateDayOfWeek - startDayOfWeek
+		const templateDay = ((offset + 7) % 7) + 1
 
 		return {
 			date: dateStr,
 			realDay: dateDayOfWeek,
 			templateDay,
-		};
-	});
+		}
+	})
 
 	const handleApply = () => {
-		if (!selectedTemplateId) return;
+		if (!selectedTemplateId) return
 
 		applyTemplate(
 			{
@@ -79,17 +77,17 @@ export function ApplyTemplateDialog({
 			},
 			{
 				onSuccess: () => {
-					onClose();
-					setSelectedTemplateId(null);
-					setStartDayOfWeek(1);
+					onClose()
+					setSelectedTemplateId(null)
+					setStartDayOfWeek(1)
 				},
-			},
-		);
-	};
+			}
+		)
+	}
 
 	const getWeekdayLabel = (day: number) => {
-		return WEEKDAYS.find((w) => w.value === day)?.label || "";
-	};
+		return WEEKDAYS.find((w) => w.value === day)?.label || ""
+	}
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -97,12 +95,11 @@ export function ApplyTemplateDialog({
 				<DialogHeader>
 					<DialogTitle>Aplicar Template</DialogTitle>
 					<DialogDescription>
-						Selecione um template e configure como ele será aplicado aos{" "}
-						{targetDates.length} dias selecionados.
+						Selecione um template e configure como ele será aplicado aos {targetDates.length} dias
+						selecionados.
 						<br />
 						<span className="text-xs text-amber-600 font-medium">
-							Atenção: Isso substituirá o planejamento existente para esses
-							dias.
+							Atenção: Isso substituirá o planejamento existente para esses dias.
 						</span>
 					</DialogDescription>
 				</DialogHeader>
@@ -136,19 +133,19 @@ export function ApplyTemplateDialog({
 										</p>
 									)}
 									{templates?.map((tpl) => (
-										<div
+										<Button
 											key={tpl.id}
 											onClick={() => setSelectedTemplateId(tpl.id)}
 											onKeyDown={(e) => {
 												if (e.key === "Enter" || e.key === " ") {
-													setSelectedTemplateId(tpl.id);
+													setSelectedTemplateId(tpl.id)
 												}
 											}}
 											className={cn(
 												"p-3 rounded-md border cursor-pointer hover:bg-accent transition-colors flex items-center justify-between",
 												selectedTemplateId === tpl.id
 													? "border-primary bg-primary/5 ring-1 ring-primary"
-													: "",
+													: ""
 											)}
 										>
 											<div>
@@ -166,7 +163,7 @@ export function ApplyTemplateDialog({
 											{selectedTemplateId === tpl.id && (
 												<Calendar className="w-4 h-4 text-primary" />
 											)}
-										</div>
+										</Button>
 									))}
 								</div>
 							</ScrollArea>
@@ -181,7 +178,9 @@ export function ApplyTemplateDialog({
 							</Label>
 							<Select
 								value={startDayOfWeek.toString()}
-								onValueChange={(v) => setStartDayOfWeek(Number.parseInt(v))}
+								onValueChange={(v) => {
+									if (v) setStartDayOfWeek(Number.parseInt(v, 10))
+								}}
 							>
 								<SelectTrigger id="start-day">
 									<SelectValue placeholder="Selecione o dia" />
@@ -195,8 +194,8 @@ export function ApplyTemplateDialog({
 								</SelectContent>
 							</Select>
 							<p className="text-xs text-muted-foreground">
-								O primeiro dia do template ({getWeekdayLabel(1)}) será aplicado
-								aos dias selecionados que caírem neste dia da semana.
+								O primeiro dia do template ({getWeekdayLabel(1)}) será aplicado aos dias
+								selecionados que caírem neste dia da semana.
 							</p>
 						</div>
 					)}
@@ -204,15 +203,10 @@ export function ApplyTemplateDialog({
 					{/* Mapping Preview */}
 					{selectedTemplateId && dayMappings.length > 0 && (
 						<div className="space-y-2">
-							<Label className="text-sm font-medium">
-								Preview do Mapeamento
-							</Label>
+							<Label className="text-sm font-medium">Preview do Mapeamento</Label>
 							<div className="border rounded-md p-3 space-y-2 bg-muted/20 max-h-48 overflow-y-auto">
 								{dayMappings.map((mapping) => (
-									<div
-										key={mapping.date}
-										className="flex items-center gap-2 text-sm"
-									>
+									<div key={mapping.date} className="flex items-center gap-2 text-sm">
 										<Badge variant="outline" className="w-24 justify-center">
 											{format(new Date(mapping.date), "dd/MM", {
 												locale: ptBR,
@@ -236,15 +230,12 @@ export function ApplyTemplateDialog({
 					<Button variant="outline" onClick={onClose}>
 						Cancelar
 					</Button>
-					<Button
-						onClick={handleApply}
-						disabled={!selectedTemplateId || isPending}
-					>
+					<Button onClick={handleApply} disabled={!selectedTemplateId || isPending}>
 						{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
 						Aplicar Template
 					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

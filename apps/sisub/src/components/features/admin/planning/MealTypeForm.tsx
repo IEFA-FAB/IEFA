@@ -8,28 +8,25 @@ import {
 	DialogTitle,
 	Input,
 	Label,
-} from "@iefa/ui";
-import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
-import { Loader2 } from "lucide-react";
-import React from "react";
-import { z } from "zod";
-import {
-	useCreateMealType,
-	useUpdateMealType,
-} from "@/hooks/data/useMealTypes";
-import type { MealType } from "@/types/supabase.types";
+} from "@iefa/ui"
+import { useForm } from "@tanstack/react-form"
+import { zodValidator } from "@tanstack/zod-form-adapter"
+import { Loader2 } from "lucide-react"
+import React from "react"
+import { z } from "zod"
+import { useCreateMealType, useUpdateMealType } from "@/hooks/data/useMealTypes"
+import type { MealType } from "@/types/supabase.types"
 
 const mealTypeSchema = z.object({
 	name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
 	sort_order: z.number().min(0, "Ordem deve ser maior ou igual a 0"),
-});
+})
 
 interface MealTypeFormProps {
-	open: boolean;
-	onClose: () => void;
-	kitchenId: number;
-	mealType?: MealType | null; // null = create, MealType = edit
+	open: boolean
+	onClose: () => void
+	kitchenId: number
+	mealType?: MealType | null // null = create, MealType = edit
 }
 
 /**
@@ -45,17 +42,12 @@ interface MealTypeFormProps {
  * />
  * ```
  */
-export function MealTypeForm({
-	open,
-	onClose,
-	kitchenId,
-	mealType,
-}: MealTypeFormProps) {
-	const { mutate: createMealType, isPending: isCreating } = useCreateMealType();
-	const { mutate: updateMealType, isPending: isUpdating } = useUpdateMealType();
+export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFormProps) {
+	const { mutate: createMealType, isPending: isCreating } = useCreateMealType()
+	const { mutate: updateMealType, isPending: isUpdating } = useUpdateMealType()
 
-	const isEditing = !!mealType;
-	const isPending = isCreating || isUpdating;
+	const isEditing = !!mealType
+	const isPending = isCreating || isUpdating
 
 	const form = useForm({
 		defaultValues: {
@@ -76,11 +68,11 @@ export function MealTypeForm({
 					},
 					{
 						onSuccess: () => {
-							onClose();
-							form.reset();
+							onClose()
+							form.reset()
 						},
-					},
-				);
+					}
+				)
 			} else {
 				createMealType(
 					{
@@ -90,21 +82,21 @@ export function MealTypeForm({
 					},
 					{
 						onSuccess: () => {
-							onClose();
-							form.reset();
+							onClose()
+							form.reset()
 						},
-					},
-				);
+					}
+				)
 			}
 		},
-	});
+	})
 
 	// Reset form when dialog closes
 	React.useEffect(() => {
 		if (!open) {
-			form.reset();
+			form.reset()
 		}
-	}, [open, form]);
+	}, [open, form])
 
 	return (
 		<Dialog open={open} onOpenChange={onClose}>
@@ -122,9 +114,9 @@ export function MealTypeForm({
 
 				<form
 					onSubmit={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						form.handleSubmit();
+						e.preventDefault()
+						e.stopPropagation()
+						form.handleSubmit()
 					}}
 					className="space-y-4 py-4"
 				>
@@ -142,9 +134,7 @@ export function MealTypeForm({
 									aria-invalid={field.state.meta.errors.length > 0}
 								/>
 								{field.state.meta.errors.length > 0 && (
-									<p className="text-sm text-destructive">
-										{String(field.state.meta.errors[0])}
-									</p>
+									<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
 								)}
 							</div>
 						)}
@@ -160,20 +150,15 @@ export function MealTypeForm({
 									type="number"
 									min="0"
 									value={field.state.value}
-									onChange={(e) =>
-										field.handleChange(Number.parseInt(e.target.value, 10))
-									}
+									onChange={(e) => field.handleChange(Number.parseInt(e.target.value, 10))}
 									onBlur={field.handleBlur}
 									aria-invalid={field.state.meta.errors.length > 0}
 								/>
 								{field.state.meta.errors.length > 0 && (
-									<p className="text-sm text-destructive">
-										{String(field.state.meta.errors[0])}
-									</p>
+									<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
 								)}
 								<p className="text-xs text-muted-foreground">
-									Número usado para ordenar os tipos de refeição. Menor =
-									aparece primeiro.
+									Número usado para ordenar os tipos de refeição. Menor = aparece primeiro.
 								</p>
 							</div>
 						)}
@@ -191,5 +176,5 @@ export function MealTypeForm({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

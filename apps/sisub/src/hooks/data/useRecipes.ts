@@ -1,11 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import supabase from "@/lib/supabase";
-import type { RecipeWithIngredients } from "@/types/domain/recipes";
+import { useQuery } from "@tanstack/react-query"
+import supabase from "@/lib/supabase"
+import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 export function useRecipes(filters?: {
-	kitchen_id?: number | null;
-	search?: string;
-	global_only?: boolean;
+	kitchen_id?: number | null
+	search?: string
+	global_only?: boolean
 }) {
 	return useQuery({
 		queryKey: ["recipes", filters],
@@ -20,35 +20,33 @@ export function useRecipes(filters?: {
           )
         `)
 				.is("deleted_at", null)
-				.order("name");
+				.order("name")
 
 			if (filters?.kitchen_id !== undefined && filters?.kitchen_id !== null) {
-				query = query.eq("kitchen_id", filters.kitchen_id);
+				query = query.eq("kitchen_id", filters.kitchen_id)
 			}
 
 			if (filters?.global_only) {
-				query = query.is("kitchen_id", null);
+				query = query.is("kitchen_id", null)
 			}
 
 			if (filters?.search) {
-				query = query.ilike("name", `%${filters.search}%`);
+				query = query.ilike("name", `%${filters.search}%`)
 			}
 
-			const { data, error } = await query;
-			if (error) throw error;
-			return data as RecipeWithIngredients[];
+			const { data, error } = await query
+			if (error) throw error
+			return data as RecipeWithIngredients[]
 		},
 		staleTime: 5 * 60 * 1000, // 5 minutes
-	});
+	})
 }
 
 /**
  * Fetch a single recipe with all ingredients and product details.
  * Used when creating menu_items to generate the recipe snapshot.
  */
-export async function fetchRecipeWithIngredients(
-	recipeId: string,
-): Promise<RecipeWithIngredients> {
+export async function fetchRecipeWithIngredients(recipeId: string): Promise<RecipeWithIngredients> {
 	const { data, error } = await supabase
 		.from("recipes")
 		.select(`
@@ -60,10 +58,10 @@ export async function fetchRecipeWithIngredients(
     `)
 		.eq("id", recipeId)
 		.is("deleted_at", null)
-		.single();
+		.single()
 
-	if (error) throw error;
-	if (!data) throw new Error(`Recipe ${recipeId} not found`);
+	if (error) throw error
+	if (!data) throw new Error(`Recipe ${recipeId} not found`)
 
-	return data as RecipeWithIngredients;
+	return data as RecipeWithIngredients
 }

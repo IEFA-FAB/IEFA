@@ -10,28 +10,28 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { Package } from "lucide-react";
-import type { ProcurementNeed } from "@/services/ProcurementService";
+} from "@iefa/ui"
+import { Package } from "lucide-react"
+import type { ProcurementNeed } from "@/services/ProcurementService"
 
 interface ProcurementTableProps {
-	data: ProcurementNeed[];
-	isLoading?: boolean;
+	data: ProcurementNeed[]
+	isLoading?: boolean
 }
 
 export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 	// Agrupar por categoria
 	const groupedData = data.reduce(
 		(acc, item) => {
-			const category = item.folder_description || "Sem categoria";
+			const category = item.folder_description || "Sem categoria"
 			if (!acc[category]) {
-				acc[category] = [];
+				acc[category] = []
 			}
-			acc[category].push(item);
-			return acc;
+			acc[category].push(item)
+			return acc
 		},
-		{} as Record<string, ProcurementNeed[]>,
-	);
+		{} as Record<string, ProcurementNeed[]>
+	)
 
 	if (isLoading) {
 		return (
@@ -41,23 +41,17 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 						<Package className="h-5 w-5" aria-hidden="true" />
 						Necessidades de Compra
 					</CardTitle>
-					<CardDescription>
-						Calculando quantidades necessárias...
-					</CardDescription>
+					<CardDescription>Calculando quantidades necessárias...</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className="space-y-2">
 						{[1, 2, 3, 4, 5].map((i) => (
-							<div
-								key={i}
-								className="h-12 bg-muted animate-pulse rounded"
-								aria-hidden="true"
-							/>
+							<div key={i} className="h-12 bg-muted animate-pulse rounded" aria-hidden="true" />
 						))}
 					</div>
 				</CardContent>
 			</Card>
-		);
+		)
 	}
 
 	if (data.length === 0) {
@@ -68,24 +62,17 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 						<Package className="h-5 w-5" aria-hidden="true" />
 						Necessidades de Compra
 					</CardTitle>
-					<CardDescription>
-						Nenhum cardápio planejado neste período
-					</CardDescription>
+					<CardDescription>Nenhum cardápio planejado neste período</CardDescription>
 				</CardHeader>
 				<CardContent className="flex flex-col items-center justify-center py-12 text-center">
-					<Package
-						className="h-12 w-12 text-muted-foreground mb-4"
-						aria-hidden="true"
-					/>
-					<p className="text-muted-foreground">
-						Não há itens para compra no período selecionado.
-					</p>
+					<Package className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
+					<p className="text-muted-foreground">Não há itens para compra no período selecionado.</p>
 					<p className="text-sm text-muted-foreground mt-2">
 						Planeje cardápios para ver as necessidades de aquisição.
 					</p>
 				</CardContent>
 			</Card>
-		);
+		)
 	}
 
 	return (
@@ -114,9 +101,7 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 								<TableBody>
 									{items.map((item) => (
 										<TableRow key={item.product_id}>
-											<TableCell className="font-medium">
-												{item.product_name}
-											</TableCell>
+											<TableCell className="font-medium">{item.product_name}</TableCell>
 											<TableCell className="text-right tabular-nums">
 												{item.total_quantity.toFixed(2)}
 											</TableCell>
@@ -132,5 +117,5 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 				</Card>
 			))}
 		</div>
-	);
+	)
 }

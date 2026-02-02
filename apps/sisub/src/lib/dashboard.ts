@@ -11,10 +11,10 @@ import type {
 	UserDataAPI,
 	UserMealDetail,
 	UserMilitaryDataAPI,
-} from "@/types/domain/dashboard";
-import type { MealKey } from "@/types/domain/meal";
+} from "@/types/domain/dashboard"
+import type { MealKey } from "@/types/domain/meal"
 
-const MEAL_KEYS: MealKey[] = ["cafe", "almoco", "janta", "ceia"];
+const MEAL_KEYS: MealKey[] = ["cafe", "almoco", "janta", "ceia"]
 
 /**
  * Aggregates dashboard metrics from forecasts and presences
@@ -23,30 +23,28 @@ export function aggregateDashboardMetrics(
 	forecasts: ForecastRecord[],
 	presences: DashboardPresenceRecord[],
 	messHalls: MessHallAPI[],
-	dateRange: { start: string; end: string },
+	dateRange: { start: string; end: string }
 ): DashboardMetrics {
 	// Filter by date range and will_eat = true
 	const filteredForecasts = forecasts.filter(
-		(f) => f.date >= dateRange.start && f.date <= dateRange.end && f.will_eat,
-	);
+		(f) => f.date >= dateRange.start && f.date <= dateRange.end && f.will_eat
+	)
 	const filteredPresences = presences.filter(
-		(p) => p.date >= dateRange.start && p.date <= dateRange.end,
-	);
+		(p) => p.date >= dateRange.start && p.date <= dateRange.end
+	)
 
 	// Calculate by meal type
 	const by_meal_type: MealTypeStat[] = MEAL_KEYS.map((meal) => {
-		const forecast = filteredForecasts.filter((f) => f.meal === meal).length;
-		const presence = filteredPresences.filter((p) => p.meal === meal).length;
+		const forecast = filteredForecasts.filter((f) => f.meal === meal).length
+		const presence = filteredPresences.filter((p) => p.meal === meal).length
 		const percentage =
-			filteredForecasts.length > 0
-				? (forecast / filteredForecasts.length) * 100
-				: 0;
+			filteredForecasts.length > 0 ? (forecast / filteredForecasts.length) * 100 : 0
 
-		return { meal, forecast, presence, percentage };
-	});
+		return { meal, forecast, presence, percentage }
+	})
 
 	// Calculate daily distribution
-	const dateMap = new Map<string, DailyMealStat>();
+	const dateMap = new Map<string, DailyMealStat>()
 	for (const forecast of filteredForecasts) {
 		if (!dateMap.has(forecast.date)) {
 			dateMap.set(forecast.date, {
@@ -55,32 +53,27 @@ export function aggregateDashboardMetrics(
 				almoco: 0,
 				janta: 0,
 				ceia: 0,
-			});
+			})
 		}
-		const stat = dateMap.get(forecast.date)!;
-		stat[forecast.meal]++;
+		const stat = dateMap.get(forecast.date)!
+		stat[forecast.meal]++
 	}
 	const daily_distribution = Array.from(dateMap.values()).sort((a, b) =>
-		a.date.localeCompare(b.date),
-	);
+		a.date.localeCompare(b.date)
+	)
 
 	// Calculate by mess hall
 	const by_mess_hall: MessHallStats[] = messHalls.map((mh) => {
-		const mhForecasts = filteredForecasts.filter(
-			(f) => f.mess_hall_id === mh.id,
-		);
-		const mhPresences = filteredPresences.filter(
-			(p) => p.mess_hall_id === mh.id,
-		);
+		const mhForecasts = filteredForecasts.filter((f) => f.mess_hall_id === mh.id)
+		const mhPresences = filteredPresences.filter((p) => p.mess_hall_id === mh.id)
 
 		const by_meal: MealTypeStat[] = MEAL_KEYS.map((meal) => {
-			const forecast = mhForecasts.filter((f) => f.meal === meal).length;
-			const presence = mhPresences.filter((p) => p.meal === meal).length;
-			const percentage =
-				mhForecasts.length > 0 ? (forecast / mhForecasts.length) * 100 : 0;
+			const forecast = mhForecasts.filter((f) => f.meal === meal).length
+			const presence = mhPresences.filter((p) => p.meal === meal).length
+			const percentage = mhForecasts.length > 0 ? (forecast / mhForecasts.length) * 100 : 0
 
-			return { meal, forecast, presence, percentage };
-		});
+			return { meal, forecast, presence, percentage }
+		})
 
 		return {
 			mess_hall_id: mh.id,
@@ -88,8 +81,8 @@ export function aggregateDashboardMetrics(
 			total_forecast: mhForecasts.length,
 			total_presence: mhPresences.length,
 			by_meal,
-		};
-	});
+		}
+	})
 
 	return {
 		total_forecast: filteredForecasts.length,
@@ -97,7 +90,7 @@ export function aggregateDashboardMetrics(
 		by_meal_type,
 		daily_distribution,
 		by_mess_hall,
-	};
+	}
 }
 
 /**
@@ -107,14 +100,12 @@ export function buildUserMealDetails(
 	forecasts: ForecastRecord[],
 	presences: DashboardPresenceRecord[],
 	userData: UserDataAPI[],
-	militaryData: UserMilitaryDataAPI[],
+	militaryData: UserMilitaryDataAPI[]
 ): UserMealDetail[] {
 	return userData.map((user) => {
-		const military = militaryData.find((m) => m.nrOrdem === user.nrOrdem);
-		const userForecasts = forecasts.filter(
-			(f) => f.user_id === user.id && f.will_eat,
-		);
-		const userPresences = presences.filter((p) => p.user_id === user.id);
+		const military = militaryData.find((m) => m.nrOrdem === user.nrOrdem)
+		const userForecasts = forecasts.filter((f) => f.user_id === user.id && f.will_eat)
+		const userPresences = presences.filter((p) => p.user_id === user.id)
 
 		return {
 			id: user.id,
@@ -132,8 +123,8 @@ export function buildUserMealDetails(
 			})),
 			forecast_count: userForecasts.length,
 			presence_count: userPresences.length,
-		};
-	});
+		}
+	})
 }
 
 /**
@@ -144,31 +135,31 @@ export function buildUserMealDetails(
  * Avoids UTC conversion issues with new Date("YYYY-MM-DD")
  */
 export function parseLocalDate(dateString: string): Date {
-	const [year, month, day] = dateString.split("-").map(Number);
-	return new Date(year, month - 1, day);
+	const [year, month, day] = dateString.split("-").map(Number)
+	return new Date(year, month - 1, day)
 }
 
 /**
  * Formats date range for display
  */
 export function formatDateRange(start: string, end: string): string {
-	const startDate = parseLocalDate(start);
-	const endDate = parseLocalDate(end);
+	const startDate = parseLocalDate(start)
+	const endDate = parseLocalDate(end)
 
 	const options: Intl.DateTimeFormatOptions = {
 		day: "2-digit",
 		month: "2-digit",
 		year: "numeric",
-	};
+	}
 
-	return `${startDate.toLocaleDateString("pt-BR", options)} a ${endDate.toLocaleDateString("pt-BR", options)}`;
+	return `${startDate.toLocaleDateString("pt-BR", options)} a ${endDate.toLocaleDateString("pt-BR", options)}`
 }
 
 /**
  * Calculates percentage safely
  */
 export function calculatePercentage(part: number, total: number): number {
-	return total > 0 ? (part / total) * 100 : 0;
+	return total > 0 ? (part / total) * 100 : 0
 }
 
 /**
@@ -179,31 +170,31 @@ export function aggregatePresenceData(
 	presences: import("@/types/domain/dashboard").DashboardPresenceRecord[],
 	userData: import("@/types/domain/dashboard").UserDataAPI[],
 	militaryData: import("@/types/domain/dashboard").UserMilitaryDataAPI[],
-	messHalls: import("@/types/domain/dashboard").MessHallAPI[],
+	messHalls: import("@/types/domain/dashboard").MessHallAPI[]
 ): import("@/types/domain/dashboard").AggregatedPresenceRecord[] {
 	// Create a map for quick lookups
-	const userMap = new Map(userData.map((u) => [u.id, u]));
-	const militaryMap = new Map(militaryData.map((m) => [m.nrOrdem, m]));
-	const messHallMap = new Map(messHalls.map((mh) => [mh.id, mh]));
+	const userMap = new Map(userData.map((u) => [u.id, u]))
+	const militaryMap = new Map(militaryData.map((m) => [m.nrOrdem, m]))
+	const messHallMap = new Map(messHalls.map((mh) => [mh.id, mh]))
 
 	// Group by date + meal + mess_hall
 	const groupKey = (date: string, meal: string, messHallId: number) =>
-		`${date}|${meal}|${messHallId}`;
+		`${date}|${meal}|${messHallId}`
 
 	const groups = new Map<
 		string,
 		{
-			date: string;
-			meal: string;
-			mess_hall_id: number;
-			forecast_users: Set<string>;
-			presence_users: Set<string>;
+			date: string
+			meal: string
+			mess_hall_id: number
+			forecast_users: Set<string>
+			presence_users: Set<string>
 		}
-	>();
+	>()
 
 	// Process forecasts
 	for (const f of forecasts.filter((f) => f.will_eat)) {
-		const key = groupKey(f.date, f.meal, f.mess_hall_id);
+		const key = groupKey(f.date, f.meal, f.mess_hall_id)
 		if (!groups.has(key)) {
 			groups.set(key, {
 				date: f.date,
@@ -211,14 +202,14 @@ export function aggregatePresenceData(
 				mess_hall_id: f.mess_hall_id,
 				forecast_users: new Set(),
 				presence_users: new Set(),
-			});
+			})
 		}
-		groups.get(key)!.forecast_users.add(f.user_id);
+		groups.get(key)?.forecast_users.add(f.user_id)
 	}
 
 	// Process presences
 	for (const p of presences) {
-		const key = groupKey(p.date, p.meal, p.mess_hall_id);
+		const key = groupKey(p.date, p.meal, p.mess_hall_id)
 		if (!groups.has(key)) {
 			groups.set(key, {
 				date: p.date,
@@ -226,55 +217,50 @@ export function aggregatePresenceData(
 				mess_hall_id: p.mess_hall_id,
 				forecast_users: new Set(),
 				presence_users: new Set(),
-			});
+			})
 		}
-		groups.get(key)!.presence_users.add(p.user_id);
+		groups.get(key)?.presence_users.add(p.user_id)
 	}
 
 	// Build aggregated records
-	const records: import("@/types/domain/dashboard").AggregatedPresenceRecord[] =
-		[];
+	const records: import("@/types/domain/dashboard").AggregatedPresenceRecord[] = []
 
 	for (const [, group] of groups) {
-		const messHall = messHallMap.get(group.mess_hall_id);
-		if (!messHall) continue;
+		const messHall = messHallMap.get(group.mess_hall_id)
+		if (!messHall) continue
 
-		const forecast_count = group.forecast_users.size;
-		const presence_count = group.presence_users.size;
-		const difference = presence_count - forecast_count;
-		const attendance_rate = calculatePercentage(presence_count, forecast_count);
+		const forecast_count = group.forecast_users.size
+		const presence_count = group.presence_users.size
+		const difference = presence_count - forecast_count
+		const attendance_rate = calculatePercentage(presence_count, forecast_count)
 
 		// Build drill-down lists
-		const getPersonDetail = (
-			userId: string,
-		): import("@/types/domain/dashboard").PersonDetail => {
-			const user = userMap.get(userId);
-			const military = user?.nrOrdem
-				? militaryMap.get(user.nrOrdem)
-				: undefined;
+		const getPersonDetail = (userId: string): import("@/types/domain/dashboard").PersonDetail => {
+			const user = userMap.get(userId)
+			const military = user?.nrOrdem ? militaryMap.get(user.nrOrdem) : undefined
 			return {
 				id: userId,
 				email: user?.email || "Desconhecido",
 				name: military?.nmGuerra || military?.nmPessoa || null,
 				posto: military?.sgPosto || null,
 				org: military?.sgOrg || null,
-			};
-		};
+			}
+		}
 
 		// Absences: previram mas NÃO vieram
 		const absences = Array.from(group.forecast_users)
 			.filter((uid) => !group.presence_users.has(uid))
-			.map(getPersonDetail);
+			.map(getPersonDetail)
 
 		// Attended: previram E vieram
 		const attended = Array.from(group.forecast_users)
 			.filter((uid) => group.presence_users.has(uid))
-			.map(getPersonDetail);
+			.map(getPersonDetail)
 
 		// Extras: NÃO previram mas vieram
 		const extras = Array.from(group.presence_users)
 			.filter((uid) => !group.forecast_users.has(uid))
-			.map(getPersonDetail);
+			.map(getPersonDetail)
 
 		records.push({
 			date: group.date,
@@ -288,13 +274,13 @@ export function aggregatePresenceData(
 			absences,
 			attended,
 			extras,
-		});
+		})
 	}
 
 	// Sort by date DESC, then by meal
 	return records.sort((a, b) => {
-		if (a.date !== b.date) return b.date.localeCompare(a.date);
-		const mealOrder = { cafe: 0, almoco: 1, janta: 2, ceia: 3 };
-		return mealOrder[a.meal] - mealOrder[b.meal];
-	});
+		if (a.date !== b.date) return b.date.localeCompare(a.date)
+		const mealOrder = { cafe: 0, almoco: 1, janta: 2, ceia: 3 }
+		return mealOrder[a.meal] - mealOrder[b.meal]
+	})
 }

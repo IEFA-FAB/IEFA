@@ -1,15 +1,8 @@
-import {
-	Badge,
-	Button,
-	Card,
-	CardContent,
-	CardFooter,
-	CardHeader,
-} from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { User } from "lucide-react";
-import { urlFor } from "@/lib/sanity";
-import type { PostSummary } from "@/types/domain";
+import { Badge, Button, Card, CardContent, CardFooter, CardHeader } from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { User } from "lucide-react"
+import { urlFor } from "@/lib/sanity"
+import type { PostSummary } from "@/types/domain"
 
 export function PostCard({ post }: { post: PostSummary }) {
 	return (
@@ -30,14 +23,10 @@ export function PostCard({ post }: { post: PostSummary }) {
 						{new Date(post.publishedAt).toLocaleDateString("pt-BR")}
 					</Badge>
 				</div>
-				<h3 className="text-lg font-semibold leading-tight line-clamp-2">
-					{post.title}
-				</h3>
+				<h3 className="text-lg font-semibold leading-tight line-clamp-2">{post.title}</h3>
 			</CardHeader>
 			<CardContent className="grow space-y-3">
-				<p className="text-sm text-muted-foreground line-clamp-3">
-					{post.excerpt}
-				</p>
+				<p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt}</p>
 
 				{post.author && (
 					<div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
@@ -58,5 +47,5 @@ export function PostCard({ post }: { post: PostSummary }) {
 				/>
 			</CardFooter>
 		</Card>
-	);
+	)
 }

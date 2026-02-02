@@ -1,11 +1,11 @@
-import tailwindcss from "@tailwindcss/vite";
-import { devtools } from "@tanstack/devtools-vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
-import { fileURLToPath } from "url";
-import { defineConfig } from "vite";
-import viteTsConfigPaths from "vite-tsconfig-paths";
-import { nitro } from 'nitro/vite'
+import { fileURLToPath } from "node:url"
+import tailwindcss from "@tailwindcss/vite"
+import { devtools } from "@tanstack/devtools-vite"
+import { tanstackStart } from "@tanstack/react-start/plugin/vite"
+import viteReact from "@vitejs/plugin-react"
+import { nitro } from "nitro/vite"
+import { defineConfig } from "vite"
+import viteTsConfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig({
 	plugins: [
@@ -25,7 +25,7 @@ export default defineConfig({
 		}),
 		// Tailwind CSS
 		tailwindcss(),
-		nitro({preset: "node-server"})
+		nitro({ preset: "node-server" }),
 	],
 	resolve: {
 		// Dedupe critical dependencies to avoid multiple instances
@@ -37,18 +37,14 @@ export default defineConfig({
 			"@tanstack/react-store",
 		],
 		alias: {
-			"@iefa/auth": fileURLToPath(
-				new URL("../../packages/auth/src", import.meta.url),
-			),
-			"@iefa/ui": fileURLToPath(
-				new URL("../../packages/ui/src", import.meta.url),
-			),
+			"@iefa/auth": fileURLToPath(new URL("../../packages/auth/src", import.meta.url)),
+			"@iefa/ui": fileURLToPath(new URL("../../packages/ui/src", import.meta.url)),
 		},
 	},
 	server: {
 		// Porta personalizada definida no package.json
 		port: 3000,
-		// Strict port to avoid port conflicts
+		// Allow fallback to another port if 3000 is occupied
 		strictPort: false,
 		// Allow access to monorepo packages
 		fs: {
@@ -132,32 +128,32 @@ export default defineConfig({
 				manualChunks: (id) => {
 					// Vendor chunks para React e ecosystem
 					if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
-						return "react-vendor";
+						return "react-vendor"
 					}
-					
+
 					// TanStack ecosystem
 					if (id.includes("node_modules/@tanstack/")) {
-						return "tanstack-vendor";
+						return "tanstack-vendor"
 					}
-					
+
 					// UI dependencies
 					if (
 						id.includes("node_modules/lucide-react/") ||
 						id.includes("node_modules/motion/") ||
 						id.includes("node_modules/class-variance-authority/")
 					) {
-						return "ui-vendor";
+						return "ui-vendor"
 					}
-					
+
 					// AI/MCP dependencies
 					if (
 						id.includes("node_modules/ai/") ||
 						id.includes("node_modules/@ai-sdk/") ||
 						id.includes("node_modules/@modelcontextprotocol/")
 					) {
-						return "ai-vendor";
+						return "ai-vendor"
 					}
-					
+
 					// Markdown rendering
 					if (
 						id.includes("node_modules/react-markdown/") ||
@@ -165,9 +161,9 @@ export default defineConfig({
 						id.includes("node_modules/rehype-") ||
 						id.includes("node_modules/highlight.js/")
 					) {
-						return "markdown-vendor";
+						return "markdown-vendor"
 					}
-					
+
 					// QR code dependencies
 					/* if (
 						id.includes("node_modules/qrcode.react/") ||
@@ -175,13 +171,10 @@ export default defineConfig({
 					) {
 						return "qr-vendor";
 					} */
-					
+
 					// Utilities
-					if (
-						id.includes("node_modules/clsx/") ||
-						id.includes("node_modules/tailwind-merge/")
-					) {
-						return "utils-vendor";
+					if (id.includes("node_modules/clsx/") || id.includes("node_modules/tailwind-merge/")) {
+						return "utils-vendor"
 					}
 				},
 				// Nomes de arquivo com hash para cache busting
@@ -199,5 +192,5 @@ export default defineConfig({
 		// Optimizações para produção
 		legalComments: "none",
 		treeShaking: true,
-	}
-});
+	},
+})

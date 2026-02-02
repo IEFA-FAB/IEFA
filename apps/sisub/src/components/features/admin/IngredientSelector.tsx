@@ -1,42 +1,32 @@
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	Input,
-} from "@iefa/ui";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { Loader2, Search, X } from "lucide-react";
-import { useRef, useState } from "react";
-import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy";
-import type { Product } from "@/types/domain/products";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, Input } from "@iefa/ui"
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { Loader2, Search, X } from "lucide-react"
+import { useRef, useState } from "react"
+import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
+import type { Product } from "@/types/domain/products"
 
 interface IngredientSelectorProps {
-	isOpen: boolean;
-	onClose: () => void;
-	onSelect: (product: Product) => void;
+	isOpen: boolean
+	onClose: () => void
+	onSelect: (product: Product) => void
 }
 
-export function IngredientSelector({
-	isOpen,
-	onClose,
-	onSelect,
-}: IngredientSelectorProps) {
-	const [filterText, setFilterText] = useState("");
-	const { flatTree, error } = useProductsHierarchy(filterText);
+export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSelectorProps) {
+	const [filterText, setFilterText] = useState("")
+	const { flatTree, error } = useProductsHierarchy(filterText)
 
 	// Virtualization
-	const parentRef = useRef<HTMLDivElement>(null);
+	const parentRef = useRef<HTMLDivElement>(null)
 	const rowVirtualizer = useVirtualizer({
 		count: flatTree?.nodes.length || 0,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 48,
 		overscan: 10,
-	});
+	})
 
 	const handleClearSearch = () => {
-		setFilterText("");
-	};
+		setFilterText("")
+	}
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
@@ -78,9 +68,7 @@ export function IngredientSelector({
 							<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
 						</div>
 					) : error ? (
-						<div className="text-destructive text-center p-4">
-							Erro ao carregar insumos
-						</div>
+						<div className="text-destructive text-center p-4">Erro ao carregar insumos</div>
 					) : (
 						<div
 							ref={parentRef}
@@ -94,20 +82,20 @@ export function IngredientSelector({
 								}}
 							>
 								{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-									const node = flatTree!.nodes[virtualRow.index];
+									const node = flatTree?.nodes[virtualRow.index]
 
 									// Only show Folders and Products, hide Items
-									if (node.type === "product_item") return null;
+									if (node.type === "product_item") return null
 
-									const isProduct = node.type === "product";
+									const isProduct = node.type === "product"
 									const iconBg =
 										node.type === "folder"
 											? "bg-amber-500/10 dark:bg-amber-500/20"
-											: "bg-blue-500/10 dark:bg-blue-500/20";
+											: "bg-blue-500/10 dark:bg-blue-500/20"
 									const iconColor =
 										node.type === "folder"
 											? "text-amber-600 dark:text-amber-500"
-											: "text-blue-600 dark:text-blue-500";
+											: "text-blue-600 dark:text-blue-500"
 
 									return (
 										<div
@@ -133,19 +121,15 @@ export function IngredientSelector({
 												disabled={!isProduct}
 												onClick={() => {
 													if (isProduct && node.data) {
-														onSelect(node.data as Product);
-														onClose();
+														onSelect(node.data as Product)
+														onClose()
 													}
 												}}
 												onKeyDown={(e) => {
-													if (
-														(e.key === "Enter" || e.key === " ") &&
-														isProduct &&
-														node.data
-													) {
-														e.preventDefault();
-														onSelect(node.data as Product);
-														onClose();
+													if ((e.key === "Enter" || e.key === " ") && isProduct && node.data) {
+														e.preventDefault()
+														onSelect(node.data as Product)
+														onClose()
 													}
 												}}
 											>
@@ -161,9 +145,7 @@ export function IngredientSelector({
 												</div>
 
 												<span
-													className={`flex-1 font-sans text-sm ${
-														isProduct ? "font-medium" : ""
-													}`}
+													className={`flex-1 font-sans text-sm ${isProduct ? "font-medium" : ""}`}
 												>
 													{node.label}
 												</span>
@@ -175,7 +157,7 @@ export function IngredientSelector({
 												)}
 											</button>
 										</div>
-									);
+									)
 								})}
 							</div>
 						</div>
@@ -183,5 +165,5 @@ export function IngredientSelector({
 				</div>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

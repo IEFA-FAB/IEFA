@@ -1,26 +1,28 @@
-import { Button } from "@iefa/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@iefa/ui"
+import { useQueryClient } from "@tanstack/react-query"
 import {
 	ChevronDown,
 	ChevronRight,
 	Edit,
-	Folder,
+	Folder as FolderIcon,
 	Package,
 	ShoppingCart,
 	Trash2,
-} from "lucide-react";
-import { toast } from "sonner";
-import {
-	useDeleteFolder,
-	useDeleteProduct,
-	useDeleteProductItem,
-} from "@/services/ProductsService";
-import type { ProductTreeNode, TreeNodeType } from "@/types/domain/products";
+} from "lucide-react"
+import { toast } from "sonner"
+import { useDeleteFolder, useDeleteProduct, useDeleteProductItem } from "@/services/ProductsService"
+import type {
+	Folder,
+	Product,
+	ProductItem,
+	ProductTreeNode,
+	TreeNodeType,
+} from "@/types/domain/products"
 
 interface ProductsTreeNodeProps {
-	node: ProductTreeNode;
-	onEdit: (type: TreeNodeType, data: any) => void;
-	onToggle: (nodeId: string) => void;
+	node: ProductTreeNode
+	onEdit: (type: TreeNodeType, data: Folder | Product | ProductItem) => void
+	onToggle: (nodeId: string) => void
 }
 
 /**
@@ -28,26 +30,17 @@ interface ProductsTreeNodeProps {
  * Renderização otimizada para virtualização
  * Enhanced with Industrial-Technical aesthetic
  */
-export function ProductsTreeNode({
-	node,
-	onEdit,
-	onToggle,
-}: ProductsTreeNodeProps) {
-	const queryClient = useQueryClient();
-	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder();
-	const { deleteProduct, isDeleting: isDeletingProduct } = useDeleteProduct();
-	const { deleteProductItem, isDeleting: isDeletingItem } =
-		useDeleteProductItem();
+export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodeProps) {
+	const queryClient = useQueryClient()
+	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
+	const { deleteProduct, isDeleting: isDeletingProduct } = useDeleteProduct()
+	const { deleteProductItem, isDeleting: isDeletingItem } = useDeleteProductItem()
 
-	const isDeleting = isDeletingFolder || isDeletingProduct || isDeletingItem;
+	const isDeleting = isDeletingFolder || isDeletingProduct || isDeletingItem
 
 	// Ícone por tipo
 	const Icon =
-		node.type === "folder"
-			? Folder
-			: node.type === "product"
-				? Package
-				: ShoppingCart;
+		node.type === "folder" ? FolderIcon : node.type === "product" ? Package : ShoppingCart
 
 	// Configuração de estilo por tipo (Industrial-Technical)
 	const typeStyles = {
@@ -66,35 +59,35 @@ export function ProductsTreeNode({
 			iconColor: "text-emerald-600 dark:text-emerald-500",
 			border: "border-emerald-500/20",
 		},
-	};
+	}
 
-	const style = typeStyles[node.type];
+	const style = typeStyles[node.type]
 
 	// Handler de delete
 	const handleDelete = async () => {
-		const confirmMessage = `Tem certeza que deseja excluir "${node.label}"?`;
-		if (!confirm(confirmMessage)) return;
+		const confirmMessage = `Tem certeza que deseja excluir "${node.label}"?`
+		if (!confirm(confirmMessage)) return
 
 		try {
 			if (node.type === "folder") {
-				await deleteFolder(node.id);
-				toast.success("Pasta excluída com sucesso!");
+				await deleteFolder(node.id)
+				toast.success("Pasta excluída com sucesso!")
 			} else if (node.type === "product") {
-				await deleteProduct(node.id);
-				toast.success("Produto excluído com sucesso!");
+				await deleteProduct(node.id)
+				toast.success("Produto excluído com sucesso!")
 			} else {
-				await deleteProductItem(node.id);
-				toast.success("Item excluído com sucesso!");
+				await deleteProductItem(node.id)
+				toast.success("Item excluído com sucesso!")
 			}
 
 			await queryClient.invalidateQueries({
 				queryKey: ["products"],
-			});
+			})
 		} catch (error) {
-			toast.error("Erro ao excluir item");
-			console.error(error);
+			toast.error("Erro ao excluir item")
+			console.error(error)
 		}
-	};
+	}
 
 	return (
 		<div
@@ -103,6 +96,7 @@ export function ProductsTreeNode({
 				paddingLeft: `${node.level * 24 + 8}px`,
 			}}
 			role="treeitem"
+			tabIndex={0}
 			aria-level={node.level + 1}
 			aria-expanded={node.hasChildren ? node.isExpanded : undefined}
 		>
@@ -173,13 +167,11 @@ export function ProductsTreeNode({
 						{node.data.measure_unit}
 					</span>
 				)}
-				{node.type === "product_item" &&
-					"barcode" in node.data &&
-					node.data.barcode && (
-						<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-muted/50 text-muted-foreground border border-border/30">
-							#{node.data.barcode}
-						</span>
-					)}
+				{node.type === "product_item" && "barcode" in node.data && node.data.barcode && (
+					<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-muted/50 text-muted-foreground border border-border/30">
+						#{node.data.barcode}
+					</span>
+				)}
 			</div>
 
 			{/* Ações - St aggered reveal on hover */}
@@ -208,5 +200,5 @@ export function ProductsTreeNode({
 				</Button>
 			</div>
 		</div>
-	);
+	)
 }

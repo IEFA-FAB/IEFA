@@ -1,11 +1,11 @@
-import tailwindcss from "@tailwindcss/vite";
-import { devtools } from "@tanstack/devtools-vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
-import { fileURLToPath } from "url";
-import { defineConfig } from "vite";
-import viteTsConfigPaths from "vite-tsconfig-paths";
-import { nitro } from 'nitro/vite'
+import { fileURLToPath } from "node:url"
+import tailwindcss from "@tailwindcss/vite"
+import { devtools } from "@tanstack/devtools-vite"
+import { tanstackStart } from "@tanstack/react-start/plugin/vite"
+import viteReact from "@vitejs/plugin-react"
+import { nitro } from "nitro/vite"
+import { defineConfig } from "vite"
+import viteTsConfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig({
 	plugins: [
@@ -25,7 +25,7 @@ export default defineConfig({
 		}),
 		// Tailwind CSS
 		tailwindcss(),
-		nitro({preset: 'bun'})
+		nitro({ preset: "node-server" }),
 	],
 	resolve: {
 		// Dedupe critical dependencies to avoid multiple instances
@@ -37,12 +37,8 @@ export default defineConfig({
 			"@tanstack/react-store",
 		],
 		alias: {
-			"@iefa/auth": fileURLToPath(
-				new URL("../../packages/auth/src", import.meta.url),
-			),
-			"@iefa/ui": fileURLToPath(
-				new URL("../../packages/ui/src", import.meta.url),
-			),
+			"@iefa/auth": fileURLToPath(new URL("../../packages/auth/src", import.meta.url)),
+			"@iefa/ui": fileURLToPath(new URL("../../packages/ui/src", import.meta.url)),
 		},
 	},
 	server: {
@@ -143,5 +139,5 @@ export default defineConfig({
 		// Optimizações para produção
 		legalComments: "none",
 		treeShaking: true,
-	}
-});
+	},
+})

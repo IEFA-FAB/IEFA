@@ -1,21 +1,21 @@
 // Submission workflow helpers
 // Handles complete article submission flow with database transactions
 
-import { supabase } from "../supabase";
+import { supabase } from "../supabase"
 import {
 	createArticle,
 	createArticleAuthors,
 	createArticleVersion,
 	updateArticle,
 	uploadArticleFile,
-} from "./client";
-import type { Article, ArticleAuthor } from "./types";
-import type { CompleteSubmissionData } from "./validation";
+} from "./client"
+import type { Article } from "./types"
+import type { CompleteSubmissionData } from "./validation"
 
 export interface SubmissionResult {
-	success: boolean;
-	article?: Article;
-	error?: string;
+	success: boolean
+	article?: Article
+	error?: string
 }
 
 /**
@@ -24,7 +24,7 @@ export interface SubmissionResult {
  */
 export async function submitArticle(
 	data: CompleteSubmissionData,
-	userId: string,
+	userId: string
 ): Promise<SubmissionResult> {
 	try {
 		// Step 1: Create article record
@@ -41,12 +41,10 @@ export async function submitArticle(
 			conflict_of_interest: data.conflict_of_interest,
 			funding_info: data.funding_info || null,
 			data_availability: data.data_availability || null,
-			ethics_approval: data.has_ethics_approval
-				? data.ethics_approval || null
-				: null,
+			ethics_approval: data.has_ethics_approval ? data.ethics_approval || null : null,
 			status: "submitted",
 			submitted_at: new Date().toISOString(),
-		});
+		})
 
 		// Step 2: Create authors
 		const authorRecords = data.authors.map((author, index) => ({
@@ -57,39 +55,24 @@ export async function submitArticle(
 			orcid: author.orcid || null,
 			is_corresponding: author.is_corresponding,
 			author_order: index + 1,
-		}));
+		}))
 
-		await createArticleAuthors(authorRecords);
+		await createArticleAuthors(authorRecords)
 
 		// Step 3: Upload files to storage
-		const pdfPath = await uploadArticleFile(
-			article.id,
-			1,
-			data.pdf_file,
-			"manuscript",
-		);
+		const pdfPath = await uploadArticleFile(article.id, 1, data.pdf_file, "manuscript")
 
-		let sourcePath: string | null = null;
+		let sourcePath: string | null = null
 		if (data.source_file) {
-			sourcePath = await uploadArticleFile(
-				article.id,
-				1,
-				data.source_file,
-				"source",
-			);
+			sourcePath = await uploadArticleFile(article.id, 1, data.source_file, "source")
 		}
 
-		const supplementaryPaths: string[] = [];
+		const supplementaryPaths: string[] = []
 		if (data.supplementary_files && data.supplementary_files.length > 0) {
 			for (let i = 0; i < data.supplementary_files.length; i++) {
-				const suppFile = data.supplementary_files[i];
-				const path = await uploadArticleFile(
-					article.id,
-					1,
-					suppFile,
-					"supplementary",
-				);
-				supplementaryPaths.push(path);
+				const suppFile = data.supplementary_files[i]
+				const path = await uploadArticleFile(article.id, 1, suppFile, "supplementary")
+				supplementaryPaths.push(path)
 			}
 		}
 
@@ -99,10 +82,9 @@ export async function submitArticle(
 			version_label: "Initial Submission",
 			pdf_path: pdfPath,
 			source_path: sourcePath,
-			supplementary_paths:
-				supplementaryPaths.length > 0 ? supplementaryPaths : null,
+			supplementary_paths: supplementaryPaths.length > 0 ? supplementaryPaths : null,
 			uploaded_by: userId,
-		});
+		})
 
 		// Step 5: Log submission event
 		await supabase
@@ -115,18 +97,18 @@ export async function submitArticle(
 				event_data: {
 					submission_number: article.submission_number,
 				},
-			});
+			})
 
 		return {
 			success: true,
 			article,
-		};
+		}
 	} catch (error) {
-		console.error("Submission error:", error);
+		console.error("Submission error:", error)
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Submission failed",
-		};
+		}
 	}
 }
 
@@ -137,10 +119,10 @@ export async function submitArticle(
 export async function saveDraft(
 	data: Partial<CompleteSubmissionData>,
 	userId: string,
-	articleId?: string,
+	articleId?: string
 ): Promise<SubmissionResult> {
 	try {
-		let article: Article;
+		let article: Article
 
 		if (articleId) {
 			// Update existing draft
@@ -157,7 +139,7 @@ export async function saveDraft(
 				funding_info: data.funding_info,
 				data_availability: data.data_availability,
 				ethics_approval: data.ethics_approval,
-			});
+			})
 		} else {
 			// Create new draft
 			article = await createArticle({
@@ -172,7 +154,7 @@ export async function saveDraft(
 				keywords_en: data.keywords_en || [],
 				conflict_of_interest: data.conflict_of_interest || "",
 				status: "draft",
-			});
+			})
 		}
 
 		// Save authors if provided
@@ -183,7 +165,7 @@ export async function saveDraft(
 					.schema("journal")
 					.from("article_authors")
 					.delete()
-					.eq("article_id", articleId);
+					.eq("article_id", articleId)
 			}
 
 			const authorRecords = data.authors.map((author, index) => ({
@@ -194,21 +176,21 @@ export async function saveDraft(
 				orcid: author.orcid || null,
 				is_corresponding: author.is_corresponding,
 				author_order: index + 1,
-			}));
+			}))
 
-			await createArticleAuthors(authorRecords);
+			await createArticleAuthors(authorRecords)
 		}
 
 		return {
 			success: true,
 			article,
-		};
+		}
 	} catch (error) {
-		console.error("Save draft error:", error);
+		console.error("Save draft error:", error)
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to save draft",
-		};
+		}
 	}
 }
 
@@ -222,26 +204,26 @@ export async function loadDraft(articleId: string) {
 			.from("articles")
 			.select("*")
 			.eq("id", articleId)
-			.single();
+			.single()
 
-		if (articleError) throw articleError;
+		if (articleError) throw articleError
 
 		const { data: authors, error: authorsError } = await supabase
 			.schema("journal")
 			.from("article_authors")
 			.select("*")
 			.eq("article_id", articleId)
-			.order("author_order", { ascending: true });
+			.order("author_order", { ascending: true })
 
-		if (authorsError) throw authorsError;
+		if (authorsError) throw authorsError
 
 		return {
 			article,
 			authors: authors || [],
-		};
+		}
 	} catch (error) {
-		console.error("Load draft error:", error);
-		throw error;
+		console.error("Load draft error:", error)
+		throw error
 	}
 }
 
@@ -253,37 +235,34 @@ export async function deleteDraft(articleId: string): Promise<boolean> {
 		// Soft delete
 		await updateArticle(articleId, {
 			deleted_at: new Date().toISOString(),
-		});
-		return true;
+		})
+		return true
 	} catch (error) {
-		console.error("Delete draft error:", error);
-		return false;
+		console.error("Delete draft error:", error)
+		return false
 	}
 }
 
 /**
  * Check if user can edit article
  */
-export async function canEditArticle(
-	articleId: string,
-	userId: string,
-): Promise<boolean> {
+export async function canEditArticle(articleId: string, userId: string): Promise<boolean> {
 	try {
 		const { data: article } = await supabase
 			.schema("journal")
 			.from("articles")
 			.select("submitter_id, status")
 			.eq("id", articleId)
-			.single();
+			.single()
 
-		if (!article) return false;
+		if (!article) return false
 
 		// User must be submitter and article must be draft or revision_requested
 		return (
 			article.submitter_id === userId &&
 			(article.status === "draft" || article.status === "revision_requested")
-		);
+		)
 	} catch {
-		return false;
+		return false
 	}
 }

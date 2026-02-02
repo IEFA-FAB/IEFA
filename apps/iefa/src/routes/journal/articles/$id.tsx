@@ -1,5 +1,5 @@
-import { Button } from "@iefa/ui";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button } from "@iefa/ui"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import {
 	ArrowLeft,
 	Calendar,
@@ -10,26 +10,72 @@ import {
 	FileText,
 	Tag,
 	User,
-} from "lucide-react";
-import { useState } from "react";
+} from "lucide-react"
+import { useState } from "react"
 
 export const Route = createFileRoute("/journal/articles/$id")({
 	component: PublicArticleDetail,
-});
+})
+
+interface ArticleAuthor {
+	full_name: string
+	orcid?: string
+}
+
+interface ArticleDetail {
+	title_pt: string
+	title_en?: string
+	authors: ArticleAuthor[]
+	published_at: string
+	article_type: string
+	doi?: string
+	volume?: number
+	issue?: number
+	page_start?: number
+	page_end?: number
+	abstract_pt: string
+	abstract_en?: string
+	keywords_pt: string[]
+	keywords_en?: string[]
+	subject_area: string
+	funding_info?: string
+}
 
 function PublicArticleDetail() {
-	const { id } = Route.useParams();
-	const [copiedCitation, setCopiedCitation] = useState<string | null>(null);
+	const { id } = Route.useParams()
+	const [copiedCitation, setCopiedCitation] = useState<string | null>(null)
 
-	// Placeholder - will be replaced with publishedArticleQueryOptions(id)
-	const article = null;
-	const isLoading = false;
+	// Simulated data fetching based on ID
+	// In a real implementation, this would be: const { data: article } = useSuspenseQuery(publishedArticleQueryOptions(id))
+	const article: ArticleDetail | null = {
+		title_pt: `Artigo Exemplo ${id}`,
+		title_en: `Example Article ${id}`,
+		authors: [
+			{ full_name: "Dr. João Silva", orcid: "0000-0000-0000-0000" },
+			{ full_name: "Dra. Maria Santos" },
+		],
+		published_at: new Date().toISOString(),
+		article_type: "research",
+		doi: `10.1234/iefa.${id}`,
+		volume: 5,
+		issue: 2,
+		page_start: 10,
+		page_end: 25,
+		abstract_pt: "Este é um resumo simulado do artigo para fins de visualização.",
+		abstract_en: "This is a simulated abstract of the article for visualization purposes.",
+		keywords_pt: ["Educação", "Tecnologia", "Inovação"],
+		keywords_en: ["Education", "Technology", "Innovation"],
+		subject_area: "Ciências Humanas",
+		funding_info: "CNPq - Processo 123456/2025-0",
+	}
+
+	const isLoading = false
 
 	const copyCitation = (format: string, text: string) => {
-		navigator.clipboard.writeText(text);
-		setCopiedCitation(format);
-		setTimeout(() => setCopiedCitation(null), 2000);
-	};
+		navigator.clipboard.writeText(text)
+		setCopiedCitation(format)
+		setTimeout(() => setCopiedCitation(null), 2000)
+	}
 
 	if (isLoading) {
 		return (
@@ -37,7 +83,7 @@ function PublicArticleDetail() {
 				<div className="h-12 w-48 animate-pulse bg-muted rounded" />
 				<div className="h-64 animate-pulse bg-muted rounded" />
 			</div>
-		);
+		)
 	}
 
 	if (!article) {
@@ -46,9 +92,7 @@ function PublicArticleDetail() {
 				<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
 					<FileText className="size-8 text-muted-foreground" />
 				</div>
-				<h3 className="text-lg font-semibold mb-2">
-					Artigo não encontrado ou ainda não publicado
-				</h3>
+				<h3 className="text-lg font-semibold mb-2">Artigo não encontrado ou ainda não publicado</h3>
 				<p className="text-muted-foreground mb-6">
 					Este artigo pode ainda estar em processo de revisão ou não existe.
 				</p>
@@ -62,7 +106,7 @@ function PublicArticleDetail() {
 					variant="outline"
 				/>
 			</div>
-		);
+		)
 	}
 
 	// Generate citation formats (these would use real data)
@@ -79,7 +123,7 @@ function PublicArticleDetail() {
   year = {2025},
   doi = {10.xxxx/xxxxx}
 }`,
-	};
+	}
 
 	return (
 		<div className="space-y-8">
@@ -120,21 +164,17 @@ function PublicArticleDetail() {
 							)}
 						</div>
 
-						<h1 className="text-4xl font-bold tracking-tight">
-							{article.title_pt}
-						</h1>
+						<h1 className="text-4xl font-bold tracking-tight">{article.title_pt}</h1>
 
 						{article.title_en && (
-							<h2 className="text-2xl text-muted-foreground">
-								{article.title_en}
-							</h2>
+							<h2 className="text-2xl text-muted-foreground">{article.title_en}</h2>
 						)}
 
 						{/* Authors */}
 						<div className="flex items-center gap-2 text-lg">
 							<User className="size-5 text-muted-foreground" />
 							<div className="flex flex-wrap gap-2">
-								{article.authors?.map((author: any, i: number) => (
+								{article.authors.map((author, i) => (
 									<span key={i}>
 										{author.full_name}
 										{author.orcid && (
@@ -157,8 +197,7 @@ function PublicArticleDetail() {
 						<div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
 							<div className="flex items-center gap-2">
 								<Calendar className="size-4" />
-								Publicado em{" "}
-								{new Date(article.published_at).toLocaleDateString("pt-BR")}
+								Publicado em {new Date(article.published_at).toLocaleDateString("pt-BR")}
 							</div>
 							{article.volume && (
 								<span>
@@ -176,17 +215,13 @@ function PublicArticleDetail() {
 					{/* Abstract */}
 					<div className="space-y-3 p-6 border rounded-lg bg-card">
 						<h3 className="font-semibold text-lg">Resumo</h3>
-						<p className="text-muted-foreground leading-relaxed">
-							{article.abstract_pt}
-						</p>
+						<p className="text-muted-foreground leading-relaxed">{article.abstract_pt}</p>
 					</div>
 
 					{article.abstract_en && (
 						<div className="space-y-3 p-6 border rounded-lg bg-card">
 							<h3 className="font-semibold text-lg">Abstract</h3>
-							<p className="text-muted-foreground leading-relaxed">
-								{article.abstract_en}
-							</p>
+							<p className="text-muted-foreground leading-relaxed">{article.abstract_en}</p>
 						</div>
 					)}
 
@@ -198,10 +233,7 @@ function PublicArticleDetail() {
 						</h3>
 						<div className="flex flex-wrap gap-2">
 							{article.keywords_pt?.map((keyword: string) => (
-								<span
-									key={keyword}
-									className="px-3 py-1 bg-muted rounded-full text-sm"
-								>
+								<span key={keyword} className="px-3 py-1 bg-muted rounded-full text-sm">
 									{keyword}
 								</span>
 							))}
@@ -216,10 +248,7 @@ function PublicArticleDetail() {
 							</h3>
 							<div className="flex flex-wrap gap-2">
 								{article.keywords_en.map((keyword: string) => (
-									<span
-										key={keyword}
-										className="px-3 py-1 bg-muted rounded-full text-sm"
-									>
+									<span key={keyword} className="px-3 py-1 bg-muted rounded-full text-sm">
 										{keyword}
 									</span>
 								))}
@@ -348,5 +377,5 @@ function PublicArticleDetail() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

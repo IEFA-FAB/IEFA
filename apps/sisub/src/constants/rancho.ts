@@ -1,4 +1,4 @@
-import { Coffee, Moon, Sun, Utensils } from "lucide-react";
+import { Coffee, Moon, Sun, Utensils } from "lucide-react"
 
 export const FALLBACK_RANCHOS = [
 	{
@@ -273,12 +273,11 @@ export const FALLBACK_RANCHOS = [
 		value: "EEAR - SGER",
 		label: "EEAR - SGER",
 	},
-] as const;
+] as const
 
-export const FALLBACK_UNIDADES: readonly { value: string; label: string }[] =
-	Array.from(
-		new Set(FALLBACK_RANCHOS.map((r) => r.value.split(" - ")[0].trim())),
-	).map((u) => ({ value: u, label: u }));
+export const FALLBACK_UNIDADES: readonly { value: string; label: string }[] = Array.from(
+	new Set(FALLBACK_RANCHOS.map((r) => r.value.split(" - ")[0].trim()))
+).map((u) => ({ value: u, label: u }))
 
 export const MEAL_TYPES = [
 	{
@@ -309,8 +308,8 @@ export const MEAL_TYPES = [
 		color: "bg-purple-100 text-purple-800",
 		time: "21:00",
 	},
-] as const;
+] as const
 
-export const DEFAULT_UNIT = "DIRAD - DIRAD";
-export const DAYS_TO_SHOW = 30;
-export const NEAR_DATE_THRESHOLD = 2;
+export const DEFAULT_UNIT = "DIRAD - DIRAD"
+export const DAYS_TO_SHOW = 30
+export const NEAR_DATE_THRESHOLD = 2

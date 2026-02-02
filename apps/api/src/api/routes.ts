@@ -1,29 +1,29 @@
-import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { cors } from "hono/cors";
-import { z } from "zod";
-import { createApiHandler } from "./factory.js";
+import { createRoute, OpenAPIHono } from "@hono/zod-openapi"
+import type { Handler } from "hono"
+import { cors } from "hono/cors"
+import { z } from "zod"
+import { createApiHandler } from "./factory.js"
 
 // Schemas de resposta base
 const ErrorSchema = z.object({
 	error: z.string(),
 	details: z.string().optional(),
 	timestamp: z.string().optional(),
-});
+})
 
-const PaginationSchema = z.object({
+const _PaginationSchema = z.object({
 	limit: z.string().optional().openapi({
 		description: "Número máximo de registros (padrão: 100000, máx: 100000)",
 		example: "1000",
 	}),
 	order: z.string().optional().openapi({
-		description:
-			"Ordenação: coluna:asc ou coluna:desc (múltiplos separados por vírgula)",
+		description: "Ordenação: coluna:asc ou coluna:desc (múltiplos separados por vírgula)",
 		example: "created_at:desc,nmGuerra:asc",
 	}),
-});
+})
 
 // Schema para filtros de data
-const DateFilterSchema = z.object({
+const _DateFilterSchema = z.object({
 	date: z.string().optional().openapi({
 		description: "Data específica (YYYY-MM-DD)",
 		example: "2024-01-15",
@@ -36,7 +36,7 @@ const DateFilterSchema = z.object({
 		description: "Data final do intervalo (YYYY-MM-DD)",
 		example: "2024-01-31",
 	}),
-});
+})
 
 // Schemas específicos para cada endpoint
 const OpinionSchema = z.object({
@@ -45,7 +45,7 @@ const OpinionSchema = z.object({
 	value: z.string(),
 	question: z.string(),
 	userId: z.string().uuid(),
-});
+})
 
 const MealForecastSchema = z.object({
 	user_id: z.string().uuid(),
@@ -55,7 +55,7 @@ const MealForecastSchema = z.object({
 	mess_hall_id: z.number(),
 	created_at: z.string().datetime(),
 	updated_at: z.string().datetime(),
-});
+})
 
 const MealPresenceSchema = z.object({
 	user_id: z.string().uuid(),
@@ -64,7 +64,7 @@ const MealPresenceSchema = z.object({
 	mess_hall_id: z.number(),
 	created_at: z.string().datetime(),
 	updated_at: z.string().datetime(),
-});
+})
 
 const UserMilitaryDataSchema = z.object({
 	nrOrdem: z.string(),
@@ -74,35 +74,35 @@ const UserMilitaryDataSchema = z.object({
 	sgPosto: z.string(),
 	sgOrg: z.string(),
 	dataAtualizacao: z.string().datetime(),
-});
+})
 
 const UserDataSchema = z.object({
 	id: z.string().uuid(),
 	created_at: z.string().datetime(),
 	email: z.string().email(),
 	nrOrdem: z.string(),
-});
+})
 
 const UnitSchema = z.object({
 	id: z.number(),
 	code: z.string(),
 	display_name: z.string(),
-});
+})
 
 const MessHallSchema = z.object({
 	id: z.number(),
 	unit_id: z.number(),
 	code: z.string(),
 	display_name: z.string(),
-});
+})
 
 // Schema para parâmetros de filtro com múltiplos valores
 const MultiValueParamSchema = z.string().openapi({
 	description: "Valor único ou múltiplos separados por vírgula",
 	example: "uuid1,uuid2 ou 123,456",
-});
+})
 
-export const api = new OpenAPIHono();
+export const api = new OpenAPIHono()
 
 // CORS global para todos os endpoints da API
 api.use(
@@ -112,18 +112,18 @@ api.use(
 		allowMethods: ["GET", "OPTIONS"],
 		allowHeaders: ["Content-Type"],
 		maxAge: 300,
-	}),
-);
+	})
+)
 
 // Helper para criar rotas documentadas
 function createDocumentedRoute(config: {
-	path: string;
-	tags: string[];
-	summary: string;
-	description: string;
-	parameters?: any[];
-	responseSchema: z.ZodTypeAny;
-	handler: any;
+	path: string
+	tags: string[]
+	summary: string
+	description: string
+	parameters?: unknown[]
+	responseSchema: z.ZodTypeAny
+	handler: Handler
 }) {
 	const route = createRoute({
 		method: "get",
@@ -169,14 +169,14 @@ function createDocumentedRoute(config: {
 				},
 			},
 		},
-	});
+	})
 
-	return api.openapi(route, config.handler);
+	return api.openapi(route, config.handler)
 }
 
 // /api/opinion -> opinions
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "opinions",
 		select: 'id, created_at, value, question, "userId"',
 		dateColumn: "created_at",
@@ -187,7 +187,7 @@ function createDocumentedRoute(config: {
 			question: "question",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/opinion",
@@ -217,15 +217,14 @@ function createDocumentedRoute(config: {
 		],
 		responseSchema: OpinionSchema,
 		handler,
-	});
+	})
 }
 
 // /api/rancho_previsoes -> meal_forecasts
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "meal_forecasts",
-		select:
-			"user_id, date, meal, will_eat, mess_hall_id, created_at, updated_at",
+		select: "user_id, date, meal, will_eat, mess_hall_id, created_at, updated_at",
 		dateColumn: "date",
 		dateColumnType: "date",
 		defaultOrder: [
@@ -240,7 +239,7 @@ function createDocumentedRoute(config: {
 			will_eat: "will_eat",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/rancho_previsoes",
@@ -276,12 +275,12 @@ function createDocumentedRoute(config: {
 		],
 		responseSchema: MealForecastSchema,
 		handler,
-	});
+	})
 }
 
 // /api/wherewhowhen -> meal_presences
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "meal_presences",
 		select: "user_id, date, meal, mess_hall_id, created_at, updated_at",
 		dateColumn: "date",
@@ -297,7 +296,7 @@ function createDocumentedRoute(config: {
 			mess_hall_id: "mess_hall_id",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/wherewhowhen",
@@ -327,15 +326,14 @@ function createDocumentedRoute(config: {
 		],
 		responseSchema: MealPresenceSchema,
 		handler,
-	});
+	})
 }
 
 // /api/user-military-data -> user_military_data
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "user_military_data",
-		select:
-			'"nrOrdem", "nrCpf", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"',
+		select: '"nrOrdem", "nrCpf", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"',
 		dateColumn: "dataAtualizacao",
 		dateColumnType: "timestamp",
 		defaultOrder: [
@@ -353,14 +351,13 @@ function createDocumentedRoute(config: {
 			sgOrg: "sgOrg",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/user-military-data",
 		tags: ["Dados Militares"],
 		summary: "Lista dados militares dos usuários",
-		description:
-			"Retorna dados cadastrais militares com informações de posto, organização, etc",
+		description: "Retorna dados cadastrais militares com informações de posto, organização, etc",
 		parameters: [
 			{
 				name: "nrOrdem",
@@ -414,18 +411,17 @@ function createDocumentedRoute(config: {
 				name: "sgOrg_ilike",
 				in: "query",
 				schema: { type: "string" },
-				description:
-					"Filtrar por sigla da organização (contém, case-insensitive)",
+				description: "Filtrar por sigla da organização (contém, case-insensitive)",
 			},
 		],
 		responseSchema: UserMilitaryDataSchema,
 		handler,
-	});
+	})
 }
 
 // /api/user-data -> user_data
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "user_data",
 		select: 'id, created_at, email, "nrOrdem"',
 		dateColumn: "created_at",
@@ -440,7 +436,7 @@ function createDocumentedRoute(config: {
 			nrOrdem: "nrOrdem",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/user-data",
@@ -481,12 +477,12 @@ function createDocumentedRoute(config: {
 		],
 		responseSchema: UserDataSchema,
 		handler,
-	});
+	})
 }
 
 // /api/units -> sisub.units
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "units",
 		select: "id, code, display_name",
 		defaultOrder: [
@@ -499,7 +495,7 @@ function createDocumentedRoute(config: {
 			display_name: "display_name",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/units",
@@ -540,12 +536,12 @@ function createDocumentedRoute(config: {
 		],
 		responseSchema: UnitSchema,
 		handler,
-	});
+	})
 }
 
 // /api/mess-halls -> sisub.mess_halls
 {
-	const [headersMw, handler] = createApiHandler({
+	const [_headersMw, handler] = createApiHandler({
 		table: "mess_halls",
 		select: "id, unit_id, code, display_name",
 		defaultOrder: [
@@ -559,7 +555,7 @@ function createDocumentedRoute(config: {
 			display_name: "display_name",
 		},
 		cacheControl: "public, max-age=300",
-	});
+	})
 
 	createDocumentedRoute({
 		path: "/mess-halls",
@@ -606,5 +602,5 @@ function createDocumentedRoute(config: {
 		],
 		responseSchema: MessHallSchema,
 		handler,
-	});
+	})
 }

@@ -1,40 +1,36 @@
-import { Button, Label } from "@iefa/ui";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, FileText, Save, Send } from "lucide-react";
-import { useState } from "react";
+import { Button, Label } from "@iefa/ui"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { ArrowLeft, Save, Send } from "lucide-react"
+import { useState } from "react"
 
 export const Route = createFileRoute("/journal/review/$assignmentId")({
 	component: ReviewSubmission,
-});
+})
 
-type ReviewRecommendation =
-	| "accept"
-	| "minor_revision"
-	| "major_revision"
-	| "reject";
+type ReviewRecommendation = "accept" | "minor_revision" | "major_revision" | "reject"
 
 interface ReviewFormData {
-	score_originality: number;
-	score_methodology: number;
-	score_clarity: number;
-	score_references: number;
-	score_overall: number;
-	strengths: string;
-	weaknesses: string;
-	comments_for_authors: string;
-	comments_for_editors: string;
-	recommendation: ReviewRecommendation | "";
-	has_methodology_issues: boolean;
-	has_statistical_errors: boolean;
-	has_ethical_concerns: boolean;
-	suspected_plagiarism: boolean;
+	score_originality: number
+	score_methodology: number
+	score_clarity: number
+	score_references: number
+	score_overall: number
+	strengths: string
+	weaknesses: string
+	comments_for_authors: string
+	comments_for_editors: string
+	recommendation: ReviewRecommendation | ""
+	has_methodology_issues: boolean
+	has_statistical_errors: boolean
+	has_ethical_concerns: boolean
+	suspected_plagiarism: boolean
 }
 
 function ReviewSubmission() {
-	const { assignmentId } = Route.useParams();
-	const navigate = useNavigate();
-	const [isSaving, setIsSaving] = useState(false);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	Route.useParams()
+	const navigate = useNavigate()
+	const [isSaving, setIsSaving] = useState(false)
+	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const [formData, setFormData] = useState<ReviewFormData>({
 		score_originality: 0,
@@ -51,29 +47,26 @@ function ReviewSubmission() {
 		has_statistical_errors: false,
 		has_ethical_concerns: false,
 		suspected_plagiarism: false,
-	});
+	})
 
 	// Placeholder - will fetch review assignment data
 	const assignment = {
 		article_title: "Título do Artigo a Ser Revisado",
 		due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-	};
+	}
 
-	const updateField = <K extends keyof ReviewFormData>(
-		field: K,
-		value: ReviewFormData[K],
-	) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
+	const updateField = <K extends keyof ReviewFormData>(field: K, value: ReviewFormData[K]) => {
+		setFormData((prev) => ({ ...prev, [field]: value }))
+	}
 
 	const handleSaveDraft = async () => {
-		setIsSaving(true);
+		setIsSaving(true)
 		// TODO: Call saveReviewDraft mutation
 		setTimeout(() => {
-			setIsSaving(false);
-			alert("Rascunho salvo com sucesso!");
-		}, 500);
-	};
+			setIsSaving(false)
+			alert("Rascunho salvo com sucesso!")
+		}, 500)
+	}
 
 	const handleSubmit = async () => {
 		// Validate required fields
@@ -84,47 +77,42 @@ function ReviewSubmission() {
 			!formData.score_references ||
 			!formData.score_overall
 		) {
-			alert("Por favor, preencha todas as avaliações de score.");
-			return;
+			alert("Por favor, preencha todas as avaliações de score.")
+			return
 		}
 
 		if (!formData.comments_for_authors.trim()) {
-			alert("Por favor, forneça comentários para os autores.");
-			return;
+			alert("Por favor, forneça comentários para os autores.")
+			return
 		}
 
 		if (!formData.recommendation) {
-			alert("Por favor, selecione uma recomendação.");
-			return;
+			alert("Por favor, selecione uma recomendação.")
+			return
 		}
 
 		const confirmed = window.confirm(
-			"Tem certeza de que deseja submeter esta revisão? Esta ação não pode ser desfeita.",
-		);
+			"Tem certeza de que deseja submeter esta revisão? Esta ação não pode ser desfeita."
+		)
 
-		if (!confirmed) return;
+		if (!confirmed) return
 
-		setIsSubmitting(true);
+		setIsSubmitting(true)
 		// TODO: Call submitReview mutation
 		setTimeout(() => {
-			navigate({ to: "/journal/review" });
-		}, 1000);
-	};
+			navigate({ to: "/journal/review" })
+		}, 1000)
+	}
 
 	return (
 		<div className="max-w-5xl mx-auto space-y-6">
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Formulário de Revisão
-					</h1>
+					<h1 className="text-3xl font-bold tracking-tight">Formulário de Revisão</h1>
 					<p className="text-muted-foreground">{assignment.article_title}</p>
 				</div>
-				<Button
-					variant="outline"
-					onClick={() => navigate({ to: "/journal/review" })}
-				>
+				<Button variant="outline" onClick={() => navigate({ to: "/journal/review" })}>
 					<ArrowLeft className="size-4 mr-2" />
 					Voltar
 				</Button>
@@ -133,9 +121,7 @@ function ReviewSubmission() {
 			<div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900">
 				<p className="text-sm text-blue-900 dark:text-blue-100">
 					📅 Prazo para submissão:{" "}
-					<strong>
-						{new Date(assignment.due_date).toLocaleDateString("pt-BR")}
-					</strong>
+					<strong>{new Date(assignment.due_date).toLocaleDateString("pt-BR")}</strong>
 				</p>
 			</div>
 
@@ -204,15 +190,12 @@ function ReviewSubmission() {
 
 				<div className="space-y-2">
 					<Label htmlFor="comments_authors">
-						Comentários para os Autores{" "}
-						<span className="text-destructive">*</span>
+						Comentários para os Autores <span className="text-destructive">*</span>
 					</Label>
 					<textarea
 						id="comments_authors"
 						value={formData.comments_for_authors}
-						onChange={(e) =>
-							updateField("comments_for_authors", e.target.value)
-						}
+						onChange={(e) => updateField("comments_for_authors", e.target.value)}
 						placeholder="Forneça feedback detalhado e construtivo para os autores. Seja específico e cite seções/páginas quando possível..."
 						className="w-full px-3 py-2 border rounded-md min-h-[200px] bg-background"
 						required
@@ -223,21 +206,15 @@ function ReviewSubmission() {
 				</div>
 
 				<div className="space-y-2">
-					<Label htmlFor="comments_editors">
-						Comentários Confidenciais para os Editores
-					</Label>
+					<Label htmlFor="comments_editors">Comentários Confidenciais para os Editores</Label>
 					<textarea
 						id="comments_editors"
 						value={formData.comments_for_editors}
-						onChange={(e) =>
-							updateField("comments_for_editors", e.target.value)
-						}
+						onChange={(e) => updateField("comments_for_editors", e.target.value)}
 						placeholder="Comentários privados que não serão compartilhados com os autores..."
 						className="w-full px-3 py-2 border rounded-md min-h-[120px] bg-background"
 					/>
-					<p className="text-xs text-muted-foreground">
-						Apenas os editores verão este comentário
-					</p>
+					<p className="text-xs text-muted-foreground">Apenas os editores verão este comentário</p>
 				</div>
 			</div>
 
@@ -293,9 +270,7 @@ function ReviewSubmission() {
 						<input
 							type="checkbox"
 							checked={formData.has_methodology_issues}
-							onChange={(e) =>
-								updateField("has_methodology_issues", e.target.checked)
-							}
+							onChange={(e) => updateField("has_methodology_issues", e.target.checked)}
 							className="size-4 rounded"
 						/>
 						<div>
@@ -310,9 +285,7 @@ function ReviewSubmission() {
 						<input
 							type="checkbox"
 							checked={formData.has_statistical_errors}
-							onChange={(e) =>
-								updateField("has_statistical_errors", e.target.checked)
-							}
+							onChange={(e) => updateField("has_statistical_errors", e.target.checked)}
 							className="size-4 rounded"
 						/>
 						<div>
@@ -327,9 +300,7 @@ function ReviewSubmission() {
 						<input
 							type="checkbox"
 							checked={formData.has_ethical_concerns}
-							onChange={(e) =>
-								updateField("has_ethical_concerns", e.target.checked)
-							}
+							onChange={(e) => updateField("has_ethical_concerns", e.target.checked)}
 							className="size-4 rounded"
 						/>
 						<div>
@@ -344,9 +315,7 @@ function ReviewSubmission() {
 						<input
 							type="checkbox"
 							checked={formData.suspected_plagiarism}
-							onChange={(e) =>
-								updateField("suspected_plagiarism", e.target.checked)
-							}
+							onChange={(e) => updateField("suspected_plagiarism", e.target.checked)}
 							className="size-4 rounded"
 						/>
 						<div>
@@ -361,11 +330,7 @@ function ReviewSubmission() {
 
 			{/* Actions */}
 			<div className="flex gap-3 justify-end sticky bottom-4 p-4 border rounded-lg bg-card shadow-lg">
-				<Button
-					variant="outline"
-					onClick={handleSaveDraft}
-					disabled={isSaving || isSubmitting}
-				>
+				<Button variant="outline" onClick={handleSaveDraft} disabled={isSaving || isSubmitting}>
 					<Save className="size-4 mr-2" />
 					{isSaving ? "Salvando..." : "Salvar Rascunho"}
 				</Button>
@@ -375,7 +340,7 @@ function ReviewSubmission() {
 				</Button>
 			</div>
 		</div>
-	);
+	)
 }
 
 function ScoreInput({
@@ -384,15 +349,13 @@ function ScoreInput({
 	onChange,
 	highlight = false,
 }: {
-	label: string;
-	value: number;
-	onChange: (value: number) => void;
-	highlight?: boolean;
+	label: string
+	value: number
+	onChange: (value: number) => void
+	highlight?: boolean
 }) {
 	return (
-		<div
-			className={`space-y-2 ${highlight ? "p-3 border rounded-lg bg-primary/5" : ""}`}
-		>
+		<div className={`space-y-2 ${highlight ? "p-3 border rounded-lg bg-primary/5" : ""}`}>
 			<Label>
 				{label} {highlight && <span className="text-destructive">*</span>}
 			</Label>
@@ -417,23 +380,22 @@ function ScoreInput({
 				<span>Excelente</span>
 			</div>
 		</div>
-	);
+	)
 }
 
 function RecommendationOption({
-	value,
 	label,
 	description,
 	selected,
 	onClick,
 	color,
 }: {
-	value: string;
-	label: string;
-	description: string;
-	selected: boolean;
-	onClick: () => void;
-	color: "green" | "blue" | "orange" | "red";
+	value: string
+	label: string
+	description: string
+	selected: boolean
+	onClick: () => void
+	color: "green" | "blue" | "orange" | "red"
 }) {
 	const colorClasses = {
 		green: selected
@@ -448,7 +410,7 @@ function RecommendationOption({
 		red: selected
 			? "border-red-500 bg-red-50 dark:bg-red-950"
 			: "border-gray-200 hover:border-red-300",
-	};
+	}
 
 	return (
 		<button
@@ -459,5 +421,5 @@ function RecommendationOption({
 			<p className="font-semibold mb-1">{label}</p>
 			<p className="text-xs text-muted-foreground">{description}</p>
 		</button>
-	);
+	)
 }

@@ -24,26 +24,47 @@ jobs:
           filters: |
             api:
               - 'apps/api/**'
-              - 'api.Dockerfile'
-              - 'fly.api.toml'
+              - 'docker/api.Dockerfile'
+              - 'fly/fly.api.toml'
             docs:
               - 'apps/docs/**'
-              - 'fly.docs.toml'
+              - 'fly/fly.docs.toml'
             iefa:
               - 'apps/iefa/**'
-              - 'iefa.Dockerfile'
-              - 'fly.iefa.toml'
+              - 'docker/iefa.Dockerfile'
+              - 'fly/fly.iefa.toml'
               - 'packages/ui/**'
               - 'packages/auth/**'
             sisub:
               - 'apps/sisub/**'
-              - 'sisub.Dockerfile'
-              - 'fly.sisub.toml'
+              - 'docker/sisub.Dockerfile'
+              - 'fly/fly.sisub.toml'
               - 'packages/ui/**'
               - 'packages/auth/**'
 
+  quality-checks:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run type checking
+        run: bun run typecheck
+
+      - name: Run linting and format check
+        run: bun run check
+
   deploy-api:
-    needs: changes
+    needs: [changes, quality-checks]
     if: ${{ needs.changes.outputs.api == 'true' }}
     name: Deploy API
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -77,14 +98,14 @@ jobs:
 
       - name: Set Fly app secrets
         run: |
-          flyctl --config fly.api.toml secrets set \
+          flyctl --config fly/fly.api.toml secrets set \
             API_PORT=${{ secrets.API_PORT }} \
             API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }} \
             API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }} \
             
 
       - name: Deploy API (wait for health checks)
-        run: flyctl deploy -c fly.api.toml --remote-only
+        run: flyctl deploy -c fly/fly.api.toml --remote-only
 
       - name: Smoke test API
         shell: bash
@@ -109,7 +130,7 @@ jobs:
           exit 1
 
   deploy-docs:
-    needs: changes
+    needs: [changes, quality-checks]
     if: ${{ needs.changes.outputs.docs == 'true' }}
     name: Deploy Docs
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -131,7 +152,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy Docs (wait for health checks)
-        run: flyctl deploy -c fly.docs.toml --remote-only
+        run: flyctl deploy -c fly/fly.docs.toml --remote-only
 
       - name: Smoke test Docs
         shell: bash
@@ -156,7 +177,7 @@ jobs:
           exit 1
 
   deploy-iefa:
-    needs: changes
+    needs: [changes, quality-checks]
     if: ${{ needs.changes.outputs.iefa == 'true' }}
     name: Deploy IEFA
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -183,7 +204,7 @@ jobs:
           VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
-          flyctl --config fly.iefa.toml secrets set \
+          flyctl --config fly/fly.iefa.toml secrets set \
             VITE_IEFA_SUPABASE_URL="$VITE_IEFA_SUPABASE_URL" \
             VITE_IEFA_SUPABASE_ANON_KEY="$VITE_IEFA_SUPABASE_ANON_KEY" \
             VITE_RAG_SUPABASE_URL="$VITE_RAG_SUPABASE_URL" \
@@ -192,7 +213,7 @@ jobs:
 
       - name: Deploy IEFA (wait for health checks)
         run: |
-          flyctl deploy -c fly.iefa.toml --remote-only \
+          flyctl deploy -c fly/fly.iefa.toml --remote-only \
             --build-arg VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }} \
             --build-arg VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }} \
             --build-arg VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }} \
@@ -223,7 +244,7 @@ jobs:
 
 
   deploy-sisub:
-      needs: changes
+      needs: [changes, quality-checks]
       if: ${{ needs.changes.outputs.sisub == 'true' }}
       name: Deploy SISUB
       runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -248,13 +269,13 @@ jobs:
             VITE_SISUB_SUPABASE_ANON_KEY: ${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
           run: |
             set -euo pipefail
-            flyctl --config fly.sisub.toml secrets set \
+            flyctl --config fly/fly.sisub.toml secrets set \
               VITE_SISUB_SUPABASE_URL="$VITE_SISUB_SUPABASE_URL" \
               VITE_SISUB_SUPABASE_ANON_KEY="$VITE_SISUB_SUPABASE_ANON_KEY"
 
         - name: Deploy SISUB (wait for health checks)
           run: |
-            flyctl deploy -c fly.sisub.toml --remote-only \
+            flyctl deploy -c fly/fly.sisub.toml --remote-only \
               --build-arg VITE_SISUB_SUPABASE_URL="${{ secrets.VITE_SISUB_SUPABASE_URL }}" \
               --build-arg VITE_SISUB_SUPABASE_ANON_KEY='${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}'
 

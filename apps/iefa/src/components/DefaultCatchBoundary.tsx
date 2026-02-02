@@ -8,22 +8,21 @@ import {
 	CardFooter,
 	CardHeader,
 	CardTitle,
-} from "@iefa/ui";
-import type { ErrorComponentProps } from "@tanstack/react-router";
-import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router";
-import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react";
+} from "@iefa/ui"
+import type { ErrorComponentProps } from "@tanstack/react-router"
+import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router"
+import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
-	const router = useRouter();
+	const router = useRouter()
 	const isRoot = useMatch({
 		strict: false,
 		select: (state) => state.id === rootRouteId,
-	});
+	})
 
-	console.error("DefaultCatchBoundary Error:", error);
+	console.error("DefaultCatchBoundary Error:", error)
 
-	const errorMessage =
-		error instanceof Error ? error.message : "Um erro inesperado ocorreu";
+	const errorMessage = error instanceof Error ? error.message : "Um erro inesperado ocorreu"
 
 	return (
 		<div className="min-h-screen w-full flex items-center justify-center p-4">
@@ -32,19 +31,14 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-red-500/20 to-red-500/10 flex items-center justify-center border border-red-500/20">
 						<AlertCircle className="h-10 w-10 text-red-400" />
 					</div>
-					<CardTitle className="text-4xl font-bold tracking-tight">
-						Ops! Algo deu errado
-					</CardTitle>
+					<CardTitle className="text-4xl font-bold tracking-tight">Ops! Algo deu errado</CardTitle>
 					<CardDescription className="text-zinc-400 text-lg">
 						Encontramos um erro inesperado. Por favor, tente novamente.
 					</CardDescription>
 				</CardHeader>
 
 				<CardContent className="px-8 pb-4">
-					<Alert
-						variant="destructive"
-						className="bg-red-500/10 border-red-500/20 text-red-400"
-					>
+					<Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
 						<AlertCircle className="h-4 w-4" />
 						<AlertDescription className="ml-2">
 							<strong className="font-semibold">Detalhes do erro:</strong>
@@ -89,5 +83,5 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 				</CardFooter>
 			</Card>
 		</div>
-	);
+	)
 }

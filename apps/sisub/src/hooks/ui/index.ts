@@ -1,3 +1,3 @@
 // UI Hooks
-export * from "./useTheme";
-export * from "./useUserSync";
+export * from "./useTheme"
+export * from "./useUserSync"

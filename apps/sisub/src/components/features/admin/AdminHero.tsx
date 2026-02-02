@@ -1,7 +1,7 @@
-import { AlertCircle, Shield } from "lucide-react";
+import { AlertCircle, Shield } from "lucide-react"
 
 interface AdminHeroProps {
-	error: string | null;
+	error: string | null
 }
 
 export default function AdminHero({ error }: AdminHeroProps) {
@@ -11,12 +11,9 @@ export default function AdminHero({ error }: AdminHeroProps) {
 				<Shield />
 				Painel Administrativo
 			</div>
-			<h1 className="text-3xl md:text-4xl font-boldmb-3">
-				Controles da sua OM
-			</h1>
+			<h1 className="text-3xl md:text-4xl font-boldmb-3">Controles da sua OM</h1>
 			<p className="max-w-2xl mx-auto">
-				Gere o QR de auto check-in e acompanhe indicadores da unidade em tempo
-				real.
+				Gere o QR de auto check-in e acompanhe indicadores da unidade em tempo real.
 			</p>
 
 			{error && (
@@ -29,5 +26,5 @@ export default function AdminHero({ error }: AdminHeroProps) {
 				</div>
 			)}
 		</div>
-	);
+	)
 }

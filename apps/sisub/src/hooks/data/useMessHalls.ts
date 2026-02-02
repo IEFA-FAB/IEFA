@@ -1,9 +1,9 @@
 // hooks/useMessHalls.ts
 // Uses centralized types from @/types/domain as per design system guidelines.
 
-import { useQuery } from "@tanstack/react-query";
-import supabase from "@/lib/supabase";
-import type { MessHall, Unit } from "@/types/domain";
+import { useQuery } from "@tanstack/react-query"
+import supabase from "@/lib/supabase"
+import type { MessHall, Unit } from "@/types/domain"
 
 /**
  * Custom hook to fetch and manage organizational units and mess halls.
@@ -42,7 +42,7 @@ import type { MessHall, Unit } from "@/types/domain";
  */
 export const useMessHalls = () => {
 	// We reuse the client but set the schema explicitly to sisub for these tables.
-	const sisub = supabase.schema("sisub");
+	const sisub = supabase.schema("sisub")
 
 	// Units
 	const unitsQuery = useQuery<readonly Unit[], Error>({
@@ -54,17 +54,17 @@ export const useMessHalls = () => {
 			const { data, error } = await sisub
 				.from("units")
 				.select("id, code, display_name")
-				.order("display_name", { ascending: true });
+				.order("display_name", { ascending: true })
 
-			if (error) throw error;
+			if (error) throw error
 
 			return (data ?? []).map((row) => ({
 				id: row.id,
 				code: row.code,
 				name: row.display_name,
-			})) as Unit[];
+			})) as Unit[]
 		},
-	});
+	})
 
 	// Mess Halls
 	const messHallsQuery = useQuery<readonly MessHall[], Error>({
@@ -76,9 +76,9 @@ export const useMessHalls = () => {
 			const { data, error } = await sisub
 				.from("mess_halls")
 				.select("id, unit_id, code, display_name, kitchen_id")
-				.order("display_name", { ascending: true });
+				.order("display_name", { ascending: true })
 
-			if (error) throw error;
+			if (error) throw error
 
 			return (data ?? []).map((row) => ({
 				id: row.id,
@@ -86,27 +86,24 @@ export const useMessHalls = () => {
 				code: row.code,
 				name: row.display_name,
 				kitchenId: row.kitchen_id,
-			})) as MessHall[];
+			})) as MessHall[]
 		},
-	});
+	})
 
 	return {
 		units: unitsQuery.data ?? [],
 		messHalls: messHallsQuery.data ?? [],
 		// Quick derived structures
 		messHallsByUnitId:
-			(messHallsQuery.data ?? []).reduce<Record<number, MessHall[]>>(
-				(acc, mh) => {
-					if (!acc[mh.unitId]) {
-						acc[mh.unitId] = [];
-					}
-					acc[mh.unitId].push(mh);
-					return acc;
-				},
-				{},
-			) ?? {},
+			(messHallsQuery.data ?? []).reduce<Record<number, MessHall[]>>((acc, mh) => {
+				if (!acc[mh.unitId]) {
+					acc[mh.unitId] = []
+				}
+				acc[mh.unitId].push(mh)
+				return acc
+			}, {}) ?? {},
 		isLoading: unitsQuery.isPending || messHallsQuery.isPending,
 		isRefetching: unitsQuery.isFetching || messHallsQuery.isFetching,
 		error: unitsQuery.error?.message || messHallsQuery.error?.message || null,
-	};
-};
+	}
+}

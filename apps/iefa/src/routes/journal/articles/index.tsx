@@ -1,37 +1,39 @@
-import { Button, Input } from "@iefa/ui";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-	BookOpen,
-	Calendar,
-	FileText,
-	Filter,
-	Search,
-	User,
-} from "lucide-react";
-import { useState } from "react";
+import { Button, Input } from "@iefa/ui"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { BookOpen, Calendar, FileText, Filter, Search, User } from "lucide-react"
+import { useState } from "react"
 
 export const Route = createFileRoute("/journal/articles/")({
 	component: PublishedArticles,
-});
+})
+
+interface Article {
+	id: string
+	submission_number: string
+	title_pt: string
+	title_en: string
+	authors: { full_name: string }[]
+	published_at: string
+	article_type: string
+	doi?: string
+}
 
 function PublishedArticles() {
-	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedType, setSelectedType] = useState<string>("all");
-	const [selectedYear, setSelectedYear] = useState<string>("all");
-	const [showFilters, setShowFilters] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("")
+	const [selectedType, setSelectedType] = useState<string>("all")
+	const [selectedYear, setSelectedYear] = useState<string>("all")
+	const [showFilters, setShowFilters] = useState(false)
 
 	// Placeholder - will be replaced with real data from publishedArticlesQueryOptions
-	const articles: any[] = [];
-	const isLoading = false;
+	const articles: Article[] = []
+	const isLoading = false
 
 	return (
 		<div className="space-y-6">
 			{/* Header */}
 			<div className="space-y-4">
 				<div>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Artigos Publicados
-					</h1>
+					<h1 className="text-3xl font-bold tracking-tight">Artigos Publicados</h1>
 					<p className="text-muted-foreground">
 						Navegue pelos artigos científicos publicados no periódico
 					</p>
@@ -63,8 +65,11 @@ function PublishedArticles() {
 						<div className="grid sm:grid-cols-3 gap-4">
 							{/* Article Type Filter */}
 							<div className="space-y-2">
-								<label className="text-sm font-medium">Tipo de Artigo</label>
+								<label className="text-sm font-medium" htmlFor="article-type">
+									Tipo de Artigo
+								</label>
 								<select
+									id="article-type"
 									value={selectedType}
 									onChange={(e) => setSelectedType(e.target.value)}
 									className="w-full px-3 py-2 border rounded-md bg-background"
@@ -79,8 +84,11 @@ function PublishedArticles() {
 
 							{/* Year Filter */}
 							<div className="space-y-2">
-								<label className="text-sm font-medium">Ano</label>
+								<label className="text-sm font-medium" htmlFor="article-year">
+									Ano
+								</label>
 								<select
+									id="article-year"
 									value={selectedYear}
 									onChange={(e) => setSelectedYear(e.target.value)}
 									className="w-full px-3 py-2 border rounded-md bg-background"
@@ -97,9 +105,9 @@ function PublishedArticles() {
 								<Button
 									variant="outline"
 									onClick={() => {
-										setSearchQuery("");
-										setSelectedType("all");
-										setSelectedYear("all");
+										setSearchQuery("")
+										setSelectedType("all")
+										setSelectedYear("all")
 									}}
 									className="w-full"
 								>
@@ -121,37 +129,22 @@ function PublishedArticles() {
 			) : articles.length > 0 ? (
 				<div className="grid md:grid-cols-2 gap-6">
 					{articles.map((article) => (
-						<Link
-							key={article.id}
-							to="/journal/articles/$id"
-							params={{ id: article.id }}
-						>
+						<Link key={article.id} to="/journal/articles/$id" params={{ id: article.id }}>
 							<ArticleCard article={article} />
 						</Link>
 					))}
 				</div>
 			) : (
 				<EmptyState
-					hasFilters={
-						searchQuery || selectedType !== "all" || selectedYear !== "all"
-					}
+					hasFilters={!!searchQuery || selectedType !== "all" || selectedYear !== "all"}
 				/>
 			)}
 		</div>
-	);
+	)
 }
 
 interface ArticleCardProps {
-	article: {
-		id: string;
-		submission_number: string;
-		title_pt: string;
-		title_en: string;
-		authors: { full_name: string }[];
-		published_at: string;
-		article_type: string;
-		doi?: string;
-	};
+	article: Article
 }
 
 function ArticleCard({ article }: ArticleCardProps) {
@@ -161,14 +154,10 @@ function ArticleCard({ article }: ArticleCardProps) {
 				{/* Type Badge */}
 				<div className="flex items-center justify-between">
 					<span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium capitalize">
-						{article.article_type === "research"
-							? "Pesquisa"
-							: article.article_type}
+						{article.article_type === "research" ? "Pesquisa" : article.article_type}
 					</span>
 					{article.doi && (
-						<span className="text-xs text-muted-foreground font-mono">
-							DOI: {article.doi}
-						</span>
+						<span className="text-xs text-muted-foreground font-mono">DOI: {article.doi}</span>
 					)}
 				</div>
 
@@ -180,21 +169,17 @@ function ArticleCard({ article }: ArticleCardProps) {
 				{/* Authors */}
 				<div className="flex items-center gap-2 text-sm text-muted-foreground">
 					<User className="size-4" />
-					<span className="line-clamp-1">
-						{article.authors.map((a) => a.full_name).join(", ")}
-					</span>
+					<span className="line-clamp-1">{article.authors.map((a) => a.full_name).join(", ")}</span>
 				</div>
 
 				{/* Date */}
 				<div className="flex items-center gap-2 text-sm text-muted-foreground">
 					<Calendar className="size-4" />
-					<span>
-						{new Date(article.published_at).toLocaleDateString("pt-BR")}
-					</span>
+					<span>{new Date(article.published_at).toLocaleDateString("pt-BR")}</span>
 				</div>
 			</div>
 		</div>
-	);
+	)
 }
 
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
@@ -204,9 +189,7 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 				<BookOpen className="size-8 text-muted-foreground" />
 			</div>
 			<h3 className="text-lg font-semibold mb-2">
-				{hasFilters
-					? "Nenhum artigo encontrado"
-					: "Nenhum artigo publicado ainda"}
+				{hasFilters ? "Nenhum artigo encontrado" : "Nenhum artigo publicado ainda"}
 			</h3>
 			<p className="text-muted-foreground max-w-md mb-6">
 				{hasFilters
@@ -220,5 +203,5 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 				</Button>
 			)}
 		</div>
-	);
+	)
 }

@@ -11,40 +11,27 @@ import {
 	TabsContent,
 	TabsList,
 	TabsTrigger,
-} from "@iefa/ui";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import {
-	CalendarDays,
-	Loader2,
-	RefreshCcw,
-	Trash2,
-	UtensilsCrossed,
-} from "lucide-react";
-import { useRestoreMenuItem, useTrashItems } from "@/hooks/data/usePlanning";
-import {
-	useDeletedTemplates,
-	useRestoreTemplate,
-} from "@/hooks/data/useTemplates";
+} from "@iefa/ui"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { CalendarDays, Loader2, RefreshCcw, Trash2, UtensilsCrossed } from "lucide-react"
+import { useRestoreMenuItem, useTrashItems } from "@/hooks/data/usePlanning"
+import { useDeletedTemplates, useRestoreTemplate } from "@/hooks/data/useTemplates"
 
 interface TrashDrawerProps {
-	open: boolean;
-	onClose: () => void;
-	kitchenId: number;
+	open: boolean
+	onClose: () => void
+	kitchenId: number
 }
 
 export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
-	const { data: trashItems, isLoading: itemsLoading } =
-		useTrashItems(kitchenId);
-	const { data: deletedTemplates, isLoading: templatesLoading } =
-		useDeletedTemplates(kitchenId);
-	const { mutate: restoreItem, isPending: itemRestoring } =
-		useRestoreMenuItem();
-	const { mutate: restoreTemplate, isPending: templateRestoring } =
-		useRestoreTemplate();
+	const { data: trashItems, isLoading: itemsLoading } = useTrashItems(kitchenId)
+	const { data: deletedTemplates, isLoading: templatesLoading } = useDeletedTemplates(kitchenId)
+	const { mutate: restoreItem, isPending: itemRestoring } = useRestoreMenuItem()
+	const { mutate: restoreTemplate, isPending: templateRestoring } = useRestoreTemplate()
 
-	const isLoading = itemsLoading || templatesLoading;
-	const isPending = itemRestoring || templateRestoring;
+	const isLoading = itemsLoading || templatesLoading
+	const isPending = itemRestoring || templateRestoring
 
 	return (
 		<Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -54,9 +41,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 						<Trash2 className="w-5 h-5 text-destructive" />
 						Lixeira
 					</SheetTitle>
-					<SheetDescription>
-						Items e templates removidos. Restaure se necessário.
-					</SheetDescription>
+					<SheetDescription>Items e templates removidos. Restaure se necessário.</SheetDescription>
 				</SheetHeader>
 
 				{isLoading ? (
@@ -103,26 +88,20 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 												<div className="flex justify-between items-start">
 													<div>
 														<p className="font-medium text-sm">
-															{item.recipe?.name ||
-																item.recipe_origin?.name ||
-																"Receita sem nome"}
+															{item.recipe?.name || item.recipe_origin?.name || "Receita sem nome"}
 														</p>
 														<p className="text-xs text-muted-foreground">
-															{format(
-																new Date(item.daily_menu.service_date),
-																"dd/MM/yyyy",
-																{ locale: ptBR },
-															)}{" "}
+															{format(new Date(item.daily_menu.service_date), "dd/MM/yyyy", {
+																locale: ptBR,
+															})}{" "}
 															· {item.planned_portion_quantity || 0}g
 														</p>
 														{item.deleted_at && (
 															<p className="text-xs text-muted-foreground/70 mt-1">
 																Removido em{" "}
-																{format(
-																	new Date(item.deleted_at),
-																	"dd/MM/yyyy 'às' HH:mm",
-																	{ locale: ptBR },
-																)}
+																{format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", {
+																	locale: ptBR,
+																})}
 															</p>
 														)}
 													</div>
@@ -162,14 +141,9 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 												<div className="flex justify-between items-start">
 													<div className="flex-1">
 														<div className="flex items-center gap-2">
-															<p className="font-medium text-sm">
-																{template.name}
-															</p>
+															<p className="font-medium text-sm">{template.name}</p>
 															{template.kitchen_id === null && (
-																<Badge
-																	variant="outline"
-																	className="text-[10px]"
-																>
+																<Badge variant="outline" className="text-[10px]">
 																	Global
 																</Badge>
 															)}
@@ -184,11 +158,9 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 														{template.deleted_at && (
 															<p className="text-xs text-muted-foreground/70 mt-1">
 																Removido em{" "}
-																{format(
-																	new Date(template.deleted_at),
-																	"dd/MM/yyyy 'às' HH:mm",
-																	{ locale: ptBR },
-																)}
+																{format(new Date(template.deleted_at), "dd/MM/yyyy 'às' HH:mm", {
+																	locale: ptBR,
+																})}
 															</p>
 														)}
 													</div>
@@ -214,5 +186,5 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 				)}
 			</SheetContent>
 		</Sheet>
-	);
+	)
 }

@@ -1,8 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import {
-	type ProcurementParams,
-	procurementNeedsQueryOptions,
-} from "@/services/ProcurementService";
+import { useQuery } from "@tanstack/react-query"
+import { type ProcurementParams, procurementNeedsQueryOptions } from "@/services/ProcurementService"
 
 /**
  * Hook para buscar necessidades de compra
@@ -23,12 +20,12 @@ import {
  * ```
  */
 export function useProcurement(params: ProcurementParams) {
-	const query = useQuery(procurementNeedsQueryOptions(params));
+	const query = useQuery(procurementNeedsQueryOptions(params))
 
 	return {
 		needs: query.data ?? [],
 		error: query.error,
 		refetch: query.refetch,
 		isLoading: query.isLoading,
-	};
+	}
 }

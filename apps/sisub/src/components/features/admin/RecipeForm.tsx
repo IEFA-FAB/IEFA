@@ -1,26 +1,14 @@
-import {
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	Input,
-	Label,
-	Textarea,
-} from "@iefa/ui";
-import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
-import { Loader2, Plus, Save, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { z } from "zod";
-import { PageHeader } from "@/components/common/layout/PageHeader";
-import {
-	useCreateRecipe,
-	useVersionRecipe,
-} from "@/hooks/data/useRecipeMutations";
-import type { RecipeWithIngredients } from "@/types/domain/recipes";
-import { IngredientSelector } from "./IngredientSelector";
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea } from "@iefa/ui"
+import { useForm } from "@tanstack/react-form"
+import { useNavigate } from "@tanstack/react-router"
+import { Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { z } from "zod"
+import { PageHeader } from "@/components/common/layout/PageHeader"
+import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
+import type { RecipeWithIngredients } from "@/types/domain/recipes"
+import { IngredientSelector } from "./IngredientSelector"
 
 // Schema Validation
 const ingredientSchema = z.object({
@@ -30,7 +18,7 @@ const ingredientSchema = z.object({
 	net_quantity: z.number().min(0.001, "Quantidade deve ser maior que 0"),
 	is_optional: z.boolean().default(false),
 	priority_order: z.number().default(0),
-});
+})
 
 const recipeSchema = z.object({
 	name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -38,23 +26,21 @@ const recipeSchema = z.object({
 	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
 	preparation_time_minutes: z.number().default(0),
 	cooking_factor: z.number().default(1.0),
-	ingredients: z
-		.array(ingredientSchema)
-		.min(1, "Adicione pelo menos um ingrediente"),
-});
+	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
+})
 
 interface RecipeFormProps {
-	initialData?: RecipeWithIngredients | null;
-	mode: "create" | "edit" | "fork";
+	initialData?: RecipeWithIngredients | null
+	mode: "create" | "edit" | "fork"
 }
 
 export function RecipeForm({ initialData, mode }: RecipeFormProps) {
-	const navigate = useNavigate();
+	const navigate = useNavigate()
 
-	const createMutation = useCreateRecipe();
-	const versionMutation = useVersionRecipe();
+	const createMutation = useCreateRecipe()
+	const versionMutation = useVersionRecipe()
 
-	const [selectorOpen, setSelectorOpen] = useState(false);
+	const [selectorOpen, setSelectorOpen] = useState(false)
 
 	// Form setup
 	const form = useForm({
@@ -76,24 +62,24 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 		},
 		onSubmit: async ({ value }) => {
 			// Validate with Zod before submitting
-			const validation = recipeSchema.safeParse(value);
+			const validation = recipeSchema.safeParse(value)
 			if (!validation.success) {
-				toast.error("Preencha todos os campos obrigatórios corretamente");
-				return;
+				toast.error("Preencha todos os campos obrigatórios corretamente")
+				return
 			}
 			try {
 				if (mode === "create" || mode === "fork") {
 					// Create recipe with ingredients handled separately
-					const { ingredients, ...recipeData } = value;
+					const { ingredients, ...recipeData } = value
 
 					await createMutation.mutateAsync({
 						...recipeData,
 						kitchen_id: mode === "fork" ? 1 : null, // TODO: Use real kitchen ID
 						base_recipe_id: mode === "fork" ? initialData?.id : undefined,
-					});
+					})
 				} else if (mode === "edit" && initialData) {
 					// Versioning: Insert new entry with incremented version
-					const { ingredients, ...recipeData } = value;
+					const { ingredients, ...recipeData } = value
 
 					await versionMutation.mutateAsync({
 						baseRecipeId: initialData.id,
@@ -102,16 +88,16 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							...recipeData,
 							kitchen_id: initialData.kitchen_id,
 						},
-					});
+					})
 				}
 
-				toast.success("Receita salva com sucesso!");
-				navigate({ to: "/admin/recipes" }); // Go back to list
+				toast.success("Receita salva com sucesso!")
+				navigate({ to: "/admin/recipes" }) // Go back to list
 			} catch {
 				// Error handled in hook/toast
 			}
 		},
-	});
+	})
 
 	// Dynamic Header Content
 	const pageTitle =
@@ -119,12 +105,12 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			? "Nova Receita"
 			: mode === "edit"
 				? `Editando: ${initialData?.name} (v${initialData?.version})`
-				: `Personalizando: ${initialData?.name}`;
+				: `Personalizando: ${initialData?.name}`
 
 	const pageDescription =
 		mode === "edit"
 			? "Uma nova versão será criada automaticamente."
-			: "Preencha os dados da ficha técnica.";
+			: "Preencha os dados da ficha técnica."
 
 	return (
 		<div className="space-y-6 max-w-5xl mx-auto pb-20">
@@ -136,9 +122,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 			<form
 				onSubmit={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					form.handleSubmit();
+					e.preventDefault()
+					e.stopPropagation()
+					form.handleSubmit()
 				}}
 				className="space-y-8"
 			>
@@ -199,9 +185,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											type="number"
 											min={1}
 											value={field.state.value}
-											onChange={(e) =>
-												field.handleChange(Number(e.target.value))
-											}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
 										/>
 									</div>
 								)}
@@ -213,9 +197,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<Input
 											type="number"
 											value={field.state.value || 0}
-											onChange={(e) =>
-												field.handleChange(Number(e.target.value))
-											}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
 										/>
 									</div>
 								)}
@@ -228,9 +210,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											type="number"
 											step="0.01"
 											value={field.state.value || 1}
-											onChange={(e) =>
-												field.handleChange(Number(e.target.value))
-											}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
 										/>
 									</div>
 								)}
@@ -243,12 +223,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Ingredientes</CardTitle>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => setSelectorOpen(true)}
-						>
+						<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
 							<Plus className="w-4 h-4 mr-2" />
 							Adicionar
 						</Button>
@@ -269,11 +244,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											>
 												<div className="col-span-5">
 													<Label className="text-xs">Produto</Label>
-													<Input
-														value={ingredient.product_name}
-														disabled
-														className="bg-muted"
-													/>
+													<Input value={ingredient.product_name} disabled className="bg-muted" />
 												</div>
 												<div className="col-span-3">
 													<Label className="text-xs">
@@ -284,27 +255,23 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 														step="0.001"
 														value={ingredient.net_quantity ?? 0}
 														onChange={(e) => {
-															const newList = [...field.state.value];
-															newList[index].net_quantity = Number(
-																e.target.value,
-															);
-															field.handleChange(newList);
+															const newList = [...field.state.value]
+															newList[index].net_quantity = Number(e.target.value)
+															field.handleChange(newList)
 														}}
 													/>
 												</div>
 												<div className="col-span-3 flex items-center gap-2 pb-2">
 													<div className="flex items-center space-x-2">
-														<span className="text-xs text-muted-foreground">
-															Opcional?
-														</span>
+														<span className="text-xs text-muted-foreground">Opcional?</span>
 														<Input
 															type="checkbox"
 															className="w-4 h-4"
 															checked={ingredient.is_optional}
 															onChange={(e) => {
-																const newList = [...field.state.value];
-																newList[index].is_optional = e.target.checked;
-																field.handleChange(newList);
+																const newList = [...field.state.value]
+																newList[index].is_optional = e.target.checked
+																field.handleChange(newList)
 															}}
 														/>
 													</div>
@@ -316,10 +283,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 														size="icon"
 														className="text-destructive hover:bg-destructive/10"
 														onClick={() => {
-															const newList = field.state.value.filter(
-																(_, i) => i !== index,
-															);
-															field.handleChange(newList);
+															const newList = field.state.value.filter((_, i) => i !== index)
+															field.handleChange(newList)
 														}}
 													>
 														<Trash2 className="w-4 h-4" />
@@ -329,9 +294,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										))
 									)}
 									{field.state.meta.errors && (
-										<p className="text-destructive text-sm">
-											{field.state.meta.errors.join()}
-										</p>
+										<p className="text-destructive text-sm">{field.state.meta.errors.join()}</p>
 									)}
 								</div>
 							)}
@@ -340,17 +303,10 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				</Card>
 
 				<div className="flex justify-end gap-4">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => window.history.back()}
-					>
+					<Button type="button" variant="outline" onClick={() => window.history.back()}>
 						Cancelar
 					</Button>
-					<Button
-						type="submit"
-						disabled={createMutation.isPending || versionMutation.isPending}
-					>
+					<Button type="submit" disabled={createMutation.isPending || versionMutation.isPending}>
 						{(createMutation.isPending || versionMutation.isPending) && (
 							<Loader2 className="w-4 h-4 mr-2 animate-spin" />
 						)}
@@ -372,9 +328,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						net_quantity: 0,
 						is_optional: false,
 						priority_order: form.getFieldValue("ingredients").length + 1,
-					});
+					})
 				}}
 			/>
 		</div>
-	);
+	)
 }

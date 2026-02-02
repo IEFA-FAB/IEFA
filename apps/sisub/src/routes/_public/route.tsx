@@ -1,11 +1,11 @@
 // UI Components (from @iefa/ui)
-import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui";
+import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui"
 
 // Routing
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/auth/useAuth";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
+import { useAuth } from "@/hooks/auth/useAuth"
 // Hooks
-import { useTheme } from "@/hooks/ui/useTheme";
+import { useTheme } from "@/hooks/ui/useTheme"
 
 /* ========================================================================
    STYLE CONSTANTS
@@ -16,7 +16,7 @@ import { useTheme } from "@/hooks/ui/useTheme";
  * Segue o padrão do design system: w-full mx-auto
  */
 const CONTAINER_CLASSES =
-	"w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]";
+	"w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
 
 /**
  * Classes para o background animado com gradientes
@@ -36,26 +36,26 @@ const ANIMATED_BACKGROUND_CLASSES = `
 	after:bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.8)_1px,transparent_1px)]
 	after:bg-size-[12px_12px] after:opacity-[0.02]
 	dark:after:opacity-[0.04]
-`;
+`
 
 /**
  * Classes base para links de navegação
  * Garante foco visível (focus-visible:ring) conforme design system
  */
 const NAV_LINK_BASE_CLASSES =
-	"inline-flex items-center rounded-md text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+	"inline-flex items-center rounded-md text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
 
 /**
  * Classes para link de navegação não ativo
  * Usa cores semânticas: text-foreground, hover:bg-accent
  */
-const NAV_LINK_INACTIVE_CLASSES = `${NAV_LINK_BASE_CLASSES} text-foreground hover:bg-accent hover:text-accent-foreground`;
+const NAV_LINK_INACTIVE_CLASSES = `${NAV_LINK_BASE_CLASSES} text-foreground hover:bg-accent hover:text-accent-foreground`
 
 /**
  * Classes para link de navegação ativo
  * Usa cores semânticas: bg-accent, text-accent-foreground
  */
-const NAV_LINK_ACTIVE_CLASSES = `${NAV_LINK_BASE_CLASSES} bg-accent text-accent-foreground`;
+const NAV_LINK_ACTIVE_CLASSES = `${NAV_LINK_BASE_CLASSES} bg-accent text-accent-foreground`
 
 /* ========================================================================
    ROUTE DEFINITION
@@ -63,7 +63,7 @@ const NAV_LINK_ACTIVE_CLASSES = `${NAV_LINK_BASE_CLASSES} bg-accent text-accent-
 
 export const Route = createFileRoute("/_public")({
 	component: PublicLayout,
-});
+})
 
 /* ========================================================================
    COMPONENTS
@@ -84,8 +84,8 @@ export const Route = createFileRoute("/_public")({
  * - Acessibilidade completa (ARIA labels, foco visível)
  */
 function PublicLayout() {
-	const { toggle } = useTheme();
-	const { isAuthenticated } = useAuth();
+	const { toggle } = useTheme()
+	const { isAuthenticated } = useAuth()
 
 	return (
 		<div className={ANIMATED_BACKGROUND_CLASSES}>
@@ -93,9 +93,7 @@ function PublicLayout() {
 			    HEADER
 			    ============================================================ */}
 			<header className="border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
-				<div
-					className={`${CONTAINER_CLASSES} h-14 flex items-center justify-between gap-3`}
-				>
+				<div className={`${CONTAINER_CLASSES} h-14 flex items-center justify-between gap-3`}>
 					{/* Logo e Navegação */}
 					<div className="flex items-center gap-3">
 						<Link
@@ -106,10 +104,7 @@ function PublicLayout() {
 							SISUB
 						</Link>
 						<Separator orientation="vertical" className="h-6 hidden sm:block" />
-						<nav
-							className="hidden md:flex items-center gap-1"
-							aria-label="Navegação pública"
-						>
+						<nav className="hidden md:flex items-center gap-1" aria-label="Navegação pública">
 							<Link
 								to="/"
 								className={NAV_LINK_INACTIVE_CLASSES}
@@ -144,10 +139,7 @@ function PublicLayout() {
 					{/* Actions: Login + Theme Toggle */}
 					<div className="flex items-center gap-2">
 						{isAuthenticated ? (
-							<Button
-								render={<Link to="/forecast">Acessar Sistema</Link>}
-								size="sm"
-							/>
+							<Button render={<Link to="/forecast">Acessar Sistema</Link>} size="sm" />
 						) : (
 							<Button render={<Link to="/auth">Entrar</Link>} size="sm" />
 						)}
@@ -173,10 +165,10 @@ function PublicLayout() {
 				<div
 					className={`${CONTAINER_CLASSES} h-14 flex items-center justify-center text-xs text-muted-foreground`}
 				>
-					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni
-					(IEFA) e Temn. Bruno (GAP-MN).
+					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Temn. Bruno
+					(GAP-MN).
 				</div>
 			</footer>
 		</div>
-	);
+	)
 }

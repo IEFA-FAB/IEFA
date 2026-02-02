@@ -1,67 +1,65 @@
 // routes/changelog.tsx
 
-import { Button, Card } from "@iefa/ui";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import ReactMarkdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
-import supabase from "@/lib/supabase";
+import { Button, Card } from "@iefa/ui"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { formatDistanceToNow } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import ReactMarkdown from "react-markdown"
+import remarkBreaks from "remark-breaks"
+import remarkGfm from "remark-gfm"
+import supabase from "@/lib/supabase"
 
 // Tipos mínimos e locais
 type ChangelogEntry = {
-	id: string;
-	version: string | null;
-	title: string;
-	body: string;
-	tags: string[] | null;
-	published_at: string; // ISO
-	published: boolean;
-};
+	id: string
+	version: string | null
+	title: string
+	body: string
+	tags: string[] | null
+	published_at: string // ISO
+	published: boolean
+}
 
 type PageResult = {
-	items: ChangelogEntry[];
-	nextPage?: number;
-	hasMore: boolean;
-};
+	items: ChangelogEntry[]
+	nextPage?: number
+	hasMore: boolean
+}
 
 // Utilitários
 function safeAnchorId(id: string) {
-	return `chlg-${String(id)}`.replace(/[^A-Za-z0-9\-_:.]/g, "-");
+	return `chlg-${String(id)}`.replace(/[^A-Za-z0-9\-_:.]/g, "-")
 }
 
 function formatDate(iso: string) {
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return iso;
+	const d = new Date(iso)
+	if (Number.isNaN(d.getTime())) return iso
 	return new Intl.DateTimeFormat("pt-BR", {
 		dateStyle: "long",
 		timeStyle: "short",
-	}).format(d);
+	}).format(d)
 }
 
 // Links seguros no Markdown (http/https/mailto)
 function transformLinkUri(href?: string) {
-	if (!href) return href as any;
+	if (!href) return href
 	try {
-		const u = new URL(href, "https://dummy.base");
-		const allowed = ["http:", "https:", "mailto:"];
-		return allowed.includes(u.protocol) ? href : "#";
+		const u = new URL(href, "https://dummy.base")
+		const allowed = ["http:", "https:", "mailto:"]
+		return allowed.includes(u.protocol) ? href : "#"
 	} catch {
-		return "#";
+		return "#"
 	}
 }
 
 // Gera classes reativas usando as CSS vars do tema
-function toneBadge(
-	tone: "primary" | "secondary" | "accent" | "destructive" | "muted" = "muted",
-) {
+function toneBadge(tone: "primary" | "secondary" | "accent" | "destructive" | "muted" = "muted") {
 	return [
 		`bg-[hsl(var(--${tone}))]/12`,
 		`text-[hsl(var(--${tone}-foreground, var(--${tone})))]`,
 		`border-[hsl(var(--${tone}))]/25`,
-	].join(" ");
+	].join(" ")
 }
 
 // Mapa de estilos por tag → tom
@@ -70,32 +68,29 @@ const TAG_TONE: Record<string, string> = {
 	fix: toneBadge("destructive"),
 	docs: toneBadge("secondary"),
 	perf: toneBadge("accent"),
-};
+}
 
 // Supabase: busca com overfetch +1 para detectar "hasMore"
-async function fetchChangelogPage(
-	page: number,
-	pageSize: number,
-): Promise<PageResult> {
-	const from = page * pageSize;
-	const to = from + pageSize; // inclusivo → retorna até pageSize + 1 registros
+async function fetchChangelogPage(page: number, pageSize: number): Promise<PageResult> {
+	const from = page * pageSize
+	const to = from + pageSize // inclusivo → retorna até pageSize + 1 registros
 
 	const { data, error } = await supabase
 		.from("changelog")
 		.select("id, version, title, body, tags, published_at, published")
 		.eq("published", true)
 		.order("published_at", { ascending: false })
-		.range(from, to);
+		.range(from, to)
 
 	if (error) {
-		throw new Error(error.message || "Não foi possível carregar o changelog.");
+		throw new Error(error.message || "Não foi possível carregar o changelog.")
 	}
 
-	const rows = (data as ChangelogEntry[]) ?? [];
-	const hasMore = rows.length > pageSize;
-	const items = hasMore ? rows.slice(0, pageSize) : rows;
+	const rows = (data as ChangelogEntry[]) ?? []
+	const hasMore = rows.length > pageSize
+	const items = hasMore ? rows.slice(0, pageSize) : rows
 
-	return { items, nextPage: hasMore ? page + 1 : undefined, hasMore };
+	return { items, nextPage: hasMore ? page + 1 : undefined, hasMore }
 }
 
 export const Route = createFileRoute("/_public/changelog")({
@@ -106,10 +101,11 @@ export const Route = createFileRoute("/_public/changelog")({
 			{ name: "description", content: "Veja o que mudou no sistema" },
 		],
 	}),
-});
+})
 
 // Markdown components (definidos fora para não recriar a cada render)
 const markdownComponents = {
+	// biome-ignore lint/suspicious/noExplicitAny: markdown props
 	a: ({ node, href, ...props }: any) => (
 		<a
 			{...props}
@@ -119,12 +115,13 @@ const markdownComponents = {
 			rel="noopener noreferrer nofollow"
 		/>
 	),
+	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
 	ul: ({ node, ...props }: any) => <ul {...props} className="list-disc pl-6" />,
-	ol: ({ node, ...props }: any) => (
-		<ol {...props} className="list-decimal pl-6" />
-	),
+	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
+	ol: ({ node, ...props }: any) => <ol {...props} className="list-decimal pl-6" />,
+	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
 	code: (props: any) => {
-		const { inline, className, children, ...rest } = props;
+		const { inline, className, children, ...rest } = props
 		if (inline) {
 			return (
 				<code
@@ -133,7 +130,7 @@ const markdownComponents = {
 				>
 					{children}
 				</code>
-			);
+			)
 		}
 		return (
 			<pre className="bg-muted text-foreground p-4 rounded-lg overflow-x-auto">
@@ -141,9 +138,9 @@ const markdownComponents = {
 					{children}
 				</code>
 			</pre>
-		);
+		)
 	},
-};
+}
 
 // Subcomponentes simples
 
@@ -153,15 +150,15 @@ function MessageBox({
 	message,
 	action,
 }: {
-	tone?: "muted" | "destructive";
-	title?: string;
-	message: string;
-	action?: { label: string; onClick: () => void; busy?: boolean };
+	tone?: "muted" | "destructive"
+	title?: string
+	message: string
+	action?: { label: string; onClick: () => void; busy?: boolean }
 }) {
 	const toneClasses =
 		tone === "destructive"
 			? "bg-[hsl(var(--destructive))]/10 border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive-foreground, var(--destructive)))]"
-			: "bg-card border-border text-foreground";
+			: "bg-card border-border text-foreground"
 	return (
 		<div className="max-w-3xl mx-auto mb-8" aria-live="polite">
 			<div className={`border rounded-xl p-4 ${toneClasses}`}>
@@ -178,7 +175,7 @@ function MessageBox({
 				)}
 			</div>
 		</div>
-	);
+	)
 }
 
 function MarkdownContent({ children }: { children: string }) {
@@ -191,23 +188,23 @@ function MarkdownContent({ children }: { children: string }) {
 				{children}
 			</ReactMarkdown>
 		</div>
-	);
+	)
 }
 
 function TagBadge({ tag }: { id: string; tag: string }) {
-	const key = (tag ?? "").toLowerCase();
-	const tone = TAG_TONE[key] ?? toneBadge("muted");
+	const key = (tag ?? "").toLowerCase()
+	const tone = TAG_TONE[key] ?? toneBadge("muted")
 	return (
 		<span
 			className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${tone}`}
 		>
 			{tag}
 		</span>
-	);
+	)
 }
 
 function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
-	const anchorId = safeAnchorId(entry.id);
+	const anchorId = safeAnchorId(entry.id)
 	return (
 		<article
 			id={anchorId}
@@ -254,36 +251,29 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 
 			<MarkdownContent>{entry.body ?? ""}</MarkdownContent>
 		</article>
-	);
+	)
 }
 
-const PAGE_SIZE = 10 as const;
+const PAGE_SIZE = 10 as const
 
 export default function Changelog() {
-	const {
-		data,
-		isLoading,
-		isFetchingNextPage,
-		error,
-		hasNextPage,
-		fetchNextPage,
-		refetch,
-	} = useInfiniteQuery({
-		queryKey: ["changelog", "list", PAGE_SIZE],
-		queryFn: ({ pageParam = 0 }) => fetchChangelogPage(pageParam, PAGE_SIZE),
-		getNextPageParam: (lastPage) => lastPage.nextPage,
-		initialPageParam: 0,
-		staleTime: 5 * 60 * 1000, // 5min
-		gcTime: 10 * 60 * 1000, // 10min
-		retry: 2,
-		refetchOnWindowFocus: false,
-	});
+	const { data, isLoading, isFetchingNextPage, error, hasNextPage, fetchNextPage, refetch } =
+		useInfiniteQuery({
+			queryKey: ["changelog", "list", PAGE_SIZE],
+			queryFn: ({ pageParam = 0 }) => fetchChangelogPage(pageParam, PAGE_SIZE),
+			getNextPageParam: (lastPage) => lastPage.nextPage,
+			initialPageParam: 0,
+			staleTime: 5 * 60 * 1000, // 5min
+			gcTime: 10 * 60 * 1000, // 10min
+			retry: 2,
+			refetchOnWindowFocus: false,
+		})
 
 	// React Compiler optimizes this - no manual useMemo needed
-	const items = data?.pages.flatMap((p) => p.items) ?? [];
+	const items = data?.pages.flatMap((p) => p.items) ?? []
 
 	const GITHUB_REPO_URL =
-		import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/";
+		import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/"
 
 	return (
 		<div className="min-h-screen flex flex-col text-foreground">
@@ -292,8 +282,7 @@ export default function Changelog() {
 				<div className="text-center">
 					<h1 className="text-4xl font-extrabold mb-3">Changelog</h1>
 					<p className="text-muted-foreground max-w-2xl mx-auto">
-						Acompanhe as melhorias, correções e novidades do SISUB em tempo
-						real.
+						Acompanhe as melhorias, correções e novidades do SISUB em tempo real.
 					</p>
 					<div className="mt-6 flex items-center justify-center">
 						<Link
@@ -348,8 +337,8 @@ export default function Changelog() {
 				<div className="container mx-auto px-4 text-center">
 					<h3 className="text-2xl font-bold mb-3">Quer contribuir?</h3>
 					<p className="text-[hsl(var(--primary-foreground))]/80 max-w-2xl mx-auto mb-6">
-						Ajude a melhorar o SISUB: envie sugestões, correções e novas
-						funcionalidades diretamente pelo GitHub.
+						Ajude a melhorar o SISUB: envie sugestões, correções e novas funcionalidades diretamente
+						pelo GitHub.
 					</p>
 					<a
 						href={GITHUB_REPO_URL}
@@ -357,12 +346,7 @@ export default function Changelog() {
 						rel="noopener noreferrer nofollow"
 						className="inline-flex items-center gap-2 bg-background text-[hsl(var(--primary))] hover:bg-accent/10 px-6 py-3 font-semibold rounded-lg transition shadow-lg hover:shadow-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 					>
-						<svg
-							aria-hidden="true"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-							className="w-5 h-5"
-						>
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
 							<path
 								fillRule="evenodd"
 								d="M12 2C6.477 2 2 6.58 2 12.114c0 4.48 2.865 8.27 6.839 9.614.5.095.683-.219.683-.486 0-.24-.009-.874-.014-1.716-2.782.61-3.37-1.36-3.37-1.36-.455-1.163-1.11-1.474-1.11-1.474-.907-.629.069-.617.069-.617 1.003.072 1.53 1.04 1.53 1.04.892 1.547 2.341 1.101 2.91.842.091-.654.35-1.101.636-1.355-2.221-.256-4.555-1.13-4.555-5.027 0-1.11.39-2.017 1.03-2.728-.103-.257-.447-1.29.098-2.69 0 0 .84-.27 2.75 1.04a9.38 9.38 0 0 1 2.505-.342c.85.004 1.706.116 2.505.342 1.91-1.31 2.749-1.04 2.749-1.04.546 1.4.202 2.433.099 2.69.64.711 1.029 1.618 1.029 2.728 0 3.906-2.338 4.768-4.566 5.02.36.314.68.93.68 1.874 0 1.353-.012 2.443-.012 2.776 0 .27.181.586.689.486A10.12 10.12 0 0 0 22 12.114C22 6.58 17.523 2 12 2Z"
@@ -374,5 +358,5 @@ export default function Changelog() {
 				</div>
 			</Card>
 		</div>
-	);
+	)
 }

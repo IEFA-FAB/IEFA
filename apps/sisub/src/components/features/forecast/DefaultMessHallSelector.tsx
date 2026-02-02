@@ -13,18 +13,18 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui";
-import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { useMessHalls } from "@/hooks/data/useMessHalls";
+} from "@iefa/ui"
+import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 interface DefaultMessHallSelectorProps {
-	defaultMessHallCode: string;
-	setDefaultMessHallCode: (code: string) => void;
-	onApply: () => Promise<void>; // pai persiste default + aplica aos cards + refetch
-	onCancel: () => void;
-	isApplying: boolean;
+	defaultMessHallCode: string
+	setDefaultMessHallCode: (code: string) => void
+	onApply: () => Promise<void> // pai persiste default + aplica aos cards + refetch
+	onCancel: () => void
+	isApplying: boolean
 }
 
 export function DefaultMessHallSelector({
@@ -34,47 +34,47 @@ export function DefaultMessHallSelector({
 	onCancel,
 	isApplying,
 }: DefaultMessHallSelectorProps) {
-	const { messHalls } = useMessHalls();
-	const [saving, setSaving] = useState(false);
+	const { messHalls } = useMessHalls()
+	const [saving, setSaving] = useState(false)
 
-	const selected = messHalls.find((mh) => mh.code === defaultMessHallCode);
-	const selectedMessHallLabel = selected?.name || defaultMessHallCode;
-	const hasMessHalls = (messHalls?.length ?? 0) > 0;
+	const selected = messHalls.find((mh) => mh.code === defaultMessHallCode)
+	const selectedMessHallLabel = selected?.name || defaultMessHallCode
+	const hasMessHalls = (messHalls?.length ?? 0) > 0
 
 	const handleMessHallChange = (value: string) => {
-		setDefaultMessHallCode(value); // apenas atualiza estado local (code)
-	};
+		setDefaultMessHallCode(value) // apenas atualiza estado local (code)
+	}
 
 	const handleApply = async () => {
-		if (isApplying || saving) return;
+		if (isApplying || saving) return
 
 		if (!defaultMessHallCode) {
 			toast.error("Seleção inválida", {
 				description: "Escolha um rancho para continuar.",
-			});
-			return;
+			})
+			return
 		}
 
-		setSaving(true);
+		setSaving(true)
 		try {
-			await onApply(); // pai faz: persistDefault + applyToCards + refetch
+			await onApply() // pai faz: persistDefault + applyToCards + refetch
 			toast.success("Preferência salva", {
 				description: "Rancho padrão atualizado com sucesso.",
-			});
+			})
 		} catch (err) {
-			console.error("Erro ao aplicar rancho padrão:", err);
+			console.error("Erro ao aplicar rancho padrão:", err)
 			toast.error("Erro", {
 				description: "Falha ao salvar sua preferência.",
-			});
+			})
 		} finally {
-			setSaving(false);
+			setSaving(false)
 		}
-	};
+	}
 
 	const handleCancel = () => {
-		if (isApplying || saving) return;
-		onCancel();
-	};
+		if (isApplying || saving) return
+		onCancel()
+	}
 
 	return (
 		<Card className="group relative w-full h-fit bg-card text-card-foreground border border-border shadow-sm transition-all duration-300 hover:shadow-md hover:border-accent max-w-xl">
@@ -94,9 +94,8 @@ export function DefaultMessHallSelector({
 					<div className="flex gap-2 rounded-md border p-2.5 bg-accent/10 text-accent-foreground border-accent/30">
 						<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
 						<span className="text-sm">
-							Defina um rancho padrão para os cards que ainda não possuem rancho
-							definido no banco de dados. Esta ação afetará apenas os cards sem
-							rancho configurado.
+							Defina um rancho padrão para os cards que ainda não possuem rancho definido no banco
+							de dados. Esta ação afetará apenas os cards sem rancho configurado.
 						</span>
 					</div>
 				</CardDescription>
@@ -104,9 +103,7 @@ export function DefaultMessHallSelector({
 
 			<CardContent className="space-y-6">
 				<div className="space-y-3">
-					<Label className="text-sm font-medium text-foreground">
-						Selecione o rancho padrão:
-					</Label>
+					<Label className="text-sm font-medium text-foreground">Selecione o rancho padrão:</Label>
 
 					<Select
 						value={defaultMessHallCode}
@@ -115,11 +112,7 @@ export function DefaultMessHallSelector({
 					>
 						<SelectTrigger className="w-full cursor-pointer bg-background border border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-accent">
 							<SelectValue
-								placeholder={
-									hasMessHalls
-										? "Selecione um rancho..."
-										: "Sem ranchos disponíveis"
-								}
+								placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"}
 							/>
 						</SelectTrigger>
 						<SelectContent className="max-h-60">
@@ -145,9 +138,7 @@ export function DefaultMessHallSelector({
 							<CheckCircle className="h-3.5 w-3.5" />
 							<span>
 								Rancho selecionado:{" "}
-								<strong className="text-foreground">
-									{selectedMessHallLabel}
-								</strong>
+								<strong className="text-foreground">{selectedMessHallLabel}</strong>
 							</span>
 						</div>
 					)}
@@ -184,5 +175,5 @@ export function DefaultMessHallSelector({
 				</div>
 			</CardContent>
 		</Card>
-	);
+	)
 }

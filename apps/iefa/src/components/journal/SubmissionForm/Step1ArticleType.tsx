@@ -1,21 +1,14 @@
 // Step 1: Article Type and Subject Area Selection
 
-import {
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@iefa/ui";
-import { useSubmissionForm } from "./SubmissionForm";
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@iefa/ui"
+import { useSubmissionForm } from "./SubmissionForm"
 
 const ARTICLE_TYPES = [
 	{ value: "research", label: "Artigo de Pesquisa" },
 	{ value: "review", label: "Artigo de Revisão" },
 	{ value: "short_communication", label: "Comunicação Breve" },
 	{ value: "editorial", label: "Editorial" },
-] as const;
+] as const
 
 const SUBJECT_AREAS = [
 	"Ciências Biológicas",
@@ -25,10 +18,10 @@ const SUBJECT_AREAS = [
 	"Ciências Sociais Aplicadas",
 	"Engenharias",
 	"Linguística, Letras e Artes",
-];
+]
 
 export function Step1ArticleType() {
-	const { formData, updateFormData } = useSubmissionForm();
+	const { formData, updateFormData } = useSubmissionForm()
 
 	return (
 		<div className="space-y-6">
@@ -37,10 +30,8 @@ export function Step1ArticleType() {
 					Tipo de Artigo <span className="text-destructive">*</span>
 				</Label>
 				<Select
-					value={formData.article_type}
-					onValueChange={(value: any) =>
-						updateFormData({ article_type: value })
-					}
+					value={formData.article_type ?? undefined}
+					onValueChange={(value) => updateFormData({ article_type: value })}
 				>
 					<SelectTrigger id="article_type">
 						<SelectValue placeholder="Selecione o tipo de artigo" />
@@ -63,7 +54,7 @@ export function Step1ArticleType() {
 					Área de Conhecimento <span className="text-destructive">*</span>
 				</Label>
 				<Select
-					value={formData.subject_area}
+					value={formData.subject_area ?? undefined}
 					onValueChange={(value) => updateFormData({ subject_area: value })}
 				>
 					<SelectTrigger id="subject_area">
@@ -82,5 +73,5 @@ export function Step1ArticleType() {
 				</p>
 			</div>
 		</div>
-	);
+	)
 }

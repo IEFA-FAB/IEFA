@@ -10,8 +10,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { Users } from "lucide-react";
+} from "@iefa/ui"
+import { Users } from "lucide-react"
 
 export function PresenceTableSkeleton() {
 	return (
@@ -81,5 +81,5 @@ export function PresenceTableSkeleton() {
 				</div>
 			</CardContent>
 		</Card>
-	);
+	)
 }

@@ -8,91 +8,87 @@ import {
 	TabsContent,
 	TabsList,
 	TabsTrigger,
-} from "@iefa/ui";
-import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Building2, LayoutDashboard, Users } from "lucide-react";
-import { useState } from "react";
-import { DashboardSkeleton } from "@/components/common/skeletons/DashboardSkeleton";
-import { aggregateDashboardMetrics } from "@/lib/dashboard";
-import type { AdminProfile } from "@/services/AdminService";
+} from "@iefa/ui"
+import { useQuery } from "@tanstack/react-query"
+import { BarChart3, Building2, LayoutDashboard, Users } from "lucide-react"
+import { useState } from "react"
+import { DashboardSkeleton } from "@/components/common/skeletons/DashboardSkeleton"
+import { aggregateDashboardMetrics } from "@/lib/dashboard"
+import type { AdminProfile } from "@/services/AdminService"
 import {
 	dashboardForecastsQueryOptions,
 	dashboardPresencesQueryOptions,
 	messHallsQueryOptions,
-} from "@/services/DashboardService";
-import DashboardFilters from "./DashboardFilters";
-import MealDistributionChart from "./MealDistributionChart";
-import MessHallBreakdown from "./MessHallBreakdown";
-import MetricsOverview from "./MetricsOverview";
-import PresenceTable from "./PresenceTable";
+} from "@/services/DashboardService"
+import DashboardFilters from "./DashboardFilters"
+import MealDistributionChart from "./MealDistributionChart"
+import MessHallBreakdown from "./MessHallBreakdown"
+import MetricsOverview from "./MetricsOverview"
+import PresenceTable from "./PresenceTable"
 
 interface DashboardCardProps {
-	profile: AdminProfile;
+	profile: AdminProfile
 }
 
 export default function DashboardCard({ profile }: DashboardCardProps) {
 	// Calculate default date range (next 7 days)
 	const getDefaultDateRange = () => {
-		const today = new Date();
-		const nextWeek = new Date(today);
-		nextWeek.setDate(today.getDate() + 6);
+		const today = new Date()
+		const nextWeek = new Date(today)
+		nextWeek.setDate(today.getDate() + 6)
 
 		return {
 			start: today.toISOString().split("T")[0],
 			end: nextWeek.toISOString().split("T")[0],
-		};
-	};
+		}
+	}
 
-	const [dateRange, setDateRange] = useState(getDefaultDateRange());
-	const [selectedMessHall, setSelectedMessHall] = useState<string>("all");
+	const [dateRange, setDateRange] = useState(getDefaultDateRange())
+	const [selectedMessHall, setSelectedMessHall] = useState<string>("all")
 
 	// Determine unit_id based on role
-	const isSuperAdmin = profile.role === "superadmin";
+	const isSuperAdmin = profile.role === "superadmin"
 
 	// ✅ PARALELIZAÇÃO: Todas as 3 queries iniciam simultaneamente
-	const messHallsQuery = useQuery(messHallsQueryOptions(undefined));
+	const messHallsQuery = useQuery(messHallsQueryOptions(undefined))
 
 	// Filter mess halls by admin's om if admin (not superadmin)
 	const filteredMessHalls = isSuperAdmin
 		? (messHallsQuery.data ?? [])
 		: (messHallsQuery.data ?? []).filter(() => {
 				// TODO: Proper filtering based on profile.om
-				return true;
-			});
+				return true
+			})
 
 	// Fetch forecasts and presences
-	const messHallIdParam =
-		selectedMessHall === "all" ? undefined : Number(selectedMessHall);
+	const messHallIdParam = selectedMessHall === "all" ? undefined : Number(selectedMessHall)
 
 	const forecastsQuery = useQuery(
 		dashboardForecastsQueryOptions({
 			mess_hall_id: messHallIdParam,
 			startDate: dateRange.start,
 			endDate: dateRange.end,
-		}),
-	);
+		})
+	)
 
 	const presencesQuery = useQuery(
 		dashboardPresencesQueryOptions({
 			mess_hall_id: messHallIdParam,
 			startDate: dateRange.start,
 			endDate: dateRange.end,
-		}),
-	);
+		})
+	)
 
 	// Consolidate loading state
-	const isLoading =
-		messHallsQuery.isLoading ||
-		forecastsQuery.isLoading ||
-		presencesQuery.isLoading;
+	const isLoading = messHallsQuery.isLoading || forecastsQuery.isLoading || presencesQuery.isLoading
 
 	// Aggregate metrics (only when data is available)
 	const metrics = aggregateDashboardMetrics(
 		forecastsQuery.data ?? [],
 		presencesQuery.data ?? [],
 		filteredMessHalls,
-		dateRange,
-	);
+		dateRange
+	)
 
 	return (
 		<Card className="border-2">
@@ -162,5 +158,5 @@ export default function DashboardCard({ profile }: DashboardCardProps) {
 				)}
 			</CardContent>
 		</Card>
-	);
+	)
 }

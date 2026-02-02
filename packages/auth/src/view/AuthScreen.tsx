@@ -14,7 +14,7 @@ import {
 	TabsContent,
 	TabsList,
 	TabsTrigger,
-} from "@iefa/ui";
+} from "@iefa/ui"
 import {
 	AlertCircle,
 	ArrowLeft,
@@ -25,66 +25,60 @@ import {
 	Lock,
 	Mail,
 	User,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+} from "lucide-react"
+import { useEffect, useState } from "react"
 
 // FAB Email validation regex
-const FAB_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@fab\.mil\.br$/;
-const STORAGE_KEY_REMEMBER_EMAIL = "fab_remember_email";
+const FAB_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@fab\.mil\.br$/
+const STORAGE_KEY_REMEMBER_EMAIL = "fab_remember_email"
 
 // Normalize email: trim and lowercase
 function normalizeEmail(email: string) {
-	return email.trim().toLowerCase();
+	return email.trim().toLowerCase()
 }
 
 // Safe redirect utility (moved from app)
-function safeRedirect(
-	target: string | null | undefined,
-	fallback = "/",
-): string {
-	if (!target) return fallback;
-	let decoded = target;
+function safeRedirect(target: string | null | undefined, fallback = "/"): string {
+	if (!target) return fallback
+	let decoded = target
 	try {
-		decoded = decodeURIComponent(target);
+		decoded = decodeURIComponent(target)
 	} catch {}
 	if (decoded.startsWith("/") && !decoded.startsWith("//")) {
-		return decoded;
+		return decoded
 	}
-	return fallback;
+	return fallback
 }
 
-export type AuthView = "auth" | "forgot" | "reset";
+export type AuthView = "auth" | "forgot" | "reset"
 
 export interface AuthScreenProps {
 	// State
-	isLoading: boolean;
-	isAuthenticated: boolean;
+	isLoading: boolean
+	isAuthenticated: boolean
 
 	// Navigation / Search Params
 	searchParams: {
-		redirect?: string;
-		tab?: "login" | "register";
-		token_hash?: string;
-		type?: string;
-	};
+		redirect?: string
+		tab?: "login" | "register"
+		token_hash?: string
+		type?: string
+	}
 	onNavigate: (options: {
-		to?: string;
-		search?: any;
-		replace?: boolean;
-	}) => Promise<void> | void;
-	onTabChange?: (tab: "login" | "register") => void;
+		to?: string
+		search?: Record<string, unknown>
+		replace?: boolean
+	}) => Promise<void> | void
+	onTabChange?: (tab: "login" | "register") => void
 
 	// Actions
 	actions: {
-		signIn: (email: string, password: string) => Promise<void>;
-		signUp: (email: string, password: string, name: string) => Promise<void>;
-		resetPassword: (email: string) => Promise<void>;
-		updateUserPassword: (password: string) => Promise<{ error: Error | null }>;
-		verifyOtp: (
-			token_hash: string,
-			type: "email",
-		) => Promise<{ error: Error | null }>;
-	};
+		signIn: (email: string, password: string) => Promise<void>
+		signUp: (email: string, password: string, name: string) => Promise<void>
+		resetPassword: (email: string) => Promise<void>
+		updateUserPassword: (password: string) => Promise<{ error: Error | null }>
+		verifyOtp: (token_hash: string, type: "email") => Promise<{ error: Error | null }>
+	}
 }
 
 export function AuthScreen({
@@ -97,316 +91,289 @@ export function AuthScreen({
 }: AuthScreenProps) {
 	// --- ESTADOS GERAIS ---
 	const [currentView, setCurrentView] = useState<AuthView>(
-		searchParams.token_hash ? "reset" : "auth",
-	);
+		searchParams.token_hash ? "reset" : "auth"
+	)
 
 	// Local state for active tab if not controlled, or sync with props
-	const [activeTab, setActiveTab] = useState<string>(
-		searchParams.tab || "login",
-	);
+	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
 
 	// Sync internal tab state with prop changes
 	useEffect(() => {
 		if (searchParams.tab) {
-			setActiveTab(searchParams.tab);
+			setActiveTab(searchParams.tab)
 		}
-	}, [searchParams.tab]);
+	}, [searchParams.tab])
 
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [error, setError] = useState("");
-	const [successMessage, setSuccessMessage] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [error, setError] = useState("")
+	const [successMessage, setSuccessMessage] = useState("")
+	const [showPassword, setShowPassword] = useState(false)
 
 	// --- ESTADOS DOS FORMULÁRIOS ---
-	const [loginEmail, setLoginEmail] = useState("");
-	const [loginPassword, setLoginPassword] = useState("");
-	const [rememberMe, setRememberMe] = useState(false);
-	const [emailError, setEmailError] = useState("");
-	const [passwordError, setPasswordError] = useState("");
+	const [loginEmail, setLoginEmail] = useState("")
+	const [loginPassword, setLoginPassword] = useState("")
+	const [rememberMe, setRememberMe] = useState(false)
+	const [emailError, setEmailError] = useState("")
+	const [passwordError, setPasswordError] = useState("")
 
 	const [registerData, setRegisterData] = useState({
 		name: "",
 		email: "",
 		password: "",
 		confirm: "",
-	});
-	const [registerEmailError, setRegisterEmailError] = useState("");
+	})
+	const [registerEmailError, setRegisterEmailError] = useState("")
 
-	const [forgotEmail, setForgotEmail] = useState("");
-	const [newPassword, setNewPassword] = useState("");
+	const [forgotEmail, setForgotEmail] = useState("")
+	const [newPassword, setNewPassword] = useState("")
 
 	// Carrega email salvo (remember me) ao montar
 	useEffect(() => {
-		const savedEmail = localStorage.getItem(STORAGE_KEY_REMEMBER_EMAIL);
+		const savedEmail = localStorage.getItem(STORAGE_KEY_REMEMBER_EMAIL)
 		if (savedEmail) {
-			setLoginEmail(savedEmail);
-			setRememberMe(true);
+			setLoginEmail(savedEmail)
+			setRememberMe(true)
 		}
-	}, []);
+	}, [])
 
 	// Redireciona se já estiver autenticado
 	useEffect(() => {
 		if (!isLoading && isAuthenticated) {
-			const target = safeRedirect(searchParams.redirect, "/");
-			onNavigate({ to: target, replace: true });
+			const target = safeRedirect(searchParams.redirect, "/")
+			onNavigate({ to: target, replace: true })
 		}
-	}, [isAuthenticated, isLoading, searchParams.redirect, onNavigate]);
+	}, [isAuthenticated, isLoading, searchParams.redirect, onNavigate])
 
 	// Sincroniza a Tab com a URL
 	const handleTabChange = (value: string) => {
-		setActiveTab(value);
-		setError("");
-		setSuccessMessage("");
+		setActiveTab(value)
+		setError("")
+		setSuccessMessage("")
 		if (onTabChange) {
-			onTabChange(value as "login" | "register");
+			onTabChange(value as "login" | "register")
 		} else {
 			// Fallback if no specific handler, try generic navigate?
 			// Actually index.tsx used navigate to update search params.
 			// We can let the parent handle this via onTabChange or generic onNavigate if needed,
 			// but here we just update local state if parent doesn't redirect.
 		}
-	};
+	}
 
 	// Troca de visualização (Login <-> Esqueci Senha)
 	const switchView = (view: AuthView) => {
-		setError("");
-		setSuccessMessage("");
-		setEmailError("");
-		setPasswordError("");
-		setRegisterEmailError("");
-		setCurrentView(view);
-	};
+		setError("")
+		setSuccessMessage("")
+		setEmailError("")
+		setPasswordError("")
+		setRegisterEmailError("")
+		setCurrentView(view)
+	}
 
 	// --- HANDLERS ---
 
 	const handleLoginEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const email = e.target.value;
-		setLoginEmail(email);
-		setError("");
-		setEmailError("");
+		const email = e.target.value
+		setLoginEmail(email)
+		setError("")
+		setEmailError("")
 
-		const normalized = normalizeEmail(email);
+		const normalized = normalizeEmail(email)
 		if (email && !FAB_EMAIL_REGEX.test(normalized)) {
-			setEmailError("Por favor, utilize um email institucional (@fab.mil.br).");
+			setEmailError("Por favor, utilize um email institucional (@fab.mil.br).")
 		}
-	};
+	}
 
-	const handleLoginPasswordChange = (
-		e: React.ChangeEvent<HTMLInputElement>,
-	) => {
-		setLoginPassword(e.target.value);
-		setError("");
-		setPasswordError("");
-	};
+	const handleLoginPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setLoginPassword(e.target.value)
+		setError("")
+		setPasswordError("")
+	}
 
 	const handleRememberMeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const checked = e.target.checked;
-		setRememberMe(checked);
+		const checked = e.target.checked
+		setRememberMe(checked)
 
-		const normalized = normalizeEmail(loginEmail);
+		const normalized = normalizeEmail(loginEmail)
 		if (checked && loginEmail && FAB_EMAIL_REGEX.test(normalized)) {
-			localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, normalized);
+			localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, normalized)
 		} else {
-			localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL);
+			localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
 		}
-	};
+	}
 
 	const handleLogin = async (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 
-		const normalized = normalizeEmail(loginEmail);
+		const normalized = normalizeEmail(loginEmail)
 
 		// Validação local
 		if (!FAB_EMAIL_REGEX.test(normalized)) {
-			setEmailError("O email fornecido não é um email válido da FAB.");
-			return;
+			setEmailError("O email fornecido não é um email válido da FAB.")
+			return
 		}
 
 		if (loginPassword.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.");
-			return;
+			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
+			return
 		}
 
-		setIsSubmitting(true);
-		setError("");
-		setEmailError("");
-		setPasswordError("");
+		setIsSubmitting(true)
+		setError("")
+		setEmailError("")
+		setPasswordError("")
 
 		try {
-			await actions.signIn(normalized, loginPassword);
+			await actions.signIn(normalized, loginPassword)
 
 			// Persistência do email conforme "Lembrar email"
 			if (rememberMe) {
-				localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, normalized);
+				localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, normalized)
 			} else {
-				localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL);
+				localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
 			}
 
 			// Redireciona após login
-			const target = safeRedirect(searchParams.redirect, "/");
-			await onNavigate({ to: target, replace: true });
+			const target = safeRedirect(searchParams.redirect, "/")
+			await onNavigate({ to: target, replace: true })
 		} catch (err) {
-			console.error("Falha no login:", err);
-			const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
+			console.error("Falha no login:", err)
+			const errorMsg = err instanceof Error ? err.message : "Erro desconhecido"
 			// Tratamento de erros específicos
 			if (
 				errorMsg.includes("Email ou senha incorretos") ||
 				errorMsg.includes("Invalid login credentials")
 			) {
-				setPasswordError("Senha incorreta ou email não cadastrado");
+				setPasswordError("Senha incorreta ou email não cadastrado")
 			} else {
-				setError(
-					errorMsg ||
-						"Ocorreu um erro durante a autenticação. Tente mais tarde.",
-				);
+				setError(errorMsg || "Ocorreu um erro durante a autenticação. Tente mais tarde.")
 			}
 		} finally {
-			setIsSubmitting(false);
+			setIsSubmitting(false)
 		}
-	};
+	}
 
-	const handleRegisterEmailChange = (
-		e: React.ChangeEvent<HTMLInputElement>,
-	) => {
-		const email = e.target.value;
-		setRegisterData({ ...registerData, email });
-		setError("");
-		setRegisterEmailError("");
+	const handleRegisterEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const email = e.target.value
+		setRegisterData({ ...registerData, email })
+		setError("")
+		setRegisterEmailError("")
 
-		const normalized = normalizeEmail(email);
+		const normalized = normalizeEmail(email)
 		if (email && !FAB_EMAIL_REGEX.test(normalized)) {
-			setRegisterEmailError(
-				"Por favor, utilize um email institucional (@fab.mil.br).",
-			);
+			setRegisterEmailError("Por favor, utilize um email institucional (@fab.mil.br).")
 		}
-	};
+	}
 
 	const handleRegister = async (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 
-		const normalized = normalizeEmail(registerData.email);
+		const normalized = normalizeEmail(registerData.email)
 
 		// Validação local
 		if (!FAB_EMAIL_REGEX.test(normalized)) {
-			setRegisterEmailError("O email fornecido não é um email válido da FAB.");
-			return;
+			setRegisterEmailError("O email fornecido não é um email válido da FAB.")
+			return
 		}
 
 		if (registerData.password.length < 6) {
-			setError("A senha deve ter pelo menos 6 caracteres.");
-			return;
+			setError("A senha deve ter pelo menos 6 caracteres.")
+			return
 		}
 
 		if (registerData.password !== registerData.confirm) {
-			setError("As senhas não coincidem.");
-			return;
+			setError("As senhas não coincidem.")
+			return
 		}
 
-		setIsSubmitting(true);
-		setError("");
-		setRegisterEmailError("");
+		setIsSubmitting(true)
+		setError("")
+		setRegisterEmailError("")
 
 		try {
-			await actions.signUp(
-				normalized,
-				registerData.password,
-				registerData.name,
-			);
-			setSuccessMessage("Conta criada! Verifique seu email.");
-			handleTabChange("login");
-			setLoginEmail(normalized);
+			await actions.signUp(normalized, registerData.password, registerData.name)
+			setSuccessMessage("Conta criada! Verifique seu email.")
+			handleTabChange("login")
+			setLoginEmail(normalized)
 		} catch (err) {
-			const errorMsg =
-				err instanceof Error ? err.message : "Erro ao criar conta.";
-			setError(errorMsg);
+			const errorMsg = err instanceof Error ? err.message : "Erro ao criar conta."
+			setError(errorMsg)
 		} finally {
-			setIsSubmitting(false);
+			setIsSubmitting(false)
 		}
-	};
+	}
 
 	const handleForgotPassword = async (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 
-		const normalized = normalizeEmail(forgotEmail);
+		const normalized = normalizeEmail(forgotEmail)
 
 		if (!FAB_EMAIL_REGEX.test(normalized)) {
-			setError("Por favor, insira um email válido da FAB.");
-			return;
+			setError("Por favor, insira um email válido da FAB.")
+			return
 		}
 
-		setIsSubmitting(true);
-		setError("");
+		setIsSubmitting(true)
+		setError("")
 
 		try {
-			await actions.resetPassword(normalized);
-			setSuccessMessage(
-				"Email de recuperação enviado! Verifique sua caixa de entrada.",
-			);
+			await actions.resetPassword(normalized)
+			setSuccessMessage("Email de recuperação enviado! Verifique sua caixa de entrada.")
 		} catch (err) {
-			const errorMsg =
-				err instanceof Error ? err.message : "Erro ao enviar email.";
-			setError(errorMsg);
+			const errorMsg = err instanceof Error ? err.message : "Erro ao enviar email."
+			setError(errorMsg)
 		} finally {
-			setIsSubmitting(false);
+			setIsSubmitting(false)
 		}
-	};
+	}
 
 	const handleResetPassword = async (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 
 		if (newPassword.length < 6) {
-			setError("A senha deve ter pelo menos 6 caracteres.");
-			return;
+			setError("A senha deve ter pelo menos 6 caracteres.")
+			return
 		}
 
-		setIsSubmitting(true);
-		setError("");
+		setIsSubmitting(true)
+		setError("")
 
 		try {
-			const { error } = await actions.updateUserPassword(newPassword);
-			if (error) throw error;
-			alert("Senha atualizada com sucesso!");
-			await onNavigate({ to: "/" });
+			const { error } = await actions.updateUserPassword(newPassword)
+			if (error) throw error
+			alert("Senha atualizada com sucesso!")
+			await onNavigate({ to: "/" })
 		} catch (err) {
-			const errorMsg =
-				err instanceof Error ? err.message : "Erro ao atualizar senha.";
-			setError(errorMsg);
+			const errorMsg = err instanceof Error ? err.message : "Erro ao atualizar senha."
+			setError(errorMsg)
 		} finally {
-			setIsSubmitting(false);
+			setIsSubmitting(false)
 		}
-	};
+	}
 
 	// Verifica validade do token de reset ao montar, se estiver na view de reset
 	useEffect(() => {
-		if (
-			currentView === "reset" &&
-			searchParams.token_hash &&
-			searchParams.type === "email"
-		) {
+		if (currentView === "reset" && searchParams.token_hash && searchParams.type === "email") {
+			const tokenHash = searchParams.token_hash
 			const verifyOtp = async () => {
-				if (!searchParams.token_hash) return;
-				const { error } = await actions.verifyOtp(
-					searchParams.token_hash,
-					"email",
-				);
+				const { error } = await actions.verifyOtp(tokenHash, "email")
 				if (error) {
-					setError("Link inválido ou expirado. Solicite uma nova recuperação.");
+					setError("Link inválido ou expirado. Solicite uma nova recuperação.")
 				}
-			};
-			verifyOtp();
+			}
+			verifyOtp()
 		}
-	}, [currentView, searchParams.token_hash, searchParams.type, actions]);
+	}, [currentView, searchParams.token_hash, searchParams.type, actions])
 
 	// --- COMMON STYLES ---
 	const cardClasses =
-		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground";
+		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
 	const inputClasses =
-		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base";
+		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
 	const buttonClasses =
-		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5";
-	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm";
+		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
+	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
 	const iconClasses =
-		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors";
+		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	// Loading state during auth check
 	if (isLoading) {
@@ -417,7 +384,7 @@ export function AuthScreen({
 					<span>Verificando autenticação...</span>
 				</CardContent>
 			</Card>
-		);
+		)
 	}
 
 	// 1. VIEW: RESET PASSWORD (Token na URL)
@@ -425,9 +392,7 @@ export function AuthScreen({
 		return (
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">
-						Nova Senha
-					</CardTitle>
+					<CardTitle className="text-3xl font-bold tracking-tight">Nova Senha</CardTitle>
 					<CardDescription className="text-muted-foreground text-base">
 						Defina sua nova senha segura.
 					</CardDescription>
@@ -461,14 +426,8 @@ export function AuthScreen({
 						</div>
 					</CardContent>
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-2">
-						<Button
-							type="submit"
-							className={buttonClasses}
-							disabled={isSubmitting || !!error}
-						>
-							{isSubmitting && (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							)}
+						<Button type="submit" className={buttonClasses} disabled={isSubmitting}>
+							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 							Atualizar Senha
 						</Button>
 						<Button
@@ -482,7 +441,7 @@ export function AuthScreen({
 					</CardFooter>
 				</form>
 			</Card>
-		);
+		)
 	}
 
 	// 2. VIEW: FORGOT PASSWORD
@@ -490,9 +449,7 @@ export function AuthScreen({
 		return (
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">
-						Recuperar Senha
-					</CardTitle>
+					<CardTitle className="text-3xl font-bold tracking-tight">Recuperar Senha</CardTitle>
 					<CardDescription className="text-muted-foreground text-base">
 						Digite seu email para receber um link de redefinição.
 					</CardDescription>
@@ -531,14 +488,8 @@ export function AuthScreen({
 						</div>
 					</CardContent>
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-8">
-						<Button
-							type="submit"
-							className={buttonClasses}
-							disabled={isSubmitting}
-						>
-							{isSubmitting && (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							)}
+						<Button type="submit" className={buttonClasses} disabled={isSubmitting}>
+							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 							Enviar Link
 						</Button>
 						<Button
@@ -553,17 +504,13 @@ export function AuthScreen({
 					</CardFooter>
 				</form>
 			</Card>
-		);
+		)
 	}
 
 	// 3. VIEW: AUTH (LOGIN & REGISTER TABS)
 	return (
 		<div className="w-full max-w-2xl mx-auto animate-fade-in-up">
-			<Tabs
-				value={activeTab}
-				onValueChange={handleTabChange}
-				className="w-full"
-			>
+			<Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
 				{/* sempre deve ser passado o tipo dark para que o componente funcione corretamente */}
 				<TabsList className="grid w-full grid-cols-2 mb-8 bg-muted p-1.5 rounded-full h-14">
 					<TabsTrigger
@@ -666,11 +613,7 @@ export function AuthScreen({
 											onClick={() => setShowPassword(!showPassword)}
 											className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
 										>
-											{showPassword ? (
-												<EyeOff className="h-4 w-4" />
-											) : (
-												<Eye className="h-4 w-4" />
-											)}
+											{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 										</button>
 									</div>
 									{passwordError && (
@@ -690,10 +633,7 @@ export function AuthScreen({
 										className="rounded border-gray-300 dark:border-gray-600 accent-primary"
 										disabled={isSubmitting}
 									/>
-									<Label
-										htmlFor="remember"
-										className="text-sm font-normal text-muted-foreground"
-									>
+									<Label htmlFor="remember" className="text-sm font-normal text-muted-foreground">
 										Lembrar email
 									</Label>
 								</div>
@@ -703,11 +643,9 @@ export function AuthScreen({
 								<Button
 									type="submit"
 									className={buttonClasses}
-									disabled={isSubmitting || !!emailError}
+									disabled={isSubmitting || !!emailError || !!passwordError}
 								>
-									{isSubmitting && (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									)}
+									{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 									{isSubmitting ? "Entrando..." : "Entrar"}
 								</Button>
 							</CardFooter>
@@ -719,9 +657,7 @@ export function AuthScreen({
 				<TabsContent value="register" className="mt-0">
 					<Card className={cardClasses}>
 						<CardHeader className="text-center pb-4 pt-8 space-y-3">
-							<CardTitle className="text-3xl font-bold tracking-tight">
-								Criar conta
-							</CardTitle>
+							<CardTitle className="text-3xl font-bold tracking-tight">Criar conta</CardTitle>
 							<CardDescription className="text-muted-foreground text-base">
 								Acesso restrito a emails @fab.mil.br
 							</CardDescription>
@@ -829,9 +765,7 @@ export function AuthScreen({
 									className={buttonClasses}
 									disabled={isSubmitting || !!registerEmailError}
 								>
-									{isSubmitting && (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									)}
+									{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 									{isSubmitting ? "Criando..." : "Criar conta"}
 								</Button>
 							</CardFooter>
@@ -840,5 +774,5 @@ export function AuthScreen({
 				</TabsContent>
 			</Tabs>
 		</div>
-	);
+	)
 }

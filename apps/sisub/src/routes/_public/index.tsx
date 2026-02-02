@@ -9,9 +9,9 @@ import {
 	CardHeader,
 	CardTitle,
 	Separator,
-} from "@iefa/ui";
+} from "@iefa/ui"
 // Routing
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router"
 // Icons
 import {
 	BarChart3,
@@ -32,12 +32,12 @@ import {
 	Star,
 	Users,
 	UtensilsCrossed,
-} from "lucide-react";
+} from "lucide-react"
 // React
-import type { JSX } from "react";
-import { useEffect, useRef, useState } from "react";
-import type { Feature, Step } from "@/types/domain";
-import type { MealType } from "@/types/domain/";
+import type { JSX } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { Feature, Step } from "@/types/domain"
+import type { MealType } from "@/types/domain/"
 
 /* ========================================================================
    TYPE DEFINITIONS
@@ -66,7 +66,7 @@ export const steps: Step[] = [
 		description:
 			"Suas seleções são salvas automaticamente, ajudando na previsão de demanda do rancho.",
 	},
-];
+]
 
 /**
  * Tipos de refeição disponíveis no SISUB
@@ -77,7 +77,7 @@ export const mealTypes: MealType[] = [
 	{ icon: UtensilsCrossed, label: "Almoço", time: "11:30 - 13:30" },
 	{ icon: Pizza, label: "Janta", time: "18:00 - 20:00" },
 	{ icon: Cake, label: "Ceia", time: "21:00 - 22:00" },
-];
+]
 
 /**
  * Funcionalidades principais do SISUB
@@ -93,34 +93,29 @@ export const features: Feature[] = [
 	{
 		icon: QrCode,
 		title: "4 tipos de refeição",
-		description:
-			"Café da manhã, almoço, janta e ceia - marque quais refeições você irá consumir.",
+		description: "Café da manhã, almoço, janta e ceia - marque quais refeições você irá consumir.",
 	},
 	{
 		icon: Users,
 		title: "Por Organização Militar",
-		description:
-			"Sistema organizado por OM, facilitando o controle e gestão do rancho.",
+		description: "Sistema organizado por OM, facilitando o controle e gestão do rancho.",
 	},
 	{
 		icon: Bell,
 		title: "Interface responsiva",
-		description:
-			"Acesse de qualquer dispositivo - computador, tablet ou smartphone.",
+		description: "Acesse de qualquer dispositivo - computador, tablet ou smartphone.",
 	},
 	{
 		icon: ShieldCheck,
 		title: "Seguro e confiável",
-		description:
-			"Autenticação segura e dados protegidos com tecnologia Supabase.",
+		description: "Autenticação segura e dados protegidos com tecnologia Supabase.",
 	},
 	{
 		icon: Settings,
 		title: "Controle de demanda",
-		description:
-			"Ajude a administração a prever a demanda e reduzir o desperdício de alimentos.",
+		description: "Ajude a administração a prever a demanda e reduzir o desperdício de alimentos.",
 	},
-];
+]
 
 /* ========================================================================
    ROUTE DEFINITION
@@ -142,7 +137,7 @@ export const Route = createFileRoute("/_public/")({
 		],
 	}),
 	component: Home,
-});
+})
 
 /* ========================================================================
    MAIN COMPONENT
@@ -162,8 +157,8 @@ export const Route = createFileRoute("/_public/")({
  */
 
 function Home() {
-	const [currentFeature, setCurrentFeature] = useState(0);
-	const CurrentFeatureIcon = features[currentFeature]?.icon ?? ShieldCheck;
+	const [currentFeature, setCurrentFeature] = useState(0)
+	const CurrentFeatureIcon = features[currentFeature]?.icon ?? ShieldCheck
 
 	return (
 		<div className="w-full">
@@ -191,14 +186,13 @@ function Home() {
 						Como funciona o sistema
 					</h2>
 					<p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-						Um processo simples e eficiente para gerenciar suas previsões de
-						refeições
+						Um processo simples e eficiente para gerenciar suas previsões de refeições
 					</p>
 				</div>
 
 				<div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
 					{steps.map((step, index) => {
-						const Icon = step.icon;
+						const Icon = step.icon
 						return (
 							<Card
 								key={step.title}
@@ -212,9 +206,7 @@ function Home() {
 									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-inset ring-primary/20 transition-transform duration-300 group-hover:scale-110">
 										<Icon className="h-8 w-8 text-primary" />
 									</div>
-									<CardTitle className="text-xl font-sans font-bold">
-										{step.title}
-									</CardTitle>
+									<CardTitle className="text-xl font-sans font-bold">{step.title}</CardTitle>
 									<CardDescription className="text-muted-foreground leading-relaxed">
 										{step.description}
 									</CardDescription>
@@ -226,17 +218,13 @@ function Home() {
 									/>
 								</CardContent>
 							</Card>
-						);
+						)
 					})}
 				</div>
 			</Appear>
 
 			{/* Tipos de Refeição */}
-			<Appear
-				id="meals"
-				className="py-16 md:py-24"
-				aria-labelledby="meals-heading"
-			>
+			<Appear id="meals" className="py-16 md:py-24" aria-labelledby="meals-heading">
 				<div className="text-center mb-14">
 					<Badge
 						variant="outline"
@@ -259,14 +247,14 @@ function Home() {
 
 				<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
 					{mealTypes.map((meal, index) => {
-						const Icon = meal.icon;
+						const Icon = meal.icon
 						const colors = [
 							"amber", // Café
 							"blue", // Almoço
 							"orange", // Janta
 							"purple", // Ceia
-						];
-						const color = colors[index] || "blue";
+						]
+						const color = colors[index] || "blue"
 
 						return (
 							<Card
@@ -279,19 +267,13 @@ function Home() {
 									<div
 										className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-${color}-500/10 ring-2 ring-inset ring-${color}-500/20 transition-transform duration-300 group-hover:scale-110`}
 									>
-										<Icon
-											className={`h-8 w-8 text-${color}-600 dark:text-${color}-500`}
-										/>
+										<Icon className={`h-8 w-8 text-${color}-600 dark:text-${color}-500`} />
 									</div>
-									<CardTitle className="text-lg font-sans font-bold">
-										{meal.label}
-									</CardTitle>
-									<p className="text-sm font-mono text-muted-foreground mt-1">
-										{meal.time}
-									</p>
+									<CardTitle className="text-lg font-sans font-bold">{meal.label}</CardTitle>
+									<p className="text-sm font-mono text-muted-foreground mt-1">{meal.time}</p>
 								</CardHeader>
 							</Card>
-						);
+						)
 					})}
 				</div>
 			</Appear>
@@ -317,8 +299,7 @@ function Home() {
 						Principais funcionalidades
 					</h2>
 					<p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-						Desenvolvido especificamente para atender as necessidades do rancho
-						militar
+						Desenvolvido especificamente para atender as necessidades do rancho militar
 					</p>
 				</div>
 
@@ -347,8 +328,8 @@ function Home() {
 				{/* Grid de features com seleção */}
 				<div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{features.map((feature, index) => {
-						const Icon = feature.icon;
-						const active = index === currentFeature;
+						const Icon = feature.icon
+						const active = index === currentFeature
 						return (
 							<button
 								type="button"
@@ -381,7 +362,7 @@ function Home() {
 									{feature.description}
 								</p>
 							</button>
-						);
+						)
 					})}
 				</div>
 			</Appear>
@@ -423,11 +404,7 @@ function Home() {
 			</section>
 
 			{/* CTA Final */}
-			<Appear
-				id="cta"
-				className="relative py-20 md:py-24"
-				aria-labelledby="cta-heading"
-			>
+			<Appear id="cta" className="relative py-20 md:py-24" aria-labelledby="cta-heading">
 				<div className="relative text-center max-w-4xl mx-auto rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/85 text-primary-foreground shadow-2xl ring-1 ring-inset ring-border/30 overflow-hidden p-10 md:p-16">
 					{/* Dot pattern overlay */}
 					<div className="absolute inset-0 bg-dot-pattern opacity-10" />
@@ -446,8 +423,8 @@ function Home() {
 							Pronto para começar?
 						</h2>
 						<p className="text-primary-foreground/90 text-base md:text-lg leading-relaxed mb-10 max-w-2xl mx-auto">
-							Faça parte da modernização do SISUB. Acesse agora e comece a
-							planejar suas refeições de forma inteligente.
+							Faça parte da modernização do SISUB. Acesse agora e comece a planejar suas refeições
+							de forma inteligente.
 						</p>
 
 						<div className="flex flex-col items-center gap-4">
@@ -466,9 +443,7 @@ function Home() {
 							<div className="mt-8 flex flex-wrap justify-center items-center gap-6 md:gap-8 text-primary-foreground/85">
 								<div className="flex items-center gap-2">
 									<Users className="h-5 w-5" />
-									<span className="text-sm font-sans">
-										Sistema colaborativo
-									</span>
+									<span className="text-sm font-sans">Sistema colaborativo</span>
 								</div>
 								<div className="flex items-center gap-2">
 									<Clock className="h-5 w-5" />
@@ -484,7 +459,7 @@ function Home() {
 				</div>
 			</Appear>
 		</div>
-	);
+	)
 }
 
 /* ========================================================================
@@ -526,8 +501,8 @@ function HomeHero() {
 				</h1>
 
 				<p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-					Sistema inteligente para previsão de demanda do rancho. Planeje suas
-					refeições, reduza desperdícios e otimize a gestão alimentar.
+					Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza
+					desperdícios e otimize a gestão alimentar.
 				</p>
 
 				<div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
@@ -544,7 +519,7 @@ function HomeHero() {
 				</div>
 			</div>
 		</Appear>
-	);
+	)
 }
 
 /**
@@ -556,7 +531,7 @@ function ShieldBadge() {
 		<span className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-primary/10 text-primary">
 			<ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
 		</span>
-	);
+	)
 }
 
 /**
@@ -564,10 +539,10 @@ function ShieldBadge() {
  */
 type InfoChip = {
 	/** Componente de ícone React */
-	icon: React.ComponentType<{ className?: string }>;
+	icon: React.ComponentType<{ className?: string }>
 	/** Texto a ser exibido */
-	text: string;
-};
+	text: string
+}
 
 /**
  * Card informativo com badge, título, descrição, chips e CTA
@@ -576,21 +551,14 @@ type InfoChip = {
  */
 
 function InfoCard(props: {
-	badgeIcon: React.ComponentType<{ className?: string }>;
-	badgeText: string;
-	title: string;
-	description: string;
-	chips?: InfoChip[];
-	cta: { to: string; label: string };
+	badgeIcon: React.ComponentType<{ className?: string }>
+	badgeText: string
+	title: string
+	description: string
+	chips?: InfoChip[]
+	cta: { to: string; label: string }
 }) {
-	const {
-		badgeIcon: BadgeIcon,
-		badgeText,
-		title,
-		description,
-		chips = [],
-		cta,
-	} = props;
+	const { badgeIcon: BadgeIcon, badgeText, title, description, chips = [], cta } = props
 
 	return (
 		<Card className="transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50 bg-gradient-to-br from-card to-muted/10">
@@ -602,9 +570,7 @@ function InfoCard(props: {
 					<BadgeIcon className="h-4 w-4 text-primary" />
 					{badgeText}
 				</Badge>
-				<CardTitle className="text-2xl md:text-3xl font-sans font-bold">
-					{title}
-				</CardTitle>
+				<CardTitle className="text-2xl md:text-3xl font-sans font-bold">{title}</CardTitle>
 				<CardDescription className="text-muted-foreground max-w-md mx-auto leading-relaxed">
 					{description}
 				</CardDescription>
@@ -613,7 +579,7 @@ function InfoCard(props: {
 				{!!chips.length && (
 					<div className="mb-8 flex flex-wrap items-center justify-center gap-2">
 						{chips.map((c) => {
-							const Icon = c.icon;
+							const Icon = c.icon
 							return (
 								<Badge
 									key={c.text}
@@ -623,7 +589,7 @@ function InfoCard(props: {
 									<Icon className="h-3.5 w-3.5" />
 									{c.text}
 								</Badge>
-							);
+							)
 						})}
 					</div>
 				)}
@@ -639,7 +605,7 @@ function InfoCard(props: {
 				/>
 			</CardContent>
 		</Card>
-	);
+	)
 }
 
 /**
@@ -657,17 +623,17 @@ function InfoCard(props: {
  * @param rootMargin - Margem do IntersectionObserver (padrão: "0px 0px -10% 0px")
  */
 function Appear(props: {
-	id?: string;
-	as?: keyof JSX.IntrinsicElements;
-	className?: string;
-	inClass?: string;
-	outClass?: string;
-	duration?: string; // ex: "duration-700"
-	delayClass?: string; // ex: "delay-100"
-	threshold?: number;
-	rootMargin?: string;
-	children: React.ReactNode;
-	[key: string]: any;
+	id?: string
+	as?: keyof JSX.IntrinsicElements
+	className?: string
+	inClass?: string
+	outClass?: string
+	duration?: string // ex: "duration-700"
+	delayClass?: string // ex: "delay-100"
+	threshold?: number
+	rootMargin?: string
+	children: React.ReactNode
+	[key: string]: any
 }) {
 	const {
 		id,
@@ -681,26 +647,23 @@ function Appear(props: {
 		rootMargin = "0px 0px -10% 0px",
 		children,
 		...rest
-	} = props;
+	} = props
 
-	const [visible, setVisible] = useState(false);
-	const ref = useRef<HTMLElement | null>(null);
+	const [visible, setVisible] = useState(false)
+	const ref = useRef<HTMLElement | null>(null)
 
 	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		const obs = new IntersectionObserver(
-			([entry]) => setVisible(entry.isIntersecting),
-			{
-				threshold,
-				rootMargin,
-			},
-		);
-		obs.observe(el);
-		return () => obs.disconnect();
-	}, [threshold, rootMargin]);
+		const el = ref.current
+		if (!el) return
+		const obs = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+			threshold,
+			rootMargin,
+		})
+		obs.observe(el)
+		return () => obs.disconnect()
+	}, [threshold, rootMargin])
 
-	const Comp = as as any;
+	const Comp = as as any
 
 	return (
 		<Comp
@@ -711,5 +674,5 @@ function Appear(props: {
 		>
 			{children}
 		</Comp>
-	);
+	)
 }

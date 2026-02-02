@@ -1,10 +1,10 @@
-import { Button, Input, Label, Textarea } from "@iefa/ui";
-import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
-import { useState } from "react";
-import { z } from "zod";
-import { useUpsertUserProfile } from "@/lib/journal/hooks";
-import type { UserProfile } from "@/lib/journal/types";
+import { Button, Input, Label, Textarea } from "@iefa/ui"
+import { useForm } from "@tanstack/react-form"
+import { zodValidator } from "@tanstack/zod-form-adapter"
+import { useState } from "react"
+import { z } from "zod"
+import { useUpsertUserProfile } from "@/lib/journal/hooks"
+import type { UserProfile } from "@/lib/journal/types"
 
 const profileSchema = z.object({
 	full_name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -14,31 +14,31 @@ const profileSchema = z.object({
 		.optional()
 		.refine(
 			(val) => {
-				if (!val) return true;
+				if (!val) return true
 				// ORCID format: 0000-0000-0000-0000
-				return /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(val);
+				return /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(val)
 			},
-			{ message: "Formato ORCID inválido (exemplo: 0000-0002-1825-0097)" },
+			{ message: "Formato ORCID inválido (exemplo: 0000-0002-1825-0097)" }
 		),
 	bio: z.string().max(500, "Bio deve ter no máximo 500 caracteres").optional(),
 	expertise: z.string().optional(), // Comma-separated, will be converted to array
 	email_notifications: z.boolean().default(true),
-});
+})
 
 interface ProfileFormProps {
-	userId: string;
-	profile: UserProfile | null | undefined;
-	userEmail?: string | null;
+	userId: string
+	profile: UserProfile | null | undefined
+	userEmail?: string | null
 }
 
 export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
-	const [isSaving, setIsSaving] = useState(false);
+	const [isSaving, setIsSaving] = useState(false)
 	const [message, setMessage] = useState<{
-		type: "success" | "error";
-		text: string;
-	} | null>(null);
+		type: "success" | "error"
+		text: string
+	} | null>(null)
 
-	const upsertProfile = useUpsertUserProfile();
+	const upsertProfile = useUpsertUserProfile()
 
 	const form = useForm({
 		defaultValues: {
@@ -54,8 +54,8 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 			onChange: profileSchema,
 		},
 		onSubmit: async ({ value }) => {
-			setIsSaving(true);
-			setMessage(null);
+			setIsSaving(true)
+			setMessage(null)
 
 			try {
 				// Convert expertise string to array
@@ -64,7 +64,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							.split(",")
 							.map((e) => e.trim())
 							.filter(Boolean)
-					: [];
+					: []
 
 				await upsertProfile.mutateAsync({
 					id: userId,
@@ -75,48 +75,37 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 					expertise: expertiseArray.length > 0 ? expertiseArray : null,
 					email_notifications: value.email_notifications,
 					role: profile?.role || "author", // Keep existing role or default to author
-				});
+				})
 
 				setMessage({
 					type: "success",
 					text: "Perfil atualizado com sucesso!",
-				});
+				})
 			} catch (error) {
-				console.error("Error updating profile:", error);
+				console.error("Error updating profile:", error)
 				setMessage({
 					type: "error",
-					text:
-						error instanceof Error
-							? error.message
-							: "Erro ao salvar perfil. Tente novamente.",
-				});
+					text: error instanceof Error ? error.message : "Erro ao salvar perfil. Tente novamente.",
+				})
 			} finally {
-				setIsSaving(false);
+				setIsSaving(false)
 			}
 		},
-	});
+	})
 
 	return (
 		<form
 			onSubmit={(e) => {
-				e.preventDefault();
-				form.handleSubmit();
+				e.preventDefault()
+				form.handleSubmit()
 			}}
 			className="space-y-6"
 		>
 			{/* Email (read-only) */}
 			<div className="space-y-2">
 				<Label htmlFor="email">E-mail</Label>
-				<Input
-					id="email"
-					type="email"
-					value={userEmail || ""}
-					disabled
-					className="bg-muted"
-				/>
-				<p className="text-sm text-muted-foreground">
-					O e-mail não pode ser alterado nesta página
-				</p>
+				<Input id="email" type="email" value={userEmail || ""} disabled className="bg-muted" />
+				<p className="text-sm text-muted-foreground">O e-mail não pode ser alterado nesta página</p>
 			</div>
 
 			{/* Full Name */}
@@ -134,9 +123,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							placeholder="Seu nome completo"
 						/>
 						{field.state.meta.errors?.length > 0 && (
-							<p className="text-sm text-destructive">
-								{String(field.state.meta.errors[0])}
-							</p>
+							<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
 						)}
 					</div>
 				)}
@@ -154,9 +141,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							onBlur={field.handleBlur}
 							placeholder="Universidade ou instituição de pesquisa"
 						/>
-						<p className="text-sm text-muted-foreground">
-							Será exibida em suas publicações
-						</p>
+						<p className="text-sm text-muted-foreground">Será exibida em suas publicações</p>
 					</div>
 				)}
 			</form.Field>
@@ -174,9 +159,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							placeholder="0000-0000-0000-0000"
 						/>
 						{field.state.meta.errors?.length > 0 ? (
-							<p className="text-sm text-destructive">
-								{String(field.state.meta.errors[0])}
-							</p>
+							<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
 						) : (
 							<p className="text-sm text-muted-foreground">
 								Identificador único para pesquisadores.{" "}
@@ -209,9 +192,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							maxLength={500}
 						/>
 						{field.state.meta.errors?.length > 0 ? (
-							<p className="text-sm text-destructive">
-								{String(field.state.meta.errors[0])}
-							</p>
+							<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
 						) : (
 							<p className="text-sm text-muted-foreground">
 								{field.state.value.length}/500 caracteres
@@ -234,8 +215,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							placeholder="Machine Learning, Biologia Molecular, etc."
 						/>
 						<p className="text-sm text-muted-foreground">
-							Separe múltiplas áreas com vírgulas. Usado para seleção de
-							revisores.
+							Separe múltiplas áreas com vírgulas. Usado para seleção de revisores.
 						</p>
 					</div>
 				)}
@@ -292,5 +272,5 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 				</Button>
 			</div>
 		</form>
-	);
+	)
 }

@@ -1,25 +1,19 @@
-import { Button } from "@iefa/ui";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-	AlertCircle,
-	CheckCircle2,
-	Clock,
-	FileText,
-	XCircle,
-} from "lucide-react";
-import { useState } from "react";
+import { Button } from "@iefa/ui"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { AlertCircle, CheckCircle2, Clock, FileText, XCircle } from "lucide-react"
+import { useState } from "react"
 
 export const Route = createFileRoute("/journal/review/$token")({
 	component: ReviewInvitation,
-});
+})
 
 function ReviewInvitation() {
-	const { token } = Route.useParams();
-	const navigate = useNavigate();
-	const [isAccepting, setIsAccepting] = useState(false);
-	const [isDeclining, setIsDeclining] = useState(false);
-	const [declineReason, setDeclineReason] = useState("");
-	const [showDeclineForm, setShowDeclineForm] = useState(false);
+	Route.useParams()
+	const navigate = useNavigate()
+	const [isAccepting, setIsAccepting] = useState(false)
+	const [isDeclining, setIsDeclining] = useState(false)
+	const [declineReason, setDeclineReason] = useState("")
+	const [showDeclineForm, setShowDeclineForm] = useState(false)
 
 	// Placeholder - will fetch invitation data
 	const invitation = {
@@ -28,32 +22,30 @@ function ReviewInvitation() {
 		estimated_time: "3-4 horas",
 		status: "invited", // invited, accepted, declined, expired
 		blinded: false,
-	};
+	}
 
-	const isExpired = invitation.status === "expired";
-	const isAlreadyResponded = ["accepted", "declined"].includes(
-		invitation.status,
-	);
+	const isExpired = invitation.status === "expired"
+	const isAlreadyResponded = ["accepted", "declined"].includes(invitation.status)
 
 	const handleAccept = async () => {
-		setIsAccepting(true);
+		setIsAccepting(true)
 		// TODO: Call acceptReviewInvitation mutation
 		setTimeout(() => {
-			navigate({ to: "/journal/review" });
-		}, 1000);
-	};
+			navigate({ to: "/journal/review" })
+		}, 1000)
+	}
 
 	const handleDecline = async () => {
 		if (!declineReason.trim()) {
-			alert("Por favor, informe um motivo para a recusa.");
-			return;
+			alert("Por favor, informe um motivo para a recusa.")
+			return
 		}
-		setIsDeclining(true);
+		setIsDeclining(true)
 		// TODO: Call declineReviewInvitation mutation
 		setTimeout(() => {
-			navigate({ to: "/journal" });
-		}, 1000);
-	};
+			navigate({ to: "/journal" })
+		}, 1000)
+	}
 
 	if (isExpired) {
 		return (
@@ -63,15 +55,12 @@ function ReviewInvitation() {
 				</div>
 				<h2 className="text-2xl font-bold mb-2">Convite Expirado</h2>
 				<p className="text-muted-foreground mb-6">
-					Este convite de revisão expirou. Se você ainda deseja revisar este
-					artigo, entre em contato com o editor.
+					Este convite de revisão expirou. Se você ainda deseja revisar este artigo, entre em
+					contato com o editor.
 				</p>
-				<Button
-					render={<Link to="/journal">Voltar à Página Inicial</Link>}
-					variant="outline"
-				/>
+				<Button render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 			</div>
-		);
+		)
 	}
 
 	if (isAlreadyResponded) {
@@ -85,9 +74,7 @@ function ReviewInvitation() {
 					)}
 				</div>
 				<h2 className="text-2xl font-bold mb-2">
-					{invitation.status === "accepted"
-						? "Convite Aceito"
-						: "Convite Recusado"}
+					{invitation.status === "accepted" ? "Convite Aceito" : "Convite Recusado"}
 				</h2>
 				<p className="text-muted-foreground mb-6">
 					{invitation.status === "accepted"
@@ -96,17 +83,12 @@ function ReviewInvitation() {
 				</p>
 				<div className="flex gap-3">
 					{invitation.status === "accepted" && (
-						<Button
-							render={<Link to="/journal/review">Ir para Dashboard</Link>}
-						/>
+						<Button render={<Link to="/journal/review">Ir para Dashboard</Link>} />
 					)}
-					<Button
-						render={<Link to="/journal">Voltar à Página Inicial</Link>}
-						variant="outline"
-					/>
+					<Button render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 				</div>
 			</div>
-		);
+		)
 	}
 
 	return (
@@ -146,9 +128,7 @@ function ReviewInvitation() {
 								</p>
 							</div>
 							<div>
-								<span className="text-sm text-muted-foreground">
-									Tempo Estimado
-								</span>
+								<span className="text-sm text-muted-foreground">Tempo Estimado</span>
 								<p className="font-medium">{invitation.estimated_time}</p>
 							</div>
 						</div>
@@ -171,12 +151,7 @@ function ReviewInvitation() {
 			{/* Actions */}
 			{!showDeclineForm ? (
 				<div className="flex flex-col sm:flex-row gap-3">
-					<Button
-						className="flex-1"
-						size="lg"
-						onClick={handleAccept}
-						disabled={isAccepting}
-					>
+					<Button className="flex-1" size="lg" onClick={handleAccept} disabled={isAccepting}>
 						<CheckCircle2 className="size-5 mr-2" />
 						{isAccepting ? "Aceitando..." : "Aceitar Convite"}
 					</Button>
@@ -194,8 +169,7 @@ function ReviewInvitation() {
 				<div className="p-6 border rounded-lg bg-card space-y-4">
 					<h3 className="font-semibold">Motivo da Recusa</h3>
 					<p className="text-sm text-muted-foreground">
-						Por favor, informe brevemente o motivo da recusa (opcional mas
-						recomendado):
+						Por favor, informe brevemente o motivo da recusa (opcional mas recomendado):
 					</p>
 					<textarea
 						value={declineReason}
@@ -204,11 +178,7 @@ function ReviewInvitation() {
 						className="w-full px-3 py-2 border rounded-md min-h-[120px] bg-background"
 					/>
 					<div className="flex gap-3">
-						<Button
-							variant="destructive"
-							onClick={handleDecline}
-							disabled={isDeclining}
-						>
+						<Button variant="destructive" onClick={handleDecline} disabled={isDeclining}>
 							{isDeclining ? "Enviando..." : "Confirmar Recusa"}
 						</Button>
 						<Button
@@ -222,5 +192,5 @@ function ReviewInvitation() {
 				</div>
 			)}
 		</div>
-	);
+	)
 }

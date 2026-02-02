@@ -1,14 +1,8 @@
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarHeader,
-	SidebarRail,
-} from "@iefa/ui";
-import { NavMain } from "./NavMain";
-import { NavUser } from "./NavUser";
-import type { AppSidebarData } from "./SidebarTypes";
-import { TeamSwitcher } from "./TeamSwitcher";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@iefa/ui"
+import { NavMain } from "./NavMain"
+import { NavUser } from "./NavUser"
+import type { AppSidebarData } from "./SidebarTypes"
+import { TeamSwitcher } from "./TeamSwitcher"
 
 export function AppSidebar({
 	data,
@@ -27,5 +21,5 @@ export function AppSidebar({
 			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
-	);
+	)
 }

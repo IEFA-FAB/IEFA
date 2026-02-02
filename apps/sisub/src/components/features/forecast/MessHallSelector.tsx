@@ -8,21 +8,21 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui";
-import { AlertCircle, Check, MapPin } from "lucide-react";
-import { memo, useCallback, useMemo } from "react";
-import { useMessHalls } from "@/hooks/data/useMessHalls";
+} from "@iefa/ui"
+import { AlertCircle, Check, MapPin } from "lucide-react"
+import { memo, useCallback, useMemo } from "react"
+import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 interface MessHallSelectorProps {
-	value: string;
-	onChange: (value: string) => void;
-	disabled?: boolean;
+	value: string
+	onChange: (value: string) => void
+	disabled?: boolean
 	// Prefer hasDefaultMessHall; keep hasDefaultUnit for backward compatibility
-	hasDefaultMessHall?: boolean;
-	hasDefaultUnit?: boolean; // deprecated, kept for compatibility during migration
-	showValidation?: boolean;
-	size?: "sm" | "md" | "lg";
-	placeholder?: string;
+	hasDefaultMessHall?: boolean
+	hasDefaultUnit?: boolean // deprecated, kept for compatibility during migration
+	showValidation?: boolean
+	size?: "sm" | "md" | "lg"
+	placeholder?: string
 }
 
 export const MessHallSelector = memo<MessHallSelectorProps>(
@@ -36,51 +36,46 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 		size = "md",
 		placeholder = "Selecione um rancho...",
 	}) => {
-		const { messHalls } = useMessHalls();
+		const { messHalls } = useMessHalls()
 
 		// Unify default flag (support old prop name for now)
-		const hasDefault = hasDefaultMessHall ?? hasDefaultUnit ?? false;
+		const hasDefault = hasDefaultMessHall ?? hasDefaultUnit ?? false
 
 		// Dados memoizados
 		const selectorData = useMemo(() => {
-			const selectedMessHall = (messHalls ?? []).find(
-				(mh) => mh.code === value,
-			);
-			const isValidSelection = Boolean(selectedMessHall);
-			const displayLabel = selectedMessHall?.name || value;
+			const selectedMessHall = (messHalls ?? []).find((mh) => mh.code === value)
+			const isValidSelection = Boolean(selectedMessHall)
+			const displayLabel = selectedMessHall?.name || value
 
 			return {
 				selectedMessHall,
 				isValidSelection,
 				displayLabel,
-			};
-		}, [value, messHalls]);
+			}
+		}, [value, messHalls])
 
 		// Base de estilos de trigger alinhado ao shadcn
 		const baseTrigger =
 			"w-full h-10 rounded-md border border-input bg-background px-3 py-2 " +
 			"text-sm text-foreground ring-offset-background " +
 			"placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 " +
-			"disabled:cursor-not-allowed disabled:opacity-50";
+			"disabled:cursor-not-allowed disabled:opacity-50"
 
 		// Classes memoizadas
 		const classes = useMemo(() => {
-			const sizeMap = { sm: "text-sm", md: "", lg: "text-lg" };
-			const sizeCls = sizeMap[size];
+			const sizeMap = { sm: "text-sm", md: "", lg: "text-lg" }
+			const sizeCls = sizeMap[size]
 
 			// Estados
-			const isInvalid =
-				showValidation && !selectorData.isValidSelection && Boolean(value);
+			const isInvalid = showValidation && !selectorData.isValidSelection && Boolean(value)
 
 			// Destaque opcional para rancho padrão
-			const defaultTint = hasDefault ? " bg-accent/10" : "";
+			const defaultTint = hasDefault ? " bg-accent/10" : ""
 
 			// Estado inválido usa tokens destrutivos
-			const invalidTint = isInvalid
-				? " border-destructive/50 bg-destructive/10"
-				: "";
+			const invalidTint = isInvalid ? " border-destructive/50 bg-destructive/10" : ""
 
-			const triggerClasses = `${baseTrigger} ${sizeCls}${defaultTint}${invalidTint}`;
+			const triggerClasses = `${baseTrigger} ${sizeCls}${defaultTint}${invalidTint}`
 
 			return {
 				trigger: triggerClasses,
@@ -89,24 +84,17 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				}`,
 				container: "space-y-2",
 				isInvalid,
-			};
-		}, [
-			disabled,
-			hasDefault,
-			showValidation,
-			selectorData.isValidSelection,
-			value,
-			size,
-		]);
+			}
+		}, [disabled, hasDefault, showValidation, selectorData.isValidSelection, value, size])
 
 		// Handler memoizado
 		const handleChange = useCallback(
 			(newValue: string) => {
-				if (disabled || newValue === value) return;
-				onChange(newValue);
+				if (disabled || newValue === value) return
+				onChange(newValue)
 			},
-			[disabled, value, onChange],
-		);
+			[disabled, value, onChange]
+		)
 
 		// Itens do select
 		const selectItems = useMemo(
@@ -119,40 +107,38 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					>
 						<div className="flex items-center justify-between w-full">
 							<span>{mh.name ?? mh.code}</span>
-							{value === mh.code && (
-								<Check className="h-4 w-4 text-primary ml-2" />
-							)}
+							{value === mh.code && <Check className="h-4 w-4 text-primary ml-2" />}
 						</div>
 					</SelectItem>
 				)),
-			[value, messHalls],
-		);
+			[value, messHalls]
+		)
 
 		// Badges/indicadores à direita do label
 		const indicators = useMemo(() => {
-			const badges = [];
+			const badges = []
 
 			if (hasDefault) {
 				badges.push(
 					<Badge key="default" variant="secondary" className="text-xs">
 						Padrão
-					</Badge>,
-				);
+					</Badge>
+				)
 			}
 
 			if (classes.isInvalid) {
 				badges.push(
 					<Badge key="invalid" variant="destructive" className="text-xs">
 						Inválido
-					</Badge>,
-				);
+					</Badge>
+				)
 			}
 
-			return badges;
-		}, [hasDefault, classes.isInvalid]);
+			return badges
+		}, [hasDefault, classes.isInvalid])
 
-		const { isInvalid } = classes;
-		const { isValidSelection, displayLabel } = selectorData;
+		const { isInvalid } = classes
+		const { isValidSelection, displayLabel } = selectorData
 
 		return (
 			<div className={classes.container}>
@@ -208,14 +194,14 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					</div>
 				)}
 			</div>
-		);
-	},
-);
+		)
+	}
+)
 
-MessHallSelector.displayName = "MessHallSelector";
+MessHallSelector.displayName = "MessHallSelector"
 
 // Temporary alias for backward compatibility during migration.
 // This allows existing imports of UnitSelector to continue working.
-export const UnitSelector = MessHallSelector;
+export const UnitSelector = MessHallSelector
 
-export default MessHallSelector;
+export default MessHallSelector

@@ -13,25 +13,22 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui";
-import { useForm } from "@tanstack/react-form";
-import { zodValidator } from "@tanstack/zod-form-adapter";
-import { z } from "zod";
-import type { NewUserPayload, Unit, UserLevelOrNull } from "@/types/domain";
+} from "@iefa/ui"
+import { useForm } from "@tanstack/react-form"
+import { zodValidator } from "@tanstack/zod-form-adapter"
+import { z } from "zod"
+import type { NewUserPayload, Unit, UserLevelOrNull } from "@/types/domain"
 
 // Remove local NewUserPayload definition and import from domain
 // Schema de validação
 const addUserSchema = z.object({
-	id: z
-		.string()
-		.uuid("ID inválido. Informe um UUID válido.")
-		.nonempty("ID é obrigatório"),
+	id: z.string().uuid("ID inválido. Informe um UUID válido.").nonempty("ID é obrigatório"),
 	email: z.string().email("Email inválido").nonempty("Email é obrigatório"),
 	name: z.string().nonempty("Nome é obrigatório"),
 	saram: z.string().regex(/^\d{7}$/, "SARAM deve ter 7 dígitos numéricos"),
 	role: z.enum(["user", "admin", "superadmin"] as const),
 	om: z.string(),
-});
+})
 
 export default function AddUserDialog({
 	open,
@@ -42,13 +39,13 @@ export default function AddUserDialog({
 	unitsError,
 	onSubmit,
 }: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	isLoading: boolean;
-	units: Unit[];
-	isLoadingUnits: boolean;
-	unitsError?: string | null;
-	onSubmit: (payload: NewUserPayload) => void | Promise<void>;
+	open: boolean
+	onOpenChange: (open: boolean) => void
+	isLoading: boolean
+	units: Unit[]
+	isLoadingUnits: boolean
+	unitsError?: string | null
+	onSubmit: (payload: NewUserPayload) => void | Promise<void>
 }) {
 	const form = useForm({
 		defaultValues: {
@@ -59,7 +56,7 @@ export default function AddUserDialog({
 			role: "user" as UserLevelOrNull,
 			om: "",
 		},
-		// @ts-ignore
+		// @ts-expect-error
 		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: addUserSchema,
@@ -69,10 +66,10 @@ export default function AddUserDialog({
 				...value,
 				role: value.role as UserLevelOrNull,
 				om: value.om || null,
-			});
-			form.reset();
+			})
+			form.reset()
 		},
-	});
+	})
 
 	// Reset form on close is handled by the parent or manually if needed,
 	// but strictly speaking TanStack Form handles state internally.
@@ -84,16 +81,16 @@ export default function AddUserDialog({
 				<DialogHeader>
 					<DialogTitle>Adicionar Novo Usuário</DialogTitle>
 					<DialogDescription>
-						Preencha todos os campos para cadastrar o usuário em profiles_admin.
-						O ID deve ser o UUID do usuário que se tornará Admin.
+						Preencha todos os campos para cadastrar o usuário em profiles_admin. O ID deve ser o
+						UUID do usuário que se tornará Admin.
 					</DialogDescription>
 				</DialogHeader>
 
 				<form
 					onSubmit={(e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						form.handleSubmit();
+						e.preventDefault()
+						e.stopPropagation()
+						form.handleSubmit()
 					}}
 					className="grid gap-4 py-2"
 				>
@@ -111,11 +108,7 @@ export default function AddUserDialog({
 										onBlur={field.handleBlur}
 										onChange={(e) => field.handleChange(e.target.value)}
 										placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-										className={
-											field.state.meta.errors.length > 0
-												? "border-destructive"
-												: ""
-										}
+										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
 									{field.state.meta.errors.length > 0 && (
 										<span className="text-destructive text-sm">
@@ -213,9 +206,7 @@ export default function AddUserDialog({
 								<div className="col-span-3">
 									<Select
 										value={field.state.value || ""}
-										onValueChange={(value) =>
-											field.handleChange(value as UserLevelOrNull)
-										}
+										onValueChange={(value) => field.handleChange(value as UserLevelOrNull)}
 									>
 										<SelectTrigger>
 											<SelectValue placeholder="Selecione uma role" />
@@ -251,9 +242,7 @@ export default function AddUserDialog({
 										<SelectTrigger>
 											<SelectValue
 												placeholder={
-													isLoadingUnits
-														? "Carregando OMs..."
-														: "Selecione a OM (opcional)"
+													isLoadingUnits ? "Carregando OMs..." : "Selecione a OM (opcional)"
 												}
 											/>
 										</SelectTrigger>
@@ -265,20 +254,14 @@ export default function AddUserDialog({
 											))}
 										</SelectContent>
 									</Select>
-									{unitsError && (
-										<p className="text-sm text-destructive">{unitsError}</p>
-									)}
+									{unitsError && <p className="text-sm text-destructive">{unitsError}</p>}
 								</div>
 							</div>
 						)}
 					</form.Field>
 
 					<DialogFooter className="mt-4">
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => onOpenChange(false)}
-						>
+						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 							Cancelar
 						</Button>
 						<Button type="submit" disabled={isLoading}>
@@ -288,5 +271,5 @@ export default function AddUserDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

@@ -1,98 +1,83 @@
-import { Button } from "@iefa/ui";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { Filter, LayoutGrid, Table } from "lucide-react";
-import { useMemo, useState } from "react";
-import {
-	type DashboardFilters,
-	FilterPanel,
-} from "@/components/journal/editorial/FilterPanel";
-import { KanbanBoard } from "@/components/journal/editorial/KanbanBoard";
-import { MetricsPanel } from "@/components/journal/editorial/MetricsPanel";
-import { TableView } from "@/components/journal/editorial/TableView";
-import { editorialDashboardQueryOptions } from "@/lib/journal/hooks";
-import type { EditorialDashboardArticle } from "@/lib/journal/types";
+import { Button } from "@iefa/ui"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
+import { Filter, LayoutGrid, Table } from "lucide-react"
+import { useMemo, useState } from "react"
+import { type DashboardFilters, FilterPanel } from "@/components/journal/editorial/FilterPanel"
+import { KanbanBoard } from "@/components/journal/editorial/KanbanBoard"
+import { MetricsPanel } from "@/components/journal/editorial/MetricsPanel"
+import { TableView } from "@/components/journal/editorial/TableView"
+import { editorialDashboardQueryOptions } from "@/lib/journal/hooks"
+import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
-type ViewMode = "kanban" | "table";
+type ViewMode = "kanban" | "table"
 
 export const Route = createFileRoute("/journal/editorial/dashboard")({
 	loader: async ({ context }) => {
-		return context.queryClient.ensureQueryData(
-			editorialDashboardQueryOptions(),
-		);
+		return context.queryClient.ensureQueryData(editorialDashboardQueryOptions())
 	},
 	component: EditorialDashboard,
-});
+})
 
 function EditorialDashboard() {
-	const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-	const [showFilters, setShowFilters] = useState(false);
+	const [viewMode, setViewMode] = useState<ViewMode>("kanban")
+	const [showFilters, setShowFilters] = useState(false)
 	const [filters, setFilters] = useState<DashboardFilters>({
 		search: "",
 		status: [],
 		articleType: [],
 		dateFrom: "",
 		dateTo: "",
-	});
+	})
 
-	const { data: articles } = useSuspenseQuery(editorialDashboardQueryOptions());
+	const { data: articles } = useSuspenseQuery(editorialDashboardQueryOptions())
 
 	// Filter articles based on current filters
 	const filteredArticles = useMemo(() => {
 		return articles.filter((article: EditorialDashboardArticle) => {
 			// Search filter
 			if (filters.search) {
-				const searchLower = filters.search.toLowerCase();
+				const searchLower = filters.search.toLowerCase()
 				const matchesSearch =
 					article.title_pt?.toLowerCase().includes(searchLower) ||
 					article.title_en?.toLowerCase().includes(searchLower) ||
-					article.submission_number?.toString().includes(searchLower);
-				if (!matchesSearch) return false;
+					article.submission_number?.toString().includes(searchLower)
+				if (!matchesSearch) return false
 			}
 
 			// Status filter
-			if (
-				filters.status.length > 0 &&
-				!filters.status.includes(article.status)
-			) {
-				return false;
+			if (filters.status.length > 0 && !filters.status.includes(article.status)) {
+				return false
 			}
 
 			// Article type filter
-			if (
-				filters.articleType.length > 0 &&
-				!filters.articleType.includes(article.article_type)
-			) {
-				return false;
+			if (filters.articleType.length > 0 && !filters.articleType.includes(article.article_type)) {
+				return false
 			}
 
 			// Date range filter
 			if (filters.dateFrom && article.submitted_at) {
 				if (new Date(article.submitted_at) < new Date(filters.dateFrom)) {
-					return false;
+					return false
 				}
 			}
 			if (filters.dateTo && article.submitted_at) {
 				if (new Date(article.submitted_at) > new Date(filters.dateTo)) {
-					return false;
+					return false
 				}
 			}
 
-			return true;
-		});
-	}, [articles, filters]);
+			return true
+		})
+	}, [articles, filters])
 
 	return (
 		<div className="space-y-6">
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Dashboard Editorial
-					</h1>
-					<p className="text-muted-foreground">
-						Gerencie submissões, revisões e publicações
-					</p>
+					<h1 className="text-3xl font-bold tracking-tight">Dashboard Editorial</h1>
+					<p className="text-muted-foreground">Gerencie submissões, revisões e publicações</p>
 				</div>
 
 				{/* View Toggle */}
@@ -152,5 +137,5 @@ function EditorialDashboard() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

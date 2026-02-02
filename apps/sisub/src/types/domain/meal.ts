@@ -1,16 +1,16 @@
 // Meal and Forecast Domain Types
 
-import type { LucideIcon } from "lucide-react";
-import type { DayMeals } from "@/lib/meal";
+import type { LucideIcon } from "lucide-react"
+import type { DayMeals } from "@/lib/meal"
 import type {
 	MealForecast,
 	MealForecastInsert,
 	MealForecastUpdate,
 	MessHall,
 	Unit,
-} from "@/types/supabase.types";
+} from "@/types/supabase.types"
 
-export type { DayMeals };
+export type { DayMeals }
 
 // ============================================================================
 // BASE TYPES (Re-export de supabase.types.ts)
@@ -20,19 +20,19 @@ export type { DayMeals };
  * Mess Hall (Rancho) - tabela mess_halls
  * Re-exportado de supabase.types.ts
  */
-export type { MessHall };
+export type { MessHall }
 
 /**
  * Unidade (OM) - tabela units
  * Re-exportado de supabase.types.ts
  */
-export type { Unit };
+export type { Unit }
 
 /**
  * Forecast de refeição - tabela meal_forecasts
  * Re-exportado de supabase.types.ts
  */
-export type { MealForecast, MealForecastInsert, MealForecastUpdate };
+export type { MealForecast, MealForecastInsert, MealForecastUpdate }
 
 // ============================================================================
 // DOMAIN TYPES (Tipos de Negócio)
@@ -41,7 +41,7 @@ export type { MealForecast, MealForecastInsert, MealForecastUpdate };
 /**
  * Chaves válidas para tipos de refeição
  */
-export type MealKey = "cafe" | "almoco" | "janta" | "ceia";
+export type MealKey = "cafe" | "almoco" | "janta" | "ceia"
 
 /**
  * Map of dates to meal selections.
@@ -49,7 +49,7 @@ export type MealKey = "cafe" | "almoco" | "janta" | "ceia";
  * Value: object with boolean flags for each meal type
  */
 export interface SelectionsByDate {
-	[date: string]: DayMeals;
+	[date: string]: DayMeals
 }
 
 /**
@@ -58,7 +58,7 @@ export interface SelectionsByDate {
  * Value: mess hall code (string)
  */
 export interface MessHallByDate {
-	[date: string]: string; // code
+	[date: string]: string // code
 }
 
 /**
@@ -67,10 +67,10 @@ export interface MessHallByDate {
  * Baseado em MealForecastInsert mas com campos específicos para o domínio
  */
 export interface PendingChange {
-	date: string;
-	meal: keyof DayMeals;
-	value: boolean;
-	messHallId: string; // ID (string) -> sisub.mess_halls.id
+	date: string
+	meal: keyof DayMeals
+	value: boolean
+	messHallId: string // ID (string) -> sisub.mess_halls.id
 }
 
 /**
@@ -78,27 +78,27 @@ export interface PendingChange {
  * Provides state and methods for managing meal forecasts.
  */
 export interface MealForecastHook {
-	success: string;
-	error: string;
-	isLoading: boolean; // initial load
-	isRefetching: boolean; // background refetch
-	pendingChanges: PendingChange[];
-	isSavingBatch: boolean;
-	selections: SelectionsByDate;
-	dayMessHalls: MessHallByDate; // CODE por data
-	defaultMessHallId: string; // ID preferido do usuário (string)
-	dates: string[];
-	todayString: string;
-	setSuccess: (msg: string) => void;
-	setError: (msg: string) => void;
-	setPendingChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
-	setSelections: React.Dispatch<React.SetStateAction<SelectionsByDate>>;
-	setDayMessHalls: React.Dispatch<React.SetStateAction<MessHallByDate>>;
-	setDefaultMessHallId: (id: string) => void; // setter local
-	persistDefaultMessHallId: () => Promise<void>; // persiste no banco
-	loadExistingForecasts: () => Promise<void>;
-	savePendingChanges: () => Promise<void>;
-	clearMessages: () => void;
+	success: string
+	error: string
+	isLoading: boolean // initial load
+	isRefetching: boolean // background refetch
+	pendingChanges: PendingChange[]
+	isSavingBatch: boolean
+	selections: SelectionsByDate
+	dayMessHalls: MessHallByDate // CODE por data
+	defaultMessHallId: string // ID preferido do usuário (string)
+	dates: string[]
+	todayString: string
+	setSuccess: (msg: string) => void
+	setError: (msg: string) => void
+	setPendingChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>
+	setSelections: React.Dispatch<React.SetStateAction<SelectionsByDate>>
+	setDayMessHalls: React.Dispatch<React.SetStateAction<MessHallByDate>>
+	setDefaultMessHallId: (id: string) => void // setter local
+	persistDefaultMessHallId: () => Promise<void> // persiste no banco
+	loadExistingForecasts: () => Promise<void>
+	savePendingChanges: () => Promise<void>
+	clearMessages: () => void
 }
 
 /**
@@ -106,8 +106,8 @@ export interface MealForecastHook {
  * Tipo de UI derivado, não existe no banco
  */
 export interface Option {
-	code: string;
-	name: string;
+	code: string
+	name: string
 }
 
 /**
@@ -116,9 +116,9 @@ export interface Option {
  */
 export type MealType = {
 	/** Nome da refeição (ex: "Café da Manhã") */
-	label: string;
+	label: string
 	/** Horário de disponibilidade (ex: "06:00 - 08:00") */
-	time: string;
+	time: string
 	/** Ícone do Lucide React */
-	icon: LucideIcon;
-};
+	icon: LucideIcon
+}

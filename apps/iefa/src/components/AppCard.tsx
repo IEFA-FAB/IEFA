@@ -1,17 +1,10 @@
-import {
-	Badge,
-	Button,
-	Card,
-	CardContent,
-	CardFooter,
-	CardHeader,
-} from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { ExternalLink, Github, User } from "lucide-react";
-import type { AppItem } from "@/types/domain";
+import { Badge, Button, Card, CardContent, CardFooter, CardHeader } from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { ExternalLink, Github, User } from "lucide-react"
+import type { AppItem } from "@/types/domain"
 
 export function AppCard({ app }: { app: AppItem }) {
-	const isExternal = app.external && !!app.href;
+	const isExternal = app.external && !!app.href
 
 	return (
 		<Card className="group flex h-full flex-col border border-border bg-card text-card-foreground transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40">
@@ -30,13 +23,11 @@ export function AppCard({ app }: { app: AppItem }) {
 			</CardHeader>
 
 			<CardContent className="flex-1 space-y-3 w-full">
-				<p className="text-sm sm:text-base text-muted-foreground text-pretty">
-					{app.description}
-				</p>
+				<p className="text-sm sm:text-base text-muted-foreground text-pretty">{app.description}</p>
 
 				{app.badges && app.badges.length > 0 ? (
 					<div className="flex flex-wrap gap-2">
-						{app.badges.map((b, idx) => (
+						{app.badges.map((b, _idx) => (
 							<Badge key={b} variant="outline">
 								{b}
 							</Badge>
@@ -51,20 +42,17 @@ export function AppCard({ app }: { app: AppItem }) {
 						</div>
 						<ul className="mt-2 flex flex-row gap-x-8 gap-y-1.5">
 							{app.contributors.map((c, idx) => {
-								const isGithub = c.url?.includes("github.com");
+								const isGithub = c.url?.includes("github.com")
 								const iconEl =
 									c.icon ??
 									(isGithub ? (
 										<Github className="h-4 w-4" aria-hidden="true" />
 									) : (
 										<User className="h-4 w-4" aria-hidden="true" />
-									));
+									))
 
 								return (
-									<li
-										key={`${c.label}-${idx}`}
-										className="flex items-center gap-2"
-									>
+									<li key={`${c.label}-${idx}`} className="flex items-center gap-2">
 										<span className="text-muted-foreground" aria-hidden="true">
 											{iconEl}
 										</span>
@@ -78,18 +66,13 @@ export function AppCard({ app }: { app: AppItem }) {
 												aria-label={`Abrir perfil de ${c.label} em nova aba`}
 											>
 												<span>{c.label}</span>
-												<ExternalLink
-													className="h-3.5 w-3.5"
-													aria-hidden="true"
-												/>
+												<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
 											</a>
 										) : (
-											<span className="text-sm text-muted-foreground">
-												{c.label}
-											</span>
+											<span className="text-sm text-muted-foreground">{c.label}</span>
 										)}
 									</li>
-								);
+								)
 							})}
 						</ul>
 					</div>
@@ -112,9 +95,7 @@ export function AppCard({ app }: { app: AppItem }) {
 								rel={isExternal ? "noreferrer noopener" : undefined}
 							>
 								Acessar
-								{isExternal ? (
-									<ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-								) : null}
+								{isExternal ? <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" /> : null}
 							</a>
 						}
 						className="w-full"
@@ -123,5 +104,5 @@ export function AppCard({ app }: { app: AppItem }) {
 				) : null}
 			</CardFooter>
 		</Card>
-	);
+	)
 }

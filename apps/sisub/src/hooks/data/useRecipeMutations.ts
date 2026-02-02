@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import supabase from "@/lib/supabase";
-import type { RecipeFormData } from "@/types/domain/recipes";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import supabase from "@/lib/supabase"
+import type { RecipeFormData } from "@/types/domain/recipes"
 
 export function useCreateRecipe() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async (data: RecipeFormData) => {
@@ -22,46 +22,44 @@ export function useCreateRecipe() {
 					version: 1, // Start at version 1
 				})
 				.select()
-				.single();
+				.single()
 
-			if (recipeError) throw recipeError;
+			if (recipeError) throw recipeError
 
 			// 2. Insert ingredients if any
 			// Note: In strict mode we should have used data.ingredients, but type uses RecipeIngredientFormData
 			// Assuming data passed respects the shape
-			// @ts-ignore - TODO: fix typing here strictly
-			const ingredients = data.ingredients || [];
+			// @ts-expect-error - TODO: fix typing here strictly
+			const ingredients = data.ingredients || []
 
 			if (ingredients.length > 0) {
-				const { error: ingredientsError } = await supabase
-					.from("recipe_ingredients")
-					.insert(
-						ingredients.map((ing: any) => ({
-							recipe_id: recipe.id,
-							product_id: ing.product_id,
-							net_quantity: ing.net_quantity,
-							is_optional: ing.is_optional,
-							priority_order: ing.priority_order,
-						})),
-					);
+				const { error: ingredientsError } = await supabase.from("recipe_ingredients").insert(
+					ingredients.map((ing: any) => ({
+						recipe_id: recipe.id,
+						product_id: ing.product_id,
+						net_quantity: ing.net_quantity,
+						is_optional: ing.is_optional,
+						priority_order: ing.priority_order,
+					}))
+				)
 
-				if (ingredientsError) throw ingredientsError;
+				if (ingredientsError) throw ingredientsError
 			}
 
-			return recipe;
+			return recipe
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["recipes"] });
-			toast.success("Receita criada com sucesso");
+			queryClient.invalidateQueries({ queryKey: ["recipes"] })
+			toast.success("Receita criada com sucesso")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao criar receita: ${error.message}`);
+			toast.error(`Erro ao criar receita: ${error.message}`)
 		},
-	});
+	})
 }
 
 export function useVersionRecipe() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async ({
@@ -69,9 +67,9 @@ export function useVersionRecipe() {
 			data,
 			newVersion,
 		}: {
-			baseRecipeId: string;
-			data: RecipeFormData;
-			newVersion: number;
+			baseRecipeId: string
+			data: RecipeFormData
+			newVersion: number
 		}) => {
 			// 1. Create NEW recipe (Immutable Versioning: INSERT not UPDATE)
 			const { data: recipe, error: recipeError } = await supabase
@@ -88,38 +86,36 @@ export function useVersionRecipe() {
 					version: newVersion, // Incremented version
 				})
 				.select()
-				.single();
+				.single()
 
-			if (recipeError) throw recipeError;
+			if (recipeError) throw recipeError
 
 			// 2. Insert new ingredients
-			// @ts-ignore
-			const ingredients = data.ingredients || [];
+			// @ts-expect-error
+			const ingredients = data.ingredients || []
 
 			if (ingredients.length > 0) {
-				const { error: ingredientsError } = await supabase
-					.from("recipe_ingredients")
-					.insert(
-						ingredients.map((ing: any) => ({
-							recipe_id: recipe.id,
-							product_id: ing.product_id,
-							net_quantity: ing.net_quantity,
-							is_optional: ing.is_optional,
-							priority_order: ing.priority_order,
-						})),
-					);
+				const { error: ingredientsError } = await supabase.from("recipe_ingredients").insert(
+					ingredients.map((ing: any) => ({
+						recipe_id: recipe.id,
+						product_id: ing.product_id,
+						net_quantity: ing.net_quantity,
+						is_optional: ing.is_optional,
+						priority_order: ing.priority_order,
+					}))
+				)
 
-				if (ingredientsError) throw ingredientsError;
+				if (ingredientsError) throw ingredientsError
 			}
 
-			return recipe;
+			return recipe
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["recipes"] });
-			toast.success("Nova versão criada com sucesso");
+			queryClient.invalidateQueries({ queryKey: ["recipes"] })
+			toast.success("Nova versão criada com sucesso")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao atualizar receita: ${error.message}`);
+			toast.error(`Erro ao atualizar receita: ${error.message}`)
 		},
-	});
+	})
 }

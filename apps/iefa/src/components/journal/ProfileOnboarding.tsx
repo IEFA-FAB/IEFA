@@ -1,6 +1,6 @@
-import { Button, Card, CardContent, CardHeader } from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { AlertCircle, User } from "lucide-react";
+import { Button, Card, CardContent, CardHeader } from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { AlertCircle, User } from "lucide-react"
 
 export function ProfileOnboarding() {
 	return (
@@ -10,12 +10,10 @@ export function ProfileOnboarding() {
 					<div className="mx-auto size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
 						<User className="size-8 text-primary" aria-hidden="true" />
 					</div>
-					<h1 className="text-3xl font-bold tracking-tight mb-2">
-						Complete Seu Perfil
-					</h1>
+					<h1 className="text-3xl font-bold tracking-tight mb-2">Complete Seu Perfil</h1>
 					<p className="text-muted-foreground">
-						Para utilizar o Sistema de Gestão de Publicações, você precisa
-						primeiro completar seu perfil.
+						Para utilizar o Sistema de Gestão de Publicações, você precisa primeiro completar seu
+						perfil.
 					</p>
 				</CardHeader>
 
@@ -31,19 +29,16 @@ export function ProfileOnboarding() {
 								Por que preciso completar meu perfil?
 							</h3>
 							<p className="text-sm text-blue-800 dark:text-blue-200">
-								O Sistema de Gestão de Publicações utiliza suas informações de
-								perfil para identificar você como autor, revisor ou editor. Seus
-								dados são essenciais para a gestão adequada de artigos, revisões
-								e publicações.
+								O Sistema de Gestão de Publicações utiliza suas informações de perfil para
+								identificar você como autor, revisor ou editor. Seus dados são essenciais para a
+								gestão adequada de artigos, revisões e publicações.
 							</p>
 						</div>
 					</div>
 
 					{/* Required Information */}
 					<div>
-						<h2 className="font-semibold text-lg mb-3">
-							Informações Necessárias
-						</h2>
+						<h2 className="font-semibold text-lg mb-3">Informações Necessárias</h2>
 						<ul className="space-y-2 text-sm text-muted-foreground">
 							<li className="flex items-start gap-2">
 								<span className="text-primary mt-1">•</span>
@@ -85,5 +80,5 @@ export function ProfileOnboarding() {
 				</CardContent>
 			</Card>
 		</div>
-	);
+	)
 }

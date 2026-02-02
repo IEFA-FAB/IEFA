@@ -1,8 +1,5 @@
-import {
-	createCollection,
-	localStorageCollectionOptions,
-} from "@tanstack/react-db";
-import { z } from "zod";
+import { createCollection, localStorageCollectionOptions } from "@tanstack/react-db"
+import { z } from "zod"
 
 export const localMealForecastSchema = z.object({
 	id: z.string(), // "YYYY-MM-DD-mealType"
@@ -13,9 +10,9 @@ export const localMealForecastSchema = z.object({
 	messHallId: z.number(),
 	userId: z.string(),
 	synced: z.boolean(),
-});
+})
 
-export type LocalMealForecast = z.infer<typeof localMealForecastSchema>;
+export type LocalMealForecast = z.infer<typeof localMealForecastSchema>
 
 export const mealForecastsCollection = createCollection(
 	localStorageCollectionOptions({
@@ -23,5 +20,5 @@ export const mealForecastsCollection = createCollection(
 		storageKey: "sisub-meal-forecasts",
 		getKey: (item) => item.id,
 		schema: localMealForecastSchema,
-	}),
-);
+	})
+)

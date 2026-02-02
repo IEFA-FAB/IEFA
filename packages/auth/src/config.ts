@@ -1,66 +1,60 @@
 // packages/auth/src/config.ts
-import type { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js"
 
-export type PublicPath = string | RegExp | ((pathname: string) => boolean);
+export type PublicPath = string | RegExp | ((pathname: string) => boolean)
 
 export type AuthBrand = {
-	title?: string; // ex: "SISUB"
-	subtitle?: string; // ex: "Gerencie a demanda do rancho"
-	logoUrl?: string; // opcional
-};
+	title?: string // ex: "SISUB"
+	subtitle?: string // ex: "Gerencie a demanda do rancho"
+	logoUrl?: string // opcional
+}
 
 export type AuthUIText = {
 	// Login
-	loginTitle?: string;
-	loginSubtitle?: string;
-	loginButton?: string;
-	forgotPassword?: string;
-	rememberEmail?: string;
-	invalidEmailMsg?: string;
-	weakPasswordMsg?: string;
-	sendingMsg?: string;
+	loginTitle?: string
+	loginSubtitle?: string
+	loginButton?: string
+	forgotPassword?: string
+	rememberEmail?: string
+	invalidEmailMsg?: string
+	weakPasswordMsg?: string
+	sendingMsg?: string
 	// Registro
-	registerTitle?: string;
-	registerSubtitle?: string;
-	createAccountBtn?: string;
+	registerTitle?: string
+	registerSubtitle?: string
+	createAccountBtn?: string
 	// Reset
-	resetTitle?: string;
-	resetSubtitle?: string;
-	updatingPasswordBtn?: string;
+	resetTitle?: string
+	resetSubtitle?: string
+	updatingPasswordBtn?: string
 	// Mensagens comuns
-	checkingAuth?: string;
-	recoveringEmailSent?: string;
-	genericAuthError?: string;
-};
+	checkingAuth?: string
+	recoveringEmailSent?: string
+	genericAuthError?: string
+}
 
 export type StorageKeys = {
-	rememberEmail: string;
-	redirect: string;
-};
+	rememberEmail: string
+	redirect: string
+}
 
-export type FetchUserMeta = (user: User) => Promise<Record<string, unknown>>;
+export type FetchUserMeta = (user: User) => Promise<Record<string, unknown>>
 
 export type AuthConfig = {
-	loginPath?: string; // ex: "/login"
-	defaultRedirect?: string; // ex: "/forecast"
-	publicPaths?: PublicPath[]; // rotas públicas
-	emailRegex?: RegExp; // ex: /^[...]+@fab\.mil\.br$/
-	storageKeys?: StorageKeys; // remember/redirect keys
-	brand?: AuthBrand; // titulo/subtitulo/logo
-	ui?: AuthUIText; // textos opcionais/overrides
-	fetchUserMeta?: FetchUserMeta; // opcional (ex: role/om)
-};
+	loginPath?: string // ex: "/login"
+	defaultRedirect?: string // ex: "/forecast"
+	publicPaths?: PublicPath[] // rotas públicas
+	emailRegex?: RegExp // ex: /^[...]+@fab\.mil\.br$/
+	storageKeys?: StorageKeys // remember/redirect keys
+	brand?: AuthBrand // titulo/subtitulo/logo
+	ui?: AuthUIText // textos opcionais/overrides
+	fetchUserMeta?: FetchUserMeta // opcional (ex: role/om)
+}
 
 export const DEFAULT_CONFIG: Required<
 	Pick<
 		AuthConfig,
-		| "loginPath"
-		| "defaultRedirect"
-		| "publicPaths"
-		| "emailRegex"
-		| "storageKeys"
-		| "brand"
-		| "ui"
+		"loginPath" | "defaultRedirect" | "publicPaths" | "emailRegex" | "storageKeys" | "brand" | "ui"
 	>
 > = {
 	loginPath: "/login",
@@ -100,15 +94,13 @@ export const DEFAULT_CONFIG: Required<
 		resetSubtitle: "Crie sua nova senha para acessar o sistema",
 		updatingPasswordBtn: "Atualizar senha",
 		checkingAuth: "Verificando autenticação...",
-		recoveringEmailSent:
-			"Email de recuperação enviado! Verifique sua caixa de entrada.",
-		genericAuthError:
-			"Ocorreu um erro durante a autenticação. Tente mais tarde.",
+		recoveringEmailSent: "Email de recuperação enviado! Verifique sua caixa de entrada.",
+		genericAuthError: "Ocorreu um erro durante a autenticação. Tente mais tarde.",
 	},
-};
+}
 
 export function resolveAuthConfig(overrides?: AuthConfig) {
-	const base = DEFAULT_CONFIG;
+	const base = DEFAULT_CONFIG
 	return {
 		...base,
 		...overrides,
@@ -116,5 +108,5 @@ export function resolveAuthConfig(overrides?: AuthConfig) {
 		brand: { ...base.brand, ...overrides?.brand },
 		ui: { ...base.ui, ...overrides?.ui },
 		publicPaths: overrides?.publicPaths ?? base.publicPaths,
-	};
+	}
 }

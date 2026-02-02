@@ -1,24 +1,13 @@
-import { Button, Card, Input } from "@iefa/ui";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-	FolderPlus,
-	Loader2,
-	PackagePlus,
-	Search,
-	ShoppingCart,
-} from "lucide-react";
-import { useRef, useState } from "react";
-import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy";
-import type {
-	Folder,
-	Product,
-	ProductDialogState,
-	ProductItem,
-} from "@/types/domain/products";
-import { FolderForm } from "./FolderForm";
-import { ProductForm } from "./ProductForm";
-import { ProductItemForm } from "./ProductItemForm";
-import { ProductsTreeNode } from "./ProductsTreeNode";
+import { Button, Card, Input } from "@iefa/ui"
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { FolderPlus, Loader2, PackagePlus, Search, ShoppingCart } from "lucide-react"
+import { useRef, useState } from "react"
+import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
+import type { Folder, Product, ProductDialogState, ProductItem } from "@/types/domain/products"
+import { FolderForm } from "./FolderForm"
+import { ProductForm } from "./ProductForm"
+import { ProductItemForm } from "./ProductItemForm"
+import { ProductsTreeNode } from "./ProductsTreeNode"
 
 /**
  * Componente principal de gestão de insumos
@@ -30,39 +19,32 @@ import { ProductsTreeNode } from "./ProductsTreeNode";
  * - Industrial-Technical aesthetic (frontend-design)
  */
 export function ProductsTreeManager() {
-	const [filterText, setFilterText] = useState("");
+	const [filterText, setFilterText] = useState("")
 	const [dialogState, setDialogState] = useState<ProductDialogState>({
 		isOpen: false,
 		mode: "create",
 		type: "folder",
-	});
+	})
 
 	// Dados com hook personalizado
-	const {
-		flatTree,
-		stats,
-		error,
-		refetch,
-		toggleExpand,
-		expandAll,
-		collapseAll,
-	} = useProductsHierarchy(filterText);
+	const { flatTree, stats, error, refetch, toggleExpand, expandAll, collapseAll } =
+		useProductsHierarchy(filterText)
 
 	// Virtualização
-	const parentRef = useRef<HTMLDivElement>(null);
+	const parentRef = useRef<HTMLDivElement>(null)
 	const rowVirtualizer = useVirtualizer({
 		count: flatTree?.nodes.length || 0,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 48,
 		overscan: 10,
-	});
+	})
 
 	// Handlers de diálogo
 	const handleOpenDialog = (
 		type: ProductDialogState["type"],
 		mode: "create" | "edit" = "create",
 		data?: Folder | Product | ProductItem,
-		parentId?: string | null,
+		parentId?: string | null
 	) => {
 		setDialogState({
 			isOpen: true,
@@ -70,16 +52,16 @@ export function ProductsTreeManager() {
 			type,
 			data,
 			parentId,
-		});
-	};
+		})
+	}
 
 	const handleCloseDialog = () => {
 		setDialogState({
 			isOpen: false,
 			mode: "create",
 			type: "folder",
-		});
-	};
+		})
+	}
 
 	// Loading state
 	if (!flatTree && !error) {
@@ -87,7 +69,7 @@ export function ProductsTreeManager() {
 			<div className="flex items-center justify-center h-96">
 				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
 			</div>
-		);
+		)
 	}
 
 	// Error state (local, com retry)
@@ -95,14 +77,12 @@ export function ProductsTreeManager() {
 		return (
 			<Card className="p-6">
 				<div className="text-center space-y-4">
-					<p className="text-destructive">
-						Erro ao carregar árvore de produtos
-					</p>
+					<p className="text-destructive">Erro ao carregar árvore de produtos</p>
 					<p className="text-sm text-muted-foreground">{error.message}</p>
 					<Button onClick={() => refetch()}>Tentar Novamente</Button>
 				</div>
 			</Card>
-		);
+		)
 	}
 
 	return (
@@ -187,9 +167,7 @@ export function ProductsTreeManager() {
 						<div className="p-4 md:p-6">
 							<div className="flex items-center justify-between">
 								<div>
-									<div className="text-sm font-sans text-muted-foreground">
-										Pastas
-									</div>
+									<div className="text-sm font-sans text-muted-foreground">Pastas</div>
 									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
 										{stats.totalFolders}
 									</div>
@@ -209,9 +187,7 @@ export function ProductsTreeManager() {
 						<div className="p-4 md:p-6">
 							<div className="flex items-center justify-between">
 								<div>
-									<div className="text-sm font-sans text-muted-foreground">
-										Produtos
-									</div>
+									<div className="text-sm font-sans text-muted-foreground">Produtos</div>
 									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
 										{stats.totalProducts}
 									</div>
@@ -231,9 +207,7 @@ export function ProductsTreeManager() {
 						<div className="p-4 md:p-6">
 							<div className="flex items-center justify-between">
 								<div>
-									<div className="text-sm font-sans text-muted-foreground">
-										Itens de Compra
-									</div>
+									<div className="text-sm font-sans text-muted-foreground">Itens de Compra</div>
 									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
 										{stats.totalItems}
 									</div>
@@ -258,11 +232,7 @@ export function ProductsTreeManager() {
 					{flatTree && flatTree.nodes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">Nenhum item encontrado</p>
-							{filterText && (
-								<p className="text-sm mt-2">
-									Tente ajustar os filtros de busca
-								</p>
-							)}
+							{filterText && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>}
 						</div>
 					) : (
 						<div
@@ -273,8 +243,8 @@ export function ProductsTreeManager() {
 							}}
 						>
 							{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-								const node = flatTree?.nodes[virtualRow.index];
-								if (!node) return null;
+								const node = flatTree?.nodes[virtualRow.index]
+								if (!node) return null
 								return (
 									<div
 										key={virtualRow.key}
@@ -289,13 +259,11 @@ export function ProductsTreeManager() {
 									>
 										<ProductsTreeNode
 											node={node}
-											onEdit={(type, data) =>
-												handleOpenDialog(type, "edit", data)
-											}
+											onEdit={(type, data) => handleOpenDialog(type, "edit", data)}
 											onToggle={toggleExpand}
 										/>
 									</div>
-								);
+								)
 							})}
 						</div>
 					)}
@@ -309,9 +277,7 @@ export function ProductsTreeManager() {
 					onClose={handleCloseDialog}
 					mode={dialogState.mode}
 					folder={
-						dialogState.mode === "edit" &&
-						dialogState.data &&
-						"parent_id" in dialogState.data
+						dialogState.mode === "edit" && dialogState.data && "parent_id" in dialogState.data
 							? (dialogState.data as Folder)
 							: undefined
 					}
@@ -324,9 +290,7 @@ export function ProductsTreeManager() {
 					onClose={handleCloseDialog}
 					mode={dialogState.mode}
 					product={
-						dialogState.mode === "edit" &&
-						dialogState.data &&
-						"measure_unit" in dialogState.data
+						dialogState.mode === "edit" && dialogState.data && "measure_unit" in dialogState.data
 							? (dialogState.data as Product)
 							: undefined
 					}
@@ -340,9 +304,7 @@ export function ProductsTreeManager() {
 					onClose={handleCloseDialog}
 					mode={dialogState.mode}
 					productItem={
-						dialogState.mode === "edit" &&
-						dialogState.data &&
-						"product_id" in dialogState.data
+						dialogState.mode === "edit" && dialogState.data && "product_id" in dialogState.data
 							? (dialogState.data as ProductItem)
 							: undefined
 					}
@@ -350,5 +312,5 @@ export function ProductsTreeManager() {
 				/>
 			)}
 		</div>
-	);
+	)
 }

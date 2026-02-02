@@ -1,12 +1,11 @@
-import { Moon, Sun } from "lucide-react";
-import { useRef } from "react";
-import { flushSync } from "react-dom";
-import { cn } from "../lib/utils";
+import { Moon, Sun } from "lucide-react"
+import { useRef } from "react"
+import { flushSync } from "react-dom"
+import { cn } from "../lib/utils"
 
-interface AnimatedThemeTogglerProps
-	extends React.ComponentPropsWithoutRef<"button"> {
-	duration?: number;
-	toggle: () => void;
+interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"button"> {
+	duration?: number
+	toggle: () => void
 }
 
 export const AnimatedThemeToggler = ({
@@ -15,46 +14,43 @@ export const AnimatedThemeToggler = ({
 	toggle,
 	...props
 }: AnimatedThemeTogglerProps) => {
-	const buttonRef = useRef<HTMLButtonElement>(null);
+	const buttonRef = useRef<HTMLButtonElement>(null)
 
 	const handleToggle = async () => {
 		if (!document.startViewTransition) {
-			toggle();
-			return;
+			toggle()
+			return
 		}
 
-		const button = buttonRef.current;
-		if (!button) return;
+		const button = buttonRef.current
+		if (!button) return
 
 		await document.startViewTransition(() => {
 			flushSync(() => {
-				toggle();
-			});
-		}).ready;
+				toggle()
+			})
+		}).ready
 
-		const { top, left, width, height } = button.getBoundingClientRect();
+		const { top, left, width, height } = button.getBoundingClientRect()
 
-		const x = left + width / 2;
-		const y = top + height / 2;
+		const x = left + width / 2
+		const y = top + height / 2
 
-		const right = window.innerWidth - left;
-		const bottom = window.innerHeight - top;
-		const maxRadius = Math.hypot(Math.max(left, right), Math.max(top, bottom));
+		const right = window.innerWidth - left
+		const bottom = window.innerHeight - top
+		const maxRadius = Math.hypot(Math.max(left, right), Math.max(top, bottom))
 
 		document.documentElement.animate(
 			{
-				clipPath: [
-					`circle(0px at ${x}px ${y}px)`,
-					`circle(${maxRadius}px at ${x}px ${y}px)`,
-				],
+				clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${maxRadius}px at ${x}px ${y}px)`],
 			},
 			{
 				duration,
 				easing: "ease-in-out",
 				pseudoElement: "::view-transition-new(root)",
-			},
-		);
-	};
+			}
+		)
+	}
 
 	return (
 		<button
@@ -62,7 +58,7 @@ export const AnimatedThemeToggler = ({
 			onClick={handleToggle}
 			className={cn(
 				"relative inline-flex items-center justify-center overflow-hidden rounded-full p-2 transition-colors hover:bg-accent",
-				className,
+				className
 			)}
 			{...props}
 		>
@@ -80,5 +76,5 @@ export const AnimatedThemeToggler = ({
 			</div>
 			<span className="sr-only">Alternar tema</span>
 		</button>
-	);
-};
+	)
+}

@@ -1,8 +1,8 @@
-import { useRealtimeSubscription } from "@/hooks/data/useRealtime";
+import { useRealtimeSubscription } from "@/hooks/data/useRealtime"
 
 /**
  * Provider para subscrições Realtime globais
- * 
+ *
  * Escuta mudanças em tabelas críticas e invalida queries relevantes
  * Deve envolver a aplicação no __root.tsx
  */
@@ -13,7 +13,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 		event: "*",
 		queryKeyPrefix: ["planning"],
 		message: "Cardápio atualizado por outro usuário",
-	});
+	})
 
 	// Escutar mudanças em recipes (catálogo de receitas)
 	useRealtimeSubscription({
@@ -21,7 +21,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 		event: "*",
 		queryKeyPrefix: ["recipes"],
 		message: "Receita atualizada por outro usuário",
-	});
+	})
 
 	// Escutar mudanças em menu_items (itens do cardápio)
 	useRealtimeSubscription({
@@ -29,7 +29,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 		event: "*",
 		queryKeyPrefix: ["planning", "procurement"],
 		message: "Item do cardápio atualizado",
-	});
+	})
 
-	return <>{children}</>;
+	return <>{children}</>
 }

@@ -13,19 +13,18 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@iefa/ui";
-import { Check } from "lucide-react";
-import React from "react";
-import { useRecipes } from "@/hooks/data/useRecipes";
-import type { Recipe } from "@/types/supabase.types";
+} from "@iefa/ui"
+import { Check } from "lucide-react"
+import React from "react"
+import { useRecipes } from "@/hooks/data/useRecipes"
 
 interface RecipeSelectorProps {
-	open: boolean;
-	onClose: () => void;
-	kitchenId: number | null;
-	selectedRecipeIds: string[];
-	onSelect: (recipeIds: string[]) => void;
-	multiSelect?: boolean;
+	open: boolean
+	onClose: () => void
+	kitchenId: number | null
+	selectedRecipeIds: string[]
+	onSelect: (recipeIds: string[]) => void
+	multiSelect?: boolean
 }
 
 /**
@@ -54,56 +53,52 @@ export function RecipeSelector({
 	onSelect,
 	multiSelect = true,
 }: RecipeSelectorProps) {
-	const { data: recipes, isLoading } = useRecipes();
-	const [searchQuery, setSearchQuery] = React.useState("");
-	const [tempSelected, setTempSelected] =
-		React.useState<string[]>(selectedRecipeIds);
+	const { data: recipes, isLoading } = useRecipes()
+	const [searchQuery, setSearchQuery] = React.useState("")
+	const [tempSelected, setTempSelected] = React.useState<string[]>(selectedRecipeIds)
 
 	// Reset temp selection when dialog opens
 	React.useEffect(() => {
 		if (open) {
-			setTempSelected(selectedRecipeIds);
-			setSearchQuery("");
+			setTempSelected(selectedRecipeIds)
+			setSearchQuery("")
 		}
-	}, [open, selectedRecipeIds]);
+	}, [open, selectedRecipeIds])
 
 	// Filtrar recipes por kitchen (globais + kitchen específica)
 	const filteredRecipes = React.useMemo(() => {
-		if (!recipes) return [];
+		if (!recipes) return []
 
 		return recipes.filter((recipe) => {
 			// Filter by kitchen
-			const matchesKitchen =
-				recipe.kitchen_id === null || recipe.kitchen_id === kitchenId;
+			const matchesKitchen = recipe.kitchen_id === null || recipe.kitchen_id === kitchenId
 
 			// Filter by search query
 			const matchesSearch =
 				searchQuery === "" ||
 				recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				recipe.code?.toLowerCase().includes(searchQuery.toLowerCase());
+				recipe.code?.toLowerCase().includes(searchQuery.toLowerCase())
 
-			return matchesKitchen && matchesSearch;
-		});
-	}, [recipes, kitchenId, searchQuery]);
+			return matchesKitchen && matchesSearch
+		})
+	}, [recipes, kitchenId, searchQuery])
 
 	const handleToggleRecipe = (recipeId: string) => {
 		if (multiSelect) {
 			setTempSelected((prev) =>
-				prev.includes(recipeId)
-					? prev.filter((id) => id !== recipeId)
-					: [...prev, recipeId],
-			);
+				prev.includes(recipeId) ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]
+			)
 		} else {
-			setTempSelected([recipeId]);
+			setTempSelected([recipeId])
 		}
-	};
+	}
 
 	const handleConfirm = () => {
-		onSelect(tempSelected);
-		onClose();
-	};
+		onSelect(tempSelected)
+		onClose()
+	}
 
-	const selectedCount = tempSelected.length;
+	const selectedCount = tempSelected.length
 
 	return (
 		<Dialog open={open} onOpenChange={onClose}>
@@ -133,7 +128,7 @@ export function RecipeSelector({
 						) : (
 							<CommandGroup>
 								{filteredRecipes.map((recipe) => {
-									const isSelected = tempSelected.includes(recipe.id);
+									const isSelected = tempSelected.includes(recipe.id)
 
 									return (
 										<CommandItem
@@ -144,14 +139,10 @@ export function RecipeSelector({
 										>
 											<div
 												className={`flex h-5 w-5 items-center justify-center rounded border ${
-													isSelected
-														? "bg-primary border-primary"
-														: "border-muted-foreground"
+													isSelected ? "bg-primary border-primary" : "border-muted-foreground"
 												}`}
 											>
-												{isSelected && (
-													<Check className="h-3 w-3 text-primary-foreground" />
-												)}
+												{isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
 											</div>
 
 											<div className="flex-1">
@@ -176,7 +167,7 @@ export function RecipeSelector({
 												</span>
 											)}
 										</CommandItem>
-									);
+									)
 								})}
 							</CommandGroup>
 						)}
@@ -187,8 +178,7 @@ export function RecipeSelector({
 					<div className="text-sm text-muted-foreground">
 						{selectedCount > 0 ? (
 							<span>
-								{selectedCount} receita{selectedCount > 1 ? "s" : ""}{" "}
-								selecionada
+								{selectedCount} receita{selectedCount > 1 ? "s" : ""} selecionada
 								{selectedCount > 1 ? "s" : ""}
 							</span>
 						) : (
@@ -199,16 +189,12 @@ export function RecipeSelector({
 						<Button type="button" variant="outline" onClick={onClose}>
 							Cancelar
 						</Button>
-						<Button
-							type="button"
-							onClick={handleConfirm}
-							disabled={selectedCount === 0}
-						>
+						<Button type="button" onClick={handleConfirm} disabled={selectedCount === 0}>
 							Confirmar ({selectedCount})
 						</Button>
 					</div>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

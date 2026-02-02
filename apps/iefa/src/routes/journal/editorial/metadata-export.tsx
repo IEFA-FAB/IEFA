@@ -1,37 +1,36 @@
-import { Button } from "@iefa/ui";
-import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileText, Globe, Send } from "lucide-react";
+import { Button } from "@iefa/ui"
+import { createFileRoute } from "@tanstack/react-router"
+import { Download, FileText, Globe, Send } from "lucide-react"
 
 export const Route = createFileRoute("/journal/editorial/metadata-export")({
 	component: MetadataExport,
-});
+})
 
 function MetadataExport() {
 	// Placeholder - will use publishedArticlesQueryOptions
-	const publishedArticles: any[] = [];
+	// biome-ignore lint/suspicious/noExplicitAny: Placeholder data
+	const publishedArticles: any[] = []
 
 	const handleExportCrossref = () => {
 		// TODO: Generate and download Crossref XML
-		alert("Exportando metadados para Crossref...");
-	};
+		alert("Exportando metadados para Crossref...")
+	}
 
 	const handleExportJATS = () => {
 		// TODO: Generate and download JATS XML
-		alert("Exportando metadados em formato JATS...");
-	};
+		alert("Exportando metadados em formato JATS...")
+	}
 
 	const handleExportDublinCore = () => {
 		// TODO: Generate and download Dublin Core XML
-		alert("Exportando metadados em formato Dublin Core...");
-	};
+		alert("Exportando metadados em formato Dublin Core...")
+	}
 
 	return (
 		<div className="space-y-6">
 			{/* Header */}
 			<div>
-				<h1 className="text-3xl font-bold tracking-tight">
-					Exportar Metadados
-				</h1>
+				<h1 className="text-3xl font-bold tracking-tight">Exportar Metadados</h1>
 				<p className="text-muted-foreground">
 					Exporte metadados dos artigos publicados em diferentes formatos padrão
 				</p>
@@ -47,8 +46,8 @@ function MetadataExport() {
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Crossref XML</h3>
 						<p className="text-sm text-muted-foreground mb-4">
-							Formato para registro de DOIs no sistema Crossref. Inclui todos os
-							metadados necessários para indexação.
+							Formato para registro de DOIs no sistema Crossref. Inclui todos os metadados
+							necessários para indexação.
 						</p>
 					</div>
 					<Button className="w-full" onClick={handleExportCrossref}>
@@ -65,8 +64,8 @@ function MetadataExport() {
 					<div>
 						<h3 className="font-semibold text-lg mb-2">JATS XML</h3>
 						<p className="text-sm text-muted-foreground mb-4">
-							Journal Article Tag Suite - padrão para arquivamento e intercâmbio
-							de artigos científicos.
+							Journal Article Tag Suite - padrão para arquivamento e intercâmbio de artigos
+							científicos.
 						</p>
 					</div>
 					<Button className="w-full" onClick={handleExportJATS}>
@@ -83,8 +82,8 @@ function MetadataExport() {
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Dublin Core</h3>
 						<p className="text-sm text-muted-foreground mb-4">
-							Padrão de metadados para repositórios e sistemas de busca. Formato
-							simples e amplamente adotado.
+							Padrão de metadados para repositórios e sistemas de busca. Formato simples e
+							amplamente adotado.
 						</p>
 					</div>
 					<Button className="w-full" onClick={handleExportDublinCore}>
@@ -115,9 +114,7 @@ function MetadataExport() {
 									key={article.id}
 									className="p-4 grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 text-sm items-center"
 								>
-									<span className="font-medium line-clamp-1">
-										{article.title_pt}
-									</span>
+									<span className="font-medium line-clamp-1">{article.title_pt}</span>
 									<span className="text-muted-foreground">
 										Vol. {article.volume}, Nº {article.issue}
 									</span>
@@ -148,14 +145,12 @@ function MetadataExport() {
 					ℹ️ Sobre a Exportação de Metadados
 				</h3>
 				<ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-					<li>
-						Metadados são atualizados automaticamente após cada publicação
-					</li>
+					<li>Metadados são atualizados automaticamente após cada publicação</li>
 					<li>Crossref XML deve ser enviado manualmente ao sistema Crossref</li>
 					<li>JATS XML pode ser usado para depósito em repositórios</li>
 					<li>Dublin Core facilita a descoberta por motores de busca</li>
 				</ul>
 			</div>
 		</div>
-	);
+	)
 }

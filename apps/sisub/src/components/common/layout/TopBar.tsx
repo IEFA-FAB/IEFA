@@ -1,29 +1,24 @@
-import { AnimatedThemeToggler, Button, SidebarTrigger } from "@iefa/ui";
-import { QrCode } from "lucide-react";
-import type { NavItem } from "@/components/common/layout/sidebar/NavItems";
-import { NavUser } from "@/components/common/layout/sidebar/NavUser";
-import { useTheme } from "@/hooks/ui/useTheme";
-import type { UserLevelOrNull } from "@/types/domain/";
+import { AnimatedThemeToggler, Button, SidebarTrigger } from "@iefa/ui"
+import { QrCode } from "lucide-react"
+import type { NavItem } from "@/components/common/layout/sidebar/NavItems"
+import { NavUser } from "@/components/common/layout/sidebar/NavUser"
+import { useTheme } from "@/hooks/ui/useTheme"
+import type { UserLevelOrNull } from "@/types/domain/"
 
 export type TopbarProps = {
-	showSidebar: boolean;
-	navItems: NavItem[];
-	sheetOpen: boolean;
-	onSheetOpenChange: (open: boolean) => void;
-	onSidebarNavigate: () => void;
-	showGlobalProgress: boolean;
-	onOpenQr: () => void;
-	userId: string | null;
-	userLevel: UserLevelOrNull | undefined;
-};
+	showSidebar: boolean
+	navItems: NavItem[]
+	sheetOpen: boolean
+	onSheetOpenChange: (open: boolean) => void
+	onSidebarNavigate: () => void
+	showGlobalProgress: boolean
+	onOpenQr: () => void
+	userId: string | null
+	userLevel: UserLevelOrNull | undefined
+}
 
-export function Topbar({
-	onOpenQr,
-	userId,
-	userLevel,
-	showSidebar,
-}: TopbarProps) {
-	const { toggle } = useTheme();
+export function Topbar({ onOpenQr, userId, userLevel, showSidebar }: TopbarProps) {
+	const { toggle } = useTheme()
 
 	return (
 		<header className=" top-2 mx-auto w-full max-w-7xl sticky rounded-full shadow-xl z-40 flex h-14 items-center border-b bg-background/80 px-3 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-4 shrink-0 gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -62,5 +57,5 @@ export function Topbar({
 				</div>
 			</div>
 		</header>
-	);
+	)
 }

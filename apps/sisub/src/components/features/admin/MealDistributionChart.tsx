@@ -1,21 +1,13 @@
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@iefa/ui";
-import { BarChart3 } from "lucide-react";
-import { parseLocalDate } from "@/lib/dashboard";
-import type { DailyMealStat } from "@/types/domain/dashboard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@iefa/ui"
+import { BarChart3 } from "lucide-react"
+import { parseLocalDate } from "@/lib/dashboard"
+import type { DailyMealStat } from "@/types/domain/dashboard"
 
 interface MealDistributionChartProps {
-	data: DailyMealStat[];
+	data: DailyMealStat[]
 }
 
-export default function MealDistributionChart({
-	data,
-}: MealDistributionChartProps) {
+export default function MealDistributionChart({ data }: MealDistributionChartProps) {
 	if (data.length === 0) {
 		return (
 			<Card>
@@ -31,21 +23,19 @@ export default function MealDistributionChart({
 					</div>
 				</CardContent>
 			</Card>
-		);
+		)
 	}
 
-	const maxValue = Math.max(
-		...data.flatMap((d) => [d.cafe, d.almoco, d.janta, d.ceia]),
-	);
+	const maxValue = Math.max(...data.flatMap((d) => [d.cafe, d.almoco, d.janta, d.ceia]))
 
 	// Container height in pixels (h-40 = 160px)
-	const CHART_HEIGHT = 160;
+	const CHART_HEIGHT = 160
 
 	// Calculate bar height in pixels
 	const getBarHeight = (value: number) => {
-		if (maxValue === 0) return 0;
-		return (value / maxValue) * CHART_HEIGHT;
-	};
+		if (maxValue === 0) return 0
+		return (value / maxValue) * CHART_HEIGHT
+	}
 
 	return (
 		<Card>
@@ -54,28 +44,23 @@ export default function MealDistributionChart({
 					<BarChart3 className="h-5 w-5" aria-hidden="true" />
 					Refeições por Período do Dia
 				</CardTitle>
-				<CardDescription>
-					Distribuição temporal de previsões por tipo de refeição
-				</CardDescription>
+				<CardDescription>Distribuição temporal de previsões por tipo de refeição</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="flex gap-2 overflow-x-auto pb-4">
 					...
 					{data.map((day) => {
-						const dateObj = parseLocalDate(day.date);
+						const dateObj = parseLocalDate(day.date)
 						const formattedDate = dateObj.toLocaleDateString("pt-BR", {
 							day: "2-digit",
 							month: "2-digit",
-						});
+						})
 						const weekday = dateObj
 							.toLocaleDateString("pt-BR", { weekday: "short" })
-							.replace(".", "");
+							.replace(".", "")
 
 						return (
-							<div
-								key={day.date}
-								className="flex flex-col items-center gap-2 min-w-25"
-							>
+							<div key={day.date} className="flex flex-col items-center gap-2 min-w-25">
 								<div className="flex items-end gap-1 h-40">
 									{/* Café */}
 									<div className="flex flex-col items-center gap-1">
@@ -88,9 +73,7 @@ export default function MealDistributionChart({
 											title={`Café: ${day.cafe}`}
 										/>
 										{day.cafe > 0 && (
-											<span className="text-xs font-medium text-chart-2">
-												{day.cafe}
-											</span>
+											<span className="text-xs font-medium text-chart-2">{day.cafe}</span>
 										)}
 									</div>
 
@@ -105,9 +88,7 @@ export default function MealDistributionChart({
 											title={`Almoço: ${day.almoco}`}
 										/>
 										{day.almoco > 0 && (
-											<span className="text-xs font-medium text-chart-3">
-												{day.almoco}
-											</span>
+											<span className="text-xs font-medium text-chart-3">{day.almoco}</span>
 										)}
 									</div>
 
@@ -122,9 +103,7 @@ export default function MealDistributionChart({
 											title={`Janta: ${day.janta}`}
 										/>
 										{day.janta > 0 && (
-											<span className="text-xs font-medium text-chart-5">
-												{day.janta}
-											</span>
+											<span className="text-xs font-medium text-chart-5">{day.janta}</span>
 										)}
 									</div>
 
@@ -139,24 +118,18 @@ export default function MealDistributionChart({
 											title={`Ceia: ${day.ceia}`}
 										/>
 										{day.ceia > 0 && (
-											<span className="text-xs font-medium text-chart-1">
-												{day.ceia}
-											</span>
+											<span className="text-xs font-medium text-chart-1">{day.ceia}</span>
 										)}
 									</div>
 								</div>
 
 								{/* Date Label */}
 								<div className="flex flex-col items-center">
-									<span className="text-xs font-medium capitalize">
-										{weekday}
-									</span>
-									<span className="text-xs text-muted-foreground">
-										{formattedDate}
-									</span>
+									<span className="text-xs font-medium capitalize">{weekday}</span>
+									<span className="text-xs text-muted-foreground">{formattedDate}</span>
 								</div>
 							</div>
-						);
+						)
 					})}
 				</div>
 
@@ -181,5 +154,5 @@ export default function MealDistributionChart({
 				</div>
 			</CardContent>
 		</Card>
-	);
+	)
 }

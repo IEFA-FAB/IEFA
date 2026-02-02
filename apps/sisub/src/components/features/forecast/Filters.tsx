@@ -6,20 +6,20 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui";
-import { AlertCircle, Calendar, Check, Utensils } from "lucide-react";
-import { UnitSelector } from "@/components/features/forecast/MessHallSelector";
-import { MEAL_LABEL, type MealKey } from "@/lib/fiscal";
-import { formatDate } from "@/lib/meal";
+} from "@iefa/ui"
+import { AlertCircle, Calendar, Check, Utensils } from "lucide-react"
+import { UnitSelector } from "@/components/features/forecast/MessHallSelector"
+import { MEAL_LABEL, type MealKey } from "@/lib/fiscal"
+import { formatDate } from "@/lib/meal"
 
 interface FiltersProps {
-	selectedDate: string;
-	setSelectedDate: (date: string) => void;
-	selectedMeal: MealKey;
-	setSelectedMeal: (meal: MealKey) => void;
-	selectedUnit: string;
-	setSelectedUnit: (unit: string) => void;
-	dates: string[];
+	selectedDate: string
+	setSelectedDate: (date: string) => void
+	selectedMeal: MealKey
+	setSelectedMeal: (meal: MealKey) => void
+	selectedUnit: string
+	setSelectedUnit: (unit: string) => void
+	dates: string[]
 }
 
 export default function Filters({
@@ -35,20 +35,20 @@ export default function Filters({
 	const baseTrigger =
 		"w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background " +
 		"placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 " +
-		"disabled:cursor-not-allowed disabled:opacity-50";
+		"disabled:cursor-not-allowed disabled:opacity-50"
 
 	return (
 		<>
 			{/* Dia */}
 			<div className="flex-1">
 				{(() => {
-					const isValidDate = !selectedDate || dates.includes(selectedDate);
-					const disabled = false;
-					const isInvalid = Boolean(selectedDate && !isValidDate);
+					const isValidDate = !selectedDate || dates.includes(selectedDate)
+					const disabled = false
+					const isInvalid = Boolean(selectedDate && !isValidDate)
 
 					const labelCls = `text-sm font-medium flex items-center justify-between ${
 						disabled ? "text-muted-foreground" : "text-foreground"
-					}`;
+					}`
 
 					return (
 						<div className="space-y-2">
@@ -94,7 +94,7 @@ export default function Filters({
 										Selecione o dia do cardápio
 									</div>
 									{dates.map((d) => {
-										const selected = d === selectedDate;
+										const selected = d === selectedDate
 										return (
 											<SelectItem
 												className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 transition-colors"
@@ -103,12 +103,10 @@ export default function Filters({
 											>
 												<div className="flex items-center justify-between w-full">
 													<span>{formatDate(d)}</span>
-													{selected && (
-														<Check className="h-4 w-4 text-primary ml-2" />
-													)}
+													{selected && <Check className="h-4 w-4 text-primary ml-2" />}
 												</div>
 											</SelectItem>
-										);
+										)
 									})}
 								</SelectContent>
 							</Select>
@@ -120,21 +118,21 @@ export default function Filters({
 								</div>
 							)}
 						</div>
-					);
+					)
 				})()}
 			</div>
 
 			{/* Refeição */}
 			<div className="flex-1">
 				{(() => {
-					const mealKeys = Object.keys(MEAL_LABEL) as MealKey[];
-					const isValidMeal = !selectedMeal || mealKeys.includes(selectedMeal);
-					const disabled = false;
-					const isInvalid = Boolean(selectedMeal && !isValidMeal);
+					const mealKeys = Object.keys(MEAL_LABEL) as MealKey[]
+					const isValidMeal = !selectedMeal || mealKeys.includes(selectedMeal)
+					const disabled = false
+					const isInvalid = Boolean(selectedMeal && !isValidMeal)
 
 					const labelCls = `text-sm font-medium flex items-center justify-between ${
 						disabled ? "text-muted-foreground" : "text-foreground"
-					}`;
+					}`
 
 					return (
 						<div className="space-y-2">
@@ -180,7 +178,7 @@ export default function Filters({
 										Selecione o tipo de refeição
 									</div>
 									{mealKeys.map((k) => {
-										const selected = k === selectedMeal;
+										const selected = k === selectedMeal
 										return (
 											<SelectItem
 												className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 transition-colors"
@@ -189,12 +187,10 @@ export default function Filters({
 											>
 												<div className="flex items-center justify-between w-full">
 													<span>{MEAL_LABEL[k]}</span>
-													{selected && (
-														<Check className="h-4 w-4 text-primary ml-2" />
-													)}
+													{selected && <Check className="h-4 w-4 text-primary ml-2" />}
 												</div>
 											</SelectItem>
-										);
+										)
 									})}
 								</SelectContent>
 							</Select>
@@ -206,7 +202,7 @@ export default function Filters({
 								</div>
 							)}
 						</div>
-					);
+					)
 				})()}
 			</div>
 
@@ -223,5 +219,5 @@ export default function Filters({
 				</div>
 			</div>
 		</>
-	);
+	)
 }

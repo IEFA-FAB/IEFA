@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
 	Button,
@@ -13,8 +13,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { useQuery } from "@tanstack/react-query";
+} from "@iefa/ui"
+import { useQuery } from "@tanstack/react-query"
 import {
 	type ColumnDef,
 	type ColumnFiltersState,
@@ -26,12 +26,12 @@ import {
 	type SortingState,
 	useReactTable,
 	type VisibilityState,
-} from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown } from "lucide-react";
-import * as React from "react";
-import { useMemo, useRef, useState } from "react";
-import supabase from "@/lib/supabase";
-import CopyButton from "./CopyButton";
+} from "@tanstack/react-table"
+import { ArrowUpDown, ChevronDown } from "lucide-react"
+import * as React from "react"
+import { useMemo, useRef, useState } from "react"
+import supabase from "@/lib/supabase"
+import CopyButton from "./CopyButton"
 
 /* ---------------------------------------------------------
    Helpers (padrão shadcn)
@@ -43,28 +43,22 @@ function DebouncedInput({
 	debounce = 300,
 	...props
 }: React.ComponentProps<"input"> & {
-	value: string | number;
-	onChange: (value: string) => void;
-	debounce?: number;
+	value: string | number
+	onChange: (value: string) => void
+	debounce?: number
 }) {
-	const [value, setValue] = useState(initialValue);
+	const [value, setValue] = useState(initialValue)
 
 	React.useEffect(() => {
-		setValue(initialValue);
-	}, [initialValue]);
+		setValue(initialValue)
+	}, [initialValue])
 
 	React.useEffect(() => {
-		const timerId = setTimeout(() => onChange(String(value ?? "")), debounce);
-		return () => clearTimeout(timerId);
-	}, [value, debounce, onChange]);
+		const timerId = setTimeout(() => onChange(String(value ?? "")), debounce)
+		return () => clearTimeout(timerId)
+	}, [value, debounce, onChange])
 
-	return (
-		<Input
-			{...props}
-			value={value}
-			onChange={(e) => setValue(e.target.value)}
-		/>
-	);
+	return <Input {...props} value={value} onChange={(e) => setValue(e.target.value)} />
 }
 
 function DataTableColumnHeader<TData, TValue>({
@@ -72,14 +66,14 @@ function DataTableColumnHeader<TData, TValue>({
 	title,
 	className,
 }: {
-	column: import("@tanstack/react-table").Column<TData, TValue>;
-	title: string;
-	className?: string;
+	column: import("@tanstack/react-table").Column<TData, TValue>
+	title: string
+	className?: string
 }) {
 	if (!column.getCanSort()) {
-		return <div className={className}>{title}</div>;
+		return <div className={className}>{title}</div>
 	}
-	const isSorted = column.getIsSorted();
+	const isSorted = column.getIsSorted()
 
 	return (
 		<Button
@@ -97,7 +91,7 @@ function DataTableColumnHeader<TData, TValue>({
 						: "Não ordenado"}
 			</span>
 		</Button>
-	);
+	)
 }
 
 /* ---------------------------------------------------------
@@ -105,30 +99,30 @@ function DataTableColumnHeader<TData, TValue>({
 --------------------------------------------------------- */
 
 export type Facilidades_pregoeiro = {
-	id: string;
-	created_at: string;
-	phase: string;
-	title: string;
-	content: string;
-	tags: string[] | null;
-	owner_id: string | null;
-	default: boolean | null;
-};
+	id: string
+	created_at: string
+	phase: string
+	title: string
+	content: string
+	tags: string[] | null
+	owner_id: string | null
+	default: boolean | null
+}
 
 export interface FacilidadesTableProps {
-	OM: string;
-	Date: string;
-	Hour: string;
-	Hour_limit: string;
-	currentUserId?: string;
-	onEditRow?: (row: Facilidades_pregoeiro) => void;
+	OM: string
+	Date: string
+	Hour: string
+	Hour_limit: string
+	currentUserId?: string
+	onEditRow?: (row: Facilidades_pregoeiro) => void
 }
 
 /* ---------------------------------------------------------
    Utils
 --------------------------------------------------------- */
 
-type TemplateContext = Record<string, string | number | null | undefined>;
+type TemplateContext = Record<string, string | number | null | undefined>
 
 /**
  * Substitui placeholders no formato ${chave} ou {{chave}} por valores do contexto.
@@ -136,51 +130,48 @@ type TemplateContext = Record<string, string | number | null | undefined>;
  * - Ignora espaços dentro das chaves: ${ chave } ou {{ chave }} também funcionam.
  */
 function renderPlaceholders(inputText: string, context: TemplateContext) {
-	if (!inputText) return "";
-	const placeholderRegex =
-		/\$\{\s*([a-zA-Z0-9_]+)\s*\}|\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+	if (!inputText) return ""
+	const placeholderRegex = /\$\{\s*([a-zA-Z0-9_]+)\s*\}|\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g
 
 	return inputText.replace(
 		placeholderRegex,
 		(fullMatch: string, curlyKey?: string, mustacheKey?: string) => {
-			const keyName = (curlyKey ?? mustacheKey) as string;
-			const value = context[keyName];
+			const keyName = (curlyKey ?? mustacheKey) as string
+			const value = context[keyName]
 			if (value === null || value === undefined) {
 				// Deixe o placeholder intacto se não houver valor no contexto
-				return fullMatch;
+				return fullMatch
 			}
-			return String(value);
-		},
-	);
+			return String(value)
+		}
+	)
 }
 
 /* ---------------------------------------------------------
    Query (TanStack Query + Supabase)
 --------------------------------------------------------- */
 
-const FACILITIES_QUERY_KEY = ["facilities_pregoeiro"];
+const FACILITIES_QUERY_KEY = ["facilities_pregoeiro"]
 
 function useFacilitiesQuery() {
 	return useQuery<Facilidades_pregoeiro[]>({
 		queryKey: FACILITIES_QUERY_KEY,
 		queryFn: async () => {
-			const { data, error } = await supabase
-				.from("facilities_pregoeiro")
-				.select("*");
+			const { data, error } = await supabase.from("facilities_pregoeiro").select("*")
 
-			if (error) throw new Error(error.message);
+			if (error) throw new Error(error.message)
 
-			const base = data as Facilidades_pregoeiro[];
+			const base = data as Facilidades_pregoeiro[]
 
 			return base.map((item) => ({
 				...item,
 				tags: item.tags ?? [],
 				default: item.default ?? false,
-			}));
+			}))
 		},
 		staleTime: 1000 * 60 * 10,
 		refetchOnWindowFocus: false,
-	});
+	})
 }
 
 /* ---------------------------------------------------------
@@ -189,64 +180,61 @@ function useFacilitiesQuery() {
 --------------------------------------------------------- */
 
 type TableSettings = {
-	columnVisibility?: VisibilityState;
-	sorting?: SortingState;
-	pageSize?: number;
-	titleFilter?: string;
-};
+	columnVisibility?: VisibilityState
+	sorting?: SortingState
+	pageSize?: number
+	titleFilter?: string
+}
 
-const LS_TABLE_SETTINGS_KEY = "pregoeiro_table_settings_v1";
+const LS_TABLE_SETTINGS_KEY = "pregoeiro_table_settings_v1"
 
 function useTableSettings(currentUserId?: string) {
-	const [settings, setSettings] = useState<TableSettings | null>(null);
-	const [loading, setLoading] = useState(true);
-	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [settings, setSettings] = useState<TableSettings | null>(null)
+	const [loading, setLoading] = useState(true)
+	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	React.useEffect(() => {
-		let mounted = true;
+		let mounted = true
 
 		async function load() {
-			setLoading(true);
+			setLoading(true)
 			try {
 				if (currentUserId) {
 					const { data, error } = await supabase
 						.from("pregoeiro_preferences")
 						.select("table_settings")
 						.eq("user_id", currentUserId)
-						.maybeSingle();
+						.maybeSingle()
 
-					if (error) throw error;
+					if (error) throw error
 
-					const tableSettingsFromDb = (data?.table_settings ??
-						{}) as TableSettings;
-					if (mounted) setSettings(tableSettingsFromDb);
+					const tableSettingsFromDb = (data?.table_settings ?? {}) as TableSettings
+					if (mounted) setSettings(tableSettingsFromDb)
 				} else {
 					// localStorage
 					const storedRawSettings =
-						typeof window !== "undefined"
-							? localStorage.getItem(LS_TABLE_SETTINGS_KEY)
-							: null;
+						typeof window !== "undefined" ? localStorage.getItem(LS_TABLE_SETTINGS_KEY) : null
 					if (storedRawSettings && mounted) {
-						setSettings(JSON.parse(storedRawSettings) as TableSettings);
+						setSettings(JSON.parse(storedRawSettings) as TableSettings)
 					} else if (mounted) {
-						setSettings({});
+						setSettings({})
 					}
 				}
 			} catch {
-				if (mounted) setSettings({});
+				if (mounted) setSettings({})
 			} finally {
-				if (mounted) setLoading(false);
+				if (mounted) setLoading(false)
 			}
 		}
 
-		load();
+		load()
 		return () => {
-			mounted = false;
-		};
-	}, [currentUserId]);
+			mounted = false
+		}
+	}, [currentUserId])
 
 	const save = (nextSettings: TableSettings) => {
-		if (saveTimer.current) clearTimeout(saveTimer.current);
+		if (saveTimer.current) clearTimeout(saveTimer.current)
 		saveTimer.current = setTimeout(async () => {
 			try {
 				if (currentUserId) {
@@ -255,21 +243,18 @@ function useTableSettings(currentUserId?: string) {
 						user_id: currentUserId,
 						table_settings: nextSettings,
 						updated_at: new Date().toISOString(),
-					});
+					})
 				} else if (typeof window !== "undefined") {
-					localStorage.setItem(
-						LS_TABLE_SETTINGS_KEY,
-						JSON.stringify(nextSettings),
-					);
+					localStorage.setItem(LS_TABLE_SETTINGS_KEY, JSON.stringify(nextSettings))
 				}
-				setSettings(nextSettings);
+				setSettings(nextSettings)
 			} catch {
 				// Silencioso: não quebra a UI
 			}
-		}, 500);
-	};
+		}, 500)
+	}
 
-	return { settings, saveSettings: save, loading };
+	return { settings, saveSettings: save, loading }
 }
 
 /* ---------------------------------------------------------
@@ -277,17 +262,15 @@ function useTableSettings(currentUserId?: string) {
 --------------------------------------------------------- */
 
 function getColumns(opts: {
-	currentUserId?: string;
-	onEditRow?: (row: Facilidades_pregoeiro) => void;
+	currentUserId?: string
+	onEditRow?: (row: Facilidades_pregoeiro) => void
 }): ColumnDef<Facilidades_pregoeiro>[] {
-	const { currentUserId, onEditRow } = opts;
+	const { currentUserId, onEditRow } = opts
 
 	return [
 		{
 			accessorKey: "phase",
-			header: ({ column }) => (
-				<DataTableColumnHeader column={column} title="Fase" />
-			),
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Fase" />,
 			cell: ({ row }) => (
 				<div className="capitalize whitespace-pre-wrap wrap-break-word">
 					{row.getValue("phase")}
@@ -298,22 +281,16 @@ function getColumns(opts: {
 		},
 		{
 			accessorKey: "title",
-			header: ({ column }) => (
-				<DataTableColumnHeader column={column} title="Título" />
-			),
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Título" />,
 			cell: ({ row }) => (
-				<div className="whitespace-pre-wrap wrap-break-word">
-					{row.getValue("title")}
-				</div>
+				<div className="whitespace-pre-wrap wrap-break-word">{row.getValue("title")}</div>
 			),
 			enableHiding: false, // geralmente chave de busca principal
 			enableSorting: true,
 		},
 		{
 			accessorKey: "content",
-			header: ({ column }) => (
-				<DataTableColumnHeader column={column} title="Conteúdo" />
-			),
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Conteúdo" />,
 			enableHiding: false,
 			enableSorting: true,
 			cell: ({ row }) => (
@@ -324,14 +301,11 @@ function getColumns(opts: {
 		},
 		{
 			accessorKey: "tags",
-			header: ({ column }) => (
-				<DataTableColumnHeader column={column} title="Tags" />
-			),
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Tags" />,
 			enableSorting: true,
 			cell: ({ row }) => {
-				const tags = (row.getValue("tags") as string[]) || [];
-				if (!tags.length)
-					return <span className="text-muted-foreground text-sm">—</span>;
+				const tags = (row.getValue("tags") as string[]) || []
+				if (!tags.length) return <span className="text-muted-foreground text-sm">—</span>
 				return (
 					<div className="flex flex-wrap gap-1">
 						{tags.map((tag) => (
@@ -344,29 +318,25 @@ function getColumns(opts: {
 							</span>
 						))}
 					</div>
-				);
+				)
 			},
 		},
 		{
 			accessorKey: "default",
-			header: ({ column }) => (
-				<DataTableColumnHeader column={column} title="Padrão" />
-			),
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Padrão" />,
 			enableSorting: true,
 			cell: ({ row }) => {
-				const isDefault = row.getValue("default") as boolean;
+				const isDefault = row.getValue("default") as boolean
 				return (
 					<span
 						className={
 							"inline-flex items-center rounded-md px-2 py-0.5 text-xs " +
-							(isDefault
-								? "bg-green-100 text-green-800"
-								: "bg-gray-100 text-gray-800")
+							(isDefault ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")
 						}
 					>
 						{isDefault ? "Sim" : "Não"}
 					</span>
-				);
+				)
 			},
 		},
 		{
@@ -374,27 +344,23 @@ function getColumns(opts: {
 			enableHiding: false,
 			enableSorting: false,
 			cell: ({ row }) => {
-				const facilidade = row.original;
-				const content = facilidade.content ?? "";
-				const canEdit = currentUserId && facilidade.owner_id === currentUserId;
+				const facilidade = row.original
+				const content = facilidade.content ?? ""
+				const canEdit = currentUserId && facilidade.owner_id === currentUserId
 
 				return (
 					<div className="flex items-center gap-2">
 						<CopyButton content={content} />
 						{canEdit ? (
-							<Button
-								variant="secondary"
-								size="sm"
-								onClick={() => onEditRow?.(facilidade)}
-							>
+							<Button variant="secondary" size="sm" onClick={() => onEditRow?.(facilidade)}>
 								Editar
 							</Button>
 						) : null}
 					</div>
-				);
+				)
 			},
 		},
-	];
+	]
 }
 
 /* ---------------------------------------------------------
@@ -409,30 +375,26 @@ export function FacilidadesTable({
 	currentUserId,
 	onEditRow,
 }: FacilidadesTableProps) {
-	const [sorting, setSorting] = useState<SortingState>([]);
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-	const [pageSize, setPageSize] = useState<number>(50);
+	const [sorting, setSorting] = useState<SortingState>([])
+	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+	const [pageSize, setPageSize] = useState<number>(50)
 
-	const { data: baseData = [], isLoading, error } = useFacilitiesQuery();
+	const { data: baseData = [], isLoading, error } = useFacilitiesQuery()
 
 	// Carrega e persiste configurações da tabela
-	const {
-		settings,
-		saveSettings,
-		loading: settingsLoading,
-	} = useTableSettings(currentUserId);
+	const { settings, saveSettings, loading: settingsLoading } = useTableSettings(currentUserId)
 
 	// Hidrata estado com configurações carregadas apenas uma vez
-	const hydrated = useRef(false);
+	const hydrated = useRef(false)
 	React.useEffect(() => {
 		if (!settingsLoading && !hydrated.current) {
-			hydrated.current = true;
-			setColumnVisibility(settings?.columnVisibility ?? {});
-			setSorting(settings?.sorting ?? []);
-			setPageSize(settings?.pageSize ?? 50);
+			hydrated.current = true
+			setColumnVisibility(settings?.columnVisibility ?? {})
+			setSorting(settings?.sorting ?? [])
+			setPageSize(settings?.pageSize ?? 50)
 
-			const titleFilter = settings?.titleFilter ?? "";
+			const titleFilter = settings?.titleFilter ?? ""
 			setColumnFilters(
 				titleFilter
 					? [
@@ -441,10 +403,10 @@ export function FacilidadesTable({
 								value: titleFilter,
 							},
 						]
-					: [],
-			);
+					: []
+			)
 		}
-	}, [settingsLoading, settings]);
+	}, [settingsLoading, settings])
 
 	// Aplica substituições de placeholders sem re-fetch
 	const data = useMemo(() => {
@@ -453,18 +415,18 @@ export function FacilidadesTable({
 			date: dateString,
 			hour,
 			hour_limit: hourLimit,
-		};
+		}
 
 		return baseData.map((item) => ({
 			...item,
 			content: renderPlaceholders(item.content ?? "", templateContext),
-		}));
-	}, [baseData, OM, dateString, hour, hourLimit]);
+		}))
+	}, [baseData, OM, dateString, hour, hourLimit])
 
 	const columns = useMemo(
 		() => getColumns({ currentUserId, onEditRow }),
-		[currentUserId, onEditRow],
-	);
+		[currentUserId, onEditRow]
+	)
 
 	const table = useReactTable({
 		data,
@@ -487,56 +449,44 @@ export function FacilidadesTable({
 			pagination: { pageIndex: 0, pageSize },
 		},
 		filterFns: {} as Record<string, never>,
-	});
+	})
 
 	// Atualiza pageSize no TanStack Table quando o estado local muda
 	React.useEffect(() => {
-		table.setPageSize(pageSize);
-	}, [pageSize, table]);
+		table.setPageSize(pageSize)
+	}, [pageSize, table])
 
 	// Persiste configurações da Tabela (debounced via hook)
 	React.useEffect(() => {
-		if (settingsLoading) return;
+		if (settingsLoading) return
 
-		const titleFilter =
-			(columnFilters.find((f) => f.id === "title")?.value as string) ?? "";
+		const titleFilter = (columnFilters.find((f) => f.id === "title")?.value as string) ?? ""
 
 		const nextSettings: TableSettings = {
 			columnVisibility,
 			sorting,
 			pageSize,
 			titleFilter,
-		};
-		saveSettings(nextSettings);
-	}, [
-		columnVisibility,
-		sorting,
-		pageSize,
-		columnFilters,
-		settingsLoading,
-		saveSettings,
-	]);
+		}
+		saveSettings(nextSettings)
+	}, [columnVisibility, sorting, pageSize, columnFilters, settingsLoading, saveSettings])
 
 	if (isLoading) {
 		return (
-			<div
-				className="w-full flex items-center justify-center py-8"
-				aria-live="polite"
-			>
+			<div className="w-full flex items-center justify-center py-8" aria-live="polite">
 				<div className="text-center">Carregando...</div>
 			</div>
-		);
+		)
 	}
 
 	if (error) {
 		return (
 			<div className="w-full flex items-center justify-center py-8">
 				<div className="text-center text-red-500">
-					Erro ao carregar dados:{" "}
-					{error instanceof Error ? error.message : "Erro desconhecido"}
+					Erro ao carregar dados: {error instanceof Error ? error.message : "Erro desconhecido"}
 				</div>
 			</div>
-		);
+		)
 	}
 
 	return (
@@ -551,9 +501,7 @@ export function FacilidadesTable({
 				/>
 
 				<div className="flex items-center gap-2">
-					<span className="text-sm text-muted-foreground">
-						Linhas por página:
-					</span>
+					<span className="text-sm text-muted-foreground">Linhas por página:</span>
 					<select
 						className="h-9 rounded-md border bg-background px-2 text-sm"
 						value={pageSize}
@@ -583,9 +531,7 @@ export function FacilidadesTable({
 										key={column.id}
 										className="capitalize"
 										checked={column.getIsVisible()}
-										onCheckedChange={(value) =>
-											column.toggleVisibility(!!value)
-										}
+										onCheckedChange={(value) => column.toggleVisibility(!!value)}
 									>
 										{column.id}
 									</DropdownMenuCheckboxItem>
@@ -608,10 +554,7 @@ export function FacilidadesTable({
 									>
 										{header.isPlaceholder
 											? null
-											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+											: flexRender(header.column.columnDef.header, header.getContext())}
 									</TableHead>
 								))}
 							</TableRow>
@@ -631,20 +574,14 @@ export function FacilidadesTable({
 											key={cell.id}
 											className="align-top whitespace-pre-wrap wrap-break-word text-pretty hyphens-auto p-4 leading-relaxed"
 										>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
+											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</TableCell>
 									))}
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell
-									colSpan={table.getAllLeafColumns().length}
-									className="h-24 text-center"
-								>
+								<TableCell colSpan={table.getAllLeafColumns().length} className="h-24 text-center">
 									Sem resultados.
 								</TableCell>
 							</TableRow>
@@ -659,13 +596,10 @@ export function FacilidadesTable({
 					<span>
 						Página{" "}
 						<strong>
-							{table.getState().pagination.pageIndex + 1} de{" "}
-							{table.getPageCount()}
+							{table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
 						</strong>
 					</span>
-					<span>
-						| Total: {table.getFilteredRowModel().rows.length} registros
-					</span>
+					<span>| Total: {table.getFilteredRowModel().rows.length} registros</span>
 				</div>
 
 				<div className="flex items-center gap-2">
@@ -704,5 +638,5 @@ export function FacilidadesTable({
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

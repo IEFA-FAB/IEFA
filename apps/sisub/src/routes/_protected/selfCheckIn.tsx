@@ -1,41 +1,36 @@
 // routes/protected/presence/selfCheckin.tsx
 
-import { Button } from "@iefa/ui";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import {
-	createFileRoute,
-	redirect,
-	useNavigate,
-	useSearch,
-} from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { z } from "zod";
-import { PageHeader } from "@/components/common/layout/PageHeader";
+import { Button } from "@iefa/ui"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
+import { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
+import { z } from "zod"
+import { PageHeader } from "@/components/common/layout/PageHeader"
 
-import { useAuth } from "@/hooks/auth/useAuth";
-import { inferDefaultMeal } from "@/lib/fiscal";
-import supabase from "@/lib/supabase";
+import { useAuth } from "@/hooks/auth/useAuth"
+import { inferDefaultMeal } from "@/lib/fiscal"
+import supabase from "@/lib/supabase"
 import {
 	messHallByCodeQueryOptions,
 	userMealForecastQueryOptions,
-} from "@/services/SelfCheckInService";
-import type { WillEnter } from "@/types/domain/";
+} from "@/services/SelfCheckInService"
+import type { WillEnter } from "@/types/domain/"
 
 // Schema for search params validation
 const selfCheckInSearchSchema = z.object({
 	unit: z.string().optional(),
 	u: z.string().optional(),
-});
+})
 
 function todayISO(): string {
-	return new Date().toISOString().split("T")[0];
+	return new Date().toISOString().split("T")[0]
 }
 
 export const Route = createFileRoute("/_protected/selfCheckIn")({
 	validateSearch: selfCheckInSearchSchema,
 	beforeLoad: async ({ context, search, location }) => {
-		const { user } = context.auth;
+		const { user } = context.auth
 
 		if (!user?.id) {
 			throw redirect({
@@ -43,36 +38,34 @@ export const Route = createFileRoute("/_protected/selfCheckIn")({
 				search: {
 					redirect: location.href,
 				},
-			});
+			})
 		}
 
-		const unitParam = search.unit ?? search.u;
-		const unidade = unitParam ?? "DIRAD - DIRAD";
+		const unitParam = search.unit ?? search.u
+		const unidade = unitParam ?? "DIRAD - DIRAD"
 
 		// Prefetch Mess Hall
-		const messHall = await context.queryClient.ensureQueryData(
-			messHallByCodeQueryOptions(unidade),
-		);
+		const messHall = await context.queryClient.ensureQueryData(messHallByCodeQueryOptions(unidade))
 
 		if (messHall) {
-			const date = todayISO();
-			const meal = inferDefaultMeal();
+			const date = todayISO()
+			const meal = inferDefaultMeal()
 			// Prefetch Forecast
 			await context.queryClient.ensureQueryData(
-				userMealForecastQueryOptions(user.id, date, meal, messHall.id),
-			);
+				userMealForecastQueryOptions(user.id, date, meal, messHall.id)
+			)
 		}
 	},
 	component: SelfCheckin,
-});
+})
 
-const REDIRECT_DELAY_SECONDS = 3;
+const REDIRECT_DELAY_SECONDS = 3
 
 function isDuplicateOrConflict(err: unknown): boolean {
-	const e = err as any;
-	const code = e?.code;
-	const status = e?.status;
-	const msg = String(e?.message || "").toLowerCase();
+	const e = err as any
+	const code = e?.code
+	const status = e?.status
+	const msg = String(e?.message || "").toLowerCase()
 
 	return (
 		code === "23505" ||
@@ -81,56 +74,50 @@ function isDuplicateOrConflict(err: unknown): boolean {
 		status === 409 ||
 		msg.includes("duplicate key") ||
 		msg.includes("conflict")
-	);
+	)
 }
 
 function SelfCheckin() {
-	const search = useSearch({ from: "/_protected/selfCheckIn" });
-	const navigate = useNavigate();
-	const { user } = useAuth();
+	const search = useSearch({ from: "/_protected/selfCheckIn" })
+	const navigate = useNavigate()
+	const { user } = useAuth()
 
 	// Ensure user exists (handled by beforeLoad mostly, but for type safety)
-	const userId = user?.id ?? "";
+	const userId = user?.id ?? ""
 
 	// Params and defaults
-	const unitParam = search.unit ?? search.u;
-	const unidade = unitParam ?? "DIRAD - DIRAD";
-	const date = todayISO();
-	const meal = inferDefaultMeal();
+	const unitParam = search.unit ?? search.u
+	const unidade = unitParam ?? "DIRAD - DIRAD"
+	const date = todayISO()
+	const meal = inferDefaultMeal()
 
 	// Suspense Queries
-	const { data: messHall } = useSuspenseQuery(
-		messHallByCodeQueryOptions(unidade),
-	);
+	const { data: messHall } = useSuspenseQuery(messHallByCodeQueryOptions(unidade))
 
 	const { data: forecast } = useSuspenseQuery(
-		userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null),
-	);
+		userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null)
+	)
 
 	// Derived State
-	const systemForecast = !!forecast?.will_eat;
+	const systemForecast = !!forecast?.will_eat
 
 	// Local State
-	const [willEnter, setWillEnter] = useState<WillEnter>("sim");
-	const [submitting, setSubmitting] = useState(false);
+	const [willEnter, setWillEnter] = useState<WillEnter>("sim")
+	const [submitting, setSubmitting] = useState(false)
 
 	// Countdown State
-	const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
-		null,
-	);
-	const redirectedRef = useRef(false);
-	const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-		null,
-	);
+	const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null)
+	const redirectedRef = useRef(false)
+	const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
 	// Effects for cleanup
 	useEffect(() => {
 		return () => {
 			if (countdownIntervalRef.current) {
-				clearInterval(countdownIntervalRef.current);
+				clearInterval(countdownIntervalRef.current)
 			}
-		};
-	}, []);
+		}
+	}, [])
 
 	// If messHall not found, we might want to show error or just let it be.
 	// Provide feedback if messHall is missing but code was provided.
@@ -138,95 +125,92 @@ function SelfCheckin() {
 		if (!messHall) {
 			toast.error("QR inválido", {
 				description: "A unidade informada não foi encontrada.",
-			});
+			})
 		}
-	}, [messHall]);
+	}, [messHall])
 
 	const scheduleRedirect = (seconds = REDIRECT_DELAY_SECONDS) => {
-		if (redirectedRef.current) return;
+		if (redirectedRef.current) return
 
-		setRedirectCountdown(seconds);
+		setRedirectCountdown(seconds)
 		countdownIntervalRef.current = setInterval(() => {
 			setRedirectCountdown((s) => {
-				const next = (s ?? 1) - 1;
+				const next = (s ?? 1) - 1
 				if (next <= 0) {
 					if (countdownIntervalRef.current) {
-						clearInterval(countdownIntervalRef.current);
+						clearInterval(countdownIntervalRef.current)
 					}
 					if (!redirectedRef.current) {
-						redirectedRef.current = true;
-						navigate({ to: "/forecast", replace: true });
+						redirectedRef.current = true
+						navigate({ to: "/forecast", replace: true })
 					}
-					return null;
+					return null
 				}
-				return next;
-			});
-		}, 1000);
-	};
+				return next
+			})
+		}, 1000)
+	}
 
 	const handleSubmit = async () => {
-		if (submitting || !userId) return;
+		if (submitting || !userId) return
 		if (!messHall) {
-			toast.error("Rancho inválido");
-			return;
+			toast.error("Rancho inválido")
+			return
 		}
 
-		setSubmitting(true);
+		setSubmitting(true)
 
 		try {
 			if (willEnter !== "sim") {
 				toast.info("Decisão registrada", {
 					description: "Você optou por não entrar para a refeição.",
-				});
-				return;
+				})
+				return
 			}
 
-			const { error } = await supabase
-				.schema("sisub")
-				.from("meal_presences")
-				.insert({
-					user_id: userId,
-					date,
-					meal,
-					mess_hall_id: messHall.id,
-				});
+			const { error } = await supabase.schema("sisub").from("meal_presences").insert({
+				user_id: userId,
+				date,
+				meal,
+				mess_hall_id: messHall.id,
+			})
 
 			if (!error) {
 				toast.success("Presença registrada", {
 					description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
-				});
-				scheduleRedirect(REDIRECT_DELAY_SECONDS);
-				return;
+				})
+				scheduleRedirect(REDIRECT_DELAY_SECONDS)
+				return
 			}
 
 			if (isDuplicateOrConflict(error)) {
 				toast.info("Já registrado", {
 					description: `Sua presença já está registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
-				});
-				scheduleRedirect(REDIRECT_DELAY_SECONDS);
-				return;
+				})
+				scheduleRedirect(REDIRECT_DELAY_SECONDS)
+				return
 			}
 
-			console.error("Erro ao registrar presença:", error);
+			console.error("Erro ao registrar presença:", error)
 			toast.error("Erro", {
 				description: "Não foi possível registrar sua presença.",
-			});
+			})
 		} catch (err) {
-			console.error("Falha inesperada no envio:", err);
+			console.error("Falha inesperada no envio:", err)
 			toast.error("Erro", {
 				description: "Falha inesperada ao enviar a presença.",
-			});
+			})
 		} finally {
-			setSubmitting(false);
+			setSubmitting(false)
 		}
-	};
+	}
 
 	const goHome = () => {
-		if (redirectCountdown !== null) return;
-		navigate({ to: "/forecast" });
-	};
+		if (redirectCountdown !== null) return
+		navigate({ to: "/forecast" })
+	}
 
-	if (!user) return null; // Should be handled by router but strict null check
+	if (!user) return null // Should be handled by router but strict null check
 
 	return (
 		<div className="w-full mx-auto p-6 space-y-6">
@@ -240,24 +224,14 @@ function SelfCheckin() {
 				<div className="space-y-2">
 					<div className="text-sm font-medium">Está na previsão?</div>
 					<div className="flex gap-2">
-						<Button
-							disabled
-							variant={systemForecast ? "default" : "outline"}
-							size="sm"
-						>
+						<Button disabled variant={systemForecast ? "default" : "outline"} size="sm">
 							Sim
 						</Button>
-						<Button
-							disabled
-							variant={!systemForecast ? "default" : "outline"}
-							size="sm"
-						>
+						<Button disabled variant={!systemForecast ? "default" : "outline"} size="sm">
 							Não
 						</Button>
 					</div>
-					<div className="text-xs text-muted-foreground mt-1">
-						UUID: {userId}
-					</div>
+					<div className="text-xs text-muted-foreground mt-1">UUID: {userId}</div>
 				</div>
 
 				{/* Vai entrar? */}
@@ -308,5 +282,5 @@ function SelfCheckin() {
 				)}
 			</div>
 		</div>
-	);
+	)
 }

@@ -1,10 +1,10 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { authQueryOptions } from "@/auth/service";
-import { userProfileQueryOptions } from "@/lib/journal/hooks";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { authQueryOptions } from "@/auth/service"
+import { userProfileQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/editorial")({
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions());
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 
 		if (!auth.isAuthenticated) {
 			throw redirect({
@@ -13,9 +13,7 @@ export const Route = createFileRoute("/journal/editorial")({
 			})
 		}
 
-		const profile = await context.queryClient.ensureQueryData(
-			userProfileQueryOptions(auth.user.id),
-		)
+		const profile = await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
 
 		if (!profile || profile.role !== "editor") {
 			throw redirect({
@@ -23,10 +21,10 @@ export const Route = createFileRoute("/journal/editorial")({
 			})
 		}
 
-		return { profile };
+		return { profile }
 	},
 	component: EditorialLayout,
-});
+})
 
 function EditorialLayout() {
 	return (

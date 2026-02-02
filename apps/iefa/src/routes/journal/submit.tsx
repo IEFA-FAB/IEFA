@@ -1,70 +1,67 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { authQueryOptions } from "@/auth/service";
-import { SubmissionForm } from "@/components/journal/SubmissionForm";
-import { userProfileQueryOptions } from "@/lib/journal/hooks";
-import { submitArticle } from "@/lib/journal/submission";
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { Loader2 } from "lucide-react"
+import { useState } from "react"
+import { authQueryOptions } from "@/auth/service"
+import { SubmissionForm } from "@/components/journal/SubmissionForm"
+import { userProfileQueryOptions } from "@/lib/journal/hooks"
+import { submitArticle } from "@/lib/journal/submission"
 
 export const Route = createFileRoute("/journal/submit")({
 	beforeLoad: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions());
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (!auth.isAuthenticated) {
-			throw redirect({ to: "/auth" });
+			throw redirect({ to: "/auth" })
 		}
-		return { auth };
+		return { auth }
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions());
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (auth.user) {
 			// Pre-load user profile
-			await context.queryClient.ensureQueryData(
-				userProfileQueryOptions(auth.user.id),
-			);
+			await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
 		}
 	},
 	component: RouteComponent,
-});
+})
 
 function RouteComponent() {
-	const { auth } = Route.useRouteContext();
-	const navigate = useNavigate();
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { auth } = Route.useRouteContext()
+	const navigate = useNavigate()
+	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 
-	const { data: profile } = useSuspenseQuery(
-		userProfileQueryOptions(auth.user?.id || ""),
-	);
+	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(auth.user?.id || ""))
 
 	if (!auth.user) {
-		return null;
+		return null
 	}
 
+	// biome-ignore lint/suspicious/noExplicitAny: Form data structure is dynamic
 	const handleSubmit = async (formData: any) => {
-		setIsSubmitting(true);
-		setError(null);
+		setIsSubmitting(true)
+		setError(null)
 
 		try {
-			const result = await submitArticle(formData, auth.user!.id);
+			const result = await submitArticle(formData, auth.user?.id)
 
 			if (!result.success) {
-				setError(result.error || "Erro ao submeter artigo");
-				setIsSubmitting(false);
-				return;
+				setError(result.error || "Erro ao submeter artigo")
+				setIsSubmitting(false)
+				return
 			}
 
 			// Success - navigate to submission detail
 			await navigate({
 				to: "/journal/submissions/$id",
-				params: { id: result.article!.id },
-			});
+				params: { id: result.article?.id },
+			})
 		} catch (err) {
-			console.error("Submission error:", err);
-			setError("Erro inesperado ao submeter artigo");
-			setIsSubmitting(false);
+			console.error("Submission error:", err)
+			setError("Erro inesperado ao submeter artigo")
+			setIsSubmitting(false)
 		}
-	};
+	}
 
 	// Initial data pre-filled from profile
 	const initialData = {
@@ -77,17 +74,14 @@ function RouteComponent() {
 				is_corresponding: true,
 			},
 		],
-	};
+	}
 
 	return (
 		<div className="container mx-auto max-w-5xl px-4 py-8">
 			<div className="mb-8">
-				<h1 className="text-3xl font-bold tracking-tight">
-					Nova Submissão de Artigo
-				</h1>
+				<h1 className="text-3xl font-bold tracking-tight">Nova Submissão de Artigo</h1>
 				<p className="mt-2 text-muted-foreground">
-					Preen all as informações solicitadas para submeter seu artigo para
-					revisão por pares.
+					Preen all as informações solicitadas para submeter seu artigo para revisão por pares.
 				</p>
 			</div>
 
@@ -106,12 +100,8 @@ function RouteComponent() {
 					</p>
 				</div>
 			) : (
-				<SubmissionForm
-					userId={auth.user.id}
-					initialData={initialData}
-					onSubmit={handleSubmit}
-				/>
+				<SubmissionForm userId={auth.user.id} initialData={initialData} onSubmit={handleSubmit} />
 			)}
 		</div>
-	);
+	)
 }

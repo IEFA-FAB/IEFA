@@ -12,16 +12,16 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { CalendarDays, Edit, Plus, Trash2 } from "lucide-react";
-import React from "react";
-import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates";
-import { TemplateEditor } from "./TemplateEditor";
+} from "@iefa/ui"
+import { CalendarDays, Edit, Plus, Trash2 } from "lucide-react"
+import React from "react"
+import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
+import { TemplateEditor } from "./TemplateEditor"
 
 interface TemplateManagerProps {
-	open: boolean;
-	onClose: () => void;
-	kitchenId: number | null;
+	open: boolean
+	onClose: () => void
+	kitchenId: number | null
 }
 
 /**
@@ -38,47 +38,41 @@ interface TemplateManagerProps {
  * />
  * ```
  */
-export function TemplateManager({
-	open,
-	onClose,
-	kitchenId,
-}: TemplateManagerProps) {
-	const { data: templates, isLoading } = useMenuTemplates(kitchenId);
-	const { mutate: deleteTemplate, isPending: isDeleting } = useDeleteTemplate();
+export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerProps) {
+	const { data: templates, isLoading } = useMenuTemplates(kitchenId)
+	const { mutate: deleteTemplate, isPending: isDeleting } = useDeleteTemplate()
 
-	const [editorOpen, setEditorOpen] = React.useState(false);
-	const [editingTemplateId, setEditingTemplateId] = React.useState<
-		string | null
-	>(null);
+	const [editorOpen, setEditorOpen] = React.useState(false)
+	const [editingTemplateId, setEditingTemplateId] = React.useState<string | null>(null)
 
 	const handleCreate = () => {
-		setEditingTemplateId(null);
-		setEditorOpen(true);
-	};
+		setEditingTemplateId(null)
+		setEditorOpen(true)
+	}
 
 	const handleEdit = (templateId: string) => {
-		setEditingTemplateId(templateId);
-		setEditorOpen(true);
-	};
+		setEditingTemplateId(templateId)
+		setEditorOpen(true)
+	}
 
 	const handleDelete = (templateId: string, templateName: string) => {
 		if (
 			window.confirm(
-				`Tem certeza que deseja remover o template "${templateName}"?\n\nEle poderá ser recuperado na lixeira.`,
+				`Tem certeza que deseja remover o template "${templateName}"?\n\nEle poderá ser recuperado na lixeira.`
 			)
 		) {
-			deleteTemplate(templateId);
+			deleteTemplate(templateId)
 		}
-	};
+	}
 
 	const handleEditorClose = () => {
-		setEditorOpen(false);
-		setEditingTemplateId(null);
-	};
+		setEditorOpen(false)
+		setEditingTemplateId(null)
+	}
 
 	// Separate global vs local templates
-	const globalTemplates = templates?.filter((t) => t.kitchen_id === null) || [];
-	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || [];
+	const globalTemplates = templates?.filter((t) => t.kitchen_id === null) || []
+	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
 
 	return (
 		<>
@@ -107,26 +101,19 @@ export function TemplateManager({
 										<TableRow>
 											<TableHead>Nome</TableHead>
 											<TableHead>Descrição</TableHead>
-											<TableHead className="w-24 text-center">
-												Receitas
-											</TableHead>
+											<TableHead className="w-24 text-center">Receitas</TableHead>
 											<TableHead className="w-24 text-right">Ações</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
 										{globalTemplates.map((template) => (
 											<TableRow key={template.id}>
-												<TableCell className="font-medium">
-													{template.name}
-												</TableCell>
+												<TableCell className="font-medium">{template.name}</TableCell>
 												<TableCell className="text-sm text-muted-foreground">
 													{template.description || "—"}
 												</TableCell>
 												<TableCell className="text-center">
-													<Badge
-														variant="secondary"
-														className="font-mono text-xs"
-													>
+													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}
 													</Badge>
 												</TableCell>
@@ -167,26 +154,19 @@ export function TemplateManager({
 										<TableRow>
 											<TableHead>Nome</TableHead>
 											<TableHead>Descrição</TableHead>
-											<TableHead className="w-24 text-center">
-												Receitas
-											</TableHead>
+											<TableHead className="w-24 text-center">Receitas</TableHead>
 											<TableHead className="w-32 text-right">Ações</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
 										{localTemplates.map((template) => (
 											<TableRow key={template.id}>
-												<TableCell className="font-medium">
-													{template.name}
-												</TableCell>
+												<TableCell className="font-medium">{template.name}</TableCell>
 												<TableCell className="text-sm text-muted-foreground">
 													{template.description || "—"}
 												</TableCell>
 												<TableCell className="text-center">
-													<Badge
-														variant="secondary"
-														className="font-mono text-xs"
-													>
+													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}
 													</Badge>
 												</TableCell>
@@ -203,9 +183,7 @@ export function TemplateManager({
 														<Button
 															size="icon"
 															variant="ghost"
-															onClick={() =>
-																handleDelete(template.id, template.name)
-															}
+															onClick={() => handleDelete(template.id, template.name)}
 															disabled={isDeleting}
 															title="Remover"
 														>
@@ -241,5 +219,5 @@ export function TemplateManager({
 				templateId={editingTemplateId}
 			/>
 		</>
-	);
+	)
 }

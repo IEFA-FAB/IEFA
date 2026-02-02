@@ -8,15 +8,15 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { ChefHat, GitFork, Plus, Search } from "lucide-react";
-import { useState } from "react";
-import { useRecipes } from "@/hooks/data/useRecipes";
+} from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { ChefHat, GitFork, Plus, Search } from "lucide-react"
+import { useState } from "react"
+import { useRecipes } from "@/hooks/data/useRecipes"
 
 export function RecipesManager() {
-	const [search, setSearch] = useState("");
-	const [filter, setFilter] = useState<"all" | "global" | "local">("all");
+	const [search, setSearch] = useState("")
+	const [filter, setFilter] = useState<"all" | "global" | "local">("all")
 
 	const { data: recipes, isLoading } = useRecipes({
 		search: search || undefined,
@@ -24,13 +24,13 @@ export function RecipesManager() {
 		// If filter is 'local', pass kitchen_id (if user has one, otherwise logic is handled client-side or we need to know user's kitchen)
 		global_only: filter === "global",
 		// We assume for now 'local' means recipes with ANY kitchen_id != null
-	});
+	})
 
 	// Client-side filtering for 'local' since backend hook is simple
 	const filteredRecipes = recipes?.filter((r) => {
-		if (filter === "local") return r.kitchen_id !== null;
-		return true;
-	});
+		if (filter === "local") return r.kitchen_id !== null
+		return true
+	})
 
 	return (
 		<div className="space-y-6">
@@ -101,17 +101,11 @@ export function RecipesManager() {
 				<Table>
 					<TableHeader>
 						<TableRow className="border-b border-border/50 bg-muted/30">
-							<TableHead className="font-sans font-semibold pl-6">
-								Nome
-							</TableHead>
+							<TableHead className="font-sans font-semibold pl-6">Nome</TableHead>
 							<TableHead className="font-sans font-semibold">Versão</TableHead>
 							<TableHead className="font-sans font-semibold">Origem</TableHead>
-							<TableHead className="font-sans font-semibold">
-								Rendimento
-							</TableHead>
-							<TableHead className="text-right font-sans font-semibold pr-6">
-								Ações
-							</TableHead>
+							<TableHead className="font-sans font-semibold">Rendimento</TableHead>
+							<TableHead className="text-right font-sans font-semibold pr-6">Ações</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -123,10 +117,7 @@ export function RecipesManager() {
 							</TableRow>
 						) : filteredRecipes?.length === 0 ? (
 							<TableRow>
-								<TableCell
-									colSpan={5}
-									className="h-24 text-center text-muted-foreground"
-								>
+								<TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
 									Nenhuma receita encontrada.
 								</TableCell>
 							</TableRow>
@@ -139,10 +130,7 @@ export function RecipesManager() {
 									<TableCell className="font-sans font-medium pl-6">
 										{recipe.name}
 										{recipe.base_recipe_id && (
-											<Badge
-												variant="outline"
-												className="ml-2 text-xs font-sans"
-											>
+											<Badge variant="outline" className="ml-2 text-xs font-sans">
 												Fork
 											</Badge>
 										)}
@@ -162,8 +150,7 @@ export function RecipesManager() {
 											</span>
 										) : (
 											<span className="flex items-center text-primary text-sm font-medium">
-												<span className="w-2 h-2 rounded-full bg-primary mr-2" />{" "}
-												Global
+												<span className="w-2 h-2 rounded-full bg-primary mr-2" /> Global
 											</span>
 										)}
 									</TableCell>
@@ -184,10 +171,7 @@ export function RecipesManager() {
 
 										{/* Fork Button if Global and User is Admin/Manager (has kitchen context usually) */}
 										{!recipe.kitchen_id && (
-											<Link
-												to={`/admin/recipes/new`}
-												search={{ forkFrom: recipe.id }}
-											>
+											<Link to={`/admin/recipes/new`} search={{ forkFrom: recipe.id }}>
 												<Button
 													variant="outline"
 													size="sm"
@@ -207,5 +191,5 @@ export function RecipesManager() {
 				</Table>
 			</div>
 		</div>
-	);
+	)
 }

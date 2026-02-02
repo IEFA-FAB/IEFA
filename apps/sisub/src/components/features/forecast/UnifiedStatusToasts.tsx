@@ -1,33 +1,33 @@
-import { AlertTriangle, CheckCircle, Loader2, Save } from "lucide-react";
-import { useEffect } from "react";
-import { toast } from "sonner";
+import { AlertTriangle, CheckCircle, Loader2, Save } from "lucide-react"
+import { useEffect } from "react"
+import { toast } from "sonner"
 
 interface PendingChange {
-	[key: string]: any;
+	[key: string]: any
 }
 
 interface UnifiedStatusToastsProps {
 	// Mensagens
-	success?: string | null;
-	error?: string | null;
-	onClearMessages: () => void;
+	success?: string | null
+	error?: string | null
+	onClearMessages: () => void
 
 	// Status pendências
-	pendingChanges: PendingChange[];
-	isSavingBatch: boolean;
+	pendingChanges: PendingChange[]
+	isSavingBatch: boolean
 
 	// Opções
-	autoHideSuccessMs?: number; // padrão: 6000ms
+	autoHideSuccessMs?: number // padrão: 6000ms
 }
 
 const pluralize = (count: number, singular: string, plural: string) =>
-	count === 1 ? singular : plural;
+	count === 1 ? singular : plural
 
-const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações");
-const labelPendente = (n: number) => pluralize(n, "pendente", "pendentes");
+const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações")
+const labelPendente = (n: number) => pluralize(n, "pendente", "pendentes")
 
 // IDs fixos para permitir atualizar/dispensar toasts
-const PENDING_ID = "sisub-pending";
+const PENDING_ID = "sisub-pending"
 
 export function UnifiedStatusToasts({
 	success,
@@ -37,26 +37,26 @@ export function UnifiedStatusToasts({
 	isSavingBatch,
 	autoHideSuccessMs = 6000,
 }: UnifiedStatusToastsProps) {
-	const count = pendingChanges.length;
+	const count = pendingChanges.length
 
 	// Sucesso: mostra toast e limpa mensagem após autoHideSuccessMs
 	useEffect(() => {
-		if (!success) return;
-		const id = `sisub-success-${Date.now()}`; // deixa empilhar sucessos diferentes
+		if (!success) return
+		const id = `sisub-success-${Date.now()}` // deixa empilhar sucessos diferentes
 		toast.success(success, {
 			id,
 			duration: autoHideSuccessMs,
 			icon: <CheckCircle className="h-4 w-4" />,
-		});
-		const t = setTimeout(() => onClearMessages(), autoHideSuccessMs);
-		return () => clearTimeout(t);
-	}, [success, autoHideSuccessMs, onClearMessages]);
+		})
+		const t = setTimeout(() => onClearMessages(), autoHideSuccessMs)
+		return () => clearTimeout(t)
+	}, [success, autoHideSuccessMs, onClearMessages])
 
 	// Erro: toast destrutivo com botão de fechar manual
 	useEffect(() => {
-		if (!error) return;
+		if (!error) return
 		// Reusa o mesmo id para atualizar o erro atual (ou troque por Date.now() se quiser empilhar vários erros)
-		const id = "sisub-error";
+		const id = "sisub-error"
 		toast.error(error, {
 			id,
 			duration: 10000,
@@ -65,40 +65,37 @@ export function UnifiedStatusToasts({
 			action: {
 				label: "Fechar",
 				onClick: () => {
-					onClearMessages();
-					toast.dismiss(id);
+					onClearMessages()
+					toast.dismiss(id)
 				},
 			},
-		});
-	}, [error, onClearMessages]);
+		})
+	}, [error, onClearMessages])
 
 	// Pendências: toast persistente que muda entre "salvando" e "pendente"
 	useEffect(() => {
 		if (count > 0) {
-			const baseMsg = `${count} ${labelAlteracao(count)}`;
+			const baseMsg = `${count} ${labelAlteracao(count)}`
 			if (isSavingBatch) {
 				// Atualiza/cria um toast "carregando"
 				toast(`Salvando ${baseMsg}...`, {
 					id: PENDING_ID,
 					duration: Infinity,
 					icon: <Loader2 className="h-4 w-4 animate-spin" />,
-				});
+				})
 			} else {
-				toast(
-					`${baseMsg} ${labelPendente(count)} — salvamento automático em andamento`,
-					{
-						id: PENDING_ID,
-						duration: Infinity,
-						icon: <Save className="h-4 w-4" />,
-					},
-				);
+				toast(`${baseMsg} ${labelPendente(count)} — salvamento automático em andamento`, {
+					id: PENDING_ID,
+					duration: Infinity,
+					icon: <Save className="h-4 w-4" />,
+				})
 			}
 		} else {
 			// Zero pendências: remove o toast persistente
-			toast.dismiss(PENDING_ID);
+			toast.dismiss(PENDING_ID)
 		}
-	}, [count, isSavingBatch]);
+	}, [count, isSavingBatch])
 
 	// Não renderiza nada; Sonner exibe os toasts
-	return null;
+	return null
 }

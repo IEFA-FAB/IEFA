@@ -1,12 +1,6 @@
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@iefa/ui";
-import { Building2, ChefHat } from "lucide-react";
-import { useKitchenSelector } from "@/hooks/data/useKitchens";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@iefa/ui"
+import { Building2, ChefHat } from "lucide-react"
+import { useKitchenSelector } from "@/hooks/data/useKitchens"
 
 /**
  * Kitchen Selector Component
@@ -21,10 +15,10 @@ import { useKitchenSelector } from "@/hooks/data/useKitchens";
  * ```
  */
 export function KitchenSelector() {
-	const { kitchens, kitchenId, setKitchenId, isLoading } = useKitchenSelector();
+	const { kitchens, kitchenId, setKitchenId, isLoading } = useKitchenSelector()
 
 	if (isLoading) {
-		return <div className="w-[280px] h-10 bg-muted animate-pulse rounded-md" />;
+		return <div className="w-[280px] h-10 bg-muted animate-pulse rounded-md" />
 	}
 
 	if (kitchens.length === 0) {
@@ -33,18 +27,18 @@ export function KitchenSelector() {
 				<Building2 className="w-4 h-4" />
 				<span>Nenhuma cozinha disponível</span>
 			</div>
-		);
+		)
 	}
 
-	const selectedKitchen = kitchens.find((k) => k.id === kitchenId);
+	const selectedKitchen = kitchens.find((k) => k.id === kitchenId)
 
 	return (
 		<Select
 			value={kitchenId?.toString() || ""}
 			onValueChange={(value) => {
-				const id = Number.parseInt(value, 10);
+				const id = Number.parseInt(value, 10)
 				if (!Number.isNaN(id)) {
-					setKitchenId(id);
+					setKitchenId(id)
 				}
 			}}
 		>
@@ -54,8 +48,7 @@ export function KitchenSelector() {
 						<div className="flex items-center gap-2">
 							<ChefHat className="w-4 h-4 text-muted-foreground" />
 							<span className="font-medium">
-								{selectedKitchen.unit?.display_name ||
-									`Kitchen #${selectedKitchen.id}`}
+								{selectedKitchen.unit?.display_name || `Kitchen #${selectedKitchen.id}`}
 							</span>
 							<span className="text-xs text-muted-foreground capitalize">
 								({selectedKitchen.type})
@@ -88,5 +81,5 @@ export function KitchenSelector() {
 				))}
 			</SelectContent>
 		</Select>
-	);
+	)
 }

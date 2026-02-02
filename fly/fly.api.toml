@@ -7,7 +7,7 @@ app = 'iefa-api'
 primary_region = 'gru'
 
 [build]
-  dockerfile = 'api.Dockerfile'
+  dockerfile = 'docker/api.Dockerfile'
 
 [env]
   NODE_ENV = 'production'

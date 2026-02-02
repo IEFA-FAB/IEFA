@@ -13,8 +13,8 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { useQuery } from "@tanstack/react-query";
+} from "@iefa/ui"
+import { useQuery } from "@tanstack/react-query"
 import {
 	AlertTriangle,
 	Check,
@@ -26,26 +26,26 @@ import {
 	TrendingUp,
 	Users,
 	X,
-} from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTableSkeleton";
-import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard";
+} from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTableSkeleton"
+import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
 import {
 	messHallsQueryOptions,
 	userDataQueryOptions,
 	userMilitaryDataQueryOptions,
-} from "@/services/DashboardService";
+} from "@/services/DashboardService"
 import type {
 	AggregatedPresenceRecord,
 	DashboardPresenceRecord,
 	ForecastRecord,
 	PersonDetail,
-} from "@/types/domain/dashboard";
+} from "@/types/domain/dashboard"
 
 interface PresenceTableProps {
-	forecasts: ForecastRecord[];
-	presences: DashboardPresenceRecord[];
+	forecasts: ForecastRecord[]
+	presences: DashboardPresenceRecord[]
 }
 
 const MEAL_LABELS = {
@@ -53,7 +53,7 @@ const MEAL_LABELS = {
 	almoco: "Almoço",
 	janta: "Janta",
 	ceia: "Ceia",
-} as const;
+} as const
 
 // Additional visual improvements for meals
 const MEAL_BADGES = {
@@ -61,7 +61,7 @@ const MEAL_BADGES = {
 	almoco: "bg-chart-3/10 text-chart-3 border-chart-3/20",
 	janta: "bg-chart-5/10 text-chart-5 border-chart-5/20",
 	ceia: "bg-chart-1/10 text-chart-1 border-chart-1/20",
-} as const;
+} as const
 
 function getInitials(name: string) {
 	return name
@@ -69,44 +69,42 @@ function getInitials(name: string) {
 		.map((n) => n[0])
 		.slice(0, 2)
 		.join("")
-		.toUpperCase();
+		.toUpperCase()
 }
 
 function PersonCard({
 	person,
 	variant,
 }: {
-	person: PersonDetail;
-	variant: "missing" | "present" | "extra";
+	person: PersonDetail
+	variant: "missing" | "present" | "extra"
 }) {
 	const borderClass = {
 		missing: "border-chart-5/20 bg-chart-5/5 hover:border-chart-5/30",
 		present: "border-chart-2/20 bg-chart-2/5 hover:border-chart-2/30",
 		extra: "border-chart-1/20 bg-chart-1/5 hover:border-chart-1/30",
-	};
+	}
 
 	const avatarClass = {
 		missing: "bg-chart-5/10 text-chart-5",
 		present: "bg-chart-2/10 text-chart-2",
 		extra: "bg-chart-1/10 text-chart-1",
-	};
+	}
 
 	const icon = {
 		missing: <X className="h-3 w-3 text-chart-5" />,
 		present: <Check className="h-3 w-3 text-chart-2" />,
 		extra: <AlertTriangle className="h-3 w-3 text-chart-1" />,
-	};
+	}
 
-	const displayName = person.name || person.email.split("@")[0];
+	const displayName = person.name || person.email.split("@")[0]
 
 	return (
 		<div
 			className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${borderClass[variant]}`}
 		>
 			<div className="relative">
-				<Avatar
-					className={`h-10 w-10 border-2 border-white ${avatarClass[variant]}`}
-				>
+				<Avatar className={`h-10 w-10 border-2 border-white ${avatarClass[variant]}`}>
 					<AvatarFallback className={avatarClass[variant]}>
 						{getInitials(displayName)}
 					</AvatarFallback>
@@ -120,55 +118,44 @@ function PersonCard({
 					{displayName}
 				</p>
 				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span className="font-medium text-foreground/80">
-						{person.posto || "-"}
-					</span>
+					<span className="font-medium text-foreground/80">{person.posto || "-"}</span>
 					<span>•</span>
 					<span className="truncate">{person.org || "-"}</span>
 				</div>
 			</div>
 		</div>
-	);
+	)
 }
 
-export default function PresenceTable({
-	forecasts,
-	presences,
-}: PresenceTableProps) {
-	const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+export default function PresenceTable({ forecasts, presences }: PresenceTableProps) {
+	const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
 	// Get unique user IDs from forecasts and presences
-	const forecastUserIds = Array.from(new Set(forecasts.map((f) => f.user_id)));
-	const presenceUserIds = Array.from(new Set(presences.map((p) => p.user_id)));
-	const allUserIds = Array.from(
-		new Set([...forecastUserIds, ...presenceUserIds]),
-	);
+	const forecastUserIds = Array.from(new Set(forecasts.map((f) => f.user_id)))
+	const presenceUserIds = Array.from(new Set(presences.map((p) => p.user_id)))
+	const allUserIds = Array.from(new Set([...forecastUserIds, ...presenceUserIds]))
 
 	// ✅ PARALELIZAÇÃO: userData e messHalls executam simultaneamente
 	const userDataQuery = useQuery(
-		userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined),
-	);
-	const messHallsQuery = useQuery(messHallsQueryOptions(undefined));
+		userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined)
+	)
+	const messHallsQuery = useQuery(messHallsQueryOptions(undefined))
 
 	// ❌ Esta query REALMENTE depende de userData - mantém sequencial
 	const nrOrdemList =
-		userDataQuery.data
-			?.filter((u) => u.nrOrdem !== null)
-			.map((u) => u.nrOrdem as string) ?? [];
+		userDataQuery.data?.filter((u) => u.nrOrdem !== null).map((u) => u.nrOrdem as string) ?? []
 
 	const militaryDataQuery = useQuery(
-		userMilitaryDataQueryOptions(
-			nrOrdemList.length > 0 ? nrOrdemList : undefined,
-		),
-	);
+		userMilitaryDataQueryOptions(nrOrdemList.length > 0 ? nrOrdemList : undefined)
+	)
 
 	// Consolidate loading states
-	const isLoading = userDataQuery.isLoading || messHallsQuery.isLoading;
-	const isLoadingMilitary = militaryDataQuery.isLoading;
+	const isLoading = userDataQuery.isLoading || messHallsQuery.isLoading
+	const isLoadingMilitary = militaryDataQuery.isLoading
 
 	// Show skeleton during initial load
 	if (isLoading || isLoadingMilitary) {
-		return <PresenceTableSkeleton />;
+		return <PresenceTableSkeleton />
 	}
 
 	// Aggregate data when all queries are complete
@@ -177,60 +164,57 @@ export default function PresenceTable({
 		presences,
 		userDataQuery.data ?? [],
 		militaryDataQuery.data ?? [],
-		messHallsQuery.data ?? [],
-	);
+		messHallsQuery.data ?? []
+	)
 
 	const toggleOpen = (id: string) => {
 		setOpenIds((prev) => {
-			const next = new Set(prev);
+			const next = new Set(prev)
 			if (next.has(id)) {
-				next.delete(id);
+				next.delete(id)
 			} else {
-				next.add(id);
+				next.add(id)
 			}
-			return next;
-		});
-	};
+			return next
+		})
+	}
 
 	const handleCopyCsv = (record: AggregatedPresenceRecord) => {
-		const headers = "Nome,Posto,Organizacao,Status,Email";
+		const headers = "Nome,Posto,Organizacao,Status,Email"
 		const rows = [
 			...record.absences.map(
-				(p) =>
-					`"${p.name || ""}",${p.posto || ""},${p.org || ""},Faltou,${p.email}`,
+				(p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Faltou,${p.email}`
 			),
 			...record.attended.map(
-				(p) =>
-					`"${p.name || ""}",${p.posto || ""},${p.org || ""},Compareceu,${p.email}`,
+				(p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Compareceu,${p.email}`
 			),
 			...record.extras.map(
-				(p) =>
-					`"${p.name || ""}",${p.posto || ""},${p.org || ""},Extra,${p.email}`,
+				(p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Extra,${p.email}`
 			),
-		];
-		const csvContent = [headers, ...rows].join("\n");
+		]
+		const csvContent = [headers, ...rows].join("\n")
 
-		navigator.clipboard.writeText(csvContent);
+		navigator.clipboard.writeText(csvContent)
 		toast.success("Dados copiados para a área de transferência", {
 			description: `${rows.length} registros exportados`,
 			icon: <CheckCircle className="h-4 w-4 text-chart-2" />,
-		});
-	};
+		})
+	}
 
 	const getRowKey = (record: AggregatedPresenceRecord) =>
-		`${record.date}|${record.meal}|${record.mess_hall_id}`;
+		`${record.date}|${record.meal}|${record.mess_hall_id}`
 
 	const getRateColor = (rate: number) => {
-		if (rate >= 90) return "text-chart-2";
-		if (rate >= 70) return "text-chart-3";
-		return "text-chart-5";
-	};
+		if (rate >= 90) return "text-chart-2"
+		if (rate >= 70) return "text-chart-3"
+		return "text-chart-5"
+	}
 
 	const getRateIcon = (rate: number) => {
-		if (rate >= 90) return <TrendingUp className="h-4 w-4" />;
-		if (rate >= 70) return <Check className="h-4 w-4" />;
-		return <TrendingDown className="h-4 w-4" />;
-	};
+		if (rate >= 90) return <TrendingUp className="h-4 w-4" />
+		if (rate >= 70) return <Check className="h-4 w-4" />
+		return <TrendingDown className="h-4 w-4" />
+	}
 
 	if (aggregatedData.length === 0) {
 		return (
@@ -247,7 +231,7 @@ export default function PresenceTable({
 					</div>
 				</CardContent>
 			</Card>
-		);
+		)
 	}
 
 	return (
@@ -278,11 +262,11 @@ export default function PresenceTable({
 						</TableHeader>
 						<TableBody>
 							{aggregatedData.map((record) => {
-								const rowKey = getRowKey(record);
-								const isOpen = openIds.has(rowKey);
-								const rateColor = getRateColor(record.attendance_rate);
-								const hasAbsences = record.absences.length > 0;
-								const hasExtras = record.extras.length > 0;
+								const rowKey = getRowKey(record)
+								const isOpen = openIds.has(rowKey)
+								const rateColor = getRateColor(record.attendance_rate)
+								const hasAbsences = record.absences.length > 0
+								const hasExtras = record.extras.length > 0
 
 								return (
 									<>
@@ -308,27 +292,19 @@ export default function PresenceTable({
 											<TableCell className="font-medium">
 												<div className="flex flex-col">
 													<span>
-														{parseLocalDate(record.date).toLocaleDateString(
-															"pt-BR",
-															{
-																day: "2-digit",
-																month: "2-digit",
-															},
-														)}
+														{parseLocalDate(record.date).toLocaleDateString("pt-BR", {
+															day: "2-digit",
+															month: "2-digit",
+														})}
 													</span>
 													<span className="text-xs text-muted-foreground capitalize">
-														{parseLocalDate(record.date).toLocaleDateString(
-															"pt-BR",
-															{
-																weekday: "short",
-															},
-														)}
+														{parseLocalDate(record.date).toLocaleDateString("pt-BR", {
+															weekday: "short",
+														})}
 													</span>
 												</div>
 											</TableCell>
-											<TableCell className="text-sm">
-												{record.mess_hall_name}
-											</TableCell>
+											<TableCell className="text-sm">{record.mess_hall_name}</TableCell>
 											<TableCell>
 												<span
 													className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${MEAL_BADGES[record.meal]}`}
@@ -359,9 +335,7 @@ export default function PresenceTable({
 													className={`flex items-center justify-center gap-1 ${rateColor} font-semibold`}
 												>
 													{getRateIcon(record.attendance_rate)}
-													<span className="text-sm">
-														{record.attendance_rate.toFixed(1)}%
-													</span>
+													<span className="text-sm">{record.attendance_rate.toFixed(1)}%</span>
 												</div>
 											</TableCell>
 										</TableRow>
@@ -375,9 +349,7 @@ export default function PresenceTable({
 															<h3 className="font-semibold text-lg flex items-center gap-2">
 																Detalhamento
 																<span className="text-sm font-normal text-muted-foreground">
-																	(
-																	{record.forecast_count + record.extras.length}{" "}
-																	pessoas total)
+																	({record.forecast_count + record.extras.length} pessoas total)
 																</span>
 															</h3>
 															<Button
@@ -405,11 +377,7 @@ export default function PresenceTable({
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.absences.map((person) => (
-																		<PersonCard
-																			key={person.id}
-																			person={person}
-																			variant="missing"
-																		/>
+																		<PersonCard key={person.id} person={person} variant="missing" />
 																	))}
 																</div>
 															</div>
@@ -420,10 +388,7 @@ export default function PresenceTable({
 															<div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4">
 																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-2">
 																	<div className="p-1 rounded bg-chart-2/10">
-																		<Check
-																			className="h-4 w-4"
-																			aria-hidden="true"
-																		/>
+																		<Check className="h-4 w-4" aria-hidden="true" />
 																	</div>
 																	Compareceram ({record.attended.length})
 																	<span className="text-muted-foreground font-normal ml-1">
@@ -432,11 +397,7 @@ export default function PresenceTable({
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.attended.map((person) => (
-																		<PersonCard
-																			key={person.id}
-																			person={person}
-																			variant="present"
-																		/>
+																		<PersonCard key={person.id} person={person} variant="present" />
 																	))}
 																</div>
 															</div>
@@ -447,10 +408,7 @@ export default function PresenceTable({
 															<div className="rounded-lg border border-chart-1/20 bg-chart-1/5 p-4">
 																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-1">
 																	<div className="p-1 rounded bg-chart-1/10">
-																		<AlertTriangle
-																			className="h-4 w-4"
-																			aria-hidden="true"
-																		/>
+																		<AlertTriangle className="h-4 w-4" aria-hidden="true" />
 																	</div>
 																	Extras ({record.extras.length})
 																	<span className="text-muted-foreground font-normal ml-1">
@@ -459,11 +417,7 @@ export default function PresenceTable({
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.extras.map((person) => (
-																		<PersonCard
-																			key={person.id}
-																			person={person}
-																			variant="extra"
-																		/>
+																		<PersonCard key={person.id} person={person} variant="extra" />
 																	))}
 																</div>
 															</div>
@@ -479,8 +433,7 @@ export default function PresenceTable({
 																	Balanço Perfeito
 																</h4>
 																<p className="text-muted-foreground">
-																	Todos que previram compareceram e não houveram
-																	extras.
+																	Todos que previram compareceram e não houveram extras.
 																</p>
 															</div>
 														)}
@@ -489,7 +442,7 @@ export default function PresenceTable({
 											</TableRow>
 										)}
 									</>
-								);
+								)
 							})}
 						</TableBody>
 					</Table>
@@ -500,5 +453,5 @@ export default function PresenceTable({
 				</div>
 			</CardContent>
 		</Card>
-	);
+	)
 }

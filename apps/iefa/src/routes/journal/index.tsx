@@ -1,53 +1,43 @@
-import { Button } from "@iefa/ui";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-	BookOpen,
-	FileText,
-	LayoutDashboard,
-	List,
-	Settings,
-	Upload,
-	Users,
-} from "lucide-react";
-import { authQueryOptions } from "@/auth/service";
-import { ProfileOnboarding } from "@/components/journal/ProfileOnboarding";
-import { userProfileQueryOptions } from "@/lib/journal/hooks";
+import { Button } from "@iefa/ui"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { BookOpen, FileText, LayoutDashboard, List, Settings, Upload, Users } from "lucide-react"
+import { authQueryOptions } from "@/auth/service"
+import { ProfileOnboarding } from "@/components/journal/ProfileOnboarding"
+import { userProfileQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/")({
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions());
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (auth.user && auth.isAuthenticated) {
 			// Only try to load profile if user is authenticated with valid ID
 			try {
-				await context.queryClient.ensureQueryData(
-					userProfileQueryOptions(auth.user.id),
-				);
+				await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
 			} catch {
 				// Profile doesn't exist yet, will be auto-created by trigger
 			}
 		}
 	},
 	component: RouteComponent,
-});
+})
 
 function RouteComponent() {
-	const { data: auth } = useSuspenseQuery(authQueryOptions());
+	const { data: auth } = useSuspenseQuery(authQueryOptions())
 
 	// Use regular useQuery for profile since it's optional and may not exist
 	const { data: profile } = useQuery({
 		...userProfileQueryOptions(auth.user?.id || ""),
 		enabled: !!auth.user?.id && auth.isAuthenticated,
 		retry: false,
-	});
+	})
 
 	// Show onboarding if user is authenticated but doesn't have a profile
 	if (auth.isAuthenticated && !profile) {
-		return <ProfileOnboarding />;
+		return <ProfileOnboarding />
 	}
 
-	const isEditor = profile?.role === "editor";
-	const isAuthenticated = auth.isAuthenticated;
+	const isEditor = profile?.role === "editor"
+	const isAuthenticated = auth.isAuthenticated
 
 	return (
 		<div className="relative flex flex-col items-center justify-center w-full text-foreground">
@@ -64,18 +54,15 @@ function RouteComponent() {
 								Sistema de Gestão de Publicações
 							</h1>
 							<p className="mt-4 max-w-3xl text-pretty text-base sm:text-lg text-muted-foreground">
-								Plataforma completa para submissão, revisão e publicação de
-								artigos científicos com suporte bilíngue (PT/EN).
+								Plataforma completa para submissão, revisão e publicação de artigos científicos com
+								suporte bilíngue (PT/EN).
 							</p>
 							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
 								{isAuthenticated ? (
 									<>
 										<Button
 											render={
-												<Link
-													to="/journal/submit"
-													aria-label="Submeter novo artigo"
-												>
+												<Link to="/journal/submit" aria-label="Submeter novo artigo">
 													Submeter Artigo
 												</Link>
 											}
@@ -84,10 +71,7 @@ function RouteComponent() {
 										/>
 										<Button
 											render={
-												<Link
-													to="/journal/submissions"
-													aria-label="Ver minhas submissões"
-												>
+												<Link to="/journal/submissions" aria-label="Ver minhas submissões">
 													Minhas Submissões
 												</Link>
 											}
@@ -108,10 +92,7 @@ function RouteComponent() {
 										/>
 										<Button
 											render={
-												<Link
-													to="/journal/articles"
-													aria-label="Ver artigos publicados"
-												>
+												<Link to="/journal/articles" aria-label="Ver artigos publicados">
 													Artigos Publicados
 												</Link>
 											}
@@ -142,8 +123,8 @@ function RouteComponent() {
 								</div>
 								<h3 className="font-semibold text-lg mb-2">Nova Submissão</h3>
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Submeta um novo artigo para revisão por pares. Preencha o
-									formulário com metadados bilíngues e faça upload dos arquivos.
+									Submeta um novo artigo para revisão por pares. Preencha o formulário com metadados
+									bilíngues e faça upload dos arquivos.
 								</p>
 								<Button variant="ghost" className="w-full justify-start px-0">
 									Iniciar Submissão →
@@ -159,12 +140,10 @@ function RouteComponent() {
 								<div className="size-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
 									<List className="size-6 text-blue-600 dark:text-blue-400" />
 								</div>
-								<h3 className="font-semibold text-lg mb-2">
-									Minhas Submissões
-								</h3>
+								<h3 className="font-semibold text-lg mb-2">Minhas Submissões</h3>
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Acompanhe o status de todos os seus artigos submetidos.
-									Visualize comentários dos revisores e faça revisões.
+									Acompanhe o status de todos os seus artigos submetidos. Visualize comentários dos
+									revisores e faça revisões.
 								</p>
 								<Button variant="ghost" className="w-full justify-start px-0">
 									Ver Submissões →
@@ -182,8 +161,8 @@ function RouteComponent() {
 								</div>
 								<h3 className="font-semibold text-lg mb-2">Meu Perfil</h3>
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Gerencie suas informações pessoais, ORCID, afiliação
-									institucional e áreas de expertise.
+									Gerencie suas informações pessoais, ORCID, afiliação institucional e áreas de
+									expertise.
 								</p>
 								<Button variant="ghost" className="w-full justify-start px-0">
 									Editar Perfil →
@@ -200,8 +179,8 @@ function RouteComponent() {
 							</div>
 							<h3 className="font-semibold text-lg mb-2">Artigos Publicados</h3>
 							<p className="text-sm text-muted-foreground mb-4 flex-1">
-								Navegue pelos artigos já publicados na revista. Pesquise por
-								área, autor ou palavra-chave.
+								Navegue pelos artigos já publicados na revista. Pesquise por área, autor ou
+								palavra-chave.
 							</p>
 							<Button variant="ghost" className="w-full justify-start px-0">
 								Explorar Artigos →
@@ -236,9 +215,7 @@ function RouteComponent() {
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
 									Visualize e complete revisões atribuídas a você.
 								</p>
-								<p className="text-xs text-muted-foreground italic">
-									Em breve (Fase 3)
-								</p>
+								<p className="text-xs text-muted-foreground italic">Em breve (Fase 3)</p>
 							</div>
 
 							{isEditor && (
@@ -246,15 +223,11 @@ function RouteComponent() {
 									<div className="size-12 rounded-lg bg-muted flex items-center justify-center mb-4">
 										<Settings className="size-6 text-muted-foreground" />
 									</div>
-									<h3 className="font-semibold text-lg mb-2">
-										Configurações da Revista
-									</h3>
+									<h3 className="font-semibold text-lg mb-2">Configurações da Revista</h3>
 									<p className="text-sm text-muted-foreground mb-4 flex-1">
 										Configure informações da revista, templates de email e DOI.
 									</p>
-									<p className="text-xs text-muted-foreground italic">
-										Em breve (Fase 4)
-									</p>
+									<p className="text-xs text-muted-foreground italic">Em breve (Fase 4)</p>
 								</div>
 							)}
 						</>
@@ -266,9 +239,7 @@ function RouteComponent() {
 			{isEditor && (
 				<section className="mt-12 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
 					<div className="border-t pt-12">
-						<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
-							Área Editorial
-						</h2>
+						<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">Área Editorial</h2>
 
 						<div className="grid md:grid-cols-2 gap-6">
 							<Link to="/journal/editorial/dashboard" className="group">
@@ -276,38 +247,27 @@ function RouteComponent() {
 									<div className="size-16 rounded-lg bg-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors">
 										<LayoutDashboard className="size-8 text-primary" />
 									</div>
-									<h3 className="font-semibold text-xl mb-2">
-										Dashboard Editorial
-									</h3>
+									<h3 className="font-semibold text-xl mb-2">Dashboard Editorial</h3>
 									<p className="text-muted-foreground mb-4">
-										Gerencie submissões, atribua revisores e tome decisões sobre
-										artigos.
+										Gerencie submissões, atribua revisores e tome decisões sobre artigos.
 									</p>
 									<Button className="mt-4">Acessar Dashboard →</Button>
 								</div>
 							</Link>
 
 							<div className="p-8 border rounded-lg bg-card">
-								<h3 className="font-semibold text-lg mb-4">
-									Estatísticas Rápidas
-								</h3>
+								<h3 className="font-semibold text-lg mb-4">Estatísticas Rápidas</h3>
 								<div className="space-y-3">
 									<div className="flex items-center justify-between p-3 bg-muted rounded">
-										<span className="text-sm text-muted-foreground">
-											Aguardando Decisão
-										</span>
+										<span className="text-sm text-muted-foreground">Aguardando Decisão</span>
 										<span className="font-semibold">-</span>
 									</div>
 									<div className="flex items-center justify-between p-3 bg-muted rounded">
-										<span className="text-sm text-muted-foreground">
-											Em Revisão
-										</span>
+										<span className="text-sm text-muted-foreground">Em Revisão</span>
 										<span className="font-semibold">-</span>
 									</div>
 									<div className="flex items-center justify-between p-3 bg-muted rounded">
-										<span className="text-sm text-muted-foreground">
-											Publicados este mês
-										</span>
+										<span className="text-sm text-muted-foreground">Publicados este mês</span>
 										<span className="font-semibold">-</span>
 									</div>
 								</div>
@@ -323,14 +283,11 @@ function RouteComponent() {
 			{/* Info Section & Quick Links */}
 			<div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
 				<div className="mt-12 p-6 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-					<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-						ℹ️ Sobre o Sistema
-					</h3>
+					<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">ℹ️ Sobre o Sistema</h3>
 					<p className="text-sm text-blue-800 dark:text-blue-200">
-						Este é um sistema completo de gestão de publicações científicas com
-						suporte a submissões bilíngues (PT/EN), revisão por pares, gestão de
-						DOI e integração com Crossref. Para começar, faça login e complete
-						seu perfil.
+						Este é um sistema completo de gestão de publicações científicas com suporte a submissões
+						bilíngues (PT/EN), revisão por pares, gestão de DOI e integração com Crossref. Para
+						começar, faça login e complete seu perfil.
 					</p>
 				</div>
 
@@ -345,5 +302,5 @@ function RouteComponent() {
 				)}
 			</div>
 		</div>
-	);
+	)
 }

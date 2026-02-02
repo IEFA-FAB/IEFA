@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
 	Avatar,
@@ -16,50 +16,43 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	useSidebar,
-} from "@iefa/ui";
-import { useNavigate } from "@tanstack/react-router";
-import { EllipsisVertical, LogOut, User } from "lucide-react";
-import { useAuth } from "@/hooks/auth/useAuth";
+} from "@iefa/ui"
+import { useNavigate } from "@tanstack/react-router"
+import { EllipsisVertical, LogOut, User } from "lucide-react"
+import { useAuth } from "@/hooks/auth/useAuth"
 
 type UserMeta = {
-	name?: string;
-	full_name?: string;
-	avatar_url?: string;
-	picture?: string;
-};
+	name?: string
+	full_name?: string
+	avatar_url?: string
+	picture?: string
+}
 
 function getInitials(nameOrEmail?: string) {
-	if (!nameOrEmail) return "US";
-	const name = nameOrEmail.split("@")[0];
-	const parts = name.trim().split(/\s+/);
-	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-	return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+	if (!nameOrEmail) return "US"
+	const name = nameOrEmail.split("@")[0]
+	const parts = name.trim().split(/\s+/)
+	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+	return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export function NavUser() {
-	const { isMobile } = useSidebar();
-	const { user, isAuthenticated, isLoading, signOut } = useAuth();
-	const navigate = useNavigate();
+	const { isMobile } = useSidebar()
+	const { user, isAuthenticated, isLoading, signOut } = useAuth()
+	const navigate = useNavigate()
 
-	const meta = (user?.user_metadata ?? {}) as UserMeta;
-	const email = user?.email ?? "";
-	const displayName = meta.name || meta.full_name || email || "Usuário";
-	const avatarUrl = meta.avatar_url || meta.picture || "";
+	const meta = (user?.user_metadata ?? {}) as UserMeta
+	const email = user?.email ?? ""
+	const displayName = meta.name || meta.full_name || email || "Usuário"
+	const avatarUrl = meta.avatar_url || meta.picture || ""
 
 	return (
 		<SidebarMenu>
 			<SidebarMenuItem>
 				{isLoading ? (
-					<div
-						className="h-8 w-full rounded-lg bg-muted animate-pulse"
-						aria-hidden="true"
-					/>
+					<div className="h-8 w-full rounded-lg bg-muted animate-pulse" aria-hidden="true" />
 				) : !isAuthenticated ? (
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => navigate({ to: "/auth" })}
-					>
+					<Button variant="outline" size="sm" onClick={() => navigate({ to: "/auth" })}>
 						Entrar
 					</Button>
 				) : (
@@ -78,14 +71,9 @@ export function NavUser() {
 									</Avatar>
 									<div className="hidden sm:grid flex-1 text-left text-sm leading-tight ml-2">
 										<span className="truncate font-medium">{displayName}</span>
-										<span className="text-muted-foreground truncate text-xs">
-											{email}
-										</span>
+										<span className="text-muted-foreground truncate text-xs">{email}</span>
 									</div>
-									<EllipsisVertical
-										className="ml-2 h-4 w-4"
-										aria-hidden="true"
-									/>
+									<EllipsisVertical className="ml-2 h-4 w-4" aria-hidden="true" />
 								</SidebarMenuButton>
 							}
 						/>
@@ -106,12 +94,8 @@ export function NavUser() {
 											</AvatarFallback>
 										</Avatar>
 										<div className="grid flex-1 text-left text-sm leading-tight">
-											<span className="truncate font-medium">
-												{displayName}
-											</span>
-											<span className="text-muted-foreground truncate text-xs">
-												{email}
-											</span>
+											<span className="truncate font-medium">{displayName}</span>
+											<span className="text-muted-foreground truncate text-xs">{email}</span>
 										</div>
 									</div>
 								</DropdownMenuLabel>
@@ -122,7 +106,7 @@ export function NavUser() {
 							<DropdownMenuGroup>
 								<DropdownMenuItem
 									onClick={() => {
-										navigate({ to: "/profile" });
+										navigate({ to: "/profile" })
 									}}
 									className="cursor-pointer"
 								>
@@ -134,8 +118,8 @@ export function NavUser() {
 							<DropdownMenuGroup>
 								<DropdownMenuItem
 									onClick={async () => {
-										await signOut();
-										navigate({ to: "/auth" });
+										await signOut()
+										navigate({ to: "/auth" })
 									}}
 									className="text-red-600 focus:text-red-600 cursor-pointer"
 								>
@@ -148,5 +132,5 @@ export function NavUser() {
 				)}
 			</SidebarMenuItem>
 		</SidebarMenu>
-	);
+	)
 }

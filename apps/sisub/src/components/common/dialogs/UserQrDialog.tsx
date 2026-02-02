@@ -6,57 +6,45 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from "@iefa/ui";
-import {
-	Copy as CopyIcon,
-	Download as DownloadIcon,
-	QrCode,
-	XIcon,
-} from "lucide-react";
-import { QRCodeCanvas } from "qrcode.react";
-import type React from "react";
-import { useId, useRef } from "react";
+} from "@iefa/ui"
+import { Copy as CopyIcon, Download as DownloadIcon, QrCode, XIcon } from "lucide-react"
+import { QRCodeCanvas } from "qrcode.react"
+import type React from "react"
+import { useId, useRef } from "react"
 
 type UserQrDialogProps = {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	userId: string | null;
-	onCopy: () => void;
-	hasCopied: boolean;
-};
+	open: boolean
+	onOpenChange: (open: boolean) => void
+	userId: string | null
+	onCopy: () => void
+	hasCopied: boolean
+}
 
-export function UserQrDialog({
-	open,
-	onOpenChange,
-	userId,
-	onCopy,
-	hasCopied,
-}: UserQrDialogProps) {
-	const titleId = useId();
-	const descId = useId();
+export function UserQrDialog({ open, onOpenChange, userId, onCopy, hasCopied }: UserQrDialogProps) {
+	const titleId = useId()
+	const descId = useId()
 
-	const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
-	const canInteract = Boolean(userId);
+	const qrCanvasRef = useRef<HTMLCanvasElement | null>(null)
+	const canInteract = Boolean(userId)
 
 	const handleDownload = () => {
-		if (!qrCanvasRef.current || !userId) return;
+		if (!qrCanvasRef.current || !userId) return
 		try {
-			const url = qrCanvasRef.current.toDataURL("image/png");
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `user-${userId}-qrcode.png`;
-			a.click();
+			const url = qrCanvasRef.current.toDataURL("image/png")
+			const a = document.createElement("a")
+			a.href = url
+			a.download = `user-${userId}-qrcode.png`
+			a.click()
 		} catch {}
-	};
+	}
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
-		const isCopy =
-			(e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && canInteract;
+		const isCopy = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && canInteract
 		if (isCopy) {
-			e.preventDefault();
-			onCopy();
+			e.preventDefault()
+			onCopy()
 		}
-	};
+	}
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,14 +111,10 @@ export function UserQrDialog({
 						</div>
 
 						<div className="w-full max-w-xs space-y-2 text-center sm:max-w-sm">
-							<p className="text-xs font-medium text-muted-foreground sm:text-sm">
-								ID do Usuário
-							</p>
+							<p className="text-xs font-medium text-muted-foreground sm:text-sm">ID do Usuário</p>
 
 							<div className="w-full overflow-hidden rounded-lg border bg-card px-2 py-1.5 font-mono text-xs text-foreground sm:px-4 sm:py-2">
-								<span className="block truncate text-center">
-									{userId ?? "N/A"}
-								</span>
+								<span className="block truncate text-center">{userId ?? "N/A"}</span>
 							</div>
 
 							<div className="flex w-full flex-col items-center gap-2 sm:flex-row sm:justify-center">
@@ -154,10 +138,7 @@ export function UserQrDialog({
 									disabled={!canInteract}
 									className="w-full sm:w-auto"
 								>
-									<DownloadIcon
-										className="mr-2 h-3.5 w-3.5"
-										aria-hidden="true"
-									/>
+									<DownloadIcon className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
 									Baixar PNG
 								</Button>
 							</div>
@@ -170,5 +151,5 @@ export function UserQrDialog({
 				</div>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

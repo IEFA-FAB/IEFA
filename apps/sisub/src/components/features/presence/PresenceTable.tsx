@@ -7,27 +7,23 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { Trash2 } from "lucide-react";
-import {
-	type FiscalPresenceRecord,
-	MEAL_LABEL,
-	type MealKey,
-} from "@/lib/fiscal";
-import { formatDate } from "@/lib/meal";
+} from "@iefa/ui"
+import { Trash2 } from "lucide-react"
+import { type FiscalPresenceRecord, MEAL_LABEL, type MealKey } from "@/lib/fiscal"
+import { formatDate } from "@/lib/meal"
 
 interface PresenceTableProps {
-	selectedDate: string;
-	selectedMeal: MealKey;
-	presences: FiscalPresenceRecord[];
-	forecastMap: Record<string, boolean>;
+	selectedDate: string
+	selectedMeal: MealKey
+	presences: FiscalPresenceRecord[]
+	forecastMap: Record<string, boolean>
 	actions: {
-		removePresence: (record: FiscalPresenceRecord) => void;
-	};
+		removePresence: (record: FiscalPresenceRecord) => void
+	}
 }
 
 // Tipo auxiliar apenas para leitura do campo extra
-type PresenceRowUI = FiscalPresenceRecord & { display_name?: string | null };
+type PresenceRowUI = FiscalPresenceRecord & { display_name?: string | null }
 
 export default function PresenceTable({
 	selectedDate,
@@ -56,36 +52,25 @@ export default function PresenceTable({
 							<TableRow>
 								<TableHead className="text-muted-foreground">Pessoa</TableHead>
 								<TableHead className="text-muted-foreground">Data</TableHead>
-								<TableHead className="text-muted-foreground">
-									Refeição
-								</TableHead>
-								<TableHead className="text-muted-foreground">
-									Previsão
-								</TableHead>
-								<TableHead className="text-muted-foreground">
-									Registrado em
-								</TableHead>
-								<TableHead className="text-right text-muted-foreground">
-									Ações
-								</TableHead>
+								<TableHead className="text-muted-foreground">Refeição</TableHead>
+								<TableHead className="text-muted-foreground">Previsão</TableHead>
+								<TableHead className="text-muted-foreground">Registrado em</TableHead>
+								<TableHead className="text-right text-muted-foreground">Ações</TableHead>
 							</TableRow>
 						</TableHeader>
 
 						<TableBody>
 							{presences.length === 0 ? (
 								<TableRow>
-									<TableCell
-										colSpan={6}
-										className="h-24 text-center text-muted-foreground"
-									>
+									<TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
 										Nenhuma presença registrada ainda.
 									</TableCell>
 								</TableRow>
 							) : (
 								presences.map((row) => {
-									const uiRow = row as PresenceRowUI;
-									const saidWouldAttend = forecastMap[row.user_id] ?? false;
-									const name = uiRow.display_name?.trim() || row.user_id;
+									const uiRow = row as PresenceRowUI
+									const saidWouldAttend = forecastMap[row.user_id] ?? false
+									const name = uiRow.display_name?.trim() || row.user_id
 
 									return (
 										<TableRow key={row.id} className="hover:bg-accent/50">
@@ -108,9 +93,7 @@ export default function PresenceTable({
 													<Badge variant="outline">Não</Badge>
 												)}
 											</TableCell>
-											<TableCell>
-												{new Date(row.created_at).toLocaleString("pt-BR")}
-											</TableCell>
+											<TableCell>{new Date(row.created_at).toLocaleString("pt-BR")}</TableCell>
 											<TableCell className="text-right">
 												<Button
 													variant="ghost"
@@ -123,7 +106,7 @@ export default function PresenceTable({
 												</Button>
 											</TableCell>
 										</TableRow>
-									);
+									)
 								})
 							)}
 						</TableBody>
@@ -131,5 +114,5 @@ export default function PresenceTable({
 				</div>
 			</div>
 		</>
-	);
+	)
 }

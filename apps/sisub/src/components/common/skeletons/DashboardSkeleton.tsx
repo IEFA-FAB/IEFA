@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader } from "@iefa/ui";
+import { Card, CardContent, CardHeader } from "@iefa/ui"
 
 export function DashboardSkeleton() {
 	return (
@@ -49,5 +49,5 @@ export function DashboardSkeleton() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

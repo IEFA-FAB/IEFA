@@ -1,69 +1,57 @@
 // components/rancho/SimplifiedMilitaryStats.tsx
 
-import { Badge, Card, CardContent, Skeleton } from "@iefa/ui";
-import {
-	CalendarDays,
-	CheckCircle2,
-	Clock,
-	MinusCircle,
-	Utensils,
-} from "lucide-react";
-import type { DayMeals } from "@/lib/meal";
+import { Badge, Card, CardContent, Skeleton } from "@iefa/ui"
+import { CalendarDays, CheckCircle2, Clock, MinusCircle, Utensils } from "lucide-react"
+import type { DayMeals } from "@/lib/meal"
 
 interface Selections {
-	[date: string]: DayMeals;
+	[date: string]: DayMeals
 }
 
 interface SimplifiedStatsProps {
-	selections: Selections;
-	dates: string[];
+	selections: Selections
+	dates: string[]
 	// Quando true, exibe skeleton no próprio componente (ex.: durante refetch)
-	isLoading?: boolean;
+	isLoading?: boolean
 }
 
-function SimplifiedMilitaryStats({
-	selections,
-	dates,
-	isLoading = false,
-}: SimplifiedStatsProps) {
+function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: SimplifiedStatsProps) {
 	// React Compiler handles optimization - no manual useMemo needed
-	const next7Days = dates.slice(0, 7);
+	const next7Days = dates.slice(0, 7)
 
-	let totalMealsNext7Days = 0;
-	let daysWithMealsNext7Days = 0;
+	let totalMealsNext7Days = 0
+	let daysWithMealsNext7Days = 0
 
 	next7Days.forEach((date) => {
-		const daySelections = selections[date];
+		const daySelections = selections[date]
 		if (daySelections) {
-			const mealsCount = Object.values(daySelections).filter(Boolean).length;
+			const mealsCount = Object.values(daySelections).filter(Boolean).length
 			if (mealsCount > 0) {
-				daysWithMealsNext7Days++;
-				totalMealsNext7Days += mealsCount;
+				daysWithMealsNext7Days++
+				totalMealsNext7Days += mealsCount
 			}
 		}
-	});
+	})
 
 	// Próxima refeição
-	let nextMeal: { date: string; meal: string } | null = null;
-	const mealOrder = ["cafe", "almoco", "janta", "ceia"] as const;
+	let nextMeal: { date: string; meal: string } | null = null
+	const mealOrder = ["cafe", "almoco", "janta", "ceia"] as const
 
 	for (const date of dates) {
-		const daySelections = selections[date];
+		const daySelections = selections[date]
 		if (daySelections) {
 			for (const meal of mealOrder) {
 				if (daySelections[meal]) {
-					nextMeal = { date, meal };
-					break;
+					nextMeal = { date, meal }
+					break
 				}
 			}
-			if (nextMeal) break;
+			if (nextMeal) break
 		}
 	}
 
-	const consideredDays = next7Days.length || 1; // evita divisão por zero
-	const progressPct = Math.round(
-		(daysWithMealsNext7Days / consideredDays) * 100,
-	);
+	const consideredDays = next7Days.length || 1 // evita divisão por zero
+	const progressPct = Math.round((daysWithMealsNext7Days / consideredDays) * 100)
 
 	const stats = {
 		totalMealsNext7Days,
@@ -71,17 +59,17 @@ function SimplifiedMilitaryStats({
 		nextMeal,
 		consideredDays,
 		progressPct,
-	};
+	}
 
 	const formatDate = (dateStr: string) => {
-		const [year, month, day] = dateStr.split("-").map(Number);
-		const date = new Date(year, month - 1, day);
+		const [year, month, day] = dateStr.split("-").map(Number)
+		const date = new Date(year, month - 1, day)
 		return date.toLocaleDateString("pt-BR", {
 			weekday: "short",
 			day: "2-digit",
 			month: "2-digit",
-		});
-	};
+		})
+	}
 
 	const formatMeal = (meal: string) => {
 		const mealNames = {
@@ -89,9 +77,9 @@ function SimplifiedMilitaryStats({
 			almoco: "Almoço",
 			janta: "Janta",
 			ceia: "Ceia",
-		};
-		return mealNames[meal as keyof typeof mealNames] || meal;
-	};
+		}
+		return mealNames[meal as keyof typeof mealNames] || meal
+	}
 
 	// Skeleton interno
 	if (isLoading) {
@@ -105,9 +93,7 @@ function SimplifiedMilitaryStats({
 									<Utensils className="h-5 w-5 text-primary" />
 								</div>
 								<div className="flex-1">
-									<p className="text-sm font-medium text-muted-foreground">
-										Próxima Refeição
-									</p>
+									<p className="text-sm font-medium text-muted-foreground">Próxima Refeição</p>
 									<Skeleton className="h-6 w-28 mt-1" />
 									<Skeleton className="h-4 w-20 mt-2" />
 								</div>
@@ -122,9 +108,7 @@ function SimplifiedMilitaryStats({
 									<Clock className="h-5 w-5 text-accent" />
 								</div>
 								<div className="flex-1">
-									<p className="text-sm font-medium text-muted-foreground">
-										Próximos 7 Dias
-									</p>
+									<p className="text-sm font-medium text-muted-foreground">Próximos 7 Dias</p>
 									<Skeleton className="h-6 w-36 mt-1" />
 									<Skeleton className="h-2 w-full mt-3 rounded-full" />
 									<Skeleton className="h-4 w-24 mt-2" />
@@ -140,9 +124,7 @@ function SimplifiedMilitaryStats({
 									<CalendarDays className="h-5 w-5 text-secondary" />
 								</div>
 								<div>
-									<p className="text-sm font-medium text-muted-foreground">
-										Status
-									</p>
+									<p className="text-sm font-medium text-muted-foreground">Status</p>
 									<Skeleton className="h-7 w-40 mt-2 rounded-full" />
 								</div>
 							</div>
@@ -150,7 +132,7 @@ function SimplifiedMilitaryStats({
 					</Card>
 				</div>
 			</div>
-		);
+		)
 	}
 
 	// UI normal - Enhanced with Industrial-Technical aesthetic
@@ -180,9 +162,7 @@ function SimplifiedMilitaryStats({
 								) : (
 									<div className="mt-1 flex items-center gap-2 text-muted-foreground">
 										<MinusCircle className="h-4 w-4" />
-										<p className="text-sm font-sans font-medium">
-											Nenhuma refeição agendada
-										</p>
+										<p className="text-sm font-sans font-medium">Nenhuma refeição agendada</p>
 									</div>
 								)}
 							</div>
@@ -205,8 +185,7 @@ function SimplifiedMilitaryStats({
 									{stats.totalMealsNext7Days}
 								</p>
 								<p className="text-xs font-sans text-muted-foreground leading-tight">
-									em {stats.daysWithMealsNext7Days} de {stats.consideredDays}{" "}
-									dias
+									em {stats.daysWithMealsNext7Days} de {stats.consideredDays} dias
 								</p>
 
 								{/* Barra de progresso */}
@@ -234,14 +213,10 @@ function SimplifiedMilitaryStats({
 								<CalendarDays className="h-6 w-6 text-amber-600 dark:text-amber-400" />
 							</div>
 							<div className="flex-1 min-w-0">
-								<p className="text-sm font-sans font-medium text-muted-foreground">
-									Status
-								</p>
+								<p className="text-sm font-sans font-medium text-muted-foreground">Status</p>
 								<div className="mt-2 flex flex-col gap-1.5">
 									<Badge
-										variant={
-											stats.totalMealsNext7Days > 0 ? "default" : "secondary"
-										}
+										variant={stats.totalMealsNext7Days > 0 ? "default" : "secondary"}
 										className="px-2.5 py-1 font-sans w-fit text-xs"
 									>
 										{stats.totalMealsNext7Days > 0 ? (
@@ -265,9 +240,9 @@ function SimplifiedMilitaryStats({
 				</Card>
 			</div>
 		</div>
-	);
+	)
 }
 
-SimplifiedMilitaryStats.displayName = "SimplifiedMilitaryStats";
+SimplifiedMilitaryStats.displayName = "SimplifiedMilitaryStats"
 
-export default SimplifiedMilitaryStats;
+export default SimplifiedMilitaryStats

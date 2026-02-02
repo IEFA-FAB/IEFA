@@ -7,21 +7,21 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Input,
-} from "@iefa/ui";
-import type React from "react";
-import { useId } from "react";
+} from "@iefa/ui"
+import type React from "react"
+import { useId } from "react"
 
 type NrOrdemDialogProps = {
-	open: boolean;
-	nrOrdem: string;
-	error: string | null;
-	isSaving: boolean;
-	onOpenChange: (open: boolean) => void;
-	onChange: (value: string) => void;
-	onSubmit: () => void;
-};
+	open: boolean
+	nrOrdem: string
+	error: string | null
+	isSaving: boolean
+	onOpenChange: (open: boolean) => void
+	onChange: (value: string) => void
+	onSubmit: () => void
+}
 
-const NR_ORDEM_MAXLEN = 7; // ajuste conforme sua regra
+const NR_ORDEM_MAXLEN = 7 // ajuste conforme sua regra
 
 export function SaramDialog({
 	open,
@@ -32,30 +32,30 @@ export function SaramDialog({
 	onChange,
 	onSubmit,
 }: NrOrdemDialogProps) {
-	const helpId = useId();
-	const errorId = useId();
+	const helpId = useId()
+	const errorId = useId()
 
-	const canSubmit = nrOrdem.trim().length > 0 && !isSaving;
+	const canSubmit = nrOrdem.trim().length > 0 && !isSaving
 
 	const normalizeDigits = (value: string) => {
-		const digits = value.replace(/\D/g, "");
-		return digits.slice(0, NR_ORDEM_MAXLEN);
-	};
+		const digits = value.replace(/\D/g, "")
+		return digits.slice(0, NR_ORDEM_MAXLEN)
+	}
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		onChange(normalizeDigits(e.target.value));
-	};
+		onChange(normalizeDigits(e.target.value))
+	}
 
 	const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-		e.preventDefault();
-		const pasted = e.clipboardData.getData("text");
-		onChange(normalizeDigits(pasted));
-	};
+		e.preventDefault()
+		const pasted = e.clipboardData.getData("text")
+		onChange(normalizeDigits(pasted))
+	}
 
 	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		if (canSubmit) onSubmit();
-	};
+		e.preventDefault()
+		if (canSubmit) onSubmit()
+	}
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,8 +69,7 @@ export function SaramDialog({
 				<DialogHeader>
 					<DialogTitle>Informe seu SARAM</DialogTitle>
 					<DialogDescription id={helpId}>
-						Para continuar, precisamos do seu número de registro SARAM
-						(nrOrdem).
+						Para continuar, precisamos do seu número de registro SARAM (nrOrdem).
 					</DialogDescription>
 				</DialogHeader>
 
@@ -97,12 +96,7 @@ export function SaramDialog({
 							aria-describedby={error ? `${helpId} ${errorId}` : helpId}
 						/>
 						{error && (
-							<p
-								id={errorId}
-								role="alert"
-								aria-live="polite"
-								className="text-sm text-destructive"
-							>
+							<p id={errorId} role="alert" aria-live="polite" className="text-sm text-destructive">
 								{error}
 							</p>
 						)}
@@ -130,5 +124,5 @@ export function SaramDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

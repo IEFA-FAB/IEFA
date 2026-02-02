@@ -1,21 +1,18 @@
-import { useDroppable } from "@dnd-kit/core";
-import {
-	SortableContext,
-	verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import type { EditorialDashboardArticle } from "@/lib/journal/types";
-import { ArticleCard } from "./ArticleCard";
+import { useDroppable } from "@dnd-kit/core"
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import type { EditorialDashboardArticle } from "@/lib/journal/types"
+import { ArticleCard } from "./ArticleCard"
 
 interface KanbanColumnProps {
-	id: string;
-	title: string;
-	articles: EditorialDashboardArticle[];
+	id: string
+	title: string
+	articles: EditorialDashboardArticle[]
 }
 
 export function KanbanColumn({ id, title, articles }: KanbanColumnProps) {
 	const { setNodeRef, isOver } = useDroppable({
 		id,
-	});
+	})
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -32,10 +29,7 @@ export function KanbanColumn({ id, title, articles }: KanbanColumnProps) {
 					isOver ? "border-primary bg-primary/5" : "border-muted bg-muted/20"
 				}`}
 			>
-				<SortableContext
-					items={articles.map((a) => a.id)}
-					strategy={verticalListSortingStrategy}
-				>
+				<SortableContext items={articles.map((a) => a.id)} strategy={verticalListSortingStrategy}>
 					<div className="space-y-3">
 						{articles.map((article) => (
 							<ArticleCard key={article.id} article={article} />
@@ -50,5 +44,5 @@ export function KanbanColumn({ id, title, articles }: KanbanColumnProps) {
 				)}
 			</div>
 		</div>
-	);
+	)
 }

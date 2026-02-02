@@ -1,4 +1,4 @@
-import { Shield } from "lucide-react";
+import { Shield } from "lucide-react"
 
 export default function SuperAdminHero() {
 	return (
@@ -15,10 +15,9 @@ export default function SuperAdminHero() {
 					Controle do Sistema
 				</h1>
 				<p className="text-sm md:text-base font-sans text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-					Gerencie permissões, cadastre administradores e acompanhe indicadores
-					gerais do SISUB.
+					Gerencie permissões, cadastre administradores e acompanhe indicadores gerais do SISUB.
 				</p>
 			</div>
 		</div>
-	);
+	)
 }

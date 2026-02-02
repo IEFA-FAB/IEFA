@@ -1,24 +1,24 @@
-import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { ExternalLink, Menu } from "lucide-react";
-import { type ReactNode, useState } from "react";
-import { useTheme } from "@/hooks/useTheme";
-import { UserMenu } from "./UserMenu";
+import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { ExternalLink, Menu } from "lucide-react"
+import { type ReactNode, useState } from "react"
+import { useTheme } from "@/hooks/useTheme"
+import { UserMenu } from "./UserMenu"
 
 interface AppLayoutProps {
-	children: ReactNode;
+	children: ReactNode
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-	const [mobileOpen, setMobileOpen] = useState(false);
-	const { toggle } = useTheme();
+	const [mobileOpen, setMobileOpen] = useState(false)
+	const { toggle } = useTheme()
 
 	// Container: full em mobile/tablet; "wide" contido em desktop
 	const container =
-		"w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]";
+		"w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
 
 	const navLinkClass =
-		"inline-flex items-center rounded-md text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.active]:bg-accent [&.active]:text-accent-foreground text-foreground hover:bg-accent hover:text-accent-foreground";
+		"inline-flex items-center rounded-md text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.active]:bg-accent [&.active]:text-accent-foreground text-foreground hover:bg-accent hover:text-accent-foreground"
 
 	return (
 		<div
@@ -49,9 +49,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 			{/* Cabeçalho (sticky sem transform) */}
 			<header className="sticky top-0 z-50 border-b backdrop-blur supports-backdrop-filter:bg-background/60">
-				<div
-					className={`${container} h-14 flex items-center justify-between gap-3`}
-				>
+				<div className={`${container} h-14 flex items-center justify-between gap-3`}>
 					{/* Esquerda: Marca + Navegação desktop */}
 					<div className="flex items-center gap-3">
 						<Link
@@ -64,10 +62,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 						<Separator orientation="vertical" className="h-6 hidden sm:block" />
 
-						<nav
-							className="hidden md:flex items-center gap-1"
-							aria-label="Navegação principal"
-						>
+						<nav className="hidden md:flex items-center gap-1" aria-label="Navegação principal">
 							<Link to="/facilities" className={navLinkClass}>
 								Facilidades
 							</Link>
@@ -144,10 +139,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 			</header>
 
 			{/* Conteúdo */}
-			<main
-				id="conteudo"
-				className="flex-1 flex items-center align-middle content-center"
-			>
+			<main id="conteudo" className="flex-1 flex items-center align-middle content-center">
 				<div className={`${container} py-8 md:py-10`}>{children}</div>
 			</main>
 
@@ -156,11 +148,10 @@ export function AppLayout({ children }: AppLayoutProps) {
 				<div
 					className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}
 				>
-					© {new Date().getFullYear()} IEFA.{" "}
-					<b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns serviços são externos
-					e podem exigir login próprio.
+					© {new Date().getFullYear()} IEFA. <b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns
+					serviços são externos e podem exigir login próprio.
 				</div>
 			</footer>
 		</div>
-	);
+	)
 }

@@ -1,45 +1,39 @@
 // src/routes/__root.tsx
 
-import { Toaster } from "@iefa/ui";
-import { TanStackDevtools } from "@tanstack/react-devtools";
-import type { QueryClient } from "@tanstack/react-query";
+import { Toaster } from "@iefa/ui"
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import type { QueryClient } from "@tanstack/react-query"
 import {
 	createRootRouteWithContext,
 	HeadContent,
 	Outlet,
 	Scripts,
 	useRouterState,
-} from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import {
-	type AuthContextType,
-	type AuthState,
-	authQueryOptions,
-} from "@/auth/service";
-import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
-import { NotFound } from "@/components/NotFound";
-import type { ThemeContextType } from "@/components/themeService";
-import { ThemeScript } from "@/components/themeService";
-import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools";
-import AppStyles from "@/styles.css?url";
+} from "@tanstack/react-router"
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
+import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
+import { NotFound } from "@/components/NotFound"
+import type { ThemeContextType } from "@/components/themeService"
+import { ThemeScript } from "@/components/themeService"
+import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
+import AppStyles from "@/styles.css?url"
 
 export interface MyRouterContext {
-	queryClient: QueryClient;
-	auth: AuthState;
-	authActions: Omit<AuthContextType, keyof AuthState>;
-	theme: ThemeContextType;
+	queryClient: QueryClient
+	auth: AuthState
+	authActions: Omit<AuthContextType, keyof AuthState>
+	theme: ThemeContextType
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	beforeLoad: async ({ context }) => {
 		try {
-			const authState = await context.queryClient.ensureQueryData(
-				authQueryOptions(),
-			);
-			return { auth: authState };
+			const authState = await context.queryClient.ensureQueryData(authQueryOptions())
+			return { auth: authState }
 		} catch (_error) {
 			// Return unauthenticated state on failure
-			return { auth: { user: null, isAuthenticated: false } };
+			return { auth: { user: null, isAuthenticated: false } }
 		}
 	},
 	head: () => ({
@@ -71,10 +65,10 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	errorComponent: DefaultCatchBoundary,
 	notFoundComponent: () => <NotFound />,
 	shellComponent: RootDocument,
-});
+})
 
 function RootDocument() {
-	const isLoading = useRouterState({ select: (s) => s.isLoading });
+	const isLoading = useRouterState({ select: (s) => s.isLoading })
 	return (
 		<html lang="pt-BR" suppressHydrationWarning>
 			<head>
@@ -100,5 +94,5 @@ function RootDocument() {
 				<Scripts />
 			</body>
 		</html>
-	);
+	)
 }

@@ -1,62 +1,55 @@
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useState } from "react";
-import type { EditorialDashboardArticle } from "@/lib/journal/types";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { formatDistanceToNow } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { useState } from "react"
+import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
 interface TableViewProps {
-	articles: EditorialDashboardArticle[];
+	articles: EditorialDashboardArticle[]
 }
 
-type SortField = "submission_number" | "title_pt" | "status" | "submitted_at";
-type SortDirection = "asc" | "desc";
+type SortField = "submission_number" | "title_pt" | "status" | "submitted_at"
+type SortDirection = "asc" | "desc"
 
 export function TableView({ articles }: TableViewProps) {
-	const [sortField, setSortField] = useState<SortField>("submitted_at");
-	const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+	const [sortField, setSortField] = useState<SortField>("submitted_at")
+	const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
 	const handleSort = (field: SortField) => {
 		if (sortField === field) {
-			setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+			setSortDirection(sortDirection === "asc" ? "desc" : "asc")
 		} else {
-			setSortField(field);
-			setSortDirection("asc");
+			setSortField(field)
+			setSortDirection("asc")
 		}
-	};
+	}
 
 	const sortedArticles = [...articles].sort((a, b) => {
-		let aValue: string | number | Date = a[sortField] ?? "";
-		let bValue: string | number | Date = b[sortField] ?? "";
+		let aValue: string | number | Date = a[sortField] ?? ""
+		let bValue: string | number | Date = b[sortField] ?? ""
 
 		if (sortField === "submitted_at") {
-			aValue = new Date(aValue).getTime();
-			bValue = new Date(bValue).getTime();
+			aValue = new Date(aValue).getTime()
+			bValue = new Date(bValue).getTime()
 		}
 
-		if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-		if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-		return 0;
-	});
+		if (aValue < bValue) return sortDirection === "asc" ? -1 : 1
+		if (aValue > bValue) return sortDirection === "asc" ? 1 : -1
+		return 0
+	})
 
 	const SortIcon = ({ field }: { field: SortField }) => {
 		if (sortField !== field) {
-			return <ArrowUpDown className="size-4 ml-1" aria-hidden="true" />;
+			return <ArrowUpDown className="size-4 ml-1" aria-hidden="true" />
 		}
 		return sortDirection === "asc" ? (
 			<ArrowUp className="size-4 ml-1" aria-hidden="true" />
 		) : (
 			<ArrowDown className="size-4 ml-1" aria-hidden="true" />
-		);
-	};
+		)
+	}
 
 	const getStatusLabel = (status: string) => {
 		const labels: Record<string, string> = {
@@ -66,9 +59,9 @@ export function TableView({ articles }: TableViewProps) {
 			accepted: "Aceito",
 			published: "Publicado",
 			rejected: "Rejeitado",
-		};
-		return labels[status] || status;
-	};
+		}
+		return labels[status] || status
+	}
 
 	return (
 		<div className="rounded-lg border bg-card">
@@ -123,16 +116,13 @@ export function TableView({ articles }: TableViewProps) {
 					{sortedArticles.map((article) => {
 						const daysSinceSubmission = article.submitted_at
 							? Math.floor(
-									(Date.now() - new Date(article.submitted_at).getTime()) /
-										(1000 * 60 * 60 * 24),
+									(Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)
 								)
-							: 0;
+							: 0
 
 						return (
 							<TableRow key={article.id} className="hover:bg-muted/50">
-								<TableCell className="font-mono text-sm">
-									{article.submission_number}
-								</TableCell>
+								<TableCell className="font-mono text-sm">{article.submission_number}</TableCell>
 								<TableCell>
 									<Link
 										to="/journal/editorial/articles/$articleId"
@@ -176,7 +166,7 @@ export function TableView({ articles }: TableViewProps) {
 									)}
 								</TableCell>
 							</TableRow>
-						);
+						)
 					})}
 				</TableBody>
 			</Table>
@@ -187,5 +177,5 @@ export function TableView({ articles }: TableViewProps) {
 				</div>
 			)}
 		</div>
-	);
+	)
 }

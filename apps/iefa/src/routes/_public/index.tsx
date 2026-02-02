@@ -1,23 +1,20 @@
-import { Button, Separator } from "@iefa/ui";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { AppCard } from "@/components/AppCard";
-import { DynamicIcon } from "@/components/dynamicIcon";
-import { useAppsData } from "@/hooks/useAppsData";
-import type { AppItem } from "@/types/domain";
+import { Button, Separator } from "@iefa/ui"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { AppCard } from "@/components/AppCard"
+import { DynamicIcon } from "@/components/dynamicIcon"
+import { useAppsData } from "@/hooks/useAppsData"
+import type { AppItem } from "@/types/domain"
 
 export const Route = createFileRoute("/_public/")({
 	component: Home,
 	head: () => ({
-		meta: [
-			{ title: "IEFA" },
-			{ name: "description", content: "Suite de Soluções do IEFA" },
-		],
+		meta: [{ title: "IEFA" }, { name: "description", content: "Suite de Soluções do IEFA" }],
 	}),
-});
+})
 
 function Home() {
 	// usa TanStack Query
-	const { data, isLoading, error } = useAppsData(6);
+	const { data, isLoading, error } = useAppsData(6)
 
 	// mapeia DbApp -> AppItem com React nodes (DynamicIcon)
 	const apps: AppItem[] = (data ?? []).map((a) => ({
@@ -31,11 +28,9 @@ function Home() {
 		contributors: (a.contributors ?? []).map((c) => ({
 			label: c.label,
 			url: c.url ?? undefined,
-			icon: c.icon_key ? (
-				<DynamicIcon name={c.icon_key} className="h-4 w-4" />
-			) : undefined,
+			icon: c.icon_key ? <DynamicIcon name={c.icon_key} className="h-4 w-4" /> : undefined,
 		})),
-	}));
+	}))
 
 	return (
 		<div className="relative flex flex-col items-center justify-center w-full text-foreground">
@@ -52,8 +47,7 @@ function Home() {
 								Portal IEFA
 							</h1>
 							<p className="mt-4 max-w-3xl text-pretty text-base sm:text-lg text-muted-foreground">
-								Suite de aplicações do Instituto de Economia, Finanças e
-								Administração.
+								Suite de aplicações do Instituto de Economia, Finanças e Administração.
 							</p>
 							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
 								<Button
@@ -67,10 +61,7 @@ function Home() {
 								/>
 								<Button
 									render={
-										<Link
-											to="/journal"
-											aria-label="Acessar Sistema de Gestão de Publicações"
-										>
+										<Link to="/journal" aria-label="Acessar Sistema de Gestão de Publicações">
 											Gestão de Publicações
 										</Link>
 									}
@@ -84,11 +75,7 @@ function Home() {
 			</header>
 
 			{/* Seção Apps */}
-			<section
-				id="apps"
-				className="mt-10 md:mt-12 w-full"
-				aria-labelledby="apps-heading"
-			>
+			<section id="apps" className="mt-10 md:mt-12 w-full" aria-labelledby="apps-heading">
 				<div className="flex items-center justify-between px-1 md:px-0">
 					<h2
 						id="apps-heading"
@@ -110,8 +97,7 @@ function Home() {
 					</div>
 				) : error ? (
 					<div className="text-sm text-destructive">
-						Erro ao carregar apps:{" "}
-						{error instanceof Error ? error.message : "Erro desconhecido"}
+						Erro ao carregar apps: {error instanceof Error ? error.message : "Erro desconhecido"}
 					</div>
 				) : (
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -122,5 +108,5 @@ function Home() {
 				)}
 			</section>
 		</div>
-	);
+	)
 }

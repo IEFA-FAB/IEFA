@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
 	Avatar,
@@ -14,24 +14,24 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	useSidebar,
-} from "@iefa/ui";
-import { ChevronsUpDown } from "lucide-react";
-import * as React from "react";
+} from "@iefa/ui"
+import { ChevronsUpDown } from "lucide-react"
+import * as React from "react"
 
 export function TeamSwitcher({
 	teams,
 }: {
 	teams: {
-		name: string;
-		logo: string;
-		plan: string;
-	}[];
+		name: string
+		logo: string
+		plan: string
+	}[]
 }) {
-	const { isMobile } = useSidebar();
-	const [activeTeam, setActiveTeam] = React.useState(teams[0]);
+	const { isMobile } = useSidebar()
+	const [activeTeam, setActiveTeam] = React.useState(teams[0])
 
 	if (!activeTeam) {
-		return null;
+		return null
 	}
 
 	return (
@@ -52,9 +52,7 @@ export function TeamSwitcher({
 								</Avatar>
 
 								<div className="grid flex-1 text-left text-sm leading-tight">
-									<span className="truncate font-medium">
-										{activeTeam.name}
-									</span>
+									<span className="truncate font-medium">{activeTeam.name}</span>
 									<span className="truncate text-xs">{activeTeam.plan}</span>
 								</div>
 								<ChevronsUpDown className="ml-auto" />
@@ -106,5 +104,5 @@ export function TeamSwitcher({
 				</DropdownMenu>
 			</SidebarMenuItem>
 		</SidebarMenu>
-	);
+	)
 }

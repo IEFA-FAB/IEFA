@@ -10,27 +10,21 @@ import {
 	CardTitle,
 	Input,
 	Label,
-} from "@iefa/ui";
-import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react";
-import { useEffect, useState } from "react";
+} from "@iefa/ui"
+import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
+import { useEffect, useState } from "react"
 
 export interface ResetPasswordScreenProps {
 	searchParams: {
-		token_hash?: string;
-		type?: string;
-	};
+		token_hash?: string
+		type?: string
+	}
 	actions: {
-		verifyOtp: (
-			token_hash: string,
-			type: "recovery",
-		) => Promise<{ error: Error | null }>;
-		updatePassword: (password: string) => Promise<{ error: Error | null }>;
-	};
-	onNavigate: (options: {
-		to?: string;
-		search?: Record<string, unknown>;
-	}) => void;
-	forgotPasswordPath?: string;
+		verifyOtp: (token_hash: string, type: "recovery") => Promise<{ error: Error | null }>
+		updatePassword: (password: string) => Promise<{ error: Error | null }>
+	}
+	onNavigate: (options: { to?: string; search?: Record<string, unknown> }) => void
+	forgotPasswordPath?: string
 }
 
 export function ResetPasswordScreen({
@@ -39,131 +33,120 @@ export function ResetPasswordScreen({
 	onNavigate,
 	forgotPasswordPath = "/auth",
 }: ResetPasswordScreenProps) {
-	const [newPassword, setNewPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
-	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [error, setError] = useState("");
-	const [passwordError, setPasswordError] = useState("");
-	const [confirmError, setConfirmError] = useState("");
-	const [isVerifyingToken, setIsVerifyingToken] = useState(true);
-	const [tokenValid, setTokenValid] = useState(false);
+	const [newPassword, setNewPassword] = useState("")
+	const [confirmPassword, setConfirmPassword] = useState("")
+	const [showPassword, setShowPassword] = useState(false)
+	const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [error, setError] = useState("")
+	const [passwordError, setPasswordError] = useState("")
+	const [confirmError, setConfirmError] = useState("")
+	const [isVerifyingToken, setIsVerifyingToken] = useState(true)
+	const [tokenValid, setTokenValid] = useState(false)
 
 	useEffect(() => {
 		const verifyToken = async () => {
 			if (!searchParams.token_hash || searchParams.type !== "recovery") {
-				setError(
-					"Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.",
-				);
-				setIsVerifyingToken(false);
-				setTokenValid(false);
-				return;
+				setError("Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.")
+				setIsVerifyingToken(false)
+				setTokenValid(false)
+				return
 			}
 
 			try {
-				const { error: verifyError } = await actions.verifyOtp(
-					searchParams.token_hash,
-					"recovery",
-				);
+				const { error: verifyError } = await actions.verifyOtp(searchParams.token_hash, "recovery")
 
 				if (verifyError) {
-					setError(
-						"Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.",
-					);
-					setTokenValid(false);
+					setError("Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.")
+					setTokenValid(false)
 				} else {
-					setTokenValid(true);
+					setTokenValid(true)
 				}
 			} catch {
-				setError("Erro ao verificar o link de recuperação. Tente novamente.");
-				setTokenValid(false);
+				setError("Erro ao verificar o link de recuperação. Tente novamente.")
+				setTokenValid(false)
 			} finally {
-				setIsVerifyingToken(false);
+				setIsVerifyingToken(false)
 			}
-		};
+		}
 
-		verifyToken();
-	}, [searchParams.token_hash, searchParams.type, actions]);
+		verifyToken()
+	}, [searchParams.token_hash, searchParams.type, actions])
 
 	const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const value = e.target.value;
-		setNewPassword(value);
-		setError("");
-		setPasswordError("");
+		const value = e.target.value
+		setNewPassword(value)
+		setError("")
+		setPasswordError("")
 
 		if (value && value.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.");
+			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
 		}
 
 		if (confirmPassword && value !== confirmPassword) {
-			setConfirmError("As senhas não coincidem.");
+			setConfirmError("As senhas não coincidem.")
 		} else {
-			setConfirmError("");
+			setConfirmError("")
 		}
-	};
+	}
 
-	const handleConfirmPasswordChange = (
-		e: React.ChangeEvent<HTMLInputElement>,
-	) => {
-		const value = e.target.value;
-		setConfirmPassword(value);
-		setConfirmError("");
+	const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const value = e.target.value
+		setConfirmPassword(value)
+		setConfirmError("")
 
 		if (value && value !== newPassword) {
-			setConfirmError("As senhas não coincidem.");
+			setConfirmError("As senhas não coincidem.")
 		}
-	};
+	}
 
 	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 
 		if (newPassword.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.");
-			return;
+			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
+			return
 		}
 
 		if (newPassword !== confirmPassword) {
-			setConfirmError("As senhas não coincidem.");
-			return;
+			setConfirmError("As senhas não coincidem.")
+			return
 		}
 
-		setIsSubmitting(true);
-		setError("");
-		setPasswordError("");
-		setConfirmError("");
+		setIsSubmitting(true)
+		setError("")
+		setPasswordError("")
+		setConfirmError("")
 
 		try {
-			const { error: updateError } = await actions.updatePassword(newPassword);
+			const { error: updateError } = await actions.updatePassword(newPassword)
 
-			if (updateError) throw updateError;
+			if (updateError) throw updateError
 
-			onNavigate({ to: "/auth", search: { tab: "login" } });
-			alert("Senha atualizada com sucesso! Faça login com sua nova senha.");
+			onNavigate({ to: "/auth", search: { tab: "login" } })
+			alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
 		} catch (err) {
 			const errorMsg =
-				err instanceof Error
-					? err.message
-					: "Erro ao atualizar senha. Tente novamente.";
-			setError(errorMsg);
+				err instanceof Error ? err.message : "Erro ao atualizar senha. Tente novamente."
+			setError(errorMsg)
 		} finally {
-			setIsSubmitting(false);
+			setIsSubmitting(false)
 		}
-	};
+	}
 
 	const handleBackToForgotPassword = () => {
-		onNavigate({ to: forgotPasswordPath });
-	};
+		onNavigate({ to: forgotPasswordPath })
+	}
 
 	const cardClasses =
-		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground";
+		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
 	const inputClasses =
-		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base";
+		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
 	const buttonClasses =
-		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5";
-	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm";
+		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
+	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
 	const iconClasses =
-		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors";
+		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	if (isVerifyingToken) {
 		return (
@@ -175,7 +158,7 @@ export function ResetPasswordScreen({
 					</CardContent>
 				</Card>
 			</div>
-		);
+		)
 	}
 
 	if (!tokenValid) {
@@ -183,9 +166,7 @@ export function ResetPasswordScreen({
 			<div className="min-h-screen flex items-center justify-center p-4">
 				<Card className={cardClasses}>
 					<CardHeader className="text-center space-y-3 pb-4 pt-8">
-						<CardTitle className="text-3xl font-bold tracking-tight">
-							Link Inválido
-						</CardTitle>
+						<CardTitle className="text-3xl font-bold tracking-tight">Link Inválido</CardTitle>
 						<CardDescription className="text-muted-foreground text-base">
 							O link de recuperação de senha expirou ou é inválido.
 						</CardDescription>
@@ -213,16 +194,14 @@ export function ResetPasswordScreen({
 					</CardFooter>
 				</Card>
 			</div>
-		);
+		)
 	}
 
 	return (
 		<div className="min-h-screen flex items-center justify-center p-4">
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">
-						Redefinir Senha
-					</CardTitle>
+					<CardTitle className="text-3xl font-bold tracking-tight">Redefinir Senha</CardTitle>
 					<CardDescription className="text-muted-foreground text-base">
 						Digite sua nova senha segura.
 					</CardDescription>
@@ -258,9 +237,7 @@ export function ResetPasswordScreen({
 									autoComplete="new-password"
 									disabled={isSubmitting}
 									aria-invalid={!!passwordError}
-									aria-describedby={
-										passwordError ? "password-error" : undefined
-									}
+									aria-describedby={passwordError ? "password-error" : undefined}
 								/>
 								<button
 									type="button"
@@ -311,9 +288,7 @@ export function ResetPasswordScreen({
 									type="button"
 									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-									aria-label={
-										showConfirmPassword ? "Ocultar senha" : "Mostrar senha"
-									}
+									aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
 									{showConfirmPassword ? (
 										<EyeOff className="h-4 w-4" aria-hidden="true" />
@@ -339,24 +314,14 @@ export function ResetPasswordScreen({
 						<Button
 							type="submit"
 							className={buttonClasses}
-							disabled={
-								isSubmitting ||
-								!!passwordError ||
-								!!confirmError ||
-								!newPassword
-							}
+							disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}
 						>
-							{isSubmitting && (
-								<Loader2
-									className="mr-2 h-4 w-4 animate-spin"
-									aria-hidden="true"
-								/>
-							)}
+							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
 							{isSubmitting ? "Atualizando..." : "Atualizar Senha"}
 						</Button>
 					</CardFooter>
 				</form>
 			</Card>
 		</div>
-	);
+	)
 }

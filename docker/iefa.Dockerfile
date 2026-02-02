@@ -1,6 +1,6 @@
 # iefa.Dockerfile
 
-# --- Base ---
+# --- Build Stage (uses Bun for fast builds) ---
 FROM oven/bun:1.3.6-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /repo
@@ -31,11 +31,11 @@ ENV VITE_IEFA_SUPABASE_URL=$VITE_IEFA_SUPABASE_URL \
 # Instala dependências do monorepo
 RUN bun install --frozen-lockfile
 
-# Executa o build específico do app 'iefa'
+# Executa o build específico do app 'iefa' com Bun para velocidade
 RUN bun --filter='iefa' run build
 
-# --- Runtime ---
-FROM oven/bun:1.3.6-alpine AS runtime
+# --- Runtime Stage (uses Node to avoid memory leak) ---
+FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 
@@ -44,17 +44,17 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 # Copia as dependências necessárias para runtime
-COPY --from=build --chown=bun:bun /repo/node_modules ./node_modules
-COPY --from=build --chown=bun:bun /repo/packages ./packages
-COPY --from=build --chown=bun:bun /repo/apps/iefa/node_modules ./apps/iefa/node_modules
-COPY --from=build --chown=bun:bun /repo/apps/iefa/package.json ./apps/iefa/package.json
+COPY --from=build --chown=node:node /repo/node_modules ./node_modules
+COPY --from=build --chown=node:node /repo/packages ./packages
+COPY --from=build --chown=node:node /repo/apps/iefa/node_modules ./apps/iefa/node_modules
+COPY --from=build --chown=node:node /repo/apps/iefa/package.json ./apps/iefa/package.json
 
 # Copia a pasta .output gerada pelo TanStack Start
-COPY --from=build --chown=bun:bun /repo/apps/iefa/.output ./apps/iefa/.output
+COPY --from=build --chown=node:node /repo/apps/iefa/.output ./apps/iefa/.output
 
-USER bun
+USER node
 
 EXPOSE 3000
 
-# Roda o servidor gerado pelo Vinxi/TanStack Start com bun para melhor performance
-CMD ["bun", "apps/iefa/.output/server/index.mjs"]
+# Roda o servidor com Node para evitar memory leak do Bun runtime
+CMD ["node", "apps/iefa/.output/server/index.mjs"]

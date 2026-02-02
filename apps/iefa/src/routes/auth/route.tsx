@@ -1,28 +1,23 @@
 // src/routes/auth.tsx
-import {
-	createFileRoute,
-	Link,
-	Outlet,
-	redirect,
-} from "@tanstack/react-router";
-import { z } from "zod";
-import { HeroHighlight } from "@/components/hero-highlight";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
+import { z } from "zod"
+import { HeroHighlight } from "@/components/hero-highlight"
 
 // Validação para garantir que o redirect seja seguro e opcional
 const authSearchSchema = z.object({
 	redirect: z.string().optional(),
-});
+})
 
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
 	// Proteção Inversa: Se já estiver logado, não deixa ver login/register
 	beforeLoad: ({ context, search }) => {
 		if (context.auth.isAuthenticated) {
-			throw redirect({ to: search.redirect || "/" });
+			throw redirect({ to: search.redirect || "/" })
 		}
 	},
 	component: AuthLayout,
-});
+})
 
 function AuthLayout() {
 	return (
@@ -36,24 +31,19 @@ function AuthLayout() {
 			<div className="w-full relative z-10">
 				{/* Header Brand */}
 				<div className="text-center mb-8 animate-fade-in-up">
-					<Link
-						to="/"
-						className="inline-block hover:opacity-80 transition-opacity"
-					>
+					<Link to="/" className="inline-block hover:opacity-80 transition-opacity">
 						<img
 							src="/favicon.svg"
 							alt="IEFA"
 							className="h-16 w-auto mx-auto drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
 						/>
 					</Link>
-					<h1 className="mt-6 text-2xl font-bold tracking-tight text-white">
-						Bem-vindo ao IEFA
-					</h1>
+					<h1 className="mt-6 text-2xl font-bold tracking-tight text-white">Bem-vindo ao IEFA</h1>
 				</div>
 
 				{/* Onde as páginas (Login, Register) serão renderizadas */}
 				<Outlet />
 			</div>
 		</HeroHighlight>
-	);
+	)
 }

@@ -1,28 +1,21 @@
 // components/BulkMealSelector.tsx
 
-import {
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	Label,
-} from "@iefa/ui";
-import { CheckCircle, Loader2, UtensilsCrossed } from "lucide-react";
-import { useState } from "react";
-import { MealButton } from "@/components/features/forecast/MealButton";
-import { MEAL_TYPES } from "@/constants/rancho";
-import { createEmptyDayMeals } from "@/lib/meal";
-import type { DayMeals } from "@/types/domain/";
+import { Button, Card, CardContent, CardHeader, CardTitle, Label } from "@iefa/ui"
+import { CheckCircle, Loader2, UtensilsCrossed } from "lucide-react"
+import { useState } from "react"
+import { MealButton } from "@/components/features/forecast/MealButton"
+import { MEAL_TYPES } from "@/constants/rancho"
+import { createEmptyDayMeals } from "@/lib/meal"
+import type { DayMeals } from "@/types/domain/"
 
-type ApplyMode = "fill-missing" | "override";
+type ApplyMode = "fill-missing" | "override"
 
 interface BulkMealSelectorProps {
-	targetDates: string[]; // Datas (YYYY-MM-DD) que receberão o template
-	initialTemplate?: Partial<DayMeals>; // Template inicial
-	onApply: (template: DayMeals, options: { mode: ApplyMode }) => Promise<void>;
-	onCancel: () => void;
-	isApplying: boolean;
+	targetDates: string[] // Datas (YYYY-MM-DD) que receberão o template
+	initialTemplate?: Partial<DayMeals> // Template inicial
+	onApply: (template: DayMeals, options: { mode: ApplyMode }) => Promise<void>
+	onCancel: () => void
+	isApplying: boolean
 }
 
 export function BulkMealSelector({
@@ -34,68 +27,67 @@ export function BulkMealSelector({
 }: BulkMealSelectorProps) {
 	// Estado local do template de refeições
 	const [template, setTemplate] = useState<DayMeals>(() => {
-		const base = createEmptyDayMeals();
+		const base = createEmptyDayMeals()
 		if (initialTemplate) {
 			Object.entries(initialTemplate).forEach(([key, val]) => {
-				(base as any)[key] = Boolean(val);
-			});
+				;(base as any)[key] = Boolean(val)
+			})
 		}
-		return base;
-	});
+		return base
+	})
 
-	const [applyMode, setApplyMode] = useState<ApplyMode>("fill-missing");
+	const [applyMode, setApplyMode] = useState<ApplyMode>("fill-missing")
 
-	const cardsCount = targetDates.length;
-	const hasCardsToApply = cardsCount > 0;
+	const cardsCount = targetDates.length
+	const hasCardsToApply = cardsCount > 0
 
-	const modeBtnBase =
-		"text-xs sm:text-sm h-8 px-3 border rounded-md transition-colors";
-	const modeBtnSelected = "bg-primary text-primary-foreground border-primary";
-	const modeBtnUnselected = "border-border text-foreground hover:bg-muted";
+	const modeBtnBase = "text-xs sm:text-sm h-8 px-3 border rounded-md transition-colors"
+	const modeBtnSelected = "bg-primary text-primary-foreground border-primary"
+	const modeBtnUnselected = "border-border text-foreground hover:bg-muted"
 
-	const selectedCount = Object.values(template).filter(Boolean).length;
+	const selectedCount = Object.values(template).filter(Boolean).length
 
 	const toggleMeal = (mealKey: keyof DayMeals) => {
-		if (isApplying) return;
-		setTemplate((prev) => ({ ...prev, [mealKey]: !prev[mealKey] }));
-	};
+		if (isApplying) return
+		setTemplate((prev) => ({ ...prev, [mealKey]: !prev[mealKey] }))
+	}
 
 	const setAll = (value: boolean) => {
-		if (isApplying) return;
+		if (isApplying) return
 		setTemplate((prev) => {
-			const next: DayMeals = { ...prev };
+			const next: DayMeals = { ...prev }
 			Object.keys(next).forEach((k) => {
-				(next as any)[k] = value;
-			});
-			return next;
-		});
-	};
+				;(next as any)[k] = value
+			})
+			return next
+		})
+	}
 
 	const setWorkdayPreset = () => {
-		if (isApplying) return;
+		if (isApplying) return
 		setTemplate((prev) => {
-			const next: DayMeals = { ...prev };
+			const next: DayMeals = { ...prev }
 			// Café + Almoço marcados, demais desmarcados
 			Object.keys(next).forEach((k) => {
-				(next as any)[k] = k === "cafe" || k === "almoco";
-			});
-			return next;
-		});
-	};
+				;(next as any)[k] = k === "cafe" || k === "almoco"
+			})
+			return next
+		})
+	}
 
 	const handleApply = async () => {
-		if (!hasCardsToApply || isApplying) return;
+		if (!hasCardsToApply || isApplying) return
 		try {
-			await onApply(template, { mode: applyMode });
+			await onApply(template, { mode: applyMode })
 		} catch (err) {
-			console.error("Erro ao aplicar template de refeições:", err);
+			console.error("Erro ao aplicar template de refeições:", err)
 		}
-	};
+	}
 
 	const handleCancel = () => {
-		if (isApplying) return;
-		onCancel();
-	};
+		if (isApplying) return
+		onCancel()
+	}
 
 	return (
 		<Card
@@ -119,17 +111,13 @@ export function BulkMealSelector({
 			<CardContent className="space-y-6">
 				{/* Modo de aplicação */}
 				<div className="space-y-2">
-					<Label className="text-sm font-medium text-foreground">
-						Modo de aplicação:
-					</Label>
+					<Label className="text-sm font-medium text-foreground">Modo de aplicação:</Label>
 					<div className="flex flex-wrap gap-2">
 						<Button
 							type="button"
 							variant="outline"
 							className={`${modeBtnBase} ${
-								applyMode === "fill-missing"
-									? modeBtnSelected
-									: modeBtnUnselected
+								applyMode === "fill-missing" ? modeBtnSelected : modeBtnUnselected
 							}`}
 							onClick={() => setApplyMode("fill-missing")}
 							disabled={isApplying}
@@ -149,20 +137,17 @@ export function BulkMealSelector({
 						</Button>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						Selecionadas:{" "}
-						<strong className="text-foreground">{selectedCount}</strong> de 4
+						Selecionadas: <strong className="text-foreground">{selectedCount}</strong> de 4
 						refeições.
 					</p>
 				</div>
 
 				{/* Grid de refeições (padrão do DayCard) */}
 				<div className="space-y-3">
-					<Label className="text-sm font-medium text-foreground">
-						Escolha as refeições:
-					</Label>
+					<Label className="text-sm font-medium text-foreground">Escolha as refeições:</Label>
 					<div className="grid grid-cols-2 gap-2">
 						{MEAL_TYPES.map((meal) => {
-							const mealKey = meal.value as keyof DayMeals;
+							const mealKey = meal.value as keyof DayMeals
 							return (
 								<MealButton
 									key={meal.value}
@@ -172,7 +157,7 @@ export function BulkMealSelector({
 									disabled={isApplying}
 									compact={true}
 								/>
-							);
+							)
 						})}
 					</div>
 
@@ -253,5 +238,5 @@ export function BulkMealSelector({
 				</div>
 			</CardContent>
 		</Card>
-	);
+	)
 }

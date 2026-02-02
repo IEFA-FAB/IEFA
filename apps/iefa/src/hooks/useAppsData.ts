@@ -1,9 +1,9 @@
 // hooks/useAppsData.ts
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import type { DbApp } from "@/types/domain";
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { supabase } from "@/lib/supabase"
+import type { DbApp } from "@/types/domain"
 
-export const APPS_QUERY_KEY = "appsData";
+export const APPS_QUERY_KEY = "appsData"
 
 export function useAppsData(limit = 50) {
 	return useSuspenseQuery({
@@ -26,16 +26,16 @@ export function useAppsData(limit = 50) {
             url,
             icon_key
           )
-        `,
+        `
 				)
 				.order("title", { ascending: true })
-				.limit(limit);
+				.limit(limit)
 
 			if (error) {
-				throw new Error(error.message);
+				throw new Error(error.message)
 			}
-			return (data ?? []) as DbApp[];
+			return (data ?? []) as DbApp[]
 		},
 		staleTime: 1000 * 60 * 10, // 10 minutos
-	});
+	})
 }

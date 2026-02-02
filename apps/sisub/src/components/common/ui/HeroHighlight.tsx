@@ -1,6 +1,6 @@
-import { motion, useMotionTemplate, useMotionValue } from "motion/react";
-import { useEffect, useRef } from "react";
-import { cn } from "@/lib/cn";
+import { motion, useMotionTemplate, useMotionValue } from "motion/react"
+import { useEffect, useRef } from "react"
+import { cn } from "@/lib/cn"
 
 export const HeroHighlight = ({
 	children,
@@ -8,36 +8,36 @@ export const HeroHighlight = ({
 	containerClassName,
 	...props
 }: {
-	children: React.ReactNode;
-	className?: string;
-	containerClassName?: string;
+	children: React.ReactNode
+	className?: string
+	containerClassName?: string
 } & React.HTMLAttributes<HTMLDivElement>) => {
-	const mouseX = useMotionValue(0);
-	const mouseY = useMotionValue(0);
-	const containerRef = useRef<HTMLDivElement>(null);
+	const mouseX = useMotionValue(0)
+	const mouseY = useMotionValue(0)
+	const containerRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
+		const container = containerRef.current
+		if (!container) return
 
 		const handleMouseMove = (e: MouseEvent) => {
-			const { left, top } = container.getBoundingClientRect();
-			mouseX.set(e.clientX - left);
-			mouseY.set(e.clientY - top);
-		};
+			const { left, top } = container.getBoundingClientRect()
+			mouseX.set(e.clientX - left)
+			mouseY.set(e.clientY - top)
+		}
 
-		container.addEventListener("mousemove", handleMouseMove);
+		container.addEventListener("mousemove", handleMouseMove)
 		return () => {
-			container.removeEventListener("mousemove", handleMouseMove);
-		};
-	}, [mouseX, mouseY]);
+			container.removeEventListener("mousemove", handleMouseMove)
+		}
+	}, [mouseX, mouseY])
 
 	return (
 		<div
 			ref={containerRef}
 			className={cn(
 				"relative flex items-center bg-background justify-center w-full group overflow-hidden",
-				containerClassName,
+				containerClassName
 			)}
 			{...props}
 		>
@@ -45,8 +45,7 @@ export const HeroHighlight = ({
 				<div
 					className="absolute inset-0 opacity-[0.03] dark:opacity-[0.08]"
 					style={{
-						backgroundImage:
-							"radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
+						backgroundImage: "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
 						backgroundSize: "24px 24px",
 					}}
 				/>
@@ -77,8 +76,7 @@ export const HeroHighlight = ({
 				<div
 					className="absolute inset-0 opacity-[0.15] dark:opacity-[0.2] text-primary"
 					style={{
-						backgroundImage:
-							"radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
+						backgroundImage: "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
 						backgroundSize: "24px 24px",
 					}}
 				/>
@@ -86,15 +84,15 @@ export const HeroHighlight = ({
 
 			<div className={cn("relative z-20", className)}>{children}</div>
 		</div>
-	);
-};
+	)
+}
 
 export const Highlight = ({
 	children,
 	className,
 }: {
-	children: React.ReactNode;
-	className?: string;
+	children: React.ReactNode
+	className?: string
 }) => {
 	return (
 		<motion.span
@@ -116,10 +114,10 @@ export const Highlight = ({
 			}}
 			className={cn(
 				"relative inline-block pb-1 px-1 rounded-lg bg-linear-to-r from-primary/20 to-purple-500/20 dark:from-primary/40 dark:to-purple-500/40",
-				className,
+				className
 			)}
 		>
 			{children}
 		</motion.span>
-	);
-};
+	)
+}

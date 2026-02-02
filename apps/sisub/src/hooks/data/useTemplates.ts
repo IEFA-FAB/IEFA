@@ -1,21 +1,16 @@
-import {
-	queryOptions,
-	useMutation,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
-import { toast } from "sonner";
-import supabase from "@/lib/supabase";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import supabase from "@/lib/supabase"
 import type {
 	ApplyTemplatePayload,
 	MenuTemplateWithItems,
 	TemplateWithItemCounts,
-} from "@/types/domain/planning";
+} from "@/types/domain/planning"
 import type {
 	MenuTemplateInsert,
 	MenuTemplateItemInsert,
 	MenuTemplateUpdate,
-} from "@/types/supabase.types";
+} from "@/types/supabase.types"
 
 // --- Query Options ---
 
@@ -34,22 +29,22 @@ export const menuTemplatesQueryOptions = (kitchenId: number | null) =>
           *,
           items:menu_template_items(count)
         `,
-					{ count: "exact" },
+					{ count: "exact" }
 				)
 				.is("deleted_at", null)
-				.order("name");
+				.order("name")
 
 			// Filtrar: templates globais (NULL) OU templates da kitchen específica
 			if (kitchenId !== null) {
-				query = query.or(`kitchen_id.is.null,kitchen_id.eq.${kitchenId}`);
+				query = query.or(`kitchen_id.is.null,kitchen_id.eq.${kitchenId}`)
 			} else {
-				query = query.is("kitchen_id", null);
+				query = query.is("kitchen_id", null)
 			}
 
-			const { data, error } = await query;
+			const { data, error } = await query
 
 			if (error) {
-				throw new Error(`Failed to fetch templates: ${error.message}`);
+				throw new Error(`Failed to fetch templates: ${error.message}`)
 			}
 
 			// Transformar para incluir contagens
@@ -57,11 +52,11 @@ export const menuTemplatesQueryOptions = (kitchenId: number | null) =>
 				...template,
 				item_count: template.items?.[0]?.count || 0,
 				recipe_count: template.items?.[0]?.count || 0, // Simplificado
-			}));
+			}))
 		},
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000, // 5 minutes
-	});
+	})
 
 /**
  * Query options para buscar items de um template específico
@@ -70,7 +65,7 @@ export const templateItemsQueryOptions = (templateId: string | null) =>
 	queryOptions({
 		queryKey: ["template_items", templateId],
 		queryFn: async (): Promise<MenuTemplateWithItems["items"]> => {
-			if (!templateId) return [];
+			if (!templateId) return []
 
 			const { data, error } = await supabase
 				.from("menu_template_items")
@@ -79,21 +74,21 @@ export const templateItemsQueryOptions = (templateId: string | null) =>
           *,
           meal_type:meal_type_id(*),
           recipe_origin:recipe_origin_id(*)
-        `,
+        `
 				)
 				.eq("menu_template_id", templateId)
 				.order("day_of_week")
-				.order("meal_type_id");
+				.order("meal_type_id")
 
 			if (error) {
-				throw new Error(`Failed to fetch template items: ${error.message}`);
+				throw new Error(`Failed to fetch template items: ${error.message}`)
 			}
 
-			return data || [];
+			return data || []
 		},
 		enabled: !!templateId,
 		staleTime: 5 * 60 * 1000,
-	});
+	})
 
 /**
  * Query options para buscar um template específico com seus items
@@ -102,16 +97,16 @@ export const templateQueryOptions = (templateId: string | null) =>
 	queryOptions({
 		queryKey: ["template", templateId],
 		queryFn: async (): Promise<MenuTemplateWithItems | null> => {
-			if (!templateId) return null;
+			if (!templateId) return null
 
 			const { data: template, error: templateError } = await supabase
 				.from("menu_template")
 				.select("*")
 				.eq("id", templateId)
-				.single();
+				.single()
 
 			if (templateError) {
-				throw new Error(`Failed to fetch template: ${templateError.message}`);
+				throw new Error(`Failed to fetch template: ${templateError.message}`)
 			}
 
 			const { data: items, error: itemsError } = await supabase
@@ -120,23 +115,21 @@ export const templateQueryOptions = (templateId: string | null) =>
 					`
           *,
           recipe_origin:recipe_origin_id(*)
-        `,
+        `
 				)
-				.eq("menu_template_id", templateId);
+				.eq("menu_template_id", templateId)
 
 			if (itemsError) {
-				throw new Error(
-					`Failed to fetch template items: ${itemsError.message}`,
-				);
+				throw new Error(`Failed to fetch template items: ${itemsError.message}`)
 			}
 
 			return {
 				...template,
 				items: items || [],
-			};
+			}
 		},
 		enabled: !!templateId,
-	});
+	})
 
 // --- Query Hooks ---
 
@@ -151,7 +144,7 @@ export const templateQueryOptions = (templateId: string | null) =>
  * ```
  */
 export function useMenuTemplates(kitchenId: number | null) {
-	return useQuery(menuTemplatesQueryOptions(kitchenId));
+	return useQuery(menuTemplatesQueryOptions(kitchenId))
 }
 
 /**
@@ -165,7 +158,7 @@ export function useMenuTemplates(kitchenId: number | null) {
  * ```
  */
 export function useTemplateItems(templateId: string | null) {
-	return useQuery(templateItemsQueryOptions(templateId));
+	return useQuery(templateItemsQueryOptions(templateId))
 }
 
 /**
@@ -179,7 +172,7 @@ export function useTemplateItems(templateId: string | null) {
  * ```
  */
 export function useTemplate(templateId: string | null) {
-	return useQuery(templateQueryOptions(templateId));
+	return useQuery(templateQueryOptions(templateId))
 }
 
 /**
@@ -203,33 +196,33 @@ export function useDeletedTemplates(kitchenId: number | null) {
           *,
           items:menu_template_items(count)
         `,
-					{ count: "exact" },
+					{ count: "exact" }
 				)
 				.not("deleted_at", "is", null)
-				.order("deleted_at", { ascending: false });
+				.order("deleted_at", { ascending: false })
 
 			// Filtrar por kitchen
 			if (kitchenId !== null) {
-				query = query.or(`kitchen_id.is.null,kitchen_id.eq.${kitchenId}`);
+				query = query.or(`kitchen_id.is.null,kitchen_id.eq.${kitchenId}`)
 			} else {
-				query = query.is("kitchen_id", null);
+				query = query.is("kitchen_id", null)
 			}
 
-			const { data, error } = await query;
+			const { data, error } = await query
 
 			if (error) {
-				throw new Error(`Failed to fetch deleted templates: ${error.message}`);
+				throw new Error(`Failed to fetch deleted templates: ${error.message}`)
 			}
 
 			return (data || []).map((template) => ({
 				...template,
 				item_count: template.items?.[0]?.count || 0,
 				recipe_count: template.items?.[0]?.count || 0,
-			}));
+			}))
 		},
 		enabled: kitchenId !== null,
 		staleTime: 1 * 60 * 1000, // 1 minute
-	});
+	})
 }
 
 // --- Mutation Hooks ---
@@ -253,25 +246,25 @@ export function useDeletedTemplates(kitchenId: number | null) {
  * ```
  */
 export function useCreateTemplate() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async ({
 			template,
 			items,
 		}: {
-			template: MenuTemplateInsert;
-			items: Omit<MenuTemplateItemInsert, "menu_template_id">[];
+			template: MenuTemplateInsert
+			items: Omit<MenuTemplateItemInsert, "menu_template_id">[]
 		}) => {
 			// 1. Criar template
 			const { data: newTemplate, error: templateError } = await supabase
 				.from("menu_template")
 				.insert(template)
 				.select()
-				.single();
+				.single()
 
 			if (templateError) {
-				throw new Error(`Failed to create template: ${templateError.message}`);
+				throw new Error(`Failed to create template: ${templateError.message}`)
 			}
 
 			// 2. Criar items do template (se houver)
@@ -279,34 +272,29 @@ export function useCreateTemplate() {
 				const templateItems = items.map((item) => ({
 					...item,
 					menu_template_id: newTemplate.id,
-				}));
+				}))
 
 				const { error: itemsError } = await supabase
 					.from("menu_template_items")
-					.insert(templateItems);
+					.insert(templateItems)
 
 				if (itemsError) {
 					// Rollback: deletar template criado
-					await supabase
-						.from("menu_template")
-						.delete()
-						.eq("id", newTemplate.id);
-					throw new Error(
-						`Failed to create template items: ${itemsError.message}`,
-					);
+					await supabase.from("menu_template").delete().eq("id", newTemplate.id)
+					throw new Error(`Failed to create template items: ${itemsError.message}`)
 				}
 			}
 
-			return newTemplate;
+			return newTemplate
 		},
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] });
-			toast.success(`Template "${data.name}" criado com sucesso!`);
+			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			toast.success(`Template "${data.name}" criado com sucesso!`)
 		},
 		onError: (error) => {
-			toast.error(`Erro ao criar template: ${error.message}`);
+			toast.error(`Erro ao criar template: ${error.message}`)
 		},
-	});
+	})
 }
 
 /**
@@ -324,7 +312,7 @@ export function useCreateTemplate() {
  * ```
  */
 export function useUpdateTemplate() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async ({
@@ -332,9 +320,9 @@ export function useUpdateTemplate() {
 			updates,
 			items,
 		}: {
-			id: string;
-			updates: MenuTemplateUpdate;
-			items?: Omit<MenuTemplateItemInsert, "menu_template_id">[];
+			id: string
+			updates: MenuTemplateUpdate
+			items?: Omit<MenuTemplateItemInsert, "menu_template_id">[]
 		}) => {
 			// 1. Atualizar template metadata
 			const { data, error: templateError } = await supabase
@@ -342,10 +330,10 @@ export function useUpdateTemplate() {
 				.update(updates)
 				.eq("id", id)
 				.select()
-				.single();
+				.single()
 
 			if (templateError) {
-				throw new Error(`Failed to update template: ${templateError.message}`);
+				throw new Error(`Failed to update template: ${templateError.message}`)
 			}
 
 			// 2. Se items foram fornecidos, substituir todos
@@ -354,10 +342,10 @@ export function useUpdateTemplate() {
 				const { error: deleteError } = await supabase
 					.from("menu_template_items")
 					.delete()
-					.eq("menu_template_id", id);
+					.eq("menu_template_id", id)
 
 				if (deleteError) {
-					throw new Error(`Failed to delete old items: ${deleteError.message}`);
+					throw new Error(`Failed to delete old items: ${deleteError.message}`)
 				}
 
 				// Inserir novos items
@@ -365,32 +353,30 @@ export function useUpdateTemplate() {
 					const templateItems = items.map((item) => ({
 						...item,
 						menu_template_id: id,
-					}));
+					}))
 
 					const { error: insertError } = await supabase
 						.from("menu_template_items")
-						.insert(templateItems);
+						.insert(templateItems)
 
 					if (insertError) {
-						throw new Error(
-							`Failed to insert new items: ${insertError.message}`,
-						);
+						throw new Error(`Failed to insert new items: ${insertError.message}`)
 					}
 				}
 			}
 
-			return data;
+			return data
 		},
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] });
-			queryClient.invalidateQueries({ queryKey: ["template", data.id] });
-			queryClient.invalidateQueries({ queryKey: ["template_items", data.id] });
-			toast.success(`Template "${data.name}" atualizado!`);
+			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			queryClient.invalidateQueries({ queryKey: ["template", data.id] })
+			queryClient.invalidateQueries({ queryKey: ["template_items", data.id] })
+			toast.success(`Template "${data.name}" atualizado!`)
 		},
 		onError: (error) => {
-			toast.error(`Erro ao atualizar template: ${error.message}`);
+			toast.error(`Erro ao atualizar template: ${error.message}`)
 		},
-	});
+	})
 }
 
 /**
@@ -404,54 +390,54 @@ export function useUpdateTemplate() {
  * ```
  */
 export function useDeleteTemplate() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async (id: string) => {
 			const { error } = await supabase
 				.from("menu_template")
 				.update({ deleted_at: new Date().toISOString() })
-				.eq("id", id);
+				.eq("id", id)
 
 			if (error) {
-				throw new Error(`Failed to delete template: ${error.message}`);
+				throw new Error(`Failed to delete template: ${error.message}`)
 			}
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] });
-			toast.success("Template removido!");
+			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			toast.success("Template removido!")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao remover template: ${error.message}`);
+			toast.error(`Erro ao remover template: ${error.message}`)
 		},
-	});
+	})
 }
 
 /**
  * Hook para restaurar template soft-deleted
  */
 export function useRestoreTemplate() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async (id: string) => {
 			const { error } = await supabase
 				.from("menu_template")
 				.update({ deleted_at: null })
-				.eq("id", id);
+				.eq("id", id)
 
 			if (error) {
-				throw new Error(`Failed to restore template: ${error.message}`);
+				throw new Error(`Failed to restore template: ${error.message}`)
 			}
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] });
-			toast.success("Template restaurado!");
+			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			toast.success("Template restaurado!")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao restaurar template: ${error.message}`);
+			toast.error(`Erro ao restaurar template: ${error.message}`)
 		},
-	});
+	})
 }
 
 /**
@@ -476,7 +462,7 @@ export function useRestoreTemplate() {
  * ```
  */
 export function useApplyTemplate() {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: async ({
@@ -492,14 +478,12 @@ export function useApplyTemplate() {
 					`
           *,
           recipe_origin:recipe_id(*)
-        `,
+        `
 				)
-				.eq("menu_template_id", templateId);
+				.eq("menu_template_id", templateId)
 
 			if (fetchError || !templateItems) {
-				throw new Error(
-					`Failed to fetch template items: ${fetchError?.message}`,
-				);
+				throw new Error(`Failed to fetch template items: ${fetchError?.message}`)
 			}
 
 			// 2. Soft-delete existing menus para as datas alvo
@@ -507,60 +491,56 @@ export function useApplyTemplate() {
 				.from("daily_menu")
 				.update({ deleted_at: new Date().toISOString() })
 				.in("service_date", targetDates)
-				.eq("kitchen_id", kitchenId);
+				.eq("kitchen_id", kitchenId)
 
 			if (deleteError) {
-				throw new Error(
-					`Failed to delete existing menus: ${deleteError.message}`,
-				);
+				throw new Error(`Failed to delete existing menus: ${deleteError.message}`)
 			}
 
 			// 3. Preparar dados para inserção
 			const newMenus: Array<{
-				id: string;
-				service_date: string;
-				meal_type_id: string;
-				kitchen_id: number;
-				status: string;
-			}> = [];
+				id: string
+				service_date: string
+				meal_type_id: string
+				kitchen_id: number
+				status: string
+			}> = []
 			const newMenuItems: Array<{
-				daily_menu_id: string;
-				recipe_origin_id: string;
-				recipe: any;
-			}> = [];
+				daily_menu_id: string
+				recipe_origin_id: string
+				recipe: any
+			}> = []
 
 			for (const dateStr of targetDates) {
-				const date = new Date(dateStr);
+				const date = new Date(dateStr)
 				// day_of_week: 0 (Sunday) to 6 (Saturday) -> convert to 1-7
-				const jsDay = date.getDay();
-				const dateDayOfWeek = jsDay === 0 ? 7 : jsDay;
+				const jsDay = date.getDay()
+				const dateDayOfWeek = jsDay === 0 ? 7 : jsDay
 
 				// Calcular qual dia do template corresponde a esta data
 				// startDayOfWeek = 1 (Monday template) e dateDayOfWeek = 3 (Wednesday real)
 				// templateDay = ((3 - 1) % 7) + 1 = 3 (Wednesday template)
-				const offset = dateDayOfWeek - startDayOfWeek;
-				const templateDay = ((offset + 7) % 7) + 1;
+				const offset = dateDayOfWeek - startDayOfWeek
+				const templateDay = ((offset + 7) % 7) + 1
 
 				// Filtrar items do template para este dia
-				const dayItems = templateItems.filter(
-					(item) => item.day_of_week === templateDay,
-				);
+				const dayItems = templateItems.filter((item) => item.day_of_week === templateDay)
 
 				// Agrupar por meal_type_id
 				const itemsByMealType = dayItems.reduce(
 					(acc, item) => {
 						if (!acc[item.meal_type_id]) {
-							acc[item.meal_type_id] = [];
+							acc[item.meal_type_id] = []
 						}
-						acc[item.meal_type_id].push(item);
-						return acc;
+						acc[item.meal_type_id].push(item)
+						return acc
 					},
-					{} as Record<string, typeof dayItems>,
-				);
+					{} as Record<string, typeof dayItems>
+				)
 
 				// Criar daily_menu para cada meal_type
 				for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
-					const menuId = crypto.randomUUID();
+					const menuId = crypto.randomUUID()
 
 					newMenus.push({
 						id: menuId,
@@ -568,7 +548,7 @@ export function useApplyTemplate() {
 						meal_type_id: mealTypeId,
 						kitchen_id: kitchenId,
 						status: "PLANNED",
-					});
+					})
 
 					// Criar menu_items com recipe snapshots
 					for (const item of items) {
@@ -576,46 +556,42 @@ export function useApplyTemplate() {
 							daily_menu_id: menuId,
 							recipe_origin_id: item.recipe_id,
 							recipe: item.recipe_origin, // Snapshot
-						});
+						})
 					}
 				}
 			}
 
 			// 4. Inserir novos menus e items
 			if (newMenus.length > 0) {
-				const { error: menusError } = await supabase
-					.from("daily_menu")
-					.insert(newMenus);
+				const { error: menusError } = await supabase.from("daily_menu").insert(newMenus)
 
 				if (menusError) {
-					throw new Error(`Failed to insert menus: ${menusError.message}`);
+					throw new Error(`Failed to insert menus: ${menusError.message}`)
 				}
 			}
 
 			if (newMenuItems.length > 0) {
-				const { error: itemsError } = await supabase
-					.from("menu_items")
-					.insert(newMenuItems);
+				const { error: itemsError } = await supabase.from("menu_items").insert(newMenuItems)
 
 				if (itemsError) {
-					throw new Error(`Failed to insert menu items: ${itemsError.message}`);
+					throw new Error(`Failed to insert menu items: ${itemsError.message}`)
 				}
 			}
 
 			return {
 				menusCreated: newMenus.length,
 				itemsCreated: newMenuItems.length,
-			};
+			}
 		},
 		onSuccess: (result) => {
-			queryClient.invalidateQueries({ queryKey: ["daily_menus"] });
-			queryClient.invalidateQueries({ queryKey: ["planning"] });
+			queryClient.invalidateQueries({ queryKey: ["daily_menus"] })
+			queryClient.invalidateQueries({ queryKey: ["planning"] })
 			toast.success(
-				`Template aplicado! ${result.menusCreated} cardápios e ${result.itemsCreated} items criados.`,
-			);
+				`Template aplicado! ${result.menusCreated} cardápios e ${result.itemsCreated} items criados.`
+			)
 		},
 		onError: (error) => {
-			toast.error(`Erro ao aplicar template: ${error.message}`);
+			toast.error(`Erro ao aplicar template: ${error.message}`)
 		},
-	});
+	})
 }

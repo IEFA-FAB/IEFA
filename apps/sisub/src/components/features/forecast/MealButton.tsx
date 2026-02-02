@@ -1,36 +1,30 @@
 // components/MealButton.tsx
 
-import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-	Button,
-} from "@iefa/ui";
-import { Check, type LucideIcon, X } from "lucide-react";
-import { memo } from "react";
-import type { DishDetails } from "@/hooks/data/useDailyMenuContent";
-import { cn } from "@/lib/cn";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Button } from "@iefa/ui"
+import { Check, type LucideIcon, X } from "lucide-react"
+import { memo } from "react"
+import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
+import { cn } from "@/lib/cn"
 
 interface Meal {
-	icon: LucideIcon;
-	label: string;
-	value: string;
+	icon: LucideIcon
+	label: string
+	value: string
 }
 
 interface MealButtonProps {
-	meal: Meal;
-	isSelected: boolean;
-	onToggle: () => void;
-	disabled: boolean;
-	compact?: boolean;
-	dishes?: DishDetails[];
+	meal: Meal
+	isSelected: boolean
+	onToggle: () => void
+	disabled: boolean
+	compact?: boolean
+	dishes?: DishDetails[]
 }
 
 export const MealButton = memo<MealButtonProps>(
 	({ meal, isSelected, onToggle, disabled, compact = false, dishes }) => {
-		const Icon = meal.icon;
-		const mainDish = dishes?.[0]; // Show first dish for now
+		const Icon = meal.icon
+		const mainDish = dishes?.[0] // Show first dish for now
 
 		const buttonClasses = cn(
 			"w-full rounded-lg border-2 transition-all duration-200 group relative z-10",
@@ -48,15 +42,15 @@ export const MealButton = memo<MealButtonProps>(
 				// Tamanhos
 				"p-2 h-auto min-h-[64px]": compact,
 				"p-3": !compact,
-			},
-		);
+			}
+		)
 
 		const iconClasses = cn("transition-colors duration-200", {
 			"h-4 w-4": compact,
 			"h-5 w-5": !compact,
 			"text-green-600": isSelected,
 			"text-gray-500 group-hover:text-gray-600": !isSelected && !disabled,
-		});
+		})
 
 		// Compact mode structure (Forecast)
 		if (compact) {
@@ -70,15 +64,13 @@ export const MealButton = memo<MealButtonProps>(
 					>
 						<div className="flex flex-col items-center space-y-1 w-full">
 							<Icon className={iconClasses} />
-							<span className="text-xs font-medium truncate w-full text-center">
-								{meal.label}
-							</span>
+							<span className="text-xs font-medium truncate w-full text-center">{meal.label}</span>
 
 							{/* Indicador visual simples */}
 							<div
 								className={cn(
 									"w-2 h-2 rounded-full transition-colors duration-200",
-									isSelected ? "bg-green-500" : "bg-gray-300",
+									isSelected ? "bg-green-500" : "bg-gray-300"
 								)}
 							/>
 						</div>
@@ -116,7 +108,7 @@ export const MealButton = memo<MealButtonProps>(
 						</Accordion>
 					)}
 				</div>
-			);
+			)
 		}
 
 		// Full mode (reserved for future/other views)
@@ -135,19 +127,15 @@ export const MealButton = memo<MealButtonProps>(
 							{
 								"bg-green-500 text-white": isSelected,
 								"bg-gray-200 text-gray-500": !isSelected,
-							},
+							}
 						)}
 					>
-						{isSelected ? (
-							<Check className="h-3 w-3" />
-						) : (
-							<X className="h-3 w-3" />
-						)}
+						{isSelected ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
 					</div>
 				</div>
 			</Button>
-		);
-	},
-);
+		)
+	}
+)
 
-MealButton.displayName = "MealButton";
+MealButton.displayName = "MealButton"

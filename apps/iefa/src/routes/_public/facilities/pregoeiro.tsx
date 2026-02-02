@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 // shadcn/ui – imports corrigidos
 import {
@@ -24,28 +24,28 @@ import {
 	InputGroupInput,
 	Label,
 	Textarea,
-} from "@iefa/ui";
-import { createFileRoute } from "@tanstack/react-router";
-import { Calendar, ChevronsUpDown, Clock } from "lucide-react";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { FacilidadesTable } from "@/components/table";
-import { supabase } from "@/lib/supabase";
-import type { FacilidadesTableProps } from "@/types/domain";
+} from "@iefa/ui"
+import { createFileRoute } from "@tanstack/react-router"
+import { Calendar, ChevronsUpDown, Clock } from "lucide-react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { FacilidadesTable } from "@/components/table"
+import { supabase } from "@/lib/supabase"
+import type { FacilidadesTableProps } from "@/types/domain"
 
 /* -----------------------------------------------
    Tipos auxiliares (alinhar com a tabela existente)
 -------------------------------------------------- */
 
 type Facility = {
-	id?: string;
-	created_at?: string;
-	phase: string;
-	title: string;
-	content: string;
-	tags: string[] | null;
-	owner_id?: string | null;
-	default?: boolean | null;
-};
+	id?: string
+	created_at?: string
+	phase: string
+	title: string
+	content: string
+	tags: string[] | null
+	owner_id?: string | null
+	default?: boolean | null
+}
 
 export const Route = createFileRoute("/_public/facilities/pregoeiro")({
 	component: Pregoeiro,
@@ -55,18 +55,18 @@ export const Route = createFileRoute("/_public/facilities/pregoeiro")({
 			{ name: "description", content: "Suite de Soluções do IEFA" },
 		],
 	}),
-});
+})
 
 /* -----------------------------------------------
    Hook de preferências (Supabase + LocalStorage)
 -------------------------------------------------- */
 
-const LS_KEY = "pregoeiro_preferences_v1";
+const LS_KEY = "pregoeiro_preferences_v1"
 
 type Prefs = {
-	env: FacilidadesTableProps;
-	is_open: boolean;
-};
+	env: FacilidadesTableProps
+	is_open: boolean
+}
 
 const DEFAULT_PREFS: Prefs = {
 	env: {
@@ -76,89 +76,88 @@ const DEFAULT_PREFS: Prefs = {
 		Hour_limit: "2 (duas)",
 	},
 	is_open: false,
-};
+}
 
 function usePregoeiroPreferences() {
-	const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
-	const [loading, setLoading] = useState(true);
-	const [userId, setUserId] = useState<string | null>(null);
-	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
+	const [loading, setLoading] = useState(true)
+	const [userId, setUserId] = useState<string | null>(null)
+	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	// Carrega usuário atual
 	useEffect(() => {
-		let mounted = true;
+		let mounted = true
 		supabase.auth.getUser().then(({ data }) => {
-			if (!mounted) return;
-			setUserId(data.user?.id ?? null);
-		});
+			if (!mounted) return
+			setUserId(data.user?.id ?? null)
+		})
 		return () => {
-			mounted = false;
-		};
-	}, []);
+			mounted = false
+		}
+	}, [])
 
 	// Carrega preferências (Supabase se autenticado, senão localStorage)
 	useEffect(() => {
-		let mounted = true;
+		let mounted = true
 
 		async function load() {
-			setLoading(true);
+			setLoading(true)
 			try {
 				if (userId) {
 					const { data, error } = await supabase
 						.from("pregoeiro_preferences")
 						.select("*")
 						.eq("user_id", userId)
-						.maybeSingle();
+						.maybeSingle()
 
-					if (error) throw error;
+					if (error) throw error
 
 					if (data) {
 						const env = {
 							...DEFAULT_PREFS.env,
 							...(data.env || {}),
-						};
-						const is_open = data.is_open ?? DEFAULT_PREFS.is_open;
-						setPrefs({ env, is_open });
+						}
+						const is_open = data.is_open ?? DEFAULT_PREFS.is_open
+						setPrefs({ env, is_open })
 					} else {
 						// cria registro inicial
 						await supabase.from("pregoeiro_preferences").insert({
 							user_id: userId,
 							env: DEFAULT_PREFS.env,
 							is_open: DEFAULT_PREFS.is_open,
-						});
-						setPrefs(DEFAULT_PREFS);
+						})
+						setPrefs(DEFAULT_PREFS)
 					}
 				} else {
 					// anônimo -> localStorage
-					const raw =
-						typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null;
+					const raw = typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null
 					if (raw) {
-						const parsed = JSON.parse(raw) as Prefs;
+						const parsed = JSON.parse(raw) as Prefs
 						setPrefs({
 							env: { ...DEFAULT_PREFS.env, ...(parsed.env || {}) },
 							is_open: parsed.is_open ?? DEFAULT_PREFS.is_open,
-						});
+						})
 					} else {
-						setPrefs(DEFAULT_PREFS);
+						setPrefs(DEFAULT_PREFS)
 					}
 				}
 			} catch (_e) {
 				// fallback seguro
-				setPrefs(DEFAULT_PREFS);
+				setPrefs(DEFAULT_PREFS)
 			} finally {
-				if (mounted) setLoading(false);
+				if (mounted) setLoading(false)
 			}
 		}
 
-		load();
+		load()
 		return () => {
-			mounted = false;
-		};
-	}, [userId]);
+			mounted = false
+		}
+	}, [userId])
 
 	// Salva com debounce (Supabase ou localStorage)
 	const persist = (next: Prefs) => {
-		if (saveTimer.current) clearTimeout(saveTimer.current);
+		if (saveTimer.current) clearTimeout(saveTimer.current)
 		saveTimer.current = setTimeout(async () => {
 			try {
 				if (userId) {
@@ -167,38 +166,35 @@ function usePregoeiroPreferences() {
 						env: next.env,
 						is_open: next.is_open,
 						updated_at: new Date().toISOString(),
-					});
+					})
 				} else if (typeof window !== "undefined") {
-					localStorage.setItem(LS_KEY, JSON.stringify(next));
+					localStorage.setItem(LS_KEY, JSON.stringify(next))
 				}
 			} catch {
 				// manter silencioso; UI não deve travar por causa disso
 			}
-		}, 900);
-	};
+		}, 900)
+	}
 
 	// Setters
-	const setEnv = (
-		updater: (prev: FacilidadesTableProps) => FacilidadesTableProps,
-	) => {
+	const setEnv = (updater: (prev: FacilidadesTableProps) => FacilidadesTableProps) => {
 		setPrefs((prev) => {
-			const next: Prefs = { ...prev, env: updater(prev.env) };
-			persist(next);
-			return next;
-		});
-	};
+			const next: Prefs = { ...prev, env: updater(prev.env) }
+			persist(next)
+			return next
+		})
+	}
 
 	const setIsOpen = (value: boolean | ((prev: boolean) => boolean)) => {
 		setPrefs((prev) => {
-			const nextIsOpen =
-				typeof value === "function" ? value(prev.is_open) : value;
-			const next: Prefs = { ...prev, is_open: nextIsOpen };
-			persist(next);
-			return next;
-		});
-	};
+			const nextIsOpen = typeof value === "function" ? value(prev.is_open) : value
+			const next: Prefs = { ...prev, is_open: nextIsOpen }
+			persist(next)
+			return next
+		})
+	}
 
-	return { prefs, setEnv, setIsOpen, loading, userId };
+	return { prefs, setEnv, setIsOpen, loading, userId }
 }
 
 /* -----------------------------------------------
@@ -206,64 +202,58 @@ function usePregoeiroPreferences() {
 -------------------------------------------------- */
 
 type PhraseModalProps = {
-	open: boolean;
-	onOpenChange: (v: boolean) => void;
-	initial?: Facility | null;
-	currentUserId: string | null;
-	onSaved?: () => void;
-};
+	open: boolean
+	onOpenChange: (v: boolean) => void
+	initial?: Facility | null
+	currentUserId: string | null
+	onSaved?: () => void
+}
 
 function parseTags(input: string): string[] {
 	return input
 		.split(",")
 		.map((t) => t.trim())
-		.filter(Boolean);
+		.filter(Boolean)
 }
 
-function PhraseModal({
-	open,
-	onOpenChange,
-	initial,
-	currentUserId,
-	onSaved,
-}: PhraseModalProps) {
-	const isEdit = Boolean(initial?.id);
-	const [phase, setPhase] = useState(initial?.phase ?? "");
-	const [title, setTitle] = useState(initial?.title ?? "");
-	const [content, setContent] = useState(initial?.content ?? "");
-	const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(", "));
-	const [saving, setSaving] = useState(false);
+function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: PhraseModalProps) {
+	const isEdit = Boolean(initial?.id)
+	const [phase, setPhase] = useState(initial?.phase ?? "")
+	const [title, setTitle] = useState(initial?.title ?? "")
+	const [content, setContent] = useState(initial?.content ?? "")
+	const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(", "))
+	const [saving, setSaving] = useState(false)
 
 	useEffect(() => {
 		if (open) {
-			setPhase(initial?.phase ?? "");
-			setTitle(initial?.title ?? "");
-			setContent(initial?.content ?? "");
-			setTagsText((initial?.tags ?? []).join(", "));
+			setPhase(initial?.phase ?? "")
+			setTitle(initial?.title ?? "")
+			setContent(initial?.content ?? "")
+			setTagsText((initial?.tags ?? []).join(", "))
 		}
-	}, [open, initial]);
+	}, [open, initial])
 
 	const canEdit = useMemo(() => {
-		if (!isEdit) return true;
-		if (!currentUserId) return false;
-		return initial?.owner_id === currentUserId;
-	}, [isEdit, currentUserId, initial?.owner_id]);
+		if (!isEdit) return true
+		if (!currentUserId) return false
+		return initial?.owner_id === currentUserId
+	}, [isEdit, currentUserId, initial?.owner_id])
 
 	const handleSave = async () => {
 		if (!currentUserId) {
-			alert("Você precisa estar autenticado para salvar suas frases.");
-			return;
+			alert("Você precisa estar autenticado para salvar suas frases.")
+			return
 		}
 		if (!title.trim() || !content.trim()) {
-			alert("Título e Conteúdo são obrigatórios.");
-			return;
+			alert("Título e Conteúdo são obrigatórios.")
+			return
 		}
 		if (isEdit && !canEdit) {
-			alert("Você não tem permissão para editar esta frase.");
-			return;
+			alert("Você não tem permissão para editar esta frase.")
+			return
 		}
 
-		setSaving(true);
+		setSaving(true)
 		try {
 			const payload: Facility = {
 				phase: phase.trim(),
@@ -272,30 +262,30 @@ function PhraseModal({
 				tags: parseTags(tagsText),
 				owner_id: currentUserId,
 				default: false,
-			};
+			}
 
 			if (isEdit && initial?.id) {
 				const { error } = await supabase
 					.from("facilities_pregoeiro")
 					.update(payload)
 					.eq("id", initial.id)
-					.eq("owner_id", currentUserId);
-				if (error) throw error;
+					.eq("owner_id", currentUserId)
+				if (error) throw error
 			} else {
-				const { error } = await supabase
-					.from("facilities_pregoeiro")
-					.insert(payload);
-				if (error) throw error;
+				const { error } = await supabase.from("facilities_pregoeiro").insert(payload)
+				if (error) throw error
 			}
 
-			onOpenChange(false);
-			onSaved?.();
-		} catch (e: any) {
-			alert(e?.message || "Erro ao salvar");
+			onOpenChange(false)
+			onSaved?.()
+		} catch (e: unknown) {
+			const msg =
+				e instanceof Error ? e.message : (e as { message: string })?.message || "Erro ao salvar"
+			alert(msg)
 		} finally {
-			setSaving(false);
+			setSaving(false)
 		}
-	};
+	}
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -348,23 +338,16 @@ function PhraseModal({
 				</div>
 
 				<DialogFooter>
-					<Button
-						variant="outline"
-						onClick={() => onOpenChange(false)}
-						disabled={saving}
-					>
+					<Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
 						Cancelar
 					</Button>
-					<Button
-						onClick={handleSave}
-						disabled={saving || (isEdit && !canEdit)}
-					>
+					<Button onClick={handleSave} disabled={saving || (isEdit && !canEdit)}>
 						{saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Salvar"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }
 
 /* -----------------------------------------------
@@ -372,33 +355,29 @@ function PhraseModal({
 -------------------------------------------------- */
 
 function Pregoeiro() {
-	const { prefs, setEnv, setIsOpen, loading, userId } =
-		usePregoeiroPreferences();
+	const { prefs, setEnv, setIsOpen, loading, userId } = usePregoeiroPreferences()
 
 	// Modal de frase
-	const [phraseOpen, setPhraseOpen] = useState(false);
-	const [phraseEditing, setPhraseEditing] = useState<Facility | null>(null);
+	const [phraseOpen, setPhraseOpen] = useState(false)
+	const [phraseEditing, setPhraseEditing] = useState<Facility | null>(null)
 
 	const handleChange =
-		(key: keyof FacilidadesTableProps) =>
-		(e: React.ChangeEvent<HTMLInputElement>) =>
-			setEnv((prev) => ({ ...prev, [key]: e.target.value }));
+		(key: keyof FacilidadesTableProps) => (e: React.ChangeEvent<HTMLInputElement>) =>
+			setEnv((prev) => ({ ...prev, [key]: e.target.value }))
 
 	const handleOpenCreate = () => {
-		setPhraseEditing(null);
-		setPhraseOpen(true);
-	};
+		setPhraseEditing(null)
+		setPhraseOpen(true)
+	}
 
 	const handleEditFromRow = (row: Facility) => {
-		setPhraseEditing(row);
-		setPhraseOpen(true);
-	};
+		setPhraseEditing(row)
+		setPhraseOpen(true)
+	}
 
 	return (
 		<div className="flex flex-col items-center justify-center w-full p-6 gap-8 pt-20">
-			<h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200">
-				Pregoeiro
-			</h1>
+			<h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200">Pregoeiro</h1>
 
 			{/* Toolbar principal */}
 			<div className="flex w-full max-w-5xl items-center justify-between gap-2 flex-wrap">
@@ -411,17 +390,10 @@ function Pregoeiro() {
 			</div>
 
 			<Card className="w-full max-w-2xl p-4">
-				<Collapsible
-					open={prefs.is_open}
-					onOpenChange={setIsOpen}
-					className="flex flex-col gap-4"
-				>
+				<Collapsible open={prefs.is_open} onOpenChange={setIsOpen} className="flex flex-col gap-4">
 					<CollapsibleTrigger
 						render={
-							<Button
-								variant="ghost"
-								className="flex w-full items-center place-content-between"
-							>
+							<Button variant="ghost" className="flex w-full items-center place-content-between">
 								<CardHeader className="flex items-center justify-between w-full">
 									<CardTitle>Atributos</CardTitle>
 									<ChevronsUpDown />
@@ -523,9 +495,7 @@ function Pregoeiro() {
 
 			{/* Tabela com placeholders aplicados a partir das preferências */}
 			<div className="w-full">
-				<Suspense
-					fallback={<div className="p-6 text-sm">Carregando tabela…</div>}
-				>
+				<Suspense fallback={<div className="p-6 text-sm">Carregando tabela…</div>}>
 					<FacilidadesTable
 						OM={prefs.env.OM}
 						Date={prefs.env.Date}
@@ -545,5 +515,5 @@ function Pregoeiro() {
 				currentUserId={userId}
 			/>
 		</div>
-	);
+	)
 }

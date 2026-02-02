@@ -10,9 +10,9 @@ import {
 	CardHeader,
 	CardTitle,
 	Separator,
-} from "@iefa/ui";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import type { LucideIcon } from "lucide-react";
+} from "@iefa/ui"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import type { LucideIcon } from "lucide-react"
 import {
 	AlertTriangle,
 	BookOpen,
@@ -27,8 +27,8 @@ import {
 	Save,
 	Settings,
 	ShieldCheck,
-} from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+} from "lucide-react"
+import { type JSX, useEffect, useRef, useState } from "react"
 
 export const Route = createFileRoute("/_public/tutorial")({
 	component: Tutorial,
@@ -37,12 +37,11 @@ export const Route = createFileRoute("/_public/tutorial")({
 			{ title: "Tutorial SISUB" },
 			{
 				name: "description",
-				content:
-					"Aprenda a usar o SISUB: como preencher previsões e como fiscalizar via QR.",
+				content: "Aprenda a usar o SISUB: como preencher previsões e como fiscalizar via QR.",
 			},
 		],
 	}),
-});
+})
 
 function Tutorial() {
 	return (
@@ -60,37 +59,26 @@ function Tutorial() {
 					<CardContent className="p-8 md:p-10">
 						<div className="flex items-start md:items-center md:justify-between flex-col md:flex-row gap-6">
 							<div>
-								<Badge
-									variant="outline"
-									className="inline-flex items-center gap-2 mb-4"
-								>
+								<Badge variant="outline" className="inline-flex items-center gap-2 mb-4">
 									<BookOpen className="w-4 h-4 text-primary" />
 									{heroData.badge}
 								</Badge>
 								<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-3">
 									{heroData.title}
 								</h1>
-								<p className="text-muted-foreground max-w-2xl">
-									{heroData.subtitle}
-								</p>
+								<p className="text-muted-foreground max-w-2xl">{heroData.subtitle}</p>
 							</div>
 							<div className="flex gap-3">
 								<Button
 									render={
-										<Link
-											to={heroData.primaryButton.to}
-											aria-label="Ir para Previsão"
-										>
+										<Link to={heroData.primaryButton.to} aria-label="Ir para Previsão">
 											{heroData.primaryButton.label}
 										</Link>
 									}
 								/>
 								<Button
 									render={
-										<Link
-											to={heroData.secondaryButton.to}
-											aria-label="Ir para Fiscal"
-										>
+										<Link to={heroData.secondaryButton.to} aria-label="Ir para Fiscal">
 											{heroData.secondaryButton.label}
 										</Link>
 									}
@@ -159,19 +147,13 @@ function Tutorial() {
 							Preenchendo sua Previsão
 						</h2>
 						<p className="text-muted-foreground">
-							Como usar a página de Previsão (Rancho) para informar suas
-							refeições
+							Como usar a página de Previsão (Rancho) para informar suas refeições
 						</p>
 					</div>
 
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
 						{ranchoSteps.map((s) => (
-							<StepCard
-								key={s.title}
-								icon={s.icon}
-								title={s.title}
-								description={s.description}
-							/>
+							<StepCard key={s.title} icon={s.icon} title={s.title} description={s.description} />
 						))}
 					</div>
 
@@ -212,12 +194,7 @@ function Tutorial() {
 
 				<div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
 					{fiscalSteps.map((s) => (
-						<StepCard
-							key={s.title}
-							icon={s.icon}
-							title={s.title}
-							description={s.description}
-						/>
+						<StepCard key={s.title} icon={s.icon} title={s.title} description={s.description} />
 					))}
 				</div>
 
@@ -288,17 +265,12 @@ function Tutorial() {
 						<HelpCircle className="w-4 h-4 text-primary" />
 						Dúvidas Frequentes
 					</Badge>
-					<h2 className="text-3xl font-extrabold tracking-tight text-foreground">
-						FAQ
-					</h2>
+					<h2 className="text-3xl font-extrabold tracking-tight text-foreground">FAQ</h2>
 				</div>
 
 				<div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
 					{faqItems.map((qa) => (
-						<Card
-							key={qa.question}
-							className="rounded-xl border border-border bg-card shadow-sm"
-						>
+						<Card key={qa.question} className="rounded-xl border border-border bg-card shadow-sm">
 							<CardHeader className="pb-2">
 								<CardTitle className="text-base">{qa.question}</CardTitle>
 							</CardHeader>
@@ -345,9 +317,7 @@ function Tutorial() {
 				<Card className="rounded-2xl border border-border bg-card shadow-sm max-w-4xl mx-auto text-center">
 					<CardHeader>
 						<CardTitle className="text-2xl">{privacy.title}</CardTitle>
-						<CardDescription className="text-muted-foreground">
-							{privacy.text}
-						</CardDescription>
+						<CardDescription className="text-muted-foreground">{privacy.text}</CardDescription>
 					</CardHeader>
 				</Card>
 			</Appear>
@@ -366,9 +336,7 @@ function Tutorial() {
 						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_50%)]"
 					/>
 					<div className="relative">
-						<h2 className="text-3xl font-extrabold tracking-tight mb-4">
-							{ctaData.title}
-						</h2>
+						<h2 className="text-3xl font-extrabold tracking-tight mb-4">{ctaData.title}</h2>
 						<p className="text-primary-foreground/85 text-lg mb-8 max-w-2xl mx-auto">
 							{ctaData.text}
 						</p>
@@ -391,19 +359,15 @@ function Tutorial() {
 				</div>
 			</Appear>
 		</div>
-	);
+	)
 }
 
 /* =================================
    Componentes reutilizáveis simples
    ================================= */
 
-function StepCard(props: {
-	icon: LucideIcon;
-	title: string;
-	description: string;
-}) {
-	const { icon: Icon, title, description } = props;
+function StepCard(props: { icon: LucideIcon; title: string; description: string }) {
+	const { icon: Icon, title, description } = props
 	return (
 		<Card
 			className="group w-full text-left rounded-xl border bg-card p-6 shadow-sm transition-all duration-300
@@ -418,7 +382,7 @@ function StepCard(props: {
 			</div>
 			<p className="text-muted-foreground text-sm">{description}</p>
 		</Card>
-	);
+	)
 }
 
 /**
@@ -426,17 +390,17 @@ function StepCard(props: {
  * Usa tokens do tema e evita estado global duplicado.
  */
 function Appear(props: {
-	id?: string;
-	as?: keyof JSX.IntrinsicElements;
-	className?: string;
-	inClass?: string;
-	outClass?: string;
-	duration?: string; // ex: "duration-700"
-	delayClass?: string; // ex: "delay-100"
-	threshold?: number;
-	rootMargin?: string;
-	children: React.ReactNode;
-	[key: string]: any;
+	id?: string
+	as?: keyof JSX.IntrinsicElements
+	className?: string
+	inClass?: string
+	outClass?: string
+	duration?: string // ex: "duration-700"
+	delayClass?: string // ex: "delay-100"
+	threshold?: number
+	rootMargin?: string
+	children: React.ReactNode
+	[key: string]: any
 }) {
 	const {
 		id,
@@ -450,26 +414,23 @@ function Appear(props: {
 		rootMargin = "0px 0px -10% 0px",
 		children,
 		...rest
-	} = props;
+	} = props
 
-	const [visible, setVisible] = useState(false);
-	const ref = useRef<HTMLElement | null>(null);
+	const [visible, setVisible] = useState(false)
+	const ref = useRef<HTMLElement | null>(null)
 
 	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		const obs = new IntersectionObserver(
-			([entry]) => setVisible(entry.isIntersecting),
-			{
-				threshold,
-				rootMargin,
-			},
-		);
-		obs.observe(el);
-		return () => obs.disconnect();
-	}, [threshold, rootMargin]);
+		const el = ref.current
+		if (!el) return
+		const obs = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+			threshold,
+			rootMargin,
+		})
+		obs.observe(el)
+		return () => obs.disconnect()
+	}, [threshold, rootMargin])
 
-	const Comp = as as any;
+	const Comp = as as any
 
 	return (
 		<Comp
@@ -486,7 +447,7 @@ function Appear(props: {
 		>
 			{children}
 		</Comp>
-	);
+	)
 }
 
 /* ===========
@@ -494,27 +455,27 @@ function Appear(props: {
    =========== */
 
 type ButtonLink = {
-	to: string;
-	label: string;
-	variant?: "default" | "outline";
-};
+	to: string
+	label: string
+	variant?: "default" | "outline"
+}
 
 type OverviewCard = {
-	icon: LucideIcon;
-	title: string;
-	description: string;
-};
+	icon: LucideIcon
+	title: string
+	description: string
+}
 
 type StepItem = {
-	icon: LucideIcon;
-	title: string;
-	description: string;
-};
+	icon: LucideIcon
+	title: string
+	description: string
+}
 
 type QAItem = {
-	question: string;
-	answer: string;
-};
+	question: string
+	answer: string
+}
 
 const heroData = {
 	badge: "Guia Rápido do SISUB",
@@ -527,14 +488,13 @@ const heroData = {
 		label: "Ir para Fiscal",
 		variant: "outline",
 	} as ButtonLink,
-};
+}
 
 const overviewCards: OverviewCard[] = [
 	{
 		icon: Settings,
 		title: "Unidade Padrão",
-		description:
-			"Aplique a OM padrão aos dias sem unidade para acelerar o preenchimento.",
+		description: "Aplique a OM padrão aos dias sem unidade para acelerar o preenchimento.",
 	},
 	{
 		icon: CalendarCheck,
@@ -546,7 +506,7 @@ const overviewCards: OverviewCard[] = [
 		title: "Salvamento em Lote",
 		description: "Use o botão flutuante para gravar as alterações pendentes.",
 	},
-];
+]
 
 const ranchoSteps: StepItem[] = [
 	{
@@ -582,10 +542,9 @@ const ranchoSteps: StepItem[] = [
 	{
 		icon: RefreshCw,
 		title: "Atualize Previsões",
-		description:
-			"Se necessário, clique em atualizar para recarregar os dados existentes.",
+		description: "Se necessário, clique em atualizar para recarregar os dados existentes.",
 	},
-];
+]
 
 const fiscalSteps: StepItem[] = [
 	{
@@ -618,21 +577,21 @@ const fiscalSteps: StepItem[] = [
 		description:
 			'Use "Pausar/Ler" para controlar o scanner e o botão de "refresh" se a câmera ficar instável.',
 	},
-];
+]
 
 const qrReaderTips: string[] = [
 	"Prefira a câmera traseira (environment) para melhor foco.",
 	"Mantenha o QR visível e bem iluminado.",
 	"Com “Fechar Auto.” ativo, a confirmação ocorre automaticamente após alguns segundos.",
 	"Use “Pausar/Ler” para alternar o scanner e “refresh” se a câmera ficar instável.",
-];
+]
 
 const tips: string[] = [
 	"Planeje com antecedência: as edições para Hoje, Amanhã e Depois de Amanhã são bloqueadas.",
 	"Sempre confirme a OM antes de salvar as seleções do dia.",
 	"Leve seu QR aberto no celular quando chegar ao rancho para agilizar a fiscalização.",
 	"Evite redes instáveis ao usar o leitor de QR.",
-];
+]
 
 const faqItems: QAItem[] = [
 	{
@@ -655,12 +614,12 @@ const faqItems: QAItem[] = [
 		answer:
 			"Conceda permissão ao navegador nas configurações do site (cadeado na barra de endereço) ou tente outro navegador/dispositivo.",
 	},
-];
+]
 
 const privacy = {
 	title: "Privacidade e Segurança",
 	text: "O uso do QR e das previsões deve seguir as normas internas da OM. Em caso de dúvidas sobre dados e acessos, procure o responsável pelo sistema.",
-};
+}
 
 const ctaData = {
 	title: "Pronto para aplicar?",
@@ -673,4 +632,4 @@ const ctaData = {
 			variant: "outline" as const,
 		},
 	] as ButtonLink[],
-};
+}

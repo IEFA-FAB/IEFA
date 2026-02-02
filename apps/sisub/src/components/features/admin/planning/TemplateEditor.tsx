@@ -9,26 +9,22 @@ import {
 	Input,
 	Label,
 	Textarea,
-} from "@iefa/ui";
-import { Loader2 } from "lucide-react";
-import React from "react";
-import { useMealTypes } from "@/hooks/data/useMealTypes";
-import { useRecipes } from "@/hooks/data/useRecipes";
-import {
-	useCreateTemplate,
-	useTemplate,
-	useUpdateTemplate,
-} from "@/hooks/data/useTemplates";
-import type { TemplateItemDraft } from "@/types/domain/planning";
-import type { Recipe } from "@/types/supabase.types";
-import { RecipeSelector } from "./RecipeSelector";
-import { TemplateGridCell } from "./TemplateGridCell";
+} from "@iefa/ui"
+import { Loader2 } from "lucide-react"
+import React from "react"
+import { useMealTypes } from "@/hooks/data/useMealTypes"
+import { useRecipes } from "@/hooks/data/useRecipes"
+import { useCreateTemplate, useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
+import type { TemplateItemDraft } from "@/types/domain/planning"
+import type { Recipe } from "@/types/supabase.types"
+import { RecipeSelector } from "./RecipeSelector"
+import { TemplateGridCell } from "./TemplateGridCell"
 
 interface TemplateEditorProps {
-	open: boolean;
-	onClose: () => void;
-	kitchenId: number | null;
-	templateId?: string | null; // null = create, string = edit
+	open: boolean
+	onClose: () => void
+	kitchenId: number | null
+	templateId?: string | null // null = create, string = edit
 }
 
 const WEEKDAYS = [
@@ -39,7 +35,7 @@ const WEEKDAYS = [
 	{ num: 5, label: "Sexta" },
 	{ num: 6, label: "Sábado" },
 	{ num: 7, label: "Domingo" },
-];
+]
 
 /**
  * Template Editor com Grid 7x7
@@ -57,78 +53,68 @@ const WEEKDAYS = [
  * />
  * ```
  */
-export function TemplateEditor({
-	open,
-	onClose,
-	kitchenId,
-	templateId,
-}: TemplateEditorProps) {
-	const isEditing = !!templateId;
+export function TemplateEditor({ open, onClose, kitchenId, templateId }: TemplateEditorProps) {
+	const isEditing = !!templateId
 
 	// Data hooks
-	const { data: mealTypes } = useMealTypes(kitchenId);
-	const { data: allRecipes } = useRecipes();
-	const { data: existingTemplate } = useTemplate(templateId);
-	const { mutate: createTemplate, isPending: isCreating } = useCreateTemplate();
-	const { mutate: updateTemplate, isPending: isUpdating } = useUpdateTemplate();
+	const { data: mealTypes } = useMealTypes(kitchenId)
+	const { data: allRecipes } = useRecipes()
+	const { data: existingTemplate } = useTemplate(templateId)
+	const { mutate: createTemplate, isPending: isCreating } = useCreateTemplate()
+	const { mutate: updateTemplate, isPending: isUpdating } = useUpdateTemplate()
 
-	const isPending = isCreating || isUpdating;
+	const isPending = isCreating || isUpdating
 
 	// Form state
-	const [name, setName] = React.useState("");
-	const [description, setDescription] = React.useState("");
-	const [items, setItems] = React.useState<TemplateItemDraft[]>([]);
+	const [name, setName] = React.useState("")
+	const [description, setDescription] = React.useState("")
+	const [items, setItems] = React.useState<TemplateItemDraft[]>([])
 
 	// Recipe selector state
-	const [selectorOpen, setSelectorOpen] = React.useState(false);
+	const [selectorOpen, setSelectorOpen] = React.useState(false)
 	const [selectedCell, setSelectedCell] = React.useState<{
-		dayOfWeek: number;
-		mealTypeId: string;
-	} | null>(null);
+		dayOfWeek: number
+		mealTypeId: string
+	} | null>(null)
 
 	// Initialize form when editing
 	React.useEffect(() => {
 		if (existingTemplate && open) {
-			setName(existingTemplate.name);
-			setDescription(existingTemplate.description || "");
+			setName(existingTemplate.name)
+			setDescription(existingTemplate.description || "")
 			setItems(
 				existingTemplate.items.map((item) => ({
 					day_of_week: item.day_of_week,
 					meal_type_id: item.meal_type_id,
 					recipe_id: item.recipe_id,
-				})),
-			);
+				}))
+			)
 		} else if (!isEditing && open) {
 			// Reset for create
-			setName("");
-			setDescription("");
-			setItems([]);
+			setName("")
+			setDescription("")
+			setItems([])
 		}
-	}, [existingTemplate, isEditing, open]);
+	}, [existingTemplate, isEditing, open])
 
 	// Get recipes for a specific cell
 	const getCellRecipes = (dayOfWeek: number, mealTypeId: string): Recipe[] => {
 		const cellRecipeIds = items
-			.filter(
-				(item) =>
-					item.day_of_week === dayOfWeek && item.meal_type_id === mealTypeId,
-			)
-			.map((item) => item.recipe_id);
+			.filter((item) => item.day_of_week === dayOfWeek && item.meal_type_id === mealTypeId)
+			.map((item) => item.recipe_id)
 
-		return (
-			allRecipes?.filter((recipe) => cellRecipeIds.includes(recipe.id)) || []
-		);
-	};
+		return allRecipes?.filter((recipe) => cellRecipeIds.includes(recipe.id)) || []
+	}
 
 	// Handle adding recipes to cell
 	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string) => {
-		setSelectedCell({ dayOfWeek, mealTypeId });
-		setSelectorOpen(true);
-	};
+		setSelectedCell({ dayOfWeek, mealTypeId })
+		setSelectorOpen(true)
+	}
 
 	// Handle recipe selection from modal
 	const handleSelectRecipes = (recipeIds: string[]) => {
-		if (!selectedCell) return;
+		if (!selectedCell) return
 
 		// Remove existing items for this cell
 		const filtered = items.filter(
@@ -136,26 +122,22 @@ export function TemplateEditor({
 				!(
 					item.day_of_week === selectedCell.dayOfWeek &&
 					item.meal_type_id === selectedCell.mealTypeId
-				),
-		);
+				)
+		)
 
 		// Add new items
 		const newItems = recipeIds.map((recipeId) => ({
 			day_of_week: selectedCell.dayOfWeek,
 			meal_type_id: selectedCell.mealTypeId,
 			recipe_id: recipeId,
-		}));
+		}))
 
-		setItems([...filtered, ...newItems]);
-		setSelectedCell(null);
-	};
+		setItems([...filtered, ...newItems])
+		setSelectedCell(null)
+	}
 
 	// Handle removing a recipe
-	const handleRemoveRecipe = (
-		dayOfWeek: number,
-		mealTypeId: string,
-		recipeId: string,
-	) => {
+	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
 		setItems(
 			items.filter(
 				(item) =>
@@ -163,22 +145,22 @@ export function TemplateEditor({
 						item.day_of_week === dayOfWeek &&
 						item.meal_type_id === mealTypeId &&
 						item.recipe_id === recipeId
-					),
-			),
-		);
-	};
+					)
+			)
+		)
+	}
 
 	// Handle form submission
 	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 
-		if (!kitchenId || !name.trim()) return;
+		if (!kitchenId || !name.trim()) return
 
 		const templateData = {
 			name: name.trim(),
 			description: description.trim() || undefined,
 			kitchen_id: kitchenId,
-		};
+		}
 
 		if (isEditing && templateId) {
 			updateTemplate(
@@ -193,10 +175,10 @@ export function TemplateEditor({
 				},
 				{
 					onSuccess: () => {
-						onClose();
+						onClose()
 					},
-				},
-			);
+				}
+			)
 		} else {
 			createTemplate(
 				{
@@ -209,25 +191,25 @@ export function TemplateEditor({
 				},
 				{
 					onSuccess: () => {
-						onClose();
+						onClose()
 					},
-				},
-			);
+				}
+			)
 		}
-	};
+	}
 
 	const currentCellRecipeIds = selectedCell
 		? items
 				.filter(
 					(item) =>
 						item.day_of_week === selectedCell.dayOfWeek &&
-						item.meal_type_id === selectedCell.mealTypeId,
+						item.meal_type_id === selectedCell.mealTypeId
 				)
 				.map((item) => item.recipe_id)
-		: [];
+		: []
 
 	if (!kitchenId) {
-		return null;
+		return null
 	}
 
 	return (
@@ -235,9 +217,7 @@ export function TemplateEditor({
 			<Dialog open={open} onOpenChange={onClose}>
 				<DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>
-							{isEditing ? "Editar Template" : "Novo Template Semanal"}
-						</DialogTitle>
+						<DialogTitle>{isEditing ? "Editar Template" : "Novo Template Semanal"}</DialogTitle>
 						<DialogDescription>
 							Configure as receitas para cada dia e período de refeição.
 						</DialogDescription>
@@ -276,15 +256,10 @@ export function TemplateEditor({
 									{/* Header Row (Weekdays) */}
 									<div className="grid grid-cols-8 gap-px bg-muted p-px">
 										<div className="bg-background p-3">
-											<span className="text-xs font-medium text-muted-foreground">
-												Refeição
-											</span>
+											<span className="text-xs font-medium text-muted-foreground">Refeição</span>
 										</div>
 										{WEEKDAYS.map((day) => (
-											<div
-												key={day.num}
-												className="bg-background p-3 text-center"
-											>
+											<div key={day.num} className="bg-background p-3 text-center">
 												<span className="text-xs font-medium">{day.label}</span>
 											</div>
 										))}
@@ -293,37 +268,23 @@ export function TemplateEditor({
 									{/* Body Rows (Meal Types) */}
 									{mealTypes && mealTypes.length > 0 ? (
 										mealTypes.map((mealType) => (
-											<div
-												key={mealType.id}
-												className="grid grid-cols-8 gap-px bg-muted p-px"
-											>
+											<div key={mealType.id} className="grid grid-cols-8 gap-px bg-muted p-px">
 												{/* Meal Type Label */}
 												<div className="bg-background p-3 flex items-center">
-													<span className="text-sm font-medium">
-														{mealType.name}
-													</span>
+													<span className="text-sm font-medium">{mealType.name}</span>
 												</div>
 
 												{/* Day Cells */}
 												{WEEKDAYS.map((day) => (
-													<div
-														key={`${day.num}-${mealType.id}`}
-														className="bg-background p-2"
-													>
+													<div key={`${day.num}-${mealType.id}`} className="bg-background p-2">
 														<TemplateGridCell
 															dayOfWeek={day.num}
 															mealTypeId={mealType.id}
 															mealTypeName={mealType.name}
 															recipes={getCellRecipes(day.num, mealType.id)}
-															onAddRecipes={() =>
-																handleOpenSelector(day.num, mealType.id)
-															}
+															onAddRecipes={() => handleOpenSelector(day.num, mealType.id)}
 															onRemoveRecipe={(recipeId) =>
-																handleRemoveRecipe(
-																	day.num,
-																	mealType.id,
-																	recipeId,
-																)
+																handleRemoveRecipe(day.num, mealType.id, recipeId)
 															}
 														/>
 													</div>
@@ -332,8 +293,7 @@ export function TemplateEditor({
 										))
 									) : (
 										<div className="p-8 text-center text-sm text-muted-foreground">
-											Nenhum tipo de refeição disponível. Crie tipos de refeição
-											primeiro.
+											Nenhum tipo de refeição disponível. Crie tipos de refeição primeiro.
 										</div>
 									)}
 								</div>
@@ -344,17 +304,14 @@ export function TemplateEditor({
 						<DialogFooter>
 							<div className="flex items-center justify-between w-full">
 								<p className="text-xs text-muted-foreground">
-									{items.length} receita{items.length !== 1 ? "s" : ""} no
-									template
+									{items.length} receita{items.length !== 1 ? "s" : ""} no template
 								</p>
 								<div className="flex gap-2">
 									<Button type="button" variant="outline" onClick={onClose}>
 										Cancelar
 									</Button>
 									<Button type="submit" disabled={isPending || !name.trim()}>
-										{isPending && (
-											<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-										)}
+										{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
 										{isEditing ? "Salvar Alterações" : "Criar Template"}
 									</Button>
 								</div>
@@ -368,8 +325,8 @@ export function TemplateEditor({
 			<RecipeSelector
 				open={selectorOpen}
 				onClose={() => {
-					setSelectorOpen(false);
-					setSelectedCell(null);
+					setSelectorOpen(false)
+					setSelectedCell(null)
 				}}
 				kitchenId={kitchenId}
 				selectedRecipeIds={currentCellRecipeIds}
@@ -377,5 +334,5 @@ export function TemplateEditor({
 				multiSelect
 			/>
 		</>
-	);
+	)
 }

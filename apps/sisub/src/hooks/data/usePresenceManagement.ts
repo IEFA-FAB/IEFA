@@ -1,18 +1,18 @@
 // hooks/usePresenceManagement.ts
 // Uses centralized types from @/types/domain as per design system guidelines.
 
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { PostgrestError } from "@supabase/supabase-js"
 import {
 	type UseMutationResult,
 	type UseQueryResult,
 	useMutation,
 	useQuery,
 	useQueryClient,
-} from "@tanstack/react-query";
-import { useCallback } from "react";
-import { toast } from "sonner";
-import type { FiscalPresenceRecord, MealKey } from "@/lib/fiscal";
-import supabase from "@/lib/supabase";
+} from "@tanstack/react-query"
+import { useCallback } from "react"
+import { toast } from "sonner"
+import type { FiscalPresenceRecord, MealKey } from "@/lib/fiscal"
+import supabase from "@/lib/supabase"
 import type {
 	ConfirmPresenceParams,
 	ConfirmPresenceResult,
@@ -21,7 +21,7 @@ import type {
 	ForecastRow,
 	QueryResult,
 	UsePresenceManagementReturn,
-} from "@/types/domain/presence";
+} from "@/types/domain/presence"
 
 // ============================================================================
 // INTERNAL TYPES & ERROR CLASSES
@@ -32,8 +32,8 @@ import type {
  */
 class UnitRequiredError extends Error {
 	constructor() {
-		super("unit_required");
-		this.name = "UnitRequiredError";
+		super("unit_required")
+		this.name = "UnitRequiredError"
 	}
 }
 
@@ -43,18 +43,13 @@ class UnitRequiredError extends Error {
  * @returns True if the error is a PostgrestError
  */
 const isPostgrestError = (e: unknown): e is PostgrestError => {
-	return (
-		typeof e === "object" &&
-		e !== null &&
-		"code" in e &&
-		typeof (e as any).code === "string"
-	);
-};
+	return typeof e === "object" && e !== null && "code" in e && typeof (e as any).code === "string"
+}
 
 /**
  * Union type for mutation errors.
  */
-type MutationError = UnitRequiredError | PostgrestError;
+type MutationError = UnitRequiredError | PostgrestError
 
 // ============================================================================
 // QUERY KEYS
@@ -67,12 +62,12 @@ const presenceKeys = {
 		["confirmPresence", date, meal, unit] as const,
 	remove: (date: string, meal: MealKey, unit: string) =>
 		["removePresence", date, meal, unit] as const,
-} as const;
+} as const
 
 // ============================================================================
 // HELPERS (code -> mess_hall_id com cache)
 // ============================================================================
-const messHallIdCache = new Map<string, number>();
+const messHallIdCache = new Map<string, number>()
 
 /**
  * Helper function to resolve a mess hall code to its database ID.
@@ -82,24 +77,24 @@ const messHallIdCache = new Map<string, number>();
  * @returns Mess hall ID if found, undefined otherwise
  */
 async function getMessHallIdByCode(code: string): Promise<number | undefined> {
-	if (!code) return undefined;
-	const cached = messHallIdCache.get(code);
-	if (cached) return cached;
+	if (!code) return undefined
+	const cached = messHallIdCache.get(code)
+	if (cached) return cached
 
 	const { data, error } = await supabase
 		.schema("sisub")
 		.from("mess_halls")
 		.select("id")
 		.eq("code", code)
-		.maybeSingle();
+		.maybeSingle()
 
 	if (error) {
-		console.warn("Falha ao buscar mess_hall_id:", error);
-		return undefined;
+		console.warn("Falha ao buscar mess_hall_id:", error)
+		return undefined
 	}
-	const id = data?.id as number | undefined;
-	if (id) messHallIdCache.set(code, id);
-	return id;
+	const id = data?.id as number | undefined
+	if (id) messHallIdCache.set(code, id)
+	return id
 }
 
 // ============================================================================
@@ -113,28 +108,26 @@ async function getMessHallIdByCode(code: string): Promise<number | undefined> {
  * @param filters - Query filters (date, meal, unit code)
  * @returns Array of presence records with user information
  */
-const fetchPresences = async (
-	filters: FiscalFilters,
-): Promise<FiscalPresenceRecord[]> => {
-	if (!filters.unit) return [];
+const fetchPresences = async (filters: FiscalFilters): Promise<FiscalPresenceRecord[]> => {
+	if (!filters.unit) return []
 
 	// 1) Mapear code -> mess_hall_id
-	const messHallId = await getMessHallIdByCode(filters.unit);
+	const messHallId = await getMessHallIdByCode(filters.unit)
 	if (!messHallId) {
-		console.warn(`Código de rancho não encontrado: ${filters.unit}`);
-		return [];
+		console.warn(`Código de rancho não encontrado: ${filters.unit}`)
+		return []
 	}
 
 	// 2) Buscar presenças na VIEW com display_name
 	type PresenceRowWithUser = {
-		id: string;
-		user_id: string;
-		date: string;
-		meal: MealKey;
-		created_at: string;
-		mess_hall_id: number;
-		display_name: string | null;
-	};
+		id: string
+		user_id: string
+		date: string
+		meal: MealKey
+		created_at: string
+		mess_hall_id: number
+		display_name: string | null
+	}
 
 	const { data, error } = await supabase
 		.from("v_meal_presences_with_user")
@@ -143,17 +136,17 @@ const fetchPresences = async (
 		.eq("meal", filters.meal)
 		.eq("mess_hall_id", messHallId)
 		.order("created_at", { ascending: false })
-		.returns<PresenceRowWithUser[]>();
+		.returns<PresenceRowWithUser[]>()
 
 	if (error) {
-		console.error("Erro ao buscar presenças:", error);
+		console.error("Erro ao buscar presenças:", error)
 		toast.error("Erro", {
 			description: "Não foi possível carregar as presenças.",
-		});
-		throw error;
+		})
+		throw error
 	}
 
-	const rows = data ?? [];
+	const rows = data ?? []
 
 	// 3) Mapear para FiscalPresenceRecord esperado pela UI (mantendo unidade = code)
 	//    Carregamos display_name como campo extra (permanece disponível em runtime).
@@ -165,13 +158,13 @@ const fetchPresences = async (
 			meal: r.meal,
 			created_at: r.created_at,
 			unidade: filters.unit,
-		};
+		}
 		// Anexa display_name sem quebrar o tipo de retorno:
-		return Object.assign(base, { display_name: r.display_name ?? null });
-	});
+		return Object.assign(base, { display_name: r.display_name ?? null })
+	})
 
-	return mapped;
-};
+	return mapped
+}
 
 /**
  * Fetches meal forecast data for a list of users.
@@ -181,17 +174,14 @@ const fetchPresences = async (
  * @param userIds - Array of user IDs to fetch forecasts for
  * @returns Map of user IDs to forecast status
  */
-const fetchForecasts = async (
-	filters: FiscalFilters,
-	userIds: string[],
-): Promise<ForecastMap> => {
-	if (userIds.length === 0) return {};
-	if (!filters.unit) return {};
+const fetchForecasts = async (filters: FiscalFilters, userIds: string[]): Promise<ForecastMap> => {
+	if (userIds.length === 0) return {}
+	if (!filters.unit) return {}
 
-	const messHallId = await getMessHallIdByCode(filters.unit);
+	const messHallId = await getMessHallIdByCode(filters.unit)
 	if (!messHallId) {
-		console.warn(`Código de rancho não encontrado: ${filters.unit}`);
-		return {};
+		console.warn(`Código de rancho não encontrado: ${filters.unit}`)
+		return {}
 	}
 
 	// Previsões na nova tabela
@@ -203,20 +193,20 @@ const fetchForecasts = async (
 		.eq("meal", filters.meal)
 		.eq("mess_hall_id", messHallId)
 		.in("user_id", userIds)
-		.returns<ForecastRow[]>();
+		.returns<ForecastRow[]>()
 
 	if (error) {
-		console.warn("Falha ao buscar previsões:", error);
-		return {};
+		console.warn("Falha ao buscar previsões:", error)
+		return {}
 	}
 
-	const forecastMap: ForecastMap = {};
-	(data ?? []).forEach((row) => {
-		forecastMap[row.user_id] = Boolean(row.will_eat);
-	});
+	const forecastMap: ForecastMap = {}
+	;(data ?? []).forEach((row) => {
+		forecastMap[row.user_id] = Boolean(row.will_eat)
+	})
 
-	return forecastMap;
-};
+	return forecastMap
+}
 
 /**
  * Inserts a new presence record for a user.
@@ -228,31 +218,28 @@ const fetchForecasts = async (
  */
 const insertPresence = async (
 	params: ConfirmPresenceParams,
-	filters: FiscalFilters,
+	filters: FiscalFilters
 ): Promise<void> => {
 	if (!filters.unit) {
-		throw new UnitRequiredError();
+		throw new UnitRequiredError()
 	}
 
-	const messHallId = await getMessHallIdByCode(filters.unit);
+	const messHallId = await getMessHallIdByCode(filters.unit)
 	if (!messHallId) {
-		throw new UnitRequiredError(); // ou um erro mais específico
+		throw new UnitRequiredError() // ou um erro mais específico
 	}
 
-	const { error } = await supabase
-		.schema("sisub")
-		.from("meal_presences")
-		.insert({
-			user_id: params.uuid,
-			date: filters.date,
-			meal: filters.meal,
-			mess_hall_id: messHallId,
-		});
+	const { error } = await supabase.schema("sisub").from("meal_presences").insert({
+		user_id: params.uuid,
+		date: filters.date,
+		meal: filters.meal,
+		mess_hall_id: messHallId,
+	})
 
 	if (error) {
-		throw error; // PostgrestError
+		throw error // PostgrestError
 	}
-};
+}
 
 /**
  * Deletes a presence record by its ID.
@@ -265,19 +252,19 @@ const deletePresence = async (presenceId: string): Promise<void> => {
 		.schema("sisub")
 		.from("meal_presences")
 		.delete()
-		.eq("id", presenceId);
+		.eq("id", presenceId)
 
 	if (error) {
-		throw error; // PostgrestError
+		throw error // PostgrestError
 	}
-};
+}
 
 // ============================================================================
 // VALIDATION
 // ============================================================================
 const isValidFilters = (filters: FiscalFilters): boolean => {
-	return Boolean(filters.date && filters.meal && filters.unit);
-};
+	return Boolean(filters.date && filters.meal && filters.unit)
+}
 
 // ============================================================================
 // ERROR HANDLERS
@@ -286,29 +273,29 @@ const handleConfirmPresenceError = (error: unknown): void => {
 	if (error instanceof UnitRequiredError) {
 		toast.error("Selecione o rancho", {
 			description: "É necessário informar a unidade (rancho).",
-		});
-		return;
+		})
+		return
 	}
 
 	if (isPostgrestError(error) && error.code === "23505") {
 		toast.info("Já registrado", {
 			description: "Este militar já foi marcado presente.",
-		});
-		return;
+		})
+		return
 	}
 
-	console.error("Falha ao salvar decisão:", error);
+	console.error("Falha ao salvar decisão:", error)
 	toast.error("Erro", {
 		description: "Falha ao salvar decisão.",
-	});
-};
+	})
+}
 
 const handleRemovePresenceError = (error: unknown): void => {
-	console.error("Não foi possível excluir:", error);
+	console.error("Não foi possível excluir:", error)
 	toast.error("Erro", {
 		description: "Não foi possível excluir.",
-	});
-};
+	})
+}
 
 /**
  * Custom hook for managing meal presences with real-time queries.
@@ -344,11 +331,9 @@ const handleRemovePresenceError = (error: unknown): void => {
  * await removePresence(presences[0]);
  * ```
  */
-export function usePresenceManagement(
-	filters: FiscalFilters,
-): UsePresenceManagementReturn {
-	const queryClient = useQueryClient();
-	const isValid = isValidFilters(filters);
+export function usePresenceManagement(filters: FiscalFilters): UsePresenceManagementReturn {
+	const queryClient = useQueryClient()
+	const isValid = isValidFilters(filters)
 
 	// ============================================================================
 	// QUERY: Fetch Presences & Forecasts
@@ -359,13 +344,13 @@ export function usePresenceManagement(
 	>({
 		queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
 		queryFn: async (): Promise<QueryResult> => {
-			const presences = await fetchPresences(filters);
+			const presences = await fetchPresences(filters)
 
 			// Buscar previsões apenas dos usuários presentes
-			const userIds = Array.from(new Set(presences.map((p) => p.user_id)));
-			const forecastMap = await fetchForecasts(filters, userIds);
+			const userIds = Array.from(new Set(presences.map((p) => p.user_id)))
+			const forecastMap = await fetchForecasts(filters, userIds)
 
-			return { presences, forecastMap };
+			return { presences, forecastMap }
 		},
 		enabled: isValid,
 		refetchOnWindowFocus: false,
@@ -374,7 +359,7 @@ export function usePresenceManagement(
 		staleTime: 2 * 60 * 1000, // 2 minutos
 		gcTime: 5 * 60 * 1000, // 5 minutos
 		placeholderData: { presences: [], forecastMap: {} },
-	});
+	})
 
 	// ============================================================================
 	// MUTATION: Confirm Presence
@@ -388,70 +373,63 @@ export function usePresenceManagement(
 		mutationFn: async (params): Promise<ConfirmPresenceResult> => {
 			if (!params.willEnter) {
 				toast.info("Registro atualizado", {
-					description:
-						"Decisão registrada. Militar não entrará para a refeição.",
-				});
-				return { skipped: true };
+					description: "Decisão registrada. Militar não entrará para a refeição.",
+				})
+				return { skipped: true }
 			}
 
-			await insertPresence(params, filters);
+			await insertPresence(params, filters)
 
 			toast.success("Presença registrada", {
 				description: `UUID ${params.uuid} marcado.`,
-			});
-			return { skipped: false };
+			})
+			return { skipped: false }
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({
 				queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
-			});
+			})
 		},
 		onError: handleConfirmPresenceError,
-	});
+	})
 
 	// ============================================================================
 	// MUTATION: Remove Presence
 	// ============================================================================
-	const removePresenceMutation: UseMutationResult<
-		void,
-		PostgrestError,
-		FiscalPresenceRecord
-	> = useMutation<void, PostgrestError, FiscalPresenceRecord>({
-		mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.unit),
-		mutationFn: async (row): Promise<void> => {
-			await deletePresence(row.id);
+	const removePresenceMutation: UseMutationResult<void, PostgrestError, FiscalPresenceRecord> =
+		useMutation<void, PostgrestError, FiscalPresenceRecord>({
+			mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.unit),
+			mutationFn: async (row): Promise<void> => {
+				await deletePresence(row.id)
 
-			toast.success("Excluído", {
-				description: "Registro removido.",
-			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({
-				queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
-			});
-		},
-		onError: handleRemovePresenceError,
-	});
+				toast.success("Excluído", {
+					description: "Registro removido.",
+				})
+			},
+			onSuccess: () => {
+				queryClient.invalidateQueries({
+					queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
+				})
+			},
+			onError: handleRemovePresenceError,
+		})
 
 	// ============================================================================
 	// CALLBACKS
 	// ============================================================================
 	const confirmPresence = useCallback(
-		async (
-			uuid: string,
-			willEnter: boolean,
-		): Promise<ConfirmPresenceResult> => {
-			return await confirmPresenceMutation.mutateAsync({ uuid, willEnter });
+		async (uuid: string, willEnter: boolean): Promise<ConfirmPresenceResult> => {
+			return await confirmPresenceMutation.mutateAsync({ uuid, willEnter })
 		},
-		[confirmPresenceMutation],
-	);
+		[confirmPresenceMutation]
+	)
 
 	const removePresence = useCallback(
 		async (row: FiscalPresenceRecord): Promise<void> => {
-			await removePresenceMutation.mutateAsync(row);
+			await removePresenceMutation.mutateAsync(row)
 		},
-		[removePresenceMutation],
-	);
+		[removePresenceMutation]
+	)
 
 	// ============================================================================
 	// RETURN
@@ -464,5 +442,5 @@ export function usePresenceManagement(
 		isRemoving: removePresenceMutation.isPending,
 		confirmPresence,
 		removePresence,
-	};
+	}
 }

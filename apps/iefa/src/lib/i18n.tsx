@@ -1,60 +1,60 @@
 // Simple, type-safe i18n system for the journal
 // Uses Context + hooks for optimal DX
 
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react"
 
 // Supported languages
-export type Locale = "pt" | "en";
+export type Locale = "pt" | "en"
 
 // All translation keys (type-safe!)
 export interface Translations {
 	// Common
 	common: {
-		loading: string;
-		error: string;
-		save: string;
-		cancel: string;
-		delete: string;
-		edit: string;
-		back: string;
-		next: string;
-		submit: string;
-		search: string;
-		filter: string;
-		clearFilters: string;
-		download: string;
-		upload: string;
-		yes: string;
-		no: string;
-	};
+		loading: string
+		error: string
+		save: string
+		cancel: string
+		delete: string
+		edit: string
+		back: string
+		next: string
+		submit: string
+		search: string
+		filter: string
+		clearFilters: string
+		download: string
+		upload: string
+		yes: string
+		no: string
+	}
 	// Navigation
 	nav: {
-		home: string;
-		articles: string;
-		submissions: string;
-		reviews: string;
-		profile: string;
-		dashboard: string;
-	};
+		home: string
+		articles: string
+		submissions: string
+		reviews: string
+		profile: string
+		dashboard: string
+	}
 	// Article status
 	status: {
-		draft: string;
-		submitted: string;
-		under_review: string;
-		revision_requested: string;
-		revised_submitted: string;
-		accepted: string;
-		rejected: string;
-		published: string;
-	};
+		draft: string
+		submitted: string
+		under_review: string
+		revision_requested: string
+		revised_submitted: string
+		accepted: string
+		rejected: string
+		published: string
+	}
 	// Forms
 	forms: {
-		required: string;
-		invalidEmail: string;
-		invalidUrl: string;
-		minLength: (min: number) => string;
-		maxLength: (max: number) => string;
-	};
+		required: string
+		invalidEmail: string
+		invalidUrl: string
+		minLength: (min: number) => string
+		maxLength: (max: number) => string
+	}
 }
 
 // Portuguese translations
@@ -102,7 +102,7 @@ const pt: Translations = {
 		minLength: (min) => `Mínimo de ${min} caracteres`,
 		maxLength: (max) => `Máximo de ${max} caracteres`,
 	},
-};
+}
 
 // English translations
 const en: Translations = {
@@ -149,51 +149,51 @@ const en: Translations = {
 		minLength: (min) => `Minimum ${min} characters`,
 		maxLength: (max) => `Maximum ${max} characters`,
 	},
-};
+}
 
 // All translations
-const translations: Record<Locale, Translations> = { pt, en };
+const translations: Record<Locale, Translations> = { pt, en }
 
 // Context
 interface I18nContextValue {
-	locale: Locale;
-	t: Translations;
-	setLocale: (locale: Locale) => void;
+	locale: Locale
+	t: Translations
+	setLocale: (locale: Locale) => void
 }
 
-const I18nContext = createContext<I18nContextValue | undefined>(undefined);
+const I18nContext = createContext<I18nContextValue | undefined>(undefined)
 
 // Provider
 export function I18nProvider({
 	children,
 	initialLocale = "pt",
 }: {
-	children: ReactNode;
-	initialLocale?: Locale;
+	children: ReactNode
+	initialLocale?: Locale
 }) {
-	const [locale, setLocale] = useState<Locale>(initialLocale);
+	const [locale, setLocale] = useState<Locale>(initialLocale)
 
 	const value: I18nContextValue = {
 		locale,
 		t: translations[locale],
 		setLocale,
-	};
+	}
 
-	return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+	return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
 // Hook for using translations
 export function useTranslation() {
-	const context = useContext(I18nContext);
+	const context = useContext(I18nContext)
 	if (!context) {
-		throw new Error("useTranslation must be used within I18nProvider");
+		throw new Error("useTranslation must be used within I18nProvider")
 	}
-	return context;
+	return context
 }
 
 // Convenience hook for just getting translations
 export function useT() {
-	return useTranslation().t;
+	return useTranslation().t
 }
 
 // Example usage:

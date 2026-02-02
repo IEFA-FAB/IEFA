@@ -1,16 +1,12 @@
-import { queryOptions } from "@tanstack/react-query";
-import supabase from "@/lib/supabase";
-import type { MealKey } from "@/types/domain/";
+import { queryOptions } from "@tanstack/react-query"
+import supabase from "@/lib/supabase"
+import type { MealKey } from "@/types/domain/"
 
 export const QUERY_KEYS = {
 	messHall: (code: string) => ["messHall", code] as const,
-	mealForecast: (
-		userId: string,
-		date: string,
-		meal: MealKey,
-		messHallId: number,
-	) => ["mealForecast", userId, date, meal, messHallId] as const,
-} as const;
+	mealForecast: (userId: string, date: string, meal: MealKey, messHallId: number) =>
+		["mealForecast", userId, date, meal, messHallId] as const,
+} as const
 
 /* essa é a estrutura de mess_halls no banco
 create table sisub.mess_halls (
@@ -33,28 +29,30 @@ export async function fetchMessHallByCode(code: string) {
 		.from("mess_halls")
 		.select("id, unit_id, code, display_name")
 		.eq("code", code)
-		.maybeSingle();
+		.maybeSingle()
 
-	if (error) throw error;
-	return data; // Returns MessHall or null
+	if (error) throw error
+	return data // Returns MessHall or null
 }
 
 export const messHallByCodeQueryOptions = (code: string | undefined) =>
-	queryOptions({
-		queryKey: QUERY_KEYS.messHall(code ?? ""),
-		queryFn: async () => {
-			if (!code) return null;
-			return fetchMessHallByCode(code);
-		},
-		enabled: !!code,
-		staleTime: 60 * 60 * 1000, // 1 hour (mess halls change rarely)
-	});
+	code
+		? queryOptions({
+				queryKey: QUERY_KEYS.messHall(code),
+				queryFn: () => fetchMessHallByCode(code),
+				staleTime: 60 * 60 * 1000, // 1 hour (mess halls change rarely)
+			})
+		: queryOptions({
+				queryKey: ["messHall", "disabled"] as const,
+				queryFn: () => null,
+				enabled: false,
+			})
 
 export async function fetchUserMealForecast(
 	userId: string,
 	date: string,
 	meal: MealKey,
-	messHallId: number,
+	messHallId: number
 ) {
 	const { data, error } = await supabase
 		.schema("sisub")
@@ -64,28 +62,25 @@ export async function fetchUserMealForecast(
 		.eq("date", date)
 		.eq("meal", meal)
 		.eq("mess_hall_id", messHallId)
-		.maybeSingle();
+		.maybeSingle()
 
-	if (error) throw error;
-	return data; // { will_eat: boolean } or null
+	if (error) throw error
+	return data // { will_eat: boolean } or null
 }
 
 export const userMealForecastQueryOptions = (
 	userId: string | undefined,
 	date: string,
 	meal: MealKey,
-	messHallId: number | null | undefined,
+	messHallId: number | null | undefined
 ) =>
-	queryOptions({
-		queryKey: QUERY_KEYS.mealForecast(
-			userId ?? "",
-			date,
-			meal,
-			messHallId ?? 0,
-		),
-		queryFn: async () => {
-			if (!userId || !messHallId) return null;
-			return fetchUserMealForecast(userId, date, meal, messHallId);
-		},
-		enabled: !!userId && !!messHallId,
-	});
+	userId && messHallId
+		? queryOptions({
+				queryKey: QUERY_KEYS.mealForecast(userId, date, meal, messHallId),
+				queryFn: () => fetchUserMealForecast(userId, date, meal, messHallId),
+			})
+		: queryOptions({
+				queryKey: ["mealForecast", "disabled"] as const,
+				queryFn: () => null,
+				enabled: false,
+			})

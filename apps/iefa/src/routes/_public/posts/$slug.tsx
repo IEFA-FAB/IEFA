@@ -1,15 +1,15 @@
-import { Button, Separator } from "@iefa/ui";
-import { PortableText, type PortableTextComponents } from "@portabletext/react";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
-import { client, urlFor } from "@/lib/sanity";
-import type { PostDetail } from "@/types/domain";
+import { Button, Separator } from "@iefa/ui"
+import { PortableText, type PortableTextComponents } from "@portabletext/react"
+import { createFileRoute, Link, notFound } from "@tanstack/react-router"
+import { ArrowLeft } from "lucide-react"
+import { client, urlFor } from "@/lib/sanity"
+import type { PostDetail } from "@/types/domain"
 
 // 1. Componentes do Portable Text
 const myPortableTextComponents: PortableTextComponents = {
 	types: {
 		image: ({ value }: { value: any }) => {
-			if (!value?.asset?._ref) return null;
+			if (!value?.asset?._ref) return null
 			return (
 				<figure className="my-8">
 					<img
@@ -23,7 +23,7 @@ const myPortableTextComponents: PortableTextComponents = {
 						</figcaption>
 					)}
 				</figure>
-			);
+			)
 		},
 		callToAction: ({ value }: { value: { url: string; text: string } }) => (
 			<div className="my-8 text-center">
@@ -45,24 +45,16 @@ const myPortableTextComponents: PortableTextComponents = {
 	},
 	block: {
 		h1: ({ children }: { children?: React.ReactNode }) => (
-			<h1 className="text-4xl font-bold mt-12 mb-6 text-foreground">
-				{children}
-			</h1>
+			<h1 className="text-4xl font-bold mt-12 mb-6 text-foreground">{children}</h1>
 		),
 		h2: ({ children }: { children?: React.ReactNode }) => (
-			<h2 className="text-2xl font-bold mt-10 mb-4 text-foreground">
-				{children}
-			</h2>
+			<h2 className="text-2xl font-bold mt-10 mb-4 text-foreground">{children}</h2>
 		),
 		h3: ({ children }: { children?: React.ReactNode }) => (
-			<h3 className="text-xl font-semibold mt-8 mb-3 text-foreground">
-				{children}
-			</h3>
+			<h3 className="text-xl font-semibold mt-8 mb-3 text-foreground">{children}</h3>
 		),
 		normal: ({ children }: { children?: React.ReactNode }) => (
-			<p className="mb-4 leading-relaxed text-foreground/90 text-lg">
-				{children}
-			</p>
+			<p className="mb-4 leading-relaxed text-foreground/90 text-lg">{children}</p>
 		),
 		blockquote: ({ children }: { children?: React.ReactNode }) => (
 			<blockquote className="border-l-4 border-primary pl-4 italic my-6 text-muted-foreground text-xl">
@@ -71,16 +63,8 @@ const myPortableTextComponents: PortableTextComponents = {
 		),
 	},
 	marks: {
-		link: ({
-			children,
-			value,
-		}: {
-			children?: React.ReactNode;
-			value?: { href: string };
-		}) => {
-			const rel = !value?.href.startsWith("/")
-				? "noreferrer noopener"
-				: undefined;
+		link: ({ children, value }: { children?: React.ReactNode; value?: { href: string } }) => {
+			const rel = !value?.href.startsWith("/") ? "noreferrer noopener" : undefined
 			return (
 				<a
 					href={value?.href}
@@ -89,10 +73,10 @@ const myPortableTextComponents: PortableTextComponents = {
 				>
 					{children}
 				</a>
-			);
+			)
 		},
 	},
-};
+}
 
 // 2. Query para pegar um único post
 const postQuery = `*[_type == "post" && slug.current == $slug][0]{
@@ -101,23 +85,23 @@ const postQuery = `*[_type == "post" && slug.current == $slug][0]{
   publishedAt,
   author->{name, image},
   body
-}`;
+}`
 
 export const Route = createFileRoute("/_public/posts/$slug")({
 	component: PostDetailComponent,
 	loader: async ({ params }): Promise<PostDetail> => {
 		const post = await client.fetch<PostDetail>(postQuery, {
 			slug: params.slug,
-		});
-		if (!post) throw notFound();
-		return post;
+		})
+		if (!post) throw notFound()
+		return post
 	},
-});
+})
 
 function PostDetailComponent() {
-	const post = Route.useLoaderData() as PostDetail;
+	const post = Route.useLoaderData() as PostDetail
 
-	if (!post) return null;
+	if (!post) return null
 
 	return (
 		<article className="max-w-4xl mx-auto py-10 px-4 sm:px-6">
@@ -136,11 +120,12 @@ function PostDetailComponent() {
 			{/* Cabeçalho do Post */}
 			<header className="mb-10 text-center">
 				<div className="text-sm text-muted-foreground mb-4">
-					{new Date(post.publishedAt).toLocaleDateString("pt-BR", {
-						day: "numeric",
-						month: "long",
-						year: "numeric",
-					})}
+					{post.publishedAt &&
+						new Date(post.publishedAt).toLocaleDateString("pt-BR", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
+						})}
 				</div>
 
 				<h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-balance mb-6">
@@ -185,5 +170,5 @@ function PostDetailComponent() {
 				<Button render={<Link to="/posts">Ler mais artigos</Link>} />
 			</div>
 		</article>
-	);
+	)
 }

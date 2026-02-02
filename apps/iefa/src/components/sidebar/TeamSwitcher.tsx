@@ -10,16 +10,16 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	useSidebar,
-} from "@iefa/ui";
-import { ChevronsUpDown } from "lucide-react";
-import * as React from "react";
-import type { Team } from "./SidebarTypes";
+} from "@iefa/ui"
+import { ChevronsUpDown } from "lucide-react"
+import * as React from "react"
+import type { Team } from "./SidebarTypes"
 
 export function TeamSwitcher({ teams }: { teams: Team[] }) {
-	const { isMobile } = useSidebar();
-	const [activeTeam, setActiveTeam] = React.useState(teams[0]);
+	const { isMobile } = useSidebar()
+	const [activeTeam, setActiveTeam] = React.useState(teams[0])
 
-	if (!activeTeam || teams.length === 0) return null;
+	if (!activeTeam || teams.length === 0) return null
 
 	return (
 		<SidebarMenu>
@@ -38,14 +38,12 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 										alt={activeTeam.name}
 										className="size-6"
 										onError={(e) => {
-											e.currentTarget.src = "/LogoPredator.svg";
+											e.currentTarget.src = "/LogoPredator.svg"
 										}}
 									/>
 								</div>
 								<div className="grid flex-1 text-left text-sm leading-tight">
-									<span className="truncate font-semibold">
-										{activeTeam.name}
-									</span>
+									<span className="truncate font-semibold">{activeTeam.name}</span>
 									<span className="truncate text-xs">{activeTeam.plan}</span>
 								</div>
 								<ChevronsUpDown className="ml-auto" />
@@ -59,9 +57,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 						sideOffset={4}
 					>
 						<DropdownMenuGroup>
-							<DropdownMenuLabel className="text-xs text-muted-foreground">
-								Times
-							</DropdownMenuLabel>
+							<DropdownMenuLabel className="text-xs text-muted-foreground">Times</DropdownMenuLabel>
 							{teams.map((team, index) => (
 								<DropdownMenuItem
 									key={team.id}
@@ -69,11 +65,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 									className="gap-2 p-2"
 								>
 									<div className="flex size-6 items-center justify-center rounded-sm border">
-										<img
-											src={team.logo}
-											alt={team.name}
-											className="size-4 shrink-0"
-										/>
+										<img src={team.logo} alt={team.name} className="size-4 shrink-0" />
 									</div>
 									{team.name}
 									<DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
@@ -84,5 +76,5 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 				</DropdownMenu>
 			</SidebarMenuItem>
 		</SidebarMenu>
-	);
+	)
 }

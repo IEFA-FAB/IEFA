@@ -2,7 +2,7 @@ app = "sisub"
 primary_region = "gru"
 
 [build]
-  dockerfile = "sisub.Dockerfile"
+  dockerfile = "docker/sisub.Dockerfile"
   context = "."
 
 [env]
@@ -36,7 +36,7 @@ primary_region = "gru"
   strategy = "rolling"
 
 [processes]
-  app = "bun apps/sisub/.output/server/index.mjs"
+  app = "node apps/sisub/.output/server/index.mjs"
 
 [[vm]]
   memory = "1gb"

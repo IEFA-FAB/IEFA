@@ -1,10 +1,10 @@
 // Step 4: File Upload
 
-import { FileUploader } from "../FileUploader";
-import { useSubmissionForm } from "./SubmissionForm";
+import { FileUploader } from "../FileUploader"
+import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step4FileUpload() {
-	const { formData, updateFormData } = useSubmissionForm();
+	const { formData, updateFormData } = useSubmissionForm()
 
 	return (
 		<div className="space-y-6">
@@ -27,9 +27,7 @@ export function Step4FileUpload() {
 				}}
 				maxSize={10 * 1024 * 1024}
 				value={formData.source_file}
-				onChange={(file) =>
-					updateFormData({ source_file: (file as File) || undefined })
-				}
+				onChange={(file) => updateFormData({ source_file: (file as File) || undefined })}
 			/>
 
 			<FileUploader
@@ -45,17 +43,15 @@ export function Step4FileUpload() {
 					"text/csv": [".csv"],
 				}}
 				value={formData.supplementary_files}
-				onChange={(files) =>
-					updateFormData({ supplementary_files: (files as File[]) || [] })
-				}
+				onChange={(files) => updateFormData({ supplementary_files: (files as File[]) || [] })}
 			/>
 
 			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
 				<p className="text-sm text-blue-900 dark:text-blue-100">
-					<strong>Dica:</strong> Certifique-se de que o PDF está anonimizado se
-					a revista usa revisão duplo-cega.
+					<strong>Dica:</strong> Certifique-se de que o PDF está anonimizado se a revista usa
+					revisão duplo-cega.
 				</p>
 			</div>
 		</div>
-	);
+	)
 }

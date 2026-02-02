@@ -1,6 +1,6 @@
-import { Badge, Button } from "@iefa/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { Badge, Button } from "@iefa/ui"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
 import {
 	AlertCircle,
 	ArrowDown,
@@ -15,12 +15,12 @@ import {
 	Sparkles,
 	Trash2,
 	User,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
-import { useAuth } from "@/hooks/useAuth";
+} from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkBreaks from "remark-breaks"
+import remarkGfm from "remark-gfm"
+import { useAuth } from "@/hooks/useAuth"
 import type {
 	AskReference,
 	AskResponse,
@@ -28,17 +28,17 @@ import type {
 	HealthStatus,
 	RemoteMessage,
 	SessionSummary,
-} from "@/types/chat";
+} from "@/types/chat"
 
 /* =========================
    Constantes
 ========================= */
 
-const API_BASE = "https://iefa-rag.fly.dev";
-const USE_STREAM = true;
+const API_BASE = "https://iefa-rag.fly.dev"
+const USE_STREAM = true
 
 // localStorage keys (somente quando logado)
-const LS_SESSION_ID = "rada_session_id";
+const LS_SESSION_ID = "rada_session_id"
 
 // Query keys centralizados
 const QUERY_KEYS = {
@@ -46,7 +46,7 @@ const QUERY_KEYS = {
 	sessions: (userId: string | null) => ["sessions", userId] as const,
 	sessionMessages: (userId: string | null, sessionId: string | null) =>
 		["sessionMessages", userId, sessionId] as const,
-};
+}
 
 /* =========================
    Utils simples
@@ -54,187 +54,180 @@ const QUERY_KEYS = {
 
 function loadSessionId(): string | null {
 	try {
-		return localStorage.getItem(LS_SESSION_ID);
+		return localStorage.getItem(LS_SESSION_ID)
 	} catch {
-		return null;
+		return null
 	}
 }
 function saveSessionId(id: string) {
 	try {
-		localStorage.setItem(LS_SESSION_ID, id);
+		localStorage.setItem(LS_SESSION_ID, id)
 	} catch {
 		// noop
 	}
 }
 function clearSessionId() {
 	try {
-		localStorage.removeItem(LS_SESSION_ID);
+		localStorage.removeItem(LS_SESSION_ID)
 	} catch {
 		// noop
 	}
 }
 
 function cn(...xs: Array<string | false | null | undefined>) {
-	return xs.filter(Boolean).join(" ");
+	return xs.filter(Boolean).join(" ")
 }
 
 function StatusDot({ status }: { status: HealthStatus }) {
 	const color =
-		status === "ok"
-			? "bg-emerald-500"
-			: status === "loading"
-				? "bg-amber-400"
-				: "bg-rose-500";
-	const pulse = status === "loading" ? "animate-pulse" : "";
+		status === "ok" ? "bg-emerald-500" : status === "loading" ? "bg-amber-400" : "bg-rose-500"
+	const pulse = status === "loading" ? "animate-pulse" : ""
 	return (
 		<span
 			className={`inline-block h-2 w-2 rounded-full ${color} ${pulse} shadow-sm`}
 			aria-hidden="true"
 		/>
-	);
+	)
 }
 
 function prettyStatusText(status: HealthStatus) {
-	if (status === "ok") return "Online";
-	if (status === "loading") return "Conectando…";
-	return "Offline";
+	if (status === "ok") return "Online"
+	if (status === "loading") return "Conectando…"
+	return "Offline"
 }
 
 function isLikelyUrl(s: string) {
 	try {
-		const u = new URL(s);
-		return !!u.protocol && !!u.host;
+		const u = new URL(s)
+		return !!u.protocol && !!u.host
 	} catch {
-		return false;
+		return false
 	}
 }
 
 /* === Helpers de referências === */
-type ParsedRef = { num: string; title: string; page?: string };
+type ParsedRef = { num: string; title: string; page?: string }
 
 function stripMd(s: string) {
-	return s.replace(/\*\*|__/g, "").trim();
+	return s.replace(/\*\*|__/g, "").trim()
 }
 
 function extractReferencesMd(text: string): {
-	mainText: string;
-	refs: ParsedRef[];
+	mainText: string
+	refs: ParsedRef[]
 } {
-	const lines = text.split(/\r?\n/);
-	let refStart = -1;
+	const lines = text.split(/\r?\n/)
+	let refStart = -1
 	for (let i = 0; i < lines.length; i++) {
 		const norm = stripMd(lines[i])
 			.replace(/\s*:\s*$/, "")
 			.trim()
 			.toLowerCase()
 			.normalize("NFD")
-			.replace(/[\u0300-\u036f]/g, "");
+			.replace(/[\u0300-\u036f]/g, "")
 		if (norm === "referencias") {
-			refStart = i;
-			break;
+			refStart = i
+			break
 		}
 	}
 
-	let mainText = text;
-	let refs: ParsedRef[] = [];
+	let mainText = text
+	let refs: ParsedRef[] = []
 
 	if (refStart >= 0) {
-		const before = lines.slice(0, refStart).join("\n").trimEnd();
-		const after = lines.slice(refStart + 1);
+		const before = lines.slice(0, refStart).join("\n").trimEnd()
+		const after = lines.slice(refStart + 1)
 
-		const bulletBlock: string[] = [];
-		let started = false;
+		const bulletBlock: string[] = []
+		let started = false
 		for (const l of after) {
-			const t = l.trim();
+			const t = l.trim()
 			if (/^[-*]\s+/.test(t)) {
-				bulletBlock.push(l);
-				started = true;
+				bulletBlock.push(l)
+				started = true
 			} else if (t === "" && started) {
-				bulletBlock.push(l);
+				bulletBlock.push(l)
 			} else if (started) {
-				break;
+				break
 			}
 		}
 
-		const pageRe = /p[aá]g\.?\s*([\d]+)\b/i;
-		const numRe = /\[(\d+)\]/;
+		const pageRe = /p[aá]g\.?\s*([\d]+)\b/i
+		const numRe = /\[(\d+)\]/
 
 		refs = bulletBlock
 			.map((raw) => raw.replace(/^\s*[-*]\s+/, "").trim())
 			.map((l) => {
-				const clean = stripMd(l);
-				const numMatch = clean.match(numRe);
-				const pageMatch = clean.match(pageRe);
+				const clean = stripMd(l)
+				const numMatch = clean.match(numRe)
+				const pageMatch = clean.match(pageRe)
 
-				let rest = clean.replace(numRe, "").trim();
-				rest = rest.replace(/^[–—-]\s*/, "").trim();
+				let rest = clean.replace(numRe, "").trim()
+				rest = rest.replace(/^[–—-]\s*/, "").trim()
 				if (pageMatch && typeof pageMatch.index === "number") {
 					rest = rest
 						.slice(0, pageMatch.index)
 						.trim()
-						.replace(/[–—.,;:]\s*$/, "");
+						.replace(/[–—.,;:]\s*$/, "")
 				}
-				const title = rest;
+				const title = rest
 
 				if (numMatch) {
 					return {
 						num: String(numMatch[1]),
 						title,
 						page: pageMatch ? String(pageMatch[1]) : undefined,
-					} as ParsedRef;
+					} as ParsedRef
 				}
-				return null;
+				return null
 			})
-			.filter(Boolean) as ParsedRef[];
+			.filter(Boolean) as ParsedRef[]
 
-		mainText = before.trim();
+		mainText = before.trim()
 	}
 
-	return { mainText, refs };
+	return { mainText, refs }
 }
 /* === FIM helpers === */
 
-function parseContentJson(input: unknown): any {
-	if (!input) return {};
+function parseContentJson(input: unknown): unknown {
+	if (!input) return {}
 	if (typeof input === "string") {
 		try {
-			return JSON.parse(input);
+			return JSON.parse(input)
 		} catch {
-			return {};
+			return {}
 		}
 	}
-	if (typeof input === "object") return input as any;
-	return {};
+	if (typeof input === "object") return input
+	return {}
 }
 
 export const Route = createFileRoute("/_public/chatRada")({
 	component: ChatRada,
 	head: () => ({
-		meta: [
-			{ title: "Chat RADA" },
-			{ name: "description", content: "RAG sobre o RADA" },
-		],
+		meta: [{ title: "Chat RADA" }, { name: "description", content: "RAG sobre o RADA" }],
 	}),
-});
+})
 
 function formatDateShort(iso?: string | null) {
-	if (!iso) return "";
+	if (!iso) return ""
 	try {
-		const d = new Date(iso);
+		const d = new Date(iso)
 		return d.toLocaleString("pt-BR", {
 			day: "2-digit",
 			month: "2-digit",
 			hour: "2-digit",
 			minute: "2-digit",
-		});
+		})
 	} catch {
-		return "";
+		return ""
 	}
 }
 
 function sessionTitleLikeChatGPT(s: SessionSummary) {
-	const base = `Conversa de ${formatDateShort(s.last_message_at || s.created_at)}`;
-	return base.length > 60 ? `${base.slice(0, 57)}…` : base;
+	const base = `Conversa de ${formatDateShort(s.last_message_at || s.created_at)}`
+	return base.length > 60 ? `${base.slice(0, 57)}…` : base
 }
 
 /* =========================
@@ -243,72 +236,64 @@ function sessionTitleLikeChatGPT(s: SessionSummary) {
 
 async function ragFetch(
 	path: string,
-	init: RequestInit & { jsonBody?: any } = {},
-	opts?: { userId?: string | null; withAuth?: boolean },
+	init: RequestInit & { jsonBody?: unknown } = {},
+	opts?: { userId?: string | null; withAuth?: boolean }
 ) {
-	const url = `${API_BASE}${path}`;
+	const url = `${API_BASE}${path}`
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
-		...(init.headers as any),
-	};
-	if (opts?.withAuth && opts.userId) headers["X-User-Id"] = opts.userId;
+		...(init.headers as Record<string, string>),
+	}
+	if (opts?.withAuth && opts.userId) headers["X-User-Id"] = opts.userId
 
 	const res = await fetch(url, {
 		...init,
 		headers,
 		credentials: opts?.withAuth ? "include" : "omit",
 		body: init.jsonBody ? JSON.stringify(init.jsonBody) : init.body,
-	});
-	return res;
+	})
+	return res
 }
 
 function useRagClient(userId: string | null) {
-	const withAuth = !!userId;
+	const withAuth = !!userId
 
 	return {
 		sessions: async () => {
-			const res = await ragFetch(
-				"/sessions",
-				{ method: "GET" },
-				{ withAuth, userId },
-			);
-			if (!res.ok) throw new Error("Falha ao buscar sessões");
-			const data: SessionSummary[] = await res.json();
-			return data;
+			const res = await ragFetch("/sessions", { method: "GET" }, { withAuth, userId })
+			if (!res.ok) throw new Error("Falha ao buscar sessões")
+			const data: SessionSummary[] = await res.json()
+			return data
 		},
 		sessionMessages: async (sid: string) => {
 			const res = await ragFetch(
 				`/sessions/${sid}/messages`,
 				{ method: "GET" },
-				{ withAuth, userId },
-			);
-			if (!res.ok) throw new Error("Falha ao buscar mensagens");
-			const data: RemoteMessage[] = await res.json();
-			return data;
+				{ withAuth, userId }
+			)
+			if (!res.ok) throw new Error("Falha ao buscar mensagens")
+			const data: RemoteMessage[] = await res.json()
+			return data
 		},
 		deleteSession: async (sid: string) => {
-			const res = await ragFetch(
-				`/sessions/${sid}`,
-				{ method: "DELETE" },
-				{ withAuth, userId },
-			);
-			if (!res.ok) throw new Error("Falha ao apagar sessão");
-			return true;
+			const res = await ragFetch(`/sessions/${sid}`, { method: "DELETE" }, { withAuth, userId })
+			if (!res.ok) throw new Error("Falha ao apagar sessão")
+			return true
 		},
-		ask: async (payload: any) => {
+		ask: async (payload: unknown) => {
 			const res = await ragFetch(
 				"/ask",
 				{ method: "POST", jsonBody: payload },
-				{ withAuth, userId },
-			);
+				{ withAuth, userId }
+			)
 			if (!res.ok) {
-				const errText = await res.text().catch(() => "Erro desconhecido");
-				throw new Error(errText || `HTTP ${res.status}`);
+				const errText = await res.text().catch(() => "Erro desconhecido")
+				throw new Error(errText || `HTTP ${res.status}`)
 			}
-			const data: AskResponse = await res.json();
-			return data;
+			const data: AskResponse = await res.json()
+			return data
 		},
-		askStream: async (payload: any, init?: { signal?: AbortSignal }) => {
+		askStream: async (payload: unknown, init?: { signal?: AbortSignal }) => {
 			const res = await ragFetch(
 				"/ask/stream",
 				{
@@ -317,15 +302,15 @@ function useRagClient(userId: string | null) {
 					headers: { Accept: "text/event-stream" },
 					signal: init?.signal,
 				},
-				{ withAuth, userId },
-			);
+				{ withAuth, userId }
+			)
 			if (!res.ok) {
-				const errText = await res.text().catch(() => "Erro desconhecido");
-				throw new Error(errText || `HTTP ${res.status}`);
+				const errText = await res.text().catch(() => "Erro desconhecido")
+				throw new Error(errText || `HTTP ${res.status}`)
 			}
-			return res;
+			return res
 		},
-	};
+	}
 }
 
 /* =========================
@@ -333,46 +318,43 @@ function useRagClient(userId: string | null) {
 ========================= */
 
 function useHealthQuery() {
-	const [retryCount, setRetryCount] = useState(0);
+	const [retryCount, setRetryCount] = useState(0)
 
 	// Fibonacci sequence capped at 30s: 1, 2, 3, 5, 8, 13, 21, 30
-	const fibIntervals = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 30000];
-	const currentInterval =
-		fibIntervals[Math.min(retryCount, fibIntervals.length - 1)];
+	const fibIntervals = [1000, 2000, 3000, 5000, 8000, 13000, 21000, 30000]
+	const currentInterval = fibIntervals[Math.min(retryCount, fibIntervals.length - 1)]
 
 	const query = useQuery({
 		queryKey: QUERY_KEYS.health,
 		queryFn: async () => {
 			try {
-				const res = await fetch(`${API_BASE}/health`);
-				const data = await res.json().catch(() => ({}));
-				return res.ok && data?.status === "ok"
-					? ("ok" as const)
-					: ("error" as const);
+				const res = await fetch(`${API_BASE}/health`)
+				const data = await res.json().catch(() => ({}))
+				return res.ok && data?.status === "ok" ? ("ok" as const) : ("error" as const)
 			} catch {
-				return "error" as const;
+				return "error" as const
 			}
 		},
 		refetchInterval: currentInterval,
 		initialData: "loading" as const,
-	});
+	})
 
 	// Increase retry count on each fetch attempt (error or success, to keep checking "if it works")
 	// The user requirement implies we start fast and slow down.
 	useEffect(() => {
 		if (query.isFetched) {
-			setRetryCount((c) => c + 1);
+			setRetryCount((c) => c + 1)
 		}
 		// biome-ignore lint/correctness/useExhaustiveDependencies: We intentionally track dataUpdatedAt to increment on each fetch result
-	}, [query.dataUpdatedAt, query.isFetched]);
+	}, [query.isFetched])
 
-	return query;
+	return query
 }
 
 function useSessionsQuery(
 	client: ReturnType<typeof useRagClient>,
 	isLoggedIn: boolean,
-	userId: string | null,
+	userId: string | null
 ) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessions(userId),
@@ -380,21 +362,21 @@ function useSessionsQuery(
 		queryFn: () => client.sessions(),
 		select: (data) => {
 			return [...data].sort((a, b) => {
-				const ad = new Date(a.last_message_at || a.created_at).getTime();
-				const bd = new Date(b.last_message_at || b.created_at).getTime();
-				return bd - ad;
-			});
+				const ad = new Date(a.last_message_at || a.created_at).getTime()
+				const bd = new Date(b.last_message_at || b.created_at).getTime()
+				return bd - ad
+			})
 		},
 		staleTime: 30_000,
 		gcTime: 5 * 60_000,
-	});
+	})
 }
 
 function useSessionMessagesQuery(
 	client: ReturnType<typeof useRagClient>,
 	isLoggedIn: boolean,
 	userId: string | null,
-	sessionId: string | null,
+	sessionId: string | null
 ) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
@@ -402,22 +384,17 @@ function useSessionMessagesQuery(
 		queryFn: () => client.sessionMessages(sessionId!),
 		select: (data) => {
 			return data.map((r, i) => {
-				const role =
-					r.role === "system"
-						? ("assistant" as const)
-						: (r.role as "user" | "assistant");
-				const cj = parseContentJson(r.content_json);
+				const role = r.role === "system" ? ("assistant" as const) : (r.role as "user" | "assistant")
+				const cj = parseContentJson(r.content_json)
 				const content =
 					role === "assistant"
 						? String(cj?.answer ?? "")
 						: role === "user"
 							? String(cj?.question ?? "")
-							: String(cj?.content ?? "");
+							: String(cj?.content ?? "")
 
-				const references: AskReference[] = Array.isArray(cj?.references)
-					? cj.references
-					: [];
-				const sources: string[] = Array.isArray(cj?.sources) ? cj.sources : [];
+				const references: AskReference[] = Array.isArray(cj?.references) ? cj.references : []
+				const sources: string[] = Array.isArray(cj?.sources) ? cj.sources : []
 
 				return {
 					id: `${sessionId}-${i}`,
@@ -426,20 +403,20 @@ function useSessionMessagesQuery(
 					references,
 					sources,
 					createdAt: new Date(r.created_at).getTime(),
-				} as ChatMessage;
-			});
+				} as ChatMessage
+			})
 		},
 		staleTime: 10_000,
 		gcTime: 5 * 60_000,
-	});
+	})
 }
 
 function useDeleteSessionMutation(
 	client: ReturnType<typeof useRagClient>,
 	userId: string | null,
-	_sessionId: string | null,
+	_sessionId: string | null
 ) {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 
 	return useMutation({
 		mutationFn: (sid: string) => client.deleteSession(sid),
@@ -447,48 +424,38 @@ function useDeleteSessionMutation(
 			// Cancela queries em andamento
 			await queryClient.cancelQueries({
 				queryKey: QUERY_KEYS.sessions(userId),
-			});
+			})
 
 			// Snapshot do estado anterior
 			const previousSessions = queryClient.getQueryData<SessionSummary[]>(
-				QUERY_KEYS.sessions(userId),
-			);
+				QUERY_KEYS.sessions(userId)
+			)
 
 			// Atualização otimista
-			queryClient.setQueryData<SessionSummary[]>(
-				QUERY_KEYS.sessions(userId),
-				(old) => (old ? old.filter((s) => s.id !== sid) : []),
-			);
+			queryClient.setQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId), (old) =>
+				old ? old.filter((s) => s.id !== sid) : []
+			)
 
-			return { previousSessions };
+			return { previousSessions }
 		},
 		onError: (_err, _sid, context) => {
 			// Rollback em caso de erro
 			if (context?.previousSessions) {
-				queryClient.setQueryData(
-					QUERY_KEYS.sessions(userId),
-					context.previousSessions,
-				);
+				queryClient.setQueryData(QUERY_KEYS.sessions(userId), context.previousSessions)
 			}
 		},
 		onSettled: () => {
 			// Revalida após mutação
-			queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) });
+			queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
 		},
-	});
+	})
 }
 
 /* =========================
    Componentes puros
 ========================= */
 
-function ReferencesList({
-	id,
-	references,
-}: {
-	id: string;
-	references: AskReference[];
-}) {
+function ReferencesList({ id, references }: { id: string; references: AskReference[] }) {
 	return (
 		<details className="mt-2 max-w-[85%] group">
 			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/30 border border-border/40 px-3 py-2 rounded-xl">
@@ -497,26 +464,19 @@ function ReferencesList({
 			</summary>
 			<div className="mt-2 space-y-2">
 				{references.map((ref) => {
-					const refKey = `${ref.doc_id ?? "d"}-${ref.source}-${ref.n}-${ref.page ?? "p"}`;
+					const refKey = `${ref.doc_id ?? "d"}-${ref.source}-${ref.n}-${ref.page ?? "p"}`
 					return (
 						<details
 							key={`${id}-ref-${refKey}`}
 							className="bg-muted/20 border border-border/30 rounded-lg p-2"
 						>
 							<summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-								<Badge
-									variant="secondary"
-									className="h-5 rounded-md text-[11px]"
-								>
+								<Badge variant="secondary" className="h-5 rounded-md text-[11px]">
 									[{ref.n}]
 								</Badge>
-								<span className="text-xs font-medium truncate">
-									{ref.source}
-								</span>
+								<span className="text-xs font-medium truncate">{ref.source}</span>
 								{ref.page != null && (
-									<span className="text-xs text-muted-foreground">
-										pág. {ref.page}
-									</span>
+									<span className="text-xs text-muted-foreground">pág. {ref.page}</span>
 								)}
 							</summary>
 							{ref.snippet && (
@@ -528,11 +488,11 @@ function ReferencesList({
 								</div>
 							)}
 						</details>
-					);
+					)
 				})}
 			</div>
 		</details>
-	);
+	)
 }
 
 function SourcesList({ id, sources }: { id: string; sources: string[] }) {
@@ -567,7 +527,7 @@ function SourcesList({ id, sources }: { id: string; sources: string[] }) {
 				))}
 			</ul>
 		</details>
-	);
+	)
 }
 
 function MessageItem({
@@ -575,29 +535,29 @@ function MessageItem({
 	copiedMsgId,
 	onCopy,
 }: {
-	m: ChatMessage;
-	copiedMsgId: string | null;
-	onCopy: (id: string, text: string) => void;
+	m: ChatMessage
+	copiedMsgId: string | null
+	onCopy: (id: string, text: string) => void
 }) {
-	const isUser = m.role === "user";
-	const isError = !!m.error;
+	const isUser = m.role === "user"
+	const isError = !!m.error
 
-	const parsed = m.role === "assistant" ? extractReferencesMd(m.content) : null;
-	const displayMarkdown = parsed?.mainText ?? m.content;
-	const hasReferences = !!(m.references && m.references.length > 0);
+	const parsed = m.role === "assistant" ? extractReferencesMd(m.content) : null
+	const displayMarkdown = parsed?.mainText ?? m.content
+	const hasReferences = !!(m.references && m.references.length > 0)
 
-	const bubbleBase = "px-4 py-3 rounded-2xl inline-block max-w-[85%] shadow-sm";
+	const bubbleBase = "px-4 py-3 rounded-2xl inline-block max-w-[85%] shadow-sm"
 	const bubbleUser =
-		"bg-linear-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10 text-sm leading-relaxed whitespace-pre-wrap";
+		"bg-linear-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10 text-sm leading-relaxed whitespace-pre-wrap"
 	const bubbleError =
-		"bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-sm leading-relaxed";
-	const bubbleAssistant = "bg-card border border-border/50 text-foreground";
+		"bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-sm leading-relaxed"
+	const bubbleAssistant = "bg-card border border-border/50 text-foreground"
 
 	return (
 		<li
 			className={cn(
 				"flex gap-3 group animate-in fade-in slide-in-from-bottom-4 duration-500",
-				isUser && "flex-row-reverse",
+				isUser && "flex-row-reverse"
 			)}
 		>
 			{/* Avatar */}
@@ -608,25 +568,15 @@ function MessageItem({
 						? "bg-linear-to-br from-primary to-primary/80 text-primary-foreground shadow-primary/20"
 						: isError
 							? "bg-linear-to-br from-rose-500 to-rose-600 text-white shadow-rose-500/20"
-							: "bg-linear-to-br from-muted to-muted/80 text-muted-foreground border border-border/50",
+							: "bg-linear-to-br from-muted to-muted/80 text-muted-foreground border border-border/50"
 				)}
 			>
 				{isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
 			</div>
 
 			{/* Conteúdo */}
-			<div
-				className={cn(
-					"flex-1 min-w-0 space-y-2",
-					isUser && "flex flex-col items-end",
-				)}
-			>
-				<div
-					className={cn(
-						"flex items-center gap-2",
-						isUser && "flex-row-reverse",
-					)}
-				>
+			<div className={cn("flex-1 min-w-0 space-y-2", isUser && "flex flex-col items-end")}>
+				<div className={cn("flex items-center gap-2", isUser && "flex-row-reverse")}>
 					<span className="text-xs font-semibold text-foreground">
 						{isUser ? "Você" : isError ? "Erro" : "Assistente"}
 					</span>
@@ -643,7 +593,7 @@ function MessageItem({
 						bubbleBase,
 						isUser && bubbleUser,
 						isError && bubbleError,
-						!isUser && !isError && bubbleAssistant,
+						!isUser && !isError && bubbleAssistant
 					)}
 				>
 					{!isUser && !isError ? (
@@ -658,23 +608,12 @@ function MessageItem({
 										rel="noreferrer noopener"
 									/>
 								),
-								p: (props) => (
-									<p
-										{...props}
-										className="mb-3 last:mb-0 text-sm leading-relaxed"
-									/>
-								),
+								p: (props) => <p {...props} className="mb-3 last:mb-0 text-sm leading-relaxed" />,
 								ul: (props) => (
-									<ul
-										{...props}
-										className="list-disc pl-5 my-2 text-sm leading-relaxed"
-									/>
+									<ul {...props} className="list-disc pl-5 my-2 text-sm leading-relaxed" />
 								),
 								ol: (props) => (
-									<ol
-										{...props}
-										className="list-decimal pl-5 my-2 text-sm leading-relaxed"
-									/>
+									<ol {...props} className="list-decimal pl-5 my-2 text-sm leading-relaxed" />
 								),
 								code: (props) => (
 									<code
@@ -705,7 +644,7 @@ function MessageItem({
 				<Button
 					className={cn(
 						"opacity-0 group-hover:opacity-100 transition-all inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/50",
-						isUser && "ml-auto",
+						isUser && "ml-auto"
 					)}
 					variant="ghost"
 					onClick={() => onCopy(m.id, m.content)}
@@ -726,7 +665,7 @@ function MessageItem({
 				</Button>
 			</div>
 		</li>
-	);
+	)
 }
 
 /* =========================
@@ -734,140 +673,132 @@ function MessageItem({
 ========================= */
 
 function ChatRada() {
-	const { user } = useAuth();
-	const userId = user?.id ?? null;
-	const isLoggedIn = !!userId;
+	const { user } = useAuth()
+	const userId = user?.id ?? null
+	const isLoggedIn = !!userId
 
-	const client = useRagClient(userId);
-	const queryClient = useQueryClient();
+	const client = useRagClient(userId)
+	const queryClient = useQueryClient()
 
-	const healthQuery = useHealthQuery();
-	const health: HealthStatus = healthQuery.data ?? "loading";
-	const checkHealth = () => healthQuery.refetch();
+	const healthQuery = useHealthQuery()
+	const health: HealthStatus = healthQuery.data ?? "loading"
+	const checkHealth = () => healthQuery.refetch()
 
-	const { data: sessions = [] } = useSessionsQuery(client, isLoggedIn, userId);
+	const { data: sessions = [] } = useSessionsQuery(client, isLoggedIn, userId)
 
-	const [input, setInput] = useState("");
-	const [sending, setSending] = useState(false);
-	const [messages, setMessages] = useState<ChatMessage[]>([]);
-	const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-	const [isAtBottom, setIsAtBottom] = useState(true);
+	const [input, setInput] = useState("")
+	const [sending, setSending] = useState(false)
+	const [messages, setMessages] = useState<ChatMessage[]>([])
+	const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null)
+	const [isAtBottom, setIsAtBottom] = useState(true)
 
-	const [sessionId, setSessionId] = useState<string | null>(null);
+	const [sessionId, setSessionId] = useState<string | null>(null)
 
-	const scrollRef = useRef<HTMLDivElement>(null);
-	const editorRef = useRef<HTMLTextAreaElement>(null);
-	const sseAbortRef = useRef<AbortController | null>(null);
+	const scrollRef = useRef<HTMLDivElement>(null)
+	const editorRef = useRef<HTMLTextAreaElement>(null)
+	const sseAbortRef = useRef<AbortController | null>(null)
 
-	const deleteSessionMutation = useDeleteSessionMutation(
-		client,
-		userId,
-		sessionId,
-	);
+	const deleteSessionMutation = useDeleteSessionMutation(client, userId, sessionId)
 
 	// Login/sessionId sync
 	useEffect(() => {
 		if (isLoggedIn) {
-			const sid = loadSessionId();
-			if (sid) setSessionId(sid);
+			const sid = loadSessionId()
+			if (sid) setSessionId(sid)
 		} else {
-			setSessionId(null);
-			clearSessionId();
+			setSessionId(null)
+			clearSessionId()
 		}
-	}, [isLoggedIn]);
+	}, [isLoggedIn])
 
 	// Carrega histórico ao mudar sessionId (via query)
 	const { data: sessionMessages = [] } = useSessionMessagesQuery(
 		client,
 		isLoggedIn,
 		userId,
-		sessionId,
-	);
+		sessionId
+	)
 
 	useEffect(() => {
-		if (!isLoggedIn || !userId || !sessionId) return;
-		setMessages(sessionMessages);
-	}, [isLoggedIn, userId, sessionId, sessionMessages]);
+		if (!isLoggedIn || !userId || !sessionId) return
+		setMessages(sessionMessages)
+	}, [isLoggedIn, userId, sessionId, sessionMessages])
 
 	// Auto-scroll para o fim quando novas mensagens chegam e o usuário está no fim
 	const scrollToBottom = () => {
-		const el = scrollRef.current;
-		if (!el) return;
-		el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-	};
+		const el = scrollRef.current
+		if (!el) return
+		el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+	}
 
 	useEffect(() => {
 		if (isAtBottom && messages.length > 0) {
-			scrollToBottom();
+			scrollToBottom()
 		}
 		// biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles stability
-	}, [messages, isAtBottom]);
+	}, [messages, isAtBottom, scrollToBottom])
 
 	const onScrollMessages = () => {
-		const el = scrollRef.current;
-		if (!el) return;
-		const threshold = 48;
-		const atBottom =
-			el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
-		setIsAtBottom(atBottom);
-	};
+		const el = scrollRef.current
+		if (!el) return
+		const threshold = 48
+		const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
+		setIsAtBottom(atBottom)
+	}
 
 	const startNewSession = () => {
 		if (isLoggedIn) {
-			clearSessionId();
-			setSessionId(null);
+			clearSessionId()
+			setSessionId(null)
 		}
-		setMessages([]);
-	};
+		setMessages([])
+	}
 
 	const selectSession = (sid: string) => {
-		if (!isLoggedIn) return;
-		if (!sid || sid === sessionId) return;
-		saveSessionId(sid);
-		setSessionId(sid);
-		setMessages([]);
-	};
+		if (!isLoggedIn) return
+		if (!sid || sid === sessionId) return
+		saveSessionId(sid)
+		setSessionId(sid)
+		setMessages([])
+	}
 
-	const deleteSession = async (
-		sid: string,
-		e?: React.MouseEvent<HTMLButtonElement>,
-	) => {
-		if (!isLoggedIn || !userId) return;
-		e?.stopPropagation();
+	const deleteSession = async (sid: string, e?: React.MouseEvent<HTMLButtonElement>) => {
+		if (!isLoggedIn || !userId) return
+		e?.stopPropagation()
 		try {
-			await deleteSessionMutation.mutateAsync(sid);
+			await deleteSessionMutation.mutateAsync(sid)
 			if (sessionId === sid) {
-				startNewSession();
+				startNewSession()
 			}
 		} catch {
 			// Erro já tratado pela mutation
 		}
-	};
+	}
 
 	// Cancela SSE ativo ao desmontar
 	useEffect(() => {
 		return () => {
 			if (sseAbortRef.current) {
-				sseAbortRef.current.abort();
-				sseAbortRef.current = null;
+				sseAbortRef.current.abort()
+				sseAbortRef.current = null
 			}
-		};
-	}, []);
+		}
+	}, [])
 
 	const buildPayload = (question: string) => {
-		const base: Record<string, any> = { question };
-		if (isLoggedIn && sessionId) base.session_id = sessionId;
-		return base;
-	};
+		const base: Record<string, any> = { question }
+		if (isLoggedIn && sessionId) base.session_id = sessionId
+		return base
+	}
 
 	const onSubmit = async () => {
-		const question = input.trim();
-		if (!question || sending) return;
+		const question = input.trim()
+		if (!question || sending) return
 
 		// Cancela qualquer SSE anterior antes de iniciar um novo
 		if (sseAbortRef.current) {
-			sseAbortRef.current.abort();
-			sseAbortRef.current = null;
+			sseAbortRef.current.abort()
+			sseAbortRef.current = null
 		}
 
 		const userMsg: ChatMessage = {
@@ -875,36 +806,36 @@ function ChatRada() {
 			role: "user",
 			content: question,
 			createdAt: Date.now(),
-		};
-		setMessages((prev) => [...prev, userMsg]);
-		setInput("");
-		setSending(true);
+		}
+		setMessages((prev) => [...prev, userMsg])
+		setInput("")
+		setSending(true)
 
-		const assistantId = crypto?.randomUUID?.() ?? `${Date.now()}-assistant`;
+		const assistantId = crypto?.randomUUID?.() ?? `${Date.now()}-assistant`
 
 		try {
 			if (USE_STREAM) {
-				const ctrl = new AbortController();
-				sseAbortRef.current = ctrl;
+				const ctrl = new AbortController()
+				sseAbortRef.current = ctrl
 
 				const res = await client.askStream(buildPayload(question), {
 					signal: ctrl.signal,
-				});
+				})
 				if (!res.body) {
-					const errText = await res.text().catch(() => "Erro desconhecido");
-					throw new Error(errText);
+					const errText = await res.text().catch(() => "Erro desconhecido")
+					throw new Error(errText)
 				}
 
-				const reader = res.body.getReader();
-				const decoder = new TextDecoder();
-				let buffer = "";
-				let hasInserted = false;
+				const reader = res.body.getReader()
+				const decoder = new TextDecoder()
+				let buffer = ""
+				let hasInserted = false
 
 				const applyDelta = (delta: string) => {
 					setMessages((prev) => {
 						if (!hasInserted) {
-							hasInserted = true;
-							setSending(false); // Stop loading indicator once we have content
+							hasInserted = true
+							setSending(false) // Stop loading indicator once we have content
 							return [
 								...prev,
 								{
@@ -915,31 +846,25 @@ function ChatRada() {
 									references: [],
 									createdAt: Date.now(),
 								} as ChatMessage,
-							];
+							]
 						}
 						return prev.map((m) =>
-							m.id === assistantId
-								? { ...m, content: (m.content || "") + delta }
-								: m,
-						);
-					});
-				};
+							m.id === assistantId ? { ...m, content: (m.content || "") + delta } : m
+						)
+					})
+				}
 
 				const applyFinal = async (finalPayload: any) => {
-					const answer = String(finalPayload.answer ?? "");
+					const answer = String(finalPayload.answer ?? "")
 					const refs = Array.isArray(finalPayload.references)
 						? (finalPayload.references as AskReference[])
-						: [];
-					const srcs = Array.isArray(finalPayload.sources)
-						? (finalPayload.sources as string[])
-						: [];
-					const sid = String(
-						finalPayload.session_id || finalPayload.sessionId || "",
-					);
+						: []
+					const srcs = Array.isArray(finalPayload.sources) ? (finalPayload.sources as string[]) : []
+					const sid = String(finalPayload.session_id || finalPayload.sessionId || "")
 
 					if (!hasInserted) {
-						hasInserted = true;
-						setSending(false);
+						hasInserted = true
+						setSending(false)
 						setMessages((prev) => [
 							...prev,
 							{
@@ -950,70 +875,70 @@ function ChatRada() {
 								sources: srcs,
 								createdAt: Date.now(),
 							} as ChatMessage,
-						]);
+						])
 					} else {
 						setMessages((prev) =>
 							prev.map((m) =>
 								m.id === assistantId
 									? { ...m, content: answer, references: refs, sources: srcs }
-									: m,
-							),
-						);
+									: m
+							)
+						)
 					}
 
 					if (isLoggedIn && sid) {
-						setSessionId(sid);
-						saveSessionId(sid);
+						setSessionId(sid)
+						saveSessionId(sid)
 						await queryClient.invalidateQueries({
 							queryKey: QUERY_KEYS.sessions(userId),
-						});
+						})
 						await queryClient.invalidateQueries({
 							queryKey: QUERY_KEYS.sessionMessages(userId, sid),
-						});
+						})
 					}
-				};
+				}
 
 				const processEvent = async (rawEvent: string) => {
-					const lines = rawEvent.split("\n");
+					const lines = rawEvent.split("\n")
 
-					const dataLines: string[] = [];
+					const dataLines: string[] = []
 					for (const line of lines) {
-						const t = line.trim();
+						const t = line.trim()
 						if (t.startsWith("data:")) {
-							dataLines.push(t.slice(5).trimStart());
+							dataLines.push(t.slice(5).trimStart())
 						}
 					}
-					const data = dataLines.join("\n");
-					if (!data) return;
+					const data = dataLines.join("\n")
+					if (!data) return
 
 					try {
-						const parsed = JSON.parse(data);
+						const parsed = JSON.parse(data)
 						if (parsed.type === "token" && typeof parsed.delta === "string") {
-							applyDelta(parsed.delta);
+							applyDelta(parsed.delta)
 						} else if (parsed.type === "final") {
-							await applyFinal(parsed);
+							await applyFinal(parsed)
 						}
 					} catch {
 						// Ignora keep-alives ou fragmentos
 					}
-				};
+				}
 
 				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					buffer += decoder.decode(value, { stream: true });
+					const { done, value } = await reader.read()
+					if (done) break
+					buffer += decoder.decode(value, { stream: true })
 
-					const parts = buffer.split("\n\n");
-					buffer = parts.pop() || "";
+					const parts = buffer.split("\n\n")
+					buffer = parts.pop() || ""
 					for (const chunk of parts) {
-						await processEvent(chunk);
+						await processEvent(chunk)
 					}
 				}
-				buffer += decoder.decode();
+				buffer += decoder.decode()
 			} else {
-				const data = await client.ask(buildPayload(question));
+				const data = await client.ask(buildPayload(question))
 
-				setSending(false);
+				setSending(false)
 				const assistantMsg: ChatMessage = {
 					id: crypto?.randomUUID?.() ?? String(Date.now()),
 					role: "assistant",
@@ -1021,74 +946,71 @@ function ChatRada() {
 					sources: Array.isArray(data?.sources) ? data.sources : [],
 					references: Array.isArray(data?.references) ? data.references : [],
 					createdAt: Date.now(),
-				};
-				setMessages((prev) => [...prev, assistantMsg]);
+				}
+				setMessages((prev) => [...prev, assistantMsg])
 
 				if (isLoggedIn && data?.session_id) {
-					setSessionId(data.session_id);
-					saveSessionId(data.session_id);
+					setSessionId(data.session_id)
+					saveSessionId(data.session_id)
 					await queryClient.invalidateQueries({
 						queryKey: QUERY_KEYS.sessions(userId),
-					});
+					})
 					await queryClient.invalidateQueries({
 						queryKey: QUERY_KEYS.sessionMessages(userId, data.session_id),
-					});
+					})
 				}
 			}
 		} catch (err: any) {
 			if (err?.name === "AbortError") {
-				return;
+				return
 			}
-			setSending(false);
+			setSending(false)
 			const assistantErr: ChatMessage = {
 				id: crypto?.randomUUID?.() ?? String(Date.now()),
 				role: "assistant",
-				content:
-					"Ocorreu um erro ao consultar o serviço. Tente novamente em instantes.",
+				content: "Ocorreu um erro ao consultar o serviço. Tente novamente em instantes.",
 				error: true,
 				createdAt: Date.now(),
-			};
-			setMessages((prev) => [...prev, assistantErr]);
+			}
+			setMessages((prev) => [...prev, assistantErr])
 		} finally {
 			// Ensure sending is false if we exit loop (e.g. error or done)
 			// But careful not to flip it if we just inserted.
 			// Actually setSending(false) is called inside insert/error logic.
 			// Just a safety check?
 			// If hasInserted is true, sending is false.
-			setSending(false);
+			setSending(false)
 			if (sseAbortRef.current) {
-				sseAbortRef.current = null;
+				sseAbortRef.current = null
 			}
 		}
-	};
+	}
 
 	const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			onSubmit();
+			e.preventDefault()
+			onSubmit()
 		}
-	};
+	}
 
 	const copyMessage = async (id: string, text: string) => {
 		try {
-			await navigator.clipboard.writeText(text);
-			setCopiedMsgId(id);
-			setTimeout(() => setCopiedMsgId(null), 1500);
+			await navigator.clipboard.writeText(text)
+			setCopiedMsgId(id)
+			setTimeout(() => setCopiedMsgId(null), 1500)
 		} catch {
 			// noop
 		}
-	};
+	}
 
 	// React Compiler handles memoization automatically, but if we wanted to be explicit with variable,
 	// we would just assign it. However, since this is JSX, we can just render it directly in the return or Assign to a const
 	const healthBadge = (
 		<div className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
 			<StatusDot status={health} />
-			<span className="font-medium text-muted-foreground">
-				{prettyStatusText(health)}
-			</span>
+			<span className="font-medium text-muted-foreground">{prettyStatusText(health)}</span>
 		</div>
-	);
+	)
 
 	return (
 		<div className="relative h-[calc(100vh-8rem)] w-full bg-linear-to-b from-background to-muted/20 text-foreground rounded-xl border border-border/50 overflow-hidden shadow-xl">
@@ -1118,11 +1040,7 @@ function ChatRada() {
 							onClick={startNewSession}
 							variant="secondary"
 							className="w-full justify-start gap-2 rounded-lg"
-							title={
-								isLoggedIn
-									? "Iniciar nova sessão"
-									: "Nova conversa (sem histórico)"
-							}
+							title={isLoggedIn ? "Iniciar nova sessão" : "Nova conversa (sem histórico)"}
 						>
 							<Plus className="h-4 w-4" />
 							Nova conversa
@@ -1132,10 +1050,7 @@ function ChatRada() {
 							<div className="mt-3 text-[11px] text-muted-foreground">
 								<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
 									<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
-									<span>
-										Você está deslogado. O histórico está desativado e não será
-										salvo.
-									</span>
+									<span>Você está deslogado. O histórico está desativado e não será salvo.</span>
 								</div>
 							</div>
 						)}
@@ -1157,7 +1072,7 @@ function ChatRada() {
 						) : (
 							<div className="space-y-1">
 								{sessions.map((s) => {
-									const active = s.id === sessionId;
+									const active = s.id === sessionId
 									return (
 										<Button
 											key={s.id}
@@ -1165,7 +1080,7 @@ function ChatRada() {
 											variant="ghost"
 											className={cn(
 												"w-full text-xs",
-												active ? "bg-primary/10 border-primary/30" : "",
+												active ? "bg-primary/10 border-primary/30" : ""
 											)}
 											title={sessionTitleLikeChatGPT(s)}
 											aria-label={`Abrir sessão ${sessionTitleLikeChatGPT(s)}`}
@@ -1187,7 +1102,7 @@ function ChatRada() {
 												<Trash2 className="h-3.5 w-3.5" />
 											</Button>
 										</Button>
-									);
+									)
 								})}
 							</div>
 						)}
@@ -1198,17 +1113,14 @@ function ChatRada() {
 							<div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
 								<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
 								<span>
-									As sessões expiram em 7 dias. Inicie uma nova conversa para
-									começar um novo contexto.
+									As sessões expiram em 7 dias. Inicie uma nova conversa para começar um novo
+									contexto.
 								</span>
 							</div>
 						) : (
 							<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
 								<AlertCircle className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-								<span>
-									Faça login para ativar o histórico. Sessões salvas expiram em
-									7 dias.
-								</span>
+								<span>Faça login para ativar o histórico. Sessões salvas expiram em 7 dias.</span>
 							</div>
 						)}
 					</div>
@@ -1224,12 +1136,8 @@ function ChatRada() {
 									<Sparkles className="h-5 w-5 text-primary-foreground" />
 								</div>
 								<div>
-									<h2 className="text-base md:text-lg font-semibold tracking-tight">
-										Chat RADA
-									</h2>
-									<p className="text-xs text-muted-foreground">
-										Assistente Inteligente
-									</p>
+									<h2 className="text-base md:text-lg font-semibold tracking-tight">Chat RADA</h2>
+									<p className="text-xs text-muted-foreground">Assistente Inteligente</p>
 								</div>
 							</div>
 
@@ -1282,16 +1190,14 @@ function ChatRada() {
 									</p>
 									{isLoggedIn ? (
 										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											Este chat possui memória por sessão (armazenada no
-											Supabase). Use "Nova sessão" para iniciar um novo
-											contexto, ou "Apagar sessão" para excluir a sessão atual
-											no backend.
+											Este chat possui memória por sessão (armazenada no Supabase). Use "Nova
+											sessão" para iniciar um novo contexto, ou "Apagar sessão" para excluir a
+											sessão atual no backend.
 										</p>
 									) : (
 										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											Você está deslogado. O histórico está desativado e suas
-											mensagens não serão salvas. Faça login para ativar o
-											histórico por sessão.
+											Você está deslogado. O histórico está desativado e suas mensagens não serão
+											salvas. Faça login para ativar o histórico por sessão.
 										</p>
 									)}
 								</div>
@@ -1317,8 +1223,8 @@ function ChatRada() {
 												Chat RADA
 											</div>
 											<p className="text-sm text-muted-foreground leading-relaxed">
-												Consulte o Regulamento de Administração da Aeronáutica
-												usando inteligência artificial
+												Consulte o Regulamento de Administração da Aeronáutica usando inteligência
+												artificial
 											</p>
 										</div>
 									</div>
@@ -1430,5 +1336,5 @@ function ChatRada() {
 				</main>
 			</div>
 		</div>
-	);
+	)
 }

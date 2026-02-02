@@ -8,17 +8,17 @@ import {
 	Input,
 	Label,
 	Separator,
-} from "@iefa/ui";
-import { useForm } from "@tanstack/react-form";
-import { createFileRoute } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
-import { z } from "zod";
-import { PageHeader } from "@/components/common/layout/PageHeader";
+} from "@iefa/ui"
+import { useForm } from "@tanstack/react-form"
+import { createFileRoute } from "@tanstack/react-router"
+import { Loader2 } from "lucide-react"
+import { useEffect } from "react"
+import { z } from "zod"
+import { PageHeader } from "@/components/common/layout/PageHeader"
 
-import { useAuth } from "@/hooks/auth/useAuth";
-import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile";
-import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem";
+import { useAuth } from "@/hooks/auth/useAuth"
+import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
+import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"
 
 export const Route = createFileRoute("/_protected/profile")({
 	component: ProfilePage,
@@ -28,58 +28,55 @@ export const Route = createFileRoute("/_protected/profile")({
 			{ name: "description", content: "Gerencie seu perfil e dados militares" },
 		],
 	}),
-});
+})
 
 const profileSchema = z.object({
 	nrOrdem: z
 		.string()
 		.regex(/^\d*$/, "Apenas números são permitidos")
 		.max(20, "Máximo de 20 caracteres"),
-});
+})
 
 function FieldRow({
 	label,
 	value,
 	mono = false,
 }: {
-	label: string;
-	value: string | null | undefined;
-	mono?: boolean;
+	label: string
+	value: string | null | undefined
+	mono?: boolean
 }) {
 	return (
 		<div className="flex flex-col gap-1">
 			<span className="text-xs text-muted-foreground">{label}</span>
 			<div
-				className={[
-					"rounded-md border bg-card px-3 py-2 text-sm",
-					mono ? "font-mono" : "",
-				].join(" ")}
+				className={["rounded-md border bg-card px-3 py-2 text-sm", mono ? "font-mono" : ""].join(
+					" "
+				)}
 			>
 				{value && String(value).trim().length > 0 ? value : "—"}
 			</div>
 		</div>
-	);
+	)
 }
 
 function ProfilePage() {
-	const { user } = useAuth();
+	const { user } = useAuth()
 
 	// Data Fetching
-	const { data: userData, isLoading: isLoadingUserData } = useUserData(
-		user?.id,
-	);
+	const { data: userData, isLoading: isLoadingUserData } = useUserData(user?.id)
 
 	// Derived state for military data fetch
-	const effectiveNrOrdem = userData?.nrOrdem ?? "";
+	const effectiveNrOrdem = userData?.nrOrdem ?? ""
 
 	const {
 		data: military,
 		isLoading: isLoadingMilitary,
 		refetch: refetchMilitary,
-	} = useMilitaryData(effectiveNrOrdem);
+	} = useMilitaryData(effectiveNrOrdem)
 
 	// Mutation
-	const updateNrOrdem = useUpdateNrOrdem();
+	const updateNrOrdem = useUpdateNrOrdem()
 
 	const form = useForm({
 		defaultValues: {
@@ -87,30 +84,30 @@ function ProfilePage() {
 		},
 		validators: {
 			onChange: ({ value }) => {
-				const result = profileSchema.safeParse(value);
-				if (result.success) return undefined;
-				const errors: Record<string, string> = {};
+				const result = profileSchema.safeParse(value)
+				if (result.success) return undefined
+				const errors: Record<string, string> = {}
 				result.error.issues.forEach((issue) => {
-					errors[issue.path.join(".")] = issue.message;
-				});
-				return errors;
+					errors[issue.path.join(".")] = issue.message
+				})
+				return errors
 			},
 		},
 		onSubmit: async ({ value }) => {
-			if (!user) return;
+			if (!user) return
 			await updateNrOrdem.mutateAsync({
 				user,
 				nrOrdem: value.nrOrdem ?? "",
-			});
+			})
 		},
-	});
+	})
 
 	// Sync form with loaded data
 	useEffect(() => {
 		if (userData?.nrOrdem) {
-			form.setFieldValue("nrOrdem", userData.nrOrdem);
+			form.setFieldValue("nrOrdem", userData.nrOrdem)
 		}
-	}, [userData?.nrOrdem, form]);
+	}, [userData?.nrOrdem, form])
 
 	return (
 		<div className="mx-auto w-full max-w-5xl space-y-6 pt-6">
@@ -127,23 +124,19 @@ function ProfilePage() {
 					<CardHeader>
 						<CardTitle>Seus dados</CardTitle>
 						<CardDescription>
-							O e-mail é gerenciado pela autenticação. Você pode informar seu
-							nrOrdem.
+							O e-mail é gerenciado pela autenticação. Você pode informar seu nrOrdem.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{/* Email (Read-only) */}
-						<FieldRow
-							label="E-mail"
-							value={user?.email ?? userData?.email ?? "Carregando..."}
-						/>
+						<FieldRow label="E-mail" value={user?.email ?? userData?.email ?? "Carregando..."} />
 
 						{/* Form: Nr Ordem */}
 						<form
 							onSubmit={(e) => {
-								e.preventDefault();
-								e.stopPropagation();
-								form.handleSubmit();
+								e.preventDefault()
+								e.stopPropagation()
+								form.handleSubmit()
 							}}
 							className="space-y-4"
 						>
@@ -176,9 +169,7 @@ function ProfilePage() {
 							<div className="flex items-center gap-2">
 								<Button
 									type="submit"
-									disabled={
-										updateNrOrdem.isPending || !!form.state.isSubmitting
-									}
+									disabled={updateNrOrdem.isPending || !!form.state.isSubmitting}
 								>
 									{updateNrOrdem.isPending ? (
 										<>
@@ -222,11 +213,7 @@ function ProfilePage() {
 							</div>
 						) : military ? (
 							<div className="space-y-3">
-								<FieldRow
-									label="Nr. da Ordem"
-									value={military.nrOrdem ?? effectiveNrOrdem}
-									mono
-								/>
+								<FieldRow label="Nr. da Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
 								<FieldRow label="CPF" value={military.nrCpf} mono />
 								<FieldRow label="Nome de Guerra" value={military.nmGuerra} />
 								<FieldRow label="Nome" value={military.nmPessoa} />
@@ -244,11 +231,7 @@ function ProfilePage() {
 								/>
 
 								<div className="pt-2">
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => refetchMilitary()}
-									>
+									<Button variant="outline" size="sm" onClick={() => refetchMilitary()}>
 										Recarregar
 									</Button>
 								</div>
@@ -256,10 +239,7 @@ function ProfilePage() {
 						) : (
 							<div className="text-sm text-muted-foreground py-4 text-center border rounded-md border-dashed">
 								Nenhum registro militar encontrado para o nrOrdem{" "}
-								<span className="font-mono text-foreground font-medium">
-									{effectiveNrOrdem}
-								</span>
-								.
+								<span className="font-mono text-foreground font-medium">{effectiveNrOrdem}</span>.
 							</div>
 						)}
 					</CardContent>
@@ -271,17 +251,14 @@ function ProfilePage() {
 					<h3 className="text-sm font-semibold mb-2">Dicas</h3>
 					<ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
 						<li>O número da Ordem deve conter apenas dígitos.</li>
+						<li>Após salvar o nrOrdem, os dados militares são buscados automaticamente.</li>
 						<li>
-							Após salvar o nrOrdem, os dados militares são buscados
-							automaticamente.
-						</li>
-						<li>
-							Se seus dados não aparecerem, verifique se o número está correto
-							ou se o cadastro militar está atualizado.
+							Se seus dados não aparecerem, verifique se o número está correto ou se o cadastro
+							militar está atualizado.
 						</li>
 					</ul>
 				</CardContent>
 			</Card>
 		</div>
-	);
+	)
 }

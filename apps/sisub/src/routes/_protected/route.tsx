@@ -1,19 +1,16 @@
-import { cn, SidebarProvider } from "@iefa/ui";
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { EvaluationDialog } from "@/components/common/dialogs/EvaluationDialog";
-import { UserQrDialog } from "@/components/common/dialogs/UserQrDialog";
-import { AppShell } from "@/components/common/layout/AppShell";
-import { SaramDialog } from "@/components/features/presence/SaramDialog";
-import { useAuth } from "@/hooks/auth/useAuth";
-import {
-	useUpdateNrOrdem,
-	useUserNrOrdem,
-} from "@/hooks/business/useUserNrOrdem";
-import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation";
-import { useSyncUserEmail } from "@/hooks/ui/useUserSync";
+import { cn, SidebarProvider } from "@iefa/ui"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { EvaluationDialog } from "@/components/common/dialogs/EvaluationDialog"
+import { UserQrDialog } from "@/components/common/dialogs/UserQrDialog"
+import { AppShell } from "@/components/common/layout/AppShell"
+import { SaramDialog } from "@/components/features/presence/SaramDialog"
+import { useAuth } from "@/hooks/auth/useAuth"
+import { useUpdateNrOrdem, useUserNrOrdem } from "@/hooks/business/useUserNrOrdem"
+import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation"
+import { useSyncUserEmail } from "@/hooks/ui/useUserSync"
 
-const NR_ORDEM_MIN_LEN = 7;
+const NR_ORDEM_MIN_LEN = 7
 
 /**
  * Hook para determinar o estado padrão da sidebar baseado no tamanho da tela
@@ -21,31 +18,31 @@ const NR_ORDEM_MIN_LEN = 7;
  */
 function useResponsiveSidebarDefault() {
 	const [defaultOpen, setDefaultOpen] = useState(() => {
-		if (typeof window === "undefined") return true;
-		return window.innerWidth >= 1280;
-	});
+		if (typeof window === "undefined") return true
+		return window.innerWidth >= 1280
+	})
 
 	useEffect(() => {
 		const handleResize = () => {
-			const shouldBeOpen = window.innerWidth >= 1280;
-			setDefaultOpen(shouldBeOpen);
-		};
+			const shouldBeOpen = window.innerWidth >= 1280
+			setDefaultOpen(shouldBeOpen)
+		}
 
 		// Debounce para performance
-		let timeoutId: NodeJS.Timeout;
+		let timeoutId: NodeJS.Timeout
 		const debouncedResize = () => {
-			clearTimeout(timeoutId);
-			timeoutId = setTimeout(handleResize, 150);
-		};
+			clearTimeout(timeoutId)
+			timeoutId = setTimeout(handleResize, 150)
+		}
 
-		window.addEventListener("resize", debouncedResize);
+		window.addEventListener("resize", debouncedResize)
 		return () => {
-			window.removeEventListener("resize", debouncedResize);
-			clearTimeout(timeoutId);
-		};
-	}, []);
+			window.removeEventListener("resize", debouncedResize)
+			clearTimeout(timeoutId)
+		}
+	}, [])
 
-	return defaultOpen;
+	return defaultOpen
 }
 
 /**
@@ -60,152 +57,149 @@ export const Route = createFileRoute("/_protected")({
 				search: {
 					redirect: location.href,
 				},
-			});
+			})
 		}
 	},
 	component: ProtectedLayout,
-});
+})
 
 function ProtectedLayout() {
-	const { user } = useAuth();
-	const userId = user?.id ?? null;
-	const responsiveSidebarDefault = useResponsiveSidebarDefault();
+	const { user } = useAuth()
+	const userId = user?.id ?? null
+	const responsiveSidebarDefault = useResponsiveSidebarDefault()
 
-	const nrOrdemQuery = useUserNrOrdem(userId);
-	const evaluationQuery = useEvaluation(userId);
-	const syncEmailMutation = useSyncUserEmail();
+	const nrOrdemQuery = useUserNrOrdem(userId)
+	const evaluationQuery = useEvaluation(userId)
+	const syncEmailMutation = useSyncUserEmail()
 
 	useEffect(() => {
-		if (user) syncEmailMutation.mutate(user);
-	}, [user?.id, syncEmailMutation.mutate, user]);
+		if (user) syncEmailMutation.mutate(user)
+	}, [user?.id, syncEmailMutation.mutate, user])
 
 	// NR Dialog State
-	const [nrDialogOpenState, setNrDialogOpenState] = useState(false);
-	const [nrOrdem, setNrOrdem] = useState("");
-	const [nrError, setNrError] = useState<string | null>(null);
+	const [nrDialogOpenState, setNrDialogOpenState] = useState(false)
+	const [nrOrdem, setNrOrdem] = useState("")
+	const [nrError, setNrError] = useState<string | null>(null)
 
-	const shouldForceNrDialog =
-		!!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data;
-	const nrDialogOpen = shouldForceNrDialog || nrDialogOpenState;
+	const shouldForceNrDialog = !!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data
+	const nrDialogOpen = shouldForceNrDialog || nrDialogOpenState
 
 	useEffect(() => {
 		if (!userId) {
-			setNrDialogOpenState(false);
-			setNrOrdem("");
-			return;
+			setNrDialogOpenState(false)
+			setNrOrdem("")
+			return
 		}
-		const current = nrOrdemQuery.data;
-		setNrOrdem(current ? String(current) : "");
-	}, [userId, nrOrdemQuery.data]);
+		const current = nrOrdemQuery.data
+		setNrOrdem(current ? String(current) : "")
+	}, [userId, nrOrdemQuery.data])
 
-	const saveNrMutation = useUpdateNrOrdem();
+	const saveNrMutation = useUpdateNrOrdem()
 
 	useEffect(() => {
 		if (saveNrMutation.isError) {
-			setNrError("Não foi possível salvar. Tente novamente.");
+			setNrError("Não foi possível salvar. Tente novamente.")
 		}
-	}, [saveNrMutation.isError]);
+	}, [saveNrMutation.isError])
 
 	useEffect(() => {
 		if (saveNrMutation.isSuccess) {
-			setNrDialogOpenState(false);
+			setNrDialogOpenState(false)
 		}
-	}, [saveNrMutation.isSuccess]);
+	}, [saveNrMutation.isSuccess])
 
 	const handleNrDialogOpenChange = (open: boolean) => {
-		if (!open && shouldForceNrDialog) return;
-		setNrDialogOpenState(open);
-	};
+		if (!open && shouldForceNrDialog) return
+		setNrDialogOpenState(open)
+	}
 
 	const handleNrOrdemChange = (value: string) => {
-		setNrOrdem(value);
-		if (nrError) setNrError(null);
-	};
+		setNrOrdem(value)
+		if (nrError) setNrError(null)
+	}
 
 	const handleSubmitNrOrdem = () => {
-		const digitsOnly = nrOrdem.replace(/\D/g, "").trim();
+		const digitsOnly = nrOrdem.replace(/\D/g, "").trim()
 		if (!digitsOnly) {
-			setNrError("Informe seu número da Ordem.");
-			return;
+			setNrError("Informe seu número da Ordem.")
+			return
 		}
 		if (digitsOnly.length < NR_ORDEM_MIN_LEN) {
-			setNrError("Nr. da Ordem parece curto. Confira e tente novamente.");
-			return;
+			setNrError("Nr. da Ordem parece curto. Confira e tente novamente.")
+			return
 		}
-		if (!user) return;
-		saveNrMutation.mutate({ user, nrOrdem: digitsOnly });
-	};
+		if (!user) return
+		saveNrMutation.mutate({ user, nrOrdem: digitsOnly })
+	}
 
 	// Evaluation Dialog State
-	const [evaluationDismissed, setEvaluationDismissed] = useState(false);
-	const [selectedRating, setSelectedRating] = useState<number | null>(null);
+	const [evaluationDismissed, setEvaluationDismissed] = useState(false)
+	const [selectedRating, setSelectedRating] = useState<number | null>(null)
 
 	useEffect(() => {
-		setEvaluationDismissed(false);
-		setSelectedRating(null);
-	}, []);
+		setEvaluationDismissed(false)
+		setSelectedRating(null)
+	}, [])
 
-	const evaluationQuestion = evaluationQuery.data?.question ?? null;
-	const evaluationShouldAsk = Boolean(
-		evaluationQuery.data?.shouldAsk && evaluationQuestion,
-	);
+	const evaluationQuestion = evaluationQuery.data?.question ?? null
+	const evaluationShouldAsk = Boolean(evaluationQuery.data?.shouldAsk && evaluationQuestion)
 
 	const shouldShowEvaluationDialog =
 		!!userId &&
 		evaluationQuery.isSuccess &&
 		evaluationShouldAsk &&
 		!nrDialogOpen &&
-		!evaluationDismissed;
+		!evaluationDismissed
 
 	const handleEvaluationOpenChange = useCallback((open: boolean) => {
 		if (!open) {
-			setEvaluationDismissed(true);
-			setSelectedRating(null);
+			setEvaluationDismissed(true)
+			setSelectedRating(null)
 		} else {
-			setEvaluationDismissed(false);
+			setEvaluationDismissed(false)
 		}
-	}, []);
+	}, [])
 
-	const submitVoteMutation = useSubmitEvaluation();
+	const submitVoteMutation = useSubmitEvaluation()
 
 	useEffect(() => {
 		if (submitVoteMutation.isSuccess) {
-			handleEvaluationOpenChange(false);
+			handleEvaluationOpenChange(false)
 		}
-	}, [submitVoteMutation.isSuccess, handleEvaluationOpenChange]);
+	}, [submitVoteMutation.isSuccess, handleEvaluationOpenChange])
 
 	const handleSubmitVote = () => {
-		const question = evaluationQuestion;
-		if (!userId || !question || selectedRating == null) return;
-		submitVoteMutation.mutate({ value: selectedRating, question, userId });
-	};
+		const question = evaluationQuestion
+		if (!userId || !question || selectedRating == null) return
+		submitVoteMutation.mutate({ value: selectedRating, question, userId })
+	}
 
 	// QR Dialog State
-	const [qrOpen, setQrOpen] = useState(false);
-	const [hasCopiedId, setHasCopiedId] = useState(false);
-	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [qrOpen, setQrOpen] = useState(false)
+	const [hasCopiedId, setHasCopiedId] = useState(false)
+	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	const handleCopyUserId = async () => {
-		if (!user?.id) return;
-		if (typeof navigator === "undefined" || !navigator.clipboard) return;
+		if (!user?.id) return
+		if (typeof navigator === "undefined" || !navigator.clipboard) return
 		try {
-			await navigator.clipboard.writeText(user.id);
-			setHasCopiedId(true);
-			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-			copyTimeoutRef.current = setTimeout(() => setHasCopiedId(false), 1600);
+			await navigator.clipboard.writeText(user.id)
+			setHasCopiedId(true)
+			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+			copyTimeoutRef.current = setTimeout(() => setHasCopiedId(false), 1600)
 		} catch (error) {
-			console.error("Erro ao copiar ID:", error);
+			console.error("Erro ao copiar ID:", error)
 		}
-	};
+	}
 
 	useEffect(() => {
 		return () => {
-			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-		};
-	}, []);
+			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+		}
+	}, [])
 
-	const isSavingNrReal = saveNrMutation.isPending;
-	const isSubmittingVote = submitVoteMutation.isPending;
+	const isSavingNrReal = saveNrMutation.isPending
+	const isSubmittingVote = submitVoteMutation.isPending
 
 	return (
 		<>
@@ -250,7 +244,7 @@ function ProtectedLayout() {
 					"after:bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.8)_1px,transparent_1px)]",
 					"after:bg-[length:12px_12px] after:opacity-[0.02]",
 					"dark:after:bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.4)_1px,transparent_1px)]",
-					"dark:after:opacity-[0.04]",
+					"dark:after:opacity-[0.04]"
 				)}
 			>
 				<SidebarProvider
@@ -261,5 +255,5 @@ function ProtectedLayout() {
 				</SidebarProvider>
 			</div>
 		</>
-	);
+	)
 }

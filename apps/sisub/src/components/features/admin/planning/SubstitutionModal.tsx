@@ -1,63 +1,55 @@
 import {
+	Button,
 	Dialog,
 	DialogContent,
-	DialogHeader,
-	DialogTitle,
 	DialogDescription,
 	DialogFooter,
-	Button,
-	Label,
+	DialogHeader,
+	DialogTitle,
 	Input,
+	Label,
+	ScrollArea,
 	Select,
+	SelectContent,
 	SelectTrigger,
 	SelectValue,
-	SelectContent,
-	SelectItem,
-	ScrollArea,
-} from "@iefa/ui";
-import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { useUpdateSubstitutions } from "@/hooks/data/useSubstitutions";
-import type { MenuItem } from "@/types/domain/planning";
+} from "@iefa/ui"
+import { AlertTriangle, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { useUpdateSubstitutions } from "@/hooks/data/useSubstitutions"
+import type { MenuItem } from "@/types/domain/planning"
 
 interface SubstitutionModalProps {
-	open: boolean;
-	onClose: () => void;
-	menuItem: MenuItem | null;
+	open: boolean
+	onClose: () => void
+	menuItem: MenuItem | null
 }
 
 // Helper type for the snapshot structure
 interface RecipeSnapshot {
-	id: string;
-	name: string;
-	description?: string;
+	id: string
+	name: string
+	description?: string
 	ingredients?: Array<{
-		product_id: string;
-		product_name: string; // Assuming snapshot includes denormalized name
-		quantity: number;
-		measure_unit: string;
-	}>;
+		product_id: string
+		product_name: string // Assuming snapshot includes denormalized name
+		quantity: number
+		measure_unit: string
+	}>
 	// ... other fields
 }
 
-export function SubstitutionModal({
-	open,
-	onClose,
-	menuItem,
-}: SubstitutionModalProps) {
-	const [rationale, setRationale] = useState("");
-	const [selectedIngredientId, setSelectedIngredientId] = useState<
-		string | null
-	>(null);
-	const { mutate: updateSubstitutions, isPending } = useUpdateSubstitutions();
+export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModalProps) {
+	const [rationale, setRationale] = useState("")
+	const [selectedIngredientId, setSelectedIngredientId] = useState<string | null>(null)
+	const { mutate: updateSubstitutions, isPending } = useUpdateSubstitutions()
 
 	// Safely parse recipe snapshot
-	const recipe = menuItem?.recipe as unknown as RecipeSnapshot;
-	const ingredients = recipe?.ingredients || [];
+	const recipe = menuItem?.recipe as unknown as RecipeSnapshot
+	const ingredients = recipe?.ingredients || []
 
 	const handleSave = () => {
-		if (!menuItem) return;
+		if (!menuItem) return
 
 		// In a real implementation we would capture:
 		// - original_ingredient_id
@@ -71,7 +63,7 @@ export function SubstitutionModal({
 				rationale,
 				updated_at: new Date().toISOString(),
 			},
-		};
+		}
 
 		updateSubstitutions(
 			{
@@ -80,13 +72,13 @@ export function SubstitutionModal({
 			},
 			{
 				onSuccess: () => {
-					onClose();
-					setRationale("");
-					setSelectedIngredientId(null);
+					onClose()
+					setRationale("")
+					setSelectedIngredientId(null)
 				},
-			},
-		);
-	};
+			}
+		)
+	}
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -100,8 +92,8 @@ export function SubstitutionModal({
 					<div className="bg-amber-50 border border-amber-100 p-3 rounded-md text-sm text-amber-800 flex items-start gap-2">
 						<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
 						<p>
-							Substituições alteram a ficha técnica apenas para este dia. O
-							histórico original da receita é preservado.
+							Substituições alteram a ficha técnica apenas para este dia. O histórico original da
+							receita é preservado.
 						</p>
 					</div>
 
@@ -110,17 +102,17 @@ export function SubstitutionModal({
 							<div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm p-4">
 								<p>Não foi possível ler os ingredientes do snapshot.</p>
 								<p className="text-xs opacity-70 mt-1">
-									(Isso pode ocorrer se o snapshot for antigo ou estiver em
-									formato incompatível)
+									(Isso pode ocorrer se o snapshot for antigo ou estiver em formato incompatível)
 								</p>
 							</div>
 						) : (
 							<div className="space-y-2">
 								{/* List ingredients to select for substitution */}
 								{ingredients.map((ing, idx) => (
-									<div
+									<button
 										key={idx}
-										className={`p-2 rounded border cursor-pointer hover:bg-accent ${selectedIngredientId === ing.product_id ? "border-primary bg-primary/5" : ""}`}
+										type="button"
+										className={`w-full text-left p-2 rounded border cursor-pointer hover:bg-accent ${selectedIngredientId === ing.product_id ? "border-primary bg-primary/5" : ""}`}
 										onClick={() => setSelectedIngredientId(ing.product_id)}
 									>
 										<div className="flex justify-between text-sm">
@@ -131,7 +123,7 @@ export function SubstitutionModal({
 												{ing.quantity} {ing.measure_unit}
 											</span>
 										</div>
-									</div>
+									</button>
 								))}
 							</div>
 						)}
@@ -171,5 +163,5 @@ export function SubstitutionModal({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

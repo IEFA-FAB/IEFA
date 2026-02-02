@@ -1,14 +1,14 @@
-import { Badge, Button } from "@iefa/ui";
-import { Plus, X } from "lucide-react";
-import type { Recipe } from "@/types/supabase.types";
+import { Button } from "@iefa/ui"
+import { Plus, X } from "lucide-react"
+import type { Recipe } from "@/types/supabase.types"
 
 interface TemplateGridCellProps {
-	dayOfWeek: number; // 1-7
-	mealTypeId: string;
-	mealTypeName: string;
-	recipes: Recipe[];
-	onAddRecipes: () => void;
-	onRemoveRecipe: (recipeId: string) => void;
+	dayOfWeek: number // 1-7
+	mealTypeId: string
+	mealTypeName: string
+	recipes: Recipe[]
+	onAddRecipes: () => void
+	onRemoveRecipe: (recipeId: string) => void
 }
 
 /**
@@ -29,14 +29,14 @@ interface TemplateGridCellProps {
  * ```
  */
 export function TemplateGridCell({
-	dayOfWeek,
-	mealTypeId,
-	mealTypeName,
+	dayOfWeek: _dayOfWeek,
+	mealTypeId: _mealTypeId,
+	mealTypeName: _mealTypeName,
 	recipes,
 	onAddRecipes,
 	onRemoveRecipe,
 }: TemplateGridCellProps) {
-	const hasRecipes = recipes.length > 0;
+	const hasRecipes = recipes.length > 0
 
 	return (
 		<div
@@ -72,10 +72,8 @@ export function TemplateGridCell({
 						>
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium truncate">{recipe.name}</p>
-								{recipe.code && (
-									<p className="text-xs text-muted-foreground font-mono">
-										{recipe.code}
-									</p>
+								{recipe.rational_id && (
+									<p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>
 								)}
 							</div>
 							<Button
@@ -91,17 +89,12 @@ export function TemplateGridCell({
 					))}
 
 					{/* Add More Button */}
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={onAddRecipes}
-						className="w-full text-xs"
-					>
+					<Button size="sm" variant="outline" onClick={onAddRecipes} className="w-full text-xs">
 						<Plus className="w-3 h-3 mr-1" />
 						Adicionar mais
 					</Button>
 				</div>
 			)}
 		</div>
-	);
+	)
 }

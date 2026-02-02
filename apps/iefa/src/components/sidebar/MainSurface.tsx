@@ -1,12 +1,12 @@
-import { Button, cn } from "@iefa/ui";
-import type { ReactNode } from "react";
+import { Button, cn } from "@iefa/ui"
+import type { ReactNode } from "react"
 
 export type MainSurfaceProps = {
-	showInitialError: boolean;
-	showInitialLoading: boolean;
-	onRetry: () => void;
-	children: ReactNode;
-};
+	showInitialError: boolean
+	showInitialLoading: boolean
+	onRetry: () => void
+	children: ReactNode
+}
 
 export function MainSurface({
 	showInitialError,
@@ -29,7 +29,7 @@ export function MainSurface({
 				"after:content-[''] after:pointer-events-none after:absolute after:inset-0 after:-z-10",
 				"after:bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.8)_1px,transparent_1px)]",
 				"after:bg-size-[12px_12px] after:opacity-[0.02]",
-				"dark:after:opacity-[0.04]",
+				"dark:after:opacity-[0.04]"
 			)}
 		>
 			{showInitialError ? (
@@ -52,5 +52,5 @@ export function MainSurface({
 				children
 			)}
 		</div>
-	);
+	)
 }

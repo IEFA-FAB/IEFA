@@ -4,20 +4,20 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-} from "@iefa/ui";
-import { Link, useLocation } from "@tanstack/react-router";
-import type { LucideIcon } from "lucide-react";
+} from "@iefa/ui"
+import { Link, useLocation } from "@tanstack/react-router"
+import type { LucideIcon } from "lucide-react"
 
 export function NavMain({
 	items,
 }: {
 	items: {
-		title: string;
-		url: string;
-		icon: LucideIcon;
-	}[];
+		title: string
+		url: string
+		icon: LucideIcon
+	}[]
 }) {
-	const location = useLocation();
+	const location = useLocation()
 
 	return (
 		<SidebarGroup>
@@ -26,8 +26,7 @@ export function NavMain({
 				{items.map((item) => {
 					// Verifica se a rota atual começa com a url do item (para active state)
 					const isActive =
-						location.pathname === item.url ||
-						location.pathname.startsWith(`${item.url}/`);
+						location.pathname === item.url || location.pathname.startsWith(`${item.url}/`)
 
 					return (
 						<SidebarMenuItem key={item.title}>
@@ -42,9 +41,9 @@ export function NavMain({
 								isActive={isActive}
 							/>
 						</SidebarMenuItem>
-					);
+					)
 				})}
 			</SidebarMenu>
 		</SidebarGroup>
-	);
+	)
 }

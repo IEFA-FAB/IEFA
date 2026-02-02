@@ -8,18 +8,14 @@ import {
 	Input,
 	Label,
 	Select,
-} from "@iefa/ui";
-import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
-import { zodValidator } from "@tanstack/zod-form-adapter";
-import { toast } from "sonner";
-import { z } from "zod";
-import {
-	useCreateProductItem,
-	useProducts,
-	useUpdateProductItem,
-} from "@/services/ProductsService";
-import type { ProductItem } from "@/types/supabase.types";
+} from "@iefa/ui"
+import { useForm } from "@tanstack/react-form"
+import { useQueryClient } from "@tanstack/react-query"
+import { zodValidator } from "@tanstack/zod-form-adapter"
+import { toast } from "sonner"
+import { z } from "zod"
+import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
+import type { ProductItem } from "@/types/supabase.types"
 
 // Schema de validação
 const productItemSchema = z.object({
@@ -29,14 +25,14 @@ const productItemSchema = z.object({
 	purchase_measure_unit: z.string().optional(),
 	unit_content_quantity: z.number().min(0).optional(),
 	correction_factor: z.number().min(0).optional(),
-});
+})
 
 interface ProductItemFormProps {
-	isOpen: boolean;
-	onClose: () => void;
-	mode: "create" | "edit";
-	productItem?: ProductItem;
-	defaultProductId?: string;
+	isOpen: boolean
+	onClose: () => void
+	mode: "create" | "edit"
+	productItem?: ProductItem
+	defaultProductId?: string
 }
 
 export function ProductItemForm({
@@ -46,10 +42,10 @@ export function ProductItemForm({
 	productItem,
 	defaultProductId,
 }: ProductItemFormProps) {
-	const queryClient = useQueryClient();
-	const { products } = useProducts();
-	const { createProductItem, isCreating } = useCreateProductItem();
-	const { updateProductItem, isUpdating } = useUpdateProductItem();
+	const queryClient = useQueryClient()
+	const { products } = useProducts()
+	const { createProductItem, isCreating } = useCreateProductItem()
+	const { updateProductItem, isUpdating } = useUpdateProductItem()
 
 	const form = useForm({
 		defaultValues: {
@@ -71,46 +67,42 @@ export function ProductItemForm({
 		onSubmit: async ({ value }) => {
 			try {
 				if (mode === "create") {
-					await createProductItem(value);
-					toast.success("Item criado com sucesso!");
+					await createProductItem(value)
+					toast.success("Item criado com sucesso!")
 				} else if (productItem) {
 					await updateProductItem({
 						id: productItem.id,
 						payload: value,
-					});
-					toast.success("Item atualizado com sucesso!");
+					})
+					toast.success("Item atualizado com sucesso!")
 				}
 
 				await queryClient.invalidateQueries({
 					queryKey: ["products"],
-				});
+				})
 
-				onClose();
-				form.reset();
+				onClose()
+				form.reset()
 			} catch (error) {
-				toast.error(
-					mode === "create" ? "Erro ao criar item" : "Erro ao atualizar item",
-				);
-				console.error(error);
+				toast.error(mode === "create" ? "Erro ao criar item" : "Erro ao atualizar item")
+				console.error(error)
 			}
 		},
-	});
+	})
 
-	const isPending = isCreating || isUpdating;
+	const isPending = isCreating || isUpdating
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className="max-w-2xl">
 				<DialogHeader>
-					<DialogTitle>
-						{mode === "create" ? "Novo Item de Compra" : "Editar Item"}
-					</DialogTitle>
+					<DialogTitle>{mode === "create" ? "Novo Item de Compra" : "Editar Item"}</DialogTitle>
 				</DialogHeader>
 
 				<form
 					onSubmit={(e) => {
-						e.preventDefault();
-						form.handleSubmit();
+						e.preventDefault()
+						form.handleSubmit()
 					}}
 					className="space-y-4"
 				>
@@ -191,9 +183,7 @@ export function ProductItemForm({
 										onChange={(e) => field.handleChange(e.target.value)}
 										placeholder="Ex: SACO, CAIXA"
 									/>
-									<p className="text-xs text-muted-foreground">
-										Embalagem do fornecedor
-									</p>
+									<p className="text-xs text-muted-foreground">Embalagem do fornecedor</p>
 								</div>
 							)}
 						</form.Field>
@@ -211,9 +201,7 @@ export function ProductItemForm({
 										onChange={(e) => field.handleChange(Number(e.target.value))}
 										placeholder="5.0"
 									/>
-									<p className="text-xs text-muted-foreground">
-										Ex: 5kg por saco
-									</p>
+									<p className="text-xs text-muted-foreground">Ex: 5kg por saco</p>
 								</div>
 							)}
 						</form.Field>
@@ -237,24 +225,15 @@ export function ProductItemForm({
 					</form.Field>
 
 					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onClose}
-							disabled={isPending}
-						>
+						<Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
 							Cancelar
 						</Button>
 						<Button type="submit" disabled={isPending}>
-							{isPending
-								? "Salvando..."
-								: mode === "create"
-									? "Criar"
-									: "Salvar"}
+							{isPending ? "Salvando..." : mode === "create" ? "Criar" : "Salvar"}
 						</Button>
 					</DialogFooter>
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
+	)
 }

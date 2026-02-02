@@ -1,20 +1,20 @@
 // Status badge component for article status visualization
 
-import { Badge } from "@iefa/ui";
-import { Check, Clock, Edit, Eye, FileText, Globe, X } from "lucide-react";
-import type { ArticleStatus } from "@/lib/journal/types";
+import { Badge } from "@iefa/ui"
+import { Check, Clock, Edit, Eye, FileText, Globe, type LucideIcon, X } from "lucide-react"
+import type { ArticleStatus } from "@/lib/journal/types"
 
 interface StatusBadgeProps {
-	status: ArticleStatus;
-	className?: string;
+	status: ArticleStatus
+	className?: string
 }
 
 const statusConfig: Record<
 	ArticleStatus,
 	{
-		label: string;
-		variant: "default" | "secondary" | "destructive" | "outline";
-		icon: any;
+		label: string
+		variant: "default" | "secondary" | "destructive" | "outline"
+		icon: LucideIcon
 	}
 > = {
 	draft: {
@@ -57,16 +57,16 @@ const statusConfig: Record<
 		variant: "default",
 		icon: Globe,
 	},
-};
+}
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-	const config = statusConfig[status];
-	const Icon = config.icon;
+	const config = statusConfig[status]
+	const Icon = config.icon
 
 	return (
 		<Badge variant={config.variant} className={className}>
 			<Icon className="size-3 mr-1" />
 			{config.label}
 		</Badge>
-	);
+	)
 }

@@ -1,17 +1,16 @@
 // Step 6: Review and Submit
 
-import { FileText, Globe, Users } from "lucide-react";
-import { useSubmissionForm } from "./SubmissionForm";
+import { FileText, Globe, Users } from "lucide-react"
+import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step6Review() {
-	const { formData } = useSubmissionForm();
+	const { formData } = useSubmissionForm()
 
 	return (
 		<div className="space-y-6">
 			<p className="text-muted-foreground">
-				Revise todas as informações antes de submeter seu artigo. Após a
-				submissão, você não poderá editar estes dados até receber um pedido de
-				revisão.
+				Revise todas as informações antes de submeter seu artigo. Após a submissão, você não poderá
+				editar estes dados até receber um pedido de revisão.
 			</p>
 
 			{/* Article Type */}
@@ -40,24 +39,16 @@ export function Step6Review() {
 				</h3>
 				<div className="space-y-4 text-sm">
 					<div>
-						<dt className="text-muted-foreground font-medium">
-							Título (PT/EN):
-						</dt>
+						<dt className="text-muted-foreground font-medium">Título (PT/EN):</dt>
 						<dd className="mt-1">{formData.title_pt}</dd>
-						<dd className="mt-1 text-muted-foreground italic">
-							{formData.title_en}
-						</dd>
+						<dd className="mt-1 text-muted-foreground italic">{formData.title_en}</dd>
 					</div>
 					<div>
-						<dt className="text-muted-foreground font-medium">
-							Palavras-chave (PT):
-						</dt>
+						<dt className="text-muted-foreground font-medium">Palavras-chave (PT):</dt>
 						<dd className="mt-1">{(formData.keywords_pt || []).join(", ")}</dd>
 					</div>
 					<div>
-						<dt className="text-muted-foreground font-medium">
-							Keywords (EN):
-						</dt>
+						<dt className="text-muted-foreground font-medium">Keywords (EN):</dt>
 						<dd className="mt-1">{(formData.keywords_en || []).join(", ")}</dd>
 					</div>
 				</div>
@@ -71,10 +62,7 @@ export function Step6Review() {
 				</h3>
 				<div className="space-y-2 text-sm">
 					{(formData.authors || []).map((author, index) => (
-						<div
-							key={index}
-							className="flex items-start gap-2 p-2 bg-muted rounded"
-						>
+						<div key={index} className="flex items-start gap-2 p-2 bg-muted rounded">
 							<span className="font-medium">{index + 1}.</span>
 							<div className="flex-1">
 								<div className="font-medium">
@@ -86,14 +74,10 @@ export function Step6Review() {
 									)}
 								</div>
 								{author.affiliation && (
-									<div className="text-muted-foreground">
-										{author.affiliation}
-									</div>
+									<div className="text-muted-foreground">{author.affiliation}</div>
 								)}
 								{author.orcid && (
-									<div className="text-xs text-muted-foreground">
-										ORCID: {author.orcid}
-									</div>
+									<div className="text-xs text-muted-foreground">ORCID: {author.orcid}</div>
 								)}
 							</div>
 						</div>
@@ -111,16 +95,10 @@ export function Step6Review() {
 							{(formData.pdf_file.size / 1024 / 1024).toFixed(2)} MB)
 						</div>
 					)}
-					{formData.source_file && (
-						<div>✓ Arquivo Fonte: {formData.source_file.name}</div>
+					{formData.source_file && <div>✓ Arquivo Fonte: {formData.source_file.name}</div>}
+					{formData.supplementary_files && formData.supplementary_files.length > 0 && (
+						<div>✓ {formData.supplementary_files.length} arquivo(s) suplementar(es)</div>
 					)}
-					{formData.supplementary_files &&
-						formData.supplementary_files.length > 0 && (
-							<div>
-								✓ {formData.supplementary_files.length} arquivo(s)
-								suplementar(es)
-							</div>
-						)}
 				</div>
 			</div>
 
@@ -129,29 +107,24 @@ export function Step6Review() {
 				<h3 className="font-medium mb-3">Declarações</h3>
 				<div className="space-y-3 text-sm">
 					<div>
-						<dt className="text-muted-foreground font-medium">
-							Conflito de Interesse:
-						</dt>
+						<dt className="text-muted-foreground font-medium">Conflito de Interesse:</dt>
 						<dd className="mt-1 text-xs">
 							{formData.conflict_of_interest?.substring(0, 150)}
 							{(formData.conflict_of_interest?.length || 0) > 150 ? "..." : ""}
 						</dd>
 					</div>
 					{formData.has_ethics_approval && (
-						<div>
-							✓ Aprovação de comitê de ética: {formData.ethics_approval}
-						</div>
+						<div>✓ Aprovação de comitê de ética: {formData.ethics_approval}</div>
 					)}
 				</div>
 			</div>
 
 			<div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-900">
 				<p className="text-sm text-yellow-900 dark:text-yellow-100">
-					<strong>Atenção:</strong> Ao clicar em "Submeter Artigo", você
-					confirma que todos os dados estão corretos e que o manuscrito está
-					pronto para revisão por pares.
+					<strong>Atenção:</strong> Ao clicar em "Submeter Artigo", você confirma que todos os dados
+					estão corretos e que o manuscrito está pronto para revisão por pares.
 				</p>
 			</div>
 		</div>
-	);
+	)
 }

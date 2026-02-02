@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
 	SidebarGroup,
@@ -6,23 +6,23 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-} from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import type { LucideIcon } from "lucide-react";
+} from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import type { LucideIcon } from "lucide-react"
 
 export function NavMain({
 	items,
 }: {
 	items: {
-		title: string;
-		icon?: LucideIcon;
-		isActive?: boolean;
+		title: string
+		icon?: LucideIcon
+		isActive?: boolean
 		items?: {
-			title: string;
-			url: string;
-			icon: LucideIcon;
-		}[];
-	}[];
+			title: string
+			url: string
+			icon: LucideIcon
+		}[]
+	}[]
 }) {
 	return (
 		<>
@@ -47,5 +47,5 @@ export function NavMain({
 				</SidebarGroup>
 			))}
 		</>
-	);
+	)
 }

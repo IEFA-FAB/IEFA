@@ -1,30 +1,27 @@
 // Step 5: Declarations (COI, Funding, Ethics)
 
-import { Input, Label, Textarea } from "@iefa/ui";
-import { useSubmissionForm } from "./SubmissionForm";
+import { Input, Label, Textarea } from "@iefa/ui"
+import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step5Declarations() {
-	const { formData, updateFormData } = useSubmissionForm();
+	const { formData, updateFormData } = useSubmissionForm()
 
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
 				<Label htmlFor="conflict_of_interest">
-					Declaração de Conflito de Interesse{" "}
-					<span className="text-destructive">*</span>
+					Declaração de Conflito de Interesse <span className="text-destructive">*</span>
 				</Label>
 				<Textarea
 					id="conflict_of_interest"
 					value={formData.conflict_of_interest || ""}
-					onChange={(e) =>
-						updateFormData({ conflict_of_interest: e.target.value })
-					}
+					onChange={(e) => updateFormData({ conflict_of_interest: e.target.value })}
 					placeholder="Descreva qualquer conflito de interesse ou declare que não há conflitos"
 					rows={4}
 				/>
 				<p className="text-sm text-muted-foreground">
-					Exemplo: "Os autores declaram não haver conflitos de interesse" ou
-					descreva qualquer relação financeira ou pessoal relevante
+					Exemplo: "Os autores declaram não haver conflitos de interesse" ou descreva qualquer
+					relação financeira ou pessoal relevante
 				</p>
 			</div>
 
@@ -40,15 +37,11 @@ export function Step5Declarations() {
 			</div>
 
 			<div className="space-y-2">
-				<Label htmlFor="data_availability">
-					Declaração de Disponibilidade de Dados
-				</Label>
+				<Label htmlFor="data_availability">Declaração de Disponibilidade de Dados</Label>
 				<Textarea
 					id="data_availability"
 					value={formData.data_availability || ""}
-					onChange={(e) =>
-						updateFormData({ data_availability: e.target.value })
-					}
+					onChange={(e) => updateFormData({ data_availability: e.target.value })}
 					placeholder="Informe como os dados podem ser acessados (repositório, sob demanda, etc.)"
 					rows={3}
 				/>
@@ -60,33 +53,26 @@ export function Step5Declarations() {
 						id="has_ethics_approval"
 						type="checkbox"
 						checked={formData.has_ethics_approval || false}
-						onChange={(e) =>
-							updateFormData({ has_ethics_approval: e.target.checked })
-						}
+						onChange={(e) => updateFormData({ has_ethics_approval: e.target.checked })}
 						className="size-4 rounded border-gray-300"
 					/>
 					<Label htmlFor="has_ethics_approval" className="cursor-pointer">
-						Este estudo envolve seres humanos ou animais e possui aprovação de
-						comitê de ética
+						Este estudo envolve seres humanos ou animais e possui aprovação de comitê de ética
 					</Label>
 				</div>
 
 				{formData.has_ethics_approval && (
 					<div className="space-y-2 ml-6">
-						<Label htmlFor="ethics_approval">
-							Número/Referência da Aprovação Ética
-						</Label>
+						<Label htmlFor="ethics_approval">Número/Referência da Aprovação Ética</Label>
 						<Input
 							id="ethics_approval"
 							value={formData.ethics_approval || ""}
-							onChange={(e) =>
-								updateFormData({ ethics_approval: e.target.value })
-							}
+							onChange={(e) => updateFormData({ ethics_approval: e.target.value })}
 							placeholder="Ex: CAAE 12345678.9.0000.0000"
 						/>
 					</div>
 				)}
 			</div>
 		</div>
-	);
+	)
 }

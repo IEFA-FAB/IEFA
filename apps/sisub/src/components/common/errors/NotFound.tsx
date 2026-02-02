@@ -1,15 +1,8 @@
-import {
-	Button,
-	Card,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@iefa/ui";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Home, SearchX } from "lucide-react";
+import { Button, Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@iefa/ui"
+import { Link } from "@tanstack/react-router"
+import { ArrowLeft, Home, SearchX } from "lucide-react"
 
-export function NotFound({ children }: { children?: any }) {
+export function NotFound({ children }: { children?: React.ReactNode }) {
 	return (
 		<div className="min-h-screen w-full flex items-center justify-center p-4">
 			<Card className="w-full max-w-xl border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
@@ -17,12 +10,9 @@ export function NotFound({ children }: { children?: any }) {
 					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
 						<SearchX className="h-10 w-10 text-primary" />
 					</div>
-					<CardTitle className="text-4xl font-bold tracking-tight">
-						Página não encontrada
-					</CardTitle>
+					<CardTitle className="text-4xl font-bold tracking-tight">Página não encontrada</CardTitle>
 					<CardDescription className="text-zinc-400 text-lg">
-						{children ||
-							"A página que você está procurando não existe ou foi movida."}
+						{children || "A página que você está procurando não existe ou foi movida."}
 					</CardDescription>
 				</CardHeader>
 
@@ -44,5 +34,5 @@ export function NotFound({ children }: { children?: any }) {
 				</CardFooter>
 			</Card>
 		</div>
-	);
+	)
 }

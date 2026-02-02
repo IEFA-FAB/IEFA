@@ -1,8 +1,8 @@
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { toast } from "sonner";
-import supabase from "@/lib/supabase";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
+import { useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
+import { toast } from "sonner"
+import supabase from "@/lib/supabase"
 
 /**
  * Hook para subscrições Realtime do Supabase
@@ -23,19 +23,19 @@ import supabase from "@/lib/supabase";
  */
 export function useRealtimeSubscription(options: {
 	/** Tabela do Supabase para escutar */
-	table: "daily_menu" | "recipes" | "menu_items";
+	table: "daily_menu" | "recipes" | "menu_items"
 	/** Evento a escutar: INSERT, UPDATE, DELETE, ou * para todos */
-	event?: "INSERT" | "UPDATE" | "DELETE" | "*";
+	event?: "INSERT" | "UPDATE" | "DELETE" | "*"
 	/** Prefixo da query key para invalidar (ex: ['planning'] invalida todas queries de planejamento) */
-	queryKeyPrefix: readonly unknown[];
+	queryKeyPrefix: readonly unknown[]
 	/** Mensagem do toast (opcional) */
-	message?: string;
+	message?: string
 	/** Callback adicional quando houver update (opcional) */
-	onUpdate?: () => void;
+	onUpdate?: () => void
 	/** Se true, não mostra toast (default: false) */
-	silent?: boolean;
+	silent?: boolean
 }) {
-	const queryClient = useQueryClient();
+	const queryClient = useQueryClient()
 	const {
 		table,
 		event = "*",
@@ -43,7 +43,7 @@ export function useRealtimeSubscription(options: {
 		message = "Dados atualizados por outro usuário",
 		onUpdate,
 		silent = false,
-	} = options;
+	} = options
 
 	useEffect(() => {
 		// Criar canal único para esta subscrição
@@ -57,12 +57,12 @@ export function useRealtimeSubscription(options: {
 					table: table as any,
 				},
 				(payload: RealtimePostgresChangesPayload<any>) => {
-					console.log(`[Realtime] ${table} changed:`, payload);
+					console.log(`[Realtime] ${table} changed:`, payload)
 
 					// Invalidar queries relevantes
 					queryClient.invalidateQueries({
 						queryKey: queryKeyPrefix,
-					});
+					})
 
 					// Mostrar toast não-intrusivo
 					if (!silent) {
@@ -73,24 +73,24 @@ export function useRealtimeSubscription(options: {
 								onClick: () => {
 									queryClient.refetchQueries({
 										queryKey: queryKeyPrefix,
-									});
+									})
 								},
 							},
 							duration: 5000,
-						});
+						})
 					}
 
 					// Callback adicional
-					onUpdate?.();
-				},
+					onUpdate?.()
+				}
 			)
-			.subscribe();
+			.subscribe()
 
 		// Cleanup: desinscrever ao desmontar
 		return () => {
-			supabase.removeChannel(channel);
-		};
-	}, [table, event, queryKeyPrefix, message, onUpdate, silent, queryClient]);
+			supabase.removeChannel(channel)
+		}
+	}, [table, event, queryKeyPrefix, message, onUpdate, silent, queryClient])
 }
 
 /**

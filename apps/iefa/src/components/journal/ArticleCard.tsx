@@ -1,14 +1,14 @@
 // Article card component for listing submissions
 
-import { Link } from "@tanstack/react-router";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Calendar, FileText } from "lucide-react";
-import type { Article } from "@/lib/journal/types";
-import { StatusBadge } from "./StatusBadge";
+import { Link } from "@tanstack/react-router"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Calendar, FileText } from "lucide-react"
+import type { Article } from "@/lib/journal/types"
+import { StatusBadge } from "./StatusBadge"
 
 interface ArticleCardProps {
-	article: Article;
+	article: Article
 }
 
 export function ArticleCard({ article }: ArticleCardProps) {
@@ -22,9 +22,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 mb-2">
 						<StatusBadge status={article.status} />
-						<span className="text-xs text-muted-foreground">
-							#{article.submission_number}
-						</span>
+						<span className="text-xs text-muted-foreground">#{article.submission_number}</span>
 					</div>
 
 					<h3 className="font-medium text-lg mb-1 truncate">
@@ -32,10 +30,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
 					</h3>
 
 					<p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-						{(article.abstract_en || article.abstract_pt || "").substring(
-							0,
-							150,
-						)}
+						{(article.abstract_en || article.abstract_pt || "").substring(0, 150)}
 						...
 					</p>
 
@@ -65,5 +60,5 @@ export function ArticleCard({ article }: ArticleCardProps) {
 				</div>
 			</div>
 		</Link>
-	);
+	)
 }

@@ -1,14 +1,14 @@
 // Author Dashboard - List all user's article submissions
 
-import { Button, Input } from "@iefa/ui";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
-import { useState } from "react";
-import { authQueryOptions } from "@/auth/service";
-import { ArticleCard } from "@/components/journal/ArticleCard";
-import { articlesQueryOptions } from "@/lib/journal/hooks";
-import type { ArticleStatus } from "@/lib/journal/types";
+import { Button, Input } from "@iefa/ui"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { Plus, Search } from "lucide-react"
+import { useState } from "react"
+import { authQueryOptions } from "@/auth/service"
+import { ArticleCard } from "@/components/journal/ArticleCard"
+import { articlesQueryOptions } from "@/lib/journal/hooks"
+import type { ArticleStatus } from "@/lib/journal/types"
 
 const STATUS_FILTERS: { value: ArticleStatus | "all"; label: string }[] = [
 	{ value: "all", label: "Todos" },
@@ -18,56 +18,51 @@ const STATUS_FILTERS: { value: ArticleStatus | "all"; label: string }[] = [
 	{ value: "revision_requested", label: "Revisão Solicitada" },
 	{ value: "accepted", label: "Aceitos" },
 	{ value: "published", label: "Publicados" },
-];
+]
 
 export const Route = createFileRoute("/journal/submissions/")({
 	beforeLoad: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions());
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (!auth.isAuthenticated) {
-			throw redirect({ to: "/auth" });
+			throw redirect({ to: "/auth" })
 		}
-		return { auth };
+		return { auth }
 	},
 	loader: async ({ context }) => {
-		const auth = await context.queryClient.ensureQueryData(authQueryOptions());
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (auth.user) {
 			await context.queryClient.ensureQueryData(
-				articlesQueryOptions({ submitter_id: auth.user.id }),
-			);
+				articlesQueryOptions({ submitter_id: auth.user.id })
+			)
 		}
 	},
 	component: RouteComponent,
-});
+})
 
 function RouteComponent() {
-	const { auth } = Route.useRouteContext();
-	const [statusFilter, setStatusFilter] = useState<ArticleStatus | "all">(
-		"all",
-	);
-	const [searchQuery, setSearchQuery] = useState("");
+	const { auth } = Route.useRouteContext()
+	const [statusFilter, setStatusFilter] = useState<ArticleStatus | "all">("all")
+	const [searchQuery, setSearchQuery] = useState("")
 
 	const { data: articles } = useSuspenseQuery(
-		articlesQueryOptions({ submitter_id: auth.user?.id || "" }),
-	);
+		articlesQueryOptions({ submitter_id: auth.user?.id || "" })
+	)
 
 	// Filter articles
 	const filteredArticles = articles.filter((article) => {
-		const matchesStatus =
-			statusFilter === "all" || article.status === statusFilter;
+		const matchesStatus = statusFilter === "all" || article.status === statusFilter
 		const matchesSearch =
 			!searchQuery ||
 			article.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			article.title_pt?.toLowerCase().includes(searchQuery.toLowerCase());
-		return matchesStatus && matchesSearch;
-	});
+			article.title_pt?.toLowerCase().includes(searchQuery.toLowerCase())
+		return matchesStatus && matchesSearch
+	})
 
 	return (
 		<div className="container mx-auto max-w-6xl px-4 py-8">
 			<div className="flex items-center justify-between mb-8">
 				<div>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Minhas Submissões
-					</h1>
+					<h1 className="text-3xl font-bold tracking-tight">Minhas Submissões</h1>
 					<p className="mt-2 text-muted-foreground">
 						Acompanhe o status de todos os seus artigos submetidos
 					</p>
@@ -136,5 +131,5 @@ function RouteComponent() {
 					`(${STATUS_FILTERS.find((f) => f.value === statusFilter)?.label})`}
 			</div>
 		</div>
-	);
+	)
 }

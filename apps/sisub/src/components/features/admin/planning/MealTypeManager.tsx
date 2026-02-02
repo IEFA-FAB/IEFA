@@ -12,17 +12,17 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui";
-import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react";
-import React from "react";
-import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes";
-import type { MealType } from "@/types/supabase.types";
-import { MealTypeForm } from "./MealTypeForm";
+} from "@iefa/ui"
+import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react"
+import React from "react"
+import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes"
+import type { MealType } from "@/types/supabase.types"
+import { MealTypeForm } from "./MealTypeForm"
 
 interface MealTypeManagerProps {
-	open: boolean;
-	onClose: () => void;
-	kitchenId: number | null;
+	open: boolean
+	onClose: () => void
+	kitchenId: number | null
 }
 
 /**
@@ -40,47 +40,41 @@ interface MealTypeManagerProps {
  * />
  * ```
  */
-export function MealTypeManager({
-	open,
-	onClose,
-	kitchenId,
-}: MealTypeManagerProps) {
-	const [formOpen, setFormOpen] = React.useState(false);
-	const [editingMealType, setEditingMealType] = React.useState<MealType | null>(
-		null,
-	);
+export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerProps) {
+	const [formOpen, setFormOpen] = React.useState(false)
+	const [editingMealType, setEditingMealType] = React.useState<MealType | null>(null)
 
-	const { data: mealTypes, isLoading } = useMealTypes(kitchenId);
-	const { mutate: deleteMealType, isPending: isDeleting } = useDeleteMealType();
+	const { data: mealTypes, isLoading } = useMealTypes(kitchenId)
+	const { mutate: deleteMealType, isPending: isDeleting } = useDeleteMealType()
 
 	const handleEdit = (mealType: MealType) => {
-		setEditingMealType(mealType);
-		setFormOpen(true);
-	};
+		setEditingMealType(mealType)
+		setFormOpen(true)
+	}
 
 	const handleCreate = () => {
-		setEditingMealType(null);
-		setFormOpen(true);
-	};
+		setEditingMealType(null)
+		setFormOpen(true)
+	}
 
 	const handleDelete = (mealType: MealType) => {
 		if (
 			window.confirm(
-				`Tem certeza que deseja remover "${mealType.name}"?\n\nEste tipo de refeição poderá ser recuperado na lixeira.`,
+				`Tem certeza que deseja remover "${mealType.name}"?\n\nEste tipo de refeição poderá ser recuperado na lixeira.`
 			)
 		) {
-			deleteMealType(mealType.id);
+			deleteMealType(mealType.id)
 		}
-	};
+	}
 
 	const handleFormClose = () => {
-		setFormOpen(false);
-		setEditingMealType(null);
-	};
+		setFormOpen(false)
+		setEditingMealType(null)
+	}
 
 	// Separar tipos genéricos vs customizados
-	const genericTypes = mealTypes?.filter((mt) => mt.kitchen_id === null) || [];
-	const customTypes = mealTypes?.filter((mt) => mt.kitchen_id !== null) || [];
+	const genericTypes = mealTypes?.filter((mt) => mt.kitchen_id === null) || []
+	const customTypes = mealTypes?.filter((mt) => mt.kitchen_id !== null) || []
 
 	if (!kitchenId) {
 		return (
@@ -91,13 +85,11 @@ export function MealTypeManager({
 					</DialogHeader>
 					<div className="flex items-center gap-2 p-4 text-muted-foreground">
 						<AlertCircle className="w-4 h-4" />
-						<p className="text-sm">
-							Selecione uma cozinha para gerenciar tipos de refeição.
-						</p>
+						<p className="text-sm">Selecione uma cozinha para gerenciar tipos de refeição.</p>
 					</div>
 				</DialogContent>
 			</Dialog>
-		);
+		)
 	}
 
 	return (
@@ -107,8 +99,8 @@ export function MealTypeManager({
 					<DialogHeader>
 						<DialogTitle>Gerenciar Tipos de Refeição</DialogTitle>
 						<DialogDescription>
-							Tipos genéricos são definidos globalmente. Você pode criar tipos
-							customizados para esta cozinha.
+							Tipos genéricos são definidos globalmente. Você pode criar tipos customizados para
+							esta cozinha.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -135,14 +127,9 @@ export function MealTypeManager({
 									<TableBody>
 										{genericTypes.map((mealType) => (
 											<TableRow key={mealType.id}>
-												<TableCell className="font-medium">
-													{mealType.name}
-												</TableCell>
+												<TableCell className="font-medium">{mealType.name}</TableCell>
 												<TableCell>
-													<Badge
-														variant="secondary"
-														className="font-mono text-xs"
-													>
+													<Badge variant="secondary" className="font-mono text-xs">
 														{mealType.sort_order}
 													</Badge>
 												</TableCell>
@@ -178,9 +165,7 @@ export function MealTypeManager({
 							</div>
 
 							{isLoading ? (
-								<div className="py-8 text-center text-sm text-muted-foreground">
-									Carregando...
-								</div>
+								<div className="py-8 text-center text-sm text-muted-foreground">Carregando...</div>
 							) : customTypes.length > 0 ? (
 								<Table>
 									<TableHeader>
@@ -193,14 +178,9 @@ export function MealTypeManager({
 									<TableBody>
 										{customTypes.map((mealType) => (
 											<TableRow key={mealType.id}>
-												<TableCell className="font-medium">
-													{mealType.name}
-												</TableCell>
+												<TableCell className="font-medium">{mealType.name}</TableCell>
 												<TableCell>
-													<Badge
-														variant="secondary"
-														className="font-mono text-xs"
-													>
+													<Badge variant="secondary" className="font-mono text-xs">
 														{mealType.sort_order}
 													</Badge>
 												</TableCell>
@@ -253,5 +233,5 @@ export function MealTypeManager({
 				mealType={editingMealType}
 			/>
 		</>
-	);
+	)
 }

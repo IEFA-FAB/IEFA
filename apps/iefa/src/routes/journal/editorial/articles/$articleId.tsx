@@ -1,6 +1,6 @@
-import { Button, Card, CardContent, CardHeader } from "@iefa/ui";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button, Card, CardContent, CardHeader } from "@iefa/ui"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import {
 	ArrowLeft,
 	Calendar,
@@ -11,23 +11,19 @@ import {
 	MessageSquare,
 	User,
 	XCircle,
-} from "lucide-react";
-import { articleWithDetailsQueryOptions } from "@/lib/journal/hooks";
+} from "lucide-react"
+import { articleWithDetailsQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/editorial/articles/$articleId")({
 	loader: async ({ context, params }) => {
-		return context.queryClient.ensureQueryData(
-			articleWithDetailsQueryOptions(params.articleId),
-		);
+		return context.queryClient.ensureQueryData(articleWithDetailsQueryOptions(params.articleId))
 	},
 	component: ArticleDetailEditor,
-});
+})
 
 function ArticleDetailEditor() {
-	const { articleId } = Route.useParams();
-	const { data: article } = useSuspenseQuery(
-		articleWithDetailsQueryOptions(articleId),
-	);
+	const { articleId } = Route.useParams()
+	const { data: article } = useSuspenseQuery(articleWithDetailsQueryOptions(articleId))
 
 	return (
 		<div className="space-y-6">
@@ -57,9 +53,7 @@ function ArticleDetailEditor() {
 								{article.status}
 							</span>
 						</div>
-						<h1 className="text-3xl font-bold tracking-tight mb-2">
-							{article.title_pt}
-						</h1>
+						<h1 className="text-3xl font-bold tracking-tight mb-2">{article.title_pt}</h1>
 						<p className="text-lg text-muted-foreground">{article.title_en}</p>
 					</div>
 				</div>
@@ -96,25 +90,18 @@ function ArticleDetailEditor() {
 						<CardContent className="space-y-4">
 							<div>
 								<h3 className="font-medium text-sm mb-2">Resumo (PT)</h3>
-								<p className="text-sm text-muted-foreground">
-									{article.abstract_pt}
-								</p>
+								<p className="text-sm text-muted-foreground">{article.abstract_pt}</p>
 							</div>
 							<div>
 								<h3 className="font-medium text-sm mb-2">Abstract (EN)</h3>
-								<p className="text-sm text-muted-foreground">
-									{article.abstract_en}
-								</p>
+								<p className="text-sm text-muted-foreground">{article.abstract_en}</p>
 							</div>
 							<div className="grid md:grid-cols-2 gap-4">
 								<div>
 									<h3 className="font-medium text-sm mb-2">Palavras-chave</h3>
 									<div className="flex flex-wrap gap-2">
 										{article.keywords_pt?.map((keyword) => (
-											<span
-												key={keyword}
-												className="px-2 py-1 bg-muted rounded text-xs"
-											>
+											<span key={keyword} className="px-2 py-1 bg-muted rounded text-xs">
 												{keyword}
 											</span>
 										))}
@@ -124,10 +111,7 @@ function ArticleDetailEditor() {
 									<h3 className="font-medium text-sm mb-2">Keywords</h3>
 									<div className="flex flex-wrap gap-2">
 										{article.keywords_en?.map((keyword) => (
-											<span
-												key={keyword}
-												className="px-2 py-1 bg-muted rounded text-xs"
-											>
+											<span key={keyword} className="px-2 py-1 bg-muted rounded text-xs">
 												{keyword}
 											</span>
 										))}
@@ -153,19 +137,13 @@ function ArticleDetailEditor() {
 										<div>
 											<p className="font-medium">{author.full_name}</p>
 											{author.affiliation && (
-												<p className="text-sm text-muted-foreground">
-													{author.affiliation}
-												</p>
+												<p className="text-sm text-muted-foreground">{author.affiliation}</p>
 											)}
 											{author.email && (
-												<p className="text-xs text-muted-foreground">
-													{author.email}
-												</p>
+												<p className="text-xs text-muted-foreground">{author.email}</p>
 											)}
 											{author.is_corresponding && (
-												<span className="text-xs text-primary">
-													Autor Correspondente
-												</span>
+												<span className="text-xs text-primary">Autor Correspondente</span>
 											)}
 										</div>
 									</div>
@@ -191,8 +169,7 @@ function ArticleDetailEditor() {
 											<div>
 												<p className="font-medium text-sm">
 													Versão {version.version_number}
-													{version.version_label &&
-														` - ${version.version_label}`}
+													{version.version_label && ` - ${version.version_label}`}
 												</p>
 												<p className="text-xs text-muted-foreground">
 													{new Date(version.created_at).toLocaleDateString()}
@@ -222,9 +199,7 @@ function ArticleDetailEditor() {
 								<Calendar className="size-4 text-muted-foreground" />
 								<span className="text-muted-foreground">Submetido:</span>
 								<span>
-									{article.submitted_at
-										? new Date(article.submitted_at).toLocaleDateString()
-										: "-"}
+									{article.submitted_at ? new Date(article.submitted_at).toLocaleDateString() : "-"}
 								</span>
 							</div>
 							<div className="flex items-center gap-2">
@@ -246,9 +221,7 @@ function ArticleDetailEditor() {
 							<h3 className="font-semibold">Timeline de Eventos</h3>
 						</CardHeader>
 						<CardContent>
-							<p className="text-sm text-muted-foreground">
-								📋 Timeline em desenvolvimento
-							</p>
+							<p className="text-sm text-muted-foreground">📋 Timeline em desenvolvimento</p>
 						</CardContent>
 					</Card>
 
@@ -266,5 +239,5 @@ function ArticleDetailEditor() {
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

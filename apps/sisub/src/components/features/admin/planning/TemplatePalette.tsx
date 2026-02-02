@@ -1,14 +1,14 @@
-import { Badge, Button } from "@iefa/ui";
-import { Calendar, Plus } from "lucide-react";
-import { cn } from "@/lib/cn";
-import type { TemplateWithItemCounts } from "@/types/domain/planning";
+import { Badge, Button } from "@iefa/ui"
+import { Calendar, Plus } from "lucide-react"
+import { cn } from "@/lib/cn"
+import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
 interface TemplatePaletteProps {
-	templates: TemplateWithItemCounts[];
-	selectedTemplateId: string | null;
-	onSelectTemplate: (id: string | null) => void;
-	onCreateNew: () => void;
-	isLoading?: boolean;
+	templates: TemplateWithItemCounts[]
+	selectedTemplateId: string | null
+	onSelectTemplate: (id: string | null) => void
+	onCreateNew: () => void
+	isLoading?: boolean
 }
 
 // Template color mapping - cycles through colors for visual distinction
@@ -23,10 +23,10 @@ const TEMPLATE_COLORS = [
 	},
 	{ bg: "bg-pink-500", border: "border-pink-500", ring: "ring-pink-500" },
 	{ bg: "bg-orange-500", border: "border-orange-500", ring: "ring-orange-500" },
-];
+]
 
 export function getTemplateColor(index: number) {
-	return TEMPLATE_COLORS[index % TEMPLATE_COLORS.length];
+	return TEMPLATE_COLORS[index % TEMPLATE_COLORS.length]
 }
 
 export function TemplatePalette({
@@ -44,7 +44,7 @@ export function TemplatePalette({
 					<span>Carregando templates...</span>
 				</div>
 			</div>
-		);
+		)
 	}
 
 	if (!templates || templates.length === 0) {
@@ -61,7 +61,7 @@ export function TemplatePalette({
 					</Button>
 				</div>
 			</div>
-		);
+		)
 	}
 
 	return (
@@ -85,8 +85,8 @@ export function TemplatePalette({
 
 			<div className="flex items-center gap-3 overflow-x-auto p-4 -mx-4 px-4 scrollbar-hide">
 				{templates.map((template, index) => {
-					const colors = getTemplateColor(index);
-					const isSelected = selectedTemplateId === template.id;
+					const colors = getTemplateColor(index)
+					const isSelected = selectedTemplateId === template.id
 
 					return (
 						<button
@@ -98,7 +98,7 @@ export function TemplatePalette({
 								"hover:shadow-md hover:scale-105",
 								isSelected
 									? `${colors.border} ${colors.ring} ring-2 ring-offset-2 bg-accent`
-									: "border-border bg-background hover:border-primary/50",
+									: "border-border bg-background hover:border-primary/50"
 							)}
 						>
 							{/* Color indicator & name */}
@@ -124,12 +124,10 @@ export function TemplatePalette({
 
 							{/* Selection indicator */}
 							{isSelected && (
-								<Badge className={cn(colors.bg, "text-white text-[10px] h-5")}>
-									Ativo
-								</Badge>
+								<Badge className={cn(colors.bg, "text-white text-[10px] h-5")}>Ativo</Badge>
 							)}
 						</button>
-					);
+					)
 				})}
 
 				{/* Add new template button */}
@@ -152,5 +150,5 @@ export function TemplatePalette({
 				</p>
 			)}
 		</div>
-	);
+	)
 }
