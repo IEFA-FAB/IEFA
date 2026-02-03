@@ -36,7 +36,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat \
+    && apk add --no-cache curl unzip \
+    && curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun
 
 # Copia as dependências necessárias para runtime
 COPY --from=build --chown=node:node /repo/node_modules ./node_modules
@@ -49,17 +52,14 @@ COPY --from=build --chown=node:node /repo/apps/sisub/.output ./apps/sisub/.outpu
 
 # Instala as dependências do servidor com binários nativos
 # O Nitro cria um package.json traced mas não inclui binários nativos
-# CRITICAL: Mudamos ownership ANTES de instalar para evitar conflito de permissões
-RUN chown -R node:node /app/apps/sisub/.output/server
-
-USER node
-
-# Instala como usuário node para manter permissões consistentes
+# Usamos Bun porque ele entende workspace: protocol (npm não entende)
 WORKDIR /app/apps/sisub/.output/server
-RUN npm install --omit=dev \
-    && npm cache clean --force
+RUN bun install --production \
+    && rm -rf /root/.bun/install/cache
 
 WORKDIR /app
+
+USER node
 EXPOSE 3000
 
 # Roda o servidor com Node para evitar memory leak do Bun runtime
