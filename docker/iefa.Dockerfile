@@ -42,7 +42,7 @@ ENV PORT=3000
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat \
-    && apk add --no-cache curl unzip \
+    && apk add --no-cache curl unzip bash \
     && curl -fsSL https://bun.sh/install | bash \
     && ln -s /root/.bun/bin/bun /usr/local/bin/bun
 
