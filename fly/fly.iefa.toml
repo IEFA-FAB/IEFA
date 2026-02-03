@@ -2,8 +2,8 @@ app = "iefa"
 primary_region = "gru"
 
 [build]
-  dockerfile = "docker/iefa.Dockerfile"
-  context = "."
+  dockerfile = "../docker/iefa.Dockerfile"
+  context = ".."
 
 [env]
   NODE_ENV = "production"

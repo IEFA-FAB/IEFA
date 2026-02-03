@@ -2,8 +2,8 @@ app = "sisub"
 primary_region = "gru"
 
 [build]
-  dockerfile = "docker/sisub.Dockerfile"
-  context = "."
+  dockerfile = "../docker/sisub.Dockerfile"
+  context = ".."
 
 [env]
   NODE_ENV = "production"
