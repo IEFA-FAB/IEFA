@@ -5,7 +5,7 @@
   "overrides": {
     "react": "^19.2",
     "react-dom": "^19.2",
-    "@tanstack/router-core": "^1.139.6",
+    "@tanstack/router-core": "^1.145.6",
     "@tanstack/query-core": "^5.66.5",
     "vite": "npm:rolldown-vite@latest"
   },

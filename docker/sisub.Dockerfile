@@ -7,7 +7,7 @@ WORKDIR /repo
 
 # --- Deps (Cache de dependências do Monorepo) ---
 FROM base AS deps
-COPY bun.lock package.json ./ss
+COPY bun.lock package.json ./
 COPY packages ./packages
 COPY apps ./apps
 RUN bun install --frozen-lockfile --no-save

@@ -198,6 +198,7 @@ const JournalEditorialArticlesArticleIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof PublicIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
@@ -207,7 +208,6 @@ export interface FileRoutesByFullPath {
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
-  '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
   '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
@@ -221,11 +221,11 @@ export interface FileRoutesByFullPath {
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
-  '/facilities': typeof PublicFacilitiesIndexRoute
-  '/posts': typeof PublicPostsIndexRoute
-  '/journal/articles': typeof JournalArticlesIndexRoute
-  '/journal/review': typeof JournalReviewIndexRoute
-  '/journal/submissions': typeof JournalSubmissionsIndexRoute
+  '/facilities/': typeof PublicFacilitiesIndexRoute
+  '/posts/': typeof PublicPostsIndexRoute
+  '/journal/articles/': typeof JournalArticlesIndexRoute
+  '/journal/review/': typeof JournalReviewIndexRoute
+  '/journal/submissions/': typeof JournalSubmissionsIndexRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
 }
 export interface FileRoutesByTo {
@@ -293,6 +293,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/auth'
     | '/journal'
     | '/health'
@@ -302,7 +303,6 @@ export interface FileRouteTypes {
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
-    | '/'
     | '/auth/'
     | '/journal/'
     | '/facilities/pregoeiro'
@@ -316,11 +316,11 @@ export interface FileRouteTypes {
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
-    | '/facilities'
-    | '/posts'
-    | '/journal/articles'
-    | '/journal/review'
-    | '/journal/submissions'
+    | '/facilities/'
+    | '/posts/'
+    | '/journal/articles/'
+    | '/journal/review/'
+    | '/journal/submissions/'
     | '/journal/editorial/articles/$articleId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -418,7 +418,7 @@ declare module '@tanstack/react-router' {
     '/_public': {
       id: '/_public'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -488,35 +488,35 @@ declare module '@tanstack/react-router' {
     '/journal/submissions/': {
       id: '/journal/submissions/'
       path: '/submissions'
-      fullPath: '/journal/submissions'
+      fullPath: '/journal/submissions/'
       preLoaderRoute: typeof JournalSubmissionsIndexRouteImport
       parentRoute: typeof JournalRouteRoute
     }
     '/journal/review/': {
       id: '/journal/review/'
       path: '/review'
-      fullPath: '/journal/review'
+      fullPath: '/journal/review/'
       preLoaderRoute: typeof JournalReviewIndexRouteImport
       parentRoute: typeof JournalRouteRoute
     }
     '/journal/articles/': {
       id: '/journal/articles/'
       path: '/articles'
-      fullPath: '/journal/articles'
+      fullPath: '/journal/articles/'
       preLoaderRoute: typeof JournalArticlesIndexRouteImport
       parentRoute: typeof JournalRouteRoute
     }
     '/_public/posts/': {
       id: '/_public/posts/'
       path: '/posts'
-      fullPath: '/posts'
+      fullPath: '/posts/'
       preLoaderRoute: typeof PublicPostsIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/facilities/': {
       id: '/_public/facilities/'
       path: '/facilities'
-      fullPath: '/facilities'
+      fullPath: '/facilities/'
       preLoaderRoute: typeof PublicFacilitiesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
