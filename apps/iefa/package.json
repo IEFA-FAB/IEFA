@@ -10,7 +10,8 @@
         "format": "biome format",
         "lint": "biome lint",
         "check": "biome check",
-        "typecheck": "tsgo --noEmit"
+        "typecheck": "tsgo --noEmit",
+        "validate-env": "bun run -e \"import('@repo/env').then(m => m.validateIefaEnv())\""
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",
@@ -46,7 +47,8 @@
         "tailwind-merge": "^3.4.0",
         "tailwindcss": "^4.1.18",
         "vite-tsconfig-paths": "^5.1.4",
-        "zod": "^4.3.5"
+        "zod": "^4.3.5",
+        "@repo/env": "workspace:*"
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.4",

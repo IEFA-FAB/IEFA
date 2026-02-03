@@ -1,0 +1,303 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================
+  # VALIDAÇÃO - Falha rápido
+  # ============================================
+  validate:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      
+      - name: Validate all envs
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
+          VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
+          VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_ANON_KEY: ${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
+          API_PORT: ${{ secrets.API_PORT }}
+          API_SUPABASE_URL: ${{ secrets.API_SUPABASE_URL }}
+          API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+        run: bunx turbo run validate-env
+
+  # ============================================
+  # QUALITY - Lint, types, tests
+  # ============================================
+  quality:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bunx turbo run lint typecheck test
+
+  # ============================================
+  # DETECT CHANGES
+  # ============================================
+  changes:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      iefa: ${{ steps.filter.outputs.iefa }}
+      sisub: ${{ steps.filter.outputs.sisub }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+            iefa:
+              - 'apps/iefa/**'
+              - 'packages/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+            sisub:
+              - 'apps/sisub/**'
+              - 'packages/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+            docs:
+              - 'apps/docs/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+
+  # ============================================
+  # BUILD & DEPLOY - API
+  # ============================================
+  deploy-api:
+    needs: [validate, quality, changes]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 20
+    concurrency:
+      group: fly-deploy-api-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Fly Registry
+        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+      
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+      
+      - name: Build and push
+        uses: docker/bake-action@v4
+        with:
+          targets: api
+          push: true
+          set: |
+            api.tags=registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
+            api.tags=registry.fly.io/iefa-api:latest
+      
+      - name: Deploy to Fly
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+      
+      - name: Set Fly secrets
+        run: |
+          flyctl --config fly/fly.api.toml secrets set \
+            API_PORT=${{ secrets.API_PORT }} \
+            API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }} \
+            API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Deploy
+        run: flyctl deploy -c fly/fly.api.toml --image registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Smoke test
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "${{ vars.API_HEALTH_URL }}" > /dev/null; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Health check failed"
+          exit 1
+
+  # ============================================
+  # BUILD & DEPLOY - IEFA
+  # ============================================
+  deploy-iefa:
+    needs: [validate, quality, changes]
+    if: needs.changes.outputs.iefa == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 20
+    concurrency:
+      group: fly-deploy-iefa-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Fly Registry
+        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+      
+      - name: Create env file for build
+        run: |
+          cat <<EOF > .env.iefa
+          VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
+          VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
+          VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
+          EOF
+      
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+      
+      - name: Build and push
+        uses: docker/bake-action@v4
+        with:
+          targets: iefa
+          push: true
+          set: |
+            iefa.tags=registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
+            iefa.tags=registry.fly.io/iefa:latest
+      
+      - name: Deploy to Fly
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+      
+      - name: Set Fly secrets
+        run: |
+          flyctl --config fly/fly.iefa.toml secrets set \
+            VITE_IEFA_SUPABASE_URL="${{ secrets.VITE_IEFA_SUPABASE_URL }}" \
+            VITE_IEFA_SUPABASE_ANON_KEY="${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}" \
+            VITE_RAG_SUPABASE_URL="${{ secrets.VITE_RAG_SUPABASE_URL }}" \
+            VITE_RAG_SUPABASE_SERVICE_ROLE_KEY="${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Deploy
+        run: flyctl deploy -c fly/fly.iefa.toml --image registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Smoke test
+        run: |
+          for i in {1..30}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.IEFA_HEALTH_URL }}" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then
+              echo "✅ IEFA health check passed"
+              exit 0
+            fi
+            echo "Attempt $i/30 - status: ${status:-(connection error)} - waiting 10s..."
+            sleep 10
+          done
+          echo "❌ IEFA health check failed"
+          exit 1
+      
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          PREV=$(flyctl releases -c fly/fly.iefa.toml --json | jq -r '.[1].ImageRef // empty')
+          [[ -n "$PREV" ]] && flyctl deploy -c fly/fly.iefa.toml --image "$PREV"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # ============================================
+  # BUILD & DEPLOY - SISUB
+  # ============================================
+  deploy-sisub:
+    needs: [validate, quality, changes]
+    if: needs.changes.outputs.sisub == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 20
+    concurrency:
+      group: fly-deploy-sisub-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Fly Registry
+        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+      
+      - name: Create env file for build
+        run: |
+          cat <<EOF > .env.sisub
+          VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
+          EOF
+      
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+      
+      - name: Build and push
+        uses: docker/bake-action@v4
+        with:
+          targets: sisub
+          push: true
+          set: |
+            sisub.tags=registry.fly.io/iefa-sisub:${{ steps.meta.outputs.tag }}
+            sisub.tags=registry.fly.io/iefa-sisub:latest
+      
+      - name: Deploy to Fly
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+      
+      - name: Set Fly secrets
+        run: |
+          flyctl --config fly/fly.sisub.toml secrets set \
+            VITE_SISUB_SUPABASE_URL="${{ secrets.VITE_SISUB_SUPABASE_URL }}" \
+            VITE_SISUB_SUPABASE_ANON_KEY="${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Deploy
+        run: flyctl deploy -c fly/fly.sisub.toml --image registry.fly.io/iefa-sisub:${{ steps.meta.outputs.tag }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Smoke test
+        run: |
+          for i in {1..30}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.SISUB_HEALTH_URL }}" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then
+              echo "✅ SISUB health check passed"
+              exit 0
+            fi
+            echo "Attempt $i/30 - status: ${status:-(connection error)} - waiting 10s..."
+            sleep 10
+          done
+          echo "❌ SISUB health check failed"
+          exit 1
+      
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          PREV=$(flyctl releases -c fly/fly.sisub.toml --json | jq -r '.[1].ImageRef // empty')
+          [[ -n "$PREV" ]] && flyctl deploy -c fly/fly.sisub.toml --image "$PREV"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
