@@ -142,6 +142,7 @@ const ProtectedAdminRecipesRecipeIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof PublicIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/forecast': typeof ProtectedForecastRoute
@@ -151,18 +152,18 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
-  '/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/admin/planning': typeof ProtectedAdminPlanningRoute
   '/admin/procurement': typeof ProtectedAdminProcurementRoute
   '/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
-  '/admin': typeof ProtectedAdminIndexRoute
-  '/superAdmin': typeof ProtectedSuperAdminIndexRoute
+  '/admin/': typeof ProtectedAdminIndexRoute
+  '/superAdmin/': typeof ProtectedSuperAdminIndexRoute
   '/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
   '/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
-  '/admin/recipes': typeof ProtectedAdminRecipesIndexRoute
+  '/admin/recipes/': typeof ProtectedAdminRecipesIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof PublicIndexRoute
   '/health': typeof HealthRoute
   '/forecast': typeof ProtectedForecastRoute
   '/presence': typeof ProtectedPresenceRoute
@@ -171,7 +172,6 @@ export interface FileRoutesByTo {
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
-  '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
   '/admin/planning': typeof ProtectedAdminPlanningRoute
   '/admin/procurement': typeof ProtectedAdminProcurementRoute
@@ -209,6 +209,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/auth'
     | '/health'
     | '/forecast'
@@ -218,18 +219,18 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/tutorial'
     | '/auth/reset-password'
-    | '/'
     | '/auth/'
     | '/admin/planning'
     | '/admin/procurement'
     | '/superAdmin/ingredients'
-    | '/admin'
-    | '/superAdmin'
+    | '/admin/'
+    | '/superAdmin/'
     | '/admin/recipes/$recipeId'
     | '/admin/recipes/new'
-    | '/admin/recipes'
+    | '/admin/recipes/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/health'
     | '/forecast'
     | '/presence'
@@ -238,7 +239,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/tutorial'
     | '/auth/reset-password'
-    | '/'
     | '/auth'
     | '/admin/planning'
     | '/admin/procurement'
@@ -299,14 +299,14 @@ declare module '@tanstack/react-router' {
     '/_public': {
       id: '/_public'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof PublicRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected': {
       id: '/_protected'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof ProtectedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -376,14 +376,14 @@ declare module '@tanstack/react-router' {
     '/_protected/superAdmin/': {
       id: '/_protected/superAdmin/'
       path: '/superAdmin'
-      fullPath: '/superAdmin'
+      fullPath: '/superAdmin/'
       preLoaderRoute: typeof ProtectedSuperAdminIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
     '/_protected/admin/': {
       id: '/_protected/admin/'
       path: '/admin'
-      fullPath: '/admin'
+      fullPath: '/admin/'
       preLoaderRoute: typeof ProtectedAdminIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
@@ -411,7 +411,7 @@ declare module '@tanstack/react-router' {
     '/_protected/admin/recipes/': {
       id: '/_protected/admin/recipes/'
       path: '/admin/recipes'
-      fullPath: '/admin/recipes'
+      fullPath: '/admin/recipes/'
       preLoaderRoute: typeof ProtectedAdminRecipesIndexRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }

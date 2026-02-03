@@ -6,7 +6,6 @@
         "dev": "bunx --bun vite dev",
         "build": "bunx --bun vite build",
         "serve": "bunx --bun vite preview",
-        "test": "vitest run",
         "format": "biome format",
         "lint": "biome lint",
         "check": "biome check",
@@ -51,7 +50,6 @@
         "@repo/env": "workspace:*"
     },
     "devDependencies": {
-        "@biomejs/biome": "2.2.4",
         "@sanity/types": "^5.7.0",
         "@tanstack/devtools-event-client": "^0.3.5",
         "@tanstack/devtools-vite": "^0.3.12",
