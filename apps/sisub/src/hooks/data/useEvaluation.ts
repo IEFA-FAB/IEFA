@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import supabase from "@/lib/supabase"
-import type { EvaluationResult } from "@/types/domain"
+import type { EvaluationResult } from "@/types/domain/admin"
 
 const QUERY_STALE_TIME = 5 * 60_000
 const QUERY_GC_TIME = 10 * 60_000

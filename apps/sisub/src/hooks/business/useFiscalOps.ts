@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import supabase from "@/lib/supabase"
-import type { FiscalFilters } from "@/types/domain"
+import type { FiscalFilters } from "@/types/domain/presence"
 
 // QUERIES KEYS
 const opsKeys = {
@@ -79,7 +79,7 @@ export function useAddOtherPresence() {
 			if (error) throw error
 			return messHallId // return for invalidation context if needed
 		},
-		onSuccess: (_, { filters }) => {
+		onSuccess: (_, { filters: _filters }) => {
 			// Não temos o ID aqui fácil sem refazer a query, mas podemos invalidar tudo
 			// Melhor seria invalidar apenas com os dados que temos.
 			// Como useOtherPresencesCount depende de (date, meal, messHallId),

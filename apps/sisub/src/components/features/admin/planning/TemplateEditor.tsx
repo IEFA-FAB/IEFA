@@ -59,7 +59,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 	// Data hooks
 	const { data: mealTypes } = useMealTypes(kitchenId)
 	const { data: allRecipes } = useRecipes()
-	const { data: existingTemplate } = useTemplate(templateId)
+	const { data: existingTemplate } = useTemplate(templateId ?? null)
 	const { mutate: createTemplate, isPending: isCreating } = useCreateTemplate()
 	const { mutate: updateTemplate, isPending: isUpdating } = useUpdateTemplate()
 
@@ -80,13 +80,13 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 	// Initialize form when editing
 	React.useEffect(() => {
 		if (existingTemplate && open) {
-			setName(existingTemplate.name)
+			setName(existingTemplate.name ?? "")
 			setDescription(existingTemplate.description || "")
 			setItems(
 				existingTemplate.items.map((item) => ({
-					day_of_week: item.day_of_week,
-					meal_type_id: item.meal_type_id,
-					recipe_id: item.recipe_id,
+					day_of_week: item.day_of_week ?? 0,
+					meal_type_id: item.meal_type_id ?? "",
+					recipe_id: item.recipe_id ?? "",
 				}))
 			)
 		} else if (!isEditing && open) {
@@ -280,7 +280,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 														<TemplateGridCell
 															dayOfWeek={day.num}
 															mealTypeId={mealType.id}
-															mealTypeName={mealType.name}
+															mealTypeName={mealType.name ?? ""}
 															recipes={getCellRecipes(day.num, mealType.id)}
 															onAddRecipes={() => handleOpenSelector(day.num, mealType.id)}
 															onRemoveRecipe={(recipeId) =>

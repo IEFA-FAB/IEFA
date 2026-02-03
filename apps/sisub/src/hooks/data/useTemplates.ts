@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import supabase from "@/lib/supabase"
+import type { Json } from "@/types/database.types"
 import type {
 	ApplyTemplatePayload,
 	MenuTemplateWithItems,
@@ -508,7 +509,7 @@ export function useApplyTemplate() {
 			const newMenuItems: Array<{
 				daily_menu_id: string
 				recipe_origin_id: string
-				recipe: any
+				recipe: Json
 			}> = []
 
 			for (const dateStr of targetDates) {
@@ -539,7 +540,10 @@ export function useApplyTemplate() {
 				)
 
 				// Criar daily_menu para cada meal_type
-				for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
+				for (const [mealTypeId, items] of Object.entries(itemsByMealType) as [
+					string,
+					(typeof dayItems)[number][],
+				][]) {
 					const menuId = crypto.randomUUID()
 
 					newMenus.push({

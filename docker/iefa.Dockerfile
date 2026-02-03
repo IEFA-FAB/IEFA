@@ -1,7 +1,7 @@
 # iefa.Dockerfile
 
 # --- Build Stage (uses Bun for fast builds) ---
-FROM oven/bun:1.3.6-alpine AS base
+FROM oven/bun:1.3.8-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /repo
 

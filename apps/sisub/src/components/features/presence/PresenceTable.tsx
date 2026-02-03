@@ -9,8 +9,10 @@ import {
 	TableRow,
 } from "@iefa/ui"
 import { Trash2 } from "lucide-react"
-import { type FiscalPresenceRecord, MEAL_LABEL, type MealKey } from "@/lib/fiscal"
+import { MEAL_LABEL } from "@/lib/fiscal"
 import { formatDate } from "@/lib/meal"
+import type { MealKey } from "@/types/domain/meal"
+import type { FiscalPresenceRecord } from "@/types/domain/presence"
 
 interface PresenceTableProps {
 	selectedDate: string
@@ -85,7 +87,7 @@ export default function PresenceTable({
 											</TableCell>
 
 											<TableCell>{formatDate(row.date)}</TableCell>
-											<TableCell>{MEAL_LABEL[row.meal]}</TableCell>
+											<TableCell>{MEAL_LABEL[row.meal as MealKey]}</TableCell>
 											<TableCell>
 												{saidWouldAttend ? (
 													<Badge variant="default">Sim</Badge>

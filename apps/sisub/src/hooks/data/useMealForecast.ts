@@ -11,7 +11,7 @@ import type {
 	MessHallByDate,
 	PendingChange,
 	SelectionsByDate,
-} from "@/types/domain"
+} from "@/types/domain/meal"
 
 // Business timings
 const DAYS_TO_SHOW = 30

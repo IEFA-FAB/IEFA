@@ -31,7 +31,7 @@ export function Step1ArticleType() {
 				</Label>
 				<Select
 					value={formData.article_type ?? undefined}
-					onValueChange={(value) => updateFormData({ article_type: value })}
+					onValueChange={(value) => updateFormData({ article_type: value ?? undefined })}
 				>
 					<SelectTrigger id="article_type">
 						<SelectValue placeholder="Selecione o tipo de artigo" />
@@ -55,7 +55,7 @@ export function Step1ArticleType() {
 				</Label>
 				<Select
 					value={formData.subject_area ?? undefined}
-					onValueChange={(value) => updateFormData({ subject_area: value })}
+					onValueChange={(value) => updateFormData({ subject_area: value ?? undefined })}
 				>
 					<SelectTrigger id="subject_area">
 						<SelectValue placeholder="Selecione a área de conhecimento" />

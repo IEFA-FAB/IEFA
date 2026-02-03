@@ -15,9 +15,9 @@ import {
 	SelectValue,
 } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
 import { z } from "zod"
-import type { NewUserPayload, Unit, UserLevelOrNull } from "@/types/domain"
+import type { NewUserPayload, UserLevelOrNull } from "@/types/domain/admin"
+import type { Unit } from "@/types/domain/meal"
 
 // Remove local NewUserPayload definition and import from domain
 // Schema de validação
@@ -56,8 +56,6 @@ export default function AddUserDialog({
 			role: "user" as UserLevelOrNull,
 			om: "",
 		},
-		// @ts-expect-error
-		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: addUserSchema,
 		},
@@ -236,7 +234,7 @@ export default function AddUserDialog({
 								<div className="col-span-3">
 									<Select
 										value={field.state.value || ""}
-										onValueChange={(value) => field.handleChange(value)}
+										onValueChange={(value) => field.handleChange(value || "")}
 										disabled={isLoadingUnits}
 									>
 										<SelectTrigger>
@@ -249,7 +247,7 @@ export default function AddUserDialog({
 										<SelectContent>
 											{(units || []).map((u) => (
 												<SelectItem key={u.code} value={u.code}>
-													{u.name ? u.name : u.code}
+													{u.display_name ? u.display_name : u.code}
 												</SelectItem>
 											))}
 										</SelectContent>

@@ -77,7 +77,7 @@ export function RecipeSelector({
 			const matchesSearch =
 				searchQuery === "" ||
 				recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				recipe.code?.toLowerCase().includes(searchQuery.toLowerCase())
+				recipe.rational_id?.toLowerCase().includes(searchQuery.toLowerCase())
 
 			return matchesKitchen && matchesSearch
 		})
@@ -154,16 +154,16 @@ export function RecipeSelector({
 														</Badge>
 													)}
 												</div>
-												{recipe.code && (
+												{recipe.rational_id && (
 													<span className="text-xs text-muted-foreground font-mono">
-														{recipe.code}
+														{recipe.rational_id}
 													</span>
 												)}
 											</div>
 
-											{recipe.yield_quantity && (
+											{recipe.portion_yield && (
 												<span className="text-xs text-muted-foreground">
-													Rende: {recipe.yield_quantity} porções
+													Rende: {recipe.portion_yield} porções
 												</span>
 											)}
 										</CommandItem>

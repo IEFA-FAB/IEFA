@@ -43,7 +43,12 @@ import {
 	useUpdateProfile,
 } from "@/hooks/data/useAdminProfiles"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
-import type { EditUserPayload, NewUserPayload, ProfileAdmin, UserLevelOrNull } from "@/types/domain"
+import type {
+	EditUserPayload,
+	NewUserPayload,
+	ProfileAdmin,
+	UserLevelOrNull,
+} from "@/types/domain/admin"
 import AddUserDialog from "./AddUserDialog"
 import DeleteUserDialog from "./DeleteUserDialog"
 import EditUserDialog from "./EditUserDialog"

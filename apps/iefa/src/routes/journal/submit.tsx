@@ -10,10 +10,11 @@ import { submitArticle } from "@/lib/journal/submission"
 export const Route = createFileRoute("/journal/submit")({
 	beforeLoad: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
-		if (!auth.isAuthenticated) {
+		if (!auth.isAuthenticated || !auth.user) {
 			throw redirect({ to: "/auth" })
 		}
-		return { auth }
+		// Type assertion: after the guard, we know user is non-null
+		return { auth: auth as typeof auth & { user: NonNullable<typeof auth.user> } }
 	},
 	loader: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
@@ -31,11 +32,7 @@ function RouteComponent() {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
-	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(auth.user?.id || ""))
-
-	if (!auth.user) {
-		return null
-	}
+	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(auth.user.id))
 
 	// biome-ignore lint/suspicious/noExplicitAny: Form data structure is dynamic
 	const handleSubmit = async (formData: any) => {
@@ -43,7 +40,7 @@ function RouteComponent() {
 		setError(null)
 
 		try {
-			const result = await submitArticle(formData, auth.user?.id)
+			const result = await submitArticle(formData, auth.user.id)
 
 			if (!result.success) {
 				setError(result.error || "Erro ao submeter artigo")
@@ -52,10 +49,12 @@ function RouteComponent() {
 			}
 
 			// Success - navigate to submission detail
-			await navigate({
-				to: "/journal/submissions/$id",
-				params: { id: result.article?.id },
-			})
+			if (result.article?.id) {
+				await navigate({
+					to: "/journal/submissions/$id",
+					params: { id: result.article.id },
+				})
+			}
 		} catch (err) {
 			console.error("Submission error:", err)
 			setError("Erro inesperado ao submeter artigo")

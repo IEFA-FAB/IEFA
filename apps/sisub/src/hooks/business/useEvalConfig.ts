@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import supabase from "@/lib/supabase"
-import type { EvalConfig } from "@/types/domain"
+import type { EvalConfig } from "@/types/domain/admin"
 
 async function fetchEvalConfig(): Promise<EvalConfig> {
 	const { data, error } = await supabase

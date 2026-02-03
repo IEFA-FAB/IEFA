@@ -128,14 +128,14 @@ export default function Forecast(): JSX.Element {
 
 		// Add default kitchen
 		const defaultMh = messHalls.find((m) => String(m.id) === String(defaultMessHallId))
-		if (defaultMh?.kitchenId) ids.add(defaultMh.kitchenId)
+		if (defaultMh?.kitchen_id) ids.add(defaultMh.kitchen_id)
 
 		// Add kitchens from overrides
 		dates.forEach((date) => {
 			const code = dayMessHalls[date]
 			if (code) {
 				const mh = messHalls.find((m) => m.code === code)
-				if (mh?.kitchenId) ids.add(mh.kitchenId)
+				if (mh?.kitchen_id) ids.add(mh.kitchen_id)
 			}
 		})
 

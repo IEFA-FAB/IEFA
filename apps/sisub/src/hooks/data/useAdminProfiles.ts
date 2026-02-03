@@ -1,7 +1,8 @@
+import type { PostgrestError } from "@supabase/supabase-js"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import supabase from "@/lib/supabase"
-import type { EditUserPayload, NewUserPayload, ProfileAdmin } from "@/types/domain"
+import type { EditUserPayload, NewUserPayload, ProfileAdmin } from "@/types/domain/admin"
 
 export const ADMIN_PROFILES_KEY = ["admin", "profiles"]
 
@@ -45,9 +46,9 @@ export function useAddProfile() {
 			})
 			queryClient.invalidateQueries({ queryKey: ADMIN_PROFILES_KEY })
 		},
-		onError: (error: any) => {
-			toast.error("Erro ao adicionar usuário", {
-				description: error?.message ?? "Ocorreu um erro ao salvar. Tente novamente.",
+		onError: (error: PostgrestError) => {
+			toast.error("Erro", {
+				description: error?.message ?? "Ocorreu um erro ao salvar.",
 			})
 		},
 	})
@@ -74,7 +75,7 @@ export function useUpdateProfile() {
 			})
 			queryClient.invalidateQueries({ queryKey: ADMIN_PROFILES_KEY })
 		},
-		onError: (error: any) => {
+		onError: (error: PostgrestError) => {
 			toast.error("Erro ao atualizar", {
 				description: error?.message ?? "Não foi possível atualizar o registro.",
 			})
@@ -96,7 +97,7 @@ export function useDeleteProfile() {
 			})
 			queryClient.invalidateQueries({ queryKey: ADMIN_PROFILES_KEY })
 		},
-		onError: (error: any) => {
+		onError: (error: PostgrestError) => {
 			toast.error("Erro ao excluir", {
 				description: error?.message ?? "Não foi possível excluir o registro.",
 			})

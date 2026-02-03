@@ -11,12 +11,13 @@ import {
 } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "sonner"
-import type { FiscalPresenceRecord, MealKey } from "@/lib/fiscal"
 import supabase from "@/lib/supabase"
+import type { MealKey } from "@/types/domain/meal"
 import type {
 	ConfirmPresenceParams,
 	ConfirmPresenceResult,
 	FiscalFilters,
+	FiscalPresenceRecord,
 	ForecastMap,
 	ForecastRow,
 	QueryResult,
@@ -43,7 +44,12 @@ class UnitRequiredError extends Error {
  * @returns True if the error is a PostgrestError
  */
 const isPostgrestError = (e: unknown): e is PostgrestError => {
-	return typeof e === "object" && e !== null && "code" in e && typeof (e as any).code === "string"
+	return (
+		typeof e === "object" &&
+		e !== null &&
+		"code" in e &&
+		typeof (e as Record<string, unknown>).code === "string"
+	)
 }
 
 /**
@@ -157,6 +163,8 @@ const fetchPresences = async (filters: FiscalFilters): Promise<FiscalPresenceRec
 			date: r.date,
 			meal: r.meal,
 			created_at: r.created_at,
+			mess_hall_id: r.mess_hall_id,
+			updated_at: null, // Ou r.updated_at se disponível na view
 			unidade: filters.unit,
 		}
 		// Anexa display_name sem quebrar o tipo de retorno:

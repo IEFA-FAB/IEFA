@@ -91,7 +91,14 @@ export default function DashboardFilters({
 				{/* Mess Hall Selector */}
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="mess-hall-select">Rancho</Label>
-					<Select value={selectedMessHall} onValueChange={onMessHallChange}>
+					<Select
+						value={selectedMessHall}
+						onValueChange={(val) => {
+							if (val !== null) {
+								onMessHallChange(val)
+							}
+						}}
+					>
 						<SelectTrigger id="mess-hall-select">
 							<SelectValue placeholder="Selecione o rancho" />
 						</SelectTrigger>

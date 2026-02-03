@@ -190,16 +190,24 @@ function extractReferencesMd(text: string): {
 }
 /* === FIM helpers === */
 
-function parseContentJson(input: unknown): unknown {
+type ContentJson = {
+	answer?: string
+	question?: string
+	content?: string
+	references?: AskReference[]
+	sources?: string[]
+}
+
+function parseContentJson(input: unknown): ContentJson {
 	if (!input) return {}
 	if (typeof input === "string") {
 		try {
-			return JSON.parse(input)
+			return JSON.parse(input) as ContentJson
 		} catch {
 			return {}
 		}
 	}
-	if (typeof input === "object") return input
+	if (typeof input === "object") return input as ContentJson
 	return {}
 }
 
@@ -600,7 +608,8 @@ function MessageItem({
 						<ReactMarkdown
 							remarkPlugins={[remarkGfm, remarkBreaks]}
 							components={{
-								a: (props) => (
+								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
+								a: (props: any) => (
 									<a
 										{...props}
 										className="text-primary hover:underline"
@@ -608,14 +617,20 @@ function MessageItem({
 										rel="noreferrer noopener"
 									/>
 								),
-								p: (props) => <p {...props} className="mb-3 last:mb-0 text-sm leading-relaxed" />,
-								ul: (props) => (
+								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
+								p: (props: any) => (
+									<p {...props} className="mb-3 last:mb-0 text-sm leading-relaxed" />
+								),
+								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
+								ul: (props: any) => (
 									<ul {...props} className="list-disc pl-5 my-2 text-sm leading-relaxed" />
 								),
-								ol: (props) => (
+								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
+								ol: (props: any) => (
 									<ol {...props} className="list-decimal pl-5 my-2 text-sm leading-relaxed" />
 								),
-								code: (props) => (
+								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
+								code: (props: any) => (
 									<code
 										{...props}
 										className="bg-muted/70 px-1.5 py-0.5 rounded border border-border/30"

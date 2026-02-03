@@ -10,7 +10,7 @@ import {
 	Button,
 } from "@iefa/ui"
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react"
-import type { DialogState } from "@/lib/fiscal"
+import type { DialogState } from "@/types/domain/presence"
 
 interface FiscalDialogProps {
 	setDialog: Dispatch<SetStateAction<DialogState>>

@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core"
 import { useState } from "react"
 import { useUpdateArticle } from "@/lib/journal/hooks"
-import type { EditorialDashboardArticle } from "@/lib/journal/types"
+import type { ArticleStatus, EditorialDashboardArticle } from "@/lib/journal/types"
 import { ArticleCard } from "./ArticleCard"
 import { KanbanColumn } from "./KanbanColumn"
 
@@ -65,7 +65,7 @@ export function KanbanBoard({ articles }: KanbanBoardProps) {
 		}
 
 		const articleId = active.id as string
-		const newStatus = over.id as string
+		const newStatus = over.id as ArticleStatus
 
 		const article = articles.find((a) => a.id === articleId)
 

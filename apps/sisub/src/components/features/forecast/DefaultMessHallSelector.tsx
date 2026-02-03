@@ -38,10 +38,11 @@ export function DefaultMessHallSelector({
 	const [saving, setSaving] = useState(false)
 
 	const selected = messHalls.find((mh) => mh.code === defaultMessHallCode)
-	const selectedMessHallLabel = selected?.name || defaultMessHallCode
+	const selectedMessHallLabel = selected?.display_name || defaultMessHallCode
 	const hasMessHalls = (messHalls?.length ?? 0) > 0
 
-	const handleMessHallChange = (value: string) => {
+	const handleMessHallChange = (value: string | null) => {
+		if (!value) return
 		setDefaultMessHallCode(value) // apenas atualiza estado local (code)
 	}
 
@@ -127,7 +128,7 @@ export function DefaultMessHallSelector({
 									value={mh.code}
 									className="cursor-pointer data-highlighted:bg-accent data-highlighted:text-accent-foreground focus:bg-accent/20"
 								>
-									{mh.name ?? mh.code}
+									{mh.display_name ?? mh.code}
 								</SelectItem>
 							))}
 						</SelectContent>

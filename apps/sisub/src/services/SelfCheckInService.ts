@@ -35,18 +35,12 @@ export async function fetchMessHallByCode(code: string) {
 	return data // Returns MessHall or null
 }
 
-export const messHallByCodeQueryOptions = (code: string | undefined) =>
-	code
-		? queryOptions({
-				queryKey: QUERY_KEYS.messHall(code),
-				queryFn: () => fetchMessHallByCode(code),
-				staleTime: 60 * 60 * 1000, // 1 hour (mess halls change rarely)
-			})
-		: queryOptions({
-				queryKey: ["messHall", "disabled"] as const,
-				queryFn: () => null,
-				enabled: false,
-			})
+export const messHallByCodeQueryOptions = (code: string) =>
+	queryOptions({
+		queryKey: QUERY_KEYS.messHall(code),
+		queryFn: () => fetchMessHallByCode(code),
+		staleTime: 60 * 60 * 1000, // 1 hour (mess halls change rarely)
+	})
 
 export async function fetchUserMealForecast(
 	userId: string,
@@ -69,18 +63,15 @@ export async function fetchUserMealForecast(
 }
 
 export const userMealForecastQueryOptions = (
-	userId: string | undefined,
+	userId: string,
 	date: string,
 	meal: MealKey,
-	messHallId: number | null | undefined
+	messHallId: number | null
 ) =>
-	userId && messHallId
-		? queryOptions({
-				queryKey: QUERY_KEYS.mealForecast(userId, date, meal, messHallId),
-				queryFn: () => fetchUserMealForecast(userId, date, meal, messHallId),
-			})
-		: queryOptions({
-				queryKey: ["mealForecast", "disabled"] as const,
-				queryFn: () => null,
-				enabled: false,
-			})
+	queryOptions({
+		queryKey: messHallId
+			? QUERY_KEYS.mealForecast(userId, date, meal, messHallId)
+			: (["mealForecast", userId, date, meal, null] as const),
+		queryFn: messHallId ? () => fetchUserMealForecast(userId, date, meal, messHallId) : () => null,
+		enabled: !!messHallId,
+	})

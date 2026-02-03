@@ -3,7 +3,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import supabase from "@/lib/supabase"
-import type { MessHall, Unit } from "@/types/domain"
+import type { MessHall, Unit } from "@/types/domain/meal"
 
 /**
  * Custom hook to fetch and manage organizational units and mess halls.
@@ -61,7 +61,8 @@ export const useMessHalls = () => {
 			return (data ?? []).map((row) => ({
 				id: row.id,
 				code: row.code,
-				name: row.display_name,
+				display_name: row.display_name,
+				type: null, // Caso precise do enum
 			})) as Unit[]
 		},
 	})
@@ -82,10 +83,10 @@ export const useMessHalls = () => {
 
 			return (data ?? []).map((row) => ({
 				id: row.id,
-				unitId: row.unit_id,
+				unit_id: row.unit_id,
 				code: row.code,
-				name: row.display_name,
-				kitchenId: row.kitchen_id,
+				display_name: row.display_name,
+				kitchen_id: row.kitchen_id,
 			})) as MessHall[]
 		},
 	})
@@ -96,10 +97,10 @@ export const useMessHalls = () => {
 		// Quick derived structures
 		messHallsByUnitId:
 			(messHallsQuery.data ?? []).reduce<Record<number, MessHall[]>>((acc, mh) => {
-				if (!acc[mh.unitId]) {
-					acc[mh.unitId] = []
+				if (!acc[mh.unit_id]) {
+					acc[mh.unit_id] = []
 				}
-				acc[mh.unitId].push(mh)
+				acc[mh.unit_id].push(mh)
 				return acc
 			}, {}) ?? {},
 		isLoading: unitsQuery.isPending || messHallsQuery.isPending,

@@ -11,7 +11,6 @@ import {
 } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { zodValidator } from "@tanstack/zod-form-adapter"
 import { toast } from "sonner"
 import { z } from "zod"
 import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
@@ -21,10 +20,10 @@ import type { ProductItem } from "@/types/supabase.types"
 const productItemSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
 	product_id: z.string().uuid("Selecione um produto"),
-	barcode: z.string().optional(),
-	purchase_measure_unit: z.string().optional(),
-	unit_content_quantity: z.number().min(0).optional(),
-	correction_factor: z.number().min(0).optional(),
+	barcode: z.string(),
+	purchase_measure_unit: z.string(),
+	unit_content_quantity: z.number().min(0),
+	correction_factor: z.number().min(0),
 })
 
 interface ProductItemFormProps {
@@ -60,7 +59,6 @@ export function ProductItemForm({
 				? Number(productItem.correction_factor)
 				: 1.0,
 		},
-		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: productItemSchema,
 		},
@@ -138,7 +136,7 @@ export function ProductItemForm({
 								</Label>
 								<Select
 									value={field.state.value}
-									onValueChange={(value) => field.handleChange(value)}
+									onValueChange={(value) => field.handleChange(value || "")}
 								>
 									<option value="">Selecione um produto</option>
 									{products?.map((p) => (

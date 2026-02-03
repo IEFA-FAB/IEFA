@@ -1,7 +1,7 @@
 # api.Dockerfile
 
 # --- Base ---
-FROM oven/bun:1.3.6-alpine AS base
+FROM oven/bun:1.3.8-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /repo
 
@@ -24,7 +24,7 @@ RUN bun install --frozen-lockfile
 RUN bun --filter='api' run build
 
 # --- Runtime ---
-FROM oven/bun:1.3.6-alpine AS runtime
+FROM oven/bun:1.3.8-alpine AS runtime
 ENV NODE_ENV=production
 ENV API_PORT=3000
 WORKDIR /app

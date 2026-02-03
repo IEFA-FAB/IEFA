@@ -50,7 +50,7 @@ export function useRealtimeSubscription(options: {
 		const channel = supabase
 			.channel(`${table}-changes`)
 			.on(
-				"postgres_changes",
+				"postgres_changes" as any,
 				{
 					event,
 					schema: "sisub",

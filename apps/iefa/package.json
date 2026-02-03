@@ -9,7 +9,8 @@
         "test": "vitest run",
         "format": "biome format",
         "lint": "biome lint",
-        "check": "biome check"
+        "check": "biome check",
+        "typecheck": "tsgo --noEmit"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",
@@ -30,6 +31,7 @@
         "@tanstack/react-start": "^1.145.9",
         "@tanstack/react-table": "^8.21.3",
         "@tanstack/router-plugin": "^1.145.7",
+        "@typescript/native-preview": "^7.0.0-dev.20260202.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",

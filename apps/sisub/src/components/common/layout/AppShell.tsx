@@ -101,7 +101,7 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 				variant="floating"
 				data={sidebarData ?? undefined}
 				isLoading={levelLoading}
-				collapsible={showSidebar ? "icon" : "offcanvas"}
+				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
 
 			<SidebarInset className="bg-transparent h-full overflow-y-auto w-full flex flex-col">

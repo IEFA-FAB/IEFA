@@ -15,10 +15,10 @@ import {
 	SelectValue,
 } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
 import * as React from "react"
 import { z } from "zod"
-import type { EditUserPayload, ProfileAdmin, Unit, UserLevelOrNull } from "@/types/domain"
+import type { EditUserPayload, ProfileAdmin, UserLevelOrNull } from "@/types/domain/admin"
+import type { Unit } from "@/types/domain/meal"
 
 // Validations
 const editUserSchema = z.object({
@@ -52,8 +52,6 @@ export default function EditUserDialog({
 			role: (profile?.role || "user") as UserLevelOrNull,
 			om: profile?.om || "",
 		},
-		// @ts-expect-error
-		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: editUserSchema,
 		},
@@ -132,7 +130,7 @@ export default function EditUserDialog({
 								<div className="col-span-3">
 									<Select
 										value={field.state.value || ""}
-										onValueChange={(value) => field.handleChange(value)}
+										onValueChange={(value) => field.handleChange(value || "")}
 										disabled={isLoadingUnits}
 									>
 										<SelectTrigger>
@@ -143,7 +141,7 @@ export default function EditUserDialog({
 										<SelectContent>
 											{(units || []).map((u) => (
 												<SelectItem key={u.code} value={u.code}>
-													{u.name ? u.name : u.code}
+													{u.display_name ? u.display_name : u.code}
 												</SelectItem>
 											))}
 										</SelectContent>

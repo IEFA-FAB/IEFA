@@ -100,7 +100,7 @@ function ArticleDetailEditor() {
 								<div>
 									<h3 className="font-medium text-sm mb-2">Palavras-chave</h3>
 									<div className="flex flex-wrap gap-2">
-										{article.keywords_pt?.map((keyword) => (
+										{article.keywords_pt?.map((keyword: string) => (
 											<span key={keyword} className="px-2 py-1 bg-muted rounded text-xs">
 												{keyword}
 											</span>
@@ -110,7 +110,7 @@ function ArticleDetailEditor() {
 								<div>
 									<h3 className="font-medium text-sm mb-2">Keywords</h3>
 									<div className="flex flex-wrap gap-2">
-										{article.keywords_en?.map((keyword) => (
+										{article.keywords_en?.map((keyword: string) => (
 											<span key={keyword} className="px-2 py-1 bg-muted rounded text-xs">
 												{keyword}
 											</span>
@@ -128,26 +128,34 @@ function ArticleDetailEditor() {
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-3">
-								{article.authors?.map((author) => (
-									<div
-										key={author.id}
-										className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
-									>
-										<User className="size-5 mt-0.5 text-muted-foreground" />
-										<div>
-											<p className="font-medium">{author.full_name}</p>
-											{author.affiliation && (
-												<p className="text-sm text-muted-foreground">{author.affiliation}</p>
-											)}
-											{author.email && (
-												<p className="text-xs text-muted-foreground">{author.email}</p>
-											)}
-											{author.is_corresponding && (
-												<span className="text-xs text-primary">Autor Correspondente</span>
-											)}
+								{article.authors?.map(
+									(author: {
+										id: string
+										full_name: string
+										affiliation?: string | null
+										email?: string | null
+										is_corresponding?: boolean | null
+									}) => (
+										<div
+											key={author.id}
+											className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+										>
+											<User className="size-5 mt-0.5 text-muted-foreground" />
+											<div>
+												<p className="font-medium">{author.full_name}</p>
+												{author.affiliation && (
+													<p className="text-sm text-muted-foreground">{author.affiliation}</p>
+												)}
+												{author.email && (
+													<p className="text-xs text-muted-foreground">{author.email}</p>
+												)}
+												{author.is_corresponding && (
+													<span className="text-xs text-primary">Autor Correspondente</span>
+												)}
+											</div>
 										</div>
-									</div>
-								))}
+									)
+								)}
 							</div>
 						</CardContent>
 					</Card>
@@ -159,29 +167,36 @@ function ArticleDetailEditor() {
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-2">
-								{article.versions?.map((version) => (
-									<div
-										key={version.id}
-										className="flex items-center justify-between p-3 rounded-lg border"
-									>
-										<div className="flex items-center gap-3">
-											<FileText className="size-5 text-muted-foreground" />
-											<div>
-												<p className="font-medium text-sm">
-													Versão {version.version_number}
-													{version.version_label && ` - ${version.version_label}`}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{new Date(version.created_at).toLocaleDateString()}
-												</p>
+								{article.versions?.map(
+									(version: {
+										id: string
+										version_number: number
+										version_label?: string | null
+										created_at: string
+									}) => (
+										<div
+											key={version.id}
+											className="flex items-center justify-between p-3 rounded-lg border"
+										>
+											<div className="flex items-center gap-3">
+												<FileText className="size-5 text-muted-foreground" />
+												<div>
+													<p className="font-medium text-sm">
+														Versão {version.version_number}
+														{version.version_label && ` - ${version.version_label}`}
+													</p>
+													<p className="text-xs text-muted-foreground">
+														{new Date(version.created_at).toLocaleDateString()}
+													</p>
+												</div>
 											</div>
+											<Button size="sm" variant="outline">
+												<Download className="size-4 mr-2" />
+												Download
+											</Button>
 										</div>
-										<Button size="sm" variant="outline">
-											<Download className="size-4 mr-2" />
-											Download
-										</Button>
-									</div>
-								))}
+									)
+								)}
 							</div>
 						</CardContent>
 					</Card>

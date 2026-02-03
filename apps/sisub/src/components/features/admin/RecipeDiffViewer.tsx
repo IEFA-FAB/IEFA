@@ -104,6 +104,10 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 				<h3 className="text-sm font-medium mb-2">Comparativo de Ingredientes</h3>
 				<div className="border rounded-md divide-y">
 					{allProductIds.map((productId) => {
+						if (productId == null) {
+							return null
+						}
+
 						const oldIng = findIngredient(oldVersion.ingredients, productId)
 						const newIng = findIngredient(newVersion.ingredients, productId)
 

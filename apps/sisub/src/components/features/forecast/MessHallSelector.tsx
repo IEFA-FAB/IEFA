@@ -45,7 +45,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 		const selectorData = useMemo(() => {
 			const selectedMessHall = (messHalls ?? []).find((mh) => mh.code === value)
 			const isValidSelection = Boolean(selectedMessHall)
-			const displayLabel = selectedMessHall?.name || value
+			const displayLabel = selectedMessHall?.display_name || value
 
 			return {
 				selectedMessHall,
@@ -89,8 +89,8 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 
 		// Handler memoizado
 		const handleChange = useCallback(
-			(newValue: string) => {
-				if (disabled || newValue === value) return
+			(newValue: string | null) => {
+				if (disabled || !newValue || newValue === value) return
 				onChange(newValue)
 			},
 			[disabled, value, onChange]
@@ -106,7 +106,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 						value={mh.code}
 					>
 						<div className="flex items-center justify-between w-full">
-							<span>{mh.name ?? mh.code}</span>
+							<span>{mh.display_name ?? mh.code}</span>
 							{value === mh.code && <Check className="h-4 w-4 text-primary ml-2" />}
 						</div>
 					</SelectItem>

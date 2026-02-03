@@ -9,6 +9,7 @@ export type Team = {
 export type NavItemLeaf = {
 	title: string
 	url: string
+	icon: LucideIcon
 }
 
 export type NavItemSection = {

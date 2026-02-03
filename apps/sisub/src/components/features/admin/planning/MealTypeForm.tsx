@@ -10,7 +10,6 @@ import {
 	Label,
 } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
 import { Loader2 } from "lucide-react"
 import React from "react"
 import { z } from "zod"
@@ -54,7 +53,6 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 			name: mealType?.name || "",
 			sort_order: mealType?.sort_order || 0,
 		},
-		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: mealTypeSchema,
 		},

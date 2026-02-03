@@ -1,6 +1,4 @@
-import type { DialogState, FiscalPresenceRecord, MealKey } from "@/types/domain"
-
-export type { DialogState, FiscalPresenceRecord, MealKey }
+import type { MealKey } from "@/types/domain/meal"
 
 export interface ScannerState {
 	isReady: boolean

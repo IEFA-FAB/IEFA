@@ -73,15 +73,6 @@ export function PlanningBoard() {
 		return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 	}
 
-	const getWeekKey = (date: Date): string => {
-		return format(getWeekStart(date), "yyyy-MM-dd")
-	}
-
-	const _isInWeek = (date: Date, weekKey: string | null): boolean => {
-		if (!weekKey) return false
-		return getWeekKey(date) === weekKey
-	}
-
 	const handleApplyTemplateToWeek = async (clickedDate: Date) => {
 		if (!selectedTemplateId || !kitchenId) return
 

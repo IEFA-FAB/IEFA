@@ -18,9 +18,8 @@
     "types": [
       "bun-types"
     ],
-    "baseUrl": ".",
     "paths": {
-      "@api/*": ["src/api/*"]
+      "@api/*": ["./src/api/*"]
     }
   },
   "exclude": ["node_modules", "dist"]

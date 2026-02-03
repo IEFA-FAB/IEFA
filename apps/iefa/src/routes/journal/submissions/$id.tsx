@@ -108,7 +108,7 @@ function RouteComponent() {
 						<div>
 							<h3 className="text-sm font-medium text-muted-foreground mb-1">Palavras-chave</h3>
 							<div className="flex flex-wrap gap-2">
-								{articleData.keywords_pt?.map((kw, i) => (
+								{articleData.keywords_pt?.map((kw: any, i: any) => (
 									<span key={i} className="px-2 py-1 bg-primary/10 text-primary rounded text-sm">
 										{kw}
 									</span>

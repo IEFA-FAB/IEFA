@@ -150,7 +150,7 @@ export function validateStep(step: number, data: unknown): { success: boolean; e
 		return { success: true }
 	} catch (error) {
 		if (error instanceof z.ZodError) {
-			return { success: false, error: (error as z.ZodError).errors[0].message }
+			return { success: false, error: error.toString() }
 		}
 		return { success: false, error: "Validation failed" }
 	}

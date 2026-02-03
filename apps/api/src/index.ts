@@ -1,8 +1,20 @@
 import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
+import { cors } from "hono/cors"
 import { api } from "./api/routes.js"
 
 const app = new OpenAPIHono()
+
+// CORS deve ser chamado antes das rotas
+app.use(
+	"/api/*",
+	cors({
+		origin: "*",
+		allowMethods: ["GET", "OPTIONS"],
+		allowHeaders: ["Content-Type"],
+		maxAge: 300,
+	})
+)
 
 // Coloque a API sob /api
 app.route("/api", api)
@@ -46,7 +58,7 @@ app.get(
 		theme: "kepler",
 		// Proxy para desenvolvimento (se necessário)
 		// proxyUrl: c.env.ENVIRONMENT === "development" ? "https://proxy.scalar.com" : undefined,
-	}))
+	})) as any // Cast necessário devido a conflito de versões do Hono no @scalar/hono-api-reference
 )
 
 const port = Number(process.env.API_PORT ?? 3000)

@@ -20,7 +20,7 @@ export const Route = createFileRoute("/auth/")({
 })
 
 function AuthPage() {
-	const { signIn, signUp, resetPassword, isAuthenticated, isLoading } = useAuth()
+	const { actions: authActions, isAuthenticated, isLoading } = useAuth()
 	const router = useRouter()
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
@@ -28,13 +28,13 @@ function AuthPage() {
 	// Actions adapter
 	const actions = {
 		signIn: async (email: string, password: string) => {
-			await signIn(email, password)
+			await authActions.signIn(email, password)
 		},
-		signUp: async (email: string, password: string, name: string) => {
-			await signUp(email, password, name)
+		signUp: async (email: string, password: string) => {
+			await authActions.signUp(email, password)
 		},
 		resetPassword: async (email: string) => {
-			await resetPassword(email)
+			await authActions.resetPassword(email)
 		},
 		updateUserPassword: async (password: string) => {
 			const { error } = await supabase.auth.updateUser({

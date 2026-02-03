@@ -17,6 +17,7 @@ export async function isEditor(userId?: string): Promise<boolean> {
 
 	try {
 		const profile = await getUserProfile(uid)
+		if (!profile) return false
 		return profile.role === "editor"
 	} catch {
 		return false
@@ -32,6 +33,7 @@ export async function isReviewer(userId?: string): Promise<boolean> {
 
 	try {
 		const profile = await getUserProfile(uid)
+		if (!profile) return false
 		return profile.role === "reviewer"
 	} catch {
 		return false
@@ -47,6 +49,7 @@ export async function isAuthor(userId?: string): Promise<boolean> {
 
 	try {
 		const profile = await getUserProfile(uid)
+		if (!profile) return false
 		return profile.role === "author"
 	} catch {
 		return false
@@ -62,6 +65,7 @@ export async function getUserRole(userId?: string): Promise<UserRole | null> {
 
 	try {
 		const profile = await getUserProfile(uid)
+		if (!profile) return null
 		return profile.role
 	} catch {
 		return null
@@ -216,6 +220,7 @@ export async function ensureUserProfile(userId: string, fullName?: string): Prom
 export async function hasCompleteProfile(userId: string): Promise<boolean> {
 	try {
 		const profile = await getUserProfile(userId)
+		if (!profile) return false
 		// Consider profile complete if full_name and affiliation are filled
 		return !!profile.full_name && !!profile.affiliation
 	} catch {

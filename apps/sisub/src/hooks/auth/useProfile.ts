@@ -16,12 +16,12 @@ export function useUserData(userId: string | undefined) {
 		queryFn: async (): Promise<UserDataRow | null> => {
 			const { data, error } = await supabase
 				.from("user_data")
-				.select("id,email,nrOrdem")
+				.select("id,email,nrOrdem,created_at,default_mess_hall_id")
 				.eq("id", userId)
 				.maybeSingle()
 
 			if (error) throw error
-			return data ? { id: data.id, email: data.email, nrOrdem: data.nrOrdem ?? null } : null
+			return data
 		},
 		staleTime: 5 * 60_000,
 	})

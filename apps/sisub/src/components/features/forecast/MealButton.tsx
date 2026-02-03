@@ -77,11 +77,7 @@ export const MealButton = memo<MealButtonProps>(
 					</Button>
 
 					{mainDish && (
-						<Accordion
-							type="single"
-							collapsible
-							className="w-full bg-muted/20 rounded-md border border-border/50"
-						>
+						<Accordion className="w-full bg-muted/20 rounded-md border border-border/50">
 							<AccordionItem value="details" className="border-0">
 								<AccordionTrigger className="px-2 py-1.5 text-xs hover:no-underline hover:bg-muted/50 rounded-t-md data-[state=open]:rounded-b-none [&>svg]:w-3 [&>svg]:h-3">
 									<span className="truncate text-left font-medium max-w-25 leading-tight text-foreground/80">

@@ -1,6 +1,6 @@
 import { AuthScreen } from "@iefa/auth"
 import { Card, CardContent } from "@iefa/ui"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { z } from "zod"
 import { useAuth } from "@/hooks/auth/useAuth"
@@ -21,7 +21,6 @@ export const Route = createFileRoute("/auth/")({
 
 function AuthPage() {
 	const { signIn, signUp, resetPassword, isAuthenticated, isLoading } = useAuth()
-	const router = useRouter()
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
 
@@ -51,9 +50,13 @@ function AuthPage() {
 		},
 	}
 
-	// Navigation adapter
-	const handleNavigate = async (options: Parameters<typeof router.navigate>[0]) => {
-		await router.navigate(options)
+	// Navigation adapter - matches AuthScreen's expected signature
+	const handleNavigate = async (options: {
+		to?: string
+		search?: Record<string, unknown>
+		replace?: boolean
+	}) => {
+		await navigate(options as Parameters<typeof navigate>[0])
 	}
 
 	const handleTabChange = (tab: "login" | "register") => {

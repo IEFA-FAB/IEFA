@@ -9,8 +9,9 @@ import {
 } from "@iefa/ui"
 import { AlertCircle, Calendar, Check, Utensils } from "lucide-react"
 import { UnitSelector } from "@/components/features/forecast/MessHallSelector"
-import { MEAL_LABEL, type MealKey } from "@/lib/fiscal"
+import { MEAL_LABEL } from "@/lib/fiscal"
 import { formatDate } from "@/lib/meal"
+import type { MealKey } from "@/types/domain/meal"
 
 interface FiltersProps {
 	selectedDate: string
@@ -71,7 +72,7 @@ export default function Filters({
 
 							<Select
 								value={selectedDate}
-								onValueChange={(v) => setSelectedDate(v)}
+								onValueChange={(v) => setSelectedDate(v ?? "")}
 								disabled={disabled}
 							>
 								<SelectTrigger

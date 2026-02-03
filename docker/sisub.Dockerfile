@@ -1,13 +1,13 @@
 # sisub.Dockerfile
 
 # --- Build Stage (uses Bun for fast builds) ---
-FROM oven/bun:1.3.6-alpine AS base
+FROM oven/bun:1.3.8-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /repo
 
 # --- Deps (Cache de dependências do Monorepo) ---
 FROM base AS deps
-COPY bun.lock package.json ./
+COPY bun.lock package.json ./ss
 COPY packages ./packages
 COPY apps ./apps
 RUN bun install --frozen-lockfile --no-save

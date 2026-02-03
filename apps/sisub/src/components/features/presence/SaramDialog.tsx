@@ -59,13 +59,7 @@ export function SaramDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent
-				className="sm:max-w-md"
-				showCloseButton={false}
-				aria-busy={isSaving}
-				onInteractOutside={(event) => event.preventDefault()}
-				onEscapeKeyDown={(event) => event.preventDefault()}
-			>
+			<DialogContent className="sm:max-w-md" showCloseButton={false} aria-busy={isSaving}>
 				<DialogHeader>
 					<DialogTitle>Informe seu SARAM</DialogTitle>
 					<DialogDescription id={helpId}>

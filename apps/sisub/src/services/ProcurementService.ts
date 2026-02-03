@@ -141,7 +141,15 @@ export async function fetchProcurementNeeds(params: ProcurementParams): Promise<
 		const portionMultiplier = (menuItem.planned_portion_quantity || 0) / (recipe.portion_yield || 1)
 
 		for (const ingredient of recipe.recipe_ingredients) {
-			if (!ingredient.product) continue
+			// Supabase returns nested relations as arrays
+			const product = Array.isArray(ingredient.product) ? ingredient.product[0] : ingredient.product
+			if (!product) continue
+
+			// Normalize folder as well
+			const normalizedProduct = {
+				...product,
+				folder: Array.isArray(product.folder) ? product.folder[0] : product.folder,
+			}
 
 			const productId = ingredient.product_id
 			const quantityNeeded = (ingredient.net_quantity || 0) * portionMultiplier
@@ -153,7 +161,7 @@ export async function fetchProcurementNeeds(params: ProcurementParams): Promise<
 				}
 			} else {
 				needsMap.set(productId, {
-					product: ingredient.product,
+					product: normalizedProduct,
 					total_quantity: quantityNeeded,
 				})
 			}

@@ -1,6 +1,5 @@
 import { Button, Input, Label, Textarea } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
-import { zodValidator } from "@tanstack/zod-form-adapter"
 import { useState } from "react"
 import { z } from "zod"
 import { useUpsertUserProfile } from "@/lib/journal/hooks"
@@ -49,15 +48,23 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 			expertise: profile?.expertise?.join(", ") || "",
 			email_notifications: profile?.email_notifications ?? true,
 		},
-		validatorAdapter: zodValidator(),
-		validators: {
-			onChange: profileSchema,
-		},
 		onSubmit: async ({ value }) => {
 			setIsSaving(true)
 			setMessage(null)
 
 			try {
+				// Validate form data
+				const validation = profileSchema.safeParse(value)
+				if (!validation.success) {
+					const firstError = validation.error.issues[0]
+					setMessage({
+						type: "error",
+						text: firstError.message,
+					})
+					setIsSaving(false)
+					return
+				}
+
 				// Convert expertise string to array
 				const expertiseArray = value.expertise
 					? value.expertise

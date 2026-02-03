@@ -16,7 +16,7 @@ interface MenuItemCardProps {
 export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps) {
 	const { mutate: updateMenuItem } = useUpdateMenuItem()
 
-	const recipeName = (item.recipe as any)?.name || item.recipe_origin?.name || "Receita sem nome"
+	const recipeName = (item.recipe as any)?.name || "Receita sem nome"
 
 	const [portionQty, setPortionQty] = useState<number | null>(item.planned_portion_quantity)
 	const [excludedQty, setExcludedQty] = useState<number | null>(item.excluded_from_procurement)

@@ -6,7 +6,7 @@ export const Route = createFileRoute("/journal/editorial")({
 	beforeLoad: async ({ context, location }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 
-		if (!auth.isAuthenticated) {
+		if (!auth.isAuthenticated || !auth.user) {
 			throw redirect({
 				to: "/auth",
 				search: { redirect: location.href },

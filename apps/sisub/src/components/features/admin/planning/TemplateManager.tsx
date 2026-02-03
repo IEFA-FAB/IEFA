@@ -183,7 +183,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 														<Button
 															size="icon"
 															variant="ghost"
-															onClick={() => handleDelete(template.id, template.name)}
+															onClick={() => handleDelete(template.id, template.name ?? "")}
 															disabled={isDeleting}
 															title="Remover"
 														>

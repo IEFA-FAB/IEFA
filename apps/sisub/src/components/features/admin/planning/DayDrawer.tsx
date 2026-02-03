@@ -104,7 +104,7 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 					</div>
 				) : (
 					<ScrollArea className="h-[calc(100vh-180px)] pr-4">
-						<Accordion type="single" collapsible className="w-full space-y-4">
+						<Accordion className="w-full space-y-4">
 							{meals.map(({ mealType, menu }) => (
 								<MealSection
 									key={mealType.id}

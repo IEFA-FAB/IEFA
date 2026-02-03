@@ -27,6 +27,9 @@
         "typescript": "^5.9.3"
     },
     "scripts": {
+        "format": "biome format",
+        "lint": "biome lint",
+        "check": "biome check",
         "typecheck": "tsc --noEmit"
     }
 }

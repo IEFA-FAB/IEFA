@@ -15,7 +15,6 @@ import {
 } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { zodValidator } from "@tanstack/zod-form-adapter"
 import { toast } from "sonner"
 import { z } from "zod"
 import { useCreateProduct, useFolders, useUpdateProduct } from "@/services/ProductsService"
@@ -25,8 +24,8 @@ import type { Product } from "@/types/supabase.types"
 const productSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
 	folder_id: z.string().uuid("Selecione uma pasta").nullable(),
-	measure_unit: z.string().optional(),
-	correction_factor: z.number().min(0).optional(),
+	measure_unit: z.string(),
+	correction_factor: z.number().min(0),
 })
 
 interface ProductFormProps {
@@ -50,8 +49,6 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 			measure_unit: product?.measure_unit || "",
 			correction_factor: product?.correction_factor ? Number(product.correction_factor) : 1.0,
 		},
-		// @ts-expect-error - TanStack Form type issue with validatorAdapter
-		validatorAdapter: zodValidator(),
 		validators: {
 			onChange: productSchema,
 		},
@@ -125,7 +122,7 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 								<Select
 									value={field.state.value || "__SELECT__"}
 									onValueChange={(value) =>
-										field.handleChange(value === "__SELECT__" ? null : value)
+										field.handleChange(value === "__SELECT__" || value === null ? null : value)
 									}
 								>
 									<SelectTrigger>
@@ -156,7 +153,9 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 								<Label htmlFor={field.name}>Unidade de Medida</Label>
 								<Select
 									value={field.state.value || "__SELECT__"}
-									onValueChange={(value) => field.handleChange(value === "__SELECT__" ? "" : value)}
+									onValueChange={(value) =>
+										field.handleChange(value === "__SELECT__" || value === null ? "" : value)
+									}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Selecione" />

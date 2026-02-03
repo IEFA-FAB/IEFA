@@ -84,6 +84,8 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 								{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 									const node = flatTree?.nodes[virtualRow.index]
 
+									if (!node) return null
+
 									// Only show Folders and Products, hide Items
 									if (node.type === "product_item") return null
 

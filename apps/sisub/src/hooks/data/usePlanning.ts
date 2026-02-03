@@ -33,7 +33,7 @@ export const dailyMenusQueryOptions = (kitchenId: number | null, startDate: Date
 			const filtered =
 				data?.map((menu) => ({
 					...menu,
-					menu_items: (menu.menu_items || []).filter((item) => !item.deleted_at),
+					menu_items: (menu.menu_items || []).filter((item: any) => !item.deleted_at),
 				})) || []
 
 			return filtered as DailyMenuWithItems[]
@@ -68,7 +68,7 @@ export const dayDetailsQueryOptions = (kitchenId: number | null, date: Date) =>
 			const filtered =
 				data?.map((menu) => ({
 					...menu,
-					menu_items: (menu.menu_items || []).filter((item) => !item.deleted_at),
+					menu_items: (menu.menu_items || []).filter((item: any) => !item.deleted_at),
 				})) || []
 
 			return filtered as DailyMenuWithItems[]

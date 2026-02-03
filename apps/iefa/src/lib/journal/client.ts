@@ -6,6 +6,7 @@ import type {
 	Article,
 	ArticleAuthor,
 	ArticleVersion,
+	CreateSubmissionInput,
 	EditorialDashboardArticle,
 	JournalSettings,
 	Notification,

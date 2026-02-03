@@ -35,7 +35,8 @@ export function KitchenSelector() {
 	return (
 		<Select
 			value={kitchenId?.toString() || ""}
-			onValueChange={(value) => {
+			onValueChange={(value: string | null) => {
+				if (!value) return
 				const id = Number.parseInt(value, 10)
 				if (!Number.isNaN(id)) {
 					setKitchenId(id)

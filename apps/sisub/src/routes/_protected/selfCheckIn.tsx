@@ -62,10 +62,12 @@ export const Route = createFileRoute("/_protected/selfCheckIn")({
 const REDIRECT_DELAY_SECONDS = 3
 
 function isDuplicateOrConflict(err: unknown): boolean {
-	const e = err as any
-	const code = e?.code
-	const status = e?.status
-	const msg = String(e?.message || "").toLowerCase()
+	if (!err || typeof err !== "object") return false
+
+	const e = err as { code?: string | number; status?: number; message?: string }
+	const code = e.code
+	const status = e.status
+	const msg = String(e.message || "").toLowerCase()
 
 	return (
 		code === "23505" ||

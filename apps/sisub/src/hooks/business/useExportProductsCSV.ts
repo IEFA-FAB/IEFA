@@ -62,7 +62,7 @@ export function useExportProductsCSV() {
 					folder = getFolderPath(node)
 
 					const itemData = node.data as ProductItem
-					unit = itemData.measure_unit || ""
+					unit = itemData.purchase_measure_unit || ""
 					factor = itemData.correction_factor?.toString() || ""
 					barcode = itemData.barcode || ""
 				}

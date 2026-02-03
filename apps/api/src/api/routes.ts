@@ -1,7 +1,5 @@
-import { createRoute, OpenAPIHono } from "@hono/zod-openapi"
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import type { Handler } from "hono"
-import { cors } from "hono/cors"
-import { z } from "zod"
 import { createApiHandler } from "./factory.js"
 
 // Schemas de resposta base
@@ -9,61 +7,34 @@ const ErrorSchema = z.object({
 	error: z.string(),
 	details: z.string().optional(),
 	timestamp: z.string().optional(),
-})
-
-const _PaginationSchema = z.object({
-	limit: z.string().optional().openapi({
-		description: "Número máximo de registros (padrão: 100000, máx: 100000)",
-		example: "1000",
-	}),
-	order: z.string().optional().openapi({
-		description: "Ordenação: coluna:asc ou coluna:desc (múltiplos separados por vírgula)",
-		example: "created_at:desc,nmGuerra:asc",
-	}),
-})
-
-// Schema para filtros de data
-const _DateFilterSchema = z.object({
-	date: z.string().optional().openapi({
-		description: "Data específica (YYYY-MM-DD)",
-		example: "2024-01-15",
-	}),
-	startDate: z.string().optional().openapi({
-		description: "Data inicial do intervalo (YYYY-MM-DD)",
-		example: "2024-01-01",
-	}),
-	endDate: z.string().optional().openapi({
-		description: "Data final do intervalo (YYYY-MM-DD)",
-		example: "2024-01-31",
-	}),
-})
+}) as any
 
 // Schemas específicos para cada endpoint
 const OpinionSchema = z.object({
-	id: z.string().uuid(),
-	created_at: z.string().datetime(),
+	id: z.uuid(),
+	created_at: z.iso.datetime(),
 	value: z.string(),
 	question: z.string(),
-	userId: z.string().uuid(),
+	userId: z.uuid(),
 })
 
 const MealForecastSchema = z.object({
-	user_id: z.string().uuid(),
-	date: z.string().date(),
+	user_id: z.uuid(),
+	date: z.iso.date(),
 	meal: z.enum(["cafe", "almoco", "janta", "ceia"]),
 	will_eat: z.boolean(),
 	mess_hall_id: z.number(),
-	created_at: z.string().datetime(),
-	updated_at: z.string().datetime(),
+	created_at: z.iso.datetime(),
+	updated_at: z.iso.datetime(),
 })
 
 const MealPresenceSchema = z.object({
-	user_id: z.string().uuid(),
-	date: z.string().date(),
+	user_id: z.uuid(),
+	date: z.iso.date(),
 	meal: z.enum(["cafe", "almoco", "janta", "ceia"]),
 	mess_hall_id: z.number(),
-	created_at: z.string().datetime(),
-	updated_at: z.string().datetime(),
+	created_at: z.iso.datetime(),
+	updated_at: z.iso.datetime(),
 })
 
 const UserMilitaryDataSchema = z.object({
@@ -73,12 +44,12 @@ const UserMilitaryDataSchema = z.object({
 	nmPessoa: z.string(),
 	sgPosto: z.string(),
 	sgOrg: z.string(),
-	dataAtualizacao: z.string().datetime(),
+	dataAtualizacao: z.iso.datetime(),
 })
 
 const UserDataSchema = z.object({
-	id: z.string().uuid(),
-	created_at: z.string().datetime(),
+	id: z.uuid(),
+	created_at: z.iso.datetime(),
 	email: z.string().email(),
 	nrOrdem: z.string(),
 })
@@ -97,23 +68,9 @@ const MessHallSchema = z.object({
 })
 
 // Schema para parâmetros de filtro com múltiplos valores
-const MultiValueParamSchema = z.string().openapi({
-	description: "Valor único ou múltiplos separados por vírgula",
-	example: "uuid1,uuid2 ou 123,456",
-})
+const MultiValueParamSchema = z.string() as any
 
 export const api = new OpenAPIHono()
-
-// CORS global para todos os endpoints da API
-api.use(
-	"/*",
-	cors({
-		origin: "*",
-		allowMethods: ["GET", "OPTIONS"],
-		allowHeaders: ["Content-Type"],
-		maxAge: 300,
-	})
-)
 
 // Helper para criar rotas documentadas
 function createDocumentedRoute(config: {
@@ -121,7 +78,7 @@ function createDocumentedRoute(config: {
 	tags: string[]
 	summary: string
 	description: string
-	parameters?: unknown[]
+	parameters?: any[]
 	responseSchema: z.ZodTypeAny
 	handler: Handler
 }) {
@@ -135,7 +92,7 @@ function createDocumentedRoute(config: {
 			...(config.parameters || []),
 			{
 				name: "limit",
-				in: "query",
+				in: "query" as const,
 				schema: {
 					type: "integer",
 					minimum: 1,
@@ -146,7 +103,7 @@ function createDocumentedRoute(config: {
 			},
 			{
 				name: "order",
-				in: "query",
+				in: "query" as const,
 				schema: { type: "string" },
 				description: "Ordenação: coluna:asc/desc",
 			},
@@ -156,7 +113,7 @@ function createDocumentedRoute(config: {
 				description: "Sucesso",
 				content: {
 					"application/json": {
-						schema: z.array(config.responseSchema),
+						schema: z.array(config.responseSchema) as any,
 					},
 				},
 			},
@@ -171,7 +128,8 @@ function createDocumentedRoute(config: {
 		},
 	})
 
-	return api.openapi(route, config.handler)
+	// biome-ignore lint/suspicious/noExplicitAny: Type mismatch between generic Handler and OpenAPI handler requires casting
+	return api.openapi(route, config.handler as any)
 }
 
 // /api/opinion -> opinions
@@ -256,9 +214,11 @@ function createDocumentedRoute(config: {
 			{
 				name: "meal",
 				in: "query",
-				schema: z.enum(["cafe", "almoco", "janta", "ceia"]).openapi({
-					description: "Filtrar por tipo de refeição",
-				}),
+				schema: {
+					type: "string",
+					enum: ["cafe", "almoco", "janta", "ceia"],
+				},
+				description: "Filtrar por tipo de refeição",
 			},
 			{
 				name: "mess_hall_id",
@@ -313,9 +273,11 @@ function createDocumentedRoute(config: {
 			{
 				name: "meal",
 				in: "query",
-				schema: z.enum(["cafe", "almoco", "janta", "ceia"]).openapi({
-					description: "Filtrar por tipo de refeição",
-				}),
+				schema: {
+					type: "string",
+					enum: ["cafe", "almoco", "janta", "ceia"],
+				},
+				description: "Filtrar por tipo de refeição",
 			},
 			{
 				name: "mess_hall_id",
