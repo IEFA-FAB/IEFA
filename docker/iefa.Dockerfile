@@ -52,7 +52,19 @@ COPY --from=build --chown=node:node /repo/apps/iefa/package.json ./apps/iefa/pac
 # Copia a pasta .output gerada pelo TanStack Start
 COPY --from=build --chown=node:node /repo/apps/iefa/.output ./apps/iefa/.output
 
+# Instala as dependências do servidor com binários nativos
+# O Nitro cria um package.json traced mas não inclui binários nativos
+# CRITICAL: Mudamos ownership ANTES de instalar para evitar conflito de permissões
+RUN chown -R node:node /app/apps/iefa/.output/server
+
 USER node
+
+# Instala como usuário node para manter permissões consistentes
+WORKDIR /app/apps/iefa/.output/server
+RUN npm install --omit=dev \
+    && npm cache clean --force
+
+WORKDIR /app
 
 EXPOSE 3000
 

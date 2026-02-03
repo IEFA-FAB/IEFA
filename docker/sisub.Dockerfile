@@ -47,7 +47,19 @@ COPY --from=build --chown=node:node /repo/apps/sisub/package.json ./apps/sisub/p
 # Copia a pasta .output gerada pelo TanStack Start
 COPY --from=build --chown=node:node /repo/apps/sisub/.output ./apps/sisub/.output
 
+# Instala as dependências do servidor com binários nativos
+# O Nitro cria um package.json traced mas não inclui binários nativos
+# CRITICAL: Mudamos ownership ANTES de instalar para evitar conflito de permissões
+RUN chown -R node:node /app/apps/sisub/.output/server
+
 USER node
+
+# Instala como usuário node para manter permissões consistentes
+WORKDIR /app/apps/sisub/.output/server
+RUN npm install --omit=dev \
+    && npm cache clean --force
+
+WORKDIR /app
 EXPOSE 3000
 
 # Roda o servidor com Node para evitar memory leak do Bun runtime
