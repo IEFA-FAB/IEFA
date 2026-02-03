@@ -106,7 +106,7 @@ jobs:
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
       
       - name: Build and push
-        uses: docker/bake-action@v5
+        uses: docker/bake-action@v6.10.0
         with:
           targets: api
           push: true
@@ -177,7 +177,7 @@ jobs:
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
       
       - name: Build and push
-        uses: docker/bake-action@v5
+        uses: docker/bake-action@v6.10.0
         with:
           targets: iefa
           push: true
@@ -257,7 +257,7 @@ jobs:
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
       
       - name: Build and push
-        uses: docker/bake-action@v5
+        uses: docker/bake-action@v6.10.0
         with:
           targets: sisub
           push: true
