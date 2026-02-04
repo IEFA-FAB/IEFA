@@ -34,6 +34,8 @@ target "iefa" {
   args = {
     VITE_IEFA_SUPABASE_URL = ""
     VITE_IEFA_SUPABASE_ANON_KEY = ""
+    VITE_RAG_SUPABASE_URL = ""
+    VITE_RAG_SUPABASE_SERVICE_ROLE_KEY = ""
   }
 }
 

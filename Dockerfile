@@ -42,6 +42,8 @@ FROM deps AS iefa-build
 # Build-time environment variables for Vite
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_ANON_KEY
+ARG VITE_RAG_SUPABASE_URL
+ARG VITE_RAG_SUPABASE_SERVICE_ROLE_KEY
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
@@ -60,8 +62,12 @@ RUN test -f apps/iefa/.output/server/index.mjs || \
 FROM node:22-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
+# Copy the built output
 COPY --from=iefa-build /app/apps/iefa/.output ./.output
+# Copy monorepo node_modules (contains all dependencies)
 COPY --from=iefa-build /app/node_modules ./node_modules
+# Copy workspace packages that are referenced
+COPY --from=iefa-build /app/packages ./packages
 USER node
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
@@ -90,8 +96,12 @@ RUN test -f apps/sisub/.output/server/index.mjs || \
 FROM node:22-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
+# Copy the built output
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
+# Copy monorepo node_modules (contains all dependencies)
 COPY --from=sisub-build /app/node_modules ./node_modules
+# Copy workspace packages that are referenced
+COPY --from=sisub-build /app/packages ./packages
 USER node
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

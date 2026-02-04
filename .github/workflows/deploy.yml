@@ -181,6 +181,8 @@ jobs:
             iefa.tags=registry.fly.io/iefa:latest
             iefa.args.VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }}
             iefa.args.VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
+            iefa.args.VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
+            iefa.args.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
       
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
