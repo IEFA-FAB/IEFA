@@ -272,8 +272,8 @@ jobs:
           targets: sisub
           push: true
           set: |
-            sisub.tags=registry.fly.io/iefa-sisub:${{ steps.meta.outputs.tag }}
-            sisub.tags=registry.fly.io/iefa-sisub:latest
+            sisub.tags=registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
+            sisub.tags=registry.fly.io/sisub:latest
       
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
@@ -287,7 +287,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
       - name: Deploy
-        run: flyctl deploy -c fly/fly.sisub.toml --image registry.fly.io/iefa-sisub:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/fly.sisub.toml --image registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
