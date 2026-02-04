@@ -22,7 +22,10 @@ pnpm-store
 **/dist
 **/build
 *.log
-.env
-.env.*
+# Ignore root .env files (secrets should not be in repo)
+/.env
+/.env.*
+# But allow .env files in apps/ (created by CI/CD)
+!apps/**/.env
 Dockerfile
 docker-compose.yml
