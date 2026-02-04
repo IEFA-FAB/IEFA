@@ -45,6 +45,10 @@ COPY tsconfig.json ./
 COPY apps/iefa ./apps/iefa
 # Clear any local cache
 RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
+# Debug: verify .env file exists
+RUN echo "🔍 Checking for .env file..." && \
+    ls -la apps/iefa/.env || echo "❌ .env not found!" && \
+    test -f apps/iefa/.env && echo "✅ .env exists" || (echo "❌ .env missing!" && exit 1)
 # Vite will automatically load .env files from apps/iefa/.env
 # GitHub Actions creates these files from secrets before docker build
 RUN bun --filter=iefa run build

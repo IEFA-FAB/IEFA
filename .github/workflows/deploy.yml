@@ -175,6 +175,11 @@ jobs:
           VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
           VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
           EOF
+          echo "✅ Created apps/iefa/.env"
+          ls -la apps/iefa/.env
+          echo "File content (first line only):"
+          head -n 1 apps/iefa/.env
+      
       
       - name: Generate tag
         id: meta
