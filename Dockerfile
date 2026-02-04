@@ -21,6 +21,7 @@ RUN bun install --frozen-lockfile
 # API
 # =============================================================================
 FROM deps AS api-build
+COPY tsconfig.json ./
 COPY apps/api ./apps/api
 COPY packages ./packages
 RUN bun --filter=api run build
@@ -38,6 +39,7 @@ CMD ["bun", "apps/api/src/index.ts"]
 # IEFA
 # =============================================================================
 FROM deps AS iefa-build
+COPY tsconfig.json ./
 COPY apps/iefa ./apps/iefa
 COPY packages ./packages
 # Secret montado em runtime, não fica na imagem
@@ -60,6 +62,7 @@ CMD ["node", ".output/server/index.mjs"]
 # SISUB
 # =============================================================================
 FROM deps AS sisub-build
+COPY tsconfig.json ./
 COPY apps/sisub ./apps/sisub
 COPY packages ./packages
 RUN --mount=type=secret,id=env,target=/app/.env \
@@ -80,6 +83,7 @@ CMD ["node", ".output/server/index.mjs"]
 # DOCS
 # =============================================================================
 FROM deps AS docs-build
+COPY tsconfig.json ./
 COPY apps/docs ./apps/docs
 COPY packages ./packages
 RUN bun --filter=docs run build
