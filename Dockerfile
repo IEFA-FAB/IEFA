@@ -57,7 +57,12 @@ RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
 RUN bun --filter=iefa run build
 # Validação: output existe?
 RUN test -f apps/iefa/.output/server/index.mjs || \
-    (echo "❌ Build failed: output missing" && exit 1)
+    (echo "❌ Build failed: output missing" && \
+     echo "📂 Listing apps/iefa directory:" && \
+     ls -la apps/iefa && \
+     echo "📂 Listing apps/iefa/.output (if exists):" && \
+     ls -R apps/iefa/.output || echo "No .output directory" && \
+     exit 1)
 
 FROM oven/bun:1.3.8-alpine AS iefa
 ENV NODE_ENV=production
