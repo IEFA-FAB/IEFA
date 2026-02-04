@@ -36,7 +36,7 @@ target "iefa" {
 target "sisub" {
   inherits = ["base"]
   target = "sisub"
-  tags = ["${REGISTRY}/iefa-sisub:${TAG}"]
+  tags = ["${REGISTRY}/sisub:${TAG}"]
 }
 
 target "docs" {
