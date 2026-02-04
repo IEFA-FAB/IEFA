@@ -44,7 +44,11 @@ COPY apps/iefa ./apps/iefa
 COPY packages ./packages
 # Secret montado em runtime, não fica na imagem
 RUN --mount=type=secret,id=env,target=/app/.env \
+    echo "🔍 Checking .env mount..." && \
+    ls -la /app/.env 2>&1 || echo "⚠️  .env not found" && \
+    echo "🔍 Loading env vars..." && \
     set -a && . /app/.env && set +a && \
+    echo "✅ Env vars loaded, starting build..." && \
     bun --filter=iefa run build
 # Validação: output existe?
 RUN test -f apps/iefa/.output/server/index.mjs || \
