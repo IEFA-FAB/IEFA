@@ -169,7 +169,7 @@ jobs:
       
       - name: Create env file for build
         run: |
-          cat <<EOF > .env.iefa
+          cat <<EOF > apps/iefa/.env
           VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }}
           VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
           VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
@@ -251,7 +251,7 @@ jobs:
       
       - name: Create env file for build
         run: |
-          cat <<EOF > .env.sisub
+          cat <<EOF > apps/sisub/.env
           VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
           EOF
