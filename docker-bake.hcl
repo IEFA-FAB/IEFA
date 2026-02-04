@@ -31,14 +31,12 @@ target "iefa" {
   inherits = ["base"]
   target = "iefa"
   tags = ["${REGISTRY}/iefa:${TAG}"]
-  secret = ["id=env,src=.env.iefa"]
 }
 
 target "sisub" {
   inherits = ["base"]
   target = "sisub"
   tags = ["${REGISTRY}/iefa-sisub:${TAG}"]
-  secret = ["id=env,src=.env.sisub"]
 }
 
 target "docs" {
