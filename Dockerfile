@@ -59,14 +59,14 @@ RUN bun --filter=iefa run build
 RUN test -f apps/iefa/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
-FROM node:22-alpine AS iefa
+FROM oven/bun:1.3.8-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
 # Copy the complete Nitro output (includes bundled node_modules)
 COPY --from=iefa-build /app/apps/iefa/.output ./.output
-USER node
+USER bun
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
+CMD ["bun", ".output/server/index.mjs"]
 
 # =============================================================================
 # SISUB
@@ -89,14 +89,14 @@ RUN bun --filter=sisub run build
 RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
-FROM node:22-alpine AS sisub
+FROM oven/bun:1.3.8-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 # Copy the complete Nitro output (includes bundled node_modules)
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
-USER node
+USER bun
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
+CMD ["bun", ".output/server/index.mjs"]
 
 # =============================================================================
 # DOCS
