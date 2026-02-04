@@ -167,20 +167,6 @@ jobs:
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
       
-      - name: Create env file for build
-        run: |
-          cat <<EOF > apps/iefa/.env
-          VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
-          VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
-          VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
-          EOF
-          echo "✅ Created apps/iefa/.env"
-          ls -la apps/iefa/.env
-          echo "File content (first line only):"
-          head -n 1 apps/iefa/.env
-      
-      
       - name: Generate tag
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
@@ -193,6 +179,8 @@ jobs:
           set: |
             iefa.tags=registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
             iefa.tags=registry.fly.io/iefa:latest
+            iefa.args.VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }}
+            iefa.args.VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
       
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
@@ -255,13 +243,6 @@ jobs:
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
       
-      - name: Create env file for build
-        run: |
-          cat <<EOF > apps/sisub/.env
-          VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
-          EOF
-      
       - name: Generate tag
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
@@ -274,6 +255,8 @@ jobs:
           set: |
             sisub.tags=registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
             sisub.tags=registry.fly.io/sisub:latest
+            sisub.args.VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
+            sisub.args.VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
       
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1

@@ -39,18 +39,19 @@ CMD ["bun", "apps/api/src/index.ts"]
 # IEFA
 # =============================================================================
 FROM deps AS iefa-build
+# Build-time environment variables for Vite
+ARG VITE_IEFA_SUPABASE_URL
+ARG VITE_IEFA_SUPABASE_ANON_KEY
+
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
 COPY tsconfig.json ./
 COPY apps/iefa ./apps/iefa
+
 # Clear any local cache
 RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
-# Debug: verify .env file exists
-RUN echo "🔍 Checking for .env file..." && \
-    ls -la apps/iefa/.env || echo "❌ .env not found!" && \
-    test -f apps/iefa/.env && echo "✅ .env exists" || (echo "❌ .env missing!" && exit 1)
-# Vite will automatically load .env files from apps/iefa/.env
-# GitHub Actions creates these files from secrets before docker build
+
+# Build with environment variables available to Vite
 RUN bun --filter=iefa run build
 # Validação: output existe?
 RUN test -f apps/iefa/.output/server/index.mjs || \
@@ -69,14 +70,19 @@ CMD ["node", ".output/server/index.mjs"]
 # SISUB
 # =============================================================================
 FROM deps AS sisub-build
+# Build-time environment variables for Vite
+ARG VITE_SISUB_SUPABASE_URL
+ARG VITE_SISUB_SUPABASE_ANON_KEY
+
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
 COPY tsconfig.json ./
 COPY apps/sisub ./apps/sisub
+
 # Clear any local cache
 RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
-# Vite will automatically load .env files from apps/sisub/.env
-# GitHub Actions creates these files from secrets before docker build
+
+# Build with environment variables available to Vite
 RUN bun --filter=sisub run build
 RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
