@@ -62,12 +62,8 @@ RUN test -f apps/iefa/.output/server/index.mjs || \
 FROM node:22-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy the built output
+# Copy the complete Nitro output (includes bundled node_modules)
 COPY --from=iefa-build /app/apps/iefa/.output ./.output
-# Copy monorepo node_modules (contains all dependencies)
-COPY --from=iefa-build /app/node_modules ./node_modules
-# Copy workspace packages that are referenced
-COPY --from=iefa-build /app/packages ./packages
 USER node
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
@@ -96,12 +92,8 @@ RUN test -f apps/sisub/.output/server/index.mjs || \
 FROM node:22-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy the built output
+# Copy the complete Nitro output (includes bundled node_modules)
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
-# Copy monorepo node_modules (contains all dependencies)
-COPY --from=sisub-build /app/node_modules ./node_modules
-# Copy workspace packages that are referenced
-COPY --from=sisub-build /app/packages ./packages
 USER node
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
