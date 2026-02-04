@@ -39,9 +39,12 @@ CMD ["bun", "apps/api/src/index.ts"]
 # IEFA
 # =============================================================================
 FROM deps AS iefa-build
+# Copy source files (deps already has packages and installed node_modules)
+COPY turbo.json ./
 COPY tsconfig.json ./
 COPY apps/iefa ./apps/iefa
-COPY packages ./packages
+# Clear any local cache
+RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
 # Vite will automatically load .env files from apps/iefa/.env
 # GitHub Actions creates these files from secrets before docker build
 RUN bun --filter=iefa run build
@@ -61,9 +64,12 @@ CMD ["node", ".output/server/index.mjs"]
 # SISUB
 # =============================================================================
 FROM deps AS sisub-build
+# Copy source files (deps already has packages and installed node_modules)
+COPY turbo.json ./
 COPY tsconfig.json ./
 COPY apps/sisub ./apps/sisub
-COPY packages ./packages
+# Clear any local cache
+RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
 # Vite will automatically load .env files from apps/sisub/.env
 # GitHub Actions creates these files from secrets before docker build
 RUN bun --filter=sisub run build
@@ -85,7 +91,7 @@ FROM deps AS docs-build
 COPY tsconfig.json ./
 COPY apps/docs ./apps/docs
 COPY packages ./packages
-RUN bun --filter=docs run build
+RUN bun --filter=red-resonance run build
 
 FROM nginx:alpine AS docs
 COPY --from=docs-build /app/apps/docs/dist /usr/share/nginx/html
