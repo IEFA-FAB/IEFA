@@ -1,10 +1,10 @@
-app = "iefa"
+app = "sisub"
 primary_region = "gru"
 
 [build]
   dockerfile = "../Dockerfile"
   context = ".."
-  target = "iefa"
+  target = "sisub"
 
 [env]
   NODE_ENV = "production"
@@ -13,10 +13,9 @@ primary_region = "gru"
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
-  max_machines_running = 3
+  min_machines_running = 0
   processes = ["app"]
 
   [http_service.concurrency]
@@ -36,10 +35,9 @@ primary_region = "gru"
 [deploy]
   strategy = "rolling"
 
-[processes]
-  app = "node .output/server/index.mjs"
+
 
 [[vm]]
-  memory = "512mb"
+  memory = "1gb"
   cpu_kind = "shared"
-  cpus = 1
+  cpus = 2

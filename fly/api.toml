@@ -1,31 +1,44 @@
-# fly.toml app configuration file generated for iefa-docs on 2025-10-19T12:47:17-03:00
+# fly.toml app configuration file generated for iefa-api on 2025-10-10T23:54:28-03:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'iefa-docs'
+app = 'iefa-api'
 primary_region = 'gru'
 
 [build]
-  dockerfile = 'docs.Dockerfile'
+  dockerfile = '../Dockerfile'
+  context = '..'
+  target = 'api'
+
+[env]
+  NODE_ENV = 'production'
+  API_PORT = '3000'
+
+
 
 [http_service]
-  internal_port = 80
+  internal_port = 3000
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
 
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 25
+    soft_limit = 20
+
   [[http_service.checks]]
     interval = '15s'
     timeout = '5s'
     grace_period = '10s'
     method = 'GET'
-    path = '/'
+    path = '/health'
     tls_skip_verify = false
 
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1

@@ -131,7 +131,7 @@ jobs:
       
       - name: Set Fly secrets
         run: |
-          flyctl --config fly/fly.api.toml secrets set \
+          flyctl --config fly/api.toml secrets set \
             API_PORT=${{ secrets.API_PORT }} \
             API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }} \
             API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
@@ -139,7 +139,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
       - name: Deploy
-        run: flyctl deploy -c fly/fly.api.toml --image registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/api.toml --image registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
@@ -197,7 +197,7 @@ jobs:
       
       - name: Set Fly secrets
         run: |
-          flyctl --config fly/fly.iefa.toml secrets set \
+          flyctl --config fly/iefa.toml secrets set \
             VITE_IEFA_SUPABASE_URL="${{ secrets.VITE_IEFA_SUPABASE_URL }}" \
             VITE_IEFA_SUPABASE_ANON_KEY="${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}" \
             VITE_RAG_SUPABASE_URL="${{ secrets.VITE_RAG_SUPABASE_URL }}" \
@@ -206,7 +206,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
       - name: Deploy
-        run: flyctl deploy -c fly/fly.iefa.toml --image registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/iefa.toml --image registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
@@ -227,8 +227,8 @@ jobs:
       - name: Rollback on failure
         if: failure()
         run: |
-          PREV=$(flyctl releases -c fly/fly.iefa.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/fly.iefa.toml --image "$PREV"
+          PREV=$(flyctl releases -c fly/iefa.toml --json | jq -r '.[1].ImageRef // empty')
+          [[ -n "$PREV" ]] && flyctl deploy -c fly/iefa.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -273,14 +273,14 @@ jobs:
       
       - name: Set Fly secrets
         run: |
-          flyctl --config fly/fly.sisub.toml secrets set \
+          flyctl --config fly/sisub.toml secrets set \
             VITE_SISUB_SUPABASE_URL="${{ secrets.VITE_SISUB_SUPABASE_URL }}" \
             VITE_SISUB_SUPABASE_ANON_KEY="${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
       - name: Deploy
-        run: flyctl deploy -c fly/fly.sisub.toml --image registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/sisub.toml --image registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
@@ -301,7 +301,7 @@ jobs:
       - name: Rollback on failure
         if: failure()
         run: |
-          PREV=$(flyctl releases -c fly/fly.sisub.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/fly.sisub.toml --image "$PREV"
+          PREV=$(flyctl releases -c fly/sisub.toml --json | jq -r '.[1].ImageRef // empty')
+          [[ -n "$PREV" ]] && flyctl deploy -c fly/sisub.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
