@@ -1,11 +1,9 @@
-/* Google Fonts - Industrial-Technical Aesthetic */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @import 'tailwindcss';
-
 @import 'tw-animate-css';
+@import './fonts.css';
 
 @config "../tailwind.config";
+
 
 @custom-variant dark (&:is(.dark *));
 :root {
@@ -41,7 +39,7 @@
   --sidebar-accent-foreground: oklch(0.6723 0.1606 244.9955);
   --sidebar-border: oklch(0.9271 0.0101 238.5177);
   --sidebar-ring: oklch(0.6818 0.1584 243.3540);
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --radius: 2rem;

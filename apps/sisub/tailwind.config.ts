@@ -14,7 +14,7 @@ export default {
 	theme: {
 		extend: {
 			fontFamily: {
-				sans: ["DM Sans", "ui-sans-serif", "system-ui"],
+				sans: ["Manrope", "ui-sans-serif", "system-ui"],
 				mono: ["JetBrains Mono", "ui-monospace", "monospace"],
 			},
 		},

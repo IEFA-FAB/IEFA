@@ -41,6 +41,7 @@ dist-ssr
 tsgo-cache/
 
 # === Build / Output ===
+.output
 out
 coverage
 

@@ -33,7 +33,7 @@ COPY --from=api-build /app/apps/api ./apps/api
 COPY --from=api-build /app/packages ./packages
 USER bun
 EXPOSE 3000
-CMD ["bun", "apps/api/src/index.ts"]
+CMD ["bun", "apps/api/dist/index.js"]
 
 # =============================================================================
 # IEFA
