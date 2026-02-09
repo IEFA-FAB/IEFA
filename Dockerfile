@@ -62,7 +62,7 @@ RUN test -f apps/iefa/dist/server/server.js || \
 FROM oven/bun:1.3.8-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy the complete Nitro output (includes bundled node_modules)
+# TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
 COPY --from=iefa-build /app/apps/iefa/dist ./dist
 USER bun
 EXPOSE 3000
@@ -92,7 +92,7 @@ RUN test -f apps/sisub/dist/server/server.js || \
 FROM oven/bun:1.3.8-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
-# Copy the complete Nitro output (includes bundled node_modules)
+# TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
 COPY --from=sisub-build /app/apps/sisub/dist ./dist
 USER bun
 EXPOSE 3000

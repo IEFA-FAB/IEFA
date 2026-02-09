@@ -49,24 +49,7 @@ export default defineConfig({
 	},
 
 	ssr: {
-		noExternal: [
-			"@iefa/ui",
-			"@iefa/auth",
-			"lucide-react",
-			"motion",
-			"qrcode.react",
-			"qr-scanner",
-			"react-markdown",
-			"remark-gfm",
-			"remark-breaks",
-			"rehype-highlight",
-			"rehype-raw",
-			"rehype-sanitize",
-			"highlight.js",
-			"class-variance-authority",
-			"clsx",
-			"tailwind-merge",
-		],
+		noExternal: true,
 		target: "node",
 	},
 
