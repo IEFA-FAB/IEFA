@@ -212,13 +212,13 @@ jobs:
       
       - name: Smoke test
         run: |
-          for i in {1..30}; do
+          for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.IEFA_HEALTH_URL }}" || true)"
             if [[ "${status:0:1}" == "2" ]]; then
               echo "✅ IEFA health check passed"
               exit 0
             fi
-            echo "Attempt $i/30 - status: ${status:-(connection error)} - waiting 10s..."
+            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."
             sleep 10
           done
           echo "❌ IEFA health check failed"
@@ -286,13 +286,13 @@ jobs:
       
       - name: Smoke test
         run: |
-          for i in {1..30}; do
+          for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.SISUB_HEALTH_URL }}" || true)"
             if [[ "${status:0:1}" == "2" ]]; then
               echo "✅ SISUB health check passed"
               exit 0
             fi
-            echo "Attempt $i/30 - status: ${status:-(connection error)} - waiting 10s..."
+            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."
             sleep 10
           done
           echo "❌ SISUB health check failed"
