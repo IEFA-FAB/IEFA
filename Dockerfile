@@ -25,6 +25,8 @@ COPY tsconfig.json ./
 COPY apps/api ./apps/api
 COPY packages ./packages
 RUN bun --filter='@iefa/api' run build
+RUN test -f apps/api/dist/index.js || \
+    (echo "❌ Build failed: output missing" && exit 1)
 
 FROM base AS api
 ENV NODE_ENV=production
@@ -33,7 +35,7 @@ COPY --from=api-build /app/apps/api ./apps/api
 COPY --from=api-build /app/packages ./packages
 USER bun
 EXPOSE 3000
-CMD ["bun", "apps/api/.output/index.js"]
+CMD ["bun", "apps/api/dist/index.js"]
 
 # =============================================================================
 # IEFA
@@ -56,7 +58,7 @@ RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
 # Build with environment variables available to Vite
 RUN bun --filter='@iefa/portal' run build
 # Validação: output existe?
-RUN test -f apps/iefa/.output/server/server.js || \
+RUN test -f apps/iefa/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
 FROM oven/bun:1.3.8-alpine AS iefa
@@ -86,7 +88,7 @@ RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
 
 # Build with environment variables available to Vite
 RUN bun --filter='@iefa/sisub' run build
-RUN test -f apps/sisub/.output/server/server.js || \
+RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
 FROM oven/bun:1.3.8-alpine AS sisub
