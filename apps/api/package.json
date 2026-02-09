@@ -1,9 +1,8 @@
 {
-    "name": "api",
+    "name": "@iefa/api",
     "type": "module",
     "scripts": {
         "dev": "bun run --watch src/index.ts",
-        "build": "tsc",
         "start": "bun src/index.ts",
         "test": "bun test",
         "format": "biome format",

@@ -15,11 +15,7 @@
         "react-dom": "^19.1.0"
     },
     "dependencies": {
-        "@iefa/ui": "workspace:*",
-        "@supabase/ssr": "^0.7.0",
-        "@supabase/supabase-js": "^2.89.0",
-        "lucide-react": "^0.537.0",
-        "react-router": "^7.11.0"
+        "@iefa/ui": "workspace:*"
     },
     "devDependencies": {
         "tailwindcss": "^4.1.18",
@@ -28,7 +24,6 @@
     "scripts": {
         "format": "biome format",
         "lint": "biome lint",
-        "check": "biome check",
-        "typecheck": "tsc --noEmit"
+        "check": "biome check"
     }
 }

@@ -1,26 +1,56 @@
+# === OS ===
 .DS_Store
-*/node_modules/
+Thumbs.db
+
+# === IDE (Antigravity) ===
+.antigravity/
+.idea/
+
+# === Dependencies ===
 node_modules
+
+# === Logs ===
 *.log
-dist
-dist-ssr
-*.local
+
+# === Environment ===
 .env
-.cache
-server/dist
-public/dist
-build
+.env.*
+!.env.example
 
-.env.api
-.env.iefa
-.env.sisub
-
-
-.nx/cache
-.nx/workspace-data
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
+# === Turborepo ===
 .turbo
 
+# === Bun ===
+bun.lockb.bak
+
+# === Vite ===
+.vite
+dist
+dist-ssr
+
+# === TanStack Start / Nitro ===
+.tanstack
+.output
+.nitro
+
+# === Astro Starlight ===
+.astro
+
+# === TypeScript (tsgo) ===
+*.tsbuildinfo
+tsgo-cache/
+
+# === Build / Output ===
 out
+coverage
+
+# === Docker ===
+.docker/
+
+# === Fly.io ===
+.fly/
+
+# === VSCode (caso alguém do time use) ===
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

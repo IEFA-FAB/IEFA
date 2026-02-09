@@ -24,7 +24,7 @@ FROM deps AS api-build
 COPY tsconfig.json ./
 COPY apps/api ./apps/api
 COPY packages ./packages
-RUN bun --filter=api run build
+RUN bun --filter='@iefa/api' run build
 
 FROM base AS api
 ENV NODE_ENV=production
@@ -54,7 +54,7 @@ COPY apps/iefa ./apps/iefa
 RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
 
 # Build with environment variables available to Vite
-RUN bun --filter=iefa run build
+RUN bun --filter='@iefa/portal' run build
 # Validação: output existe?
 RUN test -f apps/iefa/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
@@ -85,7 +85,7 @@ COPY apps/sisub ./apps/sisub
 RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
 
 # Build with environment variables available to Vite
-RUN bun --filter=sisub run build
+RUN bun --filter='@iefa/sisub' run build
 RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
@@ -105,7 +105,7 @@ FROM deps AS docs-build
 COPY tsconfig.json ./
 COPY apps/docs ./apps/docs
 COPY packages ./packages
-RUN bun --filter=red-resonance run build
+RUN bun --filter='@iefa/docs' run build
 
 FROM nginx:alpine AS docs
 COPY --from=docs-build /app/apps/docs/dist /usr/share/nginx/html
