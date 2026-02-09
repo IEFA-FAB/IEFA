@@ -56,17 +56,17 @@ RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
 # Build with environment variables available to Vite
 RUN bun --filter='@iefa/portal' run build
 # Validação: output existe?
-RUN test -f apps/iefa/.output/server/index.mjs || \
+RUN test -f apps/iefa/dist/server/server.js || \
     (echo "❌ Build failed: output missing" && exit 1)
 
 FROM oven/bun:1.3.8-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
 # Copy the complete Nitro output (includes bundled node_modules)
-COPY --from=iefa-build /app/apps/iefa/.output ./.output
+COPY --from=iefa-build /app/apps/iefa/dist ./dist
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "dist/server/server.js"]
 
 # =============================================================================
 # SISUB
@@ -86,17 +86,17 @@ RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
 
 # Build with environment variables available to Vite
 RUN bun --filter='@iefa/sisub' run build
-RUN test -f apps/sisub/.output/server/index.mjs || \
+RUN test -f apps/sisub/dist/server/server.js || \
     (echo "❌ Build failed: output missing" && exit 1)
 
 FROM oven/bun:1.3.8-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 # Copy the complete Nitro output (includes bundled node_modules)
-COPY --from=sisub-build /app/apps/sisub/.output ./.output
+COPY --from=sisub-build /app/apps/sisub/dist ./dist
 USER bun
 EXPOSE 3000
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "dist/server/server.js"]
 
 # =============================================================================
 # DOCS
