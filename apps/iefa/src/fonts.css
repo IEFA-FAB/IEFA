@@ -1,0 +1,24 @@
+/* Lora Variable */
+@font-face {
+	font-family: "Lora";
+	src: url("/fonts/Lora-Variable.ttf") format("truetype");
+	font-weight: 400 700;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Lora";
+	src: url("/fonts/Lora-Variable.ttf") format("truetype");
+	font-weight: 400 700;
+	font-style: italic;
+	font-display: swap;
+}
+
+/* IBM Plex Sans Variable */
+@font-face {
+	font-family: "IBM Plex Sans";
+	src: url("/fonts/IBMPlexSans-Variable.ttf") format("truetype");
+	font-weight: 100 700;
+	font-style: normal;
+	font-display: swap;
+}

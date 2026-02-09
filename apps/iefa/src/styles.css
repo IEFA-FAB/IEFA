@@ -1,6 +1,6 @@
 @import 'tailwindcss';
-
 @import 'tw-animate-css';
+@import './fonts.css';
 
 @config "../tailwind.config";
 
@@ -38,8 +38,8 @@
   --sidebar-accent-foreground: oklch(0.6723 0.1606 244.9955);
   --sidebar-border: oklch(0.9271 0.0101 238.5177);
   --sidebar-ring: oklch(0.6818 0.1584 243.3540);
-  --font-sans: Open Sans, sans-serif;
-  --font-serif: Georgia, serif;
+  --font-sans: 'IBM Plex Sans', sans-serif;
+  --font-serif: 'Lora', Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 1.3rem;
   --shadow-x: 0px;
