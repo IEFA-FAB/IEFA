@@ -1065,7 +1065,7 @@ function ChatRada() {
 							<div className="mt-3 text-[11px] text-muted-foreground">
 								<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
 									<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
-									<span>Você está deslogado. O histórico está desativado e não será salvo.</span>
+									<span>Você não está logado. O histórico está desativado e não será salvo.</span>
 								</div>
 							</div>
 						)}
@@ -1081,7 +1081,7 @@ function ChatRada() {
 						) : sessions.length === 0 ? (
 							<div className="h-full flex items-center justify-center text-center px-4">
 								<div className="text-xs text-muted-foreground">
-									Nenhuma sessão encontrada. Inicie uma nova conversa.
+									Nenhuma conversa encontrada. Inicie um novo bate-papo.
 								</div>
 							</div>
 						) : (
@@ -1128,14 +1128,14 @@ function ChatRada() {
 							<div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
 								<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
 								<span>
-									As sessões expiram em 7 dias. Inicie uma nova conversa para começar um novo
-									contexto.
+									As conversas ficam salvas por 7 dias. Inicie uma nova conversa para mudar de
+									assunto.
 								</span>
 							</div>
 						) : (
 							<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
 								<AlertCircle className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-								<span>Faça login para ativar o histórico. Sessões salvas expiram em 7 dias.</span>
+								<span>Entre para ativar o histórico. Conversas salvas expiram em 7 dias.</span>
 							</div>
 						)}
 					</div>
@@ -1205,14 +1205,13 @@ function ChatRada() {
 									</p>
 									{isLoggedIn ? (
 										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											Este chat possui memória por sessão (armazenada no Supabase). Use "Nova
-											sessão" para iniciar um novo contexto, ou "Apagar sessão" para excluir a
-											sessão atual no backend.
+											O histórico desta conversa é salvo automaticamente. Use "Nova sessão" para
+											começar um novo assunto, ou "Apagar sessão" para excluir esta conversa.
 										</p>
 									) : (
 										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											Você está deslogado. O histórico está desativado e suas mensagens não serão
-											salvas. Faça login para ativar o histórico por sessão.
+											Você não está logado. O histórico está desativado e suas mensagens não serão
+											salvas. Entre na conta para ativar o histórico.
 										</p>
 									)}
 								</div>

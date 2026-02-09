@@ -48,23 +48,19 @@ async function resolveDisplayName(userId: string): Promise<string | null> {
 		.from("v_user_identity")
 		.select("display_name")
 		.eq("id", userId)
-		.maybeSingle()
+		.single()
 
-	if (error) {
-		console.warn("Falha ao buscar display_name:", error)
-		return null
-	}
+	if (error || !data?.display_name) return null
 
-	const name = data?.display_name?.trim() || null
-	if (name) displayNameCache.set(userId, name)
+	const name = data.display_name
+	displayNameCache.set(userId, name)
 	return name
 }
 
 // ===== Regex de UUID e helper de extração =====
-const UUID_REGEX = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i
+const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
 function extractUuid(payload: string): string | null {
-	if (!payload) return null
 	const match = payload.match(UUID_REGEX)
 	return match ? match[0].toLowerCase() : null
 }
@@ -115,11 +111,9 @@ function Qr() {
 	const videoRef = useRef<HTMLVideoElement>(null)
 	const qrBoxRef = useRef<HTMLDivElement>(null)
 
-	// No explicit types needed for useState where inferred
 	const [autoCloseDialog, setAutoCloseDialog] = useState(true)
 	const [isProcessing, setIsProcessing] = useState(false)
 
-	// Removed useMemo for dates and meal - React Compiler handles this
 	const dates = generateRestrictedDates()
 	const defaultMeal = inferDefaultMeal()
 
@@ -149,10 +143,9 @@ function Qr() {
 	const COOLDOWN_MS = 800
 	const MAX_CACHE = 300
 	const lastScanAtRef = useRef(0)
-	const recentlyScannedRef = useRef<Set<string>>(new Set())
-	const scannedQueueRef = useRef<string[]>([]) // LRU
+	const recentlyScannedRef = useRef(new Set<string>())
+	const scannedQueueRef = useRef<string[]>([])
 
-	// Wrapped in useCallback to ensure stability for dependencies
 	const markScanned = useCallback((uuid: string) => {
 		const set = recentlyScannedRef.current
 		const queue = scannedQueueRef.current
@@ -201,12 +194,35 @@ function Qr() {
 				adminId: user.id,
 			})
 		} catch (err) {
-			console.error("Erro ao adicionar outra presença:", err)
+			console.error("Erro ao adicionar presença:", err)
 		}
 	}
 
+	// ===== Refs estáveis para callbacks do scanner =====
+	// Isso evita que o useEffect de inicialização re-execute
+	// toda vez que as dependências dos callbacks mudam.
+	const filtersRef = useRef(filters)
+	useEffect(() => {
+		filtersRef.current = filters
+	}, [filters])
+
+	const isProcessingRef = useRef(isProcessing)
+	useEffect(() => {
+		isProcessingRef.current = isProcessing
+	}, [isProcessing])
+
+	const processScanRef = useRef(processScan)
+	useEffect(() => {
+		processScanRef.current = processScan
+	}, [processScan])
+
+	const markScannedRef = useRef(markScanned)
+	useEffect(() => {
+		markScannedRef.current = markScanned
+	}, [markScanned])
+
 	const onScanSuccess = useCallback(
-		async (result: QrScanner.ScanResult) => {
+		(result: QrScanner.ScanResult) => {
 			const raw = (result?.data || "").trim()
 			if (!raw) return
 
@@ -216,41 +232,40 @@ function Qr() {
 			const now = Date.now()
 			if (now - lastScanAtRef.current < COOLDOWN_MS) return
 			if (recentlyScannedRef.current.has(uuid)) return
-			if (isProcessing) return
+			if (isProcessingRef.current) return
 
 			lastScanAtRef.current = now
 			setIsProcessing(true)
 
-			try {
-				await scannerRef.current?.stop()
-			} catch {}
+			// NÃO para o scanner aqui — o efeito de dialog.open cuida disso
+			;(async () => {
+				try {
+					const { systemForecast } = await processScanRef.current(uuid, filtersRef.current)
 
-			try {
-				const { systemForecast } = await processScan(uuid, filters)
+					if (!isMountedRef.current) return
 
-				if (!isMountedRef.current) return
+					setLastScanResult(uuid)
+					setDialog({
+						open: true,
+						uuid,
+						systemForecast,
+						willEnter: "sim",
+					})
 
-				setLastScanResult(uuid)
-				setDialog({
-					open: true,
-					uuid,
-					systemForecast,
-					willEnter: "sim",
-				})
-
-				markScanned(uuid)
-			} catch (err) {
-				console.error("Erro ao preparar diálogo:", err)
-				if (isMountedRef.current) {
-					toast.error("Erro", { description: "Falha ao processar QR." })
+					markScannedRef.current(uuid)
+				} catch (err) {
+					console.error("Erro ao preparar diálogo:", err)
+					if (isMountedRef.current) {
+						toast.error("Erro", { description: "Falha ao processar QR." })
+					}
+				} finally {
+					if (isMountedRef.current) {
+						setIsProcessing(false)
+					}
 				}
-			} finally {
-				if (isMountedRef.current) {
-					setIsProcessing(false)
-				}
-			}
+			})()
 		},
-		[filters, isProcessing, markScanned, processScan]
+		[] // ✅ Sem dependências que mudam — usa refs estáveis
 	)
 
 	const onScanFail = useCallback((err: string | Error) => {
@@ -259,7 +274,7 @@ function Qr() {
 		}
 	}, [])
 
-	// Scanner initialization
+	// Scanner initialization — roda apenas UMA vez
 	useEffect(() => {
 		let isCancelled = false
 
@@ -310,7 +325,7 @@ function Qr() {
 			scannerRef.current?.destroy()
 			scannerRef.current = null
 		}
-	}, [onScanFail, onScanSuccess]) // Removed deps as function stability is handled by compiler and scope
+	}, [onScanFail, onScanSuccess]) // ✅ Ambos são estáveis (deps vazias), então roda só 1x
 
 	// Função de confirmação do diálogo
 	const handleConfirmDialog = useCallback(async () => {
@@ -334,7 +349,7 @@ function Qr() {
 			handleConfirmDialog()
 		}, 3000)
 		return () => clearTimeout(timerId)
-	}, [dialog.open, dialog.uuid, autoCloseDialog, handleConfirmDialog]) // Handlers are stable
+	}, [dialog.open, dialog.uuid, autoCloseDialog, handleConfirmDialog])
 
 	// Pausar/retomar scanner quando o diálogo abre/fecha
 	useEffect(() => {
@@ -457,12 +472,12 @@ function Qr() {
 			</div>
 
 			{/* Leitor de QR em card */}
-			<div className="qr-reader relative rounded-xl border border-border bg-card text-card-foreground p-3">
-				{/** biome-ignore lint/a11y/useMediaCaption: explanation */}
-				<video ref={videoRef} className="rounded-md w-full max-h-[60vh] object-cover" />
+			<div className="qr-reader relative rounded-lg overflow-hidden bg-black">
+				{/** biome-ignore lint/a11y/useMediaCaption: this is a QR Code reader, does not need a caption */}
+				<video ref={videoRef} className="w-full h-auto object-cover" />
 				{!scannerState.hasPermission && scannerState.isReady && (
-					<div className="mt-3 text-center p-4 border border-border rounded-md bg-destructive/10 text-destructive text-sm">
-						<p>{scannerState.error || "Acesso à câmera negado."}</p>
+					<div className="mt-3 text-center p-4 text-sm text-muted-foreground">
+						{scannerState.error || "Câmera não disponível."}
 					</div>
 				)}
 				<div ref={qrBoxRef} className="qr-box pointer-events-none" />
