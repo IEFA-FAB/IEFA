@@ -67,23 +67,31 @@ jobs:
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
             iefa:
               - 'apps/iefa/**'
               - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
             sisub:
               - 'apps/sisub/**'
               - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
             docs:
               - 'apps/docs/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
 
   # ============================================
   # BUILD & DEPLOY - API
