@@ -7,7 +7,7 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["api", "iefa", "sisub", "docs"]
+  targets = ["api", "iefa", "sisub", "docs", "rag"]
 }
 
 group "apps" {
@@ -51,6 +51,12 @@ target "sisub" {
 
 target "docs" {
   inherits = ["base"]
-  target = "docs"
-  tags = ["${REGISTRY}/iefa-docs:${TAG}"]
+  target   = "docs"
+  tags     = ["${REGISTRY}/iefa-docs:${TAG}"]
+}
+
+target "rag" {
+  inherits = ["base"]
+  target   = "rag"
+  tags     = ["${REGISTRY}/iefa-rag:${TAG}"]
 }

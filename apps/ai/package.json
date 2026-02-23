@@ -1,0 +1,23 @@
+{
+  "name": "ai",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "ingest": "bun run ingest-local.ts",
+    "ingest:all": "bash ingest-all.sh"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.26",
+    "@langchain/langgraph": "^1.1.5",
+    "@langchain/langgraph-checkpoint-postgres": "^1.0.0",
+    "@langchain/openai": "^1.2.8",
+    "@supabase/supabase-js": "^2.97.0",
+    "hono": "^4.11.9",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pg": "^8.16.0",
+    "@types/uuid": "^11.0.0"
+  }
+}

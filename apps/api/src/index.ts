@@ -19,8 +19,32 @@ app.use(
 // Coloque a API sob /api
 app.route("/api", api)
 
-// Healthcheck
-app.get("/health", (c) => c.text("ok"))
+// Healthcheck — retorna 503 se a memória RSS ultrapassar 90% do limite do container
+const API_MEMORY_LIMIT_BYTES = 460 * 1024 * 1024 // 460MB — 90% de 512MB
+
+app.get("/health", (c) => {
+	const mem = process.memoryUsage()
+	const rss = mem.rss
+
+	if (rss > API_MEMORY_LIMIT_BYTES) {
+		return c.json(
+			{
+				status: "unhealthy",
+				service: "sisub-api",
+				reason: "memory_pressure",
+				rss_mb: Math.round(rss / 1024 / 1024),
+				limit_mb: 460,
+			},
+			503
+		)
+	}
+
+	return c.json({
+		status: "ok",
+		service: "sisub-api",
+		rss_mb: Math.round(rss / 1024 / 1024),
+	})
+})
 
 // Documentação OpenAPI
 app.doc("/doc", {

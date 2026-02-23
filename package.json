@@ -20,8 +20,8 @@
     "fix": "biome check --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.14",
-    "turbo": "^2.8.3"
+    "@biomejs/biome": "^2.4.3",
+    "turbo": "^2.8.10"
   },
   "workspaces": [
     "apps/*",

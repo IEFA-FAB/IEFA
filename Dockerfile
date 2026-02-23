@@ -101,6 +101,26 @@ EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
 
 # =============================================================================
+# RAG (apps/ai) — Hono + LangGraph + Bun
+# =============================================================================
+FROM deps AS rag-build
+COPY turbo.json ./
+COPY tsconfig.json ./
+COPY apps/ai ./apps/ai
+RUN test -f apps/ai/src/index.ts || \
+    (echo "❌ RAG entrypoint missing" && exit 1)
+
+FROM base AS rag
+ENV NODE_ENV=production
+ENV PORT=8000
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+COPY --from=rag-build /app/apps/ai ./apps/ai
+USER bun
+EXPOSE 8000
+CMD ["bun", "apps/ai/src/index.ts"]
+
+# =============================================================================
 # DOCS
 # =============================================================================
 FROM deps AS docs-build

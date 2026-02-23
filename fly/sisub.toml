@@ -41,3 +41,8 @@ primary_region = "gru"
   memory = "1gb"
   cpu_kind = "shared"
   cpus = 2
+
+
+[restart_policy]
+  policy = "on-failure"
+  max_retries = 5
