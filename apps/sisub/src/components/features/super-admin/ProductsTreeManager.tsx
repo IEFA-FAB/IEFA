@@ -19,6 +19,7 @@ import { ProductsTreeNode } from "./ProductsTreeNode"
  * - Industrial-Technical aesthetic (frontend-design)
  */
 export function ProductsTreeManager() {
+	"use no memo"
 	const [filterText, setFilterText] = useState("")
 	const [dialogState, setDialogState] = useState<ProductDialogState>({
 		isOpen: false,

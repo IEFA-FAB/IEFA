@@ -35,6 +35,7 @@ interface RecipeFormProps {
 }
 
 export function RecipeForm({ initialData, mode }: RecipeFormProps) {
+	"use no memo"
 	const navigate = useNavigate()
 
 	const createMutation = useCreateRecipe()
@@ -61,6 +62,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				})) || [],
 		},
 		onSubmit: async ({ value }) => {
+			"use no memo"
 			// Validate with Zod before submitting
 			const validation = recipeSchema.safeParse(value)
 			if (!validation.success) {
@@ -92,7 +94,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				}
 
 				toast.success("Receita salva com sucesso!")
-				navigate({ to: "/admin/recipes" }) // Go back to list
+				navigate({ to: "/local/recipes" }) // Go back to list
 			} catch {
 				// Error handled in hook/toast
 			}

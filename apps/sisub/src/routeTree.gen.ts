@@ -18,18 +18,24 @@ import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
-import { Route as ProtectedSelfCheckInRouteImport } from './routes/_protected/selfCheckIn'
-import { Route as ProtectedProfileRouteImport } from './routes/_protected/profile'
-import { Route as ProtectedPresenceRouteImport } from './routes/_protected/presence'
-import { Route as ProtectedForecastRouteImport } from './routes/_protected/forecast'
-import { Route as ProtectedSuperAdminIndexRouteImport } from './routes/_protected/superAdmin/index'
-import { Route as ProtectedAdminIndexRouteImport } from './routes/_protected/admin/index'
-import { Route as ProtectedSuperAdminIngredientsRouteImport } from './routes/_protected/superAdmin/ingredients'
-import { Route as ProtectedAdminProcurementRouteImport } from './routes/_protected/admin/procurement'
-import { Route as ProtectedAdminPlanningRouteImport } from './routes/_protected/admin/planning'
-import { Route as ProtectedAdminRecipesIndexRouteImport } from './routes/_protected/admin/recipes/index'
-import { Route as ProtectedAdminRecipesNewRouteImport } from './routes/_protected/admin/recipes/new'
-import { Route as ProtectedAdminRecipesRecipeIdRouteImport } from './routes/_protected/admin/recipes/$recipeId'
+import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
+import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_modules/route'
+import { Route as ProtectedModulesLocalIndexRouteImport } from './routes/_protected/_modules/local/index'
+import { Route as ProtectedModulesMesshallPresenceRouteImport } from './routes/_protected/_modules/messhall/presence'
+import { Route as ProtectedModulesLocalQrCodeRouteImport } from './routes/_protected/_modules/local/qrCode'
+import { Route as ProtectedModulesLocalProcurementRouteImport } from './routes/_protected/_modules/local/procurement'
+import { Route as ProtectedModulesLocalPlanningRouteImport } from './routes/_protected/_modules/local/planning'
+import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
+import { Route as ProtectedModulesGlobalIngredientsRouteImport } from './routes/_protected/_modules/global/ingredients'
+import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
+import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/selfCheckIn'
+import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
+import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
+import { Route as ProtectedModulesAnalyticsLocalRouteImport } from './routes/_protected/_modules/analytics/local'
+import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
+import { Route as ProtectedModulesLocalRecipesIndexRouteImport } from './routes/_protected/_modules/local/recipes/index'
+import { Route as ProtectedModulesLocalRecipesNewRouteImport } from './routes/_protected/_modules/local/recipes/new'
+import { Route as ProtectedModulesLocalRecipesRecipeIdRouteImport } from './routes/_protected/_modules/local/recipes/$recipeId'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -74,113 +80,162 @@ const PublicChangelogRoute = PublicChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => PublicRouteRoute,
 } as any)
-const ProtectedSelfCheckInRoute = ProtectedSelfCheckInRouteImport.update({
-  id: '/selfCheckIn',
-  path: '/selfCheckIn',
+const ProtectedHubRoute = ProtectedHubRouteImport.update({
+  id: '/hub',
+  path: '/hub',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedProfileRoute = ProtectedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
+const ProtectedModulesRouteRoute = ProtectedModulesRouteRouteImport.update({
+  id: '/_modules',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedPresenceRoute = ProtectedPresenceRouteImport.update({
-  id: '/presence',
-  path: '/presence',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
-const ProtectedForecastRoute = ProtectedForecastRouteImport.update({
-  id: '/forecast',
-  path: '/forecast',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
-const ProtectedSuperAdminIndexRoute =
-  ProtectedSuperAdminIndexRouteImport.update({
-    id: '/superAdmin/',
-    path: '/superAdmin/',
-    getParentRoute: () => ProtectedRouteRoute,
+const ProtectedModulesLocalIndexRoute =
+  ProtectedModulesLocalIndexRouteImport.update({
+    id: '/local/',
+    path: '/local/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedAdminIndexRoute = ProtectedAdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
-const ProtectedSuperAdminIngredientsRoute =
-  ProtectedSuperAdminIngredientsRouteImport.update({
-    id: '/superAdmin/ingredients',
-    path: '/superAdmin/ingredients',
-    getParentRoute: () => ProtectedRouteRoute,
+const ProtectedModulesMesshallPresenceRoute =
+  ProtectedModulesMesshallPresenceRouteImport.update({
+    id: '/messhall/presence',
+    path: '/messhall/presence',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedAdminProcurementRoute =
-  ProtectedAdminProcurementRouteImport.update({
-    id: '/admin/procurement',
-    path: '/admin/procurement',
-    getParentRoute: () => ProtectedRouteRoute,
+const ProtectedModulesLocalQrCodeRoute =
+  ProtectedModulesLocalQrCodeRouteImport.update({
+    id: '/local/qrCode',
+    path: '/local/qrCode',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedAdminPlanningRoute = ProtectedAdminPlanningRouteImport.update({
-  id: '/admin/planning',
-  path: '/admin/planning',
-  getParentRoute: () => ProtectedRouteRoute,
-} as any)
-const ProtectedAdminRecipesIndexRoute =
-  ProtectedAdminRecipesIndexRouteImport.update({
-    id: '/admin/recipes/',
-    path: '/admin/recipes/',
-    getParentRoute: () => ProtectedRouteRoute,
+const ProtectedModulesLocalProcurementRoute =
+  ProtectedModulesLocalProcurementRouteImport.update({
+    id: '/local/procurement',
+    path: '/local/procurement',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedAdminRecipesNewRoute =
-  ProtectedAdminRecipesNewRouteImport.update({
-    id: '/admin/recipes/new',
-    path: '/admin/recipes/new',
-    getParentRoute: () => ProtectedRouteRoute,
+const ProtectedModulesLocalPlanningRoute =
+  ProtectedModulesLocalPlanningRouteImport.update({
+    id: '/local/planning',
+    path: '/local/planning',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedAdminRecipesRecipeIdRoute =
-  ProtectedAdminRecipesRecipeIdRouteImport.update({
-    id: '/admin/recipes/$recipeId',
-    path: '/admin/recipes/$recipeId',
-    getParentRoute: () => ProtectedRouteRoute,
+const ProtectedModulesGlobalPermissionsRoute =
+  ProtectedModulesGlobalPermissionsRouteImport.update({
+    id: '/global/permissions',
+    path: '/global/permissions',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalIngredientsRoute =
+  ProtectedModulesGlobalIngredientsRouteImport.update({
+    id: '/global/ingredients',
+    path: '/global/ingredients',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalEvaluationRoute =
+  ProtectedModulesGlobalEvaluationRouteImport.update({
+    id: '/global/evaluation',
+    path: '/global/evaluation',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerSelfCheckInRoute =
+  ProtectedModulesDinerSelfCheckInRouteImport.update({
+    id: '/diner/selfCheckIn',
+    path: '/diner/selfCheckIn',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerProfileRoute =
+  ProtectedModulesDinerProfileRouteImport.update({
+    id: '/diner/profile',
+    path: '/diner/profile',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerForecastRoute =
+  ProtectedModulesDinerForecastRouteImport.update({
+    id: '/diner/forecast',
+    path: '/diner/forecast',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsLocalRoute =
+  ProtectedModulesAnalyticsLocalRouteImport.update({
+    id: '/analytics/local',
+    path: '/analytics/local',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsGlobalRoute =
+  ProtectedModulesAnalyticsGlobalRouteImport.update({
+    id: '/analytics/global',
+    path: '/analytics/global',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesLocalRecipesIndexRoute =
+  ProtectedModulesLocalRecipesIndexRouteImport.update({
+    id: '/local/recipes/',
+    path: '/local/recipes/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesLocalRecipesNewRoute =
+  ProtectedModulesLocalRecipesNewRouteImport.update({
+    id: '/local/recipes/new',
+    path: '/local/recipes/new',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesLocalRecipesRecipeIdRoute =
+  ProtectedModulesLocalRecipesRecipeIdRouteImport.update({
+    id: '/local/recipes/$recipeId',
+    path: '/local/recipes/$recipeId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
-  '/forecast': typeof ProtectedForecastRoute
-  '/presence': typeof ProtectedPresenceRoute
-  '/profile': typeof ProtectedProfileRoute
-  '/selfCheckIn': typeof ProtectedSelfCheckInRoute
+  '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
-  '/admin/planning': typeof ProtectedAdminPlanningRoute
-  '/admin/procurement': typeof ProtectedAdminProcurementRoute
-  '/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
-  '/admin/': typeof ProtectedAdminIndexRoute
-  '/superAdmin/': typeof ProtectedSuperAdminIndexRoute
-  '/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
-  '/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
-  '/admin/recipes/': typeof ProtectedAdminRecipesIndexRoute
+  '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
+  '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/profile': typeof ProtectedModulesDinerProfileRoute
+  '/diner/selfCheckIn': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
+  '/global/ingredients': typeof ProtectedModulesGlobalIngredientsRoute
+  '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
+  '/local/planning': typeof ProtectedModulesLocalPlanningRoute
+  '/local/procurement': typeof ProtectedModulesLocalProcurementRoute
+  '/local/qrCode': typeof ProtectedModulesLocalQrCodeRoute
+  '/messhall/presence': typeof ProtectedModulesMesshallPresenceRoute
+  '/local/': typeof ProtectedModulesLocalIndexRoute
+  '/local/recipes/$recipeId': typeof ProtectedModulesLocalRecipesRecipeIdRoute
+  '/local/recipes/new': typeof ProtectedModulesLocalRecipesNewRoute
+  '/local/recipes/': typeof ProtectedModulesLocalRecipesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/health': typeof HealthRoute
-  '/forecast': typeof ProtectedForecastRoute
-  '/presence': typeof ProtectedPresenceRoute
-  '/profile': typeof ProtectedProfileRoute
-  '/selfCheckIn': typeof ProtectedSelfCheckInRoute
+  '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
-  '/admin/planning': typeof ProtectedAdminPlanningRoute
-  '/admin/procurement': typeof ProtectedAdminProcurementRoute
-  '/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
-  '/admin': typeof ProtectedAdminIndexRoute
-  '/superAdmin': typeof ProtectedSuperAdminIndexRoute
-  '/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
-  '/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
-  '/admin/recipes': typeof ProtectedAdminRecipesIndexRoute
+  '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
+  '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/profile': typeof ProtectedModulesDinerProfileRoute
+  '/diner/selfCheckIn': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
+  '/global/ingredients': typeof ProtectedModulesGlobalIngredientsRoute
+  '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
+  '/local/planning': typeof ProtectedModulesLocalPlanningRoute
+  '/local/procurement': typeof ProtectedModulesLocalProcurementRoute
+  '/local/qrCode': typeof ProtectedModulesLocalQrCodeRoute
+  '/messhall/presence': typeof ProtectedModulesMesshallPresenceRoute
+  '/local': typeof ProtectedModulesLocalIndexRoute
+  '/local/recipes/$recipeId': typeof ProtectedModulesLocalRecipesRecipeIdRoute
+  '/local/recipes/new': typeof ProtectedModulesLocalRecipesNewRoute
+  '/local/recipes': typeof ProtectedModulesLocalRecipesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -188,23 +243,29 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
-  '/_protected/forecast': typeof ProtectedForecastRoute
-  '/_protected/presence': typeof ProtectedPresenceRoute
-  '/_protected/profile': typeof ProtectedProfileRoute
-  '/_protected/selfCheckIn': typeof ProtectedSelfCheckInRoute
+  '/_protected/_modules': typeof ProtectedModulesRouteRouteWithChildren
+  '/_protected/hub': typeof ProtectedHubRoute
   '/_public/changelog': typeof PublicChangelogRoute
   '/_public/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
-  '/_protected/admin/planning': typeof ProtectedAdminPlanningRoute
-  '/_protected/admin/procurement': typeof ProtectedAdminProcurementRoute
-  '/_protected/superAdmin/ingredients': typeof ProtectedSuperAdminIngredientsRoute
-  '/_protected/admin/': typeof ProtectedAdminIndexRoute
-  '/_protected/superAdmin/': typeof ProtectedSuperAdminIndexRoute
-  '/_protected/admin/recipes/$recipeId': typeof ProtectedAdminRecipesRecipeIdRoute
-  '/_protected/admin/recipes/new': typeof ProtectedAdminRecipesNewRoute
-  '/_protected/admin/recipes/': typeof ProtectedAdminRecipesIndexRoute
+  '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
+  '/_protected/_modules/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
+  '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
+  '/_protected/_modules/diner/selfCheckIn': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
+  '/_protected/_modules/global/ingredients': typeof ProtectedModulesGlobalIngredientsRoute
+  '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
+  '/_protected/_modules/local/planning': typeof ProtectedModulesLocalPlanningRoute
+  '/_protected/_modules/local/procurement': typeof ProtectedModulesLocalProcurementRoute
+  '/_protected/_modules/local/qrCode': typeof ProtectedModulesLocalQrCodeRoute
+  '/_protected/_modules/messhall/presence': typeof ProtectedModulesMesshallPresenceRoute
+  '/_protected/_modules/local/': typeof ProtectedModulesLocalIndexRoute
+  '/_protected/_modules/local/recipes/$recipeId': typeof ProtectedModulesLocalRecipesRecipeIdRoute
+  '/_protected/_modules/local/recipes/new': typeof ProtectedModulesLocalRecipesNewRoute
+  '/_protected/_modules/local/recipes/': typeof ProtectedModulesLocalRecipesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -212,65 +273,81 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/health'
-    | '/forecast'
-    | '/presence'
-    | '/profile'
-    | '/selfCheckIn'
+    | '/hub'
     | '/changelog'
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth/'
-    | '/admin/planning'
-    | '/admin/procurement'
-    | '/superAdmin/ingredients'
-    | '/admin/'
-    | '/superAdmin/'
-    | '/admin/recipes/$recipeId'
-    | '/admin/recipes/new'
-    | '/admin/recipes/'
+    | '/analytics/global'
+    | '/analytics/local'
+    | '/diner/forecast'
+    | '/diner/profile'
+    | '/diner/selfCheckIn'
+    | '/global/evaluation'
+    | '/global/ingredients'
+    | '/global/permissions'
+    | '/local/planning'
+    | '/local/procurement'
+    | '/local/qrCode'
+    | '/messhall/presence'
+    | '/local/'
+    | '/local/recipes/$recipeId'
+    | '/local/recipes/new'
+    | '/local/recipes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/health'
-    | '/forecast'
-    | '/presence'
-    | '/profile'
-    | '/selfCheckIn'
+    | '/hub'
     | '/changelog'
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth'
-    | '/admin/planning'
-    | '/admin/procurement'
-    | '/superAdmin/ingredients'
-    | '/admin'
-    | '/superAdmin'
-    | '/admin/recipes/$recipeId'
-    | '/admin/recipes/new'
-    | '/admin/recipes'
+    | '/analytics/global'
+    | '/analytics/local'
+    | '/diner/forecast'
+    | '/diner/profile'
+    | '/diner/selfCheckIn'
+    | '/global/evaluation'
+    | '/global/ingredients'
+    | '/global/permissions'
+    | '/local/planning'
+    | '/local/procurement'
+    | '/local/qrCode'
+    | '/messhall/presence'
+    | '/local'
+    | '/local/recipes/$recipeId'
+    | '/local/recipes/new'
+    | '/local/recipes'
   id:
     | '__root__'
     | '/_protected'
     | '/_public'
     | '/auth'
     | '/health'
-    | '/_protected/forecast'
-    | '/_protected/presence'
-    | '/_protected/profile'
-    | '/_protected/selfCheckIn'
+    | '/_protected/_modules'
+    | '/_protected/hub'
     | '/_public/changelog'
     | '/_public/tutorial'
     | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
-    | '/_protected/admin/planning'
-    | '/_protected/admin/procurement'
-    | '/_protected/superAdmin/ingredients'
-    | '/_protected/admin/'
-    | '/_protected/superAdmin/'
-    | '/_protected/admin/recipes/$recipeId'
-    | '/_protected/admin/recipes/new'
-    | '/_protected/admin/recipes/'
+    | '/_protected/_modules/analytics/global'
+    | '/_protected/_modules/analytics/local'
+    | '/_protected/_modules/diner/forecast'
+    | '/_protected/_modules/diner/profile'
+    | '/_protected/_modules/diner/selfCheckIn'
+    | '/_protected/_modules/global/evaluation'
+    | '/_protected/_modules/global/ingredients'
+    | '/_protected/_modules/global/permissions'
+    | '/_protected/_modules/local/planning'
+    | '/_protected/_modules/local/procurement'
+    | '/_protected/_modules/local/qrCode'
+    | '/_protected/_modules/messhall/presence'
+    | '/_protected/_modules/local/'
+    | '/_protected/_modules/local/recipes/$recipeId'
+    | '/_protected/_modules/local/recipes/new'
+    | '/_protected/_modules/local/recipes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -345,121 +422,190 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicChangelogRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_protected/selfCheckIn': {
-      id: '/_protected/selfCheckIn'
-      path: '/selfCheckIn'
-      fullPath: '/selfCheckIn'
-      preLoaderRoute: typeof ProtectedSelfCheckInRouteImport
+    '/_protected/hub': {
+      id: '/_protected/hub'
+      path: '/hub'
+      fullPath: '/hub'
+      preLoaderRoute: typeof ProtectedHubRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/profile': {
-      id: '/_protected/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProtectedProfileRouteImport
+    '/_protected/_modules': {
+      id: '/_protected/_modules'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedModulesRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/presence': {
-      id: '/_protected/presence'
-      path: '/presence'
-      fullPath: '/presence'
-      preLoaderRoute: typeof ProtectedPresenceRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/local/': {
+      id: '/_protected/_modules/local/'
+      path: '/local'
+      fullPath: '/local/'
+      preLoaderRoute: typeof ProtectedModulesLocalIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/forecast': {
-      id: '/_protected/forecast'
-      path: '/forecast'
-      fullPath: '/forecast'
-      preLoaderRoute: typeof ProtectedForecastRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/messhall/presence': {
+      id: '/_protected/_modules/messhall/presence'
+      path: '/messhall/presence'
+      fullPath: '/messhall/presence'
+      preLoaderRoute: typeof ProtectedModulesMesshallPresenceRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/superAdmin/': {
-      id: '/_protected/superAdmin/'
-      path: '/superAdmin'
-      fullPath: '/superAdmin/'
-      preLoaderRoute: typeof ProtectedSuperAdminIndexRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/local/qrCode': {
+      id: '/_protected/_modules/local/qrCode'
+      path: '/local/qrCode'
+      fullPath: '/local/qrCode'
+      preLoaderRoute: typeof ProtectedModulesLocalQrCodeRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/admin/': {
-      id: '/_protected/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof ProtectedAdminIndexRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/local/procurement': {
+      id: '/_protected/_modules/local/procurement'
+      path: '/local/procurement'
+      fullPath: '/local/procurement'
+      preLoaderRoute: typeof ProtectedModulesLocalProcurementRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/superAdmin/ingredients': {
-      id: '/_protected/superAdmin/ingredients'
-      path: '/superAdmin/ingredients'
-      fullPath: '/superAdmin/ingredients'
-      preLoaderRoute: typeof ProtectedSuperAdminIngredientsRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/local/planning': {
+      id: '/_protected/_modules/local/planning'
+      path: '/local/planning'
+      fullPath: '/local/planning'
+      preLoaderRoute: typeof ProtectedModulesLocalPlanningRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/admin/procurement': {
-      id: '/_protected/admin/procurement'
-      path: '/admin/procurement'
-      fullPath: '/admin/procurement'
-      preLoaderRoute: typeof ProtectedAdminProcurementRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/global/permissions': {
+      id: '/_protected/_modules/global/permissions'
+      path: '/global/permissions'
+      fullPath: '/global/permissions'
+      preLoaderRoute: typeof ProtectedModulesGlobalPermissionsRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/admin/planning': {
-      id: '/_protected/admin/planning'
-      path: '/admin/planning'
-      fullPath: '/admin/planning'
-      preLoaderRoute: typeof ProtectedAdminPlanningRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/global/ingredients': {
+      id: '/_protected/_modules/global/ingredients'
+      path: '/global/ingredients'
+      fullPath: '/global/ingredients'
+      preLoaderRoute: typeof ProtectedModulesGlobalIngredientsRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/admin/recipes/': {
-      id: '/_protected/admin/recipes/'
-      path: '/admin/recipes'
-      fullPath: '/admin/recipes/'
-      preLoaderRoute: typeof ProtectedAdminRecipesIndexRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/global/evaluation': {
+      id: '/_protected/_modules/global/evaluation'
+      path: '/global/evaluation'
+      fullPath: '/global/evaluation'
+      preLoaderRoute: typeof ProtectedModulesGlobalEvaluationRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/admin/recipes/new': {
-      id: '/_protected/admin/recipes/new'
-      path: '/admin/recipes/new'
-      fullPath: '/admin/recipes/new'
-      preLoaderRoute: typeof ProtectedAdminRecipesNewRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/diner/selfCheckIn': {
+      id: '/_protected/_modules/diner/selfCheckIn'
+      path: '/diner/selfCheckIn'
+      fullPath: '/diner/selfCheckIn'
+      preLoaderRoute: typeof ProtectedModulesDinerSelfCheckInRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/admin/recipes/$recipeId': {
-      id: '/_protected/admin/recipes/$recipeId'
-      path: '/admin/recipes/$recipeId'
-      fullPath: '/admin/recipes/$recipeId'
-      preLoaderRoute: typeof ProtectedAdminRecipesRecipeIdRouteImport
-      parentRoute: typeof ProtectedRouteRoute
+    '/_protected/_modules/diner/profile': {
+      id: '/_protected/_modules/diner/profile'
+      path: '/diner/profile'
+      fullPath: '/diner/profile'
+      preLoaderRoute: typeof ProtectedModulesDinerProfileRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/forecast': {
+      id: '/_protected/_modules/diner/forecast'
+      path: '/diner/forecast'
+      fullPath: '/diner/forecast'
+      preLoaderRoute: typeof ProtectedModulesDinerForecastRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/analytics/local': {
+      id: '/_protected/_modules/analytics/local'
+      path: '/analytics/local'
+      fullPath: '/analytics/local'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsLocalRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/analytics/global': {
+      id: '/_protected/_modules/analytics/global'
+      path: '/analytics/global'
+      fullPath: '/analytics/global'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsGlobalRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/local/recipes/': {
+      id: '/_protected/_modules/local/recipes/'
+      path: '/local/recipes'
+      fullPath: '/local/recipes/'
+      preLoaderRoute: typeof ProtectedModulesLocalRecipesIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/local/recipes/new': {
+      id: '/_protected/_modules/local/recipes/new'
+      path: '/local/recipes/new'
+      fullPath: '/local/recipes/new'
+      preLoaderRoute: typeof ProtectedModulesLocalRecipesNewRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/local/recipes/$recipeId': {
+      id: '/_protected/_modules/local/recipes/$recipeId'
+      path: '/local/recipes/$recipeId'
+      fullPath: '/local/recipes/$recipeId'
+      preLoaderRoute: typeof ProtectedModulesLocalRecipesRecipeIdRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
     }
   }
 }
 
+interface ProtectedModulesRouteRouteChildren {
+  ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
+  ProtectedModulesAnalyticsLocalRoute: typeof ProtectedModulesAnalyticsLocalRoute
+  ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
+  ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
+  ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
+  ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
+  ProtectedModulesGlobalIngredientsRoute: typeof ProtectedModulesGlobalIngredientsRoute
+  ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
+  ProtectedModulesLocalPlanningRoute: typeof ProtectedModulesLocalPlanningRoute
+  ProtectedModulesLocalProcurementRoute: typeof ProtectedModulesLocalProcurementRoute
+  ProtectedModulesLocalQrCodeRoute: typeof ProtectedModulesLocalQrCodeRoute
+  ProtectedModulesMesshallPresenceRoute: typeof ProtectedModulesMesshallPresenceRoute
+  ProtectedModulesLocalIndexRoute: typeof ProtectedModulesLocalIndexRoute
+  ProtectedModulesLocalRecipesRecipeIdRoute: typeof ProtectedModulesLocalRecipesRecipeIdRoute
+  ProtectedModulesLocalRecipesNewRoute: typeof ProtectedModulesLocalRecipesNewRoute
+  ProtectedModulesLocalRecipesIndexRoute: typeof ProtectedModulesLocalRecipesIndexRoute
+}
+
+const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
+  ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
+  ProtectedModulesAnalyticsLocalRoute: ProtectedModulesAnalyticsLocalRoute,
+  ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
+  ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
+  ProtectedModulesDinerSelfCheckInRoute: ProtectedModulesDinerSelfCheckInRoute,
+  ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
+  ProtectedModulesGlobalIngredientsRoute:
+    ProtectedModulesGlobalIngredientsRoute,
+  ProtectedModulesGlobalPermissionsRoute:
+    ProtectedModulesGlobalPermissionsRoute,
+  ProtectedModulesLocalPlanningRoute: ProtectedModulesLocalPlanningRoute,
+  ProtectedModulesLocalProcurementRoute: ProtectedModulesLocalProcurementRoute,
+  ProtectedModulesLocalQrCodeRoute: ProtectedModulesLocalQrCodeRoute,
+  ProtectedModulesMesshallPresenceRoute: ProtectedModulesMesshallPresenceRoute,
+  ProtectedModulesLocalIndexRoute: ProtectedModulesLocalIndexRoute,
+  ProtectedModulesLocalRecipesRecipeIdRoute:
+    ProtectedModulesLocalRecipesRecipeIdRoute,
+  ProtectedModulesLocalRecipesNewRoute: ProtectedModulesLocalRecipesNewRoute,
+  ProtectedModulesLocalRecipesIndexRoute:
+    ProtectedModulesLocalRecipesIndexRoute,
+}
+
+const ProtectedModulesRouteRouteWithChildren =
+  ProtectedModulesRouteRoute._addFileChildren(
+    ProtectedModulesRouteRouteChildren,
+  )
+
 interface ProtectedRouteRouteChildren {
-  ProtectedForecastRoute: typeof ProtectedForecastRoute
-  ProtectedPresenceRoute: typeof ProtectedPresenceRoute
-  ProtectedProfileRoute: typeof ProtectedProfileRoute
-  ProtectedSelfCheckInRoute: typeof ProtectedSelfCheckInRoute
-  ProtectedAdminPlanningRoute: typeof ProtectedAdminPlanningRoute
-  ProtectedAdminProcurementRoute: typeof ProtectedAdminProcurementRoute
-  ProtectedSuperAdminIngredientsRoute: typeof ProtectedSuperAdminIngredientsRoute
-  ProtectedAdminIndexRoute: typeof ProtectedAdminIndexRoute
-  ProtectedSuperAdminIndexRoute: typeof ProtectedSuperAdminIndexRoute
-  ProtectedAdminRecipesRecipeIdRoute: typeof ProtectedAdminRecipesRecipeIdRoute
-  ProtectedAdminRecipesNewRoute: typeof ProtectedAdminRecipesNewRoute
-  ProtectedAdminRecipesIndexRoute: typeof ProtectedAdminRecipesIndexRoute
+  ProtectedModulesRouteRoute: typeof ProtectedModulesRouteRouteWithChildren
+  ProtectedHubRoute: typeof ProtectedHubRoute
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
-  ProtectedForecastRoute: ProtectedForecastRoute,
-  ProtectedPresenceRoute: ProtectedPresenceRoute,
-  ProtectedProfileRoute: ProtectedProfileRoute,
-  ProtectedSelfCheckInRoute: ProtectedSelfCheckInRoute,
-  ProtectedAdminPlanningRoute: ProtectedAdminPlanningRoute,
-  ProtectedAdminProcurementRoute: ProtectedAdminProcurementRoute,
-  ProtectedSuperAdminIngredientsRoute: ProtectedSuperAdminIngredientsRoute,
-  ProtectedAdminIndexRoute: ProtectedAdminIndexRoute,
-  ProtectedSuperAdminIndexRoute: ProtectedSuperAdminIndexRoute,
-  ProtectedAdminRecipesRecipeIdRoute: ProtectedAdminRecipesRecipeIdRoute,
-  ProtectedAdminRecipesNewRoute: ProtectedAdminRecipesNewRoute,
-  ProtectedAdminRecipesIndexRoute: ProtectedAdminRecipesIndexRoute,
+  ProtectedModulesRouteRoute: ProtectedModulesRouteRouteWithChildren,
+  ProtectedHubRoute: ProtectedHubRoute,
 }
 
 const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(

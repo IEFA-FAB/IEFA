@@ -64,6 +64,7 @@ const RoleBadge = ({ role }: { role: UserLevel }) => {
 }
 
 export default function ProfilesManager() {
+	"use no memo"
 	// Dados via Hook
 	const { data: profiles = [], isLoading: loading } = useAdminProfiles()
 	const addProfile = useAddProfile()

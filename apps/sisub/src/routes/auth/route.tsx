@@ -14,7 +14,7 @@ export const Route = createFileRoute("/auth")({
 	beforeLoad: ({ context, search }) => {
 		const { user } = context.auth
 		if (user) {
-			throw redirect({ to: search.redirect || "/forecast" })
+			throw redirect({ to: search.redirect || "/hub" })
 		}
 	},
 	component: AuthLayout,

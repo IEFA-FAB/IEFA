@@ -1,6 +1,6 @@
 import { Badge, Button, Input, Label } from "@iefa/ui"
 import { ArrowLeftRight, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
 import type { MenuItem } from "@/types/domain/planning"
 
@@ -20,12 +20,18 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 
 	const [portionQty, setPortionQty] = useState<number | null>(item.planned_portion_quantity)
 	const [excludedQty, setExcludedQty] = useState<number | null>(item.excluded_from_procurement)
+	const [prevPortion, setPrevPortion] = useState(item.planned_portion_quantity)
+	const [prevExcluded, setPrevExcluded] = useState(item.excluded_from_procurement)
 
-	// Sync state with prop changes
-	useEffect(() => {
+	// Sync state with prop changes (adjust during render, not in effect)
+	if (prevPortion !== item.planned_portion_quantity) {
+		setPrevPortion(item.planned_portion_quantity)
 		setPortionQty(item.planned_portion_quantity)
+	}
+	if (prevExcluded !== item.excluded_from_procurement) {
+		setPrevExcluded(item.excluded_from_procurement)
 		setExcludedQty(item.excluded_from_procurement)
-	}, [item.planned_portion_quantity, item.excluded_from_procurement])
+	}
 
 	const handleUpdatePortionQuantity = () => {
 		updateMenuItem({

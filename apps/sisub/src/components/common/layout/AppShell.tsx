@@ -1,10 +1,12 @@
 import { AnimatedThemeToggler, Button, Separator, SidebarInset, SidebarTrigger } from "@iefa/ui"
-import { Link, Outlet, useLocation } from "@tanstack/react-router"
+import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router"
 import { QrCode } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import {
-	buildSidebarData,
+	getModuleFromPath,
+	getModulesForLevel,
 	getNavItemsForLevel,
+	type ModuleId,
 	type NavItem,
 } from "@/components/common/layout/sidebar/NavItems"
 import {
@@ -31,38 +33,39 @@ const R = {
 
 export function AppShell({ onOpenQr }: AppShellProps) {
 	const location = useLocation()
+	const navigate = useNavigate()
 	const { user } = useAuth()
 	const userId = user?.id ?? null
 	const { toggle } = useTheme()
 
 	const { data: userLevel, isLoading: levelLoading, isError: levelError } = useUserLevel(user?.id)
 
-	let userDisplay = { name: "Usuário", email: "", avatar: "" }
-	if (user) {
-		const name =
-			(user.user_metadata?.full_name as string | undefined) ??
-			(user.user_metadata?.name as string | undefined) ??
-			user.email ??
-			"Usuário"
-		const avatar = (user.user_metadata?.avatar_url as string | undefined) ?? ""
-		userDisplay = { name, email: user.email ?? "", avatar }
+	const availableModules = userLevel ? getModulesForLevel(userLevel) : []
+
+	// Auto-detect active module from current path
+	const pathModuleId = getModuleFromPath(location.pathname)
+	const [selectedModuleId, setSelectedModuleId] = useState<ModuleId | null>(pathModuleId)
+
+	// Sync selected module when path changes to a different module
+	const effectiveModuleId = pathModuleId ?? selectedModuleId ?? availableModules[0]?.id ?? null
+
+	// Keep selectedModuleId in sync with path during render (avoid stale state)
+	const [prevPathModuleId, setPrevPathModuleId] = useState(pathModuleId)
+	if (prevPathModuleId !== pathModuleId && pathModuleId !== null) {
+		setPrevPathModuleId(pathModuleId)
+		setSelectedModuleId(pathModuleId)
 	}
 
-	let sidebarData = null
-	if (userLevel && user) {
-		sidebarData = buildSidebarData({
-			level: userLevel,
-			activePath: location.pathname,
-			user: userDisplay,
-		})
+	const handleModuleChange = (moduleId: ModuleId) => {
+		setSelectedModuleId(moduleId)
+		const mod = availableModules.find((m) => m.id === moduleId)
+		const firstUrl = mod?.items[0]?.url
+		if (firstUrl) {
+			navigate({ to: firstUrl as Parameters<typeof navigate>[0]["to"] })
+		}
 	}
 
-	const navItems: NavItem[] = userLevel ? getNavItemsForLevel(userLevel) : []
-
-	// Show sidebar if we have data OR if we are loading the level (to show skeleton)
-	// But don't show if there was an error fetching the level
-	const showSidebar = (!!sidebarData || levelLoading) && !levelError
-
+	const showSidebar = (availableModules.length > 0 || levelLoading) && !levelError
 	const showInitialLoading = levelLoading && !userLevel
 	const showInitialError = !levelLoading && levelError
 
@@ -71,21 +74,22 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 	}
 
 	// Generate breadcrumbs from current path
+	const navItems: NavItem[] = userLevel ? getNavItemsForLevel(userLevel) : []
 	const crumbs = (() => {
 		const path = location.pathname.replace(/\/+$/, "")
 		if (!path || path === "/") {
-			return [{ to: "/forecast", label: "Previsão" }]
+			return [{ to: "/hub", label: "Hub" }]
 		}
 		const segments = path.split("/").filter(Boolean)
-		const mapLabel = (seg: string) => {
-			const found = navItems.find((n) => n.to.replace(/^\//, "") === seg)
+		const mapLabel = (seg: string, fullPath: string) => {
+			const found = navItems.find((n) => n.to === fullPath || n.to === `/${seg}`)
 			if (found) return found.label
 			return seg.charAt(0).toUpperCase() + seg.slice(1)
 		}
 		let acc = ""
 		return segments.map((seg) => {
 			acc += `/${seg}`
-			return { to: acc, label: mapLabel(seg) }
+			return { to: acc, label: mapLabel(seg, acc) }
 		})
 	})()
 
@@ -99,7 +103,9 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 		<>
 			<AppSidebar
 				variant="floating"
-				data={sidebarData ?? undefined}
+				modules={availableModules}
+				activeModuleId={effectiveModuleId}
+				onModuleChange={handleModuleChange}
 				isLoading={levelLoading}
 				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
@@ -115,7 +121,7 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 									<BreadcrumbItem>
 										<BreadcrumbLink
 											render={
-												<Link to="/forecast" className="hover:text-primary transition-colors">
+												<Link to="/hub" className="hover:text-primary transition-colors">
 													{R.breadcrumbRoot}
 												</Link>
 											}

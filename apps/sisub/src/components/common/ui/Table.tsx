@@ -189,6 +189,7 @@ type TableSettings = {
 const LS_TABLE_SETTINGS_KEY = "pregoeiro_table_settings_v1"
 
 function useTableSettings(currentUserId?: string) {
+	"use no memo"
 	const [settings, setSettings] = useState<TableSettings | null>(null)
 	const [loading, setLoading] = useState(true)
 	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -197,6 +198,7 @@ function useTableSettings(currentUserId?: string) {
 		let mounted = true
 
 		async function load() {
+			"use no memo"
 			setLoading(true)
 			try {
 				if (currentUserId) {
@@ -375,6 +377,7 @@ export function FacilidadesTable({
 	currentUserId,
 	onEditRow,
 }: FacilidadesTableProps) {
+	"use no memo"
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})

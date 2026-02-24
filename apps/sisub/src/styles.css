@@ -1,6 +1,22 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import './fonts.css';
+
+@font-face {
+	font-family: "Manrope";
+	src: url("/fonts/Manrope-Variable.ttf") format("truetype");
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("/fonts/JetBrainsMono-Variable.ttf") format("truetype");
+	font-weight: 100 800;
+	font-style: normal;
+	font-display: swap;
+}
+
 
 @config "../tailwind.config";
 

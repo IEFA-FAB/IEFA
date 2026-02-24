@@ -1,78 +1,46 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { toast } from "sonner"
-import supabase from "@/lib/supabase"
-import type { DailyMenuInsert, DailyMenuWithItems, MenuItemInsert } from "@/types/domain/planning"
+import {
+	addMenuItemFn,
+	fetchDailyMenusFn,
+	fetchDayDetailsFn,
+	fetchTemplatesFn,
+	fetchTrashItemsFn,
+	restoreMenuItemFn,
+	softDeleteMenuItemFn,
+	updateDailyMenuFn,
+	updateMenuItemFn,
+	upsertDailyMenuFn,
+} from "@/server/planning.fn"
+import type { DailyMenuInsert, MenuItemInsert } from "@/types/domain/planning"
 
 // --- Query Options ---
 
 export const dailyMenusQueryOptions = (kitchenId: number | null, startDate: Date, endDate: Date) =>
 	queryOptions({
 		queryKey: ["planning", "menus", kitchenId, startDate.toISOString(), endDate.toISOString()],
-		queryFn: async () => {
-			if (!kitchenId) return []
-
-			const { data, error } = await supabase
-				.from("daily_menu")
-				.select(`
-        *,
-        meal_type:meal_type_id(*),
-        menu_items:menu_items(
-          *,
-          recipe_origin:recipe_origin_id(*)
-        )
-      `)
-				.eq("kitchen_id", kitchenId)
-				.gte("service_date", format(startDate, "yyyy-MM-dd"))
-				.lte("service_date", format(endDate, "yyyy-MM-dd"))
-				.is("deleted_at", null)
-
-			if (error) throw error
-
-			// Filter deleted menu_items on the client side
-			const filtered =
-				data?.map((menu) => ({
-					...menu,
-					menu_items: (menu.menu_items || []).filter((item: any) => !item.deleted_at),
-				})) || []
-
-			return filtered as DailyMenuWithItems[]
-		},
+		queryFn: () =>
+			fetchDailyMenusFn({
+				data: {
+					kitchenId: kitchenId!,
+					startDate: format(startDate, "yyyy-MM-dd"),
+					endDate: format(endDate, "yyyy-MM-dd"),
+				},
+			}),
 		enabled: !!kitchenId,
 	})
 
 export const dayDetailsQueryOptions = (kitchenId: number | null, date: Date) =>
 	queryOptions({
 		queryKey: ["planning", "day", kitchenId, date.toISOString()],
-		queryFn: async () => {
-			if (!kitchenId) return []
-
-			const dateStr = format(date, "yyyy-MM-dd")
-			const { data, error } = await supabase
-				.from("daily_menu")
-				.select(`
-        *,
-        meal_type:meal_type_id(*),
-        menu_items:menu_items(
-          *,
-          recipe_origin:recipe_origin_id(*)
-        )
-      `)
-				.eq("kitchen_id", kitchenId)
-				.eq("service_date", dateStr)
-				.is("deleted_at", null)
-
-			if (error) throw error
-
-			// Filter deleted menu_items on the client side
-			const filtered =
-				data?.map((menu) => ({
-					...menu,
-					menu_items: (menu.menu_items || []).filter((item: any) => !item.deleted_at),
-				})) || []
-
-			return filtered as DailyMenuWithItems[]
-		},
+		queryFn: () =>
+			fetchDayDetailsFn({
+				data: {
+					kitchenId: kitchenId!,
+					date: format(date, "yyyy-MM-dd"),
+				},
+			}),
 		enabled: !!kitchenId,
 	})
 
@@ -90,19 +58,8 @@ export function useCreateDailyMenu() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (menus: DailyMenuInsert[]) => {
-			// Use upsert to handle conflicts gracefully
-			const { data, error } = await supabase
-				.from("daily_menu")
-				.upsert(menus, {
-					onConflict: "service_date,meal_type_id,kitchen_id",
-					ignoreDuplicates: true,
-				})
-				.select()
-
-			if (error) throw error
-			return data
-		},
+		mutationFn: (menus: DailyMenuInsert[]) =>
+			upsertDailyMenuFn({ data: { menus: menus as Record<string, unknown>[] } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -118,12 +75,8 @@ export function useAddMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (item: MenuItemInsert) => {
-			const { data, error } = await supabase.from("menu_items").insert(item).select()
-
-			if (error) throw error
-			return data
-		},
+		mutationFn: (item: MenuItemInsert) =>
+			addMenuItemFn({ data: { item: item as Record<string, unknown> } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -139,7 +92,7 @@ export function useUpdateDailyMenu() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async ({
+		mutationFn: ({
 			id,
 			updates,
 		}: {
@@ -147,16 +100,7 @@ export function useUpdateDailyMenu() {
 			updates: Partial<{
 				forecasted_headcount: number | null
 			}>
-		}) => {
-			const { data, error } = await supabase
-				.from("daily_menu")
-				.update(updates)
-				.eq("id", id)
-				.select()
-
-			if (error) throw error
-			return data
-		},
+		}) => updateDailyMenuFn({ data: { id, updates } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -172,7 +116,7 @@ export function useUpdateMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async ({
+		mutationFn: ({
 			id,
 			updates,
 		}: {
@@ -181,16 +125,7 @@ export function useUpdateMenuItem() {
 				planned_portion_quantity: number | null
 				excluded_from_procurement: number | null
 			}>
-		}) => {
-			const { data, error } = await supabase
-				.from("menu_items")
-				.update(updates)
-				.eq("id", id)
-				.select()
-
-			if (error) throw error
-			return data
-		},
+		}) => updateMenuItemFn({ data: { id, updates } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -205,14 +140,7 @@ export function useDeleteMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (itemId: string) => {
-			const { error } = await supabase
-				.from("menu_items")
-				.update({ deleted_at: new Date().toISOString() })
-				.eq("id", itemId)
-
-			if (error) throw error
-		},
+		mutationFn: (itemId: string) => softDeleteMenuItemFn({ data: { id: itemId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -229,22 +157,7 @@ export function useDeleteMenuItem() {
 export function useTemplates(kitchenId: number | null) {
 	return useQuery({
 		queryKey: ["planning", "templates", kitchenId],
-		queryFn: async () => {
-			if (!kitchenId) return []
-			const { data, error } = await supabase
-				.from("menu_template")
-				.select(`
-                    *,
-                    items:menu_template_items(
-                        *,
-                        recipe_origin:recipe_origin_id(*)
-                    )
-                `)
-				.eq("kitchen_id", kitchenId)
-
-			if (error) throw error
-			return data // Typed as any/implied for now
-		},
+		queryFn: () => fetchTemplatesFn({ data: { kitchenId: kitchenId! } }),
 		enabled: !!kitchenId,
 	})
 }
@@ -279,22 +192,7 @@ export function useApplyTemplate() {
 export function useTrashItems(kitchenId: number | null) {
 	return useQuery({
 		queryKey: ["planning", "trash", kitchenId],
-		queryFn: async () => {
-			if (!kitchenId) return []
-			const { data, error } = await supabase
-				.from("menu_items")
-				.select(`
-                    *,
-                    recipe_origin:recipe_origin_id(*),
-                    daily_menu!inner(*)
-                `)
-				.not("deleted_at", "is", null)
-				.eq("daily_menu.kitchen_id", kitchenId)
-				.order("deleted_at", { ascending: false })
-
-			if (error) throw error
-			return data
-		},
+		queryFn: () => fetchTrashItemsFn({ data: { kitchenId: kitchenId! } }),
 		enabled: !!kitchenId,
 	})
 }
@@ -303,14 +201,7 @@ export function useRestoreMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (itemId: string) => {
-			const { error } = await supabase
-				.from("menu_items")
-				.update({ deleted_at: null })
-				.eq("id", itemId)
-
-			if (error) throw error
-		},
+		mutationFn: (itemId: string) => restoreMenuItemFn({ data: { id: itemId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning"] })
 			toast.success("Item restaurado com sucesso!")

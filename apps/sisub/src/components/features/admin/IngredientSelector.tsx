@@ -12,6 +12,7 @@ interface IngredientSelectorProps {
 }
 
 export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSelectorProps) {
+	"use no memo"
 	const [filterText, setFilterText] = useState("")
 	const { flatTree, error } = useProductsHierarchy(filterText)
 

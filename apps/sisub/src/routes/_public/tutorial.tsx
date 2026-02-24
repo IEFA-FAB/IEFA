@@ -160,7 +160,7 @@ function Tutorial() {
 					<div className="mt-10 text-center">
 						<Button
 							render={
-								<Link to="/forecast">
+								<Link to="/diner/forecast">
 									Abrir página de Previsão
 									<ChevronRight className="w-4 h-4" />
 								</Link>
@@ -209,7 +209,7 @@ function Tutorial() {
 					<div className="mt-4">
 						<Button
 							render={
-								<Link to="/presence">
+								<Link to="/messhall/presence">
 									Abrir Leitor de QR
 									<QrCode className="w-4 h-4" />
 								</Link>
@@ -482,9 +482,9 @@ const heroData = {
 	title: "Como usar o SISUB: Previsões e Fiscalização por QR",
 	subtitle:
 		"Siga este passo a passo para preencher suas previsões de refeições e realizar a fiscalização com segurança e rapidez.",
-	primaryButton: { to: "/forecast", label: "Ir para Previsão" } as ButtonLink,
+	primaryButton: { to: "/diner/forecast", label: "Ir para Previsão" } as ButtonLink,
 	secondaryButton: {
-		to: "/presence",
+		to: "/messhall/presence",
 		label: "Ir para Fiscal",
 		variant: "outline",
 	} as ButtonLink,
@@ -625,9 +625,9 @@ const ctaData = {
 	title: "Pronto para aplicar?",
 	text: "Acesse agora as páginas de Previsão e Fiscalização para colocar em prática os passos deste tutorial.",
 	buttons: [
-		{ to: "/forecast", label: "Abrir Previsão →", variant: "default" as const },
+		{ to: "/diner/forecast", label: "Abrir Previsão →", variant: "default" as const },
 		{
-			to: "/presence",
+			to: "/messhall/presence",
 			label: "Abrir Leitor de QR →",
 			variant: "outline" as const,
 		},

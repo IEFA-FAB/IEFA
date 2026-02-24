@@ -5,17 +5,22 @@ import {
 	SidebarRail,
 	Sidebar as UISidebar,
 } from "@iefa/ui"
+import type * as React from "react"
+import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"
-import type { AppSidebarData } from "./SidebarTypes"
 import { TeamSwitcher } from "./TeamSwitcher"
 
 export function AppSidebar({
-	data,
+	modules,
+	activeModuleId,
+	onModuleChange,
 	isLoading = false,
 	...props
 }: React.ComponentProps<typeof UISidebar> & {
-	data?: AppSidebarData
+	modules?: ModuleDef[]
+	activeModuleId?: ModuleId | null
+	onModuleChange?: (moduleId: ModuleId) => void
 	isLoading?: boolean
 }) {
 	if (isLoading) {
@@ -45,15 +50,47 @@ export function AppSidebar({
 		)
 	}
 
-	if (!data) return null
+	const availableModules = modules ?? []
+	const activeModule =
+		availableModules.find((m) => m.id === activeModuleId) ?? availableModules[0]
+
+	const teams = availableModules.map((m) => ({
+		name: m.name,
+		logo: m.icon,
+		plan: m.name,
+	}))
+
+	const navMain = activeModule
+		? [
+				{
+					title: activeModule.name,
+					icon: activeModule.icon,
+					isActive: true,
+					items: activeModule.items,
+				},
+			]
+		: []
+
+	const handleTeamChange = (team: { name: string; logo: string; plan: string }) => {
+		const mod = availableModules.find((m) => m.name === team.name)
+		if (mod && onModuleChange) {
+			onModuleChange(mod.id)
+		}
+	}
+
+	if (!activeModule) return null
 
 	return (
 		<UISidebar collapsible="icon" variant="floating" {...props}>
 			<SidebarHeader>
-				<TeamSwitcher teams={data.teams} />
+				<TeamSwitcher
+					teams={teams}
+					value={activeModule.name}
+					onChange={handleTeamChange}
+				/>
 			</SidebarHeader>
 			<SidebarContent>
-				<NavMain items={data.navMain} />
+				<NavMain items={navMain} />
 			</SidebarContent>
 			<SidebarFooter>
 				<NavUser />

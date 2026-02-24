@@ -1,124 +1,121 @@
 // ~/components/sidebar/nav-items.ts
 
 import {
+	BarChart3,
 	Calendar,
 	ClipboardCheck,
-	FileText,
 	LayoutDashboard,
 	type LucideIcon,
+	QrCode,
 	Settings,
 	ShieldCheck,
+	ShoppingCart,
+	Star,
+	User,
 	UtensilsCrossed,
 	Wheat,
 } from "lucide-react"
 import type { ComponentType, SVGProps } from "react"
 import type { UserLevelOrNull } from "@/types/domain/"
-import type { AppSidebarData, NavItemSection } from "./SidebarTypes"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
 // Níveis exibidos no menu (inclui nível 0 "comensal")
 export type DisplayLevel = "comensal" | Exclude<UserLevelOrNull, null>
 
-// Ordem hierárquica para acumular dropdowns
+export type ModuleId = "diner" | "messhall" | "local" | "global" | "analytics"
+
+export type ModuleDef = {
+	id: ModuleId
+	name: string
+	icon: LucideIcon
+	minLevel: DisplayLevel
+	items: { title: string; url: string; icon: LucideIcon }[]
+}
+
+// Ordem hierárquica para acumular acesso
 const LEVELS_ORDER: DisplayLevel[] = ["comensal", "user", "admin", "superadmin"]
 
-// Títulos dos dropdowns por nível
-const DROPDOWN_TITLE: Record<DisplayLevel, string> = {
-	comensal: "Comensal",
-	user: "Fiscal",
-	admin: "Gestor",
-	superadmin: "SDAB",
-}
+export const ALL_MODULES: ModuleDef[] = [
+	{
+		id: "diner",
+		name: "Comensal",
+		icon: UtensilsCrossed,
+		minLevel: "comensal",
+		items: [
+			{ title: "Previsão", url: "/diner/forecast", icon: Calendar },
+			{ title: "Perfil", url: "/diner/profile", icon: User },
+			{ title: "Auto Check-in", url: "/diner/selfCheckIn", icon: ClipboardCheck },
+		],
+	},
+	{
+		id: "messhall",
+		name: "Fiscal",
+		icon: ShieldCheck,
+		minLevel: "user",
+		items: [{ title: "Presenças", url: "/messhall/presence", icon: ClipboardCheck }],
+	},
+	{
+		id: "local",
+		name: "Gestão Local",
+		icon: LayoutDashboard,
+		minLevel: "admin",
+		items: [
+			{ title: "Painel", url: "/local/", icon: LayoutDashboard },
+			{ title: "Planejamento", url: "/local/planning", icon: Calendar },
+			{ title: "Receitas", url: "/local/recipes", icon: UtensilsCrossed },
+			{ title: "Suprimentos", url: "/local/procurement", icon: ShoppingCart },
+			{ title: "QR Check-in", url: "/local/qrCode", icon: QrCode },
+		],
+	},
+	{
+		id: "global",
+		name: "SDAB",
+		icon: Settings,
+		minLevel: "superadmin",
+		items: [
+			{ title: "Insumos", url: "/global/ingredients", icon: Wheat },
+			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck },
+			{ title: "Avaliação", url: "/global/evaluation", icon: Star },
+		],
+	},
+	{
+		id: "analytics",
+		name: "Análises",
+		icon: BarChart3,
+		minLevel: "admin",
+		items: [
+			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 },
+			{ title: "Análise Local", url: "/analytics/local", icon: LayoutDashboard },
+		],
+	},
+]
 
-// Ícones dos dropdowns por nível
-const DROPDOWN_ICON: Record<DisplayLevel, LucideIcon> = {
-	comensal: UtensilsCrossed,
-	user: ShieldCheck,
-	admin: Settings,
-	superadmin: FileText,
-}
-
-// Subitens por nível (acesso)
-// Mapeamento conforme solicitado:
-// - comensal → "previsão" → /rancho
-// - Fiscal → "leitor QrCode" → /fiscal
-// - Gestor → "painel do rancho" → /admin
-// - SDAB → "painel do sistema" → /superadmin
-const LEVEL_SUBITEMS: Record<DisplayLevel, { title: string; url: string; icon: LucideIcon }[]> = {
-	comensal: [{ title: "Previsão", url: "/forecast", icon: Calendar }],
-	user: [{ title: "Leitor QrCode", url: "/presence", icon: ClipboardCheck }],
-	admin: [
-		{ title: "Painel do rancho", url: "/admin", icon: LayoutDashboard },
-		{ title: "Planejamento", url: "/admin/planning", icon: Calendar },
-		{ title: "Receitas", url: "/admin/recipes", icon: UtensilsCrossed },
-	],
-	superadmin: [
-		{ title: "Painel do sistema", url: "/superAdmin", icon: Settings },
-		{ title: "Gestão de Insumos", url: "/superAdmin/ingredients", icon: Wheat },
-	],
-}
-
-// Auxiliar: retorna os níveis acumulados até o nível informado
 function getAccumulatedLevels(level: DisplayLevel): DisplayLevel[] {
 	const idx = LEVELS_ORDER.indexOf(level)
-	// Se o nível não estiver na lista, assume apenas comensal
 	return idx >= 0 ? LEVELS_ORDER.slice(0, idx + 1) : ["comensal"]
 }
 
-export type BuildSidebarDataParams = {
-	level: DisplayLevel // agora aceita "comensal" além de user/admin/superadmin
-	user?: {
-		name: string
-		email: string
-		avatar?: string | null
-	}
-	activePath?: string
-}
-
-export function buildSidebarData({ level }: BuildSidebarDataParams): AppSidebarData {
+export function getModulesForLevel(level: DisplayLevel): ModuleDef[] {
 	const levels = getAccumulatedLevels(level)
-
-	const navMain: NavItemSection[] = levels.map((lv) => {
-		const items = LEVEL_SUBITEMS[lv] ?? []
-		// const isActive =
-		// 	!!activePath && items.some((it) => it.url === activePath);
-
-		return {
-			title: DROPDOWN_TITLE[lv],
-			icon: DROPDOWN_ICON[lv],
-			isActive: true, // Always open/visible in the new group structure
-			items, // NavMain espera items: { title, url, icon }[]
-		}
-	})
-
-	return {
-		teams: [
-			{
-				name: "SISUB",
-				logo: "/favicon.svg",
-				plan: DROPDOWN_TITLE[level],
-			},
-		],
-		navMain,
-	}
+	return ALL_MODULES.filter((m) => levels.includes(m.minLevel))
 }
 
-// Opcional: API de compatibilidade para recuperar todos os itens acessíveis (flatten)
-// Mantida caso outro código dependa disso.
+export function getModuleFromPath(pathname: string): ModuleId | null {
+	const segment = pathname.split("/").filter(Boolean)[0]
+	const found = ALL_MODULES.find((m) => m.id === segment)
+	return found?.id ?? null
+}
+
+// Flat list of nav items (for breadcrumbs)
 export type NavItem = {
 	to: string
 	label: string
-	icon?: IconType // ícone opcional; aqui usamos o ícone do dropdown do nível
+	icon?: IconType
 }
 
 export function getNavItemsForLevel(level: DisplayLevel): NavItem[] {
-	const levels = getAccumulatedLevels(level)
-	return levels.flatMap((lv) =>
-		(LEVEL_SUBITEMS[lv] ?? []).map((it) => ({
-			to: it.url,
-			label: it.title,
-			icon: it.icon,
-		}))
+	return getModulesForLevel(level).flatMap((m) =>
+		m.items.map((it) => ({ to: it.url, label: it.title, icon: it.icon as IconType })),
 	)
 }

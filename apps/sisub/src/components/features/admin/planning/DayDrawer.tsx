@@ -25,7 +25,7 @@ import {
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Loader2, Plus } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import {
 	useAddMenuItem,
@@ -46,6 +46,7 @@ interface DayDrawerProps {
 }
 
 export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
+	"use no memo"
 	// const { user } = useAuth(); // Unused
 	const kitchenId = 1 // HARDCODED
 
@@ -136,6 +137,7 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 					kitchenId={kitchenId}
 					selectedRecipeIds={[]}
 					onSelect={async (recipeIds) => {
+						"use no memo"
 						if (!recipeSelectorMenu || recipeIds.length === 0) {
 							setRecipeSelectorMenu(null)
 							return
@@ -160,6 +162,8 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 								})
 							} catch (error) {
 								console.error("Error fetching recipe:", recipeId, error)
+							} finally {
+								console.log("Recipe added:", recipeId)
 							}
 						}
 
@@ -216,12 +220,15 @@ function MealSection({
 	const { mutate: updateDailyMenu } = useUpdateDailyMenu()
 
 	// State for headcount editing
-	const [headcount, setHeadcount] = useState<number | null>(menu?.forecasted_headcount ?? null)
+	const serverHeadcount = menu?.forecasted_headcount ?? null
+	const [headcount, setHeadcount] = useState<number | null>(serverHeadcount)
+	const [prevServerHeadcount, setPrevServerHeadcount] = useState<number | null>(serverHeadcount)
 
-	// Update headcount when menu changes
-	useEffect(() => {
-		setHeadcount(menu?.forecasted_headcount ?? null)
-	}, [menu])
+	// Sync headcount with prop changes (adjust during render, not in effect)
+	if (prevServerHeadcount !== serverHeadcount) {
+		setPrevServerHeadcount(serverHeadcount)
+		setHeadcount(serverHeadcount)
+	}
 
 	const handleCreateMenu = () => {
 		if (!date || !kitchenId) return

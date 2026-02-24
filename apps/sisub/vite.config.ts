@@ -6,7 +6,7 @@ import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 import viteTsConfigPaths from "vite-tsconfig-paths"
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
 	plugins: [
 		viteTsConfigPaths({
 			projects: ["./tsconfig.json"],
@@ -14,7 +14,10 @@ export default defineConfig({
 		tailwindcss(),
 		devtools(),
 		tanstackStart(),
-		nitro({ preset: "bun" }),
+		nitro({
+			preset: "bun",
+			compressPublicAssets: true,
+		}),
 		viteReact({
 			babel: {
 				plugins: ["babel-plugin-react-compiler"],
@@ -35,7 +38,6 @@ export default defineConfig({
 		include: [
 			"react",
 			"react-dom",
-			"react/jsx-runtime",
 			"@tanstack/react-router",
 			"@tanstack/react-query",
 			"@tanstack/react-table",
@@ -48,7 +50,7 @@ export default defineConfig({
 		],
 	},
 	ssr: {
-		noExternal: true,
+		noExternal: command === "build" ? true : undefined,
 		target: "node",
 	},
 	build: {
@@ -57,4 +59,4 @@ export default defineConfig({
 		sourcemap: false,
 		cssCodeSplit: true,
 	},
-})
+}))

@@ -2,7 +2,8 @@ import { z } from "zod"
 
 export const sisubEnvSchema = z.object({
 	VITE_SISUB_SUPABASE_URL: z.string().url("VITE_SISUB_SUPABASE_URL must be a valid URL"),
-	VITE_SISUB_SUPABASE_ANON_KEY: z.string().min(20, "VITE_SISUB_SUPABASE_ANON_KEY is too short"),
+	VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: z.string().min(20, "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY is too short"),
+	SISUB_SUPABASE_SECRET_KEY: z.string().min(20, "SISUB_SUPABASE_SECRET_KEY is too short"),
 })
 
 export type SisubEnv = z.infer<typeof sisubEnvSchema>

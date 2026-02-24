@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import React from "react"
-import supabase from "@/lib/supabase"
+import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { Kitchen, Unit } from "@/types/supabase.types"
 
 /**
@@ -23,23 +23,7 @@ export interface KitchenWithUnit extends Kitchen {
 export function useUserKitchens() {
 	return useQuery({
 		queryKey: ["user", "kitchens"],
-		queryFn: async (): Promise<KitchenWithUnit[]> => {
-			const { data, error } = await supabase
-				.from("kitchen")
-				.select(
-					`
-          *,
-          unit:units!kitchen_unit_id_fkey(*)
-        `
-				)
-				.order("id")
-
-			if (error) {
-				throw new Error(`Failed to fetch kitchens: ${error.message}`)
-			}
-
-			return data || []
-		},
+		queryFn: (): Promise<KitchenWithUnit[]> => fetchKitchensFn(),
 		staleTime: 10 * 60 * 1000, // 10 minutes - kitchens rarely change
 	})
 }

@@ -48,7 +48,7 @@ export function RecipesManager() {
 							Gerencie o catálogo de receitas, versionamento e fichas técnicas.
 						</p>
 					</div>
-					<Link to="/admin/recipes/new">
+					<Link to="/local/recipes/new">
 						<Button className="gap-2 transition-all hover:scale-105">
 							<Plus className="w-4 h-4" />
 							Nova Receita
@@ -171,7 +171,7 @@ export function RecipesManager() {
 
 										{/* Fork Button if Global and User is Admin/Manager (has kitchen context usually) */}
 										{!recipe.kitchen_id && (
-											<Link to={`/admin/recipes/new`} search={{ forkFrom: recipe.id }}>
+											<Link to={`/local/recipes/new`} search={{ forkFrom: recipe.id }}>
 												<Button
 													variant="outline"
 													size="sm"

@@ -16,6 +16,7 @@ interface SimplifiedStatsProps {
 }
 
 function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: SimplifiedStatsProps) {
+	"use no memo"
 	// React Compiler handles optimization - no manual useMemo needed
 	const next7Days = dates.slice(0, 7)
 
@@ -23,6 +24,7 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 	let daysWithMealsNext7Days = 0
 
 	next7Days.forEach((date) => {
+		"use no memo"
 		const daySelections = selections[date]
 		if (daySelections) {
 			const mealsCount = Object.values(daySelections).filter(Boolean).length

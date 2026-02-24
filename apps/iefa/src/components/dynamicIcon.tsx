@@ -54,7 +54,7 @@ export function DynamicIcon({
 	className = "h-5 w-5",
 	...rest
 }: { name?: string | null } & Omit<LucideProps, "ref">) {
-	// Estabiliza a referência; só muda se o "name" mudar
+	"use no memo"
 	const LazyIcon = useMemo(() => getLazyIcon(name), [name])
 	return (
 		<Suspense fallback={<span className={className} aria-hidden="true" />}>

@@ -7,20 +7,21 @@
     "react-dom": "^19.2"
   },
   "scripts": {
-    "dev": "bun run --filter './apps/**' dev",
-    "build": "bun run --filter './apps/**' build",
-    "typecheck": "bun run --filter '*' typecheck",
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "validate-env": "turbo validate-env",
     "sisub:dev": "bun --cwd ./apps/sisub dev",
     "portal:dev": "bun --cwd ./apps/iefa dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",
-    "lint": "biome check --write .",
-    "check": "biome check . && bun run typecheck",
     "fix": "biome check --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.3",
+    "@biomejs/biome": "^2.4.4",
     "turbo": "^2.8.10"
   },
   "workspaces": [

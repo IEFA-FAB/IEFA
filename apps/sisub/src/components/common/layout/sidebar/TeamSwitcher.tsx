@@ -1,9 +1,6 @@
 "use client"
 
 import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
@@ -18,17 +15,36 @@ import {
 import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
 
+type Team = {
+	name: string
+	logo: React.ComponentType<React.SVGProps<SVGSVGElement>>
+	plan: string
+}
+
 export function TeamSwitcher({
 	teams,
+	value,
+	onChange,
 }: {
-	teams: {
-		name: string
-		logo: string
-		plan: string
-	}[]
+	teams: Team[]
+	/** Name of the currently active team (controlled mode) */
+	value?: string
+	onChange?: (team: Team) => void
 }) {
 	const { isMobile } = useSidebar()
-	const [activeTeam, setActiveTeam] = React.useState(teams[0])
+	const [internalActive, setInternalActive] = React.useState(teams[0])
+
+	const activeTeam = value
+		? (teams.find((t) => t.name === value) ?? internalActive)
+		: internalActive
+
+	const handleChange = (team: Team) => {
+		if (onChange) {
+			onChange(team)
+		} else {
+			setInternalActive(team)
+		}
+	}
 
 	if (!activeTeam) {
 		return null
@@ -44,12 +60,9 @@ export function TeamSwitcher({
 								size="lg"
 								className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 							>
-								<Avatar className="h-8 w-8 rounded-lg">
-									<AvatarImage src="/favicon.svg" alt={activeTeam.name} />
-									<AvatarFallback className="rounded-lg">
-										{activeTeam.name.slice(0, 2)}
-									</AvatarFallback>
-								</Avatar>
+								<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+									<activeTeam.logo className="h-4 w-4" />
+								</div>
 
 								<div className="grid flex-1 text-left text-sm leading-tight">
 									<span className="truncate font-medium">{activeTeam.name}</span>
@@ -60,46 +73,28 @@ export function TeamSwitcher({
 						}
 					/>
 					<DropdownMenuContent
-						className="w-(--radix-dropdown-menu-trigger-width) min-w-56 "
+						className="w-(--radix-dropdown-menu-trigger-width) min-w-56 p-3"
 						align="start"
 						side={isMobile ? "bottom" : "right"}
 						sideOffset={4}
 					>
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="text-muted-foreground text-xs">
-								Sistemas
+								Módulos
 							</DropdownMenuLabel>
 							{teams.map((team) => (
 								<DropdownMenuItem
 									key={team.name}
-									onClick={() => setActiveTeam(team)}
+									onClick={() => handleChange(team)}
 									className="gap-2 p-2"
 								>
-									{
-										/* team.logo ? (
-                    <team.logo className="size-3.5 shrink-0" />
-                  ) : ( */
-										<Avatar className="h-6 w-6 rounded-md border">
-											<AvatarImage src="/favicon.svg" alt={team.name} />
-											<AvatarFallback className="rounded-md">
-												{team.name.slice(0, 2)}
-											</AvatarFallback>
-										</Avatar>
-										/* ) */
-									}
-
+									<div className="flex h-6 w-6 items-center justify-center rounded-md border bg-sidebar-accent">
+										<team.logo className="h-3.5 w-3.5" />
+									</div>
 									{team.name}
-									{/* <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut> */}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuGroup>
-						{/* <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">Add team</div>
-            </DropdownMenuItem> */}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</SidebarMenuItem>

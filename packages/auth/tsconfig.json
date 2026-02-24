@@ -1,14 +1,21 @@
 {
-    "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "baseUrl": ".",
-        "composite": false,
+        "target": "ESNext",
         "module": "ESNext",
         "moduleResolution": "bundler",
+        "moduleDetection": "force",
+        "strict": true,
+        "skipLibCheck": true,
+        "allowJs": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "allowSyntheticDefaultImports": true,
         "allowImportingTsExtensions": true,
-        "declaration": false,
         "noEmit": true,
-        "jsx": "react-jsx"
+        "composite": false,
+        "declaration": false,
+        "jsx": "react-jsx",
+        "baseUrl": "."
     },
     "include": ["src", "../../apps/iefa/app/context.ts"]
 }

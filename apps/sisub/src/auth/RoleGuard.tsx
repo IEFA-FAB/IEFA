@@ -9,7 +9,7 @@ interface RoleGuardProps {
 	children: React.ReactNode
 }
 
-export function RoleGuard({ requireAny, redirectTo = "/forecast", children }: RoleGuardProps) {
+export function RoleGuard({ requireAny, redirectTo = "/hub", children }: RoleGuardProps) {
 	const location = useLocation()
 	const { user } = useAuth()
 	const { data: level, isError } = useUserLevel(user?.id)

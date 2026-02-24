@@ -12,9 +12,18 @@ export const HeroHighlight = ({
 	className?: string
 	containerClassName?: string
 } & React.HTMLAttributes<HTMLDivElement>) => {
+	"use no memo"
 	const mouseX = useMotionValue(0)
 	const mouseY = useMotionValue(0)
 	const containerRef = useRef<HTMLDivElement>(null)
+
+	const maskImageTemplate = useMotionTemplate`
+            radial-gradient(
+              200px circle at ${mouseX}px ${mouseY}px,
+              black 0%,
+              transparent 100%
+            )
+          `
 
 	useEffect(() => {
 		const container = containerRef.current
@@ -57,20 +66,8 @@ export const HeroHighlight = ({
 			<motion.div
 				className="pointer-events-none absolute inset-0 opacity-0 transition duration-300 group-hover:opacity-100"
 				style={{
-					WebkitMaskImage: useMotionTemplate`
-            radial-gradient(
-              200px circle at ${mouseX}px ${mouseY}px,
-              black 0%,
-              transparent 100%
-            )
-          `,
-					maskImage: useMotionTemplate`
-            radial-gradient(
-              200px circle at ${mouseX}px ${mouseY}px,
-              black 0%,
-              transparent 100%
-            )
-          `,
+					WebkitMaskImage: maskImageTemplate,
+					maskImage: maskImageTemplate,
 				}}
 			>
 				<div

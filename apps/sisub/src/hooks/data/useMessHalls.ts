@@ -2,7 +2,7 @@
 // Uses centralized types from @/types/domain as per design system guidelines.
 
 import { useQuery } from "@tanstack/react-query"
-import supabase from "@/lib/supabase"
+import { fetchMessHallsFn, fetchUnitsFn } from "@/server/mess-halls.fn"
 import type { MessHall, Unit } from "@/types/domain/meal"
 
 /**
@@ -41,30 +41,13 @@ import type { MessHall, Unit } from "@/types/domain/meal"
  * ```
  */
 export const useMessHalls = () => {
-	// We reuse the client but set the schema explicitly to sisub for these tables.
-	const sisub = supabase.schema("sisub")
-
 	// Units
 	const unitsQuery = useQuery<readonly Unit[], Error>({
 		queryKey: ["sisub", "units"],
 		refetchOnWindowFocus: false,
 		staleTime: 600_000, // 10 minutes
 		retry: 1,
-		queryFn: async () => {
-			const { data, error } = await sisub
-				.from("units")
-				.select("id, code, display_name")
-				.order("display_name", { ascending: true })
-
-			if (error) throw error
-
-			return (data ?? []).map((row) => ({
-				id: row.id,
-				code: row.code,
-				display_name: row.display_name,
-				type: null, // Caso precise do enum
-			})) as Unit[]
-		},
+		queryFn: () => fetchUnitsFn(),
 	})
 
 	// Mess Halls
@@ -73,22 +56,7 @@ export const useMessHalls = () => {
 		refetchOnWindowFocus: false,
 		staleTime: 600_000, // 10 minutes
 		retry: 1,
-		queryFn: async () => {
-			const { data, error } = await sisub
-				.from("mess_halls")
-				.select("id, unit_id, code, display_name, kitchen_id")
-				.order("display_name", { ascending: true })
-
-			if (error) throw error
-
-			return (data ?? []).map((row) => ({
-				id: row.id,
-				unit_id: row.unit_id,
-				code: row.code,
-				display_name: row.display_name,
-				kitchen_id: row.kitchen_id,
-			})) as MessHall[]
-		},
+		queryFn: () => fetchMessHallsFn(),
 	})
 
 	return {

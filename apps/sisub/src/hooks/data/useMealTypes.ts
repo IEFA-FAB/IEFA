@@ -1,6 +1,12 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import supabase from "@/lib/supabase"
+import {
+	createMealTypeFn,
+	deleteMealTypeFn,
+	fetchMealTypesFn,
+	restoreMealTypeFn,
+	updateMealTypeFn,
+} from "@/server/meal-types.fn"
 import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.types"
 
 /**
@@ -10,24 +16,7 @@ import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.
 export const mealTypesQueryOptions = (kitchenId: number | null) =>
 	queryOptions({
 		queryKey: ["meal_types", kitchenId],
-		queryFn: async (): Promise<MealType[]> => {
-			let query = supabase.from("meal_type").select("*").is("deleted_at", null).order("sort_order")
-
-			// Filtrar: tipos genéricos (NULL) OU tipos da kitchen específica
-			if (kitchenId !== null) {
-				query = query.or(`kitchen_id.is.null,kitchen_id.eq.${kitchenId}`)
-			} else {
-				query = query.is("kitchen_id", null)
-			}
-
-			const { data, error } = await query
-
-			if (error) {
-				throw new Error(`Failed to fetch meal types: ${error.message}`)
-			}
-
-			return data || []
-		},
+		queryFn: (): Promise<MealType[]> => fetchMealTypesFn({ data: { kitchenId } }),
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000, // 5 minutes - meal types don't change frequently
 	})
@@ -66,15 +55,7 @@ export function useCreateMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (payload: MealTypeInsert) => {
-			const { data, error } = await supabase.from("meal_type").insert(payload).select().single()
-
-			if (error) {
-				throw new Error(`Failed to create meal type: ${error.message}`)
-			}
-
-			return data
-		},
+		mutationFn: (payload: MealTypeInsert) => createMealTypeFn({ data: payload }),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success(`Tipo de refeição "${data.name}" criado com sucesso!`)
@@ -105,20 +86,8 @@ export function useUpdateMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async ({ id, ...updates }: { id: string } & MealTypeUpdate) => {
-			const { data, error } = await supabase
-				.from("meal_type")
-				.update(updates)
-				.eq("id", id)
-				.select()
-				.single()
-
-			if (error) {
-				throw new Error(`Failed to update meal type: ${error.message}`)
-			}
-
-			return data
-		},
+		mutationFn: ({ id, ...updates }: { id: string } & MealTypeUpdate) =>
+			updateMealTypeFn({ data: { id, updates } }),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success(`Tipo de refeição "${data.name}" atualizado!`)
@@ -145,16 +114,7 @@ export function useDeleteMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (id: string) => {
-			const { error } = await supabase
-				.from("meal_type")
-				.update({ deleted_at: new Date().toISOString() })
-				.eq("id", id)
-
-			if (error) {
-				throw new Error(`Failed to delete meal type: ${error.message}`)
-			}
-		},
+		mutationFn: (id: string) => deleteMealTypeFn({ data: { id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success("Tipo de refeição removido!")
@@ -179,13 +139,7 @@ export function useRestoreMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: async (id: string) => {
-			const { error } = await supabase.from("meal_type").update({ deleted_at: null }).eq("id", id)
-
-			if (error) {
-				throw new Error(`Failed to restore meal type: ${error.message}`)
-			}
-		},
+		mutationFn: (id: string) => restoreMealTypeFn({ data: { id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success("Tipo de refeição restaurado!")

@@ -21,6 +21,7 @@ export const Route = createFileRoute("/auth/reset-password")({
 })
 
 function ResetPasswordPage() {
+	"use no memo"
 	const router = useRouter()
 
 	const [newPassword, setNewPassword] = useState("")
@@ -95,6 +96,7 @@ function ResetPasswordPage() {
 	}
 
 	const handleSubmit = async (e: React.FormEvent) => {
+		"use no memo"
 		e.preventDefault()
 
 		if (newPassword.length < 6) {

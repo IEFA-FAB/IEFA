@@ -11,15 +11,18 @@ import {
 } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "sonner"
-import supabase from "@/lib/supabase"
+import {
+	deletePresenceFn,
+	fetchForecastsFn,
+	fetchPresencesFn,
+	insertPresenceFn,
+} from "@/server/presence.fn"
 import type { MealKey } from "@/types/domain/meal"
 import type {
 	ConfirmPresenceParams,
 	ConfirmPresenceResult,
 	FiscalFilters,
 	FiscalPresenceRecord,
-	ForecastMap,
-	ForecastRow,
 	QueryResult,
 	UsePresenceManagementReturn,
 } from "@/types/domain/presence"
@@ -71,203 +74,6 @@ const presenceKeys = {
 } as const
 
 // ============================================================================
-// HELPERS (code -> mess_hall_id com cache)
-// ============================================================================
-const messHallIdCache = new Map<string, number>()
-
-/**
- * Helper function to resolve a mess hall code to its database ID.
- * Results are cached to minimize database queries.
- *
- * @param code - Mess hall code to lookup
- * @returns Mess hall ID if found, undefined otherwise
- */
-async function getMessHallIdByCode(code: string): Promise<number | undefined> {
-	if (!code) return undefined
-	const cached = messHallIdCache.get(code)
-	if (cached) return cached
-
-	const { data, error } = await supabase
-		.schema("sisub")
-		.from("mess_halls")
-		.select("id")
-		.eq("code", code)
-		.maybeSingle()
-
-	if (error) {
-		console.warn("Falha ao buscar mess_hall_id:", error)
-		return undefined
-	}
-	const id = data?.id as number | undefined
-	if (id) messHallIdCache.set(code, id)
-	return id
-}
-
-// ============================================================================
-// SUPABASE OPERATIONS
-// ============================================================================
-
-/**
- * Fetches meal presence records for the given filters.
- * Joins with user data to include display names.
- *
- * @param filters - Query filters (date, meal, unit code)
- * @returns Array of presence records with user information
- */
-const fetchPresences = async (filters: FiscalFilters): Promise<FiscalPresenceRecord[]> => {
-	if (!filters.unit) return []
-
-	// 1) Mapear code -> mess_hall_id
-	const messHallId = await getMessHallIdByCode(filters.unit)
-	if (!messHallId) {
-		console.warn(`Código de rancho não encontrado: ${filters.unit}`)
-		return []
-	}
-
-	// 2) Buscar presenças na VIEW com display_name
-	type PresenceRowWithUser = {
-		id: string
-		user_id: string
-		date: string
-		meal: MealKey
-		created_at: string
-		mess_hall_id: number
-		display_name: string | null
-	}
-
-	const { data, error } = await supabase
-		.from("v_meal_presences_with_user")
-		.select("id, user_id, date, meal, created_at, mess_hall_id, display_name")
-		.eq("date", filters.date)
-		.eq("meal", filters.meal)
-		.eq("mess_hall_id", messHallId)
-		.order("created_at", { ascending: false })
-		.returns<PresenceRowWithUser[]>()
-
-	if (error) {
-		console.error("Erro ao buscar presenças:", error)
-		toast.error("Erro", {
-			description: "Não foi possível carregar as presenças.",
-		})
-		throw error
-	}
-
-	const rows = data ?? []
-
-	// 3) Mapear para FiscalPresenceRecord esperado pela UI (mantendo unidade = code)
-	//    Carregamos display_name como campo extra (permanece disponível em runtime).
-	const mapped: FiscalPresenceRecord[] = rows.map((r) => {
-		const base: FiscalPresenceRecord = {
-			id: r.id,
-			user_id: r.user_id,
-			date: r.date,
-			meal: r.meal,
-			created_at: r.created_at,
-			mess_hall_id: r.mess_hall_id,
-			updated_at: null, // Ou r.updated_at se disponível na view
-			unidade: filters.unit,
-		}
-		// Anexa display_name sem quebrar o tipo de retorno:
-		return Object.assign(base, { display_name: r.display_name ?? null })
-	})
-
-	return mapped
-}
-
-/**
- * Fetches meal forecast data for a list of users.
- * Maps forecast information to a user ID -> forecast boolean map.
- *
- * @param filters - Query filters (date, meal, unit code)
- * @param userIds - Array of user IDs to fetch forecasts for
- * @returns Map of user IDs to forecast status
- */
-const fetchForecasts = async (filters: FiscalFilters, userIds: string[]): Promise<ForecastMap> => {
-	if (userIds.length === 0) return {}
-	if (!filters.unit) return {}
-
-	const messHallId = await getMessHallIdByCode(filters.unit)
-	if (!messHallId) {
-		console.warn(`Código de rancho não encontrado: ${filters.unit}`)
-		return {}
-	}
-
-	// Previsões na nova tabela
-	const { data, error } = await supabase
-		.schema("sisub")
-		.from("meal_forecasts")
-		.select("user_id, will_eat")
-		.eq("date", filters.date)
-		.eq("meal", filters.meal)
-		.eq("mess_hall_id", messHallId)
-		.in("user_id", userIds)
-		.returns<ForecastRow[]>()
-
-	if (error) {
-		console.warn("Falha ao buscar previsões:", error)
-		return {}
-	}
-
-	const forecastMap: ForecastMap = {}
-	;(data ?? []).forEach((row) => {
-		forecastMap[row.user_id] = Boolean(row.will_eat)
-	})
-
-	return forecastMap
-}
-
-/**
- * Inserts a new presence record for a user.
- *
- * @param params - Presence parameters (uuid, willEnter flag)
- * @param filters - Query filters to determine meal and date
- * @throws {UnitRequiredError} If unit code is missing
- * @throws {PostgrestError} If database operation fails
- */
-const insertPresence = async (
-	params: ConfirmPresenceParams,
-	filters: FiscalFilters
-): Promise<void> => {
-	if (!filters.unit) {
-		throw new UnitRequiredError()
-	}
-
-	const messHallId = await getMessHallIdByCode(filters.unit)
-	if (!messHallId) {
-		throw new UnitRequiredError() // ou um erro mais específico
-	}
-
-	const { error } = await supabase.schema("sisub").from("meal_presences").insert({
-		user_id: params.uuid,
-		date: filters.date,
-		meal: filters.meal,
-		mess_hall_id: messHallId,
-	})
-
-	if (error) {
-		throw error // PostgrestError
-	}
-}
-
-/**
- * Deletes a presence record by its ID.
- *
- * @param presenceId - ID of the presence record to delete
- * @throws {PostgrestError} If database operation fails
- */
-const deletePresence = async (presenceId: string): Promise<void> => {
-	const { error } = await supabase
-		.schema("sisub")
-		.from("meal_presences")
-		.delete()
-		.eq("id", presenceId)
-
-	if (error) {
-		throw error // PostgrestError
-	}
-}
-
-// ============================================================================
 // VALIDATION
 // ============================================================================
 const isValidFilters = (filters: FiscalFilters): boolean => {
@@ -285,7 +91,11 @@ const handleConfirmPresenceError = (error: unknown): void => {
 		return
 	}
 
-	if (isPostgrestError(error) && error.code === "23505") {
+	// Server function forwards error code via message pattern "code:23505"
+	if (
+		isPostgrestError(error) &&
+		(error.code === "23505" || (error instanceof Error && error.message.includes("23505")))
+	) {
 		toast.info("Já registrado", {
 			description: "Este militar já foi marcado presente.",
 		})
@@ -352,11 +162,14 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	>({
 		queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
 		queryFn: async (): Promise<QueryResult> => {
-			const presences = await fetchPresences(filters)
+			const presences = await fetchPresencesFn({
+				data: { date: filters.date, meal: filters.meal, unit: filters.unit },
+			})
 
-			// Buscar previsões apenas dos usuários presentes
 			const userIds = Array.from(new Set(presences.map((p) => p.user_id)))
-			const forecastMap = await fetchForecasts(filters, userIds)
+			const forecastMap = await fetchForecastsFn({
+				data: { date: filters.date, meal: filters.meal, unit: filters.unit, userIds },
+			})
 
 			return { presences, forecastMap }
 		},
@@ -386,7 +199,16 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 				return { skipped: true }
 			}
 
-			await insertPresence(params, filters)
+			if (!filters.unit) throw new UnitRequiredError()
+
+			await insertPresenceFn({
+				data: {
+					user_id: params.uuid,
+					date: filters.date,
+					meal: filters.meal,
+					unit_code: filters.unit,
+				},
+			})
 
 			toast.success("Presença registrada", {
 				description: `UUID ${params.uuid} marcado.`,
@@ -408,7 +230,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		useMutation<void, PostgrestError, FiscalPresenceRecord>({
 			mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.unit),
 			mutationFn: async (row): Promise<void> => {
-				await deletePresence(row.id)
+				await deletePresenceFn({ data: { id: row.id } })
 
 				toast.success("Excluído", {
 					description: "Registro removido.",

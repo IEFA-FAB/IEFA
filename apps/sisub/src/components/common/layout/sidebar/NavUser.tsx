@@ -106,7 +106,7 @@ export function NavUser() {
 							<DropdownMenuGroup>
 								<DropdownMenuItem
 									onClick={() => {
-										navigate({ to: "/profile" })
+										navigate({ to: "/diner/profile" })
 									}}
 									className="cursor-pointer"
 								>

@@ -34,6 +34,7 @@ export function DefaultMessHallSelector({
 	onCancel,
 	isApplying,
 }: DefaultMessHallSelectorProps) {
+	"use no memo"
 	const { messHalls } = useMessHalls()
 	const [saving, setSaving] = useState(false)
 
@@ -47,6 +48,7 @@ export function DefaultMessHallSelector({
 	}
 
 	const handleApply = async () => {
+		"use no memo"
 		if (isApplying || saving) return
 
 		if (!defaultMessHallCode) {

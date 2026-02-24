@@ -5,34 +5,46 @@
 ### 1.1 Comensal (Diner)
 
 Militar ou civil autorizado que realiza refeições nos ranchos da FAB.\
-**Objetivo Principal:** Consultar o cardápio e informar se irá comer (adesão/forecast) para evitar desperdício e garantir sua refeição.
+**Objetivo Principal:** Consultar o cardápio e informar se irá comer (adesão/forecast) para evitar desperdício e garantir sua refeição.\
+**Papel no sistema:** `comensal`\
+**Módulo:** `diner` → rotas `/diner/*`
 
 ### 1.2 Fiscal de Rancho (Ranch Inspector)
 
-Militar designado (role `user`) responsável pelo controle de presença nas refeições da Unidade.\
+Militar designado responsável pelo controle de presença nas refeições da Unidade.\
 **Objetivo Principal:** Registrar a presença dos comensais via leitura de QR Code, identificar comensais não previstos e reportar presenças extras anônimas ("outros").\
 **Escopo:** Opera em qualquer mess hall da sua unidade.\
-**Dispositivo principal:** Mobile (celular com câmera).
+**Dispositivo principal:** Mobile (celular com câmera).\
+**Papel no sistema:** `user`\
+**Módulo:** `messhall` → rotas `/messhall/*`
 
 ### 1.3 Gestor do Rancho (Ranch Manager)
 
 Oficial ou graduado responsável pela administração geral do rancho de uma Unidade Militar.\
-**Objetivo Principal:** Garantir a eficiência operacional, evitar desperdícios, cumprir o orçamento e gerenciar o fluxo de suprimentos (aquisição/ATA).
+**Objetivo Principal:** Garantir a eficiência operacional, evitar desperdícios, cumprir o orçamento e gerenciar o fluxo de suprimentos (aquisição/ATA).\
+**Papel no sistema:** `admin`\
+**Módulos:** `local` → `/local/*` · `analytics` → `/analytics/local`
 
 ### 1.4 Nutricionista do Rancho (Local Nutritionist)
 
 Profissional técnico responsável pela elaboração dos cardápios locais, adequação nutricional e supervisão da produção na cozinha da Unidade.\
-**Objetivo Principal:** Planejar cardápios equilibrados usando as Preparações padrão, realizar substituições quando necessário e garantir a qualidade das refeições.
+**Objetivo Principal:** Planejar cardápios equilibrados usando as Preparações padrão, realizar substituições quando necessário e garantir a qualidade das refeições.\
+**Papel no sistema:** `admin`\
+**Módulos:** `local` → `/local/*` · `analytics` → `/analytics/local`
 
 ### 1.5 Gestor da SDAB (SDAB Manager)
 
 Oficial superior ou gestor na Subdiretoria de Abastecimento (SDAB), com visão estratégica de toda a Força.\
-**Objetivo Principal:** Monitorar KPIs globais (custo, desperdício, adesão), padronizar processos entre as unidades e auditar o desempenho dos ranchos.
+**Objetivo Principal:** Monitorar KPIs globais (custo, desperdício, adesão), padronizar processos entre as unidades e auditar o desempenho dos ranchos.\
+**Papel no sistema:** `superadmin`\
+**Módulos:** `global` → `/global/*` · `analytics` → `/analytics/global`
 
 ### 1.6 Nutricionista da SDAB (Global Nutritionist)
 
 Responsável técnica normativa que define os padrões alimentares para toda a FAB.\
-**Objetivo Principal:** Criar e manter a base global de insumos e Preparações (Engenharia de Cardápio), definir Planos Semanais padrão e assegurar a qualidade técnica das fichas técnicas.
+**Objetivo Principal:** Criar e manter a base global de insumos e Preparações (Engenharia de Cardápio), definir Planos Semanais padrão e assegurar a qualidade técnica das fichas técnicas.\
+**Papel no sistema:** `superadmin`\
+**Módulos:** `global` → `/global/*` · `analytics` → `/analytics/global`
 
 ---
 
@@ -76,555 +88,436 @@ Modelo append-only (imutável). Qualquer edição em uma Preparação gera um no
 
 A SDAB define Preparações globais (padrão). Unidades podem "forkar" uma Preparação global para criar versões locais adaptadas à realidade regional. Forks são independentes — atualizações na global não propagam automaticamente.
 
+### 2.8 Paradigma de Rotas e Módulos
+
+A aplicação é organizada em **módulos funcionais**, cada um mapeado a um papel de acesso. O acesso é **acumulativo**: um `admin` acessa tudo que `user` e `comensal` acessam, e assim por diante.
+
+| Módulo      | ID          | Papel mínimo  | Prefixo de rota    |
+|-------------|-------------|---------------|--------------------|
+| Comensal    | `diner`     | `comensal`    | `/diner/`          |
+| Fiscal      | `messhall`  | `user`        | `/messhall/`       |
+| Gestão Local| `local`     | `admin`       | `/local/`          |
+| SDAB        | `global`    | `superadmin`  | `/global/`         |
+| Análises    | `analytics` | `admin`       | `/analytics/`      |
+
+O ponto de entrada após login é o **Hub** (`/hub`), que exibe os módulos disponíveis para o nível do usuário. A barra lateral (sidebar) reflete o módulo ativo e seus itens de navegação.
+
+A autorização é verificada em `beforeLoad` de cada rota via `adminProfileQueryOptions`. Redireciona para `/auth` se não autenticado e para `/hub` se sem permissão.
+
 ---
 
 ## 3\. Histórias de Usuário
 
-### 3.1 Módulo: Comensal (Adesão e Previsão)
+### 3.1 Módulo Diner (`/diner/*`) — Comensal
 
-**História 1: Visualizar Cardápio Digital**
+**História 1: Visualizar Cardápio e Informar Adesão (Forecast)**
 
 * **Como** Comensal,
+* **Quero** ver as refeições dos próximos dias e marcar/desmarcar minha presença em cada uma,
+* **Para** que o rancho prepare a quantidade certa e eu garanta minha refeição.
 
-* **Quero** ver as Preparações do dia e dos próximos dias (café, almoço, jantar, ceia),
-
-* **Para** saber o que será servido e decidir se irei comer no rancho.
+**Rota:** `/diner/forecast`
 
 **Critérios de Aceite:**
 
-1. O sistema deve exibir as refeições do dia atual por padrão.
-
-2. Deve ser possível navegar para datas futuras.
-
-3. Cada refeição deve mostrar a Preparação Principal e Guarnições.
-
-4. Breadcrumb: Início > Cardápio Digital.
-
----
-
-**História 2: Informar Adesão (Check-in/Forecast)**
-
-* **Como** Comensal,
-
-* **Quero** marcar ou desmarcar minha presença em uma refeição específica,
-
-* **Para** que o rancho possa preparar a quantidade correta de comida (evitando desperdício).
-
-**Critérios de Aceite:**
-
-1. O usuário deve poder marcar/desmarcar o checkbox "Vou consumir" para cada refeição futura.
-
-2. O sistema deve respeitar o horário de corte configurado pela unidade (não permitir alteração após o corte).
-
-3. O estado da adesão deve ser persistido imediatamente.
-
-4. O valor da adesão alimenta automaticamente o `forecasted_headcount` do Gestor.
+1. Exibir refeições do dia atual por padrão, com navegação para dias futuros.
+2. Cada refeição mostra Preparação Principal e Guarnições.
+3. Permitir marcar/desmarcar "Vou consumir" por refeição futura.
+4. Respeitar o horário de corte configurado pela unidade.
+5. Adesão persistida imediatamente e alimenta `forecasted_headcount`.
+6. Breadcrumb: Comensal > Previsão.
 
 ---
 
-**História 3: Visualizar Detalhes da Preparação**
+**História 2: Visualizar Detalhes da Preparação**
 
 * **Como** Comensal,
-
-* **Quero** ver os detalhes da Preparação (ingredientes principais, alertas de alérgenos),
-
+* **Quero** ver os detalhes de uma Preparação (ingredientes principais, alertas de alérgenos),
 * **Para** tomar decisões alimentares seguras e informadas.
 
+**Rota:** `/diner/forecast` (accordion/modal inline)
+
 **Critérios de Aceite:**
 
-1. Ao clicar na Preparação, um accordion ou modal deve abrir com detalhes.
-
-2. Deve exibir alertas de alérgenos (ex: contém glúten, lactose) se cadastrados na ficha técnica.
+1. Ao clicar na Preparação, exibir detalhes em accordion ou modal.
+2. Exibir alertas de alérgenos se cadastrados na ficha técnica.
 
 ---
 
-**História 4: Selecionar Mess Hall para Refeição**
+**História 3: Selecionar Mess Hall para Refeição**
 
 * **Como** Comensal,
+* **Quero** escolher em qual mess hall irei comer, incluindo de outras unidades,
+* **Para** ter flexibilidade quando estiver em trânsito ou em serviço em outra OM.
 
-* **Quero** escolher em qual mess hall irei comer uma refeição específica (incluindo mess halls de outras unidades),
-
-* **Para** ter flexibilidade quando estiver em trânsito, em serviço em outra OM ou por preferência pessoal.
+**Rota:** `/diner/forecast`
 
 **Critérios de Aceite:**
 
-1. O sistema deve exibir o mess hall padrão do comensal (`default_mess_hall_id`) como seleção inicial.
+1. Exibir o `default_mess_hall_id` do comensal como seleção inicial.
+2. Permitir alterar para qualquer mess hall disponível.
+3. O cardápio reflete a kitchen vinculada ao mess hall selecionado.
+4. O forecast é registrado com o `mess_hall_id` escolhido.
 
-2. Deve ser possível alterar o mess hall para qualquer mess hall disponível no sistema ao fazer a adesão.
+---
 
-3. O cardápio exibido deve refletir o cardápio do mess hall selecionado (via kitchen vinculada).
+**História 4: Gerenciar Perfil e Dados Militares**
 
-4. O forecast deve ser registrado com o `mess_hall_id` escolhido.
+* **Como** Comensal,
+* **Quero** cadastrar meu "Nr. da Ordem" e visualizar meus dados militares vinculados (posto, OM, nome, CPF),
+* **Para** garantir que o sistema me identifique corretamente nos registros de presença.
+
+**Rota:** `/diner/profile`
+
+**Critérios de Aceite:**
+
+1. Campo editável para "Nr. da Ordem".
+2. Ao salvar, o sistema busca e exibe automaticamente os dados militares vinculados.
+3. Dados militares (posto, OM, nome, CPF) são somente leitura.
+4. Breadcrumb: Comensal > Perfil.
 
 ---
 
 **História 5: Exibir QR Code Pessoal**
 
 * **Como** Comensal,
+* **Quero** acessar meu QR Code pessoal (UUID) facilmente,
+* **Para** apresentá-lo ao Fiscal de Rancho no momento da refeição.
 
-* **Quero** acessar meu QR Code pessoal (UUID) na homepage do sistema,
-
-* **Para** apresentá-lo ao Fiscal de Rancho no momento da refeição e registrar minha presença.
+**Rota:** `/diner/forecast` (dialog/modal acessível pela homepage do módulo)
 
 **Critérios de Aceite:**
 
-1. O QR Code deve estar acessível via dialog/modal na homepage.
-
-2. O QR Code deve codificar o UUID do usuário.
-
-3. O dialog deve exibir o nome e posto/graduação do comensal junto ao QR Code para conferência visual.
+1. QR Code acessível via dialog na página principal do módulo Comensal.
+2. Codifica o UUID do usuário.
+3. Exibe nome e posto/graduação junto ao QR Code para conferência visual.
 
 ---
 
 **História 6: Self Check-in**
 
 * **Como** Comensal,
+* **Quero** registrar minha própria presença em uma refeição sem depender do Fiscal,
+* **Para** confirmar minha presença de forma autônoma.
 
-* **Quero** registrar minha própria presença em uma refeição através de uma página de self check-in,
-
-* **Para** confirmar que compareci à refeição sem depender exclusivamente do Fiscal.
+**Rota:** `/diner/selfCheckIn`
 
 **Critérios de Aceite:**
 
-1. Deve existir uma página/botão de self check-in acessível ao comensal.
-
-2. O registro deve gravar `registered_by = user_id` (mesmo UUID), identificando como self check-in.
-
-3. O self check-in só deve ser permitido dentro do horário da refeição (janela configurável).
-
-4. O registro deve ser persistido em `meal_presences`.
+1. Página de self check-in acessível via sidebar do módulo Comensal.
+2. Usuário indica se estava na previsão e se comparecerá.
+3. Registro grava `registered_by = user_id` (self check-in).
+4. Só permitido dentro da janela de horário configurável da refeição.
+5. Detecção de registro duplicado.
+6. Após submissão, redireciona para `/hub`.
+7. Breadcrumb: Comensal > Auto Check-in.
 
 ---
 
-### 3.2 Módulo: Fiscal de Rancho (Controle de Presença)
+### 3.2 Módulo Messhall (`/messhall/*`) — Fiscal de Rancho
 
 > **Contexto:** Todas as telas do Fiscal são **mobile-first**. O Fiscal opera com celular e câmera.
 
-**História 1: Escanear QR Code do Comensal**
+**História 1: Registrar Presença via QR Code**
 
 * **Como** Fiscal de Rancho,
+* **Quero** escanear o QR Code de um comensal usando a câmera,
+* **Para** registrar sua presença rapidamente.
 
-* **Quero** escanear o QR Code de um comensal usando a câmera do celular,
-
-* **Para** registrar sua presença na refeição de forma rápida e confiável.
+**Rota:** `/messhall/presence`
 
 **Critérios de Aceite:**
 
-1. A tela principal do Fiscal deve abrir a câmera para leitura de QR Code.
-
-2. Ao escanear, o sistema deve exibir um dialog com: nome, posto/graduação e foto (se disponível) do comensal.
-
-3. O dialog deve indicar se o comensal **estava previsto** (tinha forecast) ou **não estava previsto** para aquela refeição.
-
-4. O registro deve ser persistido em `meal_presences` com `registered_by = fiscal.user_id`.
-
-5. Deve haver feedback visual/sonoro de sucesso ou erro (QR inválido, já registrado).
+1. Tela abre câmera para leitura de QR Code.
+2. Ao escanear, exibe dialog com: nome, posto/graduação e status de previsão (estava previsto ✅ / não previsto ⚠️).
+3. Registro persistido em `meal_presences` com `registered_by = fiscal.user_id`.
+4. Feedback visual/sonoro de sucesso ou erro (QR inválido, já registrado).
+5. Opção de fechar o dialog automaticamente após scan bem-sucedido.
+6. Breadcrumb: Fiscal > Presenças.
 
 ---
 
 **História 2: Visualizar Lista de Presença em Tempo Real**
 
 * **Como** Fiscal de Rancho,
+* **Quero** ver a lista de comensais já registrados na refeição atual,
+* **Para** acompanhar o fluxo de entrada.
 
-* **Quero** ver a lista de comensais já registrados na refeição atual, logo abaixo da câmera de leitura,
-
-* **Para** acompanhar o fluxo de entrada e identificar rapidamente quem já passou.
+**Rota:** `/messhall/presence` (tabela abaixo do scanner)
 
 **Critérios de Aceite:**
 
-1. A lista deve aparecer abaixo do viewfinder da câmera na mesma tela.
-
-2. Cada item deve mostrar: nome, posto/graduação e status (previsto ✅ / não previsto ⚠️).
-
-3. A lista deve atualizar em tempo real conforme novos scans são realizados.
-
-4. Deve ser possível filtrar/buscar por nome na lista.
+1. Lista aparece abaixo do viewfinder na mesma tela.
+2. Cada item mostra: nome, posto/graduação e status (previsto ✅ / não previsto ⚠️).
+3. Filtrável por data, refeição e unidade.
 
 ---
 
 **História 3: Registrar Presença Anônima ("Outros")**
 
 * **Como** Fiscal de Rancho,
+* **Quero** registrar a presença de alguém sem QR Code ou sem cadastro no sistema,
+* **Para** manter a contagem total precisa.
 
-* **Quero** registrar a presença de uma pessoa que não possui QR Code ou não está cadastrada no sistema,
-
-* **Para** manter a contagem total de refeições servidas precisa, mesmo para casos excepcionais.
+**Rota:** `/messhall/presence`
 
 **Critérios de Aceite:**
 
-1. Deve haver um botão "+1 Outro" acessível na tela principal do Fiscal.
-
-2. Cada clique gera 1 registro em `other_presences` com: `mess_hall_id`, `meal_type_id`, `date`, `registered_by` (fiscal UUID), `created_at`.
-
-3. O total de "outros" deve ser visível na tela do Fiscal como contador.
-
-4. O registro é anônimo — não há identificação do comensal.
+1. Botão "+1 Outro" acessível na tela principal do Fiscal.
+2. Cada clique gera 1 registro em `other_presences` com `mess_hall_id`, `meal_type_id`, `date`, `registered_by`.
+3. Total de "outros" visível como contador na tela.
+4. Registro anônimo — sem identificação do comensal.
 
 ---
 
 **História 4: Selecionar Mess Hall e Refeição Ativa**
 
 * **Como** Fiscal de Rancho,
+* **Quero** selecionar o mess hall e o tipo de refeição em que estou operando,
+* **Para** que os registros sejam vinculados ao local e refeição corretos.
 
-* **Quero** selecionar o mess hall e o tipo de refeição (café, almoço, jantar, ceia) em que estou operando,
-
-* **Para** que os registros de presença sejam vinculados ao local e refeição corretos.
+**Rota:** `/messhall/presence`
 
 **Critérios de Aceite:**
 
-1. Ao abrir a tela de presença, o Fiscal deve selecionar o mess hall (dentre os da sua unidade) e o tipo de refeição.
-
-2. O sistema pode sugerir automaticamente com base no horário atual.
-
-3. A seleção deve ser alterável durante a operação.
+1. Fiscal seleciona mess hall (dentre os da sua unidade) e tipo de refeição ao iniciar.
+2. O sistema pode sugerir com base no horário atual.
+3. Seleção alterável durante a operação.
 
 ---
 
-### 3.3 Módulo: Gestor do Rancho (Gestão e Aquisição)
+### 3.3 Módulo Local (`/local/*`) — Gestor e Nutricionista do Rancho
 
-**História 1: Acompanhar KPIs do Rancho (Dashboard)**
+**História 1: Painel Administrativo da Unidade**
 
 * **Como** Gestor do Rancho,
+* **Quero** ter uma visão geral das funções administrativas disponíveis,
+* **Para** navegar rapidamente para o que preciso gerenciar.
 
-* **Quero** visualizar um dashboard com custos previstos, desperdício e número de comensais,
-
-* **Para** ter controle rápido sobre a saúde operacional e financeira do meu rancho.
-
-**Critérios de Aceite:**
-
-1. O dashboard deve exibir o total de comensais previstos para o dia.
-
-2. Deve mostrar um gráfico comparativo de adesão vs realizado.
-
-3. Breadcrumb: Início > Gestão > Dashboard.
-
----
-
-**História 2: Projetar Necessidade de Compra (ATA)**
-
-* **Como** Gestor do Rancho,
-
-* **Quero** selecionar Planos Semanais, definir o efetivo (headcount) e a frequência de repetição,
-
-* **Para** gerar uma previsão consolidada de insumos para a licitação (Pregão/ATA) com margem de segurança.
+**Rota:** `/local/`
 
 **Critérios de Aceite:**
 
-1. Interface deve permitir selecionar um ou mais "Planos Semanais".
-
-2. Para cada plano, definir: Quantidade de Repetições e Efetivo Previsto.
-
-3. Campo para definir **Margem de Segurança** (%) que será adicionada à quantidade total.
-
-4. O sistema deve calcular o total de cada insumo: (Per Capita × Efetivo × Repetições) + Margem.
+1. Dashboard com cards de acesso rápido para: Receitas, Planejamento, Suprimentos, QR Check-in.
+2. Cada card com ícone, título e descrição da função.
+3. Breadcrumb: Gestão Local > Painel.
 
 ---
 
-**História 3: Exportar Relação para ATA (CSV)**
-
-* **Como** Gestor do Rancho,
-
-* **Quero** exportar a lista consolidada em CSV, incluindo o "Preço Máximo Aceitável",
-
-* **Para** instruir o processo de registro de preço (ATA).
-
-**Critérios de Aceite:**
-
-1. O arquivo CSV deve conter colunas: Código, Descrição do Insumo (com atributo CEAFA), Unidade, Quantidade Total, Preço Unitário Estimado, Preço Total Máximo.
-
-2. O "Preço Máximo" deve considerar a margem de segurança definida.
-
----
-
-**História 4: Configurar Unidade e Kitchen**
-
-* **Como** Gestor do Rancho,
-
-* **Quero** configurar os horários de corte para adesão dos comensais,
-
-* **Para** garantir que a cozinha tenha tempo hábil para ajustar a produção.
-
-**Critérios de Aceite:**
-
-1. O sistema deve permitir definir um horário limite para adesão ao almoço do dia seguinte ou do próprio dia.
-
----
-
-**História 5: Visualizar Relatório de Presença**
-
-* **Como** Gestor do Rancho,
-
-* **Quero** visualizar e exportar um relatório de presença por refeição/dia,
-
-* **Para** ter controle sobre quem comeu, quem aderiu e não foi, e quem foi sem aderir.
-
-**Critérios de Aceite:**
-
-1. O relatório deve categorizar os comensais em:
-
-* **Aderiu e compareceu:** forecast ✅ + presença ✅
-
-* **Aderiu e não compareceu:** forecast ✅ + presença ❌
-
-* **Não aderiu e compareceu:** forecast ❌ + presença ✅
-
-1. Deve exibir o total de "outros" (presenças anônimas) registrados pelo Fiscal.
-
-2. Deve ser possível filtrar por data, refeição e mess hall.
-
-3. Deve ser possível exportar o relatório em CSV.
-
----
-
-**História 6: Visualizar Comensais Externos**
-
-* **Como** Gestor do Rancho,
-
-* **Quero** ver uma aba/seção dedicada aos comensais que comeram na minha unidade mas pertencem a outra unidade,
-
-* **Para** ter visibilidade sobre o consumo de recursos por militares externos e subsidiar eventuais acertos entre unidades.
-
-**Critérios de Aceite:**
-
-1. O critério de "externo" é: `user_military_data.unit_id` ≠ unit do mess hall onde a presença foi registrada.
-
-2. A lista deve exibir: nome, posto/graduação, unidade de origem, data, refeição, mess hall.
-
-3. Deve ser possível filtrar por período.
-
-4. Deve ser possível exportar em CSV.
-
----
-
-**História 7: Autorizar Previamente Comensais Externos (Nice-to-Have)**
-
-* **Como** Gestor do Rancho,
-
-* **Quero** autorizar previamente militares de outras unidades a comerem no meu rancho,
-
-* **Para** ter controle antecipado sobre comensais externos e facilitar o planejamento.
-
-**Critérios de Aceite:**
-
-1. O gestor deve poder buscar um militar por nome ou identidade e autorizá-lo para um período/refeição específica.
-
-2. Autorizações prévias devem aparecer na lista de forecasts como "externo autorizado".
-
-3. **Prioridade:** Nice-to-have (não bloqueia MVP).
-
----
-
-### 3.4 Módulo: Nutricionista do Rancho (Planejamento e Operação)
-
-**História 1: Gerenciar Planos Semanais (Templates)**
+**História 2: Planejar Cardápio Operacional**
 
 * **Como** Nutricionista do Rancho,
-
-* **Quero** criar **Planos Semanais** (Rotinas) em uma página dedicada,
-
-* **Para** ter um banco de cardápios prontos para uso recorrente sem misturar com o calendário de execução.
-
-**Critérios de Aceite:**
-
-1. Deve existir uma página específica "Meus Planos Semanais".
-
-2. O usuário define um nome e preenche 7 dias de refeições (Segunda a Domingo).
-
-3. Não deve haver datas vinculadas.
-
-4. Breadcrumb: Planejamento > Planos Semanais.
-
----
-
-**História 2: Planejar Calendário Operacional (Diário)**
-
-* **Como** Nutricionista do Rancho,
-
-* **Quero** visualizar o calendário do mês e importar Planos Semanais para datas específicas,
-
+* **Quero** visualizar o calendário do mês e associar Preparações a cada dia e refeição,
 * **Para** criar a programação alimentar real da unidade.
 
+**Rota:** `/local/planning`
+
 **Critérios de Aceite:**
 
-1. Interface de calendário focada em datas reais.
-
-2. Permitir arrastar ou selecionar um "Plano Semanal" e aplicar a um período (ex: semana de 10 a 16 de maio).
-
-3. O sistema deve preencher os dias com as Preparações do plano.
+1. Interface de calendário mensal com navegação por mês.
+2. Permitir importar Planos Semanais para um período de datas.
+3. Sistema preenche os dias com as Preparações do plano.
+4. Permitir ajustes pontuais por dia (snapshot).
+5. Breadcrumb: Gestão Local > Planejamento.
 
 ---
 
-**História 3: Realizar Ajustes no Cardápio Diário (Snapshot)**
+**História 3: Gerenciar Catálogo de Receitas da Unidade**
 
 * **Como** Nutricionista do Rancho,
+* **Quero** criar, editar e visualizar Preparações da minha unidade ou "forkar" globais,
+* **Para** manter um catálogo atualizado e adaptado à realidade regional.
 
-* **Quero** substituir um ingrediente em uma Preparação específica para um dia (ex: trocar manteiga por margarina),
-
-* **Para** lidar com falta de estoque sem alterar a Preparação padrão permanentemente.
+**Rotas:** `/local/recipes` · `/local/recipes/new` · `/local/recipes/$recipeId`
 
 **Critérios de Aceite:**
 
-1. A alteração afeta apenas o dia específico (snapshot).
-
-2. Permitir escolher um ingrediente substituto da lista de alternativas ou da árvore global.
+1. Listagem com busca e filtro por tipo (todas / globais / locais).
+2. Criar Preparação do zero ou via fork de uma global.
+3. Fork é independente — alterações na global não propagam.
+4. Qualquer edição gera nova versão (append-only).
+5. Diff viewer disponível para comparar versões.
+6. Breadcrumb: Gestão Local > Receitas.
 
 ---
 
-**História 4: Ajustar Porcionamento (Headcount Diário)**
+**História 4: Projetar Necessidade de Compra (Suprimentos / ATA)**
 
-* **Como** Nutricionista do Rancho,
+* **Como** Gestor do Rancho,
+* **Quero** calcular a necessidade de insumos com base nos cardápios e efetivo previsto,
+* **Para** gerar uma relação consolidada para licitação (Pregão/ATA).
 
-* **Quero** ajustar quantas porções serão produzidas para cada preparação do dia, baseando-me na previsão de comensais,
-
-* **Para** orientar a cozinha sobre a quantidade exata a ser produzida.
+**Rota:** `/local/procurement`
 
 **Critérios de Aceite:**
 
-1. O sistema sugere a quantidade baseada no total de adesões (forecast agregado de todos os mess halls da kitchen).
-
-2. Permitir sobrescrever manualmente a quantidade a produzir.
+1. Selecionar intervalo de datas (padrão: próxima semana).
+2. Calcular total de cada insumo: (Per Capita × Efetivo × Repetições) + Margem de Segurança.
+3. Campo para definir Margem de Segurança (%).
+4. Exportar em CSV com colunas: Código, Descrição, Unidade, Qtd. Total, Preço Unitário Estimado, Preço Total Máximo.
+5. Breadcrumb: Gestão Local > Suprimentos.
 
 ---
 
-**História 5: Criar/Editar Preparações Locais**
+**História 5: Gerar QR Code para Check-in Automático**
 
-* **Como** Nutricionista do Rancho,
+* **Como** Gestor do Rancho,
+* **Quero** gerar e exibir um QR Code para check-in automático de comensais na minha unidade,
+* **Para** agilizar o processo de entrada sem depender exclusivamente do Fiscal.
 
-* **Quero** criar Preparações específicas da minha unidade ou "forkar" uma Preparação global,
-
-* **Para** adaptar o cardápio à realidade regional.
+**Rota:** `/local/qrCode`
 
 **Critérios de Aceite:**
 
-1. O usuário deve poder criar uma Preparação do zero ou copiar uma global.
-
-2. A nova Preparação deve ficar visível apenas para a unidade do usuário.
-
-3. Forks são independentes — atualizações na Preparação global original não propagam automaticamente para o fork.
+1. Página exibe QR Code gerado para a unidade/mess hall selecionado.
+2. Permite selecionar a unidade operacional (OM) antes de gerar.
+3. QR Code atualizável / regenerável.
+4. Restrito a papéis `admin` e `superadmin`.
+5. Breadcrumb: Gestão Local > QR Check-in.
 
 ---
 
-### 3.5 Módulo: Gestor da SDAB (Governança)
+### 3.4 Módulo Global (`/global/*`) — SDAB (superadmin)
 
-**História 1: Monitorar Visão Global**
+**História 1: Gerenciar Catálogo Global de Insumos**
 
-* **Como** Gestor da SDAB,
+* **Como** Nutricionista da SDAB,
+* **Quero** criar e organizar a hierarquia de Grupos, Subgrupos e Produtos do catálogo global,
+* **Para** manter base padronizada e facilitar busca.
 
-* **Quero** ver indicadores consolidados de todas as unidades,
-
-* **Para** identificar desvios e tomar decisões estratégicas.
+**Rota:** `/global/ingredients`
 
 **Critérios de Aceite:**
 
-1. O dashboard deve permitir filtrar por unidade ou região.
-
-2. Exibir alertas para unidades com custos acima do esperado.
+1. Estrutura em árvore: Grupo Pai → Grupo Filho → Produto → Item de Compra.
+2. Campo `ceafa_id` (nullable) no cadastro de produto, vinculando a item da tabela CEAFA.
+3. Filtro por "Pertence à CEAFA" na listagem.
+4. Exportação em CSV.
+5. Breadcrumb: SDAB > Insumos.
 
 ---
 
 **História 2: Gerenciar Usuários e Permissões**
 
 * **Como** Gestor da SDAB,
+* **Quero** atribuir papéis (`admin`, `user`) a usuários vinculados a uma OM,
+* **Para** garantir que cada unidade tenha os responsáveis designados.
 
-* **Quero** cadastrar novos gestores de rancho e atribuí-los às suas respectivas unidades,
-
-* **Para** garantir que cada quartel tenha um responsável designado.
-
-**Critérios de Aceite:**
-
-1. Permitir atribuir perfis (Admin, Fiscal) a usuários vinculados a uma OM.
-
-2. O perfil `admin` corresponde ao Gestor/Nutricionista do Rancho.
-
-3. O perfil `user` corresponde ao Fiscal de Rancho (módulo de presença).
-
----
-
-### 3.6 Módulo: Nutricionista da SDAB (Engenharia e Padronização)
-
-**História 1: Gerenciar Grupos de Insumos (Catálogo Global)**
-
-* **Como** Nutricionista da SDAB,
-
-* **Quero** criar e organizar a hierarquia de **Grupos** e Subgrupos de alimentos,
-
-* **Para** manter o catálogo organizado e facilitar a busca.
+**Rota:** `/global/permissions`
 
 **Critérios de Aceite:**
 
-1. Usar termo "Grupo" em vez de "Pasta".
-
-2. Permitir criar hierarquia (Grupo Pai → Grupo Filho).
+1. Listar usuários com busca por nome ou unidade.
+2. Atribuir ou alterar papel: `comensal`, `user` (Fiscal), `admin` (Gestor/Nutricionista Local), `superadmin`.
+3. Vincular usuário a uma OM.
+4. Breadcrumb: SDAB > Permissões.
 
 ---
 
-**História 2: Cadastrar Insumos com Atributo CEAFA**
+**História 3: Configurar Pergunta de Avaliação Global**
 
-* **Como** Nutricionista da SDAB,
+* **Como** Gestor da SDAB,
+* **Quero** ativar/desativar e definir o texto da pergunta de avaliação exibida aos comensais,
+* **Para** coletar feedback de forma centralizada e controlada.
 
-* **Quero** cadastrar insumos vinculando-os opcionalmente a um item da **CEAFA**,
-
-* **Para** garantir compliance com normas militares e rastreabilidade normativa.
+**Rota:** `/global/evaluation`
 
 **Critérios de Aceite:**
 
-1. Campo `ceafa_id` (nullable) no cadastro de produto, vinculando a um item da tabela CEAFA.
-
-2. Filtro por "Pertence à CEAFA" na listagem de insumos.
-
-3. Exibir a descrição do item CEAFA vinculado quando aplicável.
+1. Toggle para ativar/desativar a pergunta globalmente.
+2. Campo de texto para a pergunta (máx. 240 caracteres, com contador).
+3. Quando ativa, comensais que ainda não responderam verão a pergunta.
+4. Salvar/reverter com feedback de sucesso ou erro via toast.
+5. Breadcrumb: SDAB > Avaliação.
 
 ---
 
-**História 3: Criar Preparações Globais (Padrão)**
+**História 4: Criar Preparações Globais (Padrão)**
 
 * **Como** Nutricionista da SDAB,
-
 * **Quero** criar fichas técnicas oficiais (Preparações) visíveis para todas as unidades,
+* **Para** garantir padrão de qualidade em toda a Força.
 
-* **Para** garantir padrão de qualidade.
+**Rota:** `/global/ingredients` (futuro: `/global/recipes`)
 
 **Critérios de Aceite:**
 
-1. Preparações criadas devem ter visibilidade global.
-
+1. Preparações criadas têm visibilidade global.
 2. Definir ingredientes, quantidades per capita e fator de cocção.
-
----
-
-**História 4: Versionar Preparações**
-
-* **Como** Nutricionista da SDAB,
-
-* **Quero** que qualquer alteração em uma Preparação gere uma nova versão (histórico),
-
-* **Para** manter a rastreabilidade.
-
-**Critérios de Aceite:**
-
-1. Editar uma Preparação pública gera novo registro com versão incrementada (append-only).
-
-2. Histórico de versões acessível.
-
-3. Diff viewer disponível para comparar versões.
+3. Qualquer edição gera nova versão (append-only).
+4. Histórico e diff viewer acessíveis.
 
 ---
 
 **História 5: Criar Planos Semanais Modelo (Globais)**
 
 * **Como** Nutricionista da SDAB,
-
 * **Quero** criar Planos Semanais modelo visíveis para todas as unidades,
-
 * **Para** oferecer templates padronizados que as unidades possam adotar ou adaptar.
 
 **Critérios de Aceite:**
 
-1. Planos Semanais criados pela SDAB devem ser visíveis para todas as unidades.
+1. Planos Semanais da SDAB visíveis para todas as unidades.
+2. Unidades podem importar um plano modelo para o calendário local.
+3. Importação cria cópia local — alterações no modelo não propagam.
 
-2. Unidades podem importar um plano modelo para seu calendário local.
+---
 
-3. A importação cria uma cópia local — alterações no modelo não propagam para planos já importados.
+### 3.5 Módulo Analytics (`/analytics/*`) — Análises
+
+**História 1: Análise Local da Unidade**
+
+* **Como** Gestor do Rancho,
+* **Quero** visualizar métricas e indicadores consolidados da minha unidade,
+* **Para** ter controle rápido sobre a saúde operacional e financeira do meu rancho.
+
+**Rota:** `/analytics/local`
+
+**Critérios de Aceite:**
+
+1. Exibir total de comensais previstos para o dia e semana.
+2. Gráfico comparativo de adesão vs. realizado.
+3. Indicadores de custo e desperdício da unidade.
+4. Restrito a `admin` e `superadmin`.
+5. Breadcrumb: Análises > Análise Local.
+
+---
+
+**História 2: Visão Global (SDAB)**
+
+* **Como** Gestor da SDAB,
+* **Quero** ver indicadores consolidados de todas as unidades,
+* **Para** identificar desvios e tomar decisões estratégicas.
+
+**Rota:** `/analytics/global`
+
+**Critérios de Aceite:**
+
+1. Dashboard com KPIs de todas as unidades (custo, desperdício, adesão).
+2. Filtro por unidade ou região.
+3. Alertas para unidades com custos acima do esperado.
+4. Restrito a `superadmin`.
+5. Breadcrumb: Análises > Visão Global.
+
+---
+
+### 3.6 Hub de Módulos (`/hub`)
+
+**História 1: Selecionar Módulo de Trabalho**
+
+* **Como** Qualquer usuário autenticado,
+* **Quero** ver na tela inicial os módulos disponíveis para o meu papel,
+* **Para** navegar rapidamente para onde preciso trabalhar.
+
+**Rota:** `/hub`
+
+**Critérios de Aceite:**
+
+1. Exibe cards apenas dos módulos acessíveis ao papel do usuário (acesso acumulativo).
+2. Cada card mostra: ícone do módulo, nome, lista de itens de navegação e botão "Acessar".
+3. "Acessar" navega para a primeira rota do módulo.
+4. Estado de carregamento com skeleton cards.
+5. Mensagem adequada quando não há módulos disponíveis para o perfil.
 
 ---
 

@@ -41,10 +41,12 @@ const iconLazyCache = new Map<string, React.LazyExoticComponent<React.ComponentT
 
 function getLazyIcon(name?: string | null) {
 	const key = name ?? FALLBACK_ICON
-	if (!iconLazyCache.has(key)) {
-		iconLazyCache.set(key, lazy(resolveIconLoader(name)))
+	let icon = iconLazyCache.get(key)
+	if (!icon) {
+		icon = lazy(resolveIconLoader(name))
+		iconLazyCache.set(key, icon)
 	}
-	return iconLazyCache.get(key)!
+	return icon
 }
 
 export function DynamicIcon({
@@ -52,7 +54,7 @@ export function DynamicIcon({
 	className = "h-5 w-5",
 	...rest
 }: { name?: string | null } & Omit<LucideProps, "ref">) {
-	// Global cache already handles memoization - React Compiler optimizes this
+	"use no memo"
 	const LazyIcon = getLazyIcon(name)
 	return (
 		<Suspense fallback={<span className={className} aria-hidden="true" />}>
