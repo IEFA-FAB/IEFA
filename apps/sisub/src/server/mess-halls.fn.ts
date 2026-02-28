@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start"
-import { supabaseServer } from "@/lib/supabase.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MessHall, Unit } from "@/types/domain/meal"
 
 export const fetchUnitsFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await supabaseServer
+	const { data, error } = await getSupabaseServerClient()
 		.from("units")
 		.select("id, code, display_name")
 		.order("display_name", { ascending: true })
@@ -19,7 +19,7 @@ export const fetchUnitsFn = createServerFn({ method: "GET" }).handler(async () =
 })
 
 export const fetchMessHallsFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await supabaseServer
+	const { data, error } = await getSupabaseServerClient()
 		.from("mess_halls")
 		.select("id, unit_id, code, display_name, kitchen_id")
 		.order("display_name", { ascending: true })

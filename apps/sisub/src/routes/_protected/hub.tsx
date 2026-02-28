@@ -1,14 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { type ModuleDef, getModulesForLevel } from "@/components/common/layout/sidebar/NavItems"
+import { usePBAC } from "@/auth/pbac"
+import {
+	getModulesForPermissions,
+	type ModuleDef,
+} from "@/components/common/layout/sidebar/NavItems"
 import { useAuth } from "@/hooks/auth/useAuth"
-import { useUserLevel } from "@/services/AdminService"
 
 export const Route = createFileRoute("/_protected/hub")({
 	component: HubPage,
 })
 
 function ModuleCard({ module }: { module: ModuleDef }) {
-	const firstUrl = module.items[0]?.url ?? "/"
+	const firstUrl = module.hubUrl ?? module.items[0]?.url ?? "/"
 	const Icon = module.icon
 
 	return (
@@ -41,9 +44,9 @@ function ModuleCard({ module }: { module: ModuleDef }) {
 
 function HubPage() {
 	const { user } = useAuth()
-	const { data: userLevel, isLoading } = useUserLevel(user?.id)
+	const { permissions, isLoading } = usePBAC()
 
-	const modules = userLevel ? getModulesForLevel(userLevel) : []
+	const modules = getModulesForPermissions(permissions)
 
 	const userName =
 		(user?.user_metadata?.full_name as string | undefined) ??
@@ -55,9 +58,7 @@ function HubPage() {
 		<div className="flex h-full flex-col items-center justify-center px-4 py-12">
 			<div className="w-full max-w-4xl space-y-10">
 				<div className="space-y-2 text-center">
-					<h1 className="text-3xl font-bold tracking-tight text-foreground">
-						Olá, {userName}
-					</h1>
+					<h1 className="text-3xl font-bold tracking-tight text-foreground">Olá, {userName}</h1>
 					<p className="text-muted-foreground">Escolha um módulo para começar</p>
 				</div>
 

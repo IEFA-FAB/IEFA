@@ -7,14 +7,13 @@ export function useCreateRecipe() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		// @ts-expect-error - ingredients field is not in RecipeFormData type but is passed at runtime
 		mutationFn: (data: RecipeFormData) => createRecipeFn({ data }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["recipes"] })
-			toast.success("Receita criada com sucesso")
+			toast.success("Preparação criada com sucesso")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao criar receita: ${error.message}`)
+			toast.error(`Erro ao criar Preparação: ${error.message}`)
 		},
 	})
 }
@@ -32,7 +31,6 @@ export function useVersionRecipe() {
 			data: RecipeFormData
 			newVersion: number
 		}) =>
-			// @ts-expect-error - ingredients field is not in RecipeFormData type but is passed at runtime
 			createRecipeVersionFn({
 				data: { ...data, base_recipe_id: baseRecipeId, new_version: newVersion },
 			}),
@@ -41,7 +39,7 @@ export function useVersionRecipe() {
 			toast.success("Nova versão criada com sucesso")
 		},
 		onError: (error) => {
-			toast.error(`Erro ao atualizar receita: ${error.message}`)
+			toast.error(`Erro ao atualizar Preparação: ${error.message}`)
 		},
 	})
 }

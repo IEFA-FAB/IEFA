@@ -1,5 +1,3 @@
-// routes/changelog.tsx
-
 import { Button, Card } from "@iefa/ui"
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
@@ -8,24 +6,11 @@ import { ptBR } from "date-fns/locale"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
-import supabase from "@/lib/supabase"
-
-// Tipos mínimos e locais
-type ChangelogEntry = {
-	id: string
-	version: string | null
-	title: string
-	body: string
-	tags: string[] | null
-	published_at: string // ISO
-	published: boolean
-}
-
-type PageResult = {
-	items: ChangelogEntry[]
-	nextPage?: number
-	hasMore: boolean
-}
+import {
+	type ChangelogEntry,
+	type ChangelogPageResult,
+	fetchChangelogPageFn,
+} from "@/server/changelog.fn"
 
 // Utilitários
 function safeAnchorId(id: string) {
@@ -68,29 +53,6 @@ const TAG_TONE: Record<string, string> = {
 	fix: toneBadge("destructive"),
 	docs: toneBadge("secondary"),
 	perf: toneBadge("accent"),
-}
-
-// Supabase: busca com overfetch +1 para detectar "hasMore"
-async function fetchChangelogPage(page: number, pageSize: number): Promise<PageResult> {
-	const from = page * pageSize
-	const to = from + pageSize // inclusivo → retorna até pageSize + 1 registros
-
-	const { data, error } = await supabase
-		.from("changelog")
-		.select("id, version, title, body, tags, published_at, published")
-		.eq("published", true)
-		.order("published_at", { ascending: false })
-		.range(from, to)
-
-	if (error) {
-		throw new Error(error.message || "Não foi possível carregar o changelog.")
-	}
-
-	const rows = (data as ChangelogEntry[]) ?? []
-	const hasMore = rows.length > pageSize
-	const items = hasMore ? rows.slice(0, pageSize) : rows
-
-	return { items, nextPage: hasMore ? page + 1 : undefined, hasMore }
 }
 
 export const Route = createFileRoute("/_public/changelog")({
@@ -260,7 +222,10 @@ export default function Changelog() {
 	const { data, isLoading, isFetchingNextPage, error, hasNextPage, fetchNextPage, refetch } =
 		useInfiniteQuery({
 			queryKey: ["changelog", "list", PAGE_SIZE],
-			queryFn: ({ pageParam = 0 }) => fetchChangelogPage(pageParam, PAGE_SIZE),
+			queryFn: ({ pageParam = 0 }) =>
+				fetchChangelogPageFn({
+					data: { page: pageParam as number, pageSize: PAGE_SIZE },
+				}) as Promise<ChangelogPageResult>,
 			getNextPageParam: (lastPage) => lastPage.nextPage,
 			initialPageParam: 0,
 			staleTime: 5 * 60 * 1000, // 5min

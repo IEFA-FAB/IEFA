@@ -1,7 +1,7 @@
 {
   "name": "iefa",
   "private": true,
-  "packageManager": "bun@1.3.6",
+  "packageManager": "bun@1.3.9",
   "overrides": {
     "react": "^19.2",
     "react-dom": "^19.2"
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
-    "turbo": "^2.8.10"
+    "turbo": "^2.8.11"
   },
   "workspaces": [
     "apps/*",

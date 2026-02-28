@@ -209,7 +209,7 @@ function Tutorial() {
 					<div className="mt-4">
 						<Button
 							render={
-								<Link to="/messhall/presence">
+								<Link to="/messhall">
 									Abrir Leitor de QR
 									<QrCode className="w-4 h-4" />
 								</Link>

@@ -1,8 +1,8 @@
-import { AuthScreen } from "@iefa/auth"
 import { Card, CardContent } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { z } from "zod"
+import { AuthScreen } from "@/auth/view/AuthScreen"
 import { useAuth } from "@/hooks/auth/useAuth"
 import supabase from "@/lib/supabase"
 

@@ -19,7 +19,7 @@ import type { ThemeContextType } from "@/components/common/shared/themeService"
 import { ThemeScript } from "@/components/common/shared/themeService"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import AppStyles from "@/styles.css?url"
-import type { AuthContextType } from "@/types/domain/"
+import type { AuthContextType } from "@/types/domain/auth"
 
 export interface MyRouterContext {
 	queryClient: QueryClient

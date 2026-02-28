@@ -5,7 +5,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
 import type { DayMeals } from "@/lib/meal"
-import supabase from "@/lib/supabase"
+import {
+	deleteForecastFn,
+	fetchMealForecastsFn,
+	fetchUserDefaultMessHallFn,
+	persistDefaultMessHallFn,
+	upsertForecastFn,
+} from "@/server/forecast.fn"
 import type {
 	MealForecastHook,
 	MessHallByDate,
@@ -173,17 +179,10 @@ export const useMealForecast = (): MealForecastHook => {
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: true,
 		queryFn: async () => {
-			const { data, error: supabaseError } = await supabase
-				.schema("sisub")
-				.from("meal_forecasts")
-				.select("date, meal, will_eat, mess_halls(code)")
-				.eq("user_id", user?.id)
-				.gte("date", dates[0])
-				.lte("date", dates[dates.length - 1])
-				.order("date", { ascending: true })
-
-			if (supabaseError) throw supabaseError
-			return (data ?? []) as ForecastRow[]
+			const result = await fetchMealForecastsFn({
+				data: { userId: user?.id ?? "", startDate: dates[0], endDate: dates[dates.length - 1] },
+			})
+			return (result ?? []) as ForecastRow[]
 		},
 	})
 
@@ -204,15 +203,8 @@ export const useMealForecast = (): MealForecastHook => {
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: true,
 		queryFn: async () => {
-			const { data, error } = await supabase
-				.schema("sisub")
-				.from("user_data")
-				.select("default_mess_hall_id")
-				.eq("id", user?.id)
-				.maybeSingle()
-
-			if (error) throw error
-			return (data ?? null) as UserDataRow | null
+			const result = await fetchUserDefaultMessHallFn({ data: { userId: user?.id ?? "" } })
+			return (result ?? null) as UserDataRow | null
 		},
 	})
 
@@ -274,16 +266,11 @@ export const useMealForecast = (): MealForecastHook => {
 
 		const prev = userData?.default_mess_hall_id // para reverter em caso de erro
 
-		const { error } = await supabase.schema("sisub").from("user_data").upsert(
-			{
-				id: user.id,
-				default_mess_hall_id: idNum,
-				email: user.email,
-			},
-			{ onConflict: "id", ignoreDuplicates: false }
-		)
-
-		if (error) {
+		try {
+			await persistDefaultMessHallFn({
+				data: { userId: user.id, email: user.email ?? undefined, messHallId: idNum },
+			})
+		} catch {
 			// Reverter estado local para manter coerência com DB (fonte da verdade)
 			if (prev != null) setDefaultMessHallIdState(String(prev))
 			setErrorWithClear("Não foi possível salvar o rancho padrão.")
@@ -337,59 +324,19 @@ export const useMealForecast = (): MealForecastHook => {
 										`messHallId inválido: "${change.messHallId}" para ${change.date}-${change.meal}`
 									)
 								}
-
-								const { error: upsertError } = await supabase
-									.schema("sisub")
-									.from("meal_forecasts")
-									.upsert(
-										{
-											date: change.date,
-											user_id: user.id,
-											meal: change.meal,
-											will_eat: true,
-											mess_hall_id: messHallIdNum,
-										},
-										{
-											onConflict: "user_id,date,meal",
-											ignoreDuplicates: false,
-										}
-									)
-
-								if (upsertError) {
-									// fallback: delete + insert
-									await supabase
-										.schema("sisub")
-										.from("meal_forecasts")
-										.delete()
-										.eq("user_id", user.id)
-										.eq("date", change.date)
-										.eq("meal", change.meal)
-
-									const { error: insertError } = await supabase
-										.schema("sisub")
-										.from("meal_forecasts")
-										.insert({
-											date: change.date,
-											user_id: user.id,
-											meal: change.meal,
-											will_eat: true,
-											mess_hall_id: messHallIdNum,
-										})
-
-									if (insertError) throw insertError
-								}
+								await upsertForecastFn({
+									data: {
+										userId: user.id,
+										date: change.date,
+										meal: change.meal,
+										willEat: true,
+										messHallId: messHallIdNum,
+									},
+								})
 							} else {
-								const { error: deleteError } = await supabase
-									.schema("sisub")
-									.from("meal_forecasts")
-									.delete()
-									.eq("user_id", user.id)
-									.eq("date", change.date)
-									.eq("meal", change.meal)
-
-								if (deleteError && !deleteError.message?.includes("No rows deleted")) {
-									throw deleteError
-								}
+								await deleteForecastFn({
+									data: { userId: user.id, date: change.date, meal: change.meal },
+								})
 							}
 
 							return { success: true, change }
@@ -453,7 +400,7 @@ export const useMealForecast = (): MealForecastHook => {
 					)
 					fail.forEach((r) => {
 						if (r.status === "fulfilled") {
-							console.error("Erro na operação:", r.value.error)
+							console.error("Erro na operação:", (r.value as { error?: string }).error)
 						} else {
 							console.error("Promise rejeitada:", r.reason)
 						}

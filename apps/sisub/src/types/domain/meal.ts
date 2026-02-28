@@ -121,4 +121,6 @@ export type MealType = {
 	time: string
 	/** Ícone do Lucide React */
 	icon: LucideIcon
+	/** Cor da refeição */
+	color: string
 }

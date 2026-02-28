@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start"
 import type { KitchenWithUnit } from "@/hooks/data/useKitchens"
-import { supabaseServer } from "@/lib/supabase.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export const fetchKitchensFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await supabaseServer
+	const { data, error } = await getSupabaseServerClient()
 		.from("kitchen")
 		.select(
 			`

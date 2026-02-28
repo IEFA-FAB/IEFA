@@ -1,11 +1,11 @@
-import { AnimatedThemeToggler, Button, Separator, SidebarInset, SidebarTrigger } from "@iefa/ui"
-import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router"
-import { QrCode } from "lucide-react"
+import { AnimatedThemeToggler, Separator, SidebarInset, SidebarTrigger } from "@iefa/ui"
+import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
+import { usePBAC } from "@/auth/pbac"
 import {
 	getModuleFromPath,
-	getModulesForLevel,
-	getNavItemsForLevel,
+	getModulesForPermissions,
+	getNavItemsForPermissions,
 	type ModuleId,
 	type NavItem,
 } from "@/components/common/layout/sidebar/NavItems"
@@ -16,31 +16,87 @@ import {
 	BreadcrumbList,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { useAuth } from "@/hooks/auth/useAuth"
 import { useTheme } from "@/hooks/ui/useTheme"
-import { useUserLevel } from "@/services/AdminService"
+import type { ScopeContext } from "@/types/domain/scope"
 import { AppSidebar } from "./sidebar/AppSidebar"
 import { MainSurface } from "./sidebar/MainSurface"
 
-interface AppShellProps {
-	onOpenQr: () => void
-}
 
 const R = {
 	appName: "SISUB",
 	breadcrumbRoot: "Início",
 }
 
-export function AppShell({ onOpenQr }: AppShellProps) {
+// ── Breadcrumb i18n ────────────────────────────────────────────────────────────
+
+/** Tradução estática de segmentos de URL para português */
+const SEGMENT_PT: Record<string, string> = {
+	// Módulos (raiz)
+	diner: "Comensal",
+	messhall: "Fiscal",
+	unit: "Gestão Unidade",
+	kitchen: "Gestão Cozinha",
+	"kitchen-production": "Produção Cozinha",
+	global: "SDAB",
+	analytics: "Análises",
+	// Páginas
+	hub: "Hub",
+	menu: "Cardápio",
+	forecast: "Previsão",
+	"qr-code": "QR Code",
+	"self-check-in": "Auto Check-in",
+	profile: "Perfil",
+	presence: "Presenças",
+	planning: "Planejamento",
+	procurement: "Suprimentos",
+	recipes: "Preparações",
+	"weekly-menus": "Cardápios Semanais",
+	"weekly-plans": "Planos Semanais",
+	ingredients: "Insumos",
+	permissions: "Permissões",
+	evaluation: "Avaliação",
+	changelog: "Registro de Alterações",
+	tutorial: "Tutorial",
+	dashboard: "Painel",
+	// Sub-páginas
+	new: "Novo",
+	fork: "Derivar",
+	versions: "Versões",
+}
+
+/** Quando um segmento é um ID, o rótulo é inferido do segmento anterior */
+const ID_LABEL_BY_PARENT: Record<string, string> = {
+	recipes: "Preparação",
+	"weekly-menus": "Cardápio Semanal",
+	"weekly-plans": "Plano Semanal",
+}
+
+/** Rótulo contextual para o segmento "new" conforme o segmento pai */
+const NEW_LABEL_BY_PARENT: Record<string, string> = {
+	recipes: "Nova Preparação",
+	"weekly-menus": "Novo Cardápio",
+	"weekly-plans": "Novo Plano",
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const NUMERIC_RE = /^\d+$/
+const isId = (seg: string) => UUID_RE.test(seg) || NUMERIC_RE.test(seg)
+
+export function AppShell() {
 	const location = useLocation()
 	const navigate = useNavigate()
-	const { user } = useAuth()
-	const userId = user?.id ?? null
 	const { toggle } = useTheme()
+	const matches = useMatches()
 
-	const { data: userLevel, isLoading: levelLoading, isError: levelError } = useUserLevel(user?.id)
+	const { permissions, isLoading: levelLoading } = usePBAC()
+	const levelError = false
 
-	const availableModules = userLevel ? getModulesForLevel(userLevel) : []
+	// Lê o ScopeContext injetado pelo layout route do módulo ativo (ex: $messHallId/route.tsx)
+	const scopeContext = matches
+		.map((m) => (m.context as Record<string, unknown>)?.scopeContext as ScopeContext | undefined)
+		.find(Boolean)
+
+	const availableModules = getModulesForPermissions(permissions)
 
 	// Auto-detect active module from current path
 	const pathModuleId = getModuleFromPath(location.pathname)
@@ -59,14 +115,32 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 	const handleModuleChange = (moduleId: ModuleId) => {
 		setSelectedModuleId(moduleId)
 		const mod = availableModules.find((m) => m.id === moduleId)
-		const firstUrl = mod?.items[0]?.url
-		if (firstUrl) {
-			navigate({ to: firstUrl as Parameters<typeof navigate>[0]["to"] })
+		// Módulos com escopo navegam para o hub; demais para o primeiro item
+		const targetUrl = mod?.hubUrl ?? mod?.items[0]?.url
+		if (targetUrl) {
+			navigate({ to: targetUrl as Parameters<typeof navigate>[0]["to"] })
 		}
 	}
 
+	// Aplica URLs dinâmicas na sidebar quando dentro de um escopo
+	// Ex: /messhall/presence → /messhall/3/presence
+	const scopedModules = availableModules.map((mod) => {
+		if (!scopeContext || mod.id !== effectiveModuleId) return mod
+		const prefix = `/${mod.id}/`
+		const newPrefix = `/${mod.id}/${scopeContext.id}/`
+		return {
+			...mod,
+			items: mod.items.map((item) => ({
+				...item,
+				url: item.url.startsWith(prefix)
+					? newPrefix + item.url.slice(prefix.length)
+					: item.url,
+			})),
+		}
+	})
+
 	const showSidebar = (availableModules.length > 0 || levelLoading) && !levelError
-	const showInitialLoading = levelLoading && !userLevel
+	const showInitialLoading = levelLoading && availableModules.length === 0
 	const showInitialError = !levelLoading && levelError
 
 	const handleRetry = () => {
@@ -74,22 +148,33 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 	}
 
 	// Generate breadcrumbs from current path
-	const navItems: NavItem[] = userLevel ? getNavItemsForLevel(userLevel) : []
+	const navItems: NavItem[] = getNavItemsForPermissions(permissions)
 	const crumbs = (() => {
 		const path = location.pathname.replace(/\/+$/, "")
 		if (!path || path === "/") {
 			return [{ to: "/hub", label: "Hub" }]
 		}
 		const segments = path.split("/").filter(Boolean)
-		const mapLabel = (seg: string, fullPath: string) => {
-			const found = navItems.find((n) => n.to === fullPath || n.to === `/${seg}`)
+		const mapLabel = (seg: string, fullPath: string, prevSeg?: string) => {
+			// 1. Correspondência exata no navItems
+			const found = navItems.find((n) => n.to === fullPath)
 			if (found) return found.label
-			return seg.charAt(0).toUpperCase() + seg.slice(1)
+			// 2. Segmento numérico que corresponde ao escopo → usa o nome do escopo (ex: "GAP-AF")
+			if (isId(seg) && scopeContext && Number(seg) === scopeContext.id) {
+				return scopeContext.name
+			}
+			// 3. Segmento dinâmico (UUID / numérico) → rótulo contextual pelo segmento pai
+			if (isId(seg)) return ID_LABEL_BY_PARENT[prevSeg ?? ""] ?? "Detalhe"
+			// 4. "new" com rótulo contextual
+			if (seg === "new") return NEW_LABEL_BY_PARENT[prevSeg ?? ""] ?? "Novo"
+			// 5. Mapa estático de tradução
+			return SEGMENT_PT[seg] ?? seg
 		}
 		let acc = ""
-		return segments.map((seg) => {
+		return segments.map((seg, i) => {
 			acc += `/${seg}`
-			return { to: acc, label: mapLabel(seg, acc) }
+			const prevSeg = i > 0 ? segments[i - 1] : undefined
+			return { to: acc, label: mapLabel(seg, acc, prevSeg) }
 		})
 	})()
 
@@ -103,7 +188,7 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 		<>
 			<AppSidebar
 				variant="floating"
-				modules={availableModules}
+				modules={scopedModules}
 				activeModuleId={effectiveModuleId}
 				onModuleChange={handleModuleChange}
 				isLoading={levelLoading}
@@ -151,18 +236,6 @@ export function AppShell({ onOpenQr }: AppShellProps) {
 							</Breadcrumb>
 						</div>
 						<div className="flex items-center gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={onOpenQr}
-								className="flex items-center gap-2 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
-								aria-label="Abrir QR do usuário"
-								disabled={!userId}
-								title={userId ? "Mostrar QR" : "Usuário não identificado"}
-							>
-								<QrCode className="h-4 w-4" />
-								<span className="hidden font-medium sm:inline">QR</span>
-							</Button>
 							<AnimatedThemeToggler toggle={toggle} />
 						</div>
 					</div>

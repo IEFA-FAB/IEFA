@@ -20,22 +20,51 @@ import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
 import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_modules/route'
-import { Route as ProtectedModulesLocalIndexRouteImport } from './routes/_protected/_modules/local/index'
-import { Route as ProtectedModulesMesshallPresenceRouteImport } from './routes/_protected/_modules/messhall/presence'
-import { Route as ProtectedModulesLocalQrCodeRouteImport } from './routes/_protected/_modules/local/qrCode'
-import { Route as ProtectedModulesLocalProcurementRouteImport } from './routes/_protected/_modules/local/procurement'
-import { Route as ProtectedModulesLocalPlanningRouteImport } from './routes/_protected/_modules/local/planning'
+import { Route as ProtectedModulesUnitIndexRouteImport } from './routes/_protected/_modules/unit/index'
+import { Route as ProtectedModulesMesshallIndexRouteImport } from './routes/_protected/_modules/messhall/index'
+import { Route as ProtectedModulesKitchenIndexRouteImport } from './routes/_protected/_modules/kitchen/index'
+import { Route as ProtectedModulesKitchenProductionIndexRouteImport } from './routes/_protected/_modules/kitchen-production/index'
+import { Route as ProtectedModulesGlobalIndexRouteImport } from './routes/_protected/_modules/global/index'
+import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
+import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
 import { Route as ProtectedModulesGlobalIngredientsRouteImport } from './routes/_protected/_modules/global/ingredients'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
-import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/selfCheckIn'
+import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/self-check-in'
+import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_protected/_modules/diner/qr-code'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
+import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
 import { Route as ProtectedModulesAnalyticsLocalRouteImport } from './routes/_protected/_modules/analytics/local'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
-import { Route as ProtectedModulesLocalRecipesIndexRouteImport } from './routes/_protected/_modules/local/recipes/index'
-import { Route as ProtectedModulesLocalRecipesNewRouteImport } from './routes/_protected/_modules/local/recipes/new'
-import { Route as ProtectedModulesLocalRecipesRecipeIdRouteImport } from './routes/_protected/_modules/local/recipes/$recipeId'
+import { Route as ProtectedModulesUnitUnitIdRouteRouteImport } from './routes/_protected/_modules/unit/$unitId/route'
+import { Route as ProtectedModulesMesshallMessHallIdRouteRouteImport } from './routes/_protected/_modules/messhall/$messHallId/route'
+import { Route as ProtectedModulesKitchenKitchenIdRouteRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/route'
+import { Route as ProtectedModulesKitchenProductionKitchenIdRouteRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/route'
+import { Route as ProtectedModulesUnitUnitIdIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/index'
+import { Route as ProtectedModulesMesshallMessHallIdIndexRouteImport } from './routes/_protected/_modules/messhall/$messHallId/index'
+import { Route as ProtectedModulesKitchenKitchenIdIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/index'
+import { Route as ProtectedModulesKitchenProductionKitchenIdIndexRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/index'
+import { Route as ProtectedModulesGlobalWeeklyPlansIndexRouteImport } from './routes/_protected/_modules/global/weekly-plans/index'
+import { Route as ProtectedModulesGlobalRecipesIndexRouteImport } from './routes/_protected/_modules/global/recipes/index'
+import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
+import { Route as ProtectedModulesMesshallMessHallIdPresenceRouteImport } from './routes/_protected/_modules/messhall/$messHallId/presence'
+import { Route as ProtectedModulesKitchenKitchenIdQrCodeRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/qr-code'
+import { Route as ProtectedModulesKitchenKitchenIdProcurementRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/procurement'
+import { Route as ProtectedModulesKitchenKitchenIdPlanningRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/planning'
+import { Route as ProtectedModulesGlobalWeeklyPlansNewRouteImport } from './routes/_protected/_modules/global/weekly-plans/new'
+import { Route as ProtectedModulesGlobalRecipesNewRouteImport } from './routes/_protected/_modules/global/recipes/new'
+import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/index'
+import { Route as ProtectedModulesKitchenKitchenIdRecipesIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/index'
+import { Route as ProtectedModulesGlobalRecipesRecipeIdIndexRouteImport } from './routes/_protected/_modules/global/recipes/$recipeId/index'
+import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusNewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/new'
+import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
+import { Route as ProtectedModulesKitchenKitchenIdRecipesNewRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/new'
+import { Route as ProtectedModulesGlobalRecipesRecipeIdVersionsRouteImport } from './routes/_protected/_modules/global/recipes/$recipeId/versions'
+import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/route'
+import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/index'
+import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
+import { Route as ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -89,34 +118,46 @@ const ProtectedModulesRouteRoute = ProtectedModulesRouteRouteImport.update({
   id: '/_modules',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
-const ProtectedModulesLocalIndexRoute =
-  ProtectedModulesLocalIndexRouteImport.update({
-    id: '/local/',
-    path: '/local/',
+const ProtectedModulesUnitIndexRoute =
+  ProtectedModulesUnitIndexRouteImport.update({
+    id: '/unit/',
+    path: '/unit/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesMesshallPresenceRoute =
-  ProtectedModulesMesshallPresenceRouteImport.update({
-    id: '/messhall/presence',
-    path: '/messhall/presence',
+const ProtectedModulesMesshallIndexRoute =
+  ProtectedModulesMesshallIndexRouteImport.update({
+    id: '/messhall/',
+    path: '/messhall/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesLocalQrCodeRoute =
-  ProtectedModulesLocalQrCodeRouteImport.update({
-    id: '/local/qrCode',
-    path: '/local/qrCode',
+const ProtectedModulesKitchenIndexRoute =
+  ProtectedModulesKitchenIndexRouteImport.update({
+    id: '/kitchen/',
+    path: '/kitchen/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesLocalProcurementRoute =
-  ProtectedModulesLocalProcurementRouteImport.update({
-    id: '/local/procurement',
-    path: '/local/procurement',
+const ProtectedModulesKitchenProductionIndexRoute =
+  ProtectedModulesKitchenProductionIndexRouteImport.update({
+    id: '/kitchen-production/',
+    path: '/kitchen-production/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesLocalPlanningRoute =
-  ProtectedModulesLocalPlanningRouteImport.update({
-    id: '/local/planning',
-    path: '/local/planning',
+const ProtectedModulesGlobalIndexRoute =
+  ProtectedModulesGlobalIndexRouteImport.update({
+    id: '/global/',
+    path: '/global/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerIndexRoute =
+  ProtectedModulesDinerIndexRouteImport.update({
+    id: '/diner/',
+    path: '/diner/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsIndexRoute =
+  ProtectedModulesAnalyticsIndexRouteImport.update({
+    id: '/analytics/',
+    path: '/analytics/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesGlobalPermissionsRoute =
@@ -139,14 +180,26 @@ const ProtectedModulesGlobalEvaluationRoute =
   } as any)
 const ProtectedModulesDinerSelfCheckInRoute =
   ProtectedModulesDinerSelfCheckInRouteImport.update({
-    id: '/diner/selfCheckIn',
-    path: '/diner/selfCheckIn',
+    id: '/diner/self-check-in',
+    path: '/diner/self-check-in',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerQrCodeRoute =
+  ProtectedModulesDinerQrCodeRouteImport.update({
+    id: '/diner/qr-code',
+    path: '/diner/qr-code',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerProfileRoute =
   ProtectedModulesDinerProfileRouteImport.update({
     id: '/diner/profile',
     path: '/diner/profile',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerMenuRoute =
+  ProtectedModulesDinerMenuRouteImport.update({
+    id: '/diner/menu',
+    path: '/diner/menu',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerForecastRoute =
@@ -167,23 +220,176 @@ const ProtectedModulesAnalyticsGlobalRoute =
     path: '/analytics/global',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesLocalRecipesIndexRoute =
-  ProtectedModulesLocalRecipesIndexRouteImport.update({
-    id: '/local/recipes/',
-    path: '/local/recipes/',
+const ProtectedModulesUnitUnitIdRouteRoute =
+  ProtectedModulesUnitUnitIdRouteRouteImport.update({
+    id: '/unit/$unitId',
+    path: '/unit/$unitId',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesLocalRecipesNewRoute =
-  ProtectedModulesLocalRecipesNewRouteImport.update({
-    id: '/local/recipes/new',
-    path: '/local/recipes/new',
+const ProtectedModulesMesshallMessHallIdRouteRoute =
+  ProtectedModulesMesshallMessHallIdRouteRouteImport.update({
+    id: '/messhall/$messHallId',
+    path: '/messhall/$messHallId',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesLocalRecipesRecipeIdRoute =
-  ProtectedModulesLocalRecipesRecipeIdRouteImport.update({
-    id: '/local/recipes/$recipeId',
-    path: '/local/recipes/$recipeId',
+const ProtectedModulesKitchenKitchenIdRouteRoute =
+  ProtectedModulesKitchenKitchenIdRouteRouteImport.update({
+    id: '/kitchen/$kitchenId',
+    path: '/kitchen/$kitchenId',
     getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesKitchenProductionKitchenIdRouteRoute =
+  ProtectedModulesKitchenProductionKitchenIdRouteRouteImport.update({
+    id: '/kitchen-production/$kitchenId',
+    path: '/kitchen-production/$kitchenId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesUnitUnitIdIndexRoute =
+  ProtectedModulesUnitUnitIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesMesshallMessHallIdIndexRoute =
+  ProtectedModulesMesshallMessHallIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedModulesMesshallMessHallIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdIndexRoute =
+  ProtectedModulesKitchenKitchenIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenProductionKitchenIdIndexRoute =
+  ProtectedModulesKitchenProductionKitchenIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedModulesKitchenProductionKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesGlobalWeeklyPlansIndexRoute =
+  ProtectedModulesGlobalWeeklyPlansIndexRouteImport.update({
+    id: '/global/weekly-plans/',
+    path: '/global/weekly-plans/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalRecipesIndexRoute =
+  ProtectedModulesGlobalRecipesIndexRouteImport.update({
+    id: '/global/recipes/',
+    path: '/global/recipes/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesUnitUnitIdDashboardRoute =
+  ProtectedModulesUnitUnitIdDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesMesshallMessHallIdPresenceRoute =
+  ProtectedModulesMesshallMessHallIdPresenceRouteImport.update({
+    id: '/presence',
+    path: '/presence',
+    getParentRoute: () => ProtectedModulesMesshallMessHallIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdQrCodeRoute =
+  ProtectedModulesKitchenKitchenIdQrCodeRouteImport.update({
+    id: '/qr-code',
+    path: '/qr-code',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdProcurementRoute =
+  ProtectedModulesKitchenKitchenIdProcurementRouteImport.update({
+    id: '/procurement',
+    path: '/procurement',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdPlanningRoute =
+  ProtectedModulesKitchenKitchenIdPlanningRouteImport.update({
+    id: '/planning',
+    path: '/planning',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesGlobalWeeklyPlansNewRoute =
+  ProtectedModulesGlobalWeeklyPlansNewRouteImport.update({
+    id: '/global/weekly-plans/new',
+    path: '/global/weekly-plans/new',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalRecipesNewRoute =
+  ProtectedModulesGlobalRecipesNewRouteImport.update({
+    id: '/global/recipes/new',
+    path: '/global/recipes/new',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute =
+  ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRouteImport.update({
+    id: '/weekly-menus/',
+    path: '/weekly-menus/',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdRecipesIndexRoute =
+  ProtectedModulesKitchenKitchenIdRecipesIndexRouteImport.update({
+    id: '/recipes/',
+    path: '/recipes/',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesGlobalRecipesRecipeIdIndexRoute =
+  ProtectedModulesGlobalRecipesRecipeIdIndexRouteImport.update({
+    id: '/global/recipes/$recipeId/',
+    path: '/global/recipes/$recipeId/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute =
+  ProtectedModulesKitchenKitchenIdWeeklyMenusNewRouteImport.update({
+    id: '/weekly-menus/new',
+    path: '/weekly-menus/new',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute =
+  ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRouteImport.update({
+    id: '/weekly-menus/$weeklyMenuId',
+    path: '/weekly-menus/$weeklyMenuId',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdRecipesNewRoute =
+  ProtectedModulesKitchenKitchenIdRecipesNewRouteImport.update({
+    id: '/recipes/new',
+    path: '/recipes/new',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesGlobalRecipesRecipeIdVersionsRoute =
+  ProtectedModulesGlobalRecipesRecipeIdVersionsRouteImport.update({
+    id: '/global/recipes/$recipeId/versions',
+    path: '/global/recipes/$recipeId/versions',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute =
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteImport.update({
+    id: '/recipes/$recipeId',
+    path: '/recipes/$recipeId',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute =
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () =>
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute =
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRouteImport.update({
+    id: '/versions',
+    path: '/versions',
+    getParentRoute: () =>
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute =
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRouteImport.update({
+    id: '/fork',
+    path: '/fork',
+    getParentRoute: () =>
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -195,22 +401,51 @@ export interface FileRoutesByFullPath {
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
+  '/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
+  '/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
+  '/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
+  '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
-  '/diner/selfCheckIn': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
+  '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
-  '/local/planning': typeof ProtectedModulesLocalPlanningRoute
-  '/local/procurement': typeof ProtectedModulesLocalProcurementRoute
-  '/local/qrCode': typeof ProtectedModulesLocalQrCodeRoute
-  '/messhall/presence': typeof ProtectedModulesMesshallPresenceRoute
-  '/local/': typeof ProtectedModulesLocalIndexRoute
-  '/local/recipes/$recipeId': typeof ProtectedModulesLocalRecipesRecipeIdRoute
-  '/local/recipes/new': typeof ProtectedModulesLocalRecipesNewRoute
-  '/local/recipes/': typeof ProtectedModulesLocalRecipesIndexRoute
+  '/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
+  '/diner/': typeof ProtectedModulesDinerIndexRoute
+  '/global/': typeof ProtectedModulesGlobalIndexRoute
+  '/kitchen-production/': typeof ProtectedModulesKitchenProductionIndexRoute
+  '/kitchen/': typeof ProtectedModulesKitchenIndexRoute
+  '/messhall/': typeof ProtectedModulesMesshallIndexRoute
+  '/unit/': typeof ProtectedModulesUnitIndexRoute
+  '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
+  '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
+  '/kitchen/$kitchenId/procurement': typeof ProtectedModulesKitchenKitchenIdProcurementRoute
+  '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
+  '/messhall/$messHallId/presence': typeof ProtectedModulesMesshallMessHallIdPresenceRoute
+  '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
+  '/global/weekly-plans/': typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
+  '/kitchen-production/$kitchenId/': typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
+  '/kitchen/$kitchenId/': typeof ProtectedModulesKitchenKitchenIdIndexRoute
+  '/messhall/$messHallId/': typeof ProtectedModulesMesshallMessHallIdIndexRoute
+  '/unit/$unitId/': typeof ProtectedModulesUnitUnitIdIndexRoute
+  '/kitchen/$kitchenId/recipes/$recipeId': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren
+  '/global/recipes/$recipeId/versions': typeof ProtectedModulesGlobalRecipesRecipeIdVersionsRoute
+  '/kitchen/$kitchenId/recipes/new': typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
+  '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
+  '/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
+  '/global/recipes/$recipeId/': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
+  '/kitchen/$kitchenId/recipes/': typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
+  '/kitchen/$kitchenId/weekly-menus/': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
+  '/kitchen/$kitchenId/recipes/$recipeId/fork': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
+  '/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
+  '/kitchen/$kitchenId/recipes/$recipeId/': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -223,19 +458,43 @@ export interface FileRoutesByTo {
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
-  '/diner/selfCheckIn': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
+  '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
-  '/local/planning': typeof ProtectedModulesLocalPlanningRoute
-  '/local/procurement': typeof ProtectedModulesLocalProcurementRoute
-  '/local/qrCode': typeof ProtectedModulesLocalQrCodeRoute
-  '/messhall/presence': typeof ProtectedModulesMesshallPresenceRoute
-  '/local': typeof ProtectedModulesLocalIndexRoute
-  '/local/recipes/$recipeId': typeof ProtectedModulesLocalRecipesRecipeIdRoute
-  '/local/recipes/new': typeof ProtectedModulesLocalRecipesNewRoute
-  '/local/recipes': typeof ProtectedModulesLocalRecipesIndexRoute
+  '/analytics': typeof ProtectedModulesAnalyticsIndexRoute
+  '/diner': typeof ProtectedModulesDinerIndexRoute
+  '/global': typeof ProtectedModulesGlobalIndexRoute
+  '/kitchen-production': typeof ProtectedModulesKitchenProductionIndexRoute
+  '/kitchen': typeof ProtectedModulesKitchenIndexRoute
+  '/messhall': typeof ProtectedModulesMesshallIndexRoute
+  '/unit': typeof ProtectedModulesUnitIndexRoute
+  '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
+  '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
+  '/kitchen/$kitchenId/procurement': typeof ProtectedModulesKitchenKitchenIdProcurementRoute
+  '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
+  '/messhall/$messHallId/presence': typeof ProtectedModulesMesshallMessHallIdPresenceRoute
+  '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/global/recipes': typeof ProtectedModulesGlobalRecipesIndexRoute
+  '/global/weekly-plans': typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
+  '/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
+  '/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdIndexRoute
+  '/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdIndexRoute
+  '/unit/$unitId': typeof ProtectedModulesUnitUnitIdIndexRoute
+  '/global/recipes/$recipeId/versions': typeof ProtectedModulesGlobalRecipesRecipeIdVersionsRoute
+  '/kitchen/$kitchenId/recipes/new': typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
+  '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
+  '/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
+  '/global/recipes/$recipeId': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
+  '/kitchen/$kitchenId/recipes': typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
+  '/kitchen/$kitchenId/weekly-menus': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
+  '/kitchen/$kitchenId/recipes/$recipeId/fork': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
+  '/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
+  '/kitchen/$kitchenId/recipes/$recipeId': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -250,22 +509,51 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/_protected/_modules/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
+  '/_protected/_modules/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
+  '/_protected/_modules/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
+  '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
-  '/_protected/_modules/diner/selfCheckIn': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/_protected/_modules/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
+  '/_protected/_modules/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/_protected/_modules/global/ingredients': typeof ProtectedModulesGlobalIngredientsRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
-  '/_protected/_modules/local/planning': typeof ProtectedModulesLocalPlanningRoute
-  '/_protected/_modules/local/procurement': typeof ProtectedModulesLocalProcurementRoute
-  '/_protected/_modules/local/qrCode': typeof ProtectedModulesLocalQrCodeRoute
-  '/_protected/_modules/messhall/presence': typeof ProtectedModulesMesshallPresenceRoute
-  '/_protected/_modules/local/': typeof ProtectedModulesLocalIndexRoute
-  '/_protected/_modules/local/recipes/$recipeId': typeof ProtectedModulesLocalRecipesRecipeIdRoute
-  '/_protected/_modules/local/recipes/new': typeof ProtectedModulesLocalRecipesNewRoute
-  '/_protected/_modules/local/recipes/': typeof ProtectedModulesLocalRecipesIndexRoute
+  '/_protected/_modules/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
+  '/_protected/_modules/diner/': typeof ProtectedModulesDinerIndexRoute
+  '/_protected/_modules/global/': typeof ProtectedModulesGlobalIndexRoute
+  '/_protected/_modules/kitchen-production/': typeof ProtectedModulesKitchenProductionIndexRoute
+  '/_protected/_modules/kitchen/': typeof ProtectedModulesKitchenIndexRoute
+  '/_protected/_modules/messhall/': typeof ProtectedModulesMesshallIndexRoute
+  '/_protected/_modules/unit/': typeof ProtectedModulesUnitIndexRoute
+  '/_protected/_modules/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
+  '/_protected/_modules/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/_protected/_modules/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
+  '/_protected/_modules/kitchen/$kitchenId/procurement': typeof ProtectedModulesKitchenKitchenIdProcurementRoute
+  '/_protected/_modules/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
+  '/_protected/_modules/messhall/$messHallId/presence': typeof ProtectedModulesMesshallMessHallIdPresenceRoute
+  '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
+  '/_protected/_modules/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
+  '/_protected/_modules/global/weekly-plans/': typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
+  '/_protected/_modules/kitchen-production/$kitchenId/': typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
+  '/_protected/_modules/kitchen/$kitchenId/': typeof ProtectedModulesKitchenKitchenIdIndexRoute
+  '/_protected/_modules/messhall/$messHallId/': typeof ProtectedModulesMesshallMessHallIdIndexRoute
+  '/_protected/_modules/unit/$unitId/': typeof ProtectedModulesUnitUnitIdIndexRoute
+  '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren
+  '/_protected/_modules/global/recipes/$recipeId/versions': typeof ProtectedModulesGlobalRecipesRecipeIdVersionsRoute
+  '/_protected/_modules/kitchen/$kitchenId/recipes/new': typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
+  '/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
+  '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
+  '/_protected/_modules/global/recipes/$recipeId/': typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
+  '/_protected/_modules/kitchen/$kitchenId/recipes/': typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
+  '/_protected/_modules/kitchen/$kitchenId/weekly-menus/': typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
+  '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
+  '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
+  '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/': typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -278,22 +566,51 @@ export interface FileRouteTypes {
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth/'
+    | '/kitchen-production/$kitchenId'
+    | '/kitchen/$kitchenId'
+    | '/messhall/$messHallId'
+    | '/unit/$unitId'
     | '/analytics/global'
     | '/analytics/local'
     | '/diner/forecast'
+    | '/diner/menu'
     | '/diner/profile'
-    | '/diner/selfCheckIn'
+    | '/diner/qr-code'
+    | '/diner/self-check-in'
     | '/global/evaluation'
     | '/global/ingredients'
     | '/global/permissions'
-    | '/local/planning'
-    | '/local/procurement'
-    | '/local/qrCode'
-    | '/messhall/presence'
-    | '/local/'
-    | '/local/recipes/$recipeId'
-    | '/local/recipes/new'
-    | '/local/recipes/'
+    | '/analytics/'
+    | '/diner/'
+    | '/global/'
+    | '/kitchen-production/'
+    | '/kitchen/'
+    | '/messhall/'
+    | '/unit/'
+    | '/global/recipes/new'
+    | '/global/weekly-plans/new'
+    | '/kitchen/$kitchenId/planning'
+    | '/kitchen/$kitchenId/procurement'
+    | '/kitchen/$kitchenId/qr-code'
+    | '/messhall/$messHallId/presence'
+    | '/unit/$unitId/dashboard'
+    | '/global/recipes/'
+    | '/global/weekly-plans/'
+    | '/kitchen-production/$kitchenId/'
+    | '/kitchen/$kitchenId/'
+    | '/messhall/$messHallId/'
+    | '/unit/$unitId/'
+    | '/kitchen/$kitchenId/recipes/$recipeId'
+    | '/global/recipes/$recipeId/versions'
+    | '/kitchen/$kitchenId/recipes/new'
+    | '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
+    | '/kitchen/$kitchenId/weekly-menus/new'
+    | '/global/recipes/$recipeId/'
+    | '/kitchen/$kitchenId/recipes/'
+    | '/kitchen/$kitchenId/weekly-menus/'
+    | '/kitchen/$kitchenId/recipes/$recipeId/fork'
+    | '/kitchen/$kitchenId/recipes/$recipeId/versions'
+    | '/kitchen/$kitchenId/recipes/$recipeId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -306,19 +623,43 @@ export interface FileRouteTypes {
     | '/analytics/global'
     | '/analytics/local'
     | '/diner/forecast'
+    | '/diner/menu'
     | '/diner/profile'
-    | '/diner/selfCheckIn'
+    | '/diner/qr-code'
+    | '/diner/self-check-in'
     | '/global/evaluation'
     | '/global/ingredients'
     | '/global/permissions'
-    | '/local/planning'
-    | '/local/procurement'
-    | '/local/qrCode'
-    | '/messhall/presence'
-    | '/local'
-    | '/local/recipes/$recipeId'
-    | '/local/recipes/new'
-    | '/local/recipes'
+    | '/analytics'
+    | '/diner'
+    | '/global'
+    | '/kitchen-production'
+    | '/kitchen'
+    | '/messhall'
+    | '/unit'
+    | '/global/recipes/new'
+    | '/global/weekly-plans/new'
+    | '/kitchen/$kitchenId/planning'
+    | '/kitchen/$kitchenId/procurement'
+    | '/kitchen/$kitchenId/qr-code'
+    | '/messhall/$messHallId/presence'
+    | '/unit/$unitId/dashboard'
+    | '/global/recipes'
+    | '/global/weekly-plans'
+    | '/kitchen-production/$kitchenId'
+    | '/kitchen/$kitchenId'
+    | '/messhall/$messHallId'
+    | '/unit/$unitId'
+    | '/global/recipes/$recipeId/versions'
+    | '/kitchen/$kitchenId/recipes/new'
+    | '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
+    | '/kitchen/$kitchenId/weekly-menus/new'
+    | '/global/recipes/$recipeId'
+    | '/kitchen/$kitchenId/recipes'
+    | '/kitchen/$kitchenId/weekly-menus'
+    | '/kitchen/$kitchenId/recipes/$recipeId/fork'
+    | '/kitchen/$kitchenId/recipes/$recipeId/versions'
+    | '/kitchen/$kitchenId/recipes/$recipeId'
   id:
     | '__root__'
     | '/_protected'
@@ -332,22 +673,51 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
+    | '/_protected/_modules/kitchen-production/$kitchenId'
+    | '/_protected/_modules/kitchen/$kitchenId'
+    | '/_protected/_modules/messhall/$messHallId'
+    | '/_protected/_modules/unit/$unitId'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/analytics/local'
     | '/_protected/_modules/diner/forecast'
+    | '/_protected/_modules/diner/menu'
     | '/_protected/_modules/diner/profile'
-    | '/_protected/_modules/diner/selfCheckIn'
+    | '/_protected/_modules/diner/qr-code'
+    | '/_protected/_modules/diner/self-check-in'
     | '/_protected/_modules/global/evaluation'
     | '/_protected/_modules/global/ingredients'
     | '/_protected/_modules/global/permissions'
-    | '/_protected/_modules/local/planning'
-    | '/_protected/_modules/local/procurement'
-    | '/_protected/_modules/local/qrCode'
-    | '/_protected/_modules/messhall/presence'
-    | '/_protected/_modules/local/'
-    | '/_protected/_modules/local/recipes/$recipeId'
-    | '/_protected/_modules/local/recipes/new'
-    | '/_protected/_modules/local/recipes/'
+    | '/_protected/_modules/analytics/'
+    | '/_protected/_modules/diner/'
+    | '/_protected/_modules/global/'
+    | '/_protected/_modules/kitchen-production/'
+    | '/_protected/_modules/kitchen/'
+    | '/_protected/_modules/messhall/'
+    | '/_protected/_modules/unit/'
+    | '/_protected/_modules/global/recipes/new'
+    | '/_protected/_modules/global/weekly-plans/new'
+    | '/_protected/_modules/kitchen/$kitchenId/planning'
+    | '/_protected/_modules/kitchen/$kitchenId/procurement'
+    | '/_protected/_modules/kitchen/$kitchenId/qr-code'
+    | '/_protected/_modules/messhall/$messHallId/presence'
+    | '/_protected/_modules/unit/$unitId/dashboard'
+    | '/_protected/_modules/global/recipes/'
+    | '/_protected/_modules/global/weekly-plans/'
+    | '/_protected/_modules/kitchen-production/$kitchenId/'
+    | '/_protected/_modules/kitchen/$kitchenId/'
+    | '/_protected/_modules/messhall/$messHallId/'
+    | '/_protected/_modules/unit/$unitId/'
+    | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId'
+    | '/_protected/_modules/global/recipes/$recipeId/versions'
+    | '/_protected/_modules/kitchen/$kitchenId/recipes/new'
+    | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
+    | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new'
+    | '/_protected/_modules/global/recipes/$recipeId/'
+    | '/_protected/_modules/kitchen/$kitchenId/recipes/'
+    | '/_protected/_modules/kitchen/$kitchenId/weekly-menus/'
+    | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork'
+    | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
+    | '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -436,39 +806,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
-    '/_protected/_modules/local/': {
-      id: '/_protected/_modules/local/'
-      path: '/local'
-      fullPath: '/local/'
-      preLoaderRoute: typeof ProtectedModulesLocalIndexRouteImport
+    '/_protected/_modules/unit/': {
+      id: '/_protected/_modules/unit/'
+      path: '/unit'
+      fullPath: '/unit/'
+      preLoaderRoute: typeof ProtectedModulesUnitIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/messhall/presence': {
-      id: '/_protected/_modules/messhall/presence'
-      path: '/messhall/presence'
-      fullPath: '/messhall/presence'
-      preLoaderRoute: typeof ProtectedModulesMesshallPresenceRouteImport
+    '/_protected/_modules/messhall/': {
+      id: '/_protected/_modules/messhall/'
+      path: '/messhall'
+      fullPath: '/messhall/'
+      preLoaderRoute: typeof ProtectedModulesMesshallIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/local/qrCode': {
-      id: '/_protected/_modules/local/qrCode'
-      path: '/local/qrCode'
-      fullPath: '/local/qrCode'
-      preLoaderRoute: typeof ProtectedModulesLocalQrCodeRouteImport
+    '/_protected/_modules/kitchen/': {
+      id: '/_protected/_modules/kitchen/'
+      path: '/kitchen'
+      fullPath: '/kitchen/'
+      preLoaderRoute: typeof ProtectedModulesKitchenIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/local/procurement': {
-      id: '/_protected/_modules/local/procurement'
-      path: '/local/procurement'
-      fullPath: '/local/procurement'
-      preLoaderRoute: typeof ProtectedModulesLocalProcurementRouteImport
+    '/_protected/_modules/kitchen-production/': {
+      id: '/_protected/_modules/kitchen-production/'
+      path: '/kitchen-production'
+      fullPath: '/kitchen-production/'
+      preLoaderRoute: typeof ProtectedModulesKitchenProductionIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/local/planning': {
-      id: '/_protected/_modules/local/planning'
-      path: '/local/planning'
-      fullPath: '/local/planning'
-      preLoaderRoute: typeof ProtectedModulesLocalPlanningRouteImport
+    '/_protected/_modules/global/': {
+      id: '/_protected/_modules/global/'
+      path: '/global'
+      fullPath: '/global/'
+      preLoaderRoute: typeof ProtectedModulesGlobalIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/': {
+      id: '/_protected/_modules/diner/'
+      path: '/diner'
+      fullPath: '/diner/'
+      preLoaderRoute: typeof ProtectedModulesDinerIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/analytics/': {
+      id: '/_protected/_modules/analytics/'
+      path: '/analytics'
+      fullPath: '/analytics/'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/global/permissions': {
@@ -492,11 +876,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesGlobalEvaluationRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/diner/selfCheckIn': {
-      id: '/_protected/_modules/diner/selfCheckIn'
-      path: '/diner/selfCheckIn'
-      fullPath: '/diner/selfCheckIn'
+    '/_protected/_modules/diner/self-check-in': {
+      id: '/_protected/_modules/diner/self-check-in'
+      path: '/diner/self-check-in'
+      fullPath: '/diner/self-check-in'
       preLoaderRoute: typeof ProtectedModulesDinerSelfCheckInRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/qr-code': {
+      id: '/_protected/_modules/diner/qr-code'
+      path: '/diner/qr-code'
+      fullPath: '/diner/qr-code'
+      preLoaderRoute: typeof ProtectedModulesDinerQrCodeRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/profile': {
@@ -504,6 +895,13 @@ declare module '@tanstack/react-router' {
       path: '/diner/profile'
       fullPath: '/diner/profile'
       preLoaderRoute: typeof ProtectedModulesDinerProfileRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/menu': {
+      id: '/_protected/_modules/diner/menu'
+      path: '/diner/menu'
+      fullPath: '/diner/menu'
+      preLoaderRoute: typeof ProtectedModulesDinerMenuRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/forecast': {
@@ -527,70 +925,388 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesAnalyticsGlobalRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/local/recipes/': {
-      id: '/_protected/_modules/local/recipes/'
-      path: '/local/recipes'
-      fullPath: '/local/recipes/'
-      preLoaderRoute: typeof ProtectedModulesLocalRecipesIndexRouteImport
+    '/_protected/_modules/unit/$unitId': {
+      id: '/_protected/_modules/unit/$unitId'
+      path: '/unit/$unitId'
+      fullPath: '/unit/$unitId'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdRouteRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/local/recipes/new': {
-      id: '/_protected/_modules/local/recipes/new'
-      path: '/local/recipes/new'
-      fullPath: '/local/recipes/new'
-      preLoaderRoute: typeof ProtectedModulesLocalRecipesNewRouteImport
+    '/_protected/_modules/messhall/$messHallId': {
+      id: '/_protected/_modules/messhall/$messHallId'
+      path: '/messhall/$messHallId'
+      fullPath: '/messhall/$messHallId'
+      preLoaderRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/local/recipes/$recipeId': {
-      id: '/_protected/_modules/local/recipes/$recipeId'
-      path: '/local/recipes/$recipeId'
-      fullPath: '/local/recipes/$recipeId'
-      preLoaderRoute: typeof ProtectedModulesLocalRecipesRecipeIdRouteImport
+    '/_protected/_modules/kitchen/$kitchenId': {
+      id: '/_protected/_modules/kitchen/$kitchenId'
+      path: '/kitchen/$kitchenId'
+      fullPath: '/kitchen/$kitchenId'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRouteRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/kitchen-production/$kitchenId': {
+      id: '/_protected/_modules/kitchen-production/$kitchenId'
+      path: '/kitchen-production/$kitchenId'
+      fullPath: '/kitchen-production/$kitchenId'
+      preLoaderRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/unit/$unitId/': {
+      id: '/_protected/_modules/unit/$unitId/'
+      path: '/'
+      fullPath: '/unit/$unitId/'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/messhall/$messHallId/': {
+      id: '/_protected/_modules/messhall/$messHallId/'
+      path: '/'
+      fullPath: '/messhall/$messHallId/'
+      preLoaderRoute: typeof ProtectedModulesMesshallMessHallIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesMesshallMessHallIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/': {
+      id: '/_protected/_modules/kitchen/$kitchenId/'
+      path: '/'
+      fullPath: '/kitchen/$kitchenId/'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen-production/$kitchenId/': {
+      id: '/_protected/_modules/kitchen-production/$kitchenId/'
+      path: '/'
+      fullPath: '/kitchen-production/$kitchenId/'
+      preLoaderRoute: typeof ProtectedModulesKitchenProductionKitchenIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRoute
+    }
+    '/_protected/_modules/global/weekly-plans/': {
+      id: '/_protected/_modules/global/weekly-plans/'
+      path: '/global/weekly-plans'
+      fullPath: '/global/weekly-plans/'
+      preLoaderRoute: typeof ProtectedModulesGlobalWeeklyPlansIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/recipes/': {
+      id: '/_protected/_modules/global/recipes/'
+      path: '/global/recipes'
+      fullPath: '/global/recipes/'
+      preLoaderRoute: typeof ProtectedModulesGlobalRecipesIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/unit/$unitId/dashboard': {
+      id: '/_protected/_modules/unit/$unitId/dashboard'
+      path: '/dashboard'
+      fullPath: '/unit/$unitId/dashboard'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdDashboardRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/messhall/$messHallId/presence': {
+      id: '/_protected/_modules/messhall/$messHallId/presence'
+      path: '/presence'
+      fullPath: '/messhall/$messHallId/presence'
+      preLoaderRoute: typeof ProtectedModulesMesshallMessHallIdPresenceRouteImport
+      parentRoute: typeof ProtectedModulesMesshallMessHallIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/qr-code': {
+      id: '/_protected/_modules/kitchen/$kitchenId/qr-code'
+      path: '/qr-code'
+      fullPath: '/kitchen/$kitchenId/qr-code'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdQrCodeRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/procurement': {
+      id: '/_protected/_modules/kitchen/$kitchenId/procurement'
+      path: '/procurement'
+      fullPath: '/kitchen/$kitchenId/procurement'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdProcurementRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/planning': {
+      id: '/_protected/_modules/kitchen/$kitchenId/planning'
+      path: '/planning'
+      fullPath: '/kitchen/$kitchenId/planning'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdPlanningRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/global/weekly-plans/new': {
+      id: '/_protected/_modules/global/weekly-plans/new'
+      path: '/global/weekly-plans/new'
+      fullPath: '/global/weekly-plans/new'
+      preLoaderRoute: typeof ProtectedModulesGlobalWeeklyPlansNewRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/recipes/new': {
+      id: '/_protected/_modules/global/recipes/new'
+      path: '/global/recipes/new'
+      fullPath: '/global/recipes/new'
+      preLoaderRoute: typeof ProtectedModulesGlobalRecipesNewRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/weekly-menus/': {
+      id: '/_protected/_modules/kitchen/$kitchenId/weekly-menus/'
+      path: '/weekly-menus'
+      fullPath: '/kitchen/$kitchenId/weekly-menus/'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/recipes/': {
+      id: '/_protected/_modules/kitchen/$kitchenId/recipes/'
+      path: '/recipes'
+      fullPath: '/kitchen/$kitchenId/recipes/'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRecipesIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/global/recipes/$recipeId/': {
+      id: '/_protected/_modules/global/recipes/$recipeId/'
+      path: '/global/recipes/$recipeId'
+      fullPath: '/global/recipes/$recipeId/'
+      preLoaderRoute: typeof ProtectedModulesGlobalRecipesRecipeIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new': {
+      id: '/_protected/_modules/kitchen/$kitchenId/weekly-menus/new'
+      path: '/weekly-menus/new'
+      fullPath: '/kitchen/$kitchenId/weekly-menus/new'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId': {
+      id: '/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
+      path: '/weekly-menus/$weeklyMenuId'
+      fullPath: '/kitchen/$kitchenId/weekly-menus/$weeklyMenuId'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/recipes/new': {
+      id: '/_protected/_modules/kitchen/$kitchenId/recipes/new'
+      path: '/recipes/new'
+      fullPath: '/kitchen/$kitchenId/recipes/new'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRecipesNewRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/global/recipes/$recipeId/versions': {
+      id: '/_protected/_modules/global/recipes/$recipeId/versions'
+      path: '/global/recipes/$recipeId/versions'
+      fullPath: '/global/recipes/$recipeId/versions'
+      preLoaderRoute: typeof ProtectedModulesGlobalRecipesRecipeIdVersionsRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId': {
+      id: '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId'
+      path: '/recipes/$recipeId'
+      fullPath: '/kitchen/$kitchenId/recipes/$recipeId'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/': {
+      id: '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/'
+      path: '/'
+      fullPath: '/kitchen/$kitchenId/recipes/$recipeId/'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions': {
+      id: '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions'
+      path: '/versions'
+      fullPath: '/kitchen/$kitchenId/recipes/$recipeId/versions'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork': {
+      id: '/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork'
+      path: '/fork'
+      fullPath: '/kitchen/$kitchenId/recipes/$recipeId/fork'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute
     }
   }
 }
 
+interface ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren {
+  ProtectedModulesKitchenProductionKitchenIdIndexRoute: typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
+}
+
+const ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren: ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren =
+  {
+    ProtectedModulesKitchenProductionKitchenIdIndexRoute:
+      ProtectedModulesKitchenProductionKitchenIdIndexRoute,
+  }
+
+const ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren =
+  ProtectedModulesKitchenProductionKitchenIdRouteRoute._addFileChildren(
+    ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren,
+  )
+
+interface ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteChildren {
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute
+}
+
+const ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteChildren: ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteChildren =
+  {
+    ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute:
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdForkRoute,
+    ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute:
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdVersionsRoute,
+    ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute:
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdIndexRoute,
+  }
+
+const ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren =
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute._addFileChildren(
+    ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteChildren,
+  )
+
+interface ProtectedModulesKitchenKitchenIdRouteRouteChildren {
+  ProtectedModulesKitchenKitchenIdPlanningRoute: typeof ProtectedModulesKitchenKitchenIdPlanningRoute
+  ProtectedModulesKitchenKitchenIdProcurementRoute: typeof ProtectedModulesKitchenKitchenIdProcurementRoute
+  ProtectedModulesKitchenKitchenIdQrCodeRoute: typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
+  ProtectedModulesKitchenKitchenIdIndexRoute: typeof ProtectedModulesKitchenKitchenIdIndexRoute
+  ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute: typeof ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren
+  ProtectedModulesKitchenKitchenIdRecipesNewRoute: typeof ProtectedModulesKitchenKitchenIdRecipesNewRoute
+  ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute
+  ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute
+  ProtectedModulesKitchenKitchenIdRecipesIndexRoute: typeof ProtectedModulesKitchenKitchenIdRecipesIndexRoute
+  ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute: typeof ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute
+}
+
+const ProtectedModulesKitchenKitchenIdRouteRouteChildren: ProtectedModulesKitchenKitchenIdRouteRouteChildren =
+  {
+    ProtectedModulesKitchenKitchenIdPlanningRoute:
+      ProtectedModulesKitchenKitchenIdPlanningRoute,
+    ProtectedModulesKitchenKitchenIdProcurementRoute:
+      ProtectedModulesKitchenKitchenIdProcurementRoute,
+    ProtectedModulesKitchenKitchenIdQrCodeRoute:
+      ProtectedModulesKitchenKitchenIdQrCodeRoute,
+    ProtectedModulesKitchenKitchenIdIndexRoute:
+      ProtectedModulesKitchenKitchenIdIndexRoute,
+    ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRoute:
+      ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren,
+    ProtectedModulesKitchenKitchenIdRecipesNewRoute:
+      ProtectedModulesKitchenKitchenIdRecipesNewRoute,
+    ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute:
+      ProtectedModulesKitchenKitchenIdWeeklyMenusWeeklyMenuIdRoute,
+    ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute:
+      ProtectedModulesKitchenKitchenIdWeeklyMenusNewRoute,
+    ProtectedModulesKitchenKitchenIdRecipesIndexRoute:
+      ProtectedModulesKitchenKitchenIdRecipesIndexRoute,
+    ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute:
+      ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRoute,
+  }
+
+const ProtectedModulesKitchenKitchenIdRouteRouteWithChildren =
+  ProtectedModulesKitchenKitchenIdRouteRoute._addFileChildren(
+    ProtectedModulesKitchenKitchenIdRouteRouteChildren,
+  )
+
+interface ProtectedModulesMesshallMessHallIdRouteRouteChildren {
+  ProtectedModulesMesshallMessHallIdPresenceRoute: typeof ProtectedModulesMesshallMessHallIdPresenceRoute
+  ProtectedModulesMesshallMessHallIdIndexRoute: typeof ProtectedModulesMesshallMessHallIdIndexRoute
+}
+
+const ProtectedModulesMesshallMessHallIdRouteRouteChildren: ProtectedModulesMesshallMessHallIdRouteRouteChildren =
+  {
+    ProtectedModulesMesshallMessHallIdPresenceRoute:
+      ProtectedModulesMesshallMessHallIdPresenceRoute,
+    ProtectedModulesMesshallMessHallIdIndexRoute:
+      ProtectedModulesMesshallMessHallIdIndexRoute,
+  }
+
+const ProtectedModulesMesshallMessHallIdRouteRouteWithChildren =
+  ProtectedModulesMesshallMessHallIdRouteRoute._addFileChildren(
+    ProtectedModulesMesshallMessHallIdRouteRouteChildren,
+  )
+
+interface ProtectedModulesUnitUnitIdRouteRouteChildren {
+  ProtectedModulesUnitUnitIdDashboardRoute: typeof ProtectedModulesUnitUnitIdDashboardRoute
+  ProtectedModulesUnitUnitIdIndexRoute: typeof ProtectedModulesUnitUnitIdIndexRoute
+}
+
+const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRouteRouteChildren =
+  {
+    ProtectedModulesUnitUnitIdDashboardRoute:
+      ProtectedModulesUnitUnitIdDashboardRoute,
+    ProtectedModulesUnitUnitIdIndexRoute: ProtectedModulesUnitUnitIdIndexRoute,
+  }
+
+const ProtectedModulesUnitUnitIdRouteRouteWithChildren =
+  ProtectedModulesUnitUnitIdRouteRoute._addFileChildren(
+    ProtectedModulesUnitUnitIdRouteRouteChildren,
+  )
+
 interface ProtectedModulesRouteRouteChildren {
+  ProtectedModulesKitchenProductionKitchenIdRouteRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
+  ProtectedModulesKitchenKitchenIdRouteRoute: typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
+  ProtectedModulesMesshallMessHallIdRouteRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
+  ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
   ProtectedModulesAnalyticsLocalRoute: typeof ProtectedModulesAnalyticsLocalRoute
   ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
+  ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
+  ProtectedModulesDinerQrCodeRoute: typeof ProtectedModulesDinerQrCodeRoute
   ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
   ProtectedModulesGlobalIngredientsRoute: typeof ProtectedModulesGlobalIngredientsRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
-  ProtectedModulesLocalPlanningRoute: typeof ProtectedModulesLocalPlanningRoute
-  ProtectedModulesLocalProcurementRoute: typeof ProtectedModulesLocalProcurementRoute
-  ProtectedModulesLocalQrCodeRoute: typeof ProtectedModulesLocalQrCodeRoute
-  ProtectedModulesMesshallPresenceRoute: typeof ProtectedModulesMesshallPresenceRoute
-  ProtectedModulesLocalIndexRoute: typeof ProtectedModulesLocalIndexRoute
-  ProtectedModulesLocalRecipesRecipeIdRoute: typeof ProtectedModulesLocalRecipesRecipeIdRoute
-  ProtectedModulesLocalRecipesNewRoute: typeof ProtectedModulesLocalRecipesNewRoute
-  ProtectedModulesLocalRecipesIndexRoute: typeof ProtectedModulesLocalRecipesIndexRoute
+  ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
+  ProtectedModulesDinerIndexRoute: typeof ProtectedModulesDinerIndexRoute
+  ProtectedModulesGlobalIndexRoute: typeof ProtectedModulesGlobalIndexRoute
+  ProtectedModulesKitchenProductionIndexRoute: typeof ProtectedModulesKitchenProductionIndexRoute
+  ProtectedModulesKitchenIndexRoute: typeof ProtectedModulesKitchenIndexRoute
+  ProtectedModulesMesshallIndexRoute: typeof ProtectedModulesMesshallIndexRoute
+  ProtectedModulesUnitIndexRoute: typeof ProtectedModulesUnitIndexRoute
+  ProtectedModulesGlobalRecipesNewRoute: typeof ProtectedModulesGlobalRecipesNewRoute
+  ProtectedModulesGlobalWeeklyPlansNewRoute: typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  ProtectedModulesGlobalRecipesIndexRoute: typeof ProtectedModulesGlobalRecipesIndexRoute
+  ProtectedModulesGlobalWeeklyPlansIndexRoute: typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
+  ProtectedModulesGlobalRecipesRecipeIdVersionsRoute: typeof ProtectedModulesGlobalRecipesRecipeIdVersionsRoute
+  ProtectedModulesGlobalRecipesRecipeIdIndexRoute: typeof ProtectedModulesGlobalRecipesRecipeIdIndexRoute
 }
 
 const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
+  ProtectedModulesKitchenProductionKitchenIdRouteRoute:
+    ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren,
+  ProtectedModulesKitchenKitchenIdRouteRoute:
+    ProtectedModulesKitchenKitchenIdRouteRouteWithChildren,
+  ProtectedModulesMesshallMessHallIdRouteRoute:
+    ProtectedModulesMesshallMessHallIdRouteRouteWithChildren,
+  ProtectedModulesUnitUnitIdRouteRoute:
+    ProtectedModulesUnitUnitIdRouteRouteWithChildren,
   ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
   ProtectedModulesAnalyticsLocalRoute: ProtectedModulesAnalyticsLocalRoute,
   ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
+  ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
+  ProtectedModulesDinerQrCodeRoute: ProtectedModulesDinerQrCodeRoute,
   ProtectedModulesDinerSelfCheckInRoute: ProtectedModulesDinerSelfCheckInRoute,
   ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
   ProtectedModulesGlobalIngredientsRoute:
     ProtectedModulesGlobalIngredientsRoute,
   ProtectedModulesGlobalPermissionsRoute:
     ProtectedModulesGlobalPermissionsRoute,
-  ProtectedModulesLocalPlanningRoute: ProtectedModulesLocalPlanningRoute,
-  ProtectedModulesLocalProcurementRoute: ProtectedModulesLocalProcurementRoute,
-  ProtectedModulesLocalQrCodeRoute: ProtectedModulesLocalQrCodeRoute,
-  ProtectedModulesMesshallPresenceRoute: ProtectedModulesMesshallPresenceRoute,
-  ProtectedModulesLocalIndexRoute: ProtectedModulesLocalIndexRoute,
-  ProtectedModulesLocalRecipesRecipeIdRoute:
-    ProtectedModulesLocalRecipesRecipeIdRoute,
-  ProtectedModulesLocalRecipesNewRoute: ProtectedModulesLocalRecipesNewRoute,
-  ProtectedModulesLocalRecipesIndexRoute:
-    ProtectedModulesLocalRecipesIndexRoute,
+  ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,
+  ProtectedModulesDinerIndexRoute: ProtectedModulesDinerIndexRoute,
+  ProtectedModulesGlobalIndexRoute: ProtectedModulesGlobalIndexRoute,
+  ProtectedModulesKitchenProductionIndexRoute:
+    ProtectedModulesKitchenProductionIndexRoute,
+  ProtectedModulesKitchenIndexRoute: ProtectedModulesKitchenIndexRoute,
+  ProtectedModulesMesshallIndexRoute: ProtectedModulesMesshallIndexRoute,
+  ProtectedModulesUnitIndexRoute: ProtectedModulesUnitIndexRoute,
+  ProtectedModulesGlobalRecipesNewRoute: ProtectedModulesGlobalRecipesNewRoute,
+  ProtectedModulesGlobalWeeklyPlansNewRoute:
+    ProtectedModulesGlobalWeeklyPlansNewRoute,
+  ProtectedModulesGlobalRecipesIndexRoute:
+    ProtectedModulesGlobalRecipesIndexRoute,
+  ProtectedModulesGlobalWeeklyPlansIndexRoute:
+    ProtectedModulesGlobalWeeklyPlansIndexRoute,
+  ProtectedModulesGlobalRecipesRecipeIdVersionsRoute:
+    ProtectedModulesGlobalRecipesRecipeIdVersionsRoute,
+  ProtectedModulesGlobalRecipesRecipeIdIndexRoute:
+    ProtectedModulesGlobalRecipesRecipeIdIndexRoute,
 }
 
 const ProtectedModulesRouteRouteWithChildren =

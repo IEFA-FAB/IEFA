@@ -1,9 +1,7 @@
 import { SidebarProvider } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
-import { UserQrDialog } from "@/components/common/dialogs/UserQrDialog"
+import { useEffect, useState } from "react"
 import { AppShell } from "@/components/common/layout/AppShell"
-import { useAuth } from "@/hooks/auth/useAuth"
 
 /**
  * Hook para determinar o estado padrão da sidebar baseado no tamanho da tela
@@ -47,50 +45,14 @@ export const Route = createFileRoute("/_protected/_modules")({
 })
 
 function ModulesLayout() {
-	const { user } = useAuth()
-	const userId = user?.id ?? null
 	const responsiveSidebarDefault = useResponsiveSidebarDefault()
 
-	// QR Dialog State
-	const [qrOpen, setQrOpen] = useState(false)
-	const [hasCopiedId, setHasCopiedId] = useState(false)
-	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-	const handleCopyUserId = async () => {
-		if (!user?.id) return
-		if (typeof navigator === "undefined" || !navigator.clipboard) return
-		try {
-			await navigator.clipboard.writeText(user.id)
-			setHasCopiedId(true)
-			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
-			copyTimeoutRef.current = setTimeout(() => setHasCopiedId(false), 1600)
-		} catch (error) {
-			console.error("Erro ao copiar ID:", error)
-		}
-	}
-
-	useEffect(() => {
-		return () => {
-			if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
-		}
-	}, [])
-
 	return (
-		<>
-			<UserQrDialog
-				open={qrOpen}
-				onOpenChange={setQrOpen}
-				userId={userId}
-				onCopy={handleCopyUserId}
-				hasCopied={hasCopiedId}
-			/>
-
-			<SidebarProvider
-				defaultOpen={responsiveSidebarDefault}
-				className="bg-transparent text-foreground h-full"
-			>
-				<AppShell onOpenQr={() => setQrOpen(true)} />
-			</SidebarProvider>
-		</>
+		<SidebarProvider
+			defaultOpen={responsiveSidebarDefault}
+			className="bg-transparent text-foreground h-full"
+		>
+			<AppShell />
+		</SidebarProvider>
 	)
 }

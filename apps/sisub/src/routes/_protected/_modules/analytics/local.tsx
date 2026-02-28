@@ -1,8 +1,7 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import DashboardCard from "@/components/features/admin/DashboardCard"
-import { useAuth } from "@/hooks/auth/useAuth"
-import { adminProfileQueryOptions } from "@/services/AdminService"
+import { PageHeader } from "@/components/common/layout/PageHeader"
+import DashboardCard from "@/components/features/analytics/DashboardCard"
 
 export const Route = createFileRoute("/_protected/_modules/analytics/local")({
 	beforeLoad: async ({ context }) => {
@@ -10,14 +9,6 @@ export const Route = createFileRoute("/_protected/_modules/analytics/local")({
 
 		if (!user?.id) {
 			throw redirect({ to: "/auth" })
-		}
-
-		const profile = await context.queryClient.ensureQueryData(adminProfileQueryOptions(user.id))
-
-		const isAuthorized = profile?.role === "admin" || profile?.role === "superadmin"
-
-		if (!isAuthorized) {
-			throw redirect({ to: "/hub" })
 		}
 	},
 	component: LocalAnalyticsPage,
@@ -27,17 +18,10 @@ export const Route = createFileRoute("/_protected/_modules/analytics/local")({
 })
 
 function LocalAnalyticsPage() {
-	const { user } = useAuth()
-	const { data: profile } = useSuspenseQuery(adminProfileQueryOptions(user?.id ?? ""))
-
 	return (
-		<div className="p-6">
-			<div className="mb-6">
-				<h1 className="text-3xl font-bold tracking-tight text-foreground">Análise Local</h1>
-				<p className="text-muted-foreground">Visão geral de métricas e indicadores da sua unidade.</p>
-			</div>
-
-			<DashboardCard profile={profile} />
+		<div className="space-y-6">
+			<PageHeader title="Análise Local" />
+			<DashboardCard />
 		</div>
 	)
 }

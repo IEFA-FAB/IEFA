@@ -18,7 +18,6 @@ export function MainSurface({
 		<div
 			className={cn(
 				"relative isolate flex flex-col bg-transparent text-foreground transition-colors duration-300",
-				"min-h-svh supports-[height:100dvh]:min-h-dvh",
 				"main-content-surface" // For View Transitions API animations
 			)}
 		>

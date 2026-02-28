@@ -48,7 +48,7 @@ Implementação da estrutura visual e navegação baseada em papéis.
 
 ### Fase 3: Módulo de Insumos (Superadmin)
 
-Este é o alicerce dos dados. Sem insumos, não há receitas.
+Este é o alicerce dos dados. Sem insumos, não há Preparações.
 
 - [x] **3.1. Hook de Dados (`useProducts`)**
   - Criar hook que busca a árvore completa de `folder` → `product` → `product_item`.
@@ -68,16 +68,16 @@ Este é o alicerce dos dados. Sem insumos, não há receitas.
 
 ---
 
-### Fase 4: Engenharia de Receitas (Admin/Superadmin)
+### Fase 4: Engenharia de Preparações (Admin/Superadmin)
 
 Implementação do coração técnico do sistema (Versionamento e Snapshots).
 
-- [x] **4.1. Listagem de Receitas**
+- [x] **4.1. Listagem de Preparações**
   - Criar tabela com filtros (Global vs Local por Kitchen).
   - Adicionar indicadores visuais de versão e kitchen de origem.
-  - **Visibilidade:** Receitas globais (`kitchen_id` NULL) vs receitas locais (kitchen específica).
+  - **Visibilidade:** Preparações globais (`kitchen_id` NULL) vs Preparações locais (kitchen específica).
 
-- [x] **4.2. Formulário de Receita (TanStack Form)**
+- [x] **4.2. Formulário de Preparação (TanStack Form)**
   - Criar formulário Mestre-Detalhe:
     - **Cabeçalho:** Nome, Modo de Preparo, Rendimento, Kitchen (opcional), `cooking_factor`, `rational_id` (futuro).
     - **Detalhes:** Lista de Ingredientes (`recipe_ingredients`).
@@ -90,8 +90,8 @@ Implementação do coração técnico do sistema (Versionamento e Snapshots).
   - `upstream_version_snapshot` rastreia versão original para alertas de atualização.
 
 - [x] **4.4. Funcionalidade de Fork**
-  - Implementar botão "Personalizar" em receitas globais.
-  - Preencher o formulário com dados da receita base e setar `base_recipe_id` e `kitchen_id`.
+  - Implementar botão "Personalizar" em Preparações globais.
+  - Preencher o formulário com dados da Preparação base e setar `base_recipe_id` e `kitchen_id`.
 
 - [x] **4.5. Componente `RecipeDiffViewer`**
   - Criar visualização lado a lado de duas versões.
@@ -110,8 +110,8 @@ O módulo operacional mais complexo, com snapshots e substituições.
 - [x] **5.2. Editor de Dia (Drawer)**
   - Criar Drawer que abre ao clicar em um dia.
   - Listar refeições (Café, Almoço, Jantar, Ceia) baseadas em `meal_type`.
-  - Permitir adicionar receitas ao dia.
-  - **Snapshot:** Ao adicionar receita, criar snapshot JSON completo no campo `recipe` de `menu_items`.
+  - Permitir adicionar Preparações ao dia.
+  - **Snapshot:** Ao adicionar Preparação, criar snapshot JSON completo no campo `recipe` de `menu_items`.
 
 - [x] **5.3. Gestão de Substituições via Snapshot (RF09)**
   - Criar Modal de Substituição.
@@ -140,7 +140,7 @@ Interface simplificada para o usuário final.
   - Renderizar Cards de Refeição.
 
 - [ ] **6.2. Detalhes do Prato**
-  - Accordion para mostrar composição da receita (Ingredientes principais).
+  - Accordion para mostrar composição da Preparação (Ingredientes principais).
 
 - [x] **6.3. Ação de Check-in**
   - Implementar Toggle/Checkbox "Vou consumir".
@@ -206,7 +206,7 @@ Expansão do módulo de planejamento para suportar templates semanais reutilizá
 - [x] **9.3. Template CRUD - Data Layer**
   - Criar hooks de data:
     - `useMenuTemplates(kitchenId)` - fetch templates disponíveis (NULL + kitchen específica).
-    - `useTemplateItems(templateId)` - fetch itens de um template com receitas.
+    - `useTemplateItems(templateId)` - fetch itens de um template com Preparações.
     - `useCreateTemplate()` - mutation para criar template.
     - `useUpdateTemplate()` - mutation para atualizar template.
     - `useDeleteTemplate()` - soft-delete de template.
@@ -214,8 +214,8 @@ Expansão do módulo de planejamento para suportar templates semanais reutilizá
 - [x] **9.4. Template Editor UI**
   - Criar componente `TemplateEditor`:
     - Grid de 7 colunas (dias) x N linhas (meal_types disponíveis).
-    - Cell clicável que abre selector de receitas.
-    - Permitir adicionar múltiplas receitas por célula (refeição + dia).
+    - Cell clicável que abre selector de Preparações.
+    - Permitir adicionar múltiplas Preparações por célula (refeição + dia).
     - Form header com Nome e Descrição do template.
   - Integrar como modal/drawer acessível do Planning Board.
 
@@ -247,7 +247,7 @@ Expansão do módulo de planejamento para suportar templates semanais reutilizá
 
 1. **Setup & Auth** (Fase 1 e 2) - Para ter o app rodando.
 2. **Insumos** (Fase 3) - Dados mestres necessários.
-3. **Receitas** (Fase 4) - Core do negócio.
+3. **Preparações** (Fase 4) - Core do negócio.
 4. **Planejamento** (Fase 5) - Onde o usuário Admin passa mais tempo.
 5. **Forecast** (Fase 6) - Interface do usuário final.
 6. **Realtime & Dashboards** (Fase 7 e 8) - A cereja do bolo.

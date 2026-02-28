@@ -14,12 +14,7 @@ import {
 } from "@iefa/ui"
 import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
-
-type Team = {
-	name: string
-	logo: React.ComponentType<React.SVGProps<SVGSVGElement>>
-	plan: string
-}
+import type { Team } from "./SidebarTypes"
 
 export function TeamSwitcher({
 	teams,

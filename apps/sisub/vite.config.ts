@@ -45,7 +45,6 @@ export default defineConfig(({ command }) => ({
 			"lucide-react",
 			"motion",
 			"class-variance-authority",
-			"clsx",
 			"tailwind-merge",
 		],
 	},

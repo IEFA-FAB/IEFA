@@ -5,20 +5,20 @@ import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
 import { type JSX, lazy, Suspense, useState } from "react"
 import { PageHeader } from "@/components/common/layout/PageHeader"
-import { BulkMealSelector } from "@/components/features/forecast/BulkMealSelector"
-import { DayCardSkeleton } from "@/components/features/forecast/DayCard"
-import { DefaultMessHallSelector } from "@/components/features/forecast/DefaultMessHallSelector"
-import SimplifiedMilitaryStats from "@/components/features/forecast/SimplifiedMilitaryStats"
-import { UnifiedStatusToasts } from "@/components/features/forecast/UnifiedStatusToasts"
+import { BulkMealSelector } from "@/components/features/diner/BulkMealSelector"
+import { DayCardSkeleton } from "@/components/features/diner/DayCard"
+import { DefaultMessHallSelector } from "@/components/features/diner/DefaultMessHallSelector"
+import SimplifiedMilitaryStats from "@/components/features/diner/SimplifiedMilitaryStats"
+import { UnifiedStatusToasts } from "@/components/features/diner/UnifiedStatusToasts"
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { createEmptyDayMeals, formatDate, getDayOfWeek, isDateNear } from "@/lib/meal"
-import type { CardData } from "@/types/domain"
-import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/"
+import type { CardData } from "@/types/ui"
+import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 
-const DayCard = lazy(() => import("@/components/features/forecast/DayCard"))
+const DayCard = lazy(() => import("@/components/features/diner/DayCard"))
 
 /* ============================
    Utilitários e helpers de texto
@@ -297,6 +297,7 @@ export default function Forecast(): JSX.Element {
 	}
 
 	const applyDefaultMessHallToAll = async (): Promise<void> => {
+		"use no memo"
 		const { cardsWithoutMessHall } = computedData
 		if (cardsWithoutMessHall.length === 0) return
 
@@ -470,10 +471,9 @@ export default function Forecast(): JSX.Element {
      ============================ */
 
 	return (
-		<div className="w-full mx-auto flex flex-col p-4 sm:p-6 space-y-6">
-			{/* Header - Standardized */}
+		<div className="space-y-6">
 			<PageHeader
-				title="Previsão SISUB"
+				title="Previsão"
 				// Description removed to reduce redundancy with breadcrumbs/context
 			>
 				<Button

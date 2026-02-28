@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { supabaseServer } from "@/lib/supabase.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { DailyMenuInsert, DailyMenuWithItems, MenuItemInsert } from "@/types/domain/planning"
 
 const dailyMenuSelect = `
@@ -21,7 +21,7 @@ export const fetchDailyMenusFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("daily_menu")
 			.select(dailyMenuSelect)
 			.eq("kitchen_id", data.kitchenId)
@@ -40,7 +40,7 @@ export const fetchDailyMenusFn = createServerFn({ method: "GET" })
 export const fetchDayDetailsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number(), date: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("daily_menu")
 			.select(dailyMenuSelect)
 			.eq("kitchen_id", data.kitchenId)
@@ -58,7 +58,7 @@ export const fetchDayDetailsFn = createServerFn({ method: "GET" })
 export const upsertDailyMenuFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ menus: z.array(z.record(z.unknown())) }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("daily_menu")
 			.upsert(data.menus as DailyMenuInsert[], {
 				onConflict: "service_date,meal_type_id,kitchen_id",
@@ -73,7 +73,7 @@ export const upsertDailyMenuFn = createServerFn({ method: "POST" })
 export const addMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ item: z.record(z.unknown()) }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("menu_items")
 			.insert(data.item as MenuItemInsert)
 			.select()
@@ -90,7 +90,7 @@ export const updateDailyMenuFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("daily_menu")
 			.update(data.updates)
 			.eq("id", data.id)
@@ -111,7 +111,7 @@ export const updateMenuItemFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("menu_items")
 			.update(data.updates)
 			.eq("id", data.id)
@@ -121,10 +121,22 @@ export const updateMenuItemFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+export const updateSubstitutionsFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ id: z.string(), substitutions: z.record(z.unknown()) }))
+	.handler(async ({ data }) => {
+		const { error } = await getSupabaseServerClient()
+			.from("menu_items")
+			// biome-ignore lint/suspicious/noExplicitAny: Supabase Json column requires any cast
+			.update({ substitutions: data.substitutions as any })
+			.eq("id", data.id)
+
+		if (error) throw new Error(error.message)
+	})
+
 export const softDeleteMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await supabaseServer
+		const { error } = await getSupabaseServerClient()
 			.from("menu_items")
 			.update({ deleted_at: new Date().toISOString() })
 			.eq("id", data.id)
@@ -135,7 +147,7 @@ export const softDeleteMenuItemFn = createServerFn({ method: "POST" })
 export const restoreMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await supabaseServer
+		const { error } = await getSupabaseServerClient()
 			.from("menu_items")
 			.update({ deleted_at: null })
 			.eq("id", data.id)
@@ -146,7 +158,7 @@ export const restoreMenuItemFn = createServerFn({ method: "POST" })
 export const fetchTrashItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("menu_items")
 			.select(
 				`
@@ -166,7 +178,7 @@ export const fetchTrashItemsFn = createServerFn({ method: "GET" })
 export const fetchTemplatesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("menu_template")
 			.select(
 				`

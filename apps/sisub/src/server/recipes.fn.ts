@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { supabaseServer } from "@/lib/supabase.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { RecipeFormData, RecipeWithIngredients } from "@/types/domain/recipes"
 
 const recipeSelectWithIngredients = `
@@ -32,7 +32,7 @@ export const fetchRecipesFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		let query = supabaseServer
+		let query = getSupabaseServerClient()
 			.from("recipes")
 			.select(recipeSelectWithIngredients)
 			.is("deleted_at", null)
@@ -58,7 +58,7 @@ export const fetchRecipesFn = createServerFn({ method: "GET" })
 export const fetchRecipeFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("recipes")
 			.select(recipeSelectWithAlternatives)
 			.eq("id", data.id)
@@ -71,7 +71,7 @@ export const fetchRecipeFn = createServerFn({ method: "GET" })
 export const fetchRecipeWithIngredientsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("recipes")
 			.select(recipeSelectWithIngredients)
 			.eq("id", data.id)
@@ -104,7 +104,7 @@ const recipePayloadSchema = z.object({
 export const createRecipeFn = createServerFn({ method: "POST" })
 	.inputValidator(recipePayloadSchema)
 	.handler(async ({ data }) => {
-		const { data: recipe, error: recipeError } = await supabaseServer
+		const { data: recipe, error: recipeError } = await getSupabaseServerClient()
 			.from("recipes")
 			.insert({
 				name: data.name,
@@ -123,7 +123,7 @@ export const createRecipeFn = createServerFn({ method: "POST" })
 
 		const ingredients = data.ingredients ?? []
 		if (ingredients.length > 0) {
-			const { error: ingredientsError } = await supabaseServer.from("recipe_ingredients").insert(
+			const { error: ingredientsError } = await getSupabaseServerClient().from("recipe_ingredients").insert(
 				ingredients.map((ing) => ({
 					recipe_id: recipe.id,
 					product_id: ing.product_id,
@@ -147,7 +147,7 @@ export const createRecipeVersionFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: recipe, error: recipeError } = await supabaseServer
+		const { data: recipe, error: recipeError } = await getSupabaseServerClient()
 			.from("recipes")
 			.insert({
 				name: data.name,
@@ -167,7 +167,7 @@ export const createRecipeVersionFn = createServerFn({ method: "POST" })
 
 		const ingredients = data.ingredients ?? []
 		if (ingredients.length > 0) {
-			const { error: ingredientsError } = await supabaseServer.from("recipe_ingredients").insert(
+			const { error: ingredientsError } = await getSupabaseServerClient().from("recipe_ingredients").insert(
 				ingredients.map((ing) => ({
 					recipe_id: recipe.id,
 					product_id: ing.product_id,

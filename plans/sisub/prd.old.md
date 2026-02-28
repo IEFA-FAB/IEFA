@@ -16,10 +16,10 @@
 A Força Aérea Brasileira (FAB) necessita modernizar seu sistema de ranchos. O sistema atual é fragmentado. A nova solução deve centralizar a inteligência normativa (SDAB) mas descentralizar a operação (Unidades), utilizando uma arquitetura moderna e resiliente.
 
 #### 1.2 Objetivo do Projeto
-Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant** baseada em Supabase (PostgreSQL). O sistema adota uma abordagem de **"Repositório de Receitas" (Git-like)**, onde a SDAB define o padrão e as unidades consomem diretamente ou customizam (Fork).
+Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant** baseada em Supabase (PostgreSQL). O sistema adota uma abordagem de **"Repositório de Preparações" (Git-like)**, onde a SDAB define o padrão e as unidades consomem diretamente ou customizam (Fork).
 
 #### 1.3 Escopo da Migração (MVP)
-*   **Incluso:** Cadastro de Insumos (Árvore Global), Engenharia de Receitas (Versionamento Imutável), Planejamento de Cardápio (Diário e Templates), Cálculo de Necessidade de Aquisição, Gestão de Substituições e Realtime.
+*   **Incluso:** Cadastro de Insumos (Árvore Global), Engenharia de Preparações (Versionamento Imutável), Planejamento de Cardápio (Diário e Templates), Cálculo de Necessidade de Aquisição, Gestão de Substituições e Realtime.
 *   **Não Incluso:** Controle Financeiro/Custos (preço derivado do estoque futuro).
 
 ---
@@ -28,9 +28,9 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
 
 *   **P01 - Hierarquia de Produtos (Três Níveis):**
     *   **Folder (Categoria):** Agrupamento lógico de produtos (ex: "Grãos").
-    *   **Product (Produto Genérico):** Item técnico usado em receitas (ex: "Arroz Branco", "Feijão Carioca"). São ingredientes genéricos com mínima especificidade necessária para fazer a comida.
+    *   **Product (Produto Genérico):** Item técnico usado em Preparações (ex: "Arroz Branco", "Feijão Carioca"). São ingredientes genéricos com mínima especificidade necessária para fazer a comida.
     *   **Product Item (Item de Compra):** Item físico específico com marca e embalagem (ex: "Arroz Marca X Saco 5kg"). Possui barcode e especificações de aquisição.
-    *   *Justificativa:* As receitas trabalham com produtos genéricos, permitindo flexibilidade na compra. O pregão compra itens específicos, mas a receita não fica refém da marca ou embalagem do momento.
+    *   *Justificativa:* As Preparações trabalham com produtos genéricos, permitindo flexibilidade na compra. O pregão compra itens específicos, mas a Preparação não fica refém da marca ou embalagem do momento.
 *   **P02 - Integridade de Histórico:** Nenhum dado transacional ou de engenharia deve ser excluído fisicamente. O sistema deve utilizar **Soft Deletes** (`deleted_at`) globalmente.
 *   **P03 - Concorrência (Last Write Wins):** O sistema deve suportar múltiplos usuários (300+) editando simultaneamente. A interface deve reagir a mudanças externas via Realtime.
 
@@ -45,18 +45,18 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
 *   **RF01 - Padronização Global:** Insumos são estritamente globais (SDAB).
 *   **RF02 - Hierarquia Folder → Product → Product Item:**
     *   **FOLDER:** Categoria lógica (ex: "Grãos", "Carnes"). Permite hierarquia (folders dentro de folders).
-    *   **PRODUCT:** Produto genérico usado em receitas (ex: "Arroz Branco", "Feijão Carioca"). **É aqui que a Receita se conecta.**
+    *   **PRODUCT:** Produto genérico usado em Preparações (ex: "Arroz Branco", "Feijão Carioca"). **É aqui que a Preparação se conecta.**
     *   **PRODUCT ITEM:** Item físico de compra com marca e embalagem (ex: "Arroz Marca X Saco 5kg"). Possui barcode e unidade de compra.
 *   **RF03 - Performance de Catálogo:** A árvore de produtos deve utilizar cache local persistente (TanStack Query Persist) e virtualização (TanStack Virtual) para permitir filtragem instantânea de milhares de itens.
 
-#### 3.3 Engenharia de Receitas (Git-like & Imutabilidade)
-*   **RF04 - Visibilidade:** Receitas globais (SDAB) têm `kitchen_id` NULL e são visíveis para todos. Receitas locais são vinculadas a uma kitchen específica.
+#### 3.3 Engenharia de Preparações (Git-like & Imutabilidade)
+*   **RF04 - Visibilidade:** Preparações globais (SDAB) têm `kitchen_id` NULL e são visíveis para todos. Preparações locais são vinculadas a uma kitchen específica.
 *   **RF05 - Versionamento Imutável (Append-Only):**
-    *   Receitas publicadas nunca são editadas (`UPDATE`).
+    *   Preparações publicadas nunca são editadas (`UPDATE`).
     *   Qualquer alteração gera uma nova versão (`INSERT`) com incremento de `version`.
     *   O histórico completo (v1, v2, v3) permanece no banco.
     *   Campo `rational_id` reservado para integração futura com fornos Rational.
-*   **RF06 - Diff Viewer:** O sistema deve permitir comparar visualmente duas versões de uma receita, destacando diferenças.
+*   **RF06 - Diff Viewer:** O sistema deve permitir comparar visualmente duas versões de uma Preparação, destacando diferenças.
 
 #### 3.4 Planejamento Operacional
 *   **RF07 - Templates Semanais e Ações em Massa:**
@@ -94,9 +94,9 @@ Migrar o módulo de engenharia de cardápio para uma arquitetura **Multi-Tenant*
     *   Aplica-se a: daily_menus, menu_items, menu_templates, meal_types.
 
 *   **RF12 - Gestão de Substituições via Snapshot:**
-    *   Quando uma receita é aplicada ao `menu_items`, um snapshot JSON completo da receita é armazenado.
+    *   Quando uma Preparação é aplicada ao `menu_items`, um snapshot JSON completo da Preparação é armazenado.
     *   Substituições ad-hoc são salvas em campo `substitutions` (JSON).
-    *   Isso garante que alterações futuras na receita original não afetem o planejamento já executado (imutabilidade).
+    *   Isso garante que alterações futuras na Preparação original não afetem o planejamento já executado (imutabilidade).
 
 #### 3.5 UX e Concorrência
 *   **RF13 - Realtime Feedback:** Se o Usuário A alterar o cardápio que o Usuário B está vendo, o Usuário B deve receber um Toast (`sonner`) e a interface deve atualizar automaticamente.
@@ -166,7 +166,7 @@ CREATE TABLE sisub.folder (
 );
 
 -- NÍVEL 2: Product (Produto Genérico) - ex: "Arroz Branco", "Feijão Carioca"
--- Este é o nível usado pelas RECEITAS (mínima especificidade para preparar comida)
+-- Este é o nível usado pelas Preparações (mínima especificidade para preparar comida)
 CREATE TABLE sisub.product (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     description TEXT NOT NULL,
@@ -200,7 +200,7 @@ CREATE TABLE sisub.product_item (
 );
 
 -- =============================================================================
--- 2. ENGENHARIA DE RECEITAS (Versionamento + Snapshots)
+-- 2. ENGENHARIA DE Preparações (Versionamento + Snapshots)
 -- =============================================================================
 
 CREATE TABLE sisub.recipes (
@@ -211,13 +211,13 @@ CREATE TABLE sisub.recipes (
     preparation_time_minutes INTEGER,
     
     kitchen_id INTEGER, -- Kitchen responsável (NULL = Global/SDAB)
-    base_recipe_id UUID, -- Se for fork, aponta para receita original
+    base_recipe_id UUID, -- Se for fork, aponta para Preparação original
     
-    version INTEGER NOT NULL, -- Versão da receita (imutável)
+    version INTEGER NOT NULL, -- Versão da Preparação (imutável)
     upstream_version_snapshot INTEGER, -- Tracking de versão upstream (para alertas)
     
     cooking_factor DECIMAL(10,4), -- Fator de cocção
-    rational_id TEXT, -- ID da receita no sistema Rational (forno) - futuro
+    rational_id TEXT, -- ID da Preparação no sistema Rational (forno) - futuro
     
     created_at TIMESTAMP DEFAULT NOW(),
     deleted_at TIMESTAMP WITH TIME ZONE,
@@ -226,7 +226,7 @@ CREATE TABLE sisub.recipes (
     FOREIGN KEY (base_recipe_id) REFERENCES sisub.recipes(id)
 );
 
--- Ingredientes de uma receita
+-- Ingredientes de uma Preparação
 -- IMPORTANTE: Aponta para `product` (genérico), não para product_item
 CREATE TABLE sisub.recipe_ingredients (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -323,13 +323,13 @@ CREATE TABLE sisub.daily_menu (
 );
 
 -- Itens do cardápio diário
--- IMPORTANTE: Armazena SNAPSHOT da receita em JSON para imutabilidade
+-- IMPORTANTE: Armazena SNAPSHOT da Preparação em JSON para imutabilidade
 CREATE TABLE sisub.menu_items (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     daily_menu_id UUID NOT NULL,
-    recipe_origin_id UUID, -- Referência à receita original (para tracking)
+    recipe_origin_id UUID, -- Referência à Preparação original (para tracking)
     
-    recipe JSON, -- SNAPSHOT: Cópia da receita no momento do planejamento
+    recipe JSON, -- SNAPSHOT: Cópia da Preparação no momento do planejamento
     planned_portion_quantity INTEGER, -- Quantidade de porções planejadas
     excluded_from_procurement INTEGER, -- Mapeamento numérico (0/1) para excluir de compras
     
@@ -378,12 +378,12 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
 | **Comensal** | `/forecast` | `Index` | Visualização do Cardápio e **Seleção de Refeições (Adesão)**. |
 | **Gestor (Admin)** | `/admin` | `/dashboard` | **Dashboard Gerencial (KPIs da Unidade).** |
 | | | `/planning` | Calendário, Headcount Consolidado, Aplicação de Templates. |
-| | | `/recipes` | Lista de Receitas (Globais + Locais), Fork e Edição. |
+| | | `/recipes` | Lista de Preparações (Globais + Locais), Fork e Edição. |
 | | | `/procurement` | Geração de Lista de Compras (Cálculo). |
 | **SDAB (Superadmin)** | `/superadmin` | `/dashboard` | **Dashboard Estratégico (Visão Global da Força).** |
 | | | `/users` | **Gestão de Usuários e Perfis (Fiscal, Admin, Super).** |
 | | | `/ingredients` | Gestão de Insumos (Folder/Leaf) e Fatores. |
-| | | `/global-recipes` | Criação de Receitas Padrão (Upstream). |
+| | | `/global-recipes` | Criação de Preparações Padrão (Upstream). |
 | | | `/templates` | Criação de Ciclos de Cardápio (Verão/Inverno). |
 
 #### 5.2 Detalhamento das Telas
@@ -398,7 +398,7 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
         *   **Ação de Adesão (Check-in):**
             *   Dentro de cada card de refeição, existe um **Toggle/Checkbox** ou Botão de Ação: *"Irei consumir esta refeição"*.
             *   O estado padrão (marcado/desmarcado) deve respeitar a regra de negócio da unidade (ex: padrão marcado para internos, desmarcado para externos).
-        *   **Detalhes do Prato (Accordion):** Ao expandir, mostra a receita principal, guarnições e alertas (ex: "Contém Glúten").
+        *   **Detalhes do Prato (Accordion):** Ao expandir, mostra a Preparação principal, guarnições e alertas (ex: "Contém Glúten").
     *   **Regra de Negócio:**
         *   Apenas exibe cardápios com status `PUBLISHED`.
         *   O somatório dessas seleções individuais alimenta a sugestão de `forecasted_headcount` para o Gestor.
@@ -430,7 +430,7 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
         *   **Seletor de Tipos de Refeição:** Dropdown mostrando meal_types disponíveis (genéricos + customizados da kitchen).
         *   **Botão "Adicionar Refeição":** Cria um novo daily_menu para o tipo de refeição selecionado.
         *   **Input Headcount:** Campo numérico para definir o efetivo final (forecasted_headcount). *Deve exibir ao lado o número consolidado de adesões dos comensais para auxiliar a decisão.*
-        *   **Lista de Itens:** Lista as receitas/preparações do dia agrupadas por refeição.
+        *   **Lista de Itens:** Lista as Preparações/preparações do dia agrupadas por refeição.
         *   **Porcionamento por Preparação:** Cada preparação mostra:
             *   Quantidade de porções (editável, padrão = forecasted_headcount).
             *   Toggle "Excluir da Compra" (`excluded_from_procurement`).
@@ -443,18 +443,18 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
 
 3.  **Modal de Substituição (Gestão de Crise):**
     *   **Contexto:** O usuário está editando o item "Arroz Branco" do dia 12/05.
-    *   **Lista de Ingredientes da Receita:** Mostra os ingredientes originais.
+    *   **Lista de Ingredientes da Preparação:** Mostra os ingredientes originais.
     *   **Dropdown de Alternativas:**
         *   Se o ingrediente tem alternativas cadastradas (tabela `recipe_ingredient_alternatives`), mostra um Select: "Manteiga (Padrão)" vs "Margarina (Substituto)".
         *   Ao selecionar, o sistema recalcula a quantidade visualmente baseada na proporção definida no banco.
     *   **Substituição Manual (Ad-hoc):** Um botão "Busca Avançada" para trocar por qualquer insumo do estoque (ex: trocar Mignon por Alcatra). Isso gera o JSONB de substituição manual.
 
-4.  **Gerenciador de Receitas (Local & Forks):**
-    *   **Listagem:** Tabela com todas as receitas. Coluna "Origem" mostra ícone "Global" (SDAB) ou "Local" (Unidade).
+4.  **Gerenciador de Preparações (Local & Forks):**
+    *   **Listagem:** Tabela com todas as Preparações. Coluna "Origem" mostra ícone "Global" (SDAB) ou "Local" (Unidade).
     *   **Ação de Edição:**
-        *   Se a receita for **Local**: Abre formulário de edição normal.
-        *   Se a receita for **Global**: O botão diz "Personalizar (Fork)". Ao clicar, exibe alerta: *"Você está criando uma cópia local desta receita. Atualizações futuras da SDAB não serão aplicadas automaticamente."*
-    *   **Formulário de Receita:**
+        *   Se a Preparação for **Local**: Abre formulário de edição normal.
+        *   Se a Preparação for **Global**: O botão diz "Personalizar (Fork)". Ao clicar, exibe alerta: *"Você está criando uma cópia local desta Preparação. Atualizações futuras da SDAB não serão aplicadas automaticamente."*
+    *   **Formulário de Preparação:**
         *   Inputs: Nome, Modo de Preparo, Rendimento.
         *   Tabela de Ingredientes: Busca insumos globais. Permite definir Quantidade Líquida e marcar "Opcional".
 
@@ -484,8 +484,8 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
 4.  **Editor de Templates (Ciclos):**
     *   **Interface:** Uma grade de 7 colunas (Segunda a Domingo) x N linhas (Tipos de Refeição disponíveis).
     *   **Tipos de Refeição Dinâmicos:** As linhas são geradas baseadas nos meal_types genéricos (kitchen_id NULL) + meal_types da kitchen selecionada (se aplicável).
-    *   **Interação:** O usuário clica na célula (ex: "Segunda - Almoço") e busca uma ou mais receitas para associar.
-    *   **Snapshot de Receitas:** Ao adicionar receitas ao template, armazenar referência (`recipe_id`) - o snapshot JSON completo só é criado ao aplicar o template ao daily_menu.
+    *   **Interação:** O usuário clica na célula (ex: "Segunda - Almoço") e busca uma ou mais Preparações para associar.
+    *   **Snapshot de Preparações:** Ao adicionar Preparações ao template, armazenar referência (`recipe_id`) - o snapshot JSON completo só é criado ao aplicar o template ao daily_menu.
     *   **Salvar como Template:** Salva com nome e descrição. Se criado por kitchen específica, `kitchen_id` é preenchido. Templates globais (SDAB) têm `kitchen_id` NULL.
     *   **Aplicação:** Templates ficam disponíveis para todas as kitchens "pintarem" em seus calendários conforme regras de visibilidade (global vs local).
 
@@ -499,7 +499,7 @@ Embora as rotas base sejam fixas (`/admin`, `/superadmin`), o sistema deve imple
     *   Filtragem client-side para resposta imediata.
 
 **B. `RecipeDiffViewer`**
-*   **Requisito:** Comparar versões de receitas.
+*   **Requisito:** Comparar versões de Preparações.
 *   **Implementação:** Layout de duas colunas. Cores semânticas (`bg-red-50` removido, `bg-green-50` adicionado) para destacar diferenças em ingredientes e quantidades.
 
 **C. `PlanningBoard` (Bulk Actions & Lixeira)**

@@ -1,28 +1,19 @@
 import { useQuery } from "@tanstack/react-query"
-import supabase from "@/lib/supabase"
-import { useAdminProfile } from "@/services/AdminService"
+import { fetchMilitaryDataFn, fetchUserDataFn } from "@/server/user.fn"
 import type { MilitaryDataRow, UserDataRow } from "@/types/domain/"
 import { useAuth } from "./useAuth"
 
 export function useProfile() {
 	const { user } = useAuth()
-	return useAdminProfile(user?.id)
+	return useUserData(user?.id)
 }
 
 export function useUserData(userId: string | undefined) {
 	return useQuery({
 		queryKey: ["user_data", userId],
 		enabled: !!userId,
-		queryFn: async (): Promise<UserDataRow | null> => {
-			const { data, error } = await supabase
-				.from("user_data")
-				.select("id,email,nrOrdem,created_at,default_mess_hall_id")
-				.eq("id", userId)
-				.maybeSingle()
-
-			if (error) throw error
-			return data
-		},
+		queryFn: (): Promise<UserDataRow | null> =>
+			fetchUserDataFn({ data: { userId: userId! } }) as Promise<UserDataRow | null>,
 		staleTime: 5 * 60_000,
 	})
 }
@@ -31,18 +22,8 @@ export function useMilitaryData(nrOrdem: string | null | undefined) {
 	return useQuery({
 		queryKey: ["military", nrOrdem],
 		enabled: !!nrOrdem && nrOrdem.trim().length > 0,
-		queryFn: async (): Promise<MilitaryDataRow | null> => {
-			const { data, error } = await supabase
-				.from("user_military_data")
-				.select("nrOrdem, nrCpf, nmGuerra, nmPessoa, sgPosto, sgOrg, dataAtualizacao")
-				.eq("nrOrdem", nrOrdem)
-				.order("dataAtualizacao", { ascending: false, nullsFirst: false })
-				.limit(1)
-				.maybeSingle()
-
-			if (error) throw error
-			return data ?? null
-		},
+		queryFn: (): Promise<MilitaryDataRow | null> =>
+			fetchMilitaryDataFn({ data: { nrOrdem: nrOrdem! } }) as Promise<MilitaryDataRow | null>,
 		staleTime: 2 * 60_000,
 	})
 }

@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { supabaseServer } from "@/lib/supabase.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.types"
 
 export const fetchMealTypesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number().nullable() }))
 	.handler(async ({ data }) => {
-		let query = supabaseServer
+		let query = getSupabaseServerClient()
 			.from("meal_type")
 			.select("*")
 			.is("deleted_at", null)
@@ -28,7 +28,7 @@ export const fetchMealTypesFn = createServerFn({ method: "GET" })
 export const createMealTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(z.record(z.unknown()))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("meal_type")
 			.insert(data as MealTypeInsert)
 			.select()
@@ -42,7 +42,7 @@ export const createMealTypeFn = createServerFn({ method: "POST" })
 export const updateMealTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), updates: z.record(z.unknown()) }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("meal_type")
 			.update(data.updates as MealTypeUpdate)
 			.eq("id", data.id)
@@ -57,7 +57,7 @@ export const updateMealTypeFn = createServerFn({ method: "POST" })
 export const deleteMealTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await supabaseServer
+		const { error } = await getSupabaseServerClient()
 			.from("meal_type")
 			.update({ deleted_at: new Date().toISOString() })
 			.eq("id", data.id)
@@ -68,7 +68,7 @@ export const deleteMealTypeFn = createServerFn({ method: "POST" })
 export const restoreMealTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await supabaseServer
+		const { error } = await getSupabaseServerClient()
 			.from("meal_type")
 			.update({ deleted_at: null })
 			.eq("id", data.id)

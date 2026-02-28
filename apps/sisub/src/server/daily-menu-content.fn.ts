@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import type { DayMenuContent, DishDetails, DishIngredient } from "@/hooks/data/useDailyMenuContent"
-import { supabaseServer } from "@/lib/supabase.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 interface RecipeSnapshot {
 	name: string
@@ -30,7 +30,7 @@ export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await supabaseServer
+		const { data: result, error } = await getSupabaseServerClient()
 			.from("daily_menu")
 			.select(
 				`

@@ -48,7 +48,8 @@ export interface FiscalPresenceRecord extends MealPresence {
 export interface FiscalFilters {
 	date: string
 	meal: MealKey
-	unit: string // mess hall code
+	/** ID numérico do rancho — vem do parâmetro da URL, não selecionado dentro da página */
+	messHallId: number
 }
 
 /**

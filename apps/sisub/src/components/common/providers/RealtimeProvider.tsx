@@ -15,12 +15,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 		message: "Cardápio atualizado por outro usuário",
 	})
 
-	// Escutar mudanças em recipes (catálogo de receitas)
+	// Escutar mudanças em recipes (catálogo de Preparações)
 	useRealtimeSubscription({
 		table: "recipes",
 		event: "*",
 		queryKeyPrefix: ["recipes"],
-		message: "Receita atualizada por outro usuário",
+		message: "Preparação atualizada por outro usuário",
 	})
 
 	// Escutar mudanças em menu_items (itens do cardápio)

@@ -9,6 +9,7 @@ import type * as React from "react"
 import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"
+import type { Team } from "./SidebarTypes"
 import { TeamSwitcher } from "./TeamSwitcher"
 
 export function AppSidebar({
@@ -51,8 +52,7 @@ export function AppSidebar({
 	}
 
 	const availableModules = modules ?? []
-	const activeModule =
-		availableModules.find((m) => m.id === activeModuleId) ?? availableModules[0]
+	const activeModule = availableModules.find((m) => m.id === activeModuleId) ?? availableModules[0]
 
 	const teams = availableModules.map((m) => ({
 		name: m.name,
@@ -71,7 +71,7 @@ export function AppSidebar({
 			]
 		: []
 
-	const handleTeamChange = (team: { name: string; logo: string; plan: string }) => {
+	const handleTeamChange = (team: Team) => {
 		const mod = availableModules.find((m) => m.name === team.name)
 		if (mod && onModuleChange) {
 			onModuleChange(mod.id)
@@ -83,11 +83,7 @@ export function AppSidebar({
 	return (
 		<UISidebar collapsible="icon" variant="floating" {...props}>
 			<SidebarHeader>
-				<TeamSwitcher
-					teams={teams}
-					value={activeModule.name}
-					onChange={handleTeamChange}
-				/>
+				<TeamSwitcher teams={teams} value={activeModule.name} onChange={handleTeamChange} />
 			</SidebarHeader>
 			<SidebarContent>
 				<NavMain items={navMain} />

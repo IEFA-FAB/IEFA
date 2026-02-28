@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react"
 
 export type Team = {
 	name: string
-	logo: string
+	logo: LucideIcon
 	plan: string
 }
 

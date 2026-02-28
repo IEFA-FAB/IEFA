@@ -139,9 +139,13 @@ function PublicLayout() {
 					{/* Actions: Login + Theme Toggle */}
 					<div className="flex items-center gap-2">
 						{isAuthenticated ? (
-							<Button render={<Link to="/hub">Acessar Sistema</Link>} size="sm" />
+							<Button
+								nativeButton={false}
+								render={<Link to="/hub">Acessar Sistema</Link>}
+								size="sm"
+							/>
 						) : (
-							<Button render={<Link to="/auth">Entrar</Link>} size="sm" />
+							<Button nativeButton={false} render={<Link to="/auth">Entrar</Link>} size="sm" />
 						)}
 
 						<AnimatedThemeToggler toggle={toggle} />
@@ -165,7 +169,7 @@ function PublicLayout() {
 				<div
 					className={`${CONTAINER_CLASSES} h-14 flex items-center justify-center text-xs text-muted-foreground`}
 				>
-					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Temn. Bruno
+					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Ten. Bruno
 					(GAP-MN).
 				</div>
 			</footer>

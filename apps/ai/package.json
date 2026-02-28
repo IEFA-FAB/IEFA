@@ -1,5 +1,5 @@
 {
-  "name": "ai",
+  "name": "@iefa/ai",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",

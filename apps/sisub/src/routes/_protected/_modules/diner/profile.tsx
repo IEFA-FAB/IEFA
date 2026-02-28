@@ -110,14 +110,8 @@ function ProfilePage() {
 	}, [userData?.nrOrdem, form])
 
 	return (
-		<div className="mx-auto w-full max-w-5xl space-y-6 pt-6">
-			{" "}
-			{/* max-w-5xl to constrain width on large screens */}
-			{/* max-w-5xl to constrain width on large screens */}
-			<PageHeader
-				title="Perfil"
-				description="Gerencie seu nrOrdem e visualize seus dados militares vinculados."
-			/>
+		<div className="space-y-6">
+			<PageHeader title="Perfil" />
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 				{/* Esquerda: Dados do Usuário */}
 				<Card>

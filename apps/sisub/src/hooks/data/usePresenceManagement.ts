@@ -1,5 +1,4 @@
 // hooks/usePresenceManagement.ts
-// Uses centralized types from @/types/domain as per design system guidelines.
 
 import type { PostgrestError } from "@supabase/supabase-js"
 import {
@@ -31,9 +30,6 @@ import type {
 // INTERNAL TYPES & ERROR CLASSES
 // ============================================================================
 
-/**
- * Custom error thrown when a unit/mess hall code is required but not provided.
- */
 class UnitRequiredError extends Error {
 	constructor() {
 		super("unit_required")
@@ -41,11 +37,6 @@ class UnitRequiredError extends Error {
 	}
 }
 
-/**
- * Type guard to check if an error is a PostgrestError.
- * @param e - Unknown error object
- * @returns True if the error is a PostgrestError
- */
 const isPostgrestError = (e: unknown): e is PostgrestError => {
 	return (
 		typeof e === "object" &&
@@ -55,9 +46,6 @@ const isPostgrestError = (e: unknown): e is PostgrestError => {
 	)
 }
 
-/**
- * Union type for mutation errors.
- */
 type MutationError = UnitRequiredError | PostgrestError
 
 // ============================================================================
@@ -65,19 +53,19 @@ type MutationError = UnitRequiredError | PostgrestError
 // ============================================================================
 const presenceKeys = {
 	all: ["presences"] as const,
-	list: (date: string, meal: MealKey, unit: string) =>
-		[...presenceKeys.all, date, meal, unit] as const,
-	confirm: (date: string, meal: MealKey, unit: string) =>
-		["confirmPresence", date, meal, unit] as const,
-	remove: (date: string, meal: MealKey, unit: string) =>
-		["removePresence", date, meal, unit] as const,
+	list: (date: string, meal: MealKey, messHallId: number) =>
+		[...presenceKeys.all, date, meal, messHallId] as const,
+	confirm: (date: string, meal: MealKey, messHallId: number) =>
+		["confirmPresence", date, meal, messHallId] as const,
+	remove: (date: string, meal: MealKey, messHallId: number) =>
+		["removePresence", date, meal, messHallId] as const,
 } as const
 
 // ============================================================================
 // VALIDATION
 // ============================================================================
 const isValidFilters = (filters: FiscalFilters): boolean => {
-	return Boolean(filters.date && filters.meal && filters.unit)
+	return Boolean(filters.date && filters.meal && filters.messHallId)
 }
 
 // ============================================================================
@@ -85,13 +73,12 @@ const isValidFilters = (filters: FiscalFilters): boolean => {
 // ============================================================================
 const handleConfirmPresenceError = (error: unknown): void => {
 	if (error instanceof UnitRequiredError) {
-		toast.error("Selecione o rancho", {
-			description: "É necessário informar a unidade (rancho).",
+		toast.error("Rancho não identificado", {
+			description: "O refeitório não foi encontrado.",
 		})
 		return
 	}
 
-	// Server function forwards error code via message pattern "code:23505"
 	if (
 		isPostgrestError(error) &&
 		(error.code === "23505" || (error instanceof Error && error.message.includes("23505")))
@@ -103,52 +90,14 @@ const handleConfirmPresenceError = (error: unknown): void => {
 	}
 
 	console.error("Falha ao salvar decisão:", error)
-	toast.error("Erro", {
-		description: "Falha ao salvar decisão.",
-	})
+	toast.error("Erro", { description: "Falha ao salvar decisão." })
 }
 
 const handleRemovePresenceError = (error: unknown): void => {
 	console.error("Não foi possível excluir:", error)
-	toast.error("Erro", {
-		description: "Não foi possível excluir.",
-	})
+	toast.error("Erro", { description: "Não foi possível excluir." })
 }
 
-/**
- * Custom hook for managing meal presences with real-time queries.
- *
- * @remarks
- * This hook provides functionality to:
- * - Query presence records for a specific date, meal, and unit
- * - Fetch forecast data for users with presence records
- * - Confirm new presences with optimistic updates
- * - Remove existing presence records
- *
- * All mutations automatically invalidate and refetch the presence list.
- * Toast notifications are shown for all user actions.
- *
- * @param filters - Query filters (date, meal, unit code)
- * @returns UsePresenceManagementReturn object with state and mutation methods
- *
- * @example
- * ```tsx
- * const filters = { date: '2025-12-03', meal: 'almoco', unit: 'RANCHO_01' };
- * const {
- *   presences,
- *   forecastMap,
- *   isLoading,
- *   confirmPresence,
- *   removePresence,
- * } = usePresenceManagement(filters);
- *
- * // Confirm a user's presence
- * await confirmPresence('user-uuid-123', true);
- *
- * // Remove a presence record
- * await removePresence(presences[0]);
- * ```
- */
 export function usePresenceManagement(filters: FiscalFilters): UsePresenceManagementReturn {
 	const queryClient = useQueryClient()
 	const isValid = isValidFilters(filters)
@@ -160,15 +109,20 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		QueryResult,
 		PostgrestError
 	>({
-		queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
+		queryKey: presenceKeys.list(filters.date, filters.meal, filters.messHallId),
 		queryFn: async (): Promise<QueryResult> => {
 			const presences = await fetchPresencesFn({
-				data: { date: filters.date, meal: filters.meal, unit: filters.unit },
+				data: { date: filters.date, meal: filters.meal, messHallId: filters.messHallId },
 			})
 
 			const userIds = Array.from(new Set(presences.map((p) => p.user_id)))
 			const forecastMap = await fetchForecastsFn({
-				data: { date: filters.date, meal: filters.meal, unit: filters.unit, userIds },
+				data: {
+					date: filters.date,
+					meal: filters.meal,
+					messHallId: filters.messHallId,
+					userIds,
+				},
 			})
 
 			return { presences, forecastMap }
@@ -177,8 +131,8 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		refetchOnWindowFocus: false,
 		refetchOnMount: false,
 		retry: 1,
-		staleTime: 2 * 60 * 1000, // 2 minutos
-		gcTime: 5 * 60 * 1000, // 5 minutos
+		staleTime: 2 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
 		placeholderData: { presences: [], forecastMap: {} },
 	})
 
@@ -190,7 +144,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		MutationError,
 		ConfirmPresenceParams
 	> = useMutation<ConfirmPresenceResult, MutationError, ConfirmPresenceParams>({
-		mutationKey: presenceKeys.confirm(filters.date, filters.meal, filters.unit),
+		mutationKey: presenceKeys.confirm(filters.date, filters.meal, filters.messHallId),
 		mutationFn: async (params): Promise<ConfirmPresenceResult> => {
 			if (!params.willEnter) {
 				toast.info("Registro atualizado", {
@@ -199,14 +153,14 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 				return { skipped: true }
 			}
 
-			if (!filters.unit) throw new UnitRequiredError()
+			if (!filters.messHallId) throw new UnitRequiredError()
 
 			await insertPresenceFn({
 				data: {
 					user_id: params.uuid,
 					date: filters.date,
 					meal: filters.meal,
-					unit_code: filters.unit,
+					messHallId: filters.messHallId,
 				},
 			})
 
@@ -217,7 +171,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({
-				queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
+				queryKey: presenceKeys.list(filters.date, filters.meal, filters.messHallId),
 			})
 		},
 		onError: handleConfirmPresenceError,
@@ -228,17 +182,14 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	// ============================================================================
 	const removePresenceMutation: UseMutationResult<void, PostgrestError, FiscalPresenceRecord> =
 		useMutation<void, PostgrestError, FiscalPresenceRecord>({
-			mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.unit),
+			mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.messHallId),
 			mutationFn: async (row): Promise<void> => {
 				await deletePresenceFn({ data: { id: row.id } })
-
-				toast.success("Excluído", {
-					description: "Registro removido.",
-				})
+				toast.success("Excluído", { description: "Registro removido." })
 			},
 			onSuccess: () => {
 				queryClient.invalidateQueries({
-					queryKey: presenceKeys.list(filters.date, filters.meal, filters.unit),
+					queryKey: presenceKeys.list(filters.date, filters.meal, filters.messHallId),
 				})
 			},
 			onError: handleRemovePresenceError,
@@ -251,19 +202,16 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		async (uuid: string, willEnter: boolean): Promise<ConfirmPresenceResult> => {
 			return await confirmPresenceMutation.mutateAsync({ uuid, willEnter })
 		},
-		[confirmPresenceMutation]
+		[confirmPresenceMutation],
 	)
 
 	const removePresence = useCallback(
 		async (row: FiscalPresenceRecord): Promise<void> => {
 			await removePresenceMutation.mutateAsync(row)
 		},
-		[removePresenceMutation]
+		[removePresenceMutation],
 	)
 
-	// ============================================================================
-	// RETURN
-	// ============================================================================
 	return {
 		presences: presencesQuery.data?.presences ?? [],
 		forecastMap: presencesQuery.data?.forecastMap ?? {},

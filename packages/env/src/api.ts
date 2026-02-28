@@ -9,7 +9,7 @@ export const apiEnvSchema = z.object({
 export type ApiEnv = z.infer<typeof apiEnvSchema>
 
 export function validateApiEnv(): ApiEnv {
-	const result = apiEnvSchema.safeParse(process.env)
+	const result = apiEnvSchema.safeParse(Bun.env)
 
 	if (!result.success) {
 		console.error("❌ API env validation failed:")

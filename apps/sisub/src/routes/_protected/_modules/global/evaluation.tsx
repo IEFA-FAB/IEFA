@@ -11,32 +11,23 @@ import {
 	Textarea,
 } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
-import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { z } from "zod"
+import { requirePermission } from "@/auth/pbac"
+import { PageHeader } from "@/components/common/layout/PageHeader"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useEvalConfig } from "@/hooks/business/useEvalConfig"
-import { adminProfileQueryOptions } from "@/services/AdminService"
-import type { EvalConfig } from "@/types/domain/"
+import type { EvalConfig } from "@/types/domain/admin"
 
 export const Route = createFileRoute("/_protected/_modules/global/evaluation")({
-	beforeLoad: async ({ context }) => {
-		const { user } = context.auth
-
-		if (!user?.id) {
-			throw redirect({ to: "/auth" })
-		}
-
-		const profile = await context.queryClient.ensureQueryData(adminProfileQueryOptions(user.id))
-
-		if (profile?.role !== "superadmin") {
-			throw redirect({ to: "/hub" })
-		}
-	},
+	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
 	component: SuperAdminPanel,
 	head: () => ({
-		meta: [{ title: "Avaliação" }, { name: "description", content: "Configuração da pergunta de avaliação" }],
+		meta: [
+			{ title: "Avaliação" },
+			{ name: "description", content: "Configuração da pergunta de avaliação" },
+		],
 	}),
 })
 
@@ -48,12 +39,6 @@ const evalSchema = z.object({
 
 function SuperAdminPanel() {
 	const { user } = useAuth()
-
-	// Ensure hook order
-	// Suspense Query for Admin Profile (kept for pattern consistency)
-	useSuspenseQuery(adminProfileQueryOptions(user?.id ?? ""))
-
-	// Suspense Query for Eval Config is inside useEvalConfig
 	const { config, updateConfig, isSaving } = useEvalConfig()
 
 	if (!user) {
@@ -61,11 +46,8 @@ function SuperAdminPanel() {
 	}
 
 	return (
-		<div className="p-6">
-			<div className="mb-6">
-				<h1 className="text-3xl font-bold tracking-tight text-foreground">Avaliação</h1>
-				<p className="text-muted-foreground">Configuração da pergunta de avaliação global.</p>
-			</div>
+		<div className="space-y-6">
+			<PageHeader title="Avaliação" />
 
 			<Card className="border-2">
 				<CardHeader>
@@ -107,9 +89,9 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 			try {
 				await onSubmit(value)
 				toast.success("Configuração salva com sucesso.")
-			} catch (error: any) {
+			} catch (error) {
 				toast.error("Erro ao salvar configuração", {
-					description: error?.message || "Ocorreu um erro desconhecido",
+					description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido",
 				})
 			}
 		},

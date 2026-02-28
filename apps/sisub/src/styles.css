@@ -58,7 +58,7 @@
   --font-sans: 'Manrope', ui-sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius: 2rem;
+  --radius: 1.5rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
   --shadow-blur: 0px;
@@ -113,7 +113,7 @@
   --font-sans: 'DM Sans', ui-sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius: 2rem;
+  --radius: 1.5rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
   --shadow-blur: 0px;

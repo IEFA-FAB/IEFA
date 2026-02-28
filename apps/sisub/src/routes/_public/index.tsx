@@ -1,5 +1,4 @@
 // UI Components (from @iefa/ui)
-
 import {
 	Badge,
 	Button,
@@ -36,16 +35,12 @@ import {
 // React
 import type { JSX } from "react"
 import { useEffect, useRef, useState } from "react"
-import type { Feature, Step } from "@/types/domain"
-import type { MealType } from "@/types/domain/"
+import type { Feature, Step } from "@/types/ui"
+import type { MealType } from "@/types/domain/meal"
 
 /* ========================================================================
-   TYPE DEFINITIONS
+   DATA
    ======================================================================== */
-
-/**
- * Representa um passo do tutorial/workflow do sistema
- */
 
 export const steps: Step[] = [
 	{
@@ -68,21 +63,41 @@ export const steps: Step[] = [
 	},
 ]
 
-/**
- * Tipos de refeição disponíveis no SISUB
- * Exibidos na seção "Tipos de refeição disponíveis"
- */
 export const mealTypes: MealType[] = [
-	{ icon: Coffee, label: "Café da Manhã", time: "06:00 - 08:00" },
-	{ icon: UtensilsCrossed, label: "Almoço", time: "11:30 - 13:30" },
-	{ icon: Pizza, label: "Janta", time: "18:00 - 20:00" },
-	{ icon: Cake, label: "Ceia", time: "21:00 - 22:00" },
+	{ icon: Coffee, label: "Café da Manhã", time: "06:00 - 08:00", color: "amber" },
+	{ icon: UtensilsCrossed, label: "Almoço", time: "11:30 - 13:30", color: "blue" },
+	{ icon: Pizza, label: "Janta", time: "18:00 - 20:00", color: "orange" },
+	{ icon: Cake, label: "Ceia", time: "21:00 - 22:00", color: "purple" },
 ]
 
-/**
- * Funcionalidades principais do SISUB
- * Exibidas na seção "Principais funcionalidades" com sistema de seleção interativa
- */
+// Mapa de classes Tailwind completas por cor — necessário para o scanner detectar as classes em build time
+const mealColorMap: Record<string, { bg: string; ring: string; text: string; border: string }> = {
+	amber: {
+		bg: "bg-amber-500/20",
+		ring: "ring-amber-500/20",
+		text: "text-amber-600 dark:text-amber-500",
+		border: "hover:border-amber-500/30",
+	},
+	blue: {
+		bg: "bg-blue-500/20",
+		ring: "ring-blue-500/20",
+		text: "text-blue-600 dark:text-blue-500",
+		border: "hover:border-blue-500/30",
+	},
+	orange: {
+		bg: "bg-orange-500/20",
+		ring: "ring-orange-500/20",
+		text: "text-orange-600 dark:text-orange-500",
+		border: "hover:border-orange-500/30",
+	},
+	purple: {
+		bg: "bg-purple-500/20",
+		ring: "ring-purple-500/20",
+		text: "text-purple-600 dark:text-purple-500",
+		border: "hover:border-purple-500/30",
+	},
+}
+
 export const features: Feature[] = [
 	{
 		icon: BarChart3,
@@ -121,10 +136,6 @@ export const features: Feature[] = [
    ROUTE DEFINITION
    ======================================================================== */
 
-/**
- * Rota pública da página inicial do SISUB
- * Define meta tags para SEO e renderiza o componente Home
- */
 export const Route = createFileRoute("/_public/")({
 	head: () => ({
 		meta: [
@@ -143,25 +154,13 @@ export const Route = createFileRoute("/_public/")({
    MAIN COMPONENT
    ======================================================================== */
 
-/**
- * Página inicial pública do SISUB
- * Enhanced with Industrial-Technical aesthetic
- *
- * Seções:
- * 1. Hero - Apresentação principal com CTA
- * 2. Como Funciona - 3 passos explicativos
- * 3. Tipos de Refeição - 4 tipos disponíveis
- * 4. Funcionalidades - Features interativas
- * 5. Tutorial + Changelog - Links para documentação
- * 6. CTA Final - Chamada para ação
- */
-
 function Home() {
 	const [currentFeature, setCurrentFeature] = useState(0)
 	const CurrentFeatureIcon = features[currentFeature]?.icon ?? ShieldCheck
 
 	return (
 		<div className="w-full">
+			{/* Hero */}
 			<HomeHero />
 
 			{/* Como Funciona */}
@@ -178,7 +177,6 @@ function Home() {
 						<Star className="h-4 w-4 text-primary" />
 						Passo a passo
 					</Badge>
-
 					<h2
 						id="steps-heading"
 						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
@@ -199,9 +197,7 @@ function Home() {
 								className="group relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/10 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary/50 stagger-item"
 								style={{ animationDelay: `${index * 0.1}s` }}
 							>
-								{/* Top accent line */}
 								<div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
-
 								<CardHeader className="text-center pt-8">
 									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-inset ring-primary/20 transition-transform duration-300 group-hover:scale-110">
 										<Icon className="h-8 w-8 text-primary" />
@@ -233,7 +229,6 @@ function Home() {
 						<UtensilsCrossed className="h-4 w-4 text-primary" />
 						Refeições
 					</Badge>
-
 					<h2
 						id="meals-heading"
 						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
@@ -248,26 +243,19 @@ function Home() {
 				<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
 					{mealTypes.map((meal, index) => {
 						const Icon = meal.icon
-						const colors = [
-							"amber", // Café
-							"blue", // Almoço
-							"orange", // Janta
-							"purple", // Ceia
-						]
-						const color = colors[index] || "blue"
-
+						const colors = mealColorMap[meal.color] ?? mealColorMap.blue
 						return (
 							<Card
 								key={meal.label}
 								tabIndex={0}
-								className={`group rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/10 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-${color}-500/30 focus-visible:ring-2 focus-visible:ring-primary/50 stagger-item`}
+								className={`group rounded-xl bg-gradient-to-br from-card to-muted/10 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${colors.border} focus-visible:ring-2 focus-visible:ring-primary/50 stagger-item`}
 								style={{ animationDelay: `${index * 0.1}s` }}
 							>
 								<CardHeader className="pt-8">
 									<div
-										className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-${color}-500/10 ring-2 ring-inset ring-${color}-500/20 transition-transform duration-300 group-hover:scale-110`}
+										className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl ${colors.bg} ring-inset ${colors.ring} transition-transform duration-300 group-hover:scale-110`}
 									>
-										<Icon className={`h-8 w-8 text-${color}-600 dark:text-${color}-500`} />
+										<Icon className={`h-8 w-8 ${colors.text}`} />
 									</div>
 									<CardTitle className="text-lg font-sans font-bold">{meal.label}</CardTitle>
 									<p className="text-sm font-mono text-muted-foreground mt-1">{meal.time}</p>
@@ -278,7 +266,7 @@ function Home() {
 				</div>
 			</Appear>
 
-			{/* Features */}
+			{/* Funcionalidades */}
 			<Appear
 				id="features"
 				className="py-16 md:py-24 bg-gradient-to-b from-background via-muted/10 to-background"
@@ -303,12 +291,10 @@ function Home() {
 					</p>
 				</div>
 
-				{/* Destaque da feature atual */}
+				{/* Feature em destaque */}
 				<div className="max-w-4xl mx-auto mb-10">
 					<div className="relative rounded-2xl p-8 md:p-12 text-primary-foreground text-center shadow-xl ring-1 ring-inset ring-border/30 bg-gradient-to-br from-primary via-primary to-primary/85 overflow-hidden">
-						{/* Dot pattern overlay */}
 						<div className="absolute inset-0 bg-dot-pattern opacity-10 -z-0" />
-
 						<div className="relative z-10">
 							<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 ring-2 ring-inset ring-primary-foreground/30 backdrop-blur-sm">
 								<CurrentFeatureIcon className="h-10 w-10 text-primary-foreground" />
@@ -325,7 +311,6 @@ function Home() {
 
 				<Separator className="my-8 max-w-6xl mx-auto" />
 
-				{/* Grid de features com seleção */}
 				<div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{features.map((feature, index) => {
 						const Icon = feature.icon
@@ -406,10 +391,7 @@ function Home() {
 			{/* CTA Final */}
 			<Appear id="cta" className="relative py-20 md:py-24" aria-labelledby="cta-heading">
 				<div className="relative text-center max-w-4xl mx-auto rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/85 text-primary-foreground shadow-2xl ring-1 ring-inset ring-border/30 overflow-hidden p-10 md:p-16">
-					{/* Dot pattern overlay */}
 					<div className="absolute inset-0 bg-dot-pattern opacity-10" />
-
-					{/* Radial gradient overlay */}
 					<div
 						aria-hidden
 						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.15),transparent_60%)]"
@@ -429,6 +411,7 @@ function Home() {
 
 						<div className="flex flex-col items-center gap-4">
 							<Button
+								nativeButton={false}
 								render={
 									<Link to="/auth" aria-label="Ir para a página de login">
 										Fazer Login
@@ -466,12 +449,6 @@ function Home() {
    UTILITY COMPONENTS
    ======================================================================== */
 
-/**
- * Hero da página inicial
- * Apresenta o título principal, descrição e CTA para acessar o sistema
- * Enhanced with Industrial-Technical aesthetic
- */
-
 function HomeHero() {
 	return (
 		<Appear
@@ -482,7 +459,6 @@ function HomeHero() {
 			outClass="opacity-0 translate-y-10"
 			duration="duration-700"
 		>
-			{/* Dot pattern background */}
 			<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
 
 			<div className="relative text-center space-y-8 max-w-5xl mx-auto">
@@ -507,11 +483,11 @@ function HomeHero() {
 
 				<div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
 					<Button
+						nativeButton={false}
 						render={<Link to="/auth">Acessar Sistema</Link>}
 						size="lg"
 						className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
 					/>
-
 					<div className="flex items-center space-x-2 text-sm text-muted-foreground">
 						<ShieldBadge />
 						<span className="font-sans">Login seguro necessário</span>
@@ -522,10 +498,6 @@ function HomeHero() {
 	)
 }
 
-/**
- * Badge com ícone de escudo para indicar segurança
- * Usado no Hero e CTA final
- */
 function ShieldBadge() {
 	return (
 		<span className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-primary/10 text-primary">
@@ -534,32 +506,30 @@ function ShieldBadge() {
 	)
 }
 
-/**
- * Props para o componente InfoChip
- */
 type InfoChip = {
-	/** Componente de ícone React */
 	icon: React.ComponentType<{ className?: string }>
-	/** Texto a ser exibido */
 	text: string
 }
 
-/**
- * Card informativo com badge, título, descrição, chips e CTA
- * Usado nas seções Tutorial e Changelog
- * Enhanced with Industrial-Technical aesthetic
- */
-
-function InfoCard(props: {
+type InfoCardProps = {
 	badgeIcon: React.ComponentType<{ className?: string }>
 	badgeText: string
 	title: string
 	description: string
 	chips?: InfoChip[]
 	cta: { to: string; label: string }
-}) {
-	const { badgeIcon: BadgeIcon, badgeText, title, description, chips = [], cta } = props
+}
 
+const EMPTY_CHIPS: InfoChip[] = []
+
+function InfoCard({
+	badgeIcon: BadgeIcon,
+	badgeText,
+	title,
+	description,
+	chips = EMPTY_CHIPS,
+	cta,
+}: InfoCardProps) {
 	return (
 		<Card className="transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50 bg-gradient-to-br from-card to-muted/10">
 			<CardHeader className="items-center text-center">
@@ -594,6 +564,7 @@ function InfoCard(props: {
 					</div>
 				)}
 				<Button
+					nativeButton={false}
 					render={
 						<Link to={cta.to} aria-label={cta.label}>
 							{cta.label}
@@ -608,47 +579,40 @@ function InfoCard(props: {
 	)
 }
 
-/**
- * Componente wrapper para animação de aparecimento ao scroll
- * Utiliza IntersectionObserver para detectar quando o elemento entra na viewport
- *
- * @param id - ID opcional para o elemento
- * @param as - Tag HTML a ser renderizada (padrão: "section")
- * @param className - Classes CSS adicionais
- * @param inClass - Classes quando visível (padrão: "opacity-100 translate-y-0")
- * @param outClass - Classes quando invisível (padrão: "opacity-0 translate-y-8")
- * @param duration - Duração da transição (padrão: "duration-700")
- * @param delayClass - Delay da animação (ex: "delay-100")
- * @param threshold - Porcentagem mínima visível para ativar (padrão: 0.12)
- * @param rootMargin - Margem do IntersectionObserver (padrão: "0px 0px -10% 0px")
- */
-function Appear(props: {
+/* ========================================================================
+   ANIMATION COMPONENT
+   ======================================================================== */
+
+type AppearProps = {
 	id?: string
 	as?: keyof JSX.IntrinsicElements
 	className?: string
 	inClass?: string
 	outClass?: string
-	duration?: string // ex: "duration-700"
-	delayClass?: string // ex: "delay-100"
+	duration?: string
+	delayClass?: string
 	threshold?: number
 	rootMargin?: string
 	children: React.ReactNode
-	[key: string]: any
-}) {
-	const {
-		id,
-		as = "section",
-		className = "",
-		inClass = "opacity-100 translate-y-0",
-		outClass = "opacity-0 translate-y-8",
-		duration = "duration-700",
-		delayClass = "",
-		threshold = 0.12,
-		rootMargin = "0px 0px -10% 0px",
-		children,
-		...rest
-	} = props
+	[key: string]: unknown
+}
 
+/**
+ * Wrapper de animação ao scroll via IntersectionObserver.
+ */
+function Appear({
+	id,
+	as = "section",
+	className = "",
+	inClass = "opacity-100 translate-y-0",
+	outClass = "opacity-0 translate-y-8",
+	duration = "duration-700",
+	delayClass = "",
+	threshold = 0.12,
+	rootMargin = "0px 0px -10% 0px",
+	children,
+	...rest
+}: AppearProps) {
 	const [visible, setVisible] = useState(false)
 	const ref = useRef<HTMLElement | null>(null)
 
