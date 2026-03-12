@@ -139,10 +139,7 @@ function WeeklyMenusPage() {
 							<p className="text-xs text-muted-foreground">
 								Crie do zero ou forke um plano global da SDAB.
 							</p>
-							<Link
-								to="/kitchen/$kitchenId/weekly-menus/new"
-								params={{ kitchenId: kitchenIdStr! }}
-							>
+							<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr! }}>
 								<Button variant="outline" size="sm" className="mt-2">
 									<Plus className="w-4 h-4 mr-2" />
 									Criar primeiro cardápio semanal

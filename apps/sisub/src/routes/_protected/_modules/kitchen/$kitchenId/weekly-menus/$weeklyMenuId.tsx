@@ -208,7 +208,13 @@ function DayMealSection({
 			) : (
 				<div className="px-4 py-6 text-center">
 					<p className="text-xs text-muted-foreground mb-2">Nenhuma receita atribuída</p>
-					<Button type="button" size="sm" variant="outline" onClick={onOpenSelector} className="text-xs">
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						onClick={onOpenSelector}
+						className="text-xs"
+					>
 						<Plus className="h-3.5 w-3.5 mr-1" />
 						Adicionar Preparações
 					</Button>
@@ -374,10 +380,7 @@ function WeeklyMenuEditorPage() {
 							Cardápios Semanais
 						</Link>
 						<Separator orientation="vertical" className="h-4" />
-						<Link
-							to="/kitchen/$kitchenId/weekly-menus"
-							params={{ kitchenId: kitchenIdStr! }}
-						>
+						<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr! }}>
 							<Button type="button" variant="outline" size="sm">
 								Cancelar
 							</Button>

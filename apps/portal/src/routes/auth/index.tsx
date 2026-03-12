@@ -53,7 +53,11 @@ function AuthPage() {
 	}
 
 	// Navigation adapter
-	const handleNavigate = async (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => {
+	const handleNavigate = async (options: {
+		to?: string
+		search?: Record<string, unknown>
+		replace?: boolean
+	}) => {
 		// Adapt search params if needed
 		await router.navigate(options)
 	}

@@ -67,6 +67,20 @@ export const deleteFolderFn = createServerFn({ method: "POST" })
 // Products
 // ============================================================================
 
+export const fetchProductFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ id: z.string() }))
+	.handler(async ({ data }) => {
+		const { data: result, error } = await getSupabaseServerClient()
+			.from("product")
+			.select("*")
+			.eq("id", data.id)
+			.is("deleted_at", null)
+			.single()
+
+		if (error) throw new Error(error.message)
+		return result
+	})
+
 export const fetchProductsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ folderId: z.string().optional() }))
 	.handler(async ({ data }) => {

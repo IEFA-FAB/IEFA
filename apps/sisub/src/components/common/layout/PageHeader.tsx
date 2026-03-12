@@ -58,9 +58,7 @@ export function PageHeader({ title, description, children, onBack }: PageHeaderP
 				</div>
 			</div>
 			{children && (
-				<div className="flex flex-wrap items-center gap-2 shrink-0 sm:pt-px">
-					{children}
-				</div>
+				<div className="flex flex-wrap items-center gap-2 shrink-0 sm:pt-px">{children}</div>
 			)}
 		</header>
 	)

@@ -121,11 +121,7 @@ export function RecipeSelector({
 					{isLoading ? "Carregando..." : `${filteredRecipes.length} preparações`}
 				</div>
 
-				<div
-					ref={parentRef}
-					className="overflow-auto border rounded-lg"
-					style={{ height: 420 }}
-				>
+				<div ref={parentRef} className="overflow-auto border rounded-lg" style={{ height: 420 }}>
 					{isLoading ? (
 						<div className="py-6 text-center text-sm text-muted-foreground">
 							Carregando Preparações...

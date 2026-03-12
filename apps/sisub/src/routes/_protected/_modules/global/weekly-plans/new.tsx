@@ -22,9 +22,7 @@ function NewWeeklyPlanPage() {
 
 	return (
 		<div className="mx-auto w-full max-w-2xl space-y-6 p-4 sm:p-6">
-			<PageHeader
-				title="Novo Plano Semanal Modelo"
-			>
+			<PageHeader title="Novo Plano Semanal Modelo">
 				<Link
 					to="/global/weekly-plans"
 					className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"

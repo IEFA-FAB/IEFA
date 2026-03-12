@@ -3,9 +3,7 @@ import { Loader2 } from "lucide-react"
 import { RecipeForm } from "@/components/features/shared/RecipeForm"
 import { useRecipe } from "@/hooks/data/useRecipe"
 
-export const Route = createFileRoute(
-	"/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/"
-)({
+export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/")({
 	component: EditRecipePage,
 })
 

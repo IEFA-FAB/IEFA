@@ -21,7 +21,6 @@ import type { ScopeContext } from "@/types/domain/scope"
 import { AppSidebar } from "./sidebar/AppSidebar"
 import { MainSurface } from "./sidebar/MainSurface"
 
-
 const R = {
 	appName: "SISUB",
 	breadcrumbRoot: "Início",
@@ -132,9 +131,7 @@ export function AppShell() {
 			...mod,
 			items: mod.items.map((item) => ({
 				...item,
-				url: item.url.startsWith(prefix)
-					? newPrefix + item.url.slice(prefix.length)
-					: item.url,
+				url: item.url.startsWith(prefix) ? newPrefix + item.url.slice(prefix.length) : item.url,
 			})),
 		}
 	})

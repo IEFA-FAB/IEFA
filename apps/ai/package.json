@@ -4,9 +4,11 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "ingest": "bun run ingest-local.ts",
-    "ingest:all": "bash ingest-all.sh"
+    "ingest:all": "bash ingest-all.sh",
+    "validate-env": "varlock load"
   },
   "dependencies": {
+    "varlock": "latest",
     "@langchain/core": "^1.1.26",
     "@langchain/langgraph": "^1.1.5",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.0",

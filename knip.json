@@ -1,0 +1,38 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "tags": ["-lintignore"],
+  "workspaces": {
+    ".": {
+      "entry": [],
+      "project": []
+    },
+    "apps/portal": {
+      "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/sisub": {
+      "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/ai": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/api": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/docs": {
+      "entry": ["src/content.config.ts", "astro.config.ts"],
+      "project": ["src/**/*.{ts,astro,md,mdx}"]
+    },
+    "packages/ui": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/env": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

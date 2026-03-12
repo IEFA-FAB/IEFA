@@ -7,6 +7,7 @@ import {
 	deleteProductFn,
 	deleteProductItemFn,
 	fetchFoldersFn,
+	fetchProductFn,
 	fetchProductItemsFn,
 	fetchProductsFn,
 	updateFolderFn,
@@ -50,6 +51,13 @@ export const productItemsQueryOptions = (productId?: string) =>
 		staleTime: 10 * 60 * 1000,
 	})
 
+export const productQueryOptions = (productId: string) =>
+	queryOptions({
+		queryKey: ["products", "product", productId],
+		queryFn: () => fetchProductFn({ data: { id: productId } }) as Promise<Product>,
+		staleTime: 10 * 60 * 1000,
+	})
+
 export const productsTreeQueryOptions = () =>
 	queryOptions({
 		queryKey: ["products", "tree"],
@@ -81,6 +89,11 @@ export function useProducts(folderId?: string) {
 export function useProductItems(productId?: string) {
 	const query = useQuery(productItemsQueryOptions(productId))
 	return { productItems: query.data, error: query.error, refetch: query.refetch }
+}
+
+export function useProduct(productId: string) {
+	const query = useQuery(productQueryOptions(productId))
+	return { product: query.data, error: query.error, refetch: query.refetch }
 }
 
 export function useProductsTree() {

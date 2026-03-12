@@ -15,29 +15,49 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-      
-      - name: Install deps
-        run: bun install --frozen-lockfile
-      
-      - name: Validate all envs
+
+      - name: Validate env — apps/portal
+        uses: dmno-dev/varlock@v1
+        with:
+          working-directory: apps/portal
         env:
           VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
           VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
           VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
           VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Validate env — apps/sisub
+        uses: dmno-dev/varlock@v1
+        with:
+          working-directory: apps/sisub
+        env:
           VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_ANON_KEY: ${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+
+      - name: Validate env — apps/api
+        uses: dmno-dev/varlock@v1
+        with:
+          working-directory: apps/api
+        env:
           API_PORT: ${{ secrets.API_PORT }}
           API_SUPABASE_URL: ${{ secrets.API_SUPABASE_URL }}
           API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
-          # apps/ai (RAG)
-          RAG_SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-          RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-          RAG_DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
+
+      - name: Validate env — apps/ai
+        uses: dmno-dev/varlock@v1
+        with:
+          working-directory: apps/ai
+        env:
+          SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-        run: bunx turbo run validate-env
+          NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          EMB_MODEL: ${{ vars.EMB_MODEL }}
+          NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
 
   # ============================================
   # QUALITY - Lint, types, tests
@@ -47,7 +67,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx turbo run lint typecheck test
 
@@ -280,7 +300,7 @@ jobs:
             sisub.tags=registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
             sisub.tags=registry.fly.io/sisub:latest
             sisub.args.VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
-            sisub.args.VITE_SISUB_SUPABASE_ANON_KEY=${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}
+            sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
       
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
@@ -289,7 +309,8 @@ jobs:
         run: |
           flyctl --config fly/sisub.toml secrets set \
             VITE_SISUB_SUPABASE_URL="${{ secrets.VITE_SISUB_SUPABASE_URL }}" \
-            VITE_SISUB_SUPABASE_ANON_KEY="${{ secrets.VITE_SISUB_SUPABASE_ANON_KEY }}"
+            VITE_SISUB_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}" \
+            SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       
@@ -363,10 +384,10 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY="${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}" \
             DATABASE_URL="${{ secrets.RAG_DATABASE_URL }}" \
             NVIDIA_API_KEY="${{ secrets.NVIDIA_API_KEY }}" \
-            NVIDIA_BASE_URL="${{ secrets.NVIDIA_BASE_URL }}" \
-            LLM_MODEL="${{ secrets.LLM_MODEL }}" \
-            EMB_MODEL="${{ secrets.EMB_MODEL }}" \
-            NVIDIA_RERANK_MODEL="${{ secrets.NVIDIA_RERANK_MODEL }}" \
+            NVIDIA_BASE_URL="${{ vars.NVIDIA_BASE_URL }}" \
+            LLM_MODEL="${{ vars.LLM_MODEL }}" \
+            EMB_MODEL="${{ vars.EMB_MODEL }}" \
+            NVIDIA_RERANK_MODEL="${{ vars.NVIDIA_RERANK_MODEL }}" \
             LANGCHAIN_API_KEY="${{ secrets.LANGCHAIN_API_KEY }}" \
             LANGCHAIN_TRACING_V2="true" \
             LANGCHAIN_PROJECT="atlas-aci"

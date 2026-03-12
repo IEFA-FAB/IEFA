@@ -123,15 +123,17 @@ export const createRecipeFn = createServerFn({ method: "POST" })
 
 		const ingredients = data.ingredients ?? []
 		if (ingredients.length > 0) {
-			const { error: ingredientsError } = await getSupabaseServerClient().from("recipe_ingredients").insert(
-				ingredients.map((ing) => ({
-					recipe_id: recipe.id,
-					product_id: ing.product_id,
-					net_quantity: ing.net_quantity,
-					is_optional: ing.is_optional,
-					priority_order: ing.priority_order,
-				}))
-			)
+			const { error: ingredientsError } = await getSupabaseServerClient()
+				.from("recipe_ingredients")
+				.insert(
+					ingredients.map((ing) => ({
+						recipe_id: recipe.id,
+						product_id: ing.product_id,
+						net_quantity: ing.net_quantity,
+						is_optional: ing.is_optional,
+						priority_order: ing.priority_order,
+					}))
+				)
 
 			if (ingredientsError) throw new Error(ingredientsError.message)
 		}
@@ -167,15 +169,17 @@ export const createRecipeVersionFn = createServerFn({ method: "POST" })
 
 		const ingredients = data.ingredients ?? []
 		if (ingredients.length > 0) {
-			const { error: ingredientsError } = await getSupabaseServerClient().from("recipe_ingredients").insert(
-				ingredients.map((ing) => ({
-					recipe_id: recipe.id,
-					product_id: ing.product_id,
-					net_quantity: ing.net_quantity,
-					is_optional: ing.is_optional,
-					priority_order: ing.priority_order,
-				}))
-			)
+			const { error: ingredientsError } = await getSupabaseServerClient()
+				.from("recipe_ingredients")
+				.insert(
+					ingredients.map((ing) => ({
+						recipe_id: recipe.id,
+						product_id: ing.product_id,
+						net_quantity: ing.net_quantity,
+						is_optional: ing.is_optional,
+						priority_order: ing.priority_order,
+					}))
+				)
 
 			if (ingredientsError) throw new Error(ingredientsError.message)
 		}

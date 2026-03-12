@@ -1,3 +1,4 @@
+import { ENV } from "varlock/env"
 import apiRoutes from "./api/routes.ts"
 
 const app = apiRoutes
@@ -28,7 +29,7 @@ app.get("/health", (c) => {
 	})
 })
 
-const port = parseInt(process.env.PORT ?? "3001")
+const port = ENV.PORT
 
 export default {
 	port,

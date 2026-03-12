@@ -26,7 +26,9 @@ function PlanningPage() {
 		<div className="p-6">
 			<div className="mb-6">
 				<h1 className="text-3xl font-bold tracking-tight text-foreground">Planejamento</h1>
-				<p className="text-muted-foreground">Aplique cardápios semanais ao calendário mensal da unidade.</p>
+				<p className="text-muted-foreground">
+					Aplique cardápios semanais ao calendário mensal da unidade.
+				</p>
 			</div>
 
 			<PlanningBoard />

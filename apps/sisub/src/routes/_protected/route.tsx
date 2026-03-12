@@ -16,9 +16,7 @@ export const Route = createFileRoute("/_protected")({
 		}
 		// Pré-carrega permissões no cache do React Query.
 		// Garante que requirePermission() funcione sincronamente em qualquer rota filha.
-		await context.queryClient.ensureQueryData(
-			userPermissionsQueryOptions(context.auth.user!.id),
-		)
+		await context.queryClient.ensureQueryData(userPermissionsQueryOptions(context.auth.user?.id))
 	},
 	component: ProtectedLayout,
 })
@@ -31,7 +29,7 @@ function ProtectedLayout() {
 		if (user) syncEmailMutation.mutate(user)
 		// syncEmailMutation.mutate is stable (TanStack Query); user?.id guards against repeated calls
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [user?.id])
+	}, [user?.id, syncEmailMutation.mutate, user])
 
 	return (
 		<>

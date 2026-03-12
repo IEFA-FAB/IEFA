@@ -50,11 +50,11 @@
         "typescript": "^5.9.3"
     },
     "scripts": {
-        "dev": "tsc watch --preserveWatchOutput",
+        "dev": "tsgo watch --preserveWatchOutput",
         "format": "biome format",
         "lint": "biome lint",
         "check": "biome check",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsgo --noEmit"
     },
     "engines": {
         "node": ">=18.18 || >=20"

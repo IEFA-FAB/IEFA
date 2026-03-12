@@ -10,7 +10,7 @@
         "lint": "biome lint",
         "check": "biome check",
         "typecheck": "tsgo --noEmit",
-        "validate-env": "bun run -e \"import('@iefa/env').then(m => m.validateApiEnv())\""
+        "validate-env": "varlock load"
     },
     "dependencies": {
         "@hono/zod-openapi": "^1.2.1",
@@ -20,8 +20,8 @@
         "@supabase/supabase-js": "^2.89.0",
         "@typescript/native-preview": "^7.0.0-dev.20260202.1",
         "hono": "^4.11.4",
-        "zod": "^4.3.6",
-        "@iefa/env": "workspace:*"
+        "varlock": "latest",
+        "zod": "^4.3.6"
     },
     "devDependencies": {
         "@types/bun": "latest",

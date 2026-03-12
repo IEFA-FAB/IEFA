@@ -10,7 +10,7 @@ export const fetchPresencesFn = createServerFn({ method: "GET" })
 			date: z.string(),
 			meal: z.string(),
 			messHallId: z.number(),
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
 		type PresenceRowWithUser = {
@@ -56,7 +56,7 @@ export const fetchForecastsFn = createServerFn({ method: "GET" })
 			meal: z.string(),
 			messHallId: z.number(),
 			userIds: z.array(z.string()),
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
 		if (data.userIds.length === 0) return {} as ForecastMap
@@ -87,7 +87,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 			date: z.string(),
 			meal: z.string(),
 			messHallId: z.number(),
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
 		const { error } = await getSupabaseServerClient().from("meal_presences").insert({

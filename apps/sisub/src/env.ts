@@ -1,8 +1,3 @@
-import { z } from "zod"
+import { ENV } from "varlock/env"
 
-const envSchema = z.object({
-	VITE_SISUB_SUPABASE_URL: z.url(),
-	VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
-})
-
-export const env = envSchema.parse(import.meta.env)
+export const env = ENV

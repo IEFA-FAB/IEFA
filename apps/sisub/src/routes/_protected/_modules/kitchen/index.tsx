@@ -22,12 +22,12 @@ function KitchenHubPage() {
 			p.module === "kitchen" &&
 			p.kitchen_id === null &&
 			p.unit_id === null &&
-			p.mess_hall_id === null,
+			p.mess_hall_id === null
 	)
 	const allowedIds = new Set(
 		permissions
 			.filter((p) => p.module === "kitchen" && p.kitchen_id !== null)
-			.map((p) => p.kitchen_id!),
+			.map((p) => p.kitchen_id!)
 	)
 
 	const allKitchens = kitchens ?? []
@@ -36,7 +36,7 @@ function KitchenHubPage() {
 			id: k.id,
 			name: k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`,
 			subtitle: k.unit?.display_name ?? k.unit?.code,
-		}),
+		})
 	)
 
 	const handleSelect = (id: number) => {

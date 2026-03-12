@@ -3,7 +3,7 @@
   "tasks": {
     "validate-env": {
       "cache": false,
-      "inputs": ["$VITE_*", "$API_*"]
+      "inputs": ["$VITE_*", "$API_*", "$SISUB_*", "$SUPABASE_*", "$DATABASE_*", "$NVIDIA_*", "$LANGCHAIN_*"]
     },
     "build": {
       "dependsOn": ["^build"],

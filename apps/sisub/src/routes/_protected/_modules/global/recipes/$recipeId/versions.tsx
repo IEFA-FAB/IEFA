@@ -40,10 +40,7 @@ function GlobalRecipeVersionsPage() {
 
 	return (
 		<div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">
-			<PageHeader
-				title="Histórico de Versões"
-				description={`Preparação: ${recipe.name}`}
-			>
+			<PageHeader title="Histórico de Versões" description={`Preparação: ${recipe.name}`}>
 				<Link
 					to="/global/recipes/$recipeId"
 					params={{ recipeId }}
@@ -63,9 +60,7 @@ function GlobalRecipeVersionsPage() {
 					</div>
 					<Badge variant="default">v{recipe.version ?? 1}</Badge>
 				</div>
-				<p className="text-xs text-muted-foreground">
-					Versão: {recipe.version ?? 1}
-				</p>
+				<p className="text-xs text-muted-foreground">Versão: {recipe.version ?? 1}</p>
 			</div>
 
 			{/* Placeholder — diff viewer será implementado quando houver histórico de versões */}

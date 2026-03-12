@@ -1,4 +1,5 @@
 import { OpenAIEmbeddings } from "@langchain/openai"
+import { ENV } from "varlock/env"
 import { supabase } from "../db/supabase.ts"
 
 interface FrontmatterData {
@@ -17,10 +18,10 @@ interface Chunk {
 }
 
 const embeddings = new OpenAIEmbeddings({
-	model: process.env.EMB_MODEL || "baai/bge-m3",
+	model: ENV.EMB_MODEL,
 	configuration: {
-		baseURL: process.env.NVIDIA_BASE_URL,
-		apiKey: process.env.NVIDIA_API_KEY,
+		baseURL: ENV.NVIDIA_BASE_URL,
+		apiKey: ENV.NVIDIA_API_KEY,
 	},
 	dimensions: 1024,
 })
@@ -141,7 +142,7 @@ export async function ingestMarkdown(
 	let created = 0
 	let skipped = 0
 
-	const BATCH = parseInt(process.env.EMB_BATCH_SIZE || "128")
+	const BATCH = ENV.EMB_BATCH_SIZE
 	for (let i = 0; i < chunks.length; i += BATCH) {
 		const batch = chunks.slice(i, i + BATCH)
 

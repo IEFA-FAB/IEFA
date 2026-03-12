@@ -62,7 +62,7 @@ export function useAddOtherPresence() {
 export function useScanProcessor() {
 	const processScan = async (
 		uuid: string,
-		filters: FiscalFilters,
+		filters: FiscalFilters
 	): Promise<{ systemForecast: boolean | null }> => {
 		const systemForecast = await fetchScanForecastFn({
 			data: {

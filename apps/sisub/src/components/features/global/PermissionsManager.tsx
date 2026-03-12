@@ -452,7 +452,7 @@ export default function PermissionsManager() {
 
 	const { data: permissions = [], isLoading: isLoadingPerms } = useQuery({
 		queryKey: permsKey,
-		queryFn: () => fetchUserPermissionsAdminFn({ data: { userId: selectedUser!.id } }),
+		queryFn: () => fetchUserPermissionsAdminFn({ data: { userId: selectedUser?.id } }),
 		enabled: !!selectedUser,
 	})
 
@@ -482,7 +482,7 @@ export default function PermissionsManager() {
 		mutationFn: () =>
 			createUserPermissionFn({
 				data: {
-					userId: selectedUser!.id,
+					userId: selectedUser?.id,
 					module: form.module,
 					level: Number(form.level),
 					...scopeFromForm(form),

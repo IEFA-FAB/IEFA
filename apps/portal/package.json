@@ -10,7 +10,7 @@
         "lint": "biome lint",
         "check": "biome check",
         "typecheck": "tsgo --noEmit",
-        "validate-env": "bun run -e \"import('@iefa/env').then(m => m.validateIefaEnv())\""
+        "validate-env": "varlock load"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",
@@ -18,7 +18,8 @@
         "@dnd-kit/utilities": "^3.2.2",
         "@iefa/ui": "workspace:*",
         "@portabletext/react": "^6.0.2",
-        "@iefa/env": "workspace:*",
+        "@varlock/vite-integration": "latest",
+        "varlock": "latest",
         "@sanity/client": "^7.14.0",
         "@sanity/image-url": "^2.0.2",
         "@supabase/supabase-js": "^2.89.0",

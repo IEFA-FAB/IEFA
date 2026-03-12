@@ -9,20 +9,40 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "typecheck": "turbo typecheck",
-    "lint": "turbo lint",
-    "test": "turbo test",
+    "typecheck": "turbo typecheck --parallel",
+    "lint": "turbo lint --parallel",
+    "test": "turbo test --parallel",
     "validate-env": "turbo validate-env",
     "sisub:dev": "bun --cwd ./apps/sisub dev",
-    "portal:dev": "bun --cwd ./apps/iefa dev",
+    "portal:dev": "bun --cwd ./apps/portal dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",
-    "fix": "biome check --write ."
+    "format:check": "biome format .",
+    "fix": "biome check --write .",
+    "check": "biome check . && bun run typecheck",
+    "ci": "bun run lint && bun run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "clean:cache": "rm -rf .turbo node_modules/.cache",
+    "knip": "knip",
+    "upgrade": "bun update --latest",
+    "commit": "cz",
+    "prepare": "husky"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-git"
+    }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.4",
-    "turbo": "^2.8.11"
+    "@biomejs/biome": "^2.4.6",
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
+    "commitizen": "^4.3.1",
+    "cz-git": "^1.12.0",
+    "husky": "^9.1.7",
+    "knip": "^5.86.0",
+    "turbo": "^2.8.16"
   },
   "workspaces": [
     "apps/*",

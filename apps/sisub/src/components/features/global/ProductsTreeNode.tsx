@@ -4,25 +4,23 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Edit,
+	ExternalLink,
 	Folder as FolderIcon,
 	Package,
-	ShoppingCart,
 	Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
-import { useDeleteFolder, useDeleteProduct, useDeleteProductItem } from "@/services/ProductsService"
-import type {
-	Folder,
-	Product,
-	ProductItem,
-	ProductTreeNode,
-	TreeNodeType,
-} from "@/types/domain/products"
+import { useDeleteFolder, useDeleteProduct } from "@/services/ProductsService"
+import type { Folder, Product, ProductTreeNode, TreeNodeType } from "@/types/domain/products"
 
 interface ProductsTreeNodeProps {
 	node: ProductTreeNode
-	onEdit: (type: TreeNodeType, data: Folder | Product | ProductItem) => void
+	onEdit: (type: TreeNodeType, data: Folder | Product) => void
 	onToggle: (nodeId: string) => void
+	/** Quantidade de itens de compra vinculados (apenas para nós do tipo "product") */
+	itemCount?: number
+	/** Callback de navegação para a página de detalhe do produto */
+	onNavigate?: () => void
 }
 
 /**
@@ -30,19 +28,21 @@ interface ProductsTreeNodeProps {
  * Renderização otimizada para virtualização
  * Enhanced with Industrial-Technical aesthetic
  */
-export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodeProps) {
+export function ProductsTreeNode({
+	node,
+	onEdit,
+	onToggle,
+	itemCount,
+	onNavigate,
+}: ProductsTreeNodeProps) {
 	const queryClient = useQueryClient()
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
 	const { deleteProduct, isDeleting: isDeletingProduct } = useDeleteProduct()
-	const { deleteProductItem, isDeleting: isDeletingItem } = useDeleteProductItem()
 
-	const isDeleting = isDeletingFolder || isDeletingProduct || isDeletingItem
+	const isDeleting = isDeletingFolder || isDeletingProduct
 
-	// Ícone por tipo
-	const Icon =
-		node.type === "folder" ? FolderIcon : node.type === "product" ? Package : ShoppingCart
+	const Icon = node.type === "folder" ? FolderIcon : Package
 
-	// Configuração de estilo por tipo (Industrial-Technical)
 	const typeStyles = {
 		folder: {
 			iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
@@ -54,35 +54,23 @@ export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodePro
 			iconColor: "text-blue-600 dark:text-blue-500",
 			border: "border-blue-500/20",
 		},
-		product_item: {
-			iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
-			iconColor: "text-emerald-600 dark:text-emerald-500",
-			border: "border-emerald-500/20",
-		},
 	}
 
-	const style = typeStyles[node.type]
+	const style = typeStyles[node.type as "folder" | "product"]
 
-	// Handler de delete
 	const handleDelete = async () => {
-		const confirmMessage = `Tem certeza que deseja excluir "${node.label}"?`
-		if (!confirm(confirmMessage)) return
+		if (!confirm(`Tem certeza que deseja excluir "${node.label}"?`)) return
 
 		try {
 			if (node.type === "folder") {
 				await deleteFolder(node.id)
 				toast.success("Pasta excluída com sucesso!")
-			} else if (node.type === "product") {
+			} else {
 				await deleteProduct(node.id)
 				toast.success("Produto excluído com sucesso!")
-			} else {
-				await deleteProductItem(node.id)
-				toast.success("Item excluído com sucesso!")
 			}
 
-			await queryClient.invalidateQueries({
-				queryKey: ["products"],
-			})
+			await queryClient.invalidateQueries({ queryKey: ["products"] })
 		} catch (error) {
 			toast.error("Erro ao excluir item")
 			console.error(error)
@@ -92,9 +80,7 @@ export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodePro
 	return (
 		<div
 			className="group relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50 transition-all duration-150 hover:border-l-2 hover:border-l-primary/50"
-			style={{
-				paddingLeft: `${node.level * 24 + 8}px`,
-			}}
+			style={{ paddingLeft: `${node.level * 24 + 8}px` }}
 			role="treeitem"
 			tabIndex={0}
 			aria-level={node.level + 1}
@@ -103,12 +89,10 @@ export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodePro
 			{/* Tree connector lines */}
 			{node.level > 0 && (
 				<>
-					{/* Vertical line from parent */}
 					<div
 						className="absolute top-0 bottom-1/2 w-px bg-border/40"
 						style={{ left: `${(node.level - 1) * 24 + 20}px` }}
 					/>
-					{/* Horizontal line to node */}
 					<div
 						className="absolute top-1/2 h-px bg-border/40"
 						style={{
@@ -121,7 +105,7 @@ export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodePro
 
 			{/* Conteúdo */}
 			<div className="flex items-center gap-2 flex-1 min-w-0">
-				{/* Expand/Collapse Chevron - Only for folders/products */}
+				{/* Expand/Collapse — apenas para pastas */}
 				{node.hasChildren ? (
 					<Button
 						variant="ghost"
@@ -137,49 +121,61 @@ export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodePro
 						)}
 					</Button>
 				) : (
-					/* Spacer for alignment */
 					<div className="w-5" />
 				)}
 
-				{/* Icon with colored background */}
+				{/* Ícone com fundo colorido */}
 				<div
 					className={`flex items-center justify-center w-7 h-7 rounded-md ${style.iconBg} ${style.border} border transition-transform duration-200 group-hover:scale-110`}
 				>
 					<Icon className={`w-3.5 h-3.5 ${style.iconColor}`} />
 				</div>
 
-				{/* Label with hierarchy-based typography */}
+				{/* Label */}
 				<span
 					className={`text-sm truncate transition-colors ${
-						node.type === "folder"
-							? "font-sans font-semibold"
-							: node.type === "product"
-								? "font-sans font-normal"
-								: "font-sans text-muted-foreground text-xs"
+						node.type === "folder" ? "font-sans font-semibold" : "font-sans font-normal"
 					}`}
 				>
 					{node.label}
 				</span>
 
-				{/* Badges informativos */}
+				{/* Badge de unidade de medida */}
 				{node.type === "product" && "measure_unit" in node.data && (
 					<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-muted/50 text-muted-foreground border border-border/30">
 						{node.data.measure_unit}
 					</span>
 				)}
-				{node.type === "product_item" && "barcode" in node.data && node.data.barcode && (
-					<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-muted/50 text-muted-foreground border border-border/30">
-						#{node.data.barcode}
+
+				{/* Badge de contagem de itens de compra */}
+				{node.type === "product" && itemCount !== undefined && itemCount > 0 && (
+					<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20">
+						{itemCount} {itemCount === 1 ? "item" : "itens"}
 					</span>
 				)}
 			</div>
 
-			{/* Ações - St aggered reveal on hover */}
+			{/* Ações — reveladas no hover */}
 			<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+				{/* Navegar para itens de compra (apenas produtos) */}
+				{node.type === "product" && onNavigate && (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={onNavigate}
+						disabled={isDeleting}
+						aria-label={`Ver itens de compra de ${node.label}`}
+						title="Ver itens de compra"
+						className="h-8 w-8 p-0 transition-all duration-150 hover:bg-primary/10 hover:text-primary"
+					>
+						<ExternalLink className="w-3.5 h-3.5" />
+					</Button>
+				)}
+
 				<Button
 					variant="ghost"
 					size="sm"
-					onClick={() => onEdit(node.type, node.data)}
+					onClick={() => onEdit(node.type, node.data as Folder | Product)}
 					disabled={isDeleting}
 					aria-label={`Editar ${node.label}`}
 					className="h-8 w-8 p-0 transition-all duration-150 hover:bg-primary/10 hover:text-primary"
@@ -187,6 +183,7 @@ export function ProductsTreeNode({ node, onEdit, onToggle }: ProductsTreeNodePro
 				>
 					<Edit className="w-3.5 h-3.5" />
 				</Button>
+
 				<Button
 					variant="ghost"
 					size="sm"

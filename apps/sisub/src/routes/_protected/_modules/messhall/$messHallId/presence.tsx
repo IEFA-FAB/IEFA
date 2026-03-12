@@ -21,9 +21,7 @@ import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
 import type { DialogState, FiscalFilters } from "@/types/domain/presence"
 
-export const Route = createFileRoute(
-	"/_protected/_modules/messhall/$messHallId/presence",
-)({
+export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId/presence")({
 	component: PresencePage,
 	head: () => ({
 		meta: [

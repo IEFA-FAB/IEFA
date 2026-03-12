@@ -202,14 +202,14 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		async (uuid: string, willEnter: boolean): Promise<ConfirmPresenceResult> => {
 			return await confirmPresenceMutation.mutateAsync({ uuid, willEnter })
 		},
-		[confirmPresenceMutation],
+		[confirmPresenceMutation]
 	)
 
 	const removePresence = useCallback(
 		async (row: FiscalPresenceRecord): Promise<void> => {
 			await removePresenceMutation.mutateAsync(row)
 		},
-		[removePresenceMutation],
+		[removePresenceMutation]
 	)
 
 	return {

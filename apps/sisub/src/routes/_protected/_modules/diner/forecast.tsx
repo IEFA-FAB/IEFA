@@ -15,8 +15,8 @@ import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { createEmptyDayMeals, formatDate, getDayOfWeek, isDateNear } from "@/lib/meal"
-import type { CardData } from "@/types/ui"
 import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
+import type { CardData } from "@/types/ui"
 
 const DayCard = lazy(() => import("@/components/features/diner/DayCard"))
 

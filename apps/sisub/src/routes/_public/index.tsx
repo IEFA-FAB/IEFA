@@ -35,8 +35,8 @@ import {
 // React
 import type { JSX } from "react"
 import { useEffect, useRef, useState } from "react"
-import type { Feature, Step } from "@/types/ui"
 import type { MealType } from "@/types/domain/meal"
+import type { Feature, Step } from "@/types/ui"
 
 /* ========================================================================
    DATA

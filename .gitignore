@@ -13,9 +13,22 @@ node_modules
 *.log
 
 # === Environment ===
+# Arquivos com valores reais — NUNCA comitar
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# .env.example era o template antigo — substituído por .env.schema (varlock)
+.env.example
+
+# .env.schema é a fonte da verdade (decorators, tipos, defaults sem segredos) — COMITAR
+!.env.schema
+
+# Tipos gerados pelo varlock a partir do .env.schema — podem ser comitados ou não
+# (dependendo do seu workflow — comitar evita regenerar no CI)
+env.d.ts
 
 # === Turborepo ===
 .turbo

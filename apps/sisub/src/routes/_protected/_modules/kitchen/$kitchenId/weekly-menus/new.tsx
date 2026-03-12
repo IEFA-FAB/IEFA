@@ -158,7 +158,9 @@ function NewWeeklyMenuPage() {
 		<div className="space-y-6 mx-auto max-w-2xl">
 			<PageHeader
 				title={isFork ? "Forkar Plano Global" : "Novo Cardápio Semanal"}
-				description={isFork ? "Cria uma cópia independente do plano global para sua cozinha." : undefined}
+				description={
+					isFork ? "Cria uma cópia independente do plano global para sua cozinha." : undefined
+				}
 			>
 				<Link
 					to="/kitchen/$kitchenId/weekly-menus"
@@ -247,10 +249,7 @@ function NewWeeklyMenuPage() {
 								: "Após criar, você será redirecionado para editar o cardápio semanal."}
 						</p>
 						<div className="flex gap-2">
-							<Link
-								to="/kitchen/$kitchenId/weekly-menus"
-								params={{ kitchenId: kitchenIdStr! }}
-							>
+							<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr! }}>
 								<Button type="button" variant="outline">
 									Cancelar
 								</Button>

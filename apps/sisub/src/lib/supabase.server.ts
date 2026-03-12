@@ -1,5 +1,3 @@
-"use server"
-
 import { createServerClient } from "@supabase/ssr"
 import { getRequest, setCookie } from "@tanstack/react-start/server"
 import type { Database } from "@/types/database.types"

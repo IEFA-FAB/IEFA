@@ -22,12 +22,12 @@ function KitchenProductionHubPage() {
 			p.module === "kitchen-production" &&
 			p.kitchen_id === null &&
 			p.unit_id === null &&
-			p.mess_hall_id === null,
+			p.mess_hall_id === null
 	)
 	const allowedIds = new Set(
 		permissions
 			.filter((p) => p.module === "kitchen-production" && p.kitchen_id !== null)
-			.map((p) => p.kitchen_id as number),
+			.map((p) => p.kitchen_id as number)
 	)
 
 	const allKitchens = kitchens ?? []
@@ -36,7 +36,7 @@ function KitchenProductionHubPage() {
 			id: k.id,
 			name: k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`,
 			subtitle: k.unit?.code !== k.unit?.display_name ? k.unit?.code : undefined,
-		}),
+		})
 	)
 
 	return (

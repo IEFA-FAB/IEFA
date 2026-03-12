@@ -36,14 +36,25 @@ export function useProductsHierarchy(filterText = "") {
 
 	const expandAll = () => {
 		if (!tree) return
-		const allFolderIds = new Set(tree.folders.map((f) => f.id))
-		const allProductIds = new Set(tree.products.map((p) => p.id))
-		setExpandedIds(new Set([...allFolderIds, ...allProductIds]))
+		// Products are leaf nodes (items live on detail page), only expand folders
+		setExpandedIds(new Set(tree.folders.map((f) => f.id)))
 	}
 
 	const collapseAll = () => {
 		setExpandedIds(new Set())
 	}
+
+	// Contagem de itens de compra por produto (para badges na árvore)
+	const itemCountByProductId = useMemo<Record<string, number>>(() => {
+		if (!tree) return {}
+		const counts: Record<string, number> = {}
+		for (const item of tree.productItems) {
+			if (item.product_id) {
+				counts[item.product_id] = (counts[item.product_id] || 0) + 1
+			}
+		}
+		return counts
+	}, [tree])
 
 	// Constrói estrutura flat da árvore para virtualização
 	// Agora com suporte a expand/collapse
@@ -67,7 +78,7 @@ export function useProductsHierarchy(filterText = "") {
 					label: description,
 					parentId: folder.parent_id,
 					level: 0,
-					hasChildren: true,
+					hasChildren: false, // será atualizado após construir byParentId
 					isExpanded: expandedIds.has(folder.id),
 					data: folder,
 				}
@@ -93,8 +104,9 @@ export function useProductsHierarchy(filterText = "") {
 					label: description,
 					parentId: product.folder_id,
 					level: 1,
-					hasChildren: true,
-					isExpanded: expandedIds.has(product.id),
+					// Produtos são folhas: itens de compra vivem na página de detalhe
+					hasChildren: false,
+					isExpanded: false,
 					data: product,
 				}
 
@@ -108,33 +120,10 @@ export function useProductsHierarchy(filterText = "") {
 			}
 		})
 
-		tree.productItems.forEach((item) => {
-			const description = item.description || "Sem descrição"
-			const shouldInclude = !filter || description.toLowerCase().includes(filter)
+		// product_items não são adicionados à árvore —
+		// eles vivem em /global/ingredients/$productId
 
-			if (shouldInclude || !filter) {
-				const node: ProductTreeNode = {
-					id: item.id,
-					type: "product_item",
-					label: description,
-					parentId: item.product_id,
-					level: 2,
-					hasChildren: false,
-					isExpanded: false,
-					data: item,
-				}
-
-				byId[item.id] = node
-
-				const parentKey = item.product_id || "root"
-				if (!byParentId[parentKey]) {
-					byParentId[parentKey] = []
-				}
-				byParentId[parentKey].push(node)
-			}
-		})
-
-		// 2. Calcular níveis hierárquicos
+		// 2. Atualizar hasChildren e calcular níveis hierárquicos
 		const calculateLevel = (nodeId: string, level = 0): number => {
 			const node = byId[nodeId]
 			if (!node || !node.parentId) return level
@@ -143,6 +132,9 @@ export function useProductsHierarchy(filterText = "") {
 
 		Object.values(byId).forEach((node) => {
 			node.level = calculateLevel(node.id)
+			if (node.type === "folder") {
+				node.hasChildren = !!byParentId[node.id]?.length
+			}
 		})
 
 		// 3. Construir lista de nós visíveis (respeitando expand/collapse)
@@ -181,6 +173,7 @@ export function useProductsHierarchy(filterText = "") {
 		// Dados
 		flatTree,
 		stats,
+		itemCountByProductId,
 
 		// Estados (componente decide skeleton)
 		error,

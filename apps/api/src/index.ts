@@ -1,6 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
+import { ENV } from "varlock/env"
 import { api } from "./api/routes.js"
 
 const app = new OpenAPIHono()
@@ -85,7 +86,7 @@ app.get(
 	})) as any // Cast necessário devido a conflito de versões do Hono no @scalar/hono-api-reference
 )
 
-const port = Number(process.env.API_PORT ?? 3000)
+const port = ENV.API_PORT
 
 export default {
 	port,

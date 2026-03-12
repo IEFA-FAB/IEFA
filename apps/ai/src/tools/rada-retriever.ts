@@ -1,4 +1,5 @@
 import { OpenAIEmbeddings } from "@langchain/openai"
+import { ENV } from "varlock/env"
 import { supabase } from "../db/supabase.ts"
 import type { DocumentType, RetrievedDocument } from "../graph/state.ts"
 
@@ -28,17 +29,17 @@ export interface RADARetrieverOutput {
 }
 
 const embeddings = new OpenAIEmbeddings({
-	model: process.env.EMB_MODEL || "baai/bge-m3",
+	model: ENV.EMB_MODEL,
 	configuration: {
-		baseURL: process.env.NVIDIA_BASE_URL,
-		apiKey: process.env.NVIDIA_API_KEY,
+		baseURL: ENV.NVIDIA_BASE_URL,
+		apiKey: ENV.NVIDIA_API_KEY,
 	},
 	dimensions: 1024,
 })
 
-const THRESHOLD = parseFloat(process.env.RERANK_THRESHOLD || "0.45")
-const RRF_K = parseInt(process.env.RRF_K || "60")
-const RERANK_TOP_N = parseInt(process.env.RERANK_TOP_N || "5")
+const THRESHOLD = ENV.RERANK_THRESHOLD
+const RRF_K = ENV.RRF_K
+const RERANK_TOP_N = ENV.RERANK_TOP_N
 
 async function semanticSearch(
 	queryVector: number[],
@@ -129,9 +130,9 @@ async function rerank(
 	query: string,
 	docs: Array<{ id: string; content: string; [k: string]: any }>
 ): Promise<Array<{ id: string; score: number }>> {
-	const model = process.env.NVIDIA_RERANK_MODEL || "nvidia/llama-3.2-nv-rerankqa-1b-v2"
-	const baseUrl = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1"
-	const apiKey = process.env.NVIDIA_API_KEY!
+	const model = ENV.NVIDIA_RERANK_MODEL
+	const baseUrl = ENV.NVIDIA_BASE_URL
+	const apiKey = ENV.NVIDIA_API_KEY
 
 	const response = await fetch(`${baseUrl}/ranking`, {
 		method: "POST",
@@ -160,7 +161,7 @@ async function rerank(
 
 export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetrieverOutput> {
 	const { query, filters, top_k = 10 } = input
-	const queryWithPrefix = `${process.env.EMB_QUERY_PREFIX ?? ""}${query}`
+	const queryWithPrefix = `${ENV.EMB_QUERY_PREFIX}${query}`
 
 	const queryVector = await embeddings.embedQuery(queryWithPrefix)
 

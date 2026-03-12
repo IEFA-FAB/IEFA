@@ -16,8 +16,8 @@ import {
 } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import {
-	Calendar as CalendarIcon,
 	CalendarDays,
+	Calendar as CalendarIcon,
 	ChevronLeft,
 	ChevronRight,
 	Settings,
@@ -174,10 +174,7 @@ export function PlanningBoard() {
 				{/* Right side: Action buttons */}
 				<div className="flex flex-wrap gap-1.5">
 					{kitchenIdStr && (
-						<Link
-							to="/kitchen/$kitchenId/weekly-menus"
-							params={{ kitchenId: kitchenIdStr }}
-						>
+						<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr }}>
 							<Button
 								variant="outline"
 								size="sm"

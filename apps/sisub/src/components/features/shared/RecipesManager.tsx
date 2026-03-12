@@ -148,10 +148,7 @@ export function RecipesManager() {
 													</Button>
 												</Link>
 											) : (
-												<Link
-													to="/global/recipes/$recipeId"
-													params={{ recipeId: recipe.id }}
-												>
+												<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
 													<Button
 														variant="ghost"
 														size="sm"
@@ -161,8 +158,8 @@ export function RecipesManager() {
 													</Button>
 												</Link>
 											)}
-											{!recipe.kitchen_id && (
-												kitchenId ? (
+											{!recipe.kitchen_id &&
+												(kitchenId ? (
 													<Link
 														to="/kitchen/$kitchenId/recipes/new"
 														params={{ kitchenId }}
@@ -179,10 +176,7 @@ export function RecipesManager() {
 														</Button>
 													</Link>
 												) : (
-													<Link
-														to="/global/recipes/new"
-														search={{ forkFrom: recipe.id }}
-													>
+													<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
 														<Button
 															variant="outline"
 															size="sm"
@@ -193,8 +187,7 @@ export function RecipesManager() {
 															Personalizar
 														</Button>
 													</Link>
-												)
-											)}
+												))}
 										</div>
 									</div>
 								)

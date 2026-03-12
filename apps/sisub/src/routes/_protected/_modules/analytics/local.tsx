@@ -1,4 +1,3 @@
-
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import DashboardCard from "@/components/features/analytics/DashboardCard"

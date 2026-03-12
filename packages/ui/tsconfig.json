@@ -15,7 +15,6 @@
         "composite": false,
         "declaration": false,
         "jsx": "react-jsx",
-        "baseUrl": ".",
         "paths": {
             "@/*": ["./src/*"]
         }

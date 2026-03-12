@@ -1,12 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
+import { ENV } from "varlock/env"
 
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-if (!supabaseUrl || !supabaseServiceKey) {
-	throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required")
-}
-
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+export const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
 	auth: { persistSession: false },
 })

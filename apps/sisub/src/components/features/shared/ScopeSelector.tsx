@@ -7,7 +7,7 @@
  *  - N itens → grid de cards clicáveis
  */
 
-import { type LucideIcon } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { useEffect } from "react"
 
 export interface ScopeSelectorItem {
@@ -65,12 +65,10 @@ export function ScopeSelector({
 						<Icon className="h-7 w-7" />
 					</div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-					{description && (
-						<p className="text-muted-foreground">{description}</p>
-					)}
+					{description && <p className="text-muted-foreground">{description}</p>}
 				</div>
 
-				{isLoading || (items.length === 1) ? (
+				{isLoading || items.length === 1 ? (
 					<ScopeSelectorSkeleton />
 				) : items.length === 0 ? (
 					<div className="flex flex-col items-center gap-3 py-16 text-center">

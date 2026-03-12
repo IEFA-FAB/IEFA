@@ -12,7 +12,7 @@ import { productsTreeQueryOptions } from "@/services/ProductsService"
  * Rota: /global/ingredients
  * ACL: módulo "global" nível 1+ (GLOBAL-01)
  */
-export const Route = createFileRoute("/_protected/_modules/global/ingredients")({
+export const Route = createFileRoute("/_protected/_modules/global/ingredients/")({
 	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
 	loader: ({ context }) => {
 		return context.queryClient.ensureQueryData(productsTreeQueryOptions())
