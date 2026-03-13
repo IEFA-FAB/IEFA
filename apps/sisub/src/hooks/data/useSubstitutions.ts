@@ -11,7 +11,7 @@ export function useUpdateSubstitutions() {
 			substitutions,
 		}: {
 			menuItemId: string
-			substitutions: Record<string, unknown>
+			substitutions: Record<string, { type: string; rationale: string; updated_at: string }>
 		}) => updateSubstitutionsFn({ data: { id: menuItemId, substitutions } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning"] })

@@ -56,7 +56,6 @@ export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
 			const date = menu.service_date
 			if (!date) return
 
-			// @ts-expect-error
 			const mealName = menu.meal_type?.name
 			if (!mealName) return
 

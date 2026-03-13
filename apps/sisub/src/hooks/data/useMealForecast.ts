@@ -268,7 +268,7 @@ export const useMealForecast = (): MealForecastHook => {
 
 		try {
 			await persistDefaultMessHallFn({
-				data: { userId: user.id, email: user.email ?? undefined, messHallId: idNum },
+				data: { userId: user.id, email: user.email ?? "", messHallId: idNum },
 			})
 		} catch {
 			// Reverter estado local para manter coerência com DB (fonte da verdade)

@@ -10,6 +10,27 @@ import type {
 	ProductUpdate,
 } from "@/types/supabase.types"
 
+const FolderWriteSchema = z.object({
+	description: z.string().nullable().optional(),
+	parent_id: z.string().nullable().optional(),
+})
+
+const ProductWriteSchema = z.object({
+	description: z.string().nullable().optional(),
+	folder_id: z.string().nullable().optional(),
+	measure_unit: z.string().nullable().optional(),
+	correction_factor: z.number().nullable().optional(),
+})
+
+const ProductItemWriteSchema = z.object({
+	product_id: z.string().nullable().optional(),
+	description: z.string().nullable().optional(),
+	barcode: z.string().nullable().optional(),
+	purchase_measure_unit: z.string().nullable().optional(),
+	unit_content_quantity: z.number().nullable().optional(),
+	correction_factor: z.number().nullable().optional(),
+})
+
 // ============================================================================
 // Folders
 // ============================================================================
@@ -26,7 +47,7 @@ export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async ()
 })
 
 export const createFolderFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ payload: z.record(z.unknown()) }))
+	.inputValidator(z.object({ payload: FolderWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("folder")
@@ -39,7 +60,7 @@ export const createFolderFn = createServerFn({ method: "POST" })
 	})
 
 export const updateFolderFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), payload: z.record(z.unknown()) }))
+	.inputValidator(z.object({ id: z.string(), payload: FolderWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("folder")
@@ -100,7 +121,7 @@ export const fetchProductsFn = createServerFn({ method: "GET" })
 	})
 
 export const createProductFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ payload: z.record(z.unknown()) }))
+	.inputValidator(z.object({ payload: ProductWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("product")
@@ -113,7 +134,7 @@ export const createProductFn = createServerFn({ method: "POST" })
 	})
 
 export const updateProductFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), payload: z.record(z.unknown()) }))
+	.inputValidator(z.object({ id: z.string(), payload: ProductWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("product")
@@ -160,7 +181,7 @@ export const fetchProductItemsFn = createServerFn({ method: "GET" })
 	})
 
 export const createProductItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ payload: z.record(z.unknown()) }))
+	.inputValidator(z.object({ payload: ProductItemWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("product_item")
@@ -173,7 +194,7 @@ export const createProductItemFn = createServerFn({ method: "POST" })
 	})
 
 export const updateProductItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), payload: z.record(z.unknown()) }))
+	.inputValidator(z.object({ id: z.string(), payload: ProductItemWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("product_item")

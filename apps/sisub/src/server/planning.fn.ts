@@ -3,6 +3,23 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { DailyMenuInsert, DailyMenuWithItems, MenuItemInsert } from "@/types/domain/planning"
 
+const DailyMenuUpsertItemSchema = z.object({
+	id: z.string().optional(),
+	kitchen_id: z.number().nullable().optional(),
+	meal_type_id: z.string().nullable().optional(),
+	service_date: z.string().nullable().optional(),
+	status: z.string().nullable().optional(),
+	forecasted_headcount: z.number().nullable().optional(),
+})
+
+const MenuItemInsertSchema = z.object({
+	daily_menu_id: z.string().nullable().optional(),
+	recipe_origin_id: z.string().nullable().optional(),
+	recipe: z.record(z.string(), z.json()).nullable().optional(),
+	planned_portion_quantity: z.number().nullable().optional(),
+	excluded_from_procurement: z.number().nullable().optional(),
+})
+
 const dailyMenuSelect = `
   *,
   meal_type:meal_type_id(*),
@@ -33,7 +50,7 @@ export const fetchDailyMenusFn = createServerFn({ method: "GET" })
 
 		return (result ?? []).map((menu) => ({
 			...menu,
-			menu_items: (menu.menu_items || []).filter((item: any) => !item.deleted_at),
+			menu_items: (menu.menu_items || []).filter((item) => !item.deleted_at),
 		})) as DailyMenuWithItems[]
 	})
 
@@ -51,12 +68,12 @@ export const fetchDayDetailsFn = createServerFn({ method: "GET" })
 
 		return (result ?? []).map((menu) => ({
 			...menu,
-			menu_items: (menu.menu_items || []).filter((item: any) => !item.deleted_at),
+			menu_items: (menu.menu_items || []).filter((item) => !item.deleted_at),
 		})) as DailyMenuWithItems[]
 	})
 
 export const upsertDailyMenuFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ menus: z.array(z.record(z.unknown())) }))
+	.inputValidator(z.object({ menus: z.array(DailyMenuUpsertItemSchema) }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("daily_menu")
@@ -71,7 +88,7 @@ export const upsertDailyMenuFn = createServerFn({ method: "POST" })
 	})
 
 export const addMenuItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ item: z.record(z.unknown()) }))
+	.inputValidator(z.object({ item: MenuItemInsertSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("menu_items")
@@ -122,7 +139,15 @@ export const updateMenuItemFn = createServerFn({ method: "POST" })
 	})
 
 export const updateSubstitutionsFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), substitutions: z.record(z.unknown()) }))
+	.inputValidator(
+		z.object({
+			id: z.string(),
+			substitutions: z.record(
+				z.string(),
+				z.object({ type: z.string(), rationale: z.string(), updated_at: z.string() })
+			),
+		})
+	)
 	.handler(async ({ data }) => {
 		const { error } = await getSupabaseServerClient()
 			.from("menu_items")

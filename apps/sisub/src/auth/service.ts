@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query"
 import supabase from "@/lib/supabase"
-import type { AuthContextType } from "../types/domain/"
+import type { AuthContextType } from "../types/domain/auth"
 
 // Separate state from actions for router context typing
 export type AuthState = Pick<AuthContextType, "user" | "session" | "isLoading" | "isAuthenticated">

@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@source "../../../packages/ui/src/**/*.{ts,tsx,js,jsx}";
+
 @font-face {
 	font-family: "Manrope";
 	src: url("/fonts/Manrope-Variable.ttf") format("truetype");
@@ -16,9 +18,6 @@
 	font-style: normal;
 	font-display: swap;
 }
-
-
-@config "../tailwind.config";
 
 
 @custom-variant dark (&:is(.dark *));

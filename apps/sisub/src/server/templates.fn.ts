@@ -9,6 +9,20 @@ import type {
 	MenuTemplateUpdate,
 } from "@/types/supabase.types"
 
+const MenuTemplateWriteSchema = z.object({
+	name: z.string().nullable().optional(),
+	description: z.string().nullable().optional(),
+	kitchen_id: z.number().nullable().optional(),
+	base_template_id: z.string().nullable().optional(),
+})
+
+const MenuTemplateItemWriteSchema = z.object({
+	day_of_week: z.number().nullable().optional(),
+	meal_type_id: z.string().nullable().optional(),
+	recipe_id: z.string().nullable().optional(),
+	menu_template_id: z.string().nullable().optional(),
+})
+
 export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number().nullable() }))
 	.handler(async ({ data }): Promise<TemplateWithItemCounts[]> => {
@@ -101,8 +115,8 @@ export const fetchTemplateFn = createServerFn({ method: "GET" })
 export const createTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
-			template: z.record(z.unknown()),
-			items: z.array(z.record(z.unknown())),
+			template: MenuTemplateWriteSchema,
+			items: z.array(MenuTemplateItemWriteSchema),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -137,8 +151,8 @@ export const updateTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
 			id: z.string(),
-			updates: z.record(z.unknown()),
-			items: z.array(z.record(z.unknown())).optional(),
+			updates: MenuTemplateWriteSchema,
+			items: z.array(MenuTemplateItemWriteSchema).optional(),
 		})
 	)
 	.handler(async ({ data }) => {

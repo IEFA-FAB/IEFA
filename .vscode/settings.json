@@ -7,5 +7,6 @@
   "editor.wordWrap": "on",
   "explorer.openEditors.sortOrder": "alphabetical",
   "dotnet.formatting.organizeImportsOnFormat": true,
-  "importSorter.generalConfiguration.sortOnBeforeSave": true
+  "importSorter.generalConfiguration.sortOnBeforeSave": true,
+  "css.lint.unknownAtRules": "ignore"
 }

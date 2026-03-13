@@ -114,6 +114,7 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 				}
 
 				const productId = ingredient.product_id
+				if (!productId) continue
 				const quantityNeeded = (ingredient.net_quantity || 0) * portionMultiplier
 
 				if (needsMap.has(productId)) {

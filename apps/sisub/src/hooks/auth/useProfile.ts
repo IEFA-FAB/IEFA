@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { fetchMilitaryDataFn, fetchUserDataFn } from "@/server/user.fn"
-import type { MilitaryDataRow, UserDataRow } from "@/types/domain/"
+import type { MilitaryDataRow, UserDataRow } from "@/types/domain/admin"
 import { useAuth } from "./useAuth"
 
 export function useProfile() {

@@ -10,10 +10,11 @@ import viteTsConfigPaths from "vite-tsconfig-paths"
 export default defineConfig(({ command }) => ({
 	plugins: [
 		varlockVitePlugin(),
+		tailwindcss(),
 		viteTsConfigPaths({
 			projects: ["./tsconfig.json"],
 		}),
-		tailwindcss(),
+
 		devtools(),
 		tanstackStart(),
 		nitro({

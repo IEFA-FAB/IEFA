@@ -58,8 +58,7 @@ function AuthPage() {
 		search?: Record<string, unknown>
 		replace?: boolean
 	}) => {
-		// Adapt search params if needed
-		await router.navigate(options)
+		await router.navigate(options as Parameters<typeof router.navigate>[0])
 	}
 
 	const handleTabChange = (tab: "login" | "register") => {

@@ -1,8 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
-import { env } from "@/env"
 
-const supabaseUrl = env.VITE_SISUB_SUPABASE_URL
-const supabaseKey = env.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
+const supabaseUrl = import.meta.env.VITE_SISUB_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
 	db: { schema: "sisub" },

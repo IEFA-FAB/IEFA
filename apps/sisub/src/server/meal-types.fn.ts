@@ -3,6 +3,12 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.types"
 
+const MealTypeWriteSchema = z.object({
+	name: z.string().nullable().optional(),
+	sort_order: z.number().nullable().optional(),
+	kitchen_id: z.number().nullable().optional(),
+})
+
 export const fetchMealTypesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number().nullable() }))
 	.handler(async ({ data }) => {
@@ -26,7 +32,7 @@ export const fetchMealTypesFn = createServerFn({ method: "GET" })
 	})
 
 export const createMealTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(z.record(z.unknown()))
+	.inputValidator(MealTypeWriteSchema)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("meal_type")
@@ -40,7 +46,7 @@ export const createMealTypeFn = createServerFn({ method: "POST" })
 	})
 
 export const updateMealTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), updates: z.record(z.unknown()) }))
+	.inputValidator(z.object({ id: z.string(), updates: MealTypeWriteSchema }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("meal_type")
