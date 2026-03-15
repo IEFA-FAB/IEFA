@@ -1,6 +1,5 @@
 // Step 5: Declarations (COI, Funding, Ethics)
 
-import { Input, Label, Textarea } from "@iefa/ui"
 import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step5Declarations() {

@@ -1,6 +1,6 @@
-import { Button } from "@iefa/ui"
 import { ArrowLeft } from "lucide-react"
 import type { ReactNode } from "react"
+import { Button } from "@/components/ui/button"
 
 interface PageHeaderProps {
 	title: string

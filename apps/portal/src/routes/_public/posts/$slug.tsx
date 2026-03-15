@@ -1,4 +1,3 @@
-import { Button, Separator } from "@iefa/ui"
 import { PortableText, type PortableTextComponents } from "@portabletext/react"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"

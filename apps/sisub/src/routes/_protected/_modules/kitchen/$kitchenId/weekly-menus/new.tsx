@@ -1,15 +1,4 @@
-import {
-	Badge,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Input,
-	Label,
-	Textarea,
-} from "@iefa/ui"
+import { Input } from "@base-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { ArrowLeft, GitFork, Loader2, Plus } from "lucide-react"
@@ -18,6 +7,11 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import supabase from "@/lib/supabase"
 import type { MenuTemplateItemInsert } from "@/types/supabase.types"
@@ -75,7 +69,7 @@ function NewWeeklyMenuPage() {
 			toast.success(`Cardápio semanal "${data.name}" criado!`)
 			navigate({
 				to: "/kitchen/$kitchenId/weekly-menus/$weeklyMenuId",
-				params: { kitchenId: kitchenIdStr!, weeklyMenuId: data.id },
+				params: { kitchenId: kitchenIdStr as string, weeklyMenuId: data.id },
 			})
 		},
 		onError: (err) => toast.error(`Erro: ${err.message}`),
@@ -137,7 +131,7 @@ function NewWeeklyMenuPage() {
 			toast.success(`Fork "${data.name}" criado com sucesso!`)
 			navigate({
 				to: "/kitchen/$kitchenId/weekly-menus/$weeklyMenuId",
-				params: { kitchenId: kitchenIdStr!, weeklyMenuId: data.id },
+				params: { kitchenId: kitchenIdStr as string, weeklyMenuId: data.id },
 			})
 		},
 		onError: (err) => toast.error(`Erro ao forkar: ${err.message}`),
@@ -164,7 +158,7 @@ function NewWeeklyMenuPage() {
 			>
 				<Link
 					to="/kitchen/$kitchenId/weekly-menus"
-					params={{ kitchenId: kitchenIdStr! }}
+					params={{ kitchenId: kitchenIdStr as string }}
 					className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
 				>
 					<ArrowLeft className="h-4 w-4" />
@@ -249,7 +243,10 @@ function NewWeeklyMenuPage() {
 								: "Após criar, você será redirecionado para editar o cardápio semanal."}
 						</p>
 						<div className="flex gap-2">
-							<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr! }}>
+							<Link
+								to="/kitchen/$kitchenId/weekly-menus"
+								params={{ kitchenId: kitchenIdStr as string }}
+							>
 								<Button type="button" variant="outline">
 									Cancelar
 								</Button>

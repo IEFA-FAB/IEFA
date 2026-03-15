@@ -1,20 +1,6 @@
 "use client"
 
 import {
-	Button,
-	DropdownMenu,
-	DropdownMenuCheckboxItem,
-	DropdownMenuContent,
-	DropdownMenuTrigger,
-	Input,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui"
-import {
 	type ColumnDef,
 	type ColumnFiltersState,
 	flexRender,

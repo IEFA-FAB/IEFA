@@ -1,14 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import React from "react"
-import { fetchKitchensFn } from "@/server/kitchens.fn"
-import type { Kitchen, Unit } from "@/types/supabase.types"
+import { fetchKitchensFn, type KitchenWithUnit } from "@/server/kitchens.fn"
 
-/**
- * Kitchen com informações da unit proprietária
- */
-export interface KitchenWithUnit extends Kitchen {
-	unit: Unit | null
-}
+export type { KitchenWithUnit }
 
 /**
  * Hook para buscar kitchens disponíveis para o usuário atual

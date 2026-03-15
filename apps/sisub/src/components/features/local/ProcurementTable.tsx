@@ -1,17 +1,6 @@
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui"
-import { Package } from "lucide-react"
+import { Package, Table } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ProcurementNeed } from "@/services/ProcurementService"
 
 interface ProcurementTableProps {

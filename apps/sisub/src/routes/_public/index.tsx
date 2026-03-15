@@ -1,15 +1,6 @@
-// UI Components (from @iefa/ui)
-import {
-	Badge,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Separator,
-} from "@iefa/ui"
 // Routing
+
+import { Button, Separator } from "@base-ui/react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 // Icons
 import {
@@ -33,8 +24,10 @@ import {
 	UtensilsCrossed,
 } from "lucide-react"
 // React
-import type { JSX } from "react"
+import type { ElementType, JSX } from "react"
 import { useEffect, useRef, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { MealType } from "@/types/domain/meal"
 import type { Feature, Step } from "@/types/ui"
 
@@ -418,8 +411,6 @@ function Home() {
 										<ChevronRight className="h-5 w-5" />
 									</Link>
 								}
-								size="lg"
-								variant="secondary"
 								className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
 							/>
 
@@ -485,7 +476,6 @@ function HomeHero() {
 					<Button
 						nativeButton={false}
 						render={<Link to="/auth">Acessar Sistema</Link>}
-						size="lg"
 						className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
 					/>
 					<div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -571,7 +561,6 @@ function InfoCard({
 							<ChevronRight className="h-5 w-5" />
 						</Link>
 					}
-					variant="default"
 					className="gap-2 font-sans font-semibold"
 				/>
 			</CardContent>
@@ -627,7 +616,7 @@ function Appear({
 		return () => obs.disconnect()
 	}, [threshold, rootMargin])
 
-	const Comp = as as any
+	const Comp = as as ElementType
 
 	return (
 		<Comp

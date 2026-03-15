@@ -1,8 +1,10 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Input } from "@iefa/ui"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Loader2, Search, X } from "lucide-react"
 import { useRef, useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
+import { cn } from "@/lib/cn"
 import type { Product } from "@/types/domain/products"
 
 interface IngredientSelectorProps {
@@ -93,12 +95,9 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 									const isProduct = node.type === "product"
 									const iconBg =
 										node.type === "folder"
-											? "bg-amber-500/10 dark:bg-amber-500/20"
-											: "bg-blue-500/10 dark:bg-blue-500/20"
-									const iconColor =
-										node.type === "folder"
-											? "text-amber-600 dark:text-amber-500"
-											: "text-blue-600 dark:text-blue-500"
+											? "bg-warning/10 dark:bg-warning/20"
+											: "bg-primary/10 dark:bg-primary/20"
+									const iconColor = node.type === "folder" ? "text-warning" : "text-primary"
 
 									return (
 										<div
@@ -138,9 +137,11 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 											>
 												{/* Icon with background */}
 												<div
-													className={`flex items-center justify-center w-7 h-7 rounded-md mr-3 ${iconBg} border border-border/30 transition-transform ${
-														isProduct ? "group-hover:scale-110" : ""
-													}`}
+													className={cn(
+														"flex items-center justify-center w-7 h-7 rounded-md mr-3 border border-border/30 transition-transform",
+														iconBg,
+														isProduct && "group-hover:scale-110"
+													)}
 												>
 													<span className={`text-base ${iconColor}`}>
 														{node.type === "folder" ? "📁" : "📦"}

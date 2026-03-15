@@ -1,15 +1,4 @@
 import {
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "@iefa/ui"
-import {
 	Building2,
 	ChevronDown,
 	ChevronRight,
@@ -20,6 +9,9 @@ import {
 	TrendingUp,
 } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { calculatePercentage } from "@/lib/dashboard"
 import type { MessHallStats } from "@/types/domain/dashboard"
 

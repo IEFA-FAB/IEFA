@@ -1,6 +1,5 @@
 // src/routes/__root.tsx
 
-import { Toaster } from "@iefa/ui"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
 import {

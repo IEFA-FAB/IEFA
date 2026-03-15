@@ -1,5 +1,5 @@
-import { Button } from "@iefa/ui"
 import { Plus, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import type { Recipe } from "@/types/supabase.types"
 
 interface TemplateGridCellProps {

@@ -1,4 +1,3 @@
-import { Button, Input } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { BookOpen, Calendar, Edit, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"

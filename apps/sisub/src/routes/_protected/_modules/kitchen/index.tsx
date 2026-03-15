@@ -27,7 +27,7 @@ function KitchenHubPage() {
 	const allowedIds = new Set(
 		permissions
 			.filter((p) => p.module === "kitchen" && p.kitchen_id !== null)
-			.map((p) => p.kitchen_id!)
+			.map((p) => p.kitchen_id as number)
 	)
 
 	const allKitchens = kitchens ?? []

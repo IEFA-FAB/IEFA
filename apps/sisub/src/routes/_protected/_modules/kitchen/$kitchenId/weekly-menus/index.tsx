@@ -1,17 +1,17 @@
+import { createFileRoute, Link, useParams } from "@tanstack/react-router"
+import { CalendarDays, Edit, GitFork, Plus, Trash2 } from "lucide-react"
+import { requirePermission } from "@/auth/pbac"
+import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-	Badge,
-	Button,
 	Table,
 	TableBody,
 	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui"
-import { createFileRoute, Link, useParams } from "@tanstack/react-router"
-import { CalendarDays, Edit, GitFork, Plus, Trash2 } from "lucide-react"
-import { requirePermission } from "@/auth/pbac"
-import { PageHeader } from "@/components/common/layout/PageHeader"
+} from "@/components/ui/table"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 
 /**
@@ -53,7 +53,10 @@ function WeeklyMenusPage() {
 		<div className="space-y-6">
 			<PageHeader title="Cardápios Semanais">
 				<div className="flex items-center gap-2">
-					<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr! }}>
+					<Link
+						to="/kitchen/$kitchenId/weekly-menus/new"
+						params={{ kitchenId: kitchenIdStr as string }}
+					>
 						<Button size="sm">
 							<Plus className="h-4 w-4 mr-2" />
 							Novo Cardápio Semanal
@@ -98,7 +101,7 @@ function WeeklyMenusPage() {
 											<TableCell className="text-right">
 												<Link
 													to="/kitchen/$kitchenId/weekly-menus/new"
-													params={{ kitchenId: kitchenIdStr! }}
+													params={{ kitchenId: kitchenIdStr as string }}
 													search={{ forkFrom: template.id }}
 												>
 													<Button size="sm" variant="outline">
@@ -139,7 +142,10 @@ function WeeklyMenusPage() {
 							<p className="text-xs text-muted-foreground">
 								Crie do zero ou forke um plano global da SDAB.
 							</p>
-							<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr! }}>
+							<Link
+								to="/kitchen/$kitchenId/weekly-menus/new"
+								params={{ kitchenId: kitchenIdStr as string }}
+							>
 								<Button variant="outline" size="sm" className="mt-2">
 									<Plus className="w-4 h-4 mr-2" />
 									Criar primeiro cardápio semanal
@@ -180,7 +186,10 @@ function WeeklyMenusPage() {
 												<div className="flex items-center justify-end gap-1">
 													<Link
 														to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
-														params={{ kitchenId: kitchenIdStr!, weeklyMenuId: template.id }}
+														params={{
+															kitchenId: kitchenIdStr as string,
+															weeklyMenuId: template.id,
+														}}
 													>
 														<Button size="icon" variant="ghost" title="Editar">
 															<Edit className="w-4 h-4" />

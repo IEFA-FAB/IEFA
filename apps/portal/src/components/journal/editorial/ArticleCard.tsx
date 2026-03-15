@@ -1,6 +1,5 @@
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Card, CardContent } from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"

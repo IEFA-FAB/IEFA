@@ -1,10 +1,10 @@
-import { Button } from "@iefa/ui"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { RecipesManager } from "@/components/features/shared/RecipesManager"
+import { Button } from "@/components/ui/button"
 
 const searchSchema = z.object({
 	search: z.string().optional(),

@@ -1,4 +1,3 @@
-import { Badge, Button, Card, CardContent, CardFooter, CardHeader, Separator } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import {
 	AlertCircle,

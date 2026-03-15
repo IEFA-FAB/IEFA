@@ -20,19 +20,15 @@ export type { DayMeals }
  * Mess Hall (Rancho) - tabela mess_halls
  * Re-exportado de supabase.types.ts
  */
-export type { MessHall }
-
 /**
  * Unidade (OM) - tabela units
  * Re-exportado de supabase.types.ts
  */
-export type { Unit }
-
 /**
  * Forecast de refeição - tabela meal_forecasts
  * Re-exportado de supabase.types.ts
  */
-export type { MealForecast, MealForecastInsert, MealForecastUpdate }
+export type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit }
 
 // ============================================================================
 // DOMAIN TYPES (Tipos de Negócio)

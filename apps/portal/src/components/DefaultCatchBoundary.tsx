@@ -1,14 +1,3 @@
-import {
-	Alert,
-	AlertDescription,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@iefa/ui"
 import type { ErrorComponentProps } from "@tanstack/react-router"
 import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router"
 import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"

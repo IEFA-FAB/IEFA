@@ -1,4 +1,3 @@
-import { Button, Card, CardContent, CardHeader } from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { AlertCircle, User } from "lucide-react"
 

@@ -1,13 +1,12 @@
 // routes/protected/presence/selfCheckin.tsx
 
-import { Button } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { PageHeader } from "@/components/common/layout/PageHeader"
-
+import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { inferDefaultMeal } from "@/lib/fiscal"
 import supabase from "@/lib/supabase"

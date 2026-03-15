@@ -1,6 +1,5 @@
 // Article Detail Page - Author's view of their submission
 
-import { Button } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"

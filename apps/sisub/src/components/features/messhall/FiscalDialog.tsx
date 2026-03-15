@@ -1,3 +1,4 @@
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -7,9 +8,8 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-	Button,
-} from "@iefa/ui"
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react"
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
 import type { DialogState } from "@/types/domain/presence"
 
 interface FiscalDialogProps {

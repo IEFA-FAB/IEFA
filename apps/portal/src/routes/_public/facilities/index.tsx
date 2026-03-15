@@ -1,4 +1,3 @@
-import { Separator } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { AppCard } from "@/components/AppCard"
 import { DynamicIcon } from "@/components/dynamicIcon"

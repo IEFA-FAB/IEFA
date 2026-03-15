@@ -1,19 +1,6 @@
 "use client"
 
-import {
-	Button,
-	DropdownMenu,
-	DropdownMenuCheckboxItem,
-	DropdownMenuContent,
-	DropdownMenuTrigger,
-	Input,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui"
+import { Input } from "@base-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import {
 	type ColumnDef,
@@ -30,6 +17,21 @@ import {
 import { ArrowUpDown, ChevronDown } from "lucide-react"
 import * as React from "react"
 import { useMemo, useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table"
 import supabase from "@/lib/supabase"
 import CopyButton from "./CopyButton"
 

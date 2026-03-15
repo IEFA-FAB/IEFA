@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@source "../../../packages/ui/src/**/*.{ts,tsx,js,jsx}";
 
 @font-face {
 	font-family: "Manrope";
@@ -41,6 +40,11 @@
   --border: oklch(0.9317 0.0118 231.6594);
   --input: oklch(0.9809 0.0025 228.7836);
   --ring: oklch(0.6818 0.1584 243.3540);
+  /* Status tokens — mapeiam aos chart colors já calibrados */
+  --success: oklch(0.6907 0.1554 160.3454);
+  --success-foreground: oklch(1.0000 0 0);
+  --warning: oklch(0.7500 0.1400 82.5337);
+  --warning-foreground: oklch(0.2000 0 0);
   --chart-1: oklch(0.6723 0.1606 244.9955);
   --chart-2: oklch(0.6907 0.1554 160.3454);
   --chart-3: oklch(0.8214 0.1600 82.5337);
@@ -57,21 +61,16 @@
   --font-sans: 'Manrope', ui-sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius: 1.5rem;
-  --shadow-x: 0px;
-  --shadow-y: 2px;
-  --shadow-blur: 0px;
-  --shadow-spread: 0px;
-  --shadow-opacity: 0;
-  --shadow-color: rgba(29,161,242,0.15);
-  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  /* Radius: 0.5rem = padrão shadcn/zinc, shapes técnicos sem pill excessivo */
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.06);
+  --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.08);
+  --shadow-sm: 0px 1px 3px 0px oklch(0 0 0 / 0.10), 0px 1px 2px -1px oklch(0 0 0 / 0.06);
+  --shadow: 0px 2px 4px 0px oklch(0 0 0 / 0.10), 0px 1px 2px -1px oklch(0 0 0 / 0.06);
+  --shadow-md: 0px 4px 8px 0px oklch(0 0 0 / 0.10), 0px 2px 4px -2px oklch(0 0 0 / 0.06);
+  --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.12), 0px 4px 6px -4px oklch(0 0 0 / 0.06);
+  --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.14), 0px 8px 10px -6px oklch(0 0 0 / 0.06);
+  --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.18);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
@@ -96,6 +95,11 @@
   --border: oklch(0.2674 0.0047 248.0045);
   --input: oklch(0.3020 0.0288 244.8244);
   --ring: oklch(0.6818 0.1584 243.3540);
+  /* Status tokens */
+  --success: oklch(0.6907 0.1554 160.3454);
+  --success-foreground: oklch(1.0000 0 0);
+  --warning: oklch(0.7500 0.1400 82.5337);
+  --warning-foreground: oklch(0.2000 0 0);
   --chart-1: oklch(0.6723 0.1606 244.9955);
   --chart-2: oklch(0.6907 0.1554 160.3454);
   --chart-3: oklch(0.8214 0.1600 82.5337);
@@ -109,24 +113,20 @@
   --sidebar-accent-foreground: oklch(0.6692 0.1607 245.0110);
   --sidebar-border: oklch(0.3795 0.0220 240.5943);
   --sidebar-ring: oklch(0.6818 0.1584 243.3540);
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui;
+  /* Alinhado com Manrope — DM Sans não estava sendo carregada */
+  --font-sans: 'Manrope', ui-sans-serif, system-ui;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius: 1.5rem;
-  --shadow-x: 0px;
-  --shadow-y: 2px;
-  --shadow-blur: 0px;
-  --shadow-spread: 0px;
-  --shadow-opacity: 0;
-  --shadow-color: rgba(29,161,242,0.25);
-  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  /* Radius consistente com light mode */
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.20);
+  --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.25);
+  --shadow-sm: 0px 1px 3px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+  --shadow: 0px 2px 4px 0px oklch(0 0 0 / 0.30), 0px 1px 2px -1px oklch(0 0 0 / 0.20);
+  --shadow-md: 0px 4px 8px 0px oklch(0 0 0 / 0.30), 0px 2px 4px -2px oklch(0 0 0 / 0.20);
+  --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.35), 0px 4px 6px -4px oklch(0 0 0 / 0.20);
+  --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.40), 0px 8px 10px -6px oklch(0 0 0 / 0.20);
+  --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.50);
 }
 
 @theme inline {
@@ -162,15 +162,19 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);

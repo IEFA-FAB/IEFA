@@ -1,19 +1,10 @@
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@iefa/ui"
 import { useQuery } from "@tanstack/react-query"
 import { BarChart3, Building2, LayoutDashboard, Users } from "lucide-react"
 import { useState } from "react"
 import { DashboardSkeleton } from "@/components/common/skeletons/DashboardSkeleton"
 import PresenceTable from "@/components/features/local/PresenceTable"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { aggregateDashboardMetrics } from "@/lib/dashboard"
 import {
 	dashboardForecastsQueryOptions,

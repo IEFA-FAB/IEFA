@@ -1,20 +1,22 @@
+import { CalendarDays, Edit, Plus, Trash2 } from "lucide-react"
+import React from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-	Badge,
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+} from "@/components/ui/dialog"
+import {
 	Table,
 	TableBody,
 	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui"
-import { CalendarDays, Edit, Plus, Trash2 } from "lucide-react"
-import React from "react"
+} from "@/components/ui/table"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 import { TemplateEditor } from "./TemplateEditor"
 

@@ -55,8 +55,8 @@ export function aggregateDashboardMetrics(
 				ceia: 0,
 			})
 		}
-		const stat = dateMap.get(forecast.date)!
-		stat[forecast.meal]++
+		const stat = dateMap.get(forecast.date)
+		if (stat) stat[forecast.meal]++
 	}
 	const daily_distribution = Array.from(dateMap.values()).sort((a, b) =>
 		a.date.localeCompare(b.date)

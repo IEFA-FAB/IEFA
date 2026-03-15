@@ -1,9 +1,9 @@
-import { Button } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, Package } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { ProductItemsManager } from "@/components/features/global/ProductItemsManager"
+import { Button } from "@/components/ui/button"
 import { productItemsQueryOptions, productQueryOptions } from "@/services/ProductsService"
 
 /**

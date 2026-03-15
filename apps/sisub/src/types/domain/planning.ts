@@ -31,7 +31,7 @@ export type MenuTemplateWithItems = MenuTemplate & {
 export interface DailyMenuWithItems extends DailyMenu {
 	menu_items: (MenuItem & {
 		recipe_origin: Recipe | null
-		recipe: Record<string, any> // Snapshot
+		recipe: Record<string, unknown> // Snapshot
 	})[]
 	meal_type: MealType | null
 }

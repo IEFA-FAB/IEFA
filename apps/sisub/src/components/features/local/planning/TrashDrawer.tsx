@@ -1,20 +1,17 @@
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { CalendarDays, Loader2, RefreshCcw, Trash2, UtensilsCrossed } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
-	Badge,
-	Button,
-	ScrollArea,
 	Sheet,
 	SheetContent,
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@iefa/ui"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { CalendarDays, Loader2, RefreshCcw, Trash2, UtensilsCrossed } from "lucide-react"
+} from "@/components/ui/sheet"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRestoreMenuItem, useTrashItems } from "@/hooks/data/usePlanning"
 import { useDeletedTemplates, useRestoreTemplate } from "@/hooks/data/useTemplates"
 
@@ -80,7 +77,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 									</div>
 								) : (
 									<div className="space-y-3 mt-4">
-										{trashItems.map((item: any) => (
+										{trashItems.map((item) => (
 											<div
 												key={item.id}
 												className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2"
@@ -112,7 +109,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 												<Button
 													size="sm"
 													variant="outline"
-													className="w-full h-8 gap-2 hover:bg-green-50 hover:text-green-700 hover:border-green-200"
+													className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
 													onClick={() => restoreItem(item.id)}
 													disabled={isPending}
 												>
@@ -171,7 +168,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 												<Button
 													size="sm"
 													variant="outline"
-													className="w-full h-8 gap-2 hover:bg-green-50 hover:text-green-700 hover:border-green-200"
+													className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
 													onClick={() => restoreTemplate(template.id)}
 													disabled={isPending}
 												>

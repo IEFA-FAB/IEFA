@@ -1,4 +1,3 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"

@@ -1,4 +1,5 @@
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@iefa/ui"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 interface RecipeDiffViewerProps {

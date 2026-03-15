@@ -1,14 +1,14 @@
 "use client"
 
+import { Link } from "@tanstack/react-router"
+import type { LucideIcon } from "lucide-react"
 import {
 	SidebarGroup,
 	SidebarGroupLabel,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-} from "@iefa/ui"
-import { Link } from "@tanstack/react-router"
-import type { LucideIcon } from "lucide-react"
+} from "@/components/ui/sidebar"
 
 export function NavMain({
 	items,

@@ -28,7 +28,7 @@ function MessHallHubPage() {
 	const allowedIds = new Set(
 		permissions
 			.filter((p) => p.module === "messhall" && p.mess_hall_id !== null)
-			.map((p) => p.mess_hall_id!)
+			.map((p) => p.mess_hall_id as number)
 	)
 
 	const items = (isGlobal ? messHalls : messHalls.filter((mh) => allowedIds.has(mh.id))).map(

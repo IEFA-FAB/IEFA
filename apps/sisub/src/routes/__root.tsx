@@ -1,6 +1,5 @@
 // src/routes/__root.tsx
 
-import { Toaster } from "@iefa/ui"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
 import {
@@ -17,6 +16,7 @@ import { NotFound } from "@/components/common/errors/NotFound"
 import { RealtimeProvider } from "@/components/common/providers/RealtimeProvider"
 import type { ThemeContextType } from "@/components/common/shared/themeService"
 import { ThemeScript } from "@/components/common/shared/themeService"
+import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import AppStyles from "@/styles.css?url"
 import type { AuthContextType } from "@/types/domain/auth"

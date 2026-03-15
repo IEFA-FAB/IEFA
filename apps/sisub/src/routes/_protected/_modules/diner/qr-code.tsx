@@ -1,9 +1,9 @@
-import { Button } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { Copy, Download } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import { useRef, useState } from "react"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 

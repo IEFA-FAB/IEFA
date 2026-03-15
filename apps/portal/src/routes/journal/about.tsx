@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import {
 	Award,

@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader } from "@iefa/ui"
 import { AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react"
 
 export function MetricsPanel() {

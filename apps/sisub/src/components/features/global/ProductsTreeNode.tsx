@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { useQueryClient } from "@tanstack/react-query"
 import {
 	ChevronDown,
@@ -10,6 +9,7 @@ import {
 	Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 import { useDeleteFolder, useDeleteProduct } from "@/services/ProductsService"
 import type { Folder, Product, ProductTreeNode, TreeNodeType } from "@/types/domain/products"
 
@@ -45,14 +45,14 @@ export function ProductsTreeNode({
 
 	const typeStyles = {
 		folder: {
-			iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
-			iconColor: "text-amber-600 dark:text-amber-500",
-			border: "border-amber-500/20",
+			iconBg: "bg-warning/10 dark:bg-warning/20",
+			iconColor: "text-warning",
+			border: "border-warning/20",
 		},
 		product: {
-			iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
-			iconColor: "text-blue-600 dark:text-blue-500",
-			border: "border-blue-500/20",
+			iconBg: "bg-primary/10 dark:bg-primary/20",
+			iconColor: "text-primary",
+			border: "border-primary/20",
 		},
 	}
 
@@ -149,7 +149,7 @@ export function ProductsTreeNode({
 
 				{/* Badge de contagem de itens de compra */}
 				{node.type === "product" && itemCount !== undefined && itemCount > 0 && (
-					<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20">
+					<span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono tracking-wide bg-success/10 text-success border border-success/20">
 						{itemCount} {itemCount === 1 ? "item" : "itens"}
 					</span>
 				)}

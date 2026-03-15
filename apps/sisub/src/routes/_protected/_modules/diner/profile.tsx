@@ -1,21 +1,13 @@
-import {
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Input,
-	Label,
-	Separator,
-} from "@iefa/ui"
+import { Input, Separator } from "@base-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { useEffect } from "react"
 import { z } from "zod"
 import { PageHeader } from "@/components/common/layout/PageHeader"
-
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"

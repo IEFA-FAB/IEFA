@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Filter, LayoutGrid, Table } from "lucide-react"

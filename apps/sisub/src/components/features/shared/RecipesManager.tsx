@@ -1,8 +1,10 @@
-import { Badge, Button, Input } from "@iefa/ui"
 import { Link, useParams } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ChefHat, GitFork, Search } from "lucide-react"
 import { useRef, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useRecipes } from "@/hooks/data/useRecipes"
 
 const ROW_HEIGHT = 52

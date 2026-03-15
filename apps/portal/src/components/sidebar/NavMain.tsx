@@ -1,10 +1,3 @@
-import {
-	SidebarGroup,
-	SidebarGroupLabel,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-} from "@iefa/ui"
 import { Link, useLocation } from "@tanstack/react-router"
 import type { LucideIcon } from "lucide-react"
 

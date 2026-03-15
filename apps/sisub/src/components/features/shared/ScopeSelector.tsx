@@ -9,6 +9,7 @@
 
 import type { LucideIcon } from "lucide-react"
 import { useEffect } from "react"
+import { Button } from "@/components/ui/button"
 
 export interface ScopeSelectorItem {
 	id: number
@@ -79,13 +80,14 @@ export function ScopeSelector({
 				) : (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						{items.map((item) => (
-							<button
+							<Button
 								key={item.id}
 								type="button"
 								onClick={() => onSelect(item.id)}
-								className="group relative flex flex-col gap-3 rounded-2xl border border-border/50 bg-background/60 backdrop-blur-sm p-6 text-left transition-all duration-200 hover:border-primary/30 hover:bg-background/80 hover:shadow-lg hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className="group relative flex h-auto flex-col items-start gap-3 rounded-2xl border border-border/50 bg-background/60 backdrop-blur-sm p-6 text-left transition-all duration-200 hover:border-primary/30 hover:bg-background/80 hover:shadow-lg hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								variant="outline"
 							>
-								<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+								<div className="flex shrink-0 h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
 									<Icon className="h-5 w-5" />
 								</div>
 								<div>
@@ -94,7 +96,7 @@ export function ScopeSelector({
 										<p className="text-sm text-muted-foreground mt-0.5">{item.subtitle}</p>
 									)}
 								</div>
-							</button>
+							</Button>
 						))}
 					</div>
 				)}

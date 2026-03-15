@@ -1,8 +1,8 @@
-import { Button } from "@iefa/ui"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { CalendarDays, Plus } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Button } from "@/components/ui/button"
 
 /**
  * GLOBAL-03 — Planos Semanais Modelo (SDAB)

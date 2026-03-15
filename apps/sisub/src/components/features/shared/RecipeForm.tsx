@@ -1,4 +1,3 @@
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Textarea } from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { Loader2, Plus, Save, Trash2 } from "lucide-react"
@@ -7,7 +6,14 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
+import { cn } from "@/lib/cn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Schema Validation
@@ -139,35 +145,48 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						<CardContent className="space-y-4">
 							<form.Field name="name">
 								{(field) => (
-									<div>
-										<Label htmlFor="name">Nome da Preparação</Label>
-										<Input
-											id="name"
-											value={field.state.value}
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-										/>
-										{field.state.meta.errors && (
-											<span className="text-destructive text-sm">
-												{field.state.meta.errors.join(",")}
-											</span>
-										)}
-									</div>
+									<Field data-invalid={field.state.meta.errors.length > 0}>
+										<FieldLabel htmlFor="name">Nome da Preparação</FieldLabel>
+										<FieldContent>
+											<Input
+												id="name"
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+											/>
+											<FieldError
+												errors={field.state.meta.errors
+													.filter(Boolean)
+													.map((err) => ({ message: String(err) }))}
+											/>
+										</FieldContent>
+									</Field>
 								)}
 							</form.Field>
 
 							<form.Field name="preparation_method">
 								{(field) => (
-									<div>
-										<Label htmlFor="prep">Modo de Preparo</Label>
-										<Textarea
-											id="prep"
-											className="min-h-30"
-											value={field.state.value || ""}
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-										/>
-									</div>
+									<Field data-invalid={field.state.meta.errors.length > 0}>
+										<FieldLabel htmlFor="prep">Modo de Preparo</FieldLabel>
+										<FieldContent>
+											<Textarea
+												id="prep"
+												className={cn(
+													"min-h-30",
+													field.state.meta.errors.length > 0 && "border-destructive"
+												)}
+												value={field.state.value || ""}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+											/>
+											<FieldError
+												errors={field.state.meta.errors
+													.filter(Boolean)
+													.map((err) => ({ message: String(err) }))}
+											/>
+										</FieldContent>
+									</Field>
 								)}
 							</form.Field>
 						</CardContent>
@@ -181,40 +200,64 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						<CardContent className="space-y-4">
 							<form.Field name="portion_yield">
 								{(field) => (
-									<div>
-										<Label>Rendimento (Porções)</Label>
-										<Input
-											type="number"
-											min={1}
-											value={field.state.value}
-											onChange={(e) => field.handleChange(Number(e.target.value))}
-										/>
-									</div>
+									<Field data-invalid={field.state.meta.errors.length > 0}>
+										<FieldLabel>Rendimento (Porções)</FieldLabel>
+										<FieldContent>
+											<Input
+												type="number"
+												min={1}
+												value={field.state.value}
+												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+												onChange={(e) => field.handleChange(Number(e.target.value))}
+											/>
+											<FieldError
+												errors={field.state.meta.errors
+													.filter(Boolean)
+													.map((err) => ({ message: String(err) }))}
+											/>
+										</FieldContent>
+									</Field>
 								)}
 							</form.Field>
 							<form.Field name="preparation_time_minutes">
 								{(field) => (
-									<div>
-										<Label>Tempo de Preparo (min)</Label>
-										<Input
-											type="number"
-											value={field.state.value || 0}
-											onChange={(e) => field.handleChange(Number(e.target.value))}
-										/>
-									</div>
+									<Field data-invalid={field.state.meta.errors.length > 0}>
+										<FieldLabel>Tempo de Preparo (min)</FieldLabel>
+										<FieldContent>
+											<Input
+												type="number"
+												value={field.state.value || 0}
+												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+												onChange={(e) => field.handleChange(Number(e.target.value))}
+											/>
+											<FieldError
+												errors={field.state.meta.errors
+													.filter(Boolean)
+													.map((err) => ({ message: String(err) }))}
+											/>
+										</FieldContent>
+									</Field>
 								)}
 							</form.Field>
 							<form.Field name="cooking_factor">
 								{(field) => (
-									<div>
-										<Label>Fator de Cocção (FC)</Label>
-										<Input
-											type="number"
-											step="0.01"
-											value={field.state.value || 1}
-											onChange={(e) => field.handleChange(Number(e.target.value))}
-										/>
-									</div>
+									<Field data-invalid={field.state.meta.errors.length > 0}>
+										<FieldLabel>Fator de Cocção (FC)</FieldLabel>
+										<FieldContent>
+											<Input
+												type="number"
+												step="0.01"
+												value={field.state.value || 1}
+												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+												onChange={(e) => field.handleChange(Number(e.target.value))}
+											/>
+											<FieldError
+												errors={field.state.meta.errors
+													.filter(Boolean)
+													.map((err) => ({ message: String(err) }))}
+											/>
+										</FieldContent>
+									</Field>
 								)}
 							</form.Field>
 						</CardContent>

@@ -1,9 +1,12 @@
 // components/DayCard.tsx
 
-import { Badge, Button, Card, CardContent, CardHeader, Skeleton } from "@iefa/ui"
 import { Calendar, Clock, Loader2 } from "lucide-react"
 import { MealButton } from "@/components/features/diner/MealButton"
 import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { MEAL_TYPES } from "@/constants/rancho"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
 import { cn } from "@/lib/cn"

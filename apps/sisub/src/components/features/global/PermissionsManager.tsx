@@ -1,32 +1,29 @@
 "use no memo"
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { ArrowLeft, Pencil, Plus, Search, Table, Trash2 } from "lucide-react"
+import * as React from "react"
+import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-	Badge,
-	Button,
 	Dialog,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-	Label,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-	Skeleton,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react"
-import * as React from "react"
-import { toast } from "sonner"
+} from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import {
@@ -386,7 +383,7 @@ function DeleteDialog({
 					</span>{" "}
 					(nível {perm?.level ?? ""})?{" "}
 					{perm?.module === "diner" && perm?.level === 0 && (
-						<span className="text-orange-600">
+						<span className="text-warning">
 							Isso restaurará o acesso implícito de Comensal para este usuário.
 						</span>
 					)}
@@ -452,7 +449,7 @@ export default function PermissionsManager() {
 
 	const { data: permissions = [], isLoading: isLoadingPerms } = useQuery({
 		queryKey: permsKey,
-		queryFn: () => fetchUserPermissionsAdminFn({ data: { userId: selectedUser!.id } }),
+		queryFn: () => fetchUserPermissionsAdminFn({ data: { userId: selectedUser?.id as string } }),
 		enabled: !!selectedUser,
 	})
 
@@ -482,7 +479,7 @@ export default function PermissionsManager() {
 		mutationFn: () =>
 			createUserPermissionFn({
 				data: {
-					userId: selectedUser!.id,
+					userId: selectedUser?.id as string,
 					module: form.module,
 					level: Number(form.level),
 					...scopeFromForm(form),

@@ -1,4 +1,3 @@
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@iefa/ui"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"
 import type { AppSidebarData } from "./SidebarTypes"

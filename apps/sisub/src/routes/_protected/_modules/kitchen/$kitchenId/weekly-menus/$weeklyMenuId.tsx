@@ -1,25 +1,17 @@
-import {
-	Badge,
-	Button,
-	Input,
-	Label,
-	Separator,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-	Textarea,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@iefa/ui"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { ArrowLeft, CheckCircle2, Circle, GitFork, Loader2, Plus, Save, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
@@ -231,7 +223,7 @@ function WeeklyMenuEditorPage() {
 	const kitchenId = Number(kitchenIdStr)
 	const navigate = useNavigate()
 
-	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId!)
+	const { data: template, isLoading: templateLoading } = useTemplate(weeklyMenuId as string)
 	const { data: mealTypes } = useMealTypes(kitchenId)
 	const { data: allRecipes } = useRecipes()
 	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
@@ -315,7 +307,7 @@ function WeeklyMenuEditorPage() {
 		if (!name.trim()) return
 		updateTemplate(
 			{
-				id: weeklyMenuId!,
+				id: weeklyMenuId as string,
 				updates: {
 					name: name.trim(),
 					description: description.trim() || null,
@@ -330,7 +322,7 @@ function WeeklyMenuEditorPage() {
 				onSuccess: () => {
 					navigate({
 						to: "/kitchen/$kitchenId/weekly-menus",
-						params: { kitchenId: kitchenIdStr! },
+						params: { kitchenId: kitchenIdStr as string },
 					})
 				},
 			}
@@ -355,7 +347,7 @@ function WeeklyMenuEditorPage() {
 				<p className="text-sm text-destructive">Cardápio semanal não encontrado.</p>
 				<Link
 					to="/kitchen/$kitchenId/weekly-menus"
-					params={{ kitchenId: kitchenIdStr! }}
+					params={{ kitchenId: kitchenIdStr as string }}
 					className="text-sm text-primary mt-2 inline-block"
 				>
 					← Voltar
@@ -373,14 +365,17 @@ function WeeklyMenuEditorPage() {
 					<div className="flex items-center gap-2">
 						<Link
 							to="/kitchen/$kitchenId/weekly-menus"
-							params={{ kitchenId: kitchenIdStr! }}
+							params={{ kitchenId: kitchenIdStr as string }}
 							className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
 						>
 							<ArrowLeft className="h-4 w-4" />
 							Cardápios Semanais
 						</Link>
 						<Separator orientation="vertical" className="h-4" />
-						<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr! }}>
+						<Link
+							to="/kitchen/$kitchenId/weekly-menus"
+							params={{ kitchenId: kitchenIdStr as string }}
+						>
 							<Button type="button" variant="outline" size="sm">
 								Cancelar
 							</Button>

@@ -1,7 +1,24 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import type { DayMenuContent, DishDetails, DishIngredient } from "@/hooks/data/useDailyMenuContent"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
+
+export interface DishIngredient {
+	product_name: string
+	quantity: number
+	measure_unit: string
+}
+
+export interface DishDetails {
+	id: string
+	name: string
+	ingredients: DishIngredient[]
+}
+
+export interface DayMenuContent {
+	[date: string]: {
+		[mealKey: string]: DishDetails[]
+	}
+}
 
 interface RecipeSnapshot {
 	name: string
@@ -65,7 +82,7 @@ export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
 			if (!content[date]) content[date] = {}
 			if (!content[date][mealKey]) content[date][mealKey] = []
 
-			menu.menu_items.forEach((item: any) => {
+			menu.menu_items.forEach((item) => {
 				let dishName = "Prato sem nome"
 				let ingredients: DishIngredient[] = []
 

@@ -1,8 +1,14 @@
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { Loader2, Plus } from "lucide-react"
+import { useState } from "react"
 import {
 	Accordion,
 	AccordionContent,
 	AccordionItem,
 	AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
 	AlertDialog,
 	AlertDialogAction,
 	AlertDialogCancel,
@@ -11,21 +17,19 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-	Badge,
-	Button,
-	Input,
-	Label,
-	ScrollArea,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
 	Sheet,
 	SheetContent,
 	SheetDescription,
 	SheetHeader,
 	SheetTitle,
-} from "@iefa/ui"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { Loader2, Plus } from "lucide-react"
-import { useState } from "react"
+} from "@/components/ui/sheet"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import {
 	useAddMenuItem,
@@ -156,7 +160,7 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 								addMenuItem({
 									daily_menu_id: recipeSelectorMenu.id,
 									recipe_origin_id: recipeId,
-									recipe: recipeSnapshot as any,
+									recipe: recipeSnapshot as Record<string, unknown>,
 									planned_portion_quantity: recipeSelectorMenu.forecasted_headcount || 150,
 									excluded_from_procurement: 0,
 								})

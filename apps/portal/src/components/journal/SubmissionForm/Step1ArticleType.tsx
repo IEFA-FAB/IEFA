@@ -1,6 +1,5 @@
 // Step 1: Article Type and Subject Area Selection
 
-import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@iefa/ui"
 import { useSubmissionForm } from "./SubmissionForm"
 
 const ARTICLE_TYPES = [

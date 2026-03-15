@@ -11,7 +11,7 @@ export const userNrOrdemKey = (userId: string | null | undefined) =>
 export function useUserNrOrdem(userId: string | null) {
 	return useQuery({
 		queryKey: userNrOrdemKey(userId),
-		queryFn: () => fetchUserNrOrdemFn({ data: { userId: userId! } }),
+		queryFn: () => fetchUserNrOrdemFn({ data: { userId: userId as string } }),
 		enabled: !!userId,
 		staleTime: QUERY_STALE_TIME,
 		gcTime: QUERY_GC_TIME,

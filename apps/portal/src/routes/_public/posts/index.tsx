@@ -1,4 +1,3 @@
-import { Separator } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Suspense } from "react"

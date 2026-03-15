@@ -1,18 +1,18 @@
+import { useForm } from "@tanstack/react-form"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import { z } from "zod"
+import { Button } from "@/components/ui/button"
 import {
-	Button,
 	Dialog,
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-	Label,
-	Select,
-} from "@iefa/ui"
-import { useForm } from "@tanstack/react-form"
-import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { z } from "zod"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
 import type { ProductItem } from "@/types/supabase.types"
 

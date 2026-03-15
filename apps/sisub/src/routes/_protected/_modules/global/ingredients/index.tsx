@@ -1,10 +1,10 @@
-import { Button } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { DownloadIcon } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { ProductsTreeManager } from "@/components/features/global/ProductsTreeManager"
+import { Button } from "@/components/ui/button"
 import { useExportProductsCSV } from "@/hooks/business/useExportProductsCSV"
 import { productsTreeQueryOptions } from "@/services/ProductsService"
 

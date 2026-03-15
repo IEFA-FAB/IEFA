@@ -1,7 +1,7 @@
-import { SidebarProvider } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { AppShell } from "@/components/common/layout/AppShell"
+import { SidebarProvider } from "@/components/ui/sidebar"
 
 /**
  * Hook para determinar o estado padrão da sidebar baseado no tamanho da tela

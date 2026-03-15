@@ -1,8 +1,10 @@
-import { Button, Input, Label } from "@iefa/ui"
+import { Input } from "@base-ui/react"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 
 /**
  * GLOBAL-03 — Criar Plano Semanal Modelo

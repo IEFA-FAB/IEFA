@@ -1,4 +1,3 @@
-import { Badge, Button, Card, CardContent, CardFooter, CardHeader } from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { User } from "lucide-react"
 import { urlFor } from "@/lib/sanity"

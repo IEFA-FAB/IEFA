@@ -1,17 +1,17 @@
+import { Loader2 } from "lucide-react"
+import React from "react"
+import { Button } from "@/components/ui/button"
 import {
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-	Label,
-	Textarea,
-} from "@iefa/ui"
-import { Loader2 } from "lucide-react"
-import React from "react"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useCreateTemplate, useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"

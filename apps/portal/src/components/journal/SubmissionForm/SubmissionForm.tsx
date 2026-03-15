@@ -1,7 +1,6 @@
 // Main submission form container with step navigation
 // Manages form state across all 6 steps
 
-import { Button } from "@iefa/ui"
 import { Check, ChevronLeft, ChevronRight } from "lucide-react"
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { saveDraft } from "@/lib/journal/submission"

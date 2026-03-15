@@ -1,6 +1,5 @@
 // Step 2: Bilingual Metadata (Titles, Abstracts, Keywords)
 
-import { Button, Input, Label, Textarea } from "@iefa/ui"
 import { X } from "lucide-react"
 import { useState } from "react"
 import { useSubmissionForm } from "./SubmissionForm"

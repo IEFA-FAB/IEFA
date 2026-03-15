@@ -22,7 +22,9 @@ function UnitHubPage() {
 			p.module === "unit" && p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null
 	)
 	const allowedIds = new Set(
-		permissions.filter((p) => p.module === "unit" && p.unit_id !== null).map((p) => p.unit_id!)
+		permissions
+			.filter((p) => p.module === "unit" && p.unit_id !== null)
+			.map((p) => p.unit_id as number)
 	)
 
 	const items = (isGlobal ? units : units.filter((u) => allowedIds.has(u.id))).map((u) => ({

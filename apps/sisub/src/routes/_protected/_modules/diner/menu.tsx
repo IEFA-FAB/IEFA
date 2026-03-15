@@ -1,11 +1,13 @@
-import { Badge } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react"
 import { useState } from "react"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { type DishDetails, useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
+import { cn } from "@/lib/cn"
 
 export const Route = createFileRoute("/_protected/_modules/diner/menu")({
 	component: MenuPage,
@@ -113,15 +115,15 @@ function MenuPage() {
 
 			{/* Navegação de datas */}
 			<div className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3">
-				<button
-					type="button"
+				<Button
+					variant="ghost"
+					size="icon"
 					onClick={() => setSelectedDate(dates[selectedIndex - 1])}
 					disabled={!canGoPrev}
-					className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 					aria-label="Dia anterior"
 				>
 					<ChevronLeft className="h-5 w-5" />
-				</button>
+				</Button>
 
 				<div className="text-center">
 					<p className="text-sm font-semibold capitalize">{formatDateLabel(selectedDate)}</p>
@@ -130,15 +132,15 @@ function MenuPage() {
 					)}
 				</div>
 
-				<button
-					type="button"
+				<Button
+					variant="ghost"
+					size="icon"
 					onClick={() => setSelectedDate(dates[selectedIndex + 1])}
 					disabled={!canGoNext}
-					className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 					aria-label="Próximo dia"
 				>
 					<ChevronRight className="h-5 w-5" />
-				</button>
+				</Button>
 			</div>
 
 			{/* Seleção rápida de dias */}
@@ -147,22 +149,27 @@ function MenuPage() {
 					const [, , day] = d.split("-")
 					const isSelected = d === selectedDate
 					return (
-						<button
+						<Button
 							key={d}
-							type="button"
+							variant="outline"
 							onClick={() => setSelectedDate(d)}
-							className={[
-								"flex flex-col items-center rounded-lg border px-3 py-2 text-xs shrink-0 transition-colors cursor-pointer",
+							className={cn(
+								"flex flex-col items-center justify-center h-auto min-w-[3.5rem] py-2 shrink-0 transition-colors",
 								isSelected
-									? "border-primary bg-primary/10 text-primary font-semibold"
-									: "border-border hover:bg-muted",
-							].join(" ")}
+									? "border-primary bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+									: "hover:bg-muted font-normal"
+							)}
 						>
-							<span>{Number(day)}</span>
-							<span className="text-muted-foreground">
+							<span className="text-sm">{Number(day)}</span>
+							<span
+								className={cn(
+									"text-xs",
+									isSelected ? "text-primary/80" : "text-muted-foreground opacity-80"
+								)}
+							>
 								{new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR", { month: "short" })}
 							</span>
-						</button>
+						</Button>
 					)
 				})}
 			</div>

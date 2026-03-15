@@ -1,22 +1,24 @@
+import { useForm } from "@tanstack/react-form"
+import * as React from "react"
+import { z } from "zod"
+import { Button } from "@/components/ui/button"
 import {
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-	Label,
+} from "@/components/ui/dialog"
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui"
-import { useForm } from "@tanstack/react-form"
-import * as React from "react"
-import { z } from "zod"
+} from "@/components/ui/select"
 import type { EditUserPayload, ProfileAdmin, UserLevelOrNull } from "@/types/domain/admin"
 import type { Unit } from "@/types/domain/meal"
 
@@ -97,11 +99,14 @@ export default function EditUserDialog({
 				>
 					<form.Field name="saram">
 						{(field) => (
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="saram" className="text-right">
+							<Field
+								className="grid grid-cols-4 items-center gap-4"
+								data-invalid={field.state.meta.errors.length > 0}
+							>
+								<FieldLabel htmlFor="saram" className="text-right">
 									SARAM
-								</Label>
-								<div className="col-span-3">
+								</FieldLabel>
+								<FieldContent className="col-span-3">
 									<Input
 										id="saram"
 										name="saram"
@@ -110,30 +115,38 @@ export default function EditUserDialog({
 										onChange={(e) => field.handleChange(e.target.value)}
 										maxLength={7}
 										placeholder="Apenas 7 números"
+										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
-									{field.state.meta.errors.length > 0 && (
-										<span className="text-destructive text-sm">
-											{field.state.meta.errors.join(", ")}
-										</span>
-									)}
-								</div>
-							</div>
+									<FieldError
+										errors={field.state.meta.errors
+											.filter(Boolean)
+											.map((err) => ({ message: err?.toString() }))}
+									/>
+								</FieldContent>
+							</Field>
 						)}
 					</form.Field>
 
 					<form.Field name="om">
 						{(field) => (
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="om" className="text-right">
+							<Field
+								className="grid grid-cols-4 items-center gap-4"
+								data-invalid={field.state.meta.errors.length > 0 || !!unitsError}
+							>
+								<FieldLabel htmlFor="om" className="text-right">
 									OM
-								</Label>
-								<div className="col-span-3">
+								</FieldLabel>
+								<FieldContent className="col-span-3">
 									<Select
 										value={field.state.value || ""}
 										onValueChange={(value) => field.handleChange(value || "")}
 										disabled={isLoadingUnits}
 									>
-										<SelectTrigger>
+										<SelectTrigger
+											className={
+												unitsError || field.state.meta.errors.length > 0 ? "border-destructive" : ""
+											}
+										>
 											<SelectValue
 												placeholder={isLoadingUnits ? "Carregando OMs..." : "Selecione a OM"}
 											/>
@@ -146,24 +159,36 @@ export default function EditUserDialog({
 											))}
 										</SelectContent>
 									</Select>
-									{unitsError && <p className="text-sm text-destructive">{unitsError}</p>}
-								</div>
-							</div>
+									<FieldError
+										errors={[
+											...field.state.meta.errors
+												.filter(Boolean)
+												.map((err) => ({ message: err?.toString() })),
+											...(unitsError ? [{ message: unitsError }] : []),
+										]}
+									/>
+								</FieldContent>
+							</Field>
 						)}
 					</form.Field>
 
 					<form.Field name="role">
 						{(field) => (
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="role" className="text-right">
+							<Field
+								className="grid grid-cols-4 items-center gap-4"
+								data-invalid={field.state.meta.errors.length > 0}
+							>
+								<FieldLabel htmlFor="role" className="text-right">
 									Role
-								</Label>
-								<div className="col-span-3">
+								</FieldLabel>
+								<FieldContent className="col-span-3">
 									<Select
 										value={field.state.value ?? ""}
 										onValueChange={(value) => field.handleChange(value as UserLevelOrNull)}
 									>
-										<SelectTrigger>
+										<SelectTrigger
+											className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+										>
 											<SelectValue placeholder="Selecione uma role" />
 										</SelectTrigger>
 										<SelectContent>
@@ -172,13 +197,13 @@ export default function EditUserDialog({
 											<SelectItem value="superadmin">Superadmin</SelectItem>
 										</SelectContent>
 									</Select>
-									{field.state.meta.errors.length > 0 && (
-										<span className="text-destructive text-sm">
-											{field.state.meta.errors.join(", ")}
-										</span>
-									)}
-								</div>
-							</div>
+									<FieldError
+										errors={field.state.meta.errors
+											.filter(Boolean)
+											.map((err) => ({ message: err?.toString() }))}
+									/>
+								</FieldContent>
+							</Field>
 						)}
 					</form.Field>
 

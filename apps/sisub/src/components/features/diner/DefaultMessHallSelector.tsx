@@ -1,22 +1,18 @@
 // components/DefaultMessHallSelector.tsx
 
+import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import {
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui"
-import { AlertTriangle, CheckCircle, Loader2, Settings } from "lucide-react"
-import { useState } from "react"
-import { toast } from "sonner"
+} from "@/components/ui/select"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 interface DefaultMessHallSelectorProps {

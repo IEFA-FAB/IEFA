@@ -50,13 +50,13 @@ export function useRealtimeSubscription(options: {
 		const channel = supabase
 			.channel(`${table}-changes`)
 			.on(
-				"postgres_changes" as any,
+				"postgres_changes",
 				{
 					event,
 					schema: "sisub",
-					table: table as any,
+					table,
 				},
-				(payload: RealtimePostgresChangesPayload<any>) => {
+				(payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
 					console.log(`[Realtime] ${table} changed:`, payload)
 
 					// Invalidar queries relevantes

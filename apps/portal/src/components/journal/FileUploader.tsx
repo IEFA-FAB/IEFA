@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { FileText, Upload, X } from "lucide-react"
 import { useCallback, useState } from "react"
 import { type FileRejection, useDropzone } from "react-dropzone"

@@ -1,20 +1,15 @@
+import { AlertCircle, Edit, Lock, Plus, Table, Trash2 } from "lucide-react"
+import React from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-	Badge,
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui"
-import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react"
-import React from "react"
+} from "@/components/ui/dialog"
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes"
 import type { MealType } from "@/types/supabase.types"
 import { MealTypeForm } from "./MealTypeForm"

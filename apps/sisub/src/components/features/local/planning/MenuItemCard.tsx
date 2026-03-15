@@ -1,6 +1,9 @@
-import { Badge, Button, Input, Label } from "@iefa/ui"
 import { ArrowLeftRight, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
 import type { MenuItem } from "@/types/domain/planning"
 
@@ -16,7 +19,7 @@ interface MenuItemCardProps {
 export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps) {
 	const { mutate: updateMenuItem } = useUpdateMenuItem()
 
-	const recipeName = (item.recipe as any)?.name || "Preparação sem nome"
+	const recipeName = (item.recipe as { name?: string })?.name || "Preparação sem nome"
 
 	const [portionQty, setPortionQty] = useState<number | null>(item.planned_portion_quantity)
 	const [excludedQty, setExcludedQty] = useState<number | null>(item.excluded_from_procurement)

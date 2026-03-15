@@ -1,6 +1,7 @@
-import { Button, Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { ArrowLeft, Home, SearchX } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function NotFound({ children }: { children?: React.ReactNode }) {
 	return (

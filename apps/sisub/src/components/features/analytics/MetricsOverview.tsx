@@ -1,5 +1,5 @@
-import { Card, CardContent } from "@iefa/ui"
 import { Coffee, Moon, Users, Utensils } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import type { DashboardMetrics } from "@/types/domain/dashboard"
 
 const MEAL_ICONS = {

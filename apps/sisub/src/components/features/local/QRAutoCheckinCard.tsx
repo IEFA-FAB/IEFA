@@ -1,8 +1,8 @@
-import { Button } from "@iefa/ui"
 import { AlertCircle, CheckCircle2, Copy, Download, QrCode } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import { useRef, useState } from "react"
 import { UnitSelector } from "@/components/features/diner/MessHallSelector"
+import { Button } from "@/components/ui/button"
 import type { AdminStatus } from "@/types/domain/admin"
 
 export default function QRAutoCheckinCard({
@@ -109,11 +109,11 @@ export default function QRAutoCheckinCard({
 
 			<div className="mt-4 flex flex-col sm:flex-row gap-2">
 				<Button
+					variant="default"
+					size="sm"
 					onClick={handleCopyOm}
 					disabled={!currentOm}
-					className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-150 shadow-sm ${
-						currentOm ? " ver:bg-emerald-700" : "  cursor-not-allowed"
-					}`}
+					className="gap-2 flex-1"
 				>
 					{copied ? (
 						<>
@@ -128,11 +128,11 @@ export default function QRAutoCheckinCard({
 					)}
 				</Button>
 				<Button
+					variant="outline"
+					size="sm"
 					onClick={handleDownloadPng}
 					disabled={!currentOm}
-					className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-150 border ${
-						currentOm ? "border-gray-300   hover:bg-gray-50" : "border-gray-200  cursor-not-allowed"
-					}`}
+					className="gap-2 flex-1"
 				>
 					<Download className="h-4 w-4" aria-hidden="true" />
 					Baixar PNG do QR

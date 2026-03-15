@@ -1,9 +1,11 @@
 // components/BulkMealSelector.tsx
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Label } from "@iefa/ui"
 import { CheckCircle, Loader2, UtensilsCrossed } from "lucide-react"
 import { useState } from "react"
 import { MealButton } from "@/components/features/diner/MealButton"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { MEAL_TYPES } from "@/constants/rancho"
 import { createEmptyDayMeals } from "@/lib/meal"
 import type { DayMeals } from "@/types/domain/meal"
@@ -30,7 +32,7 @@ export function BulkMealSelector({
 		const base = createEmptyDayMeals()
 		if (initialTemplate) {
 			Object.entries(initialTemplate).forEach(([key, val]) => {
-				;(base as any)[key] = Boolean(val)
+				;(base as unknown as Record<string, boolean>)[key] = Boolean(val)
 			})
 		}
 		return base
@@ -57,7 +59,7 @@ export function BulkMealSelector({
 		setTemplate((prev) => {
 			const next: DayMeals = { ...prev }
 			Object.keys(next).forEach((k) => {
-				;(next as any)[k] = value
+				;(next as unknown as Record<string, boolean>)[k] = value
 			})
 			return next
 		})
@@ -69,7 +71,7 @@ export function BulkMealSelector({
 			const next: DayMeals = { ...prev }
 			// Café + Almoço marcados, demais desmarcados
 			Object.keys(next).forEach((k) => {
-				;(next as any)[k] = k === "cafe" || k === "almoco"
+				;(next as unknown as Record<string, boolean>)[k] = k === "cafe" || k === "almoco"
 			})
 			return next
 		})

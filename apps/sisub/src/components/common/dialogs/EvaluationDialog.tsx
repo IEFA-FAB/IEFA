@@ -1,14 +1,14 @@
+import type React from "react"
+import { Button } from "@/components/ui/button"
 import {
-	Button,
-	cn,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@iefa/ui"
-import type React from "react"
+} from "@/components/ui/dialog"
+import { cn } from "@/lib/cn"
 
 export type EvaluationDialogProps = {
 	open: boolean

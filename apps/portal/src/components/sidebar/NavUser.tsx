@@ -1,19 +1,3 @@
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	useSidebar,
-} from "@iefa/ui"
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronsUpDown, LogOut, User } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"

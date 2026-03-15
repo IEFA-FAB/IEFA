@@ -1,5 +1,6 @@
-import { Badge, Button } from "@iefa/ui"
 import { Calendar, Plus } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/cn"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
@@ -89,7 +90,7 @@ export function TemplatePalette({
 					const isSelected = selectedTemplateId === template.id
 
 					return (
-						<button
+						<Button
 							key={template.id}
 							type="button"
 							onClick={() => onSelectTemplate(isSelected ? null : template.id)}
@@ -126,7 +127,7 @@ export function TemplatePalette({
 							{isSelected && (
 								<Badge className={cn(colors.bg, "text-white text-[10px] h-5")}>Ativo</Badge>
 							)}
-						</button>
+						</Button>
 					)
 				})}
 

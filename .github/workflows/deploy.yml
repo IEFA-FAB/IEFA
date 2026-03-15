@@ -14,7 +14,7 @@ jobs:
   validate:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate env — apps/portal
         uses: dmno-dev/varlock@v1
@@ -66,7 +66,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx turbo run lint typecheck test
@@ -83,7 +83,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       rag: ${{ steps.filter.outputs.rag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -139,7 +139,7 @@ jobs:
       group: fly-deploy-api-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -201,7 +201,7 @@ jobs:
       group: fly-deploy-iefa-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -279,7 +279,7 @@ jobs:
       group: fly-deploy-sisub-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -353,7 +353,7 @@ jobs:
       group: fly-deploy-rag-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

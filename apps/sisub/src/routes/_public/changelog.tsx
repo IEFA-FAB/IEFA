@@ -1,11 +1,12 @@
-import { Button, Card } from "@iefa/ui"
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
 	type ChangelogEntry,
 	type ChangelogPageResult,
@@ -66,7 +67,7 @@ export const Route = createFileRoute("/_public/changelog")({
 })
 
 // Markdown components (definidos fora para não recriar a cada render)
-const markdownComponents = {
+const markdownComponents: Partial<Components> = {
 	// biome-ignore lint/suspicious/noExplicitAny: markdown props
 	a: ({ node, href, ...props }: any) => (
 		<a
@@ -143,10 +144,7 @@ function MessageBox({
 function MarkdownContent({ children }: { children: string }) {
 	return (
 		<div className="prose max-w-none leading-relaxed dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground">
-			<ReactMarkdown
-				remarkPlugins={[remarkGfm, remarkBreaks]}
-				components={markdownComponents as any}
-			>
+			<ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
 				{children}
 			</ReactMarkdown>
 		</div>

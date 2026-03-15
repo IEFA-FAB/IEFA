@@ -1,8 +1,10 @@
-import { Button, Card, Input } from "@iefa/ui"
 import { useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { FolderPlus, Loader2, PackagePlus, Search } from "lucide-react"
 import { useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
 import type { Folder, Product, ProductDialogState } from "@/types/domain/products"
 import { FolderForm } from "./FolderForm"
@@ -151,7 +153,7 @@ export function ProductsTreeManager() {
 									</div>
 								</div>
 								<div className="transition-transform duration-200 group-hover:rotate-12 opacity-50">
-									<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-amber-600 dark:text-amber-500" />
+									<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-warning" />
 								</div>
 							</div>
 						</div>
@@ -167,7 +169,7 @@ export function ProductsTreeManager() {
 									</div>
 								</div>
 								<div className="transition-transform duration-200 group-hover:scale-110 opacity-50">
-									<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-blue-600 dark:text-blue-500" />
+									<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-primary" />
 								</div>
 							</div>
 						</div>

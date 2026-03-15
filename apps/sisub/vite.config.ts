@@ -37,7 +37,7 @@ export default defineConfig(({ command }) => ({
 		},
 	},
 	optimizeDeps: {
-		exclude: ["@iefa/ui", "@iefa/auth"],
+		exclude: [],
 		include: [
 			"react",
 			"react-dom",

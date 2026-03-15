@@ -1,18 +1,19 @@
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { Check, Search } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-	Badge,
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-} from "@iefa/ui"
-import { useVirtualizer } from "@tanstack/react-virtual"
-import { Check, Search } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { useRecipes } from "@/hooks/data/useRecipes"
+import { cn } from "@/lib/cn"
 
 interface RecipeSelectorProps {
 	open: boolean
@@ -153,17 +154,19 @@ export function RecipeSelector({
 											transform: `translateY(${virtualItem.start}px)`,
 										}}
 									>
-										<button
-											type="button"
+										<Button
+											variant="ghost"
 											onClick={() => handleToggleRecipe(recipe.id)}
-											className={`w-full h-full flex items-center gap-3 px-3 text-left transition-colors hover:bg-accent ${
-												isSelected ? "bg-accent/50" : ""
-											}`}
+											className={cn(
+												"w-full h-full flex justify-start items-center gap-3 px-3 text-left rounded-none font-normal",
+												isSelected && "bg-accent/50"
+											)}
 										>
 											<div
-												className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+												className={cn(
+													"flex h-5 w-5 shrink-0 items-center justify-center rounded border",
 													isSelected ? "bg-primary border-primary" : "border-muted-foreground"
-												}`}
+												)}
 											>
 												{isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
 											</div>
@@ -189,7 +192,7 @@ export function RecipeSelector({
 													{recipe.portion_yield} porções
 												</span>
 											)}
-										</button>
+										</Button>
 									</div>
 								)
 							})}

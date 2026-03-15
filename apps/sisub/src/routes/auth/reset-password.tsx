@@ -1,19 +1,18 @@
+import { Input } from "@base-ui/react"
+import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import {
-	Alert,
-	AlertDescription,
-	Button,
 	Card,
 	CardContent,
 	CardDescription,
 	CardFooter,
 	CardHeader,
 	CardTitle,
-	Input,
-	Label,
-} from "@iefa/ui"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
-import { useEffect, useState } from "react"
+} from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import supabase from "@/lib/supabase"
 
 export const Route = createFileRoute("/auth/reset-password")({

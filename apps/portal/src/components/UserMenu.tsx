@@ -1,16 +1,3 @@
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-	Button,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { EllipsisVertical, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"

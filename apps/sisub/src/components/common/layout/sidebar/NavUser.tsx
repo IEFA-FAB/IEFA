@@ -1,10 +1,10 @@
 "use client"
 
+import { useNavigate } from "@tanstack/react-router"
+import { EllipsisVertical, LogOut, User } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-	Button,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
@@ -12,13 +12,13 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 	useSidebar,
-} from "@iefa/ui"
-import { useNavigate } from "@tanstack/react-router"
-import { EllipsisVertical, LogOut, User } from "lucide-react"
+} from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/auth/useAuth"
 
 type UserMeta = {

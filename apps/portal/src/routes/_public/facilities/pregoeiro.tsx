@@ -1,30 +1,6 @@
 "use client"
 
 // shadcn/ui – imports corrigidos
-import {
-	Button,
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	Field,
-	FieldDescription,
-	FieldLabel,
-	Input,
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	Label,
-	Textarea,
-} from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { Calendar, ChevronsUpDown, Clock } from "lucide-react"
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"

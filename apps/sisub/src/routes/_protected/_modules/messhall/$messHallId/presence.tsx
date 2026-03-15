@@ -1,5 +1,4 @@
 // UI & Icons
-import { Button, Label, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from "@iefa/ui"
 import { createFileRoute, useParams } from "@tanstack/react-router"
 import { Camera, ClipboardList, RefreshCw, UserPlus } from "lucide-react"
 import QrScanner from "qr-scanner"
@@ -9,6 +8,10 @@ import { PageHeader } from "@/components/common/layout/PageHeader"
 import Filters from "@/components/features/messhall/Filters"
 import FiscalDialog from "@/components/features/messhall/FiscalDialog"
 import PresenceTable from "@/components/features/messhall/PresenceTable"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/auth/useAuth"
 import {
 	useAddOtherPresence,

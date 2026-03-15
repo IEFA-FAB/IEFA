@@ -1,21 +1,4 @@
 import {
-	Alert,
-	AlertDescription,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-	Input,
-	Label,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@iefa/ui"
-import {
 	AlertCircle,
 	ArrowLeft,
 	CheckCircle2,
@@ -27,6 +10,19 @@ import {
 	User,
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // FAB Email validation regex
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@fab\.mil\.br$/
@@ -466,7 +462,7 @@ export function AuthScreen({
 							</Alert>
 						)}
 						{successMessage && (
-							<Alert className="bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400">
+							<Alert className="bg-success/10 border-success/20 text-success">
 								<CheckCircle2 className="h-4 w-4" />
 								<AlertDescription>{successMessage}</AlertDescription>
 							</Alert>
@@ -515,13 +511,13 @@ export function AuthScreen({
 				<TabsList className="grid w-full grid-cols-2 mb-8 bg-muted p-1.5 rounded-full h-14">
 					<TabsTrigger
 						value="login"
-						className="rounded-full h-full text-base font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground dark:data-[state=active]:shadow-md transition-all duration-300"
+						className="rounded-full h-full text-base font-medium data-active:bg-background data-active:text-foreground data-active:shadow-md transition-all duration-300"
 					>
 						Entrar
 					</TabsTrigger>
 					<TabsTrigger
 						value="register"
-						className="rounded-full h-full text-base font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground dark:data-[state=active]:shadow-md transition-all duration-300"
+						className="rounded-full h-full text-base font-medium data-active:bg-background data-active:text-foreground data-active:shadow-md transition-all duration-300"
 					>
 						Cadastrar
 					</TabsTrigger>
@@ -551,7 +547,7 @@ export function AuthScreen({
 									</Alert>
 								)}
 								{successMessage && (
-									<Alert className="bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400">
+									<Alert className="bg-success/10 border-success/20 text-success">
 										<CheckCircle2 className="h-4 w-4" />
 										<AlertDescription>{successMessage}</AlertDescription>
 									</Alert>
@@ -630,7 +626,7 @@ export function AuthScreen({
 										type="checkbox"
 										checked={rememberMe}
 										onChange={handleRememberMeChange}
-										className="rounded border-gray-300 dark:border-gray-600 accent-primary"
+										className="rounded border-input bg-background accent-primary"
 										disabled={isSubmitting}
 									/>
 									<Label htmlFor="remember" className="text-sm font-normal text-muted-foreground">

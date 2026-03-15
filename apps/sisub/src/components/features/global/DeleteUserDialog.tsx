@@ -1,12 +1,12 @@
+import { Button } from "@/components/ui/button"
 import {
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@iefa/ui"
+} from "@/components/ui/dialog"
 import type { ProfileAdmin } from "@/types/domain/admin"
 
 export default function DeleteUserDialog({

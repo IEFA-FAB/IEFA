@@ -1,8 +1,8 @@
 "use client"
 
-import { Button } from "@iefa/ui"
 import { Check, Copy } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 
 export default function CopyButton({ content }: { content: string }) {
 	const [copied, setCopied] = useState(false)

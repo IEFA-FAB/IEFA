@@ -1,14 +1,14 @@
-import { cn } from "@iefa/ui"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { userPermissionsQueryOptions } from "@/auth/pbac"
 import { OnboardingDialogs } from "@/components/common/dialogs/OnboardingDialogs"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useSyncUserEmail } from "@/hooks/ui/useUserSync"
+import { cn } from "@/lib/cn"
 
 export const Route = createFileRoute("/_protected")({
 	beforeLoad: async ({ context, location }) => {
-		if (!context.auth.isAuthenticated) {
+		if (!context.auth.isAuthenticated || !context.auth.user?.id) {
 			throw redirect({
 				to: "/auth",
 				search: { redirect: location.href },
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_protected")({
 		}
 		// Pré-carrega permissões no cache do React Query.
 		// Garante que requirePermission() funcione sincronamente em qualquer rota filha.
-		await context.queryClient.ensureQueryData(userPermissionsQueryOptions(context.auth.user?.id ?? ""))
+		await context.queryClient.ensureQueryData(userPermissionsQueryOptions(context.auth.user.id))
 	},
 	component: ProtectedLayout,
 })

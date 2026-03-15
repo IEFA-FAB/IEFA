@@ -1,21 +1,21 @@
-import {
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-	Label,
-	Switch,
-	Textarea,
-} from "@iefa/ui"
 import { useForm } from "@tanstack/react-form"
 import { createFileRoute } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Button } from "@/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useEvalConfig } from "@/hooks/business/useEvalConfig"
 import type { EvalConfig } from "@/types/domain/admin"

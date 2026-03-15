@@ -1,4 +1,3 @@
-import { Badge, Button } from "@iefa/ui"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import {
 	addDays,
@@ -25,9 +24,12 @@ import {
 	Users,
 } from "lucide-react"
 import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { useKitchenSelector } from "@/hooks/data/useKitchens"
 import { useDailyMenus } from "@/hooks/data/usePlanning"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
+import { cn } from "@/lib/cn"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
 import { DayDrawer } from "./DayDrawer"
 import { KitchenSelector } from "./KitchenSelector"
@@ -256,8 +258,6 @@ export function PlanningBoard() {
 						const isToday = isSameDay(day, new Date())
 						const isSelected = selectedDays.has(day.toISOString())
 
-						// Calculate total headcount for the day (sum of max headcount or simple sum logic depending on business rule)
-						// Assuming simplified view: sum of all meals
 						const totalHeadcount = dayMenus.reduce(
 							(acc, m) => acc + (m.forecasted_headcount || 0),
 							0
@@ -268,19 +268,20 @@ export function PlanningBoard() {
 							<Button
 								key={day.toString()}
 								onClick={(e) => handleDayClick(day, e)}
-								className={`
-                  p-2 relative transition-colors cursor-pointer group
-                  ${!isCurrentMonth ? "bg-muted/10 text-muted-foreground" : "bg-background"}
-                  ${isToday ? "bg-primary/5" : ""}
-                  ${isSelected ? "ring-2 ring-primary ring-inset bg-primary/10" : "hover:bg-muted/50"}
-                `}
+								className={cn(
+									"p-2 relative transition-colors cursor-pointer group",
+									!isCurrentMonth && "bg-muted/10 text-muted-foreground",
+									isCurrentMonth && "bg-background",
+									isToday && "bg-primary/5",
+									isSelected ? "ring-2 ring-primary ring-inset bg-primary/10" : "hover:bg-muted/50"
+								)}
 							>
 								<div className="flex items-center justify-between mb-2">
 									<span
-										className={`
-                    text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full
-                    ${isToday ? "bg-primary text-primary-foreground" : ""}
-                  `}
+										className={cn(
+											"text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full",
+											isToday && "bg-primary text-primary-foreground"
+										)}
 									>
 										{format(day, "d")}
 									</span>
@@ -295,13 +296,12 @@ export function PlanningBoard() {
 									)}
 								</div>
 
-								{/* Day Content Summary */}
 								<div className="space-y-1">
 									{dayMenus.map((menu) => {
 										const mealName = menu.meal_type?.name || "Refeição"
 										const itemCount = menu.menu_items?.length || 0
-										const statusColor =
-											menu.status === "PUBLISHED" ? "bg-green-500" : "bg-amber-500"
+										// Usa token semântico: success = publicado, warning = rascunho
+										const statusColor = menu.status === "PUBLISHED" ? "bg-success" : "bg-warning"
 
 										return (
 											<div

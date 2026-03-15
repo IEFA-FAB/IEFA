@@ -1,8 +1,9 @@
-import { Button, Card } from "@iefa/ui"
 import { useQueryClient } from "@tanstack/react-query"
 import { Edit, PackagePlus, ShoppingCart, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { useDeleteProductItem, useProductItems } from "@/services/ProductsService"
 import type { ProductItem } from "@/types/supabase.types"
 import { ProductItemForm } from "./ProductItemForm"
@@ -53,10 +54,10 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 			{/* Header da seção */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
-					<ShoppingCart className="w-5 h-5 text-emerald-600 dark:text-emerald-500" />
+					<ShoppingCart className="w-5 h-5 text-success" />
 					<h2 className="text-lg font-semibold">Itens de Compra</h2>
 					{productItems && (
-						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20">
+						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono bg-success/10 text-success border border-success/20">
 							{productItems.length}
 						</span>
 					)}
@@ -86,8 +87,8 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 								className="group flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
 							>
 								<div className="flex items-center gap-3 min-w-0">
-									<div className="flex items-center justify-center w-8 h-8 rounded-md bg-emerald-500/10 border border-emerald-500/20 shrink-0">
-										<ShoppingCart className="w-4 h-4 text-emerald-600 dark:text-emerald-500" />
+									<div className="flex items-center justify-center w-8 h-8 rounded-md bg-success/10 border border-success/20 shrink-0">
+										<ShoppingCart className="w-4 h-4 text-success" />
 									</div>
 
 									<div className="min-w-0">

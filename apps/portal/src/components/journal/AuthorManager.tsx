@@ -15,7 +15,6 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Button, Input, Label } from "@iefa/ui"
 import { GripVertical, X } from "lucide-react"
 import { useMemo } from "react"
 import type { AuthorFormData } from "@/lib/journal/validation"

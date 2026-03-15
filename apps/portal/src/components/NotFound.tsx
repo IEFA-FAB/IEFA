@@ -1,4 +1,3 @@
-import { Button, Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@iefa/ui"
 import { Link } from "@tanstack/react-router"
 import { ArrowLeft, Home, SearchX } from "lucide-react"
 

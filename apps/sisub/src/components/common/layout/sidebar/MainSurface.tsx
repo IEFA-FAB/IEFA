@@ -1,5 +1,6 @@
-import { Button, cn } from "@iefa/ui"
 import type { ReactNode } from "react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/cn"
 
 export type MainSurfaceProps = {
 	showInitialError: boolean

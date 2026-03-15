@@ -4,7 +4,7 @@ import { fetchRecipeFn } from "@/server/recipes.fn"
 export function useRecipe(id: string | undefined) {
 	return useQuery({
 		queryKey: ["recipe", id],
-		queryFn: () => fetchRecipeFn({ data: { id: id! } }),
+		queryFn: () => fetchRecipeFn({ data: { id: id as string } }),
 		enabled: !!id,
 		staleTime: 5 * 60 * 1000, // 5 minutes
 	})

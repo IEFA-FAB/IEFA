@@ -1,19 +1,3 @@
-import {
-	Avatar,
-	AvatarFallback,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@iefa/ui"
 import { useQuery } from "@tanstack/react-query"
 import {
 	AlertTriangle,
@@ -22,6 +6,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Copy,
+	Table,
 	TrendingDown,
 	TrendingUp,
 	Users,
@@ -30,6 +15,11 @@ import {
 import { useState } from "react"
 import { toast } from "sonner"
 import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTableSkeleton"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
 import {
 	messHallsQueryOptions,
@@ -319,13 +309,12 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 												{record.presence_count}
 											</TableCell>
 											<TableCell
-												className={`text-center font-semibold ${
-													record.difference < 0
-														? "text-orange-600"
-														: record.difference > 0
-															? "text-blue-600"
-															: "text-muted-foreground"
-												}`}
+												className={cn(
+													"text-center font-semibold",
+													record.difference < 0 && "text-destructive",
+													record.difference > 0 && "text-primary",
+													record.difference === 0 && "text-muted-foreground"
+												)}
 											>
 												{record.difference > 0 ? "+" : ""}
 												{record.difference}

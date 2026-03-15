@@ -1,7 +1,9 @@
 // components/rancho/SimplifiedMilitaryStats.tsx
 
-import { Badge, Card, CardContent, Skeleton } from "@iefa/ui"
 import { CalendarDays, CheckCircle2, Clock, MinusCircle, Utensils } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { DayMeals } from "@/lib/meal"
 
 interface Selections {
@@ -173,11 +175,11 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 				</Card>
 
 				{/* Próximos 7 Dias */}
-				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-emerald-500 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-success hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
 					<CardContent className="p-5">
 						<div className="flex items-center gap-3">
-							<div className="h-12 w-12 rounded-xl bg-emerald-500/15 flex items-center justify-center ring-2 ring-inset ring-emerald-500/30 transition-transform duration-200 group-hover:scale-110">
-								<Clock className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+							<div className="h-12 w-12 rounded-xl bg-success/15 flex items-center justify-center ring-2 ring-inset ring-success/30 transition-transform duration-200 group-hover:scale-110">
+								<Clock className="h-6 w-6 text-success" />
 							</div>
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-sans font-medium text-muted-foreground">
@@ -194,7 +196,7 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 								<div className="mt-3">
 									<div className="h-2 w-full rounded-full bg-muted overflow-hidden">
 										<div
-											className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+											className="h-full bg-success rounded-full transition-all duration-500"
 											style={{ width: `${stats.progressPct}%` }}
 										/>
 									</div>
@@ -208,11 +210,11 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 				</Card>
 
 				{/* Status Geral */}
-				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-amber-500 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-warning hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
 					<CardContent className="p-5">
 						<div className="flex items-center gap-3">
-							<div className="h-12 w-12 rounded-xl bg-amber-500/15 flex items-center justify-center ring-2 ring-inset ring-amber-500/30 transition-transform duration-200 group-hover:scale-110">
-								<CalendarDays className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+							<div className="h-12 w-12 rounded-xl bg-warning/15 flex items-center justify-center ring-2 ring-inset ring-warning/30 transition-transform duration-200 group-hover:scale-110">
+								<CalendarDays className="h-6 w-6 text-warning" />
 							</div>
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-sans font-medium text-muted-foreground">Status</p>

@@ -1,9 +1,10 @@
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { Calendar, Download } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ProcurementTable } from "@/components/features/local/ProcurementTable"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useProcurement } from "@/hooks/data/useProcurement"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/procurement")({

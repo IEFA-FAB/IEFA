@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { AlertCircle, CheckCircle2, Clock, FileText, XCircle } from "lucide-react"
 import { useState } from "react"

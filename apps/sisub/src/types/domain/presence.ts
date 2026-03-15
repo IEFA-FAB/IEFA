@@ -22,12 +22,10 @@ export type PresenceRow = MealPresence
  * View de presença com dados do usuário
  * Re-exportado de supabase.types.ts
  */
-export type { MealPresenceWithUser }
-
 /**
  * Types para Insert/Update de presenças
  */
-export type { MealPresenceInsert, MealPresenceUpdate }
+export type { MealPresenceInsert, MealPresenceUpdate, MealPresenceWithUser }
 
 // ============================================================================
 // DOMAIN TYPES (Tipos de Negócio)

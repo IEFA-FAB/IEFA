@@ -1,6 +1,5 @@
 // apps/sisub/app/routes/rancho.tsx
 
-import { Button } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
 import { type JSX, lazy, Suspense, useState } from "react"
@@ -10,6 +9,7 @@ import { DayCardSkeleton } from "@/components/features/diner/DayCard"
 import { DefaultMessHallSelector } from "@/components/features/diner/DefaultMessHallSelector"
 import SimplifiedMilitaryStats from "@/components/features/diner/SimplifiedMilitaryStats"
 import { UnifiedStatusToasts } from "@/components/features/diner/UnifiedStatusToasts"
+import { Button } from "@/components/ui/button"
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"

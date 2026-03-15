@@ -1,17 +1,16 @@
+import type { ErrorComponentProps } from "@tanstack/react-router"
+import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router"
+import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import {
-	Alert,
-	AlertDescription,
-	Button,
 	Card,
 	CardContent,
 	CardDescription,
 	CardFooter,
 	CardHeader,
 	CardTitle,
-} from "@iefa/ui"
-import type { ErrorComponentProps } from "@tanstack/react-router"
-import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router"
-import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"
+} from "@/components/ui/card"
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 	const router = useRouter()

@@ -1,17 +1,13 @@
+import { Users } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
 	Table,
 	TableBody,
 	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@iefa/ui"
-import { Users } from "lucide-react"
+} from "@/components/ui/table"
 
 export function PresenceTableSkeleton() {
 	return (

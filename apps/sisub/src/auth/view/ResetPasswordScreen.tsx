@@ -1,18 +1,17 @@
+import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import {
-	Alert,
-	AlertDescription,
-	Button,
 	Card,
 	CardContent,
 	CardDescription,
 	CardFooter,
 	CardHeader,
 	CardTitle,
-	Input,
-	Label,
-} from "@iefa/ui"
-import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
-import { useEffect, useState } from "react"
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 export interface ResetPasswordScreenProps {
 	searchParams: {

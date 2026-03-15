@@ -1,6 +1,5 @@
 // Status badge component for article status visualization
 
-import { Badge } from "@iefa/ui"
 import { Check, Clock, Edit, Eye, FileText, Globe, type LucideIcon, X } from "lucide-react"
 import type { ArticleStatus } from "@/lib/journal/types"
 

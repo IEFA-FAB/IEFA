@@ -23,7 +23,7 @@ export const dailyMenusQueryOptions = (kitchenId: number | null, startDate: Date
 		queryFn: () =>
 			fetchDailyMenusFn({
 				data: {
-					kitchenId: kitchenId!,
+					kitchenId: kitchenId as number,
 					startDate: format(startDate, "yyyy-MM-dd"),
 					endDate: format(endDate, "yyyy-MM-dd"),
 				},
@@ -37,7 +37,7 @@ export const dayDetailsQueryOptions = (kitchenId: number | null, date: Date) =>
 		queryFn: () =>
 			fetchDayDetailsFn({
 				data: {
-					kitchenId: kitchenId!,
+					kitchenId: kitchenId as number,
 					date: format(date, "yyyy-MM-dd"),
 				},
 			}),
@@ -157,7 +157,7 @@ export function useDeleteMenuItem() {
 export function useTemplates(kitchenId: number | null) {
 	return useQuery({
 		queryKey: ["planning", "templates", kitchenId],
-		queryFn: () => fetchTemplatesFn({ data: { kitchenId: kitchenId! } }),
+		queryFn: () => fetchTemplatesFn({ data: { kitchenId: kitchenId as number } }),
 		enabled: !!kitchenId,
 	})
 }
@@ -192,7 +192,7 @@ export function useApplyTemplate() {
 export function useTrashItems(kitchenId: number | null) {
 	return useQuery({
 		queryKey: ["planning", "trash", kitchenId],
-		queryFn: () => fetchTrashItemsFn({ data: { kitchenId: kitchenId! } }),
+		queryFn: () => fetchTrashItemsFn({ data: { kitchenId: kitchenId as number } }),
 		enabled: !!kitchenId,
 	})
 }

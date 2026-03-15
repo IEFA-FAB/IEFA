@@ -1,21 +1,4 @@
 import {
-	Alert,
-	AlertDescription,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-	Input,
-	Label,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@iefa/ui"
-import {
 	AlertCircle,
 	ArrowLeft,
 	CheckCircle2,

@@ -409,7 +409,7 @@ export const useMealForecast = (): MealForecastHook => {
 					const msg = fail
 						.map((r) =>
 							r.status === "fulfilled"
-								? (r.value as any).error
+								? (r.value as { error?: string }).error
 								: (r.reason?.message as string) || "Erro desconhecido"
 						)
 						.join(", ")

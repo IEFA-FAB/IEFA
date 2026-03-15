@@ -1,13 +1,13 @@
+import { Calendar } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import {
-	Button,
-	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui"
-import { Calendar } from "lucide-react"
+} from "@/components/ui/select"
 import { formatDateRange } from "@/lib/dashboard"
 import type { MessHallAPI } from "@/types/domain/dashboard"
 

@@ -1,5 +1,11 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@iefa/ui"
 import { Building2, ChefHat } from "lucide-react"
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select"
 import { useKitchenSelector } from "@/hooks/data/useKitchens"
 
 /**

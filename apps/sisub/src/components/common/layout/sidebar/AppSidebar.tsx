@@ -1,11 +1,11 @@
+import type * as React from "react"
 import {
+	Sidebar,
 	SidebarContent,
 	SidebarFooter,
 	SidebarHeader,
 	SidebarRail,
-	Sidebar as UISidebar,
-} from "@iefa/ui"
-import type * as React from "react"
+} from "@/components/ui/sidebar"
 import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"
@@ -18,7 +18,7 @@ export function AppSidebar({
 	onModuleChange,
 	isLoading = false,
 	...props
-}: React.ComponentProps<typeof UISidebar> & {
+}: React.ComponentProps<typeof Sidebar> & {
 	modules?: ModuleDef[]
 	activeModuleId?: ModuleId | null
 	onModuleChange?: (moduleId: ModuleId) => void
@@ -26,7 +26,7 @@ export function AppSidebar({
 }) {
 	if (isLoading) {
 		return (
-			<UISidebar collapsible="icon" variant="floating" {...props}>
+			<Sidebar collapsible="icon" variant="floating" {...props}>
 				<SidebarHeader>
 					<div className="flex items-center gap-2 p-2">
 						<div className="h-8 w-8 rounded-lg bg-sidebar-accent/10 animate-pulse" />
@@ -47,7 +47,7 @@ export function AppSidebar({
 					<div className="h-12 w-full rounded-lg bg-sidebar-accent/10 animate-pulse" />
 				</SidebarFooter>
 				<SidebarRail />
-			</UISidebar>
+			</Sidebar>
 		)
 	}
 
@@ -81,7 +81,7 @@ export function AppSidebar({
 	if (!activeModule) return null
 
 	return (
-		<UISidebar collapsible="icon" variant="floating" {...props}>
+		<Sidebar collapsible="icon" variant="floating" {...props}>
 			<SidebarHeader>
 				<TeamSwitcher teams={teams} value={activeModule.name} onChange={handleTeamChange} />
 			</SidebarHeader>
@@ -92,6 +92,6 @@ export function AppSidebar({
 				<NavUser />
 			</SidebarFooter>
 			<SidebarRail />
-		</UISidebar>
+		</Sidebar>
 	)
 }

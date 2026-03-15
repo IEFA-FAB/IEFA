@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { createFileRoute } from "@tanstack/react-router"
 import { Download, FileText, Globe, Send } from "lucide-react"
 

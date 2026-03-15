@@ -1,7 +1,8 @@
-import { AnimatedThemeToggler, Separator, SidebarInset, SidebarTrigger } from "@iefa/ui"
+import { Separator } from "@base-ui/react"
 import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
+import { AnimatedThemeToggler } from "@/components/animated-theme-toggler"
 import {
 	getModuleFromPath,
 	getModulesForPermissions,
@@ -16,6 +17,7 @@ import {
 	BreadcrumbList,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import type { ScopeContext } from "@/types/domain/scope"
 import { AppSidebar } from "./sidebar/AppSidebar"

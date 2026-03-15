@@ -1,15 +1,15 @@
+import type React from "react"
+import { useId } from "react"
+import { Button } from "@/components/ui/button"
 import {
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-} from "@iefa/ui"
-import type React from "react"
-import { useId } from "react"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 type NrOrdemDialogProps = {
 	open: boolean

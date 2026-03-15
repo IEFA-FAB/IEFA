@@ -1,7 +1,7 @@
-import { Badge } from "@iefa/ui"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, GitCompare, Loader2 } from "lucide-react"
 import { PageHeader } from "@/components/common/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
 import { useRecipe } from "@/hooks/data/useRecipe"
 
 /**

@@ -1,16 +1,3 @@
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuShortcut,
-	DropdownMenuTrigger,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	useSidebar,
-} from "@iefa/ui"
 import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
 import type { Team } from "./SidebarTypes"

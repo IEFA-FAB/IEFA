@@ -1,6 +1,5 @@
 "use client"
 
-import { Button } from "@iefa/ui"
 import { Check, Copy } from "lucide-react"
 import { useState } from "react"
 

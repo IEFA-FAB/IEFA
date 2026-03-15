@@ -1,13 +1,13 @@
+import { AlertCircle, Calendar, Check, Utensils } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 import {
-	Badge,
-	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@iefa/ui"
-import { AlertCircle, Calendar, Check, Utensils } from "lucide-react"
+} from "@/components/ui/select"
 import { MEAL_LABEL } from "@/lib/fiscal"
 import { formatDate } from "@/lib/meal"
 import type { MealKey } from "@/types/domain/meal"

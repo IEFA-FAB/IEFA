@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start"
-import type { KitchenWithUnit } from "@/hooks/data/useKitchens"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
+import type { Kitchen, Unit } from "@/types/supabase.types"
+
+export interface KitchenWithUnit extends Kitchen {
+	unit: Unit | null
+}
 
 export const fetchKitchensFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getSupabaseServerClient()

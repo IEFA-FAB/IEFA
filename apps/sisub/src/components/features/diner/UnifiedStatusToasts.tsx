@@ -3,7 +3,7 @@ import { useEffect } from "react"
 import { toast } from "sonner"
 
 interface PendingChange {
-	[key: string]: any
+	[key: string]: unknown
 }
 
 interface UnifiedStatusToastsProps {

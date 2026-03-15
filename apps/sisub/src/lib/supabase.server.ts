@@ -10,8 +10,8 @@ import type { Database } from "@/types/database.types"
  */
 export function getSupabaseServerClient() {
 	return createServerClient<Database>(
-		process.env.VITE_SISUB_SUPABASE_URL!,
-		process.env.SISUB_SUPABASE_SECRET_KEY!,
+		process.env.VITE_SISUB_SUPABASE_URL as string,
+		process.env.SISUB_SUPABASE_SECRET_KEY as string,
 		{
 			db: { schema: "sisub" },
 			cookies: {

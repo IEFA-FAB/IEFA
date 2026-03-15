@@ -1,16 +1,5 @@
 // routes/home/tutorial.tsx
 
-// shadcn (via seu kit). Ajuste o import conforme o seu projeto caso necessário.
-import {
-	Badge,
-	Button,
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-	Separator,
-} from "@iefa/ui"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import type { LucideIcon } from "lucide-react"
 import {
@@ -28,7 +17,11 @@ import {
 	Settings,
 	ShieldCheck,
 } from "lucide-react"
-import { type JSX, useEffect, useRef, useState } from "react"
+import { type ElementType, type JSX, useEffect, useRef, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 
 export const Route = createFileRoute("/_public/tutorial")({
 	component: Tutorial,
@@ -400,7 +393,7 @@ function Appear(props: {
 	threshold?: number
 	rootMargin?: string
 	children: React.ReactNode
-	[key: string]: any
+	[key: string]: unknown
 }) {
 	const {
 		id,
@@ -430,7 +423,7 @@ function Appear(props: {
 		return () => obs.disconnect()
 	}, [threshold, rootMargin])
 
-	const Comp = as as any
+	const Comp = as as ElementType
 
 	return (
 		<Comp

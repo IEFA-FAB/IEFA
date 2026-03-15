@@ -1,8 +1,8 @@
-// UI Components (from @iefa/ui)
-import { AnimatedThemeToggler, Button, Separator } from "@iefa/ui"
-
 // Routing
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
+import { AnimatedThemeToggler } from "@/components/animated-theme-toggler"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/auth/useAuth"
 // Hooks
 import { useTheme } from "@/hooks/ui/useTheme"

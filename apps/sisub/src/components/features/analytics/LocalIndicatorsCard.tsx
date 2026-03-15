@@ -1,6 +1,6 @@
-import { Button } from "@iefa/ui"
 import { BarChart3, ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 
 export default function IndicatorsCard() {
 	const [expanded, setExpanded] = useState(false)

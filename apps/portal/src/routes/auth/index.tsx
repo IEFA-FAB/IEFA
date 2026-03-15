@@ -1,4 +1,3 @@
-import { Card, CardContent } from "@iefa/ui"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { z } from "zod"

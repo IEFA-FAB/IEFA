@@ -1,4 +1,3 @@
-import { Button } from "@iefa/ui"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { BookOpen, FileText, LayoutDashboard, List, Settings, Upload, Users } from "lucide-react"

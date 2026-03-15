@@ -1,6 +1,5 @@
 // Author Dashboard - List all user's article submissions
 
-import { Button, Input } from "@iefa/ui"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Plus, Search } from "lucide-react"

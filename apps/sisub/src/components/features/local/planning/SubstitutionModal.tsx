@@ -1,21 +1,18 @@
+import { AlertTriangle, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import {
-	Button,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	Input,
-	Label,
-	ScrollArea,
-	Select,
-	SelectContent,
-	SelectTrigger,
-	SelectValue,
-} from "@iefa/ui"
-import { AlertTriangle, Loader2 } from "lucide-react"
-import { useState } from "react"
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useUpdateSubstitutions } from "@/hooks/data/useSubstitutions"
 import type { MenuItem } from "@/types/domain/planning"
 
@@ -89,7 +86,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 				</DialogHeader>
 
 				<div className="space-y-4 py-4">
-					<div className="bg-amber-50 border border-amber-100 p-3 rounded-md text-sm text-amber-800 flex items-start gap-2">
+					<div className="bg-warning/10 border border-warning/20 p-3 rounded-md text-sm text-warning flex items-start gap-2">
 						<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
 						<p>
 							Substituições alteram a ficha técnica apenas para este dia. O histórico original da
