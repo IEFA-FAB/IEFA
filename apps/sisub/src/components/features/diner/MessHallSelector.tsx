@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
+import { cn } from "@/lib/cn"
 
 interface MessHallSelectorProps {
 	value: string
@@ -15,6 +16,7 @@ interface MessHallSelectorProps {
 	hasDefaultMessHall?: boolean
 	hasDefaultUnit?: boolean // deprecated, kept for compatibility during migration
 	showValidation?: boolean
+	showLabel?: boolean
 	size?: "sm" | "md" | "lg"
 	placeholder?: string
 }
@@ -27,6 +29,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 		hasDefaultMessHall,
 		hasDefaultUnit, // deprecated
 		showValidation = false,
+		showLabel = true,
 		size = "md",
 		placeholder = "Selecione um rancho...",
 	}) => {
@@ -48,32 +51,21 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 			}
 		}, [value, messHalls])
 
-		// Base de estilos de trigger alinhado ao shadcn
-		const baseTrigger =
-			"w-full h-10 rounded-md border border-input bg-background px-3 py-2 " +
-			"text-sm text-foreground ring-offset-background " +
-			"placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 " +
-			"disabled:cursor-not-allowed disabled:opacity-50"
-
-		// Classes memoizadas
+		// Classes memoizadas — apenas overrides sobre o CVA do SelectTrigger
 		const classes = useMemo(() => {
-			const sizeMap = { sm: "text-sm", md: "", lg: "text-lg" }
-			const sizeCls = sizeMap[size]
-
-			// Estados
 			const isInvalid = showValidation && !selectorData.isValidSelection && Boolean(value)
 
-			// Destaque opcional para rancho padrão
-			const defaultTint = hasDefault ? " bg-accent/10" : ""
-
-			// Estado inválido usa tokens destrutivos
-			const invalidTint = isInvalid ? " border-destructive/50 bg-destructive/10" : ""
-
-			const triggerClasses = `${baseTrigger} ${sizeCls}${defaultTint}${invalidTint}`
-
 			return {
-				trigger: triggerClasses,
-				label: `text-sm font-medium flex items-center justify-between ${disabled ? "text-muted-foreground" : "text-foreground"}`,
+				trigger: cn(
+					size === "sm" && "text-sm",
+					size === "lg" && "text-lg",
+					hasDefault && "bg-accent/10",
+					isInvalid && "border-destructive/50 bg-destructive/10",
+				),
+				label: cn(
+					"text-sm font-medium flex items-center justify-between",
+					disabled ? "text-muted-foreground" : "text-foreground",
+				),
 				container: "space-y-2",
 				isInvalid,
 			}
@@ -134,17 +126,19 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 
 		return (
 			<div className={classes.container}>
-				<Label className={classes.label}>
-					<div className="flex items-center space-x-1">
-						<MapPin className="h-4 w-4" />
-						<span>Rancho:</span>
-					</div>
+				{showLabel && (
+					<Label className={classes.label}>
+						<div className="flex items-center space-x-1">
+							<MapPin className="h-4 w-4" />
+							<span>Rancho:</span>
+						</div>
 
-					<div className="flex items-center space-x-2">
-						{indicators}
-						{isInvalid && <AlertCircle className="h-4 w-4 text-destructive" />}
-					</div>
-				</Label>
+						<div className="flex items-center space-x-2">
+							{indicators}
+							{isInvalid && <AlertCircle className="h-4 w-4 text-destructive" />}
+						</div>
+					</Label>
+				)}
 
 				<Select value={value} onValueChange={handleChange} disabled={disabled}>
 					<SelectTrigger className={classes.trigger} aria-invalid={isInvalid}>
@@ -152,7 +146,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 							{value && (
 								<div className="flex items-center space-x-2">
 									<span>{displayLabel}</span>
-									{hasDefault && (
+									{showLabel && hasDefault && (
 										<Badge variant="secondary" className="text-xs">
 											Padrão
 										</Badge>
@@ -169,7 +163,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				</Select>
 
 				{/* Informação adicional para rancho padrão */}
-				{hasDefault && (
+				{showLabel && hasDefault && (
 					<div className="text-xs text-muted-foreground flex items-center space-x-1">
 						<AlertCircle className="h-3 w-3" />
 						<span>Este é o rancho padrão configurado</span>
@@ -177,7 +171,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				)}
 
 				{/* Validação de erro */}
-				{showValidation && !isValidSelection && value && (
+				{showLabel && showValidation && !isValidSelection && value && (
 					<div className="text-xs text-destructive flex items-center space-x-1">
 						<AlertCircle className="h-3 w-3" />
 						<span>Rancho não encontrado: "{value}"</span>

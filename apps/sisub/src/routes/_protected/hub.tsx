@@ -30,7 +30,7 @@ function ModuleCard({ module }: { module: ModuleDef }) {
 				</ul>
 			</div>
 
-			<Button variant="outline" className="mt-auto w-full" render={<Link to={firstUrl as Parameters<typeof Link>[0]["to"]} />}>
+			<Button variant="outline" className="mt-auto w-full" nativeButton={false} render={<Link to={firstUrl as Parameters<typeof Link>[0]["to"]} />}>
 				Acessar
 			</Button>
 		</div>

@@ -1,17 +1,30 @@
 // components/DayCard.tsx
 
-import { Calendar, Clock, Loader2 } from "lucide-react"
+import type { ReactNode } from "react"
+import { Eraser, PaintBucket } from "lucide-react"
 import { MealButton } from "@/components/features/diner/MealButton"
-import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { MEAL_TYPES } from "@/constants/rancho"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
+import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
 import type { DayMeals, PendingChange } from "@/types/domain/meal"
+
+const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+// 0=Dom, 1=Seg, ..., 5=Sex, 6=Sáb
+function getDayOfWeekColor(dateStr: string): string {
+	const [year, month, day] = dateStr.split("-").map(Number)
+	const dow = new Date(year, month - 1, day).getDay()
+	if (dow === 0 || dow === 6) return "text-warning" // fim de semana
+	if (dow === 5) return "text-success" // sexta
+	return "text-primary" // seg–qui
+}
 
 interface DayCardProps {
 	date: string
@@ -27,7 +40,6 @@ interface DayCardProps {
 	pendingChanges: PendingChange[]
 	isSaving?: boolean
 	selectedMealsCount?: number
-	isLoading?: boolean
 	dishes?: { [mealKey: string]: DishDetails[] }
 }
 
@@ -35,63 +47,63 @@ const countSelectedMeals = (daySelections: DayMeals): number => {
 	return Object.values(daySelections).filter(Boolean).length
 }
 
+// Semantic wrapper — owns all graphic state logic for DayCard.
+// Candidate for extraction to src/components/common/ if reused across 3+ surfaces.
+interface DayCardShellProps {
+	isToday: boolean
+	hasPendingChanges: boolean
+	isDateNear: boolean
+	isFull: boolean
+	hasPartialSelection: boolean
+	isEmpty: boolean
+	children: ReactNode
+}
+
+function DayCardShell({ isToday, hasPendingChanges, isDateNear, isFull, hasPartialSelection, isEmpty, children }: DayCardShellProps) {
+	return (
+		<Card
+			className={cn("w-80 flex-shrink-0 transition-opacity duration-200 relative", {
+				"ring-2 ring-primary bg-primary/5": isToday,
+				"ring-1 ring-accent bg-accent/10": hasPendingChanges && !isToday,
+				"opacity-75": isDateNear && !isToday,
+				"bg-primary/10 border-primary/40": isFull && !isToday,
+				"bg-secondary/10 border-secondary/40": hasPartialSelection && !isToday && !hasPendingChanges,
+				"bg-muted/10 border-border": isEmpty && !isToday && !hasPendingChanges,
+			})}
+		>
+			{children}
+		</Card>
+	)
+}
+
 // Skeleton using shadcn/ui tokens
 export function DayCardSkeleton() {
 	return (
-		<Card className="w-80 shrink-0 bg-card text-card-foreground border border-border">
+		<Card className="w-80 shrink-0">
 			<CardHeader className="pb-3">
-				<div className="grid grid-cols-[1fr_auto] gap-4 items-start">
-					{/* Left header */}
-					<div className="flex items-center space-x-2">
-						<Skeleton className="h-4 w-4" />
-						<div className="space-y-1">
-							<Skeleton className="h-5 w-20" />
-							<Skeleton className="h-4 w-16" />
-						</div>
+				<div className="flex items-center gap-4">
+					<div className="flex flex-col items-center gap-1">
+						<Skeleton className="h-12 w-10" />
+						<Skeleton className="h-3 w-7" />
 					</div>
-
-					{/* Right header */}
-					<div className="flex items-center space-x-1">
-						<Skeleton className="h-6 w-12 rounded-sm" />
-					</div>
-				</div>
-
-				{/* Progress bar skeleton */}
-				<div className="h-12 flex items-center">
-					<div className="w-full bg-muted/50 rounded-md p-2 border border-border">
-						<div className="flex items-center justify-between">
-							<Skeleton className="h-4 w-24" />
-							<div className="flex space-x-1">
-								{[...Array(4)].map((_, i) => (
-									<Skeleton key={i} className="w-2 h-2 rounded-sm" />
-								))}
-							</div>
-						</div>
-					</div>
+					<Separator orientation="vertical" className="h-12" />
+					<Skeleton className="h-10 w-20" />
 				</div>
 			</CardHeader>
 
-			<CardContent>
-				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
-					{/* Mess hall selector skeleton */}
-					<div className="bg-muted/30 rounded-md p-3 border border-border">
-						<Skeleton className="h-8 w-full" />
-					</div>
+			<CardContent className="flex flex-col gap-3">
+				{/* Selector + icon buttons skeleton */}
+				<div className="flex items-center gap-2">
+					<Skeleton className="flex-1 h-8" />
+					<Skeleton className="size-7" />
+					<Skeleton className="size-7" />
+				</div>
 
-					{/* Meals grid skeleton */}
-					<div className="grid grid-cols-2 gap-2">
-						{[...Array(4)].map((_, i) => (
-							<Skeleton key={i} className="h-12 rounded-md" />
-						))}
-					</div>
-
-					{/* Action buttons skeleton */}
-					<div className="h-9 flex items-center">
-						<div className="flex gap-2 w-full">
-							<Skeleton className="flex-1 h-7" />
-							<Skeleton className="flex-1 h-7" />
-						</div>
-					</div>
+				{/* Meals grid skeleton */}
+				<div className="grid grid-cols-2 gap-2">
+					{[...Array(4)].map((_, i) => (
+						<Skeleton key={i} className="h-16" />
+					))}
 				</div>
 			</CardContent>
 		</Card>
@@ -102,10 +114,10 @@ function DayCard({
 	date,
 	daySelections,
 	dayMessHallId,
-	defaultMessHallId,
+	defaultMessHallId: _defaultMessHallId,
 	onMealToggle,
 	onMessHallChange,
-	formattedDate,
+	formattedDate: _formattedDate,
 	dayOfWeek,
 	isToday,
 	isDateNear,
@@ -114,36 +126,17 @@ function DayCard({
 	selectedMealsCount,
 	dishes,
 }: DayCardProps) {
+	const { messHalls } = useMessHalls()
 	const hasPendingChanges = pendingChanges.some((change) => change.date === date)
 	const selectedCount = selectedMealsCount ?? countSelectedMeals(daySelections)
-
-	const isUsingNonDefaultMessHall = dayMessHallId && dayMessHallId !== defaultMessHallId
 
 	const cardState = {
 		hasPendingChanges,
 		selectedCount,
-		isUsingNonDefaultMessHall,
 		isEmpty: selectedCount === 0,
 		isFull: selectedCount === 4,
 		hasPartialSelection: selectedCount > 0 && selectedCount < 4,
 	}
-
-	const cardClasses = cn(
-		// Base card with tokens
-		"w-80 flex-shrink-0 transition-opacity duration-200 relative",
-		"bg-card text-card-foreground border border-border",
-		{
-			// Main visual states
-			"ring-2 ring-primary bg-primary/5": isToday,
-			"ring-1 ring-accent bg-accent/10": cardState.hasPendingChanges && !isToday,
-			"opacity-75 grayscale-[0.3]": isDateNear && !isToday,
-
-			// Fill states
-			"bg-primary/10 border-primary/40": cardState.isFull && !isToday,
-			"bg-secondary/10 border-secondary/40": cardState.hasPartialSelection && !isToday && !cardState.hasPendingChanges,
-			"bg-muted/30 border-border": cardState.isEmpty && !isToday && !cardState.hasPendingChanges,
-		}
-	)
 
 	const handleMealToggle = (meal: keyof DayMeals) => {
 		onMealToggle(date, meal)
@@ -155,137 +148,112 @@ function DayCard({
 
 	const isDisabled = isSaving || isDateNear
 
+	const [, monthStr, dayStr] = date.split("-")
+	const dayNumber = parseInt(dayStr, 10)
+	const monthAbbr = MONTH_ABBR[parseInt(monthStr, 10) - 1]
+	const dayOfWeekShort = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1, 3)
+
+	const selectAllMeals = () => {
+		MEAL_TYPES.forEach((meal) => {
+			const mealKey = meal.value as keyof DayMeals
+			if (!daySelections[mealKey]) handleMealToggle(mealKey)
+		})
+	}
+
+	const clearAllMeals = () => {
+		MEAL_TYPES.forEach((meal) => {
+			const mealKey = meal.value as keyof DayMeals
+			if (daySelections[mealKey]) handleMealToggle(mealKey)
+		})
+	}
+
 	return (
-		<Card className={cardClasses}>
+		<DayCardShell
+			isToday={isToday}
+			hasPendingChanges={cardState.hasPendingChanges}
+			isDateNear={isDateNear}
+			isFull={cardState.isFull}
+			hasPartialSelection={cardState.hasPartialSelection}
+			isEmpty={cardState.isEmpty}
+		>
 			<CardHeader className="pb-3">
-				{/* Header with fixed grid */}
-				<div className="grid grid-cols-[1fr_auto] gap-4 items-start">
-					{/* Left section */}
-					<div className="flex items-center space-x-2 min-w-0">
-						<Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-						<div className="min-w-0">
-							<h3 className="font-semibold text-foreground truncate">{formattedDate}</h3>
-							<p className="text-sm text-muted-foreground capitalize truncate">{dayOfWeek}</p>
-						</div>
+				<div className="flex items-center justify-center gap-3">
+					<div className="flex flex-col items-end">
+						<span className="text-5xl font-bold leading-none text-foreground">{dayNumber}</span>
+						<span className="text-xs text-muted-foreground uppercase tracking-wide">{monthAbbr}</span>
 					</div>
-
-					{/* Right section - badges/indicators */}
-					<div className="flex items-center space-x-1 shrink-0">
-						{isSaving && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-						{isDateNear && <Clock className="h-4 w-4 text-accent" />}
-						{isToday && (
-							<Badge variant="default" className="text-xs px-2 py-0">
-								Hoje
-							</Badge>
-						)}
-						{cardState.hasPendingChanges && (
-							<Badge variant="outline" className="text-xs px-2 py-0 border-accent text-accent">
-								Saving
-							</Badge>
-						)}
+					<Separator orientation="vertical" className="h-12" />
+					<div className="flex items-center">
+						<span className={cn("text-4xl font-bold", getDayOfWeekColor(date))}>{dayOfWeekShort}</span>
 					</div>
-				</div>
-
-				{/* Progress bar - fixed height */}
-				<div className="h-12 flex items-center">
-					{cardState.selectedCount > 0 && (
-						<div className="w-full bg-background rounded-md p-2 border border-border">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium text-foreground">{cardState.selectedCount}/4 meals</span>
-								<div className="flex space-x-1">
-									{MEAL_TYPES.map((meal) => {
-										const mealKey = meal.value as keyof DayMeals // aligns to DB: cafe/almoco/janta/ceia
-										const isSelected = daySelections[mealKey]
-										return (
-											<Tooltip key={meal.value}>
-												<TooltipTrigger>
-													<div className={cn("w-2 h-2 rounded-sm transition-colors duration-200", isSelected ? "bg-primary" : "bg-muted-foreground/30")} />
-												</TooltipTrigger>
-												<TooltipContent>
-													{meal.label}: {isSelected ? "Confirmado" : "Não vai"}
-												</TooltipContent>
-											</Tooltip>
-										)
-									})}
-								</div>
-							</div>
-						</div>
-					)}
 				</div>
 			</CardHeader>
 
-			<CardContent>
-				{/* Main grid with fixed min height */}
-				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
-					{/* Mess hall selector */}
-					<div className="bg-accent/10 rounded-md p-3 border border-accent/30">
-						<MessHallSelector value={dayMessHallId} onChange={handleMessHallChange} disabled={isDisabled} hasDefaultMessHall={false} />
-					</div>
+			<CardContent className="flex flex-col gap-3">
+				{/* Mess hall selector + action icon buttons */}
+				<div className="flex items-center gap-2">
+					<Select
+						value={dayMessHallId}
+						onValueChange={(v) => { if (v && v !== dayMessHallId) handleMessHallChange(v) }}
+						disabled={isDisabled}
+					>
+						<SelectTrigger className="flex-1">
+							<SelectValue placeholder="Selecione um rancho..." />
+						</SelectTrigger>
+						<SelectContent>
+							{messHalls?.map((mh) => (
+								<SelectItem key={mh.code} value={mh.code}>
+									{mh.display_name ?? mh.code}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button variant="outline" size="icon-sm" onClick={selectAllMeals} disabled={isDisabled} aria-label="Selecionar todas as refeições" />
+							}
+						>
+							<PaintBucket />
+						</TooltipTrigger>
+						<TooltipContent>Selecionar todas</TooltipContent>
+					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button variant="outline" size="icon-sm" onClick={clearAllMeals} disabled={isDisabled} aria-label="Limpar todas as refeições" />
+							}
+						>
+							<Eraser />
+						</TooltipTrigger>
+						<TooltipContent>Limpar tudo</TooltipContent>
+					</Tooltip>
+				</div>
 
-					{/* Meals grid 2x2 */}
-					<div className="grid grid-cols-2 gap-2">
-						{MEAL_TYPES.map((meal) => {
-							const mealKey = meal.value as keyof DayMeals // cafe/almoco/janta/ceia
-							const mealDishes = dishes?.[mealKey]
+				{/* Meals grid 2x2 */}
+				<div className="grid grid-cols-2 gap-2">
+					{MEAL_TYPES.map((meal) => {
+						const mealKey = meal.value as keyof DayMeals
+						const mealDishes = dishes?.[mealKey]
 
-							return (
-								<MealButton
-									key={meal.value}
-									meal={meal}
-									isSelected={daySelections[mealKey]}
-									onToggle={() => handleMealToggle(mealKey)}
-									disabled={isDisabled}
-									compact={true}
-									dishes={mealDishes}
-								/>
-							)
-						})}
-					</div>
-
-					{/* Action buttons */}
-					<div className="h-9 flex items-center">
-						{!isDisabled && (
-							<div className="flex gap-2 w-full">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => {
-										MEAL_TYPES.forEach((meal) => {
-											const mealKey = meal.value as keyof DayMeals
-											if (!daySelections[mealKey]) {
-												handleMealToggle(mealKey)
-											}
-										})
-									}}
-									className="flex-1 text-xs h-7"
-								>
-									Todas
-								</Button>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => {
-										MEAL_TYPES.forEach((meal) => {
-											const mealKey = meal.value as keyof DayMeals
-											if (daySelections[mealKey]) {
-												handleMealToggle(mealKey)
-											}
-										})
-									}}
-									className="flex-1 text-xs h-7"
-								>
-									Limpar
-								</Button>
-							</div>
-						)}
-					</div>
+						return (
+							<MealButton
+								key={meal.value}
+								meal={meal}
+								isSelected={daySelections[mealKey]}
+								onToggle={() => handleMealToggle(mealKey)}
+								disabled={isDisabled}
+								compact={true}
+								dishes={mealDishes}
+							/>
+						)
+					})}
 				</div>
 			</CardContent>
-		</Card>
+		</DayCardShell>
 	)
 }
 
-// Hooks unchanged in behavior (strings already in English)
 export const useDayCardData = (
 	date: string,
 	todayString: string,

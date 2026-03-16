@@ -1,4 +1,3 @@
-import { Separator } from "@base-ui/react"
 import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
@@ -11,6 +10,7 @@ import {
 	type NavItem,
 } from "@/components/common/layout/sidebar/NavItems"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
+import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import type { ScopeContext } from "@/types/domain/scope"

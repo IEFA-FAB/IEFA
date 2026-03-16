@@ -462,7 +462,6 @@ export default function Forecast(): JSX.Element {
 					variant="outline"
 					size="sm"
 					onClick={handleToggleMessHallSelector}
-					className="hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all cursor-pointer"
 					aria-label="Definir rancho padrão"
 				>
 					<Settings className="h-4 w-4 mr-2" />
@@ -474,7 +473,6 @@ export default function Forecast(): JSX.Element {
 					size="sm"
 					onClick={() => setShowBulkMealSelector(!showBulkMealSelector)}
 					disabled={isLoading}
-					className="hover:bg-accent/10 hover:text-accent hover:border-accent/30 transition-all cursor-pointer"
 					aria-label="Aplicar refeições em massa"
 				>
 					<UtensilsCrossed className="h-4 w-4 mr-2" />
@@ -486,7 +484,6 @@ export default function Forecast(): JSX.Element {
 					size="sm"
 					onClick={handleRefresh}
 					disabled={isLoading || isRefetching}
-					className="cursor-pointer hover:bg-secondary/10 hover:border-secondary/30 transition-all"
 					aria-label="Recarregar previsões"
 				>
 					<RefreshCw className={cn("h-4 w-4", isRefetching && "animate-spin")} />
@@ -532,9 +529,7 @@ export default function Forecast(): JSX.Element {
 			{/* Estatísticas */}
 			<section className="w-full">
 				<div className="p-4 sm:p-5">
-					<div className="p-4 sm:p-5">
-						<SimplifiedMilitaryStats selections={selections} dates={dates} isLoading={isRefetching} />
-					</div>
+					<SimplifiedMilitaryStats selections={selections} dates={dates} isLoading={isRefetching} />
 				</div>
 			</section>
 

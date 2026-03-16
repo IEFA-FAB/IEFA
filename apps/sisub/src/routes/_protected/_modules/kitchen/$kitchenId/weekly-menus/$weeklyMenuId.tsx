@@ -69,7 +69,7 @@ function DayOverviewCard({
 			onClick={onNavigate}
 			className={cn(
 				"text-left w-full rounded-md border bg-card p-4 hover:border-primary/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
-				allFilled && "border-success/40"
+				allFilled && "border-success/40 h-full"
 			)}
 		>
 			<div className="flex items-center justify-between mb-3">
@@ -364,7 +364,7 @@ function WeeklyMenuEditorPage() {
 								</Field>
 								<Field>
 									<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-									<Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição" rows={1} />
+									<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição" />
 								</Field>
 							</FieldGroup>
 							{isFork && (
@@ -405,7 +405,7 @@ function WeeklyMenuEditorPage() {
 							})}
 						</TabsList>
 
-						<TabsContent value="overview" className="mt-4 space-y-4">
+						<TabsContent value="overview" className="mt-4 space-y-4 h-full">
 							<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
 								<span>
 									<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "receita" : "Preparações"} no cardápio
@@ -416,7 +416,7 @@ function WeeklyMenuEditorPage() {
 								</span>
 							</div>
 
-							<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+							<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 h-full">
 								{WEEKDAYS.map((day) => (
 									<DayOverviewCard
 										key={day.num}

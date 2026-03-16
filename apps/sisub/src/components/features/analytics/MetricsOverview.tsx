@@ -39,7 +39,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
 			{/* Total Card - Full width on mobile */}
-			<Card className="bg-primary/5 border-primary/20 border-2 col-span-2 lg:col-span-1">
+			<Card className="bg-primary/5 border-primary/20 border-1  col-span-2 lg:col-span-1">
 				<CardContent className="p-4 md:p-6">
 					<div className="flex items-center gap-3">
 						<div className="p-2 bg-primary/10 rounded-md">
@@ -64,7 +64,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 					<Card key={stat.meal} className={cn("border", color)}>
 						<CardContent className="p-4 md:p-6">
 							<div className="flex items-center gap-2 md:gap-3">
-								<div className="p-2 bg-muted rounded-md">
+								<div className={cn("bg", color, " p-2 rounded-md after:bg-foregorund/10")}>
 									<Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} aria-hidden="true" />
 								</div>
 								<div className="flex-1 min-w-0">
