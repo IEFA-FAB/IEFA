@@ -1,13 +1,4 @@
-import {
-	DndContext,
-	type DragEndEvent,
-	type DragOverEvent,
-	DragOverlay,
-	type DragStartEvent,
-	PointerSensor,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core"
+import { DndContext, type DragEndEvent, type DragOverEvent, DragOverlay, type DragStartEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
 import { useState } from "react"
 import { useUpdateArticle } from "@/lib/journal/hooks"
 import type { ArticleStatus, EditorialDashboardArticle } from "@/lib/journal/types"
@@ -85,27 +76,14 @@ export function KanbanBoard({ articles }: KanbanBoardProps) {
 	}
 
 	return (
-		<DndContext
-			sensors={sensors}
-			onDragStart={handleDragStart}
-			onDragOver={handleDragOver}
-			onDragEnd={handleDragEnd}
-			onDragCancel={handleDragCancel}
-		>
+		<DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 				{COLUMNS.map((column) => (
-					<KanbanColumn
-						key={column.id}
-						id={column.status}
-						title={column.title}
-						articles={getArticlesForColumn(column.status)}
-					/>
+					<KanbanColumn key={column.id} id={column.status} title={column.title} articles={getArticlesForColumn(column.status)} />
 				))}
 			</div>
 
-			<DragOverlay>
-				{activeArticle ? <ArticleCard article={activeArticle} isDragging /> : null}
-			</DragOverlay>
+			<DragOverlay>{activeArticle ? <ArticleCard article={activeArticle} isDragging /> : null}</DragOverlay>
 		</DndContext>
 	)
 }

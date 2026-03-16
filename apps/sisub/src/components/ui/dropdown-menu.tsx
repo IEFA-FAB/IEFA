@@ -24,17 +24,10 @@ function DropdownMenuContent({
 	sideOffset = 4,
 	className,
 	...props
-}: MenuPrimitive.Popup.Props &
-	Pick<MenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
+}: MenuPrimitive.Popup.Props & Pick<MenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
 	return (
 		<MenuPrimitive.Portal>
-			<MenuPrimitive.Positioner
-				className="isolate z-50 outline-none"
-				align={align}
-				alignOffset={alignOffset}
-				side={side}
-				sideOffset={sideOffset}
-			>
+			<MenuPrimitive.Positioner className="isolate z-50 outline-none" align={align} alignOffset={alignOffset} side={side} sideOffset={sideOffset}>
 				<MenuPrimitive.Popup
 					data-slot="dropdown-menu-content"
 					className={cn(
@@ -63,10 +56,7 @@ function DropdownMenuLabel({
 		<MenuPrimitive.GroupLabel
 			data-slot="dropdown-menu-label"
 			data-inset={inset}
-			className={cn(
-				"text-muted-foreground px-1.5 py-1 text-xs font-medium data-[inset]:pl-8",
-				className
-			)}
+			className={cn("text-muted-foreground px-1.5 py-1 text-xs font-medium data-[inset]:pl-8", className)}
 			{...props}
 		/>
 	)
@@ -147,12 +137,7 @@ function DropdownMenuSubContent({
 	)
 }
 
-function DropdownMenuCheckboxItem({
-	className,
-	children,
-	checked,
-	...props
-}: MenuPrimitive.CheckboxItem.Props) {
+function DropdownMenuCheckboxItem({ className, children, checked, ...props }: MenuPrimitive.CheckboxItem.Props) {
 	return (
 		<MenuPrimitive.CheckboxItem
 			data-slot="dropdown-menu-checkbox-item"
@@ -204,23 +189,14 @@ function DropdownMenuRadioItem({ className, children, ...props }: MenuPrimitive.
 }
 
 function DropdownMenuSeparator({ className, ...props }: MenuPrimitive.Separator.Props) {
-	return (
-		<MenuPrimitive.Separator
-			data-slot="dropdown-menu-separator"
-			className={cn("bg-border -mx-1 my-1 h-px", className)}
-			{...props}
-		/>
-	)
+	return <MenuPrimitive.Separator data-slot="dropdown-menu-separator" className={cn("bg-border -mx-1 my-1 h-px", className)} {...props} />
 }
 
 function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			data-slot="dropdown-menu-shortcut"
-			className={cn(
-				"text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground ml-auto text-xs tracking-widest",
-				className
-			)}
+			className={cn("text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground ml-auto text-xs tracking-widest", className)}
 			{...props}
 		/>
 	)

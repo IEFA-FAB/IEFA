@@ -48,10 +48,7 @@ function ModulesLayout() {
 	const responsiveSidebarDefault = useResponsiveSidebarDefault()
 
 	return (
-		<SidebarProvider
-			defaultOpen={responsiveSidebarDefault}
-			className="bg-transparent text-foreground h-full"
-		>
+		<SidebarProvider defaultOpen={responsiveSidebarDefault} className="bg-transparent text-foreground h-full">
 			<AppShell />
 		</SidebarProvider>
 	)

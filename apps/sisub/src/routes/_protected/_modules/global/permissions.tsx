@@ -20,10 +20,7 @@ export const Route = createFileRoute("/_protected/_modules/global/permissions")(
 function PermissionsPage() {
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Gerenciar Permissões"
-				description="Busque pelo email do usuário para gerenciar permissões."
-			/>
+			<PageHeader title="Gerenciar Permissões" description="Busque pelo email do usuário para gerenciar permissões." />
 			<PermissionsManager />
 		</div>
 	)

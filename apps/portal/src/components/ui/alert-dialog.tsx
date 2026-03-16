@@ -93,10 +93,7 @@ function AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) 
 	)
 }
 
-function AlertDialogTitle({
-	className,
-	...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
+function AlertDialogTitle({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
 	return (
 		<AlertDialogPrimitive.Title
 			data-slot="alert-dialog-title"
@@ -109,10 +106,7 @@ function AlertDialogTitle({
 	)
 }
 
-function AlertDialogDescription({
-	className,
-	...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
+function AlertDialogDescription({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
 	return (
 		<AlertDialogPrimitive.Description
 			data-slot="alert-dialog-description"
@@ -134,16 +128,8 @@ function AlertDialogCancel({
 	variant = "outline",
 	size = "default",
 	...props
-}: AlertDialogPrimitive.Close.Props &
-	Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
-	return (
-		<AlertDialogPrimitive.Close
-			data-slot="alert-dialog-cancel"
-			className={cn(className)}
-			render={<Button variant={variant} size={size} />}
-			{...props}
-		/>
-	)
+}: AlertDialogPrimitive.Close.Props & Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
+	return <AlertDialogPrimitive.Close data-slot="alert-dialog-cancel" className={cn(className)} render={<Button variant={variant} size={size} />} {...props} />
 }
 
 export {

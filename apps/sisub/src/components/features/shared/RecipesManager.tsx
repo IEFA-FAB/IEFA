@@ -51,25 +51,13 @@ export function RecipesManager() {
 					/>
 				</div>
 				<div className="flex gap-2">
-					<Button
-						variant={filter === "all" ? "secondary" : "ghost"}
-						onClick={() => setFilter("all")}
-						size="sm"
-					>
+					<Button variant={filter === "all" ? "secondary" : "ghost"} onClick={() => setFilter("all")} size="sm">
 						Todas
 					</Button>
-					<Button
-						variant={filter === "global" ? "secondary" : "ghost"}
-						onClick={() => setFilter("global")}
-						size="sm"
-					>
+					<Button variant={filter === "global" ? "secondary" : "ghost"} onClick={() => setFilter("global")} size="sm">
 						Globais (SDAB)
 					</Button>
-					<Button
-						variant={filter === "local" ? "secondary" : "ghost"}
-						onClick={() => setFilter("local")}
-						size="sm"
-					>
+					<Button variant={filter === "local" ? "secondary" : "ghost"} onClick={() => setFilter("local")} size="sm">
 						Locais
 					</Button>
 				</div>
@@ -87,19 +75,11 @@ export function RecipesManager() {
 				</div>
 
 				{isLoading ? (
-					<div className="h-24 flex items-center justify-center text-sm text-muted-foreground">
-						Carregando Preparações...
-					</div>
+					<div className="h-24 flex items-center justify-center text-sm text-muted-foreground">Carregando Preparações...</div>
 				) : filteredRecipes.length === 0 ? (
-					<div className="h-24 flex items-center justify-center text-sm text-muted-foreground">
-						Nenhuma Preparação encontrada.
-					</div>
+					<div className="h-24 flex items-center justify-center text-sm text-muted-foreground">Nenhuma Preparação encontrada.</div>
 				) : (
-					<div
-						ref={parentRef}
-						className="overflow-y-auto"
-						style={{ height: Math.min(filteredRecipes.length * ROW_HEIGHT, 600) }}
-					>
+					<div ref={parentRef} className="overflow-y-auto" style={{ height: Math.min(filteredRecipes.length * ROW_HEIGHT, 600) }}>
 						<div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
 							{virtualizer.getVirtualItems().map((vRow) => {
 								const recipe = filteredRecipes[vRow.index]
@@ -118,10 +98,7 @@ export function RecipesManager() {
 											)}
 										</div>
 										<div>
-											<Badge
-												variant="secondary"
-												className="rounded-full px-2.5 py-0.5 font-mono text-xs"
-											>
+											<Badge variant="secondary" className="rounded-full px-2.5 py-0.5 font-mono text-xs">
 												v{recipe.version}
 											</Badge>
 										</div>
@@ -139,44 +116,25 @@ export function RecipesManager() {
 										<div className="font-mono text-sm">{recipe.portion_yield} porções</div>
 										<div className="flex items-center justify-end gap-2 pr-6">
 											{kitchenId ? (
-												<Link
-													to="/kitchen/$kitchenId/recipes/$recipeId"
-													params={{ kitchenId, recipeId: recipe.id }}
-												>
-													<Button
-														variant="ghost"
-														size="sm"
-														className="hover:bg-primary/10 hover:text-primary transition-all"
-													>
+												<Link to="/kitchen/$kitchenId/recipes/$recipeId" params={{ kitchenId, recipeId: recipe.id }}>
+													<Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-all">
 														Detalhes
 													</Button>
 												</Link>
 											) : (
 												<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
-													<Button
-														variant="ghost"
-														size="sm"
-														className="hover:bg-primary/10 hover:text-primary transition-all"
-													>
+													<Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-all">
 														Detalhes
 													</Button>
 												</Link>
 											)}
 											{!recipe.kitchen_id &&
 												(kitchenId ? (
-													<Link
-														to="/kitchen/$kitchenId/recipes/new"
-														params={{ kitchenId }}
-														search={{ forkFrom: recipe.id }}
-													>
+													<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipe.id }}>
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button
-																		variant="outline"
-																		size="sm"
-																		className="hover:bg-accent/10 hover:border-accent/30 transition-all"
-																	>
+																	<Button variant="outline" size="sm" className="hover:bg-accent/10 hover:border-accent/30 transition-all">
 																		<GitFork className="w-3.5 h-3.5 mr-1.5" />
 																		Personalizar
 																	</Button>
@@ -190,11 +148,7 @@ export function RecipesManager() {
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button
-																		variant="outline"
-																		size="sm"
-																		className="hover:bg-accent/10 hover:border-accent/30 transition-all"
-																	>
+																	<Button variant="outline" size="sm" className="hover:bg-accent/10 hover:border-accent/30 transition-all">
 																		<GitFork className="w-3.5 h-3.5 mr-1.5" />
 																		Personalizar
 																	</Button>

@@ -5,19 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
 import type { DayMeals } from "@/lib/meal"
-import {
-	deleteForecastFn,
-	fetchMealForecastsFn,
-	fetchUserDefaultMessHallFn,
-	persistDefaultMessHallFn,
-	upsertForecastFn,
-} from "@/server/forecast.fn"
-import type {
-	MealForecastHook,
-	MessHallByDate,
-	PendingChange,
-	SelectionsByDate,
-} from "@/types/domain/meal"
+import { deleteForecastFn, fetchMealForecastsFn, fetchUserDefaultMessHallFn, persistDefaultMessHallFn, upsertForecastFn } from "@/server/forecast.fn"
+import type { MealForecastHook, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 
 // Business timings
 const DAYS_TO_SHOW = 30
@@ -132,10 +121,7 @@ export const useMealForecast = (): MealForecastHook => {
 	// Datas/keys estáveis
 	const dates = useMemo(() => generateDates(DAYS_TO_SHOW), [])
 	const todayString = useMemo(() => toYYYYMMDD(new Date()), [])
-	const forecastsQueryKey = useMemo(
-		() => ["mealForecasts", user?.id, dates[0], dates[dates.length - 1]],
-		[user?.id, dates]
-	)
+	const forecastsQueryKey = useMemo(() => ["mealForecasts", user?.id, dates[0], dates[dates.length - 1]], [user?.id, dates])
 	const userDataQueryKey = useMemo(() => ["userData", user?.id], [user?.id])
 
 	// Mensagens
@@ -279,15 +265,7 @@ export const useMealForecast = (): MealForecastHook => {
 
 		// Mantém cache coerente
 		queryClient.invalidateQueries({ queryKey: userDataQueryKey })
-	}, [
-		user?.id,
-		user?.email,
-		defaultMessHallId,
-		userData?.default_mess_hall_id,
-		queryClient,
-		userDataQueryKey,
-		setErrorWithClear,
-	])
+	}, [user?.id, user?.email, defaultMessHallId, userData?.default_mess_hall_id, queryClient, userDataQueryKey, setErrorWithClear])
 
 	// Salva alterações pendentes (usa messHallId direto)
 	const savePendingChanges = useCallback(async (): Promise<void> => {
@@ -320,9 +298,7 @@ export const useMealForecast = (): MealForecastHook => {
 							if (change.value) {
 								const messHallIdNum = Number(change.messHallId)
 								if (!Number.isFinite(messHallIdNum) || messHallIdNum <= 0) {
-									throw new Error(
-										`messHallId inválido: "${change.messHallId}" para ${change.date}-${change.meal}`
-									)
+									throw new Error(`messHallId inválido: "${change.messHallId}" para ${change.date}-${change.meal}`)
 								}
 								await upsertForecastFn({
 									data: {
@@ -351,52 +327,26 @@ export const useMealForecast = (): MealForecastHook => {
 					})
 				)
 
-				const ok = results.filter(
-					(r) => r.status === "fulfilled" && r.value.success
-				) as PromiseFulfilledResult<{
+				const ok = results.filter((r) => r.status === "fulfilled" && r.value.success) as PromiseFulfilledResult<{
 					success: boolean
 					change: PendingChange
 				}>[]
 
-				const fail = results.filter(
-					(r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)
-				)
+				const fail = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success))
 
 				if (fail.length === 0) {
 					const n = changesToSave.length
 					setSuccess(`${n} ${labelAlteracao(n)} ${labelSalva(n)} com sucesso!`)
 					setPendingChanges((prev) =>
-						prev.filter(
-							(c) =>
-								!changesToSave.some(
-									(s) =>
-										s.date === c.date &&
-										s.meal === c.meal &&
-										s.value === c.value &&
-										s.messHallId === c.messHallId
-								)
-						)
+						prev.filter((c) => !changesToSave.some((s) => s.date === c.date && s.meal === c.meal && s.value === c.value && s.messHallId === c.messHallId))
 					)
 				} else if (ok.length > 0) {
 					const nOk = ok.length
 					const nFail = fail.length
-					setSuccess(
-						`${nOk} ${labelAlteracao(nOk)} ${labelSalva(nOk)}. ${nFail} ${labelAlteracao(
-							nFail
-						)} ${labelFalhou(nFail)}.`
-					)
+					setSuccess(`${nOk} ${labelAlteracao(nOk)} ${labelSalva(nOk)}. ${nFail} ${labelAlteracao(nFail)} ${labelFalhou(nFail)}.`)
 					const okChanges = ok.map((r) => r.value.change)
 					setPendingChanges((prev) =>
-						prev.filter(
-							(c) =>
-								!okChanges.some(
-									(s) =>
-										s.date === c.date &&
-										s.meal === c.meal &&
-										s.value === c.value &&
-										s.messHallId === c.messHallId
-								)
-						)
+						prev.filter((c) => !okChanges.some((s) => s.date === c.date && s.meal === c.meal && s.value === c.value && s.messHallId === c.messHallId))
 					)
 					fail.forEach((r) => {
 						if (r.status === "fulfilled") {
@@ -407,17 +357,11 @@ export const useMealForecast = (): MealForecastHook => {
 					})
 				} else {
 					const msg = fail
-						.map((r) =>
-							r.status === "fulfilled"
-								? (r.value as { error?: string }).error
-								: (r.reason?.message as string) || "Erro desconhecido"
-						)
+						.map((r) => (r.status === "fulfilled" ? (r.value as { error?: string }).error : (r.reason?.message as string) || "Erro desconhecido"))
 						.join(", ")
 					const count = changesToSave.length
 					throw new Error(
-						count === 1
-							? `A ${labelOperacao(count)} ${labelFalhou(count)}: ${msg}`
-							: `Todas as ${count} ${labelOperacao(count)} ${labelFalhou(count)}: ${msg}`
+						count === 1 ? `A ${labelOperacao(count)} ${labelFalhou(count)}: ${msg}` : `Todas as ${count} ${labelOperacao(count)} ${labelFalhou(count)}: ${msg}`
 					)
 				}
 
@@ -425,11 +369,7 @@ export const useMealForecast = (): MealForecastHook => {
 				queryClient.invalidateQueries({ queryKey: forecastsQueryKey })
 			} catch (err) {
 				console.error("Erro crítico ao salvar mudanças:", err)
-				setErrorWithClear(
-					err instanceof Error
-						? `Erro ao salvar ${labelAlteracao(1)}: ${err.message}`
-						: "Erro ao salvar alterações. Tente novamente."
-				)
+				setErrorWithClear(err instanceof Error ? `Erro ao salvar ${labelAlteracao(1)}: ${err.message}` : "Erro ao salvar alterações. Tente novamente.")
 			} finally {
 				setIsSavingBatch(false)
 				saveOperationRef.current = null

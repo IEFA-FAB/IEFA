@@ -105,9 +105,7 @@ function chunkByArticle(content: string): Chunk[] {
 	return chunks
 }
 
-export async function ingestMarkdown(
-	filePath: string
-): Promise<{ chunks_created: number; chunks_skipped: number }> {
+export async function ingestMarkdown(filePath: string): Promise<{ chunks_created: number; chunks_skipped: number }> {
 	const fs = await import("node:fs")
 	const markdown = fs.readFileSync(filePath, "utf-8")
 
@@ -118,11 +116,7 @@ export async function ingestMarkdown(
 	const title = frontmatter.title ?? source
 	const year = frontmatter.year ?? new Date().getFullYear()
 
-	const { data: existing } = await supabase
-		.from("documents")
-		.select("id")
-		.eq("source", source)
-		.single()
+	const { data: existing } = await supabase.from("documents").select("id").eq("source", source).single()
 
 	let documentId: string
 

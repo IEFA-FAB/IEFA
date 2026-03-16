@@ -1,14 +1,7 @@
 import { Loader2 } from "lucide-react"
 import React from "react"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -99,9 +92,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 
 	// Get recipes for a specific cell
 	const getCellRecipes = (dayOfWeek: number, mealTypeId: string): Recipe[] => {
-		const cellRecipeIds = items
-			.filter((item) => item.day_of_week === dayOfWeek && item.meal_type_id === mealTypeId)
-			.map((item) => item.recipe_id)
+		const cellRecipeIds = items.filter((item) => item.day_of_week === dayOfWeek && item.meal_type_id === mealTypeId).map((item) => item.recipe_id)
 
 		return allRecipes?.filter((recipe) => cellRecipeIds.includes(recipe.id)) || []
 	}
@@ -117,13 +108,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 		if (!selectedCell) return
 
 		// Remove existing items for this cell
-		const filtered = items.filter(
-			(item) =>
-				!(
-					item.day_of_week === selectedCell.dayOfWeek &&
-					item.meal_type_id === selectedCell.mealTypeId
-				)
-		)
+		const filtered = items.filter((item) => !(item.day_of_week === selectedCell.dayOfWeek && item.meal_type_id === selectedCell.mealTypeId))
 
 		// Add new items
 		const newItems = recipeIds.map((recipeId) => ({
@@ -138,16 +123,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 
 	// Handle removing a recipe
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
-		setItems(
-			items.filter(
-				(item) =>
-					!(
-						item.day_of_week === dayOfWeek &&
-						item.meal_type_id === mealTypeId &&
-						item.recipe_id === recipeId
-					)
-			)
-		)
+		setItems(items.filter((item) => !(item.day_of_week === dayOfWeek && item.meal_type_id === mealTypeId && item.recipe_id === recipeId)))
 	}
 
 	// Handle form submission
@@ -199,13 +175,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 	}
 
 	const currentCellRecipeIds = selectedCell
-		? items
-				.filter(
-					(item) =>
-						item.day_of_week === selectedCell.dayOfWeek &&
-						item.meal_type_id === selectedCell.mealTypeId
-				)
-				.map((item) => item.recipe_id)
+		? items.filter((item) => item.day_of_week === selectedCell.dayOfWeek && item.meal_type_id === selectedCell.mealTypeId).map((item) => item.recipe_id)
 		: []
 
 	if (!kitchenId) {
@@ -218,9 +188,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 				<DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>{isEditing ? "Editar Template" : "Novo Template Semanal"}</DialogTitle>
-						<DialogDescription>
-							Configure as Preparações para cada dia e período de refeição.
-						</DialogDescription>
+						<DialogDescription>Configure as Preparações para cada dia e período de refeição.</DialogDescription>
 					</DialogHeader>
 
 					<form onSubmit={handleSubmit} className="space-y-6">
@@ -228,13 +196,7 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label htmlFor="name">Nome do Template *</Label>
-								<Input
-									id="name"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									placeholder="Ex: Semana Padrão, Feriados"
-									required
-								/>
+								<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Semana Padrão, Feriados" required />
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="description">Descrição (opcional)</Label>
@@ -283,18 +245,14 @@ export function TemplateEditor({ open, onClose, kitchenId, templateId }: Templat
 															mealTypeName={mealType.name ?? ""}
 															recipes={getCellRecipes(day.num, mealType.id)}
 															onAddRecipes={() => handleOpenSelector(day.num, mealType.id)}
-															onRemoveRecipe={(recipeId) =>
-																handleRemoveRecipe(day.num, mealType.id, recipeId)
-															}
+															onRemoveRecipe={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 														/>
 													</div>
 												))}
 											</div>
 										))
 									) : (
-										<div className="p-8 text-center text-sm text-muted-foreground">
-											Nenhum tipo de refeição disponível. Crie tipos de refeição primeiro.
-										</div>
+										<div className="p-8 text-center text-sm text-muted-foreground">Nenhum tipo de refeição disponível. Crie tipos de refeição primeiro.</div>
 									)}
 								</div>
 							</div>

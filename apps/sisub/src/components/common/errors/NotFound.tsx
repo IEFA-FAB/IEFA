@@ -12,9 +12,7 @@ export function NotFound({ children }: { children?: React.ReactNode }) {
 						<SearchX className="h-10 w-10 text-primary" />
 					</div>
 					<CardTitle className="text-4xl font-bold tracking-tight">Página não encontrada</CardTitle>
-					<CardDescription className="text-zinc-400 text-lg">
-						{children || "A página que você está procurando não existe ou foi movida."}
-					</CardDescription>
+					<CardDescription className="text-zinc-400 text-lg">{children || "A página que você está procurando não existe ou foi movida."}</CardDescription>
 				</CardHeader>
 
 				<CardFooter className="flex flex-col gap-3 px-8 pb-12 pt-8">

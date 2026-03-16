@@ -55,9 +55,7 @@ export function Step2Metadata() {
 						placeholder="Resumo do artigo em português (máx. 500 palavras)"
 						rows={6}
 					/>
-					<p className="text-xs text-muted-foreground">
-						{(formData.abstract_pt || "").split(/\s+/).filter(Boolean).length} / 500 palavras
-					</p>
+					<p className="text-xs text-muted-foreground">{(formData.abstract_pt || "").split(/\s+/).filter(Boolean).length} / 500 palavras</p>
 				</div>
 
 				<div className="space-y-2">
@@ -83,10 +81,7 @@ export function Step2Metadata() {
 					</div>
 					<div className="flex flex-wrap gap-2 mt-2">
 						{(formData.keywords_pt || []).map((kw) => (
-							<span
-								key={kw}
-								className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-							>
+							<span key={kw} className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
 								{kw}
 								<button
 									type="button"
@@ -103,9 +98,7 @@ export function Step2Metadata() {
 							</span>
 						))}
 					</div>
-					<p className="text-xs text-muted-foreground">
-						{(formData.keywords_pt || []).length} / 6 palavras-chave (mínimo 3)
-					</p>
+					<p className="text-xs text-muted-foreground">{(formData.keywords_pt || []).length} / 6 palavras-chave (mínimo 3)</p>
 				</div>
 			</div>
 
@@ -136,9 +129,7 @@ export function Step2Metadata() {
 						placeholder="Article abstract in English (max 500 words)"
 						rows={6}
 					/>
-					<p className="text-xs text-muted-foreground">
-						{(formData.abstract_en || "").split(/\s+/).filter(Boolean).length} / 500 words
-					</p>
+					<p className="text-xs text-muted-foreground">{(formData.abstract_en || "").split(/\s+/).filter(Boolean).length} / 500 words</p>
 				</div>
 
 				<div className="space-y-2">
@@ -164,10 +155,7 @@ export function Step2Metadata() {
 					</div>
 					<div className="flex flex-wrap gap-2 mt-2">
 						{(formData.keywords_en || []).map((kw) => (
-							<span
-								key={kw}
-								className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-							>
+							<span key={kw} className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
 								{kw}
 								<button
 									type="button"
@@ -184,9 +172,7 @@ export function Step2Metadata() {
 							</span>
 						))}
 					</div>
-					<p className="text-xs text-muted-foreground">
-						{(formData.keywords_en || []).length} / 6 keywords (minimum 3)
-					</p>
+					<p className="text-xs text-muted-foreground">{(formData.keywords_en || []).length} / 6 keywords (minimum 3)</p>
 				</div>
 			</div>
 		</div>

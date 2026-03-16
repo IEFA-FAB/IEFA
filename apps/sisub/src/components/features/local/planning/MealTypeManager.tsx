@@ -2,21 +2,8 @@ import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes"
 import type { MealType } from "@/types/supabase.types"
@@ -61,11 +48,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 	}
 
 	const handleDelete = (mealType: MealType) => {
-		if (
-			window.confirm(
-				`Tem certeza que deseja remover "${mealType.name}"?\n\nEste tipo de refeição poderá ser recuperado na lixeira.`
-			)
-		) {
+		if (window.confirm(`Tem certeza que deseja remover "${mealType.name}"?\n\nEste tipo de refeição poderá ser recuperado na lixeira.`)) {
 			deleteMealType(mealType.id)
 		}
 	}
@@ -101,10 +84,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 				<DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>Gerenciar Tipos de Refeição</DialogTitle>
-						<DialogDescription>
-							Tipos genéricos são definidos globalmente. Você pode criar tipos customizados para
-							esta cozinha.
-						</DialogDescription>
+						<DialogDescription>Tipos genéricos são definidos globalmente. Você pode criar tipos customizados para esta cozinha.</DialogDescription>
 					</DialogHeader>
 
 					<div className="space-y-6 py-4">
@@ -146,9 +126,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 									</TableBody>
 								</Table>
 							) : (
-								<p className="text-sm text-muted-foreground py-4">
-									Nenhum tipo genérico cadastrado.
-								</p>
+								<p className="text-sm text-muted-foreground py-4">Nenhum tipo genérico cadastrado.</p>
 							)}
 						</div>
 
@@ -192,11 +170,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button
-																		size="icon"
-																		variant="ghost"
-																		onClick={() => handleEdit(mealType)}
-																	>
+																	<Button size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
 																		<Edit className="w-4 h-4" />
 																	</Button>
 																}
@@ -206,12 +180,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button
-																		size="icon"
-																		variant="ghost"
-																		onClick={() => handleDelete(mealType)}
-																		disabled={isDeleting}
-																	>
+																	<Button size="icon" variant="ghost" onClick={() => handleDelete(mealType)} disabled={isDeleting}>
 																		<Trash2 className="w-4 h-4 text-destructive" />
 																	</Button>
 																}
@@ -226,9 +195,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 								</Table>
 							) : (
 								<div className="py-8 text-center border-2 border-dashed rounded-lg">
-									<p className="text-sm text-muted-foreground mb-2">
-										Nenhum tipo customizado criado ainda.
-									</p>
+									<p className="text-sm text-muted-foreground mb-2">Nenhum tipo customizado criado ainda.</p>
 									<Button size="sm" variant="outline" onClick={handleCreate}>
 										<Plus className="w-4 h-4 mr-2" />
 										Criar Primeiro Tipo
@@ -241,12 +208,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 			</Dialog>
 
 			{/* Form Dialog */}
-			<MealTypeForm
-				open={formOpen}
-				onClose={handleFormClose}
-				kitchenId={kitchenId || 0}
-				mealType={editingMealType}
-			/>
+			<MealTypeForm open={formOpen} onClose={handleFormClose} kitchenId={kitchenId || 0} mealType={editingMealType} />
 		</>
 	)
 }

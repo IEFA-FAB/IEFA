@@ -34,12 +34,7 @@ export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.schema("sisub")
-			.from("user_data")
-			.select("nrOrdem")
-			.eq("id", data.userId)
-			.maybeSingle()
+		const { data: result, error } = await getSupabaseServerClient().schema("sisub").from("user_data").select("nrOrdem").eq("id", data.userId).maybeSingle()
 
 		if (error) throw new Error(error.message)
 

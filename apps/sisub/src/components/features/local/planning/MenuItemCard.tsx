@@ -60,10 +60,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 				<div className="flex items-center gap-2">
 					<p className="font-medium text-sm">{recipeName}</p>
 					{item.substitutions && (
-						<Badge
-							variant="outline"
-							className="text-[10px] bg-warning/10 text-warning border-warning/30"
-						>
+						<Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
 							Substituição Ativa
 						</Badge>
 					)}
@@ -72,12 +69,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button
-									size="icon"
-									variant="ghost"
-									className="h-7 w-7 text-muted-foreground hover:text-primary"
-									onClick={() => onSubstitute(item)}
-								>
+								<Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => onSubstitute(item)}>
 									<ArrowLeftRight className="w-3.5 h-3.5" />
 								</Button>
 							}
@@ -87,12 +79,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button
-									size="icon"
-									variant="ghost"
-									className="h-7 w-7 text-destructive hover:bg-destructive/10"
-									onClick={() => onDelete(item.id, recipeName)}
-								>
+								<Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => onDelete(item.id, recipeName)}>
 									<Trash2 className="w-3.5 h-3.5" />
 								</Button>
 							}
@@ -113,9 +100,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 						id={`portion-${item.id}`}
 						type="number"
 						value={portionQty ?? ""}
-						onChange={(e) =>
-							setPortionQty(e.target.value === "" ? null : Number.parseInt(e.target.value, 10))
-						}
+						onChange={(e) => setPortionQty(e.target.value === "" ? null : Number.parseInt(e.target.value, 10))}
 						onBlur={handleUpdatePortionQuantity}
 						placeholder="Ex: 150"
 						className="h-8 text-xs"
@@ -131,9 +116,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 						id={`excluded-${item.id}`}
 						type="number"
 						value={excludedQty ?? ""}
-						onChange={(e) =>
-							setExcludedQty(e.target.value === "" ? null : Number.parseInt(e.target.value, 10))
-						}
+						onChange={(e) => setExcludedQty(e.target.value === "" ? null : Number.parseInt(e.target.value, 10))}
 						onBlur={handleUpdateExcludedQuantity}
 						placeholder="Ex: 10"
 						className="h-8 text-xs"

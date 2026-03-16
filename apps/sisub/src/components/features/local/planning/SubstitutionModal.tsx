@@ -1,14 +1,7 @@
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -89,19 +82,14 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 				<div className="space-y-4 py-4">
 					<div className="bg-warning/10 border border-warning/20 p-3 rounded-md text-sm text-warning flex items-start gap-2">
 						<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-						<p>
-							Substituições alteram a ficha técnica apenas para este dia. O histórico original da
-							Preparação é preservado.
-						</p>
+						<p>Substituições alteram a ficha técnica apenas para este dia. O histórico original da Preparação é preservado.</p>
 					</div>
 
 					<ScrollArea className="h-48 border rounded-md p-2">
 						{ingredients.length === 0 ? (
 							<div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm p-4">
 								<p>Não foi possível ler os ingredientes do snapshot.</p>
-								<p className="text-xs opacity-70 mt-1">
-									(Isso pode ocorrer se o snapshot for antigo ou estiver em formato incompatível)
-								</p>
+								<p className="text-xs opacity-70 mt-1">(Isso pode ocorrer se o snapshot for antigo ou estiver em formato incompatível)</p>
 							</div>
 						) : (
 							<div className="space-y-2">
@@ -117,9 +105,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 										onClick={() => setSelectedIngredientId(ing.product_id)}
 									>
 										<div className="flex justify-between text-sm">
-											<span className="font-medium">
-												{ing.product_name || "Produto Inexistente"}
-											</span>
+											<span className="font-medium">{ing.product_name || "Produto Inexistente"}</span>
 											<span className="text-muted-foreground">
 												{ing.quantity} {ing.measure_unit}
 											</span>
@@ -138,18 +124,12 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 							</SelectTrigger>
 							<SelectContent>{/* Populate with fetch */}</SelectContent>
 						</Select>
-						<p className="text-[10px] text-muted-foreground">
-							* Seleção de produtos desativada nesta versão.
-						</p>
+						<p className="text-[10px] text-muted-foreground">* Seleção de produtos desativada nesta versão.</p>
 					</div>
 
 					<div className="space-y-2">
 						<Label>Justificativa</Label>
-						<Input
-							value={rationale}
-							onChange={(e) => setRationale(e.target.value)}
-							placeholder="Ex: Produto em falta"
-						/>
+						<Input value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder="Ex: Produto em falta" />
 					</div>
 				</div>
 

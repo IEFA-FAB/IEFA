@@ -6,11 +6,7 @@ import PresenceTable from "@/components/features/local/PresenceTable"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { aggregateDashboardMetrics } from "@/lib/dashboard"
-import {
-	dashboardForecastsQueryOptions,
-	dashboardPresencesQueryOptions,
-	messHallsQueryOptions,
-} from "@/services/DashboardService"
+import { dashboardForecastsQueryOptions, dashboardPresencesQueryOptions, messHallsQueryOptions } from "@/services/DashboardService"
 import DashboardFilters from "./DashboardFilters"
 import MealDistributionChart from "./MealDistributionChart"
 import MessHallBreakdown from "./MessHallBreakdown"
@@ -55,12 +51,7 @@ export default function DashboardCard() {
 	const isLoading = messHallsQuery.isLoading || forecastsQuery.isLoading || presencesQuery.isLoading
 
 	// Aggregate metrics (only when data is available)
-	const metrics = aggregateDashboardMetrics(
-		forecastsQuery.data ?? [],
-		presencesQuery.data ?? [],
-		filteredMessHalls,
-		dateRange
-	)
+	const metrics = aggregateDashboardMetrics(forecastsQuery.data ?? [], presencesQuery.data ?? [], filteredMessHalls, dateRange)
 
 	return (
 		<Card className="border-2">
@@ -70,9 +61,7 @@ export default function DashboardCard() {
 					Indicadores
 				</div>
 				<CardTitle>Indicadores da Unidade</CardTitle>
-				<CardDescription>
-					Dashboard gerencial com previsões e presença em tempo real
-				</CardDescription>
+				<CardDescription>Dashboard gerencial com previsões e presença em tempo real</CardDescription>
 			</CardHeader>
 
 			<CardContent className="space-y-6">
@@ -120,10 +109,7 @@ export default function DashboardCard() {
 							</TabsContent>
 
 							<TabsContent value="presence" className="mt-6">
-								<PresenceTable
-									forecasts={forecastsQuery.data ?? []}
-									presences={presencesQuery.data ?? []}
-								/>
+								<PresenceTable forecasts={forecastsQuery.data ?? []} presences={presencesQuery.data ?? []} />
 							</TabsContent>
 						</Tabs>
 					</>

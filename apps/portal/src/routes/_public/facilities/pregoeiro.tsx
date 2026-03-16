@@ -26,10 +26,7 @@ type Facility = {
 export const Route = createFileRoute("/_public/facilities/pregoeiro")({
 	component: Pregoeiro,
 	head: () => ({
-		meta: [
-			{ title: "Facilidades do Pregoeiro" },
-			{ name: "description", content: "Suite de Soluções do IEFA" },
-		],
+		meta: [{ title: "Facilidades do Pregoeiro" }, { name: "description", content: "Suite de Soluções do IEFA" }],
 	}),
 })
 
@@ -80,11 +77,7 @@ function usePregoeiroPreferences() {
 			setLoading(true)
 			try {
 				if (userId) {
-					const { data, error } = await supabase
-						.from("pregoeiro_preferences")
-						.select("*")
-						.eq("user_id", userId)
-						.maybeSingle()
+					const { data, error } = await supabase.from("pregoeiro_preferences").select("*").eq("user_id", userId).maybeSingle()
 
 					if (error) throw error
 
@@ -241,11 +234,7 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 			}
 
 			if (isEdit && initial?.id) {
-				const { error } = await supabase
-					.from("facilities_pregoeiro")
-					.update(payload)
-					.eq("id", initial.id)
-					.eq("owner_id", currentUserId)
+				const { error } = await supabase.from("facilities_pregoeiro").update(payload).eq("id", initial.id).eq("owner_id", currentUserId)
 				if (error) throw error
 			} else {
 				const { error } = await supabase.from("facilities_pregoeiro").insert(payload)
@@ -255,8 +244,7 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 			onOpenChange(false)
 			onSaved?.()
 		} catch (e: unknown) {
-			const msg =
-				e instanceof Error ? e.message : (e as { message: string })?.message || "Erro ao salvar"
+			const msg = e instanceof Error ? e.message : (e as { message: string })?.message || "Erro ao salvar"
 			alert(msg)
 		} finally {
 			setSaving(false)
@@ -273,22 +261,12 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 				<div className="grid gap-4 py-2">
 					<div className="grid gap-2">
 						<Label htmlFor="phrase-phase">Fase</Label>
-						<Input
-							id="phrase-phase"
-							placeholder="Ex.: Abertura"
-							value={phase}
-							onChange={(e) => setPhase(e.target.value)}
-						/>
+						<Input id="phrase-phase" placeholder="Ex.: Abertura" value={phase} onChange={(e) => setPhase(e.target.value)} />
 					</div>
 
 					<div className="grid gap-2">
 						<Label htmlFor="phrase-title">Título</Label>
-						<Input
-							id="phrase-title"
-							placeholder="Ex.: Abertura da Sessão Pública"
-							value={title}
-							onChange={(e) => setTitle(e.target.value)}
-						/>
+						<Input id="phrase-title" placeholder="Ex.: Abertura da Sessão Pública" value={title} onChange={(e) => setTitle(e.target.value)} />
 					</div>
 
 					<div className="grid gap-2">
@@ -304,12 +282,7 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 
 					<div className="grid gap-2">
 						<Label htmlFor="phrase-tags">Tags (separe por vírgula)</Label>
-						<Input
-							id="phrase-tags"
-							placeholder="Ex.: sessão, abertura"
-							value={tagsText}
-							onChange={(e) => setTagsText(e.target.value)}
-						/>
+						<Input id="phrase-tags" placeholder="Ex.: sessão, abertura" value={tagsText} onChange={(e) => setTagsText(e.target.value)} />
 					</div>
 				</div>
 
@@ -337,9 +310,7 @@ function Pregoeiro() {
 	const [phraseOpen, setPhraseOpen] = useState(false)
 	const [phraseEditing, setPhraseEditing] = useState<Facility | null>(null)
 
-	const handleChange =
-		(key: keyof FacilidadesTableProps) => (e: React.ChangeEvent<HTMLInputElement>) =>
-			setEnv((prev) => ({ ...prev, [key]: e.target.value }))
+	const handleChange = (key: keyof FacilidadesTableProps) => (e: React.ChangeEvent<HTMLInputElement>) => setEnv((prev) => ({ ...prev, [key]: e.target.value }))
 
 	const handleOpenCreate = () => {
 		setPhraseEditing(null)
@@ -357,9 +328,7 @@ function Pregoeiro() {
 
 			{/* Toolbar principal */}
 			<div className="flex w-full max-w-5xl items-center justify-between gap-2 flex-wrap">
-				<div className="text-sm text-muted-foreground">
-					{loading ? "Carregando preferências..." : "Preferências carregadas"}
-				</div>
+				<div className="text-sm text-muted-foreground">{loading ? "Carregando preferências..." : "Preferências carregadas"}</div>
 				<div className="flex items-center gap-2">
 					<Button onClick={handleOpenCreate}>Nova frase</Button>
 				</div>
@@ -484,12 +453,7 @@ function Pregoeiro() {
 			</div>
 
 			{/* Modal de criar/editar frase */}
-			<PhraseModal
-				open={phraseOpen}
-				onOpenChange={setPhraseOpen}
-				initial={phraseEditing}
-				currentUserId={userId}
-			/>
+			<PhraseModal open={phraseOpen} onOpenChange={setPhraseOpen} initial={phraseEditing} currentUserId={userId} />
 		</div>
 	)
 }

@@ -12,10 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/analytics/local-indic
 	},
 	component: LocalIndicatorsPage,
 	head: () => ({
-		meta: [
-			{ title: "Indicadores da Unidade" },
-			{ name: "description", content: "Indicadores e relatórios da sua unidade" },
-		],
+		meta: [{ title: "Indicadores da Unidade" }, { name: "description", content: "Indicadores e relatórios da sua unidade" }],
 	}),
 })
 

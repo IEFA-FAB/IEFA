@@ -52,11 +52,7 @@ function AuthPage() {
 	}
 
 	// Navigation adapter
-	const handleNavigate = async (options: {
-		to?: string
-		search?: Record<string, unknown>
-		replace?: boolean
-	}) => {
+	const handleNavigate = async (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => {
 		await router.navigate(options as Parameters<typeof router.navigate>[0])
 	}
 
@@ -67,8 +63,7 @@ function AuthPage() {
 		})
 	}
 
-	const cardClasses =
-		"w-full max-w-2xl justify-self-center border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden"
+	const cardClasses = "w-full max-w-2xl justify-self-center border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden"
 
 	if (isLoading) {
 		return (

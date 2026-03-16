@@ -31,10 +31,8 @@ const inputGroupAddonVariants = cva(
 			align: {
 				"inline-start": "pl-2 has-[>button]:ml-[-0.3rem] has-[>kbd]:ml-[-0.15rem] order-first",
 				"inline-end": "pr-2 has-[>button]:mr-[-0.3rem] has-[>kbd]:mr-[-0.15rem] order-last",
-				"block-start":
-					"px-2.5 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2 order-first w-full justify-start",
-				"block-end":
-					"px-2.5 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2 order-last w-full justify-start",
+				"block-start": "px-2.5 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2 order-first w-full justify-start",
+				"block-end": "px-2.5 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2 order-last w-full justify-start",
 			},
 		},
 		defaultVariants: {
@@ -43,11 +41,7 @@ const inputGroupAddonVariants = cva(
 	}
 )
 
-function InputGroupAddon({
-	className,
-	align = "inline-start",
-	...props
-}: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
+function InputGroupAddon({ className, align = "inline-start", ...props }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
 	return (
 		<div
 			role="group"
@@ -89,24 +83,13 @@ function InputGroupButton({
 	VariantProps<typeof inputGroupButtonVariants> & {
 		type?: "button" | "submit" | "reset"
 	}) {
-	return (
-		<Button
-			type={type}
-			data-size={size}
-			variant={variant}
-			className={cn(inputGroupButtonVariants({ size }), className)}
-			{...props}
-		/>
-	)
+	return <Button type={type} data-size={size} variant={variant} className={cn(inputGroupButtonVariants({ size }), className)} {...props} />
 }
 
 function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
-			className={cn(
-				"text-muted-foreground gap-2 text-sm [&_svg:not([class*='size-'])]:size-4 flex items-center [&_svg]:pointer-events-none",
-				className
-			)}
+			className={cn("text-muted-foreground gap-2 text-sm [&_svg:not([class*='size-'])]:size-4 flex items-center [&_svg]:pointer-events-none", className)}
 			{...props}
 		/>
 	)
@@ -138,11 +121,4 @@ function InputGroupTextarea({ className, ...props }: React.ComponentProps<"texta
 	)
 }
 
-export {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupInput,
-	InputGroupText,
-	InputGroupTextarea,
-}
+export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText, InputGroupTextarea }

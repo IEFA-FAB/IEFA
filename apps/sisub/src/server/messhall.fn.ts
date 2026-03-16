@@ -22,12 +22,7 @@ export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<number | null> => {
 		if (!data.code) return null
 
-		const { data: result, error } = await getSupabaseServerClient()
-			.schema("sisub")
-			.from("mess_halls")
-			.select("id")
-			.eq("code", data.code)
-			.maybeSingle()
+		const { data: result, error } = await getSupabaseServerClient().schema("sisub").from("mess_halls").select("id").eq("code", data.code).maybeSingle()
 
 		if (error) throw new Error(error.message)
 		return result?.id ?? null
@@ -82,15 +77,12 @@ export const addOtherPresenceFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.schema("sisub")
-			.from("other_presences")
-			.insert({
-				admin_id: data.adminId,
-				date: data.date,
-				meal: data.meal,
-				mess_hall_id: data.messHallId,
-			})
+		const { error } = await getSupabaseServerClient().schema("sisub").from("other_presences").insert({
+			admin_id: data.adminId,
+			date: data.date,
+			meal: data.meal,
+			mess_hall_id: data.messHallId,
+		})
 
 		if (error) throw new Error(error.message)
 	})

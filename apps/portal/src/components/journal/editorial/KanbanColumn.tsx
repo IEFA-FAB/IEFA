@@ -18,9 +18,7 @@ export function KanbanColumn({ id, title, articles }: KanbanColumnProps) {
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center justify-between px-2">
 				<h3 className="font-semibold text-sm">{title}</h3>
-				<span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-					{articles.length}
-				</span>
+				<span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{articles.length}</span>
 			</div>
 
 			<div
@@ -37,11 +35,7 @@ export function KanbanColumn({ id, title, articles }: KanbanColumnProps) {
 					</div>
 				</SortableContext>
 
-				{articles.length === 0 && (
-					<div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-						Nenhum artigo
-					</div>
-				)}
+				{articles.length === 0 && <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Nenhum artigo</div>}
 			</div>
 		</div>
 	)

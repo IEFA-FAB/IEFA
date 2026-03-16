@@ -103,10 +103,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 export const deletePresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("meal_presences")
-			.delete()
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("meal_presences").delete().eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})

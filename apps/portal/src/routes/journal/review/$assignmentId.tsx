@@ -69,13 +69,7 @@ function ReviewSubmission() {
 
 	const handleSubmit = async () => {
 		// Validate required fields
-		if (
-			!formData.score_originality ||
-			!formData.score_methodology ||
-			!formData.score_clarity ||
-			!formData.score_references ||
-			!formData.score_overall
-		) {
+		if (!formData.score_originality || !formData.score_methodology || !formData.score_clarity || !formData.score_references || !formData.score_overall) {
 			alert("Por favor, preencha todas as avaliações de score.")
 			return
 		}
@@ -90,9 +84,7 @@ function ReviewSubmission() {
 			return
 		}
 
-		const confirmed = window.confirm(
-			"Tem certeza de que deseja submeter esta revisão? Esta ação não pode ser desfeita."
-		)
+		const confirmed = window.confirm("Tem certeza de que deseja submeter esta revisão? Esta ação não pode ser desfeita.")
 
 		if (!confirmed) return
 
@@ -119,45 +111,21 @@ function ReviewSubmission() {
 
 			<div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900">
 				<p className="text-sm text-blue-900 dark:text-blue-100">
-					📅 Prazo para submissão:{" "}
-					<strong>{new Date(assignment.due_date).toLocaleDateString("pt-BR")}</strong>
+					📅 Prazo para submissão: <strong>{new Date(assignment.due_date).toLocaleDateString("pt-BR")}</strong>
 				</p>
 			</div>
 
 			{/* Scoring Section */}
 			<div className="p-6 border rounded-lg bg-card space-y-6">
 				<h2 className="text-xl font-semibold">Avaliação por Critérios</h2>
-				<p className="text-sm text-muted-foreground">
-					Avalie cada aspecto do artigo de 1 (muito ruim) a 5 (excelente)
-				</p>
+				<p className="text-sm text-muted-foreground">Avalie cada aspecto do artigo de 1 (muito ruim) a 5 (excelente)</p>
 
 				<div className="grid md:grid-cols-2 gap-6">
-					<ScoreInput
-						label="Originalidade"
-						value={formData.score_originality}
-						onChange={(v) => updateField("score_originality", v)}
-					/>
-					<ScoreInput
-						label="Metodologia"
-						value={formData.score_methodology}
-						onChange={(v) => updateField("score_methodology", v)}
-					/>
-					<ScoreInput
-						label="Clareza e Organização"
-						value={formData.score_clarity}
-						onChange={(v) => updateField("score_clarity", v)}
-					/>
-					<ScoreInput
-						label="Qualidade das Referências"
-						value={formData.score_references}
-						onChange={(v) => updateField("score_references", v)}
-					/>
-					<ScoreInput
-						label="Avaliação Geral"
-						value={formData.score_overall}
-						onChange={(v) => updateField("score_overall", v)}
-						highlight
-					/>
+					<ScoreInput label="Originalidade" value={formData.score_originality} onChange={(v) => updateField("score_originality", v)} />
+					<ScoreInput label="Metodologia" value={formData.score_methodology} onChange={(v) => updateField("score_methodology", v)} />
+					<ScoreInput label="Clareza e Organização" value={formData.score_clarity} onChange={(v) => updateField("score_clarity", v)} />
+					<ScoreInput label="Qualidade das Referências" value={formData.score_references} onChange={(v) => updateField("score_references", v)} />
+					<ScoreInput label="Avaliação Geral" value={formData.score_overall} onChange={(v) => updateField("score_overall", v)} highlight />
 				</div>
 			</div>
 
@@ -199,9 +167,7 @@ function ReviewSubmission() {
 						className="w-full px-3 py-2 border rounded-md min-h-[200px] bg-background"
 						required
 					/>
-					<p className="text-xs text-muted-foreground">
-						Este comentário será compartilhado com os autores
-					</p>
+					<p className="text-xs text-muted-foreground">Este comentário será compartilhado com os autores</p>
 				</div>
 
 				<div className="space-y-2">
@@ -261,9 +227,7 @@ function ReviewSubmission() {
 			{/* Concerns Checklist */}
 			<div className="p-6 border rounded-lg bg-card space-y-4">
 				<h2 className="text-xl font-semibold">Preocupações Identificadas</h2>
-				<p className="text-sm text-muted-foreground">
-					Marque se identificou algum dos problemas abaixo:
-				</p>
+				<p className="text-sm text-muted-foreground">Marque se identificou algum dos problemas abaixo:</p>
 				<div className="space-y-3">
 					<label className="flex items-center gap-3 cursor-pointer">
 						<input
@@ -274,9 +238,7 @@ function ReviewSubmission() {
 						/>
 						<div>
 							<p className="font-medium">Problemas Metodológicos</p>
-							<p className="text-xs text-muted-foreground">
-								Falhas no desenho do estudo ou execução
-							</p>
+							<p className="text-xs text-muted-foreground">Falhas no desenho do estudo ou execução</p>
 						</div>
 					</label>
 
@@ -289,9 +251,7 @@ function ReviewSubmission() {
 						/>
 						<div>
 							<p className="font-medium">Erros Estatísticos</p>
-							<p className="text-xs text-muted-foreground">
-								Análises estatísticas incorretas ou inadequadas
-							</p>
+							<p className="text-xs text-muted-foreground">Análises estatísticas incorretas ou inadequadas</p>
 						</div>
 					</label>
 
@@ -304,9 +264,7 @@ function ReviewSubmission() {
 						/>
 						<div>
 							<p className="font-medium">Preocupações Éticas</p>
-							<p className="text-xs text-muted-foreground">
-								Questões relacionadas à ética em pesquisa
-							</p>
+							<p className="text-xs text-muted-foreground">Questões relacionadas à ética em pesquisa</p>
 						</div>
 					</label>
 
@@ -319,9 +277,7 @@ function ReviewSubmission() {
 						/>
 						<div>
 							<p className="font-medium">Suspeita de Plágio</p>
-							<p className="text-xs text-muted-foreground">
-								Possível plágio ou auto-plágio identificado
-							</p>
+							<p className="text-xs text-muted-foreground">Possível plágio ou auto-plágio identificado</p>
 						</div>
 					</label>
 				</div>
@@ -342,17 +298,7 @@ function ReviewSubmission() {
 	)
 }
 
-function ScoreInput({
-	label,
-	value,
-	onChange,
-	highlight = false,
-}: {
-	label: string
-	value: number
-	onChange: (value: number) => void
-	highlight?: boolean
-}) {
+function ScoreInput({ label, value, onChange, highlight = false }: { label: string; value: number; onChange: (value: number) => void; highlight?: boolean }) {
 	return (
 		<div className={`space-y-2 ${highlight ? "p-3 border rounded-lg bg-primary/5" : ""}`}>
 			<Label>
@@ -365,9 +311,7 @@ function ScoreInput({
 						type="button"
 						onClick={() => onChange(score)}
 						className={`flex-1 px-3 py-2 border rounded-md font-medium transition-colors ${
-							value === score
-								? "bg-primary text-primary-foreground border-primary"
-								: "bg-background hover:bg-muted"
+							value === score ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"
 						}`}
 					>
 						{score}
@@ -397,26 +341,14 @@ function RecommendationOption({
 	color: "green" | "blue" | "orange" | "red"
 }) {
 	const colorClasses = {
-		green: selected
-			? "border-green-500 bg-green-50 dark:bg-green-950"
-			: "border-gray-200 hover:border-green-300",
-		blue: selected
-			? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-			: "border-gray-200 hover:border-blue-300",
-		orange: selected
-			? "border-orange-500 bg-orange-50 dark:bg-orange-950"
-			: "border-gray-200 hover:border-orange-300",
-		red: selected
-			? "border-red-500 bg-red-50 dark:bg-red-950"
-			: "border-gray-200 hover:border-red-300",
+		green: selected ? "border-green-500 bg-green-50 dark:bg-green-950" : "border-gray-200 hover:border-green-300",
+		blue: selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950" : "border-gray-200 hover:border-blue-300",
+		orange: selected ? "border-orange-500 bg-orange-50 dark:bg-orange-950" : "border-gray-200 hover:border-orange-300",
+		red: selected ? "border-red-500 bg-red-50 dark:bg-red-950" : "border-gray-200 hover:border-red-300",
 	}
 
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className={`p-4 border-2 rounded-lg text-left transition-colors ${colorClasses[color]}`}
-		>
+		<button type="button" onClick={onClick} className={`p-4 border-2 rounded-lg text-left transition-colors ${colorClasses[color]}`}>
 			<p className="font-semibold mb-1">{label}</p>
 			<p className="text-xs text-muted-foreground">{description}</p>
 		</button>

@@ -3,14 +3,7 @@ import { Check, Search } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
@@ -24,14 +17,7 @@ interface RecipeSelectorProps {
 	multiSelect?: boolean
 }
 
-export function RecipeSelector({
-	open,
-	onClose,
-	kitchenId,
-	selectedRecipeIds,
-	onSelect,
-	multiSelect = true,
-}: RecipeSelectorProps) {
+export function RecipeSelector({ open, onClose, kitchenId, selectedRecipeIds, onSelect, multiSelect = true }: RecipeSelectorProps) {
 	"use no memo"
 	const { data: recipes, isLoading } = useRecipes()
 	const [searchQuery, setSearchQuery] = useState("")
@@ -52,10 +38,7 @@ export function RecipeSelector({
 			const matchesKitchen = recipe.kitchen_id === null || recipe.kitchen_id === kitchenId
 
 			const q = debouncedQuery.toLowerCase()
-			const matchesSearch =
-				q === "" ||
-				recipe.name.toLowerCase().includes(q) ||
-				recipe.rational_id?.toLowerCase().includes(q)
+			const matchesSearch = q === "" || recipe.name.toLowerCase().includes(q) || recipe.rational_id?.toLowerCase().includes(q)
 
 			return matchesKitchen && matchesSearch
 		})
@@ -70,9 +53,7 @@ export function RecipeSelector({
 
 	const handleToggleRecipe = (recipeId: string) => {
 		if (multiSelect) {
-			setTempSelected((prev) =>
-				prev.includes(recipeId) ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]
-			)
+			setTempSelected((prev) => (prev.includes(recipeId) ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]))
 		} else {
 			setTempSelected([recipeId])
 		}
@@ -90,36 +71,21 @@ export function RecipeSelector({
 			<DialogContent className="sm:max-w-4xl flex flex-col">
 				<DialogHeader>
 					<DialogTitle>Selecionar Preparações</DialogTitle>
-					<DialogDescription>
-						{multiSelect
-							? "Selecione uma ou mais Preparações para adicionar ao template."
-							: "Selecione uma Preparação."}
-					</DialogDescription>
+					<DialogDescription>{multiSelect ? "Selecione uma ou mais Preparações para adicionar ao template." : "Selecione uma Preparação."}</DialogDescription>
 				</DialogHeader>
 
 				<div className="relative">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-					<Input
-						placeholder="Buscar por nome ou código..."
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						className="pl-9"
-					/>
+					<Input placeholder="Buscar por nome ou código..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
 				</div>
 
-				<div className="text-xs text-muted-foreground">
-					{isLoading ? "Carregando..." : `${filteredRecipes.length} preparações`}
-				</div>
+				<div className="text-xs text-muted-foreground">{isLoading ? "Carregando..." : `${filteredRecipes.length} preparações`}</div>
 
 				<div ref={parentRef} className="overflow-auto border rounded-lg" style={{ height: 420 }}>
 					{isLoading ? (
-						<div className="py-6 text-center text-sm text-muted-foreground">
-							Carregando Preparações...
-						</div>
+						<div className="py-6 text-center text-sm text-muted-foreground">Carregando Preparações...</div>
 					) : filteredRecipes.length === 0 ? (
-						<div className="py-6 text-center text-sm text-muted-foreground">
-							Nenhuma Preparação encontrada.
-						</div>
+						<div className="py-6 text-center text-sm text-muted-foreground">Nenhuma Preparação encontrada.</div>
 					) : (
 						<div
 							style={{
@@ -169,18 +135,10 @@ export function RecipeSelector({
 														</Badge>
 													)}
 												</div>
-												{recipe.rational_id && (
-													<span className="text-xs text-muted-foreground font-mono">
-														{recipe.rational_id}
-													</span>
-												)}
+												{recipe.rational_id && <span className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</span>}
 											</div>
 
-											{recipe.portion_yield && (
-												<span className="text-xs text-muted-foreground shrink-0">
-													{recipe.portion_yield} porções
-												</span>
-											)}
+											{recipe.portion_yield && <span className="text-xs text-muted-foreground shrink-0">{recipe.portion_yield} porções</span>}
 										</Button>
 									</div>
 								)

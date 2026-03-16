@@ -2,13 +2,7 @@
 // Handles complete article submission flow with database transactions
 
 import { supabase } from "../supabase"
-import {
-	createArticle,
-	createArticleAuthors,
-	createArticleVersion,
-	updateArticle,
-	uploadArticleFile,
-} from "./client"
+import { createArticle, createArticleAuthors, createArticleVersion, updateArticle, uploadArticleFile } from "./client"
 import type { Article } from "./types"
 import type { CompleteSubmissionData } from "./validation"
 
@@ -22,10 +16,7 @@ export interface SubmissionResult {
  * Submit a complete article with all metadata, authors, and files
  * This function handles the entire submission workflow as a transaction
  */
-export async function submitArticle(
-	data: CompleteSubmissionData,
-	userId: string
-): Promise<SubmissionResult> {
+export async function submitArticle(data: CompleteSubmissionData, userId: string): Promise<SubmissionResult> {
 	try {
 		// Step 1: Create article record
 		const article = await createArticle({
@@ -116,11 +107,7 @@ export async function submitArticle(
  * Save article as draft (incomplete submission)
  * Allows users to save progress and continue later
  */
-export async function saveDraft(
-	data: Partial<CompleteSubmissionData>,
-	userId: string,
-	articleId?: string
-): Promise<SubmissionResult> {
+export async function saveDraft(data: Partial<CompleteSubmissionData>, userId: string, articleId?: string): Promise<SubmissionResult> {
 	try {
 		let article: Article
 
@@ -161,11 +148,7 @@ export async function saveDraft(
 		if (data.authors && data.authors.length > 0) {
 			// Delete existing authors first if updating
 			if (articleId) {
-				await supabase
-					.schema("journal")
-					.from("article_authors")
-					.delete()
-					.eq("article_id", articleId)
+				await supabase.schema("journal").from("article_authors").delete().eq("article_id", articleId)
 			}
 
 			const authorRecords = data.authors.map((author, index) => ({
@@ -199,12 +182,7 @@ export async function saveDraft(
  */
 export async function loadDraft(articleId: string) {
 	try {
-		const { data: article, error: articleError } = await supabase
-			.schema("journal")
-			.from("articles")
-			.select("*")
-			.eq("id", articleId)
-			.single()
+		const { data: article, error: articleError } = await supabase.schema("journal").from("articles").select("*").eq("id", articleId).single()
 
 		if (articleError) throw articleError
 
@@ -248,20 +226,12 @@ export async function deleteDraft(articleId: string): Promise<boolean> {
  */
 export async function canEditArticle(articleId: string, userId: string): Promise<boolean> {
 	try {
-		const { data: article } = await supabase
-			.schema("journal")
-			.from("articles")
-			.select("submitter_id, status")
-			.eq("id", articleId)
-			.single()
+		const { data: article } = await supabase.schema("journal").from("articles").select("submitter_id, status").eq("id", articleId).single()
 
 		if (!article) return false
 
 		// User must be submitter and article must be draft or revision_requested
-		return (
-			article.submitter_id === userId &&
-			(article.status === "draft" || article.status === "revision_requested")
-		)
+		return article.submitter_id === userId && (article.status === "draft" || article.status === "revision_requested")
 	} catch {
 		return false
 	}

@@ -1,16 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import {
-	ArrowLeft,
-	Calendar,
-	CheckCircle2,
-	Clock,
-	Download,
-	FileText,
-	MessageSquare,
-	User,
-	XCircle,
-} from "lucide-react"
+import { ArrowLeft, Calendar, CheckCircle2, Clock, Download, FileText, MessageSquare, User, XCircle } from "lucide-react"
 import { articleWithDetailsQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/editorial/articles/$articleId")({
@@ -45,12 +35,8 @@ function ArticleDetailEditor() {
 				<div className="flex items-start justify-between">
 					<div className="flex-1">
 						<div className="flex items-center gap-3 mb-2">
-							<span className="text-sm font-mono text-muted-foreground">
-								#{article.submission_number}
-							</span>
-							<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted capitalize">
-								{article.status}
-							</span>
+							<span className="text-sm font-mono text-muted-foreground">#{article.submission_number}</span>
+							<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted capitalize">{article.status}</span>
 						</div>
 						<h1 className="text-3xl font-bold tracking-tight mb-2">{article.title_pt}</h1>
 						<p className="text-lg text-muted-foreground">{article.title_en}</p>
@@ -128,29 +114,14 @@ function ArticleDetailEditor() {
 						<CardContent>
 							<div className="space-y-3">
 								{article.authors?.map(
-									(author: {
-										id: string
-										full_name: string
-										affiliation?: string | null
-										email?: string | null
-										is_corresponding?: boolean | null
-									}) => (
-										<div
-											key={author.id}
-											className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
-										>
+									(author: { id: string; full_name: string; affiliation?: string | null; email?: string | null; is_corresponding?: boolean | null }) => (
+										<div key={author.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
 											<User className="size-5 mt-0.5 text-muted-foreground" />
 											<div>
 												<p className="font-medium">{author.full_name}</p>
-												{author.affiliation && (
-													<p className="text-sm text-muted-foreground">{author.affiliation}</p>
-												)}
-												{author.email && (
-													<p className="text-xs text-muted-foreground">{author.email}</p>
-												)}
-												{author.is_corresponding && (
-													<span className="text-xs text-primary">Autor Correspondente</span>
-												)}
+												{author.affiliation && <p className="text-sm text-muted-foreground">{author.affiliation}</p>}
+												{author.email && <p className="text-xs text-muted-foreground">{author.email}</p>}
+												{author.is_corresponding && <span className="text-xs text-primary">Autor Correspondente</span>}
 											</div>
 										</div>
 									)
@@ -166,36 +137,24 @@ function ArticleDetailEditor() {
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-2">
-								{article.versions?.map(
-									(version: {
-										id: string
-										version_number: number
-										version_label?: string | null
-										created_at: string
-									}) => (
-										<div
-											key={version.id}
-											className="flex items-center justify-between p-3 rounded-lg border"
-										>
-											<div className="flex items-center gap-3">
-												<FileText className="size-5 text-muted-foreground" />
-												<div>
-													<p className="font-medium text-sm">
-														Versão {version.version_number}
-														{version.version_label && ` - ${version.version_label}`}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{new Date(version.created_at).toLocaleDateString()}
-													</p>
-												</div>
+								{article.versions?.map((version: { id: string; version_number: number; version_label?: string | null; created_at: string }) => (
+									<div key={version.id} className="flex items-center justify-between p-3 rounded-lg border">
+										<div className="flex items-center gap-3">
+											<FileText className="size-5 text-muted-foreground" />
+											<div>
+												<p className="font-medium text-sm">
+													Versão {version.version_number}
+													{version.version_label && ` - ${version.version_label}`}
+												</p>
+												<p className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleDateString()}</p>
 											</div>
-											<Button size="sm" variant="outline">
-												<Download className="size-4 mr-2" />
-												Download
-											</Button>
 										</div>
-									)
-								)}
+										<Button size="sm" variant="outline">
+											<Download className="size-4 mr-2" />
+											Download
+										</Button>
+									</div>
+								))}
 							</div>
 						</CardContent>
 					</Card>
@@ -212,9 +171,7 @@ function ArticleDetailEditor() {
 							<div className="flex items-center gap-2">
 								<Calendar className="size-4 text-muted-foreground" />
 								<span className="text-muted-foreground">Submetido:</span>
-								<span>
-									{article.submitted_at ? new Date(article.submitted_at).toLocaleDateString() : "-"}
-								</span>
+								<span>{article.submitted_at ? new Date(article.submitted_at).toLocaleDateString() : "-"}</span>
 							</div>
 							<div className="flex items-center gap-2">
 								<Clock className="size-4 text-muted-foreground" />
@@ -245,9 +202,7 @@ function ArticleDetailEditor() {
 							<h3 className="font-semibold">Revisões</h3>
 						</CardHeader>
 						<CardContent>
-							<p className="text-sm text-muted-foreground">
-								📝 Lista de revisões em desenvolvimento
-							</p>
+							<p className="text-sm text-muted-foreground">📝 Lista de revisões em desenvolvimento</p>
 						</CardContent>
 					</Card>
 				</div>

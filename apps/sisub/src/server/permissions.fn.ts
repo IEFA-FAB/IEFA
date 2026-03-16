@@ -3,16 +3,7 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
-const APP_MODULES = [
-	"diner",
-	"messhall",
-	"unit",
-	"kitchen",
-	"kitchen-production",
-	"global",
-	"analytics",
-	"storage",
-] as const
+const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "analytics", "storage"] as const
 
 // ---------------------------------------------------------------------------
 // User-facing: permissões filtradas (sem deny, com implicit allow)
@@ -168,10 +159,7 @@ export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ permissionId: z.string().min(1) }))
 	.handler(async ({ data }) => {
 		// biome-ignore lint/suspicious/noExplicitAny: user_permissions table not yet in generated Supabase types
-		const { error } = await (getSupabaseServerClient() as any)
-			.from("user_permissions")
-			.delete()
-			.eq("id", data.permissionId)
+		const { error } = await (getSupabaseServerClient() as any).from("user_permissions").delete().eq("id", data.permissionId)
 
 		if (error) throw new Error(error.message)
 		return { success: true }

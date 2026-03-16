@@ -1,14 +1,7 @@
 import { Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MEAL_LABEL } from "@/lib/fiscal"
 import { formatDate } from "@/lib/meal"
 import type { MealKey } from "@/types/domain/meal"
@@ -27,13 +20,7 @@ interface PresenceTableProps {
 // Tipo auxiliar apenas para leitura do campo extra
 type PresenceRowUI = FiscalPresenceRecord & { display_name?: string | null }
 
-export default function PresenceTable({
-	selectedDate,
-	selectedMeal,
-	presences,
-	forecastMap,
-	actions,
-}: PresenceTableProps) {
+export default function PresenceTable({ selectedDate, selectedMeal, presences, forecastMap, actions }: PresenceTableProps) {
 	return (
 		<>
 			{/* Lista de presenças */}
@@ -80,21 +67,13 @@ export default function PresenceTable({
 												<div className="flex flex-col">
 													<span className="font-medium">{name}</span>
 													{/* Mostra sempre o UUID em menor destaque */}
-													<span className="font-mono text-xs text-muted-foreground">
-														{row.user_id}
-													</span>
+													<span className="font-mono text-xs text-muted-foreground">{row.user_id}</span>
 												</div>
 											</TableCell>
 
 											<TableCell>{formatDate(row.date)}</TableCell>
 											<TableCell>{MEAL_LABEL[row.meal as MealKey]}</TableCell>
-											<TableCell>
-												{saidWouldAttend ? (
-													<Badge variant="default">Sim</Badge>
-												) : (
-													<Badge variant="outline">Não</Badge>
-												)}
-											</TableCell>
+											<TableCell>{saidWouldAttend ? <Badge variant="default">Sim</Badge> : <Badge variant="outline">Não</Badge>}</TableCell>
 											<TableCell>{new Date(row.created_at).toLocaleString("pt-BR")}</TableCell>
 											<TableCell className="text-right">
 												<Button

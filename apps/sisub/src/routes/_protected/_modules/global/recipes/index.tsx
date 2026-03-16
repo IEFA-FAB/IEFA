@@ -21,10 +21,7 @@ export const Route = createFileRoute("/_protected/_modules/global/recipes/")({
 	validateSearch: searchSchema,
 	component: GlobalRecipesPage,
 	head: () => ({
-		meta: [
-			{ title: "Preparações Globais - SISUB" },
-			{ name: "description", content: "Catálogo de preparações padrão FAB" },
-		],
+		meta: [{ title: "Preparações Globais - SISUB" }, { name: "description", content: "Catálogo de preparações padrão FAB" }],
 	}),
 })
 

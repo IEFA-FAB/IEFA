@@ -1,14 +1,4 @@
-import {
-	AlertCircle,
-	ArrowLeft,
-	CheckCircle2,
-	Eye,
-	EyeOff,
-	Loader2,
-	Lock,
-	Mail,
-	User,
-} from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react"
 import { useEffect, useState } from "react"
 
 // FAB Email validation regex
@@ -47,11 +37,7 @@ export interface AuthScreenProps {
 		token_hash?: string
 		type?: string
 	}
-	onNavigate: (options: {
-		to?: string
-		search?: Record<string, unknown>
-		replace?: boolean
-	}) => Promise<void> | void
+	onNavigate: (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => Promise<void> | void
 	onTabChange?: (tab: "login" | "register") => void
 
 	// Actions
@@ -64,18 +50,9 @@ export interface AuthScreenProps {
 	}
 }
 
-export function AuthScreen({
-	isLoading,
-	isAuthenticated,
-	searchParams,
-	onNavigate,
-	onTabChange,
-	actions,
-}: AuthScreenProps) {
+export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigate, onTabChange, actions }: AuthScreenProps) {
 	// --- ESTADOS GERAIS ---
-	const [currentView, setCurrentView] = useState<AuthView>(
-		searchParams.token_hash ? "reset" : "auth"
-	)
+	const [currentView, setCurrentView] = useState<AuthView>(searchParams.token_hash ? "reset" : "auth")
 
 	// Local state for active tab if not controlled, or sync with props
 	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
@@ -222,10 +199,7 @@ export function AuthScreen({
 			console.error("Falha no login:", err)
 			const errorMsg = err instanceof Error ? err.message : "Erro desconhecido"
 			// Tratamento de erros específicos
-			if (
-				errorMsg.includes("Email ou senha incorretos") ||
-				errorMsg.includes("Invalid login credentials")
-			) {
+			if (errorMsg.includes("Email ou senha incorretos") || errorMsg.includes("Invalid login credentials")) {
 				setPasswordError("Senha incorreta ou email não cadastrado")
 			} else {
 				setError(errorMsg || "Ocorreu um erro durante a autenticação. Tente mais tarde.")
@@ -348,15 +322,11 @@ export function AuthScreen({
 	}, [currentView, searchParams.token_hash, searchParams.type, actions])
 
 	// --- COMMON STYLES ---
-	const cardClasses =
-		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
-	const inputClasses =
-		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
-	const buttonClasses =
-		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
+	const cardClasses = "w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
+	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
+	const buttonClasses = "w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
 	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
-	const iconClasses =
-		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
+	const iconClasses = "absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	// Loading state during auth check
 	if (isLoading) {
@@ -376,17 +346,12 @@ export function AuthScreen({
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
 					<CardTitle className="text-3xl font-bold tracking-tight">Nova Senha</CardTitle>
-					<CardDescription className="text-muted-foreground text-base">
-						Defina sua nova senha segura.
-					</CardDescription>
+					<CardDescription className="text-muted-foreground text-base">Defina sua nova senha segura.</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleResetPassword}>
 					<CardContent className="space-y-6 px-8">
 						{error && (
-							<Alert
-								variant="destructive"
-								className="bg-destructive/10 border-destructive/20 text-destructive"
-							>
+							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
@@ -433,17 +398,12 @@ export function AuthScreen({
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
 					<CardTitle className="text-3xl font-bold tracking-tight">Recuperar Senha</CardTitle>
-					<CardDescription className="text-muted-foreground text-base">
-						Digite seu email para receber um link de redefinição.
-					</CardDescription>
+					<CardDescription className="text-muted-foreground text-base">Digite seu email para receber um link de redefinição.</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleForgotPassword}>
 					<CardContent className="space-y-6 px-8">
 						{error && (
-							<Alert
-								variant="destructive"
-								className="bg-destructive/10 border-destructive/20 text-destructive"
-							>
+							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
@@ -514,21 +474,14 @@ export function AuthScreen({
 				<TabsContent value="login" className="w-full mt-0">
 					<Card className={cardClasses}>
 						<CardHeader className="space-y-3 text-center pb-4 pt-8">
-							<CardTitle className="text-3xl font-bold tracking-tight">
-								Bem-vindo de volta
-							</CardTitle>
-							<CardDescription className="text-muted-foreground text-base">
-								Acesso restrito a emails @fab.mil.br
-							</CardDescription>
+							<CardTitle className="text-3xl font-bold tracking-tight">Bem-vindo de volta</CardTitle>
+							<CardDescription className="text-muted-foreground text-base">Acesso restrito a emails @fab.mil.br</CardDescription>
 						</CardHeader>
 
 						<form onSubmit={handleLogin}>
 							<CardContent className="space-y-6 px-8">
 								{error && (
-									<Alert
-										variant="destructive"
-										className="bg-destructive/10 border-destructive/20 text-destructive"
-									>
+									<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
 										<AlertCircle className="h-4 w-4" />
 										<AlertDescription>{error}</AlertDescription>
 									</Alert>
@@ -623,11 +576,7 @@ export function AuthScreen({
 							</CardContent>
 
 							<CardFooter className="pb-8 px-8 pt-8">
-								<Button
-									type="submit"
-									className={buttonClasses}
-									disabled={isSubmitting || !!emailError || !!passwordError}
-								>
+								<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!emailError || !!passwordError}>
 									{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 									{isSubmitting ? "Entrando..." : "Entrar"}
 								</Button>
@@ -641,17 +590,12 @@ export function AuthScreen({
 					<Card className={cardClasses}>
 						<CardHeader className="text-center pb-4 pt-8 space-y-3">
 							<CardTitle className="text-3xl font-bold tracking-tight">Criar conta</CardTitle>
-							<CardDescription className="text-muted-foreground text-base">
-								Acesso restrito a emails @fab.mil.br
-							</CardDescription>
+							<CardDescription className="text-muted-foreground text-base">Acesso restrito a emails @fab.mil.br</CardDescription>
 						</CardHeader>
 						<form onSubmit={handleRegister}>
 							<CardContent className="space-y-6 px-8">
 								{error && (
-									<Alert
-										variant="destructive"
-										className="bg-destructive/10 border-destructive/20 text-destructive"
-									>
+									<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
 										<AlertCircle className="h-4 w-4" />
 										<AlertDescription>{error}</AlertDescription>
 									</Alert>
@@ -743,11 +687,7 @@ export function AuthScreen({
 								</div>
 							</CardContent>
 							<CardFooter className="pb-8 px-8 pt-8">
-								<Button
-									type="submit"
-									className={buttonClasses}
-									disabled={isSubmitting || !!registerEmailError}
-								>
+								<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!registerEmailError}>
 									{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 									{isSubmitting ? "Criando..." : "Criar conta"}
 								</Button>

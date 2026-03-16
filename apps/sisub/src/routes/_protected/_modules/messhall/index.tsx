@@ -18,26 +18,14 @@ function MessHallHubPage() {
 	const { messHalls, isLoading } = useMessHalls()
 
 	// IDs permitidos via PBAC. Permissão global (todos os campos nulos) libera todos.
-	const isGlobal = permissions.some(
-		(p) =>
-			p.module === "messhall" &&
-			p.mess_hall_id === null &&
-			p.unit_id === null &&
-			p.kitchen_id === null
-	)
-	const allowedIds = new Set(
-		permissions
-			.filter((p) => p.module === "messhall" && p.mess_hall_id !== null)
-			.map((p) => p.mess_hall_id as number)
-	)
+	const isGlobal = permissions.some((p) => p.module === "messhall" && p.mess_hall_id === null && p.unit_id === null && p.kitchen_id === null)
+	const allowedIds = new Set(permissions.filter((p) => p.module === "messhall" && p.mess_hall_id !== null).map((p) => p.mess_hall_id as number))
 
-	const items = (isGlobal ? messHalls : messHalls.filter((mh) => allowedIds.has(mh.id))).map(
-		(mh) => ({
-			id: mh.id,
-			name: mh.display_name ?? mh.code,
-			subtitle: mh.code !== mh.display_name ? mh.code : undefined,
-		})
-	)
+	const items = (isGlobal ? messHalls : messHalls.filter((mh) => allowedIds.has(mh.id))).map((mh) => ({
+		id: mh.id,
+		name: mh.display_name ?? mh.code,
+		subtitle: mh.code !== mh.display_name ? mh.code : undefined,
+	}))
 
 	const handleSelect = (id: number) => {
 		navigate({

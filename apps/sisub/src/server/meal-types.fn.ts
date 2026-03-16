@@ -12,11 +12,7 @@ const MealTypeWriteSchema = z.object({
 export const fetchMealTypesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number().nullable() }))
 	.handler(async ({ data }) => {
-		let query = getSupabaseServerClient()
-			.from("meal_type")
-			.select("*")
-			.is("deleted_at", null)
-			.order("sort_order")
+		let query = getSupabaseServerClient().from("meal_type").select("*").is("deleted_at", null).order("sort_order")
 
 		if (data.kitchenId !== null) {
 			query = query.or(`kitchen_id.is.null,kitchen_id.eq.${data.kitchenId}`)
@@ -63,10 +59,7 @@ export const updateMealTypeFn = createServerFn({ method: "POST" })
 export const deleteMealTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("meal_type")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("meal_type").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(`Failed to delete meal type: ${error.message}`)
 	})
@@ -74,10 +67,7 @@ export const deleteMealTypeFn = createServerFn({ method: "POST" })
 export const restoreMealTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("meal_type")
-			.update({ deleted_at: null })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("meal_type").update({ deleted_at: null }).eq("id", data.id)
 
 		if (error) throw new Error(`Failed to restore meal type: ${error.message}`)
 	})

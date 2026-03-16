@@ -3,22 +3,10 @@ import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateFolder, useFolders, useUpdateFolder } from "@/services/ProductsService"
 import type { Folder } from "@/types/supabase.types"
 
@@ -116,10 +104,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 						{(field) => (
 							<div className="space-y-2">
 								<Label htmlFor={field.name}>Pasta Pai (Opcional)</Label>
-								<Select
-									value={field.state.value || "__NONE__"}
-									onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}
-								>
+								<Select value={field.state.value || "__NONE__"} onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}>
 									<SelectTrigger>
 										<SelectValue placeholder="Nenhuma (Raiz)" />
 									</SelectTrigger>

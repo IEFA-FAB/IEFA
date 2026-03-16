@@ -38,8 +38,7 @@ export default function QRAutoCheckinCard({
 	}
 
 	const handleDownloadPng = () => {
-		const canvas: HTMLCanvasElement | null =
-			(qrWrapRef.current?.querySelector("canvas") as HTMLCanvasElement) ?? null
+		const canvas: HTMLCanvasElement | null = (qrWrapRef.current?.querySelector("canvas") as HTMLCanvasElement) ?? null
 		if (!canvas) return
 		const url = canvas.toDataURL("image/png")
 		const a = document.createElement("a")
@@ -55,11 +54,7 @@ export default function QRAutoCheckinCard({
 					<QrCode className="h-4 w-4" aria-hidden="true" />
 					Auto Check-In
 				</div>
-				{currentOm ? (
-					<span className="text-xs ">OM: {currentOm}</span>
-				) : (
-					<span className="text-xs ">OM não definida</span>
-				)}
+				{currentOm ? <span className="text-xs ">OM: {currentOm}</span> : <span className="text-xs ">OM não definida</span>}
 			</div>
 
 			<h2 className="text-xl font-bold  mb-4">QR Code de Auto Check-In</h2>
@@ -77,30 +72,13 @@ export default function QRAutoCheckinCard({
 				/>
 			</div>
 
-			<div className=" text-sm mb-4">
-				Exiba este QR no ponto de acesso. Usuários autorizados farão check-in pela câmera do
-				celular.
-			</div>
+			<div className=" text-sm mb-4">Exiba este QR no ponto de acesso. Usuários autorizados farão check-in pela câmera do celular.</div>
 
-			<div
-				ref={qrWrapRef}
-				className="flex flex-col items-center justify-center rounded-xl border   p-6"
-			>
+			<div ref={qrWrapRef} className="flex flex-col items-center justify-center rounded-xl border   p-6">
 				{currentOm ? (
-					<QRCodeCanvas
-						value={qrValue}
-						size={256}
-						level="Q"
-						bgColor="#ffffff"
-						fgColor="#1f2937"
-						aria-label="QR code para auto check-in da OM"
-						marginSize={2}
-					/>
+					<QRCodeCanvas value={qrValue} size={256} level="Q" bgColor="#ffffff" fgColor="#1f2937" aria-label="QR code para auto check-in da OM" marginSize={2} />
 				) : (
-					<div
-						className="inline-flex items-center gap-2 rounded-lg border  px-3 py-2 "
-						aria-live="polite"
-					>
+					<div className="inline-flex items-center gap-2 rounded-lg border  px-3 py-2 " aria-live="polite">
 						<AlertCircle className="h-4 w-4" aria-hidden="true" />
 						Defina uma OM para gerar o QR Code.
 					</div>
@@ -108,13 +86,7 @@ export default function QRAutoCheckinCard({
 			</div>
 
 			<div className="mt-4 flex flex-col sm:flex-row gap-2">
-				<Button
-					variant="default"
-					size="sm"
-					onClick={handleCopyOm}
-					disabled={!currentOm}
-					className="gap-2 flex-1"
-				>
+				<Button variant="default" size="sm" onClick={handleCopyOm} disabled={!currentOm} className="gap-2 flex-1">
 					{copied ? (
 						<>
 							<CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -127,13 +99,7 @@ export default function QRAutoCheckinCard({
 						</>
 					)}
 				</Button>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={handleDownloadPng}
-					disabled={!currentOm}
-					className="gap-2 flex-1"
-				>
+				<Button variant="outline" size="sm" onClick={handleDownloadPng} disabled={!currentOm} className="gap-2 flex-1">
 					<Download className="h-4 w-4" aria-hidden="true" />
 					Baixar PNG do QR
 				</Button>

@@ -3,22 +3,10 @@ import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateProduct, useFolders, useUpdateProduct } from "@/services/ProductsService"
 import type { Product } from "@/types/supabase.types"
 
@@ -123,9 +111,7 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 								<Label htmlFor={field.name}>Pasta (Categoria)</Label>
 								<Select
 									value={field.state.value || "__SELECT__"}
-									onValueChange={(value) =>
-										field.handleChange(value === "__SELECT__" || value === null ? null : value)
-									}
+									onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? null : value)}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Selecione uma pasta" />
@@ -155,9 +141,7 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 								<Label htmlFor={field.name}>Unidade de Medida</Label>
 								<Select
 									value={field.state.value || "__SELECT__"}
-									onValueChange={(value) =>
-										field.handleChange(value === "__SELECT__" || value === null ? "" : value)
-									}
+									onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? "" : value)}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Selecione" />
@@ -188,9 +172,7 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 									onChange={(e) => field.handleChange(Number(e.target.value))}
 									placeholder="1.0000"
 								/>
-								<p className="text-xs text-muted-foreground">
-									Fator nutricional/correção (padrão: 1.0)
-								</p>
+								<p className="text-xs text-muted-foreground">Fator nutricional/correção (padrão: 1.0)</p>
 							</div>
 						)}
 					</form.Field>

@@ -48,11 +48,7 @@ export const articleWithDetailsQueryOptions = (articleId: string) =>
 		staleTime: 1000 * 60, // 1 minute
 	})
 
-export const articlesQueryOptions = (filters?: {
-	status?: string
-	submitter_id?: string
-	limit?: number
-}) =>
+export const articlesQueryOptions = (filters?: { status?: string; submitter_id?: string; limit?: number }) =>
 	queryOptions({
 		queryKey: ["journal", "articles", filters],
 		queryFn: () => getArticles(filters),
@@ -87,11 +83,7 @@ export const editorialDashboardQueryOptions = (filters?: { status?: string; limi
 		staleTime: 1000 * 30, // 30 seconds
 	})
 
-export const reviewAssignmentsQueryOptions = (filters?: {
-	article_id?: string
-	reviewer_id?: string
-	status?: string
-}) =>
+export const reviewAssignmentsQueryOptions = (filters?: { article_id?: string; reviewer_id?: string; status?: string }) =>
 	queryOptions({
 		queryKey: ["journal", "review-assignments", filters],
 		queryFn: () => getReviewAssignments(filters),
@@ -153,8 +145,7 @@ export function useUpdateArticle() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ articleId, updates }: { articleId: string; updates: Partial<Article> }) =>
-			updateArticle(articleId, updates),
+		mutationFn: ({ articleId, updates }: { articleId: string; updates: Partial<Article> }) => updateArticle(articleId, updates),
 		onSuccess: (data) => {
 			// Invalidate specific article and articles list
 			queryClient.invalidateQueries({
@@ -197,8 +188,7 @@ export function useUpdateUserProfile() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ userId, updates }: { userId: string; updates: Partial<UserProfile> }) =>
-			updateUserProfile(userId, updates),
+		mutationFn: ({ userId, updates }: { userId: string; updates: Partial<UserProfile> }) => updateUserProfile(userId, updates),
 		onSuccess: (data) => {
 			queryClient.setQueryData(["journal", "user-profile", data.id], data)
 		},
@@ -263,8 +253,7 @@ export function useUpdateReview() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ reviewId, updates }: { reviewId: string; updates: Partial<Review> }) =>
-			updateReview(reviewId, updates),
+		mutationFn: ({ reviewId, updates }: { reviewId: string; updates: Partial<Review> }) => updateReview(reviewId, updates),
 		onSuccess: (data) => {
 			queryClient.setQueryData(["journal", "review", data.assignment_id], data)
 		},

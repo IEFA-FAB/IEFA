@@ -36,19 +36,11 @@ export function AppCard({ app }: { app: AppItem }) {
 
 				{app.contributors && app.contributors.length > 0 ? (
 					<div className="pt-1">
-						<div className="text-xs font-medium tracking-wide text-foreground">
-							{app.contributors.length > 1 ? "Contribuidores" : "Contribuição"}
-						</div>
+						<div className="text-xs font-medium tracking-wide text-foreground">{app.contributors.length > 1 ? "Contribuidores" : "Contribuição"}</div>
 						<ul className="mt-2 flex flex-row gap-x-8 gap-y-1.5">
 							{app.contributors.map((c, idx) => {
 								const isGithub = c.url?.includes("github.com")
-								const iconEl =
-									c.icon ??
-									(isGithub ? (
-										<Github className="h-4 w-4" aria-hidden="true" />
-									) : (
-										<User className="h-4 w-4" aria-hidden="true" />
-									))
+								const iconEl = c.icon ?? (isGithub ? <Github className="h-4 w-4" aria-hidden="true" /> : <User className="h-4 w-4" aria-hidden="true" />)
 
 								return (
 									<li key={`${c.label}-${idx}`} className="flex items-center gap-2">
@@ -80,19 +72,11 @@ export function AppCard({ app }: { app: AppItem }) {
 
 			<CardFooter className="mb-0">
 				{app.to ? (
-					<Button
-						render={<Link to={app.to}>Abrir</Link>}
-						className="w-full"
-						aria-label={`Abrir ${app.title}`}
-					/>
+					<Button render={<Link to={app.to}>Abrir</Link>} className="w-full" aria-label={`Abrir ${app.title}`} />
 				) : app.href ? (
 					<Button
 						render={
-							<a
-								href={app.href}
-								target={isExternal ? "_blank" : undefined}
-								rel={isExternal ? "noreferrer noopener" : undefined}
-							>
+							<a href={app.href} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noreferrer noopener" : undefined}>
 								Acessar
 								{isExternal ? <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" /> : null}
 							</a>

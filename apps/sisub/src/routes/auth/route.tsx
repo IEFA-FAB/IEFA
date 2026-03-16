@@ -35,9 +35,7 @@ function AuthLayout() {
 					<Link to="/" className="inline-block hover:opacity-80 transition-opacity">
 						<img src="/favicon.svg" alt="IEFA" className="h-16 w-auto mx-auto" />
 					</Link>
-					<h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">
-						Bem-vindo ao IEFA
-					</h1>
+					<h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Bem-vindo ao IEFA</h1>
 				</div>
 
 				{/* Onde as páginas (Login, Register) serão renderizadas */}

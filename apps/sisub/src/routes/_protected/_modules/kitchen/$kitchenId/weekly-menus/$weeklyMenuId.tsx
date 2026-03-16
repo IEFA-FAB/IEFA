@@ -32,9 +32,7 @@ const WEEKDAYS = [
  * KITCHEN — Editor de Cardápio Semanal
  * URL: /kitchen/:kitchenId/weekly-menus/:weeklyMenuId
  */
-export const Route = createFileRoute(
-	"/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
-)({
+export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId")({
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
 	component: WeeklyMenuEditorPage,
 	head: () => ({
@@ -61,9 +59,7 @@ function DayOverviewCard({
 }) {
 	const dayItems = items.filter((i) => i.day_of_week === day.num)
 	const totalRecipes = dayItems.length
-	const filledCount = mealTypes.filter((mt) =>
-		dayItems.some((i) => i.meal_type_id === mt.id)
-	).length
+	const filledCount = mealTypes.filter((mt) => dayItems.some((i) => i.meal_type_id === mt.id)).length
 	const allFilled = mealTypes.length > 0 && filledCount === mealTypes.length
 
 	return (
@@ -83,9 +79,7 @@ function DayOverviewCard({
 			</div>
 
 			<div className="space-y-1.5">
-				{mealTypes.length === 0 && (
-					<p className="text-xs text-muted-foreground/50 italic">sem refeições</p>
-				)}
+				{mealTypes.length === 0 && <p className="text-xs text-muted-foreground/50 italic">sem refeições</p>}
 				{mealTypes.map((mt) => {
 					const mtItems = dayItems.filter((i) => i.meal_type_id === mt.id)
 					const count = mtItems.length
@@ -97,14 +91,7 @@ function DayOverviewCard({
 							) : (
 								<Circle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
 							)}
-							<span
-								className={cn(
-									"text-xs truncate flex-1",
-									count > 0 ? "text-foreground" : "text-muted-foreground/50"
-								)}
-							>
-								{mt.name}
-							</span>
+							<span className={cn("text-xs truncate flex-1", count > 0 ? "text-foreground" : "text-muted-foreground/50")}>{mt.name}</span>
 							{count > 0 && (
 								<Tooltip>
 									<TooltipTrigger
@@ -160,13 +147,7 @@ function DayMealSection({
 						</Badge>
 					)}
 				</div>
-				<Button
-					type="button"
-					size="sm"
-					variant="ghost"
-					onClick={onOpenSelector}
-					className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-				>
+				<Button type="button" size="sm" variant="ghost" onClick={onOpenSelector} className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
 					<Plus className="h-3.5 w-3.5" />
 					Adicionar
 				</Button>
@@ -175,15 +156,10 @@ function DayMealSection({
 			{hasRecipes ? (
 				<div className="p-3 space-y-1.5">
 					{recipes.map((recipe) => (
-						<div
-							key={recipe.id}
-							className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors"
-						>
+						<div key={recipe.id} className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
 							<div className="flex-1 min-w-0">
 								<p className="text-sm truncate">{recipe.name}</p>
-								{recipe.rational_id && (
-									<p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>
-								)}
+								{recipe.rational_id && <p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>}
 							</div>
 							<Tooltip>
 								<TooltipTrigger
@@ -207,13 +183,7 @@ function DayMealSection({
 			) : (
 				<div className="px-4 py-6 text-center">
 					<p className="text-xs text-muted-foreground mb-2">Nenhuma receita atribuída</p>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						onClick={onOpenSelector}
-						className="text-xs"
-					>
+					<Button type="button" size="sm" variant="outline" onClick={onOpenSelector} className="text-xs">
 						<Plus className="h-3.5 w-3.5 mr-1" />
 						Adicionar Preparações
 					</Button>
@@ -260,9 +230,7 @@ function WeeklyMenuEditorPage() {
 	}
 
 	const getCellRecipes = (dayOfWeek: number, mealTypeId: string): Recipe[] => {
-		const ids = items
-			.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
-			.map((i) => i.recipe_id)
+		const ids = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId).map((i) => i.recipe_id)
 		return allRecipes?.filter((r) => ids.includes(r.id)) ?? []
 	}
 
@@ -273,10 +241,7 @@ function WeeklyMenuEditorPage() {
 
 	const handleSelectRecipes = (recipeIds: string[]) => {
 		if (!selectedCell) return
-		const filtered = items.filter(
-			(i) =>
-				!(i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId)
-		)
+		const filtered = items.filter((i) => !(i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId))
 		const newItems = recipeIds.map((recipeId) => ({
 			day_of_week: selectedCell.dayOfWeek,
 			meal_type_id: selectedCell.mealTypeId,
@@ -287,25 +252,11 @@ function WeeklyMenuEditorPage() {
 	}
 
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
-		setItems(
-			items.filter(
-				(i) =>
-					!(
-						i.day_of_week === dayOfWeek &&
-						i.meal_type_id === mealTypeId &&
-						i.recipe_id === recipeId
-					)
-			)
-		)
+		setItems(items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId)))
 	}
 
 	const currentCellRecipeIds = selectedCell
-		? items
-				.filter(
-					(i) =>
-						i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId
-				)
-				.map((i) => i.recipe_id)
+		? items.filter((i) => i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId).map((i) => i.recipe_id)
 		: []
 
 	const handleSave = () => {
@@ -381,20 +332,13 @@ function WeeklyMenuEditorPage() {
 							variant="outline"
 							size="sm"
 							render={
-								<Link
-									to="/kitchen/$kitchenId/weekly-menus"
-									params={{ kitchenId: kitchenIdStr as string }}
-								>
+								<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr as string }}>
 									Cancelar
 								</Link>
 							}
 						/>
 						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
-							{isSaving ? (
-								<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-							) : (
-								<Save className="w-4 h-4 mr-2" />
-							)}
+							{isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
 							Salvar
 						</Button>
 					</div>
@@ -408,23 +352,11 @@ function WeeklyMenuEditorPage() {
 								<Label htmlFor="name">
 									Nome <span className="text-destructive">*</span>
 								</Label>
-								<Input
-									id="name"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									placeholder="Ex.: Semana Padrão"
-									required
-								/>
+								<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Semana Padrão" required />
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="description">Descrição (opcional)</Label>
-								<Textarea
-									id="description"
-									value={description}
-									onChange={(e) => setDescription(e.target.value)}
-									placeholder="Breve descrição"
-									rows={1}
-								/>
+								<Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição" rows={1} />
 							</div>
 						</div>
 						{isFork && (
@@ -467,13 +399,11 @@ function WeeklyMenuEditorPage() {
 						<TabsContent value="overview" className="mt-4 space-y-4">
 							<div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
 								<span>
-									<strong className="text-foreground tabular-nums">{totalRecipes}</strong>{" "}
-									{totalRecipes === 1 ? "receita" : "Preparações"} no cardápio
+									<strong className="text-foreground tabular-nums">{totalRecipes}</strong> {totalRecipes === 1 ? "receita" : "Preparações"} no cardápio
 								</span>
 								<span className="text-muted-foreground/40">·</span>
 								<span>
-									<strong className="text-foreground tabular-nums">{daysWithContent}</strong>/7 dias
-									preenchidos
+									<strong className="text-foreground tabular-nums">{daysWithContent}</strong>/7 dias preenchidos
 								</span>
 							</div>
 
@@ -492,12 +422,8 @@ function WeeklyMenuEditorPage() {
 
 							{totalRecipes === 0 && (
 								<div className="rounded-md border border-dashed p-10 text-center">
-									<p className="text-sm text-muted-foreground mb-1">
-										Cardápio vazio — nenhuma receita atribuída ainda.
-									</p>
-									<p className="text-xs text-muted-foreground/60">
-										Clique em um dia acima ou use as abas para começar.
-									</p>
+									<p className="text-sm text-muted-foreground mb-1">Cardápio vazio — nenhuma receita atribuída ainda.</p>
+									<p className="text-xs text-muted-foreground/60">Clique em um dia acima ou use as abas para começar.</p>
 								</div>
 							)}
 						</TabsContent>
@@ -519,15 +445,12 @@ function WeeklyMenuEditorPage() {
 											mealType={mealType}
 											recipes={getCellRecipes(day.num, mealType.id)}
 											onOpenSelector={() => handleOpenSelector(day.num, mealType.id)}
-											onRemoveRecipe={(recipeId) =>
-												handleRemoveRecipe(day.num, mealType.id, recipeId)
-											}
+											onRemoveRecipe={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 										/>
 									))
 								) : (
 									<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-										Nenhum tipo de refeição disponível. Configure os tipos de refeição no
-										Planejamento.
+										Nenhum tipo de refeição disponível. Configure os tipos de refeição no Planejamento.
 									</div>
 								)}
 							</TabsContent>

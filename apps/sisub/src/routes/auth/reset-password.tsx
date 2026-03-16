@@ -4,14 +4,7 @@ import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -125,14 +118,11 @@ function ResetPasswordPage() {
 		router.navigate({ to: "/auth" })
 	}
 
-	const cardClasses =
-		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
-	const inputClasses =
-		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
+	const cardClasses = "w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
+	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
 	const buttonClasses = "w-full font-bold h-12 text-base transition-all"
 	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
-	const iconClasses =
-		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
+	const iconClasses = "absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	if (isVerifying) {
 		return (
@@ -153,20 +143,13 @@ function ResetPasswordPage() {
 				<Card className={cardClasses}>
 					<CardHeader className="text-center space-y-3 pb-4 pt-8">
 						<CardTitle className="text-3xl font-bold tracking-tight">Link Inválido</CardTitle>
-						<CardDescription className="text-muted-foreground text-base">
-							O link de recuperação de senha expirou ou é inválido.
-						</CardDescription>
+						<CardDescription className="text-muted-foreground text-base">O link de recuperação de senha expirou ou é inválido.</CardDescription>
 					</CardHeader>
 
 					<CardContent className="px-8">
-						<Alert
-							variant="destructive"
-							className="bg-destructive/10 border-destructive/20 text-destructive"
-						>
+						<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
 							<AlertCircle className="h-4 w-4" />
-							<AlertDescription>
-								Por favor, solicite uma nova recuperação de senha.
-							</AlertDescription>
+							<AlertDescription>Por favor, solicite uma nova recuperação de senha.</AlertDescription>
 						</Alert>
 					</CardContent>
 
@@ -190,18 +173,13 @@ function ResetPasswordPage() {
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
 					<CardTitle className="text-3xl font-bold tracking-tight">Redefinir Senha</CardTitle>
-					<CardDescription className="text-muted-foreground text-base">
-						Digite sua nova senha segura.
-					</CardDescription>
+					<CardDescription className="text-muted-foreground text-base">Digite sua nova senha segura.</CardDescription>
 				</CardHeader>
 
 				<form onSubmit={handleSubmit}>
 					<CardContent className="space-y-6 px-8">
 						{error && (
-							<Alert
-								variant="destructive"
-								className="bg-destructive/10 border-destructive/20 text-destructive"
-							>
+							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
@@ -217,11 +195,7 @@ function ResetPasswordPage() {
 									id="new-password"
 									type={showPassword ? "text" : "password"}
 									placeholder="Mínimo 6 caracteres"
-									className={cn(
-										inputClasses,
-										"pl-11 pr-11",
-										passwordError && "border-destructive focus-visible:ring-destructive"
-									)}
+									className={cn(inputClasses, "pl-11 pr-11", passwordError && "border-destructive focus-visible:ring-destructive")}
 									value={newPassword}
 									onChange={handlePasswordChange}
 									required
@@ -237,19 +211,11 @@ function ResetPasswordPage() {
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
-									{showPassword ? (
-										<EyeOff className="h-4 w-4" aria-hidden="true" />
-									) : (
-										<Eye className="h-4 w-4" aria-hidden="true" />
-									)}
+									{showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
 								</button>
 							</div>
 							{passwordError && (
-								<p
-									id="password-error"
-									role="alert"
-									className="text-sm text-destructive mt-1 flex items-center"
-								>
+								<p id="password-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
 									<AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
 									{passwordError}
 								</p>
@@ -266,11 +232,7 @@ function ResetPasswordPage() {
 									id="confirm-password"
 									type={showConfirmPassword ? "text" : "password"}
 									placeholder="Digite a senha novamente"
-									className={cn(
-										inputClasses,
-										"pl-11 pr-11",
-										confirmError && "border-destructive focus-visible:ring-destructive"
-									)}
+									className={cn(inputClasses, "pl-11 pr-11", confirmError && "border-destructive focus-visible:ring-destructive")}
 									value={confirmPassword}
 									onChange={handleConfirmPasswordChange}
 									required
@@ -286,19 +248,11 @@ function ResetPasswordPage() {
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
-									{showConfirmPassword ? (
-										<EyeOff className="h-4 w-4" aria-hidden="true" />
-									) : (
-										<Eye className="h-4 w-4" aria-hidden="true" />
-									)}
+									{showConfirmPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
 								</button>
 							</div>
 							{confirmError && (
-								<p
-									id="confirm-error"
-									role="alert"
-									className="text-sm text-destructive mt-1 flex items-center"
-								>
+								<p id="confirm-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
 									<AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
 									{confirmError}
 								</p>
@@ -307,11 +261,7 @@ function ResetPasswordPage() {
 					</CardContent>
 
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-2">
-						<Button
-							type="submit"
-							className={buttonClasses}
-							disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}
-						>
+						<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}>
 							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
 							{isSubmitting ? "Atualizando..." : "Atualizar Senha"}
 						</Button>

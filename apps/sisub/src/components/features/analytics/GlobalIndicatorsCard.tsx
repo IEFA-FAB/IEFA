@@ -61,12 +61,9 @@ export default function IndicatorsCard() {
 				<div className={cn(expanded ? "" : "px-6", "pb-4 flex flex-col gap-3")}>
 					{!expanded && (
 						<>
-							<h2 className="text-xl font-sans font-bold text-foreground">
-								Indicadores da Unidade
-							</h2>
+							<h2 className="text-xl font-sans font-bold text-foreground">Indicadores da Unidade</h2>
 							<p className="text-sm font-sans text-muted-foreground">
-								Acompanhe métricas e relatórios consolidados. Expanda para tela cheia para melhor
-								visualização.
+								Acompanhe métricas e relatórios consolidados. Expanda para tela cheia para melhor visualização.
 							</p>
 						</>
 					)}
@@ -85,9 +82,7 @@ export default function IndicatorsCard() {
 							referrerPolicy="no-referrer-when-downgrade"
 						/>
 					</div>
-					<div className="mt-3 text-xs font-sans text-muted-foreground px-1">
-						Dica: use o botão de tela cheia dentro do relatório para melhor experiência.
-					</div>
+					<div className="mt-3 text-xs font-sans text-muted-foreground px-1">Dica: use o botão de tela cheia dentro do relatório para melhor experiência.</div>
 				</div>
 			</div>
 		</div>

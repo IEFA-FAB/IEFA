@@ -13,8 +13,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 	const { toggle } = useTheme()
 
 	// Container: full em mobile/tablet; "wide" contido em desktop
-	const container =
-		"w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
+	const container = "w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
 
 	const navLinkClass =
 		"inline-flex items-center rounded-md text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.active]:bg-accent [&.active]:text-accent-foreground text-foreground hover:bg-accent hover:text-accent-foreground"
@@ -144,11 +143,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 			{/* Rodapé */}
 			<footer className="border-t">
-				<div
-					className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}
-				>
-					© {new Date().getFullYear()} IEFA. <b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns
-					serviços são externos e podem exigir login próprio.
+				<div className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}>
+					© {new Date().getFullYear()} IEFA. <b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns serviços são externos e podem exigir login próprio.
 				</div>
 			</footer>
 		</div>

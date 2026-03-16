@@ -14,15 +14,7 @@ import {
 	subMonths,
 } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import {
-	CalendarDays,
-	Calendar as CalendarIcon,
-	ChevronLeft,
-	ChevronRight,
-	Settings,
-	Trash2,
-	Users,
-} from "lucide-react"
+import { CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -137,39 +129,20 @@ export function PlanningBoard() {
 				<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center">
 					<div className="flex items-center gap-2">
 						<div className="flex items-center ">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => handleMonthChange(-1)}
-								aria-label="Mês anterior"
-								className="h-8 w-8 p-0"
-							>
+							<Button variant="ghost" size="sm" onClick={() => handleMonthChange(-1)} aria-label="Mês anterior" className="h-8 w-8 p-0">
 								<ChevronLeft className="w-4 h-4" />
 							</Button>
 							<Tooltip>
 								<TooltipTrigger
 									render={
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => handleMonthChange(0)}
-											className="h-8 px-2 text-xs"
-										>
-											<h2 className="w-sm text-xl sm:text-2xl font-bold tracking-tight capitalize">
-												{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-											</h2>
+										<Button variant="ghost" size="sm" onClick={() => handleMonthChange(0)} className="h-8 px-2 text-xs">
+											<h2 className="w-sm text-xl sm:text-2xl font-bold tracking-tight capitalize">{format(currentMonth, "MMMM yyyy", { locale: ptBR })}</h2>
 										</Button>
 									}
 								></TooltipTrigger>
 								<TooltipContent>Voltar ao mês atual</TooltipContent>
 							</Tooltip>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => handleMonthChange(1)}
-								aria-label="Próximo mês"
-								className="h-8 w-8 p-0"
-							>
+							<Button variant="ghost" size="sm" onClick={() => handleMonthChange(1)} aria-label="Próximo mês" className="h-8 w-8 p-0">
 								<ChevronRight className="w-4 h-4" />
 							</Button>
 						</div>
@@ -188,10 +161,7 @@ export function PlanningBoard() {
 										className="h-9"
 										nativeButton={false}
 										render={
-											<Link
-												to="/kitchen/$kitchenId/weekly-menus"
-												params={{ kitchenId: kitchenIdStr }}
-											>
+											<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr }}>
 												<CalendarDays className="w-4 h-4 sm:mr-2" />
 												<span className="hidden sm:inline">Cardápios Semanais</span>
 											</Link>
@@ -205,12 +175,7 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => setIsMealTypeManagerOpen(true)}
-									className="h-9 w-9 p-0"
-								>
+								<Button variant="ghost" size="sm" onClick={() => setIsMealTypeManagerOpen(true)} className="h-9 w-9 p-0">
 									<Settings className="w-4 h-4" />
 								</Button>
 							}
@@ -220,25 +185,14 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => setIsTrashOpen(true)}
-									className="h-9 w-9 p-0"
-								>
+								<Button variant="ghost" size="sm" onClick={() => setIsTrashOpen(true)} className="h-9 w-9 p-0">
 									<Trash2 className="w-4 h-4" />
 								</Button>
 							}
 						></TooltipTrigger>
 						<TooltipContent>Lixeira</TooltipContent>
 					</Tooltip>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setIsTemplateModalOpen(true)}
-						disabled={selectedDays.size === 0}
-						className="h-9"
-					>
+					<Button variant="outline" size="sm" onClick={() => setIsTemplateModalOpen(true)} disabled={selectedDays.size === 0} className="h-9">
 						<CalendarIcon className="w-4 h-4 sm:mr-2" />
 						<span className="hidden sm:inline">Aplicar</span>
 						<span className="ml-1">({selectedDays.size})</span>
@@ -267,10 +221,7 @@ export function PlanningBoard() {
 				{/* Week Days Header */}
 				<div className="grid grid-cols-7 border-b bg-muted/40 text-center">
 					{weekDays.map((day) => (
-						<div
-							key={day}
-							className="py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider"
-						>
+						<div key={day} className="py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
 							{day}
 						</div>
 					))}
@@ -284,10 +235,7 @@ export function PlanningBoard() {
 						const isToday = isSameDay(day, new Date())
 						const isSelected = selectedDays.has(day.toISOString())
 
-						const totalHeadcount = dayMenus.reduce(
-							(acc, m) => acc + (m.forecasted_headcount || 0),
-							0
-						)
+						const totalHeadcount = dayMenus.reduce((acc, m) => acc + (m.forecasted_headcount || 0), 0)
 						const hasMenus = dayMenus.length > 0
 
 						return (
@@ -306,18 +254,12 @@ export function PlanningBoard() {
 							>
 								<div className="flex items-center justify-between mb-2">
 									<span
-										className={cn(
-											"text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full",
-											isToday && "bg-primary text-primary-foreground"
-										)}
+										className={cn("text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}
 									>
 										{format(day, "d")}
 									</span>
 									{hasMenus && (
-										<Badge
-											variant="outline"
-											className="text-[10px] h-5 px-1 font-normal text-muted-foreground gap-1"
-										>
+										<Badge variant="outline" className="text-[10px] h-5 px-1 font-normal text-muted-foreground gap-1">
 											<Users className="w-3 h-3" />
 											{totalHeadcount > 0 ? totalHeadcount : "-"}
 										</Badge>
@@ -332,14 +274,9 @@ export function PlanningBoard() {
 										const statusColor = menu.status === "PUBLISHED" ? "bg-success" : "bg-warning"
 
 										return (
-											<div
-												key={menu.id}
-												className="text-xs truncate flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:bg-accent"
-											>
+											<div key={menu.id} className="text-xs truncate flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:bg-accent">
 												<span className={cn("w-1.5 h-1.5 rounded-full", statusColor)} />
-												<span className="font-medium text-foreground/80">
-													{mealName.substring(0, 3)}
-												</span>
+												<span className="font-medium text-foreground/80">{mealName.substring(0, 3)}</span>
 												<span className="text-muted-foreground ml-auto">{itemCount}</span>
 											</div>
 										)
@@ -363,17 +300,9 @@ export function PlanningBoard() {
 				kitchenId={kitchenId || 0}
 			/>
 
-			<TrashDrawer
-				open={isTrashOpen}
-				onClose={() => setIsTrashOpen(false)}
-				kitchenId={kitchenId || 0}
-			/>
+			<TrashDrawer open={isTrashOpen} onClose={() => setIsTrashOpen(false)} kitchenId={kitchenId || 0} />
 
-			<MealTypeManager
-				open={isMealTypeManagerOpen}
-				onClose={() => setIsMealTypeManagerOpen(false)}
-				kitchenId={kitchenId}
-			/>
+			<MealTypeManager open={isMealTypeManagerOpen} onClose={() => setIsMealTypeManagerOpen(false)} kitchenId={kitchenId} />
 		</div>
 	)
 }

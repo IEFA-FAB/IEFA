@@ -1,13 +1,6 @@
 import { Users } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export function PresenceTableSkeleton() {
 	return (
@@ -17,9 +10,7 @@ export function PresenceTableSkeleton() {
 					<Users className="h-5 w-5" aria-hidden="true" />
 					Análise de Presenças
 				</CardTitle>
-				<CardDescription>
-					Comparação entre previsões e presenças por dia, refeição e rancho
-				</CardDescription>
+				<CardDescription>Comparação entre previsões e presenças por dia, refeição e rancho</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="overflow-x-auto">

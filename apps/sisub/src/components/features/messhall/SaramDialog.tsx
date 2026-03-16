@@ -1,14 +1,7 @@
 import type React from "react"
 import { useId } from "react"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 
 type NrOrdemDialogProps = {
@@ -23,15 +16,7 @@ type NrOrdemDialogProps = {
 
 const NR_ORDEM_MAXLEN = 7 // ajuste conforme sua regra
 
-export function SaramDialog({
-	open,
-	nrOrdem,
-	error,
-	isSaving,
-	onOpenChange,
-	onChange,
-	onSubmit,
-}: NrOrdemDialogProps) {
+export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onChange, onSubmit }: NrOrdemDialogProps) {
 	const helpId = useId()
 	const errorId = useId()
 
@@ -62,9 +47,7 @@ export function SaramDialog({
 			<DialogContent className="sm:max-w-md" showCloseButton={false} aria-busy={isSaving}>
 				<DialogHeader>
 					<DialogTitle>Informe seu SARAM</DialogTitle>
-					<DialogDescription id={helpId}>
-						Para continuar, precisamos do seu número de registro SARAM (nrOrdem).
-					</DialogDescription>
+					<DialogDescription id={helpId}>Para continuar, precisamos do seu número de registro SARAM (nrOrdem).</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-3">
@@ -93,17 +76,11 @@ export function SaramDialog({
 								{error}
 							</p>
 						)}
-						<p className="text-xs text-muted-foreground">
-							Usaremos esse dado apenas para identificar seu registro.
-						</p>
+						<p className="text-xs text-muted-foreground">Usaremos esse dado apenas para identificar seu registro.</p>
 					</div>
 
 					<DialogFooter>
-						<Button
-							type="submit"
-							disabled={!canSubmit}
-							className="disabled:cursor-not-allowed disabled:opacity-50"
-						>
+						<Button type="submit" disabled={!canSubmit} className="disabled:cursor-not-allowed disabled:opacity-50">
 							{isSaving ? (
 								<span className="inline-flex items-center gap-2">
 									<span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent" />

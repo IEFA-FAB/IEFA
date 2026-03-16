@@ -32,11 +32,7 @@ function GlobalRecipeVersionsPage() {
 	}
 
 	if (error || !recipe) {
-		return (
-			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				Preparação não encontrada ou erro ao carregar.
-			</div>
-		)
+		return <div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">Preparação não encontrada ou erro ao carregar.</div>
 	}
 
 	return (

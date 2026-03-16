@@ -28,10 +28,7 @@ export async function graderNode(state: AgentState): Promise<Partial<AgentState>
 	const { retrieved_documents, messages, grading_retries } = state
 
 	const docsContext = retrieved_documents
-		.map(
-			(d, i) =>
-				`[${i + 1}] ${d.metadata.source} — ${d.metadata.chapter}, ${d.metadata.article}:\n${d.content}`
-		)
+		.map((d, i) => `[${i + 1}] ${d.metadata.source} — ${d.metadata.chapter}, ${d.metadata.article}:\n${d.content}`)
 		.join("\n\n")
 
 	const userQuery =

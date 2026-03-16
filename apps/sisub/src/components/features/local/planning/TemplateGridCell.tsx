@@ -44,21 +44,14 @@ export function TemplateGridCell({
 		<div
 			className={cn(
 				"relative min-h-[120px] p-3 border rounded-md transition-all duration-200 hover:border-primary/50",
-				hasRecipes
-					? "bg-muted/30 border-muted-foreground/20"
-					: "bg-background border-dashed border-muted-foreground/30"
+				hasRecipes ? "bg-muted/30 border-muted-foreground/20" : "bg-background border-dashed border-muted-foreground/30"
 			)}
 		>
 			{/* Empty State */}
 			{!hasRecipes && (
 				<div className="flex flex-col items-center justify-center h-full min-h-[100px] gap-2">
 					<Plus className="w-5 h-5 text-muted-foreground/50" />
-					<Button
-						size="sm"
-						variant="ghost"
-						onClick={onAddRecipes}
-						className="text-xs text-muted-foreground hover:text-foreground"
-					>
+					<Button size="sm" variant="ghost" onClick={onAddRecipes} className="text-xs text-muted-foreground hover:text-foreground">
 						Adicionar Preparações
 					</Button>
 				</div>
@@ -74,9 +67,7 @@ export function TemplateGridCell({
 						>
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium truncate">{recipe.name}</p>
-								{recipe.rational_id && (
-									<p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>
-								)}
+								{recipe.rational_id && <p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>}
 							</div>
 							<Tooltip>
 								<TooltipTrigger

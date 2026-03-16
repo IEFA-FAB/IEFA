@@ -26,16 +26,7 @@ export function ProductsTreeManager() {
 		type: "folder",
 	})
 
-	const {
-		flatTree,
-		stats,
-		itemCountByProductId,
-		error,
-		refetch,
-		toggleExpand,
-		expandAll,
-		collapseAll,
-	} = useProductsHierarchy(filterText)
+	const { flatTree, stats, itemCountByProductId, error, refetch, toggleExpand, expandAll, collapseAll } = useProductsHierarchy(filterText)
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -46,12 +37,7 @@ export function ProductsTreeManager() {
 		overscan: 10,
 	})
 
-	const handleOpenDialog = (
-		type: "folder" | "product",
-		mode: "create" | "edit" = "create",
-		data?: Folder | Product,
-		parentId?: string | null
-	) => {
+	const handleOpenDialog = (type: "folder" | "product", mode: "create" | "edit" = "create", data?: Folder | Product, parentId?: string | null) => {
 		setDialogState({ isOpen: true, mode, type, data, parentId })
 	}
 
@@ -96,22 +82,10 @@ export function ProductsTreeManager() {
 				</div>
 
 				<div className="flex flex-wrap gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={expandAll}
-						aria-label="Expandir tudo"
-						className="transition-all active:scale-[0.98]"
-					>
+					<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo" className="transition-all active:scale-[0.98]">
 						Expandir Tudo
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={collapseAll}
-						aria-label="Recolher tudo"
-						className="transition-all active:scale-[0.98]"
-					>
+					<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo" className="transition-all active:scale-[0.98]">
 						Recolher Tudo
 					</Button>
 
@@ -148,9 +122,7 @@ export function ProductsTreeManager() {
 							<div className="flex items-center justify-between">
 								<div>
 									<div className="text-sm font-sans text-muted-foreground">Pastas</div>
-									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
-										{stats.totalFolders}
-									</div>
+									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">{stats.totalFolders}</div>
 								</div>
 								<div className="transition-transform duration-200 group-hover:rotate-12 opacity-50">
 									<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-warning" />
@@ -164,9 +136,7 @@ export function ProductsTreeManager() {
 							<div className="flex items-center justify-between">
 								<div>
 									<div className="text-sm font-sans text-muted-foreground">Insumos</div>
-									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">
-										{stats.totalProducts}
-									</div>
+									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">{stats.totalProducts}</div>
 								</div>
 								<div className="transition-transform duration-200 group-hover:scale-110 opacity-50">
 									<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-primary" />
@@ -179,12 +149,7 @@ export function ProductsTreeManager() {
 
 			{/* Árvore Virtualizada */}
 			<Card className="border border-border/50">
-				<div
-					ref={parentRef}
-					className="h-150 overflow-auto"
-					role="tree"
-					aria-label="Árvore de insumos"
-				>
+				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label="Árvore de insumos">
 					{flatTree && flatTree.nodes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">Nenhum insumo encontrado</p>
@@ -215,17 +180,9 @@ export function ProductsTreeManager() {
 									>
 										<ProductsTreeNode
 											node={node}
-											onEdit={(type, data) =>
-												handleOpenDialog(
-													type as "folder" | "product",
-													"edit",
-													data as Folder | Product
-												)
-											}
+											onEdit={(type, data) => handleOpenDialog(type as "folder" | "product", "edit", data as Folder | Product)}
 											onToggle={toggleExpand}
-											itemCount={
-												node.type === "product" ? (itemCountByProductId[node.id] ?? 0) : undefined
-											}
+											itemCount={node.type === "product" ? (itemCountByProductId[node.id] ?? 0) : undefined}
 											onNavigate={
 												node.type === "product"
 													? () =>
@@ -250,11 +207,7 @@ export function ProductsTreeManager() {
 					isOpen={dialogState.isOpen}
 					onClose={handleCloseDialog}
 					mode={dialogState.mode}
-					folder={
-						dialogState.mode === "edit" && dialogState.data && "parent_id" in dialogState.data
-							? (dialogState.data as Folder)
-							: undefined
-					}
+					folder={dialogState.mode === "edit" && dialogState.data && "parent_id" in dialogState.data ? (dialogState.data as Folder) : undefined}
 				/>
 			)}
 
@@ -263,11 +216,7 @@ export function ProductsTreeManager() {
 					isOpen={dialogState.isOpen}
 					onClose={handleCloseDialog}
 					mode={dialogState.mode}
-					product={
-						dialogState.mode === "edit" && dialogState.data && "measure_unit" in dialogState.data
-							? (dialogState.data as Product)
-							: undefined
-					}
+					product={dialogState.mode === "edit" && dialogState.data && "measure_unit" in dialogState.data ? (dialogState.data as Product) : undefined}
 					defaultFolderId={dialogState.parentId ?? undefined}
 				/>
 			)}

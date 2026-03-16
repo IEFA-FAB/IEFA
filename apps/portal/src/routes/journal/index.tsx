@@ -49,12 +49,9 @@ function RouteComponent() {
                        backdrop-blur supports-backdrop-filter:backdrop-blur-md"
 					>
 						<div className="relative mx-auto flex min-h-[40vh] sm:min-h-[50vh] flex-col items-center justify-center text-center p-6 md:p-10">
-							<h1 className="text-balance text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-								Sistema de Gestão de Publicações
-							</h1>
+							<h1 className="text-balance text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">Sistema de Gestão de Publicações</h1>
 							<p className="mt-4 max-w-3xl text-pretty text-base sm:text-lg text-muted-foreground">
-								Plataforma completa para submissão, revisão e publicação de artigos científicos com
-								suporte bilíngue (PT/EN).
+								Plataforma completa para submissão, revisão e publicação de artigos científicos com suporte bilíngue (PT/EN).
 							</p>
 							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
 								{isAuthenticated ? (
@@ -108,9 +105,7 @@ function RouteComponent() {
 
 			{/* Action Cards Section */}
 			<section className="mt-10 md:mt-12 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-				<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">
-					{isAuthenticated ? "Minhas Ações" : "Para Autores"}
-				</h2>
+				<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">{isAuthenticated ? "Minhas Ações" : "Para Autores"}</h2>
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 					{/* Submit Article Card - Only show if authenticated */}
@@ -122,8 +117,7 @@ function RouteComponent() {
 								</div>
 								<h3 className="font-semibold text-lg mb-2">Nova Submissão</h3>
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Submeta um novo artigo para revisão por pares. Preencha o formulário com metadados
-									bilíngues e faça upload dos arquivos.
+									Submeta um novo artigo para revisão por pares. Preencha o formulário com metadados bilíngues e faça upload dos arquivos.
 								</p>
 								<Button variant="ghost" className="w-full justify-start px-0">
 									Iniciar Submissão →
@@ -141,8 +135,7 @@ function RouteComponent() {
 								</div>
 								<h3 className="font-semibold text-lg mb-2">Minhas Submissões</h3>
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Acompanhe o status de todos os seus artigos submetidos. Visualize comentários dos
-									revisores e faça revisões.
+									Acompanhe o status de todos os seus artigos submetidos. Visualize comentários dos revisores e faça revisões.
 								</p>
 								<Button variant="ghost" className="w-full justify-start px-0">
 									Ver Submissões →
@@ -160,8 +153,7 @@ function RouteComponent() {
 								</div>
 								<h3 className="font-semibold text-lg mb-2">Meu Perfil</h3>
 								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Gerencie suas informações pessoais, ORCID, afiliação institucional e áreas de
-									expertise.
+									Gerencie suas informações pessoais, ORCID, afiliação institucional e áreas de expertise.
 								</p>
 								<Button variant="ghost" className="w-full justify-start px-0">
 									Editar Perfil →
@@ -178,8 +170,7 @@ function RouteComponent() {
 							</div>
 							<h3 className="font-semibold text-lg mb-2">Artigos Publicados</h3>
 							<p className="text-sm text-muted-foreground mb-4 flex-1">
-								Navegue pelos artigos já publicados na revista. Pesquise por área, autor ou
-								palavra-chave.
+								Navegue pelos artigos já publicados na revista. Pesquise por área, autor ou palavra-chave.
 							</p>
 							<Button variant="ghost" className="w-full justify-start px-0">
 								Explorar Artigos →
@@ -194,9 +185,7 @@ function RouteComponent() {
 								<BookOpen className="size-6 text-indigo-600 dark:text-indigo-400" />
 							</div>
 							<h3 className="font-semibold text-lg mb-2">Sobre a Revista</h3>
-							<p className="text-sm text-muted-foreground mb-4 flex-1">
-								Conheça a missão, políticas editoriais e equipe da SEIVA.
-							</p>
+							<p className="text-sm text-muted-foreground mb-4 flex-1">Conheça a missão, políticas editoriais e equipe da SEIVA.</p>
 							<Button variant="ghost" className="w-full justify-start px-0">
 								Saiba Mais →
 							</Button>
@@ -211,9 +200,7 @@ function RouteComponent() {
 									<FileText className="size-6 text-muted-foreground" />
 								</div>
 								<h3 className="font-semibold text-lg mb-2">Minhas Revisões</h3>
-								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Visualize e complete revisões atribuídas a você.
-								</p>
+								<p className="text-sm text-muted-foreground mb-4 flex-1">Visualize e complete revisões atribuídas a você.</p>
 								<p className="text-xs text-muted-foreground italic">Em breve (Fase 3)</p>
 							</div>
 
@@ -223,9 +210,7 @@ function RouteComponent() {
 										<Settings className="size-6 text-muted-foreground" />
 									</div>
 									<h3 className="font-semibold text-lg mb-2">Configurações da Revista</h3>
-									<p className="text-sm text-muted-foreground mb-4 flex-1">
-										Configure informações da revista, templates de email e DOI.
-									</p>
+									<p className="text-sm text-muted-foreground mb-4 flex-1">Configure informações da revista, templates de email e DOI.</p>
 									<p className="text-xs text-muted-foreground italic">Em breve (Fase 4)</p>
 								</div>
 							)}
@@ -247,9 +232,7 @@ function RouteComponent() {
 										<LayoutDashboard className="size-8 text-primary" />
 									</div>
 									<h3 className="font-semibold text-xl mb-2">Dashboard Editorial</h3>
-									<p className="text-muted-foreground mb-4">
-										Gerencie submissões, atribua revisores e tome decisões sobre artigos.
-									</p>
+									<p className="text-muted-foreground mb-4">Gerencie submissões, atribua revisores e tome decisões sobre artigos.</p>
 									<Button className="mt-4">Acessar Dashboard →</Button>
 								</div>
 							</Link>
@@ -270,9 +253,7 @@ function RouteComponent() {
 										<span className="font-semibold">-</span>
 									</div>
 								</div>
-								<p className="text-xs text-muted-foreground mt-4 italic">
-									Estatísticas disponíveis no dashboard
-								</p>
+								<p className="text-xs text-muted-foreground mt-4 italic">Estatísticas disponíveis no dashboard</p>
 							</div>
 						</div>
 					</div>
@@ -284,9 +265,8 @@ function RouteComponent() {
 				<div className="mt-12 p-6 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
 					<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">ℹ️ Sobre o Sistema</h3>
 					<p className="text-sm text-blue-800 dark:text-blue-200">
-						Este é um sistema completo de gestão de publicações científicas com suporte a submissões
-						bilíngues (PT/EN), revisão por pares, gestão de DOI e integração com Crossref. Para
-						começar, faça login e complete seu perfil.
+						Este é um sistema completo de gestão de publicações científicas com suporte a submissões bilíngues (PT/EN), revisão por pares, gestão de DOI e
+						integração com Crossref. Para começar, faça login e complete seu perfil.
 					</p>
 				</div>
 

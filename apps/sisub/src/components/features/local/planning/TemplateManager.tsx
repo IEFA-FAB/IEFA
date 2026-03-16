@@ -2,21 +2,8 @@ import { CalendarDays, Edit, Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 import { TemplateEditor } from "./TemplateEditor"
@@ -59,11 +46,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 	}
 
 	const handleDelete = (templateId: string, templateName: string) => {
-		if (
-			window.confirm(
-				`Tem certeza que deseja remover o template "${templateName}"?\n\nEle poderá ser recuperado na lixeira.`
-			)
-		) {
+		if (window.confirm(`Tem certeza que deseja remover o template "${templateName}"?\n\nEle poderá ser recuperado na lixeira.`)) {
 			deleteTemplate(templateId)
 		}
 	}
@@ -83,9 +66,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 				<DialogContent className="sm:max-w-7xl max-h-[80vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>Gerenciar Templates</DialogTitle>
-						<DialogDescription>
-							Templates permitem criar planejamentos semanais reutilizáveis.
-						</DialogDescription>
+						<DialogDescription>Templates permitem criar planejamentos semanais reutilizáveis.</DialogDescription>
 					</DialogHeader>
 
 					<div className="space-y-6 py-4">
@@ -112,9 +93,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 										{globalTemplates.map((template) => (
 											<TableRow key={template.id}>
 												<TableCell className="font-medium">{template.name}</TableCell>
-												<TableCell className="text-sm text-muted-foreground">
-													{template.description || "—"}
-												</TableCell>
+												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 												<TableCell className="text-center">
 													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}
@@ -148,9 +127,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 							</div>
 
 							{isLoading ? (
-								<div className="py-8 text-center text-sm text-muted-foreground">
-									Carregando templates...
-								</div>
+								<div className="py-8 text-center text-sm text-muted-foreground">Carregando templates...</div>
 							) : localTemplates.length > 0 ? (
 								<Table>
 									<TableHeader>
@@ -165,9 +142,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 										{localTemplates.map((template) => (
 											<TableRow key={template.id}>
 												<TableCell className="font-medium">{template.name}</TableCell>
-												<TableCell className="text-sm text-muted-foreground">
-													{template.description || "—"}
-												</TableCell>
+												<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 												<TableCell className="text-center">
 													<Badge variant="secondary" className="font-mono text-xs">
 														{template.recipe_count || 0}
@@ -178,11 +153,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button
-																		size="icon"
-																		variant="ghost"
-																		onClick={() => handleEdit(template.id)}
-																	>
+																	<Button size="icon" variant="ghost" onClick={() => handleEdit(template.id)}>
 																		<Edit className="w-4 h-4" />
 																	</Button>
 																}
@@ -192,12 +163,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 														<Tooltip>
 															<TooltipTrigger
 																render={
-																	<Button
-																		size="icon"
-																		variant="ghost"
-																		onClick={() => handleDelete(template.id, template.name ?? "")}
-																		disabled={isDeleting}
-																	>
+																	<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
 																		<Trash2 className="w-4 h-4 text-destructive" />
 																	</Button>
 																}
@@ -212,9 +178,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 								</Table>
 							) : (
 								<div className="py-8 text-center border-2 border-dashed rounded-lg">
-									<p className="text-sm text-muted-foreground mb-2">
-										Nenhum template local criado ainda.
-									</p>
+									<p className="text-sm text-muted-foreground mb-2">Nenhum template local criado ainda.</p>
 									<Button size="sm" variant="outline" onClick={handleCreate}>
 										<Plus className="w-4 h-4 mr-2" />
 										Criar Primeiro Template
@@ -227,12 +191,7 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 			</Dialog>
 
 			{/* Template Editor */}
-			<TemplateEditor
-				open={editorOpen}
-				onClose={handleEditorClose}
-				kitchenId={kitchenId}
-				templateId={editingTemplateId}
-			/>
+			<TemplateEditor open={editorOpen} onClose={handleEditorClose} kitchenId={kitchenId} templateId={editingTemplateId} />
 		</>
 	)
 }

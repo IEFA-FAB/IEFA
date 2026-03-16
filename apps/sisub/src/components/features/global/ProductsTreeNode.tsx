@@ -1,13 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import {
-	ChevronDown,
-	ChevronRight,
-	Edit,
-	ExternalLink,
-	Folder as FolderIcon,
-	Package,
-	Trash2,
-} from "lucide-react"
+import { ChevronDown, ChevronRight, Edit, ExternalLink, Folder as FolderIcon, Package, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -30,13 +22,7 @@ interface ProductsTreeNodeProps {
  * Renderização otimizada para virtualização
  * Enhanced with Industrial-Technical aesthetic
  */
-export function ProductsTreeNode({
-	node,
-	onEdit,
-	onToggle,
-	itemCount,
-	onNavigate,
-}: ProductsTreeNodeProps) {
+export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate }: ProductsTreeNodeProps) {
 	const queryClient = useQueryClient()
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
 	const { deleteProduct, isDeleting: isDeletingProduct } = useDeleteProduct()
@@ -91,10 +77,7 @@ export function ProductsTreeNode({
 			{/* Tree connector lines */}
 			{node.level > 0 && (
 				<>
-					<div
-						className="absolute top-0 bottom-1/2 w-px bg-border/40"
-						style={{ left: `${(node.level - 1) * 24 + 20}px` }}
-					/>
+					<div className="absolute top-0 bottom-1/2 w-px bg-border/40" style={{ left: `${(node.level - 1) * 24 + 20}px` }} />
 					<div
 						className="absolute top-1/2 h-px bg-border/40"
 						style={{
@@ -116,11 +99,7 @@ export function ProductsTreeNode({
 						className="h-5 w-5 p-0 hover:bg-primary/10 transition-colors"
 						aria-label={node.isExpanded ? "Recolher" : "Expandir"}
 					>
-						{node.isExpanded ? (
-							<ChevronDown className="h-4 w-4 text-muted-foreground" />
-						) : (
-							<ChevronRight className="h-4 w-4 text-muted-foreground" />
-						)}
+						{node.isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
 					</Button>
 				) : (
 					<div className="w-5" />
@@ -138,12 +117,7 @@ export function ProductsTreeNode({
 				</div>
 
 				{/* Label */}
-				<span
-					className={cn(
-						"text-sm truncate transition-colors",
-						node.type === "folder" ? "font-sans font-semibold" : "font-sans font-normal"
-					)}
-				>
+				<span className={cn("text-sm truncate transition-colors", node.type === "folder" ? "font-sans font-semibold" : "font-sans font-normal")}>
 					{node.label}
 				</span>
 

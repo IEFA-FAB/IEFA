@@ -18,9 +18,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="flex items-center justify-center h-40 text-muted-foreground">
-						Sem dados para o período selecionado
-					</div>
+					<div className="flex items-center justify-center h-40 text-muted-foreground">Sem dados para o período selecionado</div>
 				</CardContent>
 			</Card>
 		)
@@ -55,9 +53,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 							day: "2-digit",
 							month: "2-digit",
 						})
-						const weekday = dateObj
-							.toLocaleDateString("pt-BR", { weekday: "short" })
-							.replace(".", "")
+						const weekday = dateObj.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "")
 
 						return (
 							<div key={day.date} className="flex flex-col items-center gap-2 min-w-25">
@@ -72,9 +68,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Café: ${day.cafe}`}
 										/>
-										{day.cafe > 0 && (
-											<span className="text-xs font-medium text-chart-2">{day.cafe}</span>
-										)}
+										{day.cafe > 0 && <span className="text-xs font-medium text-chart-2">{day.cafe}</span>}
 									</div>
 
 									{/* Almoço */}
@@ -87,9 +81,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Almoço: ${day.almoco}`}
 										/>
-										{day.almoco > 0 && (
-											<span className="text-xs font-medium text-chart-3">{day.almoco}</span>
-										)}
+										{day.almoco > 0 && <span className="text-xs font-medium text-chart-3">{day.almoco}</span>}
 									</div>
 
 									{/* Janta */}
@@ -102,9 +94,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Janta: ${day.janta}`}
 										/>
-										{day.janta > 0 && (
-											<span className="text-xs font-medium text-chart-5">{day.janta}</span>
-										)}
+										{day.janta > 0 && <span className="text-xs font-medium text-chart-5">{day.janta}</span>}
 									</div>
 
 									{/* Ceia */}
@@ -117,9 +107,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Ceia: ${day.ceia}`}
 										/>
-										{day.ceia > 0 && (
-											<span className="text-xs font-medium text-chart-1">{day.ceia}</span>
-										)}
+										{day.ceia > 0 && <span className="text-xs font-medium text-chart-1">{day.ceia}</span>}
 									</div>
 								</div>
 

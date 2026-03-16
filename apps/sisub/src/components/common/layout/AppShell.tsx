@@ -10,13 +10,7 @@ import {
 	type ModuleId,
 	type NavItem,
 } from "@/components/common/layout/sidebar/NavItems"
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-	BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import type { ScopeContext } from "@/types/domain/scope"
@@ -93,9 +87,7 @@ export function AppShell() {
 	const levelError = false
 
 	// Lê o ScopeContext injetado pelo layout route do módulo ativo (ex: $messHallId/route.tsx)
-	const scopeContext = matches
-		.map((m) => (m.context as Record<string, unknown>)?.scopeContext as ScopeContext | undefined)
-		.find(Boolean)
+	const scopeContext = matches.map((m) => (m.context as Record<string, unknown>)?.scopeContext as ScopeContext | undefined).find(Boolean)
 
 	const availableModules = getModulesForPermissions(permissions)
 
@@ -219,10 +211,7 @@ export function AppShell() {
 											) : (
 												<BreadcrumbLink
 													render={
-														<Link
-															to={c.to}
-															className="hover:text-primary transition-colors text-center"
-														>
+														<Link to={c.to} className="hover:text-primary transition-colors text-center">
 															{c.label}
 														</Link>
 													}
@@ -239,11 +228,7 @@ export function AppShell() {
 					</div>
 				</header>
 
-				<MainSurface
-					showInitialError={showInitialError}
-					showInitialLoading={showInitialLoading}
-					onRetry={handleRetry}
-				>
+				<MainSurface showInitialError={showInitialError} showInitialLoading={showInitialLoading} onRetry={handleRetry}>
 					<main className="mx-auto w-full max-w-screen-2xl flex-1 px-3 py-6 sm:px-6 md:py-8 focus:outline-none">
 						<Outlet />
 					</main>

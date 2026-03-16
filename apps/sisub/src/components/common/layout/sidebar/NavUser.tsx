@@ -13,12 +13,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	useSidebar,
-} from "@/components/ui/sidebar"
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/auth/useAuth"
 
 type UserMeta = {
@@ -59,15 +54,10 @@ export function NavUser() {
 					<DropdownMenu>
 						<DropdownMenuTrigger
 							render={
-								<SidebarMenuButton
-									size="lg"
-									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-								>
+								<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 									<Avatar className="size-8 rounded-lg grayscale">
 										<AvatarImage src={avatarUrl} alt={displayName} />
-										<AvatarFallback className="rounded-lg">
-											{getInitials(displayName)}
-										</AvatarFallback>
+										<AvatarFallback className="rounded-lg">{getInitials(displayName)}</AvatarFallback>
 									</Avatar>
 									<div className="hidden sm:grid flex-1 text-left text-sm leading-tight ml-2">
 										<span className="truncate font-medium">{displayName}</span>
@@ -89,9 +79,7 @@ export function NavUser() {
 									<div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
 										<Avatar className="h-8 w-8 rounded-lg">
 											<AvatarImage src={avatarUrl} alt={displayName} />
-											<AvatarFallback className="rounded-lg">
-												{getInitials(displayName)}
-											</AvatarFallback>
+											<AvatarFallback className="rounded-lg">{getInitials(displayName)}</AvatarFallback>
 										</Avatar>
 										<div className="grid flex-1 text-left text-sm leading-tight">
 											<span className="truncate font-medium">{displayName}</span>

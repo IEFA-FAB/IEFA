@@ -1,16 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import {
-	addOtherPresenceFn,
-	fetchOtherPresencesCountFn,
-	fetchScanForecastFn,
-} from "@/server/messhall.fn"
+import { addOtherPresenceFn, fetchOtherPresencesCountFn, fetchScanForecastFn } from "@/server/messhall.fn"
 import type { FiscalFilters } from "@/types/domain/presence"
 
 // QUERY KEYS
 const opsKeys = {
-	othersCount: (date: string, meal: string, messHallId: number) =>
-		["othersCount", date, meal, messHallId] as const,
+	othersCount: (date: string, meal: string, messHallId: number) => ["othersCount", date, meal, messHallId] as const,
 }
 
 // ============================================================================
@@ -60,10 +55,7 @@ export function useAddOtherPresence() {
 // ============================================================================
 
 export function useScanProcessor() {
-	const processScan = async (
-		uuid: string,
-		filters: FiscalFilters
-	): Promise<{ systemForecast: boolean | null }> => {
+	const processScan = async (uuid: string, filters: FiscalFilters): Promise<{ systemForecast: boolean | null }> => {
 		const systemForecast = await fetchScanForecastFn({
 			data: {
 				userId: uuid,

@@ -1,12 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import {
-	createMealTypeFn,
-	deleteMealTypeFn,
-	fetchMealTypesFn,
-	restoreMealTypeFn,
-	updateMealTypeFn,
-} from "@/server/meal-types.fn"
+import { createMealTypeFn, deleteMealTypeFn, fetchMealTypesFn, restoreMealTypeFn, updateMealTypeFn } from "@/server/meal-types.fn"
 import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.types"
 
 /**
@@ -86,8 +80,7 @@ export function useUpdateMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ id, ...updates }: { id: string } & MealTypeUpdate) =>
-			updateMealTypeFn({ data: { id, updates } }),
+		mutationFn: ({ id, ...updates }: { id: string } & MealTypeUpdate) => updateMealTypeFn({ data: { id, updates } }),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success(`Tipo de refeição "${data.name}" atualizado!`)

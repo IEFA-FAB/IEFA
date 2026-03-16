@@ -56,9 +56,7 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 				<CardContent className="flex flex-col items-center justify-center py-12 text-center">
 					<Package className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
 					<p className="text-muted-foreground">Não há itens para compra no período selecionado.</p>
-					<p className="text-sm text-muted-foreground mt-2">
-						Planeje cardápios para ver as necessidades de aquisição.
-					</p>
+					<p className="text-sm text-muted-foreground mt-2">Planeje cardápios para ver as necessidades de aquisição.</p>
 				</CardContent>
 			</Card>
 		)
@@ -91,12 +89,8 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 									{items.map((item) => (
 										<TableRow key={item.product_id}>
 											<TableCell className="font-medium">{item.product_name}</TableCell>
-											<TableCell className="text-right tabular-nums">
-												{item.total_quantity.toFixed(2)}
-											</TableCell>
-											<TableCell className="text-right text-muted-foreground">
-												{item.measure_unit || "UN"}
-											</TableCell>
+											<TableCell className="text-right tabular-nums">{item.total_quantity.toFixed(2)}</TableCell>
+											<TableCell className="text-right text-muted-foreground">{item.measure_unit || "UN"}</TableCell>
 										</TableRow>
 									))}
 								</TableBody>

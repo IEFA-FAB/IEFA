@@ -10,27 +10,18 @@ export function ProfileOnboarding() {
 						<User className="size-8 text-primary" aria-hidden="true" />
 					</div>
 					<h1 className="text-3xl font-bold tracking-tight mb-2">Complete Seu Perfil</h1>
-					<p className="text-muted-foreground">
-						Para utilizar o Sistema de Gestão de Publicações, você precisa primeiro completar seu
-						perfil.
-					</p>
+					<p className="text-muted-foreground">Para utilizar o Sistema de Gestão de Publicações, você precisa primeiro completar seu perfil.</p>
 				</CardHeader>
 
 				<CardContent className="space-y-6">
 					{/* Info Alert */}
 					<div className="flex gap-3 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-						<AlertCircle
-							className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5"
-							aria-hidden="true"
-						/>
+						<AlertCircle className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" aria-hidden="true" />
 						<div className="space-y-1">
-							<h3 className="font-semibold text-blue-900 dark:text-blue-100">
-								Por que preciso completar meu perfil?
-							</h3>
+							<h3 className="font-semibold text-blue-900 dark:text-blue-100">Por que preciso completar meu perfil?</h3>
 							<p className="text-sm text-blue-800 dark:text-blue-200">
-								O Sistema de Gestão de Publicações utiliza suas informações de perfil para
-								identificar você como autor, revisor ou editor. Seus dados são essenciais para a
-								gestão adequada de artigos, revisões e publicações.
+								O Sistema de Gestão de Publicações utiliza suas informações de perfil para identificar você como autor, revisor ou editor. Seus dados são
+								essenciais para a gestão adequada de artigos, revisões e publicações.
 							</p>
 						</div>
 					</div>
@@ -69,10 +60,7 @@ export function ProfileOnboarding() {
 
 					{/* Secondary Action */}
 					<div className="text-center">
-						<Link
-							to="/"
-							className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-						>
+						<Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
 							Voltar para a página inicial
 						</Link>
 					</div>

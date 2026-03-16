@@ -5,11 +5,7 @@ import { cn } from "../../lib/utils"
 
 function ResizablePanelGroup({ className, ...props }: React.ComponentProps<typeof PanelGroup>) {
 	return (
-		<PanelGroup
-			data-slot="resizable-panel-group"
-			className={cn("flex h-full w-full data-[panel-group-direction=vertical]:flex-col", className)}
-			{...props}
-		/>
+		<PanelGroup data-slot="resizable-panel-group" className={cn("flex h-full w-full data-[panel-group-direction=vertical]:flex-col", className)} {...props} />
 	)
 }
 

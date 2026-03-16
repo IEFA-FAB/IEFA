@@ -35,10 +35,7 @@ export const HeroHighlight = ({
 	return (
 		<div
 			ref={containerRef}
-			className={cn(
-				"relative flex items-center bg-background justify-center w-full group overflow-hidden",
-				containerClassName
-			)}
+			className={cn("relative flex items-center bg-background justify-center w-full group overflow-hidden", containerClassName)}
 			{...props}
 		>
 			<div className="absolute inset-0 pointer-events-none">
@@ -87,13 +84,7 @@ export const HeroHighlight = ({
 	)
 }
 
-export const Highlight = ({
-	children,
-	className,
-}: {
-	children: React.ReactNode
-	className?: string
-}) => {
+export const Highlight = ({ children, className }: { children: React.ReactNode; className?: string }) => {
 	return (
 		<motion.span
 			initial={{

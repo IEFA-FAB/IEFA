@@ -6,14 +6,7 @@ import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { Button } from "@/components/ui/button"
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -25,10 +18,7 @@ export const Route = createFileRoute("/_protected/_modules/global/evaluation")({
 	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
 	component: SuperAdminPanel,
 	head: () => ({
-		meta: [
-			{ title: "Avaliação" },
-			{ name: "description", content: "Configuração da pergunta de avaliação" },
-		],
+		meta: [{ title: "Avaliação" }, { name: "description", content: "Configuração da pergunta de avaliação" }],
 	}),
 })
 
@@ -53,9 +43,7 @@ function SuperAdminPanel() {
 			<Card className="border-2">
 				<CardHeader>
 					<CardTitle>Configuração da Pergunta de Avaliação</CardTitle>
-					<CardDescription>
-						Ligue/desligue a pergunta global de avaliação e defina o texto exibido aos usuários.
-					</CardDescription>
+					<CardDescription>Ligue/desligue a pergunta global de avaliação e defina o texto exibido aos usuários.</CardDescription>
 				</CardHeader>
 
 				<CardContent>
@@ -114,9 +102,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 							<Label htmlFor={field.name} className="text-base">
 								Ativar pergunta
 							</Label>
-							<p className="text-sm text-muted-foreground">
-								Quando ativo, usuários que ainda não responderam verão a pergunta.
-							</p>
+							<p className="text-sm text-muted-foreground">Quando ativo, usuários que ainda não responderam verão a pergunta.</p>
 						</div>
 						<Switch
 							id={field.name}
@@ -155,12 +141,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 				<form.Subscribe selector={(state) => [state.isDirty, state.canSubmit, state.isSubmitting]}>
 					{([isDirty, canSubmit, isSubmitting]) => (
 						<>
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={() => form.reset()}
-								disabled={!isDirty || isSaving || isSubmitting}
-							>
+							<Button type="button" variant="ghost" onClick={() => form.reset()} disabled={!isDirty || isSaving || isSubmitting}>
 								Reverter
 							</Button>
 							<Button type="submit" disabled={!canSubmit || isSaving || isSubmitting}>

@@ -9,11 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
-import {
-	type ChangelogEntry,
-	type ChangelogPageResult,
-	fetchChangelogPageFn,
-} from "@/server/changelog.fn"
+import { type ChangelogEntry, type ChangelogPageResult, fetchChangelogPageFn } from "@/server/changelog.fn"
 
 // Utilitários
 function safeAnchorId(id: string) {
@@ -64,10 +60,7 @@ const TAG_TONE: Record<string, string> = {
 export const Route = createFileRoute("/_public/changelog")({
 	component: Changelog,
 	head: () => ({
-		meta: [
-			{ title: "Lista de Atualizações" },
-			{ name: "description", content: "Veja o que mudou no sistema" },
-		],
+		meta: [{ title: "Lista de Atualizações" }, { name: "description", content: "Veja o que mudou no sistema" }],
 	}),
 })
 
@@ -92,13 +85,7 @@ const markdownComponents: Partial<Components> = {
 		const { inline, className, children, ...rest } = props
 		if (inline) {
 			return (
-				<code
-					{...rest}
-					className={cn(
-						"rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground",
-						className
-					)}
-				>
+				<code {...rest} className={cn("rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground", className)}>
 					{children}
 				</code>
 			)
@@ -126,10 +113,7 @@ function MessageBox({
 	message: string
 	action?: { label: string; onClick: () => void; busy?: boolean }
 }) {
-	const toneClasses =
-		tone === "destructive"
-			? "bg-destructive/10 border-destructive/30 text-destructive"
-			: "bg-card border-border text-foreground"
+	const toneClasses = tone === "destructive" ? "bg-destructive/10 border-destructive/30 text-destructive" : "bg-card border-border text-foreground"
 	return (
 		<div className="max-w-3xl mx-auto mb-8" aria-live="polite">
 			<div className={cn("border rounded-xl p-4", toneClasses)}>
@@ -162,35 +146,19 @@ function MarkdownContent({ children }: { children: string }) {
 function TagBadge({ tag }: { id: string; tag: string }) {
 	const key = (tag ?? "").toLowerCase()
 	const tone = TAG_TONE[key] ?? toneBadge("muted")
-	return (
-		<span
-			className={cn(
-				"inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border",
-				tone
-			)}
-		>
-			{tag}
-		</span>
-	)
+	return <span className={cn("inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border", tone)}>{tag}</span>
 }
 
 function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 	const anchorId = safeAnchorId(entry.id)
 	return (
-		<article
-			id={anchorId}
-			className="bg-card rounded-xl p-6 border border-border hover:border-foreground/20 transition"
-		>
+		<article id={anchorId} className="bg-card rounded-xl p-6 border border-border hover:border-foreground/20 transition">
 			<div className="flex flex-wrap items-center justify-between gap-3 mb-2">
 				<div className="flex items-center gap-3">
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Link
-									href={`#${anchorId}`}
-									className="text-muted-foreground hover:text-foreground"
-									aria-label="Link para esta entrada"
-								>
+								<Link href={`#${anchorId}`} className="text-muted-foreground hover:text-foreground" aria-label="Link para esta entrada">
 									#
 								</Link>
 							}
@@ -198,22 +166,11 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 						<TooltipContent>Copiar link desta entrada</TooltipContent>
 					</Tooltip>
 					{entry.version && (
-						<span
-							className={cn(
-								"inline-flex items-center text-sm font-semibold px-2.5 py-1 rounded-full border",
-								toneBadge("primary")
-							)}
-						>
-							v{entry.version}
-						</span>
+						<span className={cn("inline-flex items-center text-sm font-semibold px-2.5 py-1 rounded-full border", toneBadge("primary"))}>v{entry.version}</span>
 					)}
 					<h2 className="text-xl font-bold text-foreground">{entry.title}</h2>
 				</div>
-				<time
-					className="text-sm text-muted-foreground"
-					dateTime={entry.published_at}
-					title={formatDate(entry.published_at)}
-				>
+				<time className="text-sm text-muted-foreground" dateTime={entry.published_at} title={formatDate(entry.published_at)}>
 					{formatDistanceToNow(new Date(entry.published_at), {
 						addSuffix: true,
 						locale: ptBR,
@@ -237,26 +194,24 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 const PAGE_SIZE = 10 as const
 
 export default function Changelog() {
-	const { data, isLoading, isFetchingNextPage, error, hasNextPage, fetchNextPage, refetch } =
-		useInfiniteQuery({
-			queryKey: ["changelog", "list", PAGE_SIZE],
-			queryFn: ({ pageParam = 0 }) =>
-				fetchChangelogPageFn({
-					data: { page: pageParam as number, pageSize: PAGE_SIZE },
-				}) as Promise<ChangelogPageResult>,
-			getNextPageParam: (lastPage) => lastPage.nextPage,
-			initialPageParam: 0,
-			staleTime: 5 * 60 * 1000, // 5min
-			gcTime: 10 * 60 * 1000, // 10min
-			retry: 2,
-			refetchOnWindowFocus: false,
-		})
+	const { data, isLoading, isFetchingNextPage, error, hasNextPage, fetchNextPage, refetch } = useInfiniteQuery({
+		queryKey: ["changelog", "list", PAGE_SIZE],
+		queryFn: ({ pageParam = 0 }) =>
+			fetchChangelogPageFn({
+				data: { page: pageParam as number, pageSize: PAGE_SIZE },
+			}) as Promise<ChangelogPageResult>,
+		getNextPageParam: (lastPage) => lastPage.nextPage,
+		initialPageParam: 0,
+		staleTime: 5 * 60 * 1000, // 5min
+		gcTime: 10 * 60 * 1000, // 10min
+		retry: 2,
+		refetchOnWindowFocus: false,
+	})
 
 	// React Compiler optimizes this - no manual useMemo needed
 	const items = data?.pages.flatMap((p) => p.items) ?? []
 
-	const GITHUB_REPO_URL =
-		import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/"
+	const GITHUB_REPO_URL = import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/"
 
 	return (
 		<div className="min-h-screen flex flex-col text-foreground">
@@ -264,9 +219,7 @@ export default function Changelog() {
 			<section className="container mx-auto px-4 pt-14 pb-8">
 				<div className="text-center">
 					<h1 className="text-4xl font-extrabold mb-3">Changelog</h1>
-					<p className="text-muted-foreground max-w-2xl mx-auto">
-						Acompanhe as melhorias, correções e novidades do SISUB em tempo real.
-					</p>
+					<p className="text-muted-foreground max-w-2xl mx-auto">Acompanhe as melhorias, correções e novidades do SISUB em tempo real.</p>
 					<div className="mt-6 flex items-center justify-center">
 						<Link
 							to="/"
@@ -289,9 +242,7 @@ export default function Changelog() {
 					/>
 				)}
 
-				{!isLoading && !error && items.length === 0 && (
-					<MessageBox message="Nenhuma publicação encontrada ainda. Volte em breve!" />
-				)}
+				{!isLoading && !error && items.length === 0 && <MessageBox message="Nenhuma publicação encontrada ainda. Volte em breve!" />}
 
 				{!isLoading && !error && items.length > 0 && (
 					<div className="max-w-3xl mx-auto space-y-6">
@@ -320,8 +271,7 @@ export default function Changelog() {
 				<div className="container mx-auto px-4 text-center">
 					<h3 className="text-2xl font-bold mb-3">Quer contribuir?</h3>
 					<p className="text-[hsl(var(--primary-foreground))]/80 max-w-2xl mx-auto mb-6">
-						Ajude a melhorar o SISUB: envie sugestões, correções e novas funcionalidades diretamente
-						pelo GitHub.
+						Ajude a melhorar o SISUB: envie sugestões, correções e novas funcionalidades diretamente pelo GitHub.
 					</p>
 					<a
 						href={GITHUB_REPO_URL}

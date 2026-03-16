@@ -21,13 +21,7 @@ interface BulkMealSelectorProps {
 	isApplying: boolean
 }
 
-export function BulkMealSelector({
-	targetDates,
-	initialTemplate,
-	onApply,
-	onCancel,
-	isApplying,
-}: BulkMealSelectorProps) {
+export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCancel, isApplying }: BulkMealSelectorProps) {
 	// Estado local do template de refeições
 	const [template, setTemplate] = useState<DayMeals>(() => {
 		const base = createEmptyDayMeals()
@@ -119,10 +113,7 @@ export function BulkMealSelector({
 						<Button
 							type="button"
 							variant="outline"
-							className={cn(
-								modeBtnBase,
-								applyMode === "fill-missing" ? modeBtnSelected : modeBtnUnselected
-							)}
+							className={cn(modeBtnBase, applyMode === "fill-missing" ? modeBtnSelected : modeBtnUnselected)}
 							onClick={() => setApplyMode("fill-missing")}
 							disabled={isApplying}
 						>
@@ -131,10 +122,7 @@ export function BulkMealSelector({
 						<Button
 							type="button"
 							variant="outline"
-							className={cn(
-								modeBtnBase,
-								applyMode === "override" ? modeBtnSelected : modeBtnUnselected
-							)}
+							className={cn(modeBtnBase, applyMode === "override" ? modeBtnSelected : modeBtnUnselected)}
 							onClick={() => setApplyMode("override")}
 							disabled={isApplying}
 						>
@@ -142,8 +130,7 @@ export function BulkMealSelector({
 						</Button>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						Selecionadas: <strong className="text-foreground">{selectedCount}</strong> de 4
-						refeições.
+						Selecionadas: <strong className="text-foreground">{selectedCount}</strong> de 4 refeições.
 					</p>
 				</div>
 
@@ -168,34 +155,13 @@ export function BulkMealSelector({
 
 					{/* Presets rápidos */}
 					<div className="flex flex-wrap gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => setAll(true)}
-							disabled={isApplying}
-							className="text-xs hover:bg-muted"
-						>
+						<Button type="button" variant="outline" size="sm" onClick={() => setAll(true)} disabled={isApplying} className="text-xs hover:bg-muted">
 							Todas
 						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => setAll(false)}
-							disabled={isApplying}
-							className="text-xs hover:bg-muted"
-						>
+						<Button type="button" variant="outline" size="sm" onClick={() => setAll(false)} disabled={isApplying} className="text-xs hover:bg-muted">
 							Nenhuma
 						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={setWorkdayPreset}
-							disabled={isApplying}
-							className="text-xs hover:bg-muted"
-						>
+						<Button type="button" variant="outline" size="sm" onClick={setWorkdayPreset} disabled={isApplying} className="text-xs hover:bg-muted">
 							Padrão Dias Úteis
 						</Button>
 					</div>

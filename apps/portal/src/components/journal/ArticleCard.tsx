@@ -13,11 +13,7 @@ interface ArticleCardProps {
 
 export function ArticleCard({ article }: ArticleCardProps) {
 	return (
-		<Link
-			to="/journal/submissions/$id"
-			params={{ id: article.id }}
-			className="block p-4 border rounded-lg hover:border-primary transition-colors bg-card"
-		>
+		<Link to="/journal/submissions/$id" params={{ id: article.id }} className="block p-4 border rounded-lg hover:border-primary transition-colors bg-card">
 			<div className="flex items-start justify-between gap-4">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 mb-2">
@@ -25,9 +21,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
 						<span className="text-xs text-muted-foreground">#{article.submission_number}</span>
 					</div>
 
-					<h3 className="font-medium text-lg mb-1 truncate">
-						{article.title_en || article.title_pt}
-					</h3>
+					<h3 className="font-medium text-lg mb-1 truncate">{article.title_en || article.title_pt}</h3>
 
 					<p className="text-sm text-muted-foreground line-clamp-2 mb-3">
 						{(article.abstract_en || article.abstract_pt || "").substring(0, 150)}

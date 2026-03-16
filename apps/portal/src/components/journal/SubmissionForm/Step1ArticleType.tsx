@@ -28,10 +28,7 @@ export function Step1ArticleType() {
 				<Label htmlFor="article_type">
 					Tipo de Artigo <span className="text-destructive">*</span>
 				</Label>
-				<Select
-					value={formData.article_type ?? undefined}
-					onValueChange={(value) => updateFormData({ article_type: value ?? undefined })}
-				>
+				<Select value={formData.article_type ?? undefined} onValueChange={(value) => updateFormData({ article_type: value ?? undefined })}>
 					<SelectTrigger id="article_type">
 						<SelectValue placeholder="Selecione o tipo de artigo" />
 					</SelectTrigger>
@@ -43,19 +40,14 @@ export function Step1ArticleType() {
 						))}
 					</SelectContent>
 				</Select>
-				<p className="text-sm text-muted-foreground">
-					Escolha o tipo de artigo que melhor descreve sua submissão
-				</p>
+				<p className="text-sm text-muted-foreground">Escolha o tipo de artigo que melhor descreve sua submissão</p>
 			</div>
 
 			<div className="space-y-2">
 				<Label htmlFor="subject_area">
 					Área de Conhecimento <span className="text-destructive">*</span>
 				</Label>
-				<Select
-					value={formData.subject_area ?? undefined}
-					onValueChange={(value) => updateFormData({ subject_area: value ?? undefined })}
-				>
+				<Select value={formData.subject_area ?? undefined} onValueChange={(value) => updateFormData({ subject_area: value ?? undefined })}>
 					<SelectTrigger id="subject_area">
 						<SelectValue placeholder="Selecione a área de conhecimento" />
 					</SelectTrigger>
@@ -67,9 +59,7 @@ export function Step1ArticleType() {
 						))}
 					</SelectContent>
 				</Select>
-				<p className="text-sm text-muted-foreground">
-					Selecione a área que melhor representa o conteúdo do artigo
-				</p>
+				<p className="text-sm text-muted-foreground">Selecione a área que melhor representa o conteúdo do artigo</p>
 			</div>
 		</div>
 	)

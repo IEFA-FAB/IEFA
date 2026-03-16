@@ -74,12 +74,7 @@ interface SubmissionFormProps {
 	onSubmit: (data: SubmissionFormData) => Promise<void>
 }
 
-export function SubmissionForm({
-	userId,
-	initialData = {},
-	articleId,
-	onSubmit,
-}: SubmissionFormProps) {
+export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }: SubmissionFormProps) {
 	const [currentStep, setCurrentStep] = useState(1)
 	const [formData, setFormData] = useState<SubmissionFormData>(initialData)
 	const [validationError, setValidationError] = useState<string | null>(null)
@@ -169,20 +164,12 @@ export function SubmissionForm({
 									>
 										{currentStep > step.number ? <Check className="size-5" /> : step.number}
 									</div>
-									<span
-										className={`mt-2 text-xs font-medium hidden sm:block ${
-											currentStep === step.number ? "text-foreground" : "text-muted-foreground"
-										}`}
-									>
+									<span className={`mt-2 text-xs font-medium hidden sm:block ${currentStep === step.number ? "text-foreground" : "text-muted-foreground"}`}>
 										{step.title}
 									</span>
 								</div>
 								{index < STEPS.length - 1 && (
-									<div
-										className={`h-1 flex-1 mx-2 rounded transition-colors ${
-											currentStep > step.number ? "bg-primary" : "bg-muted"
-										}`}
-									/>
+									<div className={`h-1 flex-1 mx-2 rounded transition-colors ${currentStep > step.number ? "bg-primary" : "bg-muted"}`} />
 								)}
 							</div>
 						))}
@@ -190,9 +177,7 @@ export function SubmissionForm({
 
 					{lastSaved && (
 						<p className="text-xs text-muted-foreground text-center">
-							{isSaving
-								? "Salvando rascunho..."
-								: `Último salvamento: ${lastSaved.toLocaleTimeString()}`}
+							{isSaving ? "Salvando rascunho..." : `Último salvamento: ${lastSaved.toLocaleTimeString()}`}
 						</p>
 					)}
 				</div>

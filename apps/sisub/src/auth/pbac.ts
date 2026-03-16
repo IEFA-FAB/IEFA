@@ -34,12 +34,7 @@ import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/
  * @param minLevel    - Nível mínimo exigido (default: 1)
  * @param scope       - Escopo opcional; sem escopo aceita qualquer permissão do módulo
  */
-export function hasPermission(
-	permissions: UserPermission[],
-	module: AppModule,
-	minLevel = 1,
-	scope?: PermissionScope
-): boolean {
+export function hasPermission(permissions: UserPermission[], module: AppModule, minLevel = 1, scope?: PermissionScope): boolean {
 	return permissions.some((p) => {
 		if (p.module !== module || p.level < minLevel) return false
 
@@ -89,19 +84,11 @@ type PBACContext = {
  * beforeLoad: ({ context }) => requirePermission(context, "local"),
  * beforeLoad: ({ context }) => requirePermission(context, "messhall", 2, { type: "mess_hall", id: 3 }),
  */
-export function requirePermission(
-	context: PBACContext,
-	module: AppModule,
-	minLevel = 1,
-	scope?: PermissionScope
-) {
+export function requirePermission(context: PBACContext, module: AppModule, minLevel = 1, scope?: PermissionScope) {
 	const userId = context.auth.user?.id
 	if (!userId) throw redirect({ to: "/auth", replace: true })
 
-	const permissions =
-		context.queryClient.getQueryData<UserPermission[]>(
-			userPermissionsQueryOptions(userId).queryKey
-		) ?? []
+	const permissions = context.queryClient.getQueryData<UserPermission[]>(userPermissionsQueryOptions(userId).queryKey) ?? []
 
 	if (!hasPermission(permissions, module, minLevel, scope)) {
 		throw redirect({ to: "/hub", replace: true })
@@ -122,12 +109,9 @@ export function requirePermission(
  */
 export function usePBAC() {
 	const { user } = useAuth()
-	const { data: permissions = [], isLoading } = useQuery(
-		userPermissionsQueryOptions(user?.id ?? "")
-	)
+	const { data: permissions = [], isLoading } = useQuery(userPermissionsQueryOptions(user?.id ?? ""))
 
-	const can = (module: AppModule, minLevel = 1, scope?: PermissionScope) =>
-		hasPermission(permissions, module, minLevel, scope)
+	const can = (module: AppModule, minLevel = 1, scope?: PermissionScope) => hasPermission(permissions, module, minLevel, scope)
 
 	return { permissions, can, isLoading }
 }

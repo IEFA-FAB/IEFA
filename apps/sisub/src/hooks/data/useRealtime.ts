@@ -36,14 +36,7 @@ export function useRealtimeSubscription(options: {
 	silent?: boolean
 }) {
 	const queryClient = useQueryClient()
-	const {
-		table,
-		event = "*",
-		queryKeyPrefix,
-		message = "Dados atualizados por outro usuário",
-		onUpdate,
-		silent = false,
-	} = options
+	const { table, event = "*", queryKeyPrefix, message = "Dados atualizados por outro usuário", onUpdate, silent = false } = options
 
 	useEffect(() => {
 		// Criar canal único para esta subscrição

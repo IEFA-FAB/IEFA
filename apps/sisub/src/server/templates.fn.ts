@@ -3,11 +3,7 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { Json } from "@/types/database.types"
 import type { MenuTemplateWithItems, TemplateWithItemCounts } from "@/types/domain/planning"
-import type {
-	MenuTemplateInsert,
-	MenuTemplateItemInsert,
-	MenuTemplateUpdate,
-} from "@/types/supabase.types"
+import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@/types/supabase.types"
 
 const MenuTemplateWriteSchema = z.object({
 	name: z.string().nullable().optional(),
@@ -93,11 +89,7 @@ export const fetchTemplateFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<MenuTemplateWithItems | null> => {
 		const supabase = getSupabaseServerClient()
 
-		const { data: template, error: templateError } = await supabase
-			.from("menu_template")
-			.select("*")
-			.eq("id", data.templateId)
-			.single()
+		const { data: template, error: templateError } = await supabase.from("menu_template").select("*").eq("id", data.templateId).single()
 
 		if (templateError) throw new Error(templateError.message)
 
@@ -168,10 +160,7 @@ export const updateTemplateFn = createServerFn({ method: "POST" })
 		if (templateError) throw new Error(templateError.message)
 
 		if (data.items !== undefined) {
-			const { error: deleteError } = await supabase
-				.from("menu_template_items")
-				.delete()
-				.eq("menu_template_id", data.id)
+			const { error: deleteError } = await supabase.from("menu_template_items").delete().eq("menu_template_id", data.id)
 
 			if (deleteError) throw new Error(deleteError.message)
 
@@ -181,9 +170,7 @@ export const updateTemplateFn = createServerFn({ method: "POST" })
 					menu_template_id: data.id,
 				}))
 
-				const { error: insertError } = await supabase
-					.from("menu_template_items")
-					.insert(templateItems)
+				const { error: insertError } = await supabase.from("menu_template_items").insert(templateItems)
 
 				if (insertError) throw new Error(insertError.message)
 			}
@@ -195,10 +182,7 @@ export const updateTemplateFn = createServerFn({ method: "POST" })
 export const deleteTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("menu_template")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("menu_template").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})
@@ -206,10 +190,7 @@ export const deleteTemplateFn = createServerFn({ method: "POST" })
 export const restoreTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("menu_template")
-			.update({ deleted_at: null })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("menu_template").update({ deleted_at: null }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})
@@ -232,8 +213,7 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 			.select(`*, recipe_origin:recipe_id(*)`)
 			.eq("menu_template_id", templateId)
 
-		if (fetchError || !templateItems)
-			throw new Error(fetchError?.message ?? "Failed to fetch template items")
+		if (fetchError || !templateItems) throw new Error(fetchError?.message ?? "Failed to fetch template items")
 
 		const { error: deleteError } = await supabase
 			.from("daily_menu")
@@ -274,10 +254,7 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 				{} as Record<string, typeof dayItems>
 			)
 
-			for (const [mealTypeId, items] of Object.entries(itemsByMealType) as [
-				string,
-				(typeof dayItems)[number][],
-			][]) {
+			for (const [mealTypeId, items] of Object.entries(itemsByMealType) as [string, (typeof dayItems)[number][]][]) {
 				if (mealTypeId === "__null__") continue
 				const menuId = crypto.randomUUID()
 				newMenus.push({

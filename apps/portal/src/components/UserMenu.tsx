@@ -44,10 +44,7 @@ export function UserMenu() {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
-					<Button
-						variant="ghost"
-						className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground px-2"
-					>
+					<Button variant="ghost" className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground px-2">
 						<Avatar className="h-8 w-8 rounded-lg">
 							<AvatarImage src={avatarUrl} alt={displayName} />
 							<AvatarFallback className="rounded-lg">{getInitials(displayName)}</AvatarFallback>

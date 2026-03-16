@@ -32,10 +32,7 @@ function ScopeSelectorSkeleton() {
 	return (
 		<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{Array.from({ length: 3 }).map((_, i) => (
-				<div
-					key={i}
-					className="h-36 rounded-xl border border-border/50 bg-muted/20 animate-pulse"
-				/>
+				<div key={i} className="h-36 rounded-xl border border-border/50 bg-muted/20 animate-pulse" />
 			))}
 		</div>
 	)
@@ -92,9 +89,7 @@ export function ScopeSelector({
 								</div>
 								<div>
 									<p className="font-semibold text-foreground">{item.name}</p>
-									{item.subtitle && (
-										<p className="text-sm text-muted-foreground mt-0.5">{item.subtitle}</p>
-									)}
+									{item.subtitle && <p className="text-sm text-muted-foreground mt-0.5">{item.subtitle}</p>}
 								</div>
 							</Button>
 						))}

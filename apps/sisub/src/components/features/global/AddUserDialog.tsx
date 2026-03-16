@@ -1,23 +1,10 @@
 import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { NewUserPayload, UserLevelOrNull } from "@/types/domain/admin"
 import type { Unit } from "@/types/domain/meal"
 
@@ -81,8 +68,7 @@ export default function AddUserDialog({
 				<DialogHeader>
 					<DialogTitle>Adicionar Novo Usuário</DialogTitle>
 					<DialogDescription>
-						Preencha todos os campos para cadastrar o usuário em profiles_admin. O ID deve ser o
-						UUID do usuário que se tornará Admin.
+						Preencha todos os campos para cadastrar o usuário em profiles_admin. O ID deve ser o UUID do usuário que se tornará Admin.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -96,10 +82,7 @@ export default function AddUserDialog({
 				>
 					<form.Field name="id">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="id" className="text-right">
 									ID (UUID)
 								</FieldLabel>
@@ -113,11 +96,7 @@ export default function AddUserDialog({
 										placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}
@@ -125,10 +104,7 @@ export default function AddUserDialog({
 
 					<form.Field name="name">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="name" className="text-right">
 									Nome
 								</FieldLabel>
@@ -142,11 +118,7 @@ export default function AddUserDialog({
 										placeholder="Nome completo"
 										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}
@@ -154,10 +126,7 @@ export default function AddUserDialog({
 
 					<form.Field name="email">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="email" className="text-right">
 									Email
 								</FieldLabel>
@@ -172,11 +141,7 @@ export default function AddUserDialog({
 										placeholder="usuario@exemplo.com"
 										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}
@@ -184,10 +149,7 @@ export default function AddUserDialog({
 
 					<form.Field name="saram">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="saram" className="text-right">
 									SARAM
 								</FieldLabel>
@@ -202,11 +164,7 @@ export default function AddUserDialog({
 										placeholder="Apenas 7 números"
 										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}
@@ -214,21 +172,13 @@ export default function AddUserDialog({
 
 					<form.Field name="role">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="role" className="text-right">
 									Role
 								</FieldLabel>
 								<FieldContent className="col-span-3">
-									<Select
-										value={field.state.value || ""}
-										onValueChange={(value) => field.handleChange(value as UserLevelOrNull)}
-									>
-										<SelectTrigger
-											className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-										>
+									<Select value={field.state.value || ""} onValueChange={(value) => field.handleChange(value as UserLevelOrNull)}>
+										<SelectTrigger className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}>
 											<SelectValue placeholder="Selecione uma role" />
 										</SelectTrigger>
 										<SelectContent>
@@ -237,11 +187,7 @@ export default function AddUserDialog({
 											<SelectItem value="superadmin">Superadmin</SelectItem>
 										</SelectContent>
 									</Select>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}
@@ -249,29 +195,14 @@ export default function AddUserDialog({
 
 					<form.Field name="om">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0 || !!unitsError}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0 || !!unitsError}>
 								<FieldLabel htmlFor="om" className="text-right">
 									OM
 								</FieldLabel>
 								<FieldContent className="col-span-3">
-									<Select
-										value={field.state.value || ""}
-										onValueChange={(value) => field.handleChange(value || "")}
-										disabled={isLoadingUnits}
-									>
-										<SelectTrigger
-											className={
-												unitsError || field.state.meta.errors.length > 0 ? "border-destructive" : ""
-											}
-										>
-											<SelectValue
-												placeholder={
-													isLoadingUnits ? "Carregando OMs..." : "Selecione a OM (opcional)"
-												}
-											/>
+									<Select value={field.state.value || ""} onValueChange={(value) => field.handleChange(value || "")} disabled={isLoadingUnits}>
+										<SelectTrigger className={unitsError || field.state.meta.errors.length > 0 ? "border-destructive" : ""}>
+											<SelectValue placeholder={isLoadingUnits ? "Carregando OMs..." : "Selecione a OM (opcional)"} />
 										</SelectTrigger>
 										<SelectContent>
 											{(units || []).map((u) => (
@@ -283,9 +214,7 @@ export default function AddUserDialog({
 									</Select>
 									<FieldError
 										errors={[
-											...field.state.meta.errors
-												.filter(Boolean)
-												.map((err) => ({ message: err?.toString() })),
+											...field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() })),
 											...(unitsError ? [{ message: unitsError }] : []),
 										]}
 									/>

@@ -10,10 +10,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { inferDefaultMeal } from "@/lib/fiscal"
 import supabase from "@/lib/supabase"
-import {
-	messHallByCodeQueryOptions,
-	userMealForecastQueryOptions,
-} from "@/services/SelfCheckInService"
+import { messHallByCodeQueryOptions, userMealForecastQueryOptions } from "@/services/SelfCheckInService"
 import type { WillEnter } from "@/types/domain/presence"
 
 // Schema for search params validation
@@ -50,9 +47,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")
 			const date = todayISO()
 			const meal = inferDefaultMeal()
 			// Prefetch Forecast
-			await context.queryClient.ensureQueryData(
-				userMealForecastQueryOptions(user.id, date, meal, messHall.id)
-			)
+			await context.queryClient.ensureQueryData(userMealForecastQueryOptions(user.id, date, meal, messHall.id))
 		}
 	},
 	component: SelfCheckin,
@@ -68,14 +63,7 @@ function isDuplicateOrConflict(err: unknown): boolean {
 	const status = e.status
 	const msg = String(e.message || "").toLowerCase()
 
-	return (
-		code === "23505" ||
-		code === 23505 ||
-		code === "409" ||
-		status === 409 ||
-		msg.includes("duplicate key") ||
-		msg.includes("conflict")
-	)
+	return code === "23505" || code === 23505 || code === "409" || status === 409 || msg.includes("duplicate key") || msg.includes("conflict")
 }
 
 function SelfCheckin() {
@@ -96,9 +84,7 @@ function SelfCheckin() {
 	// Suspense Queries
 	const { data: messHall } = useSuspenseQuery(messHallByCodeQueryOptions(unidade))
 
-	const { data: forecast } = useSuspenseQuery(
-		userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null)
-	)
+	const { data: forecast } = useSuspenseQuery(userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null))
 
 	// Derived State
 	const systemForecast = !!forecast?.will_eat
@@ -217,10 +203,7 @@ function SelfCheckin() {
 
 	return (
 		<div className="w-full mx-auto p-6 space-y-6">
-			<PageHeader
-				title="Check-in de Refeição"
-				description={`Unidade: ${unidade} • Data: ${date} • Refeição: ${meal}`}
-			/>
+			<PageHeader title="Check-in de Refeição" description={`Unidade: ${unidade} • Data: ${date} • Refeição: ${meal}`} />
 
 			<div className="rounded-md border p-4 text-left space-y-4 max-w-sm mx-auto">
 				{/* Está na previsão? */}
@@ -263,26 +246,15 @@ function SelfCheckin() {
 
 			<div className="flex flex-col items-center justify-center gap-2">
 				<div className="flex items-center justify-center gap-3">
-					<Button
-						onClick={handleSubmit}
-						disabled={!messHall || submitting || redirectCountdown !== null}
-					>
+					<Button onClick={handleSubmit} disabled={!messHall || submitting || redirectCountdown !== null}>
 						{submitting ? "Enviando..." : "Enviar"}
 					</Button>
-					<Button
-						variant="outline"
-						onClick={goHome}
-						disabled={submitting || redirectCountdown !== null}
-					>
+					<Button variant="outline" onClick={goHome} disabled={submitting || redirectCountdown !== null}>
 						Voltar
 					</Button>
 				</div>
 
-				{redirectCountdown !== null && (
-					<div className="text-xs text-muted-foreground">
-						Redirecionando para o rancho em {redirectCountdown}s...
-					</div>
-				)}
+				{redirectCountdown !== null && <div className="text-xs text-muted-foreground">Redirecionando para o rancho em {redirectCountdown}s...</div>}
 			</div>
 		</div>
 	)

@@ -1,13 +1,7 @@
 import { Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatDateRange } from "@/lib/dashboard"
 import type { MessHallAPI } from "@/types/domain/dashboard"
 
@@ -19,13 +13,7 @@ interface DashboardFiltersProps {
 	onMessHallChange: (id: string) => void
 }
 
-export default function DashboardFilters({
-	dateRange,
-	onDateRangeChange,
-	messHalls,
-	selectedMessHall,
-	onMessHallChange,
-}: DashboardFiltersProps) {
+export default function DashboardFilters({ dateRange, onDateRangeChange, messHalls, selectedMessHall, onMessHallChange }: DashboardFiltersProps) {
 	const setToday = () => {
 		const today = new Date().toISOString().split("T")[0]
 		onDateRangeChange({ start: today, end: today })
@@ -83,9 +71,7 @@ export default function DashboardFilters({
 							aria-label="Data final"
 						/>
 					</div>
-					<div className="text-xs text-muted-foreground">
-						{formatDateRange(dateRange.start, dateRange.end)}
-					</div>
+					<div className="text-xs text-muted-foreground">{formatDateRange(dateRange.start, dateRange.end)}</div>
 				</div>
 
 				{/* Mess Hall Selector */}

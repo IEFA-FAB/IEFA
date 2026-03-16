@@ -1,15 +1,7 @@
 // Journal-specific TypeScript types and interfaces
 // These types correspond to the journal schema tables
 
-export type ArticleStatus =
-	| "draft"
-	| "submitted"
-	| "under_review"
-	| "revision_requested"
-	| "revised_submitted"
-	| "accepted"
-	| "rejected"
-	| "published"
+export type ArticleStatus = "draft" | "submitted" | "under_review" | "revision_requested" | "revised_submitted" | "accepted" | "rejected" | "published"
 
 export type ArticleType = "research" | "review" | "short_communication" | "editorial"
 

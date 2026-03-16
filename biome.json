@@ -8,20 +8,12 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": [
-      "**/src/**/*",
-      "**/.vscode/**/*",
-      "**/index.html",
-      "**/vite.config.ts",
-      "**/vite.config.js",
-      "!**/src/routeTree.gen.ts",
-      "!**/src/styles.css"
-    ]
+    "includes": ["**/src/**/*", "**/.vscode/**/*", "**/index.html", "**/vite.config.ts", "**/vite.config.js", "!**/src/routeTree.gen.ts", "!**/src/styles.css"]
   },
   "formatter": {
     "enabled": true,
     "indentStyle": "tab",
-    "lineWidth": 100
+    "lineWidth": 160
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {

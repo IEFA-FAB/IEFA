@@ -114,9 +114,7 @@ function NewWeeklyMenuPage() {
 					recipe_id: item.recipe_id,
 				}))
 
-				const { error: insertError } = await supabase
-					.from("menu_template_items")
-					.insert(forkedItems)
+				const { error: insertError } = await supabase.from("menu_template_items").insert(forkedItems)
 
 				if (insertError) {
 					await supabase.from("menu_template").delete().eq("id", newTemplate.id)
@@ -152,9 +150,7 @@ function NewWeeklyMenuPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title={isFork ? "Forkar Plano Global" : "Novo Cardápio Semanal"}
-				description={
-					isFork ? "Cria uma cópia independente do plano global para sua cozinha." : undefined
-				}
+				description={isFork ? "Cria uma cópia independente do plano global para sua cozinha." : undefined}
 				onBack={() =>
 					navigate({
 						to: "/kitchen/$kitchenId/weekly-menus",
@@ -173,19 +169,14 @@ function NewWeeklyMenuPage() {
 								Origem do Fork
 							</CardTitle>
 							<CardDescription>
-								O novo cardápio semanal será uma cópia independente deste plano. Alterações futuras
-								no original não afetarão sua versão local.
+								O novo cardápio semanal será uma cópia independente deste plano. Alterações futuras no original não afetarão sua versão local.
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
 							<div className="flex items-center gap-3">
 								<div>
 									<p className="font-medium text-sm">{baseTemplate.name}</p>
-									{baseTemplate.description && (
-										<p className="text-xs text-muted-foreground mt-0.5">
-											{baseTemplate.description}
-										</p>
-									)}
+									{baseTemplate.description && <p className="text-xs text-muted-foreground mt-0.5">{baseTemplate.description}</p>}
 								</div>
 								<Badge variant="outline" className="ml-auto text-xs">
 									Global · SDAB
@@ -212,11 +203,7 @@ function NewWeeklyMenuPage() {
 								id="name"
 								value={name}
 								onChange={(e) => setName(e.target.value)}
-								placeholder={
-									isFork
-										? `Ex.: ${baseTemplate?.name ?? "Cópia"} — ${new Date().getFullYear()}`
-										: "Ex.: Semana Padrão, Semana de Feriados"
-								}
+								placeholder={isFork ? `Ex.: ${baseTemplate?.name ?? "Cópia"} — ${new Date().getFullYear()}` : "Ex.: Semana Padrão, Semana de Feriados"}
 								required
 							/>
 						</div>
@@ -235,19 +222,14 @@ function NewWeeklyMenuPage() {
 
 					<div className="flex items-center justify-between">
 						<p className="text-xs text-muted-foreground">
-							{isFork
-								? "Após criar, você poderá editar o cardápio semanal livremente."
-								: "Após criar, você será redirecionado para editar o cardápio semanal."}
+							{isFork ? "Após criar, você poderá editar o cardápio semanal livremente." : "Após criar, você será redirecionado para editar o cardápio semanal."}
 						</p>
 						<div className="flex gap-2">
 							<Button
 								type="button"
 								variant="outline"
 								render={
-									<Link
-										to="/kitchen/$kitchenId/weekly-menus"
-										params={{ kitchenId: kitchenIdStr as string }}
-									>
+									<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr as string }}>
 										Cancelar
 									</Link>
 								}

@@ -1,11 +1,5 @@
 import { Building2, ChefHat } from "lucide-react"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useKitchenSelector } from "@/hooks/data/useKitchens"
 
 /**
@@ -54,12 +48,8 @@ export function KitchenSelector() {
 					{selectedKitchen && (
 						<div className="flex items-center gap-2">
 							<ChefHat className="w-4 h-4 text-muted-foreground" />
-							<span className="font-medium">
-								{selectedKitchen.unit?.display_name || `Kitchen #${selectedKitchen.id}`}
-							</span>
-							<span className="text-xs text-muted-foreground capitalize">
-								({selectedKitchen.type})
-							</span>
+							<span className="font-medium">{selectedKitchen.unit?.display_name || `Kitchen #${selectedKitchen.id}`}</span>
+							<span className="text-xs text-muted-foreground capitalize">({selectedKitchen.type})</span>
 						</div>
 					)}
 				</SelectValue>
@@ -70,9 +60,7 @@ export function KitchenSelector() {
 						<div className="flex items-center gap-3 py-1">
 							<ChefHat className="w-4 h-4 text-muted-foreground" />
 							<div className="flex flex-col gap-0.5">
-								<span className="font-medium">
-									{kitchen.unit?.display_name || `Kitchen #${kitchen.id}`}
-								</span>
+								<span className="font-medium">{kitchen.unit?.display_name || `Kitchen #${kitchen.id}`}</span>
 								<div className="flex items-center gap-2 text-xs text-muted-foreground">
 									<span className="capitalize">{kitchen.type}</span>
 									{kitchen.unit?.code && (

@@ -1,43 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
-import {
-	AlertTriangle,
-	Check,
-	CheckCircle,
-	ChevronDown,
-	ChevronRight,
-	Copy,
-	TrendingDown,
-	TrendingUp,
-	Users,
-	X,
-} from "lucide-react"
+import { AlertTriangle, Check, CheckCircle, ChevronDown, ChevronRight, Copy, TrendingDown, TrendingUp, Users, X } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTableSkeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
-import {
-	messHallsQueryOptions,
-	userDataQueryOptions,
-	userMilitaryDataQueryOptions,
-} from "@/services/DashboardService"
-import type {
-	AggregatedPresenceRecord,
-	DashboardPresenceRecord,
-	ForecastRecord,
-	PersonDetail,
-} from "@/types/domain/dashboard"
+import { messHallsQueryOptions, userDataQueryOptions, userMilitaryDataQueryOptions } from "@/services/DashboardService"
+import type { AggregatedPresenceRecord, DashboardPresenceRecord, ForecastRecord, PersonDetail } from "@/types/domain/dashboard"
 
 interface PresenceTableProps {
 	forecasts: ForecastRecord[]
@@ -68,13 +41,7 @@ function getInitials(name: string) {
 		.toUpperCase()
 }
 
-function PersonCard({
-	person,
-	variant,
-}: {
-	person: PersonDetail
-	variant: "missing" | "present" | "extra"
-}) {
+function PersonCard({ person, variant }: { person: PersonDetail; variant: "missing" | "present" | "extra" }) {
 	const borderClass = {
 		missing: "border-chart-5/20 bg-chart-5/5 hover:border-chart-5/30",
 		present: "border-chart-2/20 bg-chart-2/5 hover:border-chart-2/30",
@@ -96,21 +63,12 @@ function PersonCard({
 	const displayName = person.name || person.email.split("@")[0]
 
 	return (
-		<div
-			className={cn(
-				"flex items-center gap-3 p-3 rounded-lg border transition-all",
-				borderClass[variant]
-			)}
-		>
+		<div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all", borderClass[variant])}>
 			<div className="relative">
 				<Avatar className={cn("h-10 w-10 border-2 border-white", avatarClass[variant])}>
-					<AvatarFallback className={avatarClass[variant]}>
-						{getInitials(displayName)}
-					</AvatarFallback>
+					<AvatarFallback className={avatarClass[variant]}>{getInitials(displayName)}</AvatarFallback>
 				</Avatar>
-				<div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border">
-					{icon[variant]}
-				</div>
+				<div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border">{icon[variant]}</div>
 			</div>
 			<div className="flex-1 min-w-0">
 				<p className="text-sm font-semibold truncate" title={displayName}>
@@ -135,18 +93,13 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 	const allUserIds = Array.from(new Set([...forecastUserIds, ...presenceUserIds]))
 
 	// ✅ PARALELIZAÇÃO: userData e messHalls executam simultaneamente
-	const userDataQuery = useQuery(
-		userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined)
-	)
+	const userDataQuery = useQuery(userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined))
 	const messHallsQuery = useQuery(messHallsQueryOptions(undefined))
 
 	// ❌ Esta query REALMENTE depende de userData - mantém sequencial
-	const nrOrdemList =
-		userDataQuery.data?.filter((u) => u.nrOrdem !== null).map((u) => u.nrOrdem as string) ?? []
+	const nrOrdemList = userDataQuery.data?.filter((u) => u.nrOrdem !== null).map((u) => u.nrOrdem as string) ?? []
 
-	const militaryDataQuery = useQuery(
-		userMilitaryDataQueryOptions(nrOrdemList.length > 0 ? nrOrdemList : undefined)
-	)
+	const militaryDataQuery = useQuery(userMilitaryDataQueryOptions(nrOrdemList.length > 0 ? nrOrdemList : undefined))
 
 	// Consolidate loading states
 	const isLoading = userDataQuery.isLoading || messHallsQuery.isLoading
@@ -158,13 +111,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 	}
 
 	// Aggregate data when all queries are complete
-	const aggregatedData = aggregatePresenceData(
-		forecasts,
-		presences,
-		userDataQuery.data ?? [],
-		militaryDataQuery.data ?? [],
-		messHallsQuery.data ?? []
-	)
+	const aggregatedData = aggregatePresenceData(forecasts, presences, userDataQuery.data ?? [], militaryDataQuery.data ?? [], messHallsQuery.data ?? [])
 
 	const toggleOpen = (id: string) => {
 		setOpenIds((prev) => {
@@ -181,15 +128,9 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 	const handleCopyCsv = (record: AggregatedPresenceRecord) => {
 		const headers = "Nome,Posto,Organizacao,Status,Email"
 		const rows = [
-			...record.absences.map(
-				(p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Faltou,${p.email}`
-			),
-			...record.attended.map(
-				(p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Compareceu,${p.email}`
-			),
-			...record.extras.map(
-				(p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Extra,${p.email}`
-			),
+			...record.absences.map((p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Faltou,${p.email}`),
+			...record.attended.map((p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Compareceu,${p.email}`),
+			...record.extras.map((p) => `"${p.name || ""}",${p.posto || ""},${p.org || ""},Extra,${p.email}`),
 		]
 		const csvContent = [headers, ...rows].join("\n")
 
@@ -200,8 +141,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 		})
 	}
 
-	const getRowKey = (record: AggregatedPresenceRecord) =>
-		`${record.date}|${record.meal}|${record.mess_hall_id}`
+	const getRowKey = (record: AggregatedPresenceRecord) => `${record.date}|${record.meal}|${record.mess_hall_id}`
 
 	const getRateColor = (rate: number) => {
 		if (rate >= 90) return "text-chart-2"
@@ -225,9 +165,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="flex items-center justify-center h-32 text-muted-foreground">
-						Sem previsões para o período selecionado
-					</div>
+					<div className="flex items-center justify-center h-32 text-muted-foreground">Sem previsões para o período selecionado</div>
 				</CardContent>
 			</Card>
 		)
@@ -240,9 +178,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 					<Users className="h-5 w-5" aria-hidden="true" />
 					Análise de Presenças
 				</CardTitle>
-				<CardDescription>
-					Comparação entre previsões e presenças por dia, refeição e rancho
-				</CardDescription>
+				<CardDescription>Comparação entre previsões e presenças por dia, refeição e rancho</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="overflow-x-auto">
@@ -270,22 +206,12 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 								return (
 									<>
 										{/* Main Row */}
-										<TableRow
-											key={rowKey}
-											className="cursor-pointer hover:bg-muted/50"
-											onClick={() => toggleOpen(rowKey)}
-										>
+										<TableRow key={rowKey} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleOpen(rowKey)}>
 											<TableCell>
 												{isOpen ? (
-													<ChevronDown
-														className="h-4 w-4 text-muted-foreground"
-														aria-hidden="true"
-													/>
+													<ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
 												) : (
-													<ChevronRight
-														className="h-4 w-4 text-muted-foreground"
-														aria-hidden="true"
-													/>
+													<ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
 												)}
 											</TableCell>
 											<TableCell className="font-medium">
@@ -305,21 +231,12 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 											</TableCell>
 											<TableCell className="text-sm">{record.mess_hall_name}</TableCell>
 											<TableCell>
-												<span
-													className={cn(
-														"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border",
-														MEAL_BADGES[record.meal]
-													)}
-												>
+												<span className={cn("inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border", MEAL_BADGES[record.meal])}>
 													{MEAL_LABELS[record.meal]}
 												</span>
 											</TableCell>
-											<TableCell className="text-center font-semibold">
-												{record.forecast_count}
-											</TableCell>
-											<TableCell className="text-center font-semibold">
-												{record.presence_count}
-											</TableCell>
+											<TableCell className="text-center font-semibold">{record.forecast_count}</TableCell>
+											<TableCell className="text-center font-semibold">{record.presence_count}</TableCell>
 											<TableCell
 												className={cn(
 													"text-center font-semibold",
@@ -332,12 +249,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 												{record.difference}
 											</TableCell>
 											<TableCell className="text-center">
-												<div
-													className={cn(
-														"flex items-center justify-center gap-1 font-semibold",
-														rateColor
-													)}
-												>
+												<div className={cn("flex items-center justify-center gap-1 font-semibold", rateColor)}>
 													{getRateIcon(record.attendance_rate)}
 													<span className="text-sm">{record.attendance_rate.toFixed(1)}%</span>
 												</div>
@@ -356,12 +268,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																	({record.forecast_count + record.extras.length} pessoas total)
 																</span>
 															</h3>
-															<Button
-																variant="outline"
-																size="sm"
-																onClick={() => handleCopyCsv(record)}
-																className="gap-2"
-															>
+															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)} className="gap-2">
 																<Copy className="h-4 w-4" />
 																Copiar CSV
 															</Button>
@@ -375,9 +282,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																		<X className="h-4 w-4" aria-hidden="true" />
 																	</div>
 																	Faltaram ({record.absences.length})
-																	<span className="text-muted-foreground font-normal ml-1">
-																		- Previram mas não compareceram
-																	</span>
+																	<span className="text-muted-foreground font-normal ml-1">- Previram mas não compareceram</span>
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.absences.map((person) => (
@@ -394,10 +299,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																	<div className="p-1 rounded bg-chart-2/10">
 																		<Check className="h-4 w-4" aria-hidden="true" />
 																	</div>
-																	Compareceram ({record.attended.length})
-																	<span className="text-muted-foreground font-normal ml-1">
-																		- Confirmados
-																	</span>
+																	Compareceram ({record.attended.length})<span className="text-muted-foreground font-normal ml-1">- Confirmados</span>
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.attended.map((person) => (
@@ -414,10 +316,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																	<div className="p-1 rounded bg-chart-1/10">
 																		<AlertTriangle className="h-4 w-4" aria-hidden="true" />
 																	</div>
-																	Extras ({record.extras.length})
-																	<span className="text-muted-foreground font-normal ml-1">
-																		- Não previram mas compareceram
-																	</span>
+																	Extras ({record.extras.length})<span className="text-muted-foreground font-normal ml-1">- Não previram mas compareceram</span>
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.extras.map((person) => (
@@ -433,12 +332,8 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																<div className="inline-flex items-center justify-center p-3 rounded-full bg-chart-2/10 mb-3">
 																	<Check className="h-6 w-6 text-chart-2" />
 																</div>
-																<h4 className="font-semibold text-lg text-chart-2">
-																	Balanço Perfeito
-																</h4>
-																<p className="text-muted-foreground">
-																	Todos que previram compareceram e não houveram extras.
-																</p>
+																<h4 className="font-semibold text-lg text-chart-2">Balanço Perfeito</h4>
+																<p className="text-muted-foreground">Todos que previram compareceram e não houveram extras.</p>
 															</div>
 														)}
 													</div>

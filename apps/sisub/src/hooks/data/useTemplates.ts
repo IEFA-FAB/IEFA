@@ -11,24 +11,15 @@ import {
 	restoreTemplateFn,
 	updateTemplateFn,
 } from "@/server/templates.fn"
-import type {
-	ApplyTemplatePayload,
-	MenuTemplateWithItems,
-	TemplateWithItemCounts,
-} from "@/types/domain/planning"
-import type {
-	MenuTemplateInsert,
-	MenuTemplateItemInsert,
-	MenuTemplateUpdate,
-} from "@/types/supabase.types"
+import type { ApplyTemplatePayload, MenuTemplateWithItems, TemplateWithItemCounts } from "@/types/domain/planning"
+import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@/types/supabase.types"
 
 // --- Query Options ---
 
 export const menuTemplatesQueryOptions = (kitchenId: number | null) =>
 	queryOptions({
 		queryKey: ["menu_templates", kitchenId],
-		queryFn: () =>
-			fetchMenuTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
+		queryFn: () => fetchMenuTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000,
 	})
@@ -49,10 +40,7 @@ export const templateItemsQueryOptions = (templateId: string | null) =>
 export const templateQueryOptions = (templateId: string | null) =>
 	queryOptions({
 		queryKey: ["template", templateId],
-		queryFn: () =>
-			templateId
-				? (fetchTemplateFn({ data: { templateId } }) as Promise<MenuTemplateWithItems | null>)
-				: Promise.resolve(null),
+		queryFn: () => (templateId ? (fetchTemplateFn({ data: { templateId } }) as Promise<MenuTemplateWithItems | null>) : Promise.resolve(null)),
 		enabled: !!templateId,
 	})
 
@@ -73,8 +61,7 @@ export function useTemplate(templateId: string | null) {
 export function useDeletedTemplates(kitchenId: number | null) {
 	return useQuery({
 		queryKey: ["deleted_templates", kitchenId],
-		queryFn: () =>
-			fetchDeletedTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
+		queryFn: () => fetchDeletedTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
 		enabled: kitchenId !== null,
 		staleTime: 1 * 60 * 1000,
 	})
@@ -85,13 +72,7 @@ export function useDeletedTemplates(kitchenId: number | null) {
 export function useCreateTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({
-			template,
-			items,
-		}: {
-			template: MenuTemplateInsert
-			items: Omit<MenuTemplateItemInsert, "menu_template_id">[]
-		}) =>
+		mutationFn: ({ template, items }: { template: MenuTemplateInsert; items: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
 			createTemplateFn({
 				data: {
 					template: template as Record<string, unknown>,
@@ -109,15 +90,7 @@ export function useCreateTemplate() {
 export function useUpdateTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({
-			id,
-			updates,
-			items,
-		}: {
-			id: string
-			updates: MenuTemplateUpdate
-			items?: Omit<MenuTemplateItemInsert, "menu_template_id">[]
-		}) =>
+		mutationFn: ({ id, updates, items }: { id: string; updates: MenuTemplateUpdate; items?: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
 			updateTemplateFn({
 				data: {
 					id,
@@ -167,9 +140,7 @@ export function useApplyTemplate() {
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: ["daily_menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning"] })
-			toast.success(
-				`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} items criados.`
-			)
+			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} items criados.`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),
 	})

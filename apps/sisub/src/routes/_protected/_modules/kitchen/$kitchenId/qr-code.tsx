@@ -13,10 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/qr
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
 	component: QrCodePage,
 	head: () => ({
-		meta: [
-			{ title: "QR Check-in" },
-			{ name: "description", content: "Gere QR codes para check-in automático" },
-		],
+		meta: [{ title: "QR Check-in" }, { name: "description", content: "Gere QR codes para check-in automático" }],
 	}),
 })
 
@@ -25,16 +22,9 @@ function QrCodePage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="QR Check-in"
-				description="Gere QR codes para check-in automático na sua unidade."
-			/>
+			<PageHeader title="QR Check-in" description="Gere QR codes para check-in automático na sua unidade." />
 
-			<QRAutoCheckinCard
-				selectedOm={selectedOm}
-				onChangeSelectedOm={setSelectedOm}
-				status="authorized"
-			/>
+			<QRAutoCheckinCard selectedOm={selectedOm} onChangeSelectedOm={setSelectedOm} status="authorized" />
 		</div>
 	)
 }

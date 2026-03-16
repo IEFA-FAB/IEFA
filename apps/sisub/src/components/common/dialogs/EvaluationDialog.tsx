@@ -1,13 +1,6 @@
 import type React from "react"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/cn"
 
 export type EvaluationDialogProps = {
@@ -52,15 +45,7 @@ function submitToneClasses(selected: number | null) {
 	return "bg-primary text-primary-foreground hover:opacity-90"
 }
 
-export function EvaluationDialog({
-	open,
-	question,
-	selectedRating,
-	isSubmitting,
-	onOpenChange,
-	onSelectRating,
-	onSubmit,
-}: EvaluationDialogProps) {
+export function EvaluationDialog({ open, question, selectedRating, isSubmitting, onOpenChange, onSelectRating, onSubmit }: EvaluationDialogProps) {
 	const resolvedQuestion = question || "Como você avalia?"
 
 	const handleSubmit = (e: React.FormEvent) => {
@@ -73,15 +58,11 @@ export function EvaluationDialog({
 			<DialogContent className="sm:max-w-md" showCloseButton aria-busy={isSubmitting}>
 				<DialogHeader>
 					<DialogTitle>Avaliação rápida</DialogTitle>
-					<DialogDescription className="py-4 text-center text-2xl text-foreground">
-						{resolvedQuestion}
-					</DialogDescription>
+					<DialogDescription className="py-4 text-center text-2xl text-foreground">{resolvedQuestion}</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit}>
-					<p className="mb-3 text-center text-sm text-muted-foreground">
-						Sua opinião ajuda a melhorar a experiência. Escolha uma nota de 1 a 5:
-					</p>
+					<p className="mb-3 text-center text-sm text-muted-foreground">Sua opinião ajuda a melhorar a experiência. Escolha uma nota de 1 a 5:</p>
 
 					{/* Radiogroup acessível usando radios nativos (sr-only) */}
 					<fieldset className="relative mx-auto w-full max-w-xs" aria-label="Avaliação de 1 a 5">
@@ -111,11 +92,7 @@ export function EvaluationDialog({
 					</fieldset>
 
 					<DialogFooter className="mt-6">
-						<Button
-							type="submit"
-							disabled={selectedRating == null || isSubmitting}
-							className={submitToneClasses(selectedRating)}
-						>
+						<Button type="submit" disabled={selectedRating == null || isSubmitting} className={submitToneClasses(selectedRating)}>
 							{isSubmitting ? (
 								<span className="inline-flex items-center gap-2">
 									<span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent" />

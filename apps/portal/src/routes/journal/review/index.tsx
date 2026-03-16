@@ -62,11 +62,7 @@ function ReviewerDashboard() {
 						))}
 					</div>
 				) : (
-					<EmptyState
-						icon={Clock}
-						title="Nenhuma revisão pendente"
-						description="Você não tem revisões aguardando no momento."
-					/>
+					<EmptyState icon={Clock} title="Nenhuma revisão pendente" description="Você não tem revisões aguardando no momento." />
 				)}
 			</div>
 
@@ -80,11 +76,7 @@ function ReviewerDashboard() {
 						))}
 					</div>
 				) : (
-					<EmptyState
-						icon={CheckCircle2}
-						title="Nenhuma revisão concluída"
-						description="Suas revisões concluídas aparecerão aqui."
-					/>
+					<EmptyState icon={CheckCircle2} title="Nenhuma revisão concluída" description="Suas revisões concluídas aparecerão aqui." />
 				)}
 			</div>
 		</div>
@@ -103,9 +95,7 @@ interface ReviewCardProps {
 }
 
 function ReviewCard({ assignment, isPending }: ReviewCardProps) {
-	const daysUntilDue = Math.ceil(
-		(new Date(assignment.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-	)
+	const daysUntilDue = Math.ceil((new Date(assignment.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
 
 	return (
 		<div className="p-6 border rounded-lg bg-card hover:border-primary transition-colors">
@@ -121,24 +111,16 @@ function ReviewCard({ assignment, isPending }: ReviewCardProps) {
 							{isPending ? (
 								<span>Prazo: {new Date(assignment.due_date).toLocaleDateString("pt-BR")}</span>
 							) : (
-								<span>
-									Concluída em{" "}
-									{assignment.completed_at &&
-										new Date(assignment.completed_at).toLocaleDateString("pt-BR")}
-								</span>
+								<span>Concluída em {assignment.completed_at && new Date(assignment.completed_at).toLocaleDateString("pt-BR")}</span>
 							)}
 						</div>
 
 						{isPending && (
 							<div className="flex items-center gap-2">
 								{daysUntilDue <= 3 ? (
-									<span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-medium">
-										Prazo próximo: {daysUntilDue} dias
-									</span>
+									<span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-medium">Prazo próximo: {daysUntilDue} dias</span>
 								) : (
-									<span className="px-2 py-1 bg-muted rounded text-xs">
-										{daysUntilDue} dias restantes
-									</span>
+									<span className="px-2 py-1 bg-muted rounded text-xs">{daysUntilDue} dias restantes</span>
 								)}
 							</div>
 						)}

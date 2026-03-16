@@ -13,11 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/auth/useAuth"
-import {
-	useAddOtherPresence,
-	useOtherPresencesCount,
-	useScanProcessor,
-} from "@/hooks/business/useFiscalOps"
+import { useAddOtherPresence, useOtherPresencesCount, useScanProcessor } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
 import { generateRestrictedDates, inferDefaultMeal } from "@/lib/fiscal"
 import { cn } from "@/lib/utils"
@@ -28,10 +24,7 @@ import type { DialogState, FiscalFilters } from "@/types/domain/presence"
 export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId/presence")({
 	component: PresencePage,
 	head: () => ({
-		meta: [
-			{ title: "Fiscalização - SISUB" },
-			{ name: "description", content: "Scanner QR e lista de presenças" },
-		],
+		meta: [{ title: "Fiscalização - SISUB" }, { name: "description", content: "Scanner QR e lista de presenças" }],
 	}),
 })
 
@@ -98,13 +91,7 @@ const scannerReducer = (state: ScannerState, action: ScannerAction): ScannerStat
 /* =====================================================================
    Tab: Scanner QR + Presença Anônima (MESSHALL-02 + MESSHALL-04)
    ===================================================================== */
-function ScannerTab({
-	filters,
-	onFiltersChange,
-}: {
-	filters: FiscalFilters
-	onFiltersChange: (f: FiscalFilters) => void
-}) {
+function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void }) {
 	"use no memo"
 	const scannerRef = useRef<QrScanner | null>(null)
 	const videoRef = useRef<HTMLVideoElement>(null)
@@ -227,8 +214,7 @@ function ScannerTab({
 			try {
 				const hasPermission = await QrScanner.hasCamera()
 				if (!hasPermission) {
-					if (!isCancelled)
-						dispatch({ type: "INITIALIZE_ERROR", error: "Permissão da câmera não concedida." })
+					if (!isCancelled) dispatch({ type: "INITIALIZE_ERROR", error: "Permissão da câmera não concedida." })
 					return
 				}
 				const scanner = new QrScanner(videoRef.current, onScanSuccess, {
@@ -243,8 +229,7 @@ function ScannerTab({
 				if (!isCancelled) dispatch({ type: "INITIALIZE_SUCCESS", hasPermission: true })
 			} catch (err) {
 				console.error("Erro ao iniciar scanner:", err)
-				if (!isCancelled)
-					dispatch({ type: "INITIALIZE_ERROR", error: String(err ?? "Erro desconhecido.") })
+				if (!isCancelled) dispatch({ type: "INITIALIZE_ERROR", error: String(err ?? "Erro desconhecido.") })
 			}
 		}
 		startScanner()
@@ -352,46 +337,23 @@ function ScannerTab({
 						</Label>
 					</div>
 
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={toggleScan}
-						disabled={!scannerState.hasPermission}
-						className="shrink-0"
-					>
+					<Button variant="outline" size="sm" onClick={toggleScan} disabled={!scannerState.hasPermission} className="shrink-0">
 						<Camera className="h-4 w-4 mr-2" />
 						{scannerState.isScanning ? "Pausar" : "Ler"}
 					</Button>
 
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={refresh}
-						disabled={!scannerState.hasPermission}
-						className="shrink-0"
-					>
+					<Button variant="outline" size="sm" onClick={refresh} disabled={!scannerState.hasPermission} className="shrink-0">
 						<RefreshCw className={cn("h-4 w-4", scannerState.isScanning && "animate-spin")} />
 					</Button>
 
 					{lastScanResult && (
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => setLastScanResult("")}
-							className="shrink-0"
-						>
+						<Button variant="secondary" size="sm" onClick={() => setLastScanResult("")} className="shrink-0">
 							Limpar
 						</Button>
 					)}
 
 					{/* MESSHALL-04: +1 Outro */}
-					<Button
-						variant="default"
-						size="sm"
-						onClick={handleAddOtherPresence}
-						disabled={addOtherMutation.isPending}
-						className="shrink-0"
-					>
+					<Button variant="default" size="sm" onClick={handleAddOtherPresence} disabled={addOtherMutation.isPending} className="shrink-0">
 						<UserPlus className="h-4 w-4 mr-2" />
 						Outros {othersCount ? `(${othersCount})` : ""}
 					</Button>
@@ -403,24 +365,15 @@ function ScannerTab({
 				{/** biome-ignore lint/a11y/useMediaCaption: QR Code reader */}
 				<video ref={videoRef} className="w-full h-auto object-cover" />
 				{!scannerState.hasPermission && scannerState.isReady && (
-					<div className="mt-3 text-center p-4 text-sm text-muted-foreground">
-						{scannerState.error || "Câmera não disponível."}
-					</div>
+					<div className="mt-3 text-center p-4 text-sm text-muted-foreground">{scannerState.error || "Câmera não disponível."}</div>
 				)}
 				<div ref={qrBoxRef} className="qr-box pointer-events-none" />
 				{lastScanResult && (
-					<p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs">
-						Último UUID: {lastScanResult}
-					</p>
+					<p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs">Último UUID: {lastScanResult}</p>
 				)}
 			</div>
 
-			<FiscalDialog
-				setDialog={setDialog}
-				dialog={dialog}
-				confirmDialog={handleConfirmDialog}
-				resolveDisplayName={resolveDisplayName}
-			/>
+			<FiscalDialog setDialog={setDialog} dialog={dialog} confirmDialog={handleConfirmDialog} resolveDisplayName={resolveDisplayName} />
 		</div>
 	)
 }
@@ -428,13 +381,7 @@ function ScannerTab({
 /* =====================================================================
    Tab: Lista de Presenças em Tempo Real (MESSHALL-03)
    ===================================================================== */
-function AttendanceTab({
-	filters,
-	onFiltersChange,
-}: {
-	filters: FiscalFilters
-	onFiltersChange: (f: FiscalFilters) => void
-}) {
+function AttendanceTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFiltersChange: (f: FiscalFilters) => void }) {
 	const { presences, forecastMap, removePresence } = usePresenceManagement(filters)
 
 	return (
@@ -447,13 +394,7 @@ function AttendanceTab({
 				dates={generateRestrictedDates()}
 			/>
 
-			<PresenceTable
-				selectedDate={filters.date}
-				selectedMeal={filters.meal}
-				presences={presences}
-				forecastMap={forecastMap}
-				actions={{ removePresence }}
-			/>
+			<PresenceTable selectedDate={filters.date} selectedMeal={filters.meal} presences={presences} forecastMap={forecastMap} actions={{ removePresence }} />
 		</div>
 	)
 }

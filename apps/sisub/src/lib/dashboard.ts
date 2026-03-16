@@ -26,19 +26,14 @@ export function aggregateDashboardMetrics(
 	dateRange: { start: string; end: string }
 ): DashboardMetrics {
 	// Filter by date range and will_eat = true
-	const filteredForecasts = forecasts.filter(
-		(f) => f.date >= dateRange.start && f.date <= dateRange.end && f.will_eat
-	)
-	const filteredPresences = presences.filter(
-		(p) => p.date >= dateRange.start && p.date <= dateRange.end
-	)
+	const filteredForecasts = forecasts.filter((f) => f.date >= dateRange.start && f.date <= dateRange.end && f.will_eat)
+	const filteredPresences = presences.filter((p) => p.date >= dateRange.start && p.date <= dateRange.end)
 
 	// Calculate by meal type
 	const by_meal_type: MealTypeStat[] = MEAL_KEYS.map((meal) => {
 		const forecast = filteredForecasts.filter((f) => f.meal === meal).length
 		const presence = filteredPresences.filter((p) => p.meal === meal).length
-		const percentage =
-			filteredForecasts.length > 0 ? (forecast / filteredForecasts.length) * 100 : 0
+		const percentage = filteredForecasts.length > 0 ? (forecast / filteredForecasts.length) * 100 : 0
 
 		return { meal, forecast, presence, percentage }
 	})
@@ -58,9 +53,7 @@ export function aggregateDashboardMetrics(
 		const stat = dateMap.get(forecast.date)
 		if (stat) stat[forecast.meal]++
 	}
-	const daily_distribution = Array.from(dateMap.values()).sort((a, b) =>
-		a.date.localeCompare(b.date)
-	)
+	const daily_distribution = Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date))
 
 	// Calculate by mess hall
 	const by_mess_hall: MessHallStats[] = messHalls.map((mh) => {
@@ -178,8 +171,7 @@ export function aggregatePresenceData(
 	const messHallMap = new Map(messHalls.map((mh) => [mh.id, mh]))
 
 	// Group by date + meal + mess_hall
-	const groupKey = (date: string, meal: string, messHallId: number) =>
-		`${date}|${meal}|${messHallId}`
+	const groupKey = (date: string, meal: string, messHallId: number) => `${date}|${meal}|${messHallId}`
 
 	const groups = new Map<
 		string,

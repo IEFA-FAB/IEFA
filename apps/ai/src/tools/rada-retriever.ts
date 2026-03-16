@@ -41,11 +41,7 @@ const THRESHOLD = ENV.RERANK_THRESHOLD
 const RRF_K = ENV.RRF_K
 const RERANK_TOP_N = ENV.RERANK_TOP_N
 
-async function semanticSearch(
-	queryVector: number[],
-	filters: RADARetrieverInput["filters"],
-	topK: number
-) {
+async function semanticSearch(queryVector: number[], filters: RADARetrieverInput["filters"], topK: number) {
 	const vectorStr = `[${queryVector.join(",")}]`
 	let query = supabase.rpc("match_chunks_cosine", {
 		query_embedding: vectorStr,
@@ -73,11 +69,7 @@ async function semanticSearch(
 	}>
 }
 
-async function keywordSearch(
-	queryText: string,
-	filters: RADARetrieverInput["filters"],
-	topK: number
-) {
+async function keywordSearch(queryText: string, filters: RADARetrieverInput["filters"], topK: number) {
 	let query = supabase.rpc("match_chunks_fts", {
 		query_text: queryText,
 		match_count: topK,
@@ -126,10 +118,7 @@ function rrfFusion(
 	return scores
 }
 
-async function rerank(
-	query: string,
-	docs: Array<{ id: string; content: string; [k: string]: any }>
-): Promise<Array<{ id: string; score: number }>> {
+async function rerank(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<Array<{ id: string; score: number }>> {
 	const model = ENV.NVIDIA_RERANK_MODEL
 	const baseUrl = ENV.NVIDIA_BASE_URL
 	const apiKey = ENV.NVIDIA_API_KEY
@@ -165,15 +154,10 @@ export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetr
 
 	const queryVector = await embeddings.embedQuery(queryWithPrefix)
 
-	const [semDocs, keywordDocs] = await Promise.all([
-		semanticSearch(queryVector, filters, top_k),
-		keywordSearch(query, filters, top_k),
-	])
+	const [semDocs, keywordDocs] = await Promise.all([semanticSearch(queryVector, filters, top_k), keywordSearch(query, filters, top_k)])
 
 	const fused = rrfFusion(semDocs, keywordDocs)
-	const fusedArray = [...fused.values()]
-		.sort((a, b) => b.rrf_score - a.rrf_score)
-		.slice(0, RERANK_TOP_N)
+	const fusedArray = [...fused.values()].sort((a, b) => b.rrf_score - a.rrf_score).slice(0, RERANK_TOP_N)
 
 	const total_found = fusedArray.length
 

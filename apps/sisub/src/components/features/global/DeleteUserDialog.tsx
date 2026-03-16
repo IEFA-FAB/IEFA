@@ -1,12 +1,5 @@
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { ProfileAdmin } from "@/types/domain/admin"
 
 export default function DeleteUserDialog({
@@ -28,8 +21,7 @@ export default function DeleteUserDialog({
 				<DialogHeader>
 					<DialogTitle>Confirmar Exclusão</DialogTitle>
 					<DialogDescription>
-						Tem certeza que deseja excluir o registro do usuário <strong>{profile?.email}</strong>?
-						Esta ação não pode ser desfeita.
+						Tem certeza que deseja excluir o registro do usuário <strong>{profile?.email}</strong>? Esta ação não pode ser desfeita.
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter>

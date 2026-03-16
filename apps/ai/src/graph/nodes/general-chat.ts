@@ -6,10 +6,7 @@ const SYSTEM_PROMPT = `Você é o ATLAS, assistente virtual da SEFA (Secretaria 
 Responda de forma prestativa e profissional. Para perguntas gerais e saudações, responda diretamente sem consultar documentos legislativos.`
 
 export async function generalChatNode(state: AgentState): Promise<Partial<AgentState>> {
-	const response = await getLLM(0.7).invoke([
-		{ role: "system", content: SYSTEM_PROMPT },
-		...state.messages,
-	])
+	const response = await getLLM(0.7).invoke([{ role: "system", content: SYSTEM_PROMPT }, ...state.messages])
 
 	const final_response = response.content.toString()
 

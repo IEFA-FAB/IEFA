@@ -164,13 +164,7 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | undefined>(undefined)
 
 // Provider
-export function I18nProvider({
-	children,
-	initialLocale = "pt",
-}: {
-	children: ReactNode
-	initialLocale?: Locale
-}) {
+export function I18nProvider({ children, initialLocale = "pt" }: { children: ReactNode; initialLocale?: Locale }) {
 	const [locale, setLocale] = useState<Locale>(initialLocale)
 
 	const value: I18nContextValue = {

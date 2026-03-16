@@ -48,8 +48,7 @@ export function Step4FileUpload() {
 
 			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
 				<p className="text-sm text-blue-900 dark:text-blue-100">
-					<strong>Dica:</strong> Certifique-se de que o PDF está anonimizado se a revista usa
-					revisão duplo-cega.
+					<strong>Dica:</strong> Certifique-se de que o PDF está anonimizado se a revista usa revisão duplo-cega.
 				</p>
 			</div>
 		</div>

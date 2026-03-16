@@ -51,11 +51,7 @@ function AuthPage() {
 	}
 
 	// Navigation adapter - matches AuthScreen's expected signature
-	const handleNavigate = async (options: {
-		to?: string
-		search?: Record<string, unknown>
-		replace?: boolean
-	}) => {
+	const handleNavigate = async (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => {
 		await navigate(options as Parameters<typeof navigate>[0])
 	}
 
@@ -67,8 +63,7 @@ function AuthPage() {
 	}
 
 	// Common styles reuse or just hardcode for wrapper
-	const cardClasses =
-		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
+	const cardClasses = "w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
 
 	if (isLoading) {
 		return (

@@ -14,10 +14,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/pl
 function PlanningPage() {
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Planejamento"
-				description="Aplique cardápios semanais ao calendário mensal da unidade."
-			/>
+			<PageHeader title="Planejamento" description="Aplique cardápios semanais ao calendário mensal da unidade." />
 
 			<PlanningBoard />
 		</div>

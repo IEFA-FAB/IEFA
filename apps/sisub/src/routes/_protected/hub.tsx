@@ -1,9 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { usePBAC } from "@/auth/pbac"
-import {
-	getModulesForPermissions,
-	type ModuleDef,
-} from "@/components/common/layout/sidebar/NavItems"
+import { getModulesForPermissions, type ModuleDef } from "@/components/common/layout/sidebar/NavItems"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 
@@ -33,11 +30,7 @@ function ModuleCard({ module }: { module: ModuleDef }) {
 				</ul>
 			</div>
 
-			<Button
-				variant="outline"
-				className="mt-auto w-full"
-				render={<Link to={firstUrl as Parameters<typeof Link>[0]["to"]} />}
-			>
+			<Button variant="outline" className="mt-auto w-full" render={<Link to={firstUrl as Parameters<typeof Link>[0]["to"]} />}>
 				Acessar
 			</Button>
 		</div>
@@ -51,10 +44,7 @@ function HubPage() {
 	const modules = getModulesForPermissions(permissions)
 
 	const userName =
-		(user?.user_metadata?.full_name as string | undefined) ??
-		(user?.user_metadata?.name as string | undefined) ??
-		user?.email?.split("@")[0] ??
-		"Usuário"
+		(user?.user_metadata?.full_name as string | undefined) ?? (user?.user_metadata?.name as string | undefined) ?? user?.email?.split("@")[0] ?? "Usuário"
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center px-4 py-12">
@@ -67,16 +57,11 @@ function HubPage() {
 				{isLoading ? (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						{Array.from({ length: 3 }).map((_, i) => (
-							<div
-								key={i}
-								className="h-52 rounded-lg border border-border bg-muted/50 animate-pulse"
-							/>
+							<div key={i} className="h-52 rounded-lg border border-border bg-muted/50 animate-pulse" />
 						))}
 					</div>
 				) : modules.length === 0 ? (
-					<p className="text-center text-sm text-muted-foreground">
-						Nenhum módulo disponível para o seu perfil.
-					</p>
+					<p className="text-center text-sm text-muted-foreground">Nenhum módulo disponível para o seu perfil.</p>
 				) : (
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						{modules.map((mod) => (

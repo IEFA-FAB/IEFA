@@ -3,10 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MessHall, Unit } from "@/types/domain/meal"
 
 export const fetchUnitsFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getSupabaseServerClient()
-		.from("units")
-		.select("id, code, display_name")
-		.order("display_name", { ascending: true })
+	const { data, error } = await getSupabaseServerClient().from("units").select("id, code, display_name").order("display_name", { ascending: true })
 
 	if (error) throw new Error(error.message)
 

@@ -8,22 +8,19 @@ import type { Database } from "./database.types"
  * Extrai tipo Row de uma tabela do schema sisub
  * @example type Profile = Tables<"profiles_admin">
  */
-export type Tables<T extends keyof Database["sisub"]["Tables"]> =
-	Database["sisub"]["Tables"][T]["Row"]
+export type Tables<T extends keyof Database["sisub"]["Tables"]> = Database["sisub"]["Tables"][T]["Row"]
 
 /**
  * Extrai tipo Insert de uma tabela do schema sisub
  * @example type ProfileInsert = TablesInsert<"profiles_admin">
  */
-export type TablesInsert<T extends keyof Database["sisub"]["Tables"]> =
-	Database["sisub"]["Tables"][T]["Insert"]
+export type TablesInsert<T extends keyof Database["sisub"]["Tables"]> = Database["sisub"]["Tables"][T]["Insert"]
 
 /**
  * Extrai tipo Update de uma tabela do schema sisub
  * @example type ProfileUpdate = TablesUpdate<"profiles_admin">
  */
-export type TablesUpdate<T extends keyof Database["sisub"]["Tables"]> =
-	Database["sisub"]["Tables"][T]["Update"]
+export type TablesUpdate<T extends keyof Database["sisub"]["Tables"]> = Database["sisub"]["Tables"][T]["Update"]
 
 /**
  * Extrai tipo de View do schema sisub

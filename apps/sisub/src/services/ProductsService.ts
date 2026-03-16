@@ -107,8 +107,7 @@ export function useProductsTree() {
 
 export function useCreateFolder() {
 	const mutation = useMutation({
-		mutationFn: (payload: FolderInsert) =>
-			createFolderFn({ data: { payload: payload as Record<string, unknown> } }),
+		mutationFn: (payload: FolderInsert) => createFolderFn({ data: { payload: payload as Record<string, unknown> } }),
 	})
 	return {
 		createFolder: mutation.mutateAsync,
@@ -119,8 +118,7 @@ export function useCreateFolder() {
 
 export function useUpdateFolder() {
 	const mutation = useMutation({
-		mutationFn: ({ id, payload }: { id: string; payload: FolderUpdate }) =>
-			updateFolderFn({ data: { id, payload: payload as Record<string, unknown> } }),
+		mutationFn: ({ id, payload }: { id: string; payload: FolderUpdate }) => updateFolderFn({ data: { id, payload: payload as Record<string, unknown> } }),
 	})
 	return {
 		updateFolder: mutation.mutateAsync,
@@ -142,8 +140,7 @@ export function useDeleteFolder() {
 
 export function useCreateProduct() {
 	const mutation = useMutation({
-		mutationFn: (payload: ProductInsert) =>
-			createProductFn({ data: { payload: payload as Record<string, unknown> } }),
+		mutationFn: (payload: ProductInsert) => createProductFn({ data: { payload: payload as Record<string, unknown> } }),
 	})
 	return {
 		createProduct: mutation.mutateAsync,
@@ -154,8 +151,7 @@ export function useCreateProduct() {
 
 export function useUpdateProduct() {
 	const mutation = useMutation({
-		mutationFn: ({ id, payload }: { id: string; payload: ProductUpdate }) =>
-			updateProductFn({ data: { id, payload: payload as Record<string, unknown> } }),
+		mutationFn: ({ id, payload }: { id: string; payload: ProductUpdate }) => updateProductFn({ data: { id, payload: payload as Record<string, unknown> } }),
 	})
 	return {
 		updateProduct: mutation.mutateAsync,
@@ -177,8 +173,7 @@ export function useDeleteProduct() {
 
 export function useCreateProductItem() {
 	const mutation = useMutation({
-		mutationFn: (payload: ProductItemInsert) =>
-			createProductItemFn({ data: { payload: payload as Record<string, unknown> } }),
+		mutationFn: (payload: ProductItemInsert) => createProductItemFn({ data: { payload: payload as Record<string, unknown> } }),
 	})
 	return {
 		createProductItem: mutation.mutateAsync,

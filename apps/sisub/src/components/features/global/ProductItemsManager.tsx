@@ -82,10 +82,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 				) : (
 					<div className="divide-y divide-border/50">
 						{productItems?.map((item) => (
-							<div
-								key={item.id}
-								className="group flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-							>
+							<div key={item.id} className="group flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors">
 								<div className="flex items-center gap-3 min-w-0">
 									<div className="flex items-center justify-center w-8 h-8 rounded-md bg-success/10 border border-success/20 shrink-0">
 										<ShoppingCart className="w-4 h-4 text-success" />
@@ -94,11 +91,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 									<div className="min-w-0">
 										<p className="text-sm font-medium truncate">{item.description}</p>
 										<div className="flex items-center gap-2 mt-0.5 flex-wrap">
-											{item.barcode && (
-												<span className="text-xs font-mono text-muted-foreground">
-													#{item.barcode}
-												</span>
-											)}
+											{item.barcode && <span className="text-xs font-mono text-muted-foreground">#{item.barcode}</span>}
 											{item.purchase_measure_unit && (
 												<span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono bg-muted/50 text-muted-foreground border border-border/30">
 													{item.unit_content_quantity} {item.purchase_measure_unit}
@@ -141,13 +134,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 				)}
 			</Card>
 
-			<ProductItemForm
-				isOpen={dialogState.isOpen}
-				onClose={closeDialog}
-				mode={dialogState.mode}
-				productItem={dialogState.item}
-				defaultProductId={productId}
-			/>
+			<ProductItemForm isOpen={dialogState.isOpen} onClose={closeDialog} mode={dialogState.mode} productItem={dialogState.item} defaultProductId={productId} />
 		</div>
 	)
 }

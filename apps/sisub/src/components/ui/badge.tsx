@@ -16,10 +16,8 @@ const badgeVariants = cva(
 				outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
 				ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
 				link: "text-primary underline-offset-4 hover:underline",
-				success:
-					"bg-success/10 text-success border-success/30 dark:bg-success/20 [a]:hover:bg-success/20",
-				warning:
-					"bg-warning/10 text-warning border-warning/30 dark:bg-warning/20 [a]:hover:bg-warning/20",
+				success: "bg-success/10 text-success border-success/30 dark:bg-success/20 [a]:hover:bg-success/20",
+				warning: "bg-warning/10 text-warning border-warning/30 dark:bg-warning/20 [a]:hover:bg-warning/20",
 			},
 		},
 		defaultVariants: {
@@ -28,12 +26,7 @@ const badgeVariants = cva(
 	}
 )
 
-function Badge({
-	className,
-	variant = "default",
-	render,
-	...props
-}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+function Badge({ className, variant = "default", render, ...props }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
 	return useRender({
 		defaultTagName: "span",
 		props: mergeProps<"span">(

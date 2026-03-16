@@ -1,17 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import {
-	AlertCircle,
-	AlertTriangle,
-	CheckCircle2,
-	Clock,
-	ExternalLink,
-	Globe,
-	Link as LinkIcon,
-	RefreshCcw,
-	Server,
-	Share2,
-	XCircle,
-} from "lucide-react"
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock, ExternalLink, Globe, Link as LinkIcon, RefreshCcw, Server, Share2, XCircle } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 export const Route = createFileRoute("/_public/overseerDashboard")({
@@ -76,12 +64,7 @@ function StatusDot({ status }: { status: ProbeStatus }) {
 		unknown: "bg-slate-400",
 		loading: "bg-amber-400 animate-pulse",
 	}
-	return (
-		<span
-			className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${map[status]}`}
-			aria-hidden="true"
-		/>
-	)
+	return <span className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${map[status]}`} aria-hidden="true" />
 }
 
 function statusLabel(s: ProbeStatus) {
@@ -125,11 +108,7 @@ function joinUrl(base: string, path: string) {
 	}
 }
 
-async function fetchWithTimeout(
-	input: RequestInfo,
-	init: RequestInit = {},
-	timeoutMs = REQ_TIMEOUT_MS
-) {
+async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, timeoutMs = REQ_TIMEOUT_MS) {
 	const controller = new AbortController()
 	const id = setTimeout(() => controller.abort(), timeoutMs)
 	try {
@@ -375,9 +354,7 @@ function deriveTargetsFromHealth(data: RawHealthPayload | undefined): ServiceTar
 
 function defaultTargets(): ServiceTarget[] {
 	const portal =
-		typeof window !== "undefined"
-			? { name: "Portal IEFA", url: window.location.origin }
-			: { name: "Portal IEFA", url: "https://portal.iefa.com.br" }
+		typeof window !== "undefined" ? { name: "Portal IEFA", url: window.location.origin } : { name: "Portal IEFA", url: "https://portal.iefa.com.br" }
 
 	return [
 		portal,
@@ -404,14 +381,10 @@ function OverseerDashboard() {
 			})
 			const data: RawHealthPayload | undefined = await res.json().catch(() => undefined)
 			const derived = deriveTargetsFromHealth(data)
-			const finalList = (derived.length > 0 ? derived : defaultTargets()).sort((a, b) =>
-				a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })
-			)
+			const finalList = (derived.length > 0 ? derived : defaultTargets()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
 			setTargets(finalList)
 		} catch {
-			const finalList = defaultTargets().sort((a, b) =>
-				a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })
-			)
+			const finalList = defaultTargets().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
 			setTargets(finalList)
 		} finally {
 			setLoadingTargets(false)
@@ -494,18 +467,11 @@ function OverseerDashboard() {
 						</div>
 						<div>
 							<h1 className="text-2xl md:text-3xl font-bold tracking-tight">Overseer Dashboard</h1>
-							<p className="text-xs text-muted-foreground">
-								Monitoramento de saúde (health) dos serviços do IEFA
-							</p>
+							<p className="text-xs text-muted-foreground">Monitoramento de saúde (health) dos serviços do IEFA</p>
 						</div>
 					</div>
 					<div className="flex items-center gap-2">
-						<Button
-							onClick={refreshAll}
-							disabled={refreshingAll || loadingTargets}
-							size="sm"
-							className="gap-2"
-						>
+						<Button onClick={refreshAll} disabled={refreshingAll || loadingTargets} size="sm" className="gap-2">
 							<RefreshCcw className={refreshingAll ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
 							Verificar tudo
 						</Button>
@@ -560,9 +526,8 @@ function OverseerDashboard() {
 						<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
 					</div>
 					<div className="text-sm">
-						Não foi possível derivar nenhum serviço do endpoint{" "}
-						<code className="px-1 rounded bg-muted">/health</code>. Defina serviços no payload ou
-						ajuste a lista padrão em código.
+						Não foi possível derivar nenhum serviço do endpoint <code className="px-1 rounded bg-muted">/health</code>. Defina serviços no payload ou ajuste a
+						lista padrão em código.
 					</div>
 				</div>
 			) : (
@@ -590,9 +555,7 @@ function OverseerDashboard() {
 										<div className="flex items-center gap-2">
 											<span aria-hidden="true">
 												{isUp ? (
-													<CheckCircle2
-														className={`h-5 w-5 ${st === "ok" ? "text-emerald-600" : "text-amber-600"}`}
-													/>
+													<CheckCircle2 className={`h-5 w-5 ${st === "ok" ? "text-emerald-600" : "text-amber-600"}`} />
 												) : st === "down" || st === "error" ? (
 													<XCircle className="h-5 w-5 text-rose-600" />
 												) : (
@@ -626,15 +589,11 @@ function OverseerDashboard() {
 									<div className="grid grid-cols-2 gap-3 text-sm">
 										<div className="rounded-lg border border-border/50 bg-muted/30 p-3">
 											<div className="text-xs text-muted-foreground">HTTP</div>
-											<div className="mt-1 font-semibold">
-												{typeof r?.httpStatus === "number" ? r.httpStatus : "—"}
-											</div>
+											<div className="mt-1 font-semibold">{typeof r?.httpStatus === "number" ? r.httpStatus : "—"}</div>
 										</div>
 										<div className="rounded-lg border border-border/50 bg-muted/30 p-3">
 											<div className="text-xs text-muted-foreground">Latência</div>
-											<div className="mt-1 font-semibold">
-												{typeof r?.latencyMs === "number" ? `${r.latencyMs} ms` : "—"}
-											</div>
+											<div className="mt-1 font-semibold">{typeof r?.latencyMs === "number" ? `${r.latencyMs} ms` : "—"}</div>
 										</div>
 										<div className="rounded-lg border border-border/50 bg-muted/30 p-3">
 											<div className="text-xs text-muted-foreground">Body status</div>
@@ -660,9 +619,7 @@ function OverseerDashboard() {
 												<Share2 className="h-3.5 w-3.5" />
 												Redirect
 											</div>
-											<div className="mt-1 font-semibold">
-												{typeof r?.redirected === "boolean" ? (r.redirected ? "Sim" : "Não") : "—"}
-											</div>
+											<div className="mt-1 font-semibold">{typeof r?.redirected === "boolean" ? (r.redirected ? "Sim" : "Não") : "—"}</div>
 										</div>
 
 										<div className="rounded-lg border border-border/50 bg-muted/30 p-3 break-all">
@@ -682,19 +639,11 @@ function OverseerDashboard() {
 								</CardContent>
 
 								<CardFooter className="flex items-center justify-between gap-2">
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => refreshOne(t)}
-										className="gap-2"
-										aria-label={`Reverificar ${t.name}`}
-									>
+									<Button variant="outline" size="sm" onClick={() => refreshOne(t)} className="gap-2" aria-label={`Reverificar ${t.name}`}>
 										<RefreshCcw className={st === "loading" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
 										Verificar
 									</Button>
-									<div className="text-xs text-muted-foreground">
-										{t.healthPath ? `healthPath: ${t.healthPath}` : "auto: /health → /"}
-									</div>
+									<div className="text-xs text-muted-foreground">{t.healthPath ? `healthPath: ${t.healthPath}` : "auto: /health → /"}</div>
 								</CardFooter>
 							</Card>
 						)

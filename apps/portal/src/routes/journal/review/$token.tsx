@@ -53,10 +53,7 @@ function ReviewInvitation() {
 					<AlertCircle className="size-8 text-destructive" />
 				</div>
 				<h2 className="text-2xl font-bold mb-2">Convite Expirado</h2>
-				<p className="text-muted-foreground mb-6">
-					Este convite de revisão expirou. Se você ainda deseja revisar este artigo, entre em
-					contato com o editor.
-				</p>
+				<p className="text-muted-foreground mb-6">Este convite de revisão expirou. Se você ainda deseja revisar este artigo, entre em contato com o editor.</p>
 				<Button render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 			</div>
 		)
@@ -66,24 +63,16 @@ function ReviewInvitation() {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 text-center max-w-2xl mx-auto">
 				<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-					{invitation.status === "accepted" ? (
-						<CheckCircle2 className="size-8 text-green-600" />
-					) : (
-						<XCircle className="size-8 text-muted-foreground" />
-					)}
+					{invitation.status === "accepted" ? <CheckCircle2 className="size-8 text-green-600" /> : <XCircle className="size-8 text-muted-foreground" />}
 				</div>
-				<h2 className="text-2xl font-bold mb-2">
-					{invitation.status === "accepted" ? "Convite Aceito" : "Convite Recusado"}
-				</h2>
+				<h2 className="text-2xl font-bold mb-2">{invitation.status === "accepted" ? "Convite Aceito" : "Convite Recusado"}</h2>
 				<p className="text-muted-foreground mb-6">
 					{invitation.status === "accepted"
 						? "Você já aceitou este convite. Acesse seu dashboard para realizar a revisão."
 						: "Você recusou este convite anteriormente."}
 				</p>
 				<div className="flex gap-3">
-					{invitation.status === "accepted" && (
-						<Button render={<Link to="/journal/review">Ir para Dashboard</Link>} />
-					)}
+					{invitation.status === "accepted" && <Button render={<Link to="/journal/review">Ir para Dashboard</Link>} />}
 					<Button render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 				</div>
 			</div>
@@ -98,9 +87,7 @@ function ReviewInvitation() {
 					<FileText className="size-8 text-primary" />
 				</div>
 				<h1 className="text-3xl font-bold">Convite para Revisão por Pares</h1>
-				<p className="text-muted-foreground">
-					Você foi convidado para revisar um artigo científico
-				</p>
+				<p className="text-muted-foreground">Você foi convidado para revisar um artigo científico</p>
 			</div>
 
 			{/* Invitation Details */}
@@ -110,11 +97,7 @@ function ReviewInvitation() {
 					<div className="space-y-3">
 						<div>
 							<span className="text-sm text-muted-foreground">Artigo:</span>
-							<p className="font-medium">
-								{invitation.blinded
-									? "[Título oculto - Revisão Duplo-Cego]"
-									: invitation.article_title}
-							</p>
+							<p className="font-medium">{invitation.blinded ? "[Título oculto - Revisão Duplo-Cego]" : invitation.article_title}</p>
 						</div>
 						<div className="grid sm:grid-cols-2 gap-4">
 							<div>
@@ -122,9 +105,7 @@ function ReviewInvitation() {
 									<Clock className="size-4" />
 									Prazo para Revisão
 								</span>
-								<p className="font-medium">
-									{new Date(invitation.due_date).toLocaleDateString("pt-BR")}
-								</p>
+								<p className="font-medium">{new Date(invitation.due_date).toLocaleDateString("pt-BR")}</p>
 							</div>
 							<div>
 								<span className="text-sm text-muted-foreground">Tempo Estimado</span>
@@ -154,12 +135,7 @@ function ReviewInvitation() {
 						<CheckCircle2 className="size-5 mr-2" />
 						{isAccepting ? "Aceitando..." : "Aceitar Convite"}
 					</Button>
-					<Button
-						variant="outline"
-						size="lg"
-						onClick={() => setShowDeclineForm(true)}
-						className="flex-1"
-					>
+					<Button variant="outline" size="lg" onClick={() => setShowDeclineForm(true)} className="flex-1">
 						<XCircle className="size-5 mr-2" />
 						Recusar Convite
 					</Button>
@@ -167,9 +143,7 @@ function ReviewInvitation() {
 			) : (
 				<div className="p-6 border rounded-lg bg-card space-y-4">
 					<h3 className="font-semibold">Motivo da Recusa</h3>
-					<p className="text-sm text-muted-foreground">
-						Por favor, informe brevemente o motivo da recusa (opcional mas recomendado):
-					</p>
+					<p className="text-sm text-muted-foreground">Por favor, informe brevemente o motivo da recusa (opcional mas recomendado):</p>
 					<textarea
 						value={declineReason}
 						onChange={(e) => setDeclineReason(e.target.value)}
@@ -180,11 +154,7 @@ function ReviewInvitation() {
 						<Button variant="destructive" onClick={handleDecline} disabled={isDeclining}>
 							{isDeclining ? "Enviando..." : "Confirmar Recusa"}
 						</Button>
-						<Button
-							variant="outline"
-							onClick={() => setShowDeclineForm(false)}
-							disabled={isDeclining}
-						>
+						<Button variant="outline" onClick={() => setShowDeclineForm(false)} disabled={isDeclining}>
 							Cancelar
 						</Button>
 					</div>

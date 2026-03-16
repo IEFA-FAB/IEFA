@@ -58,8 +58,7 @@ export function useCreateDailyMenu() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (menus: DailyMenuInsert[]) =>
-			upsertDailyMenuFn({ data: { menus: menus as Record<string, unknown>[] } }),
+		mutationFn: (menus: DailyMenuInsert[]) => upsertDailyMenuFn({ data: { menus: menus as Record<string, unknown>[] } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -75,8 +74,7 @@ export function useAddMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (item: MenuItemInsert) =>
-			addMenuItemFn({ data: { item: item as Record<string, unknown> } }),
+		mutationFn: (item: MenuItemInsert) => addMenuItemFn({ data: { item: item as Record<string, unknown> } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -164,14 +162,7 @@ export function useTemplates(kitchenId: number | null) {
 
 export function useApplyTemplate() {
 	return useMutation({
-		mutationFn: async ({
-			templateId,
-			targetDates,
-		}: {
-			templateId: string
-			targetDates: Date[]
-			kitchenId: number
-		}) => {
+		mutationFn: async ({ templateId, targetDates }: { templateId: string; targetDates: Date[]; kitchenId: number }) => {
 			// TODO: Implement backend logic (RPC) to apply template
 			// This is a placeholder for Phase 5 frontend integration
 			console.log("Applying template", templateId, "to dates", targetDates)

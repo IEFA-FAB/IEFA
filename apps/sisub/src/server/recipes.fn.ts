@@ -32,11 +32,7 @@ export const fetchRecipesFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		let query = getSupabaseServerClient()
-			.from("recipes")
-			.select(recipeSelectWithIngredients)
-			.is("deleted_at", null)
-			.order("name")
+		let query = getSupabaseServerClient().from("recipes").select(recipeSelectWithIngredients).is("deleted_at", null).order("name")
 
 		if (data.kitchen_id !== undefined && data.kitchen_id !== null) {
 			query = query.eq("kitchen_id", data.kitchen_id)
@@ -58,11 +54,7 @@ export const fetchRecipesFn = createServerFn({ method: "GET" })
 export const fetchRecipeFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("recipes")
-			.select(recipeSelectWithAlternatives)
-			.eq("id", data.id)
-			.single()
+		const { data: result, error } = await getSupabaseServerClient().from("recipes").select(recipeSelectWithAlternatives).eq("id", data.id).single()
 
 		if (error) throw new Error(error.message)
 		return result as RecipeWithIngredients

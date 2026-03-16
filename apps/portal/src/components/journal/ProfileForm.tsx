@@ -128,9 +128,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							onBlur={field.handleBlur}
 							placeholder="Seu nome completo"
 						/>
-						{field.state.meta.errors?.length > 0 && (
-							<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
-						)}
+						{field.state.meta.errors?.length > 0 && <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>}
 					</div>
 				)}
 			</form.Field>
@@ -169,12 +167,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 						) : (
 							<p className="text-sm text-muted-foreground">
 								Identificador único para pesquisadores.{" "}
-								<a
-									href="https://orcid.org"
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-primary hover:underline"
-								>
+								<a href="https://orcid.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
 									Obtenha seu ORCID
 								</a>
 							</p>
@@ -200,9 +193,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 						{field.state.meta.errors?.length > 0 ? (
 							<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
 						) : (
-							<p className="text-sm text-muted-foreground">
-								{field.state.value.length}/500 caracteres
-							</p>
+							<p className="text-sm text-muted-foreground">{field.state.value.length}/500 caracteres</p>
 						)}
 					</div>
 				)}
@@ -220,9 +211,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 							onBlur={field.handleBlur}
 							placeholder="Machine Learning, Biologia Molecular, etc."
 						/>
-						<p className="text-sm text-muted-foreground">
-							Separe múltiplas áreas com vírgulas. Usado para seleção de revisores.
-						</p>
+						<p className="text-sm text-muted-foreground">Separe múltiplas áreas com vírgulas. Usado para seleção de revisores.</p>
 					</div>
 				)}
 			</form.Field>
@@ -252,9 +241,7 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 					<div className="rounded-md border bg-muted px-3 py-2">
 						<span className="capitalize">{profile.role}</span>
 					</div>
-					<p className="text-sm text-muted-foreground">
-						Contate os administradores para alterar sua função
-					</p>
+					<p className="text-sm text-muted-foreground">Contate os administradores para alterar sua função</p>
 				</div>
 			)}
 

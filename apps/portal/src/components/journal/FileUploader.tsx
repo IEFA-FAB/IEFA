@@ -37,9 +37,7 @@ export function FileUploader({
 			if (rejectedFiles.length > 0) {
 				const rejection = rejectedFiles[0]
 				if (rejection.errors[0]?.code === "file-too-large") {
-					setUploadError(
-						`Arquivo muito grande. Tamanho máximo: ${(maxSize / 1024 / 1024).toFixed(0)}MB`
-					)
+					setUploadError(`Arquivo muito grande. Tamanho máximo: ${(maxSize / 1024 / 1024).toFixed(0)}MB`)
 				} else if (rejection.errors[0]?.code === "file-invalid-type") {
 					setUploadError("Tipo de arquivo não aceito")
 				} else {
@@ -80,12 +78,7 @@ export function FileUploader({
 		}
 	}
 
-	const files: File[] =
-		multiple && Array.isArray(value)
-			? (value as File[])
-			: value && !Array.isArray(value)
-				? [value as File]
-				: []
+	const files: File[] = multiple && Array.isArray(value) ? (value as File[]) : value && !Array.isArray(value) ? [value as File] : []
 	const hasFiles = files.length > 0
 
 	return (
@@ -137,16 +130,11 @@ export function FileUploader({
 						{files.length > 1 ? "s" : ""}:
 					</p>
 					{files.map((file, index) => (
-						<div
-							key={`${file.name}-${index}`}
-							className="flex items-center gap-2 p-3 border rounded-lg bg-card"
-						>
+						<div key={`${file.name}-${index}`} className="flex items-center gap-2 p-3 border rounded-lg bg-card">
 							<FileText className="size-4 text-muted-foreground shrink-0" />
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium truncate">{file.name}</p>
-								<p className="text-xs text-muted-foreground">
-									{(file.size / 1024 / 1024).toFixed(2)} MB
-								</p>
+								<p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
 							</div>
 							<Button
 								type="button"

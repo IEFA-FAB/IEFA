@@ -11,8 +11,7 @@ const mockQueryChain = {
 	order: mock(() => mockQueryChain),
 	limit: mock(() => mockQueryChain),
 	// biome-ignore lint/suspicious/noThenProperty: Mocking a thenable for testing
-	then: (onfulfilled: (args: unknown) => unknown) =>
-		Promise.resolve({ data: [], error: null }).then(onfulfilled),
+	then: (onfulfilled: (args: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(onfulfilled),
 } as unknown
 
 mock.module("../lib/supabase", () => {

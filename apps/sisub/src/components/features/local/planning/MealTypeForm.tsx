@@ -3,14 +3,7 @@ import { Loader2 } from "lucide-react"
 import React from "react"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCreateMealType, useUpdateMealType } from "@/hooks/data/useMealTypes"
@@ -100,13 +93,9 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 		<Dialog open={open} onOpenChange={onClose}>
 			<DialogContent className="sm:max-w-[425px]">
 				<DialogHeader>
-					<DialogTitle>
-						{isEditing ? "Editar Tipo de Refeição" : "Novo Tipo de Refeição"}
-					</DialogTitle>
+					<DialogTitle>{isEditing ? "Editar Tipo de Refeição" : "Novo Tipo de Refeição"}</DialogTitle>
 					<DialogDescription>
-						{isEditing
-							? "Altere os dados do tipo de refeição customizado."
-							: "Crie um novo tipo de refeição para esta cozinha."}
+						{isEditing ? "Altere os dados do tipo de refeição customizado." : "Crie um novo tipo de refeição para esta cozinha."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -131,9 +120,7 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 									placeholder="Ex: Jantar Especial, Lanche da Tarde"
 									aria-invalid={field.state.meta.errors.length > 0}
 								/>
-								{field.state.meta.errors.length > 0 && (
-									<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
-								)}
+								{field.state.meta.errors.length > 0 && <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>}
 							</div>
 						)}
 					</form.Field>
@@ -152,12 +139,8 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 									onBlur={field.handleBlur}
 									aria-invalid={field.state.meta.errors.length > 0}
 								/>
-								{field.state.meta.errors.length > 0 && (
-									<p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>
-								)}
-								<p className="text-xs text-muted-foreground">
-									Número usado para ordenar os tipos de refeição. Menor = aparece primeiro.
-								</p>
+								{field.state.meta.errors.length > 0 && <p className="text-sm text-destructive">{String(field.state.meta.errors[0])}</p>}
+								<p className="text-xs text-muted-foreground">Número usado para ordenar os tipos de refeição. Menor = aparece primeiro.</p>
 							</div>
 						)}
 					</form.Field>

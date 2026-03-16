@@ -1,19 +1,5 @@
-import {
-	closestCenter,
-	DndContext,
-	type DragEndEvent,
-	KeyboardSensor,
-	PointerSensor,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core"
-import {
-	arrayMove,
-	SortableContext,
-	sortableKeyboardCoordinates,
-	useSortable,
-	verticalListSortingStrategy,
-} from "@dnd-kit/sortable"
+import { closestCenter, DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, X } from "lucide-react"
 import { useMemo } from "react"
@@ -46,11 +32,7 @@ export function AuthorManager({ authors, onChange, onAddAuthor, error }: AuthorM
 		}
 	}
 
-	const updateAuthor = (
-		index: number,
-		field: keyof AuthorFormData,
-		value: AuthorFormData[keyof AuthorFormData]
-	) => {
+	const updateAuthor = (index: number, field: keyof AuthorFormData, value: AuthorFormData[keyof AuthorFormData]) => {
 		const updated = [...authors]
 		updated[index] = { ...updated[index], [field]: value }
 
@@ -75,9 +57,7 @@ export function AuthorManager({ authors, onChange, onAddAuthor, error }: AuthorM
 			<div className="flex items-center justify-between">
 				<div>
 					<h3 className="font-medium">Autores</h3>
-					<p className="text-sm text-muted-foreground">
-						Arraste para reordenar. A ordem será mantida na publicação.
-					</p>
+					<p className="text-sm text-muted-foreground">Arraste para reordenar. A ordem será mantida na publicação.</p>
 				</div>
 				<Button type="button" onClick={onAddAuthor}>
 					Adicionar Autor
@@ -106,9 +86,7 @@ export function AuthorManager({ authors, onChange, onAddAuthor, error }: AuthorM
 
 			{authors.length === 0 && (
 				<div className="text-center py-8 border-2 border-dashed rounded-lg">
-					<p className="text-sm text-muted-foreground">
-						Nenhum autor adicionado. Clique em "Adicionar Autor" para começar.
-					</p>
+					<p className="text-sm text-muted-foreground">Nenhum autor adicionado. Clique em "Adicionar Autor" para começar.</p>
 				</div>
 			)}
 		</div>
@@ -119,23 +97,12 @@ interface SortableAuthorItemProps {
 	id: string
 	author: AuthorFormData
 	index: number
-	onUpdate: (
-		index: number,
-		field: keyof AuthorFormData,
-		value: AuthorFormData[keyof AuthorFormData]
-	) => void
+	onUpdate: (index: number, field: keyof AuthorFormData, value: AuthorFormData[keyof AuthorFormData]) => void
 	onRemove: (index: number) => void
 	canRemove: boolean
 }
 
-function SortableAuthorItem({
-	id,
-	author,
-	index,
-	onUpdate,
-	onRemove,
-	canRemove,
-}: SortableAuthorItemProps) {
+function SortableAuthorItem({ id, author, index, onUpdate, onRemove, canRemove }: SortableAuthorItemProps) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
 		id,
 	})
@@ -149,23 +116,14 @@ function SortableAuthorItem({
 	return (
 		<div ref={setNodeRef} style={style} className="p-4 border rounded-lg bg-card space-y-3">
 			<div className="flex items-center gap-3">
-				<button
-					type="button"
-					{...attributes}
-					{...listeners}
-					className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded"
-				>
+				<button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded">
 					<GripVertical className="size-5 text-muted-foreground" />
 				</button>
 
 				<div className="flex-1">
 					<div className="flex items-center gap-2">
 						<span className="text-sm font-medium">Autor {index + 1}</span>
-						{author.is_corresponding && (
-							<span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-								Correspondente
-							</span>
-						)}
+						{author.is_corresponding && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Correspondente</span>}
 					</div>
 				</div>
 

@@ -4,13 +4,7 @@ import { AlertCircle, Check, MapPin } from "lucide-react"
 import { memo, useCallback, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 interface MessHallSelectorProps {
@@ -79,9 +73,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 
 			return {
 				trigger: triggerClasses,
-				label: `text-sm font-medium flex items-center justify-between ${
-					disabled ? "text-muted-foreground" : "text-foreground"
-				}`,
+				label: `text-sm font-medium flex items-center justify-between ${disabled ? "text-muted-foreground" : "text-foreground"}`,
 				container: "space-y-2",
 				isInvalid,
 			}
@@ -171,9 +163,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					</SelectTrigger>
 
 					<SelectContent className="max-h-60">
-						<div className="p-2 text-xs text-muted-foreground border-b border-border">
-							Selecione o rancho responsável
-						</div>
+						<div className="p-2 text-xs text-muted-foreground border-b border-border">Selecione o rancho responsável</div>
 						{selectItems}
 					</SelectContent>
 				</Select>

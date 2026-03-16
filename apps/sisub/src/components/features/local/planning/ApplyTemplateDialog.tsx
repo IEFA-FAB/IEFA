@@ -4,23 +4,10 @@ import { Calendar, ChevronRight, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useApplyTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 
@@ -41,12 +28,7 @@ const WEEKDAYS = [
 	{ value: 7, label: "Domingo" },
 ]
 
-export function ApplyTemplateDialog({
-	open,
-	onClose,
-	targetDates,
-	kitchenId,
-}: ApplyTemplateDialogProps) {
+export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: ApplyTemplateDialogProps) {
 	const { data: templates, isLoading } = useMenuTemplates(kitchenId)
 	const { mutate: applyTemplate, isPending } = useApplyTemplate()
 	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -97,12 +79,9 @@ export function ApplyTemplateDialog({
 				<DialogHeader>
 					<DialogTitle>Aplicar Template</DialogTitle>
 					<DialogDescription>
-						Selecione um template e configure como ele será aplicado aos {targetDates.length} dias
-						selecionados.
+						Selecione um template e configure como ele será aplicado aos {targetDates.length} dias selecionados.
 						<br />
-						<span className="text-xs text-warning font-medium">
-							Atenção: Isso substituirá o planejamento existente para esses dias.
-						</span>
+						<span className="text-xs text-warning font-medium">Atenção: Isso substituirá o planejamento existente para esses dias.</span>
 					</DialogDescription>
 				</DialogHeader>
 
@@ -129,11 +108,7 @@ export function ApplyTemplateDialog({
 						) : (
 							<ScrollArea className="h-32 border rounded-md">
 								<div className="p-2 space-y-2">
-									{templates?.length === 0 && (
-										<p className="text-center text-sm text-muted-foreground py-4">
-											Nenhum template encontrado.
-										</p>
-									)}
+									{templates?.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">Nenhum template encontrado.</p>}
 									{templates?.map((tpl) => (
 										<Button
 											key={tpl.id}
@@ -141,26 +116,18 @@ export function ApplyTemplateDialog({
 											onClick={() => setSelectedTemplateId(tpl.id)}
 											className={cn(
 												"h-auto w-full p-3 justify-between font-normal text-left transition-colors",
-												selectedTemplateId === tpl.id
-													? "border-primary bg-primary/5 ring-1 ring-primary"
-													: ""
+												selectedTemplateId === tpl.id ? "border-primary bg-primary/5 ring-1 ring-primary" : ""
 											)}
 										>
 											<div>
 												<p className="font-medium text-sm">{tpl.name}</p>
-												{tpl.description && (
-													<p className="text-xs text-muted-foreground truncate max-w-[250px]">
-														{tpl.description}
-													</p>
-												)}
+												{tpl.description && <p className="text-xs text-muted-foreground truncate max-w-[250px]">{tpl.description}</p>}
 												<p className="text-xs text-muted-foreground">
 													{tpl.recipe_count || 0} Preparação
 													{tpl.recipe_count !== 1 ? "s" : ""}
 												</p>
 											</div>
-											{selectedTemplateId === tpl.id && (
-												<Calendar className="w-4 h-4 text-primary" />
-											)}
+											{selectedTemplateId === tpl.id && <Calendar className="w-4 h-4 text-primary" />}
 										</Button>
 									))}
 								</div>
@@ -192,8 +159,7 @@ export function ApplyTemplateDialog({
 								</SelectContent>
 							</Select>
 							<p className="text-xs text-muted-foreground">
-								O primeiro dia do template ({getWeekdayLabel(1)}) será aplicado aos dias
-								selecionados que caírem neste dia da semana.
+								O primeiro dia do template ({getWeekdayLabel(1)}) será aplicado aos dias selecionados que caírem neste dia da semana.
 							</p>
 						</div>
 					)}
@@ -210,13 +176,9 @@ export function ApplyTemplateDialog({
 												locale: ptBR,
 											})}
 										</Badge>
-										<span className="text-xs text-muted-foreground">
-											({getWeekdayLabel(mapping.realDay)})
-										</span>
+										<span className="text-xs text-muted-foreground">({getWeekdayLabel(mapping.realDay)})</span>
 										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span className="text-xs font-medium">
-											Dia {mapping.templateDay} do template
-										</span>
+										<span className="text-xs font-medium">Dia {mapping.templateDay} do template</span>
 									</div>
 								))}
 							</div>

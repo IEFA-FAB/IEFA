@@ -9,15 +9,7 @@
  * - analytics:           Relatórios e análises
  * - storage:             Estoque e almoxarifado
  */
-export type AppModule =
-	| "diner"
-	| "messhall"
-	| "unit"
-	| "kitchen"
-	| "kitchen-production"
-	| "global"
-	| "analytics"
-	| "storage"
+export type AppModule = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "storage"
 
 /**
  * Permissão individual de um usuário.
@@ -36,7 +28,4 @@ export interface UserPermission {
 }
 
 /** Escopo geográfico/operacional para validação granular. */
-export type PermissionScope =
-	| { type: "unit"; id: number }
-	| { type: "mess_hall"; id: number }
-	| { type: "kitchen"; id: number }
+export type PermissionScope = { type: "unit"; id: number } | { type: "mess_hall"; id: number } | { type: "kitchen"; id: number }

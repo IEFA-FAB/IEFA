@@ -20,12 +20,7 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
-export function ThemeProvider({
-	children,
-	defaultTheme = "system",
-	storageKey = "vite-ui-theme",
-	...props
-}: ThemeProviderProps) {
+export function ThemeProvider({ children, defaultTheme = "system", storageKey = "vite-ui-theme", ...props }: ThemeProviderProps) {
 	// Inicia com o defaultTheme e sincroniza com o localStorage no client
 	const [theme, setThemeState] = useState<Theme>(defaultTheme)
 

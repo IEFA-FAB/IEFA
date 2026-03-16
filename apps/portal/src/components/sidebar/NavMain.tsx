@@ -18,8 +18,7 @@ export function NavMain({
 			<SidebarMenu>
 				{items.map((item) => {
 					// Verifica se a rota atual começa com a url do item (para active state)
-					const isActive =
-						location.pathname === item.url || location.pathname.startsWith(`${item.url}/`)
+					const isActive = location.pathname === item.url || location.pathname.startsWith(`${item.url}/`)
 
 					return (
 						<SidebarMenuItem key={item.title}>

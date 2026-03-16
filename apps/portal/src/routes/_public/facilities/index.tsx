@@ -7,10 +7,7 @@ import type { AppItem } from "@/types/domain"
 export const Route = createFileRoute("/_public/facilities/")({
 	component: Home,
 	head: () => ({
-		meta: [
-			{ title: "Facilidades IEFA" },
-			{ name: "description", content: "Suite de Soluções do IEFA" },
-		],
+		meta: [{ title: "Facilidades IEFA" }, { name: "description", content: "Suite de Soluções do IEFA" }],
 	}),
 })
 
@@ -39,16 +36,11 @@ function Home() {
 			{/* Seção Apps */}
 			<section id="apps" className="mt-10 md:mt-12 w-full" aria-labelledby="apps-heading">
 				<div className="flex items-center justify-between px-1 md:px-0">
-					<h2
-						id="apps-heading"
-						className="text-2xl md:text-3xl font-bold tracking-tight text-balance"
-					>
+					<h2 id="apps-heading" className="text-2xl md:text-3xl font-bold tracking-tight text-balance">
 						Aplicações da suite
 					</h2>
 				</div>
-				<p className="text-muted-foreground mt-2 px-1 md:px-0 text-pretty">
-					Acesse rapidamente os módulos internos e serviços externos integrados.
-				</p>
+				<p className="text-muted-foreground mt-2 px-1 md:px-0 text-pretty">Acesse rapidamente os módulos internos e serviços externos integrados.</p>
 
 				<Separator className="my-6" />
 
@@ -58,9 +50,7 @@ function Home() {
 						<div className="h-40 animate-pulse rounded-xl bg-muted" />
 					</div>
 				) : error ? (
-					<div className="text-sm text-destructive">
-						Erro ao carregar apps: {error instanceof Error ? error.message : "Erro desconhecido"}
-					</div>
+					<div className="text-sm text-destructive">Erro ao carregar apps: {error instanceof Error ? error.message : "Erro desconhecido"}</div>
 				) : (
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 						{apps.map((app) => (

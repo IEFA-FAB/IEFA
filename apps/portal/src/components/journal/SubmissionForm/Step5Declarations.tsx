@@ -19,8 +19,7 @@ export function Step5Declarations() {
 					rows={4}
 				/>
 				<p className="text-sm text-muted-foreground">
-					Exemplo: "Os autores declaram não haver conflitos de interesse" ou descreva qualquer
-					relação financeira ou pessoal relevante
+					Exemplo: "Os autores declaram não haver conflitos de interesse" ou descreva qualquer relação financeira ou pessoal relevante
 				</p>
 			</div>
 

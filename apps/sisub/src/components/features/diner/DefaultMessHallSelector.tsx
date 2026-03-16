@@ -6,13 +6,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 interface DefaultMessHallSelectorProps {
@@ -23,13 +17,7 @@ interface DefaultMessHallSelectorProps {
 	isApplying: boolean
 }
 
-export function DefaultMessHallSelector({
-	defaultMessHallCode,
-	setDefaultMessHallCode,
-	onApply,
-	onCancel,
-	isApplying,
-}: DefaultMessHallSelectorProps) {
+export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHallCode, onApply, onCancel, isApplying }: DefaultMessHallSelectorProps) {
 	"use no memo"
 	const { messHalls } = useMessHalls()
 	const [saving, setSaving] = useState(false)
@@ -93,8 +81,8 @@ export function DefaultMessHallSelector({
 					<div className="flex gap-2 rounded-md border p-2.5 bg-accent/10 text-accent-foreground border-accent/30">
 						<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
 						<span className="text-sm">
-							Defina um rancho padrão para os cards que ainda não possuem rancho definido no banco
-							de dados. Esta ação afetará apenas os cards sem rancho configurado.
+							Defina um rancho padrão para os cards que ainda não possuem rancho definido no banco de dados. Esta ação afetará apenas os cards sem rancho
+							configurado.
 						</span>
 					</div>
 				</CardDescription>
@@ -104,22 +92,12 @@ export function DefaultMessHallSelector({
 				<div className="space-y-3">
 					<Label className="text-sm font-medium text-foreground">Selecione o rancho padrão:</Label>
 
-					<Select
-						value={defaultMessHallCode}
-						onValueChange={handleMessHallChange}
-						disabled={isApplying || saving || !hasMessHalls}
-					>
+					<Select value={defaultMessHallCode} onValueChange={handleMessHallChange} disabled={isApplying || saving || !hasMessHalls}>
 						<SelectTrigger className="w-full cursor-pointer bg-background border border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-accent">
-							<SelectValue
-								placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"}
-							/>
+							<SelectValue placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"} />
 						</SelectTrigger>
 						<SelectContent className="max-h-60">
-							{(!messHalls || messHalls.length === 0) && (
-								<div className="px-2 py-4 text-sm text-muted-foreground">
-									Nenhum rancho encontrado.
-								</div>
-							)}
+							{(!messHalls || messHalls.length === 0) && <div className="px-2 py-4 text-sm text-muted-foreground">Nenhum rancho encontrado.</div>}
 							{messHalls?.map((mh) => (
 								<SelectItem
 									key={mh.code}
@@ -136,8 +114,7 @@ export function DefaultMessHallSelector({
 						<div className="flex items-center gap-2 text-xs rounded-md border p-2 bg-muted text-muted-foreground border-border">
 							<CheckCircle className="h-3.5 w-3.5" />
 							<span>
-								Rancho selecionado:{" "}
-								<strong className="text-foreground">{selectedMessHallLabel}</strong>
+								Rancho selecionado: <strong className="text-foreground">{selectedMessHallLabel}</strong>
 							</span>
 						</div>
 					)}

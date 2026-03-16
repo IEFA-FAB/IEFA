@@ -2,12 +2,7 @@ import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
 import { type AuthState, authActions, authQueryOptions } from "@/auth/service"
-import {
-	applyThemeToDom,
-	getStoredTheme,
-	type Theme,
-	type ThemeContextType,
-} from "@/components/themeService"
+import { applyThemeToDom, getStoredTheme, type Theme, type ThemeContextType } from "@/components/themeService"
 import { supabase } from "@/lib/supabase"
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider"
 import { routeTree } from "./routeTree.gen"

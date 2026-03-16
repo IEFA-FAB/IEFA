@@ -11,9 +11,7 @@ export default function SuperAdminHero() {
 					<Shield className="h-4 w-4" />
 					Painel SuperAdmin
 				</div>
-				<h1 className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold mb-4 text-foreground">
-					Controle do Sistema
-				</h1>
+				<h1 className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold mb-4 text-foreground">Controle do Sistema</h1>
 				<p className="text-sm md:text-base font-sans text-muted-foreground max-w-2xl mx-auto leading-relaxed">
 					Gerencie permissões, cadastre administradores e acompanhe indicadores gerais do SISUB.
 				</p>

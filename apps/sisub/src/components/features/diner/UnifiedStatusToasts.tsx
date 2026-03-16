@@ -18,8 +18,7 @@ interface UnifiedStatusToastsProps {
 	autoHideSuccessMs?: number // padrão: 6000ms
 }
 
-const pluralize = (count: number, singular: string, plural: string) =>
-	count === 1 ? singular : plural
+const pluralize = (count: number, singular: string, plural: string) => (count === 1 ? singular : plural)
 
 const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações")
 const labelPendente = (n: number) => pluralize(n, "pendente", "pendentes")
@@ -27,14 +26,7 @@ const labelPendente = (n: number) => pluralize(n, "pendente", "pendentes")
 // IDs fixos para permitir atualizar/dispensar toasts
 const PENDING_ID = "sisub-pending"
 
-export function UnifiedStatusToasts({
-	success,
-	error,
-	onClearMessages,
-	pendingChanges,
-	isSavingBatch,
-	autoHideSuccessMs = 6000,
-}: UnifiedStatusToastsProps) {
+export function UnifiedStatusToasts({ success, error, onClearMessages, pendingChanges, isSavingBatch, autoHideSuccessMs = 6000 }: UnifiedStatusToastsProps) {
 	const count = pendingChanges.length
 
 	// Sucesso: mostra toast e limpa mensagem após autoHideSuccessMs

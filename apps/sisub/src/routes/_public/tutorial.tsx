@@ -56,9 +56,7 @@ function Tutorial() {
 									<BookOpen className="w-4 h-4 text-primary" />
 									{heroData.badge}
 								</Badge>
-								<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-3">
-									{heroData.title}
-								</h1>
+								<h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-3">{heroData.title}</h1>
 								<p className="text-muted-foreground max-w-2xl">{heroData.subtitle}</p>
 							</div>
 							<div className="flex gap-3">
@@ -84,21 +82,13 @@ function Tutorial() {
 			</Appear>
 
 			{/* Visão Geral */}
-			<Appear
-				id="overview"
-				as="section"
-				className="container mx-auto px-4 py-10"
-				duration="duration-500"
-				delayClass="delay-100"
-			>
+			<Appear id="overview" as="section" className="container mx-auto px-4 py-10" duration="duration-500" delayClass="delay-100">
 				<div className="text-center mb-10">
 					<Badge variant="outline" className="mx-auto mb-3 gap-2">
 						<Info className="h-4 w-4 text-primary" />
 						Visão geral
 					</Badge>
-					<h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
-						Configurações e atalhos úteis
-					</h2>
+					<h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">Configurações e atalhos úteis</h2>
 				</div>
 
 				<div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -112,9 +102,7 @@ function Tutorial() {
 									<card.icon className="h-6 w-6 text-primary" />
 								</div>
 								<CardTitle className="text-lg">{card.title}</CardTitle>
-								<CardDescription className="text-muted-foreground">
-									{card.description}
-								</CardDescription>
+								<CardDescription className="text-muted-foreground">{card.description}</CardDescription>
 							</CardHeader>
 						</Card>
 					))}
@@ -122,25 +110,15 @@ function Tutorial() {
 			</Appear>
 
 			{/* Tutorial do Usuário (Previsão) */}
-			<Appear
-				id="rancho"
-				as="section"
-				className="py-14"
-				duration="duration-500"
-				delayClass="delay-150"
-			>
+			<Appear id="rancho" as="section" className="py-14" duration="duration-500" delayClass="delay-150">
 				<div className="container mx-auto px-4">
 					<div className="text-center mb-10">
 						<Badge variant="outline" className="mx-auto mb-3 gap-2">
 							<CalendarCheck className="h-4 w-4 text-primary" />
 							Previsão
 						</Badge>
-						<h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">
-							Preenchendo sua Previsão
-						</h2>
-						<p className="text-muted-foreground">
-							Como usar a página de Previsão (Rancho) para informar suas refeições
-						</p>
+						<h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">Preenchendo sua Previsão</h2>
+						<p className="text-muted-foreground">Como usar a página de Previsão (Rancho) para informar suas refeições</p>
 					</div>
 
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
@@ -164,24 +142,14 @@ function Tutorial() {
 			</Appear>
 
 			{/* Tutorial do Fiscal (QR) */}
-			<Appear
-				id="fiscal"
-				as="section"
-				className="container mx-auto px-4 py-14"
-				duration="duration-500"
-				delayClass="delay-200"
-			>
+			<Appear id="fiscal" as="section" className="container mx-auto px-4 py-14" duration="duration-500" delayClass="delay-200">
 				<div className="text-center mb-10">
 					<Badge variant="outline" className="mx-auto mb-3 gap-2">
 						<QrCode className="h-4 w-4 text-primary" />
 						Fiscal
 					</Badge>
-					<h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">
-						Fiscalização com Leitura de QR
-					</h2>
-					<p className="text-muted-foreground">
-						Passo a passo para usar o leitor e confirmar entradas
-					</p>
+					<h2 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">Fiscalização com Leitura de QR</h2>
+					<p className="text-muted-foreground">Passo a passo para usar o leitor e confirmar entradas</p>
 				</div>
 
 				<div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
@@ -214,13 +182,7 @@ function Tutorial() {
 			</Appear>
 
 			{/* Boas Práticas */}
-			<Appear
-				id="tips"
-				as="section"
-				className="py-14"
-				duration="duration-500"
-				delayClass="delay-200"
-			>
+			<Appear id="tips" as="section" className="py-14" duration="duration-500" delayClass="delay-200">
 				<div className="container mx-auto px-4">
 					<Card className="rounded-xl border border-border bg-card max-w-5xl mx-auto">
 						<CardHeader className="pb-3">
@@ -229,9 +191,7 @@ function Tutorial() {
 								Boas Práticas
 							</Badge>
 							<CardTitle className="text-2xl">Recomendações</CardTitle>
-							<CardDescription className="text-muted-foreground">
-								Dicas para garantir uma experiência consistente e segura
-							</CardDescription>
+							<CardDescription className="text-muted-foreground">Dicas para garantir uma experiência consistente e segura</CardDescription>
 						</CardHeader>
 						<CardContent>
 							<ul className="text-foreground space-y-2 list-disc pl-6">
@@ -245,13 +205,7 @@ function Tutorial() {
 			</Appear>
 
 			{/* FAQ */}
-			<Appear
-				id="faq"
-				as="section"
-				className="container mx-auto px-4 py-14"
-				duration="duration-500"
-				delayClass="delay-200"
-			>
+			<Appear id="faq" as="section" className="container mx-auto px-4 py-14" duration="duration-500" delayClass="delay-200">
 				<div className="text-center mb-8">
 					<Badge variant="outline" className="mx-auto mb-3 gap-2">
 						<HelpCircle className="w-4 h-4 text-primary" />
@@ -275,13 +229,7 @@ function Tutorial() {
 			</Appear>
 
 			{/* Troubleshooting */}
-			<Appear
-				id="troubleshooting"
-				as="section"
-				className="py-14"
-				duration="duration-500"
-				delayClass="delay-200"
-			>
+			<Appear id="troubleshooting" as="section" className="py-14" duration="duration-500" delayClass="delay-200">
 				<div className="container mx-auto px-4">
 					<Card className="rounded-xl border border-border bg-card max-w-5xl mx-auto">
 						<CardHeader className="pb-3">
@@ -290,22 +238,14 @@ function Tutorial() {
 								Resolução de Problemas
 							</Badge>
 							<CardTitle className="text-2xl">Se algo não funcionar</CardTitle>
-							<CardDescription className="text-muted-foreground">
-								Ações rápidas para restabelecer o uso normal do sistema
-							</CardDescription>
+							<CardDescription className="text-muted-foreground">Ações rápidas para restabelecer o uso normal do sistema</CardDescription>
 						</CardHeader>
 					</Card>
 				</div>
 			</Appear>
 
 			{/* Privacidade */}
-			<Appear
-				id="privacy"
-				as="section"
-				className="container mx-auto px-4 py-14"
-				duration="duration-500"
-				delayClass="delay-200"
-			>
+			<Appear id="privacy" as="section" className="container mx-auto px-4 py-14" duration="duration-500" delayClass="delay-200">
 				<Card className="rounded-xl border border-border bg-card max-w-4xl mx-auto text-center">
 					<CardHeader>
 						<CardTitle className="text-2xl">{privacy.title}</CardTitle>
@@ -315,23 +255,12 @@ function Tutorial() {
 			</Appear>
 
 			{/* CTA Final */}
-			<Appear
-				id="cta"
-				as="section"
-				className="py-16"
-				duration="duration-500"
-				delayClass="delay-250"
-			>
+			<Appear id="cta" as="section" className="py-16" duration="duration-500" delayClass="delay-250">
 				<div className="relative text-center max-w-3xl mx-auto rounded-xl bg-primary text-primary-foreground ring-1 ring-inset ring-border/30 overflow-hidden p-10 px-6 md:px-20">
-					<div
-						aria-hidden
-						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_50%)]"
-					/>
+					<div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_50%)]" />
 					<div className="relative">
 						<h2 className="text-3xl font-extrabold tracking-tight mb-4">{ctaData.title}</h2>
-						<p className="text-primary-foreground/85 text-lg mb-8 max-w-2xl mx-auto">
-							{ctaData.text}
-						</p>
+						<p className="text-primary-foreground/85 text-lg mb-8 max-w-2xl mx-auto">{ctaData.text}</p>
 
 						<div className="flex flex-wrap items-center justify-center gap-4">
 							{ctaData.buttons.map((btn) => (
@@ -425,18 +354,7 @@ function Appear(props: {
 	const Comp = as as ElementType
 
 	return (
-		<Comp
-			id={id}
-			ref={ref}
-			className={[
-				className,
-				"transition-all",
-				duration,
-				delayClass,
-				visible ? inClass : outClass,
-			].join(" ")}
-			{...rest}
-		>
+		<Comp id={id} ref={ref} className={[className, "transition-all", duration, delayClass, visible ? inClass : outClass].join(" ")} {...rest}>
 			{children}
 		</Comp>
 	)
@@ -472,8 +390,7 @@ type QAItem = {
 const heroData = {
 	badge: "Guia Rápido do SISUB",
 	title: "Como usar o SISUB: Previsões e Fiscalização por QR",
-	subtitle:
-		"Siga este passo a passo para preencher suas previsões de refeições e realizar a fiscalização com segurança e rapidez.",
+	subtitle: "Siga este passo a passo para preencher suas previsões de refeições e realizar a fiscalização com segurança e rapidez.",
 	primaryButton: { to: "/diner/forecast", label: "Ir para Previsão" } as ButtonLink,
 	secondaryButton: {
 		to: "/messhall/presence",
@@ -504,32 +421,27 @@ const ranchoSteps: StepItem[] = [
 	{
 		icon: QrCode,
 		title: "Abra seu QR no cabeçalho",
-		description:
-			"Na página de Previsão (Rancho), clique no botão com ícone de QR no topo para exibir seu código. É ele que o fiscal irá ler.",
+		description: "Na página de Previsão (Rancho), clique no botão com ícone de QR no topo para exibir seu código. É ele que o fiscal irá ler.",
 	},
 	{
 		icon: Settings,
 		title: "Defina a Unidade Padrão",
-		description:
-			'Use "Unidade Padrão" para aplicar rapidamente a OM aos dias sem unidade definida.',
+		description: 'Use "Unidade Padrão" para aplicar rapidamente a OM aos dias sem unidade definida.',
 	},
 	{
 		icon: CalendarCheck,
 		title: "Marque as Refeições",
-		description:
-			"Nos cards de cada dia, ative/desative café, almoço, janta e ceia conforme for consumir.",
+		description: "Nos cards de cada dia, ative/desative café, almoço, janta e ceia conforme for consumir.",
 	},
 	{
 		icon: Lock,
 		title: "Dias bloqueados (política)",
-		description:
-			"Por operação do rancho, não é possível editar Hoje, Amanhã e Depois de Amanhã. Planeje-se com antecedência.",
+		description: "Por operação do rancho, não é possível editar Hoje, Amanhã e Depois de Amanhã. Planeje-se com antecedência.",
 	},
 	{
 		icon: Save,
 		title: "Salve Alterações",
-		description:
-			'Quando houver pendências, use o botão flutuante "Salvar alterações" para gravar tudo de uma vez.',
+		description: 'Quando houver pendências, use o botão flutuante "Salvar alterações" para gravar tudo de uma vez.',
 	},
 	{
 		icon: RefreshCw,
@@ -542,32 +454,27 @@ const fiscalSteps: StepItem[] = [
 	{
 		icon: Camera,
 		title: "Permita o Acesso à Câmera",
-		description:
-			"Ao abrir o leitor, conceda a permissão da câmera. Sem isso, o scanner não inicia.",
+		description: "Ao abrir o leitor, conceda a permissão da câmera. Sem isso, o scanner não inicia.",
 	},
 	{
 		icon: QrCode,
 		title: "Escaneie o QR do Militar",
-		description:
-			"Aponte a câmera para o QR do usuário (obtido pelo botão no cabeçalho da página de Previsão).",
+		description: "Aponte a câmera para o QR do usuário (obtido pelo botão no cabeçalho da página de Previsão).",
 	},
 	{
 		icon: Info,
 		title: "Confira a Previsão",
-		description:
-			"O sistema mostra a previsão para data, refeição e unidade atuais. Ajuste se necessário.",
+		description: "O sistema mostra a previsão para data, refeição e unidade atuais. Ajuste se necessário.",
 	},
 	{
 		icon: Save,
 		title: "Confirme a Presença",
-		description:
-			'Confirme no diálogo. Com "Fechar Auto." ativo, a confirmação ocorre automaticamente após ~3s.',
+		description: 'Confirme no diálogo. Com "Fechar Auto." ativo, a confirmação ocorre automaticamente após ~3s.',
 	},
 	{
 		icon: RefreshCw,
 		title: "Pausar/Retomar e Atualizar",
-		description:
-			'Use "Pausar/Ler" para controlar o scanner e o botão de "refresh" se a câmera ficar instável.',
+		description: 'Use "Pausar/Ler" para controlar o scanner e o botão de "refresh" se a câmera ficar instável.',
 	},
 ]
 
@@ -588,23 +495,19 @@ const tips: string[] = [
 const faqItems: QAItem[] = [
 	{
 		question: "Onde encontro meu QR para o rancho?",
-		answer:
-			"Na página de Previsão (Rancho), clique no botão com ícone de QR no cabeçalho. Um diálogo abrirá exibindo o seu QR e o seu ID.",
+		answer: "Na página de Previsão (Rancho), clique no botão com ícone de QR no cabeçalho. Um diálogo abrirá exibindo o seu QR e o seu ID.",
 	},
 	{
 		question: "Por que não consigo editar dias próximos?",
-		answer:
-			"Por política operacional do rancho, as edições para Hoje, Amanhã e Depois de Amanhã são bloqueadas, permitindo o preparo adequado das refeições.",
+		answer: "Por política operacional do rancho, as edições para Hoje, Amanhã e Depois de Amanhã são bloqueadas, permitindo o preparo adequado das refeições.",
 	},
 	{
 		question: "Minhas alterações não salvaram",
-		answer:
-			"Verifique se há alterações pendentes e clique em “Salvar alterações”. Aguarde a confirmação antes de sair da página.",
+		answer: "Verifique se há alterações pendentes e clique em “Salvar alterações”. Aguarde a confirmação antes de sair da página.",
 	},
 	{
 		question: "Sem acesso à câmera",
-		answer:
-			"Conceda permissão ao navegador nas configurações do site (cadeado na barra de endereço) ou tente outro navegador/dispositivo.",
+		answer: "Conceda permissão ao navegador nas configurações do site (cadeado na barra de endereço) ou tente outro navegador/dispositivo.",
 	},
 ]
 

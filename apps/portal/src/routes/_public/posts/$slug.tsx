@@ -16,11 +16,7 @@ const myPortableTextComponents: PortableTextComponents = {
 						alt={value.alt || "Imagem do post"}
 						className={`rounded-lg shadow-md mx-auto ${value.layout === "full" ? "w-full" : "max-w-3xl"}`}
 					/>
-					{value.caption && (
-						<figcaption className="text-center text-sm text-muted-foreground mt-2">
-							{value.caption}
-						</figcaption>
-					)}
+					{value.caption && <figcaption className="text-center text-sm text-muted-foreground mt-2">{value.caption}</figcaption>}
 				</figure>
 			)
 		},
@@ -43,33 +39,19 @@ const myPortableTextComponents: PortableTextComponents = {
 		),
 	},
 	block: {
-		h1: ({ children }: { children?: React.ReactNode }) => (
-			<h1 className="text-4xl font-bold mt-12 mb-6 text-foreground">{children}</h1>
-		),
-		h2: ({ children }: { children?: React.ReactNode }) => (
-			<h2 className="text-2xl font-bold mt-10 mb-4 text-foreground">{children}</h2>
-		),
-		h3: ({ children }: { children?: React.ReactNode }) => (
-			<h3 className="text-xl font-semibold mt-8 mb-3 text-foreground">{children}</h3>
-		),
-		normal: ({ children }: { children?: React.ReactNode }) => (
-			<p className="mb-4 leading-relaxed text-foreground/90 text-lg">{children}</p>
-		),
+		h1: ({ children }: { children?: React.ReactNode }) => <h1 className="text-4xl font-bold mt-12 mb-6 text-foreground">{children}</h1>,
+		h2: ({ children }: { children?: React.ReactNode }) => <h2 className="text-2xl font-bold mt-10 mb-4 text-foreground">{children}</h2>,
+		h3: ({ children }: { children?: React.ReactNode }) => <h3 className="text-xl font-semibold mt-8 mb-3 text-foreground">{children}</h3>,
+		normal: ({ children }: { children?: React.ReactNode }) => <p className="mb-4 leading-relaxed text-foreground/90 text-lg">{children}</p>,
 		blockquote: ({ children }: { children?: React.ReactNode }) => (
-			<blockquote className="border-l-4 border-primary pl-4 italic my-6 text-muted-foreground text-xl">
-				{children}
-			</blockquote>
+			<blockquote className="border-l-4 border-primary pl-4 italic my-6 text-muted-foreground text-xl">{children}</blockquote>
 		),
 	},
 	marks: {
 		link: ({ children, value }: { children?: React.ReactNode; value?: { href: string } }) => {
 			const rel = !value?.href.startsWith("/") ? "noreferrer noopener" : undefined
 			return (
-				<a
-					href={value?.href}
-					rel={rel}
-					className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
-				>
+				<a href={value?.href} rel={rel} className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
 					{children}
 				</a>
 			)
@@ -127,9 +109,7 @@ function PostDetailComponent() {
 						})}
 				</div>
 
-				<h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-balance mb-6">
-					{post.title}
-				</h1>
+				<h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-balance mb-6">{post.title}</h1>
 
 				{post.author && (
 					<div className="flex items-center justify-center gap-3">
@@ -148,11 +128,7 @@ function PostDetailComponent() {
 			{/* Imagem Principal */}
 			{post.mainImage && (
 				<div className="mb-12 rounded-xl overflow-hidden shadow-lg">
-					<img
-						src={urlFor(post.mainImage).width(1200).height(600).url()}
-						alt={post.title}
-						className="w-full h-auto object-cover"
-					/>
+					<img src={urlFor(post.mainImage).width(1200).height(600).url()} alt={post.title} className="w-full h-auto object-cover" />
 				</div>
 			)}
 

@@ -30,9 +30,7 @@ function PostsIndex() {
 			<section className="w-full max-w-5xl">
 				<div className="flex flex-col gap-2">
 					<h2 className="text-3xl font-bold tracking-tight">Blog & Artigos</h2>
-					<p className="text-muted-foreground">
-						Acompanhe nossas últimas atualizações e tutoriais.
-					</p>
+					<p className="text-muted-foreground">Acompanhe nossas últimas atualizações e tutoriais.</p>
 				</div>
 
 				<Separator className="my-8" />

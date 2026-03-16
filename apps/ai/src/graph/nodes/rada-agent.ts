@@ -16,8 +16,7 @@ Retorne APENAS a query reformulada.`
 
 export async function radaAgentNode(state: AgentState): Promise<Partial<AgentState>> {
 	const iterations = state.retrieval_iterations
-	const query =
-		iterations === 0 ? state.original_query : (state.reformulated_query ?? state.original_query)
+	const query = iterations === 0 ? state.original_query : (state.reformulated_query ?? state.original_query)
 
 	let result: RADARetrieverOutput
 	try {
@@ -40,9 +39,7 @@ export async function radaAgentNode(state: AgentState): Promise<Partial<AgentSta
 		}
 	}
 
-	const reformulationResponse = await getLLM(0).invoke([
-		{ role: "user", content: REFORMULATION_PROMPT(query) },
-	])
+	const reformulationResponse = await getLLM(0).invoke([{ role: "user", content: REFORMULATION_PROMPT(query) }])
 	const reformulated_query = reformulationResponse.content.toString().trim()
 
 	return {

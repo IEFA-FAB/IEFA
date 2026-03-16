@@ -86,12 +86,7 @@ export function OnboardingDialogs() {
 	const evaluationQuestion = evaluationQuery.data?.question ?? null
 	const evaluationShouldAsk = Boolean(evaluationQuery.data?.shouldAsk && evaluationQuestion)
 
-	const shouldShowEvaluationDialog =
-		!!userId &&
-		evaluationQuery.isSuccess &&
-		evaluationShouldAsk &&
-		!nrDialogOpen &&
-		!evaluationDismissed
+	const shouldShowEvaluationDialog = !!userId && evaluationQuery.isSuccess && evaluationShouldAsk && !nrDialogOpen && !evaluationDismissed
 
 	const handleEvaluationOpenChange = useCallback((open: boolean) => {
 		if (!open) {

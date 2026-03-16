@@ -2,12 +2,7 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Loader2, Plus } from "lucide-react"
 import { useState } from "react"
-import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from "@/components/ui/accordion"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -23,21 +18,9 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
-import {
-	useAddMenuItem,
-	useCreateDailyMenu,
-	useDayDetails,
-	useDeleteMenuItem,
-	useUpdateDailyMenu,
-} from "@/hooks/data/usePlanning"
+import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
 import { fetchRecipeWithIngredients } from "@/hooks/data/useRecipes"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { MenuItemCard } from "./MenuItemCard"
@@ -127,11 +110,7 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 					</ScrollArea>
 				)}
 
-				<SubstitutionModal
-					open={!!substitutionItem}
-					onClose={() => setSubstitutionItem(null)}
-					menuItem={substitutionItem}
-				/>
+				<SubstitutionModal open={!!substitutionItem} onClose={() => setSubstitutionItem(null)} menuItem={substitutionItem} />
 
 				<RecipeSelector
 					key={recipeSelectorMenu?.id || "none"}
@@ -265,25 +244,18 @@ function MealSection({
 					<div className="flex items-center gap-2">
 						<span className="font-semibold">{mealType.name}</span>
 						{menu && (
-							<Badge
-								variant={menu.status === "PUBLISHED" ? "default" : "secondary"}
-								className="text-[10px] h-5"
-							>
+							<Badge variant={menu.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px] h-5">
 								{menu.status === "PUBLISHED" ? "Publicado" : "Planejado"}
 							</Badge>
 						)}
 					</div>
-					<div className="text-sm text-muted-foreground font-normal">
-						{menu ? `${menu.forecasted_headcount || 0} p. previstas` : "Não planejado"}
-					</div>
+					<div className="text-sm text-muted-foreground font-normal">{menu ? `${menu.forecasted_headcount || 0} p. previstas` : "Não planejado"}</div>
 				</div>
 			</AccordionTrigger>
 			<AccordionContent className="pb-4">
 				{!menu ? (
 					<div className="text-center py-6 space-y-3">
-						<p className="text-muted-foreground text-sm">
-							Nenhum cardápio criado para {mealType.name || "esta refeição"}.
-						</p>
+						<p className="text-muted-foreground text-sm">Nenhum cardápio criado para {mealType.name || "esta refeição"}.</p>
 						<Button size="sm" variant="outline" onClick={handleCreateMenu} disabled={isCreating}>
 							<Plus className="w-4 h-4 mr-2" />
 							Iniciar Planejamento
@@ -302,11 +274,7 @@ function MealSection({
 										id={`headcount-${menu.id}`}
 										type="number"
 										value={headcount ?? ""}
-										onChange={(e) =>
-											setHeadcount(
-												e.target.value === "" ? null : Number.parseInt(e.target.value, 10)
-											)
-										}
+										onChange={(e) => setHeadcount(e.target.value === "" ? null : Number.parseInt(e.target.value, 10))}
 										onBlur={handleUpdateHeadcount}
 										placeholder="0"
 										className="h-8 w-24"
@@ -319,18 +287,11 @@ function MealSection({
 						<div className="space-y-2">
 							<h4 className="text-sm font-medium text-muted-foreground">Itens do Cardápio</h4>
 							{!menu.menu_items || menu.menu_items.length === 0 ? (
-								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">
-									Nenhuma preparação adicionada.
-								</div>
+								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 							) : (
 								<div className="grid gap-2">
 									{menu.menu_items.map((item) => (
-										<MenuItemCard
-											key={item.id}
-											item={item}
-											onSubstitute={onSubstitute}
-											onDelete={onDelete}
-										/>
+										<MenuItemCard key={item.id} item={item} onSubstitute={onSubstitute} onDelete={onDelete} />
 									))}
 								</div>
 							)}

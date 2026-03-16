@@ -140,8 +140,7 @@ export function DayCard({
 
 			// Fill states
 			"bg-primary/10 border-primary/40": cardState.isFull && !isToday,
-			"bg-secondary/10 border-secondary/40":
-				cardState.hasPartialSelection && !isToday && !cardState.hasPendingChanges,
+			"bg-secondary/10 border-secondary/40": cardState.hasPartialSelection && !isToday && !cardState.hasPendingChanges,
 			"bg-muted/30 border-border": cardState.isEmpty && !isToday && !cardState.hasPendingChanges,
 		}
 	)
@@ -192,9 +191,7 @@ export function DayCard({
 					{cardState.selectedCount > 0 && (
 						<div className="w-full bg-background rounded-md p-2 border border-border">
 							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium text-foreground">
-									{cardState.selectedCount}/4 meals
-								</span>
+								<span className="text-sm font-medium text-foreground">{cardState.selectedCount}/4 meals</span>
 								<div className="flex space-x-1">
 									{MEAL_TYPES.map((meal) => {
 										const mealKey = meal.value as keyof DayMeals // aligns to DB: cafe/almoco/janta/ceia
@@ -202,12 +199,7 @@ export function DayCard({
 										return (
 											<Tooltip key={meal.value}>
 												<TooltipTrigger>
-													<div
-														className={cn(
-															"w-2 h-2 rounded-sm transition-colors duration-200",
-															isSelected ? "bg-primary" : "bg-muted-foreground/30"
-														)}
-													/>
+													<div className={cn("w-2 h-2 rounded-sm transition-colors duration-200", isSelected ? "bg-primary" : "bg-muted-foreground/30")} />
 												</TooltipTrigger>
 												<TooltipContent>
 													{meal.label}: {isSelected ? "Confirmado" : "Não vai"}
@@ -227,12 +219,7 @@ export function DayCard({
 				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
 					{/* Mess hall selector */}
 					<div className="bg-accent/10 rounded-md p-3 border border-accent/30">
-						<MessHallSelector
-							value={dayMessHallId}
-							onChange={handleMessHallChange}
-							disabled={isDisabled}
-							hasDefaultMessHall={false}
-						/>
+						<MessHallSelector value={dayMessHallId} onChange={handleMessHallChange} disabled={isDisabled} hasDefaultMessHall={false} />
 					</div>
 
 					{/* Meals grid 2x2 */}
@@ -325,10 +312,7 @@ export const useDayCardData = (
 }
 
 export const useDayCardOptimization = (dates: string[], selections: Record<string, DayMeals>) => {
-	const optimizedData: Record<
-		string,
-		{ selectedCount: number; isEmpty: boolean; isFull: boolean }
-	> = {}
+	const optimizedData: Record<string, { selectedCount: number; isEmpty: boolean; isFull: boolean }> = {}
 
 	dates.forEach((date) => {
 		const daySelections = selections[date]

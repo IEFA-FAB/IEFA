@@ -37,29 +37,16 @@ export function PageHeader({ title, description, children, onBack }: PageHeaderP
 		<header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 border-b border-border/60 pb-4">
 			<div className="flex items-start gap-2 min-w-0">
 				{onBack && (
-					<Button
-						variant="ghost"
-						size="icon"
-						onClick={onBack}
-						className="mt-0.5 h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
-					>
+					<Button variant="ghost" size="icon" onClick={onBack} className="mt-0.5 h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground">
 						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				)}
 				<div className="min-w-0">
-					<h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">
-						{title}
-					</h1>
-					{description && (
-						<p className="mt-0.5 text-sm text-muted-foreground leading-snug max-w-prose">
-							{description}
-						</p>
-					)}
+					<h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">{title}</h1>
+					{description && <p className="mt-0.5 text-sm text-muted-foreground leading-snug max-w-prose">{description}</p>}
 				</div>
 			</div>
-			{children && (
-				<div className="flex flex-wrap items-center gap-2 shrink-0 sm:pt-px">{children}</div>
-			)}
+			{children && <div className="flex flex-wrap items-center gap-2 shrink-0 sm:pt-px">{children}</div>}
 		</header>
 	)
 }

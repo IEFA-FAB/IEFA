@@ -1,13 +1,7 @@
 import type { BaseMessage } from "@langchain/core/messages"
 import { Annotation, messagesStateReducer } from "@langchain/langgraph"
 
-export type Intent =
-	| "LEGISLATION"
-	| "SEFA_SYSTEMS"
-	| "PROCUREMENT"
-	| "GENERAL"
-	| "GREETING"
-	| "UNKNOWN"
+export type Intent = "LEGISLATION" | "SEFA_SYSTEMS" | "PROCUREMENT" | "GENERAL" | "GREETING" | "UNKNOWN"
 
 export type DocumentType = "RADA" | "RBHA" | "ICA" | "MCA" | "NSCA"
 

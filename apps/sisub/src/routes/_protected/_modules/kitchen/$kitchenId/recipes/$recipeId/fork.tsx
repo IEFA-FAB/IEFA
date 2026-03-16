@@ -8,9 +8,7 @@ import { useRecipe } from "@/hooks/data/useRecipe"
  * Cria uma cópia local independente de uma preparação global.
  * URL: /kitchen/:kitchenId/recipes/:recipeId/fork
  */
-export const Route = createFileRoute(
-	"/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork"
-)({
+export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/fork")({
 	component: ForkRecipePage,
 	head: () => ({
 		meta: [{ title: "Adaptar Preparação - SISUB" }],
@@ -30,11 +28,7 @@ function ForkRecipePage() {
 	}
 
 	if (error || !baseRecipe) {
-		return (
-			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				Preparação de origem não encontrada ou erro ao carregar.
-			</div>
-		)
+		return <div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">Preparação de origem não encontrada ou erro ao carregar.</div>
 	}
 
 	return <RecipeForm mode="fork" initialData={baseRecipe} />

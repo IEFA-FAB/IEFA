@@ -26,14 +26,7 @@ import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
-export type ModuleId =
-	| "diner"
-	| "messhall"
-	| "unit"
-	| "kitchen"
-	| "kitchen-production"
-	| "global"
-	| "analytics"
+export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics"
 
 export type ModuleDef = {
 	id: ModuleId
@@ -143,7 +136,5 @@ export type NavItem = {
 }
 
 export function getNavItemsForPermissions(permissions: UserPermission[]): NavItem[] {
-	return getModulesForPermissions(permissions).flatMap((m) =>
-		m.items.map((it) => ({ to: it.url, label: it.title, icon: it.icon as IconType }))
-	)
+	return getModulesForPermissions(permissions).flatMap((m) => m.items.map((it) => ({ to: it.url, label: it.title, icon: it.icon as IconType })))
 }

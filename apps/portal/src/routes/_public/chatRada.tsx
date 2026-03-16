@@ -1,33 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import {
-	AlertCircle,
-	ArrowDown,
-	Bot,
-	Check,
-	Copy,
-	Link as LinkIcon,
-	MessageSquare,
-	Plus,
-	RefreshCcw,
-	Send,
-	Sparkles,
-	Trash2,
-	User,
-} from "lucide-react"
+import { AlertCircle, ArrowDown, Bot, Check, Copy, Link as LinkIcon, MessageSquare, Plus, RefreshCcw, Send, Sparkles, Trash2, User } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { useAuth } from "@/hooks/useAuth"
-import type {
-	AskReference,
-	AskResponse,
-	ChatMessage,
-	HealthStatus,
-	RemoteMessage,
-	SessionSummary,
-} from "@/types/chat"
+import type { AskReference, AskResponse, ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
 
 /* =========================
    Constantes
@@ -43,8 +22,7 @@ const LS_SESSION_ID = "rada_session_id"
 const QUERY_KEYS = {
 	health: ["health"] as const,
 	sessions: (userId: string | null) => ["sessions", userId] as const,
-	sessionMessages: (userId: string | null, sessionId: string | null) =>
-		["sessionMessages", userId, sessionId] as const,
+	sessionMessages: (userId: string | null, sessionId: string | null) => ["sessionMessages", userId, sessionId] as const,
 }
 
 /* =========================
@@ -78,15 +56,9 @@ function cn(...xs: Array<string | false | null | undefined>) {
 }
 
 function StatusDot({ status }: { status: HealthStatus }) {
-	const color =
-		status === "ok" ? "bg-emerald-500" : status === "loading" ? "bg-amber-400" : "bg-rose-500"
+	const color = status === "ok" ? "bg-emerald-500" : status === "loading" ? "bg-amber-400" : "bg-rose-500"
 	const pulse = status === "loading" ? "animate-pulse" : ""
-	return (
-		<span
-			className={`inline-block h-2 w-2 rounded-full ${color} ${pulse} shadow-sm`}
-			aria-hidden="true"
-		/>
-	)
+	return <span className={`inline-block h-2 w-2 rounded-full ${color} ${pulse} shadow-sm`} aria-hidden="true" />
 }
 
 function prettyStatusText(status: HealthStatus) {
@@ -241,11 +213,7 @@ function sessionTitleLikeChatGPT(s: SessionSummary) {
    Fetch helper e cliente
 ========================= */
 
-async function ragFetch(
-	path: string,
-	init: RequestInit & { jsonBody?: unknown } = {},
-	opts?: { userId?: string | null; withAuth?: boolean }
-) {
+async function ragFetch(path: string, init: RequestInit & { jsonBody?: unknown } = {}, opts?: { userId?: string | null; withAuth?: boolean }) {
 	const url = `${API_BASE}${path}`
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
@@ -273,11 +241,7 @@ function useRagClient(userId: string | null) {
 			return data
 		},
 		sessionMessages: async (sid: string) => {
-			const res = await ragFetch(
-				`/sessions/${sid}/messages`,
-				{ method: "GET" },
-				{ withAuth, userId }
-			)
+			const res = await ragFetch(`/sessions/${sid}/messages`, { method: "GET" }, { withAuth, userId })
 			if (!res.ok) throw new Error("Falha ao buscar mensagens")
 			const data: RemoteMessage[] = await res.json()
 			return data
@@ -288,11 +252,7 @@ function useRagClient(userId: string | null) {
 			return true
 		},
 		ask: async (payload: unknown) => {
-			const res = await ragFetch(
-				"/ask",
-				{ method: "POST", jsonBody: payload },
-				{ withAuth, userId }
-			)
+			const res = await ragFetch("/ask", { method: "POST", jsonBody: payload }, { withAuth, userId })
 			if (!res.ok) {
 				const errText = await res.text().catch(() => "Erro desconhecido")
 				throw new Error(errText || `HTTP ${res.status}`)
@@ -358,11 +318,7 @@ function useHealthQuery() {
 	return query
 }
 
-function useSessionsQuery(
-	client: ReturnType<typeof useRagClient>,
-	isLoggedIn: boolean,
-	userId: string | null
-) {
+function useSessionsQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: boolean, userId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessions(userId),
 		enabled: isLoggedIn && !!userId,
@@ -379,12 +335,7 @@ function useSessionsQuery(
 	})
 }
 
-function useSessionMessagesQuery(
-	client: ReturnType<typeof useRagClient>,
-	isLoggedIn: boolean,
-	userId: string | null,
-	sessionId: string | null
-) {
+function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLoggedIn: boolean, userId: string | null, sessionId: string | null) {
 	return useQuery({
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
 		enabled: isLoggedIn && !!userId && !!sessionId,
@@ -393,12 +344,7 @@ function useSessionMessagesQuery(
 			return data.map((r, i) => {
 				const role = r.role === "system" ? ("assistant" as const) : (r.role as "user" | "assistant")
 				const cj = parseContentJson(r.content_json)
-				const content =
-					role === "assistant"
-						? String(cj?.answer ?? "")
-						: role === "user"
-							? String(cj?.question ?? "")
-							: String(cj?.content ?? "")
+				const content = role === "assistant" ? String(cj?.answer ?? "") : role === "user" ? String(cj?.question ?? "") : String(cj?.content ?? "")
 
 				const references: AskReference[] = Array.isArray(cj?.references) ? cj.references : []
 				const sources: string[] = Array.isArray(cj?.sources) ? cj.sources : []
@@ -418,11 +364,7 @@ function useSessionMessagesQuery(
 	})
 }
 
-function useDeleteSessionMutation(
-	client: ReturnType<typeof useRagClient>,
-	userId: string | null,
-	_sessionId: string | null
-) {
+function useDeleteSessionMutation(client: ReturnType<typeof useRagClient>, userId: string | null, _sessionId: string | null) {
 	const queryClient = useQueryClient()
 
 	return useMutation({
@@ -434,14 +376,10 @@ function useDeleteSessionMutation(
 			})
 
 			// Snapshot do estado anterior
-			const previousSessions = queryClient.getQueryData<SessionSummary[]>(
-				QUERY_KEYS.sessions(userId)
-			)
+			const previousSessions = queryClient.getQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId))
 
 			// Atualização otimista
-			queryClient.setQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId), (old) =>
-				old ? old.filter((s) => s.id !== sid) : []
-			)
+			queryClient.setQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId), (old) => (old ? old.filter((s) => s.id !== sid) : []))
 
 			return { previousSessions }
 		},
@@ -473,18 +411,13 @@ function ReferencesList({ id, references }: { id: string; references: AskReferen
 				{references.map((ref) => {
 					const refKey = `${ref.doc_id ?? "d"}-${ref.source}-${ref.n}-${ref.page ?? "p"}`
 					return (
-						<details
-							key={`${id}-ref-${refKey}`}
-							className="bg-muted/20 border border-border/30 rounded-lg p-2"
-						>
+						<details key={`${id}-ref-${refKey}`} className="bg-muted/20 border border-border/30 rounded-lg p-2">
 							<summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
 								<Badge variant="secondary" className="h-5 rounded-md text-[11px]">
 									[{ref.n}]
 								</Badge>
 								<span className="text-xs font-medium truncate">{ref.source}</span>
-								{ref.page != null && (
-									<span className="text-xs text-muted-foreground">pág. {ref.page}</span>
-								)}
+								{ref.page != null && <span className="text-xs text-muted-foreground">pág. {ref.page}</span>}
 							</summary>
 							{ref.snippet && (
 								<div className="mt-2 text-xs text-muted-foreground pl-2 border-l-2 border-border/40">
@@ -511,10 +444,7 @@ function SourcesList({ id, sources }: { id: string; sources: string[] }) {
 			</summary>
 			<ul className="mt-2 space-y-1.5">
 				{sources.map((s) => (
-					<li
-						key={`${id}-src-${s}`}
-						className="flex items-start gap-2 bg-muted/20 border border-border/30 rounded-lg p-2"
-					>
+					<li key={`${id}-src-${s}`} className="flex items-start gap-2 bg-muted/20 border border-border/30 rounded-lg p-2">
 						<span className="text-xs text-muted-foreground mt-0.5">•</span>
 						{isLikelyUrl(s) ? (
 							<a
@@ -526,9 +456,7 @@ function SourcesList({ id, sources }: { id: string; sources: string[] }) {
 								{s}
 							</a>
 						) : (
-							<code className="text-xs bg-muted/70 px-2 py-1 rounded-md border border-border/30">
-								{s}
-							</code>
+							<code className="text-xs bg-muted/70 px-2 py-1 rounded-md border border-border/30">{s}</code>
 						)}
 					</li>
 				))}
@@ -537,15 +465,7 @@ function SourcesList({ id, sources }: { id: string; sources: string[] }) {
 	)
 }
 
-function MessageItem({
-	m,
-	copiedMsgId,
-	onCopy,
-}: {
-	m: ChatMessage
-	copiedMsgId: string | null
-	onCopy: (id: string, text: string) => void
-}) {
+function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: string | null; onCopy: (id: string, text: string) => void }) {
 	const isUser = m.role === "user"
 	const isError = !!m.error
 
@@ -554,19 +474,12 @@ function MessageItem({
 	const hasReferences = !!(m.references && m.references.length > 0)
 
 	const bubbleBase = "px-4 py-3 rounded-2xl inline-block max-w-[85%] shadow-sm"
-	const bubbleUser =
-		"bg-linear-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10 text-sm leading-relaxed whitespace-pre-wrap"
-	const bubbleError =
-		"bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-sm leading-relaxed"
+	const bubbleUser = "bg-linear-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10 text-sm leading-relaxed whitespace-pre-wrap"
+	const bubbleError = "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-sm leading-relaxed"
 	const bubbleAssistant = "bg-card border border-border/50 text-foreground"
 
 	return (
-		<li
-			className={cn(
-				"flex gap-3 group animate-in fade-in slide-in-from-bottom-4 duration-500",
-				isUser && "flex-row-reverse"
-			)}
-		>
+		<li className={cn("flex gap-3 group animate-in fade-in slide-in-from-bottom-4 duration-500", isUser && "flex-row-reverse")}>
 			{/* Avatar */}
 			<div
 				className={cn(
@@ -584,9 +497,7 @@ function MessageItem({
 			{/* Conteúdo */}
 			<div className={cn("flex-1 min-w-0 space-y-2", isUser && "flex flex-col items-end")}>
 				<div className={cn("flex items-center gap-2", isUser && "flex-row-reverse")}>
-					<span className="text-xs font-semibold text-foreground">
-						{isUser ? "Você" : isError ? "Erro" : "Assistente"}
-					</span>
+					<span className="text-xs font-semibold text-foreground">{isUser ? "Você" : isError ? "Erro" : "Assistente"}</span>
 					<span className="text-xs text-muted-foreground/70">
 						{new Date(m.createdAt).toLocaleTimeString("pt-BR", {
 							hour: "2-digit",
@@ -595,46 +506,21 @@ function MessageItem({
 					</span>
 				</div>
 
-				<div
-					className={cn(
-						bubbleBase,
-						isUser && bubbleUser,
-						isError && bubbleError,
-						!isUser && !isError && bubbleAssistant
-					)}
-				>
+				<div className={cn(bubbleBase, isUser && bubbleUser, isError && bubbleError, !isUser && !isError && bubbleAssistant)}>
 					{!isUser && !isError ? (
 						<ReactMarkdown
 							remarkPlugins={[remarkGfm, remarkBreaks]}
 							components={{
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
-								a: (props: any) => (
-									<a
-										{...props}
-										className="text-primary hover:underline"
-										target="_blank"
-										rel="noreferrer noopener"
-									/>
-								),
+								a: (props: any) => <a {...props} className="text-primary hover:underline" target="_blank" rel="noreferrer noopener" />,
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
-								p: (props: any) => (
-									<p {...props} className="mb-3 last:mb-0 text-sm leading-relaxed" />
-								),
+								p: (props: any) => <p {...props} className="mb-3 last:mb-0 text-sm leading-relaxed" />,
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
-								ul: (props: any) => (
-									<ul {...props} className="list-disc pl-5 my-2 text-sm leading-relaxed" />
-								),
+								ul: (props: any) => <ul {...props} className="list-disc pl-5 my-2 text-sm leading-relaxed" />,
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
-								ol: (props: any) => (
-									<ol {...props} className="list-decimal pl-5 my-2 text-sm leading-relaxed" />
-								),
+								ol: (props: any) => <ol {...props} className="list-decimal pl-5 my-2 text-sm leading-relaxed" />,
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
-								code: (props: any) => (
-									<code
-										{...props}
-										className="bg-muted/70 px-1.5 py-0.5 rounded border border-border/30"
-									/>
-								),
+								code: (props: any) => <code {...props} className="bg-muted/70 px-1.5 py-0.5 rounded border border-border/30" />,
 							}}
 						>
 							{displayMarkdown}
@@ -645,14 +531,10 @@ function MessageItem({
 				</div>
 
 				{/* Referências */}
-				{!isUser && !isError && hasReferences && (
-					<ReferencesList id={m.id} references={m.references!} />
-				)}
+				{!isUser && !isError && hasReferences && <ReferencesList id={m.id} references={m.references!} />}
 
 				{/* Fontes consultadas */}
-				{!isUser && !isError && m.sources && m.sources.length > 0 && (
-					<SourcesList id={m.id} sources={m.sources} />
-				)}
+				{!isUser && !isError && m.sources && m.sources.length > 0 && <SourcesList id={m.id} sources={m.sources} />}
 
 				{/* Copiar */}
 				<Button
@@ -726,12 +608,7 @@ function ChatRada() {
 	}, [isLoggedIn])
 
 	// Carrega histórico ao mudar sessionId (via query)
-	const { data: sessionMessages = [] } = useSessionMessagesQuery(
-		client,
-		isLoggedIn,
-		userId,
-		sessionId
-	)
+	const { data: sessionMessages = [] } = useSessionMessagesQuery(client, isLoggedIn, userId, sessionId)
 
 	useEffect(() => {
 		if (!isLoggedIn || !userId || !sessionId) return
@@ -862,17 +739,13 @@ function ChatRada() {
 								} as ChatMessage,
 							]
 						}
-						return prev.map((m) =>
-							m.id === assistantId ? { ...m, content: (m.content || "") + delta } : m
-						)
+						return prev.map((m) => (m.id === assistantId ? { ...m, content: (m.content || "") + delta } : m))
 					})
 				}
 
 				const applyFinal = async (finalPayload: any) => {
 					const answer = String(finalPayload.answer ?? "")
-					const refs = Array.isArray(finalPayload.references)
-						? (finalPayload.references as AskReference[])
-						: []
+					const refs = Array.isArray(finalPayload.references) ? (finalPayload.references as AskReference[]) : []
 					const srcs = Array.isArray(finalPayload.sources) ? (finalPayload.sources as string[]) : []
 					const sid = String(finalPayload.session_id || finalPayload.sessionId || "")
 
@@ -891,13 +764,7 @@ function ChatRada() {
 							} as ChatMessage,
 						])
 					} else {
-						setMessages((prev) =>
-							prev.map((m) =>
-								m.id === assistantId
-									? { ...m, content: answer, references: refs, sources: srcs }
-									: m
-							)
-						)
+						setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: answer, references: refs, sources: srcs } : m)))
 					}
 
 					if (isLoggedIn && sid) {
@@ -1029,10 +896,7 @@ function ChatRada() {
 	return (
 		<div className="relative h-[calc(100vh-8rem)] w-full bg-linear-to-b from-background to-muted/20 text-foreground rounded-xl border border-border/50 overflow-hidden shadow-xl">
 			{/* Blobs decorativos */}
-			<div
-				className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-				aria-hidden="true"
-			>
+			<div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
 				<div
 					className="absolute left-1/2 top-[-20%] h-200 w-200 -translate-x-1/2 rounded-full blur-3xl
                      bg-linear-to-br from-primary/20 via-violet-500/10 to-transparent
@@ -1073,15 +937,11 @@ function ChatRada() {
 					<div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
 						{!isLoggedIn ? (
 							<div className="h-full flex items-center justify-center text-center px-4">
-								<div className="text-xs text-muted-foreground">
-									Faça login para ver e manter o histórico das suas conversas.
-								</div>
+								<div className="text-xs text-muted-foreground">Faça login para ver e manter o histórico das suas conversas.</div>
 							</div>
 						) : sessions.length === 0 ? (
 							<div className="h-full flex items-center justify-center text-center px-4">
-								<div className="text-xs text-muted-foreground">
-									Nenhuma conversa encontrada. Inicie um novo bate-papo.
-								</div>
+								<div className="text-xs text-muted-foreground">Nenhuma conversa encontrada. Inicie um novo bate-papo.</div>
 							</div>
 						) : (
 							<div className="space-y-1">
@@ -1092,19 +952,14 @@ function ChatRada() {
 											key={s.id}
 											onClick={() => selectSession(s.id)}
 											variant="ghost"
-											className={cn(
-												"w-full text-xs",
-												active ? "bg-primary/10 border-primary/30" : ""
-											)}
+											className={cn("w-full text-xs", active ? "bg-primary/10 border-primary/30" : "")}
 											title={sessionTitleLikeChatGPT(s)}
 											aria-label={`Abrir sessão ${sessionTitleLikeChatGPT(s)}`}
 										>
 											<MessageSquare className="h-4 w-4 text-muted-foreground" />
 											<div className="flex-1 min-w-0">
 												{sessionTitleLikeChatGPT(s)}
-												<div className="text-[10px] text-muted-foreground truncate">
-													{formatDateShort(s.last_message_at || s.created_at)}
-												</div>
+												<div className="text-[10px] text-muted-foreground truncate">{formatDateShort(s.last_message_at || s.created_at)}</div>
 											</div>
 											<Button
 												onClick={(e) => deleteSession(s.id, e)}
@@ -1126,10 +981,7 @@ function ChatRada() {
 						{isLoggedIn ? (
 							<div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
 								<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
-								<span>
-									As conversas ficam salvas por 7 dias. Inicie uma nova conversa para mudar de
-									assunto.
-								</span>
+								<span>As conversas ficam salvas por 7 dias. Inicie uma nova conversa para mudar de assunto.</span>
 							</div>
 						) : (
 							<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
@@ -1159,9 +1011,7 @@ function ChatRada() {
 								{healthBadge}
 
 								{isLoggedIn && sessionId && (
-									<span className="text-[11px] text-muted-foreground px-2 py-1 border border-border/50 rounded-full">
-										sessão: {sessionId.slice(0, 8)}…
-									</span>
+									<span className="text-[11px] text-muted-foreground px-2 py-1 border border-border/50 rounded-full">sessão: {sessionId.slice(0, 8)}…</span>
 								)}
 
 								<Button
@@ -1179,11 +1029,7 @@ function ChatRada() {
 									size="sm"
 									onClick={startNewSession}
 									className="h-9 px-2 hover:bg-muted/80 transition-colors"
-									title={
-										isLoggedIn
-											? "Iniciar nova sessão (memória reinicia)"
-											: "Nova conversa (histórico desativado)"
-									}
+									title={isLoggedIn ? "Iniciar nova sessão (memória reinicia)" : "Nova conversa (histórico desativado)"}
 								>
 									Nova sessão
 								</Button>
@@ -1199,18 +1045,15 @@ function ChatRada() {
 									<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
 								</div>
 								<div>
-									<p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">
-										Importante
-									</p>
+									<p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">Importante</p>
 									{isLoggedIn ? (
 										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											O histórico desta conversa é salvo automaticamente. Use "Nova sessão" para
-											começar um novo assunto, ou "Apagar sessão" para excluir esta conversa.
+											O histórico desta conversa é salvo automaticamente. Use "Nova sessão" para começar um novo assunto, ou "Apagar sessão" para excluir esta
+											conversa.
 										</p>
 									) : (
 										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											Você não está logado. O histórico está desativado e suas mensagens não serão
-											salvas. Entre na conta para ativar o histórico.
+											Você não está logado. O histórico está desativado e suas mensagens não serão salvas. Entre na conta para ativar o histórico.
 										</p>
 									)}
 								</div>
@@ -1236,20 +1079,14 @@ function ChatRada() {
 												Chat RADA
 											</div>
 											<p className="text-sm text-muted-foreground leading-relaxed">
-												Consulte o Regulamento de Administração da Aeronáutica usando inteligência
-												artificial
+												Consulte o Regulamento de Administração da Aeronáutica usando inteligência artificial
 											</p>
 										</div>
 									</div>
 								) : (
 									<ul className="space-y-6">
 										{messages.map((m) => (
-											<MessageItem
-												key={m.id}
-												m={m}
-												copiedMsgId={copiedMsgId}
-												onCopy={copyMessage}
-											/>
+											<MessageItem key={m.id} m={m} copiedMsgId={copiedMsgId} onCopy={copyMessage} />
 										))}
 
 										{/* Estado enviando */}
@@ -1260,22 +1097,11 @@ function ChatRada() {
 												</div>
 												<div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-card border border-border/50 shadow-sm">
 													<div className="flex gap-1">
-														<span
-															className="h-2 w-2 rounded-full bg-primary/60 animate-bounce"
-															style={{ animationDelay: "0ms" }}
-														/>
-														<span
-															className="h-2 w-2 rounded-full bg-primary/60 animate-bounce"
-															style={{ animationDelay: "150ms" }}
-														/>
-														<span
-															className="h-2 w-2 rounded-full bg-primary/60 animate-bounce"
-															style={{ animationDelay: "300ms" }}
-														/>
+														<span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+														<span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+														<span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
 													</div>
-													<span className="text-xs text-muted-foreground font-medium">
-														Processando sua pergunta…
-													</span>
+													<span className="text-xs text-muted-foreground font-medium">Processando sua pergunta…</span>
 												</div>
 											</li>
 										)}
@@ -1329,14 +1155,8 @@ function ChatRada() {
 
 						<div className="mt-3 flex items-center justify-between text-xs">
 							<span className="text-muted-foreground">
-								<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[10px]">
-									Enter
-								</kbd>{" "}
-								para enviar •{" "}
-								<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[10px]">
-									Shift + Enter
-								</kbd>{" "}
-								para quebra de linha
+								<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[10px]">Enter</kbd> para enviar •{" "}
+								<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[10px]">Shift + Enter</kbd> para quebra de linha
 							</span>
 							{health !== "ok" && (
 								<span className="text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5">

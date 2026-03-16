@@ -3,13 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
@@ -34,13 +28,7 @@ interface ProductItemFormProps {
 	defaultProductId?: string
 }
 
-export function ProductItemForm({
-	isOpen,
-	onClose,
-	mode,
-	productItem,
-	defaultProductId,
-}: ProductItemFormProps) {
+export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultProductId }: ProductItemFormProps) {
 	const queryClient = useQueryClient()
 	const { products } = useProducts()
 	const { createProductItem, isCreating } = useCreateProductItem()
@@ -52,12 +40,8 @@ export function ProductItemForm({
 			product_id: productItem?.product_id || defaultProductId || "",
 			barcode: productItem?.barcode || "",
 			purchase_measure_unit: productItem?.purchase_measure_unit || "",
-			unit_content_quantity: productItem?.unit_content_quantity
-				? Number(productItem.unit_content_quantity)
-				: 1.0,
-			correction_factor: productItem?.correction_factor
-				? Number(productItem.correction_factor)
-				: 1.0,
+			unit_content_quantity: productItem?.unit_content_quantity ? Number(productItem.unit_content_quantity) : 1.0,
+			correction_factor: productItem?.correction_factor ? Number(productItem.correction_factor) : 1.0,
 		},
 		validators: {
 			onChange: productItemSchema,
@@ -134,10 +118,7 @@ export function ProductItemForm({
 								<Label htmlFor={field.name}>
 									Produto Genérico <span className="text-destructive">*</span>
 								</Label>
-								<Select
-									value={field.state.value}
-									onValueChange={(value) => field.handleChange(value || "")}
-								>
+								<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
 									<option value="">Selecione um produto</option>
 									{products?.map((p) => (
 										<option key={p.id} value={p.id}>
@@ -159,12 +140,7 @@ export function ProductItemForm({
 						{(field) => (
 							<div className="space-y-2">
 								<Label htmlFor={field.name}>Código de Barras</Label>
-								<Input
-									id={field.name}
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									placeholder="Ex: 7891234567890"
-								/>
+								<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: 7891234567890" />
 							</div>
 						)}
 					</form.Field>
@@ -175,12 +151,7 @@ export function ProductItemForm({
 							{(field) => (
 								<div className="space-y-2">
 									<Label htmlFor={field.name}>Unidade de Compra</Label>
-									<Input
-										id={field.name}
-										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Ex: SACO, CAIXA"
-									/>
+									<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
 									<p className="text-xs text-muted-foreground">Embalagem do fornecedor</p>
 								</div>
 							)}

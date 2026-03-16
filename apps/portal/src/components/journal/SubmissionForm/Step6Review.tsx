@@ -9,8 +9,7 @@ export function Step6Review() {
 	return (
 		<div className="space-y-6">
 			<p className="text-muted-foreground">
-				Revise todas as informações antes de submeter seu artigo. Após a submissão, você não poderá
-				editar estes dados até receber um pedido de revisão.
+				Revise todas as informações antes de submeter seu artigo. Após a submissão, você não poderá editar estes dados até receber um pedido de revisão.
 			</p>
 
 			{/* Article Type */}
@@ -67,18 +66,10 @@ export function Step6Review() {
 							<div className="flex-1">
 								<div className="font-medium">
 									{author.full_name}
-									{author.is_corresponding && (
-										<span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-											Correspondente
-										</span>
-									)}
+									{author.is_corresponding && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Correspondente</span>}
 								</div>
-								{author.affiliation && (
-									<div className="text-muted-foreground">{author.affiliation}</div>
-								)}
-								{author.orcid && (
-									<div className="text-xs text-muted-foreground">ORCID: {author.orcid}</div>
-								)}
+								{author.affiliation && <div className="text-muted-foreground">{author.affiliation}</div>}
+								{author.orcid && <div className="text-xs text-muted-foreground">ORCID: {author.orcid}</div>}
 							</div>
 						</div>
 					))}
@@ -91,8 +82,7 @@ export function Step6Review() {
 				<div className="space-y-2 text-sm">
 					{formData.pdf_file && (
 						<div>
-							✓ Manuscrito PDF: {formData.pdf_file.name} (
-							{(formData.pdf_file.size / 1024 / 1024).toFixed(2)} MB)
+							✓ Manuscrito PDF: {formData.pdf_file.name} ({(formData.pdf_file.size / 1024 / 1024).toFixed(2)} MB)
 						</div>
 					)}
 					{formData.source_file && <div>✓ Arquivo Fonte: {formData.source_file.name}</div>}
@@ -113,16 +103,14 @@ export function Step6Review() {
 							{(formData.conflict_of_interest?.length || 0) > 150 ? "..." : ""}
 						</dd>
 					</div>
-					{formData.has_ethics_approval && (
-						<div>✓ Aprovação de comitê de ética: {formData.ethics_approval}</div>
-					)}
+					{formData.has_ethics_approval && <div>✓ Aprovação de comitê de ética: {formData.ethics_approval}</div>}
 				</div>
 			</div>
 
 			<div className="p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-900">
 				<p className="text-sm text-yellow-900 dark:text-yellow-100">
-					<strong>Atenção:</strong> Ao clicar em "Submeter Artigo", você confirma que todos os dados
-					estão corretos e que o manuscrito está pronto para revisão por pares.
+					<strong>Atenção:</strong> Ao clicar em "Submeter Artigo", você confirma que todos os dados estão corretos e que o manuscrito está pronto para revisão
+					por pares.
 				</p>
 			</div>
 		</div>

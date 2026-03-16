@@ -12,10 +12,7 @@ import { cn } from "@/lib/cn"
 export const Route = createFileRoute("/_protected/_modules/diner/menu")({
 	component: MenuPage,
 	head: () => ({
-		meta: [
-			{ title: "Cardápio - SISUB" },
-			{ name: "description", content: "Visualize o cardápio do rancho" },
-		],
+		meta: [{ title: "Cardápio - SISUB" }, { name: "description", content: "Visualize o cardápio do rancho" }],
 	}),
 })
 
@@ -70,9 +67,7 @@ function DishCard({ dish }: { dish: DishDetails }) {
 function MealSection({ mealKey, dishes }: { mealKey: string; dishes: DishDetails[] }) {
 	return (
 		<div className="space-y-2">
-			<h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-				{MEAL_LABELS[mealKey] ?? mealKey}
-			</h3>
+			<h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{MEAL_LABELS[mealKey] ?? mealKey}</h3>
 			{dishes.length === 0 ? (
 				<p className="text-sm text-muted-foreground italic">Sem cardápio planejado.</p>
 			) : (
@@ -100,11 +95,7 @@ function MenuPage() {
 	const defaultMessHall = messHalls.find((m) => String(m.id) === String(defaultMessHallId))
 	const kitchenIds = defaultMessHall?.kitchen_id ? [defaultMessHall.kitchen_id] : []
 
-	const { data: menuContent, isLoading } = useDailyMenuContent(
-		kitchenIds,
-		dates[0],
-		dates[dates.length - 1]
-	)
+	const { data: menuContent, isLoading } = useDailyMenuContent(kitchenIds, dates[0], dates[dates.length - 1])
 
 	const dayMenu = menuContent?.[selectedDate] ?? {}
 	const hasMeals = MEAL_ORDER.some((k) => (dayMenu[k]?.length ?? 0) > 0)
@@ -115,30 +106,16 @@ function MenuPage() {
 
 			{/* Navegação de datas */}
 			<div className="flex items-center justify-between gap-2 rounded-md border bg-card p-3">
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={() => setSelectedDate(dates[selectedIndex - 1])}
-					disabled={!canGoPrev}
-					aria-label="Dia anterior"
-				>
+				<Button variant="ghost" size="icon" onClick={() => setSelectedDate(dates[selectedIndex - 1])} disabled={!canGoPrev} aria-label="Dia anterior">
 					<ChevronLeft className="h-5 w-5" />
 				</Button>
 
 				<div className="text-center">
 					<p className="text-sm font-semibold capitalize">{formatDateLabel(selectedDate)}</p>
-					{selectedDate === todayISO() && (
-						<span className="text-xs text-primary font-medium">Hoje</span>
-					)}
+					{selectedDate === todayISO() && <span className="text-xs text-primary font-medium">Hoje</span>}
 				</div>
 
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={() => setSelectedDate(dates[selectedIndex + 1])}
-					disabled={!canGoNext}
-					aria-label="Próximo dia"
-				>
+				<Button variant="ghost" size="icon" onClick={() => setSelectedDate(dates[selectedIndex + 1])} disabled={!canGoNext} aria-label="Próximo dia">
 					<ChevronRight className="h-5 w-5" />
 				</Button>
 			</div>
@@ -155,18 +132,11 @@ function MenuPage() {
 							onClick={() => setSelectedDate(d)}
 							className={cn(
 								"flex flex-col items-center justify-center h-auto min-w-[3.5rem] py-2 shrink-0 transition-colors",
-								isSelected
-									? "border-primary bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
-									: "hover:bg-muted font-normal"
+								isSelected ? "border-primary bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary" : "hover:bg-muted font-normal"
 							)}
 						>
 							<span className="text-sm">{Number(day)}</span>
-							<span
-								className={cn(
-									"text-xs",
-									isSelected ? "text-primary/80" : "text-muted-foreground opacity-80"
-								)}
-							>
+							<span className={cn("text-xs", isSelected ? "text-primary/80" : "text-muted-foreground opacity-80")}>
 								{new Date(`${d}T00:00:00`).toLocaleDateString("pt-BR", { month: "short" })}
 							</span>
 						</Button>

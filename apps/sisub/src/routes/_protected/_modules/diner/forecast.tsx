@@ -26,8 +26,7 @@ const DayCard = lazy(() => import("@/components/features/diner/DayCard"))
    ============================ */
 
 // Pluralização simples
-const pluralize = (count: number, singular: string, plural: string) =>
-	count === 1 ? singular : plural
+const pluralize = (count: number, singular: string, plural: string) => (count === 1 ? singular : plural)
 
 const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações")
 const labelCard = (n: number) => pluralize(n, "card", "cards")
@@ -157,9 +156,7 @@ export default function Forecast(): JSX.Element {
      Derivações
      ============================ */
 
-	const weekdayTargets = dates.filter(
-		(date: string) => isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD)
-	)
+	const weekdayTargets = dates.filter((date: string) => isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD))
 
 	const computedData = (() => {
 		// "Cards sem rancho" = datas sem um messHallCode definido (falsy)
@@ -343,11 +340,7 @@ export default function Forecast(): JSX.Element {
 				})
 			}
 
-			setSuccess(
-				`Rancho padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(
-					cardsWithoutMessHall.length
-				)}!`
-			)
+			setSuccess(`Rancho padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(cardsWithoutMessHall.length)}!`)
 			setIsApplyingDefaultMessHall(false)
 		} catch (err) {
 			console.error("Erro ao aplicar rancho padrão:", err)
@@ -356,10 +349,7 @@ export default function Forecast(): JSX.Element {
 		}
 	}
 
-	const applyMealTemplateToAll = async (
-		template: DayMeals,
-		options: { mode: "fill-missing" | "override" }
-	): Promise<void> => {
+	const applyMealTemplateToAll = async (template: DayMeals, options: { mode: "fill-missing" | "override" }): Promise<void> => {
 		"use no memo"
 		const targetDates = weekdayTargets
 		if (!targetDates.length) {
@@ -389,12 +379,8 @@ export default function Forecast(): JSX.Element {
 				}
 
 				// UI (CODE) -> Backend (ID)
-				const codeForDay =
-					(dayMessHalls[date] && dayMessHalls[date] !== ""
-						? dayMessHalls[date]
-						: defaultMessHallCode) || ""
-				const idForDay =
-					getMessHallIdByCode(codeForDay) || (defaultMessHallId ? String(defaultMessHallId) : "")
+				const codeForDay = (dayMessHalls[date] && dayMessHalls[date] !== "" ? dayMessHalls[date] : defaultMessHallCode) || ""
+				const idForDay = getMessHallIdByCode(codeForDay) || (defaultMessHallId ? String(defaultMessHallId) : "")
 
 				;(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
 					if (after[k] !== before[k]) {
@@ -437,9 +423,7 @@ export default function Forecast(): JSX.Element {
 			const diasStr = `${targetDates.length} ${labelDiaUtil(targetDates.length)}`
 			const alteracoesStr = `${newChanges.length} ${labelAlteracao(newChanges.length)}`
 
-			setSuccess(
-				`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`
-			)
+			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
 			setShowBulkMealSelector(false)
 			setIsApplyingMealTemplate(false)
 		} catch (err) {
@@ -549,11 +533,7 @@ export default function Forecast(): JSX.Element {
 			<section className="w-full">
 				<div className="p-4 sm:p-5">
 					<div className="p-4 sm:p-5">
-						<SimplifiedMilitaryStats
-							selections={selections}
-							dates={dates}
-							isLoading={isRefetching}
-						/>
+						<SimplifiedMilitaryStats selections={selections} dates={dates} isLoading={isRefetching} />
 					</div>
 				</div>
 			</section>
@@ -568,12 +548,7 @@ export default function Forecast(): JSX.Element {
 					{dayCardsProps.map((cardProps) => (
 						<Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
 							<div className="snap-center">
-								<DayCard
-									{...cardProps}
-									pendingChanges={pendingChanges}
-									onMealToggle={handleMealToggle}
-									onMessHallChange={handleMessHallChange}
-								/>
+								<DayCard {...cardProps} pendingChanges={pendingChanges} onMealToggle={handleMealToggle} onMessHallChange={handleMessHallChange} />
 							</div>
 						</Suspense>
 					))}

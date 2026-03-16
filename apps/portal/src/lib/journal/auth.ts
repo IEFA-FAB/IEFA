@@ -89,19 +89,11 @@ export async function canEditArticle(articleId: string, userId?: string): Promis
 	if (await isEditor(uid)) return true
 
 	// Check if user is the article submitter and article is editable
-	const { data: article } = await supabase
-		.schema("journal")
-		.from("articles")
-		.select("submitter_id, status")
-		.eq("id", articleId)
-		.single()
+	const { data: article } = await supabase.schema("journal").from("articles").select("submitter_id, status").eq("id", articleId).single()
 
 	if (!article) return false
 
-	return (
-		article.submitter_id === uid &&
-		(article.status === "draft" || article.status === "revision_requested")
-	)
+	return article.submitter_id === uid && (article.status === "draft" || article.status === "revision_requested")
 }
 
 /**
@@ -115,12 +107,7 @@ export async function canViewArticle(articleId: string, userId?: string): Promis
 	const uid = userId || (await supabase.auth.getUser()).data.user?.id
 
 	// Check if article is published (public access)
-	const { data: article } = await supabase
-		.schema("journal")
-		.from("articles")
-		.select("status, submitter_id, deleted_at")
-		.eq("id", articleId)
-		.single()
+	const { data: article } = await supabase.schema("journal").from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).single()
 
 	if (!article) return false
 
@@ -156,12 +143,7 @@ export async function canSubmitReview(assignmentId: string, userId?: string): Pr
 	const uid = userId || (await supabase.auth.getUser()).data.user?.id
 	if (!uid) return false
 
-	const { data: assignment } = await supabase
-		.schema("journal")
-		.from("review_assignments")
-		.select("reviewer_id, status")
-		.eq("id", assignmentId)
-		.single()
+	const { data: assignment } = await supabase.schema("journal").from("review_assignments").select("reviewer_id, status").eq("id", assignmentId).single()
 
 	if (!assignment) return false
 

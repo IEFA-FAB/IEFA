@@ -7,10 +7,7 @@ function NavigationMenu({ className, children, ...props }: NavigationMenuPrimiti
 	return (
 		<NavigationMenuPrimitive.Root
 			data-slot="navigation-menu"
-			className={cn(
-				"max-w-max group/navigation-menu relative flex max-w-max flex-1 items-center justify-center",
-				className
-			)}
+			className={cn("max-w-max group/navigation-menu relative flex max-w-max flex-1 items-center justify-center", className)}
 			{...props}
 		>
 			{children}
@@ -19,10 +16,7 @@ function NavigationMenu({ className, children, ...props }: NavigationMenuPrimiti
 	)
 }
 
-function NavigationMenuList({
-	className,
-	...props
-}: React.ComponentPropsWithRef<typeof NavigationMenuPrimitive.List>) {
+function NavigationMenuList({ className, ...props }: React.ComponentPropsWithRef<typeof NavigationMenuPrimitive.List>) {
 	return (
 		<NavigationMenuPrimitive.List
 			data-slot="navigation-menu-list"
@@ -32,34 +26,17 @@ function NavigationMenuList({
 	)
 }
 
-function NavigationMenuItem({
-	className,
-	...props
-}: React.ComponentPropsWithRef<typeof NavigationMenuPrimitive.Item>) {
-	return (
-		<NavigationMenuPrimitive.Item
-			data-slot="navigation-menu-item"
-			className={cn("relative", className)}
-			{...props}
-		/>
-	)
+function NavigationMenuItem({ className, ...props }: React.ComponentPropsWithRef<typeof NavigationMenuPrimitive.Item>) {
+	return <NavigationMenuPrimitive.Item data-slot="navigation-menu-item" className={cn("relative", className)} {...props} />
 }
 
 const navigationMenuTriggerStyle = cva(
 	"bg-background hover:bg-muted focus:bg-muted data-open:hover:bg-muted data-open:focus:bg-muted data-open:bg-muted/50 focus-visible:ring-ring/50 data-popup-open:bg-muted/50 data-popup-open:hover:bg-muted rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all focus-visible:ring-[3px] focus-visible:outline-1 disabled:opacity-50 group/navigation-menu-trigger inline-flex h-9 w-max items-center justify-center disabled:pointer-events-none outline-none"
 )
 
-function NavigationMenuTrigger({
-	className,
-	children,
-	...props
-}: NavigationMenuPrimitive.Trigger.Props) {
+function NavigationMenuTrigger({ className, children, ...props }: NavigationMenuPrimitive.Trigger.Props) {
 	return (
-		<NavigationMenuPrimitive.Trigger
-			data-slot="navigation-menu-trigger"
-			className={cn(navigationMenuTriggerStyle(), "group", className)}
-			{...props}
-		>
+		<NavigationMenuPrimitive.Trigger data-slot="navigation-menu-trigger" className={cn(navigationMenuTriggerStyle(), "group", className)} {...props}>
 			{children}{" "}
 			<ChevronDownIcon
 				className="relative top-[1px] ml-1 size-3 transition duration-300 group-data-open/navigation-menu-trigger:rotate-180 group-data-popup-open/navigation-menu-trigger:rotate-180"
@@ -124,10 +101,7 @@ function NavigationMenuLink({ className, ...props }: NavigationMenuPrimitive.Lin
 	)
 }
 
-function NavigationMenuIndicator({
-	className,
-	...props
-}: React.ComponentPropsWithRef<typeof NavigationMenuPrimitive.Icon>) {
+function NavigationMenuIndicator({ className, ...props }: React.ComponentPropsWithRef<typeof NavigationMenuPrimitive.Icon>) {
 	return (
 		<NavigationMenuPrimitive.Icon
 			data-slot="navigation-menu-indicator"

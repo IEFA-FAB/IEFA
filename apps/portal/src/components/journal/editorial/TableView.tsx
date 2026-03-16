@@ -43,11 +43,7 @@ export function TableView({ articles }: TableViewProps) {
 		if (sortField !== field) {
 			return <ArrowUpDown className="size-4 ml-1" aria-hidden="true" />
 		}
-		return sortDirection === "asc" ? (
-			<ArrowUp className="size-4 ml-1" aria-hidden="true" />
-		) : (
-			<ArrowDown className="size-4 ml-1" aria-hidden="true" />
-		)
+		return sortDirection === "asc" ? <ArrowUp className="size-4 ml-1" aria-hidden="true" /> : <ArrowDown className="size-4 ml-1" aria-hidden="true" />
 	}
 
 	const getStatusLabel = (status: string) => {
@@ -68,42 +64,26 @@ export function TableView({ articles }: TableViewProps) {
 				<TableHeader>
 					<TableRow>
 						<TableHead>
-							<button
-								type="button"
-								onClick={() => handleSort("submission_number")}
-								className="flex items-center font-semibold hover:text-foreground"
-							>
+							<button type="button" onClick={() => handleSort("submission_number")} className="flex items-center font-semibold hover:text-foreground">
 								ID
 								<SortIcon field="submission_number" />
 							</button>
 						</TableHead>
 						<TableHead>
-							<button
-								type="button"
-								onClick={() => handleSort("title_pt")}
-								className="flex items-center font-semibold hover:text-foreground"
-							>
+							<button type="button" onClick={() => handleSort("title_pt")} className="flex items-center font-semibold hover:text-foreground">
 								Título
 								<SortIcon field="title_pt" />
 							</button>
 						</TableHead>
 						<TableHead>Autores</TableHead>
 						<TableHead>
-							<button
-								type="button"
-								onClick={() => handleSort("status")}
-								className="flex items-center font-semibold hover:text-foreground"
-							>
+							<button type="button" onClick={() => handleSort("status")} className="flex items-center font-semibold hover:text-foreground">
 								Status
 								<SortIcon field="status" />
 							</button>
 						</TableHead>
 						<TableHead>
-							<button
-								type="button"
-								onClick={() => handleSort("submitted_at")}
-								className="flex items-center font-semibold hover:text-foreground"
-							>
+							<button type="button" onClick={() => handleSort("submitted_at")} className="flex items-center font-semibold hover:text-foreground">
 								Submetido
 								<SortIcon field="submitted_at" />
 							</button>
@@ -113,31 +93,19 @@ export function TableView({ articles }: TableViewProps) {
 				</TableHeader>
 				<TableBody>
 					{sortedArticles.map((article) => {
-						const daysSinceSubmission = article.submitted_at
-							? Math.floor(
-									(Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)
-								)
-							: 0
+						const daysSinceSubmission = article.submitted_at ? Math.floor((Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
 						return (
 							<TableRow key={article.id} className="hover:bg-muted/50">
 								<TableCell className="font-mono text-sm">{article.submission_number}</TableCell>
 								<TableCell>
-									<Link
-										to="/journal/editorial/articles/$articleId"
-										params={{ articleId: article.id }}
-										className="hover:underline font-medium line-clamp-2"
-									>
+									<Link to="/journal/editorial/articles/$articleId" params={{ articleId: article.id }} className="hover:underline font-medium line-clamp-2">
 										{article.title_pt}
 									</Link>
 								</TableCell>
-								<TableCell className="text-sm text-muted-foreground">
-									{article.submitter_name}
-								</TableCell>
+								<TableCell className="text-sm text-muted-foreground">{article.submitter_name}</TableCell>
 								<TableCell>
-									<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted">
-										{getStatusLabel(article.status)}
-									</span>
+									<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted">{getStatusLabel(article.status)}</span>
 								</TableCell>
 								<TableCell className="text-sm text-muted-foreground">
 									{article.submitted_at
@@ -170,11 +138,7 @@ export function TableView({ articles }: TableViewProps) {
 				</TableBody>
 			</Table>
 
-			{sortedArticles.length === 0 && (
-				<div className="flex items-center justify-center py-12 text-muted-foreground">
-					Nenhum artigo encontrado
-				</div>
-			)}
+			{sortedArticles.length === 0 && <div className="flex items-center justify-center py-12 text-muted-foreground">Nenhum artigo encontrado</div>}
 		</div>
 	)
 }

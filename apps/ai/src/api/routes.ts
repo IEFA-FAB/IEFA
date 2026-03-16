@@ -47,12 +47,7 @@ app.post("/api/v1/sessions/:session_id/messages", async (c) => {
 	}
 
 	if (role === "app_requisitante") {
-		const { data: existing } = await supabase
-			.from("query_logs")
-			.select("user_id")
-			.eq("session_id", session_id)
-			.limit(1)
-			.single()
+		const { data: existing } = await supabase.from("query_logs").select("user_id").eq("session_id", session_id).limit(1).single()
 		if (existing && existing.user_id !== user.id) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
@@ -113,12 +108,7 @@ app.get("/api/v1/sessions/:session_id/messages", async (c) => {
 	const role = c.get("role") as AppRole
 
 	if (role === "app_requisitante") {
-		const { data: existing } = await supabase
-			.from("query_logs")
-			.select("user_id")
-			.eq("session_id", session_id)
-			.limit(1)
-			.single()
+		const { data: existing } = await supabase.from("query_logs").select("user_id").eq("session_id", session_id).limit(1).single()
 		if (existing && existing.user_id !== user.id) {
 			return c.json({ error: "Forbidden", code: "FORBIDDEN" }, 403)
 		}
@@ -140,9 +130,7 @@ app.get("/api/v1/chunks/:id", async (c) => {
 	const id = c.req.param("id")
 	const { data, error } = await supabase
 		.from("document_chunks")
-		.select(
-			"id, content, chapter, article, section, chunk_index, token_count, metadata, document_id"
-		)
+		.select("id, content, chapter, article, section, chunk_index, token_count, metadata, document_id")
 		.eq("id", id)
 		.single()
 	if (error || !data) {
@@ -172,13 +160,7 @@ function buildResponse(session_id: string, state: any) {
 	}
 }
 
-async function logQuery(
-	session_id: string,
-	user_id: string,
-	query: string,
-	state: any,
-	latency_ms: number
-) {
+async function logQuery(session_id: string, user_id: string, query: string, state: any, latency_ms: number) {
 	await supabase.from("query_logs").insert({
 		session_id,
 		user_id,

@@ -2,13 +2,7 @@
 
 import type { LucideIcon } from "lucide-react"
 import type { DayMeals } from "@/lib/meal"
-import type {
-	MealForecast,
-	MealForecastInsert,
-	MealForecastUpdate,
-	MessHall,
-	Unit,
-} from "@/types/supabase.types"
+import type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit } from "@/types/supabase.types"
 
 export type { DayMeals }
 

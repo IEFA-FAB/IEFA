@@ -1,15 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import {
-	Award,
-	BookOpen,
-	ExternalLink,
-	FileCheck,
-	Globe,
-	Mail,
-	Shield,
-	Target,
-	Users,
-} from "lucide-react"
+import { Award, BookOpen, ExternalLink, FileCheck, Globe, Mail, Shield, Target, Users } from "lucide-react"
 import { useState } from "react"
 
 export const Route = createFileRoute("/journal/about")({
@@ -34,23 +24,13 @@ function AboutPage() {
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 				{/* Header */}
 				<div className="text-center mb-12">
-					<h1 className="text-4xl font-bold mb-3">
-						SEIVA — Journal of Public Administration and Innovation
-					</h1>
-					<p className="text-xl text-muted-foreground mb-6">
-						Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)
-					</p>
+					<h1 className="text-4xl font-bold mb-3">SEIVA — Journal of Public Administration and Innovation</h1>
+					<p className="text-xl text-muted-foreground mb-6">Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)</p>
 					<div className="flex justify-center gap-3">
-						<Button
-							variant={language === "pt" ? "default" : "outline"}
-							onClick={() => setLanguage("pt")}
-						>
+						<Button variant={language === "pt" ? "default" : "outline"} onClick={() => setLanguage("pt")}>
 							🇧🇷 Português
 						</Button>
-						<Button
-							variant={language === "en" ? "default" : "outline"}
-							onClick={() => setLanguage("en")}
-						>
+						<Button variant={language === "en" ? "default" : "outline"} onClick={() => setLanguage("en")}>
 							🇺🇸 English
 						</Button>
 					</div>
@@ -91,19 +71,11 @@ function AboutPage() {
 function IdentitySection({ language }: { language: "pt" | "en" }) {
 	return (
 		<div className="space-y-6">
-			<h2 className="text-3xl font-bold border-b pb-3">
-				{language === "pt" ? "Identidade do Periódico" : "Journal Identity"}
-			</h2>
+			<h2 className="text-3xl font-bold border-b pb-3">{language === "pt" ? "Identidade do Periódico" : "Journal Identity"}</h2>
 
 			<div className="grid md:grid-cols-2 gap-6">
-				<InfoCard
-					title={language === "pt" ? "Título" : "Title"}
-					content="SEIVA — Journal of Public Administration and Innovation"
-				/>
-				<InfoCard
-					title={language === "pt" ? "Instituição" : "Institution"}
-					content="Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)"
-				/>
+				<InfoCard title={language === "pt" ? "Título" : "Title"} content="SEIVA — Journal of Public Administration and Innovation" />
+				<InfoCard title={language === "pt" ? "Instituição" : "Institution"} content="Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)" />
 				<InfoCard
 					title={language === "pt" ? "Área" : "Field"}
 					content={
@@ -114,24 +86,13 @@ function IdentitySection({ language }: { language: "pt" | "en" }) {
 				/>
 				<InfoCard
 					title={language === "pt" ? "Modelo" : "Model"}
-					content={
-						language === "pt"
-							? "Acesso aberto, sem taxas (sem APC)"
-							: "Open access, no fees (no APCs)"
-					}
+					content={language === "pt" ? "Acesso aberto, sem taxas (sem APC)" : "Open access, no fees (no APCs)"}
 				/>
 				<InfoCard
 					title={language === "pt" ? "Periodicidade" : "Frequency"}
-					content={
-						language === "pt"
-							? "Publicação contínua organizada por semestres"
-							: "Continuous publication organized by semesters"
-					}
+					content={language === "pt" ? "Publicação contínua organizada por semestres" : "Continuous publication organized by semesters"}
 				/>
-				<InfoCard
-					title={language === "pt" ? "Contato Editorial" : "Editorial Contact"}
-					content="secretaria.iefa@fab.mil.br"
-				/>
+				<InfoCard title={language === "pt" ? "Contato Editorial" : "Editorial Contact"} content="secretaria.iefa@fab.mil.br" />
 			</div>
 
 			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
@@ -149,9 +110,7 @@ function IdentitySection({ language }: { language: "pt" | "en" }) {
 function MissionSection({ language }: { language: "pt" | "en" }) {
 	return (
 		<div className="space-y-6">
-			<h2 className="text-3xl font-bold border-b pb-3">
-				{language === "pt" ? "Missão, Visão e Escopo" : "Mission, Vision & Scope"}
-			</h2>
+			<h2 className="text-3xl font-bold border-b pb-3">{language === "pt" ? "Missão, Visão e Escopo" : "Mission, Vision & Scope"}</h2>
 
 			{/* Mission */}
 			<div>
@@ -193,18 +152,12 @@ function MissionSection({ language }: { language: "pt" | "en" }) {
 				<ul className="space-y-2 text-muted-foreground">
 					<li className="flex items-start gap-2">
 						<span className="text-primary mt-1">•</span>
-						<span>
-							{language === "pt"
-								? "Governança e gestão pública"
-								: "Public governance and management"}
-						</span>
+						<span>{language === "pt" ? "Governança e gestão pública" : "Public governance and management"}</span>
 					</li>
 					<li className="flex items-start gap-2">
 						<span className="text-primary mt-1">•</span>
 						<span>
-							{language === "pt"
-								? "Planejamento, orçamento, finanças públicas e gestão fiscal"
-								: "Planning, budgeting, public finance, and fiscal management"}
+							{language === "pt" ? "Planejamento, orçamento, finanças públicas e gestão fiscal" : "Planning, budgeting, public finance, and fiscal management"}
 						</span>
 					</li>
 					<li className="flex items-start gap-2">
@@ -233,11 +186,7 @@ function MissionSection({ language }: { language: "pt" | "en" }) {
 					</li>
 					<li className="flex items-start gap-2">
 						<span className="text-primary mt-1">•</span>
-						<span>
-							{language === "pt"
-								? "Compras públicas, contratos e gestão de suprimentos"
-								: "Public procurement, contracting, and supply management"}
-						</span>
+						<span>{language === "pt" ? "Compras públicas, contratos e gestão de suprimentos" : "Public procurement, contracting, and supply management"}</span>
 					</li>
 					<li className="flex items-start gap-2">
 						<span className="text-primary mt-1">•</span>
@@ -264,9 +213,7 @@ function MissionSection({ language }: { language: "pt" | "en" }) {
 function PoliciesSection({ language }: { language: "pt" | "en" }) {
 	return (
 		<div className="space-y-6">
-			<h2 className="text-3xl font-bold border-b pb-3">
-				{language === "pt" ? "Políticas Editoriais" : "Editorial Policies"}
-			</h2>
+			<h2 className="text-3xl font-bold border-b pb-3">{language === "pt" ? "Políticas Editoriais" : "Editorial Policies"}</h2>
 
 			{/* Open Access */}
 			<PolicyCard title={language === "pt" ? "Acesso Aberto" : "Open Access"} icon={Globe}>
@@ -278,12 +225,7 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 			</PolicyCard>
 
 			{/* Languages */}
-			<PolicyCard
-				title={
-					language === "pt" ? "Idiomas e Metadados Bilíngues" : "Languages & Bilingual Metadata"
-				}
-				icon={Globe}
-			>
+			<PolicyCard title={language === "pt" ? "Idiomas e Metadados Bilíngues" : "Languages & Bilingual Metadata"} icon={Globe}>
 				<p className="mb-3">
 					{language === "pt"
 						? "A SEIVA aceita submissões em português, inglês ou em ambas as línguas. Todos os artigos publicados devem incluir metadados bilíngues (PT/EN):"
@@ -298,11 +240,7 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 
 			{/* DOI */}
 			<PolicyCard title="DOI" icon={FileCheck}>
-				<p className="mb-3">
-					{language === "pt"
-						? "A SEIVA atribui DOI a todos os artigos publicados."
-						: "SEIVA assigns a DOI to all published articles."}
-				</p>
+				<p className="mb-3">{language === "pt" ? "A SEIVA atribui DOI a todos os artigos publicados." : "SEIVA assigns a DOI to all published articles."}</p>
 				<div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
 					<p className="text-sm text-blue-900 dark:text-blue-100">
 						<strong>{language === "pt" ? "Um DOI por língua:" : "One DOI per language:"}</strong>{" "}
@@ -314,67 +252,31 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 			</PolicyCard>
 
 			{/* Peer Review */}
-			<PolicyCard
-				title={language === "pt" ? "Avaliação por Pares Duplo-Cega" : "Double-Blind Peer Review"}
-				icon={Shield}
-			>
+			<PolicyCard title={language === "pt" ? "Avaliação por Pares Duplo-Cega" : "Double-Blind Peer Review"} icon={Shield}>
 				<p className="mb-3">
-					{language === "pt"
-						? "A SEIVA adota avaliação por pares duplo-cega (double-blind peer review)."
-						: "SEIVA uses double-blind peer review."}
+					{language === "pt" ? "A SEIVA adota avaliação por pares duplo-cega (double-blind peer review)." : "SEIVA uses double-blind peer review."}
 				</p>
 				<div className="space-y-2 text-sm">
 					<p>
 						<strong>{language === "pt" ? "Fluxo editorial:" : "Editorial workflow:"}</strong>
 					</p>
 					<ol className="list-decimal list-inside space-y-1 ml-2">
-						<li>
-							{language === "pt"
-								? "Triagem editorial (desk check)"
-								: "Editorial screening (desk check)"}
-						</li>
-						<li>
-							{language === "pt"
-								? "Designação de Editor Associado"
-								: "Assignment to Associate Editor"}
-						</li>
-						<li>
-							{language === "pt"
-								? "Avaliação por pares (pelo menos dois pareceres)"
-								: "Peer review (at least two reports)"}
-						</li>
-						<li>
-							{language === "pt"
-								? "Decisão editorial (aceite, revisão ou rejeição)"
-								: "Editorial decision (accept, revise, or reject)"}
-						</li>
-						<li>
-							{language === "pt"
-								? "Revisões pelos autores (quando aplicável)"
-								: "Author revisions (if applicable)"}
-						</li>
-						<li>
-							{language === "pt"
-								? "Aceite e publicação em fluxo contínuo"
-								: "Acceptance and continuous publication"}
-						</li>
+						<li>{language === "pt" ? "Triagem editorial (desk check)" : "Editorial screening (desk check)"}</li>
+						<li>{language === "pt" ? "Designação de Editor Associado" : "Assignment to Associate Editor"}</li>
+						<li>{language === "pt" ? "Avaliação por pares (pelo menos dois pareceres)" : "Peer review (at least two reports)"}</li>
+						<li>{language === "pt" ? "Decisão editorial (aceite, revisão ou rejeição)" : "Editorial decision (accept, revise, or reject)"}</li>
+						<li>{language === "pt" ? "Revisões pelos autores (quando aplicável)" : "Author revisions (if applicable)"}</li>
+						<li>{language === "pt" ? "Aceite e publicação em fluxo contínuo" : "Acceptance and continuous publication"}</li>
 					</ol>
 					<p className="mt-3">
 						<strong>{language === "pt" ? "Prazo-alvo:" : "Target timeline:"}</strong>{" "}
-						{language === "pt"
-							? "primeira decisão em até 30 dias (meta)."
-							: "first decision within 30 days (goal)."}
+						{language === "pt" ? "primeira decisão em até 30 dias (meta)." : "first decision within 30 days (goal)."}
 					</p>
 				</div>
 			</PolicyCard>
 
 			{/* Preprints */}
-			<PolicyCard
-				title={
-					language === "pt" ? "Publicação Prévia e Preprints" : "Prior Publication & Preprints"
-				}
-				icon={FileCheck}
-			>
+			<PolicyCard title={language === "pt" ? "Publicação Prévia e Preprints" : "Prior Publication & Preprints"} icon={FileCheck}>
 				<div className="space-y-3">
 					<div className="p-3 bg-orange-50 dark:bg-orange-950 rounded border border-orange-200 dark:border-orange-800">
 						<p className="text-sm text-orange-900 dark:text-orange-100">
@@ -398,9 +300,7 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 function EthicsSection({ language }: { language: "pt" | "en" }) {
 	return (
 		<div className="space-y-6">
-			<h2 className="text-3xl font-bold border-b pb-3">
-				{language === "pt" ? "Ética e Integridade" : "Ethics & Integrity"}
-			</h2>
+			<h2 className="text-3xl font-bold border-b pb-3">{language === "pt" ? "Ética e Integridade" : "Ethics & Integrity"}</h2>
 
 			{/* Ethics Overview */}
 			<div className="p-6 bg-muted rounded-lg">
@@ -412,10 +312,7 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 			</div>
 
 			{/* Conflict of Interest */}
-			<PolicyCard
-				title={language === "pt" ? "Conflito de Interesses" : "Conflict of Interest"}
-				icon={Shield}
-			>
+			<PolicyCard title={language === "pt" ? "Conflito de Interesses" : "Conflict of Interest"} icon={Shield}>
 				<p className="mb-4">
 					{language === "pt"
 						? "Conflitos de interesse (COI) ocorrem quando interesses secundários possam influenciar julgamento editorial ou científico."
@@ -426,18 +323,8 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 						<strong>{language === "pt" ? "Quem deve declarar:" : "Who must disclose:"}</strong>
 						<ul className="mt-2 space-y-1">
 							<li>• {language === "pt" ? "Autores (na submissão)" : "Authors (at submission)"}</li>
-							<li>
-								•{" "}
-								{language === "pt"
-									? "Revisores (ao aceitar convite)"
-									: "Reviewers (when accepting)"}
-							</li>
-							<li>
-								•{" "}
-								{language === "pt"
-									? "Editores (ao receber manuscrito)"
-									: "Editors (upon assignment)"}
-							</li>
+							<li>• {language === "pt" ? "Revisores (ao aceitar convite)" : "Reviewers (when accepting)"}</li>
+							<li>• {language === "pt" ? "Editores (ao receber manuscrito)" : "Editors (upon assignment)"}</li>
 						</ul>
 					</div>
 					<div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
@@ -473,33 +360,15 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 							: "AI tools may be used as support (e.g., language polishing), provided that:"}
 					</p>
 					<ul className="space-y-1">
-						<li>
-							•{" "}
-							{language === "pt"
-								? "Não sejam usadas para fabricar dados ou alterar evidências"
-								: "Not used to fabricate data or manipulate evidence"}
-						</li>
-						<li>
-							•{" "}
-							{language === "pt"
-								? "Os autores permaneçam integralmente responsáveis"
-								: "Authors remain fully responsible"}
-						</li>
-						<li>
-							•{" "}
-							{language === "pt"
-								? "O uso seja declarado quando relevante"
-								: "Use is disclosed when relevant"}
-						</li>
+						<li>• {language === "pt" ? "Não sejam usadas para fabricar dados ou alterar evidências" : "Not used to fabricate data or manipulate evidence"}</li>
+						<li>• {language === "pt" ? "Os autores permaneçam integralmente responsáveis" : "Authors remain fully responsible"}</li>
+						<li>• {language === "pt" ? "O uso seja declarado quando relevante" : "Use is disclosed when relevant"}</li>
 					</ul>
 				</div>
 			</PolicyCard>
 
 			{/* Research Ethics */}
-			<PolicyCard
-				title={language === "pt" ? "Ética em Pesquisa e Privacidade" : "Research Ethics & Privacy"}
-				icon={Shield}
-			>
+			<PolicyCard title={language === "pt" ? "Ética em Pesquisa e Privacidade" : "Research Ethics & Privacy"} icon={Shield}>
 				<p>
 					{language === "pt"
 						? "Estudos envolvendo entrevistas, questionários ou dados com risco de reidentificação devem: cumprir exigências éticas aplicáveis, adotar boas práticas de anonimização, evitar exposição de informações pessoais desnecessárias e declarar restrições quando dados não puderem ser abertos."
@@ -513,9 +382,7 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 function TeamSection({ language }: { language: "pt" | "en" }) {
 	return (
 		<div className="space-y-6">
-			<h2 className="text-3xl font-bold border-b pb-3">
-				{language === "pt" ? "Equipe Editorial" : "Editorial Team"}
-			</h2>
+			<h2 className="text-3xl font-bold border-b pb-3">{language === "pt" ? "Equipe Editorial" : "Editorial Team"}</h2>
 
 			{/* Structure */}
 			<div>
@@ -525,33 +392,21 @@ function TeamSection({ language }: { language: "pt" | "en" }) {
 				</h3>
 				<div className="space-y-3">
 					<div className="p-4 border rounded-lg">
-						<h4 className="font-semibold mb-2">
-							{language === "pt" ? "Editor-chefe (Editor-in-Chief)" : "Editor-in-Chief"}
-						</h4>
+						<h4 className="font-semibold mb-2">{language === "pt" ? "Editor-chefe (Editor-in-Chief)" : "Editor-in-Chief"}</h4>
 						<p className="text-sm text-muted-foreground">
-							{language === "pt"
-								? "Política editorial e decisões finais"
-								: "Editorial policy and final decisions"}
+							{language === "pt" ? "Política editorial e decisões finais" : "Editorial policy and final decisions"}
 						</p>
 					</div>
 					<div className="p-4 border rounded-lg">
-						<h4 className="font-semibold mb-2">
-							{language === "pt" ? "Editores Associados (Associate Editors)" : "Associate Editors"}
-						</h4>
+						<h4 className="font-semibold mb-2">{language === "pt" ? "Editores Associados (Associate Editors)" : "Associate Editors"}</h4>
 						<p className="text-sm text-muted-foreground">
-							{language === "pt"
-								? "Condução do peer review e recomendações"
-								: "Manage peer review and recommend decisions"}
+							{language === "pt" ? "Condução do peer review e recomendações" : "Manage peer review and recommend decisions"}
 						</p>
 					</div>
 					<div className="p-4 border rounded-lg">
-						<h4 className="font-semibold mb-2">
-							{language === "pt" ? "Conselho Editorial (Editorial Board)" : "Editorial Board"}
-						</h4>
+						<h4 className="font-semibold mb-2">{language === "pt" ? "Conselho Editorial (Editorial Board)" : "Editorial Board"}</h4>
 						<p className="text-sm text-muted-foreground">
-							{language === "pt"
-								? "Apoio consultivo e orientação científica"
-								: "Advisory support and scientific guidance"}
+							{language === "pt" ? "Apoio consultivo e orientação científica" : "Advisory support and scientific guidance"}
 						</p>
 					</div>
 				</div>
@@ -571,9 +426,7 @@ function TeamSection({ language }: { language: "pt" | "en" }) {
 
 			{/* Independence */}
 			<div>
-				<h3 className="text-xl font-semibold mb-3">
-					{language === "pt" ? "Independência Editorial" : "Editorial Independence"}
-				</h3>
+				<h3 className="text-xl font-semibold mb-3">{language === "pt" ? "Independência Editorial" : "Editorial Independence"}</h3>
 				<p className="text-muted-foreground">
 					{language === "pt"
 						? "A SEIVA é publicada pelo IEFA; entretanto, as decisões editoriais são tomadas de forma independente pela equipe editorial, com base em mérito acadêmico, revisão por pares, aderência ao escopo e políticas de integridade, sem interferência institucional no julgamento científico."
@@ -587,22 +440,15 @@ function TeamSection({ language }: { language: "pt" | "en" }) {
 function ContactSection({ language }: { language: "pt" | "en" }) {
 	return (
 		<div className="space-y-6">
-			<h2 className="text-3xl font-bold border-b pb-3">
-				{language === "pt" ? "Contato" : "Contact"}
-			</h2>
+			<h2 className="text-3xl font-bold border-b pb-3">{language === "pt" ? "Contato" : "Contact"}</h2>
 
 			<div className="grid md:grid-cols-2 gap-6">
 				<div className="p-6 border rounded-lg bg-card">
 					<div className="flex items-center gap-3 mb-4">
 						<Mail className="size-6 text-primary" />
-						<h3 className="font-semibold text-lg">
-							{language === "pt" ? "Contato Editorial" : "Editorial Contact"}
-						</h3>
+						<h3 className="font-semibold text-lg">{language === "pt" ? "Contato Editorial" : "Editorial Contact"}</h3>
 					</div>
-					<a
-						href="mailto:secretaria.iefa@fab.mil.br"
-						className="text-primary hover:underline flex items-center gap-2"
-					>
+					<a href="mailto:secretaria.iefa@fab.mil.br" className="text-primary hover:underline flex items-center gap-2">
 						secretaria.iefa@fab.mil.br
 						<ExternalLink className="size-4" />
 					</a>
@@ -611,23 +457,15 @@ function ContactSection({ language }: { language: "pt" | "en" }) {
 				<div className="p-6 border rounded-lg bg-card">
 					<div className="flex items-center gap-3 mb-4">
 						<BookOpen className="size-6 text-primary" />
-						<h3 className="font-semibold text-lg">
-							{language === "pt" ? "Instituição" : "Institution"}
-						</h3>
+						<h3 className="font-semibold text-lg">{language === "pt" ? "Instituição" : "Institution"}</h3>
 					</div>
-					<p className="text-muted-foreground">
-						Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)
-					</p>
+					<p className="text-muted-foreground">Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)</p>
 				</div>
 			</div>
 
 			{/* Additional Info */}
 			<div className="p-6 bg-muted rounded-lg">
-				<h3 className="font-semibold mb-3">
-					{language === "pt"
-						? "📬 Para dúvidas e comunicações"
-						: "📬 For inquiries and communications"}
-				</h3>
+				<h3 className="font-semibold mb-3">{language === "pt" ? "📬 Para dúvidas e comunicações" : "📬 For inquiries and communications"}</h3>
 				<p className="text-muted-foreground">
 					{language === "pt"
 						? "Para dúvidas sobre submissões, revisões, políticas editoriais ou comunicações institucionais, entre em contato através do email editorial."

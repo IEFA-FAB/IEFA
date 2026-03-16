@@ -1,15 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import {
-	ArrowLeft,
-	Calendar,
-	Check,
-	Copy,
-	Download,
-	ExternalLink,
-	FileText,
-	Tag,
-	User,
-} from "lucide-react"
+import { ArrowLeft, Calendar, Check, Copy, Download, ExternalLink, FileText, Tag, User } from "lucide-react"
 import { useState } from "react"
 
 export const Route = createFileRoute("/journal/articles/$id")({
@@ -49,10 +39,7 @@ function PublicArticleDetail() {
 	const article: ArticleDetail | null = {
 		title_pt: `Artigo Exemplo ${id}`,
 		title_en: `Example Article ${id}`,
-		authors: [
-			{ full_name: "Dr. João Silva", orcid: "0000-0000-0000-0000" },
-			{ full_name: "Dra. Maria Santos" },
-		],
+		authors: [{ full_name: "Dr. João Silva", orcid: "0000-0000-0000-0000" }, { full_name: "Dra. Maria Santos" }],
 		published_at: new Date().toISOString(),
 		article_type: "research",
 		doi: `10.1234/iefa.${id}`,
@@ -92,9 +79,7 @@ function PublicArticleDetail() {
 					<FileText className="size-8 text-muted-foreground" />
 				</div>
 				<h3 className="text-lg font-semibold mb-2">Artigo não encontrado ou ainda não publicado</h3>
-				<p className="text-muted-foreground mb-6">
-					Este artigo pode ainda estar em processo de revisão ou não existe.
-				</p>
+				<p className="text-muted-foreground mb-6">Este artigo pode ainda estar em processo de revisão ou não existe.</p>
 				<Button
 					render={
 						<Link to="/journal/articles">
@@ -147,9 +132,7 @@ function PublicArticleDetail() {
 					{/* Metadata Section */}
 					<div className="space-y-4">
 						<div className="flex items-center gap-2">
-							<span className="px-2.5 py-1 bg-primary/10 text-primary rounded text-xs font-medium capitalize">
-								{article.article_type}
-							</span>
+							<span className="px-2.5 py-1 bg-primary/10 text-primary rounded text-xs font-medium capitalize">{article.article_type}</span>
 							{article.doi && (
 								<a
 									href={`https://doi.org/${article.doi}`}
@@ -165,9 +148,7 @@ function PublicArticleDetail() {
 
 						<h1 className="text-4xl font-bold tracking-tight">{article.title_pt}</h1>
 
-						{article.title_en && (
-							<h2 className="text-2xl text-muted-foreground">{article.title_en}</h2>
-						)}
+						{article.title_en && <h2 className="text-2xl text-muted-foreground">{article.title_en}</h2>}
 
 						{/* Authors */}
 						<div className="flex items-center gap-2 text-lg">
@@ -177,12 +158,7 @@ function PublicArticleDetail() {
 									<span key={i}>
 										{author.full_name}
 										{author.orcid && (
-											<a
-												href={`https://orcid.org/${author.orcid}`}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="ml-1 text-primary hover:underline"
-											>
+											<a href={`https://orcid.org/${author.orcid}`} target="_blank" rel="noopener noreferrer" className="ml-1 text-primary hover:underline">
 												<ExternalLink className="inline size-3" />
 											</a>
 										)}
@@ -263,63 +239,33 @@ function PublicArticleDetail() {
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
 								<span className="text-sm font-medium">APA</span>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => copyCitation("apa", citations.apa)}
-								>
-									{copiedCitation === "apa" ? (
-										<Check className="size-4 text-green-600" />
-									) : (
-										<Copy className="size-4" />
-									)}
+								<Button variant="ghost" size="sm" onClick={() => copyCitation("apa", citations.apa)}>
+									{copiedCitation === "apa" ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
 								</Button>
 							</div>
-							<p className="text-sm text-muted-foreground p-3 bg-muted rounded font-mono">
-								{citations.apa}
-							</p>
+							<p className="text-sm text-muted-foreground p-3 bg-muted rounded font-mono">{citations.apa}</p>
 						</div>
 
 						{/* ABNT */}
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
 								<span className="text-sm font-medium">ABNT</span>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => copyCitation("abnt", citations.abnt)}
-								>
-									{copiedCitation === "abnt" ? (
-										<Check className="size-4 text-green-600" />
-									) : (
-										<Copy className="size-4" />
-									)}
+								<Button variant="ghost" size="sm" onClick={() => copyCitation("abnt", citations.abnt)}>
+									{copiedCitation === "abnt" ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
 								</Button>
 							</div>
-							<p className="text-sm text-muted-foreground p-3 bg-muted rounded font-mono">
-								{citations.abnt}
-							</p>
+							<p className="text-sm text-muted-foreground p-3 bg-muted rounded font-mono">{citations.abnt}</p>
 						</div>
 
 						{/* BibTeX */}
 						<div className="space-y-2">
 							<div className="flex items-center justify-between">
 								<span className="text-sm font-medium">BibTeX</span>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => copyCitation("bibtex", citations.bibtex)}
-								>
-									{copiedCitation === "bibtex" ? (
-										<Check className="size-4 text-green-600" />
-									) : (
-										<Copy className="size-4" />
-									)}
+								<Button variant="ghost" size="sm" onClick={() => copyCitation("bibtex", citations.bibtex)}>
+									{copiedCitation === "bibtex" ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
 								</Button>
 							</div>
-							<pre className="text-xs text-muted-foreground p-3 bg-muted rounded overflow-x-auto">
-								{citations.bibtex}
-							</pre>
+							<pre className="text-xs text-muted-foreground p-3 bg-muted rounded overflow-x-auto">{citations.bibtex}</pre>
 						</div>
 					</div>
 				</div>
@@ -333,9 +279,7 @@ function PublicArticleDetail() {
 							<Download className="size-4 mr-2" />
 							Download PDF
 						</Button>
-						<p className="text-xs text-muted-foreground text-center">
-							Arquivo disponível após publicação
-						</p>
+						<p className="text-xs text-muted-foreground text-center">Arquivo disponível após publicação</p>
 					</div>
 
 					{/* Metrics Placeholder */}

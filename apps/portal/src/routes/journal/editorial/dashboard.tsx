@@ -81,27 +81,15 @@ function EditorialDashboard() {
 
 				{/* View Toggle */}
 				<div className="flex gap-2">
-					<Button
-						variant={showFilters ? "default" : "outline"}
-						size="sm"
-						onClick={() => setShowFilters(!showFilters)}
-					>
+					<Button variant={showFilters ? "default" : "outline"} size="sm" onClick={() => setShowFilters(!showFilters)}>
 						<Filter className="size-4 mr-2" />
 						Filtros
 					</Button>
-					<Button
-						variant={viewMode === "kanban" ? "default" : "outline"}
-						size="sm"
-						onClick={() => setViewMode("kanban")}
-					>
+					<Button variant={viewMode === "kanban" ? "default" : "outline"} size="sm" onClick={() => setViewMode("kanban")}>
 						<LayoutGrid className="size-4 mr-2" />
 						Kanban
 					</Button>
-					<Button
-						variant={viewMode === "table" ? "default" : "outline"}
-						size="sm"
-						onClick={() => setViewMode("table")}
-					>
+					<Button variant={viewMode === "table" ? "default" : "outline"} size="sm" onClick={() => setViewMode("table")}>
 						<Table className="size-4 mr-2" />
 						Tabela
 					</Button>
@@ -118,15 +106,9 @@ function EditorialDashboard() {
 
 				{/* Main Content */}
 				<div className={showFilters ? "" : "lg:col-span-2"}>
-					{viewMode === "kanban" ? (
-						<KanbanBoard articles={filteredArticles} />
-					) : (
-						<TableView articles={filteredArticles} />
-					)}
+					{viewMode === "kanban" ? <KanbanBoard articles={filteredArticles} /> : <TableView articles={filteredArticles} />}
 					{filteredArticles.length === 0 && articles.length > 0 && (
-						<div className="text-center py-12 text-muted-foreground">
-							Nenhum artigo encontrado com os filtros aplicados.
-						</div>
+						<div className="text-center py-12 text-muted-foreground">Nenhum artigo encontrado com os filtros aplicados.</div>
 					)}
 				</div>
 

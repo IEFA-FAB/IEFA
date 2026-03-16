@@ -79,9 +79,7 @@ function RouteComponent() {
 		<div className="container mx-auto max-w-5xl px-4 py-8">
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold tracking-tight">Nova Submissão de Artigo</h1>
-				<p className="mt-2 text-muted-foreground">
-					Preen all as informações solicitadas para submeter seu artigo para revisão por pares.
-				</p>
+				<p className="mt-2 text-muted-foreground">Preen all as informações solicitadas para submeter seu artigo para revisão por pares.</p>
 			</div>
 
 			{error && (
@@ -94,9 +92,7 @@ function RouteComponent() {
 				<div className="flex flex-col items-center justify-center py-12">
 					<Loader2 className="size-12 animate-spin text-primary mb-4" />
 					<p className="text-lg font-medium">Submetendo artigo...</p>
-					<p className="text-sm text-muted-foreground mt-2">
-						Fazendo upload de arquivos e criando registro
-					</p>
+					<p className="text-sm text-muted-foreground mt-2">Fazendo upload de arquivos e criando registro</p>
 				</div>
 			) : (
 				<SubmissionForm userId={auth.user.id} initialData={initialData} onSubmit={handleSubmit} />

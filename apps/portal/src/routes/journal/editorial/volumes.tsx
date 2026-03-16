@@ -28,9 +28,7 @@ function VolumeManagement() {
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Gerenciar Volumes e Edições</h1>
-					<p className="text-muted-foreground">
-						Organize os artigos publicados por volume e edição
-					</p>
+					<p className="text-muted-foreground">Organize os artigos publicados por volume e edição</p>
 				</div>
 				<Button onClick={() => setShowCreateForm(true)}>
 					<Plus className="size-4 mr-2" />
@@ -81,10 +79,7 @@ function VolumeManagement() {
 			{volumes.length > 0 ? (
 				<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
 					{volumes.map((volume) => (
-						<div
-							key={volume.id}
-							className="p-6 border rounded-lg bg-card hover:border-primary transition-colors"
-						>
+						<div key={volume.id} className="p-6 border rounded-lg bg-card hover:border-primary transition-colors">
 							<div className="flex items-start justify-between mb-4">
 								<div className="flex items-center gap-3">
 									<div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -106,9 +101,7 @@ function VolumeManagement() {
 								</div>
 								<div className="flex items-center gap-2 text-sm">
 									<span className="font-medium">{volume.article_count}</span>
-									<span className="text-muted-foreground">
-										{volume.article_count === 1 ? "artigo" : "artigos"}
-									</span>
+									<span className="text-muted-foreground">{volume.article_count === 1 ? "artigo" : "artigos"}</span>
 								</div>
 							</div>
 
@@ -147,9 +140,7 @@ function VolumeManagement() {
 						<BookOpen className="size-8 text-muted-foreground" />
 					</div>
 					<h3 className="text-lg font-semibold mb-2">Nenhum volume criado ainda</h3>
-					<p className="text-muted-foreground max-w-md mb-6">
-						Crie volumes e edições para organizar os artigos publicados do seu periódico.
-					</p>
+					<p className="text-muted-foreground max-w-md mb-6">Crie volumes e edições para organizar os artigos publicados do seu periódico.</p>
 					<Button onClick={() => setShowCreateForm(true)}>
 						<Plus className="size-4 mr-2" />
 						Criar Primeiro Volume
@@ -161,8 +152,8 @@ function VolumeManagement() {
 			<div className="p-4 bg-muted rounded-lg">
 				<h3 className="font-semibold mb-2">💡 Dica</h3>
 				<p className="text-sm text-muted-foreground">
-					Os volumes e edições ajudam a organizar os artigos publicados cronologicamente. Cada
-					artigo deve ser atribuído a um volume e edição específicos no momento da publicação.
+					Os volumes e edições ajudam a organizar os artigos publicados cronologicamente. Cada artigo deve ser atribuído a um volume e edição específicos no
+					momento da publicação.
 				</p>
 			</div>
 		</div>

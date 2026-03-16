@@ -30,9 +30,7 @@ export const Route = createFileRoute("/journal/submissions/")({
 	loader: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (auth.user) {
-			await context.queryClient.ensureQueryData(
-				articlesQueryOptions({ submitter_id: auth.user.id })
-			)
+			await context.queryClient.ensureQueryData(articlesQueryOptions({ submitter_id: auth.user.id }))
 		}
 	},
 	component: RouteComponent,
@@ -43,17 +41,13 @@ function RouteComponent() {
 	const [statusFilter, setStatusFilter] = useState<ArticleStatus | "all">("all")
 	const [searchQuery, setSearchQuery] = useState("")
 
-	const { data: articles } = useSuspenseQuery(
-		articlesQueryOptions({ submitter_id: auth.user?.id || "" })
-	)
+	const { data: articles } = useSuspenseQuery(articlesQueryOptions({ submitter_id: auth.user?.id || "" }))
 
 	// Filter articles
 	const filteredArticles = articles.filter((article) => {
 		const matchesStatus = statusFilter === "all" || article.status === statusFilter
 		const matchesSearch =
-			!searchQuery ||
-			article.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			article.title_pt?.toLowerCase().includes(searchQuery.toLowerCase())
+			!searchQuery || article.title_en?.toLowerCase().includes(searchQuery.toLowerCase()) || article.title_pt?.toLowerCase().includes(searchQuery.toLowerCase())
 		return matchesStatus && matchesSearch
 	})
 
@@ -62,9 +56,7 @@ function RouteComponent() {
 			<div className="flex items-center justify-between mb-8">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Minhas Submissões</h1>
-					<p className="mt-2 text-muted-foreground">
-						Acompanhe o status de todos os seus artigos submetidos
-					</p>
+					<p className="mt-2 text-muted-foreground">Acompanhe o status de todos os seus artigos submetidos</p>
 				</div>
 				<Link to="/journal/submit">
 					<Button>
@@ -78,12 +70,7 @@ function RouteComponent() {
 			<div className="mb-6 space-y-4">
 				<div className="flex gap-2 overflow-x-auto pb-2">
 					{STATUS_FILTERS.map((filter) => (
-						<Button
-							key={filter.value}
-							variant={statusFilter === filter.value ? "default" : "outline"}
-							size="sm"
-							onClick={() => setStatusFilter(filter.value)}
-						>
+						<Button key={filter.value} variant={statusFilter === filter.value ? "default" : "outline"} size="sm" onClick={() => setStatusFilter(filter.value)}>
 							{filter.label}
 						</Button>
 					))}
@@ -91,12 +78,7 @@ function RouteComponent() {
 
 				<div className="relative">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-					<Input
-						placeholder="Buscar por título..."
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						className="pl-10"
-					/>
+					<Input placeholder="Buscar por título..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
 				</div>
 			</div>
 
@@ -104,9 +86,7 @@ function RouteComponent() {
 			{filteredArticles.length === 0 ? (
 				<div className="text-center py-12 border-2 border-dashed rounded-lg">
 					<p className="text-muted-foreground mb-4">
-						{searchQuery || statusFilter !== "all"
-							? "Nenhum artigo encontrado com os filtros selecionados"
-							: "Você ainda não possui submissões"}
+						{searchQuery || statusFilter !== "all" ? "Nenhum artigo encontrado com os filtros selecionados" : "Você ainda não possui submissões"}
 					</p>
 					<Link to="/journal/submit">
 						<Button>
@@ -125,9 +105,7 @@ function RouteComponent() {
 
 			<div className="mt-6 text-sm text-muted-foreground text-center">
 				{filteredArticles.length} artigo
-				{filteredArticles.length !== 1 ? "s" : ""}{" "}
-				{statusFilter !== "all" &&
-					`(${STATUS_FILTERS.find((f) => f.value === statusFilter)?.label})`}
+				{filteredArticles.length !== 1 ? "s" : ""} {statusFilter !== "all" && `(${STATUS_FILTERS.find((f) => f.value === statusFilter)?.label})`}
 			</div>
 		</div>
 	)

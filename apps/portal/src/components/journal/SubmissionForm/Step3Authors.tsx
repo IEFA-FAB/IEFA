@@ -21,11 +21,7 @@ export function Step3Authors() {
 
 	return (
 		<div>
-			<AuthorManager
-				authors={formData.authors || []}
-				onChange={(authors) => updateFormData({ authors })}
-				onAddAuthor={handleAddAuthor}
-			/>
+			<AuthorManager authors={formData.authors || []} onChange={(authors) => updateFormData({ authors })} onAddAuthor={handleAddAuthor} />
 		</div>
 	)
 }

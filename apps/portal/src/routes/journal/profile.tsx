@@ -42,9 +42,7 @@ function ProfilePage() {
 		<div className="container mx-auto max-w-4xl px-4 py-8">
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold tracking-tight">Perfil do Usuário</h1>
-				<p className="mt-2 text-muted-foreground">
-					Gerencie suas informações pessoais e preferências do sistema de publicações.
-				</p>
+				<p className="mt-2 text-muted-foreground">Gerencie suas informações pessoais e preferências do sistema de publicações.</p>
 			</div>
 
 			<div className="rounded-lg border bg-card p-6">
@@ -54,9 +52,8 @@ function ProfilePage() {
 			<div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
 				<h3 className="font-semibold text-blue-900 dark:text-blue-100">ℹ️ Sobre seu perfil</h3>
 				<p className="mt-2 text-sm text-blue-800 dark:text-blue-200">
-					As informações preenchidas aqui serão utilizadas automaticamente ao submeter artigos.
-					Certifique-se de manter seus dados atualizados, especialmente seu ORCID e afiliação
-					institucional.
+					As informações preenchidas aqui serão utilizadas automaticamente ao submeter artigos. Certifique-se de manter seus dados atualizados, especialmente
+					seu ORCID e afiliação institucional.
 				</p>
 			</div>
 		</div>

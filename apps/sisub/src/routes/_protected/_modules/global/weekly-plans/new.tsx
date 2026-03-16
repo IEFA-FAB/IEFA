@@ -23,19 +23,12 @@ function NewWeeklyPlanPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Novo Plano Semanal Modelo"
-				onBack={() => navigate({ to: "/global/weekly-plans" })}
-			/>
+			<PageHeader title="Novo Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })} />
 
 			<div className="mx-auto w-full max-w-2xl rounded-lg border bg-card p-6 space-y-4">
 				<div className="space-y-2">
 					<Label htmlFor="plan-name">Nome do Plano</Label>
-					<Input
-						id="plan-name"
-						placeholder="Ex.: Cardápio Padrão FAB — Semana 1"
-						className="max-w-md"
-					/>
+					<Input id="plan-name" placeholder="Ex.: Cardápio Padrão FAB — Semana 1" className="max-w-md" />
 				</div>
 
 				{/* Placeholder — o componente de planejamento semanal será integrado aqui */}

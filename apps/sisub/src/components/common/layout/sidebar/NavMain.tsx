@@ -2,13 +2,7 @@
 
 import { Link } from "@tanstack/react-router"
 import type { LucideIcon } from "lucide-react"
-import {
-	SidebarGroup,
-	SidebarGroupLabel,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-} from "@/components/ui/sidebar"
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 
 export function NavMain({
 	items,

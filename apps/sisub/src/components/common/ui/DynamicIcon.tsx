@@ -19,10 +19,7 @@ const toKebabName = (name: string) =>
 		.toLowerCase()
 
 function resolveIconLoader(name?: string | null) {
-	const map = dynamicIconImports as Record<
-		string,
-		() => Promise<{ default: React.ComponentType<LucideProps> }>
-	>
+	const map = dynamicIconImports as Record<string, () => Promise<{ default: React.ComponentType<LucideProps> }>>
 
 	if (name) {
 		const direct = name
@@ -49,11 +46,7 @@ function getLazyIcon(name?: string | null) {
 	return icon
 }
 
-export function DynamicIcon({
-	name,
-	className = "h-5 w-5",
-	...rest
-}: { name?: string | null } & Omit<LucideProps, "ref">) {
+export function DynamicIcon({ name, className = "h-5 w-5", ...rest }: { name?: string | null } & Omit<LucideProps, "ref">) {
 	"use no memo"
 	const LazyIcon = getLazyIcon(name)
 	return (

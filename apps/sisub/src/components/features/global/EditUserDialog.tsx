@@ -2,23 +2,10 @@ import { useForm } from "@tanstack/react-form"
 import * as React from "react"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { EditUserPayload, ProfileAdmin, UserLevelOrNull } from "@/types/domain/admin"
 import type { Unit } from "@/types/domain/meal"
 
@@ -84,8 +71,7 @@ export default function EditUserDialog({
 				<DialogHeader>
 					<DialogTitle>Editar Perfil</DialogTitle>
 					<DialogDescription>
-						Altere o SARAM, OM e a Role do usuário:{" "}
-						<span className="font-medium text-gray-900">{profile?.email}</span>
+						Altere o SARAM, OM e a Role do usuário: <span className="font-medium text-gray-900">{profile?.email}</span>
 					</DialogDescription>
 				</DialogHeader>
 
@@ -99,10 +85,7 @@ export default function EditUserDialog({
 				>
 					<form.Field name="saram">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="saram" className="text-right">
 									SARAM
 								</FieldLabel>
@@ -117,11 +100,7 @@ export default function EditUserDialog({
 										placeholder="Apenas 7 números"
 										className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 									/>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}
@@ -129,27 +108,14 @@ export default function EditUserDialog({
 
 					<form.Field name="om">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0 || !!unitsError}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0 || !!unitsError}>
 								<FieldLabel htmlFor="om" className="text-right">
 									OM
 								</FieldLabel>
 								<FieldContent className="col-span-3">
-									<Select
-										value={field.state.value || ""}
-										onValueChange={(value) => field.handleChange(value || "")}
-										disabled={isLoadingUnits}
-									>
-										<SelectTrigger
-											className={
-												unitsError || field.state.meta.errors.length > 0 ? "border-destructive" : ""
-											}
-										>
-											<SelectValue
-												placeholder={isLoadingUnits ? "Carregando OMs..." : "Selecione a OM"}
-											/>
+									<Select value={field.state.value || ""} onValueChange={(value) => field.handleChange(value || "")} disabled={isLoadingUnits}>
+										<SelectTrigger className={unitsError || field.state.meta.errors.length > 0 ? "border-destructive" : ""}>
+											<SelectValue placeholder={isLoadingUnits ? "Carregando OMs..." : "Selecione a OM"} />
 										</SelectTrigger>
 										<SelectContent>
 											{(units || []).map((u) => (
@@ -161,9 +127,7 @@ export default function EditUserDialog({
 									</Select>
 									<FieldError
 										errors={[
-											...field.state.meta.errors
-												.filter(Boolean)
-												.map((err) => ({ message: err?.toString() })),
+											...field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() })),
 											...(unitsError ? [{ message: unitsError }] : []),
 										]}
 									/>
@@ -174,21 +138,13 @@ export default function EditUserDialog({
 
 					<form.Field name="role">
 						{(field) => (
-							<Field
-								className="grid grid-cols-4 items-center gap-4"
-								data-invalid={field.state.meta.errors.length > 0}
-							>
+							<Field className="grid grid-cols-4 items-center gap-4" data-invalid={field.state.meta.errors.length > 0}>
 								<FieldLabel htmlFor="role" className="text-right">
 									Role
 								</FieldLabel>
 								<FieldContent className="col-span-3">
-									<Select
-										value={field.state.value ?? ""}
-										onValueChange={(value) => field.handleChange(value as UserLevelOrNull)}
-									>
-										<SelectTrigger
-											className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-										>
+									<Select value={field.state.value ?? ""} onValueChange={(value) => field.handleChange(value as UserLevelOrNull)}>
+										<SelectTrigger className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}>
 											<SelectValue placeholder="Selecione uma role" />
 										</SelectTrigger>
 										<SelectContent>
@@ -197,11 +153,7 @@ export default function EditUserDialog({
 											<SelectItem value="superadmin">Superadmin</SelectItem>
 										</SelectContent>
 									</Select>
-									<FieldError
-										errors={field.state.meta.errors
-											.filter(Boolean)
-											.map((err) => ({ message: err?.toString() }))}
-									/>
+									<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: err?.toString() }))} />
 								</FieldContent>
 							</Field>
 						)}

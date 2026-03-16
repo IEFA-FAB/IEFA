@@ -12,13 +12,7 @@ interface TemplatePaletteProps {
 	isLoading?: boolean
 }
 
-export function TemplatePalette({
-	templates,
-	selectedTemplateId,
-	onSelectTemplate,
-	onCreateNew,
-	isLoading,
-}: TemplatePaletteProps) {
+export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplate, onCreateNew, isLoading }: TemplatePaletteProps) {
 	if (isLoading) {
 		return (
 			<div className="bg-card border p-4">
@@ -55,12 +49,7 @@ export function TemplatePalette({
 					<span>Selecione um Template:</span>
 				</div>
 				{selectedTemplateId && (
-					<Button
-						size="sm"
-						variant="ghost"
-						onClick={() => onSelectTemplate(null)}
-						className="h-7 text-xs"
-					>
+					<Button size="sm" variant="ghost" onClick={() => onSelectTemplate(null)} className="h-7 text-xs">
 						Limpar Seleção
 					</Button>
 				)}
@@ -79,16 +68,12 @@ export function TemplatePalette({
 							onClick={() => onSelectTemplate(isSelected ? null : template.id)}
 							className={cn(
 								"flex flex-col items-start gap-2 p-3 min-w-[140px] h-[76px] transition-colors",
-								isSelected
-									? "border-primary ring-2 ring-offset-2 ring-primary bg-accent"
-									: "border-border bg-background hover:border-primary/50"
+								isSelected ? "border-primary ring-2 ring-offset-2 ring-primary bg-accent" : "border-border bg-background hover:border-primary/50"
 							)}
 						>
 							<div className="flex items-center gap-2 w-full">
 								<div className="w-3 h-3 rounded-full bg-primary" />
-								<span className="font-medium text-sm truncate flex-1 text-left">
-									{template.name}
-								</span>
+								<span className="font-medium text-sm truncate flex-1 text-left">{template.name}</span>
 							</div>
 
 							<div className="flex items-center gap-2 w-full text-xs text-muted-foreground">
@@ -108,12 +93,7 @@ export function TemplatePalette({
 					)
 				})}
 
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={onCreateNew}
-					className="min-w-[140px] h-[76px] border-dashed"
-				>
+				<Button size="sm" variant="outline" onClick={onCreateNew} className="min-w-[140px] h-[76px] border-dashed">
 					<Plus className="w-4 h-4 mr-2" />
 					Novo Template
 				</Button>

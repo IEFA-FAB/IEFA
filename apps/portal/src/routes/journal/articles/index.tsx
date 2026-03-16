@@ -33,9 +33,7 @@ function PublishedArticles() {
 			<div className="space-y-4">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Artigos Publicados</h1>
-					<p className="text-muted-foreground">
-						Navegue pelos artigos científicos publicados no periódico
-					</p>
+					<p className="text-muted-foreground">Navegue pelos artigos científicos publicados no periódico</p>
 				</div>
 
 				{/* Search and Filters */}
@@ -49,10 +47,7 @@ function PublishedArticles() {
 							className="pl-9"
 						/>
 					</div>
-					<Button
-						variant={showFilters ? "default" : "outline"}
-						onClick={() => setShowFilters(!showFilters)}
-					>
+					<Button variant={showFilters ? "default" : "outline"} onClick={() => setShowFilters(!showFilters)}>
 						<Filter className="size-4 mr-2" />
 						Filtros
 					</Button>
@@ -134,9 +129,7 @@ function PublishedArticles() {
 					))}
 				</div>
 			) : (
-				<EmptyState
-					hasFilters={!!searchQuery || selectedType !== "all" || selectedYear !== "all"}
-				/>
+				<EmptyState hasFilters={!!searchQuery || selectedType !== "all" || selectedYear !== "all"} />
 			)}
 		</div>
 	)
@@ -155,15 +148,11 @@ function ArticleCard({ article }: ArticleCardProps) {
 					<span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium capitalize">
 						{article.article_type === "research" ? "Pesquisa" : article.article_type}
 					</span>
-					{article.doi && (
-						<span className="text-xs text-muted-foreground font-mono">DOI: {article.doi}</span>
-					)}
+					{article.doi && <span className="text-xs text-muted-foreground font-mono">DOI: {article.doi}</span>}
 				</div>
 
 				{/* Title */}
-				<h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
-					{article.title_pt}
-				</h3>
+				<h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">{article.title_pt}</h3>
 
 				{/* Authors */}
 				<div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -187,9 +176,7 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 			<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
 				<BookOpen className="size-8 text-muted-foreground" />
 			</div>
-			<h3 className="text-lg font-semibold mb-2">
-				{hasFilters ? "Nenhum artigo encontrado" : "Nenhum artigo publicado ainda"}
-			</h3>
+			<h3 className="text-lg font-semibold mb-2">{hasFilters ? "Nenhum artigo encontrado" : "Nenhum artigo publicado ainda"}</h3>
 			<p className="text-muted-foreground max-w-md mb-6">
 				{hasFilters
 					? "Tente ajustar os filtros ou fazer uma nova busca."

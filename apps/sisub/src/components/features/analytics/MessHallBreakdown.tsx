@@ -1,13 +1,4 @@
-import {
-	Building2,
-	ChevronDown,
-	ChevronRight,
-	Maximize2,
-	Minimize2,
-	Minus,
-	TrendingDown,
-	TrendingUp,
-} from "lucide-react"
+import { Building2, ChevronDown, ChevronRight, Maximize2, Minimize2, Minus, TrendingDown, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -55,9 +46,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="flex items-center justify-center h-32 text-muted-foreground">
-						Sem dados para exibir
-					</div>
+					<div className="flex items-center justify-center h-32 text-muted-foreground">Sem dados para exibir</div>
 				</CardContent>
 			</Card>
 		)
@@ -101,12 +90,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 						<Tooltip>
 							<TooltipTrigger
 								render={
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={collapseAll}
-										className="text-xs gap-1"
-									>
+									<Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
 										<Minimize2 className="h-3 w-3" aria-hidden="true" />
 										<span className="hidden sm:inline">Recolher</span>
 									</Button>
@@ -124,11 +108,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 					const trendColor = getTrendColor(attendanceRate)
 
 					return (
-						<Collapsible
-							key={mh.mess_hall_id}
-							open={isOpen}
-							onOpenChange={() => toggleOpen(mh.mess_hall_id)}
-						>
+						<Collapsible key={mh.mess_hall_id} open={isOpen} onOpenChange={() => toggleOpen(mh.mess_hall_id)}>
 							<CollapsibleTrigger className="w-full">
 								<div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer">
 									<div className="flex items-center gap-3">
@@ -161,9 +141,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 										</div>
 										<div className="col-span-2 md:col-span-1">
 											<p className="text-sm text-muted-foreground">Taxa de Comparecimento</p>
-											<p className={cn("text-2xl font-bold", trendColor)}>
-												{attendanceRate.toFixed(1)}%
-											</p>
+											<p className={cn("text-2xl font-bold", trendColor)}>{attendanceRate.toFixed(1)}%</p>
 										</div>
 									</div>
 

@@ -1,12 +1,6 @@
 // Admin and Super Admin Domain Types
 
-import type {
-	ProfileAdmin,
-	ProfileAdminInsert,
-	ProfileAdminUpdate,
-	UserData,
-	UserMilitaryData,
-} from "@/types/supabase.types"
+import type { ProfileAdmin, ProfileAdminInsert, ProfileAdminUpdate, UserData, UserMilitaryData } from "@/types/supabase.types"
 
 // ============================================================================
 // BASE TYPES (Re-export com aliases para compatibilidade)

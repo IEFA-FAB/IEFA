@@ -14,9 +14,7 @@ function RouteComponent() {
 
 			<div className="border rounded-lg p-8 bg-card text-center">
 				<p className="text-muted-foreground">🚧 Página de configurações em desenvolvimento</p>
-				<p className="text-sm text-muted-foreground mt-2">
-					Em breve você poderá configurar: ISSN, DOI prefix, Crossref, templates de email, e mais.
-				</p>
+				<p className="text-sm text-muted-foreground mt-2">Em breve você poderá configurar: ISSN, DOI prefix, Crossref, templates de email, e mais.</p>
 			</div>
 		</div>
 	)

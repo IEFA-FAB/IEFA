@@ -1,11 +1,5 @@
 import type * as React from "react"
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarHeader,
-	SidebarRail,
-} from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
 import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"

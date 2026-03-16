@@ -29,12 +29,7 @@ import type {
  * @throws {Error} Database error
  */
 export async function getUserProfile(userId: string) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("user_profiles")
-		.select("*")
-		.eq("id", userId)
-		.maybeSingle()
+	const { data, error } = await supabase.schema("journal").from("user_profiles").select("*").eq("id", userId).maybeSingle()
 
 	if (error) throw error
 	return data as UserProfile | null
@@ -49,12 +44,7 @@ export async function getUserProfile(userId: string) {
  * @throws {Error} If profile already exists or validation fails
  */
 export async function createUserProfile(profile: Partial<UserProfile>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("user_profiles")
-		.insert(profile)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("user_profiles").insert(profile).select().single()
 
 	if (error) throw error
 	return data as UserProfile
@@ -69,13 +59,7 @@ export async function createUserProfile(profile: Partial<UserProfile>) {
  * @throws {Error} If user not found or update fails
  */
 export async function updateUserProfile(userId: string, updates: Partial<UserProfile>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("user_profiles")
-		.update(updates)
-		.eq("id", userId)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("user_profiles").update(updates).eq("id", userId).select().single()
 
 	if (error) throw error
 	return data as UserProfile
@@ -89,12 +73,7 @@ export async function updateUserProfile(userId: string, updates: Partial<UserPro
  * @returns Created or updated profile
  */
 export async function upsertUserProfile(profile: Partial<UserProfile>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("user_profiles")
-		.upsert(profile)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("user_profiles").upsert(profile).select().single()
 
 	if (error) throw error
 	return data as UserProfile
@@ -104,11 +83,7 @@ export async function upsertUserProfile(profile: Partial<UserProfile>) {
 // ARTICLES
 // ============================================
 
-export async function getArticles(filters?: {
-	status?: string
-	submitter_id?: string
-	limit?: number
-}) {
+export async function getArticles(filters?: { status?: string; submitter_id?: string; limit?: number }) {
 	let query = supabase.from("journal.articles").select("*")
 
 	if (filters?.status) {
@@ -132,12 +107,7 @@ export async function getArticles(filters?: {
 }
 
 export async function getArticle(articleId: string) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("articles")
-		.select("*")
-		.eq("id", articleId)
-		.single()
+	const { data, error } = await supabase.schema("journal").from("articles").select("*").eq("id", articleId).single()
 
 	if (error) throw error
 	return data as Article
@@ -154,25 +124,14 @@ export async function getArticleWithDetails(articleId: string) {
 }
 
 export async function createArticle(article: Partial<Article>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("articles")
-		.insert(article)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("articles").insert(article).select().single()
 
 	if (error) throw error
 	return data as Article
 }
 
 export async function updateArticle(articleId: string, updates: Partial<Article>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("articles")
-		.update(updates)
-		.eq("id", articleId)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("articles").update(updates).eq("id", articleId).select().single()
 
 	if (error) throw error
 	return data as Article
@@ -203,10 +162,7 @@ export async function deleteArticle(articleId: string) {
 export async function createSubmission(data: CreateSubmissionInput) {
 	// Generate submission number (e.g., 2024-001)
 	const year = new Date().getFullYear()
-	const { count } = await supabase
-		.from("journal.articles")
-		.select("*", { count: "exact", head: true })
-		.gte("created_at", `${year}-01-01`)
+	const { count } = await supabase.from("journal.articles").select("*", { count: "exact", head: true }).gte("created_at", `${year}-01-01`)
 
 	const submissionNumber = `${year}-${String((count || 0) + 1).padStart(3, "0")}`
 
@@ -327,35 +283,21 @@ export async function getArticleAuthors(articleId: string) {
 }
 
 export async function createArticleAuthors(authors: Partial<ArticleAuthor>[]) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("article_authors")
-		.insert(authors)
-		.select()
+	const { data, error } = await supabase.schema("journal").from("article_authors").insert(authors).select()
 
 	if (error) throw error
 	return data as ArticleAuthor[]
 }
 
 export async function updateArticleAuthor(authorId: string, updates: Partial<ArticleAuthor>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("article_authors")
-		.update(updates)
-		.eq("id", authorId)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("article_authors").update(updates).eq("id", authorId).select().single()
 
 	if (error) throw error
 	return data as ArticleAuthor
 }
 
 export async function deleteArticleAuthor(authorId: string) {
-	const { error } = await supabase
-		.schema("journal")
-		.from("article_authors")
-		.delete()
-		.eq("id", authorId)
+	const { error } = await supabase.schema("journal").from("article_authors").delete().eq("id", authorId)
 
 	if (error) throw error
 }
@@ -377,12 +319,7 @@ export async function getArticleVersions(articleId: string) {
 }
 
 export async function createArticleVersion(version: Partial<ArticleVersion>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("article_versions")
-		.insert(version)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("article_versions").insert(version).select().single()
 
 	if (error) throw error
 	return data as ArticleVersion
@@ -426,12 +363,7 @@ export async function getPublishedArticles(filters?: { limit?: number; offset?: 
 }
 
 export async function getPublishedArticle(articleId: string) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("published_articles")
-		.select("*")
-		.eq("id", articleId)
-		.single()
+	const { data, error } = await supabase.schema("journal").from("published_articles").select("*").eq("id", articleId).single()
 
 	if (error) throw error
 	return data as PublishedArticle
@@ -462,11 +394,7 @@ export async function getEditorialDashboard(filters?: { status?: string; limit?:
 // REVIEW ASSIGNMENTS
 // ============================================
 
-export async function getReviewAssignments(filters?: {
-	article_id?: string
-	reviewer_id?: string
-	status?: string
-}) {
+export async function getReviewAssignments(filters?: { article_id?: string; reviewer_id?: string; status?: string }) {
 	let query = supabase.from("journal.review_assignments").select("*")
 
 	if (filters?.article_id) {
@@ -490,40 +418,21 @@ export async function getReviewAssignments(filters?: {
 }
 
 export async function getReviewAssignmentByToken(token: string) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("review_assignments")
-		.select("*")
-		.eq("invitation_token", token)
-		.single()
+	const { data, error } = await supabase.schema("journal").from("review_assignments").select("*").eq("invitation_token", token).single()
 
 	if (error) throw error
 	return data as ReviewAssignment
 }
 
 export async function createReviewAssignment(assignment: Partial<ReviewAssignment>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("review_assignments")
-		.insert(assignment)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("review_assignments").insert(assignment).select().single()
 
 	if (error) throw error
 	return data as ReviewAssignment
 }
 
-export async function updateReviewAssignment(
-	assignmentId: string,
-	updates: Partial<ReviewAssignment>
-) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("review_assignments")
-		.update(updates)
-		.eq("id", assignmentId)
-		.select()
-		.single()
+export async function updateReviewAssignment(assignmentId: string, updates: Partial<ReviewAssignment>) {
+	const { data, error } = await supabase.schema("journal").from("review_assignments").update(updates).eq("id", assignmentId).select().single()
 
 	if (error) throw error
 	return data as ReviewAssignment
@@ -534,12 +443,7 @@ export async function updateReviewAssignment(
 // ============================================
 
 export async function getReview(assignmentId: string) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("reviews")
-		.select("*")
-		.eq("assignment_id", assignmentId)
-		.single()
+	const { data, error } = await supabase.schema("journal").from("reviews").select("*").eq("assignment_id", assignmentId).single()
 
 	if (error) throw error
 	return data as Review
@@ -562,24 +466,14 @@ export async function getArticleReviews(articleId: string) {
 }
 
 export async function createReview(review: Partial<Review>) {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("reviews")
-		.insert(review)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("reviews").insert(review).select().single()
 
 	if (error) throw error
 	return data as Review
 }
 
 export async function updateReview(reviewId: string, updates: Partial<Review>) {
-	const { data, error } = await supabase
-		.from("reviews")
-		.update(updates)
-		.eq("id", reviewId)
-		.select()
-		.single()
+	const { data, error } = await supabase.from("reviews").update(updates).eq("id", reviewId).select().single()
 
 	if (error) throw error
 	return data as Review
@@ -622,12 +516,7 @@ export async function markNotificationAsRead(notificationId: string) {
 // ============================================
 
 export async function getJournalSettings() {
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("journal_settings")
-		.select("*")
-		.limit(1)
-		.single()
+	const { data, error } = await supabase.schema("journal").from("journal_settings").select("*").limit(1).single()
 
 	if (error) throw error
 	return data as JournalSettings
@@ -637,13 +526,7 @@ export async function updateJournalSettings(updates: Partial<JournalSettings>) {
 	// Assuming there's only one settings record
 	const settings = await getJournalSettings()
 
-	const { data, error } = await supabase
-		.schema("journal")
-		.from("journal_settings")
-		.update(updates)
-		.eq("id", settings.id)
-		.select()
-		.single()
+	const { data, error } = await supabase.schema("journal").from("journal_settings").update(updates).eq("id", settings.id).select().single()
 
 	if (error) throw error
 	return data as JournalSettings
@@ -653,22 +536,15 @@ export async function updateJournalSettings(updates: Partial<JournalSettings>) {
 // STORAGE HELPERS
 // ============================================
 
-export async function uploadArticleFile(
-	articleId: string,
-	versionNumber: number,
-	file: File,
-	fileType: "manuscript" | "source" | "supplementary"
-) {
+export async function uploadArticleFile(articleId: string, versionNumber: number, file: File, fileType: "manuscript" | "source" | "supplementary") {
 	const fileExt = file.name.split(".").pop()
 	const fileName = `${fileType}.${fileExt}`
 	const filePath = `${articleId}/v${versionNumber}/${fileName}`
 
-	const { data, error } = await supabase.storage
-		.from("journal-submissions")
-		.upload(filePath, file, {
-			cacheControl: "3600",
-			upsert: true,
-		})
+	const { data, error } = await supabase.storage.from("journal-submissions").upload(filePath, file, {
+		cacheControl: "3600",
+		upsert: true,
+	})
 
 	if (error) throw error
 	return data.path

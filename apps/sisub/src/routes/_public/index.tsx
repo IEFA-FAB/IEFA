@@ -41,20 +41,17 @@ export const steps: Step[] = [
 	{
 		icon: ShieldCheck,
 		title: "Faça Login",
-		description:
-			"Acesse o sistema com suas credenciais militares de forma segura através da autenticação Supabase.",
+		description: "Acesse o sistema com suas credenciais militares de forma segura através da autenticação Supabase.",
 	},
 	{
 		icon: Calendar,
 		title: "Selecione os Dias",
-		description:
-			"Visualize os próximos 30 dias em cards organizados e selecione as refeições que irá consumir.",
+		description: "Visualize os próximos 30 dias em cards organizados e selecione as refeições que irá consumir.",
 	},
 	{
 		icon: ClipboardCheck,
 		title: "Confirme Automaticamente",
-		description:
-			"Suas seleções são salvas automaticamente, ajudando na previsão de demanda do rancho.",
+		description: "Suas seleções são salvas automaticamente, ajudando na previsão de demanda do rancho.",
 	},
 ]
 
@@ -69,8 +66,7 @@ export const features: Feature[] = [
 	{
 		icon: BarChart3,
 		title: "Planejamento de 30 dias",
-		description:
-			"Visualize e planeje suas refeições para os próximos 30 dias de forma simples e intuitiva.",
+		description: "Visualize e planeje suas refeições para os próximos 30 dias de forma simples e intuitiva.",
 	},
 	{
 		icon: QrCode,
@@ -109,8 +105,7 @@ export const Route = createFileRoute("/_public/")({
 			{ title: "SISUB - Sistema de Subsistência" },
 			{
 				name: "description",
-				content:
-					"Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.",
+				content: "Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.",
 			},
 		],
 	}),
@@ -137,10 +132,7 @@ function Home() {
 						<Star className="h-4 w-4 text-primary" />
 						Passo a passo
 					</Badge>
-					<h2
-						id="steps-heading"
-						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
-					>
+					<h2 id="steps-heading" className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4">
 						Como funciona o sistema
 					</h2>
 					<p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
@@ -152,19 +144,13 @@ function Home() {
 					{steps.map((step, index) => {
 						const Icon = step.icon
 						return (
-							<Card
-								key={step.title}
-								className="group bg-card transition-colors hover:bg-muted/50 stagger-item"
-								style={{ animationDelay: `${index * 0.1}s` }}
-							>
+							<Card key={step.title} className="group bg-card transition-colors hover:bg-muted/50 stagger-item" style={{ animationDelay: `${index * 0.1}s` }}>
 								<CardHeader className="text-center pt-8">
 									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-md bg-primary/10 transition-colors group-hover:bg-primary/15">
 										<Icon className="h-8 w-8 text-primary" />
 									</div>
 									<CardTitle className="text-xl font-bold">{step.title}</CardTitle>
-									<CardDescription className="text-muted-foreground leading-relaxed">
-										{step.description}
-									</CardDescription>
+									<CardDescription className="text-muted-foreground leading-relaxed">{step.description}</CardDescription>
 								</CardHeader>
 							</Card>
 						)
@@ -175,22 +161,14 @@ function Home() {
 			{/* Tipos de Refeição */}
 			<Appear id="meals" className="py-16 md:py-24" aria-labelledby="meals-heading">
 				<div className="text-center mb-14">
-					<Badge
-						variant="outline"
-						className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30"
-					>
+					<Badge variant="outline" className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30">
 						<UtensilsCrossed className="h-4 w-4 text-primary" />
 						Refeições
 					</Badge>
-					<h2
-						id="meals-heading"
-						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
-					>
+					<h2 id="meals-heading" className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4">
 						Tipos de refeição disponíveis
 					</h2>
-					<p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-						Marque quais refeições você irá consumir em cada dia
-					</p>
+					<p className="text-muted-foreground text-base md:text-lg leading-relaxed">Marque quais refeições você irá consumir em cada dia</p>
 				</div>
 
 				<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
@@ -216,23 +194,13 @@ function Home() {
 			</Appear>
 
 			{/* Funcionalidades */}
-			<Appear
-				id="features"
-				className="py-16 md:py-24 bg-muted/10"
-				aria-labelledby="features-heading"
-			>
+			<Appear id="features" className="py-16 md:py-24 bg-muted/10" aria-labelledby="features-heading">
 				<div className="text-center mb-14">
-					<Badge
-						variant="outline"
-						className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30"
-					>
+					<Badge variant="outline" className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30">
 						<Star className="h-4 w-4 text-primary" />
 						Funcionalidades
 					</Badge>
-					<h2
-						id="features-heading"
-						className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4"
-					>
+					<h2 id="features-heading" className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight text-foreground mb-4">
 						Principais funcionalidades
 					</h2>
 					<p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
@@ -247,12 +215,8 @@ function Home() {
 							<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-md bg-primary-foreground/15">
 								<CurrentFeatureIcon className="h-10 w-10 text-primary-foreground" />
 							</div>
-							<h3 className="text-2xl md:text-3xl font-bold mb-4">
-								{features[currentFeature]?.title ?? "—"}
-							</h3>
-							<p className="text-base md:text-lg leading-relaxed text-primary-foreground/90 max-w-2xl mx-auto">
-								{features[currentFeature]?.description ?? ""}
-							</p>
+							<h3 className="text-2xl md:text-3xl font-bold mb-4">{features[currentFeature]?.title ?? "—"}</h3>
+							<p className="text-base md:text-lg leading-relaxed text-primary-foreground/90 max-w-2xl mx-auto">{features[currentFeature]?.description ?? ""}</p>
 						</div>
 					</div>
 				</div>
@@ -278,25 +242,14 @@ function Home() {
 									<div
 										className={cn(
 											"flex h-12 w-12 items-center justify-center rounded-md transition-colors",
-											active
-												? "bg-primary/10 text-primary"
-												: "bg-muted text-foreground/80 group-hover:bg-primary/5 group-hover:text-primary"
+											active ? "bg-primary/10 text-primary" : "bg-muted text-foreground/80 group-hover:bg-primary/5 group-hover:text-primary"
 										)}
 									>
 										<Icon className="h-6 w-6" />
 									</div>
-									<h3
-										className={cn(
-											"text-lg font-bold",
-											active ? "text-primary" : "text-card-foreground"
-										)}
-									>
-										{feature.title}
-									</h3>
+									<h3 className={cn("text-lg font-bold", active ? "text-primary" : "text-card-foreground")}>{feature.title}</h3>
 								</div>
-								<p className="text-muted-foreground text-sm leading-relaxed">
-									{feature.description}
-								</p>
+								<p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
 							</button>
 						)
 					})}
@@ -343,15 +296,11 @@ function Home() {
 			<Appear id="cta" className="relative py-20 md:py-24" aria-labelledby="cta-heading">
 				<div className="relative text-center max-w-4xl mx-auto rounded-md bg-primary text-primary-foreground overflow-hidden p-10 md:p-16">
 					<div className="relative z-10">
-						<h2
-							id="cta-heading"
-							className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-6"
-						>
+						<h2 id="cta-heading" className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-6">
 							Pronto para começar?
 						</h2>
 						<p className="text-primary-foreground/90 text-base md:text-lg leading-relaxed mb-10 max-w-2xl mx-auto">
-							Faça parte da modernização do SISUB. Acesse agora e comece a planejar suas refeições
-							de forma inteligente.
+							Faça parte da modernização do SISUB. Acesse agora e comece a planejar suas refeições de forma inteligente.
 						</p>
 
 						<div className="flex flex-col items-center gap-4">
@@ -412,16 +361,11 @@ function HomeHero() {
 				</h1>
 
 				<p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-					Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza
-					desperdícios e otimize a gestão alimentar.
+					Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.
 				</p>
 
 				<div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
-					<Button
-						nativeButton={false}
-						render={<Link to="/auth">Acessar Sistema</Link>}
-						className="gap-2 px-8 py-6 text-base font-semibold transition-all"
-					/>
+					<Button nativeButton={false} render={<Link to="/auth">Acessar Sistema</Link>} className="gap-2 px-8 py-6 text-base font-semibold transition-all" />
 					<div className="flex items-center space-x-2 text-sm text-muted-foreground">
 						<ShieldBadge />
 						<span>Login seguro necessário</span>
@@ -456,14 +400,7 @@ type InfoCardProps = {
 
 const EMPTY_CHIPS: InfoChip[] = []
 
-function InfoCard({
-	badgeIcon: BadgeIcon,
-	badgeText,
-	title,
-	description,
-	chips = EMPTY_CHIPS,
-	cta,
-}: InfoCardProps) {
+function InfoCard({ badgeIcon: BadgeIcon, badgeText, title, description, chips = EMPTY_CHIPS, cta }: InfoCardProps) {
 	return (
 		<Card className="transition-colors hover:bg-muted/50 border-border/50 bg-card">
 			<CardHeader className="items-center text-center">
@@ -472,9 +409,7 @@ function InfoCard({
 					{badgeText}
 				</Badge>
 				<CardTitle className="text-2xl md:text-3xl font-bold">{title}</CardTitle>
-				<CardDescription className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-					{description}
-				</CardDescription>
+				<CardDescription className="text-muted-foreground max-w-md mx-auto leading-relaxed">{description}</CardDescription>
 			</CardHeader>
 			<CardContent className="flex flex-col items-center">
 				{!!chips.length && (
@@ -482,11 +417,7 @@ function InfoCard({
 						{chips.map((c) => {
 							const Icon = c.icon
 							return (
-								<Badge
-									key={c.text}
-									variant="secondary"
-									className="gap-1.5 px-2.5 py-1 font-mono text-xs"
-								>
+								<Badge key={c.text} variant="secondary" className="gap-1.5 px-2.5 py-1 font-mono text-xs">
 									<Icon className="h-3.5 w-3.5" />
 									{c.text}
 								</Badge>
@@ -560,18 +491,7 @@ function Appear({
 	const Comp = as as ElementType
 
 	return (
-		<Comp
-			id={id}
-			ref={ref}
-			className={cn(
-				className,
-				"transition-all",
-				duration,
-				delayClass,
-				visible ? inClass : outClass
-			)}
-			{...rest}
-		>
+		<Comp id={id} ref={ref} className={cn(className, "transition-all", duration, delayClass, visible ? inClass : outClass)} {...rest}>
 			{children}
 		</Comp>
 	)

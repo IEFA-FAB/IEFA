@@ -1,23 +1,6 @@
-import type {
-	DailyMenu,
-	DailyMenuInsert,
-	DailyMenuUpdate,
-	MealType,
-	MenuItem,
-	MenuItemInsert,
-	MenuItemUpdate,
-	Recipe,
-	Tables,
-} from "@/types/supabase.types"
+import type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MealType, MenuItem, MenuItemInsert, MenuItemUpdate, Recipe, Tables } from "@/types/supabase.types"
 
-export type {
-	DailyMenu,
-	DailyMenuInsert,
-	DailyMenuUpdate,
-	MenuItem,
-	MenuItemInsert,
-	MenuItemUpdate,
-}
+export type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MenuItem, MenuItemInsert, MenuItemUpdate }
 
 export type PlanningStatus = "PLANNED" | "PUBLISHED" | "EXECUTED"
 

@@ -58,10 +58,7 @@ export function MetricsPanel() {
 					<CardHeader className="pb-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Em Revisão</span>
-							<AlertTriangle
-								className="size-4 text-yellow-600 dark:text-yellow-400"
-								aria-hidden="true"
-							/>
+							<AlertTriangle className="size-4 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
 						</div>
 					</CardHeader>
 					<CardContent>
@@ -84,9 +81,7 @@ export function MetricsPanel() {
 				</Card>
 			</div>
 
-			<p className="text-xs text-muted-foreground italic">
-				📊 Estatísticas serão calculadas automaticamente
-			</p>
+			<p className="text-xs text-muted-foreground italic">📊 Estatísticas serão calculadas automaticamente</p>
 		</div>
 	)
 }

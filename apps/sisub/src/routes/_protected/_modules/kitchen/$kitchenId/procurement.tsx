@@ -12,10 +12,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/pr
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
 	component: ProcurementPage,
 	head: () => ({
-		meta: [
-			{ title: "Lista de Compras" },
-			{ name: "description", content: "Calcule necessidades de aquisição" },
-		],
+		meta: [{ title: "Lista de Compras" }, { name: "description", content: "Calcule necessidades de aquisição" }],
 	}),
 })
 
@@ -41,17 +38,9 @@ function ProcurementPage() {
 
 	const handleExportCSV = () => {
 		const headers = ["Categoria", "Produto", "Quantidade", "Unidade"]
-		const rows = needs.map((item) => [
-			item.folder_description || "Sem categoria",
-			item.product_name,
-			item.total_quantity.toFixed(2),
-			item.measure_unit || "UN",
-		])
+		const rows = needs.map((item) => [item.folder_description || "Sem categoria", item.product_name, item.total_quantity.toFixed(2), item.measure_unit || "UN"])
 
-		const csv = [
-			headers.join(","),
-			...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-		].join("\n")
+		const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
 
 		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
 		const link = document.createElement("a")
@@ -62,10 +51,7 @@ function ProcurementPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Lista de Compras"
-				description="Calcule necessidades de aquisição baseado no cardápio planejado."
-			/>
+			<PageHeader title="Lista de Compras" description="Calcule necessidades de aquisição baseado no cardápio planejado." />
 
 			<Card className="mb-6">
 				<CardHeader>
@@ -101,13 +87,7 @@ function ProcurementPage() {
 								className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
 							/>
 						</div>
-						<Button
-							onClick={handleExportCSV}
-							variant="outline"
-							disabled={needs.length === 0}
-							className="gap-2"
-							aria-label="Exportar lista em CSV"
-						>
+						<Button onClick={handleExportCSV} variant="outline" disabled={needs.length === 0} className="gap-2" aria-label="Exportar lista em CSV">
 							<Download className="h-4 w-4" aria-hidden="true" />
 							Exportar CSV
 						</Button>

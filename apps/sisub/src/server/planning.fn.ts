@@ -107,11 +107,7 @@ export const updateDailyMenuFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("daily_menu")
-			.update(data.updates)
-			.eq("id", data.id)
-			.select()
+		const { data: result, error } = await getSupabaseServerClient().from("daily_menu").update(data.updates).eq("id", data.id).select()
 
 		if (error) throw new Error(error.message)
 		return result
@@ -128,11 +124,7 @@ export const updateMenuItemFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("menu_items")
-			.update(data.updates)
-			.eq("id", data.id)
-			.select()
+		const { data: result, error } = await getSupabaseServerClient().from("menu_items").update(data.updates).eq("id", data.id).select()
 
 		if (error) throw new Error(error.message)
 		return result
@@ -142,10 +134,7 @@ export const updateSubstitutionsFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
 			id: z.string(),
-			substitutions: z.record(
-				z.string(),
-				z.object({ type: z.string(), rationale: z.string(), updated_at: z.string() })
-			),
+			substitutions: z.record(z.string(), z.object({ type: z.string(), rationale: z.string(), updated_at: z.string() })),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -161,10 +150,7 @@ export const updateSubstitutionsFn = createServerFn({ method: "POST" })
 export const softDeleteMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("menu_items")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("menu_items").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})
@@ -172,10 +158,7 @@ export const softDeleteMenuItemFn = createServerFn({ method: "POST" })
 export const restoreMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("menu_items")
-			.update({ deleted_at: null })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("menu_items").update({ deleted_at: null }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})

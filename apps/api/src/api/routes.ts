@@ -151,8 +151,7 @@ function createDocumentedRoute(config: {
 		path: "/opinion",
 		tags: ["Opiniões"],
 		summary: "Lista opiniões dos usuários",
-		description:
-			"Retorna todas as opiniões registradas com filtros opcionais por usuário e pergunta",
+		description: "Retorna todas as opiniões registradas com filtros opcionais por usuário e pergunta",
 		parameters: [
 			{
 				name: "userId",

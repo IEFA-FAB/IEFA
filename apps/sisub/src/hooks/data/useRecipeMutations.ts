@@ -22,15 +22,7 @@ export function useVersionRecipe() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({
-			baseRecipeId,
-			data,
-			newVersion,
-		}: {
-			baseRecipeId: string
-			data: RecipeFormData
-			newVersion: number
-		}) =>
+		mutationFn: ({ baseRecipeId, data, newVersion }: { baseRecipeId: string; data: RecipeFormData; newVersion: number }) =>
 			createRecipeVersionFn({
 				data: { ...data, base_recipe_id: baseRecipeId, new_version: newVersion },
 			}),

@@ -155,11 +155,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												onChange={(e) => field.handleChange(e.target.value)}
 												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 											/>
-											<FieldError
-												errors={field.state.meta.errors
-													.filter(Boolean)
-													.map((err) => ({ message: String(err) }))}
-											/>
+											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
 									</Field>
 								)}
@@ -172,19 +168,12 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<FieldContent>
 											<Textarea
 												id="prep"
-												className={cn(
-													"min-h-30",
-													field.state.meta.errors.length > 0 && "border-destructive"
-												)}
+												className={cn("min-h-30", field.state.meta.errors.length > 0 && "border-destructive")}
 												value={field.state.value || ""}
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 											/>
-											<FieldError
-												errors={field.state.meta.errors
-													.filter(Boolean)
-													.map((err) => ({ message: String(err) }))}
-											/>
+											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
 									</Field>
 								)}
@@ -210,11 +199,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 												onChange={(e) => field.handleChange(Number(e.target.value))}
 											/>
-											<FieldError
-												errors={field.state.meta.errors
-													.filter(Boolean)
-													.map((err) => ({ message: String(err) }))}
-											/>
+											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
 									</Field>
 								)}
@@ -230,11 +215,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 												onChange={(e) => field.handleChange(Number(e.target.value))}
 											/>
-											<FieldError
-												errors={field.state.meta.errors
-													.filter(Boolean)
-													.map((err) => ({ message: String(err) }))}
-											/>
+											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
 									</Field>
 								)}
@@ -251,11 +232,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 												onChange={(e) => field.handleChange(Number(e.target.value))}
 											/>
-											<FieldError
-												errors={field.state.meta.errors
-													.filter(Boolean)
-													.map((err) => ({ message: String(err) }))}
-											/>
+											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
 									</Field>
 								)}
@@ -278,23 +255,16 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							{(field) => (
 								<div className="space-y-4">
 									{field.state.value.length === 0 ? (
-										<div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
-											Nenhum ingrediente adicionado.
-										</div>
+										<div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">Nenhum ingrediente adicionado.</div>
 									) : (
 										field.state.value.map((ingredient, index) => (
-											<div
-												key={ingredient.product_id || index}
-												className="grid grid-cols-12 gap-4 items-end p-3 border rounded-md bg-muted/20"
-											>
+											<div key={ingredient.product_id || index} className="grid grid-cols-12 gap-4 items-end p-3 border rounded-md bg-muted/20">
 												<div className="col-span-5">
 													<Label className="text-xs">Produto</Label>
 													<Input value={ingredient.product_name} disabled className="bg-muted" />
 												</div>
 												<div className="col-span-3">
-													<Label className="text-xs">
-														Qtd. Líquida ({ingredient.measure_unit})
-													</Label>
+													<Label className="text-xs">Qtd. Líquida ({ingredient.measure_unit})</Label>
 													<Input
 														type="number"
 														step="0.001"
@@ -338,9 +308,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											</div>
 										))
 									)}
-									{field.state.meta.errors && (
-										<p className="text-destructive text-sm">{field.state.meta.errors.join()}</p>
-									)}
+									{field.state.meta.errors && <p className="text-destructive text-sm">{field.state.meta.errors.join()}</p>}
 								</div>
 							)}
 						</form.Field>
@@ -352,9 +320,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						Cancelar
 					</Button>
 					<Button type="submit" disabled={createMutation.isPending || versionMutation.isPending}>
-						{(createMutation.isPending || versionMutation.isPending) && (
-							<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-						)}
+						{(createMutation.isPending || versionMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
 						<Save className="w-4 h-4 mr-2" />
 						Salvar Preparação
 					</Button>

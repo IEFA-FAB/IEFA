@@ -9,28 +9,24 @@ import type { Database } from "@/types/database.types"
  * o contexto de request/cookies correto por requisição.
  */
 export function getSupabaseServerClient() {
-	return createServerClient<Database>(
-		process.env.VITE_SISUB_SUPABASE_URL as string,
-		process.env.SISUB_SUPABASE_SECRET_KEY as string,
-		{
-			db: { schema: "sisub" },
-			cookies: {
-				getAll() {
-					const request = getRequest()
-					const cookieHeader = request?.headers.get("cookie")
-					if (!cookieHeader) return []
+	return createServerClient<Database>(process.env.VITE_SISUB_SUPABASE_URL as string, process.env.SISUB_SUPABASE_SECRET_KEY as string, {
+		db: { schema: "sisub" },
+		cookies: {
+			getAll() {
+				const request = getRequest()
+				const cookieHeader = request?.headers.get("cookie")
+				if (!cookieHeader) return []
 
-					return cookieHeader.split(";").map((c) => {
-						const [name, ...v] = c.split("=")
-						return { name: name.trim(), value: v.join("=") }
-					})
-				},
-				async setAll(cookies) {
-					for (const { name, value, options } of cookies) {
-						await setCookie(name, value, options)
-					}
-				},
+				return cookieHeader.split(";").map((c) => {
+					const [name, ...v] = c.split("=")
+					return { name: name.trim(), value: v.join("=") }
+				})
 			},
-		}
-	)
+			async setAll(cookies) {
+				for (const { name, value, options } of cookies) {
+					await setCookie(name, value, options)
+				}
+			},
+		},
+	})
 }

@@ -1,14 +1,7 @@
 // Dashboard Service - IEFA API Integration
 
 import { queryOptions } from "@tanstack/react-query"
-import type {
-	DashboardPresenceRecord,
-	ForecastRecord,
-	MessHallAPI,
-	UnitAPI,
-	UserDataAPI,
-	UserMilitaryDataAPI,
-} from "@/types/domain/dashboard"
+import type { DashboardPresenceRecord, ForecastRecord, MessHallAPI, UnitAPI, UserDataAPI, UserMilitaryDataAPI } from "@/types/domain/dashboard"
 
 const IEFA_API_BASE = "https://iefa-api.fly.dev"
 
@@ -17,8 +10,7 @@ const IEFA_API_BASE = "https://iefa-api.fly.dev"
 // ============================================================================
 
 export const DASHBOARD_QUERY_KEYS = {
-	forecasts: (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) =>
-		["dashboard", "forecasts", params] as const,
+	forecasts: (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) => ["dashboard", "forecasts", params] as const,
 
 	presences: (params: { mess_hall_id?: number }) => ["dashboard", "presences", params] as const,
 
@@ -38,11 +30,7 @@ export const DASHBOARD_QUERY_KEYS = {
 /**
  * Fetch forecasts from /api/rancho_previsoes
  */
-export async function fetchForecasts(params: {
-	mess_hall_id?: number
-	startDate?: string
-	endDate?: string
-}): Promise<ForecastRecord[]> {
+export async function fetchForecasts(params: { mess_hall_id?: number; startDate?: string; endDate?: string }): Promise<ForecastRecord[]> {
 	const url = new URL(`${IEFA_API_BASE}/api/rancho_previsoes`)
 
 	if (params.mess_hall_id) {
@@ -71,11 +59,7 @@ export async function fetchForecasts(params: {
 /**
  * Fetch presences from /api/wherewhowhen
  */
-export async function fetchPresences(params: {
-	mess_hall_id?: number
-	startDate?: string
-	endDate?: string
-}): Promise<DashboardPresenceRecord[]> {
+export async function fetchPresences(params: { mess_hall_id?: number; startDate?: string; endDate?: string }): Promise<DashboardPresenceRecord[]> {
 	const url = new URL(`${IEFA_API_BASE}/api/wherewhowhen`)
 
 	if (params.mess_hall_id) {
@@ -154,9 +138,7 @@ export async function fetchUserData(ids?: string[]): Promise<UserDataAPI[]> {
 /**
  * Fetch user military data from /api/user-military-data
  */
-export async function fetchUserMilitaryData(
-	nrOrdemList?: string[]
-): Promise<UserMilitaryDataAPI[]> {
+export async function fetchUserMilitaryData(nrOrdemList?: string[]): Promise<UserMilitaryDataAPI[]> {
 	const url = new URL(`${IEFA_API_BASE}/api/user-military-data`)
 
 	if (nrOrdemList && nrOrdemList.length > 0) {
@@ -178,11 +160,7 @@ export async function fetchUserMilitaryData(
 /**
  * Query options for forecasts
  */
-export const dashboardForecastsQueryOptions = (params: {
-	mess_hall_id?: number
-	startDate?: string
-	endDate?: string
-}) =>
+export const dashboardForecastsQueryOptions = (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) =>
 	queryOptions({
 		queryKey: DASHBOARD_QUERY_KEYS.forecasts(params),
 		queryFn: () => fetchForecasts(params),
@@ -193,11 +171,7 @@ export const dashboardForecastsQueryOptions = (params: {
 /**
  * Query options for presences
  */
-export const dashboardPresencesQueryOptions = (params: {
-	mess_hall_id?: number
-	startDate?: string
-	endDate?: string
-}) =>
+export const dashboardPresencesQueryOptions = (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) =>
 	queryOptions({
 		queryKey: DASHBOARD_QUERY_KEYS.presences(params),
 		queryFn: () => fetchPresences(params),

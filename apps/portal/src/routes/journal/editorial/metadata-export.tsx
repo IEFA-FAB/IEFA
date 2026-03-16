@@ -30,9 +30,7 @@ function MetadataExport() {
 			{/* Header */}
 			<div>
 				<h1 className="text-3xl font-bold tracking-tight">Exportar Metadados</h1>
-				<p className="text-muted-foreground">
-					Exporte metadados dos artigos publicados em diferentes formatos padrão
-				</p>
+				<p className="text-muted-foreground">Exporte metadados dos artigos publicados em diferentes formatos padrão</p>
 			</div>
 
 			{/* Export Options */}
@@ -45,8 +43,7 @@ function MetadataExport() {
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Crossref XML</h3>
 						<p className="text-sm text-muted-foreground mb-4">
-							Formato para registro de DOIs no sistema Crossref. Inclui todos os metadados
-							necessários para indexação.
+							Formato para registro de DOIs no sistema Crossref. Inclui todos os metadados necessários para indexação.
 						</p>
 					</div>
 					<Button className="w-full" onClick={handleExportCrossref}>
@@ -62,10 +59,7 @@ function MetadataExport() {
 					</div>
 					<div>
 						<h3 className="font-semibold text-lg mb-2">JATS XML</h3>
-						<p className="text-sm text-muted-foreground mb-4">
-							Journal Article Tag Suite - padrão para arquivamento e intercâmbio de artigos
-							científicos.
-						</p>
+						<p className="text-sm text-muted-foreground mb-4">Journal Article Tag Suite - padrão para arquivamento e intercâmbio de artigos científicos.</p>
 					</div>
 					<Button className="w-full" onClick={handleExportJATS}>
 						<Download className="size-4 mr-2" />
@@ -81,8 +75,7 @@ function MetadataExport() {
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Dublin Core</h3>
 						<p className="text-sm text-muted-foreground mb-4">
-							Padrão de metadados para repositórios e sistemas de busca. Formato simples e
-							amplamente adotado.
+							Padrão de metadados para repositórios e sistemas de busca. Formato simples e amplamente adotado.
 						</p>
 					</div>
 					<Button className="w-full" onClick={handleExportDublinCore}>
@@ -109,18 +102,13 @@ function MetadataExport() {
 					{publishedArticles.length > 0 ? (
 						<div className="divide-y">
 							{publishedArticles.map((article) => (
-								<div
-									key={article.id}
-									className="p-4 grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 text-sm items-center"
-								>
+								<div key={article.id} className="p-4 grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 text-sm items-center">
 									<span className="font-medium line-clamp-1">{article.title_pt}</span>
 									<span className="text-muted-foreground">
 										Vol. {article.volume}, Nº {article.issue}
 									</span>
 									<span className="font-mono text-xs">{article.doi}</span>
-									<span className="text-muted-foreground">
-										{new Date(article.published_at).toLocaleDateString("pt-BR")}
-									</span>
+									<span className="text-muted-foreground">{new Date(article.published_at).toLocaleDateString("pt-BR")}</span>
 									<Button size="sm" variant="outline">
 										<Download className="size-4" />
 									</Button>
@@ -130,9 +118,7 @@ function MetadataExport() {
 					) : (
 						<div className="p-12 text-center">
 							<FileText className="size-12 mx-auto text-muted-foreground mb-3" />
-							<p className="text-muted-foreground">
-								Nenhum artigo publicado disponível para exportação
-							</p>
+							<p className="text-muted-foreground">Nenhum artigo publicado disponível para exportação</p>
 						</div>
 					)}
 				</div>
@@ -140,9 +126,7 @@ function MetadataExport() {
 
 			{/* Information */}
 			<div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-				<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-					ℹ️ Sobre a Exportação de Metadados
-				</h3>
+				<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">ℹ️ Sobre a Exportação de Metadados</h3>
 				<ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
 					<li>Metadados são atualizados automaticamente após cada publicação</li>
 					<li>Crossref XML deve ser enviado manualmente ao sistema Crossref</li>

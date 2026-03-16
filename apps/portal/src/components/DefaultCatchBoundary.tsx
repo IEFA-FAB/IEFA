@@ -21,9 +21,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 						<AlertCircle className="h-10 w-10 text-red-400" />
 					</div>
 					<CardTitle className="text-4xl font-bold tracking-tight">Ops! Algo deu errado</CardTitle>
-					<CardDescription className="text-zinc-400 text-lg">
-						Encontramos um erro inesperado. Por favor, tente novamente.
-					</CardDescription>
+					<CardDescription className="text-zinc-400 text-lg">Encontramos um erro inesperado. Por favor, tente novamente.</CardDescription>
 				</CardHeader>
 
 				<CardContent className="px-8 pb-4">
@@ -32,9 +30,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 						<AlertDescription className="ml-2">
 							<strong className="font-semibold">Detalhes do erro:</strong>
 							<br />
-							<code className="text-sm mt-2 block bg-black/20 p-3 rounded-lg font-mono">
-								{errorMessage}
-							</code>
+							<code className="text-sm mt-2 block bg-black/20 p-3 rounded-lg font-mono">{errorMessage}</code>
 						</AlertDescription>
 					</Alert>
 				</CardContent>

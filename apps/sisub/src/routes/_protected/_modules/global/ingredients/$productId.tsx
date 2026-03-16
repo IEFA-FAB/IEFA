@@ -56,8 +56,7 @@ function ProductDetailPage() {
 						Unidade: <span className="font-mono">{product.measure_unit}</span>
 						{product.correction_factor && Number(product.correction_factor) !== 1 && (
 							<>
-								{" · "}Fator de correção:{" "}
-								<span className="font-mono">{product.correction_factor}</span>
+								{" · "}Fator de correção: <span className="font-mono">{product.correction_factor}</span>
 							</>
 						)}
 					</p>

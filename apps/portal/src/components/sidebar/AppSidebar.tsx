@@ -3,10 +3,7 @@ import { NavUser } from "./NavUser"
 import type { AppSidebarData } from "./SidebarTypes"
 import { TeamSwitcher } from "./TeamSwitcher"
 
-export function AppSidebar({
-	data,
-	...props
-}: React.ComponentProps<typeof Sidebar> & { data: AppSidebarData }) {
+export function AppSidebar({ data, ...props }: React.ComponentProps<typeof Sidebar> & { data: AppSidebarData }) {
 	return (
 		<Sidebar collapsible="icon" {...props}>
 			<SidebarHeader>

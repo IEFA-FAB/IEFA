@@ -164,12 +164,8 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 								<div className="mt-1">
 									{stats.nextMeal ? (
 										<>
-											<p className="text-xl font-bold text-foreground leading-tight">
-												{formatMeal(stats.nextMeal.meal)}
-											</p>
-											<p className="text-sm text-muted-foreground leading-tight mt-0.5">
-												{formatDate(stats.nextMeal.date)}
-											</p>
+											<p className="text-xl font-bold text-foreground leading-tight">{formatMeal(stats.nextMeal.meal)}</p>
+											<p className="text-sm text-muted-foreground leading-tight mt-0.5">{formatDate(stats.nextMeal.date)}</p>
 										</>
 									) : (
 										<div className="flex items-center gap-2 text-muted-foreground">
@@ -193,12 +189,8 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium text-muted-foreground">Próximos 7 Dias</p>
 								<div className="mt-1">
-									<p className="text-xl font-bold text-foreground leading-tight">
-										{stats.totalMealsNext7Days}
-									</p>
-									<p className="text-sm text-muted-foreground leading-tight mt-0.5">
-										refeições planejadas
-									</p>
+									<p className="text-xl font-bold text-foreground leading-tight">{stats.totalMealsNext7Days}</p>
+									<p className="text-sm text-muted-foreground leading-tight mt-0.5">refeições planejadas</p>
 								</div>
 							</div>
 						</div>
@@ -215,12 +207,8 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium text-muted-foreground">Dias Descobertos</p>
 								<div className="mt-1">
-									<p className="text-xl font-bold text-foreground leading-tight">
-										{stats.uncoveredDays}
-									</p>
-									<p className="text-sm text-muted-foreground leading-tight mt-0.5">
-										{stats.uncoveredDays === 0 ? "semana coberta" : "dias sem refeição"}
-									</p>
+									<p className="text-xl font-bold text-foreground leading-tight">{stats.uncoveredDays}</p>
+									<p className="text-sm text-muted-foreground leading-tight mt-0.5">{stats.uncoveredDays === 0 ? "semana coberta" : "dias sem refeição"}</p>
 								</div>
 							</div>
 						</div>

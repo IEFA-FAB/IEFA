@@ -13,10 +13,7 @@ export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/"
 	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
 	component: WeeklyPlansPage,
 	head: () => ({
-		meta: [
-			{ title: "Planos Semanais Modelo - SISUB" },
-			{ name: "description", content: "Templates de cardápio semanal para todas as unidades" },
-		],
+		meta: [{ title: "Planos Semanais Modelo - SISUB" }, { name: "description", content: "Templates de cardápio semanal para todas as unidades" }],
 	}),
 })
 
@@ -38,18 +35,9 @@ function WeeklyPlansPage() {
 			<div>
 				<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 					<CalendarDays className="h-10 w-10 mx-auto text-muted-foreground" />
-					<p className="text-sm font-medium text-muted-foreground">
-						Nenhum plano semanal modelo cadastrado.
-					</p>
-					<p className="text-xs text-muted-foreground">
-						Crie um plano para que as unidades possam importá-lo para o calendário local.
-					</p>
-					<Button
-						variant="outline"
-						size="sm"
-						className="mt-2"
-						render={<Link to="/global/weekly-plans/new">Criar primeiro plano</Link>}
-					/>
+					<p className="text-sm font-medium text-muted-foreground">Nenhum plano semanal modelo cadastrado.</p>
+					<p className="text-xs text-muted-foreground">Crie um plano para que as unidades possam importá-lo para o calendário local.</p>
+					<Button variant="outline" size="sm" className="mt-2" render={<Link to="/global/weekly-plans/new">Criar primeiro plano</Link>} />
 				</div>
 			</div>
 		</div>

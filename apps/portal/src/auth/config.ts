@@ -50,23 +50,10 @@ export type AuthConfig = {
 	fetchUserMeta?: FetchUserMeta // opcional (ex: role/om)
 }
 
-export const DEFAULT_CONFIG: Required<
-	Pick<
-		AuthConfig,
-		"loginPath" | "defaultRedirect" | "publicPaths" | "emailRegex" | "storageKeys" | "brand" | "ui"
-	>
-> = {
+export const DEFAULT_CONFIG: Required<Pick<AuthConfig, "loginPath" | "defaultRedirect" | "publicPaths" | "emailRegex" | "storageKeys" | "brand" | "ui">> = {
 	loginPath: "/login",
 	defaultRedirect: "/forecast",
-	publicPaths: [
-		"/login",
-		"/register",
-		"/auth/reset-password",
-		"/health",
-		"/favicon.ico",
-		"/favicon.svg",
-		(p) => p.startsWith("/assets"),
-	],
+	publicPaths: ["/login", "/register", "/auth/reset-password", "/health", "/favicon.ico", "/favicon.svg", (p) => p.startsWith("/assets")],
 	emailRegex: /^[a-zA-Z0-9._%+-]+@fab\.mil\.br$/,
 	storageKeys: {
 		rememberEmail: "fab_remember_email",

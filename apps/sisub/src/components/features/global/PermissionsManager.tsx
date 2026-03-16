@@ -6,22 +6,10 @@ import * as React from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
@@ -50,10 +38,7 @@ const MODULE_LABELS: Record<AppModule, string> = {
 	storage: "Estoque",
 }
 
-const LEVEL_CONFIG: Record<
-	number,
-	{ label: string; variant: "destructive" | "secondary" | "default" }
-> = {
+const LEVEL_CONFIG: Record<number, { label: string; variant: "destructive" | "secondary" | "default" }> = {
 	0: { label: "Negado", variant: "destructive" },
 	1: { label: "Leitura", variant: "secondary" },
 	2: { label: "Escrita", variant: "default" },
@@ -120,11 +105,7 @@ function scopeTypeOf(perm: PermissionRow): ScopeType {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ModuleBadge({ module }: { module: AppModule }) {
-	return (
-		<span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium">
-			{MODULE_LABELS[module] ?? module}
-		</span>
-	)
+	return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium">{MODULE_LABELS[module] ?? module}</span>
 }
 
 function LevelBadge({ level }: { level: number }) {
@@ -145,8 +126,7 @@ function ScopeLabel({
 }) {
 	if (perm.unit_id) return <span>Unidade: {unitMap[perm.unit_id] ?? perm.unit_id}</span>
 	if (perm.kitchen_id) return <span>Cozinha: {kitchenMap[perm.kitchen_id] ?? perm.kitchen_id}</span>
-	if (perm.mess_hall_id)
-		return <span>Refeitório: {messHallMap[perm.mess_hall_id] ?? perm.mess_hall_id}</span>
+	if (perm.mess_hall_id) return <span>Refeitório: {messHallMap[perm.mess_hall_id] ?? perm.mess_hall_id}</span>
 	return <span className="text-muted-foreground">Global</span>
 }
 
@@ -221,11 +201,7 @@ function PermissionDialog({
 									))}
 								</SelectContent>
 							</Select>
-							{isEdit && (
-								<p className="mt-1 text-xs text-muted-foreground">
-									O módulo não pode ser alterado. Exclua e crie uma nova permissão se necessário.
-								</p>
-							)}
+							{isEdit && <p className="mt-1 text-xs text-muted-foreground">O módulo não pode ser alterado. Exclua e crie uma nova permissão se necessário.</p>}
 						</div>
 					</div>
 
@@ -233,10 +209,7 @@ function PermissionDialog({
 					<div className="grid grid-cols-4 items-center gap-3">
 						<Label className="text-right text-sm">Nível</Label>
 						<div className="col-span-3">
-							<Select
-								value={form.level}
-								onValueChange={(v) => setForm((f) => ({ ...f, level: v ?? "" }))}
-							>
+							<Select value={form.level} onValueChange={(v) => setForm((f) => ({ ...f, level: v ?? "" }))}>
 								<SelectTrigger className="w-full">
 									<SelectValue />
 								</SelectTrigger>
@@ -253,12 +226,7 @@ function PermissionDialog({
 					<div className="grid grid-cols-4 items-center gap-3">
 						<Label className="text-right text-sm">Escopo</Label>
 						<div className="col-span-3">
-							<Select
-								value={form.scopeType}
-								onValueChange={(v) =>
-									setForm((f) => ({ ...f, scopeType: v as ScopeType, scopeId: "" }))
-								}
-							>
+							<Select value={form.scopeType} onValueChange={(v) => setForm((f) => ({ ...f, scopeType: v as ScopeType, scopeId: "" }))}>
 								<SelectTrigger className="w-full">
 									<SelectValue />
 								</SelectTrigger>
@@ -278,10 +246,7 @@ function PermissionDialog({
 						<div className="grid grid-cols-4 items-center gap-3">
 							<Label className="text-right text-sm">Unidade</Label>
 							<div className="col-span-3">
-								<Select
-									value={form.scopeId}
-									onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}
-								>
+								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Selecione a OM..." />
 									</SelectTrigger>
@@ -301,10 +266,7 @@ function PermissionDialog({
 						<div className="grid grid-cols-4 items-center gap-3">
 							<Label className="text-right text-sm">Cozinha</Label>
 							<div className="col-span-3">
-								<Select
-									value={form.scopeId}
-									onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}
-								>
+								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Selecione a cozinha..." />
 									</SelectTrigger>
@@ -324,10 +286,7 @@ function PermissionDialog({
 						<div className="grid grid-cols-4 items-center gap-3">
 							<Label className="text-right text-sm">Refeitório</Label>
 							<div className="col-span-3">
-								<Select
-									value={form.scopeId}
-									onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}
-								>
+								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Selecione o refeitório..." />
 									</SelectTrigger>
@@ -359,17 +318,7 @@ function PermissionDialog({
 
 // ─── Delete Confirmation Dialog ───────────────────────────────────────────────
 
-function DeleteDialog({
-	perm,
-	isPending,
-	onConfirm,
-	onClose,
-}: {
-	perm: PermissionRow | null
-	isPending: boolean
-	onConfirm: () => void
-	onClose: () => void
-}) {
+function DeleteDialog({ perm, isPending, onConfirm, onClose }: { perm: PermissionRow | null; isPending: boolean; onConfirm: () => void; onClose: () => void }) {
 	return (
 		<Dialog open={!!perm} onOpenChange={(v) => !v && onClose()}>
 			<DialogContent className="sm:max-w-[400px]">
@@ -377,15 +326,10 @@ function DeleteDialog({
 					<DialogTitle>Remover permissão</DialogTitle>
 				</DialogHeader>
 				<p className="text-sm text-muted-foreground py-2">
-					Tem certeza que deseja remover a permissão{" "}
-					<span className="font-medium text-foreground">
-						{perm ? MODULE_LABELS[perm.module] : ""}
-					</span>{" "}
-					(nível {perm?.level ?? ""})?{" "}
+					Tem certeza que deseja remover a permissão <span className="font-medium text-foreground">{perm ? MODULE_LABELS[perm.module] : ""}</span> (nível{" "}
+					{perm?.level ?? ""})?{" "}
 					{perm?.module === "diner" && perm?.level === 0 && (
-						<span className="text-warning">
-							Isso restaurará o acesso implícito de Comensal para este usuário.
-						</span>
+						<span className="text-warning">Isso restaurará o acesso implícito de Comensal para este usuário.</span>
 					)}
 				</p>
 				<DialogFooter>
@@ -410,21 +354,9 @@ export default function PermissionsManager() {
 	const { units, messHalls } = useMessHalls()
 	const { data: kitchens = [] } = useUserKitchens()
 
-	const unitMap = React.useMemo(
-		() => Object.fromEntries(units.map((u) => [u.id, u.display_name ?? u.code])),
-		[units]
-	)
-	const messHallMap = React.useMemo(
-		() => Object.fromEntries(messHalls.map((m) => [m.id, m.display_name ?? m.code])),
-		[messHalls]
-	)
-	const kitchenMap = React.useMemo(
-		() =>
-			Object.fromEntries(
-				kitchens.map((k) => [k.id, k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`])
-			),
-		[kitchens]
-	)
+	const unitMap = React.useMemo(() => Object.fromEntries(units.map((u) => [u.id, u.display_name ?? u.code])), [units])
+	const messHallMap = React.useMemo(() => Object.fromEntries(messHalls.map((m) => [m.id, m.display_name ?? m.code])), [messHalls])
+	const kitchenMap = React.useMemo(() => Object.fromEntries(kitchens.map((k) => [k.id, k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`])), [kitchens])
 
 	// ── Search ────────────────────────────────────────────────────────────────
 	const [emailInput, setEmailInput] = React.useState("")
@@ -537,19 +469,12 @@ export default function PermissionsManager() {
 				<div className="rounded-lg border bg-card p-6 space-y-4">
 					<div>
 						<h2 className="text-base font-semibold">Buscar Usuário</h2>
-						<p className="text-sm text-muted-foreground mt-0.5">
-							Digite o email do usuário para gerenciar suas permissões.
-						</p>
+						<p className="text-sm text-muted-foreground mt-0.5">Digite o email do usuário para gerenciar suas permissões.</p>
 					</div>
 
 					<div className="relative max-w-md">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-						<Input
-							value={emailInput}
-							onChange={(e) => setEmailInput(e.target.value)}
-							placeholder="email@fab.mil.br"
-							className="pl-9"
-						/>
+						<Input value={emailInput} onChange={(e) => setEmailInput(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" />
 					</div>
 
 					{/* Results */}
@@ -561,9 +486,7 @@ export default function PermissionsManager() {
 									<Skeleton className="h-12 w-full rounded-lg" />
 								</div>
 							) : searchResults.length === 0 ? (
-								<p className="text-sm text-muted-foreground py-2">
-									Nenhum usuário encontrado para &ldquo;{debouncedEmail}&rdquo;.
-								</p>
+								<p className="text-sm text-muted-foreground py-2">Nenhum usuário encontrado para &ldquo;{debouncedEmail}&rdquo;.</p>
 							) : (
 								searchResults.map((user) => (
 									<button
@@ -574,26 +497,16 @@ export default function PermissionsManager() {
 									>
 										<div>
 											<p className="font-medium">{user.email}</p>
-											{user.nrOrdem && (
-												<p className="text-xs text-muted-foreground mt-0.5">
-													Nr. Ordem: {user.nrOrdem}
-												</p>
-											)}
+											{user.nrOrdem && <p className="text-xs text-muted-foreground mt-0.5">Nr. Ordem: {user.nrOrdem}</p>}
 										</div>
-										<span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-											Selecionar →
-										</span>
+										<span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Selecionar →</span>
 									</button>
 								))
 							)}
 						</div>
 					)}
 
-					{debouncedEmail.length > 0 && debouncedEmail.length < 3 && (
-						<p className="text-xs text-muted-foreground">
-							Digite ao menos 3 caracteres para buscar.
-						</p>
-					)}
+					{debouncedEmail.length > 0 && debouncedEmail.length < 3 && <p className="text-xs text-muted-foreground">Digite ao menos 3 caracteres para buscar.</p>}
 				</div>
 			) : (
 				/* ── User Permissions Panel ───────────────────────────────────── */
@@ -601,21 +514,14 @@ export default function PermissionsManager() {
 					{/* User info + back */}
 					<div className="flex items-start justify-between gap-4">
 						<div className="flex items-center gap-3">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => setSelectedUser(null)}
-								className="gap-1.5"
-							>
+							<Button variant="ghost" size="sm" onClick={() => setSelectedUser(null)} className="gap-1.5">
 								<ArrowLeft className="h-4 w-4" />
 								Voltar
 							</Button>
 							<div className="h-5 w-px bg-border" />
 							<div>
 								<p className="font-semibold text-sm">{selectedUser.email}</p>
-								{selectedUser.nrOrdem && (
-									<p className="text-xs text-muted-foreground">Nr. Ordem: {selectedUser.nrOrdem}</p>
-								)}
+								{selectedUser.nrOrdem && <p className="text-xs text-muted-foreground">Nr. Ordem: {selectedUser.nrOrdem}</p>}
 							</div>
 						</div>
 						<Button size="sm" onClick={openAdd} className="gap-1.5 shrink-0">
@@ -653,15 +559,10 @@ export default function PermissionsManager() {
 									))
 								) : permissions.length === 0 ? (
 									<TableRow>
-										<TableCell
-											colSpan={4}
-											className="h-24 text-center text-muted-foreground text-sm"
-										>
+										<TableCell colSpan={4} className="h-24 text-center text-muted-foreground text-sm">
 											<div className="flex flex-col items-center gap-1">
 												<span>Nenhuma permissão cadastrada.</span>
-												<span className="text-xs">
-													Acesso implícito de Comensal ativo por padrão.
-												</span>
+												<span className="text-xs">Acesso implícito de Comensal ativo por padrão.</span>
 											</div>
 										</TableCell>
 									</TableRow>
@@ -675,21 +576,11 @@ export default function PermissionsManager() {
 												<LevelBadge level={perm.level} />
 											</TableCell>
 											<TableCell className="text-sm">
-												<ScopeLabel
-													perm={perm}
-													unitMap={unitMap}
-													kitchenMap={kitchenMap}
-													messHallMap={messHallMap}
-												/>
+												<ScopeLabel perm={perm} unitMap={unitMap} kitchenMap={kitchenMap} messHallMap={messHallMap} />
 											</TableCell>
 											<TableCell>
 												<div className="flex items-center gap-1 justify-end">
-													<Button
-														variant="ghost"
-														size="sm"
-														className="h-7 w-7 p-0"
-														onClick={() => openEdit(perm)}
-													>
+													<Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(perm)}>
 														<Pencil className="h-3.5 w-3.5" />
 														<span className="sr-only">Editar</span>
 													</Button>
@@ -712,9 +603,8 @@ export default function PermissionsManager() {
 					</div>
 
 					<p className="text-xs text-muted-foreground">
-						<span className="font-medium">Regra implícita:</span> todo usuário possui acesso de
-						Comensal (nível 1) por padrão. Para revogar, adicione uma permissão{" "}
-						<span className="font-medium">diner — Negado</span>.
+						<span className="font-medium">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma
+						permissão <span className="font-medium">diner — Negado</span>.
 					</p>
 				</div>
 			)}

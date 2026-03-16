@@ -8,12 +8,7 @@ interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"butt
 	toggle: () => void
 }
 
-export const AnimatedThemeToggler = ({
-	className,
-	duration = 400,
-	toggle,
-	...props
-}: AnimatedThemeTogglerProps) => {
+export const AnimatedThemeToggler = ({ className, duration = 400, toggle, ...props }: AnimatedThemeTogglerProps) => {
 	const buttonRef = useRef<HTMLButtonElement>(null)
 
 	const handleToggle = async () => {
@@ -56,22 +51,15 @@ export const AnimatedThemeToggler = ({
 		<button
 			ref={buttonRef}
 			onClick={handleToggle}
-			className={cn(
-				"relative inline-flex items-center justify-center overflow-hidden rounded-full p-2 transition-colors hover:bg-accent",
-				className
-			)}
+			className={cn("relative inline-flex items-center justify-center overflow-hidden rounded-full p-2 transition-colors hover:bg-accent", className)}
 			{...props}
 		>
 			<div className="relative h-5 w-5">
 				<Sun
-					className={
-						"absolute inset-0 h-full w-full transition-all duration-300 rotate-0 scale-100 opacity-100 dark:rotate-90 dark:scale-0 dark:opacity-0"
-					}
+					className={"absolute inset-0 h-full w-full transition-all duration-300 rotate-0 scale-100 opacity-100 dark:rotate-90 dark:scale-0 dark:opacity-0"}
 				/>
 				<Moon
-					className={
-						"absolute inset-0 h-full w-full transition-all duration-300 dark:rotate-0 -rotate-90 scale-0 opacity-0 dark:scale-100 dark:opacity-100"
-					}
+					className={"absolute inset-0 h-full w-full transition-all duration-300 dark:rotate-0 -rotate-90 scale-0 opacity-0 dark:scale-100 dark:opacity-100"}
 				/>
 			</div>
 			<span className="sr-only">Alternar tema</span>

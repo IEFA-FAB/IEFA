@@ -1,11 +1,6 @@
 // Presence Domain Types
 
-import type {
-	MealPresence,
-	MealPresenceInsert,
-	MealPresenceUpdate,
-	MealPresenceWithUser,
-} from "@/types/supabase.types"
+import type { MealPresence, MealPresenceInsert, MealPresenceUpdate, MealPresenceWithUser } from "@/types/supabase.types"
 import type { MealKey } from "./meal"
 
 // ============================================================================

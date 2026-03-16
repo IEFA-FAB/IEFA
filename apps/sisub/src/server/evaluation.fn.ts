@@ -4,18 +4,13 @@ import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
 export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getSupabaseServerClient()
-		.from("super_admin_controller")
-		.select("key, active, value")
-		.eq("key", "evaluation")
-		.maybeSingle()
+	const { data, error } = await getSupabaseServerClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
 
 	if (error) throw new Error(error.message)
 
 	return {
 		active: !!data?.active,
-		value:
-			typeof data?.value === "string" ? data.value : data?.value == null ? "" : String(data.value),
+		value: typeof data?.value === "string" ? data.value : data?.value == null ? "" : String(data.value),
 	} as EvalConfig
 })
 
@@ -32,12 +27,7 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 
 		return {
 			active: !!result?.active,
-			value:
-				typeof result?.value === "string"
-					? result.value
-					: result?.value == null
-						? ""
-						: String(result.value),
+			value: typeof result?.value === "string" ? result.value : result?.value == null ? "" : String(result.value),
 		} as EvalConfig
 	})
 

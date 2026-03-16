@@ -17,13 +17,7 @@ import * as React from "react"
 import { useMemo, useRef, useState } from "react"
 import { useFacilitiesPregoeiroQuery } from "@/hooks/useFacilitiesPregoeiro"
 import { supabase } from "@/lib/supabase"
-import {
-	type Facilidades_pregoeiro,
-	type FacilidadesTableProps,
-	LS_TABLE_SETTINGS_KEY,
-	type TableSettings,
-	type TemplateContext,
-} from "@/types/domain"
+import { type Facilidades_pregoeiro, type FacilidadesTableProps, LS_TABLE_SETTINGS_KEY, type TableSettings, type TemplateContext } from "@/types/domain"
 import CopyButton from "./copy-button"
 
 /* ---------------------------------------------------------
@@ -69,20 +63,10 @@ function DataTableColumnHeader<TData, TValue>({
 	const isSorted = column.getIsSorted()
 
 	return (
-		<Button
-			variant="ghost"
-			onClick={() => column.toggleSorting(isSorted === "asc")}
-			className={`h-auto p-2 ${className ?? ""}`}
-		>
+		<Button variant="ghost" onClick={() => column.toggleSorting(isSorted === "asc")} className={`h-auto p-2 ${className ?? ""}`}>
 			{title}
 			<ArrowUpDown className="ml-2 h-4 w-4" />
-			<span className="sr-only">
-				{isSorted === "asc"
-					? "Ordenado ascendente"
-					: isSorted === "desc"
-						? "Ordenado descendente"
-						: "Não ordenado"}
-			</span>
+			<span className="sr-only">{isSorted === "asc" ? "Ordenado ascendente" : isSorted === "desc" ? "Ordenado descendente" : "Não ordenado"}</span>
 		</Button>
 	)
 }
@@ -96,18 +80,15 @@ function renderPlaceholders(inputText: string, context: TemplateContext) {
 	if (!inputText) return ""
 	const placeholderRegex = /\$\{\s*([a-zA-Z0-9_]+)\s*\}|\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g
 
-	return inputText.replace(
-		placeholderRegex,
-		(fullMatch: string, curlyKey?: string, mustacheKey?: string) => {
-			const keyName = (curlyKey ?? mustacheKey) as string
-			const value = context[keyName]
-			if (value === null || value === undefined) {
-				// Deixe o placeholder intacto se não houver valor no contexto
-				return fullMatch
-			}
-			return String(value)
+	return inputText.replace(placeholderRegex, (fullMatch: string, curlyKey?: string, mustacheKey?: string) => {
+		const keyName = (curlyKey ?? mustacheKey) as string
+		const value = context[keyName]
+		if (value === null || value === undefined) {
+			// Deixe o placeholder intacto se não houver valor no contexto
+			return fullMatch
 		}
-	)
+		return String(value)
+	})
 }
 
 /* ---------------------------------------------------------
@@ -126,11 +107,7 @@ function useTableSettings(currentUserId?: string) {
 			setLoading(true)
 			try {
 				if (currentUserId) {
-					const { data, error } = await supabase
-						.from("pregoeiro_preferences")
-						.select("table_settings")
-						.eq("user_id", currentUserId)
-						.maybeSingle()
+					const { data, error } = await supabase.from("pregoeiro_preferences").select("table_settings").eq("user_id", currentUserId).maybeSingle()
 
 					if (error) throw error
 
@@ -138,8 +115,7 @@ function useTableSettings(currentUserId?: string) {
 					if (mounted) setSettings(tableSettingsFromDb)
 				} else {
 					// localStorage
-					const storedRawSettings =
-						typeof window !== "undefined" ? localStorage.getItem(LS_TABLE_SETTINGS_KEY) : null
+					const storedRawSettings = typeof window !== "undefined" ? localStorage.getItem(LS_TABLE_SETTINGS_KEY) : null
 					if (storedRawSettings && mounted) {
 						setSettings(JSON.parse(storedRawSettings) as TableSettings)
 					} else if (mounted) {
@@ -187,30 +163,21 @@ function useTableSettings(currentUserId?: string) {
    Colunas (factory para acessar props e ações)
 --------------------------------------------------------- */
 
-function getColumns(opts: {
-	currentUserId?: string
-	onEditRow?: (row: Facilidades_pregoeiro) => void
-}): ColumnDef<Facilidades_pregoeiro>[] {
+function getColumns(opts: { currentUserId?: string; onEditRow?: (row: Facilidades_pregoeiro) => void }): ColumnDef<Facilidades_pregoeiro>[] {
 	const { currentUserId, onEditRow } = opts
 
 	return [
 		{
 			accessorKey: "phase",
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Fase" />,
-			cell: ({ row }) => (
-				<div className="capitalize whitespace-pre-wrap wrap-break-word">
-					{row.getValue("phase")}
-				</div>
-			),
+			cell: ({ row }) => <div className="capitalize whitespace-pre-wrap wrap-break-word">{row.getValue("phase")}</div>,
 			enableHiding: true,
 			enableSorting: true,
 		},
 		{
 			accessorKey: "title",
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Título" />,
-			cell: ({ row }) => (
-				<div className="whitespace-pre-wrap wrap-break-word">{row.getValue("title")}</div>
-			),
+			cell: ({ row }) => <div className="whitespace-pre-wrap wrap-break-word">{row.getValue("title")}</div>,
 			enableHiding: false, // geralmente chave de busca principal
 			enableSorting: true,
 		},
@@ -220,9 +187,7 @@ function getColumns(opts: {
 			enableHiding: false,
 			enableSorting: true,
 			cell: ({ row }) => (
-				<div className="text-left font-normal whitespace-pre-wrap wrap-break-word text-pretty hyphens-auto leading-relaxed">
-					{row.getValue("content")}
-				</div>
+				<div className="text-left font-normal whitespace-pre-wrap wrap-break-word text-pretty hyphens-auto leading-relaxed">{row.getValue("content")}</div>
 			),
 		},
 		{
@@ -235,11 +200,7 @@ function getColumns(opts: {
 				return (
 					<div className="flex flex-wrap gap-1">
 						{tags.map((tag) => (
-							<span
-								key={`${tag}`}
-								className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs wrap-break-word"
-								title={tag}
-							>
+							<span key={`${tag}`} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs wrap-break-word" title={tag}>
 								{tag}
 							</span>
 						))}
@@ -255,10 +216,7 @@ function getColumns(opts: {
 				const isDefault = row.getValue("default") as boolean
 				return (
 					<span
-						className={
-							"inline-flex items-center rounded-md px-2 py-0.5 text-xs " +
-							(isDefault ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")
-						}
+						className={"inline-flex items-center rounded-md px-2 py-0.5 text-xs " + (isDefault ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")}
 					>
 						{isDefault ? "Sim" : "Não"}
 					</span>
@@ -293,14 +251,7 @@ function getColumns(opts: {
    Componente principal
 --------------------------------------------------------- */
 
-export function FacilidadesTable({
-	OM,
-	Date: dateString,
-	Hour: hour,
-	Hour_limit: hourLimit,
-	currentUserId,
-	onEditRow,
-}: FacilidadesTableProps) {
+export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit: hourLimit, currentUserId, onEditRow }: FacilidadesTableProps) {
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -349,10 +300,7 @@ export function FacilidadesTable({
 		}))
 	}, [baseData, OM, dateString, hour, hourLimit])
 
-	const columns = useMemo(
-		() => getColumns({ currentUserId, onEditRow }),
-		[currentUserId, onEditRow]
-	)
+	const columns = useMemo(() => getColumns({ currentUserId, onEditRow }), [currentUserId, onEditRow])
 
 	const table = useReactTable({
 		data,
@@ -408,9 +356,7 @@ export function FacilidadesTable({
 	if (error) {
 		return (
 			<div className="w-full flex items-center justify-center py-8">
-				<div className="text-center text-red-500">
-					Erro ao carregar dados: {error instanceof Error ? error.message : "Erro desconhecido"}
-				</div>
+				<div className="text-center text-red-500">Erro ao carregar dados: {error instanceof Error ? error.message : "Erro desconhecido"}</div>
 			</div>
 		)
 	}
@@ -428,11 +374,7 @@ export function FacilidadesTable({
 
 				<div className="flex items-center gap-2">
 					<span className="text-sm text-muted-foreground">Linhas por página:</span>
-					<select
-						className="h-9 rounded-md border bg-background px-2 text-sm"
-						value={pageSize}
-						onChange={(e) => setPageSize(Number(e.target.value))}
-					>
+					<select className="h-9 rounded-md border bg-background px-2 text-sm" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
 						{[10, 25, 50, 100].map((sizeOption) => (
 							<option key={sizeOption} value={sizeOption}>
 								{sizeOption}
@@ -474,13 +416,8 @@ export function FacilidadesTable({
 						{table.getHeaderGroups().map((headerGroup) => (
 							<TableRow key={headerGroup.id} className="align-top">
 								{headerGroup.headers.map((header) => (
-									<TableHead
-										key={header.id}
-										className="align-top whitespace-pre-wrap wrap-break-word text-pretty"
-									>
-										{header.isPlaceholder
-											? null
-											: flexRender(header.column.columnDef.header, header.getContext())}
+									<TableHead key={header.id} className="align-top whitespace-pre-wrap wrap-break-word text-pretty">
+										{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
 									</TableHead>
 								))}
 							</TableRow>
@@ -490,16 +427,9 @@ export function FacilidadesTable({
 					<TableBody>
 						{table.getRowModel().rows?.length ? (
 							table.getRowModel().rows.map((row) => (
-								<TableRow
-									key={row.id}
-									data-state={row.getIsSelected() ? "selected" : undefined}
-									className="align-top"
-								>
+								<TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined} className="align-top">
 									{row.getVisibleCells().map((cell) => (
-										<TableCell
-											key={cell.id}
-											className="align-top whitespace-pre-wrap wrap-break-word text-pretty hyphens-auto p-4 leading-relaxed"
-										>
+										<TableCell key={cell.id} className="align-top whitespace-pre-wrap wrap-break-word text-pretty hyphens-auto p-4 leading-relaxed">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</TableCell>
 									))}
@@ -529,36 +459,16 @@ export function FacilidadesTable({
 				</div>
 
 				<div className="flex items-center gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => table.firstPage()}
-						disabled={!table.getCanPreviousPage()}
-					>
+					<Button variant="outline" size="sm" onClick={() => table.firstPage()} disabled={!table.getCanPreviousPage()}>
 						Primeira
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => table.previousPage()}
-						disabled={!table.getCanPreviousPage()}
-					>
+					<Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
 						Anterior
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => table.nextPage()}
-						disabled={!table.getCanNextPage()}
-					>
+					<Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
 						Próximo
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => table.lastPage()}
-						disabled={!table.getCanNextPage()}
-					>
+					<Button variant="outline" size="sm" onClick={() => table.lastPage()} disabled={!table.getCanNextPage()}>
 						Última
 					</Button>
 				</div>

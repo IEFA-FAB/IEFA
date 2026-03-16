@@ -5,8 +5,7 @@ import { fetchUserNrOrdemFn, syncUserNrOrdemFn } from "@/server/user.fn"
 const QUERY_STALE_TIME = 5 * 60_000
 const QUERY_GC_TIME = 10 * 60_000
 
-export const userNrOrdemKey = (userId: string | null | undefined) =>
-	["user", userId, "nrOrdem"] as const
+export const userNrOrdemKey = (userId: string | null | undefined) => ["user", userId, "nrOrdem"] as const
 
 export function useUserNrOrdem(userId: string | null) {
 	return useQuery({
@@ -22,8 +21,7 @@ export function useUpdateNrOrdem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ user, nrOrdem }: { user: User; nrOrdem: string }) =>
-			syncUserNrOrdemFn({ data: { userId: user.id, email: user.email ?? "", nrOrdem } }),
+		mutationFn: ({ user, nrOrdem }: { user: User; nrOrdem: string }) => syncUserNrOrdemFn({ data: { userId: user.id, email: user.email ?? "", nrOrdem } }),
 		onMutate: async ({ user, nrOrdem }) => {
 			const queryKey = userNrOrdemKey(user.id)
 			await queryClient.cancelQueries({ queryKey })

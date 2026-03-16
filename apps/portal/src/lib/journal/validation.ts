@@ -6,51 +6,30 @@ import { z } from "zod"
 // Step 1: Article Type & Subject
 export const articleTypeSchema = z.object({
 	article_type: z.enum(["research", "review", "short_communication", "editorial"]),
-	subject_area: z
-		.string()
-		.min(1, "Área de conhecimento é obrigatória")
-		.max(200, "Área de conhecimento muito longa"),
+	subject_area: z.string().min(1, "Área de conhecimento é obrigatória").max(200, "Área de conhecimento muito longa"),
 })
 
 // Step 2: Bilingual Metadata
 export const metadataSchema = z.object({
-	title_pt: z
-		.string()
-		.min(10, "Título em português deve ter pelo menos 10 caracteres")
-		.max(500, "Título em português muito longo"),
-	title_en: z
-		.string()
-		.min(10, "Título em inglês deve ter pelo menos 10 caracteres")
-		.max(500, "Título em inglês muito longo"),
+	title_pt: z.string().min(10, "Título em português deve ter pelo menos 10 caracteres").max(500, "Título em português muito longo"),
+	title_en: z.string().min(10, "Título em inglês deve ter pelo menos 10 caracteres").max(500, "Título em inglês muito longo"),
 	abstract_pt: z
 		.string()
 		.min(100, "Resumo em português deve ter pelo menos 100 caracteres")
 		.max(3000, "Resumo em português muito longo (máx. 500 palavras)")
-		.refine(
-			(val) => val.split(/\s+/).length <= 500,
-			"Resumo em português não pode ter mais de 500 palavras"
-		),
+		.refine((val) => val.split(/\s+/).length <= 500, "Resumo em português não pode ter mais de 500 palavras"),
 	abstract_en: z
 		.string()
 		.min(100, "Abstract in English must have at least 100 characters")
 		.max(3000, "Abstract em inglês muito longo (máx. 500 palavras)")
 		.refine((val) => val.split(/\s+/).length <= 500, "Abstract cannot have more than 500 words"),
-	keywords_pt: z
-		.array(z.string())
-		.min(3, "Mínimo de 3 palavras-chave em português")
-		.max(6, "Máximo de 6 palavras-chave em português"),
-	keywords_en: z
-		.array(z.string())
-		.min(3, "Minimum 3 keywords in English")
-		.max(6, "Maximum 6 keywords in English"),
+	keywords_pt: z.array(z.string()).min(3, "Mínimo de 3 palavras-chave em português").max(6, "Máximo de 6 palavras-chave em português"),
+	keywords_en: z.array(z.string()).min(3, "Minimum 3 keywords in English").max(6, "Maximum 6 keywords in English"),
 })
 
 // Step 3: Authors
 export const authorSchema = z.object({
-	full_name: z
-		.string()
-		.min(2, "Nome completo deve ter pelo menos 2 caracteres")
-		.max(200, "Nome muito longo"),
+	full_name: z.string().min(2, "Nome completo deve ter pelo menos 2 caracteres").max(200, "Nome muito longo"),
 	email: z.string().email("E-mail inválido").optional().or(z.literal("")),
 	affiliation: z.string().max(500, "Afiliação muito longa").optional(),
 	orcid: z
@@ -65,10 +44,7 @@ export const authorsSchema = z.object({
 	authors: z
 		.array(authorSchema)
 		.min(1, "Pelo menos um autor é obrigatório")
-		.refine(
-			(authors) => authors.filter((a) => a.is_corresponding).length <= 1,
-			"Apenas um autor correspondente permitido"
-		),
+		.refine((authors) => authors.filter((a) => a.is_corresponding).length <= 1, "Apenas um autor correspondente permitido"),
 })
 
 // Step 4: Files
@@ -79,10 +55,7 @@ export const filesSchema = z.object({
 		.refine((file) => file.type === "application/pdf", "Arquivo deve ser um PDF"),
 	source_file: z
 		.instanceof(File)
-		.refine(
-			(file) => !file || file.size <= 10 * 1024 * 1024,
-			"Arquivo fonte deve ter no máximo 10MB"
-		)
+		.refine((file) => !file || file.size <= 10 * 1024 * 1024, "Arquivo fonte deve ter no máximo 10MB")
 		.optional(),
 	supplementary_files: z
 		.array(z.instanceof(File))
@@ -96,25 +69,15 @@ export const filesSchema = z.object({
 
 // Step 5: Declarations
 export const declarationsSchema = z.object({
-	conflict_of_interest: z
-		.string()
-		.min(10, "Declaração de conflito de interesse é obrigatória")
-		.max(2000, "Declaração muito longa"),
+	conflict_of_interest: z.string().min(10, "Declaração de conflito de interesse é obrigatória").max(2000, "Declaração muito longa"),
 	funding_info: z.string().max(1000, "Informação de financiamento muito longa").optional(),
-	data_availability: z
-		.string()
-		.max(1000, "Declaração de disponibilidade de dados muito longa")
-		.optional(),
+	data_availability: z.string().max(1000, "Declaração de disponibilidade de dados muito longa").optional(),
 	ethics_approval: z.string().max(500, "Referência de aprovação ética muito longa").optional(),
 	has_ethics_approval: z.boolean().default(false),
 })
 
 // Complete submission schema (all steps combined)
-export const completeSubmissionSchema = articleTypeSchema
-	.merge(metadataSchema)
-	.merge(authorsSchema)
-	.merge(filesSchema)
-	.merge(declarationsSchema)
+export const completeSubmissionSchema = articleTypeSchema.merge(metadataSchema).merge(authorsSchema).merge(filesSchema).merge(declarationsSchema)
 
 // Type inference from schemas
 export type ArticleTypeFormData = z.infer<typeof articleTypeSchema>

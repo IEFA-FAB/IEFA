@@ -8,9 +8,7 @@ import { useRecipe } from "@/hooks/data/useRecipe"
  * KITCHEN — Comparar Versões de uma Preparação (Diff Viewer)
  * URL: /kitchen/:kitchenId/recipes/:recipeId/versions
  */
-export const Route = createFileRoute(
-	"/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions"
-)({
+export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/versions")({
 	component: RecipeVersionsPage,
 	head: () => ({
 		meta: [{ title: "Histórico de Versões - SISUB" }],
@@ -31,11 +29,7 @@ function RecipeVersionsPage() {
 	}
 
 	if (error || !recipe) {
-		return (
-			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				Preparação não encontrada ou erro ao carregar.
-			</div>
-		)
+		return <div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">Preparação não encontrada ou erro ao carregar.</div>
 	}
 
 	return (

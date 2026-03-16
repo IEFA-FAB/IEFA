@@ -12,8 +12,7 @@ export function useUserData(userId: string | undefined) {
 	return useQuery({
 		queryKey: ["user_data", userId],
 		enabled: !!userId,
-		queryFn: (): Promise<UserDataRow | null> =>
-			fetchUserDataFn({ data: { userId: userId as string } }) as Promise<UserDataRow | null>,
+		queryFn: (): Promise<UserDataRow | null> => fetchUserDataFn({ data: { userId: userId as string } }) as Promise<UserDataRow | null>,
 		staleTime: 5 * 60_000,
 	})
 }

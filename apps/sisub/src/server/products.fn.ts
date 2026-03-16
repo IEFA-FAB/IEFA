@@ -1,14 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
-import type {
-	FolderInsert,
-	FolderUpdate,
-	ProductInsert,
-	ProductItemInsert,
-	ProductItemUpdate,
-	ProductUpdate,
-} from "@/types/supabase.types"
+import type { FolderInsert, FolderUpdate, ProductInsert, ProductItemInsert, ProductItemUpdate, ProductUpdate } from "@/types/supabase.types"
 
 const FolderWriteSchema = z.object({
 	description: z.string().nullable().optional(),
@@ -36,11 +29,7 @@ const ProductItemWriteSchema = z.object({
 // ============================================================================
 
 export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getSupabaseServerClient()
-		.from("folder")
-		.select("*")
-		.is("deleted_at", null)
-		.order("created_at", { ascending: true })
+	const { data, error } = await getSupabaseServerClient().from("folder").select("*").is("deleted_at", null).order("created_at", { ascending: true })
 
 	if (error) throw new Error(error.message)
 	return data || []
@@ -76,10 +65,7 @@ export const updateFolderFn = createServerFn({ method: "POST" })
 export const deleteFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("folder")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("folder").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})
@@ -91,12 +77,7 @@ export const deleteFolderFn = createServerFn({ method: "POST" })
 export const fetchProductFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("product")
-			.select("*")
-			.eq("id", data.id)
-			.is("deleted_at", null)
-			.single()
+		const { data: result, error } = await getSupabaseServerClient().from("product").select("*").eq("id", data.id).is("deleted_at", null).single()
 
 		if (error) throw new Error(error.message)
 		return result
@@ -105,11 +86,7 @@ export const fetchProductFn = createServerFn({ method: "GET" })
 export const fetchProductsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ folderId: z.string().optional() }))
 	.handler(async ({ data }) => {
-		let query = getSupabaseServerClient()
-			.from("product")
-			.select("*")
-			.is("deleted_at", null)
-			.order("description", { ascending: true })
+		let query = getSupabaseServerClient().from("product").select("*").is("deleted_at", null).order("description", { ascending: true })
 
 		if (data.folderId) {
 			query = query.eq("folder_id", data.folderId)
@@ -150,10 +127,7 @@ export const updateProductFn = createServerFn({ method: "POST" })
 export const deleteProductFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("product")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("product").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})
@@ -165,11 +139,7 @@ export const deleteProductFn = createServerFn({ method: "POST" })
 export const fetchProductItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ productId: z.string().optional() }))
 	.handler(async ({ data }) => {
-		let query = getSupabaseServerClient()
-			.from("product_item")
-			.select("*")
-			.is("deleted_at", null)
-			.order("description", { ascending: true })
+		let query = getSupabaseServerClient().from("product_item").select("*").is("deleted_at", null).order("description", { ascending: true })
 
 		if (data.productId) {
 			query = query.eq("product_id", data.productId)
@@ -210,10 +180,7 @@ export const updateProductItemFn = createServerFn({ method: "POST" })
 export const deleteProductItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient()
-			.from("product_item")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
+		const { error } = await getSupabaseServerClient().from("product_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})

@@ -45,11 +45,7 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 		if (!menuItems || menuItems.length === 0) return []
 
 		// 2. Coletar IDs únicos de Preparações
-		const recipeIds = [
-			...new Set(
-				menuItems.map((item) => item.recipe_origin_id).filter((id): id is string => id !== null)
-			),
-		]
+		const recipeIds = [...new Set(menuItems.map((item) => item.recipe_origin_id).filter((id): id is string => id !== null))]
 		if (recipeIds.length === 0) return []
 
 		// 3. Buscar Preparações com ingredientes e produtos
@@ -99,13 +95,10 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 			const recipe = recipes.find((r) => r.id === menuItem.recipe_origin_id)
 			if (!recipe || !recipe.recipe_ingredients) continue
 
-			const portionMultiplier =
-				(menuItem.planned_portion_quantity || 0) / (recipe.portion_yield || 1)
+			const portionMultiplier = (menuItem.planned_portion_quantity || 0) / (recipe.portion_yield || 1)
 
 			for (const ingredient of recipe.recipe_ingredients) {
-				const product = Array.isArray(ingredient.product)
-					? ingredient.product[0]
-					: ingredient.product
+				const product = Array.isArray(ingredient.product) ? ingredient.product[0] : ingredient.product
 				if (!product) continue
 
 				const normalizedProduct = {

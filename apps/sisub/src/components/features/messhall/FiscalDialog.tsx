@@ -22,13 +22,7 @@ interface FiscalDialogProps {
 
 const nameCache = new Map<string, string>()
 
-export default function FiscalDialog({
-	setDialog,
-	dialog,
-	confirmDialog,
-	selectedUnit,
-	resolveDisplayName,
-}: FiscalDialogProps) {
+export default function FiscalDialog({ setDialog, dialog, confirmDialog, selectedUnit, resolveDisplayName }: FiscalDialogProps) {
 	const forecastIsYes = !!dialog.systemForecast
 	const forecastIsNo = !dialog.systemForecast
 
@@ -40,9 +34,7 @@ export default function FiscalDialog({
 
 	// Derive loading from state — avoids synchronous setState in effect body
 	const loadingName = !!(id && resolveDisplayName && !nameCache.has(id) && fetchResult.id !== id)
-	const displayName = id
-		? (nameCache.get(id) ?? (fetchResult.id === id ? fetchResult.name : null))
-		: null
+	const displayName = id ? (nameCache.get(id) ?? (fetchResult.id === id ? fetchResult.name : null)) : null
 
 	useEffect(() => {
 		if (!id || !resolveDisplayName || nameCache.has(id)) return
@@ -74,12 +66,7 @@ export default function FiscalDialog({
 						<AlertDialogDescription>
 							Pessoa: {personLine}
 							<br />
-							Previsão do sistema:{" "}
-							{dialog.systemForecast === null
-								? "Não encontrado"
-								: dialog.systemForecast
-									? "Previsto"
-									: "Não previsto"}
+							Previsão do sistema: {dialog.systemForecast === null ? "Não encontrado" : dialog.systemForecast ? "Previsto" : "Não previsto"}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
@@ -88,20 +75,10 @@ export default function FiscalDialog({
 						<div className="space-y-2">
 							<div className="text-sm font-medium">Está na previsão?</div>
 							<div className="flex gap-2">
-								<Button
-									disabled
-									variant={forecastIsYes ? "default" : "outline"}
-									size="sm"
-									aria-pressed={forecastIsYes}
-								>
+								<Button disabled variant={forecastIsYes ? "default" : "outline"} size="sm" aria-pressed={forecastIsYes}>
 									Sim
 								</Button>
-								<Button
-									disabled
-									variant={forecastIsNo ? "default" : "outline"}
-									size="sm"
-									aria-pressed={forecastIsNo}
-								>
+								<Button disabled variant={forecastIsNo ? "default" : "outline"} size="sm" aria-pressed={forecastIsNo}>
 									Não
 								</Button>
 							</div>
@@ -130,17 +107,11 @@ export default function FiscalDialog({
 							</div>
 						</div>
 
-						{selectedUnit && (
-							<div className="text-xs text-muted-foreground">
-								Rancho selecionado: {selectedUnit}
-							</div>
-						)}
+						{selectedUnit && <div className="text-xs text-muted-foreground">Rancho selecionado: {selectedUnit}</div>}
 					</div>
 
 					<AlertDialogFooter>
-						<AlertDialogCancel onClick={() => setDialog((d) => ({ ...d, open: false }))}>
-							Cancelar
-						</AlertDialogCancel>
+						<AlertDialogCancel onClick={() => setDialog((d) => ({ ...d, open: false }))}>Cancelar</AlertDialogCancel>
 						<AlertDialogAction onClick={confirmDialog}>Confirmar</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

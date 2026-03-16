@@ -10,10 +10,7 @@ import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 export const Route = createFileRoute("/_protected/_modules/diner/qr-code")({
 	component: QrCodePage,
 	head: () => ({
-		meta: [
-			{ title: "Meu QR Code - SISUB" },
-			{ name: "description", content: "Seu QR Code pessoal para identificação no rancho" },
-		],
+		meta: [{ title: "Meu QR Code - SISUB" }, { name: "description", content: "Seu QR Code pessoal para identificação no rancho" }],
 	}),
 })
 
@@ -53,10 +50,7 @@ function QrCodePage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Meu QR Code"
-				description="Apresente este código ao Fiscal de Rancho para registrar sua presença."
-			/>
+			<PageHeader title="Meu QR Code" description="Apresente este código ao Fiscal de Rancho para registrar sua presença." />
 
 			{/* Card do QR */}
 			<div className="mx-auto max-w-sm rounded-md border bg-card p-6 flex flex-col items-center gap-4">
@@ -91,32 +85,18 @@ function QrCodePage() {
 
 				{/* Ações */}
 				<div className="flex w-full gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						className="flex-1"
-						onClick={handleCopy}
-						disabled={!userId}
-					>
+					<Button variant="outline" size="sm" className="flex-1" onClick={handleCopy} disabled={!userId}>
 						<Copy className="h-3.5 w-3.5 mr-2" />
 						{hasCopied ? "Copiado!" : "Copiar ID"}
 					</Button>
-					<Button
-						variant="default"
-						size="sm"
-						className="flex-1"
-						onClick={handleDownload}
-						disabled={!userId}
-					>
+					<Button variant="default" size="sm" className="flex-1" onClick={handleDownload} disabled={!userId}>
 						<Download className="h-3.5 w-3.5 mr-2" />
 						Baixar PNG
 					</Button>
 				</div>
 			</div>
 
-			<p className="text-xs text-muted-foreground text-center">
-				Não compartilhe seu QR Code publicamente.
-			</p>
+			<p className="text-xs text-muted-foreground text-center">Não compartilhe seu QR Code publicamente.</p>
 		</div>
 	)
 }

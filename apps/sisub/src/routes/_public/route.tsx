@@ -16,8 +16,7 @@ import { cn } from "@/lib/utils"
  * Container responsivo padrão
  * Segue o padrão do design system: w-full mx-auto
  */
-const CONTAINER_CLASSES =
-	"w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
+const CONTAINER_CLASSES = "w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
 
 /**
  * Classes base para links de navegação
@@ -28,10 +27,7 @@ const NAV_LINK_BASE_CLASSES =
 /**
  * Classes para link de navegação não ativo
  */
-const NAV_LINK_INACTIVE_CLASSES = cn(
-	NAV_LINK_BASE_CLASSES,
-	"text-foreground hover:bg-accent hover:text-accent-foreground"
-)
+const NAV_LINK_INACTIVE_CLASSES = cn(NAV_LINK_BASE_CLASSES, "text-foreground hover:bg-accent hover:text-accent-foreground")
 
 /**
  * Classes para link de navegação ativo
@@ -120,11 +116,7 @@ function PublicLayout() {
 					{/* Actions: Login + Theme Toggle */}
 					<div className="flex items-center gap-2">
 						{isAuthenticated ? (
-							<Button
-								nativeButton={false}
-								render={<Link to="/hub">Acessar Sistema</Link>}
-								size="sm"
-							/>
+							<Button nativeButton={false} render={<Link to="/hub">Acessar Sistema</Link>} size="sm" />
 						) : (
 							<Button nativeButton={false} render={<Link to="/auth">Entrar</Link>} size="sm" />
 						)}
@@ -147,14 +139,8 @@ function PublicLayout() {
 			    FOOTER
 			    ============================================================ */}
 			<footer className="border-t">
-				<div
-					className={cn(
-						CONTAINER_CLASSES,
-						"h-14 flex items-center justify-center text-xs text-muted-foreground"
-					)}
-				>
-					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Ten. Bruno
-					(GAP-MN).
+				<div className={cn(CONTAINER_CLASSES, "h-14 flex items-center justify-center text-xs text-muted-foreground")}>
+					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Ten. Bruno (GAP-MN).
 				</div>
 			</footer>
 		</div>

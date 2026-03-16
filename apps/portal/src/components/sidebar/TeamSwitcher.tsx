@@ -14,10 +14,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 				<DropdownMenu>
 					<DropdownMenuTrigger
 						render={
-							<SidebarMenuButton
-								size="lg"
-								className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-							>
+							<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 								<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
 									{/* Using team logo with fallback */}
 									<img
@@ -46,11 +43,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="text-xs text-muted-foreground">Times</DropdownMenuLabel>
 							{teams.map((team, index) => (
-								<DropdownMenuItem
-									key={team.id}
-									onClick={() => setActiveTeam(team)}
-									className="gap-2 p-2"
-								>
+								<DropdownMenuItem key={team.id} onClick={() => setActiveTeam(team)} className="gap-2 p-2">
 									<div className="flex size-6 items-center justify-center rounded-sm border">
 										<img src={team.logo} alt={team.name} className="size-4 shrink-0" />
 									</div>

@@ -29,9 +29,7 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 		opacity: isSortableDragging ? 0.5 : 1,
 	}
 
-	const daysSinceSubmission = article.submitted_at
-		? Math.floor((Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24))
-		: 0
+	const daysSinceSubmission = article.submitted_at ? Math.floor((Date.now() - new Date(article.submitted_at).getTime()) / (1000 * 60 * 60 * 24)) : 0
 
 	const getAgeColor = (days: number) => {
 		if (days < 7) return "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300"
@@ -41,28 +39,14 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 
 	return (
 		<div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-			<Link
-				to="/journal/editorial/articles/$articleId"
-				params={{ articleId: article.id }}
-				className="block"
-			>
-				<Card
-					className={`hover:border-primary transition-colors cursor-grab active:cursor-grabbing ${
-						isDragging ? "shadow-lg scale-105" : ""
-					}`}
-				>
+			<Link to="/journal/editorial/articles/$articleId" params={{ articleId: article.id }} className="block">
+				<Card className={`hover:border-primary transition-colors cursor-grab active:cursor-grabbing ${isDragging ? "shadow-lg scale-105" : ""}`}>
 					<CardContent className="p-4 space-y-3">
 						{/* Age Badge */}
 						<div className="flex items-center justify-between">
-							<span className="text-xs font-mono text-muted-foreground">
-								#{article.submission_number}
-							</span>
+							<span className="text-xs font-mono text-muted-foreground">#{article.submission_number}</span>
 							{daysSinceSubmission > 0 && (
-								<span
-									className={`text-xs px-2 py-0.5 rounded-full font-medium ${getAgeColor(daysSinceSubmission)}`}
-								>
-									{daysSinceSubmission}d
-								</span>
+								<span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getAgeColor(daysSinceSubmission)}`}>{daysSinceSubmission}d</span>
 							)}
 						</div>
 
@@ -99,11 +83,7 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 						{/* Article Type Badge */}
 						<div className="pt-2 border-t">
 							<span className="text-xs bg-muted px-2 py-1 rounded capitalize">
-								{article.article_type === "research"
-									? "Pesquisa"
-									: article.article_type === "review"
-										? "Revisão"
-										: "Comunicação"}
+								{article.article_type === "research" ? "Pesquisa" : article.article_type === "review" ? "Revisão" : "Comunicação"}
 							</span>
 						</div>
 					</CardContent>

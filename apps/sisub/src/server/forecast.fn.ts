@@ -50,10 +50,7 @@ export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 		const { error } = await getSupabaseServerClient()
 			.schema("sisub")
 			.from("user_data")
-			.upsert(
-				{ id: data.userId, default_mess_hall_id: data.messHallId, email: data.email },
-				{ onConflict: "id", ignoreDuplicates: false }
-			)
+			.upsert({ id: data.userId, default_mess_hall_id: data.messHallId, email: data.email }, { onConflict: "id", ignoreDuplicates: false })
 
 		if (error) throw new Error(error.message)
 	})
@@ -69,40 +66,28 @@ export const upsertForecastFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { error: upsertError } = await getSupabaseServerClient()
-			.schema("sisub")
-			.from("meal_forecasts")
-			.upsert(
-				{
-					date: data.date,
-					user_id: data.userId,
-					meal: data.meal,
-					will_eat: data.willEat,
-					mess_hall_id: data.messHallId,
-				},
-				{ onConflict: "user_id,date,meal", ignoreDuplicates: false }
-			)
+		const { error: upsertError } = await getSupabaseServerClient().schema("sisub").from("meal_forecasts").upsert(
+			{
+				date: data.date,
+				user_id: data.userId,
+				meal: data.meal,
+				will_eat: data.willEat,
+				mess_hall_id: data.messHallId,
+			},
+			{ onConflict: "user_id,date,meal", ignoreDuplicates: false }
+		)
 
 		if (upsertError) {
 			// fallback: delete + insert
-			await getSupabaseServerClient()
-				.schema("sisub")
-				.from("meal_forecasts")
-				.delete()
-				.eq("user_id", data.userId)
-				.eq("date", data.date)
-				.eq("meal", data.meal)
+			await getSupabaseServerClient().schema("sisub").from("meal_forecasts").delete().eq("user_id", data.userId).eq("date", data.date).eq("meal", data.meal)
 
-			const { error: insertError } = await getSupabaseServerClient()
-				.schema("sisub")
-				.from("meal_forecasts")
-				.insert({
-					date: data.date,
-					user_id: data.userId,
-					meal: data.meal,
-					will_eat: data.willEat,
-					mess_hall_id: data.messHallId,
-				})
+			const { error: insertError } = await getSupabaseServerClient().schema("sisub").from("meal_forecasts").insert({
+				date: data.date,
+				user_id: data.userId,
+				meal: data.meal,
+				will_eat: data.willEat,
+				mess_hall_id: data.messHallId,
+			})
 
 			if (insertError) throw new Error(insertError.message)
 		}

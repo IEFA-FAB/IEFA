@@ -3,20 +3,8 @@
 import { getHotkeyManager } from "@tanstack/hotkeys"
 import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	useSidebar,
-} from "@/components/ui/sidebar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import type { Team } from "./SidebarTypes"
 
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
@@ -39,9 +27,7 @@ export function TeamSwitcher({
 	const { isMobile } = useSidebar()
 	const [internalActive, setInternalActive] = React.useState(teams[0])
 
-	const activeTeam = value
-		? (teams.find((t) => t.name === value) ?? internalActive)
-		: internalActive
+	const activeTeam = value ? (teams.find((t) => t.name === value) ?? internalActive) : internalActive
 
 	const handleChange = React.useCallback(
 		(team: Team) => {
@@ -66,9 +52,7 @@ export function TeamSwitcher({
 	React.useEffect(() => {
 		const manager = getHotkeyManager()
 		const handles = teams.slice(0, 9).map((team, i) => {
-			const hotkey = (
-				["Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9"] as const
-			)[i]
+			const hotkey = (["Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9"] as const)[i]
 			return manager.register(hotkey, () => handleChangeRef.current(team), {
 				requireReset: true,
 				conflictBehavior: "error",
@@ -89,10 +73,7 @@ export function TeamSwitcher({
 				<DropdownMenu>
 					<DropdownMenuTrigger
 						render={
-							<SidebarMenuButton
-								size="lg"
-								className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-							>
+							<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 								<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
 									<activeTeam.logo className="h-4 w-4" />
 								</div>
@@ -112,24 +93,14 @@ export function TeamSwitcher({
 						sideOffset={4}
 					>
 						<DropdownMenuGroup>
-							<DropdownMenuLabel className="text-muted-foreground text-xs">
-								Módulos
-							</DropdownMenuLabel>
+							<DropdownMenuLabel className="text-muted-foreground text-xs">Módulos</DropdownMenuLabel>
 							{teams.map((team, i) => (
-								<DropdownMenuItem
-									key={team.name}
-									onClick={() => handleChange(team)}
-									className="gap-2 p-2"
-								>
+								<DropdownMenuItem key={team.name} onClick={() => handleChange(team)} className="gap-2 p-2">
 									<div className="flex h-6 w-6 items-center justify-center rounded-md border bg-sidebar-accent">
 										<team.logo className="h-3.5 w-3.5" />
 									</div>
 									<span className="flex-1">{team.name}</span>
-									{i < 9 && (
-										<kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground opacity-60">
-											{altLabel(i + 1)}
-										</kbd>
-									)}
+									{i < 9 && <kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground opacity-60">{altLabel(i + 1)}</kbd>}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuGroup>

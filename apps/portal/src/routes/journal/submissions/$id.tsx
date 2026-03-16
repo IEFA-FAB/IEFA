@@ -8,11 +8,7 @@ import { Calendar, Download, Edit, FileText, Users } from "lucide-react"
 import { authQueryOptions } from "@/auth/service"
 import { StatusBadge } from "@/components/journal/StatusBadge"
 import { getArticleFileUrl } from "@/lib/journal/client"
-import {
-	articleAuthorsQueryOptions,
-	articleVersionsQueryOptions,
-	articleWithDetailsQueryOptions,
-} from "@/lib/journal/hooks"
+import { articleAuthorsQueryOptions, articleVersionsQueryOptions, articleWithDetailsQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/submissions/$id")({
 	beforeLoad: async ({ context }) => {
@@ -41,9 +37,7 @@ function RouteComponent() {
 	const { data: versions } = useSuspenseQuery(articleVersionsQueryOptions(id))
 
 	const articleData = article.article
-	const canEdit =
-		articleData.submitter_id === auth.user?.id &&
-		(articleData.status === "draft" || articleData.status === "revision_requested")
+	const canEdit = articleData.submitter_id === auth.user?.id && (articleData.status === "draft" || articleData.status === "revision_requested")
 
 	return (
 		<div className="container mx-auto max-w-5xl px-4 py-8">
@@ -54,16 +48,12 @@ function RouteComponent() {
 					<span className="text-sm text-muted-foreground">#{articleData.submission_number}</span>
 				</div>
 
-				<h1 className="text-3xl font-bold tracking-tight mb-2">
-					{articleData.title_en || articleData.title_pt}
-				</h1>
+				<h1 className="text-3xl font-bold tracking-tight mb-2">{articleData.title_en || articleData.title_pt}</h1>
 
 				<div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
 					<div className="flex items-center gap-1">
 						<Calendar className="size-4" />
-						{articleData.submitted_at
-							? `Submetido em ${format(new Date(articleData.submitted_at), "dd MMMM yyyy", { locale: ptBR })}`
-							: "Rascunho"}
+						{articleData.submitted_at ? `Submetido em ${format(new Date(articleData.submitted_at), "dd MMMM yyyy", { locale: ptBR })}` : "Rascunho"}
 					</div>
 					<div className="flex items-center gap-1">
 						<FileText className="size-4" />
@@ -131,18 +121,10 @@ function RouteComponent() {
 								<div className="flex-1">
 									<div className="font-medium">
 										{author.full_name}
-										{author.is_corresponding && (
-											<span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-												Correspondente
-											</span>
-										)}
+										{author.is_corresponding && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Correspondente</span>}
 									</div>
-									{author.affiliation && (
-										<div className="text-sm text-muted-foreground">{author.affiliation}</div>
-									)}
-									{author.email && (
-										<div className="text-xs text-muted-foreground">{author.email}</div>
-									)}
+									{author.affiliation && <div className="text-sm text-muted-foreground">{author.affiliation}</div>}
+									{author.email && <div className="text-xs text-muted-foreground">{author.email}</div>}
 								</div>
 							</div>
 						))}
@@ -152,9 +134,7 @@ function RouteComponent() {
 				{/* Files */}
 				{versions.length > 0 && (
 					<div className="p-6 border rounded-lg">
-						<h2 className="font-semibold text-lg mb-4">
-							Arquivos (Versão {versions[0].version_number})
-						</h2>
+						<h2 className="font-semibold text-lg mb-4">Arquivos (Versão {versions[0].version_number})</h2>
 
 						<div className="space-y-2">
 							{versions[0].pdf_path && (

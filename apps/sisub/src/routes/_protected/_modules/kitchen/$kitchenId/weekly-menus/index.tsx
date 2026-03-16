@@ -4,14 +4,7 @@ import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 
@@ -23,10 +16,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
 	component: WeeklyMenusPage,
 	head: () => ({
-		meta: [
-			{ title: "Cardápios Semanais - SISUB" },
-			{ name: "description", content: "Gerencie os cardápios semanais da sua cozinha" },
-		],
+		meta: [{ title: "Cardápios Semanais - SISUB" }, { name: "description", content: "Gerencie os cardápios semanais da sua cozinha" }],
 	}),
 })
 
@@ -41,11 +31,7 @@ function WeeklyMenusPage() {
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
 
 	const handleDelete = (id: string, name: string) => {
-		if (
-			window.confirm(
-				`Tem certeza que deseja remover o cardápio semanal "${name}"?\n\nEle poderá ser recuperado na lixeira do Planejamento.`
-			)
-		) {
+		if (window.confirm(`Tem certeza que deseja remover o cardápio semanal "${name}"?\n\nEle poderá ser recuperado na lixeira do Planejamento.`)) {
 			deleteTemplate(id)
 		}
 	}
@@ -57,10 +43,7 @@ function WeeklyMenusPage() {
 					<Button
 						size="sm"
 						render={
-							<Link
-								to="/kitchen/$kitchenId/weekly-menus/new"
-								params={{ kitchenId: kitchenIdStr as string }}
-							>
+							<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
 								<Plus className="h-4 w-4 mr-2" />
 								Novo Cardápio Semanal
 							</Link>
@@ -94,9 +77,7 @@ function WeeklyMenusPage() {
 									{globalTemplates.map((template) => (
 										<TableRow key={template.id}>
 											<TableCell className="font-medium">{template.name}</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{template.description || "—"}
-											</TableCell>
+											<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 											<TableCell className="text-center">
 												<Badge variant="secondary" className="font-mono text-xs">
 													{template.recipe_count || 0}
@@ -107,11 +88,7 @@ function WeeklyMenusPage() {
 													size="sm"
 													variant="outline"
 													render={
-														<Link
-															to="/kitchen/$kitchenId/weekly-menus/new"
-															params={{ kitchenId: kitchenIdStr as string }}
-															search={{ forkFrom: template.id }}
-														>
+														<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }} search={{ forkFrom: template.id }}>
 															<GitFork className="w-3.5 h-3.5 mr-1.5" />
 															Forkar
 														</Link>
@@ -138,27 +115,18 @@ function WeeklyMenusPage() {
 					</div>
 
 					{isLoading ? (
-						<div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
-							Carregando cardápios semanais...
-						</div>
+						<div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando cardápios semanais...</div>
 					) : localTemplates.length === 0 ? (
 						<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 							<CalendarDays className="h-10 w-10 mx-auto text-muted-foreground" />
-							<p className="text-sm font-medium text-muted-foreground">
-								Nenhum cardápio semanal criado ainda.
-							</p>
-							<p className="text-xs text-muted-foreground">
-								Crie do zero ou forke um plano global da SDAB.
-							</p>
+							<p className="text-sm font-medium text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
+							<p className="text-xs text-muted-foreground">Crie do zero ou forke um plano global da SDAB.</p>
 							<Button
 								variant="outline"
 								size="sm"
 								className="mt-2"
 								render={
-									<Link
-										to="/kitchen/$kitchenId/weekly-menus/new"
-										params={{ kitchenId: kitchenIdStr as string }}
-									>
+									<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
 										<Plus className="w-4 h-4 mr-2" />
 										Criar primeiro cardápio semanal
 									</Link>
@@ -203,7 +171,6 @@ function WeeklyMenusPage() {
 																<Button
 																	size="icon"
 																	variant="ghost"
-																	
 																	render={
 																		<Link
 																			to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
@@ -223,12 +190,7 @@ function WeeklyMenusPage() {
 													<Tooltip>
 														<TooltipTrigger
 															render={
-																<Button
-																	size="icon"
-																	variant="ghost"
-																	onClick={() => handleDelete(template.id, template.name ?? "")}
-																	disabled={isDeleting}
-																>
+																<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
 																	<Trash2 className="w-4 h-4 text-destructive" />
 																</Button>
 															}

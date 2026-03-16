@@ -4,9 +4,7 @@ function Collapsible({ ...props }: React.ComponentProps<typeof CollapsiblePrimit
 	return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />
 }
 
-function CollapsibleTrigger({
-	...props
-}: React.ComponentProps<typeof CollapsiblePrimitive.Trigger>) {
+function CollapsibleTrigger({ ...props }: React.ComponentProps<typeof CollapsiblePrimitive.Trigger>) {
 	return <CollapsiblePrimitive.Trigger data-slot="collapsible-trigger" {...props} />
 }
 

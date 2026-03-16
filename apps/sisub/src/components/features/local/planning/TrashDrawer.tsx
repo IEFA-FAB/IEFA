@@ -4,13 +4,7 @@ import { CalendarDays, Loader2, RefreshCcw, Trash2, UtensilsCrossed } from "luci
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRestoreMenuItem, useTrashItems } from "@/hooks/data/usePlanning"
 import { useDeletedTemplates, useRestoreTemplate } from "@/hooks/data/useTemplates"
@@ -72,31 +66,20 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 						<TabsContent value="items">
 							<ScrollArea className="h-[calc(100vh-240px)] pr-4">
 								{!trashItems || trashItems.length === 0 ? (
-									<div className="text-center py-10 text-muted-foreground text-sm">
-										Nenhum item removido.
-									</div>
+									<div className="text-center py-10 text-muted-foreground text-sm">Nenhum item removido.</div>
 								) : (
 									<div className="space-y-3 mt-4">
 										{trashItems.map((item) => (
-											<div
-												key={item.id}
-												className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2"
-											>
+											<div key={item.id} className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2">
 												<div className="flex justify-between items-start">
 													<div>
 														<p className="font-medium text-sm">
-															{(item.recipe as { name?: string })?.name ||
-																item.recipe_origin?.name ||
-																"Preparação sem nome"}
+															{(item.recipe as { name?: string })?.name || item.recipe_origin?.name || "Preparação sem nome"}
 														</p>
 														<p className="text-xs text-muted-foreground">
-															{format(
-																new Date(item.daily_menu.service_date || new Date().toISOString()),
-																"dd/MM/yyyy",
-																{
-																	locale: ptBR,
-																}
-															)}{" "}
+															{format(new Date(item.daily_menu.service_date || new Date().toISOString()), "dd/MM/yyyy", {
+																locale: ptBR,
+															})}{" "}
 															· {item.planned_portion_quantity || 0}g
 														</p>
 														{item.deleted_at && (
@@ -131,16 +114,11 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 						<TabsContent value="templates">
 							<ScrollArea className="h-[calc(100vh-240px)] pr-4">
 								{!deletedTemplates || deletedTemplates.length === 0 ? (
-									<div className="text-center py-10 text-muted-foreground text-sm">
-										Nenhum template removido.
-									</div>
+									<div className="text-center py-10 text-muted-foreground text-sm">Nenhum template removido.</div>
 								) : (
 									<div className="space-y-3 mt-4">
 										{deletedTemplates.map((template) => (
-											<div
-												key={template.id}
-												className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2"
-											>
+											<div key={template.id} className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2">
 												<div className="flex justify-between items-start">
 													<div className="flex-1">
 														<div className="flex items-center gap-2">
@@ -151,9 +129,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 																</Badge>
 															)}
 														</div>
-														<p className="text-xs text-muted-foreground">
-															{template.description || "Sem descrição"}
-														</p>
+														<p className="text-xs text-muted-foreground">{template.description || "Sem descrição"}</p>
 														<p className="text-xs text-muted-foreground/70 mt-1">
 															{template.recipe_count || 0} Preparação
 															{template.recipe_count !== 1 ? "s" : ""}
