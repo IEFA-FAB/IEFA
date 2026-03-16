@@ -1,7 +1,6 @@
-import { Input } from "@base-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { ArrowLeft, GitFork, Loader2, Plus } from "lucide-react"
+import { GitFork, Loader2, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -10,6 +9,7 @@ import { PageHeader } from "@/components/common/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useTemplate } from "@/hooks/data/useTemplates"
@@ -149,24 +149,21 @@ function NewWeeklyMenuPage() {
 	}
 
 	return (
-		<div className="space-y-6 mx-auto max-w-2xl">
+		<div className="space-y-6">
 			<PageHeader
 				title={isFork ? "Forkar Plano Global" : "Novo Cardápio Semanal"}
 				description={
 					isFork ? "Cria uma cópia independente do plano global para sua cozinha." : undefined
 				}
-			>
-				<Link
-					to="/kitchen/$kitchenId/weekly-menus"
-					params={{ kitchenId: kitchenIdStr as string }}
-					className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-				>
-					<ArrowLeft className="h-4 w-4" />
-					Cardápios Semanais
-				</Link>
-			</PageHeader>
+				onBack={() =>
+					navigate({
+						to: "/kitchen/$kitchenId/weekly-menus",
+						params: { kitchenId: kitchenIdStr as string },
+					})
+				}
+			/>
 
-			<div className="space-y-6">
+			<div className="mx-auto w-full max-w-2xl space-y-6">
 				{/* Origem do fork */}
 				{isFork && baseTemplate && (
 					<Card className="border-dashed">
@@ -206,7 +203,7 @@ function NewWeeklyMenuPage() {
 					}}
 					className="space-y-4"
 				>
-					<div className="rounded-lg border bg-card p-6 space-y-4">
+					<div className="rounded-md border bg-card p-6 space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="name">
 								Nome do Cardápio Semanal <span className="text-destructive">*</span>
@@ -243,14 +240,18 @@ function NewWeeklyMenuPage() {
 								: "Após criar, você será redirecionado para editar o cardápio semanal."}
 						</p>
 						<div className="flex gap-2">
-							<Link
-								to="/kitchen/$kitchenId/weekly-menus"
-								params={{ kitchenId: kitchenIdStr as string }}
-							>
-								<Button type="button" variant="outline">
-									Cancelar
-								</Button>
-							</Link>
+							<Button
+								type="button"
+								variant="outline"
+								render={
+									<Link
+										to="/kitchen/$kitchenId/weekly-menus"
+										params={{ kitchenId: kitchenIdStr as string }}
+									>
+										Cancelar
+									</Link>
+								}
+							/>
 							<Button type="submit" disabled={isPending || !name.trim() || !kitchenId}>
 								{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
 								{isFork ? (

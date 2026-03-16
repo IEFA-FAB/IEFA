@@ -59,7 +59,7 @@ function QrCodePage() {
 			/>
 
 			{/* Card do QR */}
-			<div className="mx-auto max-w-sm rounded-2xl border bg-card p-6 flex flex-col items-center gap-4 shadow-sm">
+			<div className="mx-auto max-w-sm rounded-md border bg-card p-6 flex flex-col items-center gap-4">
 				{/* Identificação */}
 				<div className="text-center space-y-0.5">
 					<p className="font-semibold text-foreground">{displayName}</p>
@@ -67,7 +67,7 @@ function QrCodePage() {
 				</div>
 
 				{/* QR Code */}
-				<div className="rounded-xl border-2 bg-white p-3 shadow">
+				<div className="rounded-md border-2 bg-white p-3">
 					{userId ? (
 						<QRCodeCanvas
 							role="img"
@@ -80,12 +80,12 @@ function QrCodePage() {
 							ref={qrCanvasRef}
 						/>
 					) : (
-						<div className="h-[240px] w-[240px] animate-pulse rounded-lg bg-muted" />
+						<div className="h-[240px] w-[240px] animate-pulse rounded-md bg-muted" />
 					)}
 				</div>
 
 				{/* UUID */}
-				<div className="w-full rounded-lg border bg-muted/50 px-3 py-2 text-center">
+				<div className="w-full rounded-md border bg-muted/50 px-3 py-2 text-center">
 					<p className="font-mono text-xs text-muted-foreground truncate">{userId ?? "—"}</p>
 				</div>
 

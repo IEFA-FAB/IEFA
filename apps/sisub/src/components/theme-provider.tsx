@@ -26,19 +26,18 @@ export function ThemeProvider({
 	storageKey = "vite-ui-theme",
 	...props
 }: ThemeProviderProps) {
-	// Inicia com o defaultTheme e sincroniza com o localStorage no client
-	const [theme, setThemeState] = useState<Theme>(defaultTheme)
-
-	// Carrega o tema salvo no localStorage (apenas no client)
-	useEffect(() => {
-		if (typeof window === "undefined") return
-		try {
-			const stored = window.localStorage.getItem(storageKey) as Theme | null
-			if (stored) setThemeState(stored)
-		} catch {
-			// Ignora falhas de acesso ao storage (ex.: modo privado)
+	// Inicia com o defaultTheme e sincroniza com o localStorage no client via lazy initializer
+	const [theme, setThemeState] = useState<Theme>(() => {
+		if (typeof window !== "undefined") {
+			try {
+				const stored = window.localStorage.getItem(storageKey) as Theme | null
+				if (stored) return stored
+			} catch {
+				// Ignora falhas de acesso ao storage
+			}
 		}
-	}, [storageKey])
+		return defaultTheme
+	})
 
 	// Aplica a classe no <html> conforme o tema selecionado e observa mudanças do sistema quando "system"
 	useEffect(() => {

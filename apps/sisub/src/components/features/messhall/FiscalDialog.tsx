@@ -33,12 +33,16 @@ export default function FiscalDialog({
 	const forecastIsNo = !dialog.systemForecast
 
 	const id = dialog.uuid?.trim() || null
-	const [fetchedId, setFetchedId] = useState<string | null>(null)
-	const [fetchedName, setFetchedName] = useState<string | null>(null)
+	const [fetchResult, setFetchResult] = useState<{ id: string | null; name: string | null }>({
+		id: null,
+		name: null,
+	})
 
 	// Derive loading from state — avoids synchronous setState in effect body
-	const loadingName = !!(id && resolveDisplayName && !nameCache.has(id) && fetchedId !== id)
-	const displayName = id ? (nameCache.get(id) ?? (fetchedId === id ? fetchedName : null)) : null
+	const loadingName = !!(id && resolveDisplayName && !nameCache.has(id) && fetchResult.id !== id)
+	const displayName = id
+		? (nameCache.get(id) ?? (fetchResult.id === id ? fetchResult.name : null))
+		: null
 
 	useEffect(() => {
 		if (!id || !resolveDisplayName || nameCache.has(id)) return
@@ -48,11 +52,10 @@ export default function FiscalDialog({
 				if (cancelled) return
 				const normalized = name?.trim() || null
 				if (normalized) nameCache.set(id, normalized)
-				setFetchedName(normalized)
-				setFetchedId(id)
+				setFetchResult({ id, name: normalized })
 			})
 			.catch(() => {
-				if (!cancelled) setFetchedId(id)
+				if (!cancelled) setFetchResult({ id, name: null })
 			})
 		return () => {
 			cancelled = true

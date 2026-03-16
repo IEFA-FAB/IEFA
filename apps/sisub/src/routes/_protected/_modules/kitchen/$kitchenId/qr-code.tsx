@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { PageHeader } from "@/components/common/layout/PageHeader"
 import QRAutoCheckinCard from "@/components/features/local/QRAutoCheckinCard"
 
 /**
@@ -23,13 +24,11 @@ function QrCodePage() {
 	const [selectedOm, setSelectedOm] = useState<string>("")
 
 	return (
-		<div className="p-6">
-			<div className="mb-6">
-				<h1 className="text-3xl font-bold tracking-tight text-foreground">QR Check-in</h1>
-				<p className="text-muted-foreground">
-					Gere QR codes para check-in automático na sua unidade.
-				</p>
-			</div>
+		<div className="space-y-6">
+			<PageHeader
+				title="QR Check-in"
+				description="Gere QR codes para check-in automático na sua unidade."
+			/>
 
 			<QRAutoCheckinCard
 				selectedOm={selectedOm}

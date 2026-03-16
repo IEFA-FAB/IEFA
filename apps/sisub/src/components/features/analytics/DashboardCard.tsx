@@ -17,8 +17,7 @@ import MessHallBreakdown from "./MessHallBreakdown"
 import MetricsOverview from "./MetricsOverview"
 
 export default function DashboardCard() {
-	// Calculate default date range (next 7 days)
-	const getDefaultDateRange = () => {
+	const [dateRange, setDateRange] = useState(() => {
 		const today = new Date()
 		const nextWeek = new Date(today)
 		nextWeek.setDate(today.getDate() + 6)
@@ -27,9 +26,7 @@ export default function DashboardCard() {
 			start: today.toISOString().split("T")[0],
 			end: nextWeek.toISOString().split("T")[0],
 		}
-	}
-
-	const [dateRange, setDateRange] = useState(getDefaultDateRange())
+	})
 	const [selectedMessHall, setSelectedMessHall] = useState<string>("all")
 
 	const messHallsQuery = useQuery(messHallsQueryOptions(undefined))

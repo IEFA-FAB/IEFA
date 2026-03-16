@@ -32,12 +32,15 @@ function GlobalRecipesPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Preparações Globais">
-				<Link to="/global/recipes/new">
-					<Button size="sm">
-						<Plus className="h-4 w-4 mr-2" />
-						Nova Preparação
-					</Button>
-				</Link>
+				<Button
+					size="sm"
+					render={
+						<Link to="/global/recipes/new">
+							<Plus className="h-4 w-4 mr-2" />
+							Nova Preparação
+						</Link>
+					}
+				/>
 			</PageHeader>
 			<RecipesManager />
 		</div>

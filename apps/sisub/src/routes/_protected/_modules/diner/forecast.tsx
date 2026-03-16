@@ -301,15 +301,16 @@ export default function Forecast(): JSX.Element {
 		const { cardsWithoutMessHall } = computedData
 		if (cardsWithoutMessHall.length === 0) return
 
-		try {
-			// Backend: usa ID (precisa estar resolvido)
-			const messHallIdForDefault =
-				defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || ""
+		// Backend: usa ID (precisa estar resolvido)
+		const messHallIdForDefault =
+			defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || ""
 
-			if (!messHallIdForDefault) {
-				setError("Defina e salve um rancho padrão antes de aplicar aos cards.")
-				return
-			}
+		if (!messHallIdForDefault) {
+			setError("Defina e salve um rancho padrão antes de aplicar aos cards.")
+			return
+		}
+
+		try {
 
 			// UI: grava CODE nos dias sem rancho
 			const updatedMessHalls: MessHallByDate = { ...dayMessHalls }
@@ -348,10 +349,10 @@ export default function Forecast(): JSX.Element {
 					cardsWithoutMessHall.length
 				)}!`
 			)
+			setIsApplyingDefaultMessHall(false)
 		} catch (err) {
 			console.error("Erro ao aplicar rancho padrão:", err)
 			setError("Erro ao aplicar rancho padrão. Tente novamente.")
-		} finally {
 			setIsApplyingDefaultMessHall(false)
 		}
 	}
@@ -367,6 +368,8 @@ export default function Forecast(): JSX.Element {
 			return
 		}
 
+		const isOverride = options.mode === "override"
+		const modoStr = isOverride ? "sobrescrever" : "preencher"
 		setIsApplyingMealTemplate(true)
 		try {
 			const newChanges: PendingChange[] = []
@@ -376,7 +379,7 @@ export default function Forecast(): JSX.Element {
 				const before = selections[date] || createEmptyDayMeals()
 				const after: DayMeals = { ...before }
 
-				if (options.mode === "override") {
+				if (isOverride) {
 					;(Object.keys(after) as (keyof DayMeals)[]).forEach((k) => {
 						after[k] = Boolean(template[k])
 					})
@@ -435,16 +438,12 @@ export default function Forecast(): JSX.Element {
 			const diasStr = `${targetDates.length} ${labelDiaUtil(targetDates.length)}`
 			const alteracoesStr = `${newChanges.length} ${labelAlteracao(newChanges.length)}`
 
-			setSuccess(
-				`Template de refeições aplicado a ${diasStr} no modo ${
-					options.mode === "override" ? "sobrescrever" : "preencher"
-				}: ${alteracoesStr}.`
-			)
+			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
 			setShowBulkMealSelector(false)
+			setIsApplyingMealTemplate(false)
 		} catch (err) {
 			console.error("Erro ao aplicar template de refeições:", err)
 			setError("Erro ao aplicar template de refeições. Tente novamente.")
-		} finally {
 			setIsApplyingMealTemplate(false)
 		}
 	}
@@ -453,15 +452,13 @@ export default function Forecast(): JSX.Element {
 		"use no memo"
 		setIsApplyingDefaultMessHall(true)
 		try {
-			// Persiste o default no user_data
-			await persistDefaultMessHallId()
-
-			// Aplica default aos cards (UI + pendingChanges) e mensagem
-			await applyDefaultMessHallToAll()
+			// Persiste o default no user_data e aplica aos cards em paralelo
+			await Promise.all([persistDefaultMessHallId(), applyDefaultMessHallToAll()])
 
 			// Refaz fetch (default + forecasts) para refletir tudo da fonte de verdade
 			await loadExistingForecasts()
-		} finally {
+			setIsApplyingDefaultMessHall(false)
+		} catch {
 			setIsApplyingDefaultMessHall(false)
 		}
 	}

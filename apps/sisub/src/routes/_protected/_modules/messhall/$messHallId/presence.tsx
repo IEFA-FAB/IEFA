@@ -20,6 +20,7 @@ import {
 } from "@/hooks/business/useFiscalOps"
 import { usePresenceManagement } from "@/hooks/data/usePresenceManagement"
 import { generateRestrictedDates, inferDefaultMeal } from "@/lib/fiscal"
+import { cn } from "@/lib/utils"
 import { resolveDisplayNameFn } from "@/server/messhall.fn"
 import type { MealKey } from "@/types/domain/meal"
 import type { DialogState, FiscalFilters } from "@/types/domain/presence"
@@ -204,10 +205,10 @@ function ScannerTab({
 				setLastScanResult(uuid)
 				setDialog({ open: true, uuid, systemForecast, willEnter: "sim" })
 				markScannedRef.current(uuid)
+				if (isMountedRef.current) setIsProcessing(false)
 			} catch (err) {
 				console.error("Erro ao preparar diálogo:", err)
 				if (isMountedRef.current) toast.error("Erro", { description: "Falha ao processar QR." })
-			} finally {
 				if (isMountedRef.current) setIsProcessing(false)
 			}
 		})()
@@ -220,7 +221,9 @@ function ScannerTab({
 	useEffect(() => {
 		let isCancelled = false
 		const startScanner = async () => {
+			"use no memo"
 			if (!videoRef.current) return
+			const overlay = qrBoxRef.current ?? undefined
 			try {
 				const hasPermission = await QrScanner.hasCamera()
 				if (!hasPermission) {
@@ -233,7 +236,7 @@ function ScannerTab({
 					preferredCamera: "environment",
 					highlightScanRegion: true,
 					highlightCodeOutline: true,
-					overlay: qrBoxRef.current ?? undefined,
+					overlay,
 				})
 				scannerRef.current = scanner
 				await scanner.start()
@@ -258,9 +261,9 @@ function ScannerTab({
 		if (!dialog.uuid) return
 		try {
 			await confirmPresence(dialog.uuid, dialog.willEnter === "sim")
+			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
 		} catch (err) {
 			console.error("Falha ao confirmar presença:", err)
-		} finally {
 			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
 		}
 	}, [confirmPresence, dialog.uuid, dialog.willEnter])
@@ -367,7 +370,7 @@ function ScannerTab({
 						disabled={!scannerState.hasPermission}
 						className="shrink-0"
 					>
-						<RefreshCw className={`h-4 w-4 ${scannerState.isScanning ? "animate-spin" : ""}`} />
+						<RefreshCw className={cn("h-4 w-4", scannerState.isScanning && "animate-spin")} />
 					</Button>
 
 					{lastScanResult && (
@@ -396,7 +399,7 @@ function ScannerTab({
 			</div>
 
 			{/* Leitor de QR (MESSHALL-02) */}
-			<div className="qr-reader relative rounded-lg overflow-hidden bg-black">
+			<div className="qr-reader relative rounded-lg overflow-hidden bg-muted">
 				{/** biome-ignore lint/a11y/useMediaCaption: QR Code reader */}
 				<video ref={videoRef} className="w-full h-auto object-cover" />
 				{!scannerState.hasPermission && scannerState.isReady && (
@@ -406,7 +409,7 @@ function ScannerTab({
 				)}
 				<div ref={qrBoxRef} className="qr-box pointer-events-none" />
 				{lastScanResult && (
-					<p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs shadow">
+					<p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs shadow-sm">
 						Último UUID: {lastScanResult}
 					</p>
 				)}
@@ -476,9 +479,9 @@ function PresencePage() {
 	})
 
 	// Sincroniza messHallId quando o param muda (navegação entre escopos)
-	useEffect(() => {
+	if (filters.messHallId !== messHallId) {
 		setFilters((f) => ({ ...f, messHallId }))
-	}, [messHallId])
+	}
 
 	return (
 		<div className="space-y-6">

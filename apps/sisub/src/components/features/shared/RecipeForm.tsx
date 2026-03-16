@@ -76,38 +76,38 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				toast.error("Preencha todos os campos obrigatórios corretamente")
 				return
 			}
-			try {
-				if (mode === "create" || mode === "fork") {
-					// Create recipe with ingredients handled separately
-					const { ingredients, ...recipeData } = value
+			const isFork = mode === "fork"
+			const kitchenIdNew = isFork ? 1 : null
+			const baseRecipeId = isFork ? initialData?.id : undefined
 
-					await createMutation.mutateAsync({
+			if (mode === "create" || isFork) {
+				// Create recipe with ingredients handled separately
+				const { ingredients, ...recipeData } = value
+
+				await createMutation.mutateAsync({
+					...recipeData,
+					kitchen_id: kitchenIdNew, // TODO: Use real kitchen ID
+					base_recipe_id: baseRecipeId,
+				})
+			} else if (mode === "edit" && initialData) {
+				// Versioning: Insert new entry with incremented version
+				const { ingredients, ...recipeData } = value
+
+				await versionMutation.mutateAsync({
+					baseRecipeId: initialData.id,
+					newVersion: initialData.version + 1,
+					data: {
 						...recipeData,
-						kitchen_id: mode === "fork" ? 1 : null, // TODO: Use real kitchen ID
-						base_recipe_id: mode === "fork" ? initialData?.id : undefined,
-					})
-				} else if (mode === "edit" && initialData) {
-					// Versioning: Insert new entry with incremented version
-					const { ingredients, ...recipeData } = value
+						kitchen_id: initialData.kitchen_id,
+					},
+				})
+			}
 
-					await versionMutation.mutateAsync({
-						baseRecipeId: initialData.id,
-						newVersion: initialData.version + 1,
-						data: {
-							...recipeData,
-							kitchen_id: initialData.kitchen_id,
-						},
-					})
-				}
-
-				toast.success("Preparação salva com sucesso!")
-				if (kitchenId) {
-					navigate({ to: "/kitchen/$kitchenId/recipes", params: { kitchenId } })
-				} else {
-					navigate({ to: "/global/recipes" })
-				}
-			} catch {
-				// Error handled in hook/toast
+			toast.success("Preparação salva com sucesso!")
+			if (kitchenId) {
+				navigate({ to: "/kitchen/$kitchenId/recipes", params: { kitchenId } })
+			} else {
+				navigate({ to: "/global/recipes" })
 			}
 		},
 	})
@@ -121,7 +121,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				: `Personalizando: ${initialData?.name}`
 
 	return (
-		<div className="space-y-6 max-w-5xl mx-auto pb-20">
+		<div className="space-y-6 pb-20">
 			<PageHeader
 				title={pageTitle}
 				description={mode === "edit" ? "Uma nova versão será criada automaticamente." : undefined}
@@ -134,7 +134,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					e.stopPropagation()
 					form.handleSubmit()
 				}}
-				className="space-y-8"
+				className="space-y-8 max-w-5xl mx-auto"
 			>
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 					{/* Main Info */}

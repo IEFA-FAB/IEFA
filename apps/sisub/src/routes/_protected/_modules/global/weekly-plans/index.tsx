@@ -24,12 +24,15 @@ function WeeklyPlansPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Planos Semanais Modelo">
-				<Link to="/global/weekly-plans/new">
-					<Button size="sm">
-						<Plus className="h-4 w-4 mr-2" />
-						Novo Plano
-					</Button>
-				</Link>
+				<Button
+					size="sm"
+					render={
+						<Link to="/global/weekly-plans/new">
+							<Plus className="h-4 w-4 mr-2" />
+							Novo Plano
+						</Link>
+					}
+				/>
 			</PageHeader>
 
 			<div>
@@ -41,11 +44,12 @@ function WeeklyPlansPage() {
 					<p className="text-xs text-muted-foreground">
 						Crie um plano para que as unidades possam importá-lo para o calendário local.
 					</p>
-					<Link to="/global/weekly-plans/new">
-						<Button variant="outline" size="sm" className="mt-2">
-							Criar primeiro plano
-						</Button>
-					</Link>
+					<Button
+						variant="outline"
+						size="sm"
+						className="mt-2"
+						render={<Link to="/global/weekly-plans/new">Criar primeiro plano</Link>}
+					/>
 				</div>
 			</div>
 		</div>

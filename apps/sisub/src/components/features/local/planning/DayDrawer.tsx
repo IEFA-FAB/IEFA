@@ -20,8 +20,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
 	Sheet,
@@ -38,6 +38,7 @@ import {
 	useDeleteMenuItem,
 	useUpdateDailyMenu,
 } from "@/hooks/data/usePlanning"
+import { fetchRecipeWithIngredients } from "@/hooks/data/useRecipes"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { MenuItemCard } from "./MenuItemCard"
 import { RecipeSelector } from "./RecipeSelector"
@@ -133,6 +134,7 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 				/>
 
 				<RecipeSelector
+					key={recipeSelectorMenu?.id || "none"}
 					open={!!recipeSelectorMenu}
 					onClose={() => {
 						console.log("RecipeSelector closing")
@@ -151,22 +153,22 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 
 						// Create menu items for each selected recipe with snapshots
 						for (const recipeId of recipeIds) {
+							const portionQty = recipeSelectorMenu.forecasted_headcount || 150
 							try {
-								// Import and fetch complete recipe data
-								const { fetchRecipeWithIngredients } = await import("@/hooks/data/useRecipes")
 								const recipeSnapshot = await fetchRecipeWithIngredients(recipeId)
 
 								// Create menu item with recipe snapshot (PRD RF12)
 								addMenuItem({
 									daily_menu_id: recipeSelectorMenu.id,
 									recipe_origin_id: recipeId,
-									recipe: recipeSnapshot as Record<string, unknown>,
-									planned_portion_quantity: recipeSelectorMenu.forecasted_headcount || 150,
+									// @ts-expect-error - Supabase Json type does not perfectly overlap with Record
+									recipe: recipeSnapshot,
+									planned_portion_quantity: portionQty,
 									excluded_from_procurement: 0,
 								})
+								console.log("Recipe added:", recipeId)
 							} catch (error) {
 								console.error("Error fetching recipe:", recipeId, error)
-							} finally {
 								console.log("Recipe added:", recipeId)
 							}
 						}
@@ -290,24 +292,28 @@ function MealSection({
 				) : (
 					<div className="space-y-4">
 						{/* Editable Forecasted Headcount */}
-						<div className="bg-muted/30 p-3 rounded-md space-y-2">
-							<Label htmlFor={`headcount-${menu.id}`} className="text-xs font-medium">
-								Previsão de Comensais
-							</Label>
-							<div className="flex items-center gap-2">
-								<Input
-									id={`headcount-${menu.id}`}
-									type="number"
-									value={headcount ?? ""}
-									onChange={(e) =>
-										setHeadcount(e.target.value === "" ? null : Number.parseInt(e.target.value, 10))
-									}
-									onBlur={handleUpdateHeadcount}
-									placeholder="0"
-									className="h-8 w-24"
-								/>
-								<span className="text-xs text-muted-foreground">porções</span>
-							</div>
+						<div className="bg-muted/30 p-3 rounded-md">
+							<Field orientation="vertical" className="gap-2">
+								<FieldLabel htmlFor={`headcount-${menu.id}`} className="text-xs font-medium">
+									Previsão de Comensais
+								</FieldLabel>
+								<div className="flex items-center gap-2">
+									<Input
+										id={`headcount-${menu.id}`}
+										type="number"
+										value={headcount ?? ""}
+										onChange={(e) =>
+											setHeadcount(
+												e.target.value === "" ? null : Number.parseInt(e.target.value, 10)
+											)
+										}
+										onBlur={handleUpdateHeadcount}
+										placeholder="0"
+										className="h-8 w-24"
+									/>
+									<span className="text-xs text-muted-foreground">porções</span>
+								</div>
+							</Field>
 						</div>
 
 						<div className="space-y-2">

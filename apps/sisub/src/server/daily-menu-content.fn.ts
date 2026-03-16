@@ -87,8 +87,8 @@ export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
 				let ingredients: DishIngredient[] = []
 
 				if (item.recipe) {
-					const snapshot = item.recipe as RecipeSnapshot
-					dishName = snapshot.name || dishName
+					const snapshot = item.recipe as unknown as RecipeSnapshot
+					dishName = snapshot?.name || dishName
 					if (snapshot.ingredients) {
 						ingredients = snapshot.ingredients
 					}

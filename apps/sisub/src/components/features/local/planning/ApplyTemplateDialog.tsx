@@ -137,14 +137,10 @@ export function ApplyTemplateDialog({
 									{templates?.map((tpl) => (
 										<Button
 											key={tpl.id}
+											variant="outline"
 											onClick={() => setSelectedTemplateId(tpl.id)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === " ") {
-													setSelectedTemplateId(tpl.id)
-												}
-											}}
 											className={cn(
-												"p-3 rounded-md border cursor-pointer hover:bg-accent transition-colors flex items-center justify-between",
+												"h-auto w-full p-3 justify-between font-normal text-left transition-colors",
 												selectedTemplateId === tpl.id
 													? "border-primary bg-primary/5 ring-1 ring-primary"
 													: ""

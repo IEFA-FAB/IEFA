@@ -82,15 +82,15 @@ export function ProductsTreeManager() {
 	return (
 		<div className="space-y-6">
 			{/* Toolbar */}
-			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-				<div className="flex-1 relative">
+			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-gradient-to-br from-card to-muted/10 p-5 rounded-xl border border-border/50 shadow-sm">
+				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 					<Input
 						type="search"
 						placeholder="Buscar pastas ou insumos..."
 						value={filterText}
 						onChange={(e) => setFilterText(e.target.value)}
-						className="pl-10"
+						className="pl-10 transition-all focus:ring-2 focus:ring-primary/50"
 						aria-label="Buscar na árvore de insumos"
 					/>
 				</div>

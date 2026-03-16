@@ -32,6 +32,7 @@ export function RecipeSelector({
 	onSelect,
 	multiSelect = true,
 }: RecipeSelectorProps) {
+	"use no memo"
 	const { data: recipes, isLoading } = useRecipes()
 	const [searchQuery, setSearchQuery] = useState("")
 	const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -43,18 +44,6 @@ export function RecipeSelector({
 		const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
 		return () => clearTimeout(timer)
 	}, [searchQuery])
-
-	// Reset temp selection only when dialog transitions from closed → open,
-	// avoiding spurious resets when parent re-renders with a new array reference.
-	const prevOpenRef = useRef(false)
-	useEffect(() => {
-		if (open && !prevOpenRef.current) {
-			setTempSelected(selectedRecipeIds)
-			setSearchQuery("")
-			setDebouncedQuery("")
-		}
-		prevOpenRef.current = open
-	}, [open, selectedRecipeIds])
 
 	const filteredRecipes = useMemo(() => {
 		if (!recipes) return []

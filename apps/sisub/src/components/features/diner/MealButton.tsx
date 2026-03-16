@@ -32,8 +32,8 @@ export const MealButton = memo<MealButtonProps>(
 		const mainDish = dishes?.[0] // Show first dish for now
 
 		const buttonClasses = cn(
-			"w-full rounded-md border-2 transition-all duration-200 group relative z-10",
-			"focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring",
+			"w-full rounded-md border-2 transition-colors duration-200 group relative z-10",
+			"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
 			{
 				// Estados selecionado/não selecionado — via tokens semânticos
 				"border-success bg-success/10 text-success": isSelected,
@@ -41,7 +41,7 @@ export const MealButton = memo<MealButtonProps>(
 					!isSelected,
 
 				// Estados de interação
-				"cursor-pointer active:scale-95 hover:shadow-sm": !disabled,
+				"cursor-pointer active:scale-95": !disabled,
 				"opacity-50 cursor-not-allowed": disabled,
 
 				// Tamanhos
@@ -75,7 +75,7 @@ export const MealButton = memo<MealButtonProps>(
 							{/* Indicador visual via token */}
 							<div
 								className={cn(
-									"w-2 h-2 rounded-full transition-colors duration-200",
+									"w-2 h-2 rounded-sm transition-colors duration-200",
 									isSelected ? "bg-success" : "bg-muted-foreground/30"
 								)}
 							/>
@@ -125,7 +125,7 @@ export const MealButton = memo<MealButtonProps>(
 					{/* Status icon via tokens */}
 					<div
 						className={cn(
-							"flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200",
+							"flex items-center justify-center w-6 h-6 rounded-sm transition-colors duration-200",
 							{
 								"bg-success text-success-foreground": isSelected,
 								"bg-muted text-muted-foreground": !isSelected,

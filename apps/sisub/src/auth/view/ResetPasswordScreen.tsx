@@ -32,40 +32,51 @@ export function ResetPasswordScreen({
 	onNavigate,
 	forgotPasswordPath = "/auth",
 }: ResetPasswordScreenProps) {
+	"use no memo"
 	const [newPassword, setNewPassword] = useState("")
 	const [confirmPassword, setConfirmPassword] = useState("")
 	const [showPassword, setShowPassword] = useState(false)
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [error, setError] = useState("")
+	const [submitError, setSubmitError] = useState("")
 	const [passwordError, setPasswordError] = useState("")
 	const [confirmError, setConfirmError] = useState("")
-	const [isVerifyingToken, setIsVerifyingToken] = useState(true)
-	const [tokenValid, setTokenValid] = useState(false)
+	const [verifyState, setVerifyState] = useState({ isVerifying: true, isValid: false, error: "" })
+	const { isVerifying: isVerifyingToken, isValid: tokenValid, error: verifyError } = verifyState
 
 	useEffect(() => {
 		const verifyToken = async () => {
 			if (!searchParams.token_hash || searchParams.type !== "recovery") {
-				setError("Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.")
-				setIsVerifyingToken(false)
-				setTokenValid(false)
+				setVerifyState({
+					isVerifying: false,
+					isValid: false,
+					error: "Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.",
+				})
 				return
 			}
 
 			try {
-				const { error: verifyError } = await actions.verifyOtp(searchParams.token_hash, "recovery")
+				const { error: verifyErr } = await actions.verifyOtp(searchParams.token_hash, "recovery")
 
-				if (verifyError) {
-					setError("Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.")
-					setTokenValid(false)
+				if (verifyErr) {
+					setVerifyState({
+						isVerifying: false,
+						isValid: false,
+						error: "Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.",
+					})
 				} else {
-					setTokenValid(true)
+					setVerifyState({
+						isVerifying: false,
+						isValid: true,
+						error: "",
+					})
 				}
 			} catch {
-				setError("Erro ao verificar o link de recuperação. Tente novamente.")
-				setTokenValid(false)
-			} finally {
-				setIsVerifyingToken(false)
+				setVerifyState({
+					isVerifying: false,
+					isValid: false,
+					error: "Erro ao verificar o link de recuperação. Tente novamente.",
+				})
 			}
 		}
 
@@ -75,7 +86,7 @@ export function ResetPasswordScreen({
 	const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const value = e.target.value
 		setNewPassword(value)
-		setError("")
+		setSubmitError("")
 		setPasswordError("")
 
 		if (value && value.length < 6) {
@@ -113,24 +124,23 @@ export function ResetPasswordScreen({
 		}
 
 		setIsSubmitting(true)
-		setError("")
+		setSubmitError("")
 		setPasswordError("")
 		setConfirmError("")
 
-		try {
-			const { error: updateError } = await actions.updatePassword(newPassword)
+		const { error: updateError } = await actions.updatePassword(newPassword)
 
-			if (updateError) throw updateError
-
-			onNavigate({ to: "/auth", search: { tab: "login" } })
-			alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
-		} catch (err) {
+		if (updateError) {
 			const errorMsg =
-				err instanceof Error ? err.message : "Erro ao atualizar senha. Tente novamente."
-			setError(errorMsg)
-		} finally {
+				updateError instanceof Error ? updateError.message : "Erro ao atualizar senha. Tente novamente."
+			setSubmitError(errorMsg)
 			setIsSubmitting(false)
+			return
 		}
+
+		setIsSubmitting(false)
+		onNavigate({ to: "/auth", search: { tab: "login" } })
+		alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
 	}
 
 	const handleBackToForgotPassword = () => {
@@ -177,7 +187,7 @@ export function ResetPasswordScreen({
 							className="bg-destructive/10 border-destructive/20 text-destructive"
 						>
 							<AlertCircle className="h-4 w-4" />
-							<AlertDescription>{error}</AlertDescription>
+							<AlertDescription>{verifyError}</AlertDescription>
 						</Alert>
 					</CardContent>
 
@@ -208,13 +218,13 @@ export function ResetPasswordScreen({
 
 				<form onSubmit={handleSubmit}>
 					<CardContent className="space-y-6 px-8">
-						{error && (
+						{submitError && (
 							<Alert
 								variant="destructive"
 								className="bg-destructive/10 border-destructive/20 text-destructive"
 							>
 								<AlertCircle className="h-4 w-4" />
-								<AlertDescription>{error}</AlertDescription>
+								<AlertDescription>{submitError}</AlertDescription>
 							</Alert>
 						)}
 

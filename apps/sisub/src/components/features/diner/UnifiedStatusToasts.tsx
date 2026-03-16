@@ -2,9 +2,7 @@ import { AlertTriangle, CheckCircle, Loader2, Save } from "lucide-react"
 import { useEffect } from "react"
 import { toast } from "sonner"
 
-interface PendingChange {
-	[key: string]: unknown
-}
+import type { PendingChange } from "@/types/domain/meal"
 
 interface UnifiedStatusToastsProps {
 	// Mensagens

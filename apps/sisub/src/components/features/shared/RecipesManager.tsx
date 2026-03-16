@@ -10,6 +10,7 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 const ROW_HEIGHT = 52
 
 export function RecipesManager() {
+	"use no memo"
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = kitchenIdStr ?? null
 

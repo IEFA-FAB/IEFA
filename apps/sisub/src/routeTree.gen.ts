@@ -34,6 +34,7 @@ import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_prote
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
+import { Route as ProtectedModulesAnalyticsLocalIndicatorsRouteImport } from './routes/_protected/_modules/analytics/local-indicators'
 import { Route as ProtectedModulesAnalyticsLocalRouteImport } from './routes/_protected/_modules/analytics/local'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
 import { Route as ProtectedModulesUnitUnitIdRouteRouteImport } from './routes/_protected/_modules/unit/$unitId/route'
@@ -201,6 +202,12 @@ const ProtectedModulesDinerForecastRoute =
   ProtectedModulesDinerForecastRouteImport.update({
     id: '/diner/forecast',
     path: '/diner/forecast',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsLocalIndicatorsRoute =
+  ProtectedModulesAnalyticsLocalIndicatorsRouteImport.update({
+    id: '/analytics/local-indicators',
+    path: '/analytics/local-indicators',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesAnalyticsLocalRoute =
@@ -414,6 +421,7 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
+  '/analytics/local-indicators': typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -465,6 +473,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthIndexRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
+  '/analytics/local-indicators': typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -524,6 +533,7 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
+  '/_protected/_modules/analytics/local-indicators': typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -582,6 +592,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId'
     | '/analytics/global'
     | '/analytics/local'
+    | '/analytics/local-indicators'
     | '/diner/forecast'
     | '/diner/menu'
     | '/diner/profile'
@@ -633,6 +644,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/analytics/global'
     | '/analytics/local'
+    | '/analytics/local-indicators'
     | '/diner/forecast'
     | '/diner/menu'
     | '/diner/profile'
@@ -691,6 +703,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/analytics/local'
+    | '/_protected/_modules/analytics/local-indicators'
     | '/_protected/_modules/diner/forecast'
     | '/_protected/_modules/diner/menu'
     | '/_protected/_modules/diner/profile'
@@ -915,6 +928,13 @@ declare module '@tanstack/react-router' {
       path: '/diner/forecast'
       fullPath: '/diner/forecast'
       preLoaderRoute: typeof ProtectedModulesDinerForecastRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/analytics/local-indicators': {
+      id: '/_protected/_modules/analytics/local-indicators'
+      path: '/analytics/local-indicators'
+      fullPath: '/analytics/local-indicators'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsLocalIndicatorsRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/analytics/local': {
@@ -1264,6 +1284,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
   ProtectedModulesAnalyticsLocalRoute: typeof ProtectedModulesAnalyticsLocalRoute
+  ProtectedModulesAnalyticsLocalIndicatorsRoute: typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
@@ -1299,6 +1320,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
   ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
   ProtectedModulesAnalyticsLocalRoute: ProtectedModulesAnalyticsLocalRoute,
+  ProtectedModulesAnalyticsLocalIndicatorsRoute:
+    ProtectedModulesAnalyticsLocalIndicatorsRoute,
   ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,

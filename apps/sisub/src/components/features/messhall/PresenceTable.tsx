@@ -1,7 +1,14 @@
-import { Table, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table"
 import { MEAL_LABEL } from "@/lib/fiscal"
 import { formatDate } from "@/lib/meal"
 import type { MealKey } from "@/types/domain/meal"

@@ -53,15 +53,18 @@ function WeeklyMenusPage() {
 		<div className="space-y-6">
 			<PageHeader title="Cardápios Semanais">
 				<div className="flex items-center gap-2">
-					<Link
-						to="/kitchen/$kitchenId/weekly-menus/new"
-						params={{ kitchenId: kitchenIdStr as string }}
-					>
-						<Button size="sm">
-							<Plus className="h-4 w-4 mr-2" />
-							Novo Cardápio Semanal
-						</Button>
-					</Link>
+					<Button
+						size="sm"
+						render={
+							<Link
+								to="/kitchen/$kitchenId/weekly-menus/new"
+								params={{ kitchenId: kitchenIdStr as string }}
+							>
+								<Plus className="h-4 w-4 mr-2" />
+								Novo Cardápio Semanal
+							</Link>
+						}
+					/>
 				</div>
 			</PageHeader>
 
@@ -99,16 +102,20 @@ function WeeklyMenusPage() {
 												</Badge>
 											</TableCell>
 											<TableCell className="text-right">
-												<Link
-													to="/kitchen/$kitchenId/weekly-menus/new"
-													params={{ kitchenId: kitchenIdStr as string }}
-													search={{ forkFrom: template.id }}
-												>
-													<Button size="sm" variant="outline">
-														<GitFork className="w-3.5 h-3.5 mr-1.5" />
-														Forkar
-													</Button>
-												</Link>
+												<Button
+													size="sm"
+													variant="outline"
+													render={
+														<Link
+															to="/kitchen/$kitchenId/weekly-menus/new"
+															params={{ kitchenId: kitchenIdStr as string }}
+															search={{ forkFrom: template.id }}
+														>
+															<GitFork className="w-3.5 h-3.5 mr-1.5" />
+															Forkar
+														</Link>
+													}
+												/>
 											</TableCell>
 										</TableRow>
 									))}
@@ -142,15 +149,20 @@ function WeeklyMenusPage() {
 							<p className="text-xs text-muted-foreground">
 								Crie do zero ou forke um plano global da SDAB.
 							</p>
-							<Link
-								to="/kitchen/$kitchenId/weekly-menus/new"
-								params={{ kitchenId: kitchenIdStr as string }}
-							>
-								<Button variant="outline" size="sm" className="mt-2">
-									<Plus className="w-4 h-4 mr-2" />
-									Criar primeiro cardápio semanal
-								</Button>
-							</Link>
+							<Button
+								variant="outline"
+								size="sm"
+								className="mt-2"
+								render={
+									<Link
+										to="/kitchen/$kitchenId/weekly-menus/new"
+										params={{ kitchenId: kitchenIdStr as string }}
+									>
+										<Plus className="w-4 h-4 mr-2" />
+										Criar primeiro cardápio semanal
+									</Link>
+								}
+							/>
 						</div>
 					) : (
 						<div className="rounded-md border">
@@ -184,17 +196,22 @@ function WeeklyMenusPage() {
 											</TableCell>
 											<TableCell className="text-right">
 												<div className="flex items-center justify-end gap-1">
-													<Link
-														to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
-														params={{
-															kitchenId: kitchenIdStr as string,
-															weeklyMenuId: template.id,
-														}}
-													>
-														<Button size="icon" variant="ghost" title="Editar">
-															<Edit className="w-4 h-4" />
-														</Button>
-													</Link>
+													<Button
+														size="icon"
+														variant="ghost"
+														title="Editar"
+														render={
+															<Link
+																to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
+																params={{
+																	kitchenId: kitchenIdStr as string,
+																	weeklyMenuId: template.id,
+																}}
+															>
+																<Edit className="w-4 h-4" />
+															</Link>
+														}
+													/>
 													<Button
 														size="icon"
 														variant="ghost"

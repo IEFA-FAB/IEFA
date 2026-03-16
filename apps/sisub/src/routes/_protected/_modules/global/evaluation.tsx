@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { createFileRoute } from "@tanstack/react-router"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -165,7 +166,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 							<Button type="submit" disabled={!canSubmit || isSaving || isSubmitting}>
 								{isSaving || isSubmitting ? (
 									<span className="inline-flex items-center gap-2">
-										<span className="h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
+										<Loader2 className="h-4 w-4 animate-spin" />
 										Salvando...
 									</span>
 								) : (

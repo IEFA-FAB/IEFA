@@ -1,7 +1,6 @@
 // components/rancho/SimplifiedMilitaryStats.tsx
 
-import { CalendarDays, CheckCircle2, Clock, MinusCircle, Utensils } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { CalendarX2, Clock, MinusCircle, Utensils } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { DayMeals } from "@/lib/meal"
@@ -19,32 +18,34 @@ interface SimplifiedStatsProps {
 
 function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: SimplifiedStatsProps) {
 	"use no memo"
-	// React Compiler handles optimization - no manual useMemo needed
 	const next7Days = dates.slice(0, 7)
 
-	let totalMealsNext7Days = 0
-	let daysWithMealsNext7Days = 0
-
-	next7Days.forEach((date) => {
-		"use no memo"
-		const daySelections = selections[date]
-		if (daySelections) {
-			const mealsCount = Object.values(daySelections).filter(Boolean).length
-			if (mealsCount > 0) {
-				daysWithMealsNext7Days++
-				totalMealsNext7Days += mealsCount
+	const { totalMealsNext7Days, daysWithMealsNext7Days } = next7Days.reduce(
+		(acc, date) => {
+			const daySelections = selections[date]
+			if (daySelections) {
+				const mealsCount = Object.values(daySelections).filter(Boolean).length
+				if (mealsCount > 0) {
+					return {
+						daysWithMealsNext7Days: acc.daysWithMealsNext7Days + 1,
+						totalMealsNext7Days: acc.totalMealsNext7Days + mealsCount,
+					}
+				}
 			}
-		}
-	})
+			return acc
+		},
+		{ totalMealsNext7Days: 0, daysWithMealsNext7Days: 0 }
+	)
 
-	// Próxima refeição
 	let nextMeal: { date: string; meal: string } | null = null
 	const mealOrder = ["cafe", "almoco", "janta", "ceia"] as const
 
-	for (const date of dates) {
+	for (let di = 0; di < dates.length; di++) {
+		const date = dates[di]
 		const daySelections = selections[date]
 		if (daySelections) {
-			for (const meal of mealOrder) {
+			for (let mi = 0; mi < mealOrder.length; mi++) {
+				const meal = mealOrder[mi]
 				if (daySelections[meal]) {
 					nextMeal = { date, meal }
 					break
@@ -54,15 +55,13 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 		}
 	}
 
-	const consideredDays = next7Days.length || 1 // evita divisão por zero
-	const progressPct = Math.round((daysWithMealsNext7Days / consideredDays) * 100)
+	const consideredDays = next7Days.length || 1
+	const uncoveredDays = consideredDays - daysWithMealsNext7Days
 
 	const stats = {
 		totalMealsNext7Days,
-		daysWithMealsNext7Days,
 		nextMeal,
-		consideredDays,
-		progressPct,
+		uncoveredDays,
 	}
 
 	const formatDate = (dateStr: string) => {
@@ -85,163 +84,152 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 		return mealNames[meal as keyof typeof mealNames] || meal
 	}
 
-	// Skeleton interno
+	// Skeleton parcial: ícone e label permanecem visíveis (sempre estáticos),
+	// apenas o dado dinâmico é substituído — evita layout shift e mantém contexto.
+	// Estrutura DOM idêntica ao estado real para fidelidade pixel-perfeita.
 	if (isLoading) {
 		return (
-			<div className="space-y-4">
+			<section className="space-y-4" aria-busy="true" aria-label="Carregando estatísticas">
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-					<Card className="bg-card text-card-foreground border border-border border-l-4 border-l-primary/70">
-						<CardContent className="p-4">
-							<div className="flex items-center gap-3">
-								<div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-									<Utensils className="h-5 w-5 text-primary" />
+
+					{/* Card 1 skeleton — Próxima Refeição */}
+					<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-primary">
+						<CardContent className="p-5">
+							<div className="flex items-start gap-3">
+								<div className="h-12 w-12 shrink-0 rounded bg-primary/15 flex items-center justify-center ring-1 ring-inset ring-primary/30">
+									<Utensils className="h-6 w-6 text-primary" />
 								</div>
-								<div className="flex-1">
+								<div className="flex-1 min-w-0">
 									<p className="text-sm font-medium text-muted-foreground">Próxima Refeição</p>
-									<Skeleton className="h-6 w-28 mt-1" />
-									<Skeleton className="h-4 w-20 mt-2" />
+									<div className="mt-1">
+										<Skeleton className="h-6 w-20" />
+										<Skeleton className="h-4 w-28 mt-0.5" />
+									</div>
 								</div>
 							</div>
 						</CardContent>
 					</Card>
 
-					<Card className="bg-card text-card-foreground border border-border border-l-4 border-l-accent/70">
-						<CardContent className="p-4">
-							<div className="flex items-center gap-3">
-								<div className="h-9 w-9 rounded-full bg-accent/10 flex items-center justify-center">
-									<Clock className="h-5 w-5 text-accent" />
+					{/* Card 2 skeleton — Próximos 7 Dias */}
+					<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-success">
+						<CardContent className="p-5">
+							<div className="flex items-start gap-3">
+								<div className="h-12 w-12 shrink-0 rounded bg-success/15 flex items-center justify-center ring-1 ring-inset ring-success/30">
+									<Clock className="h-6 w-6 text-success" />
 								</div>
-								<div className="flex-1">
+								<div className="flex-1 min-w-0">
 									<p className="text-sm font-medium text-muted-foreground">Próximos 7 Dias</p>
-									<Skeleton className="h-6 w-36 mt-1" />
-									<Skeleton className="h-2 w-full mt-3 rounded-full" />
-									<Skeleton className="h-4 w-24 mt-2" />
+									<div className="mt-1">
+										<Skeleton className="h-6 w-8" />
+										<Skeleton className="h-4 w-24 mt-0.5" />
+									</div>
 								</div>
 							</div>
 						</CardContent>
 					</Card>
 
-					<Card className="bg-card text-card-foreground border border-border border-l-4 border-l-secondary/70">
-						<CardContent className="p-4">
-							<div className="flex items-center gap-3">
-								<div className="h-9 w-9 rounded-full bg-secondary/10 flex items-center justify-center">
-									<CalendarDays className="h-5 w-5 text-secondary" />
+					{/* Card 3 skeleton — Dias Descobertos */}
+					<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-warning">
+						<CardContent className="p-5">
+							<div className="flex items-start gap-3">
+								<div className="h-12 w-12 shrink-0 rounded bg-warning/15 flex items-center justify-center ring-1 ring-inset ring-warning/30">
+									<CalendarX2 className="h-6 w-6 text-warning" />
 								</div>
-								<div>
-									<p className="text-sm font-medium text-muted-foreground">Status</p>
-									<Skeleton className="h-7 w-40 mt-2 rounded-full" />
+								<div className="flex-1 min-w-0">
+									<p className="text-sm font-medium text-muted-foreground">Dias Descobertos</p>
+									<div className="mt-1">
+										<Skeleton className="h-6 w-8" />
+										<Skeleton className="h-4 w-32 mt-0.5" />
+									</div>
 								</div>
 							</div>
 						</CardContent>
 					</Card>
+
 				</div>
-			</div>
+			</section>
 		)
 	}
 
-	// UI normal - Enhanced with Industrial-Technical aesthetic
 	return (
 		<div className="space-y-4">
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
 				{/* Próxima Refeição */}
-				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+				<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-primary">
 					<CardContent className="p-5">
-						<div className="flex items-center gap-3">
-							<div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center ring-2 ring-inset ring-primary/30 transition-transform duration-200 group-hover:scale-110">
-								<Utensils className="h-6 w-6 text-primary dark:text-primary/90" />
+						<div className="flex items-start gap-3">
+							<div className="h-12 w-12 shrink-0 rounded bg-primary/15 flex items-center justify-center ring-1 ring-inset ring-primary/30">
+								<Utensils className="h-6 w-6 text-primary" />
 							</div>
 							<div className="flex-1 min-w-0">
-								<p className="text-sm font-sans font-medium text-muted-foreground">
-									Próxima Refeição
-								</p>
-								{stats.nextMeal ? (
-									<div className="mt-1">
-										<p className="text-xl font-sans font-bold text-foreground leading-tight">
-											{formatMeal(stats.nextMeal.meal)}
-										</p>
-										<p className="text-sm font-sans text-muted-foreground leading-tight mt-0.5">
-											{formatDate(stats.nextMeal.date)}
-										</p>
-									</div>
-								) : (
-									<div className="mt-1 flex items-center gap-2 text-muted-foreground">
-										<MinusCircle className="h-4 w-4" />
-										<p className="text-sm font-sans font-medium">Nenhuma refeição agendada</p>
-									</div>
-								)}
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Próximos 7 Dias */}
-				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-success hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-					<CardContent className="p-5">
-						<div className="flex items-center gap-3">
-							<div className="h-12 w-12 rounded-xl bg-success/15 flex items-center justify-center ring-2 ring-inset ring-success/30 transition-transform duration-200 group-hover:scale-110">
-								<Clock className="h-6 w-6 text-success" />
-							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-sm font-sans font-medium text-muted-foreground">
-									Próximos 7 Dias
-								</p>
-								<p className="text-xl font-mono font-bold text-foreground leading-tight mt-1">
-									{stats.totalMealsNext7Days}
-								</p>
-								<p className="text-xs font-sans text-muted-foreground leading-tight">
-									em {stats.daysWithMealsNext7Days} de {stats.consideredDays} dias
-								</p>
-
-								{/* Barra de progresso */}
-								<div className="mt-3">
-									<div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-										<div
-											className="h-full bg-success rounded-full transition-all duration-500"
-											style={{ width: `${stats.progressPct}%` }}
-										/>
-									</div>
-									<div className="mt-1.5 text-xs font-mono text-muted-foreground">
-										{stats.progressPct}%
-									</div>
-								</div>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Status Geral */}
-				<Card className="group bg-gradient-to-br from-card to-muted/10 text-card-foreground border border-border/50 border-l-4 border-l-warning hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-					<CardContent className="p-5">
-						<div className="flex items-center gap-3">
-							<div className="h-12 w-12 rounded-xl bg-warning/15 flex items-center justify-center ring-2 ring-inset ring-warning/30 transition-transform duration-200 group-hover:scale-110">
-								<CalendarDays className="h-6 w-6 text-warning" />
-							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-sm font-sans font-medium text-muted-foreground">Status</p>
-								<div className="mt-2 flex flex-col gap-1.5">
-									<Badge
-										variant={stats.totalMealsNext7Days > 0 ? "default" : "secondary"}
-										className="px-2.5 py-1 font-sans w-fit text-xs"
-									>
-										{stats.totalMealsNext7Days > 0 ? (
-											<span className="inline-flex items-center gap-1.5">
-												<CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
-												<span className="truncate">Agendadas</span>
-											</span>
-										) : (
-											"Sem Refeições"
-										)}
-									</Badge>
-									{stats.totalMealsNext7Days > 0 && (
-										<span className="text-xs font-mono text-muted-foreground truncate">
-											{stats.totalMealsNext7Days} total
-										</span>
+								<p className="text-sm font-medium text-muted-foreground">Próxima Refeição</p>
+								<div className="mt-1">
+									{stats.nextMeal ? (
+										<>
+											<p className="text-xl font-bold text-foreground leading-tight">
+												{formatMeal(stats.nextMeal.meal)}
+											</p>
+											<p className="text-sm text-muted-foreground leading-tight mt-0.5">
+												{formatDate(stats.nextMeal.date)}
+											</p>
+										</>
+									) : (
+										<div className="flex items-center gap-2 text-muted-foreground">
+											<MinusCircle className="h-4 w-4 shrink-0" />
+											<p className="text-sm font-medium">Nenhuma refeição agendada</p>
+										</div>
 									)}
 								</div>
 							</div>
 						</div>
 					</CardContent>
 				</Card>
+
+				{/* Próximos 7 Dias */}
+				<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-success">
+					<CardContent className="p-5">
+						<div className="flex items-start gap-3">
+							<div className="h-12 w-12 shrink-0 rounded bg-success/15 flex items-center justify-center ring-1 ring-inset ring-success/30">
+								<Clock className="h-6 w-6 text-success" />
+							</div>
+							<div className="flex-1 min-w-0">
+								<p className="text-sm font-medium text-muted-foreground">Próximos 7 Dias</p>
+								<div className="mt-1">
+									<p className="text-xl font-bold text-foreground leading-tight">
+										{stats.totalMealsNext7Days}
+									</p>
+									<p className="text-sm text-muted-foreground leading-tight mt-0.5">
+										refeições planejadas
+									</p>
+								</div>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
+
+				{/* Dias Descobertos */}
+				<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-warning">
+					<CardContent className="p-5">
+						<div className="flex items-start gap-3">
+							<div className="h-12 w-12 shrink-0 rounded bg-warning/15 flex items-center justify-center ring-1 ring-inset ring-warning/30">
+								<CalendarX2 className="h-6 w-6 text-warning" />
+							</div>
+							<div className="flex-1 min-w-0">
+								<p className="text-sm font-medium text-muted-foreground">Dias Descobertos</p>
+								<div className="mt-1">
+									<p className="text-xl font-bold text-foreground leading-tight">
+										{stats.uncoveredDays}
+									</p>
+									<p className="text-sm text-muted-foreground leading-tight mt-0.5">
+										{stats.uncoveredDays === 0 ? "semana coberta" : "dias sem refeição"}
+									</p>
+								</div>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
+
 			</div>
 		</div>
 	)

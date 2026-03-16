@@ -1,5 +1,6 @@
 "use client"
 
+import { getHotkeyManager } from "@tanstack/hotkeys"
 import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
 import {
@@ -18,6 +19,13 @@ import {
 } from "@/components/ui/sidebar"
 import type { Team } from "./SidebarTypes"
 
+const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
+
+function altLabel(index: number) {
+	// ⌥ is the standard macOS Option/Alt symbol
+	return isMac ? `⌥${index}` : `Alt+${index}`
+}
+
 export function TeamSwitcher({
 	teams,
 	value,
@@ -35,13 +43,41 @@ export function TeamSwitcher({
 		? (teams.find((t) => t.name === value) ?? internalActive)
 		: internalActive
 
-	const handleChange = (team: Team) => {
-		if (onChange) {
-			onChange(team)
-		} else {
-			setInternalActive(team)
+	const handleChange = React.useCallback(
+		(team: Team) => {
+			if (onChange) {
+				onChange(team)
+			} else {
+				setInternalActive(team)
+			}
+		},
+		[onChange]
+	)
+
+	// Keep a stable ref so hotkey callbacks always call the latest handleChange
+	// without needing to re-register on every render.
+	const handleChangeRef = React.useRef(handleChange)
+	React.useEffect(() => {
+		handleChangeRef.current = handleChange
+	})
+
+	// Alt+1…9 — no browser conflict (unlike Ctrl/Cmd+1–8 which switch tabs).
+	// Registers once per teams change; callbacks stay fresh via the ref.
+	React.useEffect(() => {
+		const manager = getHotkeyManager()
+		const handles = teams.slice(0, 9).map((team, i) => {
+			const hotkey = (
+				["Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9"] as const
+			)[i]
+			return manager.register(hotkey, () => handleChangeRef.current(team), {
+				requireReset: true,
+				conflictBehavior: "error",
+			})
+		})
+		return () => {
+			for (const h of handles) h.unregister()
 		}
-	}
+	}, [teams])
 
 	if (!activeTeam) {
 		return null
@@ -79,7 +115,7 @@ export function TeamSwitcher({
 							<DropdownMenuLabel className="text-muted-foreground text-xs">
 								Módulos
 							</DropdownMenuLabel>
-							{teams.map((team) => (
+							{teams.map((team, i) => (
 								<DropdownMenuItem
 									key={team.name}
 									onClick={() => handleChange(team)}
@@ -88,7 +124,12 @@ export function TeamSwitcher({
 									<div className="flex h-6 w-6 items-center justify-center rounded-md border bg-sidebar-accent">
 										<team.logo className="h-3.5 w-3.5" />
 									</div>
-									{team.name}
+									<span className="flex-1">{team.name}</span>
+									{i < 9 && (
+										<kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground opacity-60">
+											{altLabel(i + 1)}
+										</kbd>
+									)}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuGroup>

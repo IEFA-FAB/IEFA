@@ -4,6 +4,7 @@ import {
 	getModulesForPermissions,
 	type ModuleDef,
 } from "@/components/common/layout/sidebar/NavItems"
+import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 
 export const Route = createFileRoute("/_protected/hub")({
@@ -15,8 +16,8 @@ function ModuleCard({ module }: { module: ModuleDef }) {
 	const Icon = module.icon
 
 	return (
-		<div className="group relative flex flex-col gap-4 rounded-2xl border border-border/50 bg-background/60 backdrop-blur-sm p-6 transition-all duration-200 hover:border-primary/30 hover:bg-background/80 hover:shadow-lg hover:shadow-primary/5">
-			<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+		<div className="group relative flex flex-col gap-4 rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary/50">
+			<div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
 				<Icon className="h-6 w-6" />
 			</div>
 
@@ -32,12 +33,13 @@ function ModuleCard({ module }: { module: ModuleDef }) {
 				</ul>
 			</div>
 
-			<Link
-				to={firstUrl as Parameters<typeof Link>[0]["to"]}
-				className="mt-auto flex h-9 w-full items-center justify-center rounded-md border border-border/50 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+			<Button
+				variant="outline"
+				className="mt-auto w-full"
+				render={<Link to={firstUrl as Parameters<typeof Link>[0]["to"]} />}
 			>
 				Acessar
-			</Link>
+			</Button>
 		</div>
 	)
 }
@@ -67,7 +69,7 @@ function HubPage() {
 						{Array.from({ length: 3 }).map((_, i) => (
 							<div
 								key={i}
-								className="h-52 rounded-2xl border border-border/50 bg-background/40 animate-pulse"
+								className="h-52 rounded-lg border border-border bg-muted/50 animate-pulse"
 							/>
 						))}
 					</div>

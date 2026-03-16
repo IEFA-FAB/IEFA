@@ -1,6 +1,5 @@
 import { Input } from "@base-ui/react"
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { ArrowLeft } from "lucide-react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -23,18 +22,13 @@ function NewWeeklyPlanPage() {
 	const navigate = useNavigate()
 
 	return (
-		<div className="mx-auto w-full max-w-2xl space-y-6 p-4 sm:p-6">
-			<PageHeader title="Novo Plano Semanal Modelo">
-				<Link
-					to="/global/weekly-plans"
-					className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-				>
-					<ArrowLeft className="h-4 w-4" />
-					Voltar
-				</Link>
-			</PageHeader>
+		<div className="space-y-6">
+			<PageHeader
+				title="Novo Plano Semanal Modelo"
+				onBack={() => navigate({ to: "/global/weekly-plans" })}
+			/>
 
-			<div className="rounded-lg border bg-card p-6 space-y-4">
+			<div className="mx-auto w-full max-w-2xl rounded-lg border bg-card p-6 space-y-4">
 				<div className="space-y-2">
 					<Label htmlFor="plan-name">Nome do Plano</Label>
 					<Input

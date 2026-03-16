@@ -176,17 +176,18 @@ export function PlanningBoard() {
 				{/* Right side: Action buttons */}
 				<div className="flex flex-wrap gap-1.5">
 					{kitchenIdStr && (
-						<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr }}>
-							<Button
-								variant="outline"
-								size="sm"
-								title="Gerenciar Cardápios Semanais"
-								className="h-9"
-							>
-								<CalendarDays className="w-4 h-4 sm:mr-2" />
-								<span className="hidden sm:inline">Cardápios Semanais</span>
-							</Button>
-						</Link>
+						<Button
+							variant="outline"
+							size="sm"
+							title="Gerenciar Cardápios Semanais"
+							className="h-9"
+							render={
+								<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr }}>
+									<CalendarDays className="w-4 h-4 sm:mr-2" />
+									<span className="hidden sm:inline">Cardápios Semanais</span>
+								</Link>
+							}
+						/>
 					)}
 					<Button
 						variant="ghost"
@@ -265,11 +266,13 @@ export function PlanningBoard() {
 						const hasMenus = dayMenus.length > 0
 
 						return (
-							<Button
+							<button
 								key={day.toString()}
+								type="button"
 								onClick={(e) => handleDayClick(day, e)}
 								className={cn(
-									"p-2 relative transition-colors cursor-pointer group",
+									"p-2 relative transition-colors cursor-pointer group text-left",
+									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
 									!isCurrentMonth && "bg-muted/10 text-muted-foreground",
 									isCurrentMonth && "bg-background",
 									isToday && "bg-primary/5",
@@ -317,7 +320,7 @@ export function PlanningBoard() {
 										)
 									})}
 								</div>
-							</Button>
+							</button>
 						)
 					})}
 				</div>

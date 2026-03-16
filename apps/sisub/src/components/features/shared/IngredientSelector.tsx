@@ -49,7 +49,6 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 							value={filterText}
 							onChange={(e) => setFilterText(e.target.value)}
 							className="pl-10 pr-10 group transition-all focus:ring-2 focus:ring-primary/50"
-							autoFocus
 						/>
 						{filterText && (
 							<button

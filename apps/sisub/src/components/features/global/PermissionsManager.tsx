@@ -549,7 +549,6 @@ export default function PermissionsManager() {
 							onChange={(e) => setEmailInput(e.target.value)}
 							placeholder="email@fab.mil.br"
 							className="pl-9"
-							autoFocus
 						/>
 					</div>
 

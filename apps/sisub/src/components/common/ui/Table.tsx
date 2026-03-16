@@ -1,5 +1,5 @@
 "use client"
-
+"use no memo"
 import { Input } from "@base-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -201,34 +201,32 @@ function useTableSettings(currentUserId?: string) {
 
 		async function load() {
 			"use no memo"
+			if (!mounted) return
 			setLoading(true)
-			try {
-				if (currentUserId) {
-					const { data, error } = await supabase
-						.from("pregoeiro_preferences")
-						.select("table_settings")
-						.eq("user_id", currentUserId)
-						.maybeSingle()
+			if (currentUserId) {
+				const { data, error } = await supabase
+					.from("pregoeiro_preferences")
+					.select("table_settings")
+					.eq("user_id", currentUserId)
+					.maybeSingle()
 
-					if (error) throw error
-
-					const tableSettingsFromDb = (data?.table_settings ?? {}) as TableSettings
-					if (mounted) setSettings(tableSettingsFromDb)
-				} else {
-					// localStorage
-					const storedRawSettings =
-						typeof window !== "undefined" ? localStorage.getItem(LS_TABLE_SETTINGS_KEY) : null
-					if (storedRawSettings && mounted) {
-						setSettings(JSON.parse(storedRawSettings) as TableSettings)
-					} else if (mounted) {
-						setSettings({})
-					}
+				if (error) {
+					if (mounted) setSettings({})
+					if (mounted) setLoading(false)
+					return
 				}
-			} catch {
-				if (mounted) setSettings({})
-			} finally {
-				if (mounted) setLoading(false)
+
+				const rawSettings = data ? data.table_settings : undefined
+				const tableSettingsFromDb = (rawSettings ?? {}) as TableSettings
+				if (mounted) setSettings(tableSettingsFromDb)
+			} else {
+				// localStorage
+				const storedRawSettings =
+					typeof window !== "undefined" ? localStorage.getItem(LS_TABLE_SETTINGS_KEY) : null
+				const parsed = storedRawSettings ? (JSON.parse(storedRawSettings) as TableSettings) : null
+				if (mounted) setSettings(parsed ?? {})
 			}
+			if (mounted) setLoading(false)
 		}
 
 		load()

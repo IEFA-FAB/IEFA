@@ -31,19 +31,17 @@ function ResetPasswordPage() {
 	const [error, setError] = useState("")
 	const [passwordError, setPasswordError] = useState("")
 	const [confirmError, setConfirmError] = useState("")
-	const [isVerifying, setIsVerifying] = useState(true)
-	const [isRecoveryMode, setIsRecoveryMode] = useState(false)
+	const [sessionStatus, setSessionStatus] = useState({ isVerifying: true, isRecoveryMode: false })
+	const { isVerifying, isRecoveryMode } = sessionStatus
 
 	useEffect(() => {
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((event, session) => {
 			if (event === "PASSWORD_RECOVERY") {
-				setIsRecoveryMode(true)
-				setIsVerifying(false)
+				setSessionStatus({ isRecoveryMode: true, isVerifying: false })
 			} else if (event === "SIGNED_IN" && session) {
-				setIsRecoveryMode(true)
-				setIsVerifying(false)
+				setSessionStatus({ isRecoveryMode: true, isVerifying: false })
 			}
 		})
 
@@ -51,10 +49,7 @@ function ResetPasswordPage() {
 			const {
 				data: { session },
 			} = await supabase.auth.getSession()
-			if (session) {
-				setIsRecoveryMode(true)
-			}
-			setIsVerifying(false)
+			setSessionStatus({ isRecoveryMode: !!session, isVerifying: false })
 		}
 
 		const timer = setTimeout(() => {
@@ -111,24 +106,18 @@ function ResetPasswordPage() {
 		setIsSubmitting(true)
 		setError("")
 
-		try {
-			const { error: updateError } = await supabase.auth.updateUser({
-				password: newPassword,
-			})
+		const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
 
-			if (updateError) throw updateError
-
-			await supabase.auth.signOut()
-
-			router.navigate({ to: "/auth", search: { tab: "login" } })
-			alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
-		} catch (err) {
-			const errorMsg =
-				err instanceof Error ? err.message : "Erro ao atualizar senha. Tente novamente."
-			setError(errorMsg)
-		} finally {
+		if (updateError) {
+			setError(updateError.message)
 			setIsSubmitting(false)
+			return
 		}
+
+		await supabase.auth.signOut()
+		setIsSubmitting(false)
+		router.navigate({ to: "/auth", search: { tab: "login" } })
+		alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
 	}
 
 	const handleBackToAuth = () => {

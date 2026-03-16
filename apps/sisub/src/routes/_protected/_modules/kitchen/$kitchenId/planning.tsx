@@ -1,6 +1,7 @@
 import { createFileRoute, useParams } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { PageHeader } from "@/components/common/layout/PageHeader"
 import { PlanningBoard } from "@/components/features/local/planning/PlanningBoard"
 import { useKitchenPreference } from "@/hooks/data/useKitchens"
 
@@ -23,13 +24,11 @@ function PlanningPage() {
 	}, [kitchenId, setKitchenId])
 
 	return (
-		<div className="p-6">
-			<div className="mb-6">
-				<h1 className="text-3xl font-bold tracking-tight text-foreground">Planejamento</h1>
-				<p className="text-muted-foreground">
-					Aplique cardápios semanais ao calendário mensal da unidade.
-				</p>
-			</div>
+		<div className="space-y-6">
+			<PageHeader
+				title="Planejamento"
+				description="Aplique cardápios semanais ao calendário mensal da unidade."
+			/>
 
 			<PlanningBoard />
 		</div>

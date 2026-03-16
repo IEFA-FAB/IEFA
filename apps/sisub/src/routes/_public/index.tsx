@@ -1,6 +1,5 @@
 // Routing
 
-import { Button, Separator } from "@base-ui/react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 // Icons
 import {
@@ -27,7 +26,10 @@ import {
 import type { ElementType, JSX } from "react"
 import { useEffect, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
 import type { MealType } from "@/types/domain/meal"
 import type { Feature, Step } from "@/types/ui"
 
@@ -62,34 +64,6 @@ export const mealTypes: MealType[] = [
 	{ icon: Pizza, label: "Janta", time: "18:00 - 20:00", color: "orange" },
 	{ icon: Cake, label: "Ceia", time: "21:00 - 22:00", color: "purple" },
 ]
-
-// Mapa de classes Tailwind completas por cor — necessário para o scanner detectar as classes em build time
-const mealColorMap: Record<string, { bg: string; ring: string; text: string; border: string }> = {
-	amber: {
-		bg: "bg-amber-500/20",
-		ring: "ring-amber-500/20",
-		text: "text-amber-600 dark:text-amber-500",
-		border: "hover:border-amber-500/30",
-	},
-	blue: {
-		bg: "bg-blue-500/20",
-		ring: "ring-blue-500/20",
-		text: "text-blue-600 dark:text-blue-500",
-		border: "hover:border-blue-500/30",
-	},
-	orange: {
-		bg: "bg-orange-500/20",
-		ring: "ring-orange-500/20",
-		text: "text-orange-600 dark:text-orange-500",
-		border: "hover:border-orange-500/30",
-	},
-	purple: {
-		bg: "bg-purple-500/20",
-		ring: "ring-purple-500/20",
-		text: "text-purple-600 dark:text-purple-500",
-		border: "hover:border-purple-500/30",
-	},
-}
 
 export const features: Feature[] = [
 	{
@@ -157,16 +131,9 @@ function Home() {
 			<HomeHero />
 
 			{/* Como Funciona */}
-			<Appear
-				id="steps"
-				className="py-16 md:py-24 bg-gradient-to-b from-background via-muted/10 to-background"
-				aria-labelledby="steps-heading"
-			>
+			<Appear id="steps" className="py-16 md:py-24 bg-muted/10" aria-labelledby="steps-heading">
 				<div className="text-center mb-14">
-					<Badge
-						variant="outline"
-						className="mx-auto mb-4 gap-2 px-3 py-1.5 font-sans border-primary/30"
-					>
+					<Badge variant="outline" className="mx-auto mb-4 gap-2 border-primary/30">
 						<Star className="h-4 w-4 text-primary" />
 						Passo a passo
 					</Badge>
@@ -187,25 +154,18 @@ function Home() {
 						return (
 							<Card
 								key={step.title}
-								className="group relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/10 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary/50 stagger-item"
+								className="group bg-card transition-colors hover:bg-muted/50 stagger-item"
 								style={{ animationDelay: `${index * 0.1}s` }}
 							>
-								<div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
 								<CardHeader className="text-center pt-8">
-									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-inset ring-primary/20 transition-transform duration-300 group-hover:scale-110">
+									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-md bg-primary/10 transition-colors group-hover:bg-primary/15">
 										<Icon className="h-8 w-8 text-primary" />
 									</div>
-									<CardTitle className="text-xl font-sans font-bold">{step.title}</CardTitle>
+									<CardTitle className="text-xl font-bold">{step.title}</CardTitle>
 									<CardDescription className="text-muted-foreground leading-relaxed">
 										{step.description}
 									</CardDescription>
 								</CardHeader>
-								<CardContent>
-									<div
-										aria-hidden
-										className="pointer-events-none absolute -right-10 -bottom-10 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-all duration-300 group-hover:scale-125"
-									/>
-								</CardContent>
 							</Card>
 						)
 					})}
@@ -236,21 +196,17 @@ function Home() {
 				<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
 					{mealTypes.map((meal, index) => {
 						const Icon = meal.icon
-						const colors = mealColorMap[meal.color] ?? mealColorMap.blue
 						return (
 							<Card
 								key={meal.label}
-								tabIndex={0}
-								className={`group rounded-xl bg-gradient-to-br from-card to-muted/10 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${colors.border} focus-visible:ring-2 focus-visible:ring-primary/50 stagger-item`}
+								className="group text-center transition-colors hover:bg-muted/50 stagger-item"
 								style={{ animationDelay: `${index * 0.1}s` }}
 							>
 								<CardHeader className="pt-8">
-									<div
-										className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl ${colors.bg} ring-inset ${colors.ring} transition-transform duration-300 group-hover:scale-110`}
-									>
-										<Icon className={`h-8 w-8 ${colors.text}`} />
+									<div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-md bg-primary/10 transition-colors group-hover:bg-primary/15">
+										<Icon className="h-8 w-8 text-primary" />
 									</div>
-									<CardTitle className="text-lg font-sans font-bold">{meal.label}</CardTitle>
+									<CardTitle className="text-lg font-bold">{meal.label}</CardTitle>
 									<p className="text-sm font-mono text-muted-foreground mt-1">{meal.time}</p>
 								</CardHeader>
 							</Card>
@@ -262,7 +218,7 @@ function Home() {
 			{/* Funcionalidades */}
 			<Appear
 				id="features"
-				className="py-16 md:py-24 bg-gradient-to-b from-background via-muted/10 to-background"
+				className="py-16 md:py-24 bg-muted/10"
 				aria-labelledby="features-heading"
 			>
 				<div className="text-center mb-14">
@@ -286,13 +242,12 @@ function Home() {
 
 				{/* Feature em destaque */}
 				<div className="max-w-4xl mx-auto mb-10">
-					<div className="relative rounded-2xl p-8 md:p-12 text-primary-foreground text-center shadow-xl ring-1 ring-inset ring-border/30 bg-gradient-to-br from-primary via-primary to-primary/85 overflow-hidden">
-						<div className="absolute inset-0 bg-dot-pattern opacity-10 -z-0" />
+					<div className="relative p-8 md:p-12 text-primary-foreground text-center bg-primary overflow-hidden rounded-md">
 						<div className="relative z-10">
-							<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 ring-2 ring-inset ring-primary-foreground/30 backdrop-blur-sm">
+							<div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-md bg-primary-foreground/15">
 								<CurrentFeatureIcon className="h-10 w-10 text-primary-foreground" />
 							</div>
-							<h3 className="text-2xl md:text-3xl font-sans font-bold mb-4 drop-shadow-sm">
+							<h3 className="text-2xl md:text-3xl font-bold mb-4">
 								{features[currentFeature]?.title ?? "—"}
 							</h3>
 							<p className="text-base md:text-lg leading-relaxed text-primary-foreground/90 max-w-2xl mx-auto">
@@ -313,25 +268,28 @@ function Home() {
 								type="button"
 								key={feature.title}
 								onClick={() => setCurrentFeature(index)}
-								className={`group w-full text-left rounded-xl border bg-gradient-to-br from-card to-muted/10 p-6 shadow-sm transition-all duration-300 border-border/50 ring-2 ring-inset ${
-									active
-										? "ring-primary/40 shadow-lg scale-[1.02]"
-										: "ring-transparent hover:-translate-y-1 hover:shadow-md hover:ring-border/50"
-								} focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
+								className={cn(
+									"group w-full text-left rounded-md border p-6 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+									active ? "bg-muted border-primary" : "bg-card border-border hover:bg-muted/50"
+								)}
 								aria-pressed={active}
 							>
 								<div className="mb-3 flex items-center gap-3">
 									<div
-										className={`flex h-12 w-12 items-center justify-center rounded-xl ring-2 ring-inset transition-all ${
+										className={cn(
+											"flex h-12 w-12 items-center justify-center rounded-md transition-colors",
 											active
-												? "bg-primary/15 text-primary ring-primary/30 scale-110"
-												: "bg-muted text-foreground/80 ring-border"
-										}`}
+												? "bg-primary/10 text-primary"
+												: "bg-muted text-foreground/80 group-hover:bg-primary/5 group-hover:text-primary"
+										)}
 									>
 										<Icon className="h-6 w-6" />
 									</div>
 									<h3
-										className={`text-lg font-sans font-bold ${active ? "text-primary" : "text-card-foreground"}`}
+										className={cn(
+											"text-lg font-bold",
+											active ? "text-primary" : "text-card-foreground"
+										)}
 									>
 										{feature.title}
 									</h3>
@@ -383,17 +341,11 @@ function Home() {
 
 			{/* CTA Final */}
 			<Appear id="cta" className="relative py-20 md:py-24" aria-labelledby="cta-heading">
-				<div className="relative text-center max-w-4xl mx-auto rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/85 text-primary-foreground shadow-2xl ring-1 ring-inset ring-border/30 overflow-hidden p-10 md:p-16">
-					<div className="absolute inset-0 bg-dot-pattern opacity-10" />
-					<div
-						aria-hidden
-						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.15),transparent_60%)]"
-					/>
-
+				<div className="relative text-center max-w-4xl mx-auto rounded-md bg-primary text-primary-foreground overflow-hidden p-10 md:p-16">
 					<div className="relative z-10">
 						<h2
 							id="cta-heading"
-							className="text-3xl md:text-4xl lg:text-5xl font-sans font-bold tracking-tight mb-6"
+							className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-6"
 						>
 							Pronto para começar?
 						</h2>
@@ -411,21 +363,21 @@ function Home() {
 										<ChevronRight className="h-5 w-5" />
 									</Link>
 								}
-								className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+								className="gap-2 px-8 py-6 text-base font-semibold transition-all"
 							/>
 
 							<div className="mt-8 flex flex-wrap justify-center items-center gap-6 md:gap-8 text-primary-foreground/85">
 								<div className="flex items-center gap-2">
 									<Users className="h-5 w-5" />
-									<span className="text-sm font-sans">Sistema colaborativo</span>
+									<span className="text-sm">Sistema colaborativo</span>
 								</div>
 								<div className="flex items-center gap-2">
 									<Clock className="h-5 w-5" />
-									<span className="text-sm font-sans">Disponível 24/7</span>
+									<span className="text-sm">Disponível 24/7</span>
 								</div>
 								<div className="flex items-center gap-2">
 									<ShieldBadge />
-									<span className="text-sm font-sans">Dados seguros</span>
+									<span className="text-sm">Dados seguros</span>
 								</div>
 							</div>
 						</div>
@@ -450,21 +402,13 @@ function HomeHero() {
 			outClass="opacity-0 translate-y-10"
 			duration="duration-700"
 		>
-			<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
-
 			<div className="relative text-center space-y-8 max-w-5xl mx-auto">
-				<Badge
-					variant="secondary"
-					className="px-4 py-2 text-sm font-sans font-medium border border-border/50"
-				>
+				<Badge variant="secondary" className="px-4 py-2 text-sm font-medium">
 					Sistema de Previsão de Subsistência
 				</Badge>
 
-				<h1 className="text-4xl md:text-6xl lg:text-7xl font-sans font-bold text-foreground leading-tight tracking-tight">
-					Sistema de
-					<span className="block mt-2 text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-primary/60">
-						Subsistência
-					</span>
+				<h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight">
+					Sistema de <span className="text-primary">Subsistência</span>
 				</h1>
 
 				<p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
@@ -476,11 +420,11 @@ function HomeHero() {
 					<Button
 						nativeButton={false}
 						render={<Link to="/auth">Acessar Sistema</Link>}
-						className="gap-2 px-8 py-6 text-base font-sans font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+						className="gap-2 px-8 py-6 text-base font-semibold transition-all"
 					/>
 					<div className="flex items-center space-x-2 text-sm text-muted-foreground">
 						<ShieldBadge />
-						<span className="font-sans">Login seguro necessário</span>
+						<span>Login seguro necessário</span>
 					</div>
 				</div>
 			</div>
@@ -490,7 +434,7 @@ function HomeHero() {
 
 function ShieldBadge() {
 	return (
-		<span className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-primary/10 text-primary">
+		<span className="inline-flex items-center justify-center rounded-md w-5 h-5 bg-primary/10 text-primary">
 			<ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
 		</span>
 	)
@@ -521,16 +465,13 @@ function InfoCard({
 	cta,
 }: InfoCardProps) {
 	return (
-		<Card className="transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50 bg-gradient-to-br from-card to-muted/10">
+		<Card className="transition-colors hover:bg-muted/50 border-border/50 bg-card">
 			<CardHeader className="items-center text-center">
-				<Badge
-					variant="outline"
-					className="mx-auto mb-3 gap-2 px-3 py-1.5 font-sans border-primary/30"
-				>
+				<Badge variant="outline" className="mx-auto mb-3 gap-2 border-primary/30">
 					<BadgeIcon className="h-4 w-4 text-primary" />
 					{badgeText}
 				</Badge>
-				<CardTitle className="text-2xl md:text-3xl font-sans font-bold">{title}</CardTitle>
+				<CardTitle className="text-2xl md:text-3xl font-bold">{title}</CardTitle>
 				<CardDescription className="text-muted-foreground max-w-md mx-auto leading-relaxed">
 					{description}
 				</CardDescription>
@@ -561,7 +502,7 @@ function InfoCard({
 							<ChevronRight className="h-5 w-5" />
 						</Link>
 					}
-					className="gap-2 font-sans font-semibold"
+					className="gap-2 font-semibold"
 				/>
 			</CardContent>
 		</Card>
@@ -622,7 +563,13 @@ function Appear({
 		<Comp
 			id={id}
 			ref={ref}
-			className={`${className} transition-all ${duration} ${delayClass} ${visible ? inClass : outClass}`}
+			className={cn(
+				className,
+				"transition-all",
+				duration,
+				delayClass,
+				visible ? inClass : outClass
+			)}
 			{...rest}
 		>
 			{children}

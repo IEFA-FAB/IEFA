@@ -85,14 +85,18 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 												<div className="flex justify-between items-start">
 													<div>
 														<p className="font-medium text-sm">
-															{item.recipe?.name ||
+															{(item.recipe as { name?: string })?.name ||
 																item.recipe_origin?.name ||
 																"Preparação sem nome"}
 														</p>
 														<p className="text-xs text-muted-foreground">
-															{format(new Date(item.daily_menu.service_date), "dd/MM/yyyy", {
-																locale: ptBR,
-															})}{" "}
+															{format(
+																new Date(item.daily_menu.service_date || new Date().toISOString()),
+																"dd/MM/yyyy",
+																{
+																	locale: ptBR,
+																}
+															)}{" "}
 															· {item.planned_portion_quantity || 0}g
 														</p>
 														{item.deleted_at && (

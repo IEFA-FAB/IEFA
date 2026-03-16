@@ -87,7 +87,7 @@ function MealSection({ mealKey, dishes }: { mealKey: string; dishes: DishDetails
 }
 
 function MenuPage() {
-	const [selectedDate, setSelectedDate] = useState(todayISO())
+	const [selectedDate, setSelectedDate] = useState(todayISO)
 	const dates = getDateRange(7)
 	const selectedIndex = dates.indexOf(selectedDate)
 
@@ -114,7 +114,7 @@ function MenuPage() {
 			<PageHeader title="Cardápio" />
 
 			{/* Navegação de datas */}
-			<div className="flex items-center justify-between gap-2 rounded-lg border bg-card p-3">
+			<div className="flex items-center justify-between gap-2 rounded-md border bg-card p-3">
 				<Button
 					variant="ghost"
 					size="icon"

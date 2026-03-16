@@ -6,7 +6,6 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Copy,
-	Table,
 	TrendingDown,
 	TrendingUp,
 	Users,
@@ -18,7 +17,14 @@ import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTab
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table"
 import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
 import {

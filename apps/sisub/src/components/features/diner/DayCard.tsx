@@ -51,18 +51,18 @@ export function DayCardSkeleton() {
 
 					{/* Right header */}
 					<div className="flex items-center space-x-1">
-						<Skeleton className="h-6 w-12 rounded-full" />
+						<Skeleton className="h-6 w-12 rounded-sm" />
 					</div>
 				</div>
 
 				{/* Progress bar skeleton */}
 				<div className="h-12 flex items-center">
-					<div className="w-full bg-muted/50 rounded-lg p-2 border border-border">
+					<div className="w-full bg-muted/50 rounded-md p-2 border border-border">
 						<div className="flex items-center justify-between">
 							<Skeleton className="h-4 w-24" />
 							<div className="flex space-x-1">
 								{[...Array(4)].map((_, i) => (
-									<Skeleton key={i} className="w-2 h-2 rounded-full" />
+									<Skeleton key={i} className="w-2 h-2 rounded-sm" />
 								))}
 							</div>
 						</div>
@@ -73,14 +73,14 @@ export function DayCardSkeleton() {
 			<CardContent>
 				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
 					{/* Mess hall selector skeleton */}
-					<div className="bg-muted/30 rounded-lg p-3 border border-border">
+					<div className="bg-muted/30 rounded-md p-3 border border-border">
 						<Skeleton className="h-8 w-full" />
 					</div>
 
 					{/* Meals grid skeleton */}
 					<div className="grid grid-cols-2 gap-2">
 						{[...Array(4)].map((_, i) => (
-							<Skeleton key={i} className="h-12 rounded-lg" />
+							<Skeleton key={i} className="h-12 rounded-md" />
 						))}
 					</div>
 
@@ -129,11 +129,11 @@ export function DayCard({
 
 	const cardClasses = cn(
 		// Base card with tokens
-		"w-80 flex-shrink-0 transition-all duration-200 hover:shadow-md relative",
+		"w-80 flex-shrink-0 transition-opacity duration-200 relative",
 		"bg-card text-card-foreground border border-border",
 		{
 			// Main visual states
-			"ring-2 ring-primary shadow-lg bg-primary/5": isToday,
+			"ring-2 ring-primary bg-primary/5": isToday,
 			"ring-1 ring-accent bg-accent/10": cardState.hasPendingChanges && !isToday,
 			"opacity-75 grayscale-[0.3]": isDateNear && !isToday,
 
@@ -189,7 +189,7 @@ export function DayCard({
 				{/* Progress bar - fixed height */}
 				<div className="h-12 flex items-center">
 					{cardState.selectedCount > 0 && (
-						<div className="w-full bg-background/80 backdrop-blur-sm rounded-lg p-2 border border-border">
+						<div className="w-full bg-background rounded-md p-2 border border-border">
 							<div className="flex items-center justify-between">
 								<span className="text-sm font-medium text-foreground">
 									{cardState.selectedCount}/4 meals
@@ -202,8 +202,8 @@ export function DayCard({
 											<div
 												key={meal.value}
 												className={cn(
-													"w-2 h-2 rounded-full transition-all duration-200",
-													isSelected ? "bg-primary scale-110" : "bg-muted-foreground/30"
+													"w-2 h-2 rounded-sm transition-colors duration-200",
+													isSelected ? "bg-primary" : "bg-muted-foreground/30"
 												)}
 												title={`${meal.label}: ${isSelected ? "Confirmed" : "Not going"}`}
 											/>
@@ -220,7 +220,7 @@ export function DayCard({
 				{/* Main grid with fixed min height */}
 				<div className="grid grid-rows-[auto_1fr_auto] gap-3 min-h-50">
 					{/* Mess hall selector */}
-					<div className="bg-accent/10 backdrop-blur-sm rounded-lg p-3 border border-accent/30">
+					<div className="bg-accent/10 rounded-md p-3 border border-accent/30">
 						<MessHallSelector
 							value={dayMessHallId}
 							onChange={handleMessHallChange}

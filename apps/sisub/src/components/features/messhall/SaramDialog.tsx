@@ -84,7 +84,6 @@ export function SaramDialog({
 							maxLength={NR_ORDEM_MAXLEN}
 							onChange={handleChange}
 							onPaste={handlePaste}
-							autoFocus
 							required
 							aria-invalid={Boolean(error)}
 							aria-describedby={error ? `${helpId} ${errorId}` : helpId}

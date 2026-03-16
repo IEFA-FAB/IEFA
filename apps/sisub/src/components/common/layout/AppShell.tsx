@@ -186,7 +186,7 @@ export function AppShell() {
 	return (
 		<>
 			<AppSidebar
-				variant="floating"
+				variant="sidebar"
 				modules={scopedModules}
 				activeModuleId={effectiveModuleId}
 				onModuleChange={handleModuleChange}
@@ -194,49 +194,45 @@ export function AppShell() {
 				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
 
-			<SidebarInset className="bg-transparent h-full overflow-y-auto w-full flex flex-col">
-				<header className="max-w-6xl w-full mx-auto sticky top-2 z-40 border-b border-white/5 bg-background/40 backdrop-blur-md supports-backdrop-filter:bg-background/40 shrink-0 rounded-full shadow-xl shadow-foreground">
-					<div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center justify-between px-3 sm:px-6">
-						<div className="flex items-center gap-3">
-							<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-colors" />
-							<Separator orientation="vertical" className="mx-2 h-5 bg-border/50" />
-							<Breadcrumb>
-								<BreadcrumbList className="text-sm font-medium">
-									<BreadcrumbItem>
-										<BreadcrumbLink
-											render={
-												<Link to="/hub" className="hover:text-primary transition-colors">
-													{R.breadcrumbRoot}
-												</Link>
-											}
-										/>
-									</BreadcrumbItem>
-									{crumbs.map((c, idx) => (
-										<span key={c.to} className="inline-flex items-center">
-											<BreadcrumbSeparator className="text-muted-foreground/50" />
-											<BreadcrumbItem>
-												{idx === crumbs.length - 1 ? (
-													<span className="text-foreground bg-primary/5 px-2 py-0.5 rounded-md">
-														{c.label}
-													</span>
-												) : (
-													<BreadcrumbLink
-														render={
-															<Link to={c.to} className="hover:text-primary transition-colors">
-																{c.label}
-															</Link>
-														}
-													/>
-												)}
-											</BreadcrumbItem>
-										</span>
-									))}
-								</BreadcrumbList>
-							</Breadcrumb>
-						</div>
-						<div className="flex items-center gap-2">
-							<AnimatedThemeToggler toggle={toggle} />
-						</div>
+			<SidebarInset className="bg-transparent h-full overflow-y-scroll w-full flex flex-col">
+				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
+					<div className="flex items-center gap-3">
+						<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
+						<Separator orientation="vertical" className="mx-2 h-5 bg-border/50" />
+						<Breadcrumb>
+							<BreadcrumbList className="text-sm font-medium">
+								<BreadcrumbItem>
+									<BreadcrumbLink
+										render={
+											<Link to="/hub" className="hover:text-primary transition-colors">
+												{R.breadcrumbRoot}
+											</Link>
+										}
+									/>
+								</BreadcrumbItem>
+								{crumbs.map((c, idx) => (
+									<span key={c.to} className="inline-flex items-center">
+										<BreadcrumbSeparator className="text-muted-foreground/50" />
+										<BreadcrumbItem>
+											{idx === crumbs.length - 1 ? (
+												<span className="text-foreground font-semibold">{c.label}</span>
+											) : (
+												<BreadcrumbLink
+													render={
+														<Link to={c.to} className="hover:text-primary transition-colors">
+															{c.label}
+														</Link>
+													}
+												/>
+											)}
+										</BreadcrumbItem>
+									</span>
+								))}
+							</BreadcrumbList>
+						</Breadcrumb>
+					</div>
+					<div className="flex items-center gap-2">
+						<AnimatedThemeToggler toggle={toggle} />
 					</div>
 				</header>
 

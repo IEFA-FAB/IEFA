@@ -26,7 +26,7 @@ export function AppSidebar({
 }) {
 	if (isLoading) {
 		return (
-			<Sidebar collapsible="icon" variant="floating" {...props}>
+			<Sidebar collapsible="icon" variant="sidebar" {...props}>
 				<SidebarHeader>
 					<div className="flex items-center gap-2 p-2">
 						<div className="h-8 w-8 rounded-lg bg-sidebar-accent/10 animate-pulse" />
@@ -57,7 +57,7 @@ export function AppSidebar({
 	const teams = availableModules.map((m) => ({
 		name: m.name,
 		logo: m.icon,
-		plan: m.name,
+		plan: "",
 	}))
 
 	const navMain = activeModule
@@ -81,7 +81,7 @@ export function AppSidebar({
 	if (!activeModule) return null
 
 	return (
-		<Sidebar collapsible="icon" variant="floating" {...props}>
+		<Sidebar collapsible="icon" variant="sidebar" {...props}>
 			<SidebarHeader>
 				<TeamSwitcher teams={teams} value={activeModule.name} onChange={handleTeamChange} />
 			</SidebarHeader>

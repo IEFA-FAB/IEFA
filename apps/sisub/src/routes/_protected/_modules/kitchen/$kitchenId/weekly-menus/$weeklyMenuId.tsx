@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { ArrowLeft, CheckCircle2, Circle, GitFork, Loader2, Plus, Save, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, X } from "lucide-react"
+import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -71,8 +70,8 @@ function DayOverviewCard({
 			type="button"
 			onClick={onNavigate}
 			className={`
-				text-left w-full rounded-xl border bg-card p-4
-				hover:border-primary/60 hover:shadow-sm transition-all duration-150
+				text-left w-full rounded-md border bg-card p-4
+				hover:border-primary/60 transition-colors duration-150
 				focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
 				${allFilled ? "border-emerald-500/40" : ""}
 			`}
@@ -149,7 +148,7 @@ function DayMealSection({
 	const hasRecipes = recipes.length > 0
 
 	return (
-		<div className="rounded-lg border bg-card overflow-hidden">
+		<div className="rounded-md border bg-card overflow-hidden">
 			<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium">{mealType.name}</span>
@@ -239,20 +238,18 @@ function WeeklyMenuEditorPage() {
 		mealTypeId: string
 	} | null>(null)
 
-	useEffect(() => {
-		if (template && !initialized) {
-			setName(template.name ?? "")
-			setDescription(template.description ?? "")
-			setItems(
-				template.items.map((item) => ({
-					day_of_week: item.day_of_week ?? 0,
-					meal_type_id: item.meal_type_id ?? "",
-					recipe_id: item.recipe_id ?? "",
-				}))
-			)
-			setInitialized(true)
-		}
-	}, [template, initialized])
+	if (template && !initialized) {
+		setName(template.name ?? "")
+		setDescription(template.description ?? "")
+		setItems(
+			template.items.map((item) => ({
+				day_of_week: item.day_of_week ?? 0,
+				meal_type_id: item.meal_type_id ?? "",
+				recipe_id: item.recipe_id ?? "",
+			}))
+		)
+		setInitialized(true)
+	}
 
 	const getCellRecipes = (dayOfWeek: number, mealTypeId: string): Recipe[] => {
 		const ids = items
@@ -335,22 +332,22 @@ function WeeklyMenuEditorPage() {
 
 	if (templateLoading) {
 		return (
-			<div className="container mx-auto max-w-screen-2xl px-4 py-8">
-				<p className="text-sm text-muted-foreground">Carregando cardápio semanal...</p>
+			<div className="flex justify-center p-12">
+				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
 			</div>
 		)
 	}
 
 	if (!template) {
 		return (
-			<div className="container mx-auto max-w-screen-2xl px-4 py-8">
-				<p className="text-sm text-destructive">Cardápio semanal não encontrado.</p>
+			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
+				<p className="text-sm font-medium">Cardápio semanal não encontrado.</p>
 				<Link
 					to="/kitchen/$kitchenId/weekly-menus"
 					params={{ kitchenId: kitchenIdStr as string }}
-					className="text-sm text-primary mt-2 inline-block"
+					className="text-sm text-primary mt-2 flex items-center justify-center hover:underline"
 				>
-					← Voltar
+					← Voltar para listagem
 				</Link>
 			</div>
 		)
@@ -361,25 +358,29 @@ function WeeklyMenuEditorPage() {
 	return (
 		<TooltipProvider>
 			<div className="space-y-6">
-				<PageHeader title="Editar Cardápio Semanal">
+				<PageHeader
+					title="Editar Cardápio Semanal"
+					onBack={() =>
+						navigate({
+							to: "/kitchen/$kitchenId/weekly-menus",
+							params: { kitchenId: kitchenIdStr as string },
+						})
+					}
+				>
 					<div className="flex items-center gap-2">
-						<Link
-							to="/kitchen/$kitchenId/weekly-menus"
-							params={{ kitchenId: kitchenIdStr as string }}
-							className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-						>
-							<ArrowLeft className="h-4 w-4" />
-							Cardápios Semanais
-						</Link>
-						<Separator orientation="vertical" className="h-4" />
-						<Link
-							to="/kitchen/$kitchenId/weekly-menus"
-							params={{ kitchenId: kitchenIdStr as string }}
-						>
-							<Button type="button" variant="outline" size="sm">
-								Cancelar
-							</Button>
-						</Link>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							render={
+								<Link
+									to="/kitchen/$kitchenId/weekly-menus"
+									params={{ kitchenId: kitchenIdStr as string }}
+								>
+									Cancelar
+								</Link>
+							}
+						/>
 						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
 							{isSaving ? (
 								<Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -393,7 +394,7 @@ function WeeklyMenuEditorPage() {
 
 				<div className="space-y-6">
 					{/* Metadata */}
-					<div className="rounded-lg border bg-card p-5">
+					<div className="rounded-md border bg-card p-5">
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label htmlFor="name">
@@ -482,7 +483,7 @@ function WeeklyMenuEditorPage() {
 							</div>
 
 							{totalRecipes === 0 && (
-								<div className="rounded-lg border border-dashed p-10 text-center">
+								<div className="rounded-md border border-dashed p-10 text-center">
 									<p className="text-sm text-muted-foreground mb-1">
 										Cardápio vazio — nenhuma receita atribuída ainda.
 									</p>
@@ -516,7 +517,7 @@ function WeeklyMenuEditorPage() {
 										/>
 									))
 								) : (
-									<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+									<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
 										Nenhum tipo de refeição disponível. Configure os tipos de refeição no
 										Planejamento.
 									</div>

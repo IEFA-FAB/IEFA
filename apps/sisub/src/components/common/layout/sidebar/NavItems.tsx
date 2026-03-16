@@ -117,6 +117,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 },
 			{ title: "Análise Local", url: "/analytics/local", icon: LayoutDashboard },
+			{ title: "Indicadores da Unidade", url: "/analytics/local-indicators", icon: BarChart3 },
 		],
 	},
 ]
