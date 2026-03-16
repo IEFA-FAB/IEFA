@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { DailyMenuInsert, DailyMenuWithItems, MenuItemInsert } from "@/types/domain/planning"
+import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 const DailyMenuUpsertItemSchema = z.object({
 	id: z.string().optional(),
@@ -15,7 +16,7 @@ const DailyMenuUpsertItemSchema = z.object({
 const MenuItemInsertSchema = z.object({
 	daily_menu_id: z.string().nullable().optional(),
 	recipe_origin_id: z.string().nullable().optional(),
-	recipe: z.record(z.string(), z.json()).nullable().optional(),
+	recipe: z.custom<RecipeWithIngredients>().nullable().optional(),
 	planned_portion_quantity: z.number().nullable().optional(),
 	excluded_from_procurement: z.number().nullable().optional(),
 })

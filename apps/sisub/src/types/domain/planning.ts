@@ -1,6 +1,16 @@
+import type { RecipeWithIngredients } from "@/types/domain/recipes"
 import type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MealType, MenuItem, MenuItemInsert, MenuItemUpdate, Recipe, Tables } from "@/types/supabase.types"
 
 export type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MenuItem, MenuItemInsert, MenuItemUpdate }
+
+/**
+ * Domain-level insert type for menu items.
+ * Uses RecipeWithIngredients for the recipe snapshot field instead of the
+ * generic Json type from Supabase, enabling end-to-end type safety on writes.
+ */
+export type AppMenuItemInsert = Omit<MenuItemInsert, "recipe"> & {
+	recipe?: RecipeWithIngredients | null
+}
 
 export type PlanningStatus = "PLANNED" | "PUBLISHED" | "EXECUTED"
 
@@ -14,7 +24,6 @@ export type MenuTemplateWithItems = MenuTemplate & {
 export interface DailyMenuWithItems extends DailyMenu {
 	menu_items: (MenuItem & {
 		recipe_origin: Recipe | null
-		recipe: Record<string, unknown> // Snapshot
 	})[]
 	meal_type: MealType | null
 }

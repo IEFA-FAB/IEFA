@@ -98,7 +98,7 @@ export function DayCardSkeleton() {
 	)
 }
 
-export function DayCard({
+function DayCard({
 	date,
 	daySelections,
 	dayMessHallId,

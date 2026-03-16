@@ -116,9 +116,9 @@ function PublicLayout() {
 					{/* Actions: Login + Theme Toggle */}
 					<div className="flex items-center gap-2">
 						{isAuthenticated ? (
-							<Button nativeButton={false} render={<Link to="/hub">Acessar Sistema</Link>} size="sm" />
+							<Button nativeButton={false} render={<Link to="/hub">Acessar Sistema</Link>} />
 						) : (
-							<Button nativeButton={false} render={<Link to="/auth">Entrar</Link>} size="sm" />
+							<Button nativeButton={false} render={<Link to="/auth">Entrar</Link>} />
 						)}
 
 						<AnimatedThemeToggler toggle={toggle} />

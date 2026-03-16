@@ -1,10 +1,8 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { useEffect } from "react"
 import { userPermissionsQueryOptions } from "@/auth/pbac"
 import { OnboardingDialogs } from "@/components/common/dialogs/OnboardingDialogs"
-import { useAuth } from "@/hooks/auth/useAuth"
-import { useSyncUserEmail } from "@/hooks/ui/useUserSync"
 import { cn } from "@/lib/cn"
+import { syncUserEmailFn } from "@/server/user.fn"
 
 export const Route = createFileRoute("/_protected")({
 	beforeLoad: async ({ context, location }) => {
@@ -14,23 +12,15 @@ export const Route = createFileRoute("/_protected")({
 				search: { redirect: location.href },
 			})
 		}
+		const { id, email } = context.auth.user
 		// Pré-carrega permissões no cache do React Query.
 		// Garante que requirePermission() funcione sincronamente em qualquer rota filha.
-		await context.queryClient.ensureQueryData(userPermissionsQueryOptions(context.auth.user.id))
+		await Promise.all([context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)), syncUserEmailFn({ data: { userId: id, email: email ?? "" } })])
 	},
 	component: ProtectedLayout,
 })
 
 function ProtectedLayout() {
-	const { user } = useAuth()
-	const syncEmailMutation = useSyncUserEmail()
-
-	useEffect(() => {
-		if (user) syncEmailMutation.mutate(user)
-		// syncEmailMutation.mutate is stable (TanStack Query); user?.id guards against repeated calls
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [user?.id, syncEmailMutation.mutate, user])
-
 	return (
 		<>
 			<OnboardingDialogs />

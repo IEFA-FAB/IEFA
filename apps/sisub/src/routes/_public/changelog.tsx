@@ -158,9 +158,9 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Link href={`#${anchorId}`} className="text-muted-foreground hover:text-foreground" aria-label="Link para esta entrada">
+								<a href={`#${anchorId}`} className="text-muted-foreground hover:text-foreground" aria-label="Link para esta entrada">
 									#
-								</Link>
+								</a>
 							}
 						></TooltipTrigger>
 						<TooltipContent>Copiar link desta entrada</TooltipContent>

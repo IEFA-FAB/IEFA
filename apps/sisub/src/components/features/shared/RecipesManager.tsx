@@ -40,15 +40,10 @@ export function RecipesManager() {
 	return (
 		<div className="space-y-6">
 			{/* Search & Filters */}
-			<div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center bg-card p-5 rounded-xl border border-border/50">
+			<div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center bg-card p-5 rounded-md border">
 				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-					<Input
-						placeholder="Buscar Preparação..."
-						className="pl-10 transition-all focus:ring-2 focus:ring-primary/50"
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-					/>
+					<Input placeholder="Buscar Preparação..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
 				</div>
 				<div className="flex gap-2">
 					<Button variant={filter === "all" ? "secondary" : "ghost"} onClick={() => setFilter("all")} size="sm">
@@ -64,7 +59,7 @@ export function RecipesManager() {
 			</div>
 
 			{/* Virtualized Table */}
-			<div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+			<div className="rounded-md border bg-card overflow-hidden">
 				{/* Header row */}
 				<div className="grid grid-cols-[1fr_80px_110px_120px_190px] border-b border-border/50 bg-muted/30 text-sm font-sans font-semibold text-muted-foreground">
 					<div className="px-6 py-3">Nome</div>
@@ -116,47 +111,67 @@ export function RecipesManager() {
 										<div className="font-mono text-sm">{recipe.portion_yield} porções</div>
 										<div className="flex items-center justify-end gap-2 pr-6">
 											{kitchenId ? (
-												<Link to="/kitchen/$kitchenId/recipes/$recipeId" params={{ kitchenId, recipeId: recipe.id }}>
-													<Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-all">
-														Detalhes
-													</Button>
-												</Link>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="hover:bg-primary/10 hover:text-primary transition-all"
+													render={
+														<Link to="/kitchen/$kitchenId/recipes/$recipeId" params={{ kitchenId, recipeId: recipe.id }}>
+															Detalhes
+														</Link>
+													}
+												/>
 											) : (
-												<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
-													<Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-all">
-														Detalhes
-													</Button>
-												</Link>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="hover:bg-primary/10 hover:text-primary transition-all"
+													render={
+														<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
+															Detalhes
+														</Link>
+													}
+												/>
 											)}
 											{!recipe.kitchen_id &&
 												(kitchenId ? (
-													<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipe.id }}>
-														<Tooltip>
-															<TooltipTrigger
-																render={
-																	<Button variant="outline" size="sm" className="hover:bg-accent/10 hover:border-accent/30 transition-all">
-																		<GitFork className="w-3.5 h-3.5 mr-1.5" />
-																		Personalizar
-																	</Button>
-																}
-															></TooltipTrigger>
-															<TooltipContent>Criar cópia local</TooltipContent>
-														</Tooltip>
-													</Link>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	variant="outline"
+																	size="sm"
+																	className="hover:bg-accent/10 hover:border-accent/30 transition-all"
+																	render={
+																		<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipe.id }}>
+																			<GitFork className="w-3.5 h-3.5 mr-1.5" />
+																			Personalizar
+																		</Link>
+																	}
+																/>
+															}
+														/>
+														<TooltipContent>Criar cópia local</TooltipContent>
+													</Tooltip>
 												) : (
-													<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
-														<Tooltip>
-															<TooltipTrigger
-																render={
-																	<Button variant="outline" size="sm" className="hover:bg-accent/10 hover:border-accent/30 transition-all">
-																		<GitFork className="w-3.5 h-3.5 mr-1.5" />
-																		Personalizar
-																	</Button>
-																}
-															></TooltipTrigger>
-															<TooltipContent>Criar cópia local</TooltipContent>
-														</Tooltip>
-													</Link>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	variant="outline"
+																	size="sm"
+																	className="hover:bg-accent/10 hover:border-accent/30 transition-all"
+																	render={
+																		<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
+																			<GitFork className="w-3.5 h-3.5 mr-1.5" />
+																			Personalizar
+																		</Link>
+																	}
+																/>
+															}
+														/>
+														<TooltipContent>Criar cópia local</TooltipContent>
+													</Tooltip>
 												))}
 										</div>
 									</div>

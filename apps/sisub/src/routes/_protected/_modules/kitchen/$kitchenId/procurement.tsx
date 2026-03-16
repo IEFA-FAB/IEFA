@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/common/layout/PageHeader"
 import { ProcurementTable } from "@/components/features/local/ProcurementTable"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 import { useProcurement } from "@/hooks/data/useProcurement"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/procurement")({
@@ -63,30 +65,18 @@ function ProcurementPage() {
 				</CardHeader>
 				<CardContent>
 					<div className="flex flex-col sm:flex-row gap-4 items-end">
-						<div className="flex-1 space-y-2">
-							<label htmlFor="start-date" className="text-sm font-medium">
-								Data Inicial
-							</label>
-							<input
-								id="start-date"
-								type="date"
-								value={dateRange.start}
-								onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-								className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-							/>
-						</div>
-						<div className="flex-1 space-y-2">
-							<label htmlFor="end-date" className="text-sm font-medium">
-								Data Final
-							</label>
-							<input
-								id="end-date"
-								type="date"
-								value={dateRange.end}
-								onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-								className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-							/>
-						</div>
+						<FieldGroup className="flex-1">
+							<Field>
+								<FieldLabel htmlFor="start-date">Data Inicial</FieldLabel>
+								<Input id="start-date" type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} />
+							</Field>
+						</FieldGroup>
+						<FieldGroup className="flex-1">
+							<Field>
+								<FieldLabel htmlFor="end-date">Data Final</FieldLabel>
+								<Input id="end-date" type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} />
+							</Field>
+						</FieldGroup>
 						<Button onClick={handleExportCSV} variant="outline" disabled={needs.length === 0} className="gap-2" aria-label="Exportar lista em CSV">
 							<Download className="h-4 w-4" aria-hidden="true" />
 							Exportar CSV

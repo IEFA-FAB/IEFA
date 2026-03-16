@@ -1,8 +1,16 @@
 /** biome-ignore-all lint/security/noDangerouslySetInnerHtml: this is a lib component */
+
 import * as React from "react"
-import * as RechartsPrimitive from "recharts"
+import type * as RechartsPrimitive from "recharts"
 
 import { cn } from "../../lib/utils"
+
+// Lazy-load recharts to keep it out of the initial bundle (~500kb)
+const LazyResponsiveContainer = React.lazy(() => import("recharts").then((m) => ({ default: m.ResponsiveContainer })))
+
+export const ChartTooltip = React.lazy(() => import("recharts").then((m) => ({ default: m.Tooltip }))) as typeof RechartsPrimitive.Tooltip
+
+export const ChartLegend = React.lazy(() => import("recharts").then((m) => ({ default: m.Legend }))) as unknown as typeof RechartsPrimitive.Legend
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -55,7 +63,9 @@ function ChartContainer({
 				{...props}
 			>
 				<ChartStyle id={chartId} config={config} />
-				<RechartsPrimitive.ResponsiveContainer>{children}</RechartsPrimitive.ResponsiveContainer>
+				<React.Suspense fallback={null}>
+					<LazyResponsiveContainer>{children}</LazyResponsiveContainer>
+				</React.Suspense>
 			</div>
 		</ChartContext.Provider>
 	)
@@ -89,8 +99,6 @@ ${colorConfig
 		/>
 	)
 }
-
-const ChartTooltip = RechartsPrimitive.Tooltip
 
 function ChartTooltipContent({
 	active,
@@ -203,8 +211,6 @@ function ChartTooltipContent({
 	)
 }
 
-const ChartLegend = RechartsPrimitive.Legend
-
 function ChartLegendContent({
 	className,
 	hideIcon = false,
@@ -268,4 +274,4 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
 	return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config]
 }
 
-export { ChartContainer, ChartLegend, ChartLegendContent, ChartStyle, ChartTooltip, ChartTooltipContent }
+export { ChartContainer, ChartLegendContent, ChartStyle, ChartTooltipContent }

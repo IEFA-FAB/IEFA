@@ -185,7 +185,7 @@ function Home() {
 										<Icon className="h-8 w-8 text-primary" />
 									</div>
 									<CardTitle className="text-lg font-bold">{meal.label}</CardTitle>
-									<p className="text-sm font-mono text-muted-foreground mt-1">{meal.time}</p>
+									<p className="text-sm text-muted-foreground mt-1">{meal.time}</p>
 								</CardHeader>
 							</Card>
 						)
@@ -357,7 +357,8 @@ function HomeHero() {
 				</Badge>
 
 				<h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight">
-					Sistema de <span className="text-primary">Subsistência</span>
+					Sistema de <br className="md:hidden" />
+					<span className="text-primary">Subsistência</span>
 				</h1>
 
 				<p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">

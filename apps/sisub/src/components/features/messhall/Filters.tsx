@@ -1,4 +1,4 @@
-import { AlertCircle, Calendar, Check, Utensils } from "lucide-react"
+import { AlertCircle, Calendar, Utensils } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -56,7 +56,6 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 										<SelectItem className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 transition-colors" value={d} key={d}>
 											<div className="flex items-center justify-between w-full">
 												<span>{formatDate(d)}</span>
-												{d === selectedDate && <Check className="h-4 w-4 text-primary ml-2" />}
 											</div>
 										</SelectItem>
 									))}
@@ -107,7 +106,6 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 										<SelectItem className="cursor-pointer hover:bg-accent/50 focus:bg-accent/50 transition-colors" value={k} key={k}>
 											<div className="flex items-center justify-between w-full">
 												<span>{MEAL_LABEL[k]}</span>
-												{k === selectedMeal && <Check className="h-4 w-4 text-primary ml-2" />}
 											</div>
 										</SelectItem>
 									))}

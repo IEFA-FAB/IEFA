@@ -94,9 +94,9 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 						) : (
 							<div className="space-y-2">
 								{/* List ingredients to select for substitution */}
-								{ingredients.map((ing, idx) => (
+								{ingredients.map((ing) => (
 									<button
-										key={idx}
+										key={ing.product_id}
 										type="button"
 										className={cn(
 											"w-full text-left p-2 rounded border cursor-pointer hover:bg-accent",

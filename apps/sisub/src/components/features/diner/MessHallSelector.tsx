@@ -189,9 +189,3 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 )
 
 MessHallSelector.displayName = "MessHallSelector"
-
-// Temporary alias for backward compatibility during migration.
-// This allows existing imports of UnitSelector to continue working.
-export const UnitSelector = MessHallSelector
-
-export default MessHallSelector

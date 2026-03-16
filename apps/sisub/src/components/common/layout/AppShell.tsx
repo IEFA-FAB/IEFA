@@ -196,7 +196,7 @@ export function AppShell() {
 								<BreadcrumbItem>
 									<BreadcrumbLink
 										render={
-											<Link to="/hub" className="hover:text-primary transition-colors">
+											<Link to="/hub" className="hover:text-primary transition-colors text-center">
 												{R.breadcrumbRoot}
 											</Link>
 										}
@@ -207,11 +207,11 @@ export function AppShell() {
 										<BreadcrumbSeparator className="text-muted-foreground/50 px-2" />
 										<BreadcrumbItem>
 											{idx === crumbs.length - 1 ? (
-												<span className="text-foreground font-semibold">{c.label}</span>
+												<span className="text-foreground font-semibold text-center">{c.label}</span>
 											) : (
 												<BreadcrumbLink
 													render={
-														<Link to={c.to} className="hover:text-primary transition-colors text-center">
+														<Link to={c.to} className="hover:text-primary transition-colors text-center items-center">
 															{c.label}
 														</Link>
 													}

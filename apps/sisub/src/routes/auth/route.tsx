@@ -1,7 +1,6 @@
 // src/routes/auth.tsx
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { z } from "zod"
-import { HeroHighlight } from "@/components/common/ui/HeroHighlight"
 
 // Validação para garantir que o redirect seja seguro e opcional
 const authSearchSchema = z.object({
@@ -22,10 +21,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthLayout() {
 	return (
-		<HeroHighlight
-			className="w-full"
-			containerClassName="align-center justify-center items-center min-h-screen w-full flex flex-col items-center justify-center p-4"
-		>
+		<div className="w-full align-center justify-center items-center min-h-screen w-full flex flex-col items-center justify-center p-4">
 			{/* Ambient Light Effect matching Landing Page */}
 			<div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -z-10 opacity-50" />
 
@@ -41,6 +37,6 @@ function AuthLayout() {
 				{/* Onde as páginas (Login, Register) serão renderizadas */}
 				<Outlet />
 			</div>
-		</HeroHighlight>
+		</div>
 	)
 }

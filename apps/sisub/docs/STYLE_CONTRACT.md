@@ -56,7 +56,10 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 
 ## 5. Convenções obrigatórias
 - **Cores:** Obrigatório usar a escala lógica (`background`, `foreground`, `primary`, `secondary`, `muted`, `destructive`, `success`, `warning`).
-- **Radius:** Guiado através do token padrão global (`0.5rem`). Proibido estampar classes predefinidas soltas (ex. `rounded-lg`, `rounded-xl`) fora do componente base. 
+- **Radius:** Guiado através do token padrão global (`0.5rem`). Proibido estampar classes predefinidas soltas (ex. `rounded-lg`, `rounded-xl`) fora do componente base.
+- **Hierarquia de superfície:** Dois padrões são reconhecidos e mutuamente exclusivos por nível:
+  - **Nível 1 — Contêiner de seção** (grupo lógico com título, descrição e conteúdo relacionado): obrigatório usar o primitivo `<Card>`. Proibido reimplementar com `div.rounded-* border bg-card`.
+  - **Nível 2 — Contêiner de tabela inline** (wrapper direto de `<Table>` sem título próprio): aceito o padrão `div.rounded-md border` sem fundo explícito. Proibido usar `<Card>` apenas para envolver uma `<Table>` sem `CardHeader`.
 - **Shadows:** Mantidas inerentes aos tokens. O sistema usa `opacity: 0` indicando intencionalmente estética de *flat design*. Proibido forçar sombras artificiais soltas.
 - **Spacing/Size:** Aceito e documentado o tamanho `size="sm"` como escala predominante nos componentes UI interativos.
 - **Variants:** Só devem ser consumidas mediante tipagem restrita do CVA do componente. Invenções como `variant="floating"` são proibidas.

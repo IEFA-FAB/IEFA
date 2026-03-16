@@ -13,7 +13,7 @@ import {
 	updateMenuItemFn,
 	upsertDailyMenuFn,
 } from "@/server/planning.fn"
-import type { DailyMenuInsert, MenuItemInsert } from "@/types/domain/planning"
+import type { AppMenuItemInsert, DailyMenuInsert } from "@/types/domain/planning"
 
 // --- Query Options ---
 
@@ -58,7 +58,7 @@ export function useCreateDailyMenu() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (menus: DailyMenuInsert[]) => upsertDailyMenuFn({ data: { menus: menus as Record<string, unknown>[] } }),
+		mutationFn: (menus: DailyMenuInsert[]) => upsertDailyMenuFn({ data: { menus } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -74,7 +74,7 @@ export function useAddMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (item: MenuItemInsert) => addMenuItemFn({ data: { item: item as Record<string, unknown> } }),
+		mutationFn: (item: AppMenuItemInsert) => addMenuItemFn({ data: { item } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })

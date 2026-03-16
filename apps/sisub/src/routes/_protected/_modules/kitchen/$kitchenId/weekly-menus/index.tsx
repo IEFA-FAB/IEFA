@@ -42,6 +42,7 @@ function WeeklyMenusPage() {
 				<div className="flex items-center gap-2">
 					<Button
 						size="sm"
+						nativeButton={false}
 						render={
 							<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
 								<Plus className="h-4 w-4 mr-2" />
@@ -87,6 +88,7 @@ function WeeklyMenusPage() {
 												<Button
 													size="sm"
 													variant="outline"
+													nativeButton={false}
 													render={
 														<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }} search={{ forkFrom: template.id }}>
 															<GitFork className="w-3.5 h-3.5 mr-1.5" />

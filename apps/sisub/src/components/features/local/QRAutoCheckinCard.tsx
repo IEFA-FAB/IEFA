@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, Copy, Download, QrCode } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import { useRef, useState } from "react"
-import { UnitSelector } from "@/components/features/diner/MessHallSelector"
+import { MessHallSelector as UnitSelector } from "@/components/features/diner/MessHallSelector"
 import { Button } from "@/components/ui/button"
 import type { AdminStatus } from "@/types/domain/admin"
 
@@ -48,16 +48,16 @@ export default function QRAutoCheckinCard({
 	}
 
 	return (
-		<div className="rounded-xl border p-6">
+		<div className="rounded-md border p-6">
 			<div className="flex items-center justify-between mb-2">
-				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs   border ">
+				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border">
 					<QrCode className="h-4 w-4" aria-hidden="true" />
 					Auto Check-In
 				</div>
-				{currentOm ? <span className="text-xs ">OM: {currentOm}</span> : <span className="text-xs ">OM não definida</span>}
+				{currentOm ? <span className="text-xs">OM: {currentOm}</span> : <span className="text-xs">OM não definida</span>}
 			</div>
 
-			<h2 className="text-xl font-bold  mb-4">QR Code de Auto Check-In</h2>
+			<h2 className="text-xl font-bold mb-4">QR Code de Auto Check-In</h2>
 
 			{/* UnitSelector — escolhe a OM do QR */}
 			<div className="mb-4">
@@ -72,13 +72,13 @@ export default function QRAutoCheckinCard({
 				/>
 			</div>
 
-			<div className=" text-sm mb-4">Exiba este QR no ponto de acesso. Usuários autorizados farão check-in pela câmera do celular.</div>
+			<div className="text-sm mb-4">Exiba este QR no ponto de acesso. Usuários autorizados farão check-in pela câmera do celular.</div>
 
-			<div ref={qrWrapRef} className="flex flex-col items-center justify-center rounded-xl border   p-6">
+			<div ref={qrWrapRef} className="flex flex-col items-center justify-center rounded-md border p-6">
 				{currentOm ? (
 					<QRCodeCanvas value={qrValue} size={256} level="Q" bgColor="#ffffff" fgColor="#1f2937" aria-label="QR code para auto check-in da OM" marginSize={2} />
 				) : (
-					<div className="inline-flex items-center gap-2 rounded-lg border  px-3 py-2 " aria-live="polite">
+					<div className="inline-flex items-center gap-2 rounded-md border px-3 py-2" aria-live="polite">
 						<AlertCircle className="h-4 w-4" aria-hidden="true" />
 						Defina uma OM para gerar o QR Code.
 					</div>

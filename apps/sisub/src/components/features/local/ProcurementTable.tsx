@@ -1,6 +1,6 @@
-import { Package, Table } from "lucide-react"
+import { Package } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ProcurementNeed } from "@/services/ProcurementService"
 
 interface ProcurementTableProps {
@@ -34,8 +34,8 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 				</CardHeader>
 				<CardContent>
 					<div className="space-y-2">
-						{[1, 2, 3, 4, 5].map((i) => (
-							<div key={i} className="h-12 bg-muted animate-pulse rounded" aria-hidden="true" />
+						{[1, 2, 3, 4, 5].map((_, v) => (
+							<div key={v} className="h-12 bg-muted animate-pulse rounded" aria-hidden="true" />
 						))}
 					</div>
 				</CardContent>

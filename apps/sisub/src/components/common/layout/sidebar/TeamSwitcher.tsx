@@ -5,6 +5,7 @@ import { ChevronsUpDown } from "lucide-react"
 import * as React from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Team } from "./SidebarTypes"
 
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
@@ -71,21 +72,30 @@ export function TeamSwitcher({
 		<SidebarMenu>
 			<SidebarMenuItem>
 				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-								<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-									<activeTeam.logo className="h-4 w-4" />
-								</div>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<DropdownMenuTrigger
+									className=" cursor-pointer"
+									render={
+										<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+											<div className="flex h-8 p-2 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+												<activeTeam.logo className="h-4 w-4" />
+											</div>
 
-								<div className="grid flex-1 text-left text-sm leading-tight">
-									<span className="truncate font-medium">{activeTeam.name}</span>
-									<span className="truncate text-xs">{activeTeam.plan}</span>
-								</div>
-								<ChevronsUpDown className="ml-auto" />
-							</SidebarMenuButton>
-						}
-					/>
+											<div className="grid flex-1 text-left text-sm leading-tight">
+												<span className="truncate font-medium">{activeTeam.name}</span>
+												<span className="truncate text-xs">{activeTeam.plan}</span>
+											</div>
+											<ChevronsUpDown className="ml-auto" />
+										</SidebarMenuButton>
+									}
+								/>
+							}
+						/>
+						<TooltipContent>Mudar de módulo</TooltipContent>
+					</Tooltip>
+
 					<DropdownMenuContent
 						className="w-(--radix-dropdown-menu-trigger-width) min-w-56 p-3"
 						align="start"

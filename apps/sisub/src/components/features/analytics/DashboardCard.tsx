@@ -54,16 +54,7 @@ export default function DashboardCard() {
 	const metrics = aggregateDashboardMetrics(forecastsQuery.data ?? [], presencesQuery.data ?? [], filteredMessHalls, dateRange)
 
 	return (
-		<Card className="border-2">
-			<CardHeader>
-				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border w-fit">
-					<BarChart3 className="h-4 w-4" aria-hidden="true" />
-					Indicadores
-				</div>
-				<CardTitle>Indicadores da Unidade</CardTitle>
-				<CardDescription>Dashboard gerencial com previsões e presença em tempo real</CardDescription>
-			</CardHeader>
-
+		<Card>
 			<CardContent className="space-y-6">
 				{/* Filtros - Sticky outside tabs */}
 				<DashboardFilters

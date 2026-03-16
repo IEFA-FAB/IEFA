@@ -54,7 +54,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 	const netQuantity = portionQty !== null ? portionQty - (excludedQty || 0) : null
 
 	return (
-		<div className="border rounded-lg p-3 bg-background space-y-3">
+		<div className="border rounded-md p-3 bg-background space-y-3">
 			{/* Recipe Name Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">

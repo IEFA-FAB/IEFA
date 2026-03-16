@@ -42,7 +42,7 @@ export default function DashboardFilters({ dateRange, onDateRangeChange, messHal
 	}
 
 	return (
-		<div className="flex flex-col gap-4 p-4 bg-muted/20 rounded-lg border">
+		<div className="flex flex-col gap-4 p-4 rounded-lg border">
 			<div className="flex items-center gap-2 text-sm font-medium">
 				<Calendar className="h-4 w-4" aria-hidden="true" />
 				Filtros

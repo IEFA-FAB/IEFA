@@ -217,7 +217,7 @@ export function PlanningBoard() {
 			/>
 
 			{/* Calendar Grid */}
-			<div className="border rounded-lg bg-card overflow-hidden select-none">
+			<div className="border rounded-md bg-card overflow-hidden select-none">
 				{/* Week Days Header */}
 				<div className="grid grid-cols-7 border-b bg-muted/40 text-center">
 					{weekDays.map((day) => (
@@ -245,7 +245,7 @@ export function PlanningBoard() {
 								onClick={(e) => handleDayClick(day, e)}
 								className={cn(
 									"p-2 relative transition-colors cursor-pointer group text-left",
-									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+									"focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2",
 									!isCurrentMonth && "bg-muted/10 text-muted-foreground",
 									isCurrentMonth && "bg-background",
 									isToday && "bg-primary/5",
@@ -288,7 +288,7 @@ export function PlanningBoard() {
 				</div>
 			</div>
 
-			<DayDrawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} date={selectedDay} />
+			<DayDrawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} date={selectedDay} kitchenId={kitchenId} />
 
 			<ApplyTemplateDialog
 				open={isTemplateModalOpen}

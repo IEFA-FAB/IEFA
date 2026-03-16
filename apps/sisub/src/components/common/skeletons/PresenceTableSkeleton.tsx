@@ -28,8 +28,8 @@ export function PresenceTableSkeleton() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{[...Array(5)].map((_, i) => (
-								<TableRow key={`skeleton-row-${i}`}>
+							{[...Array(5)].map((_, v) => (
+								<TableRow key={`skeleton-row-${v}`}>
 									<TableCell>
 										<div className="h-4 w-4 bg-muted animate-pulse rounded" />
 									</TableCell>

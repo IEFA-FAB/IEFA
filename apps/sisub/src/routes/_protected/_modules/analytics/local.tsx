@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_protected/_modules/analytics/local")({
 function LocalAnalyticsPage() {
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Análise Local" />
+			<PageHeader title="Análise Local" description="Dashboard gerencial com previsões e presença em tempo real" />
 			<DashboardCard />
 		</div>
 	)

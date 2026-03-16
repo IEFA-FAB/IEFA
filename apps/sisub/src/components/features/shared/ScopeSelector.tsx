@@ -15,6 +15,8 @@ export interface ScopeSelectorItem {
 	id: number
 	name: string
 	subtitle?: string
+	/** Metadado contextual exibido no rodapé do card (ex: nome da unidade associada). */
+	meta?: string
 }
 
 interface ScopeSelectorProps {
@@ -32,7 +34,7 @@ function ScopeSelectorSkeleton() {
 	return (
 		<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			{Array.from({ length: 3 }).map((_, i) => (
-				<div key={i} className="h-36 rounded-xl border border-border/50 bg-muted/20 animate-pulse" />
+				<div key={i} className="h-28 rounded border border-border/50 bg-muted/20 animate-pulse" />
 			))}
 		</div>
 	)
@@ -59,7 +61,7 @@ export function ScopeSelector({
 		<div className="flex h-full flex-col items-center justify-center px-4 py-12">
 			<div className="w-full max-w-4xl space-y-10">
 				<div className="space-y-2 text-center">
-					<div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary mx-auto">
+					<div className="flex h-14 w-14 items-center justify-center rounded bg-primary/10 text-primary mx-auto">
 						<Icon className="h-7 w-7" />
 					</div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
@@ -81,16 +83,14 @@ export function ScopeSelector({
 								key={item.id}
 								type="button"
 								onClick={() => onSelect(item.id)}
-								className="group relative flex h-auto flex-col items-start gap-3 rounded-xl border border-border/50 bg-card p-6 text-left transition-all duration-200 hover:border-primary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								variant="outline"
+								variant="card"
+								className="flex h-full w-full flex-col items-start justify-start p-6 text-left whitespace-normal"
 							>
-								<div className="flex shrink-0 h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-									<Icon className="h-5 w-5" />
-								</div>
-								<div>
+								<div className="space-y-0.5">
 									<p className="font-semibold text-foreground">{item.name}</p>
-									{item.subtitle && <p className="text-sm text-muted-foreground mt-0.5">{item.subtitle}</p>}
+									{item.subtitle && <p className="text-sm text-muted-foreground">{item.subtitle}</p>}
 								</div>
+								{item.meta && <p className="mt-auto pt-3 text-xs text-muted-foreground w-full">{item.meta}</p>}
 							</Button>
 						))}
 					</div>

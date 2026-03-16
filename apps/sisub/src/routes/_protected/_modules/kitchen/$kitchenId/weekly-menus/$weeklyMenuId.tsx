@@ -6,8 +6,9 @@ import { PageHeader } from "@/components/common/layout/PageHeader"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -63,12 +64,12 @@ function DayOverviewCard({
 	const allFilled = mealTypes.length > 0 && filledCount === mealTypes.length
 
 	return (
-		<button
+		<Button
 			type="button"
 			onClick={onNavigate}
 			className={cn(
-				"text-left w-full rounded-md border bg-card p-4 hover:border-primary/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-				allFilled && "border-emerald-500/40"
+				"text-left w-full rounded-md border bg-card p-4 hover:border-primary/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+				allFilled && "border-success/40"
 			)}
 		>
 			<div className="flex items-center justify-between mb-3">
@@ -83,11 +84,11 @@ function DayOverviewCard({
 				{mealTypes.map((mt) => {
 					const mtItems = dayItems.filter((i) => i.meal_type_id === mt.id)
 					const count = mtItems.length
-					const names = mtItems.map((i) => recipeMap.get(i.recipe_id) ?? i.recipe_id)
+					const entries = mtItems.map((i) => ({ id: i.recipe_id, name: recipeMap.get(i.recipe_id) }))
 					return (
 						<div key={mt.id} className="flex items-center gap-2">
 							{count > 0 ? (
-								<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+								<CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
 							) : (
 								<Circle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
 							)}
@@ -102,11 +103,17 @@ function DayOverviewCard({
 									</TooltipTrigger>
 									<TooltipContent side="left" className="max-w-[220px]">
 										<ul className="space-y-1">
-											{names.map((n) => (
-												<li key={n} className="text-xs">
-													{n}
-												</li>
-											))}
+											{entries.map(({ id, name }) =>
+												name === undefined ? (
+													<li key={id} className="flex items-center">
+														<Loader2 className="h-3 w-3 animate-spin" />
+													</li>
+												) : (
+													<li key={id} className="text-xs">
+														{name}
+													</li>
+												)
+											)}
 										</ul>
 									</TooltipContent>
 								</Tooltip>
@@ -119,7 +126,7 @@ function DayOverviewCard({
 			<p className="mt-3 text-[11px] text-muted-foreground/50 text-right">
 				{filledCount}/{mealTypes.length} refeições
 			</p>
-		</button>
+		</Button>
 	)
 }
 
@@ -137,7 +144,7 @@ function DayMealSection({
 	const hasRecipes = recipes.length > 0
 
 	return (
-		<div className="rounded-md border bg-card overflow-hidden">
+		<Card className="overflow-hidden p-0 gap-0">
 			<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium">{mealType.name}</span>
@@ -189,7 +196,7 @@ function DayMealSection({
 					</Button>
 				</div>
 			)}
-		</div>
+		</Card>
 	)
 }
 
@@ -346,29 +353,31 @@ function WeeklyMenuEditorPage() {
 
 				<div className="space-y-6">
 					{/* Metadata */}
-					<div className="rounded-md border bg-card p-5">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label htmlFor="name">
-									Nome <span className="text-destructive">*</span>
-								</Label>
-								<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Semana Padrão" required />
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="description">Descrição (opcional)</Label>
-								<Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição" rows={1} />
-							</div>
-						</div>
-						{isFork && (
-							<div className="mt-4 flex items-center gap-2">
-								<GitFork className="w-3.5 h-3.5 text-muted-foreground" />
-								<span className="text-xs text-muted-foreground">Fork de plano global da SDAB</span>
-								<Badge variant="outline" className="text-xs">
-									Independente — alterações no original não afetam este cardápio
-								</Badge>
-							</div>
-						)}
-					</div>
+					<Card>
+						<CardContent>
+							<FieldGroup className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<Field>
+									<FieldLabel htmlFor="name">
+										Nome <span className="text-destructive">*</span>
+									</FieldLabel>
+									<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Semana Padrão" required />
+								</Field>
+								<Field>
+									<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
+									<Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição" rows={1} />
+								</Field>
+							</FieldGroup>
+							{isFork && (
+								<div className="mt-4 flex items-center gap-2">
+									<GitFork className="w-3.5 h-3.5 text-muted-foreground" />
+									<span className="text-xs text-muted-foreground">Fork de plano global da SDAB</span>
+									<Badge variant="outline" className="text-xs">
+										Independente — alterações no original não afetam este cardápio
+									</Badge>
+								</div>
+							)}
+						</CardContent>
+					</Card>
 
 					{/* Tabs: Visão Geral + dias */}
 					<Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -29,14 +29,13 @@ import { SubstitutionModal } from "./SubstitutionModal"
 
 interface DayDrawerProps {
 	date: Date | null
+	kitchenId: number
 	onClose: () => void
 	open: boolean
 }
 
-export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
+export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 	"use no memo"
-	// const { user } = useAuth(); // Unused
-	const kitchenId = 1 // HARDCODED
 
 	const { data: dayMenus, isLoading: menusLoading } = useDayDetails(kitchenId, date || new Date())
 
@@ -140,7 +139,6 @@ export function DayDrawer({ date, onClose, open }: DayDrawerProps) {
 								addMenuItem({
 									daily_menu_id: recipeSelectorMenu.id,
 									recipe_origin_id: recipeId,
-									// @ts-expect-error - Supabase Json type does not perfectly overlap with Record
 									recipe: recipeSnapshot,
 									planned_portion_quantity: portionQty,
 									excluded_from_procurement: 0,
@@ -238,7 +236,7 @@ function MealSection({
 	}
 
 	return (
-		<AccordionItem value={mealType.id} className="border rounded-lg px-4 bg-card">
+		<AccordionItem value={mealType.id} className="border rounded-md px-4 bg-card">
 			<AccordionTrigger className="hover:no-underline py-4">
 				<div className="flex items-center justify-between w-full mr-4">
 					<div className="flex items-center gap-2">
