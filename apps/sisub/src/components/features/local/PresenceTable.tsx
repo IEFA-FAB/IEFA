@@ -97,15 +97,18 @@ function PersonCard({
 
 	return (
 		<div
-			className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${borderClass[variant]}`}
+			className={cn(
+				"flex items-center gap-3 p-3 rounded-lg border transition-all",
+				borderClass[variant]
+			)}
 		>
 			<div className="relative">
-				<Avatar className={`h-10 w-10 border-2 border-white ${avatarClass[variant]}`}>
+				<Avatar className={cn("h-10 w-10 border-2 border-white", avatarClass[variant])}>
 					<AvatarFallback className={avatarClass[variant]}>
 						{getInitials(displayName)}
 					</AvatarFallback>
 				</Avatar>
-				<div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 border shadow-sm">
+				<div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border">
 					{icon[variant]}
 				</div>
 			</div>
@@ -303,7 +306,10 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 											<TableCell className="text-sm">{record.mess_hall_name}</TableCell>
 											<TableCell>
 												<span
-													className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${MEAL_BADGES[record.meal]}`}
+													className={cn(
+														"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border",
+														MEAL_BADGES[record.meal]
+													)}
 												>
 													{MEAL_LABELS[record.meal]}
 												</span>
@@ -327,7 +333,10 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 											</TableCell>
 											<TableCell className="text-center">
 												<div
-													className={`flex items-center justify-center gap-1 ${rateColor} font-semibold`}
+													className={cn(
+														"flex items-center justify-center gap-1 font-semibold",
+														rateColor
+													)}
 												>
 													{getRateIcon(record.attendance_rate)}
 													<span className="text-sm">{record.attendance_rate.toFixed(1)}%</span>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUpdateMenuItem } from "@/hooks/data/usePlanning"
 import type { MenuItem } from "@/types/domain/planning"
 
@@ -61,31 +62,43 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 					{item.substitutions && (
 						<Badge
 							variant="outline"
-							className="text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200"
+							className="text-[10px] bg-warning/10 text-warning border-warning/30"
 						>
 							Substituição Ativa
 						</Badge>
 					)}
 				</div>
 				<div className="flex items-center gap-1">
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-7 w-7 text-muted-foreground hover:text-primary"
-						onClick={() => onSubstitute(item)}
-						title="Substituir ingredientes"
-					>
-						<ArrowLeftRight className="w-3.5 h-3.5" />
-					</Button>
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-7 w-7 text-destructive hover:bg-destructive/10"
-						onClick={() => onDelete(item.id, recipeName)}
-						title="Remover"
-					>
-						<Trash2 className="w-3.5 h-3.5" />
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									size="icon"
+									variant="ghost"
+									className="h-7 w-7 text-muted-foreground hover:text-primary"
+									onClick={() => onSubstitute(item)}
+								>
+									<ArrowLeftRight className="w-3.5 h-3.5" />
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Substituir ingredientes</TooltipContent>
+					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									size="icon"
+									variant="ghost"
+									className="h-7 w-7 text-destructive hover:bg-destructive/10"
+									onClick={() => onDelete(item.id, recipeName)}
+								>
+									<Trash2 className="w-3.5 h-3.5" />
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Remover</TooltipContent>
+					</Tooltip>
 				</div>
 			</div>
 

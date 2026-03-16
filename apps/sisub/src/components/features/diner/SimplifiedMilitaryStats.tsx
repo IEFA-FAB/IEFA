@@ -91,7 +91,6 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 		return (
 			<section className="space-y-4" aria-busy="true" aria-label="Carregando estatísticas">
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
 					{/* Card 1 skeleton — Próxima Refeição */}
 					<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-primary">
 						<CardContent className="p-5">
@@ -145,7 +144,6 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 							</div>
 						</CardContent>
 					</Card>
-
 				</div>
 			</section>
 		)
@@ -154,7 +152,6 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 	return (
 		<div className="space-y-4">
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
 				{/* Próxima Refeição */}
 				<Card className="bg-card text-card-foreground border border-border/50 border-l-4 border-l-primary">
 					<CardContent className="p-5">
@@ -229,7 +226,6 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 						</div>
 					</CardContent>
 				</Card>
-
 			</div>
 		</div>
 	)

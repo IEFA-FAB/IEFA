@@ -2,7 +2,7 @@ import { Shield } from "lucide-react"
 
 export default function SuperAdminHero() {
 	return (
-		<div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-muted/30 via-background to-muted/20 p-8 md:p-12 border border-border/50 text-center">
+		<div className="relative overflow-hidden rounded-xl bg-muted/20 p-8 md:p-12 border border-border/50 text-center">
 			{/* Dot pattern overlay */}
 			<div className="absolute inset-0 bg-dot-pattern opacity-[0.03] -z-10" />
 

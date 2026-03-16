@@ -1,6 +1,8 @@
 import { BarChart3, ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 
 export default function IndicatorsCard() {
 	const [expanded, setExpanded] = useState(false)
@@ -11,28 +13,32 @@ export default function IndicatorsCard() {
 		"https://app.powerbi.com/view?r=eyJrIjoiMmQ5MDYwODMtODJjNy00NzVkLWFjYzgtYjljYzE4NmM0ZDgxIiwidCI6IjNhMzY0ZGI2LTg2NmEtNDRkOS1iMzY5LWM1ODk1OWQ0NDhmOCJ9"
 
 	return (
-		<div
-			className={`rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/5 shadow-sm ${expanded ? "p-0" : "p-6"}`}
-		>
+		<div className={cn("rounded-lg border border-border/50 bg-card", expanded ? "p-0" : "p-6")}>
 			{/* Barra superior - Enhanced */}
-			<div className={`${expanded ? "px-4 py-3" : "mb-4"} flex items-center justify-between`}>
+			<div className={cn(expanded ? "px-4 py-3" : "mb-4", "flex items-center justify-between")}>
 				<div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-sans font-medium border bg-muted/30">
 					<BarChart3 className="h-4 w-4" aria-hidden="true" />
 					Indicadores
 				</div>
 
 				<div className="flex items-center gap-2">
-					<Button
-						onClick={() => window.open(powerBiUrl, "_blank", "noopener,noreferrer")}
-						variant="outline"
-						size="sm"
-						className="inline-flex items-center gap-2 font-sans hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
-						aria-label="Abrir relatório em nova aba"
-						title="Abrir em nova aba"
-					>
-						<ExternalLink className="h-4 w-4" aria-hidden="true" />
-						Abrir
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									onClick={() => window.open(powerBiUrl, "_blank", "noopener,noreferrer")}
+									variant="outline"
+									size="sm"
+									className="inline-flex items-center gap-2 font-sans hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
+									aria-label="Abrir relatório em nova aba"
+								>
+									<ExternalLink className="h-4 w-4" aria-hidden="true" />
+									Abrir
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Abrir em nova aba</TooltipContent>
+					</Tooltip>
 
 					<Button
 						onClick={toggleExpanded}
@@ -52,7 +58,7 @@ export default function IndicatorsCard() {
 			{/* Wrapper full-bleed quando expandido */}
 			<div className={expanded ? "" : "px-0"}>
 				{/* Cabeçalho do card (quando não expandido) */}
-				<div className={`${expanded ? "" : "px-6"} pb-4 flex flex-col gap-3`}>
+				<div className={cn(expanded ? "" : "px-6", "pb-4 flex flex-col gap-3")}>
 					{!expanded && (
 						<>
 							<h2 className="text-xl font-sans font-bold text-foreground">
@@ -67,8 +73,8 @@ export default function IndicatorsCard() {
 				</div>
 
 				{/* Container do iframe */}
-				<div className={`${expanded ? "" : "px-6"} pb-6`}>
-					<div className="rounded-xl border border-border/50 overflow-hidden shadow-sm">
+				<div className={cn(expanded ? "" : "px-6", "pb-6")}>
+					<div className="rounded-lg border border-border/50 overflow-hidden">
 						<iframe
 							title="Indicadores SISUB - Power BI"
 							src={powerBiUrl}

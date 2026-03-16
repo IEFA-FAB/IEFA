@@ -409,7 +409,7 @@ function ScannerTab({
 				)}
 				<div ref={qrBoxRef} className="qr-box pointer-events-none" />
 				{lastScanResult && (
-					<p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs shadow-sm">
+					<p className="absolute top-2 left-2 z-50 rounded px-2 py-1 bg-accent/90 text-accent-foreground text-xs">
 						Último UUID: {lastScanResult}
 					</p>
 				)}

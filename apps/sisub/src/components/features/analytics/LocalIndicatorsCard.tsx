@@ -1,6 +1,8 @@
 import { BarChart3, ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 
 export default function IndicatorsCard() {
 	const [expanded, setExpanded] = useState(false)
@@ -11,24 +13,30 @@ export default function IndicatorsCard() {
 		"https://app.powerbi.com/view?r=eyJrIjoiOTMwNzQxODYtMjc0OS00Y2U2LThjMWItMTU5MGZkZjk2ZmE3IiwidCI6IjNhMzY0ZGI2LTg2NmEtNDRkOS1iMzY5LWM1ODk1OWQ0NDhmOCJ9"
 
 	return (
-		<div className={` rounded-2xl border shadow-sm ${expanded ? "p-0" : "p-6"}`}>
+		<div className={cn("rounded-lg border bg-card", expanded ? "p-0" : "p-6")}>
 			{/* Barra superior */}
-			<div className={`${expanded ? "px-4 py-3" : "mb-4"} flex items-center justify-between`}>
+			<div className={cn(expanded ? "px-4 py-3" : "mb-4", "flex items-center justify-between")}>
 				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border">
 					<BarChart3 className="h-4 w-4" aria-hidden="true" />
 					Indicadores
 				</div>
 
 				<div className="flex items-center gap-2">
-					<Button
-						onClick={() => window.open(powerBiUrl, "_blank", "noopener,noreferrer")}
-						className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50"
-						aria-label="Abrir relatório em nova aba"
-						title="Abrir em nova aba"
-					>
-						<ExternalLink className="h-4 w-4" aria-hidden="true" />
-						Abrir
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									onClick={() => window.open(powerBiUrl, "_blank", "noopener,noreferrer")}
+									className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50"
+									aria-label="Abrir relatório em nova aba"
+								>
+									<ExternalLink className="h-4 w-4" aria-hidden="true" />
+									Abrir
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Abrir em nova aba</TooltipContent>
+					</Tooltip>
 
 					<Button
 						onClick={toggleExpanded}
@@ -46,7 +54,7 @@ export default function IndicatorsCard() {
 			{/* Wrapper full-bleed quando expandido */}
 			<div className={expanded ? "" : "px-0"}>
 				{/* Cabeçalho do card (quando não expandido) */}
-				<div className={`${expanded ? "" : "px-6"} pb-4 flex flex-col gap-3`}>
+				<div className={cn(expanded ? "" : "px-6", "pb-4 flex flex-col gap-3")}>
 					{!expanded && (
 						<>
 							<h2 className="text-xl font-bold ">Indicadores da Unidade</h2>
@@ -59,8 +67,8 @@ export default function IndicatorsCard() {
 				</div>
 
 				{/* Container do iframe */}
-				<div className={`${expanded ? "" : "px-6"} pb-6`}>
-					<div className="rounded-2xl border  overflow-hidden ">
+				<div className={cn(expanded ? "" : "px-6", "pb-6")}>
+					<div className="rounded-lg border overflow-hidden">
 						<iframe
 							title="Indicadores SISUB - Power BI"
 							src={powerBiUrl}

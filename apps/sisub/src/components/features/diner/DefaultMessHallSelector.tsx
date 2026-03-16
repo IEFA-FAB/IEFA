@@ -76,7 +76,7 @@ export function DefaultMessHallSelector({
 	}
 
 	return (
-		<Card className="group relative w-full h-fit bg-card text-card-foreground border border-border shadow-sm transition-all duration-300 hover:shadow-md hover:border-accent max-w-xl">
+		<Card className="group relative w-full h-fit bg-card text-card-foreground border border-border transition-all duration-300 hover:border-accent max-w-xl">
 			<CardHeader className="pb-4">
 				<div className="flex items-start justify-between gap-3">
 					<CardTitle className="text-foreground">

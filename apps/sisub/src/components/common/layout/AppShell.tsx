@@ -212,14 +212,17 @@ export function AppShell() {
 								</BreadcrumbItem>
 								{crumbs.map((c, idx) => (
 									<span key={c.to} className="inline-flex items-center">
-										<BreadcrumbSeparator className="text-muted-foreground/50" />
+										<BreadcrumbSeparator className="text-muted-foreground/50 px-2" />
 										<BreadcrumbItem>
 											{idx === crumbs.length - 1 ? (
 												<span className="text-foreground font-semibold">{c.label}</span>
 											) : (
 												<BreadcrumbLink
 													render={
-														<Link to={c.to} className="hover:text-primary transition-colors">
+														<Link
+															to={c.to}
+															className="hover:text-primary transition-colors text-center"
+														>
 															{c.label}
 														</Link>
 													}

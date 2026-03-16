@@ -10,6 +10,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 import { useDeleteFolder, useDeleteProduct } from "@/services/ProductsService"
 import type { Folder, Product, ProductTreeNode, TreeNodeType } from "@/types/domain/products"
 
@@ -126,16 +128,21 @@ export function ProductsTreeNode({
 
 				{/* Ícone com fundo colorido */}
 				<div
-					className={`flex items-center justify-center w-7 h-7 rounded-md ${style.iconBg} ${style.border} border transition-transform duration-200 group-hover:scale-110`}
+					className={cn(
+						"flex items-center justify-center w-7 h-7 rounded-md border transition-transform duration-200 group-hover:scale-110",
+						style.iconBg,
+						style.border
+					)}
 				>
-					<Icon className={`w-3.5 h-3.5 ${style.iconColor}`} />
+					<Icon className={cn("w-3.5 h-3.5", style.iconColor)} />
 				</div>
 
 				{/* Label */}
 				<span
-					className={`text-sm truncate transition-colors ${
+					className={cn(
+						"text-sm truncate transition-colors",
 						node.type === "folder" ? "font-sans font-semibold" : "font-sans font-normal"
-					}`}
+					)}
 				>
 					{node.label}
 				</span>
@@ -159,17 +166,23 @@ export function ProductsTreeNode({
 			<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 				{/* Navegar para itens de compra (apenas produtos) */}
 				{node.type === "product" && onNavigate && (
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={onNavigate}
-						disabled={isDeleting}
-						aria-label={`Ver itens de compra de ${node.label}`}
-						title="Ver itens de compra"
-						className="h-8 w-8 p-0 transition-all duration-150 hover:bg-primary/10 hover:text-primary"
-					>
-						<ExternalLink className="w-3.5 h-3.5" />
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={onNavigate}
+									disabled={isDeleting}
+									aria-label={`Ver itens de compra de ${node.label}`}
+									className="h-8 w-8 p-0 transition-all duration-150 hover:bg-primary/10 hover:text-primary"
+								>
+									<ExternalLink className="w-3.5 h-3.5" />
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Ver itens de compra</TooltipContent>
+					</Tooltip>
 				)}
 
 				<Button

@@ -7,6 +7,8 @@ import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 import {
 	type ChangelogEntry,
 	type ChangelogPageResult,
@@ -40,12 +42,15 @@ function transformLinkUri(href?: string) {
 }
 
 // Gera classes reativas usando as CSS vars do tema
+const TONE_CLASSES: Record<string, string> = {
+	primary: "bg-primary/10 text-primary border-primary/25",
+	secondary: "bg-secondary/10 text-secondary-foreground border-secondary/25",
+	accent: "bg-accent/10 text-accent-foreground border-accent/25",
+	destructive: "bg-destructive/10 text-destructive border-destructive/25",
+	muted: "bg-muted text-muted-foreground border-border",
+}
 function toneBadge(tone: "primary" | "secondary" | "accent" | "destructive" | "muted" = "muted") {
-	return [
-		`bg-[hsl(var(--${tone}))]/12`,
-		`text-[hsl(var(--${tone}-foreground, var(--${tone})))]`,
-		`border-[hsl(var(--${tone}))]/25`,
-	].join(" ")
+	return TONE_CLASSES[tone] ?? TONE_CLASSES.muted
 }
 
 // Mapa de estilos por tag → tom
@@ -89,7 +94,10 @@ const markdownComponents: Partial<Components> = {
 			return (
 				<code
 					{...rest}
-					className={`rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground ${className ?? ""}`}
+					className={cn(
+						"rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground",
+						className
+					)}
 				>
 					{children}
 				</code>
@@ -120,11 +128,11 @@ function MessageBox({
 }) {
 	const toneClasses =
 		tone === "destructive"
-			? "bg-[hsl(var(--destructive))]/10 border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive-foreground, var(--destructive)))]"
+			? "bg-destructive/10 border-destructive/30 text-destructive"
 			: "bg-card border-border text-foreground"
 	return (
 		<div className="max-w-3xl mx-auto mb-8" aria-live="polite">
-			<div className={`border rounded-xl p-4 ${toneClasses}`}>
+			<div className={cn("border rounded-xl p-4", toneClasses)}>
 				{title && <p className="font-semibold mb-1">{title}</p>}
 				<p className="text-sm text-muted-foreground">{message}</p>
 				{action && (
@@ -156,7 +164,10 @@ function TagBadge({ tag }: { id: string; tag: string }) {
 	const tone = TAG_TONE[key] ?? toneBadge("muted")
 	return (
 		<span
-			className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${tone}`}
+			className={cn(
+				"inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border",
+				tone
+			)}
 		>
 			{tag}
 		</span>
@@ -168,21 +179,30 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 	return (
 		<article
 			id={anchorId}
-			className="bg-card rounded-xl p-6 border border-border hover:border-foreground/20 shadow-sm hover:shadow-md transition"
+			className="bg-card rounded-xl p-6 border border-border hover:border-foreground/20 transition"
 		>
 			<div className="flex flex-wrap items-center justify-between gap-3 mb-2">
 				<div className="flex items-center gap-3">
-					<a
-						href={`#${anchorId}`}
-						className="text-muted-foreground hover:text-foreground"
-						aria-label="Link para esta entrada"
-						title="Copiar link desta entrada"
-					>
-						#
-					</a>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Link
+									href={`#${anchorId}`}
+									className="text-muted-foreground hover:text-foreground"
+									aria-label="Link para esta entrada"
+								>
+									#
+								</Link>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Copiar link desta entrada</TooltipContent>
+					</Tooltip>
 					{entry.version && (
 						<span
-							className={`inline-flex items-center text-sm font-semibold px-2.5 py-1 rounded-full border ${toneBadge("primary")}`}
+							className={cn(
+								"inline-flex items-center text-sm font-semibold px-2.5 py-1 rounded-full border",
+								toneBadge("primary")
+							)}
 						>
 							v{entry.version}
 						</span>
@@ -307,7 +327,7 @@ export default function Changelog() {
 						href={GITHUB_REPO_URL}
 						target="_blank"
 						rel="noopener noreferrer nofollow"
-						className="inline-flex items-center gap-2 bg-background text-[hsl(var(--primary))] hover:bg-accent/10 px-6 py-3 font-semibold rounded-lg transition shadow-lg hover:shadow-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						className="inline-flex items-center gap-2 bg-background text-primary hover:bg-accent/10 px-6 py-3 font-semibold rounded-md transition border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 					>
 						<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
 							<path

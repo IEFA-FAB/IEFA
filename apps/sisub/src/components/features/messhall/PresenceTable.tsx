@@ -37,7 +37,7 @@ export default function PresenceTable({
 	return (
 		<>
 			{/* Lista de presenças */}
-			<div className="rounded-xl border bg-card text-card-foreground shadow-sm">
+			<div className="rounded-xl border bg-card text-card-foreground">
 				<div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/50">
 					<div>
 						<h3 className="font-semibold">Presenças registradas</h3>

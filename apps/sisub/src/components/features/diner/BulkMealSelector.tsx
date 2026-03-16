@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { MEAL_TYPES } from "@/constants/rancho"
+import { cn } from "@/lib/cn"
 import { createEmptyDayMeals } from "@/lib/meal"
 import type { DayMeals } from "@/types/domain/meal"
 
@@ -93,7 +94,7 @@ export function BulkMealSelector({
 
 	return (
 		<Card
-			className="group relative w-full h-fit bg-card text-card-foreground border border-border shadow-sm transition-all duration-300 hover:shadow-md hover:border-accent max-w-xl
+			className="group relative w-full h-fit bg-card text-card-foreground border border-border transition-all duration-300 hover:border-accent max-w-xl
         "
 		>
 			<CardHeader className="">
@@ -118,9 +119,10 @@ export function BulkMealSelector({
 						<Button
 							type="button"
 							variant="outline"
-							className={`${modeBtnBase} ${
+							className={cn(
+								modeBtnBase,
 								applyMode === "fill-missing" ? modeBtnSelected : modeBtnUnselected
-							}`}
+							)}
 							onClick={() => setApplyMode("fill-missing")}
 							disabled={isApplying}
 						>
@@ -129,9 +131,10 @@ export function BulkMealSelector({
 						<Button
 							type="button"
 							variant="outline"
-							className={`${modeBtnBase} ${
+							className={cn(
+								modeBtnBase,
 								applyMode === "override" ? modeBtnSelected : modeBtnUnselected
-							}`}
+							)}
 							onClick={() => setApplyMode("override")}
 							disabled={isApplying}
 						>

@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useUpdateSubstitutions } from "@/hooks/data/useSubstitutions"
+import { cn } from "@/lib/cn"
 import type { MenuItem } from "@/types/domain/planning"
 
 interface SubstitutionModalProps {
@@ -109,7 +110,10 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 									<button
 										key={idx}
 										type="button"
-										className={`w-full text-left p-2 rounded border cursor-pointer hover:bg-accent ${selectedIngredientId === ing.product_id ? "border-primary bg-primary/5" : ""}`}
+										className={cn(
+											"w-full text-left p-2 rounded border cursor-pointer hover:bg-accent",
+											selectedIngredientId === ing.product_id && "border-primary bg-primary/5"
+										)}
 										onClick={() => setSelectedIngredientId(ing.product_id)}
 									>
 										<div className="flex justify-between text-sm">

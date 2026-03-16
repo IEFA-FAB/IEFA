@@ -1,4 +1,4 @@
-import { AlertCircle, Edit, Lock, Plus, Table, Trash2 } from "lucide-react"
+import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog"
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes"
 import type { MealType } from "@/types/supabase.types"
 import { MealTypeForm } from "./MealTypeForm"
@@ -181,23 +189,35 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 												</TableCell>
 												<TableCell className="text-right">
 													<div className="flex items-center justify-end gap-1">
-														<Button
-															size="icon"
-															variant="ghost"
-															onClick={() => handleEdit(mealType)}
-															title="Editar"
-														>
-															<Edit className="w-4 h-4" />
-														</Button>
-														<Button
-															size="icon"
-															variant="ghost"
-															onClick={() => handleDelete(mealType)}
-															disabled={isDeleting}
-															title="Remover"
-														>
-															<Trash2 className="w-4 h-4 text-destructive" />
-														</Button>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		size="icon"
+																		variant="ghost"
+																		onClick={() => handleEdit(mealType)}
+																	>
+																		<Edit className="w-4 h-4" />
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Editar</TooltipContent>
+														</Tooltip>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		size="icon"
+																		variant="ghost"
+																		onClick={() => handleDelete(mealType)}
+																		disabled={isDeleting}
+																	>
+																		<Trash2 className="w-4 h-4 text-destructive" />
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Remover</TooltipContent>
+														</Tooltip>
 													</div>
 												</TableCell>
 											</TableRow>

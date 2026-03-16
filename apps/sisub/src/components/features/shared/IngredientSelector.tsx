@@ -72,10 +72,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 					) : error ? (
 						<div className="text-destructive text-center p-4">Erro ao carregar insumos</div>
 					) : (
-						<div
-							ref={parentRef}
-							className="h-full overflow-auto border rounded-md bg-gradient-to-br from-card to-muted/5"
-						>
+						<div ref={parentRef} className="h-full overflow-auto border rounded-md bg-card">
 							<div
 								style={{
 									height: `${rowVirtualizer.getTotalSize()}px`,
@@ -113,11 +110,12 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 											{/* Render Node for Selection */}
 											<button
 												type="button"
-												className={`flex items-center p-3 w-full text-left border-b border-border/50 transition-all duration-150 ${
+												className={cn(
+													"flex items-center p-3 w-full text-left border-b border-border/50 transition-all duration-150",
 													isProduct
-														? "hover:bg-gradient-to-r hover:from-primary/5 hover:to-primary/10 cursor-pointer hover:border-l-2 hover:border-l-primary"
+														? "hover:bg-primary/5 cursor-pointer hover:border-l-2 hover:border-l-primary"
 														: "cursor-default opacity-60"
-												}`}
+												)}
 												style={{ paddingLeft: `${node.level * 20 + 12}px` }}
 												disabled={!isProduct}
 												onClick={() => {
@@ -142,13 +140,13 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 														isProduct && "group-hover:scale-110"
 													)}
 												>
-													<span className={`text-base ${iconColor}`}>
+													<span className={cn("text-base", iconColor)}>
 														{node.type === "folder" ? "📁" : "📦"}
 													</span>
 												</div>
 
 												<span
-													className={`flex-1 font-sans text-sm ${isProduct ? "font-medium" : ""}`}
+													className={cn("flex-1 font-sans text-sm", isProduct && "font-medium")}
 												>
 													{node.label}
 												</span>

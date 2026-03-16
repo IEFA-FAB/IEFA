@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/cn"
 
 export interface ResetPasswordScreenProps {
 	searchParams: {
@@ -132,7 +133,9 @@ export function ResetPasswordScreen({
 
 		if (updateError) {
 			const errorMsg =
-				updateError instanceof Error ? updateError.message : "Erro ao atualizar senha. Tente novamente."
+				updateError instanceof Error
+					? updateError.message
+					: "Erro ao atualizar senha. Tente novamente."
 			setSubmitError(errorMsg)
 			setIsSubmitting(false)
 			return
@@ -238,7 +241,11 @@ export function ResetPasswordScreen({
 									id="new-password"
 									type={showPassword ? "text" : "password"}
 									placeholder="Mínimo 6 caracteres"
-									className={`${inputClasses} pl-11 pr-11 ${passwordError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+									className={cn(
+										inputClasses,
+										"pl-11 pr-11",
+										passwordError && "border-destructive focus-visible:ring-destructive"
+									)}
 									value={newPassword}
 									onChange={handlePasswordChange}
 									required
@@ -283,7 +290,11 @@ export function ResetPasswordScreen({
 									id="confirm-password"
 									type={showConfirmPassword ? "text" : "password"}
 									placeholder="Digite a senha novamente"
-									className={`${inputClasses} pl-11 pr-11 ${confirmError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+									className={cn(
+										inputClasses,
+										"pl-11 pr-11",
+										confirmError && "border-destructive focus-visible:ring-destructive"
+									)}
 									value={confirmPassword}
 									onChange={handleConfirmPasswordChange}
 									required

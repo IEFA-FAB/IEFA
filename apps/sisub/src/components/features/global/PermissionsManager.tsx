@@ -534,7 +534,7 @@ export default function PermissionsManager() {
 		<div className="space-y-6">
 			{/* ── Search Section ──────────────────────────────────────────────── */}
 			{!selectedUser ? (
-				<div className="rounded-lg border bg-card shadow-sm p-6 space-y-4">
+				<div className="rounded-lg border bg-card p-6 space-y-4">
 					<div>
 						<h2 className="text-base font-semibold">Buscar Usuário</h2>
 						<p className="text-sm text-muted-foreground mt-0.5">
@@ -625,7 +625,7 @@ export default function PermissionsManager() {
 					</div>
 
 					{/* Permissions table */}
-					<div className="rounded-lg border bg-card shadow-sm overflow-hidden p-6">
+					<div className="rounded-lg border bg-card overflow-hidden p-6">
 						<Table>
 							<TableHeader className="border-b border-foreground">
 								<TableRow>

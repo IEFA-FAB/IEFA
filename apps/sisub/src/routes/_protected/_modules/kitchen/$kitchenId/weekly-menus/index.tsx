@@ -12,6 +12,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 
 /**
@@ -196,31 +197,44 @@ function WeeklyMenusPage() {
 											</TableCell>
 											<TableCell className="text-right">
 												<div className="flex items-center justify-end gap-1">
-													<Button
-														size="icon"
-														variant="ghost"
-														title="Editar"
-														render={
-															<Link
-																to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
-																params={{
-																	kitchenId: kitchenIdStr as string,
-																	weeklyMenuId: template.id,
-																}}
-															>
-																<Edit className="w-4 h-4" />
-															</Link>
-														}
-													/>
-													<Button
-														size="icon"
-														variant="ghost"
-														onClick={() => handleDelete(template.id, template.name ?? "")}
-														disabled={isDeleting}
-														title="Remover"
-													>
-														<Trash2 className="w-4 h-4 text-destructive" />
-													</Button>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	size="icon"
+																	variant="ghost"
+																	
+																	render={
+																		<Link
+																			to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"
+																			params={{
+																				kitchenId: kitchenIdStr as string,
+																				weeklyMenuId: template.id,
+																			}}
+																		>
+																			<Edit className="w-4 h-4" />
+																		</Link>
+																	}
+																/>
+															}
+														></TooltipTrigger>
+														<TooltipContent>Editar</TooltipContent>
+													</Tooltip>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	size="icon"
+																	variant="ghost"
+																	onClick={() => handleDelete(template.id, template.name ?? "")}
+																	disabled={isDeleting}
+																>
+																	<Trash2 className="w-4 h-4 text-destructive" />
+																</Button>
+															}
+														></TooltipTrigger>
+														<TooltipContent>Remover</TooltipContent>
+													</Tooltip>
 												</div>
 											</TableCell>
 										</TableRow>

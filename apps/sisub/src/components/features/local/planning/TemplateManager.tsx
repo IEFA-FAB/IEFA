@@ -17,6 +17,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
 import { TemplateEditor } from "./TemplateEditor"
 
@@ -174,23 +175,35 @@ export function TemplateManager({ open, onClose, kitchenId }: TemplateManagerPro
 												</TableCell>
 												<TableCell className="text-right">
 													<div className="flex items-center justify-end gap-1">
-														<Button
-															size="icon"
-															variant="ghost"
-															onClick={() => handleEdit(template.id)}
-															title="Editar"
-														>
-															<Edit className="w-4 h-4" />
-														</Button>
-														<Button
-															size="icon"
-															variant="ghost"
-															onClick={() => handleDelete(template.id, template.name ?? "")}
-															disabled={isDeleting}
-															title="Remover"
-														>
-															<Trash2 className="w-4 h-4 text-destructive" />
-														</Button>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		size="icon"
+																		variant="ghost"
+																		onClick={() => handleEdit(template.id)}
+																	>
+																		<Edit className="w-4 h-4" />
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Editar</TooltipContent>
+														</Tooltip>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		size="icon"
+																		variant="ghost"
+																		onClick={() => handleDelete(template.id, template.name ?? "")}
+																		disabled={isDeleting}
+																	>
+																		<Trash2 className="w-4 h-4 text-destructive" />
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Remover</TooltipContent>
+														</Tooltip>
 													</div>
 												</TableCell>
 											</TableRow>

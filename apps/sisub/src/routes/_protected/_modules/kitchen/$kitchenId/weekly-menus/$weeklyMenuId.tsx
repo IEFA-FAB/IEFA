@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
+import { cn } from "@/lib/cn"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 import type { Recipe } from "@/types/supabase.types"
 
@@ -69,12 +70,10 @@ function DayOverviewCard({
 		<button
 			type="button"
 			onClick={onNavigate}
-			className={`
-				text-left w-full rounded-md border bg-card p-4
-				hover:border-primary/60 transition-colors duration-150
-				focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
-				${allFilled ? "border-emerald-500/40" : ""}
-			`}
+			className={cn(
+				"text-left w-full rounded-md border bg-card p-4 hover:border-primary/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+				allFilled && "border-emerald-500/40"
+			)}
 		>
 			<div className="flex items-center justify-between mb-3">
 				<span className="text-sm font-semibold">{day.abbr}</span>
@@ -99,7 +98,10 @@ function DayOverviewCard({
 								<Circle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
 							)}
 							<span
-								className={`text-xs truncate flex-1 ${count > 0 ? "text-foreground" : "text-muted-foreground/50"}`}
+								className={cn(
+									"text-xs truncate flex-1",
+									count > 0 ? "text-foreground" : "text-muted-foreground/50"
+								)}
 							>
 								{mt.name}
 							</span>
@@ -183,16 +185,22 @@ function DayMealSection({
 									<p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>
 								)}
 							</div>
-							<Button
-								type="button"
-								size="icon"
-								variant="ghost"
-								className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-								onClick={() => onRemoveRecipe(recipe.id)}
-								title="Remover"
-							>
-								<X className="h-3.5 w-3.5" />
-							</Button>
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Button
+											type="button"
+											size="icon"
+											variant="ghost"
+											className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+											onClick={() => onRemoveRecipe(recipe.id)}
+										>
+											<X className="h-3.5 w-3.5" />
+										</Button>
+									}
+								></TooltipTrigger>
+								<TooltipContent>Remover</TooltipContent>
+							</Tooltip>
 						</div>
 					))}
 				</div>

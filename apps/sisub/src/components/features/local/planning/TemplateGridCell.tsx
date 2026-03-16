@@ -1,5 +1,7 @@
 import { Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 import type { Recipe } from "@/types/supabase.types"
 
 interface TemplateGridCellProps {
@@ -40,12 +42,12 @@ export function TemplateGridCell({
 
 	return (
 		<div
-			className={`
-        relative min-h-[120px] p-3 border rounded-md
-        transition-all duration-200
-        ${hasRecipes ? "bg-muted/30 border-muted-foreground/20" : "bg-background border-dashed border-muted-foreground/30"}
-        hover:border-primary/50 hover:shadow-sm
-      `}
+			className={cn(
+				"relative min-h-[120px] p-3 border rounded-md transition-all duration-200 hover:border-primary/50",
+				hasRecipes
+					? "bg-muted/30 border-muted-foreground/20"
+					: "bg-background border-dashed border-muted-foreground/30"
+			)}
 		>
 			{/* Empty State */}
 			{!hasRecipes && (
@@ -76,15 +78,21 @@ export function TemplateGridCell({
 									<p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>
 								)}
 							</div>
-							<Button
-								size="icon"
-								variant="ghost"
-								className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-								onClick={() => onRemoveRecipe(recipe.id)}
-								title="Remover"
-							>
-								<X className="h-3 w-3" />
-							</Button>
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Button
+											size="icon"
+											variant="ghost"
+											className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+											onClick={() => onRemoveRecipe(recipe.id)}
+										>
+											<X className="h-3 w-3" />
+										</Button>
+									}
+								></TooltipTrigger>
+								<TooltipContent>Remover</TooltipContent>
+							</Tooltip>
 						</div>
 					))}
 

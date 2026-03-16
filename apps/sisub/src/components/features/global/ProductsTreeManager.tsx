@@ -82,7 +82,7 @@ export function ProductsTreeManager() {
 	return (
 		<div className="space-y-6">
 			{/* Toolbar */}
-			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-gradient-to-br from-card to-muted/10 p-5 rounded-xl border border-border/50 shadow-sm">
+			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-card p-5 rounded-xl border border-border/50">
 				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 					<Input
@@ -143,7 +143,7 @@ export function ProductsTreeManager() {
 			{/* Stats */}
 			{stats && (
 				<div className="grid grid-cols-2 gap-4">
-					<Card className="group transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg border border-border/50 bg-gradient-to-br from-card to-muted/10">
+					<Card className="group transition-all duration-200 ease-out border border-border/50 bg-card">
 						<div className="p-4 md:p-6">
 							<div className="flex items-center justify-between">
 								<div>
@@ -159,7 +159,7 @@ export function ProductsTreeManager() {
 						</div>
 					</Card>
 
-					<Card className="group transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg border border-border/50 bg-gradient-to-br from-card to-muted/10">
+					<Card className="group transition-all duration-200 ease-out border border-border/50 bg-card">
 						<div className="p-4 md:p-6">
 							<div className="flex items-center justify-between">
 								<div>
@@ -178,7 +178,7 @@ export function ProductsTreeManager() {
 			)}
 
 			{/* Árvore Virtualizada */}
-			<Card className="border border-border/50 shadow-md">
+			<Card className="border border-border/50">
 				<div
 					ref={parentRef}
 					className="h-150 overflow-auto"

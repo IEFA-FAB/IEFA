@@ -13,6 +13,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
 
 export const Route = createFileRoute("/auth/reset-password")({
@@ -128,8 +129,7 @@ function ResetPasswordPage() {
 		"w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
 	const inputClasses =
 		"bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
-	const buttonClasses =
-		"w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
+	const buttonClasses = "w-full font-bold h-12 text-base transition-all"
 	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
 	const iconClasses =
 		"absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
@@ -217,7 +217,11 @@ function ResetPasswordPage() {
 									id="new-password"
 									type={showPassword ? "text" : "password"}
 									placeholder="Mínimo 6 caracteres"
-									className={`${inputClasses} pl-11 pr-11 ${passwordError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+									className={cn(
+										inputClasses,
+										"pl-11 pr-11",
+										passwordError && "border-destructive focus-visible:ring-destructive"
+									)}
 									value={newPassword}
 									onChange={handlePasswordChange}
 									required
@@ -262,7 +266,11 @@ function ResetPasswordPage() {
 									id="confirm-password"
 									type={showConfirmPassword ? "text" : "password"}
 									placeholder="Digite a senha novamente"
-									className={`${inputClasses} pl-11 pr-11 ${confirmError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+									className={cn(
+										inputClasses,
+										"pl-11 pr-11",
+										confirmError && "border-destructive focus-visible:ring-destructive"
+									)}
 									value={confirmPassword}
 									onChange={handleConfirmPasswordChange}
 									required

@@ -14,6 +14,7 @@ import { NEAR_DATE_THRESHOLD } from "@/constants/rancho"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
+import { cn } from "@/lib/cn"
 import { createEmptyDayMeals, formatDate, getDayOfWeek, isDateNear } from "@/lib/meal"
 import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 import type { CardData } from "@/types/ui"
@@ -302,8 +303,7 @@ export default function Forecast(): JSX.Element {
 		if (cardsWithoutMessHall.length === 0) return
 
 		// Backend: usa ID (precisa estar resolvido)
-		const messHallIdForDefault =
-			defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || ""
+		const messHallIdForDefault = defaultMessHallId || getMessHallIdByCode(defaultMessHallCode) || ""
 
 		if (!messHallIdForDefault) {
 			setError("Defina e salve um rancho padrão antes de aplicar aos cards.")
@@ -311,7 +311,6 @@ export default function Forecast(): JSX.Element {
 		}
 
 		try {
-
 			// UI: grava CODE nos dias sem rancho
 			const updatedMessHalls: MessHallByDate = { ...dayMessHalls }
 			cardsWithoutMessHall.forEach((date: string) => {
@@ -438,7 +437,9 @@ export default function Forecast(): JSX.Element {
 			const diasStr = `${targetDates.length} ${labelDiaUtil(targetDates.length)}`
 			const alteracoesStr = `${newChanges.length} ${labelAlteracao(newChanges.length)}`
 
-			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
+			setSuccess(
+				`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`
+			)
 			setShowBulkMealSelector(false)
 			setIsApplyingMealTemplate(false)
 		} catch (err) {
@@ -504,7 +505,7 @@ export default function Forecast(): JSX.Element {
 					className="cursor-pointer hover:bg-secondary/10 hover:border-secondary/30 transition-all"
 					aria-label="Recarregar previsões"
 				>
-					<RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
+					<RefreshCw className={cn("h-4 w-4", isRefetching && "animate-spin")} />
 				</Button>
 			</PageHeader>
 

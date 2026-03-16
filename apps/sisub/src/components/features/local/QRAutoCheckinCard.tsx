@@ -49,7 +49,7 @@ export default function QRAutoCheckinCard({
 	}
 
 	return (
-		<div className="rounded-2xl border  shadow-sm p-6">
+		<div className="rounded-xl border p-6">
 			<div className="flex items-center justify-between mb-2">
 				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs   border ">
 					<QrCode className="h-4 w-4" aria-hidden="true" />

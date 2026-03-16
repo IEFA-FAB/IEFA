@@ -63,6 +63,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **States (Hover/Focus/Active/Disabled):** Requer padrão consistente. Obrigatório usar a semântica de `ring` (ex: `focus-visible:ring-[3px] focus-visible:ring-ring`) via CVA.
 - **Formulários:** Uso exclusivo e incontornável do padrão `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldError`). Redes de formulário em grids soltos são depreciadas.
 - **Acessibilidade:** Elementos interativos não devem ocultar seus anéis de foco.
+- **Tooltips:** O atributo HTML `title` é proibido como mecanismo de tooltip em elementos interativos. Usar obrigatoriamente o primitivo `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` de `@/components/ui/tooltip`. Razão: `title` não é exibido em foco de teclado nem em touch, falha WCAG 1.4.13, e não respeita o tema do design system. Para botões exclusivamente de ícone, complementar com `aria-label` além do `<Tooltip>`.
 - **Navegação Polimórfica:** Para exibir links com aparência de botões, use a prop `render` (ou equivalente `asChild`) do primitivo `Button` encapsulando o `Link` (ex: `<Button render={<Link to="/rota">...</Link>} />`). Jamais aninhe tags iterativas quebrando a semântica de acessibilidade HTML nativa.
 - **`className`:** Passado como prop para organizar localmente a interface estrutural, jamais para reespecificar a intenção do componente.
 - **HTML cru:** Uso de native interativo tag (`<button>`) é proibido para montar UI local se houver um primitivo `Button` apto a atender, exceto em integrações profundas onde o primitive causa bugs inadiáveis.
@@ -75,6 +76,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Proibido** uso de concatenação nativa de strings para classes dinâmicas (ex: ```className={`class1 ${ativo ? 'bg-primary' : ''}`}```). Usar `cn()`.
 - **Proibido** aninhar tags HTML interativas para criar componentes visuais (ex: `<Link><Button>...</Button></Link>` ou `<Button><Link>...</Link></Button>`).
 - **Proibido** criar elementos `<Label>` soltos combinados com tags vermelhas soltas para erros de formulário, ignorando a infraestrutura de `field.tsx`.
+- **Proibido** usar o atributo `title` como tooltip em elementos interativos (`<Button>`, `<a>`, etc.). Usar o primitivo `<Tooltip>` do design system.
 
 ## 7. Critérios de decisão
 
@@ -110,23 +112,11 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 - [ ] As variants chamadas existem formalmente no componente importado?
 - [ ] Condicionais de CSS utilizam `cn()` ao invés de interpolações literais de strings com condições lógicas brutas?
 - [ ] O componente está acessível e mantém indicadores de foco (focus-visible)?
+- [ ] Tooltips em elementos interativos usam o primitivo `<Tooltip>` (não o atributo `title`)?
 - [ ] Formulários adotaram as instâncias do `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`)?
 - [ ] Foi verificado se a mudança justifica uma abstração de primitive `CVA` ou apenas um `className` de espaçamento de feature/tela?
 
-## 10. Prioridades de migração
-- **Longo Prazo / Baixo Esforço (Quick Wins):**
-  - Limpar as variants "fantasmas" de button/badge como `floating`, `present`, `missing` nas features de `local/planning`.
-  - Configurar radius unificado global para `0.5rem` (`Futuro/Revisar`).
-  - Inserir as semânticas de `--success` e `--warning` nos tokens e CVA.
-- **Médio Prazo:**
-  - Adotar os packages de `field.tsx` para os dialogs `global/AddUserDialog` e demais.
-  - Substituir uso dos hooks cruzados e hardcoders de views core, recavando primitivos em cima de `<button>` e forms genéricos.
-  - Abstração do component wrapper `StatCard` partindo dos padrões listados no dashboard de `diner`.
-- **Esforço Sistêmico:**
-  - Auditoria progressiva refazendo calls de template literals e substituindo massivamente pelo `cn()`.
-
-## 11. Apêndice: exemplos do projeto
-- **Padrões corretos a preservar:** `AppShell.tsx` e `PageHeader.tsx` são excelentes exemplares de wrappers semânticos de alta coesão e baixo acoplamento.
-- **Maiores ofensores:** `MealButton.tsx` (desrespeita o primitive, tokens de background e de ring focus); `RecipeForm.tsx` (um megacomponente com dezenas de inputs hardcoded e grids brutos, desprezando Field API).
-- **Candidatos a refactor:** `PlanningBoard.tsx` (uso intensivo de styles string literals com dependências lógicas misturadas à montagem visual).
-- **Decisões pendentes:** Definir formalmente os tokens complementares (warning/success) nos arrays de base-ui/tailwind config.
+## 10. Referências de implementação
+- **Wrappers semânticos de referência:** `AppShell.tsx` e `PageHeader.tsx` — alta coesão, baixo acoplamento. Usar como modelo ao extrair novos wrappers.
+- **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod.
+- **Tooltip de referência:** `weekly-menus/$weeklyMenuId.tsx` — uso correto de `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` em botões de ação.

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { MEAL_TYPES } from "@/constants/rancho"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
 import { cn } from "@/lib/cn"
@@ -199,14 +200,19 @@ export function DayCard({
 										const mealKey = meal.value as keyof DayMeals // aligns to DB: cafe/almoco/janta/ceia
 										const isSelected = daySelections[mealKey]
 										return (
-											<div
-												key={meal.value}
-												className={cn(
-													"w-2 h-2 rounded-sm transition-colors duration-200",
-													isSelected ? "bg-primary" : "bg-muted-foreground/30"
-												)}
-												title={`${meal.label}: ${isSelected ? "Confirmed" : "Not going"}`}
-											/>
+											<Tooltip key={meal.value}>
+												<TooltipTrigger>
+													<div
+														className={cn(
+															"w-2 h-2 rounded-sm transition-colors duration-200",
+															isSelected ? "bg-primary" : "bg-muted-foreground/30"
+														)}
+													/>
+												</TooltipTrigger>
+												<TooltipContent>
+													{meal.label}: {isSelected ? "Confirmado" : "Não vai"}
+												</TooltipContent>
+											</Tooltip>
 										)
 									})}
 								</div>

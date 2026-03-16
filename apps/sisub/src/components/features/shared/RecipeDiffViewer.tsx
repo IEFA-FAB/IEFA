@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/cn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 interface RecipeDiffViewerProps {
@@ -70,7 +71,10 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 					<div>
 						<span className="text-xs text-muted-foreground">Modo de Preparo</span>
 						<p
-							className={`text-sm ${oldVersion.preparation_method !== newVersion.preparation_method ? "text-primary" : ""}`}
+							className={cn(
+								"text-sm",
+								oldVersion.preparation_method !== newVersion.preparation_method && "text-primary"
+							)}
 						>
 							{newVersion.preparation_method}
 						</p>
@@ -134,18 +138,15 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						// Modified?
 						if (oldIng && newIng && oldIng.net_quantity !== newIng.net_quantity) {
 							return (
-								<div
-									key={productId}
-									className="grid grid-cols-2 p-2 text-sm bg-yellow-500/10 dark:bg-yellow-500/20"
-								>
-									<div className="text-yellow-700 dark:text-yellow-400">
+								<div key={productId} className="grid grid-cols-2 p-2 text-sm bg-warning/10">
+									<div className="text-warning">
 										{oldIng.product?.description} - {oldIng.net_quantity}{" "}
 										{oldIng.product?.measure_unit}
 									</div>
-									<div className="font-medium text-yellow-700 dark:text-yellow-400">
+									<div className="font-medium text-warning">
 										{newIng.product?.description} - {newIng.net_quantity}{" "}
 										{newIng.product?.measure_unit}
-										<Badge variant="outline" className="ml-2 border-yellow-500 text-yellow-600">
+										<Badge variant="outline" className="ml-2 border-warning text-warning">
 											Alterado
 										</Badge>
 									</div>
@@ -172,15 +173,12 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						// Added?
 						if (!oldIng && newIng) {
 							return (
-								<div
-									key={productId}
-									className="grid grid-cols-2 p-2 text-sm bg-green-500/10 dark:bg-green-500/20"
-								>
+								<div key={productId} className="grid grid-cols-2 p-2 text-sm bg-success/10">
 									<div className="text-muted-foreground">-</div>
-									<div className="text-green-700 dark:text-green-400 font-medium">
+									<div className="text-success font-medium">
 										{newIng.product?.description} - {newIng.net_quantity}{" "}
 										{newIng.product?.measure_unit}
-										<Badge variant="outline" className="ml-2 border-green-500 text-green-600">
+										<Badge variant="outline" className="ml-2 border-success text-success">
 											Novo
 										</Badge>
 									</div>

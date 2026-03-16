@@ -5,6 +5,7 @@ import { useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRecipes } from "@/hooks/data/useRecipes"
 
 const ROW_HEIGHT = 52
@@ -39,7 +40,7 @@ export function RecipesManager() {
 	return (
 		<div className="space-y-6">
 			{/* Search & Filters */}
-			<div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center bg-gradient-to-br from-card to-muted/10 p-5 rounded-xl border border-border/50 shadow-sm">
+			<div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center bg-card p-5 rounded-xl border border-border/50">
 				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 					<Input
@@ -75,7 +76,7 @@ export function RecipesManager() {
 			</div>
 
 			{/* Virtualized Table */}
-			<div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/5 shadow-sm overflow-hidden">
+			<div className="rounded-xl border border-border/50 bg-card overflow-hidden">
 				{/* Header row */}
 				<div className="grid grid-cols-[1fr_80px_110px_120px_190px] border-b border-border/50 bg-muted/30 text-sm font-sans font-semibold text-muted-foreground">
 					<div className="px-6 py-3">Nome</div>
@@ -168,27 +169,39 @@ export function RecipesManager() {
 														params={{ kitchenId }}
 														search={{ forkFrom: recipe.id }}
 													>
-														<Button
-															variant="outline"
-															size="sm"
-															title="Criar cópia local"
-															className="hover:bg-accent/10 hover:border-accent/30 transition-all"
-														>
-															<GitFork className="w-3.5 h-3.5 mr-1.5" />
-															Personalizar
-														</Button>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		className="hover:bg-accent/10 hover:border-accent/30 transition-all"
+																	>
+																		<GitFork className="w-3.5 h-3.5 mr-1.5" />
+																		Personalizar
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Criar cópia local</TooltipContent>
+														</Tooltip>
 													</Link>
 												) : (
 													<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
-														<Button
-															variant="outline"
-															size="sm"
-															title="Criar cópia local"
-															className="hover:bg-accent/10 hover:border-accent/30 transition-all"
-														>
-															<GitFork className="w-3.5 h-3.5 mr-1.5" />
-															Personalizar
-														</Button>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		className="hover:bg-accent/10 hover:border-accent/30 transition-all"
+																	>
+																		<GitFork className="w-3.5 h-3.5 mr-1.5" />
+																		Personalizar
+																	</Button>
+																}
+															></TooltipTrigger>
+															<TooltipContent>Criar cópia local</TooltipContent>
+														</Tooltip>
 													</Link>
 												))}
 										</div>

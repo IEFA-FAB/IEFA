@@ -26,13 +26,12 @@ import {
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useKitchenSelector } from "@/hooks/data/useKitchens"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDailyMenus } from "@/hooks/data/usePlanning"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import { ApplyTemplateDialog } from "./ApplyTemplateDialog"
 import { DayDrawer } from "./DayDrawer"
-import { KitchenSelector } from "./KitchenSelector"
 import { MealTypeManager } from "./MealTypeManager"
 import { TemplatePalette } from "./TemplatePalette"
 import { TrashDrawer } from "./TrashDrawer"
@@ -40,8 +39,7 @@ import { TrashDrawer } from "./TrashDrawer"
 export function PlanningBoard() {
 	const navigate = useNavigate()
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
-	const { kitchenId: selectorKitchenId } = useKitchenSelector()
-	const kitchenId = kitchenIdStr ? Number(kitchenIdStr) : selectorKitchenId
+	const kitchenId = Number(kitchenIdStr)
 	const [currentMonth, setCurrentMonth] = useState(new Date())
 	const [selectedDay, setSelectedDay] = useState<Date | null>(null) // For Drawer
 	const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set()) // For Bulk Actions
@@ -135,14 +133,10 @@ export function PlanningBoard() {
 		<div className="space-y-4 h-full flex flex-col">
 			{/* Header */}
 			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				{/* Left side: Kitchen selector + Month navigation */}
+				{/* Left side: Month navigation */}
 				<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center">
-					<KitchenSelector />
 					<div className="flex items-center gap-2">
-						<h2 className="text-xl sm:text-2xl font-bold tracking-tight capitalize">
-							{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-						</h2>
-						<div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5">
+						<div className="flex items-center ">
 							<Button
 								variant="ghost"
 								size="sm"
@@ -152,14 +146,23 @@ export function PlanningBoard() {
 							>
 								<ChevronLeft className="w-4 h-4" />
 							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => handleMonthChange(0)}
-								className="h-8 px-2 text-xs"
-							>
-								Hoje
-							</Button>
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => handleMonthChange(0)}
+											className="h-8 px-2 text-xs"
+										>
+											<h2 className="w-sm text-xl sm:text-2xl font-bold tracking-tight capitalize">
+												{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+											</h2>
+										</Button>
+									}
+								></TooltipTrigger>
+								<TooltipContent>Voltar ao mês atual</TooltipContent>
+							</Tooltip>
 							<Button
 								variant="ghost"
 								size="sm"
@@ -176,37 +179,59 @@ export function PlanningBoard() {
 				{/* Right side: Action buttons */}
 				<div className="flex flex-wrap gap-1.5">
 					{kitchenIdStr && (
-						<Button
-							variant="outline"
-							size="sm"
-							title="Gerenciar Cardápios Semanais"
-							className="h-9"
-							render={
-								<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr }}>
-									<CalendarDays className="w-4 h-4 sm:mr-2" />
-									<span className="hidden sm:inline">Cardápios Semanais</span>
-								</Link>
-							}
-						/>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-9"
+										nativeButton={false}
+										render={
+											<Link
+												to="/kitchen/$kitchenId/weekly-menus"
+												params={{ kitchenId: kitchenIdStr }}
+											>
+												<CalendarDays className="w-4 h-4 sm:mr-2" />
+												<span className="hidden sm:inline">Cardápios Semanais</span>
+											</Link>
+										}
+									/>
+								}
+							></TooltipTrigger>
+							<TooltipContent>Gerenciar Cardápios Semanais</TooltipContent>
+						</Tooltip>
 					)}
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => setIsMealTypeManagerOpen(true)}
-						title="Gerenciar Tipos de Refeição"
-						className="h-9 w-9 p-0"
-					>
-						<Settings className="w-4 h-4" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => setIsTrashOpen(true)}
-						title="Lixeira"
-						className="h-9 w-9 p-0"
-					>
-						<Trash2 className="w-4 h-4" />
-					</Button>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => setIsMealTypeManagerOpen(true)}
+									className="h-9 w-9 p-0"
+								>
+									<Settings className="w-4 h-4" />
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Gerenciar Tipos de Refeição</TooltipContent>
+					</Tooltip>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => setIsTrashOpen(true)}
+									className="h-9 w-9 p-0"
+								>
+									<Trash2 className="w-4 h-4" />
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>Lixeira</TooltipContent>
+					</Tooltip>
 					<Button
 						variant="outline"
 						size="sm"
@@ -238,7 +263,7 @@ export function PlanningBoard() {
 			/>
 
 			{/* Calendar Grid */}
-			<div className="border rounded-lg bg-card shadow-sm overflow-hidden select-none">
+			<div className="border rounded-lg bg-card overflow-hidden select-none">
 				{/* Week Days Header */}
 				<div className="grid grid-cols-7 border-b bg-muted/40 text-center">
 					{weekDays.map((day) => (
@@ -311,7 +336,7 @@ export function PlanningBoard() {
 												key={menu.id}
 												className="text-xs truncate flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:bg-accent"
 											>
-												<span className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
+												<span className={cn("w-1.5 h-1.5 rounded-full", statusColor)} />
 												<span className="font-medium text-foreground/80">
 													{mealName.substring(0, 3)}
 												</span>

@@ -8,6 +8,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/cn"
 import { MEAL_LABEL } from "@/lib/fiscal"
 import { formatDate } from "@/lib/meal"
 import type { MealKey } from "@/types/domain/meal"
@@ -59,7 +60,10 @@ export default function Filters({
 
 							<Select value={selectedDate} onValueChange={(v) => setSelectedDate(v ?? "")}>
 								<SelectTrigger
-									className={`${baseTrigger} ${isInvalid ? "border-destructive/50 bg-destructive/10" : ""}`}
+									className={cn(
+										baseTrigger,
+										isInvalid && "border-destructive/50 bg-destructive/10"
+									)}
 									aria-invalid={isInvalid}
 								>
 									<SelectValue placeholder="Selecione o dia">
@@ -121,7 +125,10 @@ export default function Filters({
 
 							<Select value={selectedMeal} onValueChange={(v) => setSelectedMeal(v as MealKey)}>
 								<SelectTrigger
-									className={`${baseTrigger} ${isInvalid ? "border-destructive/50 bg-destructive/10" : ""}`}
+									className={cn(
+										baseTrigger,
+										isInvalid && "border-destructive/50 bg-destructive/10"
+									)}
 									aria-invalid={isInvalid}
 								>
 									<SelectValue placeholder="Selecione a refeição">

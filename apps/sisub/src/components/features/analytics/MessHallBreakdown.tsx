@@ -12,6 +12,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
 import { calculatePercentage } from "@/lib/dashboard"
 import type { MessHallStats } from "@/types/domain/dashboard"
 
@@ -85,26 +87,33 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 						<CardDescription>Previsão e presença por refeitório</CardDescription>
 					</div>
 					<div className="flex gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={expandAll}
-							className="text-xs gap-1"
-							title="Expandir todos"
-						>
-							<Maximize2 className="h-3 w-3" aria-hidden="true" />
-							<span className="hidden sm:inline">Expandir</span>
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={collapseAll}
-							className="text-xs gap-1"
-							title="Recolher todos"
-						>
-							<Minimize2 className="h-3 w-3" aria-hidden="true" />
-							<span className="hidden sm:inline">Recolher</span>
-						</Button>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button variant="outline" size="sm" onClick={expandAll} className="text-xs gap-1">
+										<Maximize2 className="h-3 w-3" aria-hidden="true" />
+										<span className="hidden sm:inline">Expandir</span>
+									</Button>
+								}
+							></TooltipTrigger>
+							<TooltipContent>Expandir todos</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={collapseAll}
+										className="text-xs gap-1"
+									>
+										<Minimize2 className="h-3 w-3" aria-hidden="true" />
+										<span className="hidden sm:inline">Recolher</span>
+									</Button>
+								}
+							></TooltipTrigger>
+							<TooltipContent>Recolher todos</TooltipContent>
+						</Tooltip>
 					</div>
 				</div>
 			</CardHeader>
@@ -131,7 +140,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 										<h3 className="font-semibold text-lg text-left">{mh.mess_hall_name}</h3>
 									</div>
 									{/* Taxa de comparecimento sempre visível */}
-									<div className={`flex items-center gap-2 ${trendColor} font-semibold`}>
+									<div className={cn("flex items-center gap-2 font-semibold", trendColor)}>
 										{getTrendIcon(attendanceRate)}
 										<span className="text-sm">{attendanceRate.toFixed(1)}%</span>
 									</div>
@@ -152,7 +161,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 										</div>
 										<div className="col-span-2 md:col-span-1">
 											<p className="text-sm text-muted-foreground">Taxa de Comparecimento</p>
-											<p className={`text-2xl font-bold ${trendColor}`}>
+											<p className={cn("text-2xl font-bold", trendColor)}>
 												{attendanceRate.toFixed(1)}%
 											</p>
 										</div>

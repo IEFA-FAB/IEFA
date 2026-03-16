@@ -34,7 +34,7 @@ function ScopeSelectorSkeleton() {
 			{Array.from({ length: 3 }).map((_, i) => (
 				<div
 					key={i}
-					className="h-36 rounded-2xl border border-border/50 bg-background/40 animate-pulse"
+					className="h-36 rounded-xl border border-border/50 bg-muted/20 animate-pulse"
 				/>
 			))}
 		</div>
@@ -62,7 +62,7 @@ export function ScopeSelector({
 		<div className="flex h-full flex-col items-center justify-center px-4 py-12">
 			<div className="w-full max-w-4xl space-y-10">
 				<div className="space-y-2 text-center">
-					<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mx-auto">
+					<div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary mx-auto">
 						<Icon className="h-7 w-7" />
 					</div>
 					<h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
@@ -84,7 +84,7 @@ export function ScopeSelector({
 								key={item.id}
 								type="button"
 								onClick={() => onSelect(item.id)}
-								className="group relative flex h-auto flex-col items-start gap-3 rounded-2xl border border-border/50 bg-background/60 backdrop-blur-sm p-6 text-left transition-all duration-200 hover:border-primary/30 hover:bg-background/80 hover:shadow-lg hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className="group relative flex h-auto flex-col items-start gap-3 rounded-xl border border-border/50 bg-card p-6 text-left transition-all duration-200 hover:border-primary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 								variant="outline"
 							>
 								<div className="flex shrink-0 h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">

@@ -48,7 +48,7 @@ function Tutorial() {
 				outClass="opacity-0 translate-y-6"
 				inClass="opacity-100 translate-y-0"
 			>
-				<Card className="rounded-2xl border border-border bg-card shadow-sm">
+				<Card className="rounded-xl border border-border bg-card">
 					<CardContent className="p-8 md:p-10">
 						<div className="flex items-start md:items-center md:justify-between flex-col md:flex-row gap-6">
 							<div>
@@ -105,9 +105,8 @@ function Tutorial() {
 					{overviewCards.map((card) => (
 						<Card
 							key={card.title}
-							className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 focus-within:ring-1 focus-within:ring-ring"
+							className="group relative overflow-hidden rounded-xl border border-border bg-card transition-all duration-300 hover:-translate-y-0.5 focus-within:ring-1 focus-within:ring-ring"
 						>
-							<div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-primary/50 via-primary/20 to-primary/50" />
 							<CardHeader>
 								<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted ring-1 ring-inset ring-border">
 									<card.icon className="h-6 w-6 text-primary" />
@@ -191,7 +190,7 @@ function Tutorial() {
 					))}
 				</div>
 
-				<Card className="rounded-xl border border-border bg-card shadow-sm p-6 mt-8 max-w-4xl mx-auto">
+				<Card className="rounded-xl border border-border bg-card p-6 mt-8 max-w-4xl mx-auto">
 					<CardTitle className="text-lg">Dicas úteis</CardTitle>
 					<Separator className="my-3" />
 					<ul className="text-muted-foreground text-sm list-disc pl-5 space-y-1">
@@ -223,7 +222,7 @@ function Tutorial() {
 				delayClass="delay-200"
 			>
 				<div className="container mx-auto px-4">
-					<Card className="rounded-2xl border border-border bg-card shadow-sm max-w-5xl mx-auto">
+					<Card className="rounded-xl border border-border bg-card max-w-5xl mx-auto">
 						<CardHeader className="pb-3">
 							<Badge variant="outline" className="w-fit gap-2">
 								<ShieldCheck className="h-4 w-4 text-primary" />
@@ -263,7 +262,7 @@ function Tutorial() {
 
 				<div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
 					{faqItems.map((qa) => (
-						<Card key={qa.question} className="rounded-xl border border-border bg-card shadow-sm">
+						<Card key={qa.question} className="rounded-xl border border-border bg-card">
 							<CardHeader className="pb-2">
 								<CardTitle className="text-base">{qa.question}</CardTitle>
 							</CardHeader>
@@ -284,7 +283,7 @@ function Tutorial() {
 				delayClass="delay-200"
 			>
 				<div className="container mx-auto px-4">
-					<Card className="rounded-2xl border border-border bg-card shadow-sm max-w-5xl mx-auto">
+					<Card className="rounded-xl border border-border bg-card max-w-5xl mx-auto">
 						<CardHeader className="pb-3">
 							<Badge variant="outline" className="w-fit gap-2">
 								<AlertTriangle className="h-4 w-4 text-primary" />
@@ -307,7 +306,7 @@ function Tutorial() {
 				duration="duration-500"
 				delayClass="delay-200"
 			>
-				<Card className="rounded-2xl border border-border bg-card shadow-sm max-w-4xl mx-auto text-center">
+				<Card className="rounded-xl border border-border bg-card max-w-4xl mx-auto text-center">
 					<CardHeader>
 						<CardTitle className="text-2xl">{privacy.title}</CardTitle>
 						<CardDescription className="text-muted-foreground">{privacy.text}</CardDescription>
@@ -323,7 +322,7 @@ function Tutorial() {
 				duration="duration-500"
 				delayClass="delay-250"
 			>
-				<div className="relative text-center max-w-3xl mx-auto rounded-2xl bg-linear-to-r from-primary to-primary/85 text-primary-foreground shadow-lg ring-1 ring-inset ring-border/30 overflow-hidden p-10 px-6 md:px-20">
+				<div className="relative text-center max-w-3xl mx-auto rounded-xl bg-primary text-primary-foreground ring-1 ring-inset ring-border/30 overflow-hidden p-10 px-6 md:px-20">
 					<div
 						aria-hidden
 						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.12),transparent_50%)]"
@@ -363,8 +362,8 @@ function StepCard(props: { icon: LucideIcon; title: string; description: string 
 	const { icon: Icon, title, description } = props
 	return (
 		<Card
-			className="group w-full text-left rounded-xl border bg-card p-6 shadow-sm transition-all duration-300
-                 border-border ring-1 ring-inset ring-transparent hover:-translate-y-0.5 hover:shadow-md hover:ring-border
+			className="group w-full text-left rounded-xl border bg-card p-6 transition-all duration-300
+                 border-border ring-1 ring-inset ring-transparent hover:-translate-y-0.5 hover:ring-border
                  focus-within:ring-1 focus-within:ring-ring"
 		>
 			<div className="mb-3 flex items-center gap-3">

@@ -8,6 +8,8 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { DishDetails } from "@/hooks/data/useDailyMenuContent"
 import { cn } from "@/lib/cn"
 
@@ -61,26 +63,36 @@ export const MealButton = memo<MealButtonProps>(
 		if (compact) {
 			return (
 				<div className="flex flex-col gap-1 w-full">
-					<button
-						type="button"
-						onClick={onToggle}
-						disabled={disabled}
-						className={buttonClasses}
-						title={`${meal.label} - ${isSelected ? "Confirmado" : "Não vai"}`}
-					>
-						<div className="flex flex-col items-center space-y-1 w-full">
-							<Icon className={iconClasses} />
-							<span className="text-xs font-medium truncate w-full text-center">{meal.label}</span>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<Button
+									type="button"
+									onClick={onToggle}
+									disabled={disabled}
+									className={buttonClasses}
+								>
+									<div className="flex flex-col items-center space-y-1 w-full">
+										<Icon className={iconClasses} />
+										<span className="text-xs font-medium truncate w-full text-center">
+											{meal.label}
+										</span>
 
-							{/* Indicador visual via token */}
-							<div
-								className={cn(
-									"w-2 h-2 rounded-sm transition-colors duration-200",
-									isSelected ? "bg-success" : "bg-muted-foreground/30"
-								)}
-							/>
-						</div>
-					</button>
+										{/* Indicador visual via token */}
+										<div
+											className={cn(
+												"w-2 h-2 rounded-sm transition-colors duration-200",
+												isSelected ? "bg-success" : "bg-muted-foreground/30"
+											)}
+										/>
+									</div>
+								</Button>
+							}
+						></TooltipTrigger>
+						<TooltipContent>
+							{meal.label} — {isSelected ? "Confirmado" : "Não vai"}
+						</TooltipContent>
+					</Tooltip>
 
 					{mainDish && (
 						<Accordion className="w-full bg-muted/20 rounded-md border border-border/50">
