@@ -1,7 +1,7 @@
 {
   "name": "iefa",
   "private": true,
-  "packageManager": "bun@1.3.9",
+  "packageManager": "bun@1.3.10",
   "overrides": {
     "react": "^19.2",
     "react-dom": "^19.2"

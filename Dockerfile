@@ -1,7 +1,7 @@
 # =============================================================================
 # BASE - Alpine com Bun
 # =============================================================================
-FROM oven/bun:1.3.8-alpine AS base
+FROM oven/bun:1.3.10-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -12,9 +12,10 @@ FROM base AS deps
 COPY package.json bun.lock ./
 COPY packages ./packages
 COPY apps/api/package.json ./apps/api/
-COPY apps/iefa/package.json ./apps/iefa/
+COPY apps/portal/package.json ./apps/portal/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/docs/package.json ./apps/docs/
+COPY apps/ai/package.json ./apps/ai/
 RUN bun install --frozen-lockfile
 
 # =============================================================================
@@ -23,7 +24,6 @@ RUN bun install --frozen-lockfile
 FROM deps AS api-build
 COPY tsconfig.json ./
 COPY apps/api ./apps/api
-COPY packages ./packages
 RUN bun --filter='@iefa/api' run build
 RUN test -f apps/api/dist/index.js || \
     (echo "❌ Build failed: output missing" && exit 1)
@@ -45,27 +45,26 @@ FROM deps AS iefa-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_ANON_KEY
 ARG VITE_RAG_SUPABASE_URL
-ARG VITE_RAG_SUPABASE_SERVICE_ROLE_KEY
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
 COPY tsconfig.json ./
-COPY apps/iefa ./apps/iefa
+COPY apps/portal ./apps/portal
 
 # Clear any local cache
-RUN rm -rf apps/iefa/.vite apps/iefa/.tanstack apps/iefa/node_modules/.vite
+RUN rm -rf apps/portal/.vite apps/portal/.tanstack apps/portal/node_modules/.vite
 
 # Build with environment variables available to Vite
 RUN bun --filter='@iefa/portal' run build
 # Validação: output existe?
-RUN test -f apps/iefa/.output/server/index.mjs || \
+RUN test -f apps/portal/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
-FROM oven/bun:1.3.8-alpine AS iefa
+FROM oven/bun:1.3.10-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
 # TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
-COPY --from=iefa-build /app/apps/iefa/.output ./.output
+COPY --from=iefa-build /app/apps/portal/.output ./.output
 USER bun
 EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
@@ -76,7 +75,7 @@ CMD ["bun", ".output/server/index.mjs"]
 FROM deps AS sisub-build
 # Build-time environment variables for Vite
 ARG VITE_SISUB_SUPABASE_URL
-ARG VITE_SISUB_SUPABASE_ANON_KEY
+ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
@@ -91,7 +90,7 @@ RUN bun --filter='@iefa/sisub' run build
 RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
-FROM oven/bun:1.3.8-alpine AS sisub
+FROM oven/bun:1.3.10-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 # TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
@@ -104,7 +103,6 @@ CMD ["bun", ".output/server/index.mjs"]
 # RAG (apps/ai) — Hono + LangGraph + Bun
 # =============================================================================
 FROM deps AS rag-build
-COPY turbo.json ./
 COPY tsconfig.json ./
 COPY apps/ai ./apps/ai
 RUN test -f apps/ai/src/index.ts || \
@@ -126,8 +124,9 @@ CMD ["bun", "apps/ai/src/index.ts"]
 FROM deps AS docs-build
 COPY tsconfig.json ./
 COPY apps/docs ./apps/docs
-COPY packages ./packages
 RUN bun --filter='@iefa/docs' run build
+RUN test -f apps/docs/dist/index.html || \
+    (echo "❌ Build failed: output missing" && exit 1)
 
 FROM nginx:alpine AS docs
 COPY --from=docs-build /app/apps/docs/dist /usr/share/nginx/html
