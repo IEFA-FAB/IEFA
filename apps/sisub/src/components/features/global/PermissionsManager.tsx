@@ -136,7 +136,7 @@ function ScopeLabel({
 //   w-auto               → popup cresce para envolver o conteúdo (não fica preso na largura do trigger)
 //   min-w-[var(...)]     → mínimo igual à largura do trigger, para não ficar menor
 //   p-1                  → padding interno proporcional ao rounded-lg do popup (8px ≈ rounded-lg)
-const CONTENT_CLS = "w-auto min-w-[var(--anchor-width)] p-2"
+const CONTENT_CLS = "w-auto min-w-(--anchor-width) p-2"
 
 function PermissionDialog({
 	open,

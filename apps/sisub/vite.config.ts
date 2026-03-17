@@ -61,5 +61,6 @@ export default defineConfig(({ command }) => ({
 		minify: "oxc",
 		sourcemap: false,
 		cssCodeSplit: true,
+		chunkSizeWarningLimit: 800,
 	},
 }))
