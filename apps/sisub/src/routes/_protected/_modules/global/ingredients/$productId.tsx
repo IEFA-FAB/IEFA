@@ -1,10 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { ArrowLeft, Calendar, Package } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { Calendar, Package } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
 import { ProductItemsManager } from "@/components/features/global/ProductItemsManager"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { foldersQueryOptions, productItemsQueryOptions, productQueryOptions } from "@/services/ProductsService"
 
 /**
@@ -29,7 +28,6 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/$p
 
 function ProductDetailPage() {
 	const { productId } = Route.useParams()
-	const navigate = useNavigate()
 
 	const { data: product } = useSuspenseQuery(productQueryOptions(productId))
 	const { data: folders } = useSuspenseQuery(foldersQueryOptions())
@@ -38,22 +36,6 @@ function ProductDetailPage() {
 
 	return (
 		<div className="space-y-6">
-			{/* Breadcrumb */}
-			<div className="flex items-center gap-1.5 text-sm">
-				<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/global/ingredients" })} className="gap-1.5 px-1.5">
-					<ArrowLeft className="w-3.5 h-3.5" />
-					Insumos
-				</Button>
-				{folder && (
-					<>
-						<span className="text-muted-foreground">/</span>
-						<span className="text-muted-foreground">{folder.description}</span>
-					</>
-				)}
-				<span className="text-muted-foreground">/</span>
-				<span className="font-medium truncate">{product.description}</span>
-			</div>
-
 			{/* Cabeçalho do produto */}
 			<div className="flex items-start gap-3">
 				<div className="flex items-center justify-center w-10 h-10 rounded-[var(--radius)] bg-primary/10 border border-primary/20 shrink-0 mt-0.5">

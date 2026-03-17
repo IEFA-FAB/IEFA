@@ -58,16 +58,16 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Cores:** Obrigatório usar a escala lógica (`background`, `foreground`, `primary`, `secondary`, `muted`, `destructive`, `success`, `warning`).
 - **Radius:** Guiado através do token padrão global (`0.5rem`). Proibido estampar classes predefinidas soltas (ex. `rounded-lg`, `rounded-xl`) fora do componente base.
 - **Hierarquia de superfície:** Dois padrões são reconhecidos e mutuamente exclusivos por nível:
-  - **Nível 1 — Contêiner de seção** (grupo lógico com título, descrição e conteúdo relacionado): obrigatório usar o primitivo `<Card>`. Proibido reimplementar com `div.rounded-* border bg-card`.
+  - **Nível 1 — Contêiner de seção** (grupo lógico com título, descrição e conteúdo relacionado): obrigatório usar o primitivo `<Card>`. Proibido reimplementar com `div.rounded-* border bg-card`. `<Card>` pode ser usado sem `CardHeader` interno quando o título do grupo está imediatamente fora do Card no mesmo bloco visual coeso (ex: seção com `<h2>` externo + `<Card>` como container de lista). Proibido usar `<Card>` sem `CardHeader` como substituto de `div.rounded-md border` em wrappers de tabelas sem título.
   - **Nível 2 — Contêiner de tabela inline** (wrapper direto de `<Table>` sem título próprio): aceito o padrão `div.rounded-md border` sem fundo explícito. Proibido usar `<Card>` apenas para envolver uma `<Table>` sem `CardHeader`.
 - **Shadows:** Mantidas inerentes aos tokens. O sistema usa `opacity: 0` indicando intencionalmente estética de *flat design*. Proibido forçar sombras artificiais soltas.
 - **Spacing/Size:** Aceito e documentado o tamanho `size="sm"` como escala predominante nos componentes UI interativos.
 - **Variants:** Só devem ser consumidas mediante tipagem restrita do CVA do componente. Invenções como `variant="floating"` são proibidas.
 - **States (Hover/Focus/Active/Disabled):** Requer padrão consistente. Obrigatório usar a semântica de `ring` (ex: `focus-visible:ring-[3px] focus-visible:ring-ring`) via CVA.
-- **Formulários:** Uso exclusivo e incontornável do padrão `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldError`). Redes de formulário em grids soltos são depreciadas.
-- **Acessibilidade:** Elementos interativos não devem ocultar seus anéis de foco.
+- **Formulários:** Uso exclusivo e incontornável do padrão `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldError`). Redes de formulário em grids soltos são depreciadas. Para texto de dica abaixo de um campo (hint), usar obrigatoriamente `<FieldDescription>` de `field.tsx`. Proibido usar `<p className="text-xs text-muted-foreground">` como substituto de `FieldDescription` dentro de um `<Field>`.
+- **Acessibilidade:** Elementos interativos não devem ocultar seus anéis de foco. Containers que usam `opacity-0` para efeito hover **devem** incluir `focus-within:opacity-100` para garantir visibilidade ao teclado (ex: `opacity-0 group-hover:opacity-100 focus-within:opacity-100`).
 - **Tooltips:** O atributo HTML `title` é proibido como mecanismo de tooltip em elementos interativos. Usar obrigatoriamente o primitivo `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` de `@/components/ui/tooltip`. Razão: `title` não é exibido em foco de teclado nem em touch, falha WCAG 1.4.13, e não respeita o tema do design system. Para botões exclusivamente de ícone, complementar com `aria-label` além do `<Tooltip>`.
-- **Navegação Polimórfica:** Para exibir links com aparência de botões, use a prop `render` (ou equivalente `asChild`) do primitivo `Button` encapsulando o `Link` (ex: `<Button render={<Link to="/rota">...</Link>} />`). Jamais aninhe tags iterativas quebrando a semântica de acessibilidade HTML nativa.
+- **Navegação Polimórfica:** Para exibir links com aparência de botões, use a prop `render` (ou equivalente `asChild`) do primitivo `Button` encapsulando o `Link` (ex: `<Button render={<Link to="/rota">...</Link>} />`). Jamais aninhe tags iterativas quebrando a semântica de acessibilidade HTML nativa. **Distinção obrigatória:** `render={<Link>}` é exigido quando o destino é uma URL fixa navegável (usuário pode abrir em nova aba, copiar link). `onClick={() => navigate(...)}` é aceito para navegação imperativa contextual — cancel de formulário, redirect pós-ação assíncrona, ou quando a rota depende de lógica de estado em execução.
 - **`className`:** Passado como prop para organizar localmente a interface estrutural, jamais para reespecificar a intenção do componente.
 - **HTML cru:** Uso de native interativo tag (`<button>`) é proibido para montar UI local se houver um primitivo `Button` apto a atender, exceto em integrações profundas onde o primitive causa bugs inadiáveis.
 - **`cn()`:** Exigido globalmente para interpolações dinâmicas de estados com `className`.
@@ -79,6 +79,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Proibido** uso de concatenação nativa de strings para classes dinâmicas (ex: ```className={`class1 ${ativo ? 'bg-primary' : ''}`}```). Usar `cn()`.
 - **Proibido** aninhar tags HTML interativas para criar componentes visuais (ex: `<Link><Button>...</Button></Link>` ou `<Button><Link>...</Link></Button>`).
 - **Proibido** criar elementos `<Label>` soltos combinados com tags vermelhas soltas para erros de formulário, ignorando a infraestrutura de `field.tsx`.
+- **Proibido** usar `<p className="text-xs text-muted-foreground">` como hint de campo dentro de um `<Field>`. Usar `<FieldDescription>` de `field.tsx`.
 - **Proibido** usar o atributo `title` como tooltip em elementos interativos (`<Button>`, `<a>`, etc.). Usar o primitivo `<Tooltip>` do design system.
 
 ## 7. Critérios de decisão
@@ -116,10 +117,10 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 - [ ] Condicionais de CSS utilizam `cn()` ao invés de interpolações literais de strings com condições lógicas brutas?
 - [ ] O componente está acessível e mantém indicadores de foco (focus-visible)?
 - [ ] Tooltips em elementos interativos usam o primitivo `<Tooltip>` (não o atributo `title`)?
-- [ ] Formulários adotaram as instâncias do `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`)?
+- [ ] Formulários adotaram as instâncias do `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription` para hints)?
 - [ ] Foi verificado se a mudança justifica uma abstração de primitive `CVA` ou apenas um `className` de espaçamento de feature/tela?
 
 ## 10. Referências de implementação
 - **Wrappers semânticos de referência:** `AppShell.tsx` e `PageHeader.tsx` — alta coesão, baixo acoplamento. Usar como modelo ao extrair novos wrappers.
-- **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod.
+- **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod. Para hints de campo, ver `ProductItemForm.tsx` — uso correto de `FieldDescription`.
 - **Tooltip de referência:** `weekly-menus/$weeklyMenuId.tsx` — uso correto de `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` em botões de ação.

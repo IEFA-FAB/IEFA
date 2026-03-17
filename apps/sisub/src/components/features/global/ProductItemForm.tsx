@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
@@ -107,25 +107,27 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 							)}
 						</form.Field>
 
-						{/* Produto Genérico */}
-						<form.Field name="product_id">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Produto Genérico <span className="text-destructive">*</span>
-									</FieldLabel>
-									<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
-										<option value="">Selecione um produto</option>
-										{products?.map((p) => (
-											<option key={p.id} value={p.id}>
-												{p.description}
-											</option>
-										))}
-									</Select>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
-								</Field>
-							)}
-						</form.Field>
+						{/* Produto Genérico — só exibido fora do contexto de rota com produto fixo */}
+						{!defaultProductId && (
+							<form.Field name="product_id">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>
+											Produto Genérico <span className="text-destructive">*</span>
+										</FieldLabel>
+										<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
+											<option value="">Selecione um produto</option>
+											{products?.map((p) => (
+												<option key={p.id} value={p.id}>
+													{p.description}
+												</option>
+											))}
+										</Select>
+										<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									</Field>
+								)}
+							</form.Field>
+						)}
 
 						{/* Código de Barras */}
 						<form.Field name="barcode">
@@ -144,7 +146,7 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 									<Field>
 										<FieldLabel htmlFor={field.name}>Unidade de Compra</FieldLabel>
 										<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
-										<p className="text-xs text-muted-foreground">Embalagem do fornecedor</p>
+										<FieldDescription>Embalagem do fornecedor</FieldDescription>
 									</Field>
 								)}
 							</form.Field>
@@ -161,7 +163,7 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 											onChange={(e) => field.handleChange(Number(e.target.value))}
 											placeholder="5.0"
 										/>
-										<p className="text-xs text-muted-foreground">Ex: 5kg por saco</p>
+										<FieldDescription>Ex: 5kg por saco</FieldDescription>
 									</Field>
 								)}
 							</form.Field>

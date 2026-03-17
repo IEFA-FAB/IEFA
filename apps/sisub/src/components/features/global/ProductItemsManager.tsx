@@ -139,7 +139,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 										</div>
 									</CollapsibleTrigger>
 
-									<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+									<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
 										<Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)} disabled={isDeleting} aria-label={`Editar ${item.description}`}>
 											<Edit className="w-3.5 h-3.5" />
 										</Button>
