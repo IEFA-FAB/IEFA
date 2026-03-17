@@ -19,10 +19,7 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 		// Quando filtrando por unidade, resolve os IDs de cozinha da unidade
 		let kitchenIds: number[] | undefined
 		if (unitId) {
-			const { data: kitchens, error: kitchensError } = await supabase
-				.from("kitchen")
-				.select("id")
-				.eq("unit_id", unitId)
+			const { data: kitchens, error: kitchensError } = await supabase.from("kitchen").select("id").eq("unit_id", unitId)
 			if (kitchensError) throw new Error(`Erro ao buscar cozinhas da unidade: ${kitchensError.message}`)
 			kitchenIds = (kitchens ?? []).map((k) => k.id)
 			if (kitchenIds.length === 0) return []

@@ -72,6 +72,7 @@ FROM deps AS sisub-build
 # Build-time environment variables for Vite
 ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
+ARG SISUB_SUPABASE_SECRET_KEY
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./

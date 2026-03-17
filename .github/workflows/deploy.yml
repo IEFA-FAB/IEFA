@@ -337,6 +337,7 @@ jobs:
             sisub.tags=registry.fly.io/sisub:latest
             sisub.args.VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
             sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+            sisub.args.SISUB_SUPABASE_SECRET_KEY=${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
 
   deploy-sisub:
     needs: build-sisub
