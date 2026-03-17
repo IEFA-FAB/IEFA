@@ -84,7 +84,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Validate env
-        run: bunx varlock inject -- echo "✅ env validated"
+        run: bunx varlock load
         working-directory: apps/api
         env:
           API_PORT: ${{ secrets.API_PORT }}
@@ -182,7 +182,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Validate env
-        run: bunx varlock inject -- echo "✅ env validated"
+        run: bunx varlock load
         working-directory: apps/portal
         env:
           VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
@@ -284,7 +284,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Validate env
-        run: bunx varlock inject -- echo "✅ env validated"
+        run: bunx varlock load
         working-directory: apps/sisub
         env:
           VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
@@ -383,7 +383,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Validate env
-        run: bunx varlock inject -- echo "✅ env validated"
+        run: bunx varlock load
         working-directory: apps/ai
         env:
           SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}

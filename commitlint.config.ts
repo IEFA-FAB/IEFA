@@ -7,14 +7,10 @@ const validScopes = [
 	"ai",
 	"api",
 	"docs",
-	// packages
-	"ui",
-	"env",
 	// monorepo raiz
 	"deps",
 	"ci",
 	"scripts",
-	"plans",
 	"root",
 ];
 
