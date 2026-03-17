@@ -18,6 +18,7 @@ export interface ProcurementParams {
 	startDate: string
 	endDate: string
 	kitchenId?: number
+	unitId?: number
 }
 
 // ============================================================================
@@ -33,6 +34,7 @@ export const procurementNeedsQueryOptions = (params: ProcurementParams) =>
 					startDate: params.startDate,
 					endDate: params.endDate,
 					kitchenId: params.kitchenId,
+					unitId: params.unitId,
 				},
 			}),
 		staleTime: 1000 * 60 * 5,

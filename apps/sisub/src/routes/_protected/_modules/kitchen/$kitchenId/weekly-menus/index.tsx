@@ -127,6 +127,7 @@ function WeeklyMenusPage() {
 								variant="outline"
 								size="sm"
 								className="mt-2"
+								nativeButton={false}
 								render={
 									<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
 										<Plus className="w-4 h-4 mr-2" />
@@ -173,6 +174,7 @@ function WeeklyMenusPage() {
 																<Button
 																	size="icon"
 																	variant="ghost"
+																	nativeButton={false}
 																	render={
 																		<Link
 																			to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId"

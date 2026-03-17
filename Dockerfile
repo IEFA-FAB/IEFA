@@ -10,7 +10,6 @@ WORKDIR /app
 # =============================================================================
 FROM base AS deps
 COPY package.json bun.lock ./
-COPY packages ./packages
 COPY apps/api/package.json ./apps/api/
 COPY apps/portal/package.json ./apps/portal/
 COPY apps/sisub/package.json ./apps/sisub/
@@ -31,7 +30,6 @@ FROM base AS api
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=api-build /app/apps/api ./apps/api
-COPY --from=api-build /app/packages ./packages
 USER bun
 EXPOSE 3000
 CMD ["bun", "apps/api/dist/index.js"]
@@ -108,7 +106,6 @@ FROM base AS rag
 ENV NODE_ENV=production
 ENV PORT=8000
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
 COPY --from=rag-build /app/apps/ai ./apps/ai
 USER bun
 EXPOSE 8000

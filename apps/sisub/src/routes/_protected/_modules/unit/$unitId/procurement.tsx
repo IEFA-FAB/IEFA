@@ -10,8 +10,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useProcurement } from "@/hooks/data/useProcurement"
 
-export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/procurement")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement")({
+	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
 	component: ProcurementPage,
 	head: () => ({
 		meta: [{ title: "Lista de Compras" }, { name: "description", content: "Calcule necessidades de aquisição" }],
@@ -19,7 +19,8 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/pr
 })
 
 function ProcurementPage() {
-	// Default: próxima semana
+	const { unitId } = Route.useParams()
+
 	const getDefaultDateRange = () => {
 		const today = new Date()
 		const nextWeek = new Date(today)
@@ -36,6 +37,7 @@ function ProcurementPage() {
 	const { needs, isLoading } = useProcurement({
 		startDate: dateRange.start,
 		endDate: dateRange.end,
+		unitId: Number(unitId),
 	})
 
 	const handleExportCSV = () => {

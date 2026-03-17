@@ -9,11 +9,24 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 			startDate: z.string(),
 			endDate: z.string(),
 			kitchenId: z.number().optional(),
+			unitId: z.number().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<ProcurementNeed[]> => {
-		const { startDate, endDate, kitchenId } = data
+		const { startDate, endDate, kitchenId, unitId } = data
 		const supabase = getSupabaseServerClient()
+
+		// Quando filtrando por unidade, resolve os IDs de cozinha da unidade
+		let kitchenIds: number[] | undefined
+		if (unitId) {
+			const { data: kitchens, error: kitchensError } = await supabase
+				.from("kitchen")
+				.select("id")
+				.eq("unit_id", unitId)
+			if (kitchensError) throw new Error(`Erro ao buscar cozinhas da unidade: ${kitchensError.message}`)
+			kitchenIds = (kitchens ?? []).map((k) => k.id)
+			if (kitchenIds.length === 0) return []
+		}
 
 		// 1. Buscar menu_items no período
 		let menuQuery = supabase
@@ -38,6 +51,8 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 
 		if (kitchenId) {
 			menuQuery = menuQuery.eq("daily_menu.kitchen_id", kitchenId)
+		} else if (kitchenIds) {
+			menuQuery = menuQuery.in("daily_menu.kitchen_id", kitchenIds)
 		}
 
 		const { data: menuItems, error: menuError } = await menuQuery
