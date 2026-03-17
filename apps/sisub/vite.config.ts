@@ -53,6 +53,7 @@ export default defineConfig(({ command }) => ({
 	},
 	ssr: {
 		noExternal: command === "build" ? true : undefined,
+		external: ["varlock", "varlock/patch-server-response"],
 		target: "node",
 	},
 	build: {
