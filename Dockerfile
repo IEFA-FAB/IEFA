@@ -22,7 +22,6 @@ RUN bun install --frozen-lockfile
 # API
 # =============================================================================
 FROM deps AS api-build
-COPY tsconfig.json ./
 COPY apps/api ./apps/api
 RUN bun --filter='@iefa/api' run build
 RUN test -f apps/api/dist/index.js || \
@@ -48,7 +47,6 @@ ARG VITE_RAG_SUPABASE_URL
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
-COPY tsconfig.json ./
 COPY apps/portal ./apps/portal
 
 # Clear any local cache
@@ -79,7 +77,6 @@ ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
-COPY tsconfig.json ./
 COPY apps/sisub ./apps/sisub
 
 # Clear any local cache
@@ -103,7 +100,6 @@ CMD ["bun", ".output/server/index.mjs"]
 # RAG (apps/ai) — Hono + LangGraph + Bun
 # =============================================================================
 FROM deps AS rag-build
-COPY tsconfig.json ./
 COPY apps/ai ./apps/ai
 RUN test -f apps/ai/src/index.ts || \
     (echo "❌ RAG entrypoint missing" && exit 1)
@@ -122,7 +118,6 @@ CMD ["bun", "apps/ai/src/index.ts"]
 # DOCS
 # =============================================================================
 FROM deps AS docs-build
-COPY tsconfig.json ./
 COPY apps/docs ./apps/docs
 RUN bun --filter='@iefa/docs' run build
 RUN test -f apps/docs/dist/index.html || \

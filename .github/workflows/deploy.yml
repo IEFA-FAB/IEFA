@@ -52,6 +52,7 @@ jobs:
               - 'turbo.json'
             docs:
               - 'apps/docs/**'
+              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -59,17 +60,35 @@ jobs:
               - 'turbo.json'
             rag:
               - 'apps/ai/**'
+              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
 
+  # ============================================
+  # LEAK DETECTION
+  # ============================================
+  scan:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+      - name: Scan for leaked secrets
+        run: bunx varlock scan
+
   # ============================================================
   # API  ── check → build → deploy
   # ============================================================
   check-api:
-    needs: [changes]
+    needs: [changes, scan]
     if: needs.changes.outputs.api == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -167,7 +186,7 @@ jobs:
   # IEFA  ── check → build → deploy
   # ============================================================
   check-iefa:
-    needs: [changes]
+    needs: [changes, scan]
     if: needs.changes.outputs.iefa == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -236,9 +255,6 @@ jobs:
       - name: Set Fly secrets
         run: |
           flyctl --config fly/iefa.toml secrets set \
-            VITE_IEFA_SUPABASE_URL="${{ secrets.VITE_IEFA_SUPABASE_URL }}" \
-            VITE_IEFA_SUPABASE_ANON_KEY="${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}" \
-            VITE_RAG_SUPABASE_URL="${{ secrets.VITE_RAG_SUPABASE_URL }}" \
             RAG_SUPABASE_SERVICE_ROLE_KEY="${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -269,7 +285,7 @@ jobs:
   # SISUB  ── check → build → deploy
   # ============================================================
   check-sisub:
-    needs: [changes]
+    needs: [changes, scan]
     if: needs.changes.outputs.sisub == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -336,8 +352,6 @@ jobs:
       - name: Set Fly secrets
         run: |
           flyctl --config fly/sisub.toml secrets set \
-            VITE_SISUB_SUPABASE_URL="${{ secrets.VITE_SISUB_SUPABASE_URL }}" \
-            VITE_SISUB_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}" \
             SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -368,7 +382,7 @@ jobs:
   # RAG / apps/ai  ── check → build → deploy
   # ============================================================
   check-rag:
-    needs: [changes]
+    needs: [changes, scan]
     if: needs.changes.outputs.rag == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -479,7 +493,7 @@ jobs:
   # DOCS  ── check → build → deploy
   # ============================================================
   check-docs:
-    needs: [changes]
+    needs: [changes, scan]
     if: needs.changes.outputs.docs == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
