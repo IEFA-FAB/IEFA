@@ -9,69 +9,6 @@ permissions:
 
 jobs:
   # ============================================
-  # VALIDAÇÃO - Falha rápido
-  # ============================================
-  validate:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Validate env — apps/portal
-        uses: dmno-dev/varlock@v1
-        with:
-          working-directory: apps/portal
-        env:
-          VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
-          VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
-          VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
-
-      - name: Validate env — apps/sisub
-        uses: dmno-dev/varlock@v1
-        with:
-          working-directory: apps/sisub
-        env:
-          VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-
-      - name: Validate env — apps/api
-        uses: dmno-dev/varlock@v1
-        with:
-          working-directory: apps/api
-        env:
-          API_PORT: ${{ secrets.API_PORT }}
-          API_SUPABASE_URL: ${{ secrets.API_SUPABASE_URL }}
-          API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
-
-      - name: Validate env — apps/ai
-        uses: dmno-dev/varlock@v1
-        with:
-          working-directory: apps/ai
-        env:
-          SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-          DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-          NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
-          EMB_MODEL: ${{ vars.EMB_MODEL }}
-          NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
-
-  # ============================================
-  # QUALITY - Lint, types, tests
-  # ============================================
-  quality:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bunx turbo run lint typecheck test
-
-  # ============================================
   # DETECT CHANGES
   # ============================================
   changes:
@@ -128,29 +65,67 @@ jobs:
               - 'turbo.json'
 
   # ============================================
-  # BUILD & DEPLOY - API
+  # INSTALL — aquece o cache para todos os jobs
   # ============================================
-  deploy-api:
-    needs: [validate, quality, changes]
+  install:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - name: Cache bun deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+
+  # ============================================
+  # CI — API  (validate → quality → deploy)
+  # ============================================
+  ci-api:
+    needs: [changes, install]
     if: needs.changes.outputs.api == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 20
+    timeout-minutes: 25
     concurrency:
       group: fly-deploy-api-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
-      
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Restore bun cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+
+      - name: Validate env
+        uses: dmno-dev/varlock-action@v0.0.1
+        with:
+          working-directory: apps/api
+        env:
+          API_PORT: ${{ secrets.API_PORT }}
+          API_SUPABASE_URL: ${{ secrets.API_SUPABASE_URL }}
+          API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Quality check
+        timeout-minutes: 15
+        run: bunx turbo run lint typecheck test --filter=./apps/api
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
-      
+
       - name: Generate tag
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
-      
+
       - name: Build and push
         uses: docker/bake-action@v6
         with:
@@ -159,10 +134,10 @@ jobs:
           set: |
             api.tags=registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
             api.tags=registry.fly.io/iefa-api:latest
-      
+
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
-      
+
       - name: Set Fly secrets
         run: |
           flyctl --config fly/api.toml secrets set \
@@ -171,12 +146,12 @@ jobs:
             API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      
+
       - name: Deploy
         run: flyctl deploy -c fly/api.toml --image registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      
+
       - name: Smoke test
         run: |
           for i in {1..20}; do
@@ -190,29 +165,52 @@ jobs:
           exit 1
 
   # ============================================
-  # BUILD & DEPLOY - IEFA
+  # CI — IEFA  (validate → quality → deploy)
   # ============================================
-  deploy-iefa:
-    needs: [validate, quality, changes]
+  ci-iefa:
+    needs: [changes, install]
     if: needs.changes.outputs.iefa == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 20
+    timeout-minutes: 25
     concurrency:
       group: fly-deploy-iefa-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
-      
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Restore bun cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+
+      - name: Validate env
+        uses: dmno-dev/varlock-action@v0.0.1
+        with:
+          working-directory: apps/portal
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
+          VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
+          VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Quality check
+        timeout-minutes: 15
+        run: bunx turbo run lint typecheck test --filter=./apps/iefa
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
-      
+
       - name: Generate tag
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
-      
+
       - name: Build and push
         uses: docker/bake-action@v6
         with:
@@ -225,10 +223,10 @@ jobs:
             iefa.args.VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
             iefa.args.VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
             iefa.args.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
-      
+
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
-      
+
       - name: Set Fly secrets
         run: |
           flyctl --config fly/iefa.toml secrets set \
@@ -238,12 +236,12 @@ jobs:
             VITE_RAG_SUPABASE_SERVICE_ROLE_KEY="${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      
+
       - name: Deploy
         run: flyctl deploy -c fly/iefa.toml --image registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      
+
       - name: Smoke test
         run: |
           for i in {1..5}; do
@@ -257,7 +255,7 @@ jobs:
           done
           echo "❌ IEFA health check failed"
           exit 1
-      
+
       - name: Rollback on failure
         if: failure()
         run: |
@@ -267,30 +265,51 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # ============================================
-  # BUILD & DEPLOY - SISUB
+  # CI — SISUB  (validate → quality → deploy)
   # ============================================
-  
-  deploy-sisub:
-    needs: [validate, quality, changes]
+  ci-sisub:
+    needs: [changes, install]
     if: needs.changes.outputs.sisub == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 20
+    timeout-minutes: 25
     concurrency:
       group: fly-deploy-sisub-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
-      
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Restore bun cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+
+      - name: Validate env
+        uses: dmno-dev/varlock-action@v0.0.1
+        with:
+          working-directory: apps/sisub
+        env:
+          VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+
+      - name: Quality check
+        timeout-minutes: 15
+        run: bunx turbo run lint typecheck test --filter=./apps/sisub
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
-      
+
       - name: Generate tag
         id: meta
         run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
-      
+
       - name: Build and push
         uses: docker/bake-action@v6
         with:
@@ -301,10 +320,10 @@ jobs:
             sisub.tags=registry.fly.io/sisub:latest
             sisub.args.VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
             sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-      
+
       - name: Deploy to Fly
         uses: superfly/flyctl-actions/setup-flyctl@v1
-      
+
       - name: Set Fly secrets
         run: |
           flyctl --config fly/sisub.toml secrets set \
@@ -313,12 +332,12 @@ jobs:
             SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      
+
       - name: Deploy
         run: flyctl deploy -c fly/sisub.toml --image registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      
+
       - name: Smoke test
         run: |
           for i in {1..5}; do
@@ -332,7 +351,7 @@ jobs:
           done
           echo "❌ SISUB health check failed"
           exit 1
-      
+
       - name: Rollback on failure
         if: failure()
         run: |
@@ -342,18 +361,46 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # ============================================
-  # BUILD & DEPLOY - RAG (apps/ai)
+  # CI — RAG / apps/ai  (validate → quality → deploy)
   # ============================================
-  deploy-rag:
-    needs: [validate, quality, changes]
+  ci-rag:
+    needs: [changes, install]
     if: needs.changes.outputs.rag == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 20
+    timeout-minutes: 25
     concurrency:
       group: fly-deploy-rag-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Restore bun cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - run: bun install --frozen-lockfile
+
+      - name: Validate env
+        uses: dmno-dev/varlock-action@v0.0.1
+        with:
+          working-directory: apps/ai
+        env:
+          SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          EMB_MODEL: ${{ vars.EMB_MODEL }}
+          NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
+
+      - name: Quality check
+        timeout-minutes: 15
+        run: bunx turbo run lint typecheck test --filter=./apps/ai
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
