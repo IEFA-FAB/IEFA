@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -66,11 +65,9 @@ function DayOverviewCard({
 	return (
 		<Button
 			type="button"
+			variant="card"
 			onClick={onNavigate}
-			className={cn(
-				"text-left w-full rounded-md border bg-card p-4 hover:border-primary/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
-				allFilled && "border-success/40 h-full"
-			)}
+			className={cn("text-left w-full h-auto p-4 flex-col items-start justify-start", allFilled && "border-success/40 h-full")}
 		>
 			<div className="flex items-center justify-between mb-3">
 				<span className="text-sm font-semibold">{day.abbr}</span>
@@ -123,7 +120,7 @@ function DayOverviewCard({
 				})}
 			</div>
 
-			<p className="mt-3 text-[11px] text-muted-foreground/50 text-right">
+			<p className="mt-3 text-xs text-muted-foreground/50 text-right">
 				{filledCount}/{mealTypes.length} refeições
 			</p>
 		</Button>

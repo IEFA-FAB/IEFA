@@ -6,8 +6,8 @@ import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/hooks/auth/useAuth"
@@ -22,7 +22,6 @@ export const Route = createFileRoute("/_protected/_modules/global/evaluation")({
 	}),
 })
 
-// Schema de validação
 const evalSchema = z.object({
 	active: z.boolean(),
 	value: z.string().max(240, "Máximo de 240 caracteres"),
@@ -40,15 +39,12 @@ function SuperAdminPanel() {
 		<div className="space-y-6">
 			<PageHeader title="Avaliação" />
 
-			<Card className="border-2">
+			<Card>
 				<CardHeader>
-					<CardTitle>Configuração da Pergunta de Avaliação</CardTitle>
-					<CardDescription>Ligue/desligue a pergunta global de avaliação e defina o texto exibido aos usuários.</CardDescription>
+					<CardTitle>Pergunta de Avaliação</CardTitle>
 				</CardHeader>
 
-				<CardContent>
-					<EvaluationForm initialData={config} onSubmit={updateConfig} isSaving={isSaving} />
-				</CardContent>
+				<EvaluationForm initialData={config} onSubmit={updateConfig} isSaving={isSaving} />
 			</Card>
 		</div>
 	)
@@ -93,51 +89,54 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 				e.stopPropagation()
 				form.handleSubmit()
 			}}
-			className="space-y-6"
 		>
-			<form.Field name="active">
-				{(field) => (
-					<div className="flex items-center justify-between gap-4">
-						<div>
-							<Label htmlFor={field.name} className="text-base">
-								Ativar pergunta
-							</Label>
-							<p className="text-sm text-muted-foreground">Quando ativo, usuários que ainda não responderam verão a pergunta.</p>
-						</div>
-						<Switch
-							id={field.name}
-							className="cursor-pointer"
-							checked={field.state.value}
-							onCheckedChange={field.handleChange}
-							disabled={isSaving || form.state.isSubmitting}
-						/>
-					</div>
-				)}
-			</form.Field>
+			<CardContent>
+				<FieldGroup>
+					<form.Field name="active">
+						{(field) => (
+							<Field>
+								<FieldLabel htmlFor={field.name}>Ativação</FieldLabel>
+								<FieldDescription>Define se a pergunta é exibida para usuários que ainda não responderam.</FieldDescription>
+								<div className="flex items-center gap-3 pt-1">
+									<Switch
+										id={field.name}
+										checked={field.state.value}
+										onCheckedChange={field.handleChange}
+										disabled={isSaving || form.state.isSubmitting}
+									/>
+									<span className="text-sm text-muted-foreground">
+										{field.state.value ? "Ativada" : "Desativada"}
+									</span>
+								</div>
+							</Field>
+						)}
+					</form.Field>
 
-			<form.Field name="value">
-				{(field) => (
-					<div className="space-y-2">
-						<Label htmlFor={field.name}>Texto da pergunta</Label>
-						<Textarea
-							id={field.name}
-							placeholder="Ex.: Como você avalia sua experiência no Rancho?"
-							value={field.state.value}
-							onBlur={field.handleBlur}
-							onChange={(e) => field.handleChange(e.target.value)}
-							disabled={isSaving || form.state.isSubmitting}
-							rows={3}
-							className="resize-y"
-						/>
-						<div className="flex justify-between text-xs">
-							<span className="text-destructive">{field.state.meta.errors.join(", ")}</span>
-							<span className="text-muted-foreground">{field.state.value.length}/240</span>
-						</div>
-					</div>
-				)}
-			</form.Field>
+					<form.Field name="value">
+						{(field) => (
+							<Field>
+								<FieldLabel htmlFor={field.name}>Texto</FieldLabel>
+								<Textarea
+									id={field.name}
+									placeholder="Ex.: Como você avalia sua experiência no Rancho?"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									disabled={isSaving || form.state.isSubmitting}
+									rows={3}
+									className="resize-y bg-input"
+								/>
+								<div className="flex items-start justify-between">
+									{field.state.meta.errors.length > 0 && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
+									<span className="text-muted-foreground text-xs ml-auto">{field.state.value.length}/240</span>
+								</div>
+							</Field>
+						)}
+					</form.Field>
+				</FieldGroup>
+			</CardContent>
 
-			<CardFooter className="flex items-center justify-end gap-2 bg-muted/20 px-6 py-4 mt-6">
+			<CardFooter className="flex items-center justify-end gap-2 bg-muted/20 px-6 py-4">
 				<form.Subscribe selector={(state) => [state.isDirty, state.canSubmit, state.isSubmitting]}>
 					{([isDirty, canSubmit, isSubmitting]) => (
 						<>

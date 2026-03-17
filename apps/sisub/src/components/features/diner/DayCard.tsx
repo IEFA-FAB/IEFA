@@ -1,7 +1,7 @@
 // components/DayCard.tsx
 
-import type { ReactNode } from "react"
 import { Eraser, PaintBucket } from "lucide-react"
+import type { ReactNode } from "react"
 import { MealButton } from "@/components/features/diner/MealButton"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -194,7 +194,9 @@ function DayCard({
 				<div className="flex items-center gap-2">
 					<Select
 						value={dayMessHallId}
-						onValueChange={(v) => { if (v && v !== dayMessHallId) handleMessHallChange(v) }}
+						onValueChange={(v) => {
+							if (v && v !== dayMessHallId) handleMessHallChange(v)
+						}}
 						disabled={isDisabled}
 					>
 						<SelectTrigger className="flex-1">
@@ -210,9 +212,7 @@ function DayCard({
 					</Select>
 					<Tooltip>
 						<TooltipTrigger
-							render={
-								<Button variant="outline" size="icon-sm" onClick={selectAllMeals} disabled={isDisabled} aria-label="Selecionar todas as refeições" />
-							}
+							render={<Button variant="outline" size="icon-sm" onClick={selectAllMeals} disabled={isDisabled} aria-label="Selecionar todas as refeições" />}
 						>
 							<PaintBucket />
 						</TooltipTrigger>
@@ -220,9 +220,7 @@ function DayCard({
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger
-							render={
-								<Button variant="outline" size="icon-sm" onClick={clearAllMeals} disabled={isDisabled} aria-label="Limpar todas as refeições" />
-							}
+							render={<Button variant="outline" size="icon-sm" onClick={clearAllMeals} disabled={isDisabled} aria-label="Limpar todas as refeições" />}
 						>
 							<Eraser />
 						</TooltipTrigger>
