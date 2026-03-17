@@ -4,8 +4,8 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateFolder, useFolders, useUpdateFolder } from "@/services/ProductsService"
 import type { Folder } from "@/types/supabase.types"
@@ -47,7 +47,6 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 					toast.success("Pasta atualizada com sucesso!")
 				}
 
-				// Invalidar cache para recarregar dados
 				await queryClient.invalidateQueries({
 					queryKey: ["products"],
 				})
@@ -75,60 +74,57 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 						e.preventDefault()
 						form.handleSubmit()
 					}}
-					className="space-y-4"
 				>
-					{/* Descrição */}
-					<form.Field name="description">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>
-									Descrição <span className="text-destructive">*</span>
-								</Label>
-								<Input
-									id={field.name}
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									placeholder="Ex: CARNES, LATICÍNIOS, HORTIFRUTI"
-									aria-invalid={!!field.state.meta.errors.length}
-								/>
-								{field.state.meta.errors && (
-									<p className="text-sm text-destructive" role="alert">
-										{field.state.meta.errors.join(", ")}
-									</p>
-								)}
-							</div>
-						)}
-					</form.Field>
-					{/* Pasta Pai (Parent Folder) */}
-					<form.Field name="parent_id">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Pasta Pai (Opcional)</Label>
-								<Select value={field.state.value || "__NONE__"} onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}>
-									<SelectTrigger>
-										<SelectValue placeholder="Nenhuma (Raiz)" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="__NONE__">Nenhuma (Raiz)</SelectItem>
-										{folders
-											?.filter((f) => f.id !== folder?.id) // Evitar auto-referência
-											.map((f) => (
-												<SelectItem key={f.id} value={f.id}>
-													{f.description || "Sem Nome"}
-												</SelectItem>
-											))}
-									</SelectContent>
-								</Select>
-								{field.state.meta.errors && (
-									<p className="text-sm text-destructive" role="alert">
-										{field.state.meta.errors.join(", ")}
-									</p>
-								)}
-							</div>
-						)}
-					</form.Field>
+					<FieldGroup className="gap-4">
+						{/* Descrição */}
+						<form.Field name="description">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Descrição <span className="text-destructive">*</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Ex: CARNES, LATICÍNIOS, HORTIFRUTI"
+										aria-invalid={!!field.state.meta.errors.length}
+									/>
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+								</Field>
+							)}
+						</form.Field>
 
-					<DialogFooter>
+						{/* Pasta Pai */}
+						<form.Field name="parent_id">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Pasta Pai (Opcional)</FieldLabel>
+									<Select
+										value={field.state.value || "__NONE__"}
+										onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Nenhuma (Raiz)" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="__NONE__">Nenhuma (Raiz)</SelectItem>
+											{folders
+												?.filter((f) => f.id !== folder?.id)
+												.map((f) => (
+													<SelectItem key={f.id} value={f.id}>
+														{f.description || "Sem Nome"}
+													</SelectItem>
+												))}
+										</SelectContent>
+									</Select>
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+								</Field>
+							)}
+						</form.Field>
+					</FieldGroup>
+
+					<DialogFooter className="mt-6">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
 							Cancelar
 						</Button>

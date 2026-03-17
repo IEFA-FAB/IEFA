@@ -4,8 +4,8 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
 import type { ProductItem } from "@/types/supabase.types"
@@ -86,114 +86,116 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 						e.preventDefault()
 						form.handleSubmit()
 					}}
-					className="space-y-4"
 				>
-					{/* Descrição */}
-					<form.Field name="description">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>
-									Descrição <span className="text-destructive">*</span>
-								</Label>
-								<Input
-									id={field.name}
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									placeholder="Ex: Arroz Marca X Saco 5kg"
-									aria-invalid={!!field.state.meta.errors.length}
-								/>
-								{field.state.meta.errors && (
-									<p className="text-sm text-destructive" role="alert">
-										{field.state.meta.errors.join(", ")}
-									</p>
-								)}
-							</div>
-						)}
-					</form.Field>
-
-					{/* Produto Genérico */}
-					<form.Field name="product_id">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>
-									Produto Genérico <span className="text-destructive">*</span>
-								</Label>
-								<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
-									<option value="">Selecione um produto</option>
-									{products?.map((p) => (
-										<option key={p.id} value={p.id}>
-											{p.description}
-										</option>
-									))}
-								</Select>
-								{field.state.meta.errors && (
-									<p className="text-sm text-destructive" role="alert">
-										{field.state.meta.errors.join(", ")}
-									</p>
-								)}
-							</div>
-						)}
-					</form.Field>
-
-					{/* Código de Barras */}
-					<form.Field name="barcode">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Código de Barras</Label>
-								<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: 7891234567890" />
-							</div>
-						)}
-					</form.Field>
-
-					<div className="grid grid-cols-2 gap-4">
-						{/* Unidade de Compra */}
-						<form.Field name="purchase_measure_unit">
+					<FieldGroup className="gap-4">
+						{/* Descrição */}
+						<form.Field name="description">
 							{(field) => (
-								<div className="space-y-2">
-									<Label htmlFor={field.name}>Unidade de Compra</Label>
-									<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
-									<p className="text-xs text-muted-foreground">Embalagem do fornecedor</p>
-								</div>
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Descrição <span className="text-destructive">*</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Ex: Arroz Marca X Saco 5kg"
+										aria-invalid={!!field.state.meta.errors.length}
+									/>
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+								</Field>
 							)}
 						</form.Field>
 
-						{/* Quantidade por Unidade */}
-						<form.Field name="unit_content_quantity">
+						{/* Produto Genérico */}
+						<form.Field name="product_id">
 							{(field) => (
-								<div className="space-y-2">
-									<Label htmlFor={field.name}>Qtd por Unidade</Label>
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Produto Genérico <span className="text-destructive">*</span>
+									</FieldLabel>
+									<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
+										<option value="">Selecione um produto</option>
+										{products?.map((p) => (
+											<option key={p.id} value={p.id}>
+												{p.description}
+											</option>
+										))}
+									</Select>
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+								</Field>
+							)}
+						</form.Field>
+
+						{/* Código de Barras */}
+						<form.Field name="barcode">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Código de Barras</FieldLabel>
+									<Input
+										id={field.name}
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Ex: 7891234567890"
+									/>
+								</Field>
+							)}
+						</form.Field>
+
+						{/* Unidade de compra + Qtd por unidade */}
+						<div className="grid grid-cols-2 gap-4">
+							<form.Field name="purchase_measure_unit">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>Unidade de Compra</FieldLabel>
+										<Input
+											id={field.name}
+											value={field.state.value}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="Ex: SACO, CAIXA"
+										/>
+										<p className="text-xs text-muted-foreground">Embalagem do fornecedor</p>
+									</Field>
+								)}
+							</form.Field>
+
+							<form.Field name="unit_content_quantity">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>Qtd por Unidade</FieldLabel>
+										<Input
+											id={field.name}
+											type="number"
+											step="0.0001"
+											value={field.state.value}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
+											placeholder="5.0"
+										/>
+										<p className="text-xs text-muted-foreground">Ex: 5kg por saco</p>
+									</Field>
+								)}
+							</form.Field>
+						</div>
+
+						{/* Fator de Correção */}
+						<form.Field name="correction_factor">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Fator de Correção</FieldLabel>
 									<Input
 										id={field.name}
 										type="number"
 										step="0.0001"
 										value={field.state.value}
 										onChange={(e) => field.handleChange(Number(e.target.value))}
-										placeholder="5.0"
+										placeholder="1.0000"
 									/>
-									<p className="text-xs text-muted-foreground">Ex: 5kg por saco</p>
-								</div>
+								</Field>
 							)}
 						</form.Field>
-					</div>
+					</FieldGroup>
 
-					{/* Fator de Correção */}
-					<form.Field name="correction_factor">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Fator de Correção</Label>
-								<Input
-									id={field.name}
-									type="number"
-									step="0.0001"
-									value={field.state.value}
-									onChange={(e) => field.handleChange(Number(e.target.value))}
-									placeholder="1.0000"
-								/>
-							</div>
-						)}
-					</form.Field>
-
-					<DialogFooter>
+					<DialogFooter className="mt-6">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
 							Cancelar
 						</Button>

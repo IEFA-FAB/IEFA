@@ -4,8 +4,8 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateProduct, useFolders, useUpdateProduct } from "@/services/ProductsService"
 import type { Product } from "@/types/supabase.types"
@@ -79,105 +79,98 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 						e.preventDefault()
 						form.handleSubmit()
 					}}
-					className="space-y-4"
 				>
-					{/* Descrição */}
-					<form.Field name="description">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>
-									Descrição <span className="text-destructive">*</span>
-								</Label>
-								<Input
-									id={field.name}
-									value={field.state.value}
-									onChange={(e) => field.handleChange(e.target.value)}
-									placeholder="Ex: Arroz Branco, Feijão Carioca"
-									aria-invalid={!!field.state.meta.errors.length}
-								/>
-								{field.state.meta.errors && (
-									<p className="text-sm text-destructive" role="alert">
-										{field.state.meta.errors.join(", ")}
-									</p>
-								)}
-							</div>
-						)}
-					</form.Field>
+					<FieldGroup className="gap-4">
+						{/* Descrição */}
+						<form.Field name="description">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Descrição <span className="text-destructive">*</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Ex: Arroz Branco, Feijão Carioca"
+										aria-invalid={!!field.state.meta.errors.length}
+									/>
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+								</Field>
+							)}
+						</form.Field>
 
-					{/* Pasta */}
-					<form.Field name="folder_id">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Pasta (Categoria)</Label>
-								<Select
-									value={field.state.value || "__SELECT__"}
-									onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? null : value)}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Selecione uma pasta" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="__SELECT__">Selecione uma pasta</SelectItem>
-										{folders?.map((f) => (
-											<SelectItem key={f.id} value={f.id}>
-												{f.description || "Sem Nome"}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{field.state.meta.errors && (
-									<p className="text-sm text-destructive" role="alert">
-										{field.state.meta.errors.join(", ")}
-									</p>
-								)}
-							</div>
-						)}
-					</form.Field>
+						{/* Pasta */}
+						<form.Field name="folder_id">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Pasta (Categoria)</FieldLabel>
+									<Select
+										value={field.state.value || "__SELECT__"}
+										onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? null : value)}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Selecione uma pasta" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="__SELECT__">Selecione uma pasta</SelectItem>
+											{folders?.map((f) => (
+												<SelectItem key={f.id} value={f.id}>
+													{f.description || "Sem Nome"}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+								</Field>
+							)}
+						</form.Field>
 
-					{/* Unidade de Medida */}
-					<form.Field name="measure_unit">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Unidade de Medida</Label>
-								<Select
-									value={field.state.value || "__SELECT__"}
-									onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? "" : value)}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Selecione" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="__SELECT__">Selecione</SelectItem>
-										<SelectItem value="UN">UN (Unidade)</SelectItem>
-										<SelectItem value="KG">KG (Quilograma)</SelectItem>
-										<SelectItem value="LT">LT (Litro)</SelectItem>
-										<SelectItem value="G">G (Grama)</SelectItem>
-										<SelectItem value="ML">ML (Mililitro)</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-						)}
-					</form.Field>
+						{/* Unidade de Medida */}
+						<form.Field name="measure_unit">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Unidade de Medida</FieldLabel>
+									<Select
+										value={field.state.value || "__SELECT__"}
+										onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? "" : value)}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Selecione" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="__SELECT__">Selecione</SelectItem>
+											<SelectItem value="UN">UN (Unidade)</SelectItem>
+											<SelectItem value="KG">KG (Quilograma)</SelectItem>
+											<SelectItem value="LT">LT (Litro)</SelectItem>
+											<SelectItem value="G">G (Grama)</SelectItem>
+											<SelectItem value="ML">ML (Mililitro)</SelectItem>
+										</SelectContent>
+									</Select>
+								</Field>
+							)}
+						</form.Field>
 
-					{/* Fator de Correção */}
-					<form.Field name="correction_factor">
-						{(field) => (
-							<div className="space-y-2">
-								<Label htmlFor={field.name}>Fator de Correção</Label>
-								<Input
-									id={field.name}
-									type="number"
-									step="0.0001"
-									value={field.state.value}
-									onChange={(e) => field.handleChange(Number(e.target.value))}
-									placeholder="1.0000"
-								/>
-								<p className="text-xs text-muted-foreground">Fator nutricional/correção (padrão: 1.0)</p>
-							</div>
-						)}
-					</form.Field>
+						{/* Fator de Correção */}
+						<form.Field name="correction_factor">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Fator de Correção</FieldLabel>
+									<Input
+										id={field.name}
+										type="number"
+										step="0.0001"
+										value={field.state.value}
+										onChange={(e) => field.handleChange(Number(e.target.value))}
+										placeholder="1.0000"
+									/>
+									<p className="text-xs text-muted-foreground">Fator nutricional/correção (padrão: 1.0)</p>
+								</Field>
+							)}
+						</form.Field>
+					</FieldGroup>
 
-					<DialogFooter>
+					<DialogFooter className="mt-6">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
 							Cancelar
 						</Button>
