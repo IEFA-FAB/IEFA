@@ -21,7 +21,7 @@ jobs:
       rag: ${{ steps.filter.outputs.rag }}
     steps:
       - uses: actions/checkout@v5
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -65,7 +65,7 @@ jobs:
               - 'turbo.json'
 
   # ============================================
-  # INSTALL — aquece o cache para todos os jobs
+  # INSTALL — aquece o cache bun para todos os jobs
   # ============================================
   install:
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -80,23 +80,18 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
 
-  # ============================================
-  # CI — API  (validate → quality → deploy)
-  # ============================================
-  ci-api:
+  # ============================================================
+  # API  ── check → build → deploy
+  # ============================================================
+  check-api:
     needs: [changes, install]
     if: needs.changes.outputs.api == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 25
-    concurrency:
-      group: fly-deploy-api-${{ github.ref_name }}
-      cancel-in-progress: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
-
-      - name: Restore bun cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
@@ -112,19 +107,25 @@ jobs:
           API_SUPABASE_URL: ${{ secrets.API_SUPABASE_URL }}
           API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Quality check
-        timeout-minutes: 15
+      - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/api
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  build-api:
+    needs: check-api
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/bake-action@v6
@@ -135,8 +136,15 @@ jobs:
             api.tags=registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
             api.tags=registry.fly.io/iefa-api:latest
 
-      - name: Deploy to Fly
-        uses: superfly/flyctl-actions/setup-flyctl@v1
+  deploy-api:
+    needs: build-api
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    concurrency:
+      group: fly-deploy-api-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
         run: |
@@ -148,7 +156,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy
-        run: flyctl deploy -c fly/api.toml --image registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/api.toml --image registry.fly.io/iefa-api:${{ needs.build-api.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -156,31 +164,24 @@ jobs:
         run: |
           for i in {1..20}; do
             if curl -fsS "${{ vars.API_HEALTH_URL }}" > /dev/null; then
-              echo "✅ Health check passed"
-              exit 0
+              echo "✅ Health check passed"; exit 0
             fi
             sleep 10
           done
-          echo "❌ Health check failed"
-          exit 1
+          echo "❌ Health check failed"; exit 1
 
-  # ============================================
-  # CI — IEFA  (validate → quality → deploy)
-  # ============================================
-  ci-iefa:
+  # ============================================================
+  # IEFA  ── check → build → deploy
+  # ============================================================
+  check-iefa:
     needs: [changes, install]
     if: needs.changes.outputs.iefa == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 25
-    concurrency:
-      group: fly-deploy-iefa-${{ github.ref_name }}
-      cancel-in-progress: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
-
-      - name: Restore bun cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
@@ -197,19 +198,25 @@ jobs:
           VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
           VITE_RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Quality check
-        timeout-minutes: 15
+      - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/iefa
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  build-iefa:
+    needs: check-iefa
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/bake-action@v6
@@ -224,8 +231,16 @@ jobs:
             iefa.args.VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
             iefa.args.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.VITE_RAG_SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Deploy to Fly
-        uses: superfly/flyctl-actions/setup-flyctl@v1
+  deploy-iefa:
+    needs: build-iefa
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    concurrency:
+      group: fly-deploy-iefa-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
         run: |
@@ -238,7 +253,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy
-        run: flyctl deploy -c fly/iefa.toml --image registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/iefa.toml --image registry.fly.io/iefa:${{ needs.build-iefa.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -246,15 +261,10 @@ jobs:
         run: |
           for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.IEFA_HEALTH_URL }}" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then
-              echo "✅ IEFA health check passed"
-              exit 0
-            fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."
-            sleep 10
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ IEFA health check passed"; exit 0; fi
+            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ IEFA health check failed"
-          exit 1
+          echo "❌ IEFA health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
@@ -264,23 +274,18 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  # ============================================
-  # CI — SISUB  (validate → quality → deploy)
-  # ============================================
-  ci-sisub:
+  # ============================================================
+  # SISUB  ── check → build → deploy
+  # ============================================================
+  check-sisub:
     needs: [changes, install]
     if: needs.changes.outputs.sisub == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 25
-    concurrency:
-      group: fly-deploy-sisub-${{ github.ref_name }}
-      cancel-in-progress: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
-
-      - name: Restore bun cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
@@ -296,19 +301,25 @@ jobs:
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
           SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
 
-      - name: Quality check
-        timeout-minutes: 15
+      - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/sisub
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  build-sisub:
+    needs: check-sisub
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/bake-action@v6
@@ -321,8 +332,16 @@ jobs:
             sisub.args.VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
             sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
-      - name: Deploy to Fly
-        uses: superfly/flyctl-actions/setup-flyctl@v1
+  deploy-sisub:
+    needs: build-sisub
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    concurrency:
+      group: fly-deploy-sisub-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
         run: |
@@ -334,7 +353,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy
-        run: flyctl deploy -c fly/sisub.toml --image registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/sisub.toml --image registry.fly.io/sisub:${{ needs.build-sisub.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -342,15 +361,10 @@ jobs:
         run: |
           for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.SISUB_HEALTH_URL }}" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then
-              echo "✅ SISUB health check passed"
-              exit 0
-            fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."
-            sleep 10
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ SISUB health check passed"; exit 0; fi
+            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ SISUB health check failed"
-          exit 1
+          echo "❌ SISUB health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
@@ -360,23 +374,18 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  # ============================================
-  # CI — RAG / apps/ai  (validate → quality → deploy)
-  # ============================================
-  ci-rag:
+  # ============================================================
+  # RAG / apps/ai  ── check → build → deploy
+  # ============================================================
+  check-rag:
     needs: [changes, install]
     if: needs.changes.outputs.rag == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 25
-    concurrency:
-      group: fly-deploy-rag-${{ github.ref_name }}
-      cancel-in-progress: true
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
-
-      - name: Restore bun cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
@@ -398,19 +407,25 @@ jobs:
           EMB_MODEL: ${{ vars.EMB_MODEL }}
           NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
 
-      - name: Quality check
-        timeout-minutes: 15
+      - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/ai
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  build-rag:
+    needs: check-rag
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to Fly Registry
         run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/bake-action@v6
@@ -421,8 +436,15 @@ jobs:
             rag.tags=registry.fly.io/iefa-rag:${{ steps.meta.outputs.tag }}
             rag.tags=registry.fly.io/iefa-rag:latest
 
-      - name: Deploy to Fly
-        uses: superfly/flyctl-actions/setup-flyctl@v1
+  deploy-rag:
+    needs: build-rag
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    concurrency:
+      group: fly-deploy-rag-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
         run: |
@@ -442,7 +464,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy
-        run: flyctl deploy -c fly/rag.toml --image registry.fly.io/iefa-rag:${{ steps.meta.outputs.tag }}
+        run: flyctl deploy -c fly/rag.toml --image registry.fly.io/iefa-rag:${{ needs.build-rag.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -450,15 +472,10 @@ jobs:
         run: |
           for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.RAG_HEALTH_URL }}" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then
-              echo "✅ RAG health check passed"
-              exit 0
-            fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."
-            sleep 10
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ RAG health check passed"; exit 0; fi
+            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ RAG health check failed"
-          exit 1
+          echo "❌ RAG health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
