@@ -132,12 +132,7 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 							{(field) => (
 								<Field>
 									<FieldLabel htmlFor={field.name}>Código de Barras</FieldLabel>
-									<Input
-										id={field.name}
-										value={field.state.value}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Ex: 7891234567890"
-									/>
+									<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: 7891234567890" />
 								</Field>
 							)}
 						</form.Field>
@@ -148,12 +143,7 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 								{(field) => (
 									<Field>
 										<FieldLabel htmlFor={field.name}>Unidade de Compra</FieldLabel>
-										<Input
-											id={field.name}
-											value={field.state.value}
-											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="Ex: SACO, CAIXA"
-										/>
+										<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
 										<p className="text-xs text-muted-foreground">Embalagem do fornecedor</p>
 									</Field>
 								)}

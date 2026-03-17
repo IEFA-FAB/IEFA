@@ -98,15 +98,8 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 								<FieldLabel htmlFor={field.name}>Ativação</FieldLabel>
 								<FieldDescription>Define se a pergunta é exibida para usuários que ainda não responderam.</FieldDescription>
 								<div className="flex items-center gap-3 pt-1">
-									<Switch
-										id={field.name}
-										checked={field.state.value}
-										onCheckedChange={field.handleChange}
-										disabled={isSaving || form.state.isSubmitting}
-									/>
-									<span className="text-sm text-muted-foreground">
-										{field.state.value ? "Ativada" : "Desativada"}
-									</span>
+									<Switch id={field.name} checked={field.state.value} onCheckedChange={field.handleChange} disabled={isSaving || form.state.isSubmitting} />
+									<span className="text-sm text-muted-foreground">{field.state.value ? "Ativada" : "Desativada"}</span>
 								</div>
 							</Field>
 						)}

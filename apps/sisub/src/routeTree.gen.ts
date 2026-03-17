@@ -27,6 +27,7 @@ import { Route as ProtectedModulesKitchenProductionIndexRouteImport } from './ro
 import { Route as ProtectedModulesGlobalIndexRouteImport } from './routes/_protected/_modules/global/index'
 import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
 import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
+import { Route as ProtectedModulesGlobalPlacesManagerRouteImport } from './routes/_protected/_modules/global/places-manager'
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
 import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/self-check-in'
@@ -159,6 +160,12 @@ const ProtectedModulesAnalyticsIndexRoute =
   ProtectedModulesAnalyticsIndexRouteImport.update({
     id: '/analytics/',
     path: '/analytics/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalPlacesManagerRoute =
+  ProtectedModulesGlobalPlacesManagerRouteImport.update({
+    id: '/global/places-manager',
+    path: '/global/places-manager',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesGlobalPermissionsRoute =
@@ -422,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
+  '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
   '/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
   '/diner/': typeof ProtectedModulesDinerIndexRoute
   '/global/': typeof ProtectedModulesGlobalIndexRoute
@@ -473,6 +481,7 @@ export interface FileRoutesByTo {
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
+  '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
   '/analytics': typeof ProtectedModulesAnalyticsIndexRoute
   '/diner': typeof ProtectedModulesDinerIndexRoute
   '/global': typeof ProtectedModulesGlobalIndexRoute
@@ -532,6 +541,7 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
+  '/_protected/_modules/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
   '/_protected/_modules/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
   '/_protected/_modules/diner/': typeof ProtectedModulesDinerIndexRoute
   '/_protected/_modules/global/': typeof ProtectedModulesGlobalIndexRoute
@@ -590,6 +600,7 @@ export interface FileRouteTypes {
     | '/diner/self-check-in'
     | '/global/evaluation'
     | '/global/permissions'
+    | '/global/places-manager'
     | '/analytics/'
     | '/diner/'
     | '/global/'
@@ -641,6 +652,7 @@ export interface FileRouteTypes {
     | '/diner/self-check-in'
     | '/global/evaluation'
     | '/global/permissions'
+    | '/global/places-manager'
     | '/analytics'
     | '/diner'
     | '/global'
@@ -699,6 +711,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/self-check-in'
     | '/_protected/_modules/global/evaluation'
     | '/_protected/_modules/global/permissions'
+    | '/_protected/_modules/global/places-manager'
     | '/_protected/_modules/analytics/'
     | '/_protected/_modules/diner/'
     | '/_protected/_modules/global/'
@@ -866,6 +879,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics/'
       preLoaderRoute: typeof ProtectedModulesAnalyticsIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/places-manager': {
+      id: '/_protected/_modules/global/places-manager'
+      path: '/global/places-manager'
+      fullPath: '/global/places-manager'
+      preLoaderRoute: typeof ProtectedModulesGlobalPlacesManagerRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/global/permissions': {
@@ -1269,6 +1289,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
+  ProtectedModulesGlobalPlacesManagerRoute: typeof ProtectedModulesGlobalPlacesManagerRoute
   ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
   ProtectedModulesDinerIndexRoute: typeof ProtectedModulesDinerIndexRoute
   ProtectedModulesGlobalIndexRoute: typeof ProtectedModulesGlobalIndexRoute
@@ -1307,6 +1328,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
   ProtectedModulesGlobalPermissionsRoute:
     ProtectedModulesGlobalPermissionsRoute,
+  ProtectedModulesGlobalPlacesManagerRoute:
+    ProtectedModulesGlobalPlacesManagerRoute,
   ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,
   ProtectedModulesDinerIndexRoute: ProtectedModulesDinerIndexRoute,
   ProtectedModulesGlobalIndexRoute: ProtectedModulesGlobalIndexRoute,

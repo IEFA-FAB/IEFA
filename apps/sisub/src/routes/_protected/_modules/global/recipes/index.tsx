@@ -31,6 +31,7 @@ function GlobalRecipesPage() {
 			<PageHeader title="Preparações Globais">
 				<Button
 					size="sm"
+					nativeButton={false}
 					render={
 						<Link to="/global/recipes/new">
 							<Plus className="h-4 w-4 mr-2" />

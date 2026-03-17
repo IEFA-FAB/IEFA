@@ -40,12 +40,7 @@ function ProductDetailPage() {
 		<div className="space-y-6">
 			{/* Breadcrumb */}
 			<div className="flex items-center gap-1.5 text-sm">
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={() => navigate({ to: "/global/ingredients" })}
-					className="gap-1.5 px-1.5"
-				>
+				<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/global/ingredients" })} className="gap-1.5 px-1.5">
 					<ArrowLeft className="w-3.5 h-3.5" />
 					Insumos
 				</Button>

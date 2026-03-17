@@ -104,11 +104,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 				) : (
 					<div className="divide-y divide-border/50">
 						{productItems?.map((item) => (
-							<Collapsible
-								key={item.id}
-								open={openItems.has(item.id)}
-								onOpenChange={() => toggleItem(item.id)}
-							>
+							<Collapsible key={item.id} open={openItems.has(item.id)} onOpenChange={() => toggleItem(item.id)}>
 								<div className="group flex items-center px-4 py-3 hover:bg-muted/50 transition-colors gap-2">
 									<CollapsibleTrigger className="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-[var(--radius)]">
 										<div className="flex items-center justify-center w-8 h-8 rounded-[var(--radius)] bg-success/10 border border-success/20 shrink-0">
@@ -118,10 +114,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 											<div className="flex items-center gap-1.5">
 												<p className="text-sm font-medium truncate">{item.description}</p>
 												<ChevronDown
-													className={cn(
-														"w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform",
-														openItems.has(item.id) && "rotate-180",
-													)}
+													className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")}
 												/>
 											</div>
 											<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -147,13 +140,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 									</CollapsibleTrigger>
 
 									<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
-										<Button
-											variant="ghost"
-											size="icon-sm"
-											onClick={() => openEdit(item)}
-											disabled={isDeleting}
-											aria-label={`Editar ${item.description}`}
-										>
+										<Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)} disabled={isDeleting} aria-label={`Editar ${item.description}`}>
 											<Edit className="w-3.5 h-3.5" />
 										</Button>
 										<Button
@@ -207,13 +194,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 			</Card>
 
 			{/* Dialog de criação/edição */}
-			<ProductItemForm
-				isOpen={dialogState.isOpen}
-				onClose={closeDialog}
-				mode={dialogState.mode}
-				productItem={dialogState.item}
-				defaultProductId={productId}
-			/>
+			<ProductItemForm isOpen={dialogState.isOpen} onClose={closeDialog} mode={dialogState.mode} productItem={dialogState.item} defaultProductId={productId} />
 
 			{/* AlertDialog de confirmação de exclusão */}
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

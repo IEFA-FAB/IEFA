@@ -81,10 +81,7 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 	return (
 		<>
 			<div
-				className={cn(
-					"relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50",
-					isNavigable && "cursor-pointer",
-				)}
+				className={cn("relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50", isNavigable && "cursor-pointer")}
 				style={{ paddingLeft: `${node.level * 24 + 8}px` }}
 				role="treeitem"
 				tabIndex={0}
@@ -136,29 +133,21 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 					)}
 
 					{/* Ícone com fundo colorido */}
-					<div
-						className={cn(
-							"flex items-center justify-center w-7 h-7 rounded-[var(--radius)] border",
-							style.iconBg,
-							style.border,
-						)}
-					>
+					<div className={cn("flex items-center justify-center w-7 h-7 rounded-[var(--radius)] border", style.iconBg, style.border)}>
 						<Icon className={cn("w-3.5 h-3.5", style.iconColor)} />
 					</div>
 
 					{/* Label */}
-					<span className={cn("text-sm truncate", node.type === "folder" ? "font-semibold" : "font-normal")}>
-						{node.label}
-					</span>
+					<span className={cn("text-sm truncate", node.type === "folder" ? "font-semibold" : "font-normal")}>{node.label}</span>
 
 					{/* Badge de unidade de medida */}
-					{node.type === "product" && "measure_unit" in node.data && (
-						<Badge variant="outline">{node.data.measure_unit}</Badge>
-					)}
+					{node.type === "product" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
 
 					{/* Badge de contagem de itens de compra */}
 					{node.type === "product" && itemCount !== undefined && itemCount > 0 && (
-						<Badge variant="success">{itemCount} {itemCount === 1 ? "item" : "itens"}</Badge>
+						<Badge variant="success">
+							{itemCount} {itemCount === 1 ? "item" : "itens"}
+						</Badge>
 					)}
 				</div>
 

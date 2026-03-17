@@ -216,7 +216,7 @@ function getColumns(opts: { currentUserId?: string; onEditRow?: (row: Facilidade
 				const isDefault = row.getValue("default") as boolean
 				return (
 					<span
-						className={"inline-flex items-center rounded-md px-2 py-0.5 text-xs " + (isDefault ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")}
+						className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs ${isDefault ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
 					>
 						{isDefault ? "Sim" : "Não"}
 					</span>

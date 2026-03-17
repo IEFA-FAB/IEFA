@@ -89,25 +89,13 @@ export function ProductsTreeManager() {
 						Recolher Tudo
 					</Button>
 
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => handleOpenDialog("folder", "create")}
-						aria-label="Nova pasta"
-						className="flex-1 sm:flex-none"
-					>
-							<FolderPlus className="w-4 h-4 mr-2" />
+					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("folder", "create")} aria-label="Nova pasta" className="flex-1 sm:flex-none">
+						<FolderPlus className="w-4 h-4 mr-2" />
 						<span className="hidden sm:inline">Nova Pasta</span>
 						<span className="sm:hidden">Pasta</span>
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => handleOpenDialog("product", "create")}
-						aria-label="Novo insumo"
-						className="flex-1 sm:flex-none"
-					>
-							<PackagePlus className="w-4 h-4 mr-2" />
+					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("product", "create")} aria-label="Novo insumo" className="flex-1 sm:flex-none">
+						<PackagePlus className="w-4 h-4 mr-2" />
 						<span className="hidden sm:inline">Novo Insumo</span>
 						<span className="sm:hidden">Insumo</span>
 					</Button>
@@ -124,7 +112,7 @@ export function ProductsTreeManager() {
 									<div className="text-sm text-muted-foreground">Pastas</div>
 									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">{stats.totalFolders}</div>
 								</div>
-							<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-warning" />
+								<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-warning" />
 							</div>
 						</div>
 					</Card>
@@ -136,7 +124,7 @@ export function ProductsTreeManager() {
 									<div className="text-sm text-muted-foreground">Insumos</div>
 									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">{stats.totalProducts}</div>
 								</div>
-							<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+								<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-primary" />
 							</div>
 						</div>
 					</Card>

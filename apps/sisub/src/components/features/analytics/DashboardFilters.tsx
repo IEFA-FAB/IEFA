@@ -17,10 +17,7 @@ interface DashboardFiltersProps {
 const MESS_HALL_ALL_LABEL = "Todos os Ranchos"
 
 export default function DashboardFilters({ dateRange, onDateRangeChange, messHalls, selectedMessHall, onMessHallChange }: DashboardFiltersProps) {
-	const selectedMessHallLabel =
-		selectedMessHall === "all"
-			? MESS_HALL_ALL_LABEL
-			: messHalls.find((mh) => mh.id.toString() === selectedMessHall)?.display_name
+	const selectedMessHallLabel = selectedMessHall === "all" ? MESS_HALL_ALL_LABEL : messHalls.find((mh) => mh.id.toString() === selectedMessHall)?.display_name
 
 	const setToday = () => {
 		const today = new Date().toISOString().split("T")[0]
@@ -70,12 +67,7 @@ export default function DashboardFilters({ dateRange, onDateRangeChange, messHal
 								aria-label="Data inicial"
 							/>
 							<span className="text-sm text-muted-foreground shrink-0">até</span>
-							<Input
-								type="date"
-								value={dateRange.end}
-								onChange={(e) => onDateRangeChange({ ...dateRange, end: e.target.value })}
-								aria-label="Data final"
-							/>
+							<Input type="date" value={dateRange.end} onChange={(e) => onDateRangeChange({ ...dateRange, end: e.target.value })} aria-label="Data final" />
 						</div>
 					</Field>
 

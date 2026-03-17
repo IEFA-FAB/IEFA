@@ -92,6 +92,7 @@ export type Database = {
 					deleted_at: string | null
 					description: string | null
 					id: string
+					legacy_id: number | null
 					parent_id: string | null
 				}
 				Insert: {
@@ -99,6 +100,7 @@ export type Database = {
 					deleted_at?: string | null
 					description?: string | null
 					id?: string
+					legacy_id?: number | null
 					parent_id?: string | null
 				}
 				Update: {
@@ -106,6 +108,7 @@ export type Database = {
 					deleted_at?: string | null
 					description?: string | null
 					id?: string
+					legacy_id?: number | null
 					parent_id?: string | null
 				}
 				Relationships: []
@@ -113,6 +116,7 @@ export type Database = {
 			kitchen: {
 				Row: {
 					created_at: string
+					display_name: string | null
 					id: number
 					kitchen_id: number | null
 					purchase_unit_id: number | null
@@ -121,6 +125,7 @@ export type Database = {
 				}
 				Insert: {
 					created_at?: string
+					display_name?: string | null
 					id?: number
 					kitchen_id?: number | null
 					purchase_unit_id?: number | null
@@ -129,6 +134,7 @@ export type Database = {
 				}
 				Update: {
 					created_at?: string
+					display_name?: string | null
 					id?: number
 					kitchen_id?: number | null
 					purchase_unit_id?: number | null
@@ -594,6 +600,7 @@ export type Database = {
 					description: string | null
 					folder_id: string | null
 					id: string
+					legacy_id: number | null
 					measure_unit: string | null
 				}
 				Insert: {
@@ -603,6 +610,7 @@ export type Database = {
 					description?: string | null
 					folder_id?: string | null
 					id?: string
+					legacy_id?: number | null
 					measure_unit?: string | null
 				}
 				Update: {
@@ -612,6 +620,7 @@ export type Database = {
 					description?: string | null
 					folder_id?: string | null
 					id?: string
+					legacy_id?: number | null
 					measure_unit?: string | null
 				}
 				Relationships: [
@@ -796,6 +805,7 @@ export type Database = {
 					deleted_at: string | null
 					id: string
 					kitchen_id: number | null
+					legacy_id: number | null
 					name: string
 					portion_yield: number | null
 					preparation_method: string | null
@@ -811,6 +821,7 @@ export type Database = {
 					deleted_at?: string | null
 					id?: string
 					kitchen_id?: number | null
+					legacy_id?: number | null
 					name: string
 					portion_yield?: number | null
 					preparation_method?: string | null
@@ -826,6 +837,7 @@ export type Database = {
 					deleted_at?: string | null
 					id?: string
 					kitchen_id?: number | null
+					legacy_id?: number | null
 					name?: string
 					portion_yield?: number | null
 					preparation_method?: string | null

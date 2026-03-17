@@ -100,10 +100,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 							{(field) => (
 								<Field>
 									<FieldLabel htmlFor={field.name}>Pasta Pai (Opcional)</FieldLabel>
-									<Select
-										value={field.state.value || "__NONE__"}
-										onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}
-									>
+									<Select value={field.state.value || "__NONE__"} onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}>
 										<SelectTrigger>
 											<SelectValue placeholder="Nenhuma (Raiz)" />
 										</SelectTrigger>

@@ -60,12 +60,9 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					size === "sm" && "text-sm",
 					size === "lg" && "text-lg",
 					hasDefault && "bg-accent/10",
-					isInvalid && "border-destructive/50 bg-destructive/10",
+					isInvalid && "border-destructive/50 bg-destructive/10"
 				),
-				label: cn(
-					"text-sm font-medium flex items-center justify-between",
-					disabled ? "text-muted-foreground" : "text-foreground",
-				),
+				label: cn("text-sm font-medium flex items-center justify-between", disabled ? "text-muted-foreground" : "text-foreground"),
 				container: "space-y-2",
 				isInvalid,
 			}

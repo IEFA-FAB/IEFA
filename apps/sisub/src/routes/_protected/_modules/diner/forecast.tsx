@@ -458,12 +458,7 @@ export default function Forecast(): JSX.Element {
 				title="Previsão"
 				// Description removed to reduce redundancy with breadcrumbs/context
 			>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={handleToggleMessHallSelector}
-					aria-label="Definir rancho padrão"
-				>
+				<Button variant="outline" size="sm" onClick={handleToggleMessHallSelector} aria-label="Definir rancho padrão">
 					<Settings className="h-4 w-4 mr-2" />
 					Rancho Padrão
 				</Button>
@@ -479,13 +474,7 @@ export default function Forecast(): JSX.Element {
 					Refeições em Massa
 				</Button>
 
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={handleRefresh}
-					disabled={isLoading || isRefetching}
-					aria-label="Recarregar previsões"
-				>
+				<Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading || isRefetching} aria-label="Recarregar previsões">
 					<RefreshCw className={cn("h-4 w-4", isRefetching && "animate-spin")} />
 				</Button>
 			</PageHeader>
