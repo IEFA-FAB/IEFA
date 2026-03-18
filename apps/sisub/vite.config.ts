@@ -9,7 +9,7 @@ import viteTsConfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig(({ command }) => ({
 	plugins: [
-		varlockVitePlugin(),
+		varlockVitePlugin({ ssrInjectMode: "auto-load" }),
 		tailwindcss(),
 		viteTsConfigPaths({
 			projects: ["./tsconfig.json"],

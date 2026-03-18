@@ -75,7 +75,6 @@ function DayCardShell({ isToday, hasPendingChanges, isDateNear, isFull, hasParti
 	)
 }
 
-
 function DayCard({
 	date,
 	daySelections,
