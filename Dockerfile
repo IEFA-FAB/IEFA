@@ -92,6 +92,7 @@ WORKDIR /app
 # varlock/auto-load (SSR injection mode) requires the CLI at runtime to set __VARLOCK_ENV
 RUN bun add -g varlock@latest
 COPY --from=sisub-build /app/apps/sisub/.env.schema ./.env.schema
+COPY --from=sisub-build /app/apps/sisub/bunfig.toml ./bunfig.toml
 # TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
 USER bun

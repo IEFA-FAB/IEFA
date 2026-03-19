@@ -114,6 +114,7 @@ export function RecipesManager() {
 												<Button
 													variant="ghost"
 													size="sm"
+													nativeButton={false}
 													className="hover:bg-primary/10 hover:text-primary transition-all"
 													render={
 														<Link to="/kitchen/$kitchenId/recipes/$recipeId" params={{ kitchenId, recipeId: recipe.id }}>
@@ -125,6 +126,7 @@ export function RecipesManager() {
 												<Button
 													variant="ghost"
 													size="sm"
+													nativeButton={false}
 													className="hover:bg-primary/10 hover:text-primary transition-all"
 													render={
 														<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
@@ -142,6 +144,7 @@ export function RecipesManager() {
 																	variant="outline"
 																	size="sm"
 																	className="hover:bg-accent/10 hover:border-accent/30 transition-all"
+																	nativeButton={false}
 																	render={
 																		<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipe.id }}>
 																			<GitFork className="w-3.5 h-3.5 mr-1.5" />
@@ -160,6 +163,7 @@ export function RecipesManager() {
 																<Button
 																	variant="outline"
 																	size="sm"
+																	nativeButton={false}
 																	className="hover:bg-accent/10 hover:border-accent/30 transition-all"
 																	render={
 																		<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
