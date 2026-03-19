@@ -89,15 +89,12 @@ RUN test -f apps/sisub/.output/server/index.mjs || \
 FROM oven/bun:1.3.10-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
-# varlock/auto-load (SSR injection mode) requires the CLI at runtime to set __VARLOCK_ENV
-RUN bun add -g varlock@latest
+# varlock é bundlado no SSR output (não é external) — .env.schema é lido em runtime pelo auto-load
 COPY --from=sisub-build /app/apps/sisub/.env.schema ./.env.schema
-COPY --from=sisub-build /app/apps/sisub/bunfig.toml ./bunfig.toml
-# TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
 USER bun
 EXPOSE 3000
-CMD ["varlock", "run", "--", "bun", ".output/server/index.mjs"]
+CMD ["bun", ".output/server/index.mjs"]
 
 # =============================================================================
 # RAG (apps/ai) — Hono + LangGraph + Bun
