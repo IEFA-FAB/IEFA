@@ -89,8 +89,6 @@ RUN test -f apps/sisub/.output/server/index.mjs || \
 FROM oven/bun:1.3.10-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
-# varlock é bundlado no SSR output (não é external) — .env.schema é lido em runtime pelo auto-load
-COPY --from=sisub-build /app/apps/sisub/.env.schema ./.env.schema
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
 USER bun
 EXPOSE 3000
