@@ -240,10 +240,7 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 									<Field>
 										<FieldLabel>Unidade de Medida</FieldLabel>
 										<FieldContent>
-											<Select
-												value={field.state.value ?? "__NONE__"}
-												onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}
-											>
+											<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
 												<SelectTrigger>
 													<SelectValue placeholder="Selecione" />
 												</SelectTrigger>

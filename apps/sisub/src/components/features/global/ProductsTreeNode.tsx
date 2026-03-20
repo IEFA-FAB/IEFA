@@ -158,7 +158,11 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 						size="icon"
 						onClick={(e) => {
 							e.stopPropagation()
-							onEdit(node.type, node.data as Folder | Product)
+							if (node.type === "product" && onNavigate) {
+								onNavigate()
+							} else {
+								onEdit(node.type, node.data as Folder | Product)
+							}
 						}}
 						disabled={isDeleting}
 						aria-label={`Editar ${node.label}`}

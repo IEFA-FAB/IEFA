@@ -8,11 +8,7 @@ import type { FolderInsert, FolderUpdate, ProductInsert, ProductItemInsert, Prod
 // ============================================================================
 
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getSupabaseServerClient()
-		.from("nutrient")
-		.select("*")
-		.is("deleted_at", null)
-		.order("display_order", { ascending: true })
+	const { data, error } = await getSupabaseServerClient().from("nutrient").select("*").is("deleted_at", null).order("display_order", { ascending: true })
 
 	if (error) throw new Error(error.message)
 	return data || []
@@ -36,7 +32,7 @@ export const setProductNutrientsFn = createServerFn({ method: "POST" })
 		z.object({
 			productId: z.string(),
 			nutrients: z.array(z.object({ nutrient_id: z.string(), nutrient_value: z.number().nullable() })),
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
 		const supabase = getSupabaseServerClient()
@@ -51,7 +47,9 @@ export const setProductNutrientsFn = createServerFn({ method: "POST" })
 		if (delError) throw new Error(delError.message)
 
 		// Insert non-null values
-		const toInsert = data.nutrients.filter((n) => n.nutrient_value != null).map((n) => ({ product_id: data.productId, nutrient_id: n.nutrient_id, nutrient_value: n.nutrient_value }))
+		const toInsert = data.nutrients
+			.filter((n) => n.nutrient_value != null)
+			.map((n) => ({ product_id: data.productId, nutrient_id: n.nutrient_id, nutrient_value: n.nutrient_value }))
 
 		if (toInsert.length > 0) {
 			const { error: insError } = await supabase.from("product_nutrient").insert(toInsert)

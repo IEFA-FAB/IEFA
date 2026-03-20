@@ -195,12 +195,11 @@ export function ProductsTreeManager() {
 				/>
 			)}
 
-			{dialogState.type === "product" && (
+			{dialogState.type === "product" && dialogState.mode === "create" && (
 				<ProductForm
 					isOpen={dialogState.isOpen}
 					onClose={handleCloseDialog}
-					mode={dialogState.mode}
-					product={dialogState.mode === "edit" && dialogState.data && "measure_unit" in dialogState.data ? (dialogState.data as Product) : undefined}
+					mode="create"
 					defaultFolderId={dialogState.parentId ?? undefined}
 				/>
 			)}
