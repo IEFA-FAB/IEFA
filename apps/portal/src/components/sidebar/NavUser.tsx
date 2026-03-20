@@ -1,6 +1,17 @@
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronsUpDown, LogOut, User } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "../ui/dropdown-menu"
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../ui/sidebar"
 
 function getInitials(nameOrEmail?: string) {
 	if (!nameOrEmail?.trim()) return "US"

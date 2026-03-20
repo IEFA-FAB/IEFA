@@ -38,28 +38,18 @@ CMD ["bun", "apps/api/dist/index.js"]
 # IEFA
 # =============================================================================
 FROM deps AS iefa-build
-# Build-time environment variables for Vite
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_ANON_KEY
-ARG VITE_RAG_SUPABASE_URL
-
-# Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./
 COPY apps/portal ./apps/portal
-
-# Clear any local cache
 RUN rm -rf apps/portal/.vite apps/portal/.tanstack apps/portal/node_modules/.vite
-
-# Build with environment variables available to Vite
 RUN bun --filter='@iefa/portal' run build
-# Validação: output existe?
 RUN test -f apps/portal/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
 FROM oven/bun:1.3.10-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
-# TanStack Start SSR build with all deps bundled (ssr.noExternal: true)
 COPY --from=iefa-build /app/apps/portal/.output ./.output
 USER bun
 EXPOSE 3000

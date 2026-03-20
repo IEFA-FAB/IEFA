@@ -6,6 +6,8 @@ import { Plus, Search } from "lucide-react"
 import { useState } from "react"
 import { authQueryOptions } from "@/auth/service"
 import { ArticleCard } from "@/components/journal/ArticleCard"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { articlesQueryOptions } from "@/lib/journal/hooks"
 import type { ArticleStatus } from "@/lib/journal/types"
 

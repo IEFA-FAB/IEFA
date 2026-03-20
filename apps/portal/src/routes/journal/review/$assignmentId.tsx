@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, Save, Send } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 
 export const Route = createFileRoute("/journal/review/$assignmentId")({
 	component: ReviewSubmission,

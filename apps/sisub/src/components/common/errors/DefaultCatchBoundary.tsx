@@ -4,6 +4,7 @@ import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/cn"
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 	const router = useRouter()
@@ -18,55 +19,42 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 
 	return (
 		<div className="min-h-screen w-full flex items-center justify-center p-4">
-			<Card className="w-full max-w-2xl border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
-				<CardHeader className="text-center space-y-4 pb-4 pt-12">
-					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-red-500/20 to-red-500/10 flex items-center justify-center border border-red-500/20">
-						<AlertCircle className="h-10 w-10 text-red-400" />
+			<Card className="w-full max-w-2xl">
+				<CardHeader className="text-center space-y-3">
+					<div className="mx-auto flex size-14 items-center justify-center border border-destructive/20 bg-destructive/10">
+						<AlertCircle className="size-7 text-destructive" />
 					</div>
-					<CardTitle className="text-4xl font-bold tracking-tight">Ops! Algo deu errado</CardTitle>
-					<CardDescription className="text-zinc-400 text-lg">Encontramos um erro inesperado. Por favor, tente novamente.</CardDescription>
+					<CardTitle>Ops! Algo deu errado</CardTitle>
+					<CardDescription>Encontramos um erro inesperado. Por favor, tente novamente.</CardDescription>
 				</CardHeader>
 
-				<CardContent className="px-8 pb-4">
-					<Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
-						<AlertCircle className="h-4 w-4" />
-						<AlertDescription className="ml-2">
+				<CardContent>
+					<Alert variant="destructive">
+						<AlertCircle className="size-4" />
+						<AlertDescription>
 							<strong className="font-semibold">Detalhes do erro:</strong>
-							<br />
-							<code className="text-sm mt-2 block bg-black/20 p-3 rounded-lg font-mono">{errorMessage}</code>
+							<code className="mt-2 block bg-muted p-2 font-mono text-sm text-muted-foreground">{errorMessage}</code>
 						</AlertDescription>
 					</Alert>
 				</CardContent>
 
-				<CardFooter className="flex flex-col gap-3 px-8 pb-12 pt-4">
-					<Button
-						onClick={() => router.invalidate()}
-						className="w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
-					>
-						<RefreshCw className="mr-2 h-5 w-5" />
+				<CardFooter className="flex flex-col gap-2">
+					<Button onClick={() => router.invalidate()} className="w-full">
+						<RefreshCw className="size-4" />
 						Tentar Novamente
 					</Button>
 
-					<div className="grid grid-cols-2 gap-3 w-full">
+					<div className="grid w-full grid-cols-2 gap-2">
 						{!isRoot && (
-							<Button
-								onClick={() => window.history.back()}
-								variant="outline"
-								className="rounded-full font-bold h-12 text-base transition-all hover:-translate-y-0.5 border-white/10 bg-white/5 hover:bg-white/10"
-							>
-								<ArrowLeft className="mr-2 h-4 w-4" />
+							<Button onClick={() => window.history.back()} variant="outline">
+								<ArrowLeft className="size-4" />
 								Voltar
 							</Button>
 						)}
-						<Link to="/" className={isRoot ? "col-span-2" : ""}>
-							<Button
-								variant="outline"
-								className="w-full rounded-full font-bold h-12 text-base transition-all hover:-translate-y-0.5 border-white/10 bg-white/5 hover:bg-white/10"
-							>
-								<Home className="mr-2 h-4 w-4" />
-								Ir para o Início
-							</Button>
-						</Link>
+						<Button variant="outline" render={<Link to="/" />} className={cn(isRoot && "col-span-2")}>
+							<Home className="size-4" />
+							Ir para o Início
+						</Button>
 					</div>
 				</CardFooter>
 			</Card>

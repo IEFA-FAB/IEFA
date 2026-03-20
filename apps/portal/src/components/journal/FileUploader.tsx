@@ -2,6 +2,7 @@ import { FileText, Upload, X } from "lucide-react"
 import { useCallback, useState } from "react"
 import { type FileRejection, useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
+import { Button } from "../ui/button"
 
 interface FileUploaderProps {
 	accept?: Record<string, string[]>

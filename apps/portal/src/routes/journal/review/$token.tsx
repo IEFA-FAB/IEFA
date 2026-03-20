@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { AlertCircle, CheckCircle2, Clock, FileText, XCircle } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/journal/review/$token")({
 	component: ReviewInvitation,
@@ -73,7 +74,7 @@ function ReviewInvitation() {
 				</p>
 				<div className="flex gap-3">
 					{invitation.status === "accepted" && <Button render={<Link to="/journal/review">Ir para Dashboard</Link>} />}
-					<Button render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
+					<Button nativeButton={false} render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 				</div>
 			</div>
 		)

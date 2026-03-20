@@ -2,6 +2,9 @@ import { Link } from "@tanstack/react-router"
 import { User } from "lucide-react"
 import { urlFor } from "@/lib/sanity"
 import type { PostSummary } from "@/types/domain"
+import { Badge } from "./ui/badge"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardFooter, CardHeader } from "./ui/card"
 
 export function PostCard({ post }: { post: PostSummary }) {
 	return (

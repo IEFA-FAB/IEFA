@@ -9,6 +9,7 @@ import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import type { ThemeContextType } from "@/components/themeService"
 import { ThemeScript } from "@/components/themeService"
+import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import AppStyles from "@/styles.css?url"
 

@@ -2,7 +2,10 @@ import { Link } from "@tanstack/react-router"
 import { ExternalLink, Menu } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useTheme } from "@/hooks/useTheme"
+import { AnimatedThemeToggler } from "./animated-theme-toggler"
 import { UserMenu } from "./UserMenu"
+import { Button } from "./ui/button"
+import { Separator } from "./ui/separator"
 
 interface AppLayoutProps {
 	children: ReactNode

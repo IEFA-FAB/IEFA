@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { BookOpen, FileText, LayoutDashboard, List, Settings, Upload, Users } from "lucide-react"
 import { authQueryOptions } from "@/auth/service"
 import { ProfileOnboarding } from "@/components/journal/ProfileOnboarding"
+import { Button } from "@/components/ui/button"
 import { userProfileQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/")({

@@ -1,6 +1,9 @@
 import type { ErrorComponentProps } from "@tanstack/react-router"
 import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router"
 import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"
+import { Alert, AlertDescription } from "./ui/alert"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card"
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 	const router = useRouter()

@@ -1,6 +1,9 @@
 import { Link } from "@tanstack/react-router"
 import { ExternalLink, Github, User } from "lucide-react"
 import type { AppItem } from "@/types/domain"
+import { Badge } from "./ui/badge"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardFooter, CardHeader } from "./ui/card"
 
 export function AppCard({ app }: { app: AppItem }) {
 	const isExternal = app.external && !!app.href

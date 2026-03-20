@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale"
 import { Calendar, Download, Edit, FileText, Users } from "lucide-react"
 import { authQueryOptions } from "@/auth/service"
 import { StatusBadge } from "@/components/journal/StatusBadge"
+import { Button } from "@/components/ui/button"
 import { getArticleFileUrl } from "@/lib/journal/client"
 import { articleAuthorsQueryOptions, articleVersionsQueryOptions, articleWithDetailsQueryOptions } from "@/lib/journal/hooks"
 

@@ -1,6 +1,8 @@
 import { PortableText, type PortableTextComponents } from "@portabletext/react"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { client, urlFor } from "@/lib/sanity"
 import type { PostDetail } from "@/types/domain"
 

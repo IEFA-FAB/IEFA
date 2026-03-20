@@ -3,10 +3,10 @@
 
 import { Check, ChevronLeft, ChevronRight } from "lucide-react"
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { saveDraft } from "@/lib/journal/submission"
 import type { ArticleTypeFormData, AuthorsFormData } from "@/lib/journal/validation"
 import { validateStep } from "@/lib/journal/validation"
-
 // Import step components (will create these next)
 import { Step1ArticleType } from "./Step1ArticleType"
 import { Step2Metadata } from "./Step2Metadata"

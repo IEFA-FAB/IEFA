@@ -1,5 +1,8 @@
 // Step 5: Declarations (COI, Funding, Ethics)
 
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step5Declarations() {

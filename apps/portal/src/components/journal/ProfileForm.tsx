@@ -3,6 +3,10 @@ import { useState } from "react"
 import { z } from "zod"
 import { useUpsertUserProfile } from "@/lib/journal/hooks"
 import type { UserProfile } from "@/lib/journal/types"
+import { Button } from "../ui/button"
+import { Input } from "../ui/input"
+import { Label } from "../ui/label"
+import { Textarea } from "../ui/textarea"
 
 const profileSchema = z.object({
 	full_name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),

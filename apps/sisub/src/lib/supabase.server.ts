@@ -1,8 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { getRequest, setCookie } from "@tanstack/react-start/server"
-import type { Database } from "@/types/database.types"
-import { env } from "@/lib/env"
 import { envServer } from "@/lib/env.server"
+import type { Database } from "@/types/database.types"
 
 /**
  * Cria um cliente Supabase para uso exclusivo no servidor.
@@ -11,7 +10,7 @@ import { envServer } from "@/lib/env.server"
  * o contexto de request/cookies correto por requisição.
  */
 export function getSupabaseServerClient() {
-	return createServerClient<Database>(env.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
+	return createServerClient<Database>(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
 		db: { schema: "sisub" },
 		cookies: {
 			getAll() {

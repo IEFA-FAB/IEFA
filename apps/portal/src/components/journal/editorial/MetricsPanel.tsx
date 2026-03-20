@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export function MetricsPanel() {
 	// Placeholder - will be connected to real data later

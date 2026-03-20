@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { AlertCircle, User } from "lucide-react"
+import { Button } from "../ui/button"
+import { Card, CardContent, CardHeader } from "../ui/card"
 
 export function ProfileOnboarding() {
 	return (

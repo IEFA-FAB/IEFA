@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/useAuth"
 import type { AskReference, AskResponse, ChatMessage, HealthStatus, RemoteMessage, SessionSummary } from "@/types/chat"
 

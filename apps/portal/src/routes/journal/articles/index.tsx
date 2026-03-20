@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { BookOpen, Calendar, FileText, Filter, Search, User } from "lucide-react"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 export const Route = createFileRoute("/journal/articles/")({
 	component: PublishedArticles,

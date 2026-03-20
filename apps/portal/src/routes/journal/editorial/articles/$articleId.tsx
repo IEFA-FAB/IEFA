@@ -1,6 +1,8 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, Calendar, CheckCircle2, Clock, Download, FileText, MessageSquare, User, XCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { articleWithDetailsQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/editorial/articles/$articleId")({
@@ -19,6 +21,7 @@ function ArticleDetailEditor() {
 			{/* Header with back button */}
 			<div className="flex items-center gap-4">
 				<Button
+					nativeButton={false}
 					render={
 						<Link to="/journal/editorial/dashboard">
 							<ArrowLeft className="size-4 mr-2" />

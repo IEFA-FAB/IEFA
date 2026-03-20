@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { AlertCircle, Calendar, User } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
 interface ArticleCardProps {

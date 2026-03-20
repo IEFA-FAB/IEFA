@@ -2,6 +2,7 @@
 
 import { Check, Copy } from "lucide-react"
 import { useState } from "react"
+import { Button } from "./ui/button"
 
 export default function CopyButton({ content }: { content: string }) {
 	const [copied, setCopied] = useState(false)

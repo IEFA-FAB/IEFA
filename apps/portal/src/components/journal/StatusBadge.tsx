@@ -2,6 +2,7 @@
 
 import { Check, Clock, Edit, Eye, FileText, Globe, type LucideIcon, X } from "lucide-react"
 import type { ArticleStatus } from "@/lib/journal/types"
+import { Badge } from "../ui/badge"
 
 interface StatusBadgeProps {
 	status: ArticleStatus

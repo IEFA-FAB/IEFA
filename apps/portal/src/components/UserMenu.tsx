@@ -1,6 +1,17 @@
 import { Link } from "@tanstack/react-router"
 import { EllipsisVertical, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import { Button } from "./ui/button"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "./ui/dropdown-menu"
 
 function getInitials(nameOrEmail?: string) {
 	if (!nameOrEmail) return "US"

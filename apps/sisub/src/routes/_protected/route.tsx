@@ -15,7 +15,12 @@ export const Route = createFileRoute("/_protected")({
 		const { id, email } = context.auth.user
 		// Pré-carrega permissões no cache do React Query.
 		// Garante que requirePermission() funcione sincronamente em qualquer rota filha.
-		await Promise.all([context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)), syncUserEmailFn({ data: { userId: id, email: email ?? "" } })])
+		await Promise.all([
+			context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)),
+			// Non-critical upsert — failure (e.g. HMR module cache miss in dev) must
+			// not crash beforeLoad and block navigation.
+			syncUserEmailFn({ data: { userId: id, email: email ?? "" } }).catch(console.error),
+		])
 	},
 	component: ProtectedLayout,
 })

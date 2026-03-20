@@ -4,6 +4,9 @@ import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, X } from "lucide-react"
 import { useMemo } from "react"
 import type { AuthorFormData } from "@/lib/journal/validation"
+import { Button } from "../ui/button"
+import { Input } from "../ui/input"
+import { Label } from "../ui/label"
 
 interface AuthorManagerProps {
 	authors: AuthorFormData[]

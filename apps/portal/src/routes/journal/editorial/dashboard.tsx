@@ -6,6 +6,7 @@ import { type DashboardFilters, FilterPanel } from "@/components/journal/editori
 import { KanbanBoard } from "@/components/journal/editorial/KanbanBoard"
 import { MetricsPanel } from "@/components/journal/editorial/MetricsPanel"
 import { TableView } from "@/components/journal/editorial/TableView"
+import { Button } from "@/components/ui/button"
 import { editorialDashboardQueryOptions } from "@/lib/journal/hooks"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 

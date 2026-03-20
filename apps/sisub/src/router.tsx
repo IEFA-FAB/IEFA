@@ -85,7 +85,16 @@ export const getRouter = () => {
 				isAuthenticated: true,
 				isLoading: false,
 			})
-			router.invalidate()
+			// When signing in from the auth page, navigate directly instead of
+			// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
+			// throws a redirect from the /auth/ index route — TanStack Router then
+			// fails to match /auth/ as a source path, producing a spurious error.
+			if (router.state.location.pathname.startsWith("/auth")) {
+				const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
+				router.navigate({ to: redirectTo })
+			} else {
+				router.invalidate()
+			}
 		}
 
 		if (event === "SIGNED_OUT") {

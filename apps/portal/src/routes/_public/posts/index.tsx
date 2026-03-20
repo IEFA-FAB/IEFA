@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Suspense } from "react"
 import { PostCard } from "@/components/PostCard"
+import { Separator } from "@/components/ui/separator"
 import { client } from "@/lib/sanity"
 import type { PostSummary } from "@/types/domain"
 

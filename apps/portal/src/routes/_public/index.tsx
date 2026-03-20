@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AppCard } from "@/components/AppCard"
 import { DynamicIcon } from "@/components/dynamicIcon"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { useAppsData } from "@/hooks/useAppsData"
 import type { AppItem } from "@/types/domain"
 

@@ -1,23 +1,18 @@
 import { queryOptions } from "@tanstack/react-query"
 import supabase from "@/lib/supabase"
+import { getServerSessionFn } from "@/server/auth.fn"
 import type { AuthContextType } from "../types/domain/auth"
 
 // Separate state from actions for router context typing
 export type AuthState = Pick<AuthContextType, "user" | "session" | "isLoading" | "isAuthenticated">
 
-// Auth Query Options - Secure validation using getUser()
+// Auth Query Options — usa server function para que funcione tanto no SSR
+// (lê cookies via getSupabaseServerClient) quanto no cliente (HTTP call com cache).
 export const authQueryOptions = () =>
 	queryOptions({
 		queryKey: ["auth", "user"],
 		queryFn: async () => {
-			// ✅ CORRETO - Valida no servidor Supabase
-			const {
-				data: { user },
-			} = await supabase.auth.getUser()
-			const {
-				data: { session },
-			} = await supabase.auth.getSession()
-
+			const { user, session } = await getServerSessionFn()
 			return {
 				user,
 				session,

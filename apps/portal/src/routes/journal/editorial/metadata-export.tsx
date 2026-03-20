@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Download, FileText, Globe, Send } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/journal/editorial/metadata-export")({
 	component: MetadataExport,
