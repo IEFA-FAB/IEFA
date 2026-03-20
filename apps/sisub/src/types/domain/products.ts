@@ -1,12 +1,15 @@
 import type {
+	Ceafa,
 	Folder,
 	FolderInsert,
 	FolderUpdate,
+	Nutrient,
 	Product,
 	ProductInsert,
 	ProductItem,
 	ProductItemInsert,
 	ProductItemUpdate,
+	ProductNutrient,
 	ProductUpdate,
 } from "@/types/supabase.types"
 
@@ -14,7 +17,20 @@ import type {
 // Re-exports (base types from DB)
 // ========================================
 
-export type { Folder, Product, ProductItem }
+export type { Ceafa, Folder, Nutrient, Product, ProductItem, ProductNutrient }
+
+// ========================================
+// Nutrientes com detalhes
+// ========================================
+
+export interface ProductNutrientWithDetails extends ProductNutrient {
+	nutrient: Nutrient
+}
+
+export interface ProductWithDetails extends Product {
+	ceafa: Ceafa | null
+	nutrients: ProductNutrientWithDetails[]
+}
 
 // ========================================
 // Composições (Types com relações)

@@ -6,8 +6,8 @@ Monorepo for the IEFA platform.
 
 | App | Description |
 |-----|-------------|
-| `apps/sisub` | Subscription/kitchen management system |
-| `apps/portal` | User portal |
+| `apps/sisub` | Sistema de subsistência |
+| `apps/portal` | Portal IEFA |
 | `apps/api` | Backend API |
 | `apps/docs` | Documentation |
 

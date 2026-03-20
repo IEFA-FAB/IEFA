@@ -6,23 +6,30 @@ import {
 	deleteFolderFn,
 	deleteProductFn,
 	deleteProductItemFn,
+	fetchCeafaFn,
 	fetchFoldersFn,
+	fetchNutrientsFn,
 	fetchProductFn,
 	fetchProductItemsFn,
+	fetchProductNutrientsFn,
 	fetchProductsFn,
+	setProductNutrientsFn,
 	updateFolderFn,
 	updateProductFn,
 	updateProductItemFn,
 } from "@/server/products.fn"
 import type {
+	Ceafa,
 	Folder,
 	FolderInsert,
 	FolderUpdate,
+	Nutrient,
 	Product,
 	ProductInsert,
 	ProductItem,
 	ProductItemInsert,
 	ProductItemUpdate,
+	ProductNutrient,
 	ProductUpdate,
 } from "@/types/supabase.types"
 
@@ -72,6 +79,27 @@ export const productsTreeQueryOptions = () =>
 		staleTime: 10 * 60 * 1000,
 	})
 
+export const nutrientsQueryOptions = () =>
+	queryOptions({
+		queryKey: ["products", "nutrients"],
+		queryFn: () => fetchNutrientsFn() as Promise<Nutrient[]>,
+		staleTime: 30 * 60 * 1000,
+	})
+
+export const productNutrientsQueryOptions = (productId: string) =>
+	queryOptions({
+		queryKey: ["products", "product-nutrients", productId],
+		queryFn: () => fetchProductNutrientsFn({ data: { productId } }) as Promise<(ProductNutrient & { nutrient: Nutrient })[]>,
+		staleTime: 5 * 60 * 1000,
+	})
+
+export const ceafaQueryOptions = (search?: string) =>
+	queryOptions({
+		queryKey: ["products", "ceafa", search || ""],
+		queryFn: () => fetchCeafaFn({ data: { search } }) as Promise<Ceafa[]>,
+		staleTime: 10 * 60 * 1000,
+	})
+
 // ========================================
 // Basic Hooks
 // ========================================
@@ -99,6 +127,21 @@ export function useProduct(productId: string) {
 export function useProductsTree() {
 	const query = useQuery(productsTreeQueryOptions())
 	return { tree: query.data, error: query.error, refetch: query.refetch }
+}
+
+export function useNutrients() {
+	const query = useQuery(nutrientsQueryOptions())
+	return { nutrients: query.data, isLoading: query.isLoading, error: query.error }
+}
+
+export function useProductNutrients(productId: string) {
+	const query = useQuery(productNutrientsQueryOptions(productId))
+	return { productNutrients: query.data, isLoading: query.isLoading, error: query.error }
+}
+
+export function useCeafa(search?: string) {
+	const query = useQuery(ceafaQueryOptions(search))
+	return { ceafaList: query.data, isLoading: query.isLoading }
 }
 
 // ========================================
@@ -201,6 +244,18 @@ export function useDeleteProductItem() {
 	return {
 		deleteProductItem: mutation.mutateAsync,
 		isDeleting: mutation.isPending,
+		error: mutation.error,
+	}
+}
+
+export function useSetProductNutrients() {
+	const mutation = useMutation({
+		mutationFn: ({ productId, nutrients }: { productId: string; nutrients: { nutrient_id: string; nutrient_value: number | null }[] }) =>
+			setProductNutrientsFn({ data: { productId, nutrients } }),
+	})
+	return {
+		setProductNutrients: mutation.mutateAsync,
+		isSaving: mutation.isPending,
 		error: mutation.error,
 	}
 }

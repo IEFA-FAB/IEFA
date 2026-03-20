@@ -3,6 +3,80 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { FolderInsert, FolderUpdate, ProductInsert, ProductItemInsert, ProductItemUpdate, ProductUpdate } from "@/types/supabase.types"
 
+// ============================================================================
+// Nutrients
+// ============================================================================
+
+export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
+	const { data, error } = await getSupabaseServerClient()
+		.from("nutrient")
+		.select("*")
+		.is("deleted_at", null)
+		.order("display_order", { ascending: true })
+
+	if (error) throw new Error(error.message)
+	return data || []
+})
+
+export const fetchProductNutrientsFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ productId: z.string() }))
+	.handler(async ({ data }) => {
+		const { data: result, error } = await getSupabaseServerClient()
+			.from("product_nutrient")
+			.select("*, nutrient(*)")
+			.eq("product_id", data.productId)
+			.is("deleted_at", null)
+
+		if (error) throw new Error(error.message)
+		return result || []
+	})
+
+export const setProductNutrientsFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			productId: z.string(),
+			nutrients: z.array(z.object({ nutrient_id: z.string(), nutrient_value: z.number().nullable() })),
+		}),
+	)
+	.handler(async ({ data }) => {
+		const supabase = getSupabaseServerClient()
+
+		// Soft-delete all existing records
+		const { error: delError } = await supabase
+			.from("product_nutrient")
+			.update({ deleted_at: new Date().toISOString() })
+			.eq("product_id", data.productId)
+			.is("deleted_at", null)
+
+		if (delError) throw new Error(delError.message)
+
+		// Insert non-null values
+		const toInsert = data.nutrients.filter((n) => n.nutrient_value != null).map((n) => ({ product_id: data.productId, nutrient_id: n.nutrient_id, nutrient_value: n.nutrient_value }))
+
+		if (toInsert.length > 0) {
+			const { error: insError } = await supabase.from("product_nutrient").insert(toInsert)
+			if (insError) throw new Error(insError.message)
+		}
+	})
+
+// ============================================================================
+// CEAFA
+// ============================================================================
+
+export const fetchCeafaFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ search: z.string().optional() }))
+	.handler(async ({ data }) => {
+		let query = getSupabaseServerClient().from("ceafa").select("*").order("description", { ascending: true }).limit(50)
+
+		if (data.search && data.search.trim().length > 0) {
+			query = query.ilike("description", `%${data.search.trim()}%`)
+		}
+
+		const { data: result, error } = await query
+		if (error) throw new Error(error.message)
+		return result || []
+	})
+
 const FolderWriteSchema = z.object({
 	description: z.string().nullable().optional(),
 	parent_id: z.string().nullable().optional(),

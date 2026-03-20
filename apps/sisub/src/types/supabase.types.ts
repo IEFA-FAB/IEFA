@@ -107,6 +107,18 @@ export type ProductItem = Tables<"product_item">
 export type ProductItemInsert = TablesInsert<"product_item">
 export type ProductItemUpdate = TablesUpdate<"product_item">
 
+export type Nutrient = Tables<"nutrient">
+export type NutrientInsert = TablesInsert<"nutrient">
+export type NutrientUpdate = TablesUpdate<"nutrient">
+
+export type Ceafa = Tables<"ceafa">
+export type CeafaInsert = TablesInsert<"ceafa">
+export type CeafaUpdate = TablesUpdate<"ceafa">
+
+export type ProductNutrient = Tables<"product_nutrient">
+export type ProductNutrientInsert = TablesInsert<"product_nutrient">
+export type ProductNutrientUpdate = TablesUpdate<"product_nutrient">
+
 export type Recipe = Tables<"recipes">
 export type RecipeInsert = TablesInsert<"recipes">
 export type RecipeUpdate = TablesUpdate<"recipes">
