@@ -49,9 +49,7 @@ export function useRealtimeSubscription(options: {
 					schema: "sisub",
 					table,
 				},
-				(payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-					console.log(`[Realtime] ${table} changed:`, payload)
-
+				(_payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
 					// Invalidar queries relevantes
 					queryClient.invalidateQueries({
 						queryKey: queryKeyPrefix,

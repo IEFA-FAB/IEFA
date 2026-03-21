@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 interface PageHeaderProps {
 	title: string
 	description?: string
+	/** Badge inline ao lado do título (ex: versão, status) */
+	badge?: ReactNode
 	/** Right-side action buttons / controls */
 	children?: ReactNode
 	/** Simple programmatic back — para back via Link, passe-o dentro de children */
@@ -32,7 +34,7 @@ interface PageHeaderProps {
  * Adicione `description` apenas quando a página precisa de contexto que o título
  * não transmite (ex.: orientação de uso, nome dinâmico de entidade, dados de contexto).
  */
-export function PageHeader({ title, description, children, onBack }: PageHeaderProps) {
+export function PageHeader({ title, description, badge, children, onBack }: PageHeaderProps) {
 	return (
 		<header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 border-b border-border/60 pb-4">
 			<div className="flex items-start gap-2 min-w-0">
@@ -42,7 +44,10 @@ export function PageHeader({ title, description, children, onBack }: PageHeaderP
 					</Button>
 				)}
 				<div className="min-w-0">
-					<h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">{title}</h1>
+					<div className="flex items-center gap-2">
+						<h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">{title}</h1>
+						{badge}
+					</div>
 					{description && <p className="mt-0.5 text-sm text-muted-foreground leading-snug max-w-prose">{description}</p>}
 				</div>
 			</div>

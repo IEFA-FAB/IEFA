@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_protected")({
 			context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)),
 			// Non-critical upsert — failure (e.g. HMR module cache miss in dev) must
 			// not crash beforeLoad and block navigation.
+			// biome-ignore lint/suspicious/noConsole: intentional — non-critical error logging
 			syncUserEmailFn({ data: { userId: id, email: email ?? "" } }).catch(console.error),
 		])
 	},

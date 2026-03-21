@@ -12,8 +12,6 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 		select: (state) => state.id === rootRouteId,
 	})
 
-	console.error("DefaultCatchBoundary Error:", error)
-
 	const errorMessage = error instanceof Error ? error.message : "Um erro inesperado ocorreu"
 
 	return (

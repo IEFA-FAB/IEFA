@@ -43,8 +43,7 @@ export function useAddOtherPresence() {
 				description: "Entrada sem cadastro adicionada com sucesso.",
 			})
 		},
-		onError: (error) => {
-			console.error("Erro ao registrar Outros:", error)
+		onError: (_error) => {
 			toast.error("Erro", { description: "Não foi possível registrar a entrada." })
 		},
 	})

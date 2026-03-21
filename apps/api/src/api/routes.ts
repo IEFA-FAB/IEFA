@@ -128,7 +128,6 @@ function createDocumentedRoute(config: {
 		},
 	})
 
-	// biome-ignore lint/suspicious/noExplicitAny: Type mismatch between generic Handler and OpenAPI handler requires casting
 	return api.openapi(route, config.handler as any)
 }
 

@@ -91,8 +91,7 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 		try {
 			await saveDraft(formData, userId, articleId)
 			setLastSaved(new Date())
-		} catch (error) {
-			console.error("Failed to save draft:", error)
+		} catch (_error) {
 		} finally {
 			setIsSaving(false)
 		}

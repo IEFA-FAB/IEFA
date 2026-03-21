@@ -6,7 +6,7 @@ import * as React from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import type { Team } from "./SidebarTypes"
+import type { Module } from "./SidebarTypes"
 
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
 
@@ -15,27 +15,27 @@ function altLabel(index: number) {
 	return isMac ? `⌥${index}` : `Alt+${index}`
 }
 
-export function TeamSwitcher({
-	teams,
+export function ModuleSwitcher({
+	modules,
 	value,
 	onChange,
 }: {
-	teams: Team[]
-	/** Name of the currently active team (controlled mode) */
+	modules: Module[]
+	/** Name of the currently active module (controlled mode) */
 	value?: string
-	onChange?: (team: Team) => void
+	onChange?: (module: Module) => void
 }) {
 	const { isMobile } = useSidebar()
-	const [internalActive, setInternalActive] = React.useState(teams[0])
+	const [internalActive, setInternalActive] = React.useState(modules[0])
 
-	const activeTeam = value ? (teams.find((t) => t.name === value) ?? internalActive) : internalActive
+	const activeModule = value ? (modules.find((m) => m.name === value) ?? internalActive) : internalActive
 
 	const handleChange = React.useCallback(
-		(team: Team) => {
+		(module: Module) => {
 			if (onChange) {
-				onChange(team)
+				onChange(module)
 			} else {
-				setInternalActive(team)
+				setInternalActive(module)
 			}
 		},
 		[onChange]
@@ -49,12 +49,12 @@ export function TeamSwitcher({
 	})
 
 	// Alt+1…9 — no browser conflict (unlike Ctrl/Cmd+1–8 which switch tabs).
-	// Registers once per teams change; callbacks stay fresh via the ref.
+	// Registers once per modules change; callbacks stay fresh via the ref.
 	React.useEffect(() => {
 		const manager = getHotkeyManager()
-		const handles = teams.slice(0, 9).map((team, i) => {
+		const handles = modules.slice(0, 9).map((module, i) => {
 			const hotkey = (["Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9"] as const)[i]
-			return manager.register(hotkey, () => handleChangeRef.current(team), {
+			return manager.register(hotkey, () => handleChangeRef.current(module), {
 				requireReset: true,
 				conflictBehavior: "error",
 			})
@@ -62,9 +62,9 @@ export function TeamSwitcher({
 		return () => {
 			for (const h of handles) h.unregister()
 		}
-	}, [teams])
+	}, [modules])
 
-	if (!activeTeam) {
+	if (!activeModule) {
 		return null
 	}
 
@@ -76,16 +76,15 @@ export function TeamSwitcher({
 						<TooltipTrigger
 							render={
 								<DropdownMenuTrigger
-									className=" cursor-pointer"
+									className="cursor-pointer"
 									render={
 										<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 											<div className="flex h-8 p-2 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-												<activeTeam.logo className="h-4 w-4" />
+												<activeModule.logo className="h-4 w-4" />
 											</div>
 
 											<div className="grid flex-1 text-left text-sm leading-tight">
-												<span className="truncate font-medium">{activeTeam.name}</span>
-												<span className="truncate text-xs">{activeTeam.plan}</span>
+												<span className="truncate font-medium">{activeModule.name}</span>
 											</div>
 											<ChevronsUpDown className="ml-auto" />
 										</SidebarMenuButton>
@@ -104,12 +103,12 @@ export function TeamSwitcher({
 					>
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="text-muted-foreground text-xs">Módulos</DropdownMenuLabel>
-							{teams.map((team, i) => (
-								<DropdownMenuItem key={team.name} onClick={() => handleChange(team)} className="gap-2 p-2">
+							{modules.map((module, i) => (
+								<DropdownMenuItem key={module.name} onClick={() => handleChange(module)} className="cursor-pointer gap-2 p-2">
 									<div className="flex h-6 w-6 items-center justify-center rounded-md border bg-sidebar-accent">
-										<team.logo className="h-3.5 w-3.5" />
+										<module.logo className="h-3.5 w-3.5" />
 									</div>
-									<span className="flex-1">{team.name}</span>
+									<span className="flex-1">{module.name}</span>
 									{i < 9 && <kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground opacity-60">{altLabel(i + 1)}</kbd>}
 								</DropdownMenuItem>
 							))}

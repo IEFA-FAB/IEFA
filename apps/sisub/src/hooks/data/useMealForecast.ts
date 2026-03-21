@@ -317,7 +317,6 @@ export const useMealForecast = (): MealForecastHook => {
 
 							return { success: true, change }
 						} catch (err) {
-							console.error(`Erro ao processar ${change.date}-${change.meal}:`, err)
 							return {
 								success: false,
 								change,
@@ -350,9 +349,7 @@ export const useMealForecast = (): MealForecastHook => {
 					)
 					fail.forEach((r) => {
 						if (r.status === "fulfilled") {
-							console.error("Erro na operação:", (r.value as { error?: string }).error)
 						} else {
-							console.error("Promise rejeitada:", r.reason)
 						}
 					})
 				} else {
@@ -368,7 +365,6 @@ export const useMealForecast = (): MealForecastHook => {
 				// refresh em background
 				queryClient.invalidateQueries({ queryKey: forecastsQueryKey })
 			} catch (err) {
-				console.error("Erro crítico ao salvar mudanças:", err)
 				setErrorWithClear(err instanceof Error ? `Erro ao salvar ${labelAlteracao(1)}: ${err.message}` : "Erro ao salvar alterações. Tente novamente.")
 			} finally {
 				setIsSavingBatch(false)

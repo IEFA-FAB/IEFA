@@ -193,8 +193,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 				setDialog({ open: true, uuid, systemForecast, willEnter: "sim" })
 				markScannedRef.current(uuid)
 				if (isMountedRef.current) setIsProcessing(false)
-			} catch (err) {
-				console.error("Erro ao preparar diálogo:", err)
+			} catch (_err) {
 				if (isMountedRef.current) toast.error("Erro", { description: "Falha ao processar QR." })
 				if (isMountedRef.current) setIsProcessing(false)
 			}
@@ -202,7 +201,9 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 	}, [])
 
 	const onScanFail = useCallback((err: string | Error) => {
-		if (String(err) !== "No QR code found") console.warn("QR Scan Error:", err)
+		if (String(err) !== "No QR code found") {
+			// suppress "No QR code found" noise
+		}
 	}, [])
 
 	useEffect(() => {
@@ -228,7 +229,6 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 				await scanner.start()
 				if (!isCancelled) dispatch({ type: "INITIALIZE_SUCCESS", hasPermission: true })
 			} catch (err) {
-				console.error("Erro ao iniciar scanner:", err)
 				if (!isCancelled) dispatch({ type: "INITIALIZE_ERROR", error: String(err ?? "Erro desconhecido.") })
 			}
 		}
@@ -247,8 +247,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		try {
 			await confirmPresence(dialog.uuid, dialog.willEnter === "sim")
 			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
-		} catch (err) {
-			console.error("Falha ao confirmar presença:", err)
+		} catch (_err) {
 			if (isMountedRef.current) setDialog((d) => ({ ...d, open: false, uuid: null }))
 		}
 	}, [confirmPresence, dialog.uuid, dialog.willEnter])
@@ -267,7 +266,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		if (dialog.open) {
 			scanner.stop()
 		} else if (scannerState.hasPermission) {
-			scanner.start().catch((err) => console.error("Erro ao retomar scanner:", err))
+			scanner.start().catch((_err) => {})
 		}
 	}, [dialog.open, scannerState.hasPermission])
 
@@ -282,9 +281,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 				await scanner.start()
 				dispatch({ type: "TOGGLE_SCAN", isScanning: true })
 			}
-		} catch (err) {
-			console.error("Erro ao alternar scanner:", err)
-		}
+		} catch (_err) {}
 	}
 
 	const refresh = async () => {
@@ -296,9 +293,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		try {
 			await scanner.start()
 			dispatch({ type: "REFRESH" })
-		} catch (err) {
-			console.error("Erro no refresh do scanner:", err)
-		}
+		} catch (_err) {}
 	}
 
 	const handleAddOtherPresence = async () => {
@@ -312,9 +307,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 		}
 		try {
 			await addOtherMutation.mutateAsync({ filters, adminId: user.id })
-		} catch (err) {
-			console.error("Erro ao adicionar presença anônima:", err)
-		}
+		} catch (_err) {}
 	}
 
 	return (

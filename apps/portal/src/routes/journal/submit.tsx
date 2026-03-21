@@ -3,7 +3,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { useState } from "react"
 import { authQueryOptions } from "@/auth/service"
-import { SubmissionForm } from "@/components/journal/SubmissionForm"
+import { SubmissionForm } from "@/components/journal/SubmissionForm/SubmissionForm"
 import { userProfileQueryOptions } from "@/lib/journal/hooks"
 import { submitArticle } from "@/lib/journal/submission"
 
@@ -55,8 +55,7 @@ function RouteComponent() {
 					params: { id: result.article.id },
 				})
 			}
-		} catch (err) {
-			console.error("Submission error:", err)
+		} catch (_err) {
 			setError("Erro inesperado ao submeter artigo")
 			setIsSubmitting(false)
 		}

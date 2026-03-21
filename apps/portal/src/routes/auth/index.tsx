@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { z } from "zod"
-import { AuthScreen } from "@/auth"
+import { AuthScreen } from "@/auth/view/AuthScreen"
 import { Card, CardContent } from "@/components/ui/card"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"

@@ -342,8 +342,7 @@ export default function Forecast(): JSX.Element {
 
 			setSuccess(`Rancho padrão "${defaultMessHallCode}" aplicado a ${cardsWithoutMessHall.length} ${labelCard(cardsWithoutMessHall.length)}!`)
 			setIsApplyingDefaultMessHall(false)
-		} catch (err) {
-			console.error("Erro ao aplicar rancho padrão:", err)
+		} catch (_err) {
 			setError("Erro ao aplicar rancho padrão. Tente novamente.")
 			setIsApplyingDefaultMessHall(false)
 		}
@@ -426,8 +425,7 @@ export default function Forecast(): JSX.Element {
 			setSuccess(`Template de refeições aplicado a ${diasStr} no modo ${modoStr}: ${alteracoesStr}.`)
 			setShowBulkMealSelector(false)
 			setIsApplyingMealTemplate(false)
-		} catch (err) {
-			console.error("Erro ao aplicar template de refeições:", err)
+		} catch (_err) {
 			setError("Erro ao aplicar template de refeições. Tente novamente.")
 			setIsApplyingMealTemplate(false)
 		}

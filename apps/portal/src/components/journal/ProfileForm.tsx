@@ -92,7 +92,6 @@ export function ProfileForm({ userId, profile, userEmail }: ProfileFormProps) {
 					text: "Perfil atualizado com sucesso!",
 				})
 			} catch (error) {
-				console.error("Error updating profile:", error)
 				setMessage({
 					type: "error",
 					text: error instanceof Error ? error.message : "Erro ao salvar perfil. Tente novamente.",

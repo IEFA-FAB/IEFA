@@ -5,6 +5,7 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Item, ItemGroup } from "@/components/ui/item"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -168,19 +169,21 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 					{selectedTemplateId && dayMappings.length > 0 && (
 						<div className="space-y-2">
 							<Label className="text-sm font-medium">Preview do Mapeamento</Label>
-							<div className="border rounded-md p-3 space-y-2 bg-muted/20 max-h-48 overflow-y-auto">
-								{dayMappings.map((mapping) => (
-									<div key={mapping.date} className="flex items-center gap-2 text-sm">
-										<Badge variant="outline" className="w-24 justify-center">
-											{format(new Date(mapping.date), "dd/MM", {
-												locale: ptBR,
-											})}
-										</Badge>
-										<span className="text-xs text-muted-foreground">({getWeekdayLabel(mapping.realDay)})</span>
-										<ChevronRight className="w-3 h-3 text-muted-foreground" />
-										<span className="text-xs font-medium">Dia {mapping.templateDay} do template</span>
-									</div>
-								))}
+							<div className="border rounded-md p-3 bg-muted/20 max-h-48 overflow-y-auto">
+								<ItemGroup>
+									{dayMappings.map((mapping) => (
+										<Item key={mapping.date} size="xs" variant="default">
+											<Badge variant="outline" className="w-24 justify-center">
+												{format(new Date(mapping.date), "dd/MM", {
+													locale: ptBR,
+												})}
+											</Badge>
+											<span className="text-xs text-muted-foreground">({getWeekdayLabel(mapping.realDay)})</span>
+											<ChevronRight className="w-3 h-3 text-muted-foreground" />
+											<span className="text-xs font-medium">Dia {mapping.templateDay} do template</span>
+										</Item>
+									))}
+								</ItemGroup>
 							</div>
 						</div>
 					)}

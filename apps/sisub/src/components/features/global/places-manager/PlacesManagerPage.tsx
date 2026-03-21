@@ -5,7 +5,7 @@ import { useApplyPlacesDiff, usePlacesGraph } from "@/hooks/data/usePlaces"
 import { buildDiffFromReconnection } from "@/lib/places-graph/diff"
 import { applyManualPositions, computeElkLayout, loadSavedPositions, savePositions } from "@/lib/places-graph/layout"
 import { transformToGraph } from "@/lib/places-graph/transform"
-import type { PlacesDiff, PlacesEdge, PlacesEditorMode, PlacesFilterState, PlacesNode, PlacesSelection } from "@/types/domain/places"
+import type { PlacesDiff, PlacesEdge, PlacesEdgeData, PlacesEditorMode, PlacesFilterState, PlacesNode, PlacesSelection } from "@/types/domain/places"
 import { GraphToolbar } from "./canvas/GraphToolbar"
 import { PlacesCanvas } from "./canvas/PlacesCanvas"
 import { DirtyChangesBar } from "./DirtyChangesBar"
@@ -165,7 +165,9 @@ export function PlacesManagerPage() {
 					return next
 				})
 				// Mark the edge as dirty
-				setEdges((eds) => eds.map((e) => (e.id === oldEdge.id ? { ...e, target: newConnection.target!, data: { ...e.data!, isDirty: true } } : e)))
+				setEdges((eds) =>
+					eds.map((e) => (e.id === oldEdge.id ? { ...e, target: newConnection.target as string, data: { ...(e.data as PlacesEdgeData), isDirty: true } } : e))
+				)
 			} catch {
 				// diff building failed (target node not found) — ignore
 			}

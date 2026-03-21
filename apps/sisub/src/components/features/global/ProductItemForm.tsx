@@ -65,9 +65,8 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 
 				onClose()
 				form.reset()
-			} catch (error) {
+			} catch (_error) {
 				toast.error(mode === "create" ? "Erro ao criar item" : "Erro ao atualizar item")
-				console.error(error)
 			}
 		},
 	})

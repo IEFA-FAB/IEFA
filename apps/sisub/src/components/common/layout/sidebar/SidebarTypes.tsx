@@ -1,9 +1,8 @@
 import type { LucideIcon } from "lucide-react"
 
-export type Team = {
+export type Module = {
 	name: string
 	logo: LucideIcon
-	plan: string
 }
 
 export type NavItemLeaf = {
@@ -20,6 +19,6 @@ export type NavItemSection = {
 }
 
 export type AppSidebarData = {
-	teams: Team[]
+	modules: Module[]
 	navMain: NavItemSection[]
 }

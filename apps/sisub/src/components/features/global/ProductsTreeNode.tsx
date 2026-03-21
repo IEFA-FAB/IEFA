@@ -70,9 +70,8 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 			}
 
 			await queryClient.invalidateQueries({ queryKey: ["products"] })
-		} catch (error) {
+		} catch (_error) {
 			toast.error("Erro ao excluir item")
-			console.error(error)
 		} finally {
 			setIsDeleteDialogOpen(false)
 		}

@@ -29,8 +29,7 @@ export function useUpdateNrOrdem() {
 			queryClient.setQueryData(queryKey, nrOrdem)
 			return { previous, queryKey }
 		},
-		onError: (error, _, context) => {
-			console.error("Erro ao salvar nrOrdem:", error)
+		onError: (_error, _, context) => {
 			if (context?.previous) {
 				queryClient.setQueryData(context.queryKey, context.previous)
 			}

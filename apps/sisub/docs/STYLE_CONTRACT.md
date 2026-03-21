@@ -36,9 +36,21 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 ### 4.3 Patterns
 - **Função:** Combinação base arquitetural de primitivos interligados para resolver comportamentos específicos.
 - **Regras:**
-  - **Deve** adotar as APIs propostas. Padrão indiscutível: Formulários devem importar a API do `field.tsx`.
+  - **Deve** adotar as APIs propostas. Padrão indiscutível: Formulários devem importar a API do `field.tsx`. Listas de entidades devem usar o padrão `item.tsx`.
   - **Não deve** montar lógicas repetitivas (como `grid` de `Label` + `Input` + Erro) espalhadas nos componentes de features.
-- **Decisão:** Existindo um pattern consolidado (`field.tsx`), é proibido implementar a solução customizada "na mão".
+  - **Não deve** substituir linhas de lista por `div.flex.items-center.gap-*.p-*.rounded-*.border` quando `<Item>` atende o caso.
+- **Decisão:** Existindo um pattern consolidado (`field.tsx`, `item.tsx`), é proibido implementar a solução customizada "na mão".
+
+#### Pattern `item.tsx` — Linhas de lista semânticas
+- **`ItemGroup`** — container `role="list"` com espaçamento automático por tamanho (`gap-4` default, `gap-2.5` sm, `gap-2` xs).
+- **`Item`** — linha polimórfica via prop `render` (pode ser `<Link>`, `<button>`, `<a>`). Variantes: `default` (borda transparente), `outline` (borda `border-border`), `muted` (fundo `bg-muted/50`). Tamanhos: `default`, `sm`, `xs`.
+- **`ItemMedia`** — slot para ícone ou imagem (variantes: `default`, `icon`, `image`). Usar `variant="image"` apenas quando não houver elementos absolutamente posicionados sobrepostos.
+- **`ItemContent`** — coluna flex para título e descrição.
+- **`ItemTitle`** / **`ItemDescription`** — slots semânticos de texto; `ItemDescription` aceita `className="text-xs"` para ajuste de escala sem quebrar o contrato.
+- **`ItemActions`** — agrupamento de botões/ícones à direita.
+- **`ItemHeader`** / **`ItemFooter`** — linhas `basis-full` para conteúdo que ocupa a largura total do item (ex: botão de ação na base).
+- **Casos de uso obrigatórios:** pessoas em lista, itens de lixeira, resultados de busca/combobox, linhas de preview, qualquer entidade repetível com ícone + texto + ação.
+- **Distinção obrigatória com `Card`:** `<Card>` encapsula uma **seção** de domínio; `<Item>` representa uma **entidade** dentro de uma lista. Nunca usar `<Card>` para linhas de lista, nunca usar `<Item>` como container de seção.
 
 ### 4.4 Wrappers semânticos
 - **Função:** Encapsular primitives visando uma regra de negócio específica altamente reutilizada do sistema.
@@ -65,6 +77,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Variants:** Só devem ser consumidas mediante tipagem restrita do CVA do componente. Invenções como `variant="floating"` são proibidas.
 - **States (Hover/Focus/Active/Disabled):** Requer padrão consistente. Obrigatório usar a semântica de `ring` (ex: `focus-visible:ring-[3px] focus-visible:ring-ring`) via CVA.
 - **Formulários:** Uso exclusivo e incontornável do padrão `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldError`). Redes de formulário em grids soltos são depreciadas. Para texto de dica abaixo de um campo (hint), usar obrigatoriamente `<FieldDescription>` de `field.tsx`. Proibido usar `<p className="text-xs text-muted-foreground">` como substituto de `FieldDescription` dentro de um `<Field>`.
+- **Listas de entidades:** Para linhas repetitivas de entidades (pessoas, receitas, itens de lixeira, resultados de busca, previews de mapeamento), usar obrigatoriamente o padrão `item.tsx` (`ItemGroup`, `Item`, `ItemMedia`, `ItemContent`, `ItemTitle`, `ItemDescription`, `ItemActions`, `ItemHeader`, `ItemFooter`). O `<Item>` é polimórfico via `render` — usar `render={<Link>}` para linhas navegáveis. Variante `outline` para listas com destaque de borda; `muted` para listas em contexto de sheet/drawer; `default` para listas em containers já delimitados.
 - **Acessibilidade:** Elementos interativos não devem ocultar seus anéis de foco. Containers que usam `opacity-0` para efeito hover **devem** incluir `focus-within:opacity-100` para garantir visibilidade ao teclado (ex: `opacity-0 group-hover:opacity-100 focus-within:opacity-100`).
 - **Tooltips:** O atributo HTML `title` é proibido como mecanismo de tooltip em elementos interativos. Usar obrigatoriamente o primitivo `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` de `@/components/ui/tooltip`. Razão: `title` não é exibido em foco de teclado nem em touch, falha WCAG 1.4.13, e não respeita o tema do design system. Para botões exclusivamente de ícone, complementar com `aria-label` além do `<Tooltip>`.
 - **Navegação Polimórfica:** Para exibir links com aparência de botões, use a prop `render` (ou equivalente `asChild`) do primitivo `Button` encapsulando o `Link` (ex: `<Button render={<Link to="/rota">...</Link>} />`). Jamais aninhe tags iterativas quebrando a semântica de acessibilidade HTML nativa. **Distinção obrigatória:** `render={<Link>}` é exigido quando o destino é uma URL fixa navegável (usuário pode abrir em nova aba, copiar link). `onClick={() => navigate(...)}` é aceito para navegação imperativa contextual — cancel de formulário, redirect pós-ação assíncrona, ou quando a rota depende de lógica de estado em execução.
@@ -78,6 +91,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Proibido** enviar strings atreladas a propriedades de variant (ex: `variant="floating"`, `variant="present"`, `variant="missing"`) não estabelecidas no construtor CVA.
 - **Proibido** uso de concatenação nativa de strings para classes dinâmicas (ex: ```className={`class1 ${ativo ? 'bg-primary' : ''}`}```). Usar `cn()`.
 - **Proibido** aninhar tags HTML interativas para criar componentes visuais (ex: `<Link><Button>...</Button></Link>` ou `<Button><Link>...</Link></Button>`).
+- **Proibido** usar `div.flex.items-center.gap-*.p-*.rounded-*.border` como linha de lista quando há entidade repetível. Usar o primitivo `<Item>` de `item.tsx`.
 - **Proibido** criar elementos `<Label>` soltos combinados com tags vermelhas soltas para erros de formulário, ignorando a infraestrutura de `field.tsx`.
 - **Proibido** usar `<p className="text-xs text-muted-foreground">` como hint de campo dentro de um `<Field>`. Usar `<FieldDescription>` de `field.tsx`.
 - **Proibido** usar o atributo `title` como tooltip em elementos interativos (`<Button>`, `<a>`, etc.). Usar o primitivo `<Tooltip>` do design system.
@@ -118,9 +132,11 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 - [ ] O componente está acessível e mantém indicadores de foco (focus-visible)?
 - [ ] Tooltips em elementos interativos usam o primitivo `<Tooltip>` (não o atributo `title`)?
 - [ ] Formulários adotaram as instâncias do `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription` para hints)?
+- [ ] Listas de entidades usam `ItemGroup` + `Item` + slots semânticos em vez de `div.border.rounded-md.p-3`?
 - [ ] Foi verificado se a mudança justifica uma abstração de primitive `CVA` ou apenas um `className` de espaçamento de feature/tela?
 
 ## 10. Referências de implementação
 - **Wrappers semânticos de referência:** `AppShell.tsx` e `PageHeader.tsx` — alta coesão, baixo acoplamento. Usar como modelo ao extrair novos wrappers.
 - **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod. Para hints de campo, ver `ProductItemForm.tsx` — uso correto de `FieldDescription`.
+- **Lista de entidades de referência:** `TrashDrawer.tsx` — uso correto de `ItemGroup`, `Item variant="muted"`, `ItemHeader`, `ItemContent`, `ItemTitle`, `ItemDescription`, `ItemFooter` em drawer. `PresenceTable.tsx` — uso correto de `Item variant="outline"` com `ItemMedia` + `ItemContent` para cards de pessoa com cor dinâmica via `className`. `ApplyTemplateDialog.tsx` — uso correto de `Item size="xs" variant="default"` para linhas de preview dentro de container scrollável.
 - **Tooltip de referência:** `weekly-menus/$weeklyMenuId.tsx` — uso correto de `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` em botões de ação.

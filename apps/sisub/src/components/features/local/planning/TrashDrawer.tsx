@@ -3,6 +3,7 @@ import { ptBR } from "date-fns/locale"
 import { CalendarDays, Loader2, RefreshCcw, Trash2, UtensilsCrossed } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Item, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemHeader, ItemTitle } from "@/components/ui/item"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -68,44 +69,43 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 								{!trashItems || trashItems.length === 0 ? (
 									<div className="text-center py-10 text-muted-foreground text-sm">Nenhum item removido.</div>
 								) : (
-									<div className="space-y-3 mt-4">
+									<ItemGroup className="mt-4">
 										{trashItems.map((item) => (
-											<div key={item.id} className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2">
-												<div className="flex justify-between items-start">
-													<div>
-														<p className="font-medium text-sm">
-															{(item.recipe as { name?: string })?.name || item.recipe_origin?.name || "Preparação sem nome"}
-														</p>
-														<p className="text-xs text-muted-foreground">
+											<Item key={item.id} variant="muted">
+												<ItemHeader>
+													<ItemContent>
+														<ItemTitle>{(item.recipe as { name?: string })?.name || item.recipe_origin?.name || "Preparação sem nome"}</ItemTitle>
+														<ItemDescription className="text-xs">
 															{format(new Date(item.daily_menu.service_date || new Date().toISOString()), "dd/MM/yyyy", {
 																locale: ptBR,
 															})}{" "}
 															· {item.planned_portion_quantity || 0}g
-														</p>
+														</ItemDescription>
 														{item.deleted_at && (
-															<p className="text-xs text-muted-foreground/70 mt-1">
+															<ItemDescription className="text-xs text-muted-foreground/70">
 																Removido em{" "}
 																{format(new Date(item.deleted_at), "dd/MM/yyyy 'às' HH:mm", {
 																	locale: ptBR,
 																})}
-															</p>
+															</ItemDescription>
 														)}
-													</div>
-												</div>
-
-												<Button
-													size="sm"
-													variant="outline"
-													className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
-													onClick={() => restoreItem(item.id)}
-													disabled={isPending}
-												>
-													<RefreshCcw className="w-3 h-3" />
-													Restaurar
-												</Button>
-											</div>
+													</ItemContent>
+												</ItemHeader>
+												<ItemFooter>
+													<Button
+														size="sm"
+														variant="outline"
+														className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
+														onClick={() => restoreItem(item.id)}
+														disabled={isPending}
+													>
+														<RefreshCcw className="w-3 h-3" />
+														Restaurar
+													</Button>
+												</ItemFooter>
+											</Item>
 										))}
-									</div>
+									</ItemGroup>
 								)}
 							</ScrollArea>
 						</TabsContent>
@@ -116,48 +116,48 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 								{!deletedTemplates || deletedTemplates.length === 0 ? (
 									<div className="text-center py-10 text-muted-foreground text-sm">Nenhum template removido.</div>
 								) : (
-									<div className="space-y-3 mt-4">
+									<ItemGroup className="mt-4">
 										{deletedTemplates.map((template) => (
-											<div key={template.id} className="border rounded-md p-3 bg-muted/20 flex flex-col gap-2">
-												<div className="flex justify-between items-start">
-													<div className="flex-1">
-														<div className="flex items-center gap-2">
-															<p className="font-medium text-sm">{template.name}</p>
+											<Item key={template.id} variant="muted">
+												<ItemHeader>
+													<ItemContent>
+														<ItemTitle className="gap-2">
+															{template.name}
 															{template.kitchen_id === null && (
 																<Badge variant="outline" className="text-[10px]">
 																	Global
 																</Badge>
 															)}
-														</div>
-														<p className="text-xs text-muted-foreground">{template.description || "Sem descrição"}</p>
-														<p className="text-xs text-muted-foreground/70 mt-1">
-															{template.recipe_count || 0} Preparação
-															{template.recipe_count !== 1 ? "s" : ""}
-														</p>
+														</ItemTitle>
+														<ItemDescription className="text-xs">{template.description || "Sem descrição"}</ItemDescription>
+														<ItemDescription className="text-xs text-muted-foreground/70">
+															{template.recipe_count || 0} Preparação{template.recipe_count !== 1 ? "s" : ""}
+														</ItemDescription>
 														{template.deleted_at && (
-															<p className="text-xs text-muted-foreground/70 mt-1">
+															<ItemDescription className="text-xs text-muted-foreground/70">
 																Removido em{" "}
 																{format(new Date(template.deleted_at), "dd/MM/yyyy 'às' HH:mm", {
 																	locale: ptBR,
 																})}
-															</p>
+															</ItemDescription>
 														)}
-													</div>
-												</div>
-
-												<Button
-													size="sm"
-													variant="outline"
-													className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
-													onClick={() => restoreTemplate(template.id)}
-													disabled={isPending}
-												>
-													<RefreshCcw className="w-3 h-3" />
-													Restaurar Template
-												</Button>
-											</div>
+													</ItemContent>
+												</ItemHeader>
+												<ItemFooter>
+													<Button
+														size="sm"
+														variant="outline"
+														className="w-full h-8 gap-2 hover:bg-success/10 hover:text-success hover:border-success/30"
+														onClick={() => restoreTemplate(template.id)}
+														disabled={isPending}
+													>
+														<RefreshCcw className="w-3 h-3" />
+														Restaurar Template
+													</Button>
+												</ItemFooter>
+											</Item>
 										))}
-									</div>
+									</ItemGroup>
 								)}
 							</ScrollArea>
 						</TabsContent>

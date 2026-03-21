@@ -162,11 +162,7 @@ export function useTemplates(kitchenId: number | null) {
 
 export function useApplyTemplate() {
 	return useMutation({
-		mutationFn: async ({ templateId, targetDates }: { templateId: string; targetDates: Date[]; kitchenId: number }) => {
-			// TODO: Implement backend logic (RPC) to apply template
-			// This is a placeholder for Phase 5 frontend integration
-			console.log("Applying template", templateId, "to dates", targetDates)
-
+		mutationFn: async (_vars: { templateId: string; targetDates: Date[]; kitchenId: number }) => {
 			// Artificial delay
 			await new Promise((resolve) => setTimeout(resolve, 1000))
 

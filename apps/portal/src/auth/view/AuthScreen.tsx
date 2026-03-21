@@ -202,7 +202,6 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			const target = safeRedirect(searchParams.redirect, "/")
 			await onNavigate({ to: target, replace: true })
 		} catch (err) {
-			console.error("Falha no login:", err)
 			const errorMsg = err instanceof Error ? err.message : "Erro desconhecido"
 			// Tratamento de erros específicos
 			if (errorMsg.includes("Email ou senha incorretos") || errorMsg.includes("Invalid login credentials")) {

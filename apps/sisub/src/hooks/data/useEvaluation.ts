@@ -22,7 +22,7 @@ export function useSubmitEvaluation() {
 
 	return useMutation({
 		mutationFn: (payload: { value: number; question: string; userId: string }) => submitEvaluationFn({ data: payload }),
-		onError: (error) => console.error("Erro ao registrar voto:", error),
+		onError: (_error) => {},
 		onSuccess: (_, { userId }) => {
 			queryClient.invalidateQueries({ queryKey: evaluationKey(userId) })
 		},

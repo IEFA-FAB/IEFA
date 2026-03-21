@@ -196,12 +196,7 @@ export function ProductsTreeManager() {
 			)}
 
 			{dialogState.type === "product" && dialogState.mode === "create" && (
-				<ProductForm
-					isOpen={dialogState.isOpen}
-					onClose={handleCloseDialog}
-					mode="create"
-					defaultFolderId={dialogState.parentId ?? undefined}
-				/>
+				<ProductForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode="create" defaultFolderId={dialogState.parentId ?? undefined} />
 			)}
 		</div>
 	)

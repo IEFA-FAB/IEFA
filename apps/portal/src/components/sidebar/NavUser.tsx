@@ -39,9 +39,7 @@ export function NavUser() {
 	const handleLogout = async () => {
 		try {
 			await signOut()
-		} catch (error) {
-			console.error("Logout failed:", error)
-		}
+		} catch (_error) {}
 	}
 
 	return (

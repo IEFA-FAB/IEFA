@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { Check, ChevronsUpDown, Loader2, Save } from "lucide-react"
-import { useEffect, useState } from "react"
+import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { PageHeader } from "@/components/common/layout/PageHeader"
@@ -25,6 +25,14 @@ const productSchema = z.object({
 	ceafa_id: z.string().uuid().nullable(),
 })
 
+const MEASURE_UNIT_LABELS: Record<string, string> = {
+	UN: "UN (Unidade)",
+	KG: "KG (Quilograma)",
+	LT: "LT (Litro)",
+	G: "G (Grama)",
+	ML: "ML (Mililitro)",
+}
+
 interface ProductDetailFormProps {
 	product: Product
 	folders: Folder[]
@@ -44,17 +52,24 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 	// Load ceafa list reactively via query
 	const ceafaList = queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions(ceafaSearch).queryKey) ?? []
 
-	// Local nutrient state (controlled separately from the main form)
-	const [nutrientValues, setNutrientValues] = useState<Record<string, string>>({})
-
 	const syncedNutrients = nutrients ?? []
 
-	// Sync when nutrients or productNutrients data loads
-	useEffect(() => {
-		if (!nutrients || !productNutrients) return
+	// Derive initial nutrient values from server data; user edits are tracked via overrides
+	const baseNutrientValues = useMemo(() => {
+		if (!nutrients || !productNutrients) return {}
 		const map = Object.fromEntries(productNutrients.map((pn) => [pn.nutrient_id, pn.nutrient_value]))
-		setNutrientValues(Object.fromEntries(nutrients.map((n) => [n.id, map[n.id] != null ? String(map[n.id]) : ""])))
+		return Object.fromEntries(nutrients.map((n) => [n.id, map[n.id] != null ? String(map[n.id]) : ""]))
 	}, [nutrients, productNutrients])
+
+	// Local nutrient state (controlled separately from the main form)
+	const [nutrientOverrides, setNutrientOverrides] = useState<Record<string, string>>({})
+	const nutrientValues = { ...baseNutrientValues, ...nutrientOverrides }
+	const setNutrientValues: Dispatch<SetStateAction<Record<string, string>>> = (action) => {
+		setNutrientOverrides((prev) => {
+			const base = { ...baseNutrientValues, ...prev }
+			return typeof action === "function" ? action(base) : action
+		})
+	}
 	const currentCeafa = product.ceafa_id ? queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions("").queryKey)?.find((c) => c.id === product.ceafa_id) : null
 
 	const form = useForm({
@@ -144,7 +159,11 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 												onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? (null as unknown as string) : v)}
 											>
 												<SelectTrigger>
-													<SelectValue placeholder="Selecione uma pasta" />
+													<SelectValue placeholder="Selecione uma pasta">
+														{field.state.value && field.state.value !== "__NONE__"
+															? (folders.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
+															: undefined}
+													</SelectValue>
 												</SelectTrigger>
 												<SelectContent>
 													<SelectItem value="__NONE__">Sem pasta</SelectItem>
@@ -242,7 +261,9 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 										<FieldContent>
 											<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
 												<SelectTrigger>
-													<SelectValue placeholder="Selecione" />
+													<SelectValue placeholder="Selecione">
+														{field.state.value && field.state.value !== "__NONE__" ? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value) : undefined}
+													</SelectValue>
 												</SelectTrigger>
 												<SelectContent>
 													<SelectItem value="__NONE__">Selecione</SelectItem>
@@ -309,7 +330,7 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 interface NutrientsCardProps {
 	nutrients: Nutrient[]
 	values: Record<string, string>
-	onChange: React.Dispatch<React.SetStateAction<Record<string, string>>>
+	onChange: Dispatch<SetStateAction<Record<string, string>>>
 }
 
 function NutrientsCard({ nutrients, values, onChange }: NutrientsCardProps) {
@@ -345,7 +366,7 @@ function NutrientsCard({ nutrients, values, onChange }: NutrientsCardProps) {
 interface NutrientGridProps {
 	nutrients: Nutrient[]
 	values: Record<string, string>
-	onChange: React.Dispatch<React.SetStateAction<Record<string, string>>>
+	onChange: Dispatch<SetStateAction<Record<string, string>>>
 }
 
 function NutrientGrid({ nutrients, values, onChange }: NutrientGridProps) {

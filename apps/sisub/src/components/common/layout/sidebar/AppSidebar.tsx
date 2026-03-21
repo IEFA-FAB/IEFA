@@ -1,10 +1,10 @@
 import type * as React from "react"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+import { ModuleSwitcher } from "./ModuleSwitcher"
 import type { ModuleDef, ModuleId } from "./NavItems"
 import { NavMain } from "./NavMain"
 import { NavUser } from "./NavUser"
-import type { Team } from "./SidebarTypes"
-import { TeamSwitcher } from "./TeamSwitcher"
+import type { Module } from "./SidebarTypes"
 
 export function AppSidebar({
 	modules,
@@ -48,10 +48,9 @@ export function AppSidebar({
 	const availableModules = modules ?? []
 	const activeModule = availableModules.find((m) => m.id === activeModuleId) ?? availableModules[0]
 
-	const teams = availableModules.map((m) => ({
+	const sidebarModules: Module[] = availableModules.map((m) => ({
 		name: m.name,
 		logo: m.icon,
-		plan: "",
 	}))
 
 	const navMain = activeModule
@@ -65,8 +64,8 @@ export function AppSidebar({
 			]
 		: []
 
-	const handleTeamChange = (team: Team) => {
-		const mod = availableModules.find((m) => m.name === team.name)
+	const handleModuleChange = (module: Module) => {
+		const mod = availableModules.find((m) => m.name === module.name)
 		if (mod && onModuleChange) {
 			onModuleChange(mod.id)
 		}
@@ -77,7 +76,7 @@ export function AppSidebar({
 	return (
 		<Sidebar collapsible="icon" variant="sidebar" {...props}>
 			<SidebarHeader>
-				<TeamSwitcher teams={teams} value={activeModule.name} onChange={handleTeamChange} />
+				<ModuleSwitcher modules={sidebarModules} value={activeModule.name} onChange={handleModuleChange} />
 			</SidebarHeader>
 			<SidebarContent>
 				<NavMain items={navMain} />

@@ -15,9 +15,9 @@ function ModuleCard({ module }: { module: ModuleDef }) {
 	const Icon = module.icon
 
 	return (
-		<Card className="relative transition-colors hover:ring-primary/50">
+		<Card className="relative transition-colors hover:ring-1 hover:ring-primary/50">
 			<CardContent className="flex grow flex-col gap-4">
-				<div className="flex h-12 w-12 items-center justify-center bg-primary/10 text-primary transition-colors group-hover/card:bg-primary/20">
+				<div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
 					<Icon className="h-6 w-6" />
 				</div>
 

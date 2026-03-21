@@ -48,8 +48,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 			toast.success("Preferência salva", {
 				description: "Rancho padrão atualizado com sucesso.",
 			})
-		} catch (err) {
-			console.error("Erro ao aplicar rancho padrão:", err)
+		} catch (_err) {
 			toast.error("Erro", {
 				description: "Falha ao salvar sua preferência.",
 			})

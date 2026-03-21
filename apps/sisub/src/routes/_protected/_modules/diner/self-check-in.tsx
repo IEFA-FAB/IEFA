@@ -180,12 +180,10 @@ function SelfCheckin() {
 				return
 			}
 
-			console.error("Erro ao registrar presença:", error)
 			toast.error("Erro", {
 				description: "Não foi possível registrar sua presença.",
 			})
-		} catch (err) {
-			console.error("Falha inesperada no envio:", err)
+		} catch (_err) {
 			toast.error("Erro", {
 				description: "Falha inesperada ao enviar a presença.",
 			})

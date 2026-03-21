@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.7/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -8,7 +8,16 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**/src/**/*", "**/.vscode/**/*", "**/index.html", "**/vite.config.ts", "**/vite.config.js", "!**/src/routeTree.gen.ts", "!**/src/styles.css"]
+    "includes": [
+      "**/src/**/*",
+      "**/.vscode/**/*",
+      "**/index.html",
+      "**/vite.config.ts",
+      "**/vite.config.js",
+      "!**/src/routeTree.gen.ts",
+      "!**/src/styles.css",
+      "!**/src/types/supabase.types.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -21,23 +30,77 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "warn",
-        "noArrayIndexKey": "off"
+        "noExplicitAny": "error",
+        "noArrayIndexKey": "off",
+        "noConsole": "warn"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn",
+        "useExhaustiveDependencies": "error",
         "noUnusedVariables": "error"
       },
       "style": {
-        "noNonNullAssertion": "warn",
+        "noNonNullAssertion": "error",
         "useImportType": "error",
         "useNodejsImportProtocol": "error"
       },
       "performance": {
-        "noAccumulatingSpread": "warn"
+        "noAccumulatingSpread": "error",
+        "noBarrelFile": "error",
+        "noReExportAll": "error"
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["apps/sisub/src/**/*", "apps/portal/src/**/*"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useAltText": "error",
+            "useButtonType": "error",
+            "noAutofocus": "warn"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/docs/src/**/*"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useAltText": "error",
+            "useButtonType": "error",
+            "noAutofocus": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/api/src/**/*", "apps/ai/src/**/*"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off",
+            "useExhaustiveDependencies": "off"
+          },
+          "suspicious": {
+            "noConsole": "off",
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/components/ui/**/*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

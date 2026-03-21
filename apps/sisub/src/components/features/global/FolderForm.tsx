@@ -53,9 +53,8 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 
 				onClose()
 				form.reset()
-			} catch (error) {
+			} catch (_error) {
 				toast.error(mode === "create" ? "Erro ao criar pasta" : "Erro ao atualizar pasta")
-				console.error(error)
 			}
 		},
 	})
@@ -102,7 +101,11 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 									<FieldLabel htmlFor={field.name}>Pasta Pai (Opcional)</FieldLabel>
 									<Select value={field.state.value || "__NONE__"} onValueChange={(value) => field.handleChange(value === "__NONE__" ? null : value)}>
 										<SelectTrigger>
-											<SelectValue placeholder="Nenhuma (Raiz)" />
+											<SelectValue placeholder="Nenhuma (Raiz)">
+												{field.state.value && field.state.value !== "__NONE__"
+													? (folders?.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
+													: undefined}
+											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
 											<SelectItem value="__NONE__">Nenhuma (Raiz)</SelectItem>

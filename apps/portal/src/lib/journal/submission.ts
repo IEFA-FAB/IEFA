@@ -95,7 +95,6 @@ export async function submitArticle(data: CompleteSubmissionData, userId: string
 			article,
 		}
 	} catch (error) {
-		console.error("Submission error:", error)
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Submission failed",
@@ -169,7 +168,6 @@ export async function saveDraft(data: Partial<CompleteSubmissionData>, userId: s
 			article,
 		}
 	} catch (error) {
-		console.error("Save draft error:", error)
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to save draft",
@@ -181,27 +179,22 @@ export async function saveDraft(data: Partial<CompleteSubmissionData>, userId: s
  * Load a draft article for editing
  */
 export async function loadDraft(articleId: string) {
-	try {
-		const { data: article, error: articleError } = await supabase.schema("journal").from("articles").select("*").eq("id", articleId).single()
+	const { data: article, error: articleError } = await supabase.schema("journal").from("articles").select("*").eq("id", articleId).single()
 
-		if (articleError) throw articleError
+	if (articleError) throw articleError
 
-		const { data: authors, error: authorsError } = await supabase
-			.schema("journal")
-			.from("article_authors")
-			.select("*")
-			.eq("article_id", articleId)
-			.order("author_order", { ascending: true })
+	const { data: authors, error: authorsError } = await supabase
+		.schema("journal")
+		.from("article_authors")
+		.select("*")
+		.eq("article_id", articleId)
+		.order("author_order", { ascending: true })
 
-		if (authorsError) throw authorsError
+	if (authorsError) throw authorsError
 
-		return {
-			article,
-			authors: authors || [],
-		}
-	} catch (error) {
-		console.error("Load draft error:", error)
-		throw error
+	return {
+		article,
+		authors: authors || [],
 	}
 }
 
@@ -215,8 +208,7 @@ export async function deleteDraft(articleId: string): Promise<boolean> {
 			deleted_at: new Date().toISOString(),
 		})
 		return true
-	} catch (error) {
-		console.error("Delete draft error:", error)
+	} catch (_error) {
 		return false
 	}
 }

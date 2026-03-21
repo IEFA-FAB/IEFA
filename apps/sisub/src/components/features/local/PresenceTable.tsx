@@ -6,6 +6,7 @@ import { PresenceTableSkeleton } from "@/components/common/skeletons/PresenceTab
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
@@ -63,24 +64,24 @@ function PersonCard({ person, variant }: { person: PersonDetail; variant: "missi
 	const displayName = person.name || person.email.split("@")[0]
 
 	return (
-		<div className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all", borderClass[variant])}>
-			<div className="relative">
-				<Avatar className={cn("h-10 w-10 border-2 border-white", avatarClass[variant])}>
-					<AvatarFallback className={avatarClass[variant]}>{getInitials(displayName)}</AvatarFallback>
-				</Avatar>
-				<div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border">{icon[variant]}</div>
-			</div>
-			<div className="flex-1 min-w-0">
-				<p className="text-sm font-semibold truncate" title={displayName}>
-					{displayName}
-				</p>
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span className="font-medium text-foreground/80">{person.posto || "-"}</span>
-					<span>•</span>
-					<span className="truncate">{person.org || "-"}</span>
+		<Item variant="outline" className={cn("transition-all", borderClass[variant])}>
+			<ItemMedia>
+				<div className="relative">
+					<Avatar className={cn("h-10 w-10 border-2 border-white", avatarClass[variant])}>
+						<AvatarFallback className={avatarClass[variant]}>{getInitials(displayName)}</AvatarFallback>
+					</Avatar>
+					<div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border">{icon[variant]}</div>
 				</div>
-			</div>
-		</div>
+			</ItemMedia>
+			<ItemContent>
+				<ItemTitle className="max-w-full">{displayName}</ItemTitle>
+				<ItemDescription>
+					<span className="font-medium text-foreground/80">{person.posto || "-"}</span>
+					{" • "}
+					<span>{person.org || "-"}</span>
+				</ItemDescription>
+			</ItemContent>
+		</Item>
 	)
 }
 

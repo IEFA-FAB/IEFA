@@ -9,11 +9,12 @@ import type { PostDetail } from "@/types/domain"
 // 1. Componentes do Portable Text
 const myPortableTextComponents: PortableTextComponents = {
 	types: {
-		image: ({ value }: { value: any }) => {
+		image: ({ value }: { value: { asset?: { _ref: string }; alt?: string; layout?: string; caption?: string } }) => {
 			if (!value?.asset?._ref) return null
 			return (
 				<figure className="my-8">
 					<img
+						// biome-ignore lint/suspicious/noFocusedTests: `.fit()` is a Sanity image URL builder method, not a test focus
 						src={urlFor(value).width(800).fit("max").url()}
 						alt={value.alt || "Imagem do post"}
 						className={`rounded-lg shadow-md mx-auto ${value.layout === "full" ? "w-full" : "max-w-3xl"}`}

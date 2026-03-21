@@ -115,7 +115,6 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 					key={recipeSelectorMenu?.id || "none"}
 					open={!!recipeSelectorMenu}
 					onClose={() => {
-						console.log("RecipeSelector closing")
 						setRecipeSelectorMenu(null)
 					}}
 					kitchenId={kitchenId}
@@ -126,8 +125,6 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 							setRecipeSelectorMenu(null)
 							return
 						}
-
-						console.log("Selected recipe IDs:", recipeIds, "for menu:", recipeSelectorMenu.id)
 
 						// Create menu items for each selected recipe with snapshots
 						for (const recipeId of recipeIds) {
@@ -143,11 +140,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 									planned_portion_quantity: portionQty,
 									excluded_from_procurement: 0,
 								})
-								console.log("Recipe added:", recipeId)
-							} catch (error) {
-								console.error("Error fetching recipe:", recipeId, error)
-								console.log("Recipe added:", recipeId)
-							}
+							} catch (_error) {}
 						}
 
 						setRecipeSelectorMenu(null)
@@ -300,7 +293,6 @@ function MealSection({
 								variant="outline"
 								onClick={() => {
 									if (menu) {
-										console.log("Adicionar Preparação clicked for menu:", menu.id)
 										onAddRecipe(menu)
 									}
 								}}

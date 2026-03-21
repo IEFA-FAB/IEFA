@@ -67,12 +67,10 @@ const handleConfirmPresenceError = (error: unknown): void => {
 		return
 	}
 
-	console.error("Falha ao salvar decisão:", error)
 	toast.error("Erro", { description: "Falha ao salvar decisão." })
 }
 
-const handleRemovePresenceError = (error: unknown): void => {
-	console.error("Não foi possível excluir:", error)
+const handleRemovePresenceError = (_error: unknown): void => {
 	toast.error("Erro", { description: "Não foi possível excluir." })
 }
 

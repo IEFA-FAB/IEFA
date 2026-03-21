@@ -63,7 +63,6 @@ export const authActions = {
 	signOut: async () => {
 		const { error } = await supabase.auth.signOut()
 		if (error) {
-			console.error("SignOut error:", error)
 			// Fallback to local signout if remote fails
 			await supabase.auth.signOut({ scope: "local" })
 		}

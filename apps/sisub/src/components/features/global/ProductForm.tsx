@@ -18,6 +18,14 @@ const productSchema = z.object({
 	correction_factor: z.number().min(0),
 })
 
+const MEASURE_UNIT_LABELS: Record<string, string> = {
+	UN: "UN (Unidade)",
+	KG: "KG (Quilograma)",
+	LT: "LT (Litro)",
+	G: "G (Grama)",
+	ML: "ML (Mililitro)",
+}
+
 interface ProductFormProps {
 	isOpen: boolean
 	onClose: () => void
@@ -58,9 +66,8 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 
 				onClose()
 				form.reset()
-			} catch (error) {
+			} catch (_error) {
 				toast.error(mode === "create" ? "Erro ao criar produto" : "Erro ao atualizar produto")
-				console.error(error)
 			}
 		},
 	})
@@ -110,7 +117,11 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 										onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? null : value)}
 									>
 										<SelectTrigger>
-											<SelectValue placeholder="Selecione uma pasta" />
+											<SelectValue placeholder="Selecione uma pasta">
+												{field.state.value && field.state.value !== "__SELECT__"
+													? (folders?.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
+													: undefined}
+											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
 											<SelectItem value="__SELECT__">Selecione uma pasta</SelectItem>
@@ -136,7 +147,9 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 										onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? "" : value)}
 									>
 										<SelectTrigger>
-											<SelectValue placeholder="Selecione" />
+											<SelectValue placeholder="Selecione">
+												{field.state.value && field.state.value !== "__SELECT__" ? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value) : undefined}
+											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
 											<SelectItem value="__SELECT__">Selecione</SelectItem>

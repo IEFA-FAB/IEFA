@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field"
@@ -113,17 +114,15 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	})
 
 	// Dynamic Header Content
-	const pageTitle =
-		mode === "create"
-			? "Nova Preparação"
-			: mode === "edit"
-				? `Editando: ${initialData?.name} (v${initialData?.version})`
-				: `Personalizando: ${initialData?.name}`
+	const pageTitle = mode === "create" ? "Nova Preparação" : mode === "edit" ? `Editando: ${initialData?.name}` : `Personalizando: ${initialData?.name}`
+
+	const pageBadge = mode === "edit" && initialData?.version != null ? <Badge variant="outline">v{initialData.version}</Badge> : undefined
 
 	return (
 		<div className="space-y-6 pb-20">
 			<PageHeader
 				title={pageTitle}
+				badge={pageBadge}
 				description={mode === "edit" ? "Uma nova versão será criada automaticamente." : undefined}
 				onBack={() => window.history.back()}
 			/>

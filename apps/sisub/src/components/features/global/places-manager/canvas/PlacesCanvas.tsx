@@ -96,9 +96,9 @@ export function PlacesCanvas({
 			<ReactFlow
 				nodes={nodes as Node[]}
 				edges={edges as Edge[]}
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// biome-ignore lint/suspicious/noExplicitAny: ReactFlow NodeTypes/EdgeTypes require generic cast
 				nodeTypes={nodeTypes as any}
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				// biome-ignore lint/suspicious/noExplicitAny: ReactFlow NodeTypes/EdgeTypes require generic cast
 				edgeTypes={edgeTypes as any}
 				defaultEdgeOptions={defaultEdgeOptions}
 				onNodesChange={onNodesChange as (changes: NodeChange[]) => void}

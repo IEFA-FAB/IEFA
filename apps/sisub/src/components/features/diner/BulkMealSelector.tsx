@@ -76,9 +76,7 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 		if (!hasCardsToApply || isApplying) return
 		try {
 			await onApply(template, { mode: applyMode })
-		} catch (err) {
-			console.error("Erro ao aplicar template de refeições:", err)
-		}
+		} catch (_err) {}
 	}
 
 	const handleCancel = () => {

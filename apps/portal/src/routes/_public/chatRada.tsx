@@ -314,7 +314,7 @@ function useHealthQuery() {
 		if (query.isFetched) {
 			setRetryCount((c) => c + 1)
 		}
-		// biome-ignore lint/correctness/useExhaustiveDependencies: We intentionally track dataUpdatedAt to increment on each fetch result
+		// Intentionally tracks only isFetched to increment on each fetch result
 	}, [query.isFetched])
 
 	return query
@@ -341,7 +341,7 @@ function useSessionMessagesQuery(client: ReturnType<typeof useRagClient>, isLogg
 	return useQuery({
 		queryKey: QUERY_KEYS.sessionMessages(userId, sessionId),
 		enabled: isLoggedIn && !!userId && !!sessionId,
-		queryFn: () => client.sessionMessages(sessionId!),
+		queryFn: () => client.sessionMessages(sessionId as string),
 		select: (data) => {
 			return data.map((r, i) => {
 				const role = r.role === "system" ? ("assistant" as const) : (r.role as "user" | "assistant")
@@ -533,7 +533,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 				</div>
 
 				{/* Referências */}
-				{!isUser && !isError && hasReferences && <ReferencesList id={m.id} references={m.references!} />}
+				{!isUser && !isError && hasReferences && <ReferencesList id={m.id} references={m.references as NonNullable<typeof m.references>} />}
 
 				{/* Fontes consultadas */}
 				{!isUser && !isError && m.sources && m.sources.length > 0 && <SourcesList id={m.id} sources={m.sources} />}
@@ -679,7 +679,7 @@ function ChatRada() {
 	}, [])
 
 	const buildPayload = (question: string) => {
-		const base: Record<string, any> = { question }
+		const base: Record<string, string> = { question }
 		if (isLoggedIn && sessionId) base.session_id = sessionId
 		return base
 	}
@@ -745,7 +745,7 @@ function ChatRada() {
 					})
 				}
 
-				const applyFinal = async (finalPayload: any) => {
+				const applyFinal = async (finalPayload: Record<string, unknown>) => {
 					const answer = String(finalPayload.answer ?? "")
 					const refs = Array.isArray(finalPayload.references) ? (finalPayload.references as AskReference[]) : []
 					const srcs = Array.isArray(finalPayload.sources) ? (finalPayload.sources as string[]) : []
@@ -843,8 +843,8 @@ function ChatRada() {
 					})
 				}
 			}
-		} catch (err: any) {
-			if (err?.name === "AbortError") {
+		} catch (err: unknown) {
+			if (err instanceof Error && err.name === "AbortError") {
 				return
 			}
 			setSending(false)
