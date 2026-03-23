@@ -82,6 +82,9 @@ jobs:
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/api
+        env:
+          API_SUPABASE_URL: ${{ vars.API_SUPABASE_URL }}
+          API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
 
   build-api:
     needs: check-api
@@ -172,6 +175,9 @@ jobs:
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/portal
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-iefa:
     needs: check-iefa
@@ -261,6 +267,10 @@ jobs:
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/sisub
+        env:
+          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
 
   build-sisub:
     needs: check-sisub
@@ -351,6 +361,11 @@ jobs:
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/ai
+        env:
+          SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
 
   build-rag:
     needs: check-rag
