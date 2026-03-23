@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { api } from "./routes"
 
 // Integration tests — require real env vars: API_SUPABASE_URL, API_SUPABASE_SERVICE_ROLE_KEY
+// Tests are skipped automatically when env vars are not set.
+
+const hasEnv = !!process.env.API_SUPABASE_URL && !!process.env.API_SUPABASE_SERVICE_ROLE_KEY
+
+// Dynamic import prevents module-level ZodError when env vars are absent
+const { api } = hasEnv ? await import("./routes") : { api: null as any }
 
 async function get(path: string) {
 	const res = await api.request(path)
@@ -9,7 +14,7 @@ async function get(path: string) {
 	return { res, body: body as unknown[] }
 }
 
-describe("Integration: GET /opinion", () => {
+describe.skipIf(!hasEnv)("Integration: GET /opinion", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/opinion?limit=10")
 		expect(res.status).toBe(200)
@@ -49,15 +54,11 @@ describe("Integration: GET /opinion", () => {
 		const fragment = question.slice(0, 3)
 		const { res, body } = await get(`/opinion?question_ilike=${encodeURIComponent(fragment)}&limit=50`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) =>
-				(item.question as string).toLowerCase().includes(fragment.toLowerCase()),
-			),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => (item.question as string).toLowerCase().includes(fragment.toLowerCase()))).toBe(true)
 	})
 })
 
-describe("Integration: GET /rancho_previsoes", () => {
+describe.skipIf(!hasEnv)("Integration: GET /rancho_previsoes", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/rancho_previsoes?limit=10")
 		expect(res.status).toBe(200)
@@ -87,9 +88,7 @@ describe("Integration: GET /rancho_previsoes", () => {
 			const { res, body } = await get(`/rancho_previsoes?meal=${meal}&limit=10`)
 			expect(res.status).toBe(200)
 			if (body.length > 0) {
-				expect(
-					(body as Record<string, unknown>[]).every((item) => item.meal === meal),
-				).toBe(true)
+				expect((body as Record<string, unknown>[]).every((item) => item.meal === meal)).toBe(true)
 			}
 		}
 	})
@@ -100,13 +99,11 @@ describe("Integration: GET /rancho_previsoes", () => {
 		const date = (all[0] as Record<string, unknown>).date as string
 		const { res, body } = await get(`/rancho_previsoes?date=${date}&limit=100`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) => item.date === date),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => item.date === date)).toBe(true)
 	})
 })
 
-describe("Integration: GET /wherewhowhen", () => {
+describe.skipIf(!hasEnv)("Integration: GET /wherewhowhen", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/wherewhowhen?limit=10")
 		expect(res.status).toBe(200)
@@ -135,13 +132,11 @@ describe("Integration: GET /wherewhowhen", () => {
 		const meal = (all[0] as Record<string, unknown>).meal as string
 		const { res, body } = await get(`/wherewhowhen?meal=${meal}&limit=50`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) => item.meal === meal),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => item.meal === meal)).toBe(true)
 	})
 })
 
-describe("Integration: GET /user-military-data", () => {
+describe.skipIf(!hasEnv)("Integration: GET /user-military-data", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/user-military-data?limit=10")
 		expect(res.status).toBe(200)
@@ -172,9 +167,7 @@ describe("Integration: GET /user-military-data", () => {
 		const sgOrg = (all[0] as Record<string, unknown>).sgOrg as string
 		const { res, body } = await get(`/user-military-data?sgOrg=${encodeURIComponent(sgOrg)}&limit=50`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) => item.sgOrg === sgOrg),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => item.sgOrg === sgOrg)).toBe(true)
 	})
 
 	test("filter by nmGuerra_ilike returns only matching records", async () => {
@@ -182,19 +175,13 @@ describe("Integration: GET /user-military-data", () => {
 		if (all.length === 0) return
 		const nmGuerra = (all[0] as Record<string, unknown>).nmGuerra as string
 		const fragment = nmGuerra.slice(0, 3)
-		const { res, body } = await get(
-			`/user-military-data?nmGuerra_ilike=${encodeURIComponent(fragment)}&limit=50`,
-		)
+		const { res, body } = await get(`/user-military-data?nmGuerra_ilike=${encodeURIComponent(fragment)}&limit=50`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) =>
-				(item.nmGuerra as string).toLowerCase().includes(fragment.toLowerCase()),
-			),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => (item.nmGuerra as string).toLowerCase().includes(fragment.toLowerCase()))).toBe(true)
 	})
 })
 
-describe("Integration: GET /user-data", () => {
+describe.skipIf(!hasEnv)("Integration: GET /user-data", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/user-data?limit=10")
 		expect(res.status).toBe(200)
@@ -224,15 +211,11 @@ describe("Integration: GET /user-data", () => {
 		const fragment = email.split("@")[0].slice(0, 3)
 		const { res, body } = await get(`/user-data?email_ilike=${encodeURIComponent(fragment)}&limit=50`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) =>
-				(item.email as string).toLowerCase().includes(fragment.toLowerCase()),
-			),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => (item.email as string).toLowerCase().includes(fragment.toLowerCase()))).toBe(true)
 	})
 })
 
-describe("Integration: GET /units", () => {
+describe.skipIf(!hasEnv)("Integration: GET /units", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/units")
 		expect(res.status).toBe(200)
@@ -256,9 +239,7 @@ describe("Integration: GET /units", () => {
 		const code = (all[0] as Record<string, unknown>).code as string
 		const { res, body } = await get(`/units?code=${encodeURIComponent(code)}`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) => item.code === code),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => item.code === code)).toBe(true)
 	})
 
 	test("filter by code_ilike is case-insensitive", async () => {
@@ -268,15 +249,11 @@ describe("Integration: GET /units", () => {
 		const fragment = code.slice(0, 2).toLowerCase()
 		const { res, body } = await get(`/units?code_ilike=${encodeURIComponent(fragment)}`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) =>
-				(item.code as string).toLowerCase().includes(fragment),
-			),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => (item.code as string).toLowerCase().includes(fragment))).toBe(true)
 	})
 })
 
-describe("Integration: GET /mess-halls", () => {
+describe.skipIf(!hasEnv)("Integration: GET /mess-halls", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/mess-halls")
 		expect(res.status).toBe(200)
@@ -301,8 +278,6 @@ describe("Integration: GET /mess-halls", () => {
 		const unitId = (all[0] as Record<string, unknown>).unit_id as number
 		const { res, body } = await get(`/mess-halls?unit_id=${unitId}`)
 		expect(res.status).toBe(200)
-		expect(
-			(body as Record<string, unknown>[]).every((item) => item.unit_id === unitId),
-		).toBe(true)
+		expect((body as Record<string, unknown>[]).every((item) => item.unit_id === unitId)).toBe(true)
 	})
 })
