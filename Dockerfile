@@ -29,7 +29,7 @@ RUN test -f apps/api/dist/index.js || \
 FROM base AS api
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=api-build /app/apps/api ./apps/api
+COPY --from=api-build /app/apps/api/dist ./apps/api/dist
 USER bun
 EXPOSE 3000
 CMD ["bun", "apps/api/dist/index.js"]
@@ -40,7 +40,6 @@ CMD ["bun", "apps/api/dist/index.js"]
 FROM deps AS iefa-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
-COPY turbo.json ./
 COPY apps/portal ./apps/portal
 RUN rm -rf apps/portal/.vite apps/portal/.tanstack apps/portal/node_modules/.vite
 RUN bun --filter='@iefa/portal' run build
@@ -59,12 +58,8 @@ CMD ["bun", ".output/server/index.mjs"]
 # SISUB
 # =============================================================================
 FROM deps AS sisub-build
-# Build-time environment variables for Vite
 ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
-
-# Copy source files (deps already has packages and installed node_modules)
-COPY turbo.json ./
 COPY apps/sisub ./apps/sisub
 
 # Clear any local cache

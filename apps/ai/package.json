@@ -4,7 +4,10 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "ingest": "bun run ingest-local.ts",
-    "ingest:all": "bash ingest-all.sh"
+    "ingest:all": "bash ingest-all.sh",
+    "lint": "biome check src/",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@langchain/core": "^1.1.26",

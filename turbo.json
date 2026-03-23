@@ -21,7 +21,8 @@
       "outputs": []
     },
     "test": {
-      "outputs": []
+      "outputs": [],
+      "env": ["API_SUPABASE_URL", "API_SUPABASE_SERVICE_ROLE_KEY"]
     },
     "dev": {
       "cache": false,
