@@ -2,12 +2,12 @@ import { z } from "zod"
 
 const envSchema = z.object({
 	VITE_IEFA_SUPABASE_URL: z.url(),
-	VITE_IEFA_SUPABASE_ANON_KEY: z.string().min(1),
+	VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 })
 
 const parsed = envSchema.safeParse({
 	VITE_IEFA_SUPABASE_URL: import.meta.env.VITE_IEFA_SUPABASE_URL,
-	VITE_IEFA_SUPABASE_ANON_KEY: import.meta.env.VITE_IEFA_SUPABASE_ANON_KEY,
+	VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY,
 })
 
 if (!parsed.success) {

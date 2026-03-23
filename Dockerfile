@@ -39,7 +39,7 @@ CMD ["bun", "apps/api/dist/index.js"]
 # =============================================================================
 FROM deps AS iefa-build
 ARG VITE_IEFA_SUPABASE_URL
-ARG VITE_IEFA_SUPABASE_ANON_KEY
+ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 COPY turbo.json ./
 COPY apps/portal ./apps/portal
 RUN rm -rf apps/portal/.vite apps/portal/.tanstack apps/portal/node_modules/.vite
@@ -62,7 +62,6 @@ FROM deps AS sisub-build
 # Build-time environment variables for Vite
 ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
-ARG SISUB_SUPABASE_SECRET_KEY
 
 # Copy source files (deps already has packages and installed node_modules)
 COPY turbo.json ./

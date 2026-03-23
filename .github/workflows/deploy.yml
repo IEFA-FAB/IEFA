@@ -28,7 +28,6 @@ jobs:
           filters: |
             api:
               - 'apps/api/**'
-              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -36,7 +35,6 @@ jobs:
               - 'turbo.json'
             iefa:
               - 'apps/portal/**'
-              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -44,7 +42,6 @@ jobs:
               - 'turbo.json'
             sisub:
               - 'apps/sisub/**'
-              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -52,7 +49,6 @@ jobs:
               - 'turbo.json'
             docs:
               - 'apps/docs/**'
-              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -60,7 +56,6 @@ jobs:
               - 'turbo.json'
             rag:
               - 'apps/ai/**'
-              - 'packages/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -128,9 +123,9 @@ jobs:
       - name: Set Fly secrets
         run: |
           flyctl --config fly/api.toml secrets set \
-            API_PORT=${{ secrets.API_PORT }} \
+            API_PORT=${{ vars.API_PORT }} \
             API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }} \
-            API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
+            API_SUPABASE_URL=${{ vars.API_SUPABASE_URL }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -203,9 +198,8 @@ jobs:
           set: |
             iefa.tags=registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
             iefa.tags=registry.fly.io/iefa:latest
-            iefa.args.VITE_IEFA_SUPABASE_URL=${{ secrets.VITE_IEFA_SUPABASE_URL }}
-            iefa.args.VITE_IEFA_SUPABASE_ANON_KEY=${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
-            iefa.args.VITE_RAG_SUPABASE_URL=${{ secrets.VITE_RAG_SUPABASE_URL }}
+            iefa.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+            iefa.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   deploy-iefa:
     needs: build-iefa
@@ -293,9 +287,8 @@ jobs:
           set: |
             sisub.tags=registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
             sisub.tags=registry.fly.io/sisub:latest
-            sisub.args.VITE_SISUB_SUPABASE_URL=${{ secrets.VITE_SISUB_SUPABASE_URL }}
-            sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-            sisub.args.SISUB_SUPABASE_SECRET_KEY=${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+            sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+            sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
   deploy-sisub:
     needs: build-sisub
@@ -311,6 +304,7 @@ jobs:
       - name: Set Fly secrets
         run: |
           flyctl --config fly/sisub.toml secrets set \
+            VITE_SISUB_SUPABASE_URL="${{ vars.VITE_SISUB_SUPABASE_URL }}" \
             SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
