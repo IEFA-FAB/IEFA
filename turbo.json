@@ -1,10 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "validate-env": {
-      "cache": false,
-      "inputs": ["$VITE_*", "$API_*", "$SISUB_*", "$SUPABASE_*", "$DATABASE_*", "$NVIDIA_*", "$LANGCHAIN_*"]
-    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".output/**", "dist/**", "build/**"],

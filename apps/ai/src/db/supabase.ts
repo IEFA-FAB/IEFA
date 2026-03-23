@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
-import { ENV } from "varlock/env"
+import { env } from "../env.ts"
 
-export const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY, {
+export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
 	auth: { persistSession: false },
 })

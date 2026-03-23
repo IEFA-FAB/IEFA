@@ -1,4 +1,1 @@
-# Desabilita o carregamento automático de .env pelo Bun
-# O varlock assume o controle via preload
-env = false
-preload = ["varlock/auto-load"]
+

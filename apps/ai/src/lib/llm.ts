@@ -1,12 +1,12 @@
 import { ChatOpenAI } from "@langchain/openai"
-import { ENV } from "varlock/env"
+import { env } from "../env.ts"
 
 function makeLLM(temperature: number) {
 	return new ChatOpenAI({
-		model: ENV.LLM_MODEL,
+		model: env.LLM_MODEL,
 		configuration: {
-			baseURL: ENV.NVIDIA_BASE_URL,
-			apiKey: ENV.NVIDIA_API_KEY,
+			baseURL: env.NVIDIA_BASE_URL,
+			apiKey: env.NVIDIA_API_KEY,
 		},
 		temperature,
 	})

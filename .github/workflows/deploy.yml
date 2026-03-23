@@ -67,28 +67,11 @@ jobs:
               - 'package.json'
               - 'turbo.json'
 
-  # ============================================
-  # LEAK DETECTION
-  # ============================================
-  scan:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
-      - uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-      - name: Scan for leaked secrets
-        run: bunx varlock scan
-
   # ============================================================
   # API  ── check → build → deploy
   # ============================================================
   check-api:
-    needs: [changes, scan]
+    needs: [changes]
     if: needs.changes.outputs.api == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -101,14 +84,6 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-
-      - name: Validate env
-        run: bunx varlock load
-        working-directory: apps/api
-        env:
-          API_PORT: ${{ secrets.API_PORT }}
-          API_SUPABASE_URL: ${{ secrets.API_SUPABASE_URL }}
-          API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/api
@@ -186,7 +161,7 @@ jobs:
   # IEFA  ── check → build → deploy
   # ============================================================
   check-iefa:
-    needs: [changes, scan]
+    needs: [changes]
     if: needs.changes.outputs.iefa == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -199,15 +174,6 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-
-      - name: Validate env
-        run: bunx varlock load
-        working-directory: apps/portal
-        env:
-          VITE_IEFA_SUPABASE_URL: ${{ secrets.VITE_IEFA_SUPABASE_URL }}
-          VITE_IEFA_SUPABASE_ANON_KEY: ${{ secrets.VITE_IEFA_SUPABASE_ANON_KEY }}
-          VITE_RAG_SUPABASE_URL: ${{ secrets.VITE_RAG_SUPABASE_URL }}
-          RAG_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/portal
@@ -285,7 +251,7 @@ jobs:
   # SISUB  ── check → build → deploy
   # ============================================================
   check-sisub:
-    needs: [changes, scan]
+    needs: [changes]
     if: needs.changes.outputs.sisub == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -298,14 +264,6 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-
-      - name: Validate env
-        run: bunx varlock load
-        working-directory: apps/sisub
-        env:
-          VITE_SISUB_SUPABASE_URL: ${{ secrets.VITE_SISUB_SUPABASE_URL }}
-          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-          SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/sisub
@@ -383,7 +341,7 @@ jobs:
   # RAG / apps/ai  ── check → build → deploy
   # ============================================================
   check-rag:
-    needs: [changes, scan]
+    needs: [changes]
     if: needs.changes.outputs.rag == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
@@ -396,20 +354,6 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-
-      - name: Validate env
-        run: bunx varlock load
-        working-directory: apps/ai
-        env:
-          SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-          DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-          NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
-          EMB_MODEL: ${{ vars.EMB_MODEL }}
-          NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
 
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/ai
@@ -494,7 +438,7 @@ jobs:
   # DOCS  ── check → build → deploy
   # ============================================================
   check-docs:
-    needs: [changes, scan]
+    needs: [changes]
     if: needs.changes.outputs.docs == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15

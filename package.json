@@ -12,7 +12,6 @@
     "typecheck": "turbo typecheck --parallel",
     "lint": "turbo lint --parallel",
     "test": "turbo test --parallel",
-    "validate-env": "turbo validate-env",
     "sisub:dev": "bun --cwd ./apps/sisub dev",
     "portal:dev": "bun --cwd ./apps/portal dev",
     "api:dev": "bun --cwd ./apps/api dev",

@@ -12,7 +12,7 @@ import {
 	useReactTable,
 	type VisibilityState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, Table } from "lucide-react"
+import { ArrowUpDown, ChevronDown } from "lucide-react"
 import * as React from "react"
 import { useMemo, useRef, useState } from "react"
 import { useFacilitiesPregoeiroQuery } from "@/hooks/useFacilitiesPregoeiro"
@@ -22,7 +22,7 @@ import CopyButton from "./copy-button"
 import { Button } from "./ui/button"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "./ui/dropdown-menu"
 import { Input } from "./ui/input"
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 
 /* ---------------------------------------------------------
    Helpers (padrão shadcn)

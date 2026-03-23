@@ -1,6 +1,6 @@
 import { OpenAIEmbeddings } from "@langchain/openai"
-import { ENV } from "varlock/env"
 import { supabase } from "../db/supabase.ts"
+import { env } from "../env.ts"
 import type { DocumentType, RetrievedDocument } from "../graph/state.ts"
 
 export interface RADARetrieverInput {
@@ -29,17 +29,17 @@ export interface RADARetrieverOutput {
 }
 
 const embeddings = new OpenAIEmbeddings({
-	model: ENV.EMB_MODEL,
+	model: env.EMB_MODEL,
 	configuration: {
-		baseURL: ENV.NVIDIA_BASE_URL,
-		apiKey: ENV.NVIDIA_API_KEY,
+		baseURL: env.NVIDIA_BASE_URL,
+		apiKey: env.NVIDIA_API_KEY,
 	},
 	dimensions: 1024,
 })
 
-const THRESHOLD = ENV.RERANK_THRESHOLD
-const RRF_K = ENV.RRF_K
-const RERANK_TOP_N = ENV.RERANK_TOP_N
+const THRESHOLD = env.RERANK_THRESHOLD
+const RRF_K = env.RRF_K
+const RERANK_TOP_N = env.RERANK_TOP_N
 
 async function semanticSearch(queryVector: number[], filters: RADARetrieverInput["filters"], topK: number) {
 	const vectorStr = `[${queryVector.join(",")}]`
@@ -119,9 +119,9 @@ function rrfFusion(
 }
 
 async function rerank(query: string, docs: Array<{ id: string; content: string; [k: string]: any }>): Promise<Array<{ id: string; score: number }>> {
-	const model = ENV.NVIDIA_RERANK_MODEL
-	const baseUrl = ENV.NVIDIA_BASE_URL
-	const apiKey = ENV.NVIDIA_API_KEY
+	const model = env.NVIDIA_RERANK_MODEL
+	const baseUrl = env.NVIDIA_BASE_URL
+	const apiKey = env.NVIDIA_API_KEY
 
 	const response = await fetch(`${baseUrl}/ranking`, {
 		method: "POST",
@@ -150,7 +150,7 @@ async function rerank(query: string, docs: Array<{ id: string; content: string; 
 
 export async function radaRetriever(input: RADARetrieverInput): Promise<RADARetrieverOutput> {
 	const { query, filters, top_k = 10 } = input
-	const queryWithPrefix = `${ENV.EMB_QUERY_PREFIX}${query}`
+	const queryWithPrefix = `${env.EMB_QUERY_PREFIX}${query}`
 
 	const queryVector = await embeddings.embedQuery(queryWithPrefix)
 

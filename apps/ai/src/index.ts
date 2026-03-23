@@ -1,5 +1,5 @@
-import { ENV } from "varlock/env"
 import apiRoutes from "./api/routes.ts"
+import { env } from "./env.ts"
 
 const app = apiRoutes
 
@@ -29,7 +29,7 @@ app.get("/health", (c) => {
 	})
 })
 
-const port = ENV.PORT
+const port = env.PORT
 
 export default {
 	port,
