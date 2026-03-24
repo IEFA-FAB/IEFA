@@ -1,15 +1,15 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { ArrowUpRight, LogOut } from "lucide-react"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { ArrowUpRight } from "lucide-react"
 import { usePBAC } from "@/auth/pbac"
 import { getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/common/layout/sidebar/NavItems"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { UserProfileRow } from "@/components/common/layout/sidebar/NavUser"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { cn } from "@/lib/cn"
+import { toNameCase } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/hub")({
 	component: HubPage,
@@ -49,45 +49,14 @@ const CARD_HOVER_CLASSES: Record<GroupColor, string> = {
 
 // ── Hub header ───────────────────────────────────────────────────────────────
 
-type UserMeta = { name?: string; full_name?: string; avatar_url?: string; picture?: string }
-
 function HubHeader() {
-	const { user, signOut } = useAuth()
-	const navigate = useNavigate()
-	const { data: userData } = useUserData(user?.id)
-	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
-
-	const meta = (user?.user_metadata ?? {}) as UserMeta
-	const displayName = military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário"
-	const posto = military?.sgPosto ?? ""
-	const avatarUrl = meta.avatar_url ?? meta.picture ?? ""
-
 	return (
 		<header className="shrink-0 border-b bg-card px-4 py-2 flex items-center justify-between">
 			<div className="flex items-center gap-2.5">
-				<img src="/favicon.svg" alt="SISUB" className="h-7 w-7 rounded" />
+				<img src="/favicon.svg" alt="SISUB" className="h-7 w-7 rounded-lg" />
 				<span className="font-semibold text-foreground text-sm tracking-wide">SISUB</span>
 			</div>
-
-			<div className="flex items-center gap-2">
-				<Avatar className="size-7 rounded grayscale">
-					<AvatarImage src={avatarUrl} alt={displayName} />
-					<AvatarFallback className="rounded text-[10px] font-semibold">{posto || "—"}</AvatarFallback>
-				</Avatar>
-				<span className="hidden sm:block text-sm font-medium text-foreground">{displayName}</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="text-muted-foreground hover:text-destructive"
-					onClick={async () => {
-						await signOut()
-						navigate({ to: "/auth" })
-					}}
-					aria-label="Sair"
-				>
-					<LogOut className="h-4 w-4" />
-				</Button>
-			</div>
+			<UserProfileRow />
 		</header>
 	)
 }
@@ -100,17 +69,12 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 
 	return (
 		<Tooltip>
-			<Card
-				className={cn(
-					"relative overflow-visible cursor-pointer transition-colors hover:ring-2",
-					CARD_HOVER_CLASSES[color]
-				)}
-			>
+			<Card className={cn("relative overflow-visible cursor-pointer transition-colors hover:ring-2", CARD_HOVER_CLASSES[color])}>
 				<TooltipTrigger
 					render={
 						<Link
 							to={firstUrl as Parameters<typeof Link>[0]["to"]}
-							className="absolute inset-0 z-10 rounded-xl focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+							className="absolute inset-0 z-10 rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
 							aria-label={`Entrar no módulo ${module.name}`}
 						/>
 					}
@@ -119,7 +83,7 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 				<CardContent className="flex flex-col gap-4">
 					{/* Header: icon + name + arrow */}
 					<div className="flex items-start gap-3">
-						<div className={cn("flex h-9 w-9 items-center justify-center rounded shrink-0 mt-0.5", ICON_CLASSES[color])}>
+						<div className={cn("flex h-9 w-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
 							<Icon className="h-4 w-4" />
 						</div>
 						<span className="flex-1 font-semibold text-foreground text-sm leading-snug pt-1">{module.name}</span>
@@ -151,6 +115,8 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 
 // ── Hub page ─────────────────────────────────────────────────────────────────
 
+type UserMeta = { name?: string; full_name?: string; avatar_url?: string; picture?: string }
+
 function HubPage() {
 	const { user } = useAuth()
 	const { permissions, isLoading } = usePBAC()
@@ -160,7 +126,7 @@ function HubPage() {
 	const modules = getModulesForPermissions(permissions)
 
 	const meta = (user?.user_metadata ?? {}) as UserMeta
-	const greetName = military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário"
+	const greetName = toNameCase(military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário")
 
 	return (
 		<div className="flex flex-col h-full overflow-hidden">
@@ -188,9 +154,7 @@ function HubPage() {
 								if (groupModules.length === 0) return null
 								return (
 									<section key={group.label}>
-										<h2 className={cn("text-xs font-semibold tracking-wide mb-3", ACCENT_CLASSES[group.color])}>
-											{group.label}
-										</h2>
+										<h2 className={cn("text-xs font-semibold tracking-wide mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
 										<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 											{groupModules.map((mod) => (
 												<ModuleCard key={mod.id} module={mod} color={group.color} />

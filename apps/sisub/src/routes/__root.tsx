@@ -81,6 +81,7 @@ function RootDocument() {
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
 				<div
+					suppressHydrationWarning
 					className={cn("fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out", isLoading ? "w-full opacity-100" : "w-0 opacity-0")}
 				/>
 				<RealtimeProvider>

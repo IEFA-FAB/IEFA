@@ -527,8 +527,8 @@ export default function Forecast(): JSX.Element {
 				</h2>
 
 				<div className="flex flex-row flex-wrap justify-center items-center w-full gap-8">
-					{dayCardsProps.map((cardProps) => (
-						<Suspense fallback={<DayCardSkeleton />} key={cardProps.key}>
+					{dayCardsProps.map(({ key, ...cardProps }) => (
+						<Suspense fallback={<DayCardSkeleton />} key={key}>
 							<div className="snap-center">
 								<DayCard {...cardProps} pendingChanges={pendingChanges} onMealToggle={handleMealToggle} onMessHallChange={handleMessHallChange} />
 							</div>

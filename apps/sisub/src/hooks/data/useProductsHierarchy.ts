@@ -61,63 +61,98 @@ export function useProductsHierarchy(filterText = "") {
 	const flatTree = useMemo<FlatProductTree | null>(() => {
 		if (!tree) return null
 
+		const filter = filterText.toLowerCase().trim()
+		const isFiltering = !!filter
+
+		// Lookup de pastas por ID para traversal de ancestrais
+		const folderById: Record<string, (typeof tree.folders)[0]> = {}
+		tree.folders.forEach((f) => {
+			folderById[f.id] = f
+		})
+
+		// Ao filtrar: pré-computar quais IDs devem aparecer
+		// Regra: nó que bate + todos os seus ancestrais
+		const includedIds = new Set<string>()
+
+		if (isFiltering) {
+			const addWithAncestors = (startFolderId: string | null) => {
+				let id = startFolderId
+				while (id) {
+					if (includedIds.has(id)) break // ancestral já adicionado, parar
+					includedIds.add(id)
+					id = folderById[id]?.parent_id ?? null
+				}
+			}
+
+			tree.products.forEach((product) => {
+				const description = product.description || "Sem descrição"
+				if (description.toLowerCase().includes(filter)) {
+					includedIds.add(product.id)
+					addWithAncestors(product.folder_id)
+				}
+			})
+
+			tree.folders.forEach((folder) => {
+				const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
+				if (description.toLowerCase().includes(filter)) {
+					includedIds.add(folder.id)
+					addWithAncestors(folder.parent_id)
+				}
+			})
+		}
+
 		const byId: Record<string, ProductTreeNode> = {}
 		const byParentId: Record<string, ProductTreeNode[]> = {}
 
-		const filter = filterText.toLowerCase().trim()
-
 		// 1. Criar todos os nós
 		tree.folders.forEach((folder) => {
+			if (isFiltering && !includedIds.has(folder.id)) return
+
 			const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
-			const shouldInclude = !filter || description.toLowerCase().includes(filter)
-
-			if (shouldInclude || !filter) {
-				const node: ProductTreeNode = {
-					id: folder.id,
-					type: "folder",
-					label: description,
-					parentId: folder.parent_id,
-					level: 0,
-					hasChildren: false, // será atualizado após construir byParentId
-					isExpanded: expandedIds.has(folder.id),
-					data: folder,
-				}
-
-				byId[folder.id] = node
-
-				const parentKey = folder.parent_id || "root"
-				if (!byParentId[parentKey]) {
-					byParentId[parentKey] = []
-				}
-				byParentId[parentKey].push(node)
+			const node: ProductTreeNode = {
+				id: folder.id,
+				type: "folder",
+				label: description,
+				parentId: folder.parent_id,
+				level: 0,
+				hasChildren: false, // será atualizado após construir byParentId
+				// Ao filtrar, expandir tudo automaticamente para mostrar resultados
+				isExpanded: isFiltering ? true : expandedIds.has(folder.id),
+				data: folder,
 			}
+
+			byId[folder.id] = node
+
+			const parentKey = folder.parent_id || "root"
+			if (!byParentId[parentKey]) {
+				byParentId[parentKey] = []
+			}
+			byParentId[parentKey].push(node)
 		})
 
 		tree.products.forEach((product) => {
+			if (isFiltering && !includedIds.has(product.id)) return
+
 			const description = product.description || "Sem descrição"
-			const shouldInclude = !filter || description.toLowerCase().includes(filter)
-
-			if (shouldInclude || !filter) {
-				const node: ProductTreeNode = {
-					id: product.id,
-					type: "product",
-					label: description,
-					parentId: product.folder_id,
-					level: 1,
-					// Produtos são folhas: itens de compra vivem na página de detalhe
-					hasChildren: false,
-					isExpanded: false,
-					data: product,
-				}
-
-				byId[product.id] = node
-
-				const parentKey = product.folder_id || "root"
-				if (!byParentId[parentKey]) {
-					byParentId[parentKey] = []
-				}
-				byParentId[parentKey].push(node)
+			const node: ProductTreeNode = {
+				id: product.id,
+				type: "product",
+				label: description,
+				parentId: product.folder_id,
+				level: 1,
+				// Produtos são folhas: itens de compra vivem na página de detalhe
+				hasChildren: false,
+				isExpanded: false,
+				data: product,
 			}
+
+			byId[product.id] = node
+
+			const parentKey = product.folder_id || "root"
+			if (!byParentId[parentKey]) {
+				byParentId[parentKey] = []
+			}
+			byParentId[parentKey].push(node)
 		})
 
 		// product_items não são adicionados à árvore —
@@ -146,8 +181,8 @@ export function useProductsHierarchy(filterText = "") {
 			children.forEach((node) => {
 				visibleNodes.push(node)
 
-				// Só mostrar filhos se o nó estiver expandido
-				if (node.isExpanded && expandedIds.has(node.id)) {
+				// Ao filtrar, pastas estão todas expandidas; senão respeita expandedIds
+				if (node.type === "folder" && (isFiltering || expandedIds.has(node.id))) {
 					traverse(node.id)
 				}
 			})

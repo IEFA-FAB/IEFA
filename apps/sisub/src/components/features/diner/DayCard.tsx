@@ -65,8 +65,8 @@ function DayCardShell({ isToday, hasPendingChanges, isDateNear, isFull, hasParti
 				"ring-2 ring-primary bg-primary/5": isToday,
 				"ring-1 ring-accent bg-accent/10": hasPendingChanges && !isToday,
 				"opacity-75": isDateNear && !isToday,
-				"bg-primary/10 border-primary/40": isFull && !isToday,
-				"bg-secondary/10 border-secondary/40": hasPartialSelection && !isToday && !hasPendingChanges,
+				"bg-primary/10 border-primary/20": isFull && !isToday,
+				"bg-success/10 border-success/20": hasPartialSelection && !isToday && !hasPendingChanges,
 				"bg-muted/10 border-border": isEmpty && !isToday && !hasPendingChanges,
 			})}
 		>

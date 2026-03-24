@@ -1,6 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ChefHat, GitFork, Search } from "lucide-react"
+import { ChefHat, GitFork, Globe, Search, TextSearch } from "lucide-react"
 import { useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,19 +16,13 @@ export function RecipesManager() {
 	const kitchenId = kitchenIdStr ?? null
 
 	const [search, setSearch] = useState("")
-	const [filter, setFilter] = useState<"all" | "global" | "local">("all")
+	const [origin, setOrigin] = useState<"all" | "global" | "local">("all")
 	const parentRef = useRef<HTMLDivElement>(null)
 
-	const { data: recipes, isLoading } = useRecipes({
+	const { data: filteredRecipes = [], isLoading } = useRecipes({
 		search: search || undefined,
-		global_only: filter === "global",
+		origin,
 	})
-
-	const filteredRecipes =
-		recipes?.filter((r) => {
-			if (filter === "local") return r.kitchen_id !== null
-			return true
-		}) ?? []
 
 	const virtualizer = useVirtualizer({
 		count: filteredRecipes.length,
@@ -46,13 +40,13 @@ export function RecipesManager() {
 					<Input placeholder="Buscar Preparação..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
 				</div>
 				<div className="flex gap-2">
-					<Button variant={filter === "all" ? "secondary" : "ghost"} onClick={() => setFilter("all")} size="sm">
+					<Button variant={origin === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
 						Todas
 					</Button>
-					<Button variant={filter === "global" ? "secondary" : "ghost"} onClick={() => setFilter("global")} size="sm">
+					<Button variant={origin === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
 						Globais (SDAB)
 					</Button>
-					<Button variant={filter === "local" ? "secondary" : "ghost"} onClick={() => setFilter("local")} size="sm">
+					<Button variant={origin === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
 						Locais
 					</Button>
 				</div>
@@ -74,7 +68,7 @@ export function RecipesManager() {
 				) : filteredRecipes.length === 0 ? (
 					<div className="h-24 flex items-center justify-center text-sm text-muted-foreground">Nenhuma Preparação encontrada.</div>
 				) : (
-					<div ref={parentRef} className="overflow-y-auto" style={{ height: Math.min(filteredRecipes.length * ROW_HEIGHT, 600) }}>
+					<div ref={parentRef} className="h-[600px] overflow-y-auto">
 						<div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
 							{virtualizer.getVirtualItems().map((vRow) => {
 								const recipe = filteredRecipes[vRow.index]
@@ -94,7 +88,7 @@ export function RecipesManager() {
 										</div>
 										<div>
 											<Badge variant="secondary" className="rounded-full px-2.5 py-0.5 font-mono text-xs">
-												v{recipe.version}
+												{recipe.version}
 											</Badge>
 										</div>
 										<div>
@@ -104,36 +98,50 @@ export function RecipesManager() {
 												</span>
 											) : (
 												<span className="flex items-center text-primary text-sm font-medium">
-													<span className="w-2 h-2 rounded-full bg-primary mr-2" /> Global
+													<Globe className="w-3.5 h-3.5 mr-1.5" /> Global
 												</span>
 											)}
 										</div>
 										<div className="font-mono text-sm">{recipe.portion_yield} porções</div>
 										<div className="flex items-center justify-end gap-2 pr-6">
 											{kitchenId ? (
-												<Button
-													variant="ghost"
-													size="sm"
-													nativeButton={false}
-													className="hover:bg-primary/10 hover:text-primary transition-all"
-													render={
-														<Link to="/kitchen/$kitchenId/recipes/$recipeId" params={{ kitchenId, recipeId: recipe.id }}>
-															Detalhes
-														</Link>
-													}
-												/>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Button
+																variant="ghost"
+																size="sm"
+																nativeButton={false}
+																className="hover:bg-primary/10 hover:text-primary transition-all"
+																render={
+																	<Link to="/kitchen/$kitchenId/recipes/$recipeId" params={{ kitchenId, recipeId: recipe.id }}>
+																		<TextSearch />
+																	</Link>
+																}
+															/>
+														}
+													/>
+													<TooltipContent>Ver detalhes</TooltipContent>
+												</Tooltip>
 											) : (
-												<Button
-													variant="ghost"
-													size="sm"
-													nativeButton={false}
-													className="hover:bg-primary/10 hover:text-primary transition-all"
-													render={
-														<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
-															Detalhes
-														</Link>
-													}
-												/>
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Button
+																variant="ghost"
+																size="sm"
+																nativeButton={false}
+																className="hover:bg-primary/10 hover:text-primary transition-all"
+																render={
+																	<Link to="/global/recipes/$recipeId" params={{ recipeId: recipe.id }}>
+																		<TextSearch />
+																	</Link>
+																}
+															/>
+														}
+													/>
+													<TooltipContent>Ver detalhes</TooltipContent>
+												</Tooltip>
 											)}
 											{!recipe.kitchen_id &&
 												(kitchenId ? (
@@ -148,7 +156,6 @@ export function RecipesManager() {
 																	render={
 																		<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipe.id }}>
 																			<GitFork className="w-3.5 h-3.5 mr-1.5" />
-																			Personalizar
 																		</Link>
 																	}
 																/>
@@ -167,8 +174,7 @@ export function RecipesManager() {
 																	className="hover:bg-accent/10 hover:border-accent/30 transition-all"
 																	render={
 																		<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
-																			<GitFork className="w-3.5 h-3.5 mr-1.5" />
-																			Personalizar
+																			<GitFork className="w-3.5 h-3.5" />
 																		</Link>
 																	}
 																/>

@@ -6,12 +6,14 @@ import { z } from "zod"
 import { PageHeader } from "@/components/common/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"
+import { cn } from "@/lib/cn"
+import { toNameCase } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/_modules/diner/profile")({
 	component: ProfilePage,
@@ -28,9 +30,7 @@ function FieldRow({ label, value, mono = false }: { label: string; value: string
 	return (
 		<div className="flex flex-col gap-1">
 			<span className="text-xs text-muted-foreground">{label}</span>
-			<div className={["rounded-md border bg-card px-3 py-2 text-sm", mono ? "font-mono" : ""].join(" ")}>
-				{value && String(value).trim().length > 0 ? value : "—"}
-			</div>
+			<div className={cn("rounded-lg border bg-card px-3 py-2 text-sm", mono && "font-mono")}>{value && String(value).trim().length > 0 ? value : "—"}</div>
 		</div>
 	)
 }
@@ -103,29 +103,27 @@ function ProfilePage() {
 							}}
 							className="space-y-4"
 						>
-							<form.Field name="nrOrdem">
-								{(field) => (
-									<div className="space-y-1">
-										<Label htmlFor={field.name}>Nr. da Ordem</Label>
-										<Input
-											id={field.name}
-											name={field.name}
-											value={field.state.value}
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="Ex.: 1234567"
-											inputMode="numeric"
-											pattern="[0-9]*"
-										/>
-										{field.state.meta.errors ? (
-											<span role="alert" className="text-destructive text-sm">
-												{field.state.meta.errors.join(", ")}
-											</span>
-										) : null}
-										<p className="text-[11px] text-muted-foreground">Usado para vincular seus dados militares automaticamente.</p>
-									</div>
-								)}
-							</form.Field>
+							<FieldGroup>
+								<form.Field name="nrOrdem">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Nr. de Ordem</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												value={field.state.value}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Ex.: 1234567"
+												inputMode="numeric"
+												pattern="[0-9]*"
+											/>
+											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: String(e) }))} />
+											<FieldDescription>Usado para vincular seus dados militares automaticamente.</FieldDescription>
+										</Field>
+									)}
+								</form.Field>
+							</FieldGroup>
 
 							<div className="flex items-center gap-2">
 								<Button type="submit" disabled={updateNrOrdem.isPending || !!form.state.isSubmitting}>
@@ -157,7 +155,7 @@ function ProfilePage() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{!effectiveNrOrdem ? (
-							<div className="text-sm text-muted-foreground py-4 text-center border rounded-md border-dashed">Nenhum nrOrdem informado.</div>
+							<div className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">Nenhum nrOrdem informado.</div>
 						) : isLoadingMilitary ? (
 							<div className="flex items-center justify-center py-8 text-muted-foreground">
 								<Loader2 className="h-6 w-6 animate-spin mr-2" />
@@ -165,10 +163,10 @@ function ProfilePage() {
 							</div>
 						) : military ? (
 							<div className="space-y-3">
-								<FieldRow label="Nr. da Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
+								<FieldRow label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
 								<FieldRow label="CPF" value={military.nrCpf} mono />
-								<FieldRow label="Nome de Guerra" value={military.nmGuerra} />
-								<FieldRow label="Nome" value={military.nmPessoa} />
+								<FieldRow label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
+								<FieldRow label="Nome" value={military.nmPessoa ? toNameCase(military.nmPessoa) : military.nmPessoa} />
 								<div className="grid grid-cols-2 gap-3">
 									<FieldRow label="Posto" value={military.sgPosto} />
 									<FieldRow label="OM" value={military.sgOrg} />
@@ -182,7 +180,7 @@ function ProfilePage() {
 								</div>
 							</div>
 						) : (
-							<div className="text-sm text-muted-foreground py-4 text-center border rounded-md border-dashed">
+							<div className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">
 								Nenhum registro militar encontrado para o nrOrdem <span className="font-mono text-foreground font-medium">{effectiveNrOrdem}</span>.
 							</div>
 						)}
@@ -194,7 +192,7 @@ function ProfilePage() {
 				<CardContent className="pt-6">
 					<h3 className="text-sm font-semibold mb-2">Dicas</h3>
 					<ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-						<li>O número da Ordem deve conter apenas dígitos.</li>
+						<li>O número de Ordem deve conter apenas dígitos.</li>
 						<li>Após salvar o nrOrdem, os dados militares são buscados automaticamente.</li>
 						<li>Se seus dados não aparecerem, verifique se o número está correto ou se o cadastro militar está atualizado.</li>
 					</ul>

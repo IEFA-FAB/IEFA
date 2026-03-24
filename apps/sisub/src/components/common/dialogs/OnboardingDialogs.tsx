@@ -66,11 +66,11 @@ export function OnboardingDialogs() {
 	const handleSubmitNrOrdem = () => {
 		const digitsOnly = nrOrdem.replace(/\D/g, "").trim()
 		if (!digitsOnly) {
-			setNrError("Informe seu número da Ordem.")
+			setNrError("Informe seu número de Ordem.")
 			return
 		}
 		if (digitsOnly.length < NR_ORDEM_MIN_LEN) {
-			setNrError("Nr. da Ordem parece curto. Confira e tente novamente.")
+			setNrError("Nr. de Ordem parece curto. Confira e tente novamente.")
 			return
 		}
 		if (!user) return

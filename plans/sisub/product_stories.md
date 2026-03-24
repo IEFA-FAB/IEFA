@@ -146,7 +146,7 @@ Permite ao Comensal consultar o cardápio, informar sua adesão às refeições 
 
 **Critérios de Aceite**
 
-- Campo editável para "Nr. da Ordem".  
+- Campo editável para "Nr. de Ordem".  
 - Ao salvar, o sistema busca e exibe automaticamente os dados militares vinculados (posto, OM, nome, CPF).  
 - Dados militares são exibidos em modo somente leitura — não editáveis pelo Comensal.  
 - Exibir mensagem de erro clara caso o Número de Ordem não seja encontrado na base.
