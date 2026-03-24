@@ -1,15 +1,11 @@
-import { createClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
 
 import { env } from "@/lib/env"
 
-const supabaseUrl = env.VITE_SISUB_SUPABASE_URL
-const supabaseKey = env.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
+const supabase = createBrowserClient(env.VITE_SISUB_SUPABASE_URL, env.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY, {
 	db: { schema: "sisub" },
-	auth: {
-		persistSession: true,
-		storageKey: "auth_iefa",
+	cookieOptions: {
+		name: "auth_iefa",
 	},
 })
 

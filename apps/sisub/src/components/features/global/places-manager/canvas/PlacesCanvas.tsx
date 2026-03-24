@@ -14,7 +14,6 @@ import {
 	reconnectEdge,
 } from "@xyflow/react"
 import { useCallback } from "react"
-import "@xyflow/react/dist/style.css"
 
 import { isValidPlacesConnection } from "@/lib/places-graph/validate"
 import type { PlacesEdge, PlacesEditorMode, PlacesNode } from "@/types/domain/places"

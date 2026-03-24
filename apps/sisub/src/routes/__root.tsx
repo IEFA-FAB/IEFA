@@ -4,6 +4,7 @@ import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DefaultCatchBoundary } from "@/components/common/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/common/errors/NotFound"
@@ -45,7 +46,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Previsão SISUB" }],
 		favicon: "/favicon.svg",
 		links: [
+			{ rel: "preload", href: "/fonts/Manrope-Variable.ttf", as: "font", type: "font/truetype", crossOrigin: "anonymous" },
+			{ rel: "preload", href: "/fonts/JetBrainsMono-Variable.ttf", as: "font", type: "font/truetype", crossOrigin: "anonymous" },
+			{ rel: "preload", href: AppStyles, as: "style" },
+			{ rel: "preload", href: XyflowStyles, as: "style" },
 			{ rel: "stylesheet", href: AppStyles },
+			{ rel: "stylesheet", href: XyflowStyles },
 			{
 				rel: "icon",
 				type: "image/svg+xml",

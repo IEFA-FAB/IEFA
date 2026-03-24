@@ -21,7 +21,7 @@
     "fix": "biome check --write .",
     "check": "biome check . && bun run typecheck",
     "ci": "bun run lint && bun run typecheck",
-    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "clean": "bunx turbo run clean && rm -rf node_modules .turbo",
     "clean:cache": "rm -rf .turbo node_modules/.cache",
     "knip": "knip",
     "upgrade": "bun update --latest",

@@ -1,9 +1,13 @@
 import { StartClient } from "@tanstack/react-start/client"
+import { StrictMode } from "react"
 import { hydrateRoot } from "react-dom/client"
-import { getRouter } from "./router"
+import { ClientErrorBoundary } from "@/components/common/errors/ClientErrorBoundary"
 
-const router = getRouter()
-
-// biome-ignore lint/suspicious/noExplicitAny: Temporary fix for StartClient type mismatch with React 19
-const StartClientAny = StartClient as any
-hydrateRoot(document, <StartClientAny router={router} />)
+hydrateRoot(
+	document,
+	<StrictMode>
+		<ClientErrorBoundary>
+			<StartClient />
+		</ClientErrorBoundary>
+	</StrictMode>
+)
