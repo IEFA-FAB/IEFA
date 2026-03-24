@@ -6,7 +6,7 @@
     "ingest": "bun run ingest-local.ts",
     "ingest:all": "bash ingest-all.sh",
     "lint": "biome check src/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "bun test"
   },
   "dependencies": {

@@ -72,41 +72,41 @@ export const getRouter = () => {
 		queryClient: rqContext.queryClient,
 	})
 
-	// No need for manual initial load - __root.tsx beforeLoad handles this
+	// Auth state change listener — browser only.
+	// Supabase v2.63+ fires INITIAL_SESSION (not SIGNED_IN) on page load,
+	// so SIGNED_IN here means an actual new sign-in, not a session restore.
+	if (typeof window !== "undefined") {
+		supabase.auth.onAuthStateChange((event, session) => {
+			if (event === "SIGNED_IN" && session) {
+				rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
+					user: session.user,
+					session: session,
+					isAuthenticated: true,
+					isLoading: false,
+				})
+				// When signing in from the auth page, navigate directly instead of
+				// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
+				// throws a redirect from the /auth/ index route — TanStack Router then
+				// fails to match /auth/ as a source path, producing a spurious error.
+				if (router.state.location.pathname.startsWith("/auth")) {
+					const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
+					router.navigate({ to: redirectTo })
+				} else {
+					router.invalidate()
+				}
+			}
 
-	// Auth state change listener - Updates cache immediately
-	supabase.auth.onAuthStateChange(async (event, session) => {
-		// Immediately update cache based on auth events
-		// This ensures UI updates instantly without waiting for refetch
-		if (event === "SIGNED_IN" && session) {
-			rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
-				user: session.user,
-				session: session,
-				isAuthenticated: true,
-				isLoading: false,
-			})
-			// When signing in from the auth page, navigate directly instead of
-			// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
-			// throws a redirect from the /auth/ index route — TanStack Router then
-			// fails to match /auth/ as a source path, producing a spurious error.
-			if (router.state.location.pathname.startsWith("/auth")) {
-				const redirectTo = (router.state.location.search as Record<string, string>)?.redirect || "/hub"
-				router.navigate({ to: redirectTo })
-			} else {
+			if (event === "SIGNED_OUT") {
+				rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
+					user: null,
+					session: null,
+					isAuthenticated: false,
+					isLoading: false,
+				})
 				router.invalidate()
 			}
-		}
-
-		if (event === "SIGNED_OUT") {
-			rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
-				user: null,
-				session: null,
-				isAuthenticated: false,
-				isLoading: false,
-			})
-			router.invalidate()
-		}
-	})
+		})
+	}
 
 	return router
 }
