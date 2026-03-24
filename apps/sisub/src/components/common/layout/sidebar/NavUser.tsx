@@ -1,20 +1,12 @@
 "use client"
 
 import { useNavigate } from "@tanstack/react-router"
-import { EllipsisVertical, LogOut, User } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
+import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 
 type UserMeta = {
 	name?: string
@@ -23,23 +15,18 @@ type UserMeta = {
 	picture?: string
 }
 
-function getInitials(nameOrEmail?: string) {
-	if (!nameOrEmail) return "US"
-	const name = nameOrEmail.split("@")[0]
-	const parts = name.trim().split(/\s+/)
-	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-	return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
 export function NavUser() {
-	const { isMobile } = useSidebar()
 	const { user, isAuthenticated, isLoading, signOut } = useAuth()
 	const navigate = useNavigate()
 
+	const { data: userData } = useUserData(user?.id)
+	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
+
 	const meta = (user?.user_metadata ?? {}) as UserMeta
+	const displayName = military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário"
 	const email = user?.email ?? ""
-	const displayName = meta.name || meta.full_name || email || "Usuário"
-	const avatarUrl = meta.avatar_url || meta.picture || ""
+	const posto = military?.sgPosto ?? ""
+	const avatarUrl = meta.avatar_url ?? meta.picture ?? ""
 
 	return (
 		<SidebarMenu>
@@ -51,72 +38,28 @@ export function NavUser() {
 						Entrar
 					</Button>
 				) : (
-					<DropdownMenu>
-						<DropdownMenuTrigger
-							render={
-								<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-									<Avatar className="size-8 rounded-lg grayscale">
-										<AvatarImage src={avatarUrl} alt={displayName} />
-										<AvatarFallback className="rounded-lg">{getInitials(displayName)}</AvatarFallback>
-									</Avatar>
-									<div className="hidden sm:grid flex-1 text-left text-sm leading-tight ml-2">
-										<span className="truncate font-medium">{displayName}</span>
-										<span className="text-muted-foreground truncate text-xs">{email}</span>
-									</div>
-									<EllipsisVertical className="ml-2 h-4 w-4" aria-hidden="true" />
-								</SidebarMenuButton>
-							}
-						/>
-
-						<DropdownMenuContent
-							className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-							side={isMobile ? "bottom" : "right"}
-							align="end"
-							sideOffset={6}
+					<div className="flex items-center gap-2 px-2 py-1.5">
+						<Avatar className="size-8 rounded-lg grayscale shrink-0">
+							<AvatarImage src={avatarUrl} alt={displayName} />
+							<AvatarFallback className="rounded-lg text-[10px] font-semibold">{posto || "—"}</AvatarFallback>
+						</Avatar>
+						<div className="hidden sm:grid flex-1 text-left text-sm leading-tight min-w-0">
+							<span className="truncate font-medium">{displayName}</span>
+							<span className="text-muted-foreground truncate text-xs">{email}</span>
+						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="text-muted-foreground hover:text-destructive shrink-0"
+							onClick={async () => {
+								await signOut()
+								navigate({ to: "/auth" })
+							}}
+							aria-label="Sair"
 						>
-							<DropdownMenuGroup>
-								<DropdownMenuLabel className="p-0 font-normal">
-									<div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
-										<Avatar className="h-8 w-8 rounded-lg">
-											<AvatarImage src={avatarUrl} alt={displayName} />
-											<AvatarFallback className="rounded-lg">{getInitials(displayName)}</AvatarFallback>
-										</Avatar>
-										<div className="grid flex-1 text-left text-sm leading-tight">
-											<span className="truncate font-medium">{displayName}</span>
-											<span className="text-muted-foreground truncate text-xs">{email}</span>
-										</div>
-									</div>
-								</DropdownMenuLabel>
-							</DropdownMenuGroup>
-
-							<DropdownMenuSeparator />
-
-							<DropdownMenuGroup>
-								<DropdownMenuItem
-									onClick={() => {
-										navigate({ to: "/diner/profile" })
-									}}
-									className="cursor-pointer"
-								>
-									<User className="mr-2 h-4 w-4" />
-									Perfil
-								</DropdownMenuItem>
-							</DropdownMenuGroup>
-
-							<DropdownMenuGroup>
-								<DropdownMenuItem
-									onClick={async () => {
-										await signOut()
-										navigate({ to: "/auth" })
-									}}
-									className="text-red-600 focus:text-red-600 cursor-pointer"
-								>
-									<LogOut className="mr-2 h-4 w-4" />
-									Sair
-								</DropdownMenuItem>
-							</DropdownMenuGroup>
-						</DropdownMenuContent>
-					</DropdownMenu>
+							<LogOut className="h-4 w-4" />
+						</Button>
+					</div>
 				)}
 			</SidebarMenuItem>
 		</SidebarMenu>

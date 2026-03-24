@@ -1,78 +1,207 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { ArrowUpRight, LogOut } from "lucide-react"
 import { usePBAC } from "@/auth/pbac"
-import { getModulesForPermissions, type ModuleDef } from "@/components/common/layout/sidebar/NavItems"
+import { getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/common/layout/sidebar/NavItems"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
+import { cn } from "@/lib/cn"
 
 export const Route = createFileRoute("/_protected/hub")({
 	component: HubPage,
 })
 
-function ModuleCard({ module }: { module: ModuleDef }) {
+// ── Module groups ────────────────────────────────────────────────────────────
+
+type GroupColor = "success" | "primary" | "warning" | "governance"
+
+const MODULE_GROUPS: { label: string; ids: ModuleId[]; color: GroupColor }[] = [
+	{ label: "Usuário", ids: ["diner"], color: "success" },
+	{ label: "Operacional", ids: ["messhall", "kitchen-production"], color: "primary" },
+	{ label: "Gestão", ids: ["kitchen", "unit"], color: "warning" },
+	{ label: "Governança", ids: ["global", "analytics"], color: "governance" },
+]
+
+const ICON_CLASSES: Record<GroupColor, string> = {
+	success: "bg-success/10 text-success",
+	primary: "bg-primary/10 text-primary",
+	warning: "bg-warning/10 text-warning",
+	governance: "bg-governance/10 text-governance",
+}
+
+const ACCENT_CLASSES: Record<GroupColor, string> = {
+	success: "text-success",
+	primary: "text-primary",
+	warning: "text-warning",
+	governance: "text-governance",
+}
+
+const CARD_HOVER_CLASSES: Record<GroupColor, string> = {
+	success: "hover:ring-success/40",
+	primary: "hover:ring-primary/40",
+	warning: "hover:ring-warning/40",
+	governance: "hover:ring-governance/40",
+}
+
+// ── Hub header ───────────────────────────────────────────────────────────────
+
+type UserMeta = { name?: string; full_name?: string; avatar_url?: string; picture?: string }
+
+function HubHeader() {
+	const { user, signOut } = useAuth()
+	const navigate = useNavigate()
+	const { data: userData } = useUserData(user?.id)
+	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
+
+	const meta = (user?.user_metadata ?? {}) as UserMeta
+	const displayName = military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário"
+	const posto = military?.sgPosto ?? ""
+	const avatarUrl = meta.avatar_url ?? meta.picture ?? ""
+
+	return (
+		<header className="shrink-0 border-b bg-card px-4 py-2 flex items-center justify-between">
+			<div className="flex items-center gap-2.5">
+				<img src="/favicon.svg" alt="SISUB" className="h-7 w-7 rounded" />
+				<span className="font-semibold text-foreground text-sm tracking-wide">SISUB</span>
+			</div>
+
+			<div className="flex items-center gap-2">
+				<Avatar className="size-7 rounded grayscale">
+					<AvatarImage src={avatarUrl} alt={displayName} />
+					<AvatarFallback className="rounded text-[10px] font-semibold">{posto || "—"}</AvatarFallback>
+				</Avatar>
+				<span className="hidden sm:block text-sm font-medium text-foreground">{displayName}</span>
+				<Button
+					variant="ghost"
+					size="sm"
+					className="text-muted-foreground hover:text-destructive"
+					onClick={async () => {
+						await signOut()
+						navigate({ to: "/auth" })
+					}}
+					aria-label="Sair"
+				>
+					<LogOut className="h-4 w-4" />
+				</Button>
+			</div>
+		</header>
+	)
+}
+
+// ── Module card ──────────────────────────────────────────────────────────────
+
+function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor }) {
 	const firstUrl = module.hubUrl ?? module.items[0]?.url ?? "/"
 	const Icon = module.icon
 
 	return (
-		<Card className="relative transition-colors hover:ring-1 hover:ring-primary/50">
-			<CardContent className="flex grow flex-col gap-4">
-				<div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-					<Icon className="h-6 w-6" />
-				</div>
+		<Tooltip>
+			<Card
+				className={cn(
+					"relative overflow-visible cursor-pointer transition-colors hover:ring-2",
+					CARD_HOVER_CLASSES[color]
+				)}
+			>
+				<TooltipTrigger
+					render={
+						<Link
+							to={firstUrl as Parameters<typeof Link>[0]["to"]}
+							className="absolute inset-0 z-10 rounded-xl focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+							aria-label={`Entrar no módulo ${module.name}`}
+						/>
+					}
+				/>
 
-				<div className="flex flex-col gap-1">
-					<h3 className="font-semibold text-foreground">{module.name}</h3>
-					<ul className="mt-1 space-y-0.5">
-						{module.items.map((item) => (
-							<li key={item.url} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-								<item.icon className="h-3 w-3 shrink-0" />
-								<span>{item.title}</span>
-							</li>
-						))}
-					</ul>
-				</div>
+				<CardContent className="flex flex-col gap-4">
+					{/* Header: icon + name + arrow */}
+					<div className="flex items-start gap-3">
+						<div className={cn("flex h-9 w-9 items-center justify-center rounded shrink-0 mt-0.5", ICON_CLASSES[color])}>
+							<Icon className="h-4 w-4" />
+						</div>
+						<span className="flex-1 font-semibold text-foreground text-sm leading-snug pt-1">{module.name}</span>
+						<ArrowUpRight
+							className={cn(
+								"h-4 w-4 shrink-0 mt-0.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5",
+								ACCENT_CLASSES[color]
+							)}
+						/>
+					</div>
 
-				<Button variant="outline" className="mt-auto w-full" nativeButton={false} render={<Link to={firstUrl as Parameters<typeof Link>[0]["to"]} />}>
-					Acessar
-				</Button>
-			</CardContent>
-		</Card>
+					{/* Pages: two-column grid */}
+					{module.items.length > 0 && (
+						<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+							{module.items.map((item) => (
+								<div key={item.url} className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+									<item.icon className="h-3 w-3 shrink-0" />
+									<span className="truncate">{item.title}</span>
+								</div>
+							))}
+						</div>
+					)}
+				</CardContent>
+			</Card>
+			<TooltipContent side="bottom">Entrar no módulo {module.name}</TooltipContent>
+		</Tooltip>
 	)
 }
+
+// ── Hub page ─────────────────────────────────────────────────────────────────
 
 function HubPage() {
 	const { user } = useAuth()
 	const { permissions, isLoading } = usePBAC()
+	const { data: userData } = useUserData(user?.id)
+	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
 
 	const modules = getModulesForPermissions(permissions)
 
-	const userName =
-		(user?.user_metadata?.full_name as string | undefined) ?? (user?.user_metadata?.name as string | undefined) ?? user?.email?.split("@")[0] ?? "Usuário"
+	const meta = (user?.user_metadata ?? {}) as UserMeta
+	const greetName = military?.nmGuerra ?? meta.full_name ?? meta.name ?? user?.email?.split("@")[0] ?? "Usuário"
 
 	return (
-		<div className="flex flex-col items-center px-4 py-12 h-full overflow-y-auto">
-			<div className="w-full max-w-4xl space-y-10">
-				<div className="space-y-2 text-center">
-					<h1 className="text-3xl font-bold tracking-tight text-foreground">Olá, {userName}</h1>
-					<p className="text-muted-foreground">Escolha um módulo para começar</p>
-				</div>
+		<div className="flex flex-col h-full overflow-hidden">
+			<HubHeader />
 
-				{isLoading ? (
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{Array.from({ length: 3 }).map((_, i) => (
-							<Skeleton key={i} className="h-52" />
-						))}
+			<div className="flex-1 overflow-y-auto">
+				<div className="mx-auto max-w-4xl px-4 py-10 space-y-10">
+					<div className="space-y-1">
+						<h1 className="text-2xl font-bold tracking-tight text-foreground">Bem-vindo, {greetName}</h1>
+						<p className="text-sm text-muted-foreground">Escolha um módulo</p>
 					</div>
-				) : modules.length === 0 ? (
-					<p className="text-center text-sm text-muted-foreground">Nenhum módulo disponível para o seu perfil.</p>
-				) : (
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{modules.map((mod) => (
-							<ModuleCard key={mod.id} module={mod} />
-						))}
-					</div>
-				)}
+
+					{isLoading ? (
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+							{Array.from({ length: 3 }).map((_, i) => (
+								<Skeleton key={i} className="h-36" />
+							))}
+						</div>
+					) : modules.length === 0 ? (
+						<p className="text-center text-sm text-muted-foreground">Nenhum módulo disponível para o seu perfil.</p>
+					) : (
+						<div className="space-y-8">
+							{MODULE_GROUPS.map((group) => {
+								const groupModules = modules.filter((m) => group.ids.includes(m.id))
+								if (groupModules.length === 0) return null
+								return (
+									<section key={group.label}>
+										<h2 className={cn("text-xs font-semibold tracking-wide mb-3", ACCENT_CLASSES[group.color])}>
+											{group.label}
+										</h2>
+										<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+											{groupModules.map((mod) => (
+												<ModuleCard key={mod.id} module={mod} color={group.color} />
+											))}
+										</div>
+									</section>
+								)
+							})}
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	)
