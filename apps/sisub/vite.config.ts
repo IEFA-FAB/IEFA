@@ -21,6 +21,7 @@ export default defineConfig(({ command }) => ({
 			routeRules: {
 				"/**": { headers: { "cache-control": "no-cache" } },
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+				"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
 				"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 			},
 		}),
@@ -64,5 +65,14 @@ export default defineConfig(({ command }) => ({
 		sourcemap: false,
 		cssCodeSplit: false,
 		chunkSizeWarningLimit: 800,
+		rollupOptions: {
+			output: {
+				// Fixed name (no hash) for the main app CSS to prevent SSR vs client
+				// build hash mismatch — Tailwind generates different output in each pass.
+				// Cache-busting is handled server-side via Cache-Control: no-cache.
+				assetFileNames: (asset) =>
+					asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]",
+			},
+		},
 	},
 }))

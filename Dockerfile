@@ -46,6 +46,16 @@ RUN bun --filter='@iefa/portal' run build
 RUN test -f apps/portal/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
 
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/portal/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/portal/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
+
 FROM oven/bun:1.3.10-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
@@ -69,6 +79,18 @@ RUN rm -rf apps/sisub/.vite apps/sisub/.tanstack apps/sisub/node_modules/.vite
 RUN bun --filter='@iefa/sisub' run build
 RUN test -f apps/sisub/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
+
+# Verify all CSS/JS assets referenced by the server bundle actually exist in public/
+# This catches SSR vs client build hash mismatches before the image is pushed
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/sisub/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/sisub/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
 
 FROM oven/bun:1.3.10-alpine AS sisub
 ENV NODE_ENV=production
