@@ -17,6 +17,11 @@ export default defineConfig(({ command }) => ({
 		nitro({
 			preset: "bun",
 			compressPublicAssets: true,
+			routeRules: {
+				"/**": { headers: { "cache-control": "no-cache" } },
+				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+				"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+			},
 		}),
 		viteReact({
 			babel: {
