@@ -20,6 +20,7 @@ export default defineConfig(({ command }) => ({
 			routeRules: {
 				"/**": { headers: { "cache-control": "no-cache" } },
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+				"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
 				"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 			},
 		}),
@@ -68,5 +69,10 @@ export default defineConfig(({ command }) => ({
 		minify: "oxc",
 		sourcemap: false,
 		cssCodeSplit: false,
+		rollupOptions: {
+			output: {
+				assetFileNames: (asset) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
+			},
+		},
 	},
 }))

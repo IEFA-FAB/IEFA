@@ -70,8 +70,7 @@ export default defineConfig(({ command }) => ({
 				// Fixed name (no hash) for the main app CSS to prevent SSR vs client
 				// build hash mismatch — Tailwind generates different output in each pass.
 				// Cache-busting is handled server-side via Cache-Control: no-cache.
-				assetFileNames: (asset) =>
-					asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]",
+				assetFileNames: (asset) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
 			},
 		},
 	},
