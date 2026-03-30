@@ -44,12 +44,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Previsão SISUB" }],
 		favicon: "/favicon.svg",
 		links: [
-			{ rel: "preload", href: "/fonts/Manrope-Variable.ttf", as: "font", type: "font/truetype", crossOrigin: "anonymous" },
-			{ rel: "preload", href: "/fonts/JetBrainsMono-Variable.ttf", as: "font", type: "font/truetype", crossOrigin: "anonymous" },
-			{ rel: "preload", href: AppStyles, as: "style" },
-			{ rel: "preload", href: XyflowStyles, as: "style" },
-			{ rel: "stylesheet", href: AppStyles },
-			{ rel: "stylesheet", href: XyflowStyles },
 			{
 				rel: "icon",
 				type: "image/svg+xml",
@@ -74,6 +68,13 @@ function RootDocument() {
 	return (
 		<html lang="pt-BR" suppressHydrationWarning>
 			<head>
+				<link rel="preload" href={AppStyles} as="style" />
+				<link rel="preload" href={XyflowStyles} as="style" />
+				<link rel="stylesheet" href={AppStyles} />
+				<link rel="stylesheet" href={XyflowStyles} />
+				<link rel="preload" href="/fonts/Manrope-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/JetBrainsMono-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
+
 				<HeadContent />
 				<ThemeScript />
 			</head>
