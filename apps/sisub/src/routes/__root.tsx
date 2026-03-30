@@ -9,8 +9,7 @@ import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DefaultCatchBoundary } from "@/components/common/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/common/errors/NotFound"
 import { RealtimeProvider } from "@/components/common/providers/RealtimeProvider"
-import type { ThemeContextType } from "@/components/common/shared/themeService"
-import { ThemeScript } from "@/components/common/shared/themeService"
+import { ThemeProvider, ThemeScript } from "@/components/common/shared/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
@@ -21,7 +20,6 @@ export interface MyRouterContext {
 	queryClient: QueryClient
 	auth: AuthState
 	authActions: Omit<AuthContextType, keyof AuthState>
-	theme: ThemeContextType
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
@@ -84,10 +82,12 @@ function RootDocument() {
 					suppressHydrationWarning
 					className={cn("fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out", isLoading ? "w-full opacity-100" : "w-0 opacity-0")}
 				/>
-				<RealtimeProvider>
-					<Outlet />
-				</RealtimeProvider>
-				<Toaster position="bottom-center" richColors expand className="z-2147483647" />
+				<ThemeProvider>
+					<RealtimeProvider>
+						<Outlet />
+					</RealtimeProvider>
+					<Toaster position="bottom-center" richColors expand className="z-2147483647" />
+				</ThemeProvider>
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[

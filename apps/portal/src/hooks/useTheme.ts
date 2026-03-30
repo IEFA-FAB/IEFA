@@ -1,7 +1,6 @@
-import { useRouteContext } from "@tanstack/react-router"
-import { Route as RootRoute } from "@/routes/__root"
+import { useContext } from "react"
+import { ThemeContext } from "@/components/themeService"
 
 export function useTheme() {
-	const context = useRouteContext({ from: RootRoute.id })
-	return context.theme
+	return useContext(ThemeContext)
 }

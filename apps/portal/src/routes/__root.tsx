@@ -7,8 +7,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
-import type { ThemeContextType } from "@/components/themeService"
-import { ThemeScript } from "@/components/themeService"
+import { ThemeProvider, ThemeScript } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import AppStyles from "@/styles.css?url"
@@ -17,7 +16,6 @@ export interface MyRouterContext {
 	queryClient: QueryClient
 	auth: AuthState
 	authActions: Omit<AuthContextType, keyof AuthState>
-	theme: ThemeContextType
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
@@ -34,6 +32,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Portal IEFA" }],
 		favicon: "/favicon.svg",
 		links: [
+			{ rel: "preload", href: AppStyles, as: "style" },
 			{ rel: "stylesheet", href: AppStyles },
 			{
 				rel: "icon",
@@ -76,9 +75,11 @@ function RootDocument() {
 				<ThemeScript />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
-				<div className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`} />
-				<Outlet />
-				<Toaster />
+				<div suppressHydrationWarning className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`} />
+				<ThemeProvider>
+					<Outlet />
+					<Toaster />
+				</ThemeProvider>
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[

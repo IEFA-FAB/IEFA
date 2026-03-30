@@ -1,12 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
-// Criar o QueryClient uma única vez no escopo do módulo
-// Isso garante que apenas uma instância existe durante toda a aplicação
-const queryClient = new QueryClient()
-
+// On the server (SSR), a new QueryClient is created per request to avoid
+// cross-request cache contamination. On the client, getRouter() is called
+// once, so this effectively produces a single instance per browser session.
 export function getContext() {
 	return {
-		queryClient,
+		queryClient: new QueryClient(),
 	}
 }
 

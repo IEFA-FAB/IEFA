@@ -2,7 +2,6 @@ import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
 import { type AuthState, authActions, authQueryOptions } from "@/auth/service"
-import { applyThemeToDom, getStoredTheme, type Theme, type ThemeContextType } from "@/components/themeService"
 import { supabase } from "@/lib/supabase"
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider"
 import { routeTree } from "./routeTree.gen"
@@ -18,9 +17,6 @@ export const getRouter = () => {
 		isAuthenticated: false,
 	}
 
-	// --- THEME SETUP ---
-	const initialTheme = getStoredTheme()
-
 	// --- ROUTER CREATION ---
 	const router = createRouter({
 		routeTree,
@@ -28,42 +24,11 @@ export const getRouter = () => {
 			...rqContext,
 			auth: initialAuthData,
 			authActions: authActions,
-			theme: {
-				theme: initialTheme,
-				setTheme: () => {},
-				toggle: () => {},
-			} as ThemeContextType,
 		},
 		defaultPreload: "intent",
 		scrollRestoration: true,
 		Wrap: (props: { children: ReactNode }) => {
 			return <TanstackQuery.Provider {...rqContext}>{props.children}</TanstackQuery.Provider>
-		},
-	})
-
-	const themeActions: ThemeContextType = {
-		theme: initialTheme,
-		setTheme: (newTheme: Theme) => {
-			applyThemeToDom(newTheme)
-			router.update({
-				context: {
-					...router.options.context,
-					theme: { ...themeActions, theme: newTheme },
-				},
-			})
-		},
-		toggle: () => {
-			const current = router.options.context.theme.theme
-			const next = current === "dark" ? "light" : "dark"
-			themeActions.setTheme(next)
-		},
-	}
-
-	// Atualiza o contexto inicial com as ações reais
-	router.update({
-		context: {
-			...router.options.context,
-			theme: themeActions,
 		},
 	})
 
