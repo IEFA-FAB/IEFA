@@ -62,6 +62,6 @@ export default defineConfig(({ command }) => ({
 		target: "esnext",
 		minify: "oxc",
 		sourcemap: false,
-		cssCodeSplit: true,
+		cssCodeSplit: false,
 	},
 }))

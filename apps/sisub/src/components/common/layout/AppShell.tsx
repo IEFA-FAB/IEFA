@@ -190,7 +190,7 @@ export function AppShell() {
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
 					<div className="flex items-center gap-3">
 						<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
-						<Separator orientation="vertical" className="mx-2 h-5 bg-border/50" />
+						<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
 						<Breadcrumb>
 							<BreadcrumbList className="text-sm font-medium">
 								<BreadcrumbItem>
