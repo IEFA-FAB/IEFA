@@ -9,9 +9,9 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "typecheck": "turbo typecheck --parallel",
-    "lint": "turbo lint --parallel",
-    "test": "turbo test --parallel",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "test": "turbo test",
     "sisub:dev": "bun --cwd ./apps/sisub dev",
     "portal:dev": "bun --cwd ./apps/portal dev",
     "api:dev": "bun --cwd ./apps/api dev",

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import {
 	syncMaterialCaracteristica,
@@ -25,10 +25,7 @@ const TOTAL_STEPS = 15
 // Heartbeat timeout: se não atualizar em 90s, o processo é considerado morto
 const HEARTBEAT_TIMEOUT_MS = 90_000
 
-type StepFn = (
-	supabase: ReturnType<typeof createClient>,
-	updateProgress: (page: number, totalPages: number, upserted: number) => Promise<void>
-) => Promise<number>
+type StepFn = (supabase: SupabaseClient<any, any>, updateProgress: (page: number, totalPages: number, upserted: number) => Promise<void>) => Promise<number>
 
 const STEPS: Array<{ name: string; fn: StepFn }> = [
 	{ name: "material.grupo", fn: syncMaterialGrupo },
@@ -65,7 +62,7 @@ export function isSyncLive(heartbeatAt: string | null, startedAt: string): boole
 
 // ── Recupera syncs presas por morte de instância ───────────────────────────────
 
-async function recoverStaleSyncs(supabase: ReturnType<typeof createClient>): Promise<void> {
+async function recoverStaleSyncs(supabase: SupabaseClient<any, any>): Promise<void> {
 	// Busca syncs running com heartbeat velho OU sem heartbeat mas started_at antigo
 	const { data: stale, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
 
@@ -102,7 +99,7 @@ async function recoverStaleSyncs(supabase: ReturnType<typeof createClient>): Pro
 
 // ── Concorrência: retorna true se já há uma sync viva rodando ─────────────────
 
-export async function hasLiveSync(supabase: ReturnType<typeof createClient>): Promise<boolean> {
+export async function hasLiveSync(supabase: SupabaseClient<any, any>): Promise<boolean> {
 	const { data, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
 
 	if (error || !data?.length) return false
@@ -201,7 +198,7 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 	return syncId
 }
 
-async function runStep(supabase: ReturnType<typeof createClient>, syncId: number, stepName: string, fn: StepFn): Promise<void> {
+async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepName: string, fn: StepFn): Promise<void> {
 	console.log(`[compras-sync] Step '${stepName}' iniciando...`)
 
 	const now = new Date().toISOString()

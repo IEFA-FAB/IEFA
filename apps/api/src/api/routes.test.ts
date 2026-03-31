@@ -3,10 +3,7 @@ import { describe, expect, test } from "bun:test"
 // Integration tests — require real env vars: API_SUPABASE_URL, API_SUPABASE_SERVICE_ROLE_KEY
 // Tests are skipped automatically when env vars are not set.
 
-const hasEnv =
-	!!process.env.API_SUPABASE_URL &&
-	!!process.env.API_SUPABASE_SERVICE_ROLE_KEY &&
-	!!process.env.ADMIN_SECRET
+const hasEnv = !!process.env.API_SUPABASE_URL && !!process.env.API_SUPABASE_SERVICE_ROLE_KEY && !!process.env.ADMIN_SECRET
 
 // Dynamic import prevents module-level ZodError when env vars are absent
 const { api } = hasEnv ? await import("./routes") : { api: null as any }
