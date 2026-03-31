@@ -1,0 +1,2 @@
+-- Migration aplicada diretamente no remote em 2026-01-15.
+-- Arquivo criado para reconciliar o histórico local com o remote.

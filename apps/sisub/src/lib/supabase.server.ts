@@ -1,7 +1,8 @@
+import type { Database } from "@iefa/database"
 import { createServerClient } from "@supabase/ssr"
 import { getRequest, setCookie } from "@tanstack/react-start/server"
+
 import { envServer } from "@/lib/env.server"
-import type { Database } from "@/types/database.types"
 
 /**
  * Cria um cliente Supabase para uso exclusivo no servidor.

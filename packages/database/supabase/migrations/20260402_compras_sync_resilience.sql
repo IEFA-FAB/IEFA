@@ -1,0 +1,4 @@
+
+ALTER TABLE sisub.compras_sync_log
+  ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS stop_requested BOOLEAN NOT NULL DEFAULT FALSE;

@@ -44,6 +44,7 @@
     "turbo": "^2.8.20"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ]
 }

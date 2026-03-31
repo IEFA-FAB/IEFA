@@ -10,10 +10,10 @@
         "lint": "biome lint",
         "check": "biome check",
         "typecheck": "tsgo --noEmit",
-        "supabase_gen_types": "bunx --bun supabase gen types typescript --project-id 'jgigqdpdjgnnuwajtayh' --schema sisub > ./src/types/database.types.ts",
-        "validate-env": "bun run src/lib/env.ts"
+"validate-env": "bun run src/lib/env.ts"
     },
     "dependencies": {
+        "@iefa/database": "workspace:*",
         "@base-ui/react": "^1.3.0",
         "@supabase/ssr": "^0.8.0",
         "@supabase/supabase-js": "^2.97.0",

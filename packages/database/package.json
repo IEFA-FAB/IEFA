@@ -1,0 +1,20 @@
+{
+  "name": "@iefa/database",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
+    "db:gen-types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub > ./src/index.ts",
+    "db:push": "bunx supabase db push",
+    "db:pull": "bunx supabase db pull --schema sisub",
+    "db:diff": "bunx supabase db diff --schema sisub",
+    "db:reset": "bunx supabase db reset",
+    "db:migrations": "bunx supabase migration list",
+    "db:repair:applied": "bunx supabase migration repair --status applied",
+    "db:repair:reverted": "bunx supabase migration repair --status reverted"
+  }
+}

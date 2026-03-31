@@ -1,12 +1,14 @@
 import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
+import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
+import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
 
 const app = new OpenAPIHono()
 
-// CORS deve ser chamado antes das rotas
+// CORS para rotas públicas da API
 app.use(
 	"/api/*",
 	cors({
@@ -17,8 +19,22 @@ app.use(
 	})
 )
 
-// Coloque a API sob /api
+// CORS para rotas admin (permite POST + header de autenticação)
+app.use(
+	"/api/admin/*",
+	cors({
+		origin: "*",
+		allowMethods: ["GET", "POST", "OPTIONS"],
+		allowHeaders: ["Content-Type", "x-admin-secret"],
+		maxAge: 300,
+	})
+)
+
+// Rotas públicas
 app.route("/api", api)
+
+// Rotas admin — protegidas por x-admin-secret
+app.route("/api/admin/compras", comprasAdminRoutes)
 
 // Healthcheck — retorna 503 se a memória RSS ultrapassar 90% do limite do container
 const API_MEMORY_LIMIT_BYTES = 460 * 1024 * 1024 // 460MB — 90% de 512MB
@@ -92,6 +108,12 @@ export default {
 	port,
 	fetch: app.fetch,
 }
+
+// Worker de sincronização — agendado via Bun.cron
+// startComprasSyncWorker é async: faz recovery de syncs presas antes de agendar
+startComprasSyncWorker().catch((err) => {
+	console.error("[compras-sync] Falha no startup do worker:", err)
+})
 
 console.log(`🚀 Server running on http://localhost:${port}`)
 console.log(`📚 API Docs on http://localhost:${port}/`)

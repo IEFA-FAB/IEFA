@@ -30,6 +30,7 @@ import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_pr
 import { Route as ProtectedModulesGlobalPlacesManagerRouteImport } from './routes/_protected/_modules/global/places-manager'
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
+import { Route as ProtectedModulesGlobalComprasSyncRouteImport } from './routes/_protected/_modules/global/compras-sync'
 import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/self-check-in'
 import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_protected/_modules/diner/qr-code'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
@@ -178,6 +179,12 @@ const ProtectedModulesGlobalEvaluationRoute =
   ProtectedModulesGlobalEvaluationRouteImport.update({
     id: '/global/evaluation',
     path: '/global/evaluation',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalComprasSyncRoute =
+  ProtectedModulesGlobalComprasSyncRouteImport.update({
+    id: '/global/compras-sync',
+    path: '/global/compras-sync',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerSelfCheckInRoute =
@@ -427,6 +434,7 @@ export interface FileRoutesByFullPath {
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
@@ -479,6 +487,7 @@ export interface FileRoutesByTo {
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
@@ -539,6 +548,7 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/_protected/_modules/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/_protected/_modules/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/_protected/_modules/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/_protected/_modules/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
@@ -598,6 +608,7 @@ export interface FileRouteTypes {
     | '/diner/profile'
     | '/diner/qr-code'
     | '/diner/self-check-in'
+    | '/global/compras-sync'
     | '/global/evaluation'
     | '/global/permissions'
     | '/global/places-manager'
@@ -650,6 +661,7 @@ export interface FileRouteTypes {
     | '/diner/profile'
     | '/diner/qr-code'
     | '/diner/self-check-in'
+    | '/global/compras-sync'
     | '/global/evaluation'
     | '/global/permissions'
     | '/global/places-manager'
@@ -709,6 +721,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/profile'
     | '/_protected/_modules/diner/qr-code'
     | '/_protected/_modules/diner/self-check-in'
+    | '/_protected/_modules/global/compras-sync'
     | '/_protected/_modules/global/evaluation'
     | '/_protected/_modules/global/permissions'
     | '/_protected/_modules/global/places-manager'
@@ -900,6 +913,13 @@ declare module '@tanstack/react-router' {
       path: '/global/evaluation'
       fullPath: '/global/evaluation'
       preLoaderRoute: typeof ProtectedModulesGlobalEvaluationRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/compras-sync': {
+      id: '/_protected/_modules/global/compras-sync'
+      path: '/global/compras-sync'
+      fullPath: '/global/compras-sync'
+      preLoaderRoute: typeof ProtectedModulesGlobalComprasSyncRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/self-check-in': {
@@ -1287,6 +1307,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
   ProtectedModulesDinerQrCodeRoute: typeof ProtectedModulesDinerQrCodeRoute
   ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
+  ProtectedModulesGlobalComprasSyncRoute: typeof ProtectedModulesGlobalComprasSyncRoute
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
   ProtectedModulesGlobalPlacesManagerRoute: typeof ProtectedModulesGlobalPlacesManagerRoute
@@ -1325,6 +1346,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
   ProtectedModulesDinerQrCodeRoute: ProtectedModulesDinerQrCodeRoute,
   ProtectedModulesDinerSelfCheckInRoute: ProtectedModulesDinerSelfCheckInRoute,
+  ProtectedModulesGlobalComprasSyncRoute:
+    ProtectedModulesGlobalComprasSyncRoute,
   ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
   ProtectedModulesGlobalPermissionsRoute:
     ProtectedModulesGlobalPermissionsRoute,

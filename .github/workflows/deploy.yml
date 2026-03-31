@@ -85,6 +85,7 @@ jobs:
         env:
           API_SUPABASE_URL: ${{ vars.API_SUPABASE_URL }}
           API_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
 
   build-api:
     needs: check-api
@@ -128,7 +129,8 @@ jobs:
           flyctl --config fly/api.toml secrets set \
             API_PORT=${{ vars.API_PORT }} \
             API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }} \
-            API_SUPABASE_URL=${{ vars.API_SUPABASE_URL }}
+            API_SUPABASE_URL=${{ vars.API_SUPABASE_URL }} \
+            ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -308,7 +310,8 @@ jobs:
         run: |
           flyctl --config fly/sisub.toml secrets set \
             VITE_SISUB_SUPABASE_URL="${{ vars.VITE_SISUB_SUPABASE_URL }}" \
-            SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}"
+            SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}" \
+            ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 

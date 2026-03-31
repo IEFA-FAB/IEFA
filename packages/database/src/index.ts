@@ -62,6 +62,603 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			compras_material_caracteristica: {
+				Row: {
+					codigo_caracteristica: string
+					codigo_item: number
+					codigo_valor_caracteristica: string | null
+					data_hora_atualizacao: string | null
+					id: number
+					nome_caracteristica: string
+					nome_valor_caracteristica: string | null
+					numero_caracteristica: number | null
+					sigla_unidade_medida: string | null
+					status_caracteristica: boolean
+					status_valor_caracteristica: boolean | null
+					synced_at: string
+				}
+				Insert: {
+					codigo_caracteristica: string
+					codigo_item: number
+					codigo_valor_caracteristica?: string | null
+					data_hora_atualizacao?: string | null
+					id?: number
+					nome_caracteristica: string
+					nome_valor_caracteristica?: string | null
+					numero_caracteristica?: number | null
+					sigla_unidade_medida?: string | null
+					status_caracteristica?: boolean
+					status_valor_caracteristica?: boolean | null
+					synced_at?: string
+				}
+				Update: {
+					codigo_caracteristica?: string
+					codigo_item?: number
+					codigo_valor_caracteristica?: string | null
+					data_hora_atualizacao?: string | null
+					id?: number
+					nome_caracteristica?: string
+					nome_valor_caracteristica?: string | null
+					numero_caracteristica?: number | null
+					sigla_unidade_medida?: string | null
+					status_caracteristica?: boolean
+					status_valor_caracteristica?: boolean | null
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_material_classe: {
+				Row: {
+					codigo_classe: number
+					codigo_grupo: number
+					data_hora_atualizacao: string | null
+					nome_classe: string
+					status_classe: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_classe: number
+					codigo_grupo: number
+					data_hora_atualizacao?: string | null
+					nome_classe: string
+					status_classe?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_classe?: number
+					codigo_grupo?: number
+					data_hora_atualizacao?: string | null
+					nome_classe?: string
+					status_classe?: boolean
+					synced_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "compras_material_classe_codigo_grupo_fkey"
+						columns: ["codigo_grupo"]
+						isOneToOne: false
+						referencedRelation: "compras_material_grupo"
+						referencedColumns: ["codigo_grupo"]
+					},
+				]
+			}
+			compras_material_grupo: {
+				Row: {
+					codigo_grupo: number
+					data_hora_atualizacao: string | null
+					nome_grupo: string
+					status_grupo: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_grupo: number
+					data_hora_atualizacao?: string | null
+					nome_grupo: string
+					status_grupo?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_grupo?: number
+					data_hora_atualizacao?: string | null
+					nome_grupo?: string
+					status_grupo?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_material_item: {
+				Row: {
+					aplica_margem_preferencia: boolean | null
+					codigo_item: number
+					codigo_ncm: string | null
+					codigo_pdm: number | null
+					data_hora_atualizacao: string | null
+					descricao_item: string
+					descricao_ncm: string | null
+					first_deactivation_detected_at: string | null
+					item_sustentavel: boolean | null
+					status_item: boolean
+					synced_at: string
+				}
+				Insert: {
+					aplica_margem_preferencia?: boolean | null
+					codigo_item: number
+					codigo_ncm?: string | null
+					codigo_pdm?: number | null
+					data_hora_atualizacao?: string | null
+					descricao_item: string
+					descricao_ncm?: string | null
+					first_deactivation_detected_at?: string | null
+					item_sustentavel?: boolean | null
+					status_item?: boolean
+					synced_at?: string
+				}
+				Update: {
+					aplica_margem_preferencia?: boolean | null
+					codigo_item?: number
+					codigo_ncm?: string | null
+					codigo_pdm?: number | null
+					data_hora_atualizacao?: string | null
+					descricao_item?: string
+					descricao_ncm?: string | null
+					first_deactivation_detected_at?: string | null
+					item_sustentavel?: boolean | null
+					status_item?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_material_natureza_despesa: {
+				Row: {
+					codigo_natureza_despesa: string
+					codigo_pdm: number
+					id: number
+					nome_natureza_despesa: string
+					status_natureza_despesa: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_natureza_despesa: string
+					codigo_pdm: number
+					id?: number
+					nome_natureza_despesa: string
+					status_natureza_despesa?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_natureza_despesa?: string
+					codigo_pdm?: number
+					id?: number
+					nome_natureza_despesa?: string
+					status_natureza_despesa?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_material_pdm: {
+				Row: {
+					codigo_classe: number
+					codigo_pdm: number
+					data_hora_atualizacao: string | null
+					nome_pdm: string
+					status_pdm: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_classe: number
+					codigo_pdm: number
+					data_hora_atualizacao?: string | null
+					nome_pdm: string
+					status_pdm?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_classe?: number
+					codigo_pdm?: number
+					data_hora_atualizacao?: string | null
+					nome_pdm?: string
+					status_pdm?: boolean
+					synced_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "compras_material_pdm_codigo_classe_fkey"
+						columns: ["codigo_classe"]
+						isOneToOne: false
+						referencedRelation: "compras_material_classe"
+						referencedColumns: ["codigo_classe"]
+					},
+				]
+			}
+			compras_material_unidade_fornecimento: {
+				Row: {
+					capacidade_unidade_fornecimento: number | null
+					codigo_pdm: number
+					data_hora_atualizacao: string | null
+					descricao_unidade_fornecimento: string | null
+					id: number
+					nome_unidade_fornecimento: string | null
+					numero_sequencial_unidade_fornecimento: number | null
+					sigla_unidade_fornecimento: string | null
+					sigla_unidade_medida: string | null
+					status_unidade_fornecimento_pdm: boolean
+					synced_at: string
+				}
+				Insert: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_pdm: number
+					data_hora_atualizacao?: string | null
+					descricao_unidade_fornecimento?: string | null
+					id?: number
+					nome_unidade_fornecimento?: string | null
+					numero_sequencial_unidade_fornecimento?: number | null
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+					status_unidade_fornecimento_pdm?: boolean
+					synced_at?: string
+				}
+				Update: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_pdm?: number
+					data_hora_atualizacao?: string | null
+					descricao_unidade_fornecimento?: string | null
+					id?: number
+					nome_unidade_fornecimento?: string | null
+					numero_sequencial_unidade_fornecimento?: number | null
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+					status_unidade_fornecimento_pdm?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_servico_classe: {
+				Row: {
+					codigo_classe: number
+					codigo_grupo: number
+					data_hora_atualizacao: string | null
+					nome_classe: string
+					status_grupo: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_classe: number
+					codigo_grupo: number
+					data_hora_atualizacao?: string | null
+					nome_classe: string
+					status_grupo?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_classe?: number
+					codigo_grupo?: number
+					data_hora_atualizacao?: string | null
+					nome_classe?: string
+					status_grupo?: boolean
+					synced_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "compras_servico_classe_codigo_grupo_fkey"
+						columns: ["codigo_grupo"]
+						isOneToOne: false
+						referencedRelation: "compras_servico_grupo"
+						referencedColumns: ["codigo_grupo"]
+					},
+				]
+			}
+			compras_servico_divisao: {
+				Row: {
+					codigo_divisao: number
+					codigo_secao: number
+					data_hora_atualizacao: string | null
+					nome_divisao: string
+					status_divisao: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_divisao: number
+					codigo_secao: number
+					data_hora_atualizacao?: string | null
+					nome_divisao: string
+					status_divisao?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_divisao?: number
+					codigo_secao?: number
+					data_hora_atualizacao?: string | null
+					nome_divisao?: string
+					status_divisao?: boolean
+					synced_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "compras_servico_divisao_codigo_secao_fkey"
+						columns: ["codigo_secao"]
+						isOneToOne: false
+						referencedRelation: "compras_servico_secao"
+						referencedColumns: ["codigo_secao"]
+					},
+				]
+			}
+			compras_servico_grupo: {
+				Row: {
+					codigo_divisao: number
+					codigo_grupo: number
+					data_hora_atualizacao: string | null
+					nome_grupo: string
+					status_grupo: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_divisao: number
+					codigo_grupo: number
+					data_hora_atualizacao?: string | null
+					nome_grupo: string
+					status_grupo?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_divisao?: number
+					codigo_grupo?: number
+					data_hora_atualizacao?: string | null
+					nome_grupo?: string
+					status_grupo?: boolean
+					synced_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "compras_servico_grupo_codigo_divisao_fkey"
+						columns: ["codigo_divisao"]
+						isOneToOne: false
+						referencedRelation: "compras_servico_divisao"
+						referencedColumns: ["codigo_divisao"]
+					},
+				]
+			}
+			compras_servico_item: {
+				Row: {
+					codigo_cpc: number | null
+					codigo_servico: number
+					codigo_subclasse: number | null
+					data_hora_atualizacao: string | null
+					exclusivo_central_compras: boolean | null
+					first_deactivation_detected_at: string | null
+					nome_servico: string
+					status_servico: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_cpc?: number | null
+					codigo_servico: number
+					codigo_subclasse?: number | null
+					data_hora_atualizacao?: string | null
+					exclusivo_central_compras?: boolean | null
+					first_deactivation_detected_at?: string | null
+					nome_servico: string
+					status_servico?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_cpc?: number | null
+					codigo_servico?: number
+					codigo_subclasse?: number | null
+					data_hora_atualizacao?: string | null
+					exclusivo_central_compras?: boolean | null
+					first_deactivation_detected_at?: string | null
+					nome_servico?: string
+					status_servico?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_servico_natureza_despesa: {
+				Row: {
+					codigo_natureza_despesa: string
+					codigo_servico: number
+					id: number
+					nome_natureza_despesa: string
+					status_natureza_despesa: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_natureza_despesa: string
+					codigo_servico: number
+					id?: number
+					nome_natureza_despesa: string
+					status_natureza_despesa?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_natureza_despesa?: string
+					codigo_servico?: number
+					id?: number
+					nome_natureza_despesa?: string
+					status_natureza_despesa?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_servico_secao: {
+				Row: {
+					codigo_secao: number
+					data_hora_atualizacao: string | null
+					nome_secao: string
+					status_secao: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_secao: number
+					data_hora_atualizacao?: string | null
+					nome_secao: string
+					status_secao?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_secao?: number
+					data_hora_atualizacao?: string | null
+					nome_secao?: string
+					status_secao?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_servico_subclasse: {
+				Row: {
+					codigo_classe: number
+					codigo_subclasse: number
+					data_hora_atualizacao: string | null
+					nome_subclasse: string
+					status_subclasse: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_classe: number
+					codigo_subclasse: number
+					data_hora_atualizacao?: string | null
+					nome_subclasse: string
+					status_subclasse?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_classe?: number
+					codigo_subclasse?: number
+					data_hora_atualizacao?: string | null
+					nome_subclasse?: string
+					status_subclasse?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_servico_unidade_medida: {
+				Row: {
+					codigo_servico: number
+					id: number
+					nome_unidade_medida: string | null
+					sigla_unidade_medida: string
+					status_unidade_medida: boolean
+					synced_at: string
+				}
+				Insert: {
+					codigo_servico: number
+					id?: number
+					nome_unidade_medida?: string | null
+					sigla_unidade_medida: string
+					status_unidade_medida?: boolean
+					synced_at?: string
+				}
+				Update: {
+					codigo_servico?: number
+					id?: number
+					nome_unidade_medida?: string | null
+					sigla_unidade_medida?: string
+					status_unidade_medida?: boolean
+					synced_at?: string
+				}
+				Relationships: []
+			}
+			compras_sync_log: {
+				Row: {
+					completed_steps: number
+					error_message: string | null
+					failed_steps: number
+					finished_at: string | null
+					heartbeat_at: string | null
+					id: number
+					started_at: string
+					status: string
+					stop_requested: boolean
+					successful_steps: number
+					total_deactivated: number
+					total_steps: number
+					total_upserted: number
+					triggered_by: string
+				}
+				Insert: {
+					completed_steps?: number
+					error_message?: string | null
+					failed_steps?: number
+					finished_at?: string | null
+					heartbeat_at?: string | null
+					id?: number
+					started_at?: string
+					status?: string
+					stop_requested?: boolean
+					successful_steps?: number
+					total_deactivated?: number
+					total_steps?: number
+					total_upserted?: number
+					triggered_by?: string
+				}
+				Update: {
+					completed_steps?: number
+					error_message?: string | null
+					failed_steps?: number
+					finished_at?: string | null
+					heartbeat_at?: string | null
+					id?: number
+					started_at?: string
+					status?: string
+					stop_requested?: boolean
+					successful_steps?: number
+					total_deactivated?: number
+					total_steps?: number
+					total_upserted?: number
+					triggered_by?: string
+				}
+				Relationships: []
+			}
+			compras_sync_step: {
+				Row: {
+					current_page: number
+					error_message: string | null
+					finished_at: string | null
+					id: number
+					records_deactivated: number
+					records_upserted: number
+					started_at: string | null
+					status: string
+					step_name: string
+					sync_id: number
+					total_pages: number | null
+				}
+				Insert: {
+					current_page?: number
+					error_message?: string | null
+					finished_at?: string | null
+					id?: number
+					records_deactivated?: number
+					records_upserted?: number
+					started_at?: string | null
+					status?: string
+					step_name: string
+					sync_id: number
+					total_pages?: number | null
+				}
+				Update: {
+					current_page?: number
+					error_message?: string | null
+					finished_at?: string | null
+					id?: number
+					records_deactivated?: number
+					records_upserted?: number
+					started_at?: string | null
+					status?: string
+					step_name?: string
+					sync_id?: number
+					total_pages?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "compras_sync_step_sync_id_fkey"
+						columns: ["sync_id"]
+						isOneToOne: false
+						referencedRelation: "compras_sync_log"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			daily_menu: {
 				Row: {
 					created_at: string
@@ -675,6 +1272,7 @@ export type Database = {
 			}
 			product: {
 				Row: {
+					catmat_item_codigo: number | null
 					ceafa_id: string | null
 					correction_factor: number | null
 					created_at: string
@@ -686,6 +1284,7 @@ export type Database = {
 					measure_unit: string | null
 				}
 				Insert: {
+					catmat_item_codigo?: number | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -697,6 +1296,7 @@ export type Database = {
 					measure_unit?: string | null
 				}
 				Update: {
+					catmat_item_codigo?: number | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -708,6 +1308,13 @@ export type Database = {
 					measure_unit?: string | null
 				}
 				Relationships: [
+					{
+						foreignKeyName: "product_catmat_item_codigo_fkey"
+						columns: ["catmat_item_codigo"]
+						isOneToOne: false
+						referencedRelation: "compras_material_item"
+						referencedColumns: ["codigo_item"]
+					},
 					{
 						foreignKeyName: "product_ceafa_id_fkey"
 						columns: ["ceafa_id"]
@@ -1180,6 +1787,14 @@ export type Database = {
 			}
 		}
 		Functions: {
+			compras_sync_step_failure: {
+				Args: { p_sync_id: number }
+				Returns: undefined
+			}
+			compras_sync_step_success: {
+				Args: { p_sync_id: number; p_upserted: number }
+				Returns: undefined
+			}
 			normalize_label_text: { Args: { p_text: string }; Returns: string }
 			normalize_recipe_name: { Args: { p_name: string }; Returns: string }
 		}

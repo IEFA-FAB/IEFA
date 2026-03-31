@@ -13,6 +13,7 @@ import {
 	type LucideIcon,
 	MapPin,
 	QrCode,
+	RefreshCw,
 	Settings,
 	ShieldCheck,
 	ShoppingCart,
@@ -69,7 +70,10 @@ export const ALL_MODULES: ModuleDef[] = [
 		name: "Gestão Unidade",
 		icon: Building2,
 		hubUrl: "/unit",
-		items: [{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard }],
+		items: [
+			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
+			{ title: "Suprimentos", url: "/unit/procurement", icon: ShoppingCart },
+		],
 	},
 	{
 		id: "kitchen",
@@ -81,7 +85,6 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays },
 			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar },
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
-			{ title: "Suprimentos", url: "/kitchen/procurement", icon: ShoppingCart },
 			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode },
 		],
 	},
@@ -103,6 +106,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Locais", url: "/global/places-manager", icon: MapPin },
 			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck },
 			{ title: "Avaliação", url: "/global/evaluation", icon: Star },
+			{ title: "Sync Compras", url: "/global/compras-sync", icon: RefreshCw },
 		],
 	},
 	{

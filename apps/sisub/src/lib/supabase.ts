@@ -1,8 +1,8 @@
+import type { Database } from "@iefa/database"
 import { createBrowserClient } from "@supabase/ssr"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { env } from "@/lib/env"
-import type { Database } from "@/types/database.types"
 
 // Cast to the full SupabaseClient type from @supabase/supabase-js so that
 // auth methods like onAuthStateChange are accessible without type errors.
