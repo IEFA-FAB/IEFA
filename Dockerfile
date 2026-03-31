@@ -15,6 +15,7 @@ COPY apps/portal/package.json ./apps/portal/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/docs/package.json ./apps/docs/
 COPY apps/ai/package.json ./apps/ai/
+COPY packages/database/package.json ./packages/database/
 RUN bun install --frozen-lockfile
 
 # =============================================================================
@@ -70,6 +71,7 @@ CMD ["bun", ".output/server/index.mjs"]
 FROM deps AS sisub-build
 ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
+COPY packages/database ./packages/database
 COPY apps/sisub ./apps/sisub
 
 # Clear any local cache
