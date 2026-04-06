@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import PermissionsManager from "@/components/features/global/PermissionsManager"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 export const Route = createFileRoute("/_protected/_modules/global/permissions")({
 	beforeLoad: ({ context }) => requirePermission(context, "global", 2),

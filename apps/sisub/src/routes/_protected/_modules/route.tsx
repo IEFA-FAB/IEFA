@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { AppShell } from "@/components/common/layout/AppShell"
+import { AppShell } from "@/components/layout/AppShell"
 import { SidebarProvider } from "@/components/ui/sidebar"
 
 /**

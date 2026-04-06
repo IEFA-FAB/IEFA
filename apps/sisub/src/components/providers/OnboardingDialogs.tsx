@@ -9,7 +9,7 @@
  * autenticação e fundo visual. A lógica de onboarding tem responsabilidade própria.
  */
 import { useCallback, useState } from "react"
-import { EvaluationDialog } from "@/components/common/dialogs/EvaluationDialog"
+import { EvaluationDialog } from "@/components/features/messhall/EvaluationDialog"
 import { SaramDialog } from "@/components/features/messhall/SaramDialog"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useUpdateNrOrdem, useUserNrOrdem } from "@/hooks/business/useUserNrOrdem"

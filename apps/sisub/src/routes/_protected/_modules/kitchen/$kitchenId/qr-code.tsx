@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import QRAutoCheckinCard from "@/components/features/local/QRAutoCheckinCard"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 /**
  * KITCHEN — Gerar QR Code para Check-in Automático

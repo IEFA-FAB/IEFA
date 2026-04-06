@@ -1,6 +1,6 @@
 import { type Connection, type Edge, type Node, useEdgesState, useNodesState } from "@xyflow/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { PageHeader } from "@/components/common/layout/PageHeader"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useApplyPlacesDiff, usePlacesGraph } from "@/hooks/data/usePlaces"
 import { buildDiffFromReconnection } from "@/lib/places-graph/diff"
 import { applyManualPositions, computeElkLayout, loadSavedPositions, savePositions } from "@/lib/places-graph/layout"

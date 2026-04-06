@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { PageHeader } from "@/components/common/layout/PageHeader"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/dashboard")({
 	component: UnitDashboardPage,

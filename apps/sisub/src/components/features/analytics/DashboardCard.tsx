@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Building2, LayoutDashboard, Users } from "lucide-react"
 import { useState } from "react"
-import { DashboardSkeleton } from "@/components/common/skeletons/DashboardSkeleton"
+import { DashboardSkeleton } from "@/components/features/analytics/DashboardSkeleton"
 import PresenceTable from "@/components/features/local/PresenceTable"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"

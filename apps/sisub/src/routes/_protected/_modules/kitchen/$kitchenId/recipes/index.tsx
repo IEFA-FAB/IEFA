@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import { RecipesManager } from "@/components/features/shared/RecipesManager"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 const recipesSearchSchema = z.object({
 	search: z.string().optional(),

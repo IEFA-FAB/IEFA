@@ -1,5 +1,5 @@
 import { useContext } from "react"
-import { ThemeContext } from "@/components/common/shared/themeService"
+import { ThemeContext } from "@/services/themeService"
 
 export function useTheme() {
 	return useContext(ThemeContext)

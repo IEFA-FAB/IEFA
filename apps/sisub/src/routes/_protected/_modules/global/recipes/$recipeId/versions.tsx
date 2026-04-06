@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { GitCompare, Loader2 } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
-import { PageHeader } from "@/components/common/layout/PageHeader"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { useRecipe } from "@/hooks/data/useRecipe"
 

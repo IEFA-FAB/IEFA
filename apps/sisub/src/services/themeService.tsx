@@ -1,3 +1,6 @@
+import type { ReactNode } from "react"
+import { createContext, useState } from "react"
+
 export type Theme = "dark" | "light"
 
 export interface ThemeContextType {
@@ -59,4 +62,29 @@ const themeScript = `
 export const ThemeScript = () => {
 	// biome-ignore lint/security/noDangerouslySetInnerHtml: Need to inject theme script for FOUC prevention
 	return <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+}
+
+export const ThemeContext = createContext<ThemeContextType>({
+	theme: "light",
+	setTheme: () => {},
+	toggle: () => {},
+})
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+	// Read theme from the DOM class that ThemeScript already set.
+	// On server: no DOM → "light" (SSR-safe neutral default).
+	// On client: reads the actual class so toggle() direction is always correct.
+	const [theme, setThemeState] = useState<Theme>(() => {
+		if (typeof window === "undefined") return "light"
+		return document.documentElement.classList.contains("dark") ? "dark" : "light"
+	})
+
+	const setTheme = (newTheme: Theme) => {
+		setThemeState(newTheme)
+		applyThemeToDom(newTheme)
+	}
+
+	const toggle = () => setTheme(theme === "dark" ? "light" : "dark")
+
+	return <ThemeContext.Provider value={{ theme, setTheme, toggle }}>{children}</ThemeContext.Provider>
 }

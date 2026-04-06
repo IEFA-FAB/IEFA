@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import DashboardCard from "@/components/features/analytics/DashboardCard"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 export const Route = createFileRoute("/_protected/_modules/analytics/local")({
 	beforeLoad: async ({ context }) => {

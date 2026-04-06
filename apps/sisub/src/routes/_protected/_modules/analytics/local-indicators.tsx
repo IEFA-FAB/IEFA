@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import LocalIndicatorsCard, { powerBiUrl } from "@/components/features/analytics/LocalIndicatorsCard"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 

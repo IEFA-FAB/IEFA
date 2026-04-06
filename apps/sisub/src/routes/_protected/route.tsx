@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { userPermissionsQueryOptions } from "@/auth/pbac"
-import { OnboardingDialogs } from "@/components/common/dialogs/OnboardingDialogs"
+import { OnboardingDialogs } from "@/components/providers/OnboardingDialogs"
 import { cn } from "@/lib/cn"
 import { syncUserEmailFn } from "@/server/user.fn"
 

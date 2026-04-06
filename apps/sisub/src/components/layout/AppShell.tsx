@@ -1,14 +1,8 @@
 import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
-import { AnimatedThemeToggler } from "@/components/animated-theme-toggler"
-import {
-	getModuleFromPath,
-	getModulesForPermissions,
-	getNavItemsForPermissions,
-	type ModuleId,
-	type NavItem,
-} from "@/components/common/layout/sidebar/NavItems"
+import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
+import { getModuleFromPath, getModulesForPermissions, getNavItemsForPermissions, type ModuleId, type NavItem } from "@/components/layout/sidebar/NavItems"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"

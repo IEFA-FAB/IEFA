@@ -105,7 +105,7 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 
 		for (const menuItem of menuItems) {
 			const recipe = recipes.find((r) => r.id === menuItem.recipe_origin_id)
-			if (!recipe || !recipe.recipe_ingredients) continue
+			if (!recipe?.recipe_ingredients) continue
 
 			const portionMultiplier = (menuItem.planned_portion_quantity || 0) / (recipe.portion_yield || 1)
 

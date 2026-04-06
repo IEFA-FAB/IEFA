@@ -193,7 +193,7 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 
 const PAGE_SIZE = 10 as const
 
-export default function Changelog() {
+function Changelog() {
 	const { data, isLoading, isFetchingNextPage, error, hasNextPage, fetchNextPage, refetch } = useInfiniteQuery({
 		queryKey: ["changelog", "list", PAGE_SIZE],
 		queryFn: ({ pageParam = 0 }) =>

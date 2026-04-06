@@ -161,7 +161,7 @@ export function useProductsHierarchy(filterText = "") {
 		// 2. Atualizar hasChildren e calcular níveis hierárquicos
 		const calculateLevel = (nodeId: string, level = 0): number => {
 			const node = byId[nodeId]
-			if (!node || !node.parentId) return level
+			if (!node?.parentId) return level
 			return calculateLevel(node.parentId, level + 1)
 		}
 

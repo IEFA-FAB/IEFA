@@ -8,6 +8,7 @@ import {
 	Cake,
 	Calendar,
 	ChevronRight,
+	ChevronsDown,
 	ClipboardCheck,
 	Clock,
 	Coffee,
@@ -19,7 +20,11 @@ import {
 	Users,
 	UtensilsCrossed,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { InfoPanel } from "@/components/ui/info-panel"
+import { SectionLabel } from "@/components/ui/section-label"
 import type { MealType } from "@/types/domain/meal"
 import type { Feature, Step } from "@/types/ui"
 
@@ -95,8 +100,7 @@ export const Route = createFileRoute("/_public/")({
 			{ title: "SISUB - Sistema de Subsistência" },
 			{
 				name: "description",
-				content:
-					"Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.",
+				content: "Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.",
 			},
 		],
 	}),
@@ -111,32 +115,36 @@ function Home() {
 	return (
 		<div className="w-full">
 			{/* Hero */}
-			<section className="pb-16 md:pb-24 pt-2 animate-fade-slide-in">
-				<p className="font-mono text-xs text-muted-foreground tracking-[0.18em] uppercase mb-8">
-					Sistema de Subsistência · Força Aérea Brasileira
-				</p>
-				<h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.0] text-foreground mb-6">
-					Planeje
-					<br />
-					seu rancho.
-				</h1>
-				<p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-10 max-w-md">
-					Preveja demanda, reduza desperdício e gerencie refeições por OM — um sistema feito para militares.
-				</p>
-				<div className="flex flex-wrap items-center gap-5">
-					<Button
-						nativeButton={false}
-						render={
-							<Link to="/auth" className="flex items-center gap-2">
-								Acessar Sistema
-								<ChevronRight className="h-4 w-4" />
-							</Link>
-						}
-					/>
-					<span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-						<ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-						Login obrigatório
-					</span>
+			<section className="min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
+				<div className="flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
+					<p className="font-mono text-xs text-muted-foreground/60 tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
+					<h1 className="text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold tracking-tight leading-[0.95] text-foreground mb-8 md:mb-10">
+						Planeje
+						<br />
+						<span className="text-primary">seu rancho.</span>
+					</h1>
+					<p className="text-muted-foreground text-base md:text-xl leading-relaxed mb-10 md:mb-12 max-w-sm md:max-w-md">
+						Preveja demanda, reduza desperdício e gerencie refeições por OM.
+					</p>
+					<div className="flex flex-wrap items-center gap-4 md:gap-6">
+						<Button
+							nativeButton={false}
+							render={
+								<Link to="/auth" className="flex items-center gap-2">
+									Acessar Sistema
+									<ChevronRight className="h-4 w-4" />
+								</Link>
+							}
+							size="lg"
+						/>
+						<span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+							<ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+							Login obrigatório
+						</span>
+					</div>
+				</div>
+				<div className="flex justify-center pb-2" aria-hidden>
+					<ChevronsDown className="h-5 w-5 text-muted-foreground/40 animate-bounce" />
 				</div>
 			</section>
 
@@ -148,12 +156,10 @@ function Home() {
 						const Icon = step.icon
 						return (
 							<div key={step.title} className="flex items-start gap-5 py-5 stagger-item">
-								<span className="font-mono text-3xl font-bold text-border tabular-nums leading-none min-w-[2.5rem]">
-									{String(i + 1).padStart(2, "0")}
-								</span>
+								<span className="font-mono text-3xl font-bold text-border tabular-nums leading-none min-w-[2.5rem]">{String(i + 1).padStart(2, "0")}</span>
 								<div className="pt-0.5">
 									<div className="flex items-center gap-2 mb-1">
-										<Icon className="h-4 w-4 text-primary flex-shrink-0" aria-hidden />
+										<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
 										<h3 className="font-bold text-sm text-foreground">{step.title}</h3>
 									</div>
 									<p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
@@ -173,10 +179,12 @@ function Home() {
 						return (
 							<div key={meal.label} className="flex items-center justify-between px-5 py-4 bg-card hover:bg-muted/40 transition-colors">
 								<div className="flex items-center gap-3">
-									<Icon className="h-4 w-4 text-primary flex-shrink-0" aria-hidden />
+									<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
 									<span className="font-semibold text-sm text-foreground">{meal.label}</span>
 								</div>
-								<span className="font-mono text-sm text-muted-foreground tabular-nums">{meal.time}</span>
+								<Badge variant="outline" className="font-mono tabular-nums">
+									{meal.time}
+								</Badge>
 							</div>
 						)
 					})}
@@ -190,16 +198,17 @@ function Home() {
 					{features.map((feature) => {
 						const Icon = feature.icon
 						return (
-							<div
-								key={feature.title}
-								className="flex flex-col gap-2 p-4 border border-border rounded-md bg-card hover:bg-muted/40 transition-colors"
-							>
-								<div className="flex items-center gap-2">
-									<Icon className="h-4 w-4 text-primary flex-shrink-0" aria-hidden />
-									<h3 className="font-bold text-sm text-foreground">{feature.title}</h3>
-								</div>
-								<p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
-							</div>
+							<Card key={feature.title} className="rounded-md ring-0 border border-border hover:bg-muted/40 transition-colors cursor-default">
+								<CardHeader className="pb-0">
+									<div className="flex items-center gap-2">
+										<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
+										<CardTitle className="text-sm font-bold">{feature.title}</CardTitle>
+									</div>
+								</CardHeader>
+								<CardContent>
+									<p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
+								</CardContent>
+							</Card>
 						)
 					})}
 				</div>
@@ -266,63 +275,6 @@ function Home() {
 					</div>
 				</div>
 			</section>
-		</div>
-	)
-}
-
-/* ========================================================================
-   UTILITY COMPONENTS
-   ======================================================================== */
-
-function SectionLabel({ index, label }: { index: string; label: string }) {
-	return (
-		<div className="flex items-center gap-3">
-			<span className="font-mono text-xs text-muted-foreground/40 tabular-nums">{index}</span>
-			<div className="h-px w-6 bg-border" />
-			<span className="font-mono text-xs text-muted-foreground uppercase tracking-widest">{label}</span>
-		</div>
-	)
-}
-
-type InfoPanelProps = {
-	icon: React.ComponentType<{ className?: string }>
-	label: string
-	title: string
-	description: string
-	tags: string[]
-	to: string
-	cta: string
-}
-
-function InfoPanel({ icon: Icon, label, title, description, tags, to, cta }: InfoPanelProps) {
-	return (
-		<div className="border border-border rounded-md bg-card p-5 flex flex-col gap-4 hover:bg-muted/30 transition-colors">
-			<div className="flex items-center gap-2">
-				<Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
-				<span className="font-mono text-xs text-muted-foreground uppercase tracking-widest">{label}</span>
-			</div>
-			<div>
-				<h3 className="font-bold text-lg text-foreground mb-1">{title}</h3>
-				<p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
-			</div>
-			<div className="flex flex-wrap gap-1.5">
-				{tags.map((tag) => (
-					<span key={tag} className="font-mono text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-sm">
-						{tag}
-					</span>
-				))}
-			</div>
-			<Button
-				variant="outline"
-				nativeButton={false}
-				render={
-					<Link to={to} className="flex items-center gap-2">
-						{cta}
-						<ChevronRight className="h-4 w-4" />
-					</Link>
-				}
-				className="self-start mt-auto"
-			/>
 		</div>
 	)
 }

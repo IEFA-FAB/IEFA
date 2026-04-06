@@ -3,12 +3,12 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
 import { type JSX, lazy, Suspense, useState } from "react"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import { BulkMealSelector } from "@/components/features/diner/BulkMealSelector"
 import { DayCardSkeleton } from "@/components/features/diner/DayCardSkeleton"
 import { DefaultMessHallSelector } from "@/components/features/diner/DefaultMessHallSelector"
 import SimplifiedMilitaryStats from "@/components/features/diner/SimplifiedMilitaryStats"
 import { UnifiedStatusToasts } from "@/components/features/diner/UnifiedStatusToasts"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { NEAR_DATE_THRESHOLD } from "@/constants/rancho"
 import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
@@ -65,7 +65,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
    Componente principal
    ============================ */
 
-export default function Forecast(): JSX.Element {
+function Forecast(): JSX.Element {
 	"use no memo"
 	const {
 		success,

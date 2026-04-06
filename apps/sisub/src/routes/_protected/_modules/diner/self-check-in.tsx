@@ -5,7 +5,7 @@ import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/rea
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
-import { PageHeader } from "@/components/common/layout/PageHeader"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { inferDefaultMeal } from "@/lib/fiscal"

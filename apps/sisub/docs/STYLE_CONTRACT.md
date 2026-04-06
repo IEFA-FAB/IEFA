@@ -7,8 +7,8 @@ Criar uma fonte de verdade operacional e técnica para o design system do sisub.
 A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 1. **Tokens** (`styles.css` via `@theme inline`)
 2. **Primitives** (`src/components/ui/`)
-3. **Patterns** (`src/components/ui/` e `common/`)
-4. **Wrappers semânticos** (`src/components/common/`)
+3. **Patterns** (`src/components/ui/`)
+4. **Wrappers semânticos** (`src/components/layout/` e `src/components/features/`)
 5. **Feature-level overrides** (`src/components/features/` via `className` puramente estrutural)
 
 ## 3. Princípios operacionais
@@ -104,7 +104,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
   - A variação soluciona apenas um layout específico de tela? **Não:** Use `className` (se for espaçamento/layout) ou um wrapper (caso as cores se repitam).
 
 - **"Devo criar wrapper semântico?"**
-  - O conjunto de componentes (icone + texto + background) repete 3 ou mais vezes com a mesma área de negócio? **Sim:** Criar Wrapper em `common/`.
+  - O conjunto de componentes (icone + texto + background) repete 3 ou mais vezes com a mesma área de negócio? **Sim:** Criar Wrapper em `layout/` (se de layout global) ou `features/` (se de domínio específico).
   - É de uso único? **Não:** Mantenha na pasta feature.
 
 - **"Devo usar config hardcoded ou token semântico?"**
@@ -137,7 +137,7 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 - [ ] Foi verificado se a mudança justifica uma abstração de primitive `CVA` ou apenas um `className` de espaçamento de feature/tela?
 
 ## 10. Referências de implementação
-- **Wrappers semânticos de referência:** `AppShell.tsx` e `PageHeader.tsx` — alta coesão, baixo acoplamento. Usar como modelo ao extrair novos wrappers.
+- **Wrappers semânticos de referência:** `AppShell.tsx` e `PageHeader.tsx` (em `src/components/layout/`) — alta coesão, baixo acoplamento. Usar como modelo ao extrair novos wrappers.
 - **Formulário de referência:** `AddUserDialog.tsx` — uso correto de `FieldGroup`, `Field`, `FieldLabel`, `FieldError` com TanStack Form + Zod. Para hints de campo, ver `ProductItemForm.tsx` — uso correto de `FieldDescription`.
 - **Lista de entidades de referência:** `TrashDrawer.tsx` — uso correto de `ItemGroup`, `Item variant="muted"`, `ItemHeader`, `ItemContent`, `ItemTitle`, `ItemDescription`, `ItemFooter` em drawer. `PresenceTable.tsx` — uso correto de `Item variant="outline"` com `ItemMedia` + `ItemContent` para cards de pessoa com cor dinâmica via `className`. `ApplyTemplateDialog.tsx` — uso correto de `Item size="xs" variant="default"` para linhas de preview dentro de container scrollável.
 - **Tooltip de referência:** `weekly-menus/$weeklyMenuId.tsx` — uso correto de `<Tooltip>/<TooltipTrigger asChild>/<TooltipContent>` em botões de ação.

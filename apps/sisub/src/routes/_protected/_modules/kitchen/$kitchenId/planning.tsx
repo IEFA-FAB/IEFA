@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
-import { PageHeader } from "@/components/common/layout/PageHeader"
 import { PlanningBoard } from "@/components/features/local/planning/PlanningBoard"
+import { PageHeader } from "@/components/layout/PageHeader"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/planning")({
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),

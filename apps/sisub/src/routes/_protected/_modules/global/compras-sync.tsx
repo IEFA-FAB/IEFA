@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Clock, Loader2, Play, RefreshCw, Square } fr
 import { useState } from "react"
 import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
-import { PageHeader } from "@/components/common/layout/PageHeader"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
