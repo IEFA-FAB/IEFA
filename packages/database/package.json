@@ -8,7 +8,7 @@
   },
   "scripts": {
     "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
-    "db:gen-types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub > ./src/index.ts",
+    "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub > ./src/index.ts",
     "db:push": "bunx supabase db push",
     "db:pull": "bunx supabase db pull --schema sisub",
     "db:diff": "bunx supabase db diff --schema sisub",
