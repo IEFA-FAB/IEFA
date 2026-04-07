@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { AlertCircle, Calendar, User } from "lucide-react"
+import { Calendar, User, WarningCircle } from "iconoir-react"
 import { Card, CardContent } from "@/components/ui/card"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
 
@@ -75,7 +75,7 @@ export function ArticleCard({ article, isDragging = false }: ArticleCardProps) {
 
 							{article.review_count !== undefined && article.review_count > 0 && (
 								<div className="flex items-center gap-1.5">
-									<AlertCircle className="size-3" aria-hidden="true" />
+									<WarningCircle className="size-3" aria-hidden="true" />
 									<span>{article.review_count} revisões</span>
 								</div>
 							)}

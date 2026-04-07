@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router"
-import type { LucideIcon } from "lucide-react"
+import type React from "react"
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar"
 
 export function NavMain({
@@ -8,7 +8,7 @@ export function NavMain({
 	items: {
 		title: string
 		url: string
-		icon: LucideIcon
+		icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
 	}[]
 }) {
 	const location = useLocation()

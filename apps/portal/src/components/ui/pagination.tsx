@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
+import { MoreHoriz, NavArrowLeft, NavArrowRight } from "iconoir-react"
 import type * as React from "react"
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
@@ -35,7 +35,7 @@ function PaginationLink({ className, isActive, size = "icon", ...props }: Pagina
 function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
 	return (
 		<PaginationLink aria-label="Go to previous page" size="default" className={cn("pl-1.5!", className)} {...props}>
-			<ChevronLeftIcon data-icon="inline-start" />
+			<NavArrowLeft data-icon="inline-start" />
 			<span className="hidden sm:block">Previous</span>
 		</PaginationLink>
 	)
@@ -45,7 +45,7 @@ function PaginationNext({ className, ...props }: React.ComponentProps<typeof Pag
 	return (
 		<PaginationLink aria-label="Go to next page" size="default" className={cn("pr-1.5!", className)} {...props}>
 			<span className="hidden sm:block">Next</span>
-			<ChevronRightIcon data-icon="inline-end" />
+			<NavArrowRight data-icon="inline-end" />
 		</PaginationLink>
 	)
 }
@@ -58,7 +58,7 @@ function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span"
 			className={cn("size-8 items-center justify-center [&_svg:not([class*='size-'])]:size-4 flex items-center justify-center", className)}
 			{...props}
 		>
-			<MoreHorizontalIcon />
+			<MoreHoriz />
 			<span className="sr-only">More pages</span>
 		</span>
 	)

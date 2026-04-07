@@ -1,3 +1,4 @@
+import type { MenuTemplateItemInsert } from "@iefa/database/sisub"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { GitFork, Loader2, Plus } from "lucide-react"
@@ -14,7 +15,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import supabase from "@/lib/supabase"
-import type { MenuTemplateItemInsert } from "@/types/supabase.types"
 
 /**
  * KITCHEN — Novo Cardápio Semanal

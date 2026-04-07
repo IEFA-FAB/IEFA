@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, Calendar, CheckCircle2, Clock, Download, FileText, MessageSquare, User, XCircle } from "lucide-react"
+import { ArrowLeft, Calendar, CheckCircle, Clock, Download, MessageText, Page, User, XmarkCircle } from "iconoir-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { articleWithDetailsQueryOptions } from "@/lib/journal/hooks"
@@ -49,11 +49,11 @@ function ArticleDetailEditor() {
 				{/* Quick Actions */}
 				<div className="flex gap-2 flex-wrap">
 					<Button variant="default">
-						<CheckCircle2 className="size-4 mr-2" />
+						<CheckCircle className="size-4 mr-2" />
 						Aceitar
 					</Button>
 					<Button variant="outline">
-						<MessageSquare className="size-4 mr-2" />
+						<MessageText className="size-4 mr-2" />
 						Solicitar Revisão
 					</Button>
 					<Button variant="outline">
@@ -61,7 +61,7 @@ function ArticleDetailEditor() {
 						Convidar Revisor
 					</Button>
 					<Button variant="destructive">
-						<XCircle className="size-4 mr-2" />
+						<XmarkCircle className="size-4 mr-2" />
 						Rejeitar
 					</Button>
 				</div>
@@ -143,7 +143,7 @@ function ArticleDetailEditor() {
 								{article.versions?.map((version: { id: string; version_number: number; version_label?: string | null; created_at: string }) => (
 									<div key={version.id} className="flex items-center justify-between p-3 rounded-lg border">
 										<div className="flex items-center gap-3">
-											<FileText className="size-5 text-muted-foreground" />
+											<Page className="size-5 text-muted-foreground" />
 											<div>
 												<p className="font-medium text-sm">
 													Versão {version.version_number}
@@ -182,7 +182,7 @@ function ArticleDetailEditor() {
 								<span>{new Date(article.updated_at).toLocaleDateString()}</span>
 							</div>
 							<div className="flex items-center gap-2">
-								<FileText className="size-4 text-muted-foreground" />
+								<Page className="size-4 text-muted-foreground" />
 								<span className="text-muted-foreground">Tipo:</span>
 								<span className="capitalize">{article.article_type}</span>
 							</div>

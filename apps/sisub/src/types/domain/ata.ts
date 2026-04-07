@@ -1,4 +1,4 @@
-import type { Tables } from "@/types/supabase.types"
+import type { Tables } from "@iefa/database/sisub"
 
 // ─── Base Table Types ─────────────────────────────────────────────────────────
 

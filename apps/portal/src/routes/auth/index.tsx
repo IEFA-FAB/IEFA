@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { Loader2 } from "lucide-react"
+import { Refresh } from "iconoir-react"
 import { z } from "zod"
 import { AuthScreen } from "@/auth/view/AuthScreen"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,6 +16,16 @@ const authSearchSchema = z.object({
 
 export const Route = createFileRoute("/auth/")({
 	validateSearch: authSearchSchema,
+	staticData: {
+		nav: {
+			title: "Entrar no portal",
+			section: "Conta",
+			subtitle: "Login, cadastro e recuperação de acesso",
+			keywords: ["login", "cadastro", "acesso", "entrar", "registrar"],
+			access: "anonymous",
+			order: 40,
+		},
+	},
 	component: AuthPage,
 })
 
@@ -70,7 +80,7 @@ function AuthPage() {
 		return (
 			<Card className={cardClasses}>
 				<CardContent className="flex items-center justify-center py-12">
-					<Loader2 className="h-8 w-8 animate-spin mr-2" />
+					<Refresh className="h-8 w-8 animate-spin mr-2" />
 					<span>Verificando autenticação...</span>
 				</CardContent>
 			</Card>

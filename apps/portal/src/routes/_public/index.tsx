@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowRight, BookOpen, Building2, ChevronDown, ChevronRight, FlaskConical, GraduationCap } from "lucide-react"
+import { ArrowRight, Building, Flask, GraduationCap, NavArrowDown, NavArrowRight, OpenBook } from "iconoir-react"
 import { AppCard } from "@/components/AppCard"
 import { DynamicIcon } from "@/components/dynamicIcon"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,15 @@ import { useAppsData } from "@/hooks/useAppsData"
 import type { AppItem } from "@/types/domain"
 
 export const Route = createFileRoute("/_public/")({
+	staticData: {
+		nav: {
+			title: "Início",
+			section: "Portal",
+			subtitle: "Página inicial do Portal IEFA",
+			keywords: ["home", "portal", "iefa", "institucional"],
+			order: 0,
+		},
+	},
 	component: Home,
 	head: () => ({
 		meta: [
@@ -29,13 +38,13 @@ const PILLARS = [
 			"Capacitação de gestores e agentes da administração do COMAER por meio de cursos presenciais, estágios, treinamentos e plataforma EaD própria.",
 	},
 	{
-		icon: FlaskConical,
+		icon: Flask,
 		title: "Pesquisa & Inovação",
 		description:
 			"Instituição Científica, Tecnológica e de Inovação reconhecida pelo DCTA, fomentando a produção científica e parcerias estratégicas na Aeronáutica.",
 	},
 	{
-		icon: Building2,
+		icon: Building,
 		title: "Gestão",
 		description:
 			"Suporte técnico à SEFA e seus sistemas corporativos, assessoria a militares e civis, e fortalecimento do desenvolvimento sustentável da Força Aérea.",
@@ -136,7 +145,7 @@ function Home() {
 				{/* Indicador de scroll */}
 				<div className="pb-8 flex flex-col items-center gap-2 text-muted-foreground/60 select-none" aria-hidden="true">
 					<span className="text-[10px] tracking-[0.2em] uppercase">Rolar</span>
-					<ChevronDown className="h-5 w-5 animate-bounce" />
+					<NavArrowDown className="h-5 w-5 animate-bounce" />
 				</div>
 			</section>
 
@@ -198,7 +207,7 @@ function Home() {
 							className="hidden sm:inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors pb-0.5"
 							aria-label="Ver todas as facilidades"
 						>
-							Ver todas <ChevronRight className="h-4 w-4" aria-hidden="true" />
+							Ver todas <NavArrowRight className="h-4 w-4" aria-hidden="true" />
 						</Link>
 					</div>
 
@@ -232,7 +241,7 @@ function Home() {
 								className="hidden sm:inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors pb-0.5"
 								aria-label="Ver todas as facilidades"
 							>
-								Ver todas <ChevronRight className="h-4 w-4" aria-hidden="true" />
+								Ver todas <NavArrowRight className="h-4 w-4" aria-hidden="true" />
 							</Link>
 						</div>
 
@@ -248,7 +257,7 @@ function Home() {
 
 					<div className="flex flex-col sm:flex-row gap-8 items-start sm:items-center">
 						<div className="rounded-xl bg-primary/10 p-4 shrink-0">
-							<BookOpen className="h-7 w-7 text-primary" aria-hidden="true" />
+							<OpenBook className="h-7 w-7 text-primary" aria-hidden="true" />
 						</div>
 
 						<div className="flex-1">

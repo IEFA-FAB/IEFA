@@ -1,3 +1,4 @@
+import type { Recipe } from "@iefa/database/sisub"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, Search } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -7,7 +8,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
-import type { Recipe } from "@/types/supabase.types"
 
 interface RecipeSelectorProps {
 	open: boolean

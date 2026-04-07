@@ -1,4 +1,4 @@
-import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
+import { Eye, EyeClosed, Lock, Refresh, WarningCircle } from "iconoir-react"
 import { useEffect, useState } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -135,7 +135,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 			<div className="min-h-screen flex items-center justify-center p-4">
 				<Card className={cardClasses}>
 					<CardContent className="flex flex-col items-center justify-center py-12 gap-4">
-						<Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+						<Refresh className="h-8 w-8 animate-spin" aria-hidden="true" />
 						<span>Verificando link de recuperação...</span>
 					</CardContent>
 				</Card>
@@ -154,7 +154,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 
 					<CardContent className="px-8">
 						<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-							<AlertCircle className="h-4 w-4" />
+							<WarningCircle className="h-4 w-4" />
 							<AlertDescription>{error}</AlertDescription>
 						</Alert>
 					</CardContent>
@@ -186,7 +186,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 					<CardContent className="space-y-6 px-8">
 						{error && (
 							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-								<AlertCircle className="h-4 w-4" />
+								<WarningCircle className="h-4 w-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
 						)}
@@ -217,12 +217,12 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
-									{showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+									{showPassword ? <EyeClosed className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
 								</button>
 							</div>
 							{passwordError && (
 								<p id="password-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
-									<AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+									<WarningCircle className="h-3 w-3 mr-1" aria-hidden="true" />
 									{passwordError}
 								</p>
 							)}
@@ -254,12 +254,12 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
-									{showConfirmPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+									{showConfirmPassword ? <EyeClosed className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
 								</button>
 							</div>
 							{confirmError && (
 								<p id="confirm-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
-									<AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+									<WarningCircle className="h-3 w-3 mr-1" aria-hidden="true" />
 									{confirmError}
 								</p>
 							)}
@@ -268,7 +268,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-2">
 						<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}>
-							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+							{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
 							{isSubmitting ? "Atualizando..." : "Atualizar Senha"}
 						</Button>
 					</CardFooter>

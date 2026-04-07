@@ -1,7 +1,7 @@
 "use client"
 
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
-import { XIcon } from "lucide-react"
+import { Xmark } from "iconoir-react"
 import type * as React from "react"
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
@@ -60,7 +60,7 @@ function SheetContent({
 				{children}
 				{showCloseButton && (
 					<SheetPrimitive.Close data-slot="sheet-close" render={<Button variant="ghost" className="absolute top-3 right-3" size="icon-sm" />}>
-						<XIcon />
+						<Xmark />
 						<span className="sr-only">Close</span>
 					</SheetPrimitive.Close>
 				)}

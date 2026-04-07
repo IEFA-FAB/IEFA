@@ -1,3 +1,4 @@
+import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -12,7 +13,6 @@ import {
 	updateTemplateFn,
 } from "@/server/templates.fn"
 import type { ApplyTemplatePayload, MenuTemplateWithItems, TemplateWithItemCounts } from "@/types/domain/planning"
-import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@/types/supabase.types"
 
 // --- Query Options ---
 

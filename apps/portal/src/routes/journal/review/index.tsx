@@ -1,8 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { AlertCircle, Calendar, CheckCircle2, Clock, FileText } from "lucide-react"
+import { Calendar, CheckCircle, Clock, Page, WarningCircle } from "iconoir-react"
 import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/journal/review/")({
+	staticData: {
+		nav: {
+			title: "Painel do revisor",
+			section: "Minha área",
+			subtitle: "Gerenciar convites e revisões por pares",
+			keywords: ["revisao", "revisor", "parecer", "peer review"],
+			access: "authenticated",
+			order: 110,
+		},
+	},
 	component: ReviewerDashboard,
 })
 
@@ -39,7 +49,7 @@ function ReviewerDashboard() {
 							<p className="text-sm text-muted-foreground">Concluídas</p>
 							<p className="text-2xl font-bold">{completedReviews.length}</p>
 						</div>
-						<CheckCircle2 className="size-8 text-green-500" />
+						<CheckCircle className="size-8 text-green-500" />
 					</div>
 				</div>
 				<div className="p-4 border rounded-lg bg-card">
@@ -48,7 +58,7 @@ function ReviewerDashboard() {
 							<p className="text-sm text-muted-foreground">Próximo Prazo</p>
 							<p className="text-2xl font-bold">{pendingReviews.length > 0 ? "5 dias" : "-"}</p>
 						</div>
-						<AlertCircle className="size-8 text-blue-500" />
+						<WarningCircle className="size-8 text-blue-500" />
 					</div>
 				</div>
 			</div>
@@ -77,7 +87,7 @@ function ReviewerDashboard() {
 						))}
 					</div>
 				) : (
-					<EmptyState icon={CheckCircle2} title="Nenhuma revisão concluída" description="Suas revisões concluídas aparecerão aqui." />
+					<EmptyState icon={CheckCircle} title="Nenhuma revisão concluída" description="Suas revisões concluídas aparecerão aqui." />
 				)}
 			</div>
 		</div>
@@ -133,7 +143,7 @@ function ReviewCard({ assignment, isPending }: ReviewCardProps) {
 						<Button
 							render={
 								<Link to="/journal/review/$assignmentId" params={{ assignmentId: assignment.id }}>
-									<FileText className="size-4 mr-2" />
+									<Page className="size-4 mr-2" />
 									Realizar Revisão
 								</Link>
 							}

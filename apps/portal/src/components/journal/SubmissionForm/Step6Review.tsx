@@ -1,6 +1,6 @@
 // Step 6: Review and Submit
 
-import { FileText, Globe, Users } from "lucide-react"
+import { Globe, Group, Page } from "iconoir-react"
 import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step6Review() {
@@ -15,7 +15,7 @@ export function Step6Review() {
 			{/* Article Type */}
 			<div className="p-4 border rounded-lg">
 				<h3 className="font-medium mb-3 flex items-center gap-2">
-					<FileText className="size-5" />
+					<Page className="size-5" />
 					Tipo de Artigo e Área
 				</h3>
 				<dl className="space-y-2 text-sm">
@@ -56,7 +56,7 @@ export function Step6Review() {
 			{/* Authors */}
 			<div className="p-4 border rounded-lg">
 				<h3 className="font-medium mb-3 flex items-center gap-2">
-					<Users className="size-5" />
+					<Group className="size-5" />
 					Autores ({(formData.authors || []).length})
 				</h3>
 				<div className="space-y-2 text-sm">

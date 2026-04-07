@@ -1,3 +1,4 @@
+import type { Recipe } from "@iefa/database/sisub"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, X } from "lucide-react"
 import { useState } from "react"
@@ -16,7 +17,6 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import type { TemplateItemDraft } from "@/types/domain/planning"
-import type { Recipe } from "@/types/supabase.types"
 
 const WEEKDAYS = [
 	{ num: 1, label: "Segunda-feira", abbr: "Seg" },

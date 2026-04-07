@@ -17,6 +17,11 @@ primary_region = 'gru'
   min_machines_running = 1
   processes = ['app']
 
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 10
+    hard_limit = 15
+
   [[http_service.checks]]
     interval = "15s"
     timeout = "2s"
@@ -28,3 +33,10 @@ primary_region = 'gru'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[deploy]
+  strategy = "rolling"
+
+[restart_policy]
+  policy = "on-failure"
+  max_retries = 5

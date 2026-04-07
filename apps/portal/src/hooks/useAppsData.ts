@@ -1,6 +1,6 @@
 // hooks/useAppsData.ts
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { supabase } from "@/lib/supabase"
+import { portalDb } from "@/lib/supabase"
 import type { DbApp } from "@/types/domain"
 
 export const APPS_QUERY_KEY = "appsData"
@@ -9,8 +9,7 @@ export function useAppsData(limit = 50) {
 	return useSuspenseQuery({
 		queryKey: [APPS_QUERY_KEY, limit],
 		queryFn: async (): Promise<DbApp[]> => {
-			const { data, error } = await supabase
-				.schema("iefa")
+			const { data, error } = await portalDb()
 				.from("apps")
 				.select(
 					`

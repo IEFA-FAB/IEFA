@@ -1,6 +1,6 @@
 // Admin and Super Admin Domain Types
 
-import type { ProfileAdmin, ProfileAdminInsert, ProfileAdminUpdate, UserData, UserMilitaryData } from "@/types/supabase.types"
+import type { ProfileAdmin, ProfileAdminInsert, ProfileAdminUpdate, UserData, UserMilitaryData } from "@iefa/database/sisub"
 
 // ============================================================================
 // BASE TYPES (Re-export com aliases para compatibilidade)
@@ -8,19 +8,16 @@ import type { ProfileAdmin, ProfileAdminInsert, ProfileAdminUpdate, UserData, Us
 
 /**
  * Perfil de administrador (tabela profiles_admin)
- * Re-exportado de supabase.types.ts
  */
 export type { ProfileAdmin }
 
 /**
  * Dados do usuário (tabela user_data)
- * Re-exportado de supabase.types.ts
  */
 export type UserDataRow = UserData
 
 /**
  * Dados militares (tabela user_military_data)
- * Re-exportado de supabase.types.ts
  */
 export type MilitaryDataRow = UserMilitaryData
 

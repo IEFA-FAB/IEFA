@@ -1,7 +1,7 @@
 // Main submission form container with step navigation
 // Manages form state across all 6 steps
 
-import { Check, ChevronLeft, ChevronRight } from "lucide-react"
+import { Check, NavArrowLeft, NavArrowRight } from "iconoir-react"
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { saveDraft } from "@/lib/journal/submission"
@@ -197,7 +197,7 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 				{/* Navigation */}
 				<div className="mt-6 flex items-center justify-between">
 					<Button type="button" variant="outline" onClick={handleBack} disabled={currentStep === 1}>
-						<ChevronLeft className="size-4 mr-2" />
+						<NavArrowLeft className="size-4 mr-2" />
 						Voltar
 					</Button>
 
@@ -209,7 +209,7 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 						{currentStep < STEPS.length ? (
 							<Button type="button" onClick={handleNext}>
 								Próximo
-								<ChevronRight className="size-4 ml-2" />
+								<NavArrowRight className="size-4 ml-2" />
 							</Button>
 						) : (
 							<Button type="button" onClick={handleSubmit}>

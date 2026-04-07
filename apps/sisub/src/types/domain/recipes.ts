@@ -1,4 +1,4 @@
-import type { Recipe, RecipeIngredient, RecipeIngredientAlternative } from "../supabase.types"
+import type { Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
 import type { Product } from "./products"
 
 // Extended recipe with ingredients (Query Result)

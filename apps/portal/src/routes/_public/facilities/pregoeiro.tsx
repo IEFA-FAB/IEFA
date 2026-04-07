@@ -2,7 +2,7 @@
 
 // shadcn/ui – imports corrigidos
 import { createFileRoute } from "@tanstack/react-router"
-import { Calendar, ChevronsUpDown, Clock } from "lucide-react"
+import { Calendar, Clock, Expand } from "iconoir-react"
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { FacilidadesTable } from "@/components/table"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { supabase } from "@/lib/supabase"
+import { portalDb, supabase } from "@/lib/supabase"
 import type { FacilidadesTableProps } from "@/types/domain"
 
 /* -----------------------------------------------
@@ -33,6 +33,15 @@ type Facility = {
 }
 
 export const Route = createFileRoute("/_public/facilities/pregoeiro")({
+	staticData: {
+		nav: {
+			title: "Pregoeiro",
+			section: "Facilidades",
+			subtitle: "Ferramenta de apoio ao pregoeiro",
+			keywords: ["licitacao", "compras", "pregao", "suite"],
+			order: 21,
+		},
+	},
 	component: Pregoeiro,
 	head: () => ({
 		meta: [{ title: "Facilidades do Pregoeiro" }, { name: "description", content: "Suite de Soluções do IEFA" }],
@@ -243,10 +252,10 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 			}
 
 			if (isEdit && initial?.id) {
-				const { error } = await supabase.from("facilities_pregoeiro").update(payload).eq("id", initial.id).eq("owner_id", currentUserId)
+				const { error } = await portalDb().from("facilities_pregoeiro").update(payload).eq("id", initial.id).eq("owner_id", currentUserId)
 				if (error) throw error
 			} else {
-				const { error } = await supabase.from("facilities_pregoeiro").insert(payload)
+				const { error } = await portalDb().from("facilities_pregoeiro").insert(payload)
 				if (error) throw error
 			}
 
@@ -350,7 +359,7 @@ function Pregoeiro() {
 							<Button variant="ghost" className="flex w-full items-center place-content-between">
 								<CardHeader className="flex items-center justify-between w-full">
 									<CardTitle>Atributos</CardTitle>
-									<ChevronsUpDown />
+									<Expand />
 								</CardHeader>
 							</Button>
 						}

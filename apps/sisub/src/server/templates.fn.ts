@@ -1,10 +1,9 @@
 import type { Json } from "@iefa/database"
+import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MenuTemplateWithItems, TemplateWithItemCounts } from "@/types/domain/planning"
-import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@/types/supabase.types"
 
 const MenuTemplateWriteSchema = z.object({
 	name: z.string().nullable().optional(),

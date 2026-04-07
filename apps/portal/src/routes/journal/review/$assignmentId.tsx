@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { ArrowLeft, Save, Send } from "lucide-react"
+import { ArrowLeft, FloppyDisk, SendDiagonal } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -288,11 +288,11 @@ function ReviewSubmission() {
 			{/* Actions */}
 			<div className="flex gap-3 justify-end sticky bottom-4 p-4 border rounded-lg bg-card shadow-lg">
 				<Button variant="outline" onClick={handleSaveDraft} disabled={isSaving || isSubmitting}>
-					<Save className="size-4 mr-2" />
+					<FloppyDisk className="size-4 mr-2" />
 					{isSaving ? "Salvando..." : "Salvar Rascunho"}
 				</Button>
 				<Button onClick={handleSubmit} disabled={isSaving || isSubmitting}>
-					<Send className="size-4 mr-2" />
+					<SendDiagonal className="size-4 mr-2" />
 					{isSubmitting ? "Submetendo..." : "Submeter Revisão"}
 				</Button>
 			</div>

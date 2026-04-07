@@ -1,7 +1,7 @@
 import { closestCenter, DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, X } from "lucide-react"
+import { DragHandGesture, Xmark } from "iconoir-react"
 import { useMemo } from "react"
 import type { AuthorFormData } from "@/lib/journal/validation"
 import { Button } from "../ui/button"
@@ -120,7 +120,7 @@ function SortableAuthorItem({ id, author, index, onUpdate, onRemove, canRemove }
 		<div ref={setNodeRef} style={style} className="p-4 border rounded-lg bg-card space-y-3">
 			<div className="flex items-center gap-3">
 				<button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded">
-					<GripVertical className="size-5 text-muted-foreground" />
+					<DragHandGesture className="size-5 text-muted-foreground" />
 				</button>
 
 				<div className="flex-1">
@@ -132,7 +132,7 @@ function SortableAuthorItem({ id, author, index, onUpdate, onRemove, canRemove }
 
 				{canRemove && (
 					<Button type="button" variant="ghost" size="sm" onClick={() => onRemove(index)}>
-						<X className="size-4" />
+						<Xmark className="size-4" />
 					</Button>
 				)}
 			</div>

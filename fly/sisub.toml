@@ -20,8 +20,8 @@ primary_region = "gru"
 
   [http_service.concurrency]
     type = "requests"
-    soft_limit = 15
-    hard_limit = 30
+    soft_limit = 20
+    hard_limit = 25
 
   [[http_service.checks]]
     type = "http"
@@ -40,7 +40,7 @@ primary_region = "gru"
 [[vm]]
   memory = "1gb"
   cpu_kind = "shared"
-  cpus = 2
+  cpus = 1
 
 
 [restart_policy]

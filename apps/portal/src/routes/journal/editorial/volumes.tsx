@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { BookOpen, Calendar, Edit, Plus, Trash2 } from "lucide-react"
+import { Calendar, EditPencil, OpenBook, Plus, Trash } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 export const Route = createFileRoute("/journal/editorial/volumes")({
+	staticData: {
+		nav: {
+			title: "Volumes e edições",
+			section: "Editorial",
+			subtitle: "Gerenciar volumes publicados e futuras edições",
+			keywords: ["volumes", "edicoes", "fasciculos", "publicacao"],
+			access: "editor",
+			order: 160,
+		},
+	},
 	component: VolumeManagement,
 })
 
@@ -85,7 +95,7 @@ function VolumeManagement() {
 							<div className="flex items-start justify-between mb-4">
 								<div className="flex items-center gap-3">
 									<div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-										<BookOpen className="size-6 text-primary" />
+										<OpenBook className="size-6 text-primary" />
 									</div>
 									<div>
 										<h3 className="font-semibold text-lg">
@@ -127,10 +137,10 @@ function VolumeManagement() {
 									Ver Artigos
 								</Button>
 								<Button size="sm" variant="ghost" onClick={() => setEditingVolume(volume.id)}>
-									<Edit className="size-4" />
+									<EditPencil className="size-4" />
 								</Button>
 								<Button size="sm" variant="ghost">
-									<Trash2 className="size-4 text-destructive" />
+									<Trash className="size-4 text-destructive" />
 								</Button>
 							</div>
 						</div>
@@ -139,7 +149,7 @@ function VolumeManagement() {
 			) : (
 				<div className="flex flex-col items-center justify-center py-16 px-4 text-center border rounded-lg bg-card">
 					<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-						<BookOpen className="size-8 text-muted-foreground" />
+						<OpenBook className="size-8 text-muted-foreground" />
 					</div>
 					<h3 className="text-lg font-semibold mb-2">Nenhum volume criado ainda</h3>
 					<p className="text-muted-foreground max-w-md mb-6">Crie volumes e edições para organizar os artigos publicados do seu periódico.</p>

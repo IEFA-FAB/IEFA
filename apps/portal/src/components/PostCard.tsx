@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { User } from "lucide-react"
+import { User } from "iconoir-react"
 import { urlFor } from "@/lib/sanity"
 import type { PostSummary } from "@/types/domain"
 import { Badge } from "./ui/badge"

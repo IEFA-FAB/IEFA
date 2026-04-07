@@ -1,6 +1,7 @@
 // Status badge component for article status visualization
 
-import { Check, Clock, Edit, Eye, FileText, Globe, type LucideIcon, X } from "lucide-react"
+import { Check, Clock, EditPencil, Eye, Globe, Page, Xmark } from "iconoir-react"
+import type React from "react"
 import type { ArticleStatus } from "@/lib/journal/types"
 import { Badge } from "../ui/badge"
 
@@ -14,13 +15,13 @@ const statusConfig: Record<
 	{
 		label: string
 		variant: "default" | "secondary" | "destructive" | "outline"
-		icon: LucideIcon
+		icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
 	}
 > = {
 	draft: {
 		label: "Rascunho",
 		variant: "secondary",
-		icon: FileText,
+		icon: Page,
 	},
 	submitted: {
 		label: "Submetido",
@@ -35,7 +36,7 @@ const statusConfig: Record<
 	revision_requested: {
 		label: "Revisão Solicitada",
 		variant: "outline",
-		icon: Edit,
+		icon: EditPencil,
 	},
 	revised_submitted: {
 		label: "Revisão Enviada",
@@ -50,7 +51,7 @@ const statusConfig: Record<
 	rejected: {
 		label: "Rejeitado",
 		variant: "destructive",
-		icon: X,
+		icon: Xmark,
 	},
 	published: {
 		label: "Publicado",

@@ -11,7 +11,7 @@ import type {
 	ProductItemUpdate,
 	ProductNutrient,
 	ProductUpdate,
-} from "@/types/supabase.types"
+} from "@iefa/database/sisub"
 
 // ========================================
 // Re-exports (base types from DB)

@@ -1,8 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Download, FileText, Globe, Send } from "lucide-react"
+import { Download, Globe, Page, SendDiagonal } from "iconoir-react"
 import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/journal/editorial/metadata-export")({
+	staticData: {
+		nav: {
+			title: "Exportar metadados",
+			section: "Editorial",
+			subtitle: "Gerar XMLs e formatos de intercâmbio",
+			keywords: ["metadados", "crossref", "jats", "dublin core"],
+			access: "editor",
+			order: 130,
+		},
+	},
 	component: MetadataExport,
 })
 
@@ -56,7 +66,7 @@ function MetadataExport() {
 				{/* JATS XML */}
 				<div className="p-6 border rounded-lg bg-card space-y-4">
 					<div className="size-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-						<FileText className="size-6 text-green-600 dark:text-green-400" />
+						<Page className="size-6 text-green-600 dark:text-green-400" />
 					</div>
 					<div>
 						<h3 className="font-semibold text-lg mb-2">JATS XML</h3>
@@ -71,7 +81,7 @@ function MetadataExport() {
 				{/* Dublin Core */}
 				<div className="p-6 border rounded-lg bg-card space-y-4">
 					<div className="size-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-						<Send className="size-6 text-purple-600 dark:text-purple-400" />
+						<SendDiagonal className="size-6 text-purple-600 dark:text-purple-400" />
 					</div>
 					<div>
 						<h3 className="font-semibold text-lg mb-2">Dublin Core</h3>
@@ -118,7 +128,7 @@ function MetadataExport() {
 						</div>
 					) : (
 						<div className="p-12 text-center">
-							<FileText className="size-12 mx-auto text-muted-foreground mb-3" />
+							<Page className="size-12 mx-auto text-muted-foreground mb-3" />
 							<p className="text-muted-foreground">Nenhum artigo publicado disponível para exportação</p>
 						</div>
 					)}

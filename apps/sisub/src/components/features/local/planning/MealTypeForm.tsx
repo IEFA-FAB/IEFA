@@ -1,3 +1,4 @@
+import type { MealType } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { Loader2 } from "lucide-react"
 import React from "react"
@@ -7,7 +8,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCreateMealType, useUpdateMealType } from "@/hooks/data/useMealTypes"
-import type { MealType } from "@/types/supabase.types"
 
 const mealTypeSchema = z.object({
 	name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),

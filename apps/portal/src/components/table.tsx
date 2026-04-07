@@ -12,7 +12,7 @@ import {
 	useReactTable,
 	type VisibilityState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown } from "lucide-react"
+import { ArrowSeparateVertical, NavArrowDown } from "iconoir-react"
 import * as React from "react"
 import { useMemo, useRef, useState } from "react"
 import { useFacilitiesPregoeiroQuery } from "@/hooks/useFacilitiesPregoeiro"
@@ -69,7 +69,7 @@ function DataTableColumnHeader<TData, TValue>({
 	return (
 		<Button variant="ghost" onClick={() => column.toggleSorting(isSorted === "asc")} className={`h-auto p-2 ${className ?? ""}`}>
 			{title}
-			<ArrowUpDown className="ml-2 h-4 w-4" />
+			<ArrowSeparateVertical className="ml-2 h-4 w-4" />
 			<span className="sr-only">{isSorted === "asc" ? "Ordenado ascendente" : isSorted === "desc" ? "Ordenado descendente" : "Não ordenado"}</span>
 		</Button>
 	)
@@ -390,7 +390,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 						<DropdownMenuTrigger
 							render={
 								<Button variant="outline">
-									Colunas <ChevronDown className="ml-2 h-4 w-4" />
+									Colunas <NavArrowDown className="ml-2 h-4 w-4" />
 								</Button>
 							}
 						/>

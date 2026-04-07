@@ -1,10 +1,12 @@
 // src/routes/__root.tsx
 
 import { TanStackDevtools } from "@tanstack/react-devtools"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
+import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { ThemeProvider, ThemeScript } from "@/components/themeService"
@@ -83,10 +85,14 @@ function RootDocument() {
 					suppressHydrationWarning
 					className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`}
 				/>
-				<ThemeProvider>
-					<Outlet />
-					<Toaster />
-				</ThemeProvider>
+				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
+					<ThemeProvider>
+						<CommandPaletteProvider>
+							<Outlet />
+							<Toaster />
+						</CommandPaletteProvider>
+					</ThemeProvider>
+				</HotkeysProvider>
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[

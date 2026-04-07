@@ -1,8 +1,8 @@
+import type { ProcurementAta } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { calculateAtaNeedsFn, createAtaFn, deleteAtaFn, fetchAtaDetailsFn, fetchAtaListFn, updateAtaStatusFn } from "@/server/ata.fn"
 import type { AtaWithDetails, AtaWizardState } from "@/types/domain/ata"
-import type { ProcurementAta } from "@/types/supabase.types"
 
 // ─── Query Hooks ──────────────────────────────────────────────────────────────
 

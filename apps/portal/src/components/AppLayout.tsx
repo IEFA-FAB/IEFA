@@ -1,10 +1,15 @@
+import { formatForDisplay } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
-import { ExternalLink, Menu } from "lucide-react"
+import { Menu, OpenNewWindow } from "iconoir-react"
+import { Search } from "lucide-react"
 import { type ReactNode, useState } from "react"
+import { useCommandPalette } from "@/components/command-palette/CommandPaletteProvider"
 import { useTheme } from "@/hooks/useTheme"
+import { COMMAND_PALETTE_HOTKEY } from "@/lib/command-palette"
 import { AnimatedThemeToggler } from "./animated-theme-toggler"
 import { UserMenu } from "./UserMenu"
 import { Button } from "./ui/button"
+import { Kbd } from "./ui/kbd"
 import { Separator } from "./ui/separator"
 
 const FOOTER_EXTERNAL_LINKS = [
@@ -20,6 +25,8 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
 	const [mobileOpen, setMobileOpen] = useState(false)
 	const { toggle } = useTheme()
+	const { openPalette } = useCommandPalette()
+	const shortcutLabel = formatForDisplay(COMMAND_PALETTE_HOTKEY)
 
 	// Container: full em mobile/tablet; "wide" contido em desktop
 	const container = "w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
@@ -67,6 +74,16 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 					{/* Direita: Ações */}
 					<div className="flex items-center gap-2">
+						<Button variant="outline" size="sm" className="hidden md:inline-flex items-center gap-2" onClick={openPalette} aria-label="Abrir busca rápida">
+							<Search className="size-4" aria-hidden="true" />
+							<span>Buscar</span>
+							<Kbd className="ml-1">{shortcutLabel}</Kbd>
+						</Button>
+
+						<Button variant="ghost" size="icon" className="md:hidden" onClick={openPalette} aria-label="Abrir busca rápida">
+							<Search className="size-4" aria-hidden="true" />
+						</Button>
+
 						{/* Botão do usuário (avatar + menu) */}
 						<UserMenu />
 
@@ -171,7 +188,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 									<a href={href} target="_blank" rel="noreferrer noopener" className="group flex flex-col gap-0.5" aria-label={`Abrir ${label} em nova aba`}>
 										<span className="inline-flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
 											{label}
-											<ExternalLink className="h-3 w-3" aria-hidden="true" />
+											<OpenNewWindow className="h-3 w-3" aria-hidden="true" />
 										</span>
 										<span className="text-xs text-muted-foreground/60">{description}</span>
 									</a>

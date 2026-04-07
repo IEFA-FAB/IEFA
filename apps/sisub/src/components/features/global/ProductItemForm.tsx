@@ -1,3 +1,4 @@
+import type { ProductItem } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -8,7 +9,6 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
-import type { ProductItem } from "@/types/supabase.types"
 
 // Schema de validação
 const productItemSchema = z.object({

@@ -1,18 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Award, BookOpen, ExternalLink, FileCheck, Globe, Mail, Shield, Target, Users } from "lucide-react"
+import { Archery, ClipboardCheck, Globe, Group, Mail, Medal, OpenBook, OpenNewWindow, Shield } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 export const Route = createFileRoute("/journal/about")({
+	staticData: {
+		nav: {
+			title: "Sobre a revista SEIVA",
+			section: "Revista",
+			subtitle: "Políticas editoriais, escopo e equipe da revista",
+			keywords: ["seiva", "periodico", "politicas", "editorial"],
+			order: 60,
+		},
+	},
 	component: AboutPage,
 })
 
 const sections = [
-	{ id: "identity", label: "Identidade", icon: BookOpen },
-	{ id: "mission", label: "Missão & Escopo", icon: Target },
-	{ id: "policies", label: "Políticas Editoriais", icon: FileCheck },
+	{ id: "identity", label: "Identidade", icon: OpenBook },
+	{ id: "mission", label: "Missão & Escopo", icon: Archery },
+	{ id: "policies", label: "Políticas Editoriais", icon: ClipboardCheck },
 	{ id: "ethics", label: "Ética & Integridade", icon: Shield },
-	{ id: "team", label: "Equipe Editorial", icon: Users },
+	{ id: "team", label: "Equipe Editorial", icon: Group },
 	{ id: "contact", label: "Contato", icon: Mail },
 ] as const
 
@@ -116,7 +125,7 @@ function MissionSection({ language }: { language: "pt" | "en" }) {
 			{/* Mission */}
 			<div>
 				<h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-					<Target className="size-5 text-primary" />
+					<Archery className="size-5 text-primary" />
 					{language === "pt" ? "Missão" : "Mission"}
 				</h3>
 				<p className="text-muted-foreground leading-relaxed">
@@ -129,7 +138,7 @@ function MissionSection({ language }: { language: "pt" | "en" }) {
 			{/* Vision */}
 			<div>
 				<h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-					<Award className="size-5 text-primary" />
+					<Medal className="size-5 text-primary" />
 					{language === "pt" ? "Visão" : "Vision"}
 				</h3>
 				<p className="text-muted-foreground leading-relaxed">
@@ -142,7 +151,7 @@ function MissionSection({ language }: { language: "pt" | "en" }) {
 			{/* Scope */}
 			<div>
 				<h3 className="text-xl font-semibold mb-3 flex items-center gap-2">
-					<BookOpen className="size-5 text-primary" />
+					<OpenBook className="size-5 text-primary" />
 					{language === "pt" ? "Foco e Escopo" : "Aims & Scope"}
 				</h3>
 				<p className="text-muted-foreground mb-4">
@@ -240,7 +249,7 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 			</PolicyCard>
 
 			{/* DOI */}
-			<PolicyCard title="DOI" icon={FileCheck}>
+			<PolicyCard title="DOI" icon={ClipboardCheck}>
 				<p className="mb-3">{language === "pt" ? "A SEIVA atribui DOI a todos os artigos publicados." : "SEIVA assigns a DOI to all published articles."}</p>
 				<div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
 					<p className="text-sm text-blue-900 dark:text-blue-100">
@@ -270,14 +279,14 @@ function PoliciesSection({ language }: { language: "pt" | "en" }) {
 						<li>{language === "pt" ? "Aceite e publicação em fluxo contínuo" : "Acceptance and continuous publication"}</li>
 					</ol>
 					<p className="mt-3">
-						<strong>{language === "pt" ? "Prazo-alvo:" : "Target timeline:"}</strong>{" "}
+						<strong>{language === "pt" ? "Prazo-alvo:" : "Archery timeline:"}</strong>{" "}
 						{language === "pt" ? "primeira decisão em até 30 dias (meta)." : "first decision within 30 days (goal)."}
 					</p>
 				</div>
 			</PolicyCard>
 
 			{/* Preprints */}
-			<PolicyCard title={language === "pt" ? "Publicação Prévia e Preprints" : "Prior Publication & Preprints"} icon={FileCheck}>
+			<PolicyCard title={language === "pt" ? "Publicação Prévia e Preprints" : "Prior Publication & Preprints"} icon={ClipboardCheck}>
 				<div className="space-y-3">
 					<div className="p-3 bg-orange-50 dark:bg-orange-950 rounded border border-orange-200 dark:border-orange-800">
 						<p className="text-sm text-orange-900 dark:text-orange-100">
@@ -339,7 +348,7 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 			</PolicyCard>
 
 			{/* Authorship */}
-			<PolicyCard title={language === "pt" ? "Autoria" : "Authorship"} icon={Users}>
+			<PolicyCard title={language === "pt" ? "Autoria" : "Authorship"} icon={Group}>
 				<p className="mb-3">
 					{language === "pt"
 						? "A SEIVA espera que a autoria reflita contribuição intelectual real e responsabilidade pelo conteúdo."
@@ -353,7 +362,7 @@ function EthicsSection({ language }: { language: "pt" | "en" }) {
 			</PolicyCard>
 
 			{/* AI Use */}
-			<PolicyCard title={language === "pt" ? "Uso de IA" : "AI Use Policy"} icon={FileCheck}>
+			<PolicyCard title={language === "pt" ? "Uso de IA" : "AI Use Policy"} icon={ClipboardCheck}>
 				<div className="space-y-3">
 					<p>
 						{language === "pt"
@@ -388,7 +397,7 @@ function TeamSection({ language }: { language: "pt" | "en" }) {
 			{/* Structure */}
 			<div>
 				<h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-					<Users className="size-5 text-primary" />
+					<Group className="size-5 text-primary" />
 					{language === "pt" ? "Estrutura" : "Structure"}
 				</h3>
 				<div className="space-y-3">
@@ -451,13 +460,13 @@ function ContactSection({ language }: { language: "pt" | "en" }) {
 					</div>
 					<a href="mailto:secretaria.iefa@fab.mil.br" className="text-primary hover:underline flex items-center gap-2">
 						secretaria.iefa@fab.mil.br
-						<ExternalLink className="size-4" />
+						<OpenNewWindow className="size-4" />
 					</a>
 				</div>
 
 				<div className="p-6 border rounded-lg bg-card">
 					<div className="flex items-center gap-3 mb-4">
-						<BookOpen className="size-6 text-primary" />
+						<OpenBook className="size-6 text-primary" />
 						<h3 className="font-semibold text-lg">{language === "pt" ? "Instituição" : "Institution"}</h3>
 					</div>
 					<p className="text-muted-foreground">Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA)</p>

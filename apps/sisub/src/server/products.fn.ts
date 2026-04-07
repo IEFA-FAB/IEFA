@@ -1,7 +1,7 @@
+import type { FolderInsert, FolderUpdate, ProductInsert, ProductItemInsert, ProductItemUpdate, ProductUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
-import type { FolderInsert, FolderUpdate, ProductInsert, ProductItemInsert, ProductItemUpdate, ProductUpdate } from "@/types/supabase.types"
 
 // ============================================================================
 // Nutrients

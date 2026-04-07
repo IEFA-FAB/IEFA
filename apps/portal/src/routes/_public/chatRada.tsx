@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { AlertCircle, ArrowDown, Bot, Check, Copy, Link as LinkIcon, MessageSquare, Plus, RefreshCcw, Send, Sparkles, Trash2, User } from "lucide-react"
+import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, Plus, Refresh, Send, Sparks, Trash, User, WarningCircle } from "iconoir-react"
 import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
@@ -185,6 +185,15 @@ function parseContentJson(input: unknown): ContentJson {
 }
 
 export const Route = createFileRoute("/_public/chatRada")({
+	staticData: {
+		nav: {
+			title: "Chat RADA",
+			section: "Facilidades",
+			subtitle: "Consulta assistida ao acervo do RADA",
+			keywords: ["rada", "chat", "busca", "documentos", "ia"],
+			order: 22,
+		},
+	},
 	component: ChatRada,
 	head: () => ({
 		meta: [{ title: "Chat RADA" }, { name: "description", content: "RAG sobre o RADA" }],
@@ -493,7 +502,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 							: "bg-linear-to-br from-muted to-muted/80 text-muted-foreground border border-border/50"
 				)}
 			>
-				{isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+				{isUser ? <User className="h-4 w-4" /> : <Cpu className="h-4 w-4" />}
 			</div>
 
 			{/* Conteúdo */}
@@ -929,7 +938,7 @@ function ChatRada() {
 						{!isLoggedIn && (
 							<div className="mt-3 text-[11px] text-muted-foreground">
 								<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
-									<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
+									<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
 									<span>Você não está logado. O histórico está desativado e não será salvo.</span>
 								</div>
 							</div>
@@ -958,7 +967,7 @@ function ChatRada() {
 											title={sessionTitleLikeChatGPT(s)}
 											aria-label={`Abrir sessão ${sessionTitleLikeChatGPT(s)}`}
 										>
-											<MessageSquare className="h-4 w-4 text-muted-foreground" />
+											<ChatBubble className="h-4 w-4 text-muted-foreground" />
 											<div className="flex-1 min-w-0">
 												{sessionTitleLikeChatGPT(s)}
 												<div className="text-[10px] text-muted-foreground truncate">{formatDateShort(s.last_message_at || s.created_at)}</div>
@@ -970,7 +979,7 @@ function ChatRada() {
 												aria-label="Apagar sessão"
 												disabled={deleteSessionMutation.isPending}
 											>
-												<Trash2 className="h-3.5 w-3.5" />
+												<Trash className="h-3.5 w-3.5" />
 											</Button>
 										</Button>
 									)
@@ -982,12 +991,12 @@ function ChatRada() {
 					<div className="p-3 border-t border-border/50 text-[11px] text-muted-foreground">
 						{isLoggedIn ? (
 							<div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
-								<AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5" />
+								<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
 								<span>As conversas ficam salvas por 7 dias. Inicie uma nova conversa para mudar de assunto.</span>
 							</div>
 						) : (
 							<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
-								<AlertCircle className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+								<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
 								<span>Entre para ativar o histórico. Conversas salvas expiram em 7 dias.</span>
 							</div>
 						)}
@@ -1001,7 +1010,7 @@ function ChatRada() {
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-3">
 								<div className="flex items-center justify-center h-9 w-9 rounded-lg bg-linear-to-br from-primary to-primary/80 shadow-lg shadow-primary/20">
-									<Sparkles className="h-5 w-5 text-primary-foreground" />
+									<Sparks className="h-5 w-5 text-primary-foreground" />
 								</div>
 								<div>
 									<h2 className="text-base md:text-lg font-semibold tracking-tight">Chat RADA</h2>
@@ -1024,7 +1033,7 @@ function ChatRada() {
 									title="Atualizar status"
 									aria-label="Atualizar status"
 								>
-									<RefreshCcw className="h-4 w-4" />
+									<Refresh className="h-4 w-4" />
 								</Button>
 								<Button
 									variant="ghost"
@@ -1044,7 +1053,7 @@ function ChatRada() {
 						<div className="shrink-0 px-4 md:px-6 py-4">
 							<div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3 backdrop-blur-sm">
 								<div className="shrink-0 h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-									<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+									<WarningCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
 								</div>
 								<div>
 									<p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">Importante</p>
@@ -1075,7 +1084,7 @@ function ChatRada() {
 									<div className="h-full flex items-center justify-center text-center">
 										<div className="space-y-4 max-w-md">
 											<div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-linear-to-br from-primary to-primary/80 shadow-lg shadow-primary/20 mb-2">
-												<Sparkles className="h-8 w-8 text-primary-foreground" />
+												<Sparks className="h-8 w-8 text-primary-foreground" />
 											</div>
 											<div className="text-3xl md:text-4xl font-bold bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
 												Chat RADA
@@ -1095,7 +1104,7 @@ function ChatRada() {
 										{sending && (
 											<li className="flex gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
 												<div className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center bg-linear-to-br from-muted to-muted/80 border border-border/50 shadow-sm">
-													<Bot className="h-4 w-4 text-muted-foreground animate-pulse" />
+													<Cpu className="h-4 w-4 animate-pulse text-muted-foreground" />
 												</div>
 												<div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-card border border-border/50 shadow-sm">
 													<div className="flex gap-1">
@@ -1162,7 +1171,7 @@ function ChatRada() {
 							</span>
 							{health !== "ok" && (
 								<span className="text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5">
-									<AlertCircle className="h-3.5 w-3.5" />
+									<WarningCircle className="h-3.5 w-3.5" />
 									Serviço indisponível
 								</span>
 							)}

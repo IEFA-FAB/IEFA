@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { supabase } from "@/lib/supabase"
+import { portalDb } from "@/lib/supabase"
 import { FACILITIES_QUERY_KEY, type Facilidades_pregoeiro } from "@/types/domain"
 
 export function useFacilitiesPregoeiroQuery() {
 	return useSuspenseQuery<Facilidades_pregoeiro[]>({
 		queryKey: FACILITIES_QUERY_KEY,
 		queryFn: async () => {
-			const { data, error } = await supabase.schema("iefa").from("facilities_pregoeiro").select("*")
+			const { data, error } = await portalDb().from("facilities_pregoeiro").select("*")
 
 			if (error) throw new Error(error.message)
 			if (!data) return []

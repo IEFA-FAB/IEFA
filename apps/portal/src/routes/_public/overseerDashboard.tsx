@@ -1,5 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { AlertCircle, AlertTriangle, CheckCircle2, Clock, ExternalLink, Globe, Link as LinkIcon, RefreshCcw, Server, Share2, XCircle } from "lucide-react"
+import {
+	CheckCircle,
+	Clock,
+	Globe,
+	Link as LinkIcon,
+	OpenNewWindow,
+	RefreshDouble,
+	Server,
+	ShareAndroid,
+	WarningCircle,
+	WarningTriangle,
+	XmarkCircle,
+} from "iconoir-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -7,6 +19,15 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 
 export const Route = createFileRoute("/_public/overseerDashboard")({
+	staticData: {
+		nav: {
+			title: "Overseer Dashboard",
+			section: "Facilidades",
+			subtitle: "Painel operacional do Overseer",
+			keywords: ["dashboard", "monitoramento", "overseer"],
+			order: 23,
+		},
+	},
 	component: OverseerDashboard,
 	head: () => ({
 		meta: [
@@ -476,7 +497,7 @@ function OverseerDashboard() {
 					</div>
 					<div className="flex items-center gap-2">
 						<Button onClick={refreshAll} disabled={refreshingAll || loadingTargets} size="sm" className="gap-2">
-							<RefreshCcw className={refreshingAll ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+							<RefreshDouble className={refreshingAll ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
 							Verificar tudo
 						</Button>
 					</div>
@@ -527,7 +548,7 @@ function OverseerDashboard() {
 			) : targets.length === 0 ? (
 				<div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3">
 					<div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-						<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+						<WarningCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
 					</div>
 					<div className="text-sm">
 						Não foi possível derivar nenhum serviço do endpoint <code className="px-1 rounded bg-muted">/health</code>. Defina serviços no payload ou ajuste a
@@ -559,11 +580,11 @@ function OverseerDashboard() {
 										<div className="flex items-center gap-2">
 											<span aria-hidden="true">
 												{isUp ? (
-													<CheckCircle2 className={`h-5 w-5 ${st === "ok" ? "text-emerald-600" : "text-amber-600"}`} />
+													<CheckCircle className={`h-5 w-5 ${st === "ok" ? "text-emerald-600" : "text-amber-600"}`} />
 												) : st === "down" || st === "error" ? (
-													<XCircle className="h-5 w-5 text-rose-600" />
+													<XmarkCircle className="h-5 w-5 text-rose-600" />
 												) : (
-													<AlertTriangle className="h-5 w-5 text-slate-500" />
+													<WarningTriangle className="h-5 w-5 text-slate-500" />
 												)}
 											</span>
 											<h3 className="text-base md:text-lg font-semibold leading-tight">{t.name}</h3>
@@ -586,7 +607,7 @@ function OverseerDashboard() {
 											aria-label={`Abrir ${t.url} em nova aba`}
 										>
 											{t.url}
-											<ExternalLink className="inline ml-1 h-3.5 w-3.5" aria-hidden="true" />
+											<OpenNewWindow className="inline ml-1 h-3.5 w-3.5" aria-hidden="true" />
 										</a>
 									</div>
 
@@ -620,7 +641,7 @@ function OverseerDashboard() {
 
 										<div className="rounded-lg border border-border/50 bg-muted/30 p-3">
 											<div className="text-xs text-muted-foreground flex items-center gap-1">
-												<Share2 className="h-3.5 w-3.5" />
+												<ShareAndroid className="h-3.5 w-3.5" />
 												Redirect
 											</div>
 											<div className="mt-1 font-semibold">{typeof r?.redirected === "boolean" ? (r.redirected ? "Sim" : "Não") : "—"}</div>
@@ -644,7 +665,7 @@ function OverseerDashboard() {
 
 								<CardFooter className="flex items-center justify-between gap-2">
 									<Button variant="outline" size="sm" onClick={() => refreshOne(t)} className="gap-2" aria-label={`Reverificar ${t.name}`}>
-										<RefreshCcw className={st === "loading" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+										<RefreshDouble className={st === "loading" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
 										Verificar
 									</Button>
 									<div className="text-xs text-muted-foreground">{t.healthPath ? `healthPath: ${t.healthPath}` : "auto: /health → /"}</div>

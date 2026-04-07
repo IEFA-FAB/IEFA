@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react"
+import type React from "react"
 
 export type Team = {
 	id?: string
@@ -10,7 +10,7 @@ export type Team = {
 export type NavItem = {
 	title: string
 	url: string
-	icon: LucideIcon
+	icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
 	isActive?: boolean
 }
 

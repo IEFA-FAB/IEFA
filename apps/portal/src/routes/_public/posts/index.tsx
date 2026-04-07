@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Suspense } from "react"
+import { Suspense, useMemo } from "react"
+import { useCommandPaletteItems } from "@/components/command-palette/CommandPaletteProvider"
 import { PostCard } from "@/components/PostCard"
 import { Separator } from "@/components/ui/separator"
 import { client } from "@/lib/sanity"
@@ -17,6 +18,15 @@ const postsQueryOptions = {
 }
 
 export const Route = createFileRoute("/_public/posts/")({
+	staticData: {
+		nav: {
+			title: "Blog & Artigos",
+			section: "Portal",
+			subtitle: "Conteúdo editorial e atualizações do portal",
+			keywords: ["blog", "posts", "artigos", "noticias", "conteudo"],
+			order: 30,
+		},
+	},
 	loader: ({ context: { queryClient } }) => {
 		return queryClient.ensureQueryData(postsQueryOptions)
 	},
@@ -25,6 +35,25 @@ export const Route = createFileRoute("/_public/posts/")({
 
 function PostsIndex() {
 	const { data: posts } = useSuspenseQuery(postsQueryOptions)
+	const navigate = Route.useNavigate()
+	const commandItems = useMemo(() => {
+		return posts.map((post) => ({
+			id: `post:${post.slug.current}`,
+			kind: "context" as const,
+			title: post.title,
+			section: "Blog & Artigos",
+			subtitle: post.excerpt,
+			keywords: [post.author?.name, post.slug.current].filter(Boolean) as string[],
+			perform: () => {
+				void navigate({
+					to: "/posts/$slug",
+					params: { slug: post.slug.current },
+				})
+			},
+		}))
+	}, [navigate, posts])
+
+	useCommandPaletteItems(commandItems)
 
 	return (
 		<div className="relative flex flex-col items-center justify-center w-full text-foreground p-4 md:p-8">

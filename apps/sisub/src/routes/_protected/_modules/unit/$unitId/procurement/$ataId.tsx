@@ -1,3 +1,4 @@
+import type { ProcurementAtaItem } from "@iefa/database/sisub"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { Archive, ArrowLeft, Download, Send } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
@@ -9,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useAtaDetails, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import type { ProcurementNeed } from "@/services/ProcurementService"
-import type { ProcurementAtaItem } from "@/types/supabase.types"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
 	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),

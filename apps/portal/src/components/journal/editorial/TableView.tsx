@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowSeparateVertical, ArrowUp } from "iconoir-react"
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { EditorialDashboardArticle } from "@/lib/journal/types"
@@ -42,7 +42,7 @@ export function TableView({ articles }: TableViewProps) {
 
 	const SortIcon = ({ field }: { field: SortField }) => {
 		if (sortField !== field) {
-			return <ArrowUpDown className="size-4 ml-1" aria-hidden="true" />
+			return <ArrowSeparateVertical className="size-4 ml-1" aria-hidden="true" />
 		}
 		return sortDirection === "asc" ? <ArrowUp className="size-4 ml-1" aria-hidden="true" /> : <ArrowDown className="size-4 ml-1" aria-hidden="true" />
 	}

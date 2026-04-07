@@ -1,5 +1,5 @@
+import type { Tables } from "@iefa/database/sisub"
 import type { Edge, Node } from "@xyflow/react"
-import type { Tables } from "@/types/supabase.types"
 
 // ─── Raw DB rows ──────────────────────────────────────────────────────────────
 

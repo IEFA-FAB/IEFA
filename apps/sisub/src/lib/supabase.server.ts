@@ -11,7 +11,7 @@ import { envServer } from "@/lib/env.server"
  * o contexto de request/cookies correto por requisição.
  */
 export function getSupabaseServerClient() {
-	return createServerClient<Database>(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
+	return createServerClient<Database, "sisub">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
 		db: { schema: "sisub" },
 		cookies: {
 			getAll() {

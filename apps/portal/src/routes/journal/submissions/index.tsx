@@ -2,9 +2,10 @@
 
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { Plus, Search } from "lucide-react"
-import { useState } from "react"
+import { Plus, Search } from "iconoir-react"
+import { useMemo, useState } from "react"
 import { authQueryOptions } from "@/auth/service"
+import { useCommandPaletteItems } from "@/components/command-palette/CommandPaletteProvider"
 import { ArticleCard } from "@/components/journal/ArticleCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +23,16 @@ const STATUS_FILTERS: { value: ArticleStatus | "all"; label: string }[] = [
 ]
 
 export const Route = createFileRoute("/journal/submissions/")({
+	staticData: {
+		nav: {
+			title: "Minhas submissões",
+			section: "Minha área",
+			subtitle: "Acompanhar artigos submetidos e seus status",
+			keywords: ["submissoes", "artigos", "status", "autor"],
+			access: "authenticated",
+			order: 90,
+		},
+	},
 	beforeLoad: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (!auth.isAuthenticated) {
@@ -40,10 +51,29 @@ export const Route = createFileRoute("/journal/submissions/")({
 
 function RouteComponent() {
 	const { auth } = Route.useRouteContext()
+	const navigate = Route.useNavigate()
 	const [statusFilter, setStatusFilter] = useState<ArticleStatus | "all">("all")
 	const [searchQuery, setSearchQuery] = useState("")
 
 	const { data: articles } = useSuspenseQuery(articlesQueryOptions({ submitter_id: auth.user?.id || "" }))
+	const commandItems = useMemo(() => {
+		return articles.map((article) => ({
+			id: `submission:${article.id}`,
+			kind: "context" as const,
+			title: article.title_pt || article.title_en || `Submissão ${article.submission_number}`,
+			section: "Minhas submissões",
+			subtitle: `${article.submission_number} • ${STATUS_FILTERS.find((filter) => filter.value === article.status)?.label ?? article.status}`,
+			keywords: [article.title_pt, article.title_en, article.submission_number, article.status].filter(Boolean) as string[],
+			perform: () => {
+				void navigate({
+					to: "/journal/submissions/$id",
+					params: { id: article.id },
+				})
+			},
+		}))
+	}, [articles, navigate])
+
+	useCommandPaletteItems(commandItems)
 
 	// Filter articles
 	const filteredArticles = articles.filter((article) => {

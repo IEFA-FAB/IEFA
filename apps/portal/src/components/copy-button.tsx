@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Copy } from "lucide-react"
+import { Check, Copy } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "./ui/button"
 

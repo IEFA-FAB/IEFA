@@ -1,6 +1,6 @@
 // Journal-specific authentication and authorization helpers
 
-import { supabase } from "../supabase"
+import { journalDb, supabase } from "../supabase"
 import { getUserProfile } from "./client"
 import type { UserRole } from "./types"
 
@@ -89,7 +89,7 @@ export async function canEditArticle(articleId: string, userId?: string): Promis
 	if (await isEditor(uid)) return true
 
 	// Check if user is the article submitter and article is editable
-	const { data: article } = await supabase.schema("journal").from("articles").select("submitter_id, status").eq("id", articleId).single()
+	const { data: article } = await journalDb().from("articles").select("submitter_id, status").eq("id", articleId).single()
 
 	if (!article) return false
 
@@ -107,7 +107,7 @@ export async function canViewArticle(articleId: string, userId?: string): Promis
 	const uid = userId || (await supabase.auth.getUser()).data.user?.id
 
 	// Check if article is published (public access)
-	const { data: article } = await supabase.schema("journal").from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).single()
+	const { data: article } = await journalDb().from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).single()
 
 	if (!article) return false
 
@@ -124,8 +124,7 @@ export async function canViewArticle(articleId: string, userId?: string): Promis
 	if (article.submitter_id === uid) return true
 
 	// Check if user is assigned reviewer
-	const { data: assignment } = await supabase
-		.schema("journal")
+	const { data: assignment } = await journalDb()
 		.from("review_assignments")
 		.select("id")
 		.eq("article_id", articleId)
@@ -143,7 +142,7 @@ export async function canSubmitReview(assignmentId: string, userId?: string): Pr
 	const uid = userId || (await supabase.auth.getUser()).data.user?.id
 	if (!uid) return false
 
-	const { data: assignment } = await supabase.schema("journal").from("review_assignments").select("reviewer_id, status").eq("id", assignmentId).single()
+	const { data: assignment } = await journalDb().from("review_assignments").select("reviewer_id, status").eq("id", assignmentId).single()
 
 	if (!assignment) return false
 
@@ -185,8 +184,7 @@ export async function ensureUserProfile(userId: string, fullName?: string): Prom
 	} catch {
 		// Profile doesn't exist, create it
 		const { data: user } = await supabase.auth.getUser()
-		await supabase
-			.schema("journal")
+		await journalDb()
 			.from("user_profiles")
 			.insert({
 				id: userId,

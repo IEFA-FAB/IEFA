@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/journal/editorial/settings")({
+	staticData: {
+		nav: {
+			title: "Configurações do periódico",
+			section: "Editorial",
+			subtitle: "ISSN, DOI, templates e parâmetros da revista",
+			keywords: ["configuracoes", "periodico", "doi", "issn", "crossref"],
+			access: "editor",
+			order: 150,
+		},
+	},
 	component: RouteComponent,
 })
 

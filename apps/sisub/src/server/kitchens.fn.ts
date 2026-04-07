@@ -1,6 +1,6 @@
+import type { Kitchen, Unit } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
-import type { Kitchen, Unit } from "@/types/supabase.types"
 
 export interface KitchenWithUnit extends Kitchen {
 	unit: Unit | null

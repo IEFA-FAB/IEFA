@@ -1,16 +1,25 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { BookOpen, FileText, LayoutDashboard, List, Settings, Upload, Users } from "lucide-react"
+import { Dashboard, Group, List, NavArrowDown, OpenBook, Page, Settings, Upload } from "iconoir-react"
 import { authQueryOptions } from "@/auth/service"
 import { ProfileOnboarding } from "@/components/journal/ProfileOnboarding"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { userProfileQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/")({
+	staticData: {
+		nav: {
+			title: "Publicações científicas",
+			section: "Revista",
+			subtitle: "Entrada do sistema de gestão de publicações",
+			keywords: ["journal", "revista", "seiva", "publicacoes"],
+			order: 50,
+		},
+	},
 	loader: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (auth.user && auth.isAuthenticated) {
-			// Only try to load profile if user is authenticated with valid ID
 			try {
 				await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
 			} catch {
@@ -24,14 +33,12 @@ export const Route = createFileRoute("/journal/")({
 function RouteComponent() {
 	const { data: auth } = useSuspenseQuery(authQueryOptions())
 
-	// Use regular useQuery for profile since it's optional and may not exist
 	const { data: profile } = useQuery({
 		...userProfileQueryOptions(auth.user?.id || ""),
 		enabled: !!auth.user?.id && auth.isAuthenticated,
 		retry: false,
 	})
 
-	// Show onboarding if user is authenticated but doesn't have a profile
 	if (auth.isAuthenticated && !profile) {
 		return <ProfileOnboarding />
 	}
@@ -40,246 +47,280 @@ function RouteComponent() {
 	const isAuthenticated = auth.isAuthenticated
 
 	return (
-		<div className="relative flex flex-col items-center justify-center w-full text-foreground">
-			{/* Hero */}
-			<header className="relative w-full">
-				<div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-8 md:pt-12">
-					<div
-						className="relative w-full overflow-hidden rounded-3xl border border-border
-                       bg-linear-to-b from-background/60 via-background/40 to-background/20
-                       backdrop-blur supports-backdrop-filter:backdrop-blur-md"
-					>
-						<div className="relative mx-auto flex min-h-[40vh] sm:min-h-[50vh] flex-col items-center justify-center text-center p-6 md:p-10">
-							<h1 className="text-balance text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">Sistema de Gestão de Publicações</h1>
-							<p className="mt-4 max-w-3xl text-pretty text-base sm:text-lg text-muted-foreground">
-								Plataforma completa para submissão, revisão e publicação de artigos científicos com suporte bilíngue (PT/EN).
-							</p>
-							<div className="mt-6 flex flex-wrap gap-3 align-middle justify-center items-center">
-								{isAuthenticated ? (
-									<>
-										<Button
-											render={
-												<Link to="/journal/submit" aria-label="Submeter novo artigo">
-													Submeter Artigo
-												</Link>
-											}
-											size="lg"
-											variant="default"
-										/>
-										<Button
-											render={
-												<Link to="/journal/submissions" aria-label="Ver minhas submissões">
-													Minhas Submissões
-												</Link>
-											}
-											size="lg"
-											variant="secondary"
-										/>
-									</>
-								) : (
-									<>
-										<Button
-											render={
-												<Link to="/auth" aria-label="Fazer login">
-													Fazer Login
-												</Link>
-											}
-											size="lg"
-											variant="default"
-										/>
-										<Button
-											render={
-												<Link to="/journal/articles" aria-label="Ver artigos publicados">
-													Artigos Publicados
-												</Link>
-											}
-											size="lg"
-											variant="secondary"
-										/>
-									</>
-								)}
-							</div>
-						</div>
+		<div className="relative flex flex-col w-full text-foreground">
+			{/* ─── Hero — ocupa toda a primeira tela ─────────────────────────────── */}
+			<section
+				aria-label="Sistema de Gestão de Publicações"
+				className="relative w-full
+          min-h-[calc(100dvh-3.5rem-2rem)] md:min-h-[calc(100dvh-3.5rem-2.5rem)]
+          flex flex-col items-center justify-between"
+			>
+				{/* Conteúdo central */}
+				<div className="flex-1 flex flex-col items-center justify-center text-center gap-8 px-4 py-12">
+					<p className="text-label text-muted-foreground">Periódico Científico · IEFA</p>
+
+					<h1 className="text-hero text-balance">
+						Sistema de Gestão
+						<br className="hidden sm:block" /> de Publicações
+					</h1>
+
+					<p className="max-w-2xl text-sm sm:text-base text-muted-foreground text-pretty leading-relaxed">
+						Plataforma completa para submissão, revisão e publicação de artigos científicos com suporte bilíngue (PT/EN).
+					</p>
+
+					<div className="flex flex-wrap gap-3 justify-center items-center pt-2">
+						{isAuthenticated ? (
+							<>
+								<Button
+									render={
+										<Link to="/journal/submit" aria-label="Submeter novo artigo">
+											Submeter Artigo
+										</Link>
+									}
+									size="lg"
+									variant="default"
+								/>
+								<Button
+									render={
+										<Link to="/journal/submissions" aria-label="Ver minhas submissões">
+											Minhas Submissões
+										</Link>
+									}
+									size="lg"
+									variant="secondary"
+								/>
+							</>
+						) : (
+							<>
+								<Button
+									render={
+										<Link to="/auth" aria-label="Fazer login">
+											Fazer Login
+										</Link>
+									}
+									size="lg"
+									variant="default"
+								/>
+								<Button
+									render={
+										<Link to="/journal/articles" aria-label="Ver artigos publicados">
+											Artigos Publicados
+										</Link>
+									}
+									size="lg"
+									variant="secondary"
+								/>
+							</>
+						)}
 					</div>
 				</div>
-			</header>
 
-			{/* Action Cards Section */}
-			<section className="mt-10 md:mt-12 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-				<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">{isAuthenticated ? "Minhas Ações" : "Para Autores"}</h2>
-
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-					{/* Submit Article Card - Only show if authenticated */}
-					{isAuthenticated && (
-						<Link to="/journal/submit" className="group">
-							<div className="p-6 border rounded-lg hover:border-primary transition-colors bg-card h-full flex flex-col">
-								<div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-									<Upload className="size-6 text-primary" />
-								</div>
-								<h3 className="font-semibold text-lg mb-2">Nova Submissão</h3>
-								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Submeta um novo artigo para revisão por pares. Preencha o formulário com metadados bilíngues e faça upload dos arquivos.
-								</p>
-								<Button variant="ghost" className="w-full justify-start px-0">
-									Iniciar Submissão →
-								</Button>
-							</div>
-						</Link>
-					)}
-
-					{/* My Submissions Card - Only show if authenticated */}
-					{isAuthenticated && (
-						<Link to="/journal/submissions" className="group">
-							<div className="p-6 border rounded-lg hover:border-primary transition-colors bg-card h-full flex flex-col">
-								<div className="size-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
-									<List className="size-6 text-blue-600 dark:text-blue-400" />
-								</div>
-								<h3 className="font-semibold text-lg mb-2">Minhas Submissões</h3>
-								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Acompanhe o status de todos os seus artigos submetidos. Visualize comentários dos revisores e faça revisões.
-								</p>
-								<Button variant="ghost" className="w-full justify-start px-0">
-									Ver Submissões →
-								</Button>
-							</div>
-						</Link>
-					)}
-
-					{/* My Profile Card - Only show if authenticated */}
-					{isAuthenticated && (
-						<Link to="/journal/profile" className="group">
-							<div className="p-6 border rounded-lg hover:border-primary transition-colors bg-card h-full flex flex-col">
-								<div className="size-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-4 group-hover:bg-green-500/20 transition-colors">
-									<Users className="size-6 text-green-600 dark:text-green-400" />
-								</div>
-								<h3 className="font-semibold text-lg mb-2">Meu Perfil</h3>
-								<p className="text-sm text-muted-foreground mb-4 flex-1">
-									Gerencie suas informações pessoais, ORCID, afiliação institucional e áreas de expertise.
-								</p>
-								<Button variant="ghost" className="w-full justify-start px-0">
-									Editar Perfil →
-								</Button>
-							</div>
-						</Link>
-					)}
-
-					{/* Published Articles Card - Always visible */}
-					<Link to="/journal/articles" className="group">
-						<div className="p-6 border rounded-lg hover:border-primary transition-colors bg-card h-full flex flex-col">
-							<div className="size-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4 group-hover:bg-purple-500/20 transition-colors">
-								<BookOpen className="size-6 text-purple-600 dark:text-purple-400" />
-							</div>
-							<h3 className="font-semibold text-lg mb-2">Artigos Publicados</h3>
-							<p className="text-sm text-muted-foreground mb-4 flex-1">
-								Navegue pelos artigos já publicados na revista. Pesquise por área, autor ou palavra-chave.
-							</p>
-							<Button variant="ghost" className="w-full justify-start px-0">
-								Explorar Artigos →
-							</Button>
-						</div>
-					</Link>
-
-					{/* About Card - Always visible */}
-					<Link to="/journal/about" className="group">
-						<div className="p-6 border rounded-lg hover:border-primary transition-colors bg-card h-full flex flex-col">
-							<div className="size-12 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
-								<BookOpen className="size-6 text-indigo-600 dark:text-indigo-400" />
-							</div>
-							<h3 className="font-semibold text-lg mb-2">Sobre a Revista</h3>
-							<p className="text-sm text-muted-foreground mb-4 flex-1">Conheça a missão, políticas editoriais e equipe da SEIVA.</p>
-							<Button variant="ghost" className="w-full justify-start px-0">
-								Saiba Mais →
-							</Button>
-						</div>
-					</Link>
-
-					{/* Placeholder Cards - Only show if authenticated */}
-					{isAuthenticated && (
-						<>
-							<div className="p-6 border rounded-lg bg-card opacity-60 h-full flex flex-col">
-								<div className="size-12 rounded-lg bg-muted flex items-center justify-center mb-4">
-									<FileText className="size-6 text-muted-foreground" />
-								</div>
-								<h3 className="font-semibold text-lg mb-2">Minhas Revisões</h3>
-								<p className="text-sm text-muted-foreground mb-4 flex-1">Visualize e complete revisões atribuídas a você.</p>
-								<p className="text-xs text-muted-foreground italic">Em breve (Fase 3)</p>
-							</div>
-
-							{isEditor && (
-								<div className="p-6 border rounded-lg bg-card opacity-60 h-full flex flex-col">
-									<div className="size-12 rounded-lg bg-muted flex items-center justify-center mb-4">
-										<Settings className="size-6 text-muted-foreground" />
-									</div>
-									<h3 className="font-semibold text-lg mb-2">Configurações da Revista</h3>
-									<p className="text-sm text-muted-foreground mb-4 flex-1">Configure informações da revista, templates de email e DOI.</p>
-									<p className="text-xs text-muted-foreground italic">Em breve (Fase 4)</p>
-								</div>
-							)}
-						</>
-					)}
+				{/* Indicador de scroll */}
+				<div className="pb-8 flex flex-col items-center gap-2 text-muted-foreground/60 select-none" aria-hidden="true">
+					<span className="text-[10px] tracking-[0.2em] uppercase">Rolar</span>
+					<NavArrowDown className="h-5 w-5 animate-bounce" />
 				</div>
 			</section>
 
-			{/* Editorial Area - Only show for editors */}
-			{isEditor && (
-				<section className="mt-12 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-					<div className="border-t pt-12">
-						<h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">Área Editorial</h2>
+			{/* ─── Seções de conteúdo ─────────────────────────────────────────────── */}
+			<div className="flex flex-col gap-28 md:gap-36 pt-24 md:pt-28">
+				{/* ── Ações ───────────────────────────────────────────────────────── */}
+				<section aria-labelledby="acoes-heading">
+					<div className="mb-1">
+						<h2 id="acoes-heading" className="text-2xl md:text-3xl font-bold tracking-tight">
+							{isAuthenticated ? "Minhas Ações" : "Para Autores"}
+						</h2>
+						<p className="text-muted-foreground mt-2 text-pretty">
+							{isAuthenticated ? "Gerencie suas submissões e acompanhe o fluxo editorial." : "Explore os recursos disponíveis para novos autores."}
+						</p>
+					</div>
 
-						<div className="grid md:grid-cols-2 gap-6">
-							<Link to="/journal/editorial/dashboard" className="group">
-								<div className="p-8 border-2 border-primary/50 rounded-lg hover:border-primary transition-colors bg-primary/5 h-full">
-									<div className="size-16 rounded-lg bg-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors">
-										<LayoutDashboard className="size-8 text-primary" />
+					<Separator className="my-6" />
+
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+						{isAuthenticated && (
+							<Link to="/journal/submit" className="group">
+								<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col">
+									<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+										<Upload className="size-5 text-foreground" aria-hidden="true" />
 									</div>
-									<h3 className="font-semibold text-xl mb-2">Dashboard Editorial</h3>
-									<p className="text-muted-foreground mb-4">Gerencie submissões, atribua revisores e tome decisões sobre artigos.</p>
-									<Button className="mt-4">Acessar Dashboard →</Button>
+									<h3 className="font-semibold text-base mb-2">Nova Submissão</h3>
+									<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">
+										Submeta um novo artigo para revisão por pares. Preencha o formulário com metadados bilíngues e faça upload dos arquivos.
+									</p>
+									<span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Iniciar Submissão →</span>
 								</div>
 							</Link>
+						)}
 
-							<div className="p-8 border rounded-lg bg-card">
-								<h3 className="font-semibold text-lg mb-4">Estatísticas Rápidas</h3>
-								<div className="space-y-3">
-									<div className="flex items-center justify-between p-3 bg-muted rounded">
-										<span className="text-sm text-muted-foreground">Aguardando Decisão</span>
-										<span className="font-semibold">-</span>
+						{isAuthenticated && (
+							<Link to="/journal/submissions" className="group">
+								<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col">
+									<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+										<List className="size-5 text-foreground" aria-hidden="true" />
 									</div>
-									<div className="flex items-center justify-between p-3 bg-muted rounded">
-										<span className="text-sm text-muted-foreground">Em Revisão</span>
-										<span className="font-semibold">-</span>
-									</div>
-									<div className="flex items-center justify-between p-3 bg-muted rounded">
-										<span className="text-sm text-muted-foreground">Publicados este mês</span>
-										<span className="font-semibold">-</span>
-									</div>
+									<h3 className="font-semibold text-base mb-2">Minhas Submissões</h3>
+									<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">
+										Acompanhe o status de todos os seus artigos submetidos. Visualize comentários dos revisores e faça revisões.
+									</p>
+									<span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Ver Submissões →</span>
 								</div>
-								<p className="text-xs text-muted-foreground mt-4 italic">Estatísticas disponíveis no dashboard</p>
+							</Link>
+						)}
+
+						{isAuthenticated && (
+							<Link to="/journal/profile" className="group">
+								<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col">
+									<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+										<Group className="size-5 text-foreground" aria-hidden="true" />
+									</div>
+									<h3 className="font-semibold text-base mb-2">Meu Perfil</h3>
+									<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">
+										Gerencie suas informações pessoais, ORCID, afiliação institucional e áreas de expertise.
+									</p>
+									<span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Editar Perfil →</span>
+								</div>
+							</Link>
+						)}
+
+						<Link to="/journal/articles" className="group">
+							<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col">
+								<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+									<OpenBook className="size-5 text-foreground" aria-hidden="true" />
+								</div>
+								<h3 className="font-semibold text-base mb-2">Artigos Publicados</h3>
+								<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">
+									Navegue pelos artigos já publicados na revista. Pesquise por área, autor ou palavra-chave.
+								</p>
+								<span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Explorar Artigos →</span>
 							</div>
-						</div>
+						</Link>
+
+						<Link to="/journal/about" className="group">
+							<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col">
+								<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+									<OpenBook className="size-5 text-foreground" aria-hidden="true" />
+								</div>
+								<h3 className="font-semibold text-base mb-2">Sobre a Revista</h3>
+								<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">
+									Conheça a missão, políticas editoriais e equipe da SEIVA.
+								</p>
+								<span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Saiba Mais →</span>
+							</div>
+						</Link>
+
+						{isAuthenticated && (
+							<>
+								<div className="p-6 border border-border bg-card opacity-50 h-full flex flex-col cursor-not-allowed select-none">
+									<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+										<Page className="size-5 text-muted-foreground" aria-hidden="true" />
+									</div>
+									<h3 className="font-semibold text-base mb-2">Minhas Revisões</h3>
+									<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">Visualize e complete revisões atribuídas a você.</p>
+									<span className="text-label text-muted-foreground">Em breve · Fase 3</span>
+								</div>
+
+								{isEditor && (
+									<div className="p-6 border border-border bg-card opacity-50 h-full flex flex-col cursor-not-allowed select-none">
+										<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
+											<Settings className="size-5 text-muted-foreground" aria-hidden="true" />
+										</div>
+										<h3 className="font-semibold text-base mb-2">Configurações da Revista</h3>
+										<p className="text-sm text-muted-foreground mb-4 flex-1 text-pretty leading-relaxed">
+											Configure informações da revista, templates de email e DOI.
+										</p>
+										<span className="text-label text-muted-foreground">Em breve · Fase 4</span>
+									</div>
+								)}
+							</>
+						)}
 					</div>
 				</section>
-			)}
 
-			{/* Info Section & Quick Links */}
-			<div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-				<div className="mt-12 p-6 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-900">
-					<h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">ℹ️ Sobre o Sistema</h3>
-					<p className="text-sm text-blue-800 dark:text-blue-200">
-						Este é um sistema completo de gestão de publicações científicas com suporte a submissões bilíngues (PT/EN), revisão por pares, gestão de DOI e
-						integração com Crossref. Para começar, faça login e complete seu perfil.
-					</p>
-				</div>
+				{/* ── Área Editorial — apenas editores ────────────────────────────── */}
+				{isEditor && (
+					<section aria-labelledby="editorial-heading">
+						<div className="mb-1">
+							<h2 id="editorial-heading" className="text-2xl md:text-3xl font-bold tracking-tight">
+								Área Editorial
+							</h2>
+							<p className="text-muted-foreground mt-2 text-pretty">Ferramentas de gestão do fluxo editorial.</p>
+						</div>
 
-				{/* Quick Links - Only show for non-authenticated users */}
-				{!isAuthenticated && (
-					<div className="mt-8 mb-12 text-center">
-						<p className="text-muted-foreground mb-4">Já possui uma conta?</p>
-						<Link to="/auth">
-							<Button size="lg">Fazer Login</Button>
-						</Link>
-					</div>
+						<Separator className="my-6" />
+
+						<div className="grid md:grid-cols-2 gap-5">
+							<div className="p-8 border-2 border-foreground bg-card flex flex-col">
+								<div className="size-12 border border-border bg-muted flex items-center justify-center mb-6 shrink-0">
+									<Dashboard className="size-6 text-foreground" aria-hidden="true" />
+								</div>
+								<h3 className="font-semibold text-xl mb-2">Dashboard Editorial</h3>
+								<p className="text-muted-foreground mb-6 flex-1 text-pretty leading-relaxed">
+									Gerencie submissões, atribua revisores e tome decisões sobre artigos.
+								</p>
+								<Button
+									render={
+										<Link to="/journal/editorial/dashboard" aria-label="Acessar dashboard editorial">
+											Acessar Dashboard →
+										</Link>
+									}
+									variant="default"
+									className="self-start"
+								/>
+							</div>
+
+							<div className="p-8 border border-border bg-card">
+								<h3 className="font-semibold text-base mb-4">Estatísticas Rápidas</h3>
+								<div className="divide-y divide-border">
+									<div className="flex items-center justify-between py-3">
+										<span className="text-sm text-muted-foreground">Aguardando Decisão</span>
+										<span className="font-semibold tabular-nums">—</span>
+									</div>
+									<div className="flex items-center justify-between py-3">
+										<span className="text-sm text-muted-foreground">Em Revisão</span>
+										<span className="font-semibold tabular-nums">—</span>
+									</div>
+									<div className="flex items-center justify-between py-3">
+										<span className="text-sm text-muted-foreground">Publicados este mês</span>
+										<span className="font-semibold tabular-nums">—</span>
+									</div>
+								</div>
+								<p className="text-xs text-muted-foreground mt-4">Estatísticas disponíveis no dashboard</p>
+							</div>
+						</div>
+					</section>
 				)}
+
+				{/* ── Sobre o sistema ─────────────────────────────────────────────── */}
+				<section aria-label="Sobre o sistema">
+					<Separator className="mb-12 md:mb-14" />
+
+					<div className="flex flex-col sm:flex-row gap-8 items-start sm:items-center">
+						<div className="border border-border bg-muted p-4 shrink-0">
+							<OpenBook className="h-7 w-7 text-foreground" aria-hidden="true" />
+						</div>
+
+						<div className="flex-1">
+							<p className="text-label text-muted-foreground mb-2">Sobre o Sistema</p>
+							<p className="text-sm text-muted-foreground text-pretty leading-relaxed max-w-2xl">
+								Sistema completo de gestão de publicações científicas com suporte a submissões bilíngues (PT/EN), revisão por pares, gestão de DOI e integração
+								com Crossref.{!isAuthenticated && " Para começar, faça login e complete seu perfil."}
+							</p>
+						</div>
+
+						{!isAuthenticated && (
+							<Button
+								render={
+									<Link to="/auth" aria-label="Fazer login no portal">
+										Fazer Login
+									</Link>
+								}
+								variant="outline"
+								className="shrink-0"
+							/>
+						)}
+					</div>
+				</section>
 			</div>
 		</div>
 	)

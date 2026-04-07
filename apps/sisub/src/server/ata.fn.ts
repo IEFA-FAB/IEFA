@@ -1,9 +1,9 @@
+import type { ProcurementAta } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProcurementNeed } from "@/services/ProcurementService"
 import type { AtaWithDetails } from "@/types/domain/ata"
-import type { ProcurementAta } from "@/types/supabase.types"
 
 // ─── Input Schemas ────────────────────────────────────────────────────────────
 

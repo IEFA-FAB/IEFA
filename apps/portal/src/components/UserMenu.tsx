@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { EllipsisVertical, LogOut } from "lucide-react"
+import { LogOut, MoreVert } from "iconoir-react"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Button } from "./ui/button"
@@ -64,7 +64,7 @@ export function UserMenu() {
 							<span className="truncate font-medium">{displayName}</span>
 							<span className="text-muted-foreground truncate text-xs">{email}</span>
 						</div>
-						<EllipsisVertical className="ml-2 h-4 w-4" aria-hidden="true" />
+						<MoreVert className="ml-2 h-4 w-4" aria-hidden="true" />
 					</Button>
 				}
 			/>

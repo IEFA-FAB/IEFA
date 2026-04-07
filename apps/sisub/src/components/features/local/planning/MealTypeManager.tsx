@@ -1,3 +1,4 @@
+import type { MealType } from "@iefa/database/sisub"
 import { AlertCircle, Edit, Lock, Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { Badge } from "@/components/ui/badge"
@@ -6,7 +7,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDeleteMealType, useMealTypes } from "@/hooks/data/useMealTypes"
-import type { MealType } from "@/types/supabase.types"
 import { MealTypeForm } from "./MealTypeForm"
 
 interface MealTypeManagerProps {

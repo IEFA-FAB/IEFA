@@ -1,7 +1,8 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Filter, LayoutGrid, Table } from "lucide-react"
+import { Filter, Table2Columns, ViewGrid } from "iconoir-react"
 import { useMemo, useState } from "react"
+import { useCommandPaletteItems } from "@/components/command-palette/CommandPaletteProvider"
 import { type DashboardFilters, FilterPanel } from "@/components/journal/editorial/FilterPanel"
 import { KanbanBoard } from "@/components/journal/editorial/KanbanBoard"
 import { MetricsPanel } from "@/components/journal/editorial/MetricsPanel"
@@ -13,6 +14,16 @@ import type { EditorialDashboardArticle } from "@/lib/journal/types"
 type ViewMode = "kanban" | "table"
 
 export const Route = createFileRoute("/journal/editorial/dashboard")({
+	staticData: {
+		nav: {
+			title: "Dashboard editorial",
+			section: "Editorial",
+			subtitle: "Visão operacional das submissões e revisões",
+			keywords: ["editorial", "dashboard", "kanban", "submissoes"],
+			access: "editor",
+			order: 120,
+		},
+	},
 	loader: async ({ context }) => {
 		return context.queryClient.ensureQueryData(editorialDashboardQueryOptions())
 	},
@@ -20,6 +31,7 @@ export const Route = createFileRoute("/journal/editorial/dashboard")({
 })
 
 function EditorialDashboard() {
+	const navigate = Route.useNavigate()
 	const [viewMode, setViewMode] = useState<ViewMode>("kanban")
 	const [showFilters, setShowFilters] = useState(false)
 	const [filters, setFilters] = useState<DashboardFilters>({
@@ -70,6 +82,24 @@ function EditorialDashboard() {
 			return true
 		})
 	}, [articles, filters])
+	const commandItems = useMemo(() => {
+		return articles.map((article: EditorialDashboardArticle) => ({
+			id: `editorial-article:${article.id}`,
+			kind: "context" as const,
+			title: article.title_pt || article.title_en || `Artigo ${article.submission_number}`,
+			section: "Dashboard editorial",
+			subtitle: `${article.submission_number} • ${article.status}`,
+			keywords: [article.title_pt, article.title_en, article.submission_number?.toString(), article.status, article.article_type].filter(Boolean) as string[],
+			perform: () => {
+				void navigate({
+					to: "/journal/editorial/articles/$articleId",
+					params: { articleId: article.id },
+				})
+			},
+		}))
+	}, [articles, navigate])
+
+	useCommandPaletteItems(commandItems)
 
 	return (
 		<div className="space-y-6">
@@ -87,11 +117,11 @@ function EditorialDashboard() {
 						Filtros
 					</Button>
 					<Button variant={viewMode === "kanban" ? "default" : "outline"} size="sm" onClick={() => setViewMode("kanban")}>
-						<LayoutGrid className="size-4 mr-2" />
+						<ViewGrid className="size-4 mr-2" />
 						Kanban
 					</Button>
 					<Button variant={viewMode === "table" ? "default" : "outline"} size="sm" onClick={() => setViewMode("table")}>
-						<Table className="size-4 mr-2" />
+						<Table2Columns className="size-4 mr-2" />
 						Tabela
 					</Button>
 				</div>

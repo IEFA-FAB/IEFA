@@ -1,6 +1,6 @@
 // Step 2: Bilingual Metadata (Titles, Abstracts, Keywords)
 
-import { X } from "lucide-react"
+import { Xmark } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -97,7 +97,7 @@ export function Step2Metadata() {
 									}}
 									className="hover:text-destructive"
 								>
-									<X className="size-3" />
+									<Xmark className="size-3" />
 								</button>
 							</span>
 						))}
@@ -171,7 +171,7 @@ export function Step2Metadata() {
 									}}
 									className="hover:text-destructive"
 								>
-									<X className="size-3" />
+									<Xmark className="size-3" />
 								</button>
 							</span>
 						))}

@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
-import { ChevronsUpDown, LogOut, User } from "lucide-react"
+import { Expand, LogOut, User } from "iconoir-react"
 import { useAuth } from "@/hooks/useAuth"
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
 import {
@@ -57,7 +57,7 @@ export function NavUser() {
 									<span className="truncate font-semibold">{displayName}</span>
 									<span className="truncate text-xs">{email}</span>
 								</div>
-								<ChevronsUpDown className="ml-auto size-4" />
+								<Expand className="ml-auto size-4" />
 							</SidebarMenuButton>
 						}
 					/>

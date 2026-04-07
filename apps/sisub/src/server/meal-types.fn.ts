@@ -1,7 +1,7 @@
+import type { MealType, MealTypeInsert, MealTypeUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
-import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.types"
 
 const MealTypeWriteSchema = z.object({
 	name: z.string().nullable().optional(),

@@ -1,8 +1,8 @@
+import type { KitchenUpdate, MessHallUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { PlacesGraphData } from "@/types/domain/places"
-import type { KitchenUpdate, MessHallUpdate } from "@/types/supabase.types"
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 

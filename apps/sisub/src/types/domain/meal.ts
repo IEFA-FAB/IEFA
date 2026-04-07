@@ -1,26 +1,23 @@
 // Meal and Forecast Domain Types
 
+import type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit } from "@iefa/database/sisub"
 import type { LucideIcon } from "lucide-react"
 import type { DayMeals } from "@/lib/meal"
-import type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit } from "@/types/supabase.types"
 
 export type { DayMeals }
 
 // ============================================================================
-// BASE TYPES (Re-export de supabase.types.ts)
+// BASE TYPES (Re-export de @iefa/database/sisub)
 // ============================================================================
 
 /**
  * Mess Hall (Rancho) - tabela mess_halls
- * Re-exportado de supabase.types.ts
  */
 /**
  * Unidade (OM) - tabela units
- * Re-exportado de supabase.types.ts
  */
 /**
  * Forecast de refeição - tabela meal_forecasts
- * Re-exportado de supabase.types.ts
  */
 export type { MealForecast, MealForecastInsert, MealForecastUpdate, MessHall, Unit }
 

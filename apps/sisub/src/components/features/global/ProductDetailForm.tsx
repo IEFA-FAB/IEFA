@@ -1,3 +1,4 @@
+import type { Ceafa, Folder, Nutrient, Product } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, ChevronsUpDown, Loader2, Save } from "lucide-react"
@@ -14,7 +15,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/cn"
 import { catmatQueryOptions, ceafaQueryOptions, useNutrients, useProductNutrients, useSetProductNutrients, useUpdateProduct } from "@/services/ProductsService"
-import type { Ceafa, Folder, Nutrient, Product } from "@/types/supabase.types"
 import { ProductItemsManager } from "./ProductItemsManager"
 
 const productSchema = z.object({

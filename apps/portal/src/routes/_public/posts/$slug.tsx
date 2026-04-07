@@ -1,6 +1,6 @@
 import { PortableText, type PortableTextComponents } from "@portabletext/react"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft } from "iconoir-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { client, urlFor } from "@/lib/sanity"
@@ -14,7 +14,6 @@ const myPortableTextComponents: PortableTextComponents = {
 			return (
 				<figure className="my-8">
 					<img
-						// biome-ignore lint/suspicious/noFocusedTests: `.fit()` is a Sanity image URL builder method, not a test focus
 						src={urlFor(value).width(800).fit("max").url()}
 						alt={value.alt || "Imagem do post"}
 						className={`rounded-lg shadow-md mx-auto ${value.layout === "full" ? "w-full" : "max-w-3xl"}`}

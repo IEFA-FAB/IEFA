@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
-import { Loader2 } from "lucide-react"
+import { Refresh } from "iconoir-react"
 import { useState } from "react"
 import { authQueryOptions } from "@/auth/service"
 import { SubmissionForm } from "@/components/journal/SubmissionForm/SubmissionForm"
@@ -8,6 +8,16 @@ import { userProfileQueryOptions } from "@/lib/journal/hooks"
 import { submitArticle } from "@/lib/journal/submission"
 
 export const Route = createFileRoute("/journal/submit")({
+	staticData: {
+		nav: {
+			title: "Nova submissão",
+			section: "Minha área",
+			subtitle: "Enviar um novo artigo para avaliação",
+			keywords: ["submeter", "artigo", "envio", "nova submissao"],
+			access: "authenticated",
+			order: 80,
+		},
+	},
 	beforeLoad: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (!auth.isAuthenticated || !auth.user) {
@@ -89,7 +99,7 @@ function RouteComponent() {
 
 			{isSubmitting ? (
 				<div className="flex flex-col items-center justify-center py-12">
-					<Loader2 className="size-12 animate-spin text-primary mb-4" />
+					<Refresh className="size-12 animate-spin text-primary mb-4" />
 					<p className="text-lg font-medium">Submetendo artigo...</p>
 					<p className="text-sm text-muted-foreground mt-2">Fazendo upload de arquivos e criando registro</p>
 				</div>

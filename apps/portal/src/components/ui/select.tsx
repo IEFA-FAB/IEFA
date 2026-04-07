@@ -1,5 +1,5 @@
 import { Select as SelectPrimitive } from "@base-ui/react/select"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { Check, NavArrowDown, NavArrowUp } from "iconoir-react"
 import type * as React from "react"
 import { cn } from "../../lib/utils"
 
@@ -32,7 +32,7 @@ function SelectTrigger({
 			{...props}
 		>
 			{children}
-			<SelectPrimitive.Icon render={<ChevronDownIcon className="text-muted-foreground size-4 pointer-events-none" />} />
+			<SelectPrimitive.Icon render={<NavArrowDown className="text-muted-foreground size-4 pointer-events-none" />} />
 		</SelectPrimitive.Trigger>
 	)
 }
@@ -90,7 +90,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
 		>
 			<SelectPrimitive.ItemText className="flex flex-1 gap-2 shrink-0 whitespace-nowrap">{children}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator render={<span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />}>
-				<CheckIcon className="pointer-events-none" />
+				<Check className="pointer-events-none" />
 			</SelectPrimitive.ItemIndicator>
 		</SelectPrimitive.Item>
 	)
@@ -107,7 +107,7 @@ function SelectScrollUpButton({ className, ...props }: React.ComponentProps<type
 			className={cn("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 top-0 w-full", className)}
 			{...props}
 		>
-			<ChevronUpIcon />
+			<NavArrowUp />
 		</SelectPrimitive.ScrollUpArrow>
 	)
 }
@@ -119,7 +119,7 @@ function SelectScrollDownButton({ className, ...props }: React.ComponentProps<ty
 			className={cn("bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_svg:not([class*='size-'])]:size-4 bottom-0 w-full", className)}
 			{...props}
 		>
-			<ChevronDownIcon />
+			<NavArrowDown />
 		</SelectPrimitive.ScrollDownArrow>
 	)
 }

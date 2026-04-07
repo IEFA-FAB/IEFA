@@ -1,5 +1,5 @@
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { NavArrowDown, NavArrowUp } from "iconoir-react"
 import { cn } from "../../lib/utils"
 
 function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
@@ -22,8 +22,8 @@ function AccordionTrigger({ className, children, ...props }: AccordionPrimitive.
 				{...props}
 			>
 				{children}
-				<ChevronDownIcon data-slot="accordion-trigger-icon" className="pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden" />
-				<ChevronUpIcon data-slot="accordion-trigger-icon" className="pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline" />
+				<NavArrowDown data-slot="accordion-trigger-icon" className="pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden" />
+				<NavArrowUp data-slot="accordion-trigger-icon" className="pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline" />
 			</AccordionPrimitive.Trigger>
 		</AccordionPrimitive.Header>
 	)

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ExternalLink, GitBranch, User } from "lucide-react"
+import { GitBranch, OpenNewWindow, User } from "iconoir-react"
 import type { AppItem } from "@/types/domain"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
@@ -19,7 +19,7 @@ export function AppCard({ app }: { app: AppItem }) {
 				</div>
 				{isExternal ? (
 					<Badge variant="secondary" className="gap-1">
-						Externo <ExternalLink className="h-3 w-3" aria-hidden="true" />
+						Externo <OpenNewWindow className="h-3 w-3" aria-hidden="true" />
 					</Badge>
 				) : null}
 			</CardHeader>
@@ -60,7 +60,7 @@ export function AppCard({ app }: { app: AppItem }) {
 												aria-label={`Abrir perfil de ${c.label} em nova aba`}
 											>
 												<span>{c.label}</span>
-												<ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+												<OpenNewWindow className="h-3.5 w-3.5" aria-hidden="true" />
 											</a>
 										) : (
 											<span className="text-sm text-muted-foreground">{c.label}</span>
@@ -81,7 +81,7 @@ export function AppCard({ app }: { app: AppItem }) {
 						render={
 							<a href={app.href} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noreferrer noopener" : undefined}>
 								Acessar
-								{isExternal ? <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" /> : null}
+								{isExternal ? <OpenNewWindow className="ml-2 h-4 w-4" aria-hidden="true" /> : null}
 							</a>
 						}
 						className="w-full"

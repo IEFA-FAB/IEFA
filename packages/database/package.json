@@ -4,14 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./generated": "./src/generated.ts",
+    "./sisub": "./src/sisub.ts",
+    "./portal": "./src/portal.ts",
+    "./journal": "./src/journal.ts"
   },
   "scripts": {
     "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
-    "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub > ./src/index.ts",
+    "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub,iefa,journal > ./src/generated.ts",
     "db:push": "bunx supabase db push",
-    "db:pull": "bunx supabase db pull --schema sisub",
-    "db:diff": "bunx supabase db diff --schema sisub",
+    "db:pull": "bunx supabase db pull --schema sisub,iefa,journal",
+    "db:diff": "bunx supabase db diff --schema sisub,iefa,journal",
     "db:reset": "bunx supabase db reset",
     "db:migrations": "bunx supabase migration list",
     "db:repair:applied": "bunx supabase migration repair --status applied",

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { AlertCircle, CheckCircle2, Clock, FileText, XCircle } from "lucide-react"
+import { CheckCircle, Clock, Page, WarningCircle, XmarkCircle } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -51,7 +51,7 @@ function ReviewInvitation() {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 text-center max-w-2xl mx-auto">
 				<div className="size-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-					<AlertCircle className="size-8 text-destructive" />
+					<WarningCircle className="size-8 text-destructive" />
 				</div>
 				<h2 className="text-2xl font-bold mb-2">Convite Expirado</h2>
 				<p className="text-muted-foreground mb-6">Este convite de revisão expirou. Se você ainda deseja revisar este artigo, entre em contato com o editor.</p>
@@ -64,7 +64,7 @@ function ReviewInvitation() {
 		return (
 			<div className="flex flex-col items-center justify-center py-16 text-center max-w-2xl mx-auto">
 				<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-					{invitation.status === "accepted" ? <CheckCircle2 className="size-8 text-green-600" /> : <XCircle className="size-8 text-muted-foreground" />}
+					{invitation.status === "accepted" ? <CheckCircle className="size-8 text-green-600" /> : <XmarkCircle className="size-8 text-muted-foreground" />}
 				</div>
 				<h2 className="text-2xl font-bold mb-2">{invitation.status === "accepted" ? "Convite Aceito" : "Convite Recusado"}</h2>
 				<p className="text-muted-foreground mb-6">
@@ -85,7 +85,7 @@ function ReviewInvitation() {
 			{/* Header */}
 			<div className="text-center space-y-2">
 				<div className="inline-flex size-16 rounded-full bg-primary/10 items-center justify-center mb-4">
-					<FileText className="size-8 text-primary" />
+					<Page className="size-8 text-primary" />
 				</div>
 				<h1 className="text-3xl font-bold">Convite para Revisão por Pares</h1>
 				<p className="text-muted-foreground">Você foi convidado para revisar um artigo científico</p>
@@ -133,11 +133,11 @@ function ReviewInvitation() {
 			{!showDeclineForm ? (
 				<div className="flex flex-col sm:flex-row gap-3">
 					<Button className="flex-1" size="lg" onClick={handleAccept} disabled={isAccepting}>
-						<CheckCircle2 className="size-5 mr-2" />
+						<CheckCircle className="size-5 mr-2" />
 						{isAccepting ? "Aceitando..." : "Aceitar Convite"}
 					</Button>
 					<Button variant="outline" size="lg" onClick={() => setShowDeclineForm(true)} className="flex-1">
-						<XCircle className="size-5 mr-2" />
+						<XmarkCircle className="size-5 mr-2" />
 						Recusar Convite
 					</Button>
 				</div>

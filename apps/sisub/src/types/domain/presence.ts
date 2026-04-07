@@ -1,21 +1,19 @@
 // Presence Domain Types
 
-import type { MealPresence, MealPresenceInsert, MealPresenceUpdate, MealPresenceWithUser } from "@/types/supabase.types"
+import type { MealPresence, MealPresenceInsert, MealPresenceUpdate, MealPresenceWithUser } from "@iefa/database/sisub"
 import type { MealKey } from "./meal"
 
 // ============================================================================
-// BASE TYPES (Re-export de supabase.types.ts)
+// BASE TYPES (Re-export de @iefa/database/sisub)
 // ============================================================================
 
 /**
  * Registro de presença em refeição - tabela meal_presences
- * Re-exportado de supabase.types.ts
  */
 export type PresenceRow = MealPresence
 
 /**
  * View de presença com dados do usuário
- * Re-exportado de supabase.types.ts
  */
 /**
  * Types para Insert/Update de presenças

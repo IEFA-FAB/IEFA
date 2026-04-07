@@ -3,7 +3,7 @@
 import { Link } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Calendar, FileText } from "lucide-react"
+import { Calendar, Page } from "iconoir-react"
 import type { Article } from "@/lib/journal/types"
 import { StatusBadge } from "./StatusBadge"
 
@@ -30,7 +30,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
 
 					<div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
 						<div className="flex items-center gap-1">
-							<FileText className="size-3" />
+							<Page className="size-3" />
 							<span className="capitalize">{article.article_type}</span>
 						</div>
 

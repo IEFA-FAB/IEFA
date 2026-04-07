@@ -6,6 +6,15 @@ import { useAppsData } from "@/hooks/useAppsData"
 import type { AppItem } from "@/types/domain"
 
 export const Route = createFileRoute("/_public/facilities/")({
+	staticData: {
+		nav: {
+			title: "Facilidades",
+			section: "Portal",
+			subtitle: "Suite de soluções e utilitários do IEFA",
+			keywords: ["ferramentas", "aplicacoes", "suite", "servicos"],
+			order: 20,
+		},
+	},
 	component: Home,
 	head: () => ({
 		meta: [{ title: "Facilidades IEFA" }, { name: "description", content: "Suite de Soluções do IEFA" }],

@@ -5,13 +5,13 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
-import viteTsConfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig(({ command }) => ({
+	resolve: {
+		tsconfigPaths: true,
+	},
+
 	plugins: [
-		viteTsConfigPaths({
-			projects: ["./tsconfig.json"],
-		}),
 		tailwindcss(),
 		devtools(),
 		tanstackStart(),
@@ -40,16 +40,14 @@ export default defineConfig(({ command }) => ({
 	},
 
 	optimizeDeps: {
-		exclude: [],
 		include: [
 			"react",
 			"react-dom",
 			"react/jsx-runtime",
+			"iconoir-react",
 			"@tanstack/react-router",
 			"@tanstack/react-query",
 			"@tanstack/react-table",
-			"@tanstack/react-store",
-			"lucide-react",
 			"motion",
 			"class-variance-authority",
 			"clsx",

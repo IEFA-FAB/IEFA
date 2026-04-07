@@ -1,5 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { XIcon } from "lucide-react"
+import { Xmark } from "iconoir-react"
 import type * as React from "react"
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
@@ -55,7 +55,7 @@ function DialogContent({
 				{children}
 				{showCloseButton && (
 					<DialogPrimitive.Close data-slot="dialog-close" render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}>
-						<XIcon />
+						<Xmark />
 						<span className="sr-only">Close</span>
 					</DialogPrimitive.Close>
 				)}

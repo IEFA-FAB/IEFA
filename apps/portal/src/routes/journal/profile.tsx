@@ -5,6 +5,16 @@ import { ProfileForm } from "@/components/journal/ProfileForm"
 import { userProfileQueryOptions } from "@/lib/journal/hooks"
 
 export const Route = createFileRoute("/journal/profile")({
+	staticData: {
+		nav: {
+			title: "Meu perfil",
+			section: "Minha área",
+			subtitle: "Dados pessoais, ORCID e preferências do sistema",
+			keywords: ["perfil", "usuario", "orcid", "afiliacao"],
+			access: "authenticated",
+			order: 100,
+		},
+	},
 	beforeLoad: async ({ context }) => {
 		// Ensure user is authenticated
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())

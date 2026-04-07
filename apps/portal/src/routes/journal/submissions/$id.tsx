@@ -4,7 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { Calendar, Download, Edit, FileText, Users } from "lucide-react"
+import { Calendar, Download, EditPencil, Group, Page } from "iconoir-react"
 import { authQueryOptions } from "@/auth/service"
 import { StatusBadge } from "@/components/journal/StatusBadge"
 import { Button } from "@/components/ui/button"
@@ -57,7 +57,7 @@ function RouteComponent() {
 						{articleData.submitted_at ? `Submetido em ${format(new Date(articleData.submitted_at), "dd MMMM yyyy", { locale: ptBR })}` : "Rascunho"}
 					</div>
 					<div className="flex items-center gap-1">
-						<FileText className="size-4" />
+						<Page className="size-4" />
 						<span className="capitalize">{articleData.article_type}</span>
 					</div>
 				</div>
@@ -66,7 +66,7 @@ function RouteComponent() {
 					<div className="mt-4">
 						<Link to="/journal/submit" search={{ articleId: articleData.id }}>
 							<Button variant="outline">
-								<Edit className="size-4 mr-2" />
+								<EditPencil className="size-4 mr-2" />
 								Editar Submissão
 							</Button>
 						</Link>
@@ -111,7 +111,7 @@ function RouteComponent() {
 				{/* Authors */}
 				<div className="p-6 border rounded-lg">
 					<h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-						<Users className="size-5" />
+						<Group className="size-5" />
 						Autores ({authors.length})
 					</h2>
 

@@ -1,4 +1,4 @@
-import { FileText, Upload, X } from "lucide-react"
+import { Page, Upload, Xmark } from "iconoir-react"
 import { useCallback, useState } from "react"
 import { type FileRejection, useDropzone } from "react-dropzone"
 import { cn } from "@/lib/utils"
@@ -132,7 +132,7 @@ export function FileUploader({
 					</p>
 					{files.map((file, index) => (
 						<div key={`${file.name}-${index}`} className="flex items-center gap-2 p-3 border rounded-lg bg-card">
-							<FileText className="size-4 text-muted-foreground shrink-0" />
+							<Page className="size-4 text-muted-foreground shrink-0" />
 							<div className="flex-1 min-w-0">
 								<p className="text-sm font-medium truncate">{file.name}</p>
 								<p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
@@ -146,7 +146,7 @@ export function FileUploader({
 									removeFile(multiple ? index : undefined)
 								}}
 							>
-								<X className="size-4" />
+								<Xmark className="size-4" />
 							</Button>
 						</div>
 					))}

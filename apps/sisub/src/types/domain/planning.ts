@@ -1,5 +1,5 @@
+import type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MealType, MenuItem, MenuItemInsert, MenuItemUpdate, Recipe, Tables } from "@iefa/database/sisub"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
-import type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MealType, MenuItem, MenuItemInsert, MenuItemUpdate, Recipe, Tables } from "@/types/supabase.types"
 
 export type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MenuItem, MenuItemInsert, MenuItemUpdate }
 

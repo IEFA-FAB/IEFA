@@ -1,3 +1,4 @@
+import type { Folder } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -8,7 +9,6 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateFolder, useFolders, useUpdateFolder } from "@/services/ProductsService"
-import type { Folder } from "@/types/supabase.types"
 
 // Schema de validação
 const folderSchema = z.object({

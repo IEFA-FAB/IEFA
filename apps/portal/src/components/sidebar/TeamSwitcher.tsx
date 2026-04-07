@@ -1,4 +1,4 @@
-import { ChevronsUpDown } from "lucide-react"
+import { Expand } from "iconoir-react"
 import * as React from "react"
 import {
 	DropdownMenu,
@@ -40,7 +40,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
 									<span className="truncate font-semibold">{activeTeam.name}</span>
 									<span className="truncate text-xs">{activeTeam.plan}</span>
 								</div>
-								<ChevronsUpDown className="ml-auto" />
+								<Expand className="ml-auto" />
 							</SidebarMenuButton>
 						}
 					/>

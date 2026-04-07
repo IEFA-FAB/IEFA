@@ -1,6 +1,6 @@
 import type { ErrorComponentProps } from "@tanstack/react-router"
 import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router"
-import { AlertCircle, ArrowLeft, Home, RefreshCw } from "lucide-react"
+import { ArrowLeft, Home, Refresh, WarningCircle } from "iconoir-react"
 import { Alert, AlertDescription } from "./ui/alert"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card"
@@ -19,7 +19,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 			<Card className="w-full max-w-2xl border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
 				<CardHeader className="text-center space-y-4 pb-4 pt-12">
 					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-red-500/20 to-red-500/10 flex items-center justify-center border border-red-500/20">
-						<AlertCircle className="h-10 w-10 text-red-400" />
+						<WarningCircle className="h-10 w-10 text-red-400" />
 					</div>
 					<CardTitle className="text-4xl font-bold tracking-tight">Ops! Algo deu errado</CardTitle>
 					<CardDescription className="text-zinc-400 text-lg">Encontramos um erro inesperado. Por favor, tente novamente.</CardDescription>
@@ -27,7 +27,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 
 				<CardContent className="px-8 pb-4">
 					<Alert variant="destructive" className="bg-red-500/10 border-red-500/20 text-red-400">
-						<AlertCircle className="h-4 w-4" />
+						<WarningCircle className="h-4 w-4" />
 						<AlertDescription className="ml-2">
 							<strong className="font-semibold">Detalhes do erro:</strong>
 							<br />
@@ -41,7 +41,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 						onClick={() => router.invalidate()}
 						className="w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
 					>
-						<RefreshCw className="mr-2 h-5 w-5" />
+						<Refresh className="mr-2 h-5 w-5" />
 						Tentar Novamente
 					</Button>
 

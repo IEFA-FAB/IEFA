@@ -1,7 +1,7 @@
 // Submission workflow helpers
 // Handles complete article submission flow with database transactions
 
-import { supabase } from "../supabase"
+import { journalDb } from "../supabase"
 import { createArticle, createArticleAuthors, createArticleVersion, updateArticle, uploadArticleFile } from "./client"
 import type { Article } from "./types"
 import type { CompleteSubmissionData } from "./validation"
@@ -78,8 +78,7 @@ export async function submitArticle(data: CompleteSubmissionData, userId: string
 		})
 
 		// Step 5: Log submission event
-		await supabase
-			.schema("journal")
+		await journalDb()
 			.from("article_events")
 			.insert({
 				article_id: article.id,
@@ -147,7 +146,7 @@ export async function saveDraft(data: Partial<CompleteSubmissionData>, userId: s
 		if (data.authors && data.authors.length > 0) {
 			// Delete existing authors first if updating
 			if (articleId) {
-				await supabase.schema("journal").from("article_authors").delete().eq("article_id", articleId)
+				await journalDb().from("article_authors").delete().eq("article_id", articleId)
 			}
 
 			const authorRecords = data.authors.map((author, index) => ({
@@ -179,12 +178,11 @@ export async function saveDraft(data: Partial<CompleteSubmissionData>, userId: s
  * Load a draft article for editing
  */
 export async function loadDraft(articleId: string) {
-	const { data: article, error: articleError } = await supabase.schema("journal").from("articles").select("*").eq("id", articleId).single()
+	const { data: article, error: articleError } = await journalDb().from("articles").select("*").eq("id", articleId).single()
 
 	if (articleError) throw articleError
 
-	const { data: authors, error: authorsError } = await supabase
-		.schema("journal")
+	const { data: authors, error: authorsError } = await journalDb()
 		.from("article_authors")
 		.select("*")
 		.eq("article_id", articleId)
@@ -218,7 +216,7 @@ export async function deleteDraft(articleId: string): Promise<boolean> {
  */
 export async function canEditArticle(articleId: string, userId: string): Promise<boolean> {
 	try {
-		const { data: article } = await supabase.schema("journal").from("articles").select("submitter_id, status").eq("id", articleId).single()
+		const { data: article } = await journalDb().from("articles").select("submitter_id, status").eq("id", articleId).single()
 
 		if (!article) return false
 

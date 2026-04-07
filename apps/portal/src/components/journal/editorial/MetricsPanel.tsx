@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react"
+import { CheckCircle, Clock, Page, WarningTriangle } from "iconoir-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 export function MetricsPanel() {
@@ -20,7 +20,7 @@ export function MetricsPanel() {
 					<CardHeader className="pb-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Total de Submissões</span>
-							<FileText className="size-4 text-muted-foreground" aria-hidden="true" />
+							<Page className="size-4 text-muted-foreground" aria-hidden="true" />
 						</div>
 					</CardHeader>
 					<CardContent>
@@ -59,7 +59,7 @@ export function MetricsPanel() {
 					<CardHeader className="pb-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Em Revisão</span>
-							<AlertTriangle className="size-4 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
+							<WarningTriangle className="size-4 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
 						</div>
 					</CardHeader>
 					<CardContent>
@@ -72,7 +72,7 @@ export function MetricsPanel() {
 					<CardHeader className="pb-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Revisões Pendentes</span>
-							<AlertTriangle className="size-4 text-red-600 dark:text-red-400" aria-hidden="true" />
+							<WarningTriangle className="size-4 text-red-600 dark:text-red-400" aria-hidden="true" />
 						</div>
 					</CardHeader>
 					<CardContent>

@@ -1,3 +1,17 @@
+import type {
+	Ceafa,
+	Folder,
+	FolderInsert,
+	FolderUpdate,
+	Nutrient,
+	Product,
+	ProductInsert,
+	ProductItem,
+	ProductItemInsert,
+	ProductItemUpdate,
+	ProductNutrient,
+	ProductUpdate,
+} from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery } from "@tanstack/react-query"
 import {
 	createFolderFn,
@@ -19,20 +33,6 @@ import {
 	updateProductFn,
 	updateProductItemFn,
 } from "@/server/products.fn"
-import type {
-	Ceafa,
-	Folder,
-	FolderInsert,
-	FolderUpdate,
-	Nutrient,
-	Product,
-	ProductInsert,
-	ProductItem,
-	ProductItemInsert,
-	ProductItemUpdate,
-	ProductNutrient,
-	ProductUpdate,
-} from "@/types/supabase.types"
 
 // ========================================
 // Query Options

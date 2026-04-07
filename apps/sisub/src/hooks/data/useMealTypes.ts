@@ -1,7 +1,7 @@
+import type { MealType, MealTypeInsert, MealTypeUpdate } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { createMealTypeFn, deleteMealTypeFn, fetchMealTypesFn, restoreMealTypeFn, updateMealTypeFn } from "@/server/meal-types.fn"
-import type { MealType, MealTypeInsert, MealTypeUpdate } from "@/types/supabase.types"
 
 /**
  * Query options para buscar meal types disponíveis

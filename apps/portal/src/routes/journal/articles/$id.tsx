@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, Calendar, Check, Copy, Download, ExternalLink, FileText, Tag, User } from "lucide-react"
+import { ArrowLeft, Calendar, Check, Copy, Download, Hashtag, OpenNewWindow, Page, User } from "iconoir-react"
 import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export const Route = createFileRoute("/journal/articles/$id")({
 	component: PublicArticleDetail,
@@ -29,6 +32,13 @@ interface ArticleDetail {
 	keywords_en?: string[]
 	subject_area: string
 	funding_info?: string
+}
+
+const ARTICLE_TYPE_LABELS: Record<string, string> = {
+	research: "Pesquisa",
+	review: "Revisão",
+	short_communication: "Comunicação Curta",
+	editorial: "Editorial",
 }
 
 function PublicArticleDetail() {
@@ -67,24 +77,24 @@ function PublicArticleDetail() {
 	if (isLoading) {
 		return (
 			<div className="space-y-6">
-				<div className="h-12 w-48 animate-pulse bg-muted rounded" />
-				<div className="h-64 animate-pulse bg-muted rounded" />
+				<Skeleton className="h-8 w-32 rounded-none" />
+				<Skeleton className="h-64 rounded-none" />
 			</div>
 		)
 	}
 
 	if (!article) {
 		return (
-			<div className="flex flex-col items-center justify-center py-16 text-center">
-				<div className="size-16 rounded-full bg-muted flex items-center justify-center mb-4">
-					<FileText className="size-8 text-muted-foreground" />
+			<div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border">
+				<div className="size-14 border border-border bg-muted flex items-center justify-center mb-5" aria-hidden="true">
+					<Page className="size-6 text-muted-foreground" />
 				</div>
-				<h3 className="text-lg font-semibold mb-2">Artigo não encontrado ou ainda não publicado</h3>
-				<p className="text-muted-foreground mb-6">Este artigo pode ainda estar em processo de revisão ou não existe.</p>
+				<h3 className="font-semibold text-base mb-2">Artigo não encontrado ou ainda não publicado</h3>
+				<p className="text-sm text-muted-foreground mb-6 max-w-sm text-pretty">Este artigo pode ainda estar em processo de revisão ou não existe.</p>
 				<Button
 					render={
 						<Link to="/journal/articles">
-							<ArrowLeft className="size-4 mr-2" />
+							<ArrowLeft className="size-4 mr-2" aria-hidden="true" />
 							Voltar à listagem
 						</Link>
 					}
@@ -111,14 +121,14 @@ function PublicArticleDetail() {
 	}
 
 	return (
-		<div className="space-y-8">
-			{/* Header */}
-			<div className="flex items-center gap-4">
+		<div className="relative flex flex-col w-full text-foreground">
+			{/* ─── Navegação de volta ──────────────────────────────────────────────── */}
+			<div className="mb-8">
 				<Button
 					render={
 						<Link to="/journal/articles">
-							<ArrowLeft className="size-4 mr-2" />
-							Voltar
+							<ArrowLeft className="size-4 mr-2" aria-hidden="true" />
+							Artigos Publicados
 						</Link>
 					}
 					variant="outline"
@@ -126,53 +136,62 @@ function PublicArticleDetail() {
 				/>
 			</div>
 
-			{/* Article Content */}
-			<div className="grid lg:grid-cols-[1fr_300px] gap-8">
-				{/* Main Content */}
-				<div className="space-y-6">
-					{/* Metadata Section */}
+			{/* ─── Conteúdo do artigo ──────────────────────────────────────────────── */}
+			<div className="grid lg:grid-cols-[1fr_280px] gap-10">
+				{/* Coluna principal */}
+				<div className="space-y-8 min-w-0">
+					{/* Metadados de topo */}
 					<div className="space-y-4">
-						<div className="flex items-center gap-2">
-							<span className="px-2.5 py-1 bg-primary/10 text-primary rounded text-xs font-medium capitalize">{article.article_type}</span>
+						<div className="flex flex-wrap items-center gap-2">
+							<Badge variant="secondary" className="uppercase tracking-[0.06em]">
+								{ARTICLE_TYPE_LABELS[article.article_type] ?? article.article_type}
+							</Badge>
 							{article.doi && (
 								<a
 									href={`https://doi.org/${article.doi}`}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="px-2.5 py-1 bg-muted hover:bg-muted/80 rounded text-xs font-mono inline-flex items-center gap-1"
+									className="inline-flex items-center gap-1 px-2 py-0.5 border border-border bg-muted hover:bg-accent text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
 								>
 									DOI: {article.doi}
-									<ExternalLink className="size-3" />
+									<OpenNewWindow className="size-3" aria-hidden="true" />
 								</a>
 							)}
 						</div>
 
-						<h1 className="text-4xl font-bold tracking-tight">{article.title_pt}</h1>
+						{/* Título em Lora — editorial */}
+						<h1 className="font-serif text-3xl md:text-4xl font-bold tracking-tight leading-tight">{article.title_pt}</h1>
 
-						{article.title_en && <h2 className="text-2xl text-muted-foreground">{article.title_en}</h2>}
+						{article.title_en && <p className="font-serif text-xl text-muted-foreground italic leading-snug">{article.title_en}</p>}
 
-						{/* Authors */}
-						<div className="flex items-center gap-2 text-lg">
-							<User className="size-5 text-muted-foreground" />
-							<div className="flex flex-wrap gap-2">
+						{/* Autores */}
+						<div className="flex items-start gap-2 text-base">
+							<User className="size-4 text-muted-foreground mt-0.5 shrink-0" aria-hidden="true" />
+							<div className="flex flex-wrap gap-x-1">
 								{article.authors.map((author, i) => (
 									<span key={i}>
 										{author.full_name}
 										{author.orcid && (
-											<a href={`https://orcid.org/${author.orcid}`} target="_blank" rel="noopener noreferrer" className="ml-1 text-primary hover:underline">
-												<ExternalLink className="inline size-3" />
+											<a
+												href={`https://orcid.org/${author.orcid}`}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
+												aria-label={`ORCID de ${author.full_name}`}
+											>
+												<OpenNewWindow className="inline size-3" aria-hidden="true" />
 											</a>
 										)}
-										{i < article.authors.length - 1 && ", "}
+										{i < article.authors.length - 1 && <span className="text-muted-foreground">,&nbsp;</span>}
 									</span>
 								))}
 							</div>
 						</div>
 
-						{/* Publication Info */}
+						{/* Informações de publicação */}
 						<div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-							<div className="flex items-center gap-2">
-								<Calendar className="size-4" />
+							<div className="flex items-center gap-1.5">
+								<Calendar className="size-3.5" aria-hidden="true" />
 								Publicado em {new Date(article.published_at).toLocaleDateString("pt-BR")}
 							</div>
 							{article.volume && (
@@ -182,143 +201,135 @@ function PublicArticleDetail() {
 							)}
 							{article.page_start && (
 								<span>
-									p. {article.page_start}-{article.page_end}
+									p. {article.page_start}–{article.page_end}
 								</span>
 							)}
 						</div>
 					</div>
 
-					{/* Abstract */}
-					<div className="space-y-3 p-6 border rounded-lg bg-card">
-						<h3 className="font-semibold text-lg">Resumo</h3>
-						<p className="text-muted-foreground leading-relaxed">{article.abstract_pt}</p>
+					<Separator />
+
+					{/* Resumo */}
+					<div className="p-6 border border-border bg-card space-y-3">
+						<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Resumo</h2>
+						<p className="font-serif text-base text-foreground leading-relaxed">{article.abstract_pt}</p>
 					</div>
 
 					{article.abstract_en && (
-						<div className="space-y-3 p-6 border rounded-lg bg-card">
-							<h3 className="font-semibold text-lg">Abstract</h3>
-							<p className="text-muted-foreground leading-relaxed">{article.abstract_en}</p>
+						<div className="p-6 border border-border bg-card space-y-3">
+							<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Abstract</h2>
+							<p className="font-serif text-base text-foreground leading-relaxed italic">{article.abstract_en}</p>
 						</div>
 					)}
 
-					{/* Keywords */}
+					{/* Palavras-chave */}
 					<div className="space-y-3">
-						<h3 className="font-semibold flex items-center gap-2">
-							<Tag className="size-4" />
+						<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground flex items-center gap-1.5">
+							<Hashtag className="size-3.5" aria-hidden="true" />
 							Palavras-chave
-						</h3>
+						</h2>
 						<div className="flex flex-wrap gap-2">
 							{article.keywords_pt?.map((keyword: string) => (
-								<span key={keyword} className="px-3 py-1 bg-muted rounded-full text-sm">
+								<Badge key={keyword} variant="outline" className="uppercase tracking-[0.04em]">
 									{keyword}
-								</span>
+								</Badge>
 							))}
 						</div>
 					</div>
 
 					{article.keywords_en && (
 						<div className="space-y-3">
-							<h3 className="font-semibold flex items-center gap-2">
-								<Tag className="size-4" />
+							<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground flex items-center gap-1.5">
+								<Hashtag className="size-3.5" aria-hidden="true" />
 								Keywords
-							</h3>
+							</h2>
 							<div className="flex flex-wrap gap-2">
 								{article.keywords_en.map((keyword: string) => (
-									<span key={keyword} className="px-3 py-1 bg-muted rounded-full text-sm">
+									<Badge key={keyword} variant="outline" className="uppercase tracking-[0.04em] italic">
 										{keyword}
-									</span>
+									</Badge>
 								))}
 							</div>
 						</div>
 					)}
 
-					{/* Citation Section */}
-					<div className="space-y-4 p-6 border rounded-lg bg-card">
-						<h3 className="font-semibold text-lg">Como Citar</h3>
+					<Separator />
 
-						{/* APA */}
-						<div className="space-y-2">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium">APA</span>
-								<Button variant="ghost" size="sm" onClick={() => copyCitation("apa", citations.apa)}>
-									{copiedCitation === "apa" ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
-								</Button>
-							</div>
-							<p className="text-sm text-muted-foreground p-3 bg-muted rounded font-mono">{citations.apa}</p>
-						</div>
+					{/* Como Citar */}
+					<div className="space-y-4">
+						<h2 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Como Citar</h2>
 
-						{/* ABNT */}
-						<div className="space-y-2">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium">ABNT</span>
-								<Button variant="ghost" size="sm" onClick={() => copyCitation("abnt", citations.abnt)}>
-									{copiedCitation === "abnt" ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
-								</Button>
+						{(["apa", "abnt", "bibtex"] as const).map((format) => (
+							<div key={format} className="border border-border bg-card">
+								<div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+									<span className="text-label text-muted-foreground">{format.toUpperCase()}</span>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => copyCitation(format, citations[format])}
+										aria-label={`Copiar citação ${format.toUpperCase()}`}
+									>
+										{copiedCitation === format ? <Check className="size-4" aria-hidden="true" /> : <Copy className="size-4" aria-hidden="true" />}
+									</Button>
+								</div>
+								{format === "bibtex" ? (
+									<pre className="p-4 text-xs text-muted-foreground font-mono overflow-x-auto whitespace-pre leading-relaxed">{citations[format]}</pre>
+								) : (
+									<p className="p-4 text-sm text-muted-foreground font-mono leading-relaxed">{citations[format]}</p>
+								)}
 							</div>
-							<p className="text-sm text-muted-foreground p-3 bg-muted rounded font-mono">{citations.abnt}</p>
-						</div>
-
-						{/* BibTeX */}
-						<div className="space-y-2">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium">BibTeX</span>
-								<Button variant="ghost" size="sm" onClick={() => copyCitation("bibtex", citations.bibtex)}>
-									{copiedCitation === "bibtex" ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
-								</Button>
-							</div>
-							<pre className="text-xs text-muted-foreground p-3 bg-muted rounded overflow-x-auto">{citations.bibtex}</pre>
-						</div>
+						))}
 					</div>
 				</div>
 
-				{/* Sidebar */}
-				<div className="space-y-6">
+				{/* ─── Barra lateral ─────────────────────────────────────────────── */}
+				<aside className="space-y-4" aria-label="Informações do artigo">
 					{/* Download */}
-					<div className="p-4 border rounded-lg bg-card space-y-3">
-						<h3 className="font-semibold">Arquivos</h3>
+					<div className="p-5 border border-border bg-card space-y-3">
+						<h3 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground">Arquivos</h3>
 						<Button className="w-full" disabled>
-							<Download className="size-4 mr-2" />
+							<Download className="size-4 mr-2" aria-hidden="true" />
 							Download PDF
 						</Button>
 						<p className="text-xs text-muted-foreground text-center">Arquivo disponível após publicação</p>
 					</div>
 
-					{/* Metrics Placeholder */}
-					<div className="p-4 border rounded-lg bg-card space-y-3">
-						<h3 className="font-semibold">Métricas</h3>
-						<div className="space-y-2 text-sm">
-							<div className="flex justify-between">
-								<span className="text-muted-foreground">Visualizações:</span>
-								<span className="font-semibold">-</span>
+					{/* Métricas */}
+					<div className="p-5 border border-border bg-card">
+						<h3 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground mb-3">Métricas</h3>
+						<div className="divide-y divide-border">
+							<div className="flex justify-between py-2.5 text-sm">
+								<span className="text-muted-foreground">Visualizações</span>
+								<span className="font-semibold tabular-nums">—</span>
 							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground">Downloads:</span>
-								<span className="font-semibold">-</span>
+							<div className="flex justify-between py-2.5 text-sm">
+								<span className="text-muted-foreground">Downloads</span>
+								<span className="font-semibold tabular-nums">—</span>
 							</div>
-							<div className="flex justify-between">
-								<span className="text-muted-foreground">Citações:</span>
-								<span className="font-semibold">-</span>
+							<div className="flex justify-between py-2.5 text-sm">
+								<span className="text-muted-foreground">Citações</span>
+								<span className="font-semibold tabular-nums">—</span>
 							</div>
 						</div>
 					</div>
 
-					{/* Info */}
-					<div className="p-4 border rounded-lg bg-card space-y-3">
-						<h3 className="font-semibold">Informações</h3>
-						<div className="space-y-2 text-sm">
-							<div>
-								<p className="text-muted-foreground">Área do Conhecimento</p>
-								<p className="font-medium">{article.subject_area}</p>
+					{/* Informações */}
+					<div className="p-5 border border-border bg-card">
+						<h3 className="font-semibold text-sm uppercase tracking-[0.06em] text-muted-foreground mb-3">Informações</h3>
+						<div className="divide-y divide-border">
+							<div className="py-2.5">
+								<p className="text-label text-muted-foreground mb-0.5">Área do Conhecimento</p>
+								<p className="text-sm font-medium">{article.subject_area}</p>
 							</div>
 							{article.funding_info && (
-								<div>
-									<p className="text-muted-foreground">Financiamento</p>
-									<p className="font-medium text-xs">{article.funding_info}</p>
+								<div className="py-2.5">
+									<p className="text-label text-muted-foreground mb-0.5">Financiamento</p>
+									<p className="text-sm font-medium font-mono">{article.funding_info}</p>
 								</div>
 							)}
 						</div>
 					</div>
-				</div>
+				</aside>
 			</div>
 		</div>
 	)

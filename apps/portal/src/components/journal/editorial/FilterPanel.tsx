@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react"
+import { Search, Xmark } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,7 +84,7 @@ export function FilterPanel({ onFilterChange, currentFilters }: FilterPanelProps
 				<h3 className="font-semibold text-lg">Filtros</h3>
 				{hasActiveFilters && (
 					<Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground">
-						<X className="size-4 mr-1" />
+						<Xmark className="size-4 mr-1" />
 						Limpar
 					</Button>
 				)}

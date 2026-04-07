@@ -1,3 +1,4 @@
+import type { ProductItem } from "@iefa/database/sisub"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Edit, PackagePlus, ShoppingCart, Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -18,7 +19,6 @@ import { Card } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
 import { useDeleteProductItem, useProductItems } from "@/services/ProductsService"
-import type { ProductItem } from "@/types/supabase.types"
 import { ProductItemForm } from "./ProductItemForm"
 
 interface ProductItemsManagerProps {
