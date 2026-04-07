@@ -5,14 +5,14 @@
     "": {
       "name": "iefa",
       "devDependencies": {
-        "@biomejs/biome": "^2.4.10",
-        "@commitlint/cli": "^20.5.0",
-        "@commitlint/config-conventional": "^20.5.0",
-        "commitizen": "^4.3.1",
-        "cz-git": "^1.12.0",
-        "husky": "^9.1.7",
-        "knip": "^6.3.0",
-        "turbo": "^2.9.5",
+        "@biomejs/biome": "latest",
+        "@commitlint/cli": "latest",
+        "@commitlint/config-conventional": "latest",
+        "commitizen": "latest",
+        "cz-git": "latest",
+        "husky": "latest",
+        "knip": "latest",
+        "turbo": "latest",
       },
     },
     "apps/ai": {
