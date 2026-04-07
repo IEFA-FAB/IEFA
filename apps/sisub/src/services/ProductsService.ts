@@ -6,6 +6,7 @@ import {
 	deleteFolderFn,
 	deleteProductFn,
 	deleteProductItemFn,
+	fetchCatmatItemsFn,
 	fetchCeafaFn,
 	fetchFoldersFn,
 	fetchNutrientsFn,
@@ -98,6 +99,14 @@ export const ceafaQueryOptions = (search?: string) =>
 		queryKey: ["products", "ceafa", search || ""],
 		queryFn: () => fetchCeafaFn({ data: { search } }) as Promise<Ceafa[]>,
 		staleTime: 10 * 60 * 1000,
+	})
+
+export const catmatQueryOptions = (search: string) =>
+	queryOptions({
+		queryKey: ["catmat", "items", search],
+		queryFn: () => fetchCatmatItemsFn({ data: { search } }),
+		staleTime: 5 * 60 * 1000,
+		enabled: search.trim().length >= 3,
 	})
 
 // ========================================

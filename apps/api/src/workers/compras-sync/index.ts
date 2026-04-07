@@ -27,29 +27,64 @@ const HEARTBEAT_TIMEOUT_MS = 90_000
 
 type StepFn = (supabase: SupabaseClient<any, any>, updateProgress: (page: number, totalPages: number, upserted: number) => Promise<void>) => Promise<number>
 
-const STEPS: Array<{ name: string; fn: StepFn }> = [
-	{ name: "material.grupo", fn: syncMaterialGrupo },
-	{ name: "material.classe", fn: syncMaterialClasse },
-	{ name: "material.pdm", fn: syncMaterialPdm },
-	{ name: "material.item", fn: syncMaterialItem },
-	{ name: "material.natureza_despesa", fn: syncMaterialNaturezaDespesa },
-	{ name: "material.unidade_fornecimento", fn: syncMaterialUnidadeFornecimento },
-	{ name: "material.caracteristica", fn: syncMaterialCaracteristica },
-	{ name: "servico.secao", fn: syncServicoSecao },
-	{ name: "servico.divisao", fn: syncServicoDivisao },
-	{ name: "servico.grupo", fn: syncServicoGrupo },
-	{ name: "servico.classe", fn: syncServicoClasse },
-	{ name: "servico.subclasse", fn: syncServicoSubclasse },
-	{ name: "servico.item", fn: syncServicoItem },
-	{ name: "servico.unidade_medida", fn: syncServicoUnidadeMedida },
-	{ name: "servico.natureza_despesa", fn: syncServicoNaturezaDespesa },
+/**
+ * Cada wave é um array de steps executados em paralelo entre si.
+ * As waves são executadas em sequência para respeitar dependências de FK.
+ *
+ * Hierarquia de dependências:
+ *   material: grupo → classe → pdm → [natureza_despesa ‖ unid_fornecimento ‖ item] → caracteristica
+ *   servico:  secao → divisao → grupo → classe → subclasse → item → [unid_medida ‖ natureza_despesa]
+ *
+ * Os módulos material e servico são independentes entre si e rodam em paralelo.
+ * material.item usa busca de páginas em paralelo internamente (ITEM_PAGE_CONCURRENCY).
+ */
+const WAVES: Array<Array<{ name: string; fn: StepFn }>> = [
+	// Wave 1 — raízes (sem dependências FK)
+	[
+		{ name: "material.grupo", fn: syncMaterialGrupo },
+		{ name: "servico.secao", fn: syncServicoSecao },
+	],
+	// Wave 2 — classe depende de grupo
+	[
+		{ name: "material.classe", fn: syncMaterialClasse },
+		{ name: "servico.divisao", fn: syncServicoDivisao },
+	],
+	// Wave 3 — pdm depende de classe; grupo_serv depende de divisao
+	[
+		{ name: "material.pdm", fn: syncMaterialPdm },
+		{ name: "servico.grupo", fn: syncServicoGrupo },
+	],
+	// Wave 4 — natureza_despesa e unid_fornecimento dependem apenas de pdm
+	//           classe_serv depende de grupo_serv
+	//           (nenhum dos três depende entre si → rodam em paralelo)
+	[
+		{ name: "material.natureza_despesa", fn: syncMaterialNaturezaDespesa },
+		{ name: "material.unidade_fornecimento", fn: syncMaterialUnidadeFornecimento },
+		{ name: "servico.classe", fn: syncServicoClasse },
+	],
+	// Wave 5 — item (300K+ registros, busca de páginas em paralelo)
+	//           subclasse depende de classe_serv
+	[
+		{ name: "material.item", fn: syncMaterialItem },
+		{ name: "servico.subclasse", fn: syncServicoSubclasse },
+	],
+	// Wave 6 — caracteristica depende de item; servico.item depende de subclasse
+	[
+		{ name: "material.caracteristica", fn: syncMaterialCaracteristica },
+		{ name: "servico.item", fn: syncServicoItem },
+	],
+	// Wave 7 — unid_medida e natureza_despesa_serv dependem de servico.item
+	[
+		{ name: "servico.unidade_medida", fn: syncServicoUnidadeMedida },
+		{ name: "servico.natureza_despesa", fn: syncServicoNaturezaDespesa },
+	],
 ]
 
 export interface RunComprasSyncOptions {
 	triggeredBy: "cron" | "manual"
 }
 
-// ── Verifica se um sync running está realmente vivo (heartbeat recente) ────────
+// ── Heartbeat liveness check ──────────────────────────────────────────────────
 
 export function isSyncLive(heartbeatAt: string | null, startedAt: string): boolean {
 	const threshold = Date.now() - HEARTBEAT_TIMEOUT_MS
@@ -60,10 +95,9 @@ export function isSyncLive(heartbeatAt: string | null, startedAt: string): boole
 	return new Date(heartbeatAt).getTime() > threshold
 }
 
-// ── Recupera syncs presas por morte de instância ───────────────────────────────
+// ── Recupera syncs presas por morte/restart de instância ──────────────────────
 
 async function recoverStaleSyncs(supabase: SupabaseClient<any, any>): Promise<void> {
-	// Busca syncs running com heartbeat velho OU sem heartbeat mas started_at antigo
 	const { data: stale, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
 
 	if (error || !stale?.length) return
@@ -76,21 +110,13 @@ async function recoverStaleSyncs(supabase: SupabaseClient<any, any>): Promise<vo
 
 		await supabase
 			.from("compras_sync_step")
-			.update({
-				status: "error",
-				error_message: "instance_died",
-				finished_at: new Date().toISOString(),
-			})
+			.update({ status: "error", error_message: "instance_died", finished_at: new Date().toISOString() })
 			.eq("sync_id", log.id)
 			.in("status", ["running", "pending"])
 
 		await supabase
 			.from("compras_sync_log")
-			.update({
-				status: "error",
-				error_message: "API instance died or restarted mid-sync",
-				finished_at: new Date().toISOString(),
-			})
+			.update({ status: "error", error_message: "API instance died or restarted mid-sync", finished_at: new Date().toISOString() })
 			.eq("id", log.id)
 	}
 
@@ -101,7 +127,6 @@ async function recoverStaleSyncs(supabase: SupabaseClient<any, any>): Promise<vo
 
 export async function hasLiveSync(supabase: SupabaseClient<any, any>): Promise<boolean> {
 	const { data, error } = await supabase.from("compras_sync_log").select("id, heartbeat_at, started_at").eq("status", "running")
-
 	if (error || !data?.length) return false
 	return data.some((s) => isSyncLive(s.heartbeat_at, s.started_at))
 }
@@ -113,6 +138,11 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 		db: { schema: "sisub" },
 		auth: { persistSession: false },
 	})
+
+	// Auto-recuperação: limpa syncs presas antes de verificar o lock.
+	// Garante que um restart da API desbloqueie imediatamente qualquer sync morta,
+	// mesmo em triggers manuais (não apenas no startup do worker).
+	await recoverStaleSyncs(supabase)
 
 	// ── Trava de concorrência (heartbeat-aware) ────────────────────────────────
 	if (await hasLiveSync(supabase)) {
@@ -130,36 +160,34 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 		.single()
 
 	if (logErr || !logRow) {
-		console.error("[compras-sync] Falha ao criar compras_sync_log:", logErr?.message)
 		throw new Error(`Falha ao criar compras_sync_log: ${logErr?.message}`)
 	}
 
 	const syncId = logRow.id as number
 
-	// Primeiro heartbeat imediato para garantir que o lock funcione
+	// Primeiro heartbeat imediato para que o lock funcione antes de qualquer step
 	await supabase.from("compras_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
 
-	console.log(`[compras-sync] Iniciando sync #${syncId} (${opts.triggeredBy})`)
+	console.log(`[compras-sync] Iniciando sync #${syncId} (${opts.triggeredBy}) — ${WAVES.length} waves, ${TOTAL_STEPS} steps`)
 
 	// ── Criar todos os step records como 'pending' ─────────────────────────────
-	const stepRows = STEPS.map((s) => ({
-		sync_id: syncId,
-		step_name: s.name,
-		status: "pending",
-	}))
-	const { error: stepsErr } = await supabase.from("compras_sync_step").insert(stepRows)
+	const allSteps = WAVES.flat()
+	const { error: stepsErr } = await supabase.from("compras_sync_step").insert(allSteps.map((s) => ({ sync_id: syncId, step_name: s.name, status: "pending" })))
+
 	if (stepsErr) {
 		await supabase.from("compras_sync_log").update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() }).eq("id", syncId)
 		throw new Error(`Falha ao criar steps: ${stepsErr.message}`)
 	}
 
-	// ── Executar cada step, checando stop_requested entre eles ────────────────
-	for (const step of STEPS) {
-		// Verifica flag de parada antes de cada step
+	// ── Executar waves em sequência; steps de cada wave em paralelo ───────────
+	for (let waveIdx = 0; waveIdx < WAVES.length; waveIdx++) {
+		const wave = WAVES[waveIdx]
+
+		// Verifica stop_requested antes de cada wave
 		const { data: logState } = await supabase.from("compras_sync_log").select("stop_requested").eq("id", syncId).single()
 
 		if (logState?.stop_requested) {
-			console.log(`[compras-sync] Stop solicitado — abortando antes de '${step.name}'`)
+			console.log(`[compras-sync] Stop solicitado — abortando antes da wave ${waveIdx + 1}`)
 			await supabase
 				.from("compras_sync_step")
 				.update({ status: "error", error_message: "manually stopped", finished_at: new Date().toISOString() })
@@ -172,31 +200,28 @@ export async function runComprasSync(opts: RunComprasSyncOptions): Promise<numbe
 			return syncId
 		}
 
-		await runStep(supabase, syncId, step.name, step.fn)
+		const stepNames = wave.map((s) => s.name).join(", ")
+		console.log(`[compras-sync] Wave ${waveIdx + 1}/${WAVES.length}: [${stepNames}]`)
+
+		// runStep nunca lança (captura internamente) — Promise.all sempre resolve
+		await Promise.all(wave.map((step) => runStep(supabase, syncId, step.name, step.fn)))
 	}
 
 	// ── Finalizar log geral ────────────────────────────────────────────────────
-	const { data: finalLog } = await supabase.from("compras_sync_log").select("successful_steps, failed_steps, stop_requested").eq("id", syncId).single()
+	const { data: finalLog } = await supabase.from("compras_sync_log").select("successful_steps, failed_steps").eq("id", syncId).single()
 
-	// Se stop foi solicitado no último step, já foi tratado acima; mas caso o
-	// step tenha completado antes do check, finalizamos normalmente
 	const failedSteps = finalLog?.failed_steps ?? 0
 	const successfulSteps = finalLog?.successful_steps ?? 0
-	let finalStatus: string
-	if (failedSteps === 0) {
-		finalStatus = "success"
-	} else if (successfulSteps > 0) {
-		finalStatus = "partial"
-	} else {
-		finalStatus = "error"
-	}
+	const finalStatus = failedSteps === 0 ? "success" : successfulSteps > 0 ? "partial" : "error"
 
 	await supabase.from("compras_sync_log").update({ status: finalStatus, finished_at: new Date().toISOString() }).eq("id", syncId)
 
-	console.log(`[compras-sync] Sync #${syncId} concluída: ${finalStatus} ` + `(${successfulSteps}/${TOTAL_STEPS} steps com sucesso)`)
+	console.log(`[compras-sync] Sync #${syncId} concluída: ${finalStatus} (${successfulSteps}/${TOTAL_STEPS} steps com sucesso)`)
 
 	return syncId
 }
+
+// ── Step runner ───────────────────────────────────────────────────────────────
 
 async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepName: string, fn: StepFn): Promise<void> {
 	console.log(`[compras-sync] Step '${stepName}' iniciando...`)
@@ -204,7 +229,8 @@ async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepN
 	const now = new Date().toISOString()
 	await Promise.all([
 		supabase.from("compras_sync_step").update({ status: "running", started_at: now }).eq("sync_id", syncId).eq("step_name", stepName),
-		// Heartbeat no início de cada step — garante liveness mesmo em steps lentos
+		// Heartbeat no início de cada step — múltiplos steps paralelos atualizam
+		// a mesma linha; o último writer vence mas qualquer um mantém o lock vivo
 		supabase.from("compras_sync_log").update({ heartbeat_at: now }).eq("id", syncId),
 	])
 
@@ -279,7 +305,8 @@ export async function startComprasSyncWorker() {
 		auth: { persistSession: false },
 	})
 
-	// Recupera syncs presas de instâncias mortas antes de qualquer coisa
+	// Recupera syncs presas de instâncias anteriores (belt-and-suspenders;
+	// runComprasSync também chama isso, mas aqui garante limpeza antes do schedule)
 	await recoverStaleSyncs(supabase)
 
 	scheduleNextRun()

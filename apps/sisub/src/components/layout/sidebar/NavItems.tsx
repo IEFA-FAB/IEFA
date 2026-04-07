@@ -8,6 +8,7 @@ import {
 	CalendarDays,
 	ChefHat,
 	ClipboardCheck,
+	FileText,
 	FlameKindling,
 	LayoutDashboard,
 	type LucideIcon,
@@ -50,8 +51,8 @@ export const ALL_MODULES: ModuleDef[] = [
 		name: "Comensal",
 		icon: UtensilsCrossed,
 		items: [
-			{ title: "Cardápio", url: "/diner/menu", icon: BookOpen },
 			{ title: "Previsão", url: "/diner/forecast", icon: Calendar },
+			{ title: "Cardápio", url: "/diner/menu", icon: BookOpen },
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode },
 			{ title: "Perfil", url: "/diner/profile", icon: User },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ClipboardCheck },
@@ -72,7 +73,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		hubUrl: "/unit",
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
-			{ title: "Suprimentos", url: "/unit/procurement", icon: ShoppingCart },
+			{ title: "ATAs", url: "/unit/procurement", icon: FileText },
 		],
 	},
 	{
@@ -85,6 +86,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays },
 			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar },
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
+			{ title: "Suprimentos", url: "/kitchen/suprimentos", icon: ShoppingCart },
 			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode },
 		],
 	},

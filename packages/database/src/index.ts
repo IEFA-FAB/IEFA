@@ -786,6 +786,80 @@ export type Database = {
 					},
 				]
 			}
+			kitchen_ata_draft: {
+				Row: {
+					created_at: string
+					id: string
+					kitchen_id: number
+					notes: string | null
+					status: string
+					title: string
+					updated_at: string | null
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					kitchen_id: number
+					notes?: string | null
+					status?: string
+					title: string
+					updated_at?: string | null
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number
+					notes?: string | null
+					status?: string
+					title?: string
+					updated_at?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "kitchen_ata_draft_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			kitchen_ata_draft_selection: {
+				Row: {
+					draft_id: string
+					id: string
+					repetitions: number
+					template_id: string
+				}
+				Insert: {
+					draft_id: string
+					id?: string
+					repetitions?: number
+					template_id: string
+				}
+				Update: {
+					draft_id?: string
+					id?: string
+					repetitions?: number
+					template_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "kitchen_ata_draft_selection_draft_id_fkey"
+						columns: ["draft_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen_ata_draft"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "kitchen_ata_draft_selection_template_id_fkey"
+						columns: ["template_id"]
+						isOneToOne: false
+						referencedRelation: "menu_template"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			meal_forecasts: {
 				Row: {
 					created_at: string | null
@@ -955,29 +1029,35 @@ export type Database = {
 				Row: {
 					base_template_id: string | null
 					created_at: string
+					default_headcount: number
 					deleted_at: string | null
 					description: string | null
 					id: string
 					kitchen_id: number | null
 					name: string | null
+					template_type: string
 				}
 				Insert: {
 					base_template_id?: string | null
 					created_at?: string
+					default_headcount?: number
 					deleted_at?: string | null
 					description?: string | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
+					template_type?: string
 				}
 				Update: {
 					base_template_id?: string | null
 					created_at?: string
+					default_headcount?: number
 					deleted_at?: string | null
 					description?: string | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
+					template_type?: string
 				}
 				Relationships: [
 					{
@@ -1000,6 +1080,7 @@ export type Database = {
 				Row: {
 					created_at: string
 					day_of_week: number | null
+					headcount_override: number | null
 					id: string
 					meal_type_id: string | null
 					menu_template_id: string | null
@@ -1008,6 +1089,7 @@ export type Database = {
 				Insert: {
 					created_at?: string
 					day_of_week?: number | null
+					headcount_override?: number | null
 					id?: string
 					meal_type_id?: string | null
 					menu_template_id?: string | null
@@ -1016,6 +1098,7 @@ export type Database = {
 				Update: {
 					created_at?: string
 					day_of_week?: number | null
+					headcount_override?: number | null
 					id?: string
 					meal_type_id?: string | null
 					menu_template_id?: string | null
@@ -1270,9 +1353,183 @@ export type Database = {
 					},
 				]
 			}
+			procurement_ata: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					notes: string | null
+					status: string
+					title: string
+					unit_id: number
+					updated_at: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					notes?: string | null
+					status?: string
+					title: string
+					unit_id: number
+					updated_at?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					notes?: string | null
+					status?: string
+					title?: string
+					unit_id?: number
+					updated_at?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_unit_id_fkey"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_ata_item: {
+				Row: {
+					ata_id: string
+					catmat_item_codigo: number | null
+					catmat_item_descricao: string | null
+					folder_description: string | null
+					folder_id: string | null
+					id: string
+					measure_unit: string | null
+					product_id: string | null
+					product_name: string
+					total_quantity: number
+					total_value: number | null
+					unit_price: number | null
+				}
+				Insert: {
+					ata_id: string
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					folder_description?: string | null
+					folder_id?: string | null
+					id?: string
+					measure_unit?: string | null
+					product_id?: string | null
+					product_name: string
+					total_quantity: number
+					total_value?: number | null
+					unit_price?: number | null
+				}
+				Update: {
+					ata_id?: string
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					folder_description?: string | null
+					folder_id?: string | null
+					id?: string
+					measure_unit?: string | null
+					product_id?: string | null
+					product_name?: string
+					total_quantity?: number
+					total_value?: number | null
+					unit_price?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_item_ata_id_fkey"
+						columns: ["ata_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_ata_item_product_id_fkey"
+						columns: ["product_id"]
+						isOneToOne: false
+						referencedRelation: "product"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_ata_kitchen: {
+				Row: {
+					ata_id: string
+					delivery_notes: string | null
+					id: string
+					kitchen_id: number
+				}
+				Insert: {
+					ata_id: string
+					delivery_notes?: string | null
+					id?: string
+					kitchen_id: number
+				}
+				Update: {
+					ata_id?: string
+					delivery_notes?: string | null
+					id?: string
+					kitchen_id?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_kitchen_ata_id_fkey"
+						columns: ["ata_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_ata_kitchen_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_ata_selection: {
+				Row: {
+					ata_kitchen_id: string
+					id: string
+					repetitions: number
+					template_id: string
+				}
+				Insert: {
+					ata_kitchen_id: string
+					id?: string
+					repetitions?: number
+					template_id: string
+				}
+				Update: {
+					ata_kitchen_id?: string
+					id?: string
+					repetitions?: number
+					template_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_selection_ata_kitchen_id_fkey"
+						columns: ["ata_kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata_kitchen"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_ata_selection_template_id_fkey"
+						columns: ["template_id"]
+						isOneToOne: false
+						referencedRelation: "menu_template"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			product: {
 				Row: {
 					catmat_item_codigo: number | null
+					catmat_item_descricao: string | null
 					ceafa_id: string | null
 					correction_factor: number | null
 					created_at: string
@@ -1282,9 +1539,11 @@ export type Database = {
 					id: string
 					legacy_id: number | null
 					measure_unit: string | null
+					unit_price: number | null
 				}
 				Insert: {
 					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -1294,9 +1553,11 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
+					unit_price?: number | null
 				}
 				Update: {
 					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -1306,6 +1567,7 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
+					unit_price?: number | null
 				}
 				Relationships: [
 					{

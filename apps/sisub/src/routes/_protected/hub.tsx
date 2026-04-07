@@ -1,13 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowUpRight } from "lucide-react"
 import { usePBAC } from "@/auth/pbac"
+import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
 import { UserProfileRow } from "@/components/layout/sidebar/NavUser"
 import { Card, CardContent } from "@/components/ui/card"
+import { Container } from "@/components/ui/container"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
+import { useTheme } from "@/hooks/ui/useTheme"
 import { cn } from "@/lib/cn"
 import { toNameCase } from "@/lib/utils"
 
@@ -50,13 +54,27 @@ const CARD_HOVER_CLASSES: Record<GroupColor, string> = {
 // ── Hub header ───────────────────────────────────────────────────────────────
 
 function HubHeader() {
+	const { toggle } = useTheme()
+
 	return (
-		<header className="shrink-0 border-b bg-card px-4 py-2 flex items-center justify-between">
-			<div className="flex items-center gap-2.5">
-				<img src="/favicon.svg" alt="SISUB" className="h-7 w-7 rounded-lg" />
-				<span className="font-semibold text-foreground text-sm tracking-wide">SISUB</span>
-			</div>
-			<UserProfileRow />
+		<header className="shrink-0 border-b border-border/60 bg-background">
+			<Container className="h-14 flex items-center justify-between gap-4">
+				<div className="flex items-center gap-4">
+					<Link
+						to="/"
+						className="font-mono font-bold text-base tracking-widest uppercase focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						aria-label="Página inicial - SISUB"
+					>
+						SISUB
+					</Link>
+					<Separator orientation="vertical" className="h-5" />
+					<span className="text-sm text-muted-foreground">Hub</span>
+				</div>
+				<div className="flex items-center gap-3">
+					<UserProfileRow />
+					<AnimatedThemeToggler toggle={toggle} />
+				</div>
+			</Container>
 		</header>
 	)
 }

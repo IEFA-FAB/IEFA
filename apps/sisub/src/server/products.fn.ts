@@ -75,6 +75,38 @@ export const fetchCeafaFn = createServerFn({ method: "GET" })
 		return result || []
 	})
 
+// ============================================================================
+// CATMAT (Catálogo de Materiais — Compras.gov.br)
+// ============================================================================
+
+export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ search: z.string() }))
+	.handler(async ({ data }) => {
+		const term = data.search.trim()
+		if (term.length < 2) return []
+
+		const isNumericCode = /^\d+$/.test(term)
+
+		let query = getSupabaseServerClient()
+			.from("compras_material_item")
+			.select("codigo_item, descricao_item, item_sustentavel")
+			.eq("status_item", true)
+			.limit(40)
+			.order("descricao_item", { ascending: true })
+
+		if (isNumericCode) {
+			// Exact code lookup — user typed a number
+			query = query.eq("codigo_item", parseInt(term, 10))
+		} else {
+			// Description search — relies on GIN trigram index for performance
+			query = query.ilike("descricao_item", `%${term}%`)
+		}
+
+		const { data: result, error } = await query
+		if (error) throw new Error(error.message)
+		return result ?? []
+	})
+
 const FolderWriteSchema = z.object({
 	description: z.string().nullable().optional(),
 	parent_id: z.string().nullable().optional(),
@@ -85,6 +117,9 @@ const ProductWriteSchema = z.object({
 	folder_id: z.string().nullable().optional(),
 	measure_unit: z.string().nullable().optional(),
 	correction_factor: z.number().nullable().optional(),
+	ceafa_id: z.string().nullable().optional(),
+	catmat_item_codigo: z.number().nullable().optional(),
+	catmat_item_descricao: z.string().nullable().optional(),
 })
 
 const ProductItemWriteSchema = z.object({

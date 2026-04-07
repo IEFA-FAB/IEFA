@@ -38,6 +38,10 @@ export type PlacesNode = Node<PlacesNodeData>
 
 // ─── Edge data ────────────────────────────────────────────────────────────────
 
+export type KitchenRelationColumn = "unit_id" | "purchase_unit_id" | "kitchen_id"
+export type MessHallRelationColumn = "unit_id" | "kitchen_id"
+export type RelationColumn = KitchenRelationColumn | MessHallRelationColumn
+
 /**
  * Each RelationType maps 1:1 to a FK column in the DB.
  * This is the canonical identifier used throughout the editor.
@@ -51,7 +55,7 @@ export interface PlacesEdgeData {
 	/** ID of the record that owns the FK (the source entity's DB id) */
 	sourceRecordId: number
 	/** The FK column name, e.g. "unit_id" */
-	fkColumn: string
+	fkColumn: RelationColumn
 	/** DB id of the original target — used for rollback */
 	originalTargetId: number
 	/** True when this edge has been reconnected but not yet saved */
@@ -63,15 +67,25 @@ export type PlacesEdge = Edge<PlacesEdgeData>
 
 // ─── Diff (pending changes to persist) ───────────────────────────────────────
 
-export interface PlacesDiff {
-	table: "kitchen" | "mess_halls"
-	recordId: number
-	column: string
-	previousValue: number
-	newValue: number
-	/** Shown in DirtyChangesBar for the user to review */
-	humanReadable: string
-}
+export type PlacesDiff =
+	| {
+			table: "kitchen"
+			recordId: number
+			column: KitchenRelationColumn
+			previousValue: number
+			newValue: number
+			/** Shown in DirtyChangesBar for the user to review */
+			humanReadable: string
+	  }
+	| {
+			table: "mess_halls"
+			recordId: number
+			column: MessHallRelationColumn
+			previousValue: number
+			newValue: number
+			/** Shown in DirtyChangesBar for the user to review */
+			humanReadable: string
+	  }
 
 // ─── UI state ─────────────────────────────────────────────────────────────────
 

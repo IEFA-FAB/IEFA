@@ -7,6 +7,12 @@ import { UserMenu } from "./UserMenu"
 import { Button } from "./ui/button"
 import { Separator } from "./ui/separator"
 
+const FOOTER_EXTERNAL_LINKS = [
+	{ label: "IEFA Virtual", href: "https://iefavirtual.educaer.fab.mil.br/", description: "Plataforma EaD do IEFA" },
+	{ label: "Força Aérea Brasileira", href: "https://www.fab.mil.br/", description: "Portal oficial da FAB" },
+	{ label: "SEFA", href: "https://www.fab.mil.br/sefa", description: "Secretaria de Ec., Fin. e Adm." },
+] as const
+
 interface AppLayoutProps {
 	children: ReactNode
 }
@@ -19,31 +25,14 @@ export function AppLayout({ children }: AppLayoutProps) {
 	const container = "w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
 
 	const navLinkClass =
-		"inline-flex items-center rounded-md text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.active]:bg-accent [&.active]:text-accent-foreground text-foreground hover:bg-accent hover:text-accent-foreground"
+		"inline-flex items-center text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&.active]:bg-accent [&.active]:text-accent-foreground text-foreground hover:bg-accent hover:text-accent-foreground"
 
 	return (
-		<div
-			className="
-        relative isolate flex flex-col bg-background text-foreground
-        min-h-svh supports-[height:100dvh]:min-h-dvh
-
-        before:content-[''] before:absolute before:inset-0 before:-z-10 before:pointer-events-none
-        before:bg-[radial-gradient(1200px_800px_at_10%_-10%,rgb(52_211_153/0.14),transparent_60%),radial-gradient(900px_600px_at_90%_0%,rgb(6_182_212/0.12),transparent_60%),radial-gradient(800px_800px_at_50%_100%,rgb(139_92_246/0.10),transparent_60%)]
-        dark:before:bg-[radial-gradient(1200px_800px_at_10%_-10%,rgb(110_231_183/0.18),transparent_60%),radial-gradient(900px_600px_at_90%_0%,rgb(34_211_238/0.16),transparent_60%),radial-gradient(800px_800px_at_50%_100%,rgb(167_139_250/0.14),transparent_60%)]
-
-        before:transform-gpu motion-safe:before:animate-[slow-pan_32s_ease-in-out_infinite]
-
-        after:content-[''] after:pointer-events-none after:absolute after:inset-0 after:-z-10
-        after:bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.8)_1px,transparent_1px)]
-        after:bg-size-[12px_12px] after:opacity-[0.02]
-        dark:after:opacity-[0.04]
-      "
-		>
+		<div className="relative isolate flex flex-col bg-background text-foreground min-h-svh supports-[height:100dvh]:min-h-dvh">
 			{/* Skip link para acessibilidade */}
 			<a
 				href="#conteudo"
-				className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100
-                     rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground shadow"
+				className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100 bg-primary px-3 py-2 text-sm text-primary-foreground"
 			>
 				Ir para o conteúdo
 			</a>
@@ -55,7 +44,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 					<div className="flex items-center gap-3">
 						<Link
 							to="/"
-							className="text-base sm:text-lg font-bold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-md px-1"
+							className="text-base sm:text-lg font-bold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 px-1"
 							aria-label="Página inicial - Portal IEFA"
 						>
 							Portal IEFA
@@ -70,21 +59,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 							<Link to="/journal" className={navLinkClass}>
 								Publicações
 							</Link>
-							{/* 
-							<a
-								href="https://app.previsaosisub.com.br/"
-								target="_blank"
-								rel="noreferrer noopener"
-								className={[
-									"inline-flex items-center rounded-md text-sm font-medium transition-colors",
-									"px-3 py-2 text-foreground hover:bg-accent hover:text-accent-foreground",
-									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-								].join(" ")}
-								aria-label="Abrir SISUB em nova aba"
-							>
-								SISUB
-								<ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
-							</a> */}
+							<Link to="/about" className={navLinkClass}>
+								Sobre
+							</Link>
 						</nav>
 					</div>
 
@@ -114,40 +91,104 @@ export function AppLayout({ children }: AppLayoutProps) {
 				{/* Navegação mobile */}
 				{mobileOpen && (
 					<div id="mobile-nav" className="md:hidden border-t bg-background">
-						<div className={`${container} py-3 flex flex-col gap-2`}>
+						<div className={`${container} py-3 flex flex-col gap-1`}>
 							<Link
-								to="/facilities/pregoeiro"
-								className="w-full px-3 py-2 rounded-md text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
+								to="/facilities"
+								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
 								onClick={() => setMobileOpen(false)}
 							>
 								Facilidades
 							</Link>
-
-							<a
-								href="https://app.previsaosisub.com.br/"
-								target="_blank"
-								rel="noreferrer noopener"
-								className="w-full px-3 py-2 rounded-md text-sm inline-flex items-center justify-between transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+							<Link
+								to="/journal"
+								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
 								onClick={() => setMobileOpen(false)}
-								aria-label="Abrir SISUB em nova aba"
 							>
-								SISUB
-								<ExternalLink className="h-4 w-4" aria-hidden="true" />
-							</a>
+								Publicações
+							</Link>
+							<Link
+								to="/about"
+								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
+								onClick={() => setMobileOpen(false)}
+							>
+								Sobre o IEFA
+							</Link>
 						</div>
 					</div>
 				)}
 			</header>
 
 			{/* Conteúdo */}
-			<main id="conteudo" className="flex-1 flex items-center align-middle content-center">
+			<main id="conteudo" className="flex-1">
 				<div className={`${container} py-8 md:py-10`}>{children}</div>
 			</main>
 
 			{/* Rodapé */}
 			<footer className="border-t">
-				<div className={`${container} h-14 flex items-center justify-center text-xs text-muted-foreground`}>
-					© {new Date().getFullYear()} IEFA. <b>Desenvolvido por Ten Nanni (IEFA)</b>. Alguns serviços são externos e podem exigir login próprio.
+				{/* Corpo do footer */}
+				<div className={`${container} py-10 grid grid-cols-1 sm:grid-cols-3 gap-8`}>
+					{/* Coluna 1 — Identidade */}
+					<div className="flex flex-col gap-3">
+						<span className="font-bold text-sm">Portal IEFA</span>
+						<p className="text-xs text-muted-foreground leading-relaxed">Instituto de Economia, Finanças e Administração da Aeronáutica.</p>
+						<p className="text-xs text-muted-foreground">SEFA · Comando da Aeronáutica · Ministério da Defesa</p>
+						<p className="text-xs text-muted-foreground">Rio de Janeiro — RJ</p>
+					</div>
+
+					{/* Coluna 2 — Navegação */}
+					<nav aria-label="Links do rodapé">
+						<p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Navegação</p>
+						<ul className="flex flex-col gap-2">
+							<li>
+								<Link to="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Início
+								</Link>
+							</li>
+							<li>
+								<Link to="/facilities" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Facilidades
+								</Link>
+							</li>
+							<li>
+								<Link to="/journal" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Publicações
+								</Link>
+							</li>
+							<li>
+								<Link to="/about" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Sobre o IEFA
+								</Link>
+							</li>
+						</ul>
+					</nav>
+
+					{/* Coluna 3 — Links externos */}
+					<div>
+						<p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Links externos</p>
+						<ul className="flex flex-col gap-3">
+							{FOOTER_EXTERNAL_LINKS.map(({ label, href, description }) => (
+								<li key={label}>
+									<a href={href} target="_blank" rel="noreferrer noopener" className="group flex flex-col gap-0.5" aria-label={`Abrir ${label} em nova aba`}>
+										<span className="inline-flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+											{label}
+											<ExternalLink className="h-3 w-3" aria-hidden="true" />
+										</span>
+										<span className="text-xs text-muted-foreground/60">{description}</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+				</div>
+
+				{/* Barra inferior */}
+				<div className="border-t">
+					<div className={`${container} h-12 flex items-center justify-between gap-4 text-xs text-muted-foreground`}>
+						<span>
+							© {new Date().getFullYear()} IEFA. <strong>Desenvolvido por Ten Nanni (IEFA)</strong>.
+						</span>
+						<span className="hidden sm:inline shrink-0">Serviços externos podem exigir login próprio.</span>
+					</div>
 				</div>
 			</footer>
 		</div>

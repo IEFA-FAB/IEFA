@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { PlacesGraphData } from "@/types/domain/places"
+import type { KitchenUpdate, MessHallUpdate } from "@/types/supabase.types"
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -72,12 +73,40 @@ export const updatePlacesEntityFn = createServerFn({ method: "POST" })
 
 // ─── Apply relation diffs (batch) ─────────────────────────────────────────────
 
-const diffItemSchema = z.object({
-	table: z.enum(["kitchen", "mess_halls"]),
-	recordId: z.number(),
-	column: z.string(),
-	newValue: z.number(),
-})
+const diffItemSchema = z.discriminatedUnion("table", [
+	z.object({
+		table: z.literal("kitchen"),
+		recordId: z.number(),
+		column: z.enum(["unit_id", "purchase_unit_id", "kitchen_id"]),
+		newValue: z.number(),
+	}),
+	z.object({
+		table: z.literal("mess_halls"),
+		recordId: z.number(),
+		column: z.enum(["unit_id", "kitchen_id"]),
+		newValue: z.number(),
+	}),
+])
+
+function buildKitchenUpdate(column: "unit_id" | "purchase_unit_id" | "kitchen_id", newValue: number): KitchenUpdate {
+	switch (column) {
+		case "unit_id":
+			return { unit_id: newValue }
+		case "purchase_unit_id":
+			return { purchase_unit_id: newValue }
+		case "kitchen_id":
+			return { kitchen_id: newValue }
+	}
+}
+
+function buildMessHallUpdate(column: "unit_id" | "kitchen_id", newValue: number): MessHallUpdate {
+	switch (column) {
+		case "unit_id":
+			return { unit_id: newValue }
+		case "kitchen_id":
+			return { kitchen_id: newValue }
+	}
+}
 
 export const applyPlacesDiffFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ diffs: z.array(diffItemSchema) }))
@@ -85,10 +114,10 @@ export const applyPlacesDiffFn = createServerFn({ method: "POST" })
 		const client = getSupabaseServerClient()
 
 		for (const diff of data.diffs) {
-			const { error } = await client
-				.from(diff.table)
-				.update({ [diff.column]: diff.newValue })
-				.eq("id", diff.recordId)
+			const { error } =
+				diff.table === "kitchen"
+					? await client.from("kitchen").update(buildKitchenUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
+					: await client.from("mess_halls").update(buildMessHallUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
 
 			if (error) {
 				throw new Error(`Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${error.message}`)

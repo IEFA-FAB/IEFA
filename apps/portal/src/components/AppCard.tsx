@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ExternalLink, Github, User } from "lucide-react"
+import { ExternalLink, GitBranch, User } from "lucide-react"
 import type { AppItem } from "@/types/domain"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
@@ -9,7 +9,7 @@ export function AppCard({ app }: { app: AppItem }) {
 	const isExternal = app.external && !!app.href
 
 	return (
-		<Card className="group flex h-full flex-col border border-border bg-card text-card-foreground transition-all hover:border-primary/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-primary/40">
+		<Card className="group flex h-full flex-col border border-border bg-card text-card-foreground transition-all hover:border-foreground hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_var(--foreground)] focus-within:ring-2 focus-within:ring-ring/50">
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 mt-0">
 				<div className="flex items-center gap-2">
 					<span aria-hidden="true" className="text-primary">
@@ -43,7 +43,7 @@ export function AppCard({ app }: { app: AppItem }) {
 						<ul className="mt-2 flex flex-row gap-x-8 gap-y-1.5">
 							{app.contributors.map((c, idx) => {
 								const isGithub = c.url?.includes("github.com")
-								const iconEl = c.icon ?? (isGithub ? <Github className="h-4 w-4" aria-hidden="true" /> : <User className="h-4 w-4" aria-hidden="true" />)
+								const iconEl = c.icon ?? (isGithub ? <GitBranch className="h-4 w-4" aria-hidden="true" /> : <User className="h-4 w-4" aria-hidden="true" />)
 
 								return (
 									<li key={`${c.label}-${idx}`} className="flex items-center gap-2">

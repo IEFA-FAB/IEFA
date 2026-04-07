@@ -23,14 +23,25 @@ export function buildDiffFromReconnection(edge: PlacesEdge, newTargetNodeId: str
 	const originalTargetLabel = getNodeLabel(allNodes, edge.target)
 	const newTargetLabel = getNodeLabel(allNodes, newTargetNodeId)
 	const relationLabel = RELATION_LABELS[edge.data.relationType] ?? edge.data.fkColumn
-	const table = edge.data.relationType.startsWith("kitchen") ? ("kitchen" as const) : ("mess_halls" as const)
+	const humanReadable = `${sourceLabel}: ${relationLabel} de "${originalTargetLabel}" → "${newTargetLabel}"`
+
+	if (edge.data.relationType.startsWith("kitchen")) {
+		return {
+			table: "kitchen",
+			recordId: edge.data.sourceRecordId,
+			column: edge.data.fkColumn as "unit_id" | "purchase_unit_id" | "kitchen_id",
+			previousValue: edge.data.originalTargetId,
+			newValue: newTargetId,
+			humanReadable,
+		}
+	}
 
 	return {
-		table,
+		table: "mess_halls",
 		recordId: edge.data.sourceRecordId,
-		column: edge.data.fkColumn,
+		column: edge.data.fkColumn as "unit_id" | "kitchen_id",
 		previousValue: edge.data.originalTargetId,
 		newValue: newTargetId,
-		humanReadable: `${sourceLabel}: ${relationLabel} de "${originalTargetLabel}" → "${newTargetLabel}"`,
+		humanReadable,
 	}
 }

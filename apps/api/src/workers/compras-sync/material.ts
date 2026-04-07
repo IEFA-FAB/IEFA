@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { fetchAllPages } from "./client.ts"
+import { calcConcurrency, fetchAllPages, fetchAllPagesParallel } from "./client.ts"
 import type {
 	ComprasCaracteristicaMaterial,
 	ComprasClasseMaterial,
@@ -77,9 +77,15 @@ export async function syncMaterialPdm(supabase: SupabaseClient, updateProgress: 
 // ─── Step 4: Item ─────────────────────────────────────────────────────────────
 
 export async function syncMaterialItem(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
-	let totalUpserted = 0
 	// Sem filtro de status — necessário para detectar itens desativados
-	for await (const { page, pageNumber } of fetchAllPages<ComprasItemMaterial>("modulo-material/4_consultarItemMaterial")) {
+	let totalUpserted = 0
+	let completedPages = 0
+	let totalPages = 0
+
+	const concurrency = calcConcurrency()
+	await fetchAllPagesParallel<ComprasItemMaterial>("modulo-material/4_consultarItemMaterial", {}, concurrency, async (page, pageNumber) => {
+		totalPages = page.totalPaginas
+
 		const rows = page.resultado.map((r) => ({
 			codigo_item: r.codigoItem,
 			codigo_pdm: r.codigoPdm ?? null,
@@ -92,12 +98,18 @@ export async function syncMaterialItem(supabase: SupabaseClient, updateProgress:
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
+
 		// Trigger no banco cuida do first_deactivation_detected_at
 		const { error } = await supabase.from("compras_material_item").upsert(rows)
-		if (error) throw new Error(`upsert item: ${error.message}`)
+		if (error) throw new Error(`upsert item (p${pageNumber}): ${error.message}`)
+
+		// Acumuladores são seguros: JS usa event loop cooperativo (single-thread)
 		totalUpserted += rows.length
-		await updateProgress(pageNumber, page.totalPaginas, totalUpserted)
-	}
+		completedPages++
+		// current_page aqui representa páginas concluídas (não a página em curso)
+		await updateProgress(completedPages, totalPages, totalUpserted)
+	})
+
 	return totalUpserted
 }
 

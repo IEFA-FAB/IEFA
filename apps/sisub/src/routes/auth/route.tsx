@@ -1,15 +1,28 @@
-// src/routes/auth.tsx
+// Routing
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
+// Icons
+import { ArrowLeft } from "lucide-react"
+// Validation
 import { z } from "zod"
+// Layout
+import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
+import { Button } from "@/components/ui/button"
+import { Container } from "@/components/ui/container"
+import { Separator } from "@/components/ui/separator"
+// Hooks
+import { useTheme } from "@/hooks/ui/useTheme"
 
-// Validação para garantir que o redirect seja seguro e opcional
+/* ========================================================================
+   ROUTE DEFINITION
+   ======================================================================== */
+
 const authSearchSchema = z.object({
 	redirect: z.string().optional(),
 })
 
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
-	// Proteção Inversa: Se já estiver logado, não deixa ver login/register
+	// Proteção Inversa: se já estiver autenticado, redireciona para o sistema
 	beforeLoad: ({ context, search }) => {
 		const { user } = context.auth
 		if (user) {
@@ -19,24 +32,66 @@ export const Route = createFileRoute("/auth")({
 	component: AuthLayout,
 })
 
+/* ========================================================================
+   LAYOUT
+   ======================================================================== */
+
 function AuthLayout() {
+	const { toggle } = useTheme()
+
 	return (
-		<div className="w-full align-center justify-center items-center min-h-screen w-full flex flex-col items-center justify-center p-4">
-			{/* Ambient Light Effect matching Landing Page */}
-			<div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -z-10 opacity-50" />
+		<div className="relative flex flex-col min-h-svh bg-background text-foreground">
+			{/* ============================================================
+			    HEADER — mesma família do _public/route.tsx, sem nav principal
+			    ============================================================ */}
+			<header className="border-b border-border/60 bg-background">
+				<Container className="h-14 flex items-center justify-between gap-4">
+					{/* Brand + Breadcrumb */}
+					<div className="flex items-center gap-4">
+						<Link
+							to="/"
+							className="font-mono font-bold text-base tracking-widest uppercase focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+							aria-label="Página inicial — SISUB"
+						>
+							SISUB
+						</Link>
+						<Separator orientation="vertical" className="h-5 hidden md:block" />
+						<span className="hidden md:block font-mono text-xs text-muted-foreground tracking-[0.15em] uppercase">Acesso ao Sistema</span>
+					</div>
 
-			<div className="w-full relative z-10">
-				{/* Header Brand */}
-				<div className="text-center mb-8 animate-fade-in-up">
-					<Link to="/" className="inline-block hover:opacity-80 transition-opacity">
-						<img src="/favicon.svg" alt="IEFA" className="h-16 w-auto mx-auto" />
-					</Link>
-					<h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Bem-vindo ao IEFA</h1>
-				</div>
+					{/* Actions: Voltar + Theme Toggle */}
+					<div className="flex items-center gap-3">
+						<Button
+							variant="ghost"
+							size="sm"
+							nativeButton={false}
+							render={
+								<Link to="/" className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+									<ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+									Início
+								</Link>
+							}
+						/>
+						<AnimatedThemeToggler toggle={toggle} />
+					</div>
+				</Container>
+			</header>
 
-				{/* Onde as páginas (Login, Register) serão renderizadas */}
+			{/* ============================================================
+			    MAIN — flex-1 flex passa a altura toda para o Outlet
+			    ============================================================ */}
+			<main id="conteudo" className="flex-1 flex">
 				<Outlet />
-			</div>
+			</main>
+
+			{/* ============================================================
+			    FOOTER
+			    ============================================================ */}
+			<footer className="border-t">
+				<Container className="h-14 flex items-center justify-center font-mono text-xs text-muted-foreground">
+					© {new Date().getFullYear()} SISUB · Sistema de Subsistência · FAB
+				</Container>
+			</footer>
 		</div>
 	)
 }

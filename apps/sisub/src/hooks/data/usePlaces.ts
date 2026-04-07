@@ -43,12 +43,21 @@ export function useApplyPlacesDiff() {
 		mutationFn: (diffs: PlacesDiff[]) =>
 			applyPlacesDiffFn({
 				data: {
-					diffs: diffs.map((d) => ({
-						table: d.table,
-						recordId: d.recordId,
-						column: d.column,
-						newValue: d.newValue,
-					})),
+					diffs: diffs.map((d) =>
+						d.table === "kitchen"
+							? {
+									table: "kitchen" as const,
+									recordId: d.recordId,
+									column: d.column,
+									newValue: d.newValue,
+								}
+							: {
+									table: "mess_halls" as const,
+									recordId: d.recordId,
+									column: d.column,
+									newValue: d.newValue,
+								}
+					),
 				},
 			}),
 		onMutate: () => {

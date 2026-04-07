@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ProcurementNeed } from "@/services/ProcurementService"
 
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
 interface ProcurementTableProps {
 	data: ProcurementNeed[]
 	isLoading?: boolean
@@ -76,21 +78,31 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<div className="rounded-md border">
+						<div className="rounded-md border overflow-x-auto">
 							<Table>
 								<TableHeader>
 									<TableRow>
+										<TableHead className="w-28">CATMAT</TableHead>
 										<TableHead>Produto</TableHead>
 										<TableHead className="text-right">Quantidade</TableHead>
 										<TableHead className="text-right">Unidade</TableHead>
+										<TableHead className="text-right">Preço Un.</TableHead>
+										<TableHead className="text-right">Total Est.</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
 									{items.map((item) => (
 										<TableRow key={item.product_id}>
+											<TableCell className="font-mono text-xs text-muted-foreground">{item.catmat_item_codigo || "—"}</TableCell>
 											<TableCell className="font-medium">{item.product_name}</TableCell>
 											<TableCell className="text-right tabular-nums">{item.total_quantity.toFixed(2)}</TableCell>
 											<TableCell className="text-right text-muted-foreground">{item.measure_unit || "UN"}</TableCell>
+											<TableCell className="text-right tabular-nums text-sm">
+												{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
+											</TableCell>
+											<TableCell className="text-right tabular-nums text-sm font-medium">
+												{item.total_value !== null ? BRL.format(item.total_value) : <span className="text-muted-foreground">—</span>}
+											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>

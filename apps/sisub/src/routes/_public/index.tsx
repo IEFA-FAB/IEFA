@@ -1,22 +1,24 @@
 // Routing
 import { createFileRoute, Link } from "@tanstack/react-router"
 // Icons
+import type { LucideIcon } from "lucide-react"
 import {
 	BarChart3,
-	Bell,
 	BookOpen,
-	Cake,
+	Building2,
 	Calendar,
+	ChefHat,
 	ChevronRight,
 	ChevronsDown,
 	ClipboardCheck,
 	Clock,
-	Coffee,
 	FileText,
-	Pizza,
+	Flame,
+	Globe,
 	QrCode,
 	Settings,
 	ShieldCheck,
+	Truck,
 	Users,
 	UtensilsCrossed,
 } from "lucide-react"
@@ -24,8 +26,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { InfoPanel } from "@/components/ui/info-panel"
+import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { SectionLabel } from "@/components/ui/section-label"
-import type { MealType } from "@/types/domain/meal"
 import type { Feature, Step } from "@/types/ui"
 
 /* ========================================================================
@@ -34,59 +36,68 @@ import type { Feature, Step } from "@/types/ui"
 
 export const steps: Step[] = [
 	{
-		icon: ShieldCheck,
-		title: "Faça Login",
-		description: "Acesse com suas credenciais militares de forma segura.",
-	},
-	{
 		icon: Calendar,
-		title: "Selecione os Dias",
-		description: "Visualize os próximos 30 dias e marque as refeições que irá consumir.",
+		title: "Planejar",
+		description: "Nutricionistas montam cardápios com equilíbrio nutricional. Unidades preparam aquisições sincronizadas com o ComprasGov.",
 	},
 	{
-		icon: ClipboardCheck,
-		title: "Confirmação Automática",
-		description: "Suas seleções são salvas automaticamente, auxiliando na previsão de demanda do rancho.",
+		icon: UtensilsCrossed,
+		title: "Produzir e Servir",
+		description: "Cozinhas executam com foco no que cada cozinheiro precisa fazer agora. Refeitórios controlam o fluxo de entrada e a presença dos comensais.",
+	},
+	{
+		icon: BarChart3,
+		title: "Governar e Analisar",
+		description: "Administração padroniza insumos e mantém o organograma. Analytics fecha o ciclo com inteligência operacional sobre toda a cadeia.",
 	},
 ]
 
-export const mealTypes: MealType[] = [
-	{ icon: Coffee, label: "Café da Manhã", time: "06:00 — 08:00", color: "amber" },
-	{ icon: UtensilsCrossed, label: "Almoço", time: "11:30 — 13:30", color: "blue" },
-	{ icon: Pizza, label: "Janta", time: "18:00 — 20:00", color: "orange" },
-	{ icon: Cake, label: "Ceia", time: "21:00 — 22:00", color: "purple" },
+type Module = {
+	icon: LucideIcon
+	label: string
+	role: string
+}
+
+export const modules: Module[] = [
+	{ icon: UtensilsCrossed, label: "Comensal", role: "Militar" },
+	{ icon: Building2, label: "Refeitório", role: "Fiscal" },
+	{ icon: Truck, label: "Unidade", role: "Gestor de OM" },
+	{ icon: ChefHat, label: "Cozinha", role: "Nutricionista" },
+	{ icon: Flame, label: "Produção", role: "Cozinheiro" },
+	{ icon: Globe, label: "Global", role: "Administrador" },
+	{ icon: BarChart3, label: "Análises", role: "Gestão" },
 ]
 
 export const features: Feature[] = [
 	{
-		icon: BarChart3,
-		title: "Planejamento de 30 dias",
-		description: "Visualize e planeje refeições para os próximos 30 dias.",
+		icon: ClipboardCheck,
+		title: "Planejamento Nutricional",
+		description: "Cardápios com controle de nutrientes, templates semanais e calendário mensal de produção.",
 	},
 	{
 		icon: QrCode,
-		title: "4 tipos de refeição",
-		description: "Café da manhã, almoço, janta e ceia — marque o que irá consumir.",
+		title: "Controle de Presença",
+		description: "Acesso ao refeitório por QR code com registro automático de presenças e auditoria.",
+	},
+	{
+		icon: FileText,
+		title: "Integração ComprasGov",
+		description: "Geração de listas de necessidades e pedidos de empenho sincronizados com o sistema federal.",
+	},
+	{
+		icon: BarChart3,
+		title: "Business Intelligence",
+		description: "Dashboards e KPIs sobre consumo, desperdício, demanda e eficiência operacional.",
 	},
 	{
 		icon: Users,
-		title: "Por Organização Militar",
-		description: "Controle organizado por OM para gestão eficiente do rancho.",
-	},
-	{
-		icon: Bell,
-		title: "Interface responsiva",
-		description: "Acesse de computador, tablet ou smartphone.",
-	},
-	{
-		icon: ShieldCheck,
-		title: "Seguro e confiável",
-		description: "Autenticação protegida com dados seguros.",
+		title: "Multi-perfil e PBAC",
+		description: "Controle de acesso por módulo e entidade: cada ator opera apenas no seu escopo.",
 	},
 	{
 		icon: Settings,
-		title: "Controle de demanda",
-		description: "Auxilia a administração a prever demanda e reduzir desperdício.",
+		title: "Padronização Sistêmica",
+		description: "Catálogo centralizado de insumos e preparações para toda a rede de unidades.",
 	},
 ]
 
@@ -100,7 +111,8 @@ export const Route = createFileRoute("/_public/")({
 			{ title: "SISUB - Sistema de Subsistência" },
 			{
 				name: "description",
-				content: "Sistema inteligente para previsão de demanda do rancho. Planeje suas refeições, reduza desperdícios e otimize a gestão alimentar.",
+				content:
+					"Plataforma integrada de gestão de subsistência da Força Aérea Brasileira. Do planejamento nutricional ao empenho de insumos — um sistema para toda a cadeia do rancho.",
 			},
 		],
 	}),
@@ -117,14 +129,14 @@ function Home() {
 			{/* Hero */}
 			<section className="min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
 				<div className="flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
-					<p className="font-mono text-xs text-muted-foreground/60 tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
+					<p className="font-mono text-xs text-muted-foreground tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
 					<h1 className="text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold tracking-tight leading-[0.95] text-foreground mb-8 md:mb-10">
-						Planeje
+						Gestão
 						<br />
-						<span className="text-primary">seu rancho.</span>
+						<span className="text-primary">integrada.</span>
 					</h1>
 					<p className="text-muted-foreground text-base md:text-xl leading-relaxed mb-10 md:mb-12 max-w-sm md:max-w-md">
-						Preveja demanda, reduza desperdício e gerencie refeições por OM.
+						Da previsão do comensal ao empenho de insumos — uma plataforma para toda a cadeia de subsistência da FAB.
 					</p>
 					<div className="flex flex-wrap items-center gap-4 md:gap-6">
 						<Button
@@ -148,15 +160,17 @@ function Home() {
 				</div>
 			</section>
 
-			{/* Como Funciona */}
+			{/* A cadeia operacional */}
 			<section id="steps" className="py-12 md:py-16 border-t border-border">
-				<SectionLabel index="01" label="Como funciona" />
+				<SectionLabel index="01" label="A cadeia operacional" />
 				<div className="mt-8 divide-y divide-border">
 					{steps.map((step, i) => {
 						const Icon = step.icon
 						return (
 							<div key={step.title} className="flex items-start gap-5 py-5 stagger-item">
-								<span className="font-mono text-3xl font-bold text-border tabular-nums leading-none min-w-[2.5rem]">{String(i + 1).padStart(2, "0")}</span>
+								<span className="font-mono text-3xl font-bold text-muted-foreground tabular-nums leading-none min-w-[2.5rem]">
+									{String(i + 1).padStart(2, "0")}
+								</span>
 								<div className="pt-0.5">
 									<div className="flex items-center gap-2 mb-1">
 										<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
@@ -170,25 +184,27 @@ function Home() {
 				</div>
 			</section>
 
-			{/* Refeições */}
-			<section id="meals" className="py-12 md:py-16 border-t border-border">
-				<SectionLabel index="02" label="Refeições disponíveis" />
-				<div className="mt-8 border border-border rounded-md overflow-hidden divide-y divide-border">
-					{mealTypes.map((meal) => {
-						const Icon = meal.icon
+			{/* Os módulos */}
+			<section id="modules" className="py-12 md:py-16 border-t border-border">
+				<SectionLabel index="02" label="Os módulos" />
+				<ul className="mt-8 border border-border rounded-md overflow-hidden divide-y divide-border bg-card">
+					{modules.map((mod) => {
+						const Icon = mod.icon
 						return (
-							<div key={meal.label} className="flex items-center justify-between px-5 py-4 bg-card hover:bg-muted/40 transition-colors">
-								<div className="flex items-center gap-3">
-									<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
-									<span className="font-semibold text-sm text-foreground">{meal.label}</span>
-								</div>
-								<Badge variant="outline" className="font-mono tabular-nums">
-									{meal.time}
-								</Badge>
-							</div>
+							<Item key={mod.label} variant="default">
+								<ItemMedia variant="icon">
+									<Icon className="h-4 w-4 text-primary" aria-hidden />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle className="font-semibold">{mod.label}</ItemTitle>
+								</ItemContent>
+								<ItemActions>
+									<Badge variant="outline">{mod.role}</Badge>
+								</ItemActions>
+							</Item>
 						)
 					})}
-				</div>
+				</ul>
 			</section>
 
 			{/* Funcionalidades */}
@@ -198,7 +214,7 @@ function Home() {
 					{features.map((feature) => {
 						const Icon = feature.icon
 						return (
-							<Card key={feature.title} className="rounded-md ring-0 border border-border hover:bg-muted/40 transition-colors cursor-default">
+							<Card key={feature.title} variant="tile">
 								<CardHeader className="pb-0">
 									<div className="flex items-center gap-2">
 										<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
@@ -222,8 +238,8 @@ function Home() {
 						icon={BookOpen}
 						label="Tutorial"
 						title="Guia do SISUB"
-						description="Aprenda passo a passo a preencher previsões e a fiscalizar com QR no SISUB."
-						tags={["usuário", "fiscal", "passo a passo"]}
+						description="Entenda cada módulo, seu perfil de acesso e como operar o sistema no dia a dia."
+						tags={["comensal", "fiscal", "nutricionista", "gestor"]}
 						to="/tutorial"
 						cta="Ver Tutorial"
 					/>
@@ -261,7 +277,7 @@ function Home() {
 						<div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
 							<span className="flex items-center gap-1.5">
 								<Users className="h-3.5 w-3.5" aria-hidden />
-								Colaborativo
+								Multi-perfil
 							</span>
 							<span className="flex items-center gap-1.5">
 								<Clock className="h-3.5 w-3.5" aria-hidden />

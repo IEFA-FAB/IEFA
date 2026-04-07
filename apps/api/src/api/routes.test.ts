@@ -1,12 +1,40 @@
 import { describe, expect, test } from "bun:test"
+import { createClient } from "@supabase/supabase-js"
 
 // Integration tests — require real env vars: API_SUPABASE_URL, API_SUPABASE_SERVICE_ROLE_KEY
 // Tests are skipped automatically when env vars are not set.
 
 const hasEnv = !!process.env.API_SUPABASE_URL && !!process.env.API_SUPABASE_SERVICE_ROLE_KEY && !!process.env.ADMIN_SECRET
 
+async function canReachSupabase() {
+	if (!hasEnv) return false
+
+	const supabaseUrl = process.env.API_SUPABASE_URL
+	const serviceRoleKey = process.env.API_SUPABASE_SERVICE_ROLE_KEY
+
+	if (!supabaseUrl || !serviceRoleKey) return false
+
+	try {
+		const fetchWithTimeout = ((input: string | URL | Request, init?: RequestInit) =>
+			fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch
+
+		const supabase = createClient(supabaseUrl, serviceRoleKey, {
+			db: { schema: "sisub" },
+			auth: { persistSession: false },
+			global: { fetch: fetchWithTimeout },
+		})
+
+		const { error } = await supabase.from("opinions").select("id").limit(1)
+		return !error
+	} catch {
+		return false
+	}
+}
+
+const canRunIntegration = await canReachSupabase()
+
 // Dynamic import prevents module-level ZodError when env vars are absent
-const { api } = hasEnv ? await import("./routes") : { api: null as any }
+const { api } = canRunIntegration ? await import("./routes") : { api: null as any }
 
 async function get(path: string) {
 	const res = await api.request(path)
@@ -14,7 +42,7 @@ async function get(path: string) {
 	return { res, body: body as unknown[] }
 }
 
-describe.skipIf(!hasEnv)("Integration: GET /opinion", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /opinion", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/opinion?limit=10")
 		expect(res.status).toBe(200)
@@ -58,7 +86,7 @@ describe.skipIf(!hasEnv)("Integration: GET /opinion", () => {
 	})
 })
 
-describe.skipIf(!hasEnv)("Integration: GET /rancho_previsoes", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /rancho_previsoes", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/rancho_previsoes?limit=10")
 		expect(res.status).toBe(200)
@@ -103,7 +131,7 @@ describe.skipIf(!hasEnv)("Integration: GET /rancho_previsoes", () => {
 	})
 })
 
-describe.skipIf(!hasEnv)("Integration: GET /wherewhowhen", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /wherewhowhen", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/wherewhowhen?limit=10")
 		expect(res.status).toBe(200)
@@ -136,7 +164,7 @@ describe.skipIf(!hasEnv)("Integration: GET /wherewhowhen", () => {
 	})
 })
 
-describe.skipIf(!hasEnv)("Integration: GET /user-military-data", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /user-military-data", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/user-military-data?limit=10")
 		expect(res.status).toBe(200)
@@ -181,7 +209,7 @@ describe.skipIf(!hasEnv)("Integration: GET /user-military-data", () => {
 	})
 })
 
-describe.skipIf(!hasEnv)("Integration: GET /user-data", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /user-data", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/user-data?limit=10")
 		expect(res.status).toBe(200)
@@ -215,7 +243,7 @@ describe.skipIf(!hasEnv)("Integration: GET /user-data", () => {
 	})
 })
 
-describe.skipIf(!hasEnv)("Integration: GET /units", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /units", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/units")
 		expect(res.status).toBe(200)
@@ -253,7 +281,7 @@ describe.skipIf(!hasEnv)("Integration: GET /units", () => {
 	})
 })
 
-describe.skipIf(!hasEnv)("Integration: GET /mess-halls", () => {
+describe.skipIf(!canRunIntegration)("Integration: GET /mess-halls", () => {
 	test("returns 200 with array", async () => {
 		const { res, body } = await get("/mess-halls")
 		expect(res.status).toBe(200)

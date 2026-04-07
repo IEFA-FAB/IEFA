@@ -21,6 +21,7 @@ import { Route as JournalProfileRouteImport } from './routes/journal/profile'
 import { Route as JournalAboutRouteImport } from './routes/journal/about'
 import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
 import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
+import { Route as PublicAboutRouteImport } from './routes/_public/about'
 import { Route as JournalEditorialRouteRouteImport } from './routes/journal/editorial/route'
 import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
 import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/index'
@@ -97,6 +98,11 @@ const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
 const PublicChatRadaRoute = PublicChatRadaRouteImport.update({
   id: '/chatRada',
   path: '/chatRada',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicAboutRoute = PublicAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const JournalEditorialRouteRoute = JournalEditorialRouteRouteImport.update({
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/about': typeof PublicAboutRoute
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
   '/journal/about': typeof JournalAboutRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/about': typeof PublicAboutRoute
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
   '/journal/about': typeof JournalAboutRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
+  '/_public/about': typeof PublicAboutRoute
   '/_public/chatRada': typeof PublicChatRadaRoute
   '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
   '/journal/about': typeof JournalAboutRoute
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/about'
     | '/chatRada'
     | '/overseerDashboard'
     | '/journal/about'
@@ -326,6 +336,7 @@ export interface FileRouteTypes {
   to:
     | '/health'
     | '/journal/editorial'
+    | '/about'
     | '/chatRada'
     | '/overseerDashboard'
     | '/journal/about'
@@ -358,6 +369,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/_public/about'
     | '/_public/chatRada'
     | '/_public/overseerDashboard'
     | '/journal/about'
@@ -476,6 +488,13 @@ declare module '@tanstack/react-router' {
       path: '/chatRada'
       fullPath: '/chatRada'
       preLoaderRoute: typeof PublicChatRadaRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/about': {
+      id: '/_public/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof PublicAboutRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/journal/editorial': {
@@ -608,6 +627,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface PublicRouteRouteChildren {
+  PublicAboutRoute: typeof PublicAboutRoute
   PublicChatRadaRoute: typeof PublicChatRadaRoute
   PublicOverseerDashboardRoute: typeof PublicOverseerDashboardRoute
   PublicIndexRoute: typeof PublicIndexRoute
@@ -618,6 +638,7 @@ interface PublicRouteRouteChildren {
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
+  PublicAboutRoute: PublicAboutRoute,
   PublicChatRadaRoute: PublicChatRadaRoute,
   PublicOverseerDashboardRoute: PublicOverseerDashboardRoute,
   PublicIndexRoute: PublicIndexRoute,

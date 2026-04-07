@@ -1,17 +1,24 @@
+// Routing
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
+// Icons
+import { BookOpen, ChevronsDown, ShieldCheck } from "lucide-react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { InfoPanel } from "@/components/ui/info-panel"
+import { SectionLabel } from "@/components/ui/section-label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import { type ChangelogEntry, type ChangelogPageResult, fetchChangelogPageFn } from "@/server/changelog.fn"
 
-// Utilitários
+/* ========================================================================
+   UTILITIES
+   ======================================================================== */
+
 function safeAnchorId(id: string) {
 	return `chlg-${String(id)}`.replace(/[^A-Za-z0-9\-_:.]/g, "-")
 }
@@ -19,25 +26,23 @@ function safeAnchorId(id: string) {
 function formatDate(iso: string) {
 	const d = new Date(iso)
 	if (Number.isNaN(d.getTime())) return iso
-	return new Intl.DateTimeFormat("pt-BR", {
-		dateStyle: "long",
-		timeStyle: "short",
-	}).format(d)
+	return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeStyle: "short" }).format(d)
 }
 
-// Links seguros no Markdown (http/https/mailto)
 function transformLinkUri(href?: string) {
 	if (!href) return href
 	try {
 		const u = new URL(href, "https://dummy.base")
-		const allowed = ["http:", "https:", "mailto:"]
-		return allowed.includes(u.protocol) ? href : "#"
+		return ["http:", "https:", "mailto:"].includes(u.protocol) ? href : "#"
 	} catch {
 		return "#"
 	}
 }
 
-// Gera classes reativas usando as CSS vars do tema
+/* ========================================================================
+   TAG STYLING
+   ======================================================================== */
+
 const TONE_CLASSES: Record<string, string> = {
 	primary: "bg-primary/10 text-primary border-primary/25",
 	secondary: "bg-secondary/10 text-secondary-foreground border-secondary/25",
@@ -45,11 +50,11 @@ const TONE_CLASSES: Record<string, string> = {
 	destructive: "bg-destructive/10 text-destructive border-destructive/25",
 	muted: "bg-muted text-muted-foreground border-border",
 }
+
 function toneBadge(tone: "primary" | "secondary" | "accent" | "destructive" | "muted" = "muted") {
 	return TONE_CLASSES[tone] ?? TONE_CLASSES.muted
 }
 
-// Mapa de estilos por tag → tom
 const TAG_TONE: Record<string, string> = {
 	feat: toneBadge("primary"),
 	fix: toneBadge("destructive"),
@@ -57,24 +62,15 @@ const TAG_TONE: Record<string, string> = {
 	perf: toneBadge("accent"),
 }
 
-export const Route = createFileRoute("/_public/changelog")({
-	component: Changelog,
-	head: () => ({
-		meta: [{ title: "Lista de Atualizações" }, { name: "description", content: "Veja o que mudou no sistema" }],
-	}),
-})
+/* ========================================================================
+   MARKDOWN
+   ======================================================================== */
 
-// Markdown components (definidos fora para não recriar a cada render)
+// Definido fora do componente para evitar recriação a cada render
 const markdownComponents: Partial<Components> = {
 	// biome-ignore lint/suspicious/noExplicitAny: markdown props
 	a: ({ node, href, ...props }: any) => (
-		<a
-			{...props}
-			href={transformLinkUri(href)}
-			className="text-[hsl(var(--primary))] hover:text-[hsl(var(--primary))]/90 underline"
-			target="_blank"
-			rel="noopener noreferrer nofollow"
-		/>
+		<a {...props} href={transformLinkUri(href)} className="text-primary hover:text-primary/90 underline" target="_blank" rel="noopener noreferrer nofollow" />
 	),
 	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
 	ul: ({ node, ...props }: any) => <ul {...props} className="list-disc pl-6" />,
@@ -91,7 +87,7 @@ const markdownComponents: Partial<Components> = {
 			)
 		}
 		return (
-			<pre className="bg-muted text-foreground p-4 rounded-lg overflow-x-auto">
+			<pre className="bg-muted text-foreground p-4 rounded-md overflow-x-auto">
 				<code {...rest} className={className}>
 					{children}
 				</code>
@@ -100,37 +96,14 @@ const markdownComponents: Partial<Components> = {
 	},
 }
 
-// Subcomponentes simples
+/* ========================================================================
+   SUBCOMPONENTS
+   ======================================================================== */
 
-function MessageBox({
-	tone = "muted",
-	title,
-	message,
-	action,
-}: {
-	tone?: "muted" | "destructive"
-	title?: string
-	message: string
-	action?: { label: string; onClick: () => void; busy?: boolean }
-}) {
-	const toneClasses = tone === "destructive" ? "bg-destructive/10 border-destructive/30 text-destructive" : "bg-card border-border text-foreground"
-	return (
-		<div className="max-w-3xl mx-auto mb-8" aria-live="polite">
-			<div className={cn("border rounded-xl p-4", toneClasses)}>
-				{title && <p className="font-semibold mb-1">{title}</p>}
-				<p className="text-sm text-muted-foreground">{message}</p>
-				{action && (
-					<Button
-						onClick={action.onClick}
-						className="mt-3 inline-flex items-center gap-2 bg-background border border-border text-foreground hover:bg-accent/10 px-3 py-1.5 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-						aria-busy={action.busy}
-					>
-						{action.busy ? "Carregando..." : action.label}
-					</Button>
-				)}
-			</div>
-		</div>
-	)
+function TagBadge({ tag }: { id: string; tag: string }) {
+	const key = (tag ?? "").toLowerCase()
+	const tone = TAG_TONE[key] ?? toneBadge("muted")
+	return <span className={cn("inline-flex items-center text-xs font-mono px-2 py-0.5 rounded-full border", tone)}>{tag}</span>
 }
 
 function MarkdownContent({ children }: { children: string }) {
@@ -143,41 +116,31 @@ function MarkdownContent({ children }: { children: string }) {
 	)
 }
 
-function TagBadge({ tag }: { id: string; tag: string }) {
-	const key = (tag ?? "").toLowerCase()
-	const tone = TAG_TONE[key] ?? toneBadge("muted")
-	return <span className={cn("inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border", tone)}>{tag}</span>
-}
-
-function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
+function ChangelogEntryItem({ entry }: { entry: ChangelogEntry }) {
 	const anchorId = safeAnchorId(entry.id)
 	return (
-		<article id={anchorId} className="bg-card rounded-xl p-6 border border-border hover:border-foreground/20 transition">
-			<div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+		<article id={anchorId} className="py-8 first:pt-0">
+			<div className="flex flex-wrap items-start justify-between gap-3 mb-3">
 				<div className="flex items-center gap-3">
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<a href={`#${anchorId}`} className="text-muted-foreground hover:text-foreground" aria-label="Link para esta entrada">
+								<a href={`#${anchorId}`} className="font-mono text-xs text-muted-foreground/60 hover:text-muted-foreground" aria-label="Link para esta entrada">
 									#
 								</a>
 							}
-						></TooltipTrigger>
+						/>
 						<TooltipContent>Copiar link desta entrada</TooltipContent>
 					</Tooltip>
 					{entry.version && (
-						<span className={cn("inline-flex items-center text-sm font-semibold px-2.5 py-1 rounded-full border", toneBadge("primary"))}>v{entry.version}</span>
+						<span className={cn("inline-flex items-center text-xs font-mono px-2 py-0.5 rounded-full border", toneBadge("primary"))}>v{entry.version}</span>
 					)}
-					<h2 className="text-xl font-bold text-foreground">{entry.title}</h2>
+					<h2 className="font-bold text-sm text-foreground">{entry.title}</h2>
 				</div>
-				<time className="text-sm text-muted-foreground" dateTime={entry.published_at} title={formatDate(entry.published_at)}>
-					{formatDistanceToNow(new Date(entry.published_at), {
-						addSuffix: true,
-						locale: ptBR,
-					})}
+				<time className="font-mono text-xs text-muted-foreground/60 shrink-0" dateTime={entry.published_at} title={formatDate(entry.published_at)}>
+					{formatDistanceToNow(new Date(entry.published_at), { addSuffix: true, locale: ptBR })}
 				</time>
 			</div>
-
 			{entry.tags?.length ? (
 				<div className="flex flex-wrap gap-2 mb-4">
 					{entry.tags.map((t) => (
@@ -185,11 +148,25 @@ function ChangelogCard({ entry }: { entry: ChangelogEntry }) {
 					))}
 				</div>
 			) : null}
-
 			<MarkdownContent>{entry.body ?? ""}</MarkdownContent>
 		</article>
 	)
 }
+
+/* ========================================================================
+   ROUTE DEFINITION
+   ======================================================================== */
+
+export const Route = createFileRoute("/_public/changelog")({
+	component: Changelog,
+	head: () => ({
+		meta: [{ title: "Changelog — SISUB" }, { name: "description", content: "Melhorias, correções e novas funcionalidades do SISUB em tempo real." }],
+	}),
+})
+
+/* ========================================================================
+   MAIN COMPONENT
+   ======================================================================== */
 
 const PAGE_SIZE = 10 as const
 
@@ -202,94 +179,97 @@ function Changelog() {
 			}) as Promise<ChangelogPageResult>,
 		getNextPageParam: (lastPage) => lastPage.nextPage,
 		initialPageParam: 0,
-		staleTime: 5 * 60 * 1000, // 5min
-		gcTime: 10 * 60 * 1000, // 10min
+		staleTime: 5 * 60 * 1000,
+		gcTime: 10 * 60 * 1000,
 		retry: 2,
 		refetchOnWindowFocus: false,
 	})
 
-	// React Compiler optimizes this - no manual useMemo needed
+	// React Compiler optimizes this — sem useMemo manual
 	const items = data?.pages.flatMap((p) => p.items) ?? []
 
-	const GITHUB_REPO_URL = import.meta.env.VITE_GITHUB_REPO_URL || "https://github.com/IEFA-FAB/IEFA/"
-
 	return (
-		<div className="min-h-screen flex flex-col text-foreground">
+		<div className="w-full">
 			{/* Hero */}
-			<section className="container mx-auto px-4 pt-14 pb-8">
-				<div className="text-center">
-					<h1 className="text-4xl font-extrabold mb-3">Changelog</h1>
-					<p className="text-muted-foreground max-w-2xl mx-auto">Acompanhe as melhorias, correções e novidades do SISUB em tempo real.</p>
-					<div className="mt-6 flex items-center justify-center">
-						<Link
-							to="/"
-							className="inline-flex items-center gap-2 text-[hsl(var(--primary))] hover:text-[hsl(var(--primary))]/90 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
-						>
-							← Voltar para a Home
-						</Link>
-					</div>
+			<section className="min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
+				<div className="flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
+					<p className="font-mono text-xs text-muted-foreground/60 tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
+					<h1 className="text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold tracking-tight leading-[0.95] text-foreground mb-8 md:mb-10">
+						Novidades
+						<br />
+						<span className="text-primary">do sistema.</span>
+					</h1>
+					<p className="text-muted-foreground text-base md:text-xl leading-relaxed mb-10 md:mb-12 max-w-sm md:max-w-md">
+						Melhorias, correções e novas funcionalidades em tempo real.
+					</p>
+					<Button nativeButton={false} render={<Link to="/">← Voltar</Link>} variant="outline" size="lg" />
+				</div>
+				<div className="flex justify-center pb-2" aria-hidden>
+					<ChevronsDown className="h-5 w-5 text-muted-foreground/40 animate-bounce" />
 				</div>
 			</section>
 
-			{/* Lista */}
-			<main className="container mx-auto px-4 pb-16 flex-1">
+			{/* 01 — Atualizações */}
+			<section id="atualizacoes" className="py-12 md:py-16 border-t border-border">
+				<SectionLabel index="01" label="Atualizações" />
+
+				{isLoading && <p className="mt-8 text-sm text-muted-foreground">Carregando atualizações…</p>}
+
 				{!isLoading && error && (
-					<MessageBox
-						tone="destructive"
-						title="Erro ao carregar"
-						message={(error as Error).message}
-						action={{ label: "Tentar novamente", onClick: () => refetch() }}
-					/>
+					<div className="mt-8">
+						<p className="mb-3 text-sm text-destructive">{(error as Error).message}</p>
+						<Button onClick={() => refetch()} variant="outline" size="sm">
+							Tentar novamente
+						</Button>
+					</div>
 				)}
 
-				{!isLoading && !error && items.length === 0 && <MessageBox message="Nenhuma publicação encontrada ainda. Volte em breve!" />}
+				{!isLoading && !error && items.length === 0 && (
+					<p className="mt-8 text-sm text-muted-foreground">Nenhuma publicação encontrada ainda. Volte em breve.</p>
+				)}
 
 				{!isLoading && !error && items.length > 0 && (
-					<div className="max-w-3xl mx-auto space-y-6">
-						{items.map((entry) => (
-							<ChangelogCard key={entry.id} entry={entry} />
-						))}
-
+					<>
+						<div className="mt-8 divide-y divide-border">
+							{items.map((entry) => (
+								<ChangelogEntryItem key={entry.id} entry={entry} />
+							))}
+						</div>
 						{hasNextPage && (
-							<div className="flex justify-center pt-2">
-								<Button
-									onClick={() => fetchNextPage()}
-									disabled={isFetchingNextPage}
-									aria-busy={isFetchingNextPage}
-									className="inline-flex items-center gap-2 bg-background border border-border text-foreground hover:bg-accent/10 px-4 py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-								>
-									{isFetchingNextPage ? "Carregando..." : "Carregar mais"}
+							<div className="mt-8">
+								<Button onClick={() => fetchNextPage()} disabled={isFetchingNextPage} aria-busy={isFetchingNextPage} variant="outline">
+									{isFetchingNextPage ? "Carregando…" : "Carregar mais"}
 								</Button>
 							</div>
 						)}
-					</div>
+					</>
 				)}
-			</main>
+			</section>
 
-			{/* CTA GitHub */}
-			<Card className="py-12">
-				<div className="container mx-auto px-4 text-center">
-					<h3 className="text-2xl font-bold mb-3">Quer contribuir?</h3>
-					<p className="text-[hsl(var(--primary-foreground))]/80 max-w-2xl mx-auto mb-6">
-						Ajude a melhorar o SISUB: envie sugestões, correções e novas funcionalidades diretamente pelo GitHub.
-					</p>
-					<a
-						href={GITHUB_REPO_URL}
-						target="_blank"
-						rel="noopener noreferrer nofollow"
-						className="inline-flex items-center gap-2 bg-background text-primary hover:bg-accent/10 px-6 py-3 font-semibold rounded-md transition border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-					>
-						<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-							<path
-								fillRule="evenodd"
-								d="M12 2C6.477 2 2 6.58 2 12.114c0 4.48 2.865 8.27 6.839 9.614.5.095.683-.219.683-.486 0-.24-.009-.874-.014-1.716-2.782.61-3.37-1.36-3.37-1.36-.455-1.163-1.11-1.474-1.11-1.474-.907-.629.069-.617.069-.617 1.003.072 1.53 1.04 1.53 1.04.892 1.547 2.341 1.101 2.91.842.091-.654.35-1.101.636-1.355-2.221-.256-4.555-1.13-4.555-5.027 0-1.11.39-2.017 1.03-2.728-.103-.257-.447-1.29.098-2.69 0 0 .84-.27 2.75 1.04a9.38 9.38 0 0 1 2.505-.342c.85.004 1.706.116 2.505.342 1.91-1.31 2.749-1.04 2.749-1.04.546 1.4.202 2.433.099 2.69.64.711 1.029 1.618 1.029 2.728 0 3.906-2.338 4.768-4.566 5.02.36.314.68.93.68 1.874 0 1.353-.012 2.443-.012 2.776 0 .27.181.586.689.486A10.12 10.12 0 0 0 22 12.114C22 6.58 17.523 2 12 2Z"
-								clipRule="evenodd"
-							/>
-						</svg>
-						Contribuir no GitHub
-					</a>
+			{/* 02 — Saiba mais */}
+			<section id="saiba-mais" className="py-12 md:py-16 border-t border-border">
+				<SectionLabel index="02" label="Saiba mais" />
+				<div className="mt-8 grid md:grid-cols-2 gap-4">
+					<InfoPanel
+						icon={BookOpen}
+						label="Tutorial"
+						title="Guia do SISUB"
+						description="Entenda cada módulo, seu perfil de acesso e como operar o sistema no dia a dia."
+						tags={["comensal", "fiscal", "nutricionista", "gestor"]}
+						to="/tutorial"
+						cta="Ver Tutorial"
+					/>
+					<InfoPanel
+						icon={ShieldCheck}
+						label="Acesso"
+						title="Entrar no SISUB"
+						description="Acesse o sistema com suas credenciais militares para começar a operar seu módulo."
+						tags={["login", "hub", "módulos"]}
+						to="/auth"
+						cta="Fazer Login"
+					/>
 				</div>
-			</Card>
+			</section>
 		</div>
 	)
 }

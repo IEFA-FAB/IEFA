@@ -11,6 +11,8 @@ const MenuTemplateWriteSchema = z.object({
 	description: z.string().nullable().optional(),
 	kitchen_id: z.number().nullable().optional(),
 	base_template_id: z.string().nullable().optional(),
+	default_headcount: z.number().optional(),
+	template_type: z.enum(["weekly", "event"]).optional(),
 })
 
 const MenuTemplateItemWriteSchema = z.object({
@@ -18,6 +20,7 @@ const MenuTemplateItemWriteSchema = z.object({
 	meal_type_id: z.string().nullable().optional(),
 	recipe_id: z.string().nullable().optional(),
 	menu_template_id: z.string().nullable().optional(),
+	headcount_override: z.number().nullable().optional(),
 })
 
 export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })

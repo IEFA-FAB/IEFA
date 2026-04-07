@@ -139,6 +139,10 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 			product_name: d.product.description,
 			measure_unit: d.product.measure_unit,
 			total_quantity: Number(d.total_quantity.toFixed(4)),
+			catmat_item_codigo: null,
+			catmat_item_descricao: null,
+			unit_price: null,
+			total_value: null,
 		}))
 
 		// 6. Ordenar por categoria e produto

@@ -131,6 +131,31 @@ export type RecipeIngredientAlternative = Tables<"recipe_ingredient_alternatives
 export type RecipeIngredientAlternativeInsert = TablesInsert<"recipe_ingredient_alternatives">
 export type RecipeIngredientAlternativeUpdate = TablesUpdate<"recipe_ingredient_alternatives">
 
+// ATA de Registro de Preços
+export type ProcurementAta = Tables<"procurement_ata">
+export type ProcurementAtaInsert = TablesInsert<"procurement_ata">
+export type ProcurementAtaUpdate = TablesUpdate<"procurement_ata">
+
+export type ProcurementAtaKitchen = Tables<"procurement_ata_kitchen">
+export type ProcurementAtaKitchenInsert = TablesInsert<"procurement_ata_kitchen">
+export type ProcurementAtaKitchenUpdate = TablesUpdate<"procurement_ata_kitchen">
+
+export type ProcurementAtaSelection = Tables<"procurement_ata_selection">
+export type ProcurementAtaSelectionInsert = TablesInsert<"procurement_ata_selection">
+export type ProcurementAtaSelectionUpdate = TablesUpdate<"procurement_ata_selection">
+
+export type ProcurementAtaItem = Tables<"procurement_ata_item">
+export type ProcurementAtaItemInsert = TablesInsert<"procurement_ata_item">
+export type ProcurementAtaItemUpdate = TablesUpdate<"procurement_ata_item">
+
+export type KitchenAtaDraft = Tables<"kitchen_ata_draft">
+export type KitchenAtaDraftInsert = TablesInsert<"kitchen_ata_draft">
+export type KitchenAtaDraftUpdate = TablesUpdate<"kitchen_ata_draft">
+
+export type KitchenAtaDraftSelection = Tables<"kitchen_ata_draft_selection">
+export type KitchenAtaDraftSelectionInsert = TablesInsert<"kitchen_ata_draft_selection">
+export type KitchenAtaDraftSelectionUpdate = TablesUpdate<"kitchen_ata_draft_selection">
+
 // System
 export type Changelog = Tables<"changelog">
 export type ChangelogInsert = TablesInsert<"changelog">

@@ -9,7 +9,7 @@ type SectionLabelProps = {
 function SectionLabel({ index, label, className }: SectionLabelProps) {
 	return (
 		<div className={cn("flex items-center gap-3", className)}>
-			<span className="font-mono text-xs text-muted-foreground/40 tabular-nums">{index}</span>
+			<span className="font-mono text-xs text-muted-foreground tabular-nums">{index}</span>
 			<div className="h-px w-6 bg-border" />
 			<span className="font-mono text-xs text-muted-foreground uppercase tracking-widest">{label}</span>
 		</div>
