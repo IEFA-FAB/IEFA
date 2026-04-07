@@ -63,7 +63,7 @@ jobs:
               - 'turbo.json'
 
   # ============================================================
-  # API  ── check → build → deploy
+  # API ── check → build → deploy
   # ============================================================
   check-api:
     needs: [changes]
