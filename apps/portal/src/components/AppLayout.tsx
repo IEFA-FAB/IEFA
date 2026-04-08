@@ -1,7 +1,6 @@
 import { formatForDisplay } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
-import { Menu, OpenNewWindow } from "iconoir-react"
-import { Search } from "lucide-react"
+import { Menu, OpenNewWindow, Search } from "iconoir-react"
 import { type ReactNode, useState } from "react"
 import { useCommandPalette } from "@/components/command-palette/CommandPaletteProvider"
 import { useTheme } from "@/hooks/useTheme"

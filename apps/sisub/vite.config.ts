@@ -6,7 +6,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
 	resolve: {
 		tsconfigPaths: true,
 	},
@@ -53,7 +53,6 @@ export default defineConfig(({ command }) => ({
 		],
 	},
 	ssr: {
-		noExternal: command === "build" ? true : undefined,
 		target: "node",
 	},
 	build: {
