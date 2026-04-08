@@ -1,7 +1,7 @@
 import { Link, useParams } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ChefHat, GitFork, Globe, Search, TextSearch } from "lucide-react"
-import { useRef, useState } from "react"
+import { useDeferredValue, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,11 +16,15 @@ export function RecipesManager() {
 	const kitchenId = kitchenIdStr ?? null
 
 	const [search, setSearch] = useState("")
+	// useDeferredValue posterga a atualização do search para o React Query
+	// enquanto o usuário ainda digita, mantendo a UI responsiva e evitando
+	// disparar uma nova query a cada keystroke.
+	const deferredSearch = useDeferredValue(search)
 	const [origin, setOrigin] = useState<"all" | "global" | "local">("all")
 	const parentRef = useRef<HTMLDivElement>(null)
 
 	const { data: filteredRecipes = [], isLoading } = useRecipes({
-		search: search || undefined,
+		search: deferredSearch || undefined,
 		origin,
 	})
 

@@ -34,7 +34,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Package className="h-5 w-5" aria-hidden="true" />
-						Lista de Itens da ATA
+						Lista de Itens da Ata
 					</CardTitle>
 					<CardDescription>Calculando quantitativos...</CardDescription>
 				</CardHeader>
@@ -55,7 +55,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Package className="h-5 w-5" aria-hidden="true" />
-						Lista de Itens da ATA
+						Lista de Itens da Ata
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -85,7 +85,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<div className="rounded-md border overflow-x-auto">
+						<div className="rounded-md border overflow-hidden">
 							<Table>
 								<TableHeader>
 									<TableRow>
@@ -126,7 +126,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 			{hasPrices && (
 				<div className="flex justify-end">
 					<div className="rounded-md border bg-muted/50 px-6 py-3 text-right">
-						<p className="text-sm text-muted-foreground">Total Estimado da ATA</p>
+						<p className="text-sm text-muted-foreground">Total Estimado da Ata</p>
 						<p className="text-xl font-bold tabular-nums">{BRL.format(grandTotal)}</p>
 					</div>
 				</div>

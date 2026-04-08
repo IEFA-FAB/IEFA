@@ -78,7 +78,7 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<div className="rounded-md border overflow-x-auto">
+						<div className="rounded-md border overflow-hidden">
 							<Table>
 								<TableHeader>
 									<TableRow>

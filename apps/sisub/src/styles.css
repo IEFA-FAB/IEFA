@@ -75,6 +75,11 @@
   --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.18);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  /* Scrollbar tokens */
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: oklch(0.8600 0.0118 231.6594);
+  --scrollbar-thumb-hover: var(--primary);
+  --scrollbar-track: transparent;
 }
 
 .dark {
@@ -131,6 +136,10 @@
   --shadow-lg: 0px 8px 16px 0px oklch(0 0 0 / 0.35), 0px 4px 6px -4px oklch(0 0 0 / 0.20);
   --shadow-xl: 0px 16px 24px 0px oklch(0 0 0 / 0.40), 0px 8px 10px -6px oklch(0 0 0 / 0.20);
   --shadow-2xl: 0px 24px 40px 0px oklch(0 0 0 / 0.50);
+  /* Scrollbar tokens — dark mode */
+  --scrollbar-thumb: oklch(0.3200 0.0080 248.0045);
+  --scrollbar-thumb-hover: var(--primary);
+  --scrollbar-track: transparent;
 }
 
 @theme inline {
@@ -195,9 +204,51 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* ─── WebKit scrollbars (Chrome, Safari, Edge) ─── */
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    transition: background-color 150ms ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ─── Tabelas: scrollbar aparece ao hover (hover-reveal) ─── */
+  /* Firefox */
+  [data-slot="table-container"] {
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 200ms ease;
+  }
+  [data-slot="table-container"]:hover {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  /* WebKit */
+  [data-slot="table-container"]::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  [data-slot="table-container"]:hover::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+  }
+  [data-slot="table-container"]:hover::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
   }
 }
 
@@ -211,6 +262,18 @@
 @layer utilities {
   .animate-scroll {
     animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+  }
+
+  /* ─── Scrollbar visibility utilities ─── */
+  /* Oculta o scrollbar visualmente mas mantém a rolagem funcional */
+  .no-scrollbar,
+  .scrollbar-hide {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 

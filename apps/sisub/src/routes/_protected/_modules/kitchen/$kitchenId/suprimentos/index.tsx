@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/su
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
 	component: KitchenSuprimentosPage,
 	head: () => ({
-		meta: [{ title: "Suprimentos - SISUB" }, { name: "description", content: "Gerencie rascunhos de suprimentos para a ATA" }],
+		meta: [{ title: "Suprimentos - SISUB" }, { name: "description", content: "Gerencie rascunhos de suprimentos para a ata" }],
 	}),
 })
 
@@ -73,7 +73,7 @@ function KitchenSuprimentosPage() {
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
 						<ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
 						<p className="font-medium text-muted-foreground">Nenhum rascunho criado ainda.</p>
-						<p className="text-sm text-muted-foreground mt-1">Crie um rascunho com os templates que você quer sugerir para a próxima ATA.</p>
+						<p className="text-sm text-muted-foreground mt-1">Crie um rascunho com os templates que você quer sugerir para a próxima ata.</p>
 						<Button
 							variant="outline"
 							size="sm"

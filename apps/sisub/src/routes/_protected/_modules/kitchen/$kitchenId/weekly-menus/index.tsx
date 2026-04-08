@@ -28,7 +28,8 @@ function WeeklyMenusPage() {
 	const { mutate: deleteTemplate, isPending: isDeleting } = useDeleteTemplate()
 
 	const globalTemplates = templates?.filter((t) => t.kitchen_id === null) || []
-	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
+	// Exclui eventos (template_type='event') — eles são gerenciados em /events
+	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type !== "event") || []
 
 	const handleDelete = (id: string, name: string) => {
 		if (window.confirm(`Tem certeza que deseja remover o cardápio semanal "${name}"?\n\nEle poderá ser recuperado na lixeira do Planejamento.`)) {
@@ -61,7 +62,7 @@ function WeeklyMenusPage() {
 							<CalendarDays className="w-4 h-4 text-muted-foreground" />
 							<h2 className="text-sm font-semibold">Planos Globais da SDAB</h2>
 							<Badge variant="outline" className="text-xs">
-								Somente leitura · disponíveis para fork
+								Somente leitura · disponíveis para adaptar
 							</Badge>
 						</div>
 						<div className="rounded-md border">
@@ -92,7 +93,7 @@ function WeeklyMenusPage() {
 													render={
 														<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }} search={{ forkFrom: template.id }}>
 															<GitFork className="w-3.5 h-3.5 mr-1.5" />
-															Forkar
+															Adaptar
 														</Link>
 													}
 												/>
@@ -122,7 +123,7 @@ function WeeklyMenusPage() {
 						<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 							<CalendarDays className="h-10 w-10 mx-auto text-muted-foreground" />
 							<p className="text-sm font-medium text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
-							<p className="text-xs text-muted-foreground">Crie do zero ou forke um plano global da SDAB.</p>
+							<p className="text-xs text-muted-foreground">Crie do zero ou adapte um plano global da SDAB.</p>
 							<Button
 								variant="outline"
 								size="sm"
@@ -155,7 +156,7 @@ function WeeklyMenusPage() {
 												{template.base_template_id ? (
 													<Badge variant="secondary" className="text-xs gap-1 font-normal">
 														<GitFork className="w-3 h-3" />
-														Fork de plano global
+														Adaptado da SDAB
 													</Badge>
 												) : (
 													<span className="text-xs text-muted-foreground">Local</span>

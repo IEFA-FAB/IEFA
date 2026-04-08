@@ -513,12 +513,8 @@ function Forecast(): JSX.Element {
 				/>
 			</div>
 
-			{/* Estatísticas */}
-			<section className="w-full">
-				<div className="p-4 sm:p-5">
-					<SimplifiedMilitaryStats selections={selections} dates={dates} isLoading={isRefetching} />
-				</div>
-			</section>
+			{/* Status rápido */}
+			<SimplifiedMilitaryStats selections={selections} dates={dates} isLoading={isRefetching} />
 
 			{/* Cards */}
 			<section aria-labelledby="cards-title">

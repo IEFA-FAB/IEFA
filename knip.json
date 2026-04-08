@@ -26,13 +26,5 @@
       "entry": ["src/content.config.ts", "astro.config.ts"],
       "project": ["src/**/*.{ts,astro,md,mdx}"]
     },
-    "packages/ui": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
-    },
-    "packages/env": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    }
   }
 }

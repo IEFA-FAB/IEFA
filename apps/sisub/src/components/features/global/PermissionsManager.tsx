@@ -405,7 +405,12 @@ export default function PermissionsManager() {
 	const closeDialog = () => setDialog(null)
 
 	// ── Mutations ─────────────────────────────────────────────────────────────
-	const invalidatePerms = () => queryClient.invalidateQueries({ queryKey: permsKey })
+	const invalidatePerms = () => {
+		// Invalida a tabela admin (UI local) e também o cache de permissões do
+		// próprio usuário editado — usado por usePBAC() e pelo hub de módulos.
+		queryClient.invalidateQueries({ queryKey: permsKey })
+		queryClient.invalidateQueries({ queryKey: ["userPermissions", selectedUser?.id] })
+	}
 
 	const createPerm = useMutation({
 		mutationFn: () =>

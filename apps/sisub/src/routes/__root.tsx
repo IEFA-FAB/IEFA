@@ -72,8 +72,8 @@ function RootDocument() {
 				<link rel="preload" href={XyflowStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
 				<link rel="stylesheet" href={XyflowStyles} />
-				<link rel="preload" href="/fonts/Manrope-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
-				<link rel="preload" href="/fonts/JetBrainsMono-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/Manrope-Variable.ttf" as="font" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/JetBrainsMono-Variable.ttf" as="font" crossOrigin="anonymous" />
 
 				<HeadContent />
 				<ThemeScript />

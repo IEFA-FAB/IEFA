@@ -47,6 +47,8 @@ export interface TemplateItemDraft {
 	day_of_week: number // 1-7 (Monday-Sunday)
 	meal_type_id: string
 	recipe_id: string
+	/** Sobrescreve o default_headcount do template para esta preparação específica */
+	headcount_override?: number | null
 }
 
 /**

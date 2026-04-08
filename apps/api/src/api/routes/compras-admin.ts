@@ -118,47 +118,5 @@ comprasAdminRoutes.post("/sync/:id/stop", async (c) => {
 	return c.json({ message: "Parada solicitada — será aplicada ao fim do step atual" })
 })
 
-// ── GET /products/:productId/price-research — pesquisa de preço em tempo real ─
-
-comprasAdminRoutes.get("/price-research/:productId", async (c) => {
-	const productId = c.req.param("productId")
-	const supabase = getSupabase()
-
-	const { data: product, error } = await supabase.from("product").select("id, catmat_item_codigo").eq("id", productId).single()
-
-	if (error || !product) {
-		return c.json({ error: "Produto não encontrado" }, 404)
-	}
-
-	if (!product.catmat_item_codigo) {
-		return c.json({ error: "Produto não possui catmat_item_codigo associado. Vincule o produto a um item CATMAT primeiro." }, 404)
-	}
-
-	const { estado, codigoUasg, codigoMunicipio, pagina = "1" } = c.req.query() as Record<string, string>
-	const params: Record<string, string> = {
-		codigoItemCatalogo: String(product.catmat_item_codigo),
-		pagina,
-		tamanhoPagina: "500",
-	}
-	if (estado) params.estado = estado
-	if (codigoUasg) params.codigoUasg = codigoUasg
-	if (codigoMunicipio) params.codigoMunicipio = codigoMunicipio
-
-	const qs = new URLSearchParams(params)
-	const url = `https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial?${qs}`
-
-	try {
-		const res = await fetch(url, {
-			signal: AbortSignal.timeout(30_000),
-			headers: { accept: "*/*" },
-		})
-		if (!res.ok) {
-			return c.json({ error: `API Compras retornou ${res.status}` }, 502)
-		}
-		const data = await res.json()
-		return c.json(data)
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err)
-		return c.json({ error: `Falha ao consultar API Compras: ${message}` }, 502)
-	}
-})
+// Pesquisa de preços migrada para /api/admin/price-research/*
+// Ver: src/api/routes/price-research.ts

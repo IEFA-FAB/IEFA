@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 const navLinkVariants = cva(
 	[
 		// Base
-		"relative inline-flex items-center pb-0.5",
+		"relative inline-flex cursor-pointer items-center pb-0.5",
 		"font-mono text-xs uppercase tracking-widest",
 		"transition-colors duration-150",
 		"focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm",

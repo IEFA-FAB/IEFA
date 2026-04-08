@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useProductsTree } from "@/services/ProductsService"
 import type { FlatProductTree, ProductTreeNode } from "@/types/domain/products"
 
@@ -13,13 +13,19 @@ export function useProductsHierarchy(filterText = "") {
 	const { tree, error, refetch } = useProductsTree()
 
 	// Estado de expand/collapse
-	// Inicializa com todas as pastas de primeiro nível expandidas
-	const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-		if (!tree) return new Set()
-		// Expandir todas as folders sem parent (nível raiz)
-		const rootFolders = tree.folders.filter((f) => !f.parent_id).map((f) => f.id)
-		return new Set(rootFolders)
-	})
+	// Inicializa com todas as pastas de primeiro nível expandidas.
+	// Usa ref para garantir que a inicialização ocorra somente uma vez,
+	// mesmo que `tree` chegue de forma assíncrona (ex: IngredientSelector sem loader).
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+	const initializedRef = useRef(false)
+
+	useEffect(() => {
+		if (tree && !initializedRef.current) {
+			initializedRef.current = true
+			const rootFolders = tree.folders.filter((f) => !f.parent_id).map((f) => f.id)
+			setExpandedIds(new Set(rootFolders))
+		}
+	}, [tree])
 
 	// Funções de controle de expansão
 	const toggleExpand = (nodeId: string) => {
@@ -158,37 +164,29 @@ export function useProductsHierarchy(filterText = "") {
 		// product_items não são adicionados à árvore —
 		// eles vivem em /global/ingredients/$productId
 
-		// 2. Atualizar hasChildren e calcular níveis hierárquicos
-		const calculateLevel = (nodeId: string, level = 0): number => {
-			const node = byId[nodeId]
-			if (!node?.parentId) return level
-			return calculateLevel(node.parentId, level + 1)
-		}
-
-		Object.values(byId).forEach((node) => {
-			node.level = calculateLevel(node.id)
-			if (node.type === "folder") {
-				node.hasChildren = !!byParentId[node.id]?.length
-			}
-		})
-
-		// 3. Construir lista de nós visíveis (respeitando expand/collapse)
+		// 2. Atualizar hasChildren + calcular níveis em O(N) via DFS a partir da raiz.
+		// Evita o antigo calculateLevel recursivo que era O(N × profundidade).
 		const visibleNodes: ProductTreeNode[] = []
 
-		const traverse = (parentId: string | null) => {
+		const traverse = (parentId: string | null, level: number) => {
 			const children = byParentId[parentId || "root"] || []
 
-			children.forEach((node) => {
+			for (const node of children) {
+				node.level = level
+				if (node.type === "folder") {
+					node.hasChildren = !!byParentId[node.id]?.length
+				}
+
 				visibleNodes.push(node)
 
 				// Ao filtrar, pastas estão todas expandidas; senão respeita expandedIds
 				if (node.type === "folder" && (isFiltering || expandedIds.has(node.id))) {
-					traverse(node.id)
+					traverse(node.id, level + 1)
 				}
-			})
+			}
 		}
 
-		traverse(null)
+		traverse(null, 0)
 
 		return { nodes: visibleNodes, byId, byParentId }
 	}, [tree, filterText, expandedIds])

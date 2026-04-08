@@ -133,6 +133,30 @@ export const createRecipeFn = createServerFn({ method: "POST" })
 		return recipe
 	})
 
+export const fetchRecipeVersionsFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ recipeId: z.string() }))
+	.handler(async ({ data }) => {
+		const supabase = getSupabaseServerClient()
+
+		// Busca a receita para encontrar o id raiz (original)
+		const { data: recipe, error: recipeError } = await supabase.from("recipes").select("id, base_recipe_id").eq("id", data.recipeId).single()
+
+		if (recipeError || !recipe) throw new Error("Receita não encontrada")
+
+		// Se tem base_recipe_id, usa como raiz; caso contrário, a própria receita é a raiz
+		const rootId = recipe.base_recipe_id ?? recipe.id
+
+		// Busca todas as versões: a raiz + todas que referenciam esta raiz
+		const { data: versions, error } = await supabase
+			.from("recipes")
+			.select(recipeSelectWithIngredients)
+			.or(`id.eq.${rootId},base_recipe_id.eq.${rootId}`)
+			.order("version", { ascending: true })
+
+		if (error) throw new Error(error.message)
+		return (versions ?? []) as RecipeWithIngredients[]
+	})
+
 export const createRecipeVersionFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		recipePayloadSchema.extend({

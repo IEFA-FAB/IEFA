@@ -139,5 +139,9 @@ export type FolderUpdate = TablesUpdate<"folder">
 export type MealPresenceWithUser = Views<"v_meal_presences_with_user">
 export type UserIdentity = Views<"v_user_identity">
 
+export type ProductionTask = Tables<"production_task">
+export type ProductionTaskInsert = TablesInsert<"production_task">
+export type ProductionTaskUpdate = TablesUpdate<"production_task">
+
 export type KitchenType = Enums<"kitchen_type">
 export type UnitType = Enums<"unit_type">

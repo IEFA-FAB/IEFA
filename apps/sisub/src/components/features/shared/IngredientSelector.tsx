@@ -25,6 +25,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 48,
 		overscan: 10,
+		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
 	})
 
 	const handleClearSearch = () => {
@@ -83,9 +84,8 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 
 									if (!node) return null
 
-									// Only show Folders and Products, hide Items
-									if (node.type === "product_item") return null
-
+									// useProductsHierarchy nunca insere product_item na árvore visível
+									// (itens de compra vivem em /global/ingredients/$productId)
 									const isProduct = node.type === "product"
 									const iconBg = node.type === "folder" ? "bg-warning/10 dark:bg-warning/20" : "bg-primary/10 dark:bg-primary/20"
 									const iconColor = node.type === "folder" ? "text-warning" : "text-primary"

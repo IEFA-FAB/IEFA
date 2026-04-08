@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
 	component: AtaDetailPage,
 	head: () => ({
-		meta: [{ title: "Detalhes da ATA" }],
+		meta: [{ title: "Detalhes da Ata" }],
 	}),
 })
 
@@ -87,7 +87,7 @@ function AtaDetailPage() {
 	if (!ata) {
 		return (
 			<div className="py-12 text-center">
-				<p className="text-muted-foreground">ATA não encontrada.</p>
+				<p className="text-muted-foreground">Ata não encontrada.</p>
 				<Button
 					variant="outline"
 					size="sm"
@@ -121,7 +121,7 @@ function AtaDetailPage() {
 						render={
 							<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
 								<ArrowLeft className="h-4 w-4 mr-1.5" aria-hidden="true" />
-								ATAs
+								Atas
 							</Link>
 						}
 					/>
@@ -198,7 +198,7 @@ function AtaDetailPage() {
 				</Card>
 			)}
 
-			{/* Itens da ATA */}
+			{/* Itens da Ata */}
 			<AtaItemsTable data={needs} />
 		</div>
 	)

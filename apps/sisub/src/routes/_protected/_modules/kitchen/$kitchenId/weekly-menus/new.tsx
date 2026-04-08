@@ -18,8 +18,8 @@ import supabase from "@/lib/supabase"
 
 /**
  * KITCHEN — Novo Cardápio Semanal
- * Cria do zero ou forka um plano global da SDAB.
- * - Search param `forkFrom`: ID do template global a ser forkado
+ * Cria do zero ou adapta um plano global da SDAB.
+ * - Search param `forkFrom`: ID do template global a ser adaptado
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/weekly-menus/new")({
 	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
@@ -57,6 +57,7 @@ function NewWeeklyMenuPage() {
 					name: name.trim(),
 					description: description.trim() || null,
 					kitchen_id: kitchenId,
+					template_type: "weekly",
 				})
 				.select()
 				.single()
@@ -75,7 +76,7 @@ function NewWeeklyMenuPage() {
 		onError: (err) => toast.error(`Erro: ${err.message}`),
 	})
 
-	// Mutation: forkar template global
+	// Mutation: adaptar template global
 	const { mutate: createFork, isPending: isForking } = useMutation({
 		mutationFn: async () => {
 			if (!kitchenId || !forkFrom || !name.trim()) throw new Error("Dados incompletos")
@@ -88,6 +89,7 @@ function NewWeeklyMenuPage() {
 					description: description.trim() || null,
 					kitchen_id: kitchenId,
 					base_template_id: forkFrom,
+					template_type: "weekly",
 				})
 				.select()
 				.single()
@@ -126,13 +128,13 @@ function NewWeeklyMenuPage() {
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
-			toast.success(`Fork "${data.name}" criado com sucesso!`)
+			toast.success(`Adaptação "${data.name}" criada com sucesso!`)
 			navigate({
 				to: "/kitchen/$kitchenId/weekly-menus/$weeklyMenuId",
 				params: { kitchenId: kitchenIdStr as string, weeklyMenuId: data.id },
 			})
 		},
-		onError: (err) => toast.error(`Erro ao forkar: ${err.message}`),
+		onError: (err) => toast.error(`Erro ao adaptar: ${err.message}`),
 	})
 
 	const isPending = isCreating || isForking
@@ -149,7 +151,7 @@ function NewWeeklyMenuPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				title={isFork ? "Forkar Plano Global" : "Novo Cardápio Semanal"}
+				title={isFork ? "Adaptar Plano Global" : "Novo Cardápio Semanal"}
 				description={isFork ? "Cria uma cópia independente do plano global para sua cozinha." : undefined}
 				onBack={() =>
 					navigate({
@@ -160,13 +162,13 @@ function NewWeeklyMenuPage() {
 			/>
 
 			<div className="mx-auto w-full max-w-2xl space-y-6">
-				{/* Origem do fork */}
+				{/* Plano de origem */}
 				{isFork && baseTemplate && (
 					<Card className="border-dashed">
 						<CardHeader className="pb-3">
 							<CardTitle className="text-sm flex items-center gap-2">
 								<GitFork className="w-4 h-4 text-muted-foreground" />
-								Origem do Fork
+								Plano de origem
 							</CardTitle>
 							<CardDescription>
 								O novo cardápio semanal será uma cópia independente deste plano. Alterações futuras no original não afetarão sua versão local.
@@ -239,7 +241,7 @@ function NewWeeklyMenuPage() {
 								{isFork ? (
 									<>
 										<GitFork className="w-4 h-4 mr-2" />
-										Criar Fork
+										Criar Adaptação
 									</>
 								) : (
 									<>

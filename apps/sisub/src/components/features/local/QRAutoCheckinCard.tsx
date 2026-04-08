@@ -14,9 +14,9 @@ export default function QRAutoCheckinCard({
 	onChangeSelectedOm: (value: string) => void
 	status: AdminStatus
 }) {
-	const baseUrl = "https://app.previsaosisub.com.br/checkin"
 	const currentOm = selectedOm?.trim()
 
+	const baseUrl = typeof window !== "undefined" ? `${window.location.origin}/diner/self-check-in` : "https://app.previsaosisub.com.br/diner/self-check-in"
 	const url = new URL(baseUrl)
 	const om = (currentOm ?? "").normalize("NFKC").trim()
 	url.searchParams.set("u", om)

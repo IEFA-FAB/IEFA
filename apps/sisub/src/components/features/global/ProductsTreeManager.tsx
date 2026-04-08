@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { FolderPlus, Loader2, PackagePlus, Search } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
 import type { Folder, Product, ProductDialogState } from "@/types/domain/products"
@@ -35,6 +35,8 @@ export function ProductsTreeManager() {
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 48,
 		overscan: 10,
+		// Chave estável por ID: evita reutilização errada de DOM ao filtrar/reordenar
+		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
 	})
 
 	const handleOpenDialog = (type: "folder" | "product", mode: "create" | "edit" = "create", data?: Folder | Product, parentId?: string | null) => {
@@ -102,35 +104,6 @@ export function ProductsTreeManager() {
 				</div>
 			</Card>
 
-			{/* Stats */}
-			{stats && (
-				<div className="grid grid-cols-2 gap-4">
-					<Card>
-						<div className="p-4 md:p-6">
-							<div className="flex items-center justify-between">
-								<div>
-									<div className="text-sm text-muted-foreground">Pastas</div>
-									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">{stats.totalFolders}</div>
-								</div>
-								<FolderPlus className="w-8 h-8 md:w-10 md:h-10 text-warning" />
-							</div>
-						</div>
-					</Card>
-
-					<Card>
-						<div className="p-4 md:p-6">
-							<div className="flex items-center justify-between">
-								<div>
-									<div className="text-sm text-muted-foreground">Insumos</div>
-									<div className="text-2xl md:text-3xl font-mono font-bold mt-1">{stats.totalProducts}</div>
-								</div>
-								<PackagePlus className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-							</div>
-						</div>
-					</Card>
-				</div>
-			)}
-
 			{/* Árvore Virtualizada */}
 			<Card>
 				<div ref={parentRef} className="h-150 overflow-auto" role="tree" aria-label="Árvore de insumos">
@@ -183,6 +156,17 @@ export function ProductsTreeManager() {
 						</div>
 					)}
 				</div>
+				{stats && (
+					<CardFooter className="gap-3 text-xs text-muted-foreground select-none">
+						<span>
+							{stats.totalFolders} {stats.totalFolders === 1 ? "pasta" : "pastas"}
+						</span>
+						<span aria-hidden>·</span>
+						<span>
+							{stats.totalProducts} {stats.totalProducts === 1 ? "insumo" : "insumos"}
+						</span>
+					</CardFooter>
+				)}
 			</Card>
 
 			{/* Dialogs */}

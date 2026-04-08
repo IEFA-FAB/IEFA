@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
+import { priceResearchRoutes } from "./api/routes/price-research.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
@@ -35,6 +36,9 @@ app.route("/api", api)
 
 // Rotas admin — protegidas por x-admin-secret
 app.route("/api/admin/compras", comprasAdminRoutes)
+
+// Pesquisa de preços — protegida por x-admin-secret (mesma proteção das rotas admin)
+app.route("/api/admin/price-research", priceResearchRoutes)
 
 // Healthcheck — retorna 503 se a memória RSS ultrapassar 90% do limite do container
 const API_MEMORY_LIMIT_BYTES = 460 * 1024 * 1024 // 460MB — 90% de 512MB

@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurem
 	validateSearch: searchSchema,
 	component: NewAtaPage,
 	head: () => ({
-		meta: [{ title: "Nova ATA de Registro de Preços" }],
+		meta: [{ title: "Nova Ata de Registro de Preços" }],
 	}),
 })
 
@@ -217,7 +217,7 @@ function NewAtaPage() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Nova ATA de Registro de Preços" description="Configure os templates e calcule os quantitativos de aquisição." />
+			<PageHeader title="Nova Ata de Registro de Preços" description="Configure os templates e calcule os quantitativos de aquisição." />
 
 			{/* Indicador de steps */}
 			<div className="flex items-center justify-center py-2">
@@ -279,18 +279,18 @@ function NewAtaPage() {
 			{/* ── Step 3: Resumo e geração ────────────────────────────────────── */}
 			{currentStep === 3 && (
 				<div className="space-y-6">
-					{/* Metadados da ATA */}
+					{/* Metadados da Ata */}
 					<Card>
 						<CardContent className="pt-6">
 							<div className="space-y-4">
 								<FieldGroup>
 									<Field>
-										<FieldLabel htmlFor="ata-title">Título da ATA *</FieldLabel>
+										<FieldLabel htmlFor="ata-title">Título da Ata *</FieldLabel>
 										<Input
 											id="ata-title"
 											value={wizardState.title}
 											onChange={(e) => setWizardState((prev) => ({ ...prev, title: e.target.value }))}
-											placeholder="Ex: ATA de Registro de Preços nº 001/2026"
+											placeholder="Ex: Ata de Registro de Preços nº 001/2026"
 											required
 										/>
 									</Field>
@@ -364,7 +364,7 @@ function NewAtaPage() {
 							)}
 							<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isCreating} className="gap-2">
 								<Save className="h-4 w-4" aria-hidden="true" />
-								{isCreating ? "Salvando..." : "Salvar ATA"}
+								{isCreating ? "Salvando..." : "Salvar ata"}
 							</Button>
 						</div>
 					</div>

@@ -87,30 +87,6 @@ export const addOtherPresenceFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
-export const fetchScanForecastFn = createServerFn({ method: "GET" })
-	.inputValidator(
-		z.object({
-			userId: z.string(),
-			date: z.string(),
-			meal: z.string(),
-			messHallId: z.number(),
-		})
-	)
-	.handler(async ({ data }): Promise<boolean | null> => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.schema("sisub")
-			.from("meal_forecasts")
-			.select("will_eat")
-			.eq("user_id", data.userId)
-			.eq("date", data.date)
-			.eq("meal", data.meal)
-			.eq("mess_hall_id", data.messHallId)
-			.maybeSingle()
-
-		if (error || !result) return null
-		return !!result.will_eat
-	})
-
 export const resolveDisplayNameFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }): Promise<string | null> => {

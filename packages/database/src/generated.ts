@@ -1567,6 +1567,13 @@ export type Database = {
 			}
 			kitchen: {
 				Row: {
+					address_bairro: string | null
+					address_cep: string | null
+					address_complemento: string | null
+					address_logradouro: string | null
+					address_municipio: string | null
+					address_numero: string | null
+					address_uf: string | null
 					created_at: string
 					display_name: string | null
 					id: number
@@ -1576,6 +1583,13 @@ export type Database = {
 					unit_id: number | null
 				}
 				Insert: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
 					created_at?: string
 					display_name?: string | null
 					id?: number
@@ -1585,6 +1599,13 @@ export type Database = {
 					unit_id?: number | null
 				}
 				Update: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
 					created_at?: string
 					display_name?: string | null
 					id?: number
@@ -2357,6 +2378,235 @@ export type Database = {
 					},
 				]
 			}
+			procurement_pesquisa_preco: {
+				Row: {
+					ata_id: string
+					created_at: string
+					filter_estado: string | null
+					filter_municipio_code: number | null
+					filter_uasg_code: string | null
+					id: string
+					items_with_price: number
+					items_without_catmat: number
+					non_compliant_items: number
+					period_months: number
+					reference_method: string
+					similarity_threshold: number
+					total_items: number
+				}
+				Insert: {
+					ata_id: string
+					created_at?: string
+					filter_estado?: string | null
+					filter_municipio_code?: number | null
+					filter_uasg_code?: string | null
+					id?: string
+					items_with_price?: number
+					items_without_catmat?: number
+					non_compliant_items?: number
+					period_months?: number
+					reference_method?: string
+					similarity_threshold: number
+					total_items?: number
+				}
+				Update: {
+					ata_id?: string
+					created_at?: string
+					filter_estado?: string | null
+					filter_municipio_code?: number | null
+					filter_uasg_code?: string | null
+					id?: string
+					items_with_price?: number
+					items_without_catmat?: number
+					non_compliant_items?: number
+					period_months?: number
+					reference_method?: string
+					similarity_threshold?: number
+					total_items?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_ata_id_fkey"
+						columns: ["ata_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_pesquisa_preco_amostra: {
+				Row: {
+					capacidade_unidade_fornecimento: number | null
+					codigo_uasg: string | null
+					descricao_item: string | null
+					esfera: string | null
+					estado: string | null
+					id: string
+					id_compra: string
+					id_item_compra: number | null
+					marca: string | null
+					municipio: string | null
+					nome_uasg: string | null
+					normalized_price: number | null
+					preco_unitario: number | null
+					quantidade: number | null
+					reference_date: string | null
+					research_item_id: string
+					sample_type: string
+					sigla_unidade_fornecimento: string | null
+					sigla_unidade_medida: string | null
+					similarity: number | null
+				}
+				Insert: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_uasg?: string | null
+					descricao_item?: string | null
+					esfera?: string | null
+					estado?: string | null
+					id?: string
+					id_compra: string
+					id_item_compra?: number | null
+					marca?: string | null
+					municipio?: string | null
+					nome_uasg?: string | null
+					normalized_price?: number | null
+					preco_unitario?: number | null
+					quantidade?: number | null
+					reference_date?: string | null
+					research_item_id: string
+					sample_type: string
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+					similarity?: number | null
+				}
+				Update: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_uasg?: string | null
+					descricao_item?: string | null
+					esfera?: string | null
+					estado?: string | null
+					id?: string
+					id_compra?: string
+					id_item_compra?: number | null
+					marca?: string | null
+					municipio?: string | null
+					nome_uasg?: string | null
+					normalized_price?: number | null
+					preco_unitario?: number | null
+					quantidade?: number | null
+					reference_date?: string | null
+					research_item_id?: string
+					sample_type?: string
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+					similarity?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
+						columns: ["research_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_pesquisa_preco_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_pesquisa_preco_item: {
+				Row: {
+					ata_item_id: string | null
+					catmat_codigo: number | null
+					catmat_descricao: string | null
+					created_at: string
+					cv_pct: number | null
+					error: string | null
+					id: string
+					is_compliant: boolean
+					measure_unit: string | null
+					non_compliance_reasons: string[]
+					price_max: number | null
+					price_mean: number | null
+					price_median: number | null
+					price_min: number | null
+					product_name: string
+					reference_method: string | null
+					reference_price: number | null
+					research_id: string
+					std_dev: number | null
+					total_after_date_filter: number
+					total_after_outlier: number
+					total_after_pollution_filter: number
+					total_raw: number
+					unique_sources: number | null
+				}
+				Insert: {
+					ata_item_id?: string | null
+					catmat_codigo?: number | null
+					catmat_descricao?: string | null
+					created_at?: string
+					cv_pct?: number | null
+					error?: string | null
+					id?: string
+					is_compliant?: boolean
+					measure_unit?: string | null
+					non_compliance_reasons?: string[]
+					price_max?: number | null
+					price_mean?: number | null
+					price_median?: number | null
+					price_min?: number | null
+					product_name: string
+					reference_method?: string | null
+					reference_price?: number | null
+					research_id: string
+					std_dev?: number | null
+					total_after_date_filter?: number
+					total_after_outlier?: number
+					total_after_pollution_filter?: number
+					total_raw?: number
+					unique_sources?: number | null
+				}
+				Update: {
+					ata_item_id?: string | null
+					catmat_codigo?: number | null
+					catmat_descricao?: string | null
+					created_at?: string
+					cv_pct?: number | null
+					error?: string | null
+					id?: string
+					is_compliant?: boolean
+					measure_unit?: string | null
+					non_compliance_reasons?: string[]
+					price_max?: number | null
+					price_mean?: number | null
+					price_median?: number | null
+					price_min?: number | null
+					product_name?: string
+					reference_method?: string | null
+					reference_price?: number | null
+					research_id?: string
+					std_dev?: number | null
+					total_after_date_filter?: number
+					total_after_outlier?: number
+					total_after_pollution_filter?: number
+					total_raw?: number
+					unique_sources?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_item_ata_item_id_fkey"
+						columns: ["ata_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_pesquisa_preco_item_research_id_fkey"
+						columns: ["research_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_pesquisa_preco"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			product: {
 				Row: {
 					catmat_item_codigo: number | null
@@ -2506,6 +2756,60 @@ export type Database = {
 						columns: ["product_id"]
 						isOneToOne: false
 						referencedRelation: "product"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			production_task: {
+				Row: {
+					completed_at: string | null
+					created_at: string
+					id: string
+					kitchen_id: number
+					menu_item_id: string
+					notes: string | null
+					production_date: string
+					started_at: string | null
+					status: string
+					updated_at: string | null
+				}
+				Insert: {
+					completed_at?: string | null
+					created_at?: string
+					id?: string
+					kitchen_id: number
+					menu_item_id: string
+					notes?: string | null
+					production_date: string
+					started_at?: string | null
+					status?: string
+					updated_at?: string | null
+				}
+				Update: {
+					completed_at?: string | null
+					created_at?: string
+					id?: string
+					kitchen_id?: number
+					menu_item_id?: string
+					notes?: string | null
+					production_date?: string
+					started_at?: string | null
+					status?: string
+					updated_at?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "production_task_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "production_task_menu_item_id_fkey"
+						columns: ["menu_item_id"]
+						isOneToOne: true
+						referencedRelation: "menu_items"
 						referencedColumns: ["id"]
 					},
 				]
@@ -2712,22 +3016,46 @@ export type Database = {
 			}
 			units: {
 				Row: {
+					address_bairro: string | null
+					address_cep: string | null
+					address_complemento: string | null
+					address_logradouro: string | null
+					address_municipio: string | null
+					address_numero: string | null
+					address_uf: string | null
 					code: string
 					display_name: string | null
 					id: number
 					type: Database["sisub"]["Enums"]["unit_type"] | null
+					uasg: string | null
 				}
 				Insert: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
 					code: string
 					display_name?: string | null
 					id?: number
 					type?: Database["sisub"]["Enums"]["unit_type"] | null
+					uasg?: string | null
 				}
 				Update: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
 					code?: string
 					display_name?: string | null
 					id?: number
 					type?: Database["sisub"]["Enums"]["unit_type"] | null
+					uasg?: string | null
 				}
 				Relationships: []
 			}

@@ -51,9 +51,9 @@ export function useCreateAta() {
 			}),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["procurement_ata", "list"] })
-			toast.success(`ATA "${data?.title}" criada com sucesso!`)
+			toast.success(`Ata "${data?.title}" criada com sucesso!`)
 		},
-		onError: (error) => toast.error(`Erro ao criar ATA: ${error.message}`),
+		onError: (error) => toast.error(`Erro ao criar ata: ${error.message}`),
 	})
 }
 
@@ -68,7 +68,7 @@ export function useUpdateAtaStatus() {
 				published: "Publicada",
 				archived: "Arquivada",
 			}
-			toast.success(`ATA atualizada para "${labels[variables.status]}"`)
+			toast.success(`Ata atualizada para "${labels[variables.status]}"`)
 		},
 		onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`),
 	})
@@ -80,8 +80,8 @@ export function useDeleteAta() {
 		mutationFn: (ataId: string) => deleteAtaFn({ data: { ataId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["procurement_ata", "list"] })
-			toast.success("ATA removida.")
+			toast.success("Ata removida.")
 		},
-		onError: (error) => toast.error(`Erro ao remover ATA: ${error.message}`),
+		onError: (error) => toast.error(`Erro ao remover ata: ${error.message}`),
 	})
 }

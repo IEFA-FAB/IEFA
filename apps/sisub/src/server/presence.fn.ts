@@ -24,6 +24,7 @@ export const fetchPresencesFn = createServerFn({ method: "GET" })
 		}
 
 		const { data: result, error } = await getSupabaseServerClient()
+			.schema("sisub")
 			.from("v_meal_presences_with_user")
 			.select("id, user_id, date, meal, created_at, mess_hall_id, display_name")
 			.eq("date", data.date)
@@ -62,6 +63,7 @@ export const fetchForecastsFn = createServerFn({ method: "GET" })
 		if (data.userIds.length === 0) return {} as ForecastMap
 
 		const { data: result, error } = await getSupabaseServerClient()
+			.schema("sisub")
 			.from("meal_forecasts")
 			.select("user_id, will_eat")
 			.eq("date", data.date)
@@ -90,7 +92,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient().from("meal_presences").insert({
+		const { error } = await getSupabaseServerClient().schema("sisub").from("meal_presences").insert({
 			user_id: data.user_id,
 			date: data.date,
 			meal: data.meal,
@@ -103,7 +105,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 export const deletePresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
-		const { error } = await getSupabaseServerClient().from("meal_presences").delete().eq("id", data.id)
+		const { error } = await getSupabaseServerClient().schema("sisub").from("meal_presences").delete().eq("id", data.id)
 
 		if (error) throw new Error(error.message)
 	})

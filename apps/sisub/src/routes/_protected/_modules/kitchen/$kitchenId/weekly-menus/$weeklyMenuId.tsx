@@ -1,6 +1,6 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, X } from "lucide-react"
+import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, Users, X } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
@@ -43,6 +43,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 type MealType = { id: string; name: string | null }
+type RecipeWithHeadcount = Recipe & { headcountOverride: number | null }
 
 function DayOverviewCard({
 	day,
@@ -132,11 +133,14 @@ function DayMealSection({
 	recipes,
 	onOpenSelector,
 	onRemoveRecipe,
+	onItemHeadcountChange,
 }: {
 	mealType: MealType
-	recipes: Recipe[]
+	recipes: RecipeWithHeadcount[]
 	onOpenSelector: () => void
 	onRemoveRecipe: (recipeId: string) => void
+	/** Atualiza o headcount de uma preparação específica. */
+	onItemHeadcountChange: (recipeId: string, value: number | null) => void
 }) {
 	const hasRecipes = recipes.length > 0
 
@@ -151,6 +155,7 @@ function DayMealSection({
 						</Badge>
 					)}
 				</div>
+
 				<Button type="button" size="sm" variant="ghost" onClick={onOpenSelector} className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
 					<Plus className="h-3.5 w-3.5" />
 					Adicionar
@@ -160,11 +165,34 @@ function DayMealSection({
 			{hasRecipes ? (
 				<div className="p-3 space-y-1.5">
 					{recipes.map((recipe) => (
-						<div key={recipe.id} className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
+						<div key={recipe.id} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
 							<div className="flex-1 min-w-0">
 								<p className="text-sm truncate">{recipe.name}</p>
 								{recipe.rational_id && <p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>}
 							</div>
+
+							{/* Comensais por preparação */}
+							<Tooltip>
+								<TooltipTrigger className="flex items-center gap-1 shrink-0 cursor-default" onClick={(e) => e.stopPropagation()}>
+									<Users className="h-3 w-3 text-muted-foreground" />
+									<Input
+										type="number"
+										min="1"
+										className="h-6 w-16 text-xs"
+										value={recipe.headcountOverride ?? ""}
+										placeholder="pax"
+										onChange={(e) => onItemHeadcountChange(recipe.id, e.target.value ? parseInt(e.target.value, 10) : null)}
+										onClick={(e) => e.stopPropagation()}
+									/>
+								</TooltipTrigger>
+								<TooltipContent side="top">
+									<p className="text-xs font-medium">Comensais desta preparação</p>
+									<p className="text-xs text-muted-foreground mt-0.5">
+										{recipe.headcountOverride ? `${recipe.headcountOverride} pessoas previstas` : "Informe o nº de comensais"}
+									</p>
+								</TooltipContent>
+							</Tooltip>
+
 							<Tooltip>
 								<TooltipTrigger
 									render={
@@ -228,14 +256,27 @@ function WeeklyMenuEditorPage() {
 				day_of_week: item.day_of_week ?? 0,
 				meal_type_id: item.meal_type_id ?? "",
 				recipe_id: item.recipe_id ?? "",
+				headcount_override: item.headcount_override ?? null,
 			}))
 		)
 		setInitialized(true)
 	}
 
-	const getCellRecipes = (dayOfWeek: number, mealTypeId: string): Recipe[] => {
-		const ids = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId).map((i) => i.recipe_id)
-		return allRecipes?.filter((r) => ids.includes(r.id)) ?? []
+	/** Retorna as preparações de uma célula (dia + tipo de refeição) com seus headcounts individuais. */
+	const getCellItems = (dayOfWeek: number, mealTypeId: string): RecipeWithHeadcount[] => {
+		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
+		return cellItems.flatMap((item) => {
+			const recipe = allRecipes?.find((r) => r.id === item.recipe_id)
+			if (!recipe) return []
+			return [{ ...recipe, headcountOverride: item.headcount_override ?? null }]
+		})
+	}
+
+	/** Atualiza o headcount de uma preparação específica dentro de uma célula. */
+	const handleItemHeadcountChange = (dayOfWeek: number, mealTypeId: string, recipeId: string, value: number | null) => {
+		setItems((prev) =>
+			prev.map((i) => (i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i))
+		)
 	}
 
 	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string) => {
@@ -245,11 +286,15 @@ function WeeklyMenuEditorPage() {
 
 	const handleSelectRecipes = (recipeIds: string[]) => {
 		if (!selectedCell) return
+		// Preserva o headcount individual de cada preparação que permanece na célula
+		const existingItems = items.filter((i) => i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId)
+		const existingHeadcounts = new Map(existingItems.map((i) => [i.recipe_id, i.headcount_override ?? null]))
 		const filtered = items.filter((i) => !(i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId))
 		const newItems = recipeIds.map((recipeId) => ({
 			day_of_week: selectedCell.dayOfWeek,
 			meal_type_id: selectedCell.mealTypeId,
 			recipe_id: recipeId,
+			headcount_override: existingHeadcounts.get(recipeId) ?? null,
 		}))
 		setItems([...filtered, ...newItems])
 		setSelectedCell(null)
@@ -276,6 +321,7 @@ function WeeklyMenuEditorPage() {
 					day_of_week: i.day_of_week,
 					meal_type_id: i.meal_type_id,
 					recipe_id: i.recipe_id,
+					headcount_override: i.headcount_override ?? null,
 				})),
 			},
 			{
@@ -367,7 +413,7 @@ function WeeklyMenuEditorPage() {
 							{isFork && (
 								<div className="mt-4 flex items-center gap-2">
 									<GitFork className="w-3.5 h-3.5 text-muted-foreground" />
-									<span className="text-xs text-muted-foreground">Fork de plano global da SDAB</span>
+									<span className="text-xs text-muted-foreground">Adaptado do plano global da SDAB</span>
 									<Badge variant="outline" className="text-xs">
 										Independente — alterações no original não afetam este cardápio
 									</Badge>
@@ -449,9 +495,10 @@ function WeeklyMenuEditorPage() {
 										<DayMealSection
 											key={mealType.id}
 											mealType={mealType}
-											recipes={getCellRecipes(day.num, mealType.id)}
+											recipes={getCellItems(day.num, mealType.id)}
 											onOpenSelector={() => handleOpenSelector(day.num, mealType.id)}
 											onRemoveRecipe={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
+											onItemHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}
 										/>
 									))
 								) : (

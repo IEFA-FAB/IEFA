@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getSupabaseAuthClient } from "@/lib/supabase.server"
 
 export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
-	const supabase = getSupabaseServerClient()
+	const supabase = getSupabaseAuthClient()
 	// getUser() valida o token no servidor Supabase — não usa localStorage
 	const {
 		data: { user },

@@ -70,7 +70,13 @@ const TAG_TONE: Record<string, string> = {
 const markdownComponents: Partial<Components> = {
 	// biome-ignore lint/suspicious/noExplicitAny: markdown props
 	a: ({ node, href, ...props }: any) => (
-		<a {...props} href={transformLinkUri(href)} className="text-primary hover:text-primary/90 underline" target="_blank" rel="noopener noreferrer nofollow" />
+		<a
+			{...props}
+			href={transformLinkUri(href)}
+			className="cursor-pointer text-primary hover:text-primary/90 underline"
+			target="_blank"
+			rel="noopener noreferrer nofollow"
+		/>
 	),
 	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
 	ul: ({ node, ...props }: any) => <ul {...props} className="list-disc pl-6" />,
@@ -125,7 +131,11 @@ function ChangelogEntryItem({ entry }: { entry: ChangelogEntry }) {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<a href={`#${anchorId}`} className="font-mono text-xs text-muted-foreground/60 hover:text-muted-foreground" aria-label="Link para esta entrada">
+								<a
+									href={`#${anchorId}`}
+									className="cursor-pointer font-mono text-xs text-muted-foreground/60 hover:text-muted-foreground"
+									aria-label="Link para esta entrada"
+								>
 									#
 								</a>
 							}

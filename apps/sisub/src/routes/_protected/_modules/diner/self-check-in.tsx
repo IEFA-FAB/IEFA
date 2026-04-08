@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { inferDefaultMeal } from "@/lib/fiscal"
-import supabase from "@/lib/supabase"
+import { insertPresenceFn } from "@/server/presence.fn"
 import { messHallByCodeQueryOptions, userMealForecastQueryOptions } from "@/services/SelfCheckInService"
 import type { WillEnter } from "@/types/domain/presence"
 
@@ -154,25 +154,25 @@ function SelfCheckin() {
 				toast.info("Decisão registrada", {
 					description: "Você optou por não entrar para a refeição.",
 				})
-				return
-			}
-
-			const { error } = await supabase.schema("sisub").from("meal_presences").insert({
-				user_id: userId,
-				date,
-				meal,
-				mess_hall_id: messHall.id,
-			})
-
-			if (!error) {
-				toast.success("Presença registrada", {
-					description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
-				})
 				scheduleRedirect(REDIRECT_DELAY_SECONDS)
 				return
 			}
 
-			if (isDuplicateOrConflict(error)) {
+			await insertPresenceFn({
+				data: {
+					user_id: userId,
+					date,
+					meal,
+					messHallId: messHall.id,
+				},
+			})
+
+			toast.success("Presença registrada", {
+				description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
+			})
+			scheduleRedirect(REDIRECT_DELAY_SECONDS)
+		} catch (err) {
+			if (isDuplicateOrConflict(err)) {
 				toast.info("Já registrado", {
 					description: `Sua presença já está registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
 				})
@@ -182,10 +182,6 @@ function SelfCheckin() {
 
 			toast.error("Erro", {
 				description: "Não foi possível registrar sua presença.",
-			})
-		} catch (_err) {
-			toast.error("Erro", {
-				description: "Falha inesperada ao enviar a presença.",
 			})
 		} finally {
 			setSubmitting(false)
@@ -215,7 +211,6 @@ function SelfCheckin() {
 							Não
 						</Button>
 					</div>
-					<div className="text-xs text-muted-foreground mt-1">UUID: {userId}</div>
 				</div>
 
 				{/* Vai entrar? */}

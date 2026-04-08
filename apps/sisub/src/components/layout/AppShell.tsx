@@ -1,11 +1,12 @@
 import { Link, Outlet, useLocation, useMatches, useNavigate } from "@tanstack/react-router"
+import { ChevronLeft } from "lucide-react"
 import { useEffect, useState } from "react"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
 import { getModuleFromPath, getModulesForPermissions, getNavItemsForPermissions, type ModuleId, type NavItem } from "@/components/layout/sidebar/NavItems"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { useTheme } from "@/hooks/ui/useTheme"
 import type { ScopeContext } from "@/types/domain/scope"
 import { AppSidebar } from "./sidebar/AppSidebar"
@@ -51,6 +52,7 @@ const SEGMENT_PT: Record<string, string> = {
 	new: "Novo",
 	fork: "Derivar",
 	versions: "Versões",
+	settings: "Configurações",
 }
 
 /** Quando um segmento é um ID, o rótulo é inferido do segmento anterior */
@@ -76,6 +78,10 @@ export function AppShell() {
 	const navigate = useNavigate()
 	const { toggle } = useTheme()
 	const matches = useMatches()
+
+	// Reutiliza o isMobile já computado pelo SidebarProvider (768px breakpoint),
+	// consistente com o modo sheet/drawer do sidebar em mobile.
+	const { isMobile } = useSidebar()
 
 	const { permissions, isLoading: levelLoading } = usePBAC()
 	const levelError = false
@@ -185,37 +191,67 @@ export function AppShell() {
 					<div className="flex items-center gap-3">
 						<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
 						<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
-						<Breadcrumb>
-							<BreadcrumbList className="text-sm font-medium">
-								<BreadcrumbItem>
-									<BreadcrumbLink
-										render={
-											<Link to="/hub" className="hover:text-primary transition-colors text-center">
-												{R.breadcrumbRoot}
+						{isMobile ? (
+							// Mobile: ← pai  /  página atual
+							<div className="flex items-center gap-1 text-sm font-medium min-w-0">
+								{(() => {
+									const parentCrumb = crumbs.length >= 2 ? crumbs[crumbs.length - 2] : null
+									const currentCrumb = crumbs.length >= 1 ? crumbs[crumbs.length - 1] : null
+									const backTo = parentCrumb?.to ?? "/hub"
+									const backLabel = parentCrumb?.label ?? R.breadcrumbRoot
+									return (
+										<>
+											<Link
+												to={backTo as Parameters<typeof Link>[0]["to"]}
+												className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
+											>
+												<ChevronLeft className="h-4 w-4" />
+												<span>{backLabel}</span>
 											</Link>
-										}
-									/>
-								</BreadcrumbItem>
-								{crumbs.map((c, idx) => (
-									<span key={c.to} className="inline-flex items-center">
-										<BreadcrumbSeparator className="text-muted-foreground/50 px-2" />
-										<BreadcrumbItem>
-											{idx === crumbs.length - 1 ? (
-												<span className="text-foreground font-semibold text-center">{c.label}</span>
-											) : (
-												<BreadcrumbLink
-													render={
-														<Link to={c.to} className="hover:text-primary transition-colors text-center items-center">
-															{c.label}
-														</Link>
-													}
-												/>
+											{currentCrumb && (
+												<>
+													<span className="text-muted-foreground/40 px-1">/</span>
+													<span className="text-foreground font-semibold truncate">{currentCrumb.label}</span>
+												</>
 											)}
-										</BreadcrumbItem>
-									</span>
-								))}
-							</BreadcrumbList>
-						</Breadcrumb>
+										</>
+									)
+								})()}
+							</div>
+						) : (
+							// Desktop: trilha completa
+							<Breadcrumb>
+								<BreadcrumbList className="text-sm font-medium">
+									<BreadcrumbItem>
+										<BreadcrumbLink
+											render={
+												<Link to="/hub" className="cursor-pointer hover:text-primary transition-colors text-center">
+													{R.breadcrumbRoot}
+												</Link>
+											}
+										/>
+									</BreadcrumbItem>
+									{crumbs.map((c, idx) => (
+										<span key={c.to} className="inline-flex items-center">
+											<BreadcrumbSeparator className="text-muted-foreground/50 px-2" />
+											<BreadcrumbItem>
+												{idx === crumbs.length - 1 ? (
+													<span className="text-foreground font-semibold text-center">{c.label}</span>
+												) : (
+													<BreadcrumbLink
+														render={
+															<Link to={c.to} className="cursor-pointer hover:text-primary transition-colors text-center items-center">
+																{c.label}
+															</Link>
+														}
+													/>
+												)}
+											</BreadcrumbItem>
+										</span>
+									))}
+								</BreadcrumbList>
+							</Breadcrumb>
+						)}
 					</div>
 					<div className="flex items-center gap-2">
 						<AnimatedThemeToggler toggle={toggle} />

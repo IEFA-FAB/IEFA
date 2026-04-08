@@ -6,6 +6,7 @@ import {
 	Building2,
 	Calendar,
 	CalendarDays,
+	CalendarRange,
 	ChefHat,
 	ClipboardCheck,
 	FileText,
@@ -73,7 +74,8 @@ export const ALL_MODULES: ModuleDef[] = [
 		hubUrl: "/unit",
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
-			{ title: "ATAs", url: "/unit/procurement", icon: FileText },
+			{ title: "Atas", url: "/unit/procurement", icon: FileText },
+			{ title: "Configurações", url: "/unit/settings", icon: Settings },
 		],
 	},
 	{
@@ -84,10 +86,12 @@ export const ALL_MODULES: ModuleDef[] = [
 		// URLs base — AppShell substitui por /kitchen/{id}/... quando dentro de um escopo
 		items: [
 			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays },
+			{ title: "Eventos", url: "/kitchen/events", icon: CalendarRange },
 			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar },
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
 			{ title: "Suprimentos", url: "/kitchen/suprimentos", icon: ShoppingCart },
 			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode },
+			{ title: "Configurações", url: "/kitchen/settings", icon: Settings },
 		],
 	},
 	{
