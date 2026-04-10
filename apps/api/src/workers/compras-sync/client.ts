@@ -94,6 +94,12 @@ export async function fetchPage<T>(endpoint: string, pageNumber: number, params:
 /**
  * AsyncGenerator que entrega uma página por vez com delay de cortesia entre
  * requisições. Ideal para endpoints com poucas páginas.
+ *
+ * Nota: alguns endpoints da API Compras (ex: material/pdm, material/natureza_despesa,
+ * material/caracteristica) retornam `paginasRestantes=0` e `totalPaginas=0` em TODAS
+ * as páginas, mesmo havendo mais registros — bug conhecido da API.
+ * Por isso não dependemos de `paginasRestantes` para sinalizar o fim; em vez disso,
+ * usamos o tamanho da página recebida: página parcial (< PAGE_SIZE) = última página.
  */
 export async function* fetchAllPages<T>(
 	endpoint: string,
@@ -102,8 +108,11 @@ export async function* fetchAllPages<T>(
 	let pagina = 1
 	while (true) {
 		const page = await fetchPage<T>(endpoint, pagina, params)
+		// Página vazia → fim definitivo (edge case: última página era exatamente PAGE_SIZE)
+		if (page.resultado.length === 0) break
 		yield { page, pageNumber: pagina }
-		if (page.paginasRestantes === 0) break
+		// Página parcial → última página
+		if (page.resultado.length < PAGE_SIZE) break
 		pagina++
 		await Bun.sleep(150) // cortesia à API pública
 	}
