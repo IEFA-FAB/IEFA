@@ -35,6 +35,26 @@ function withJitter(ms: number): number {
 	return Math.round(ms * (0.75 + Math.random() * 0.5))
 }
 
+function parseRetryAfterMs(retryAfter: string | null): number | null {
+	if (!retryAfter) return null
+
+	const seconds = Number(retryAfter)
+	if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000)
+
+	const retryAt = Date.parse(retryAfter)
+	if (Number.isNaN(retryAt)) return null
+
+	return Math.max(retryAt - Date.now(), 0)
+}
+
+function parseRateLimitBodyDelayMs(body: string): number | null {
+	const match = body.match(/try again in\s+(\d+)\s+seconds/i)
+	if (!match) return null
+
+	const seconds = Number(match[1])
+	return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null
+}
+
 // ── Fetch com retry ───────────────────────────────────────────────────────────
 
 async function fetchWithRetry(url: string): Promise<Response> {
@@ -50,6 +70,7 @@ async function fetchWithRetry(url: string): Promise<Response> {
 			if (res.ok) return res
 
 			const body = await res.text().catch(() => "")
+			const retryAfterMs = res.status === 429 ? (parseRetryAfterMs(res.headers.get("retry-after")) ?? parseRateLimitBodyDelayMs(body)) : null
 
 			if (!RETRYABLE_HTTP_CODES.has(res.status)) {
 				// Erro definitivo (401, 403, 404, 422…): não há sentido em retry
@@ -57,14 +78,19 @@ async function fetchWithRetry(url: string): Promise<Response> {
 			}
 
 			// Código retentável (400, 429, 5xx…): guarda o erro e tenta de novo
-			lastError = new Error(`HTTP ${res.status} ${res.statusText}: ${body.slice(0, 200)}`)
+			const retryHint = retryAfterMs != null ? `retry_after_ms=${retryAfterMs}` : "retry_after_ms=unknown"
+			lastError = new Error(`HTTP ${res.status} ${res.statusText}: ${body.slice(0, 200)} | ${retryHint}`)
 		} catch (err) {
 			if (err instanceof NonRetryableError) throw err
 			lastError = err
 		}
 
 		if (attempt < RETRY_BASE_DELAYS_MS.length) {
-			const delay = withJitter(RETRY_BASE_DELAYS_MS[attempt])
+			const rateLimitDelay = lastError instanceof Error ? Number(lastError.message.match(/retry_after_ms=(\d+)/)?.[1] ?? Number.NaN) : Number.NaN
+
+			const delay = Number.isFinite(rateLimitDelay)
+				? withJitter(Math.max(rateLimitDelay, RETRY_BASE_DELAYS_MS[attempt]))
+				: withJitter(RETRY_BASE_DELAYS_MS[attempt])
 			console.warn(
 				`[compras-client] Tentativa ${attempt + 1}/${MAX_ATTEMPTS} falhou` +
 					` — retry em ${delay}ms | ${url.split("?")[0]} | ${lastError instanceof Error ? lastError.message : lastError}`

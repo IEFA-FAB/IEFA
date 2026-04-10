@@ -12,6 +12,17 @@ import type {
 
 type UpdateProgress = (pageNumber: number, totalPages: number, upserted: number) => Promise<void>
 
+function parseSupplyCapacity(value: number | string | null | undefined): number | null {
+	if (value == null) return null
+	if (typeof value === "number") return Number.isFinite(value) ? value : null
+
+	const normalized = value.trim().replace(",", ".")
+	if (!normalized) return null
+
+	const parsed = Number(normalized)
+	return Number.isFinite(parsed) ? parsed : null
+}
+
 // ─── Step 1: Grupo ────────────────────────────────────────────────────────────
 
 export async function syncMaterialGrupo(supabase: SupabaseClient, updateProgress: UpdateProgress): Promise<number> {
@@ -92,9 +103,9 @@ export async function syncMaterialItem(supabase: SupabaseClient, updateProgress:
 			descricao_item: r.descricaoItem,
 			status_item: r.statusItem,
 			item_sustentavel: r.itemSustentavel ?? null,
-			codigo_ncm: r.codigoNcm ?? null,
-			descricao_ncm: r.descricaoNcm ?? null,
-			aplica_margem_preferencia: r.aplicaMargemPreferencia ?? null,
+			codigo_ncm: r.codigoNcm ?? r.codigo_ncm ?? null,
+			descricao_ncm: r.descricaoNcm ?? r.descricao_ncm ?? null,
+			aplica_margem_preferencia: r.aplicaMargemPreferencia ?? r.aplica_margem_preferencia ?? null,
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),
 		}))
@@ -151,7 +162,7 @@ export async function syncMaterialUnidadeFornecimento(supabase: SupabaseClient, 
 			nome_unidade_fornecimento: r.nomeUnidadeFornecimento ?? null,
 			descricao_unidade_fornecimento: r.descricaoUnidadeFornecimento ?? null,
 			sigla_unidade_medida: r.siglaUnidadeMedida ?? null,
-			capacidade_unidade_fornecimento: r.capacidadeUnidadeFornecimento ?? null,
+			capacidade_unidade_fornecimento: parseSupplyCapacity(r.capacidadeUnidadeFornecimento),
 			status_unidade_fornecimento_pdm: r.statusUnidadeFornecimentoPdm,
 			data_hora_atualizacao: r.dataHoraAtualizacao ?? null,
 			synced_at: new Date().toISOString(),

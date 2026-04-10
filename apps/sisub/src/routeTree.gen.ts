@@ -20,6 +20,7 @@ import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
 import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_modules/route'
+import { Route as ProtectedModulesAnalyticsRouteRouteImport } from './routes/_protected/_modules/analytics/route'
 import { Route as ProtectedModulesUnitIndexRouteImport } from './routes/_protected/_modules/unit/index'
 import { Route as ProtectedModulesMesshallIndexRouteImport } from './routes/_protected/_modules/messhall/index'
 import { Route as ProtectedModulesLocalAnalyticsIndexRouteImport } from './routes/_protected/_modules/local-analytics/index'
@@ -39,6 +40,7 @@ import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_prot
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
+import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
 import { Route as ProtectedModulesUnitUnitIdRouteRouteImport } from './routes/_protected/_modules/unit/$unitId/route'
 import { Route as ProtectedModulesMesshallMessHallIdRouteRouteImport } from './routes/_protected/_modules/messhall/$messHallId/route'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdRouteRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/route'
@@ -136,6 +138,12 @@ const ProtectedModulesRouteRoute = ProtectedModulesRouteRouteImport.update({
   id: '/_modules',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedModulesAnalyticsRouteRoute =
+  ProtectedModulesAnalyticsRouteRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesUnitIndexRoute =
   ProtectedModulesUnitIndexRouteImport.update({
     id: '/unit/',
@@ -180,9 +188,9 @@ const ProtectedModulesDinerIndexRoute =
   } as any)
 const ProtectedModulesAnalyticsIndexRoute =
   ProtectedModulesAnalyticsIndexRouteImport.update({
-    id: '/analytics/',
-    path: '/analytics/',
-    getParentRoute: () => ProtectedModulesRouteRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
   } as any)
 const ProtectedModulesGlobalPolicyRoute =
   ProtectedModulesGlobalPolicyRouteImport.update({
@@ -246,9 +254,15 @@ const ProtectedModulesDinerForecastRoute =
   } as any)
 const ProtectedModulesAnalyticsGlobalRoute =
   ProtectedModulesAnalyticsGlobalRouteImport.update({
-    id: '/analytics/global',
-    path: '/analytics/global',
-    getParentRoute: () => ProtectedModulesRouteRoute,
+    id: '/global',
+    path: '/global',
+    getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
+  } as any)
+const ProtectedModulesAnalyticsChatRoute =
+  ProtectedModulesAnalyticsChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
+    getParentRoute: () => ProtectedModulesAnalyticsRouteRoute,
   } as any)
 const ProtectedModulesUnitUnitIdRouteRoute =
   ProtectedModulesUnitUnitIdRouteRouteImport.update({
@@ -527,11 +541,13 @@ export interface FileRoutesByFullPath {
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
+  '/analytics': typeof ProtectedModulesAnalyticsRouteRouteWithChildren
   '/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   '/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
   '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
+  '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
@@ -600,6 +616,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
   '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
+  '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
@@ -670,11 +687,13 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/_protected/_modules/analytics': typeof ProtectedModulesAnalyticsRouteRouteWithChildren
   '/_protected/_modules/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   '/_protected/_modules/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
   '/_protected/_modules/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/_protected/_modules/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
+  '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
@@ -745,11 +764,13 @@ export interface FileRouteTypes {
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth/'
+    | '/analytics'
     | '/kitchen-production/$kitchenId'
     | '/kitchen/$kitchenId'
     | '/local-analytics/$unitId'
     | '/messhall/$messHallId'
     | '/unit/$unitId'
+    | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
     | '/diner/menu'
@@ -818,6 +839,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth'
     | '/local-analytics/$unitId'
+    | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
     | '/diner/menu'
@@ -887,11 +909,13 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/_public/'
     | '/auth/'
+    | '/_protected/_modules/analytics'
     | '/_protected/_modules/kitchen-production/$kitchenId'
     | '/_protected/_modules/kitchen/$kitchenId'
     | '/_protected/_modules/local-analytics/$unitId'
     | '/_protected/_modules/messhall/$messHallId'
     | '/_protected/_modules/unit/$unitId'
+    | '/_protected/_modules/analytics/chat'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/diner/forecast'
     | '/_protected/_modules/diner/menu'
@@ -1038,6 +1062,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/_modules/analytics': {
+      id: '/_protected/_modules/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsRouteRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
     '/_protected/_modules/unit/': {
       id: '/_protected/_modules/unit/'
       path: '/unit'
@@ -1089,10 +1120,10 @@ declare module '@tanstack/react-router' {
     }
     '/_protected/_modules/analytics/': {
       id: '/_protected/_modules/analytics/'
-      path: '/analytics'
+      path: '/'
       fullPath: '/analytics/'
       preLoaderRoute: typeof ProtectedModulesAnalyticsIndexRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
+      parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
     }
     '/_protected/_modules/global/policy': {
       id: '/_protected/_modules/global/policy'
@@ -1166,10 +1197,17 @@ declare module '@tanstack/react-router' {
     }
     '/_protected/_modules/analytics/global': {
       id: '/_protected/_modules/analytics/global'
-      path: '/analytics/global'
+      path: '/global'
       fullPath: '/analytics/global'
       preLoaderRoute: typeof ProtectedModulesAnalyticsGlobalRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
+      parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
+    }
+    '/_protected/_modules/analytics/chat': {
+      id: '/_protected/_modules/analytics/chat'
+      path: '/chat'
+      fullPath: '/analytics/chat'
+      preLoaderRoute: typeof ProtectedModulesAnalyticsChatRouteImport
+      parentRoute: typeof ProtectedModulesAnalyticsRouteRoute
     }
     '/_protected/_modules/unit/$unitId': {
       id: '/_protected/_modules/unit/$unitId'
@@ -1482,6 +1520,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ProtectedModulesAnalyticsRouteRouteChildren {
+  ProtectedModulesAnalyticsChatRoute: typeof ProtectedModulesAnalyticsChatRoute
+  ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
+  ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
+}
+
+const ProtectedModulesAnalyticsRouteRouteChildren: ProtectedModulesAnalyticsRouteRouteChildren =
+  {
+    ProtectedModulesAnalyticsChatRoute: ProtectedModulesAnalyticsChatRoute,
+    ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
+    ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,
+  }
+
+const ProtectedModulesAnalyticsRouteRouteWithChildren =
+  ProtectedModulesAnalyticsRouteRoute._addFileChildren(
+    ProtectedModulesAnalyticsRouteRouteChildren,
+  )
+
 interface ProtectedModulesKitchenProductionKitchenIdRouteRouteChildren {
   ProtectedModulesKitchenProductionKitchenIdIndexRoute: typeof ProtectedModulesKitchenProductionKitchenIdIndexRoute
 }
@@ -1656,12 +1712,12 @@ const ProtectedModulesUnitUnitIdRouteRouteWithChildren =
   )
 
 interface ProtectedModulesRouteRouteChildren {
+  ProtectedModulesAnalyticsRouteRoute: typeof ProtectedModulesAnalyticsRouteRouteWithChildren
   ProtectedModulesKitchenProductionKitchenIdRouteRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   ProtectedModulesKitchenKitchenIdRouteRoute: typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
   ProtectedModulesLocalAnalyticsUnitIdRouteRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   ProtectedModulesMesshallMessHallIdRouteRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
-  ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
   ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
@@ -1672,7 +1728,6 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
   ProtectedModulesGlobalPlacesManagerRoute: typeof ProtectedModulesGlobalPlacesManagerRoute
   ProtectedModulesGlobalPolicyRoute: typeof ProtectedModulesGlobalPolicyRoute
-  ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
   ProtectedModulesDinerIndexRoute: typeof ProtectedModulesDinerIndexRoute
   ProtectedModulesGlobalIndexRoute: typeof ProtectedModulesGlobalIndexRoute
   ProtectedModulesKitchenProductionIndexRoute: typeof ProtectedModulesKitchenProductionIndexRoute
@@ -1692,6 +1747,8 @@ interface ProtectedModulesRouteRouteChildren {
 }
 
 const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
+  ProtectedModulesAnalyticsRouteRoute:
+    ProtectedModulesAnalyticsRouteRouteWithChildren,
   ProtectedModulesKitchenProductionKitchenIdRouteRoute:
     ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren,
   ProtectedModulesKitchenKitchenIdRouteRoute:
@@ -1702,7 +1759,6 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesMesshallMessHallIdRouteRouteWithChildren,
   ProtectedModulesUnitUnitIdRouteRoute:
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
-  ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
   ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
@@ -1716,7 +1772,6 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesGlobalPlacesManagerRoute:
     ProtectedModulesGlobalPlacesManagerRoute,
   ProtectedModulesGlobalPolicyRoute: ProtectedModulesGlobalPolicyRoute,
-  ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,
   ProtectedModulesDinerIndexRoute: ProtectedModulesDinerIndexRoute,
   ProtectedModulesGlobalIndexRoute: ProtectedModulesGlobalIndexRoute,
   ProtectedModulesKitchenProductionIndexRoute:

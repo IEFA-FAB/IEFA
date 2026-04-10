@@ -1,0 +1,5 @@
+-- Placeholder local para alinhar o histórico com a migration remota já
+-- registrada sob a versão curta `20260414`.
+--
+-- O SQL efetivo do matching CATMAT alimentício está em:
+--   20260414120000_catmat_food_matching.sql

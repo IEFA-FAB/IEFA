@@ -2840,6 +2840,8 @@ export type Database = {
 				Row: {
 					catmat_item_codigo: number | null
 					catmat_item_descricao: string | null
+					catmat_match_score: number | null
+					catmat_match_status: string | null
 					ceafa_id: string | null
 					correction_factor: number | null
 					created_at: string
@@ -2855,6 +2857,8 @@ export type Database = {
 				Insert: {
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -2870,6 +2874,8 @@ export type Database = {
 				Update: {
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -3485,6 +3491,23 @@ export type Database = {
 			}
 		}
 		Functions: {
+			catmat_match_candidates: {
+				Args: { p_limit?: number; p_product_description: string }
+				Returns: {
+					codigo_classe: number
+					codigo_item: number
+					codigo_pdm: number
+					descricao_item: string
+					nome_classe: string
+					nome_pdm: string
+					score: number
+					unidades: string[]
+				}[]
+			}
+			catmat_similarity: {
+				Args: { p_left: string; p_right: string }
+				Returns: number
+			}
 			compras_sync_step_failure: {
 				Args: { p_sync_id: number }
 				Returns: undefined
@@ -3493,6 +3516,8 @@ export type Database = {
 				Args: { p_sync_id: number; p_upserted: number }
 				Returns: undefined
 			}
+			execute_analytics_query: { Args: { query: string }; Returns: Json }
+			normalize_catmat_match_text: { Args: { p_text: string }; Returns: string }
 			normalize_label_text: { Args: { p_text: string }; Returns: string }
 			normalize_recipe_name: { Args: { p_name: string }; Returns: string }
 		}

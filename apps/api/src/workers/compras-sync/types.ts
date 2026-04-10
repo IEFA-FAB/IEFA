@@ -38,8 +38,11 @@ export interface ComprasItemMaterial {
 	statusItem: boolean
 	itemSustentavel?: boolean | null
 	codigoNcm?: string | null
+	codigo_ncm?: string | null
 	descricaoNcm?: string | null
+	descricao_ncm?: string | null
 	aplicaMargemPreferencia?: boolean | null
+	aplica_margem_preferencia?: boolean | null
 	dataHoraAtualizacao?: string | null
 }
 
@@ -57,7 +60,7 @@ export interface ComprasUnidadeFornecimento {
 	nomeUnidadeFornecimento?: string | null
 	descricaoUnidadeFornecimento?: string | null
 	siglaUnidadeMedida?: string | null
-	capacidadeUnidadeFornecimento?: number | null
+	capacidadeUnidadeFornecimento?: number | string | null
 	statusUnidadeFornecimentoPdm: boolean
 	dataHoraAtualizacao?: string | null
 }

@@ -15,6 +15,7 @@ import {
 	LayoutDashboard,
 	type LucideIcon,
 	MapPin,
+	MessageSquare,
 	QrCode,
 	RefreshCw,
 	Settings,
@@ -122,7 +123,10 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "analytics",
 		name: "Análises Globais",
 		icon: BarChart3,
-		items: [{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 }],
+		items: [
+			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 },
+			{ title: "Assistente IA", url: "/analytics/chat", icon: MessageSquare },
+		],
 	},
 	{
 		id: "local-analytics",

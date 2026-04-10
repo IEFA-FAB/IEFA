@@ -17,6 +17,14 @@ export default defineConfig(() => ({
 		nitro({
 			preset: "bun",
 			compressPublicAssets: true,
+			handlers: [
+				{
+					route: "/api/analytics/stream",
+					method: "POST",
+					handler: "./routes/api/analytics/stream.post.ts",
+					format: "web",
+				},
+			],
 			routeRules: {
 				"/**": { headers: { "cache-control": "no-cache" } },
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
