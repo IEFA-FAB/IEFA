@@ -22,11 +22,13 @@ import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_modules/route'
 import { Route as ProtectedModulesUnitIndexRouteImport } from './routes/_protected/_modules/unit/index'
 import { Route as ProtectedModulesMesshallIndexRouteImport } from './routes/_protected/_modules/messhall/index'
+import { Route as ProtectedModulesLocalAnalyticsIndexRouteImport } from './routes/_protected/_modules/local-analytics/index'
 import { Route as ProtectedModulesKitchenIndexRouteImport } from './routes/_protected/_modules/kitchen/index'
 import { Route as ProtectedModulesKitchenProductionIndexRouteImport } from './routes/_protected/_modules/kitchen-production/index'
 import { Route as ProtectedModulesGlobalIndexRouteImport } from './routes/_protected/_modules/global/index'
 import { Route as ProtectedModulesDinerIndexRouteImport } from './routes/_protected/_modules/diner/index'
 import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_protected/_modules/analytics/index'
+import { Route as ProtectedModulesGlobalPolicyRouteImport } from './routes/_protected/_modules/global/policy'
 import { Route as ProtectedModulesGlobalPlacesManagerRouteImport } from './routes/_protected/_modules/global/places-manager'
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
@@ -36,11 +38,10 @@ import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_prote
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
-import { Route as ProtectedModulesAnalyticsLocalIndicatorsRouteImport } from './routes/_protected/_modules/analytics/local-indicators'
-import { Route as ProtectedModulesAnalyticsLocalRouteImport } from './routes/_protected/_modules/analytics/local'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
 import { Route as ProtectedModulesUnitUnitIdRouteRouteImport } from './routes/_protected/_modules/unit/$unitId/route'
 import { Route as ProtectedModulesMesshallMessHallIdRouteRouteImport } from './routes/_protected/_modules/messhall/$messHallId/route'
+import { Route as ProtectedModulesLocalAnalyticsUnitIdRouteRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/route'
 import { Route as ProtectedModulesKitchenKitchenIdRouteRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/route'
 import { Route as ProtectedModulesKitchenProductionKitchenIdRouteRouteImport } from './routes/_protected/_modules/kitchen-production/$kitchenId/route'
 import { Route as ProtectedModulesUnitUnitIdIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/index'
@@ -53,6 +54,8 @@ import { Route as ProtectedModulesGlobalIngredientsIndexRouteImport } from './ro
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
 import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
+import { Route as ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/indicators'
+import { Route as ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/dashboard'
 import { Route as ProtectedModulesKitchenKitchenIdSettingsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/settings'
 import { Route as ProtectedModulesKitchenKitchenIdQrCodeRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/qr-code'
 import { Route as ProtectedModulesKitchenKitchenIdPlanningRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/planning'
@@ -145,6 +148,12 @@ const ProtectedModulesMesshallIndexRoute =
     path: '/messhall/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
+const ProtectedModulesLocalAnalyticsIndexRoute =
+  ProtectedModulesLocalAnalyticsIndexRouteImport.update({
+    id: '/local-analytics/',
+    path: '/local-analytics/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesKitchenIndexRoute =
   ProtectedModulesKitchenIndexRouteImport.update({
     id: '/kitchen/',
@@ -173,6 +182,12 @@ const ProtectedModulesAnalyticsIndexRoute =
   ProtectedModulesAnalyticsIndexRouteImport.update({
     id: '/analytics/',
     path: '/analytics/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalPolicyRoute =
+  ProtectedModulesGlobalPolicyRouteImport.update({
+    id: '/global/policy',
+    path: '/global/policy',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesGlobalPlacesManagerRoute =
@@ -229,18 +244,6 @@ const ProtectedModulesDinerForecastRoute =
     path: '/diner/forecast',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesAnalyticsLocalIndicatorsRoute =
-  ProtectedModulesAnalyticsLocalIndicatorsRouteImport.update({
-    id: '/analytics/local-indicators',
-    path: '/analytics/local-indicators',
-    getParentRoute: () => ProtectedModulesRouteRoute,
-  } as any)
-const ProtectedModulesAnalyticsLocalRoute =
-  ProtectedModulesAnalyticsLocalRouteImport.update({
-    id: '/analytics/local',
-    path: '/analytics/local',
-    getParentRoute: () => ProtectedModulesRouteRoute,
-  } as any)
 const ProtectedModulesAnalyticsGlobalRoute =
   ProtectedModulesAnalyticsGlobalRouteImport.update({
     id: '/analytics/global',
@@ -257,6 +260,12 @@ const ProtectedModulesMesshallMessHallIdRouteRoute =
   ProtectedModulesMesshallMessHallIdRouteRouteImport.update({
     id: '/messhall/$messHallId',
     path: '/messhall/$messHallId',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesLocalAnalyticsUnitIdRouteRoute =
+  ProtectedModulesLocalAnalyticsUnitIdRouteRouteImport.update({
+    id: '/local-analytics/$unitId',
+    path: '/local-analytics/$unitId',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesKitchenKitchenIdRouteRoute =
@@ -330,6 +339,18 @@ const ProtectedModulesUnitUnitIdDashboardRoute =
     id: '/dashboard',
     path: '/dashboard',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute =
+  ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport.update({
+    id: '/indicators',
+    path: '/indicators',
+    getParentRoute: () => ProtectedModulesLocalAnalyticsUnitIdRouteRoute,
+  } as any)
+const ProtectedModulesLocalAnalyticsUnitIdDashboardRoute =
+  ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => ProtectedModulesLocalAnalyticsUnitIdRouteRoute,
   } as any)
 const ProtectedModulesKitchenKitchenIdSettingsRoute =
   ProtectedModulesKitchenKitchenIdSettingsRouteImport.update({
@@ -508,11 +529,10 @@ export interface FileRoutesByFullPath {
   '/auth/': typeof AuthIndexRoute
   '/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   '/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
+  '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   '/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
-  '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
-  '/analytics/local-indicators': typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -522,11 +542,13 @@ export interface FileRoutesByFullPath {
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
+  '/global/policy': typeof ProtectedModulesGlobalPolicyRoute
   '/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
   '/diner/': typeof ProtectedModulesDinerIndexRoute
   '/global/': typeof ProtectedModulesGlobalIndexRoute
   '/kitchen-production/': typeof ProtectedModulesKitchenProductionIndexRoute
   '/kitchen/': typeof ProtectedModulesKitchenIndexRoute
+  '/local-analytics/': typeof ProtectedModulesLocalAnalyticsIndexRoute
   '/messhall/': typeof ProtectedModulesMesshallIndexRoute
   '/unit/': typeof ProtectedModulesUnitIndexRoute
   '/global/ingredients/$productId': typeof ProtectedModulesGlobalIngredientsProductIdRoute
@@ -536,6 +558,8 @@ export interface FileRoutesByFullPath {
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
+  '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
+  '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -575,9 +599,8 @@ export interface FileRoutesByTo {
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
+  '/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
-  '/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
-  '/analytics/local-indicators': typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -587,11 +610,13 @@ export interface FileRoutesByTo {
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
+  '/global/policy': typeof ProtectedModulesGlobalPolicyRoute
   '/analytics': typeof ProtectedModulesAnalyticsIndexRoute
   '/diner': typeof ProtectedModulesDinerIndexRoute
   '/global': typeof ProtectedModulesGlobalIndexRoute
   '/kitchen-production': typeof ProtectedModulesKitchenProductionIndexRoute
   '/kitchen': typeof ProtectedModulesKitchenIndexRoute
+  '/local-analytics': typeof ProtectedModulesLocalAnalyticsIndexRoute
   '/messhall': typeof ProtectedModulesMesshallIndexRoute
   '/unit': typeof ProtectedModulesUnitIndexRoute
   '/global/ingredients/$productId': typeof ProtectedModulesGlobalIngredientsProductIdRoute
@@ -601,6 +626,8 @@ export interface FileRoutesByTo {
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
+  '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
+  '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsIndexRoute
@@ -645,11 +672,10 @@ export interface FileRoutesById {
   '/auth/': typeof AuthIndexRoute
   '/_protected/_modules/kitchen-production/$kitchenId': typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   '/_protected/_modules/kitchen/$kitchenId': typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
+  '/_protected/_modules/local-analytics/$unitId': typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   '/_protected/_modules/messhall/$messHallId': typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   '/_protected/_modules/unit/$unitId': typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
-  '/_protected/_modules/analytics/local': typeof ProtectedModulesAnalyticsLocalRoute
-  '/_protected/_modules/analytics/local-indicators': typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
@@ -659,11 +685,13 @@ export interface FileRoutesById {
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/_protected/_modules/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
+  '/_protected/_modules/global/policy': typeof ProtectedModulesGlobalPolicyRoute
   '/_protected/_modules/analytics/': typeof ProtectedModulesAnalyticsIndexRoute
   '/_protected/_modules/diner/': typeof ProtectedModulesDinerIndexRoute
   '/_protected/_modules/global/': typeof ProtectedModulesGlobalIndexRoute
   '/_protected/_modules/kitchen-production/': typeof ProtectedModulesKitchenProductionIndexRoute
   '/_protected/_modules/kitchen/': typeof ProtectedModulesKitchenIndexRoute
+  '/_protected/_modules/local-analytics/': typeof ProtectedModulesLocalAnalyticsIndexRoute
   '/_protected/_modules/messhall/': typeof ProtectedModulesMesshallIndexRoute
   '/_protected/_modules/unit/': typeof ProtectedModulesUnitIndexRoute
   '/_protected/_modules/global/ingredients/$productId': typeof ProtectedModulesGlobalIngredientsProductIdRoute
@@ -673,6 +701,8 @@ export interface FileRoutesById {
   '/_protected/_modules/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/_protected/_modules/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/_protected/_modules/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
+  '/_protected/_modules/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
+  '/_protected/_modules/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -717,11 +747,10 @@ export interface FileRouteTypes {
     | '/auth/'
     | '/kitchen-production/$kitchenId'
     | '/kitchen/$kitchenId'
+    | '/local-analytics/$unitId'
     | '/messhall/$messHallId'
     | '/unit/$unitId'
     | '/analytics/global'
-    | '/analytics/local'
-    | '/analytics/local-indicators'
     | '/diner/forecast'
     | '/diner/menu'
     | '/diner/profile'
@@ -731,11 +760,13 @@ export interface FileRouteTypes {
     | '/global/evaluation'
     | '/global/permissions'
     | '/global/places-manager'
+    | '/global/policy'
     | '/analytics/'
     | '/diner/'
     | '/global/'
     | '/kitchen-production/'
     | '/kitchen/'
+    | '/local-analytics/'
     | '/messhall/'
     | '/unit/'
     | '/global/ingredients/$productId'
@@ -745,6 +776,8 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
+    | '/local-analytics/$unitId/dashboard'
+    | '/local-analytics/$unitId/indicators'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/procurement'
     | '/unit/$unitId/settings'
@@ -784,9 +817,8 @@ export interface FileRouteTypes {
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth'
+    | '/local-analytics/$unitId'
     | '/analytics/global'
-    | '/analytics/local'
-    | '/analytics/local-indicators'
     | '/diner/forecast'
     | '/diner/menu'
     | '/diner/profile'
@@ -796,11 +828,13 @@ export interface FileRouteTypes {
     | '/global/evaluation'
     | '/global/permissions'
     | '/global/places-manager'
+    | '/global/policy'
     | '/analytics'
     | '/diner'
     | '/global'
     | '/kitchen-production'
     | '/kitchen'
+    | '/local-analytics'
     | '/messhall'
     | '/unit'
     | '/global/ingredients/$productId'
@@ -810,6 +844,8 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
+    | '/local-analytics/$unitId/dashboard'
+    | '/local-analytics/$unitId/indicators'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/settings'
     | '/global/ingredients'
@@ -853,11 +889,10 @@ export interface FileRouteTypes {
     | '/auth/'
     | '/_protected/_modules/kitchen-production/$kitchenId'
     | '/_protected/_modules/kitchen/$kitchenId'
+    | '/_protected/_modules/local-analytics/$unitId'
     | '/_protected/_modules/messhall/$messHallId'
     | '/_protected/_modules/unit/$unitId'
     | '/_protected/_modules/analytics/global'
-    | '/_protected/_modules/analytics/local'
-    | '/_protected/_modules/analytics/local-indicators'
     | '/_protected/_modules/diner/forecast'
     | '/_protected/_modules/diner/menu'
     | '/_protected/_modules/diner/profile'
@@ -867,11 +902,13 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/evaluation'
     | '/_protected/_modules/global/permissions'
     | '/_protected/_modules/global/places-manager'
+    | '/_protected/_modules/global/policy'
     | '/_protected/_modules/analytics/'
     | '/_protected/_modules/diner/'
     | '/_protected/_modules/global/'
     | '/_protected/_modules/kitchen-production/'
     | '/_protected/_modules/kitchen/'
+    | '/_protected/_modules/local-analytics/'
     | '/_protected/_modules/messhall/'
     | '/_protected/_modules/unit/'
     | '/_protected/_modules/global/ingredients/$productId'
@@ -881,6 +918,8 @@ export interface FileRouteTypes {
     | '/_protected/_modules/kitchen/$kitchenId/planning'
     | '/_protected/_modules/kitchen/$kitchenId/qr-code'
     | '/_protected/_modules/kitchen/$kitchenId/settings'
+    | '/_protected/_modules/local-analytics/$unitId/dashboard'
+    | '/_protected/_modules/local-analytics/$unitId/indicators'
     | '/_protected/_modules/unit/$unitId/dashboard'
     | '/_protected/_modules/unit/$unitId/procurement'
     | '/_protected/_modules/unit/$unitId/settings'
@@ -1013,6 +1052,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesMesshallIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
+    '/_protected/_modules/local-analytics/': {
+      id: '/_protected/_modules/local-analytics/'
+      path: '/local-analytics'
+      fullPath: '/local-analytics/'
+      preLoaderRoute: typeof ProtectedModulesLocalAnalyticsIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
     '/_protected/_modules/kitchen/': {
       id: '/_protected/_modules/kitchen/'
       path: '/kitchen'
@@ -1046,6 +1092,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics/'
       preLoaderRoute: typeof ProtectedModulesAnalyticsIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/policy': {
+      id: '/_protected/_modules/global/policy'
+      path: '/global/policy'
+      fullPath: '/global/policy'
+      preLoaderRoute: typeof ProtectedModulesGlobalPolicyRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/global/places-manager': {
@@ -1111,20 +1164,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesDinerForecastRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/analytics/local-indicators': {
-      id: '/_protected/_modules/analytics/local-indicators'
-      path: '/analytics/local-indicators'
-      fullPath: '/analytics/local-indicators'
-      preLoaderRoute: typeof ProtectedModulesAnalyticsLocalIndicatorsRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
-    }
-    '/_protected/_modules/analytics/local': {
-      id: '/_protected/_modules/analytics/local'
-      path: '/analytics/local'
-      fullPath: '/analytics/local'
-      preLoaderRoute: typeof ProtectedModulesAnalyticsLocalRouteImport
-      parentRoute: typeof ProtectedModulesRouteRoute
-    }
     '/_protected/_modules/analytics/global': {
       id: '/_protected/_modules/analytics/global'
       path: '/analytics/global'
@@ -1144,6 +1183,13 @@ declare module '@tanstack/react-router' {
       path: '/messhall/$messHallId'
       fullPath: '/messhall/$messHallId'
       preLoaderRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/local-analytics/$unitId': {
+      id: '/_protected/_modules/local-analytics/$unitId'
+      path: '/local-analytics/$unitId'
+      fullPath: '/local-analytics/$unitId'
+      preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/kitchen/$kitchenId': {
@@ -1229,6 +1275,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/unit/$unitId/dashboard'
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
+    '/_protected/_modules/local-analytics/$unitId/indicators': {
+      id: '/_protected/_modules/local-analytics/$unitId/indicators'
+      path: '/indicators'
+      fullPath: '/local-analytics/$unitId/indicators'
+      preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport
+      parentRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRoute
+    }
+    '/_protected/_modules/local-analytics/$unitId/dashboard': {
+      id: '/_protected/_modules/local-analytics/$unitId/dashboard'
+      path: '/dashboard'
+      fullPath: '/local-analytics/$unitId/dashboard'
+      preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport
+      parentRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRoute
     }
     '/_protected/_modules/kitchen/$kitchenId/settings': {
       id: '/_protected/_modules/kitchen/$kitchenId/settings'
@@ -1518,6 +1578,24 @@ const ProtectedModulesKitchenKitchenIdRouteRouteWithChildren =
     ProtectedModulesKitchenKitchenIdRouteRouteChildren,
   )
 
+interface ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren {
+  ProtectedModulesLocalAnalyticsUnitIdDashboardRoute: typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
+  ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute: typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+}
+
+const ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren: ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren =
+  {
+    ProtectedModulesLocalAnalyticsUnitIdDashboardRoute:
+      ProtectedModulesLocalAnalyticsUnitIdDashboardRoute,
+    ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute:
+      ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute,
+  }
+
+const ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren =
+  ProtectedModulesLocalAnalyticsUnitIdRouteRoute._addFileChildren(
+    ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren,
+  )
+
 interface ProtectedModulesMesshallMessHallIdRouteRouteChildren {
   ProtectedModulesMesshallMessHallIdIndexRoute: typeof ProtectedModulesMesshallMessHallIdIndexRoute
 }
@@ -1580,11 +1658,10 @@ const ProtectedModulesUnitUnitIdRouteRouteWithChildren =
 interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesKitchenProductionKitchenIdRouteRoute: typeof ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren
   ProtectedModulesKitchenKitchenIdRouteRoute: typeof ProtectedModulesKitchenKitchenIdRouteRouteWithChildren
+  ProtectedModulesLocalAnalyticsUnitIdRouteRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren
   ProtectedModulesMesshallMessHallIdRouteRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   ProtectedModulesAnalyticsGlobalRoute: typeof ProtectedModulesAnalyticsGlobalRoute
-  ProtectedModulesAnalyticsLocalRoute: typeof ProtectedModulesAnalyticsLocalRoute
-  ProtectedModulesAnalyticsLocalIndicatorsRoute: typeof ProtectedModulesAnalyticsLocalIndicatorsRoute
   ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
@@ -1594,11 +1671,13 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
   ProtectedModulesGlobalPlacesManagerRoute: typeof ProtectedModulesGlobalPlacesManagerRoute
+  ProtectedModulesGlobalPolicyRoute: typeof ProtectedModulesGlobalPolicyRoute
   ProtectedModulesAnalyticsIndexRoute: typeof ProtectedModulesAnalyticsIndexRoute
   ProtectedModulesDinerIndexRoute: typeof ProtectedModulesDinerIndexRoute
   ProtectedModulesGlobalIndexRoute: typeof ProtectedModulesGlobalIndexRoute
   ProtectedModulesKitchenProductionIndexRoute: typeof ProtectedModulesKitchenProductionIndexRoute
   ProtectedModulesKitchenIndexRoute: typeof ProtectedModulesKitchenIndexRoute
+  ProtectedModulesLocalAnalyticsIndexRoute: typeof ProtectedModulesLocalAnalyticsIndexRoute
   ProtectedModulesMesshallIndexRoute: typeof ProtectedModulesMesshallIndexRoute
   ProtectedModulesUnitIndexRoute: typeof ProtectedModulesUnitIndexRoute
   ProtectedModulesGlobalIngredientsProductIdRoute: typeof ProtectedModulesGlobalIngredientsProductIdRoute
@@ -1617,14 +1696,13 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesKitchenProductionKitchenIdRouteRouteWithChildren,
   ProtectedModulesKitchenKitchenIdRouteRoute:
     ProtectedModulesKitchenKitchenIdRouteRouteWithChildren,
+  ProtectedModulesLocalAnalyticsUnitIdRouteRoute:
+    ProtectedModulesLocalAnalyticsUnitIdRouteRouteWithChildren,
   ProtectedModulesMesshallMessHallIdRouteRoute:
     ProtectedModulesMesshallMessHallIdRouteRouteWithChildren,
   ProtectedModulesUnitUnitIdRouteRoute:
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
   ProtectedModulesAnalyticsGlobalRoute: ProtectedModulesAnalyticsGlobalRoute,
-  ProtectedModulesAnalyticsLocalRoute: ProtectedModulesAnalyticsLocalRoute,
-  ProtectedModulesAnalyticsLocalIndicatorsRoute:
-    ProtectedModulesAnalyticsLocalIndicatorsRoute,
   ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
@@ -1637,12 +1715,15 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesGlobalPermissionsRoute,
   ProtectedModulesGlobalPlacesManagerRoute:
     ProtectedModulesGlobalPlacesManagerRoute,
+  ProtectedModulesGlobalPolicyRoute: ProtectedModulesGlobalPolicyRoute,
   ProtectedModulesAnalyticsIndexRoute: ProtectedModulesAnalyticsIndexRoute,
   ProtectedModulesDinerIndexRoute: ProtectedModulesDinerIndexRoute,
   ProtectedModulesGlobalIndexRoute: ProtectedModulesGlobalIndexRoute,
   ProtectedModulesKitchenProductionIndexRoute:
     ProtectedModulesKitchenProductionIndexRoute,
   ProtectedModulesKitchenIndexRoute: ProtectedModulesKitchenIndexRoute,
+  ProtectedModulesLocalAnalyticsIndexRoute:
+    ProtectedModulesLocalAnalyticsIndexRoute,
   ProtectedModulesMesshallIndexRoute: ProtectedModulesMesshallIndexRoute,
   ProtectedModulesUnitIndexRoute: ProtectedModulesUnitIndexRoute,
   ProtectedModulesGlobalIngredientsProductIdRoute:

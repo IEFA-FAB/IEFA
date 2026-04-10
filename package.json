@@ -13,6 +13,8 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "sisub:dev": "bun --cwd ./apps/sisub dev",
+    "sisub-mcp:dev": "bun --cwd ./apps/sisub-mcp dev",
+    "sisub-mcp:start": "bun --cwd ./apps/sisub-mcp start",
     "portal:dev": "bun --cwd ./apps/portal dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "docs:dev": "bun --cwd ./apps/docs dev",

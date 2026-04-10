@@ -27,7 +27,7 @@ const MODULE_GROUPS: { label: string; ids: ModuleId[]; color: GroupColor }[] = [
 	{ label: "Usuário", ids: ["diner"], color: "success" },
 	{ label: "Operacional", ids: ["messhall", "kitchen-production"], color: "primary" },
 	{ label: "Gestão", ids: ["kitchen", "unit"], color: "warning" },
-	{ label: "Governança", ids: ["global", "analytics"], color: "governance" },
+	{ label: "Governança", ids: ["global", "analytics", "local-analytics"], color: "governance" },
 ]
 
 const ICON_CLASSES: Record<GroupColor, string> = {

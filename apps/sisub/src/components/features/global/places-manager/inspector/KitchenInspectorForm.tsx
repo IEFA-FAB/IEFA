@@ -70,7 +70,9 @@ export function KitchenInspectorForm({ kitchen }: KitchenInspectorFormProps) {
 							<FieldContent>
 								<Select value={field.state.value ?? ""} onValueChange={(val) => field.handleChange(val === "" ? null : (val as "consumption" | "production"))}>
 									<SelectTrigger size="sm" className="w-full">
-										<SelectValue placeholder="Selecione o tipo" />
+										<SelectValue placeholder="Selecione o tipo">
+											{field.state.value === "production" ? "Produção" : field.state.value === "consumption" ? "Consumo" : undefined}
+										</SelectValue>
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="production">Produção</SelectItem>

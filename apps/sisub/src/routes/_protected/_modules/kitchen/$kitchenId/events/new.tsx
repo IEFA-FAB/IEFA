@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { CalendarRange, Loader2, Plus, Users } from "lucide-react"
+import { CalendarRange, Loader2, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
@@ -32,7 +32,6 @@ function NewEventPage() {
 
 	const [name, setName] = useState("")
 	const [description, setDescription] = useState("")
-	const [defaultHeadcount, setDefaultHeadcount] = useState("")
 
 	const { mutate: createEvent, isPending } = useMutation({
 		mutationFn: async () => {
@@ -45,7 +44,6 @@ function NewEventPage() {
 					description: description.trim() || null,
 					kitchen_id: kitchenId,
 					template_type: "event",
-					...(defaultHeadcount ? { default_headcount: parseInt(defaultHeadcount, 10) } : {}),
 				})
 				.select()
 				.single()
@@ -121,26 +119,6 @@ function NewEventPage() {
 								placeholder="Contexto do evento, data prevista ou observações relevantes"
 								rows={2}
 							/>
-						</div>
-
-						<div className="space-y-2">
-							<Label htmlFor="defaultHeadcount" className="flex items-center gap-1.5">
-								<Users className="w-3.5 h-3.5 text-muted-foreground" />
-								Quantidade padrão de comensais
-							</Label>
-							<div className="flex items-center gap-2">
-								<Input
-									id="defaultHeadcount"
-									type="number"
-									min="1"
-									value={defaultHeadcount}
-									onChange={(e) => setDefaultHeadcount(e.target.value)}
-									placeholder="Ex.: 150"
-									className="w-36"
-								/>
-								<span className="text-sm text-muted-foreground">pessoas por refeição</span>
-							</div>
-							<p className="text-xs text-muted-foreground">Número padrão de comensais para este evento. Pode ser ajustado por refeição no editor.</p>
 						</div>
 					</div>
 

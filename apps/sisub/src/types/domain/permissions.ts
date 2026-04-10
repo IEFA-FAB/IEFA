@@ -6,10 +6,11 @@
  * - kitchen:             Gestão Cozinha (planejamento, preparações, suprimentos) — scoped by kitchen_id
  * - kitchen-production:  Produção Cozinha (execução da produção diária) — scoped by kitchen_id
  * - global:              Administração global (permissões, avaliação, ingredientes)
- * - analytics:           Relatórios e análises
+ * - analytics:           Análise sistêmica global (painel superadmin, Power BI global)
+ * - local-analytics:     Análises da unidade (dashboard local, indicadores da unidade)
  * - storage:             Estoque e almoxarifado
  */
-export type AppModule = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "storage"
+export type AppModule = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics" | "storage"
 
 /**
  * Permissão individual de um usuário.

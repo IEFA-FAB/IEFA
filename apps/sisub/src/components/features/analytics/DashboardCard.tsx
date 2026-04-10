@@ -12,7 +12,7 @@ import MealDistributionChart from "./MealDistributionChart"
 import MessHallBreakdown from "./MessHallBreakdown"
 import MetricsOverview from "./MetricsOverview"
 
-export default function DashboardCard() {
+export default function DashboardCard({ unitId: _unitId }: { unitId: number }) {
 	const [dateRange, setDateRange] = useState(() => {
 		const today = new Date()
 		const nextWeek = new Date(today)

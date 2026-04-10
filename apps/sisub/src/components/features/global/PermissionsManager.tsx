@@ -34,7 +34,8 @@ const MODULE_LABELS: Record<AppModule, string> = {
 	kitchen: "Gestão Cozinha",
 	"kitchen-production": "Produção Cozinha",
 	global: "SDAB (Global)",
-	analytics: "Análises",
+	analytics: "Análises — Visão Global",
+	"local-analytics": "Análises — Unidade",
 	storage: "Estoque",
 }
 
@@ -55,6 +56,7 @@ const MODULE_SCOPES: Partial<Record<AppModule, ScopeType[]>> = {
 	unit: ["global", "unit"],
 	kitchen: ["global", "kitchen"],
 	"kitchen-production": ["global", "kitchen"],
+	"local-analytics": ["global", "unit"],
 }
 
 const ALL_SCOPE_OPTIONS: { value: ScopeType; label: string }[] = [
@@ -164,6 +166,10 @@ function PermissionDialog({
 	const isEdit = dialog?.mode === "edit"
 	const isValid = form.scopeType === "global" || !!form.scopeId
 
+	const selectedUnit = units.find((u) => u.id === Number(form.scopeId))
+	const selectedKitchen = kitchens.find((k) => k.id === Number(form.scopeId))
+	const selectedMessHall = messHalls.find((m) => m.id === Number(form.scopeId))
+
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
 			<DialogContent className="sm:max-w-[480px]">
@@ -191,7 +197,7 @@ function PermissionDialog({
 								disabled={isEdit}
 							>
 								<SelectTrigger className="w-full">
-									<SelectValue />
+									<SelectValue>{MODULE_LABELS[form.module]}</SelectValue>
 								</SelectTrigger>
 								<SelectContent className={CONTENT_CLS}>
 									{(Object.keys(MODULE_LABELS) as AppModule[]).map((m) => (
@@ -211,7 +217,7 @@ function PermissionDialog({
 						<div className="col-span-3">
 							<Select value={form.level} onValueChange={(v) => setForm((f) => ({ ...f, level: v ?? "" }))}>
 								<SelectTrigger className="w-full">
-									<SelectValue />
+									<SelectValue>{LEVEL_CONFIG[Number(form.level)]?.label ?? form.level}</SelectValue>
 								</SelectTrigger>
 								<SelectContent className={CONTENT_CLS}>
 									<SelectItem value="0">0 — Negado (nega acesso implícito)</SelectItem>
@@ -228,7 +234,7 @@ function PermissionDialog({
 						<div className="col-span-3">
 							<Select value={form.scopeType} onValueChange={(v) => setForm((f) => ({ ...f, scopeType: v as ScopeType, scopeId: "" }))}>
 								<SelectTrigger className="w-full">
-									<SelectValue />
+									<SelectValue>{getScopeOptions(form.module).find((o) => o.value === form.scopeType)?.label ?? form.scopeType}</SelectValue>
 								</SelectTrigger>
 								<SelectContent className={CONTENT_CLS}>
 									{getScopeOptions(form.module).map((opt) => (
@@ -248,7 +254,7 @@ function PermissionDialog({
 							<div className="col-span-3">
 								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
 									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Selecione a OM..." />
+										<SelectValue placeholder="Selecione a OM...">{selectedUnit ? (selectedUnit.display_name ?? selectedUnit.code) : undefined}</SelectValue>
 									</SelectTrigger>
 									<SelectContent className={CONTENT_CLS}>
 										{units.map((u) => (
@@ -268,7 +274,9 @@ function PermissionDialog({
 							<div className="col-span-3">
 								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
 									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Selecione a cozinha..." />
+										<SelectValue placeholder="Selecione a cozinha...">
+											{selectedKitchen ? (selectedKitchen.unit?.display_name ?? selectedKitchen.unit?.code ?? `Cozinha ${selectedKitchen.id}`) : undefined}
+										</SelectValue>
 									</SelectTrigger>
 									<SelectContent className={CONTENT_CLS}>
 										{kitchens.map((k) => (
@@ -288,7 +296,9 @@ function PermissionDialog({
 							<div className="col-span-3">
 								<Select value={form.scopeId} onValueChange={(v) => setForm((f) => ({ ...f, scopeId: v ?? "" }))}>
 									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Selecione o refeitório..." />
+										<SelectValue placeholder="Selecione o refeitório...">
+											{selectedMessHall ? (selectedMessHall.display_name ?? selectedMessHall.code) : undefined}
+										</SelectValue>
 									</SelectTrigger>
 									<SelectContent className={CONTENT_CLS}>
 										{messHalls.map((m) => (

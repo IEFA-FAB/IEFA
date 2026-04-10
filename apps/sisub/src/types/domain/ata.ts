@@ -17,7 +17,6 @@ export interface AtaKitchenWithDetails extends ProcurementAtaKitchen {
 	selections: (ProcurementAtaSelection & {
 		template: {
 			name: string | null
-			default_headcount: number
 			template_type: string
 		}
 	})[]
@@ -35,7 +34,6 @@ export interface DraftWithSelections extends KitchenAtaDraft {
 		template: {
 			id: string
 			name: string | null
-			default_headcount: number
 			template_type: string
 		}
 	})[]
@@ -44,12 +42,13 @@ export interface DraftWithSelections extends KitchenAtaDraft {
 // ─── Estado do Wizard (não persiste até salvar) ───────────────────────────────
 
 /**
- * Seleção de um template/evento com número de repetições
+ * Seleção de um template/evento com número de repetições.
+ * O headcount de cada preparação é definido individualmente em
+ * menu_template_items.headcount_override — não existe padrão fixo no template.
  */
 export interface TemplateSelection {
 	templateId: string
 	templateName: string
-	defaultHeadcount: number
 	repetitions: number
 }
 

@@ -27,6 +27,7 @@ const SEGMENT_PT: Record<string, string> = {
 	unit: "Gestão Unidade",
 	kitchen: "Gestão Cozinha",
 	"kitchen-production": "Produção Cozinha",
+	"local-analytics": "Análises Locais",
 	global: "SDAB",
 	analytics: "Análises",
 	// Páginas
@@ -39,6 +40,7 @@ const SEGMENT_PT: Record<string, string> = {
 	presence: "Presenças",
 	planning: "Planejamento",
 	procurement: "Suprimentos",
+	suprimentos: "Suprimentos",
 	recipes: "Preparações",
 	"weekly-menus": "Cardápios Semanais",
 	"weekly-plans": "Planos Semanais",
@@ -48,6 +50,11 @@ const SEGMENT_PT: Record<string, string> = {
 	changelog: "Registro de Alterações",
 	tutorial: "Tutorial",
 	dashboard: "Painel",
+	indicators: "Indicadores",
+	events: "Eventos",
+	"compras-sync": "Sincronização Compras",
+	"places-manager": "Gerenciador de Locais",
+	policy: "Política",
 	// Sub-páginas
 	new: "Novo",
 	fork: "Derivar",
@@ -60,6 +67,10 @@ const ID_LABEL_BY_PARENT: Record<string, string> = {
 	recipes: "Preparação",
 	"weekly-menus": "Cardápio Semanal",
 	"weekly-plans": "Plano Semanal",
+	events: "Evento",
+	suprimentos: "Rascunho",
+	procurement: "ATA",
+	ingredients: "Insumo",
 }
 
 /** Rótulo contextual para o segmento "new" conforme o segmento pai */
@@ -67,6 +78,9 @@ const NEW_LABEL_BY_PARENT: Record<string, string> = {
 	recipes: "Nova Preparação",
 	"weekly-menus": "Novo Cardápio",
 	"weekly-plans": "Novo Plano",
+	events: "Novo Evento",
+	suprimentos: "Novo Rascunho",
+	procurement: "Nova ATA",
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

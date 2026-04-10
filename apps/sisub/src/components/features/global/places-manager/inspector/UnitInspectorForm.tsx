@@ -91,7 +91,9 @@ export function UnitInspectorForm({ unit }: UnitInspectorFormProps) {
 							<FieldContent>
 								<Select value={field.state.value ?? ""} onValueChange={(val) => field.handleChange(val === "" ? null : (val as "consumption" | "purchase"))}>
 									<SelectTrigger size="sm" className="w-full">
-										<SelectValue placeholder="Selecione o tipo" />
+										<SelectValue placeholder="Selecione o tipo">
+											{field.state.value === "consumption" ? "Consumo" : field.state.value === "purchase" ? "Compra" : undefined}
+										</SelectValue>
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="consumption">Consumo</SelectItem>

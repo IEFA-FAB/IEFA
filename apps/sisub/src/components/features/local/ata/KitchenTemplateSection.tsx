@@ -29,7 +29,6 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 				{
 					templateId: template.id,
 					templateName: template.name || "",
-					defaultHeadcount: (template as TemplateWithItemCounts & { default_headcount?: number }).default_headcount ?? 0,
 					repetitions: 1,
 				},
 			])
@@ -89,7 +88,8 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 						{templates.map((template) => {
 							const selected = isSelected(template.id)
 							const reps = getRepetitions(template.id)
-							const headcount = (template as TemplateWithItemCounts & { default_headcount?: number }).default_headcount ?? 0
+							const allFilled = template.item_count > 0 && template.headcount_filled === template.item_count
+							const someMissing = template.item_count > 0 && template.headcount_filled < template.item_count
 
 							return (
 								<div
@@ -106,13 +106,29 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 										<Label htmlFor={`template-${template.id}`} className="text-sm font-medium cursor-pointer">
 											{template.name || "Sem nome"}
 										</Label>
-										<div className="flex items-center gap-2 mt-0.5">
-											<span className="text-xs text-muted-foreground flex items-center gap-1">
-												<Users className="h-3 w-3" aria-hidden="true" />
-												{headcount > 0 ? `${headcount} pessoas` : "Sem headcount"}
-											</span>
-											<span className="text-xs text-muted-foreground">·</span>
+										<div className="flex items-center gap-2 mt-0.5 flex-wrap">
 											<span className="text-xs text-muted-foreground">{template.recipe_count} preparações</span>
+
+											{/* Indicador de comensais — só mostra quando incompleto */}
+											{someMissing && (
+												<>
+													<span className="text-xs text-muted-foreground/40">·</span>
+													<span className="text-xs text-destructive font-medium flex items-center gap-1">
+														<Users className="h-3 w-3" aria-hidden="true" />
+														{template.headcount_filled}/{template.item_count} com comensais
+													</span>
+												</>
+											)}
+
+											{/* Mostra média quando tudo preenchido */}
+											{allFilled && template.avg_headcount_weekday !== null && (
+												<>
+													<span className="text-xs text-muted-foreground/40">·</span>
+													<span className="text-xs text-muted-foreground flex items-center gap-1">
+														<Users className="h-3 w-3" aria-hidden="true" />~{template.avg_headcount_weekday} com. (Seg–Qui)
+													</span>
+												</>
+											)}
 										</div>
 									</div>
 									{selected && (

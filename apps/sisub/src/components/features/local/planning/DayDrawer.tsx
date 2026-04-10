@@ -240,7 +240,17 @@ function MealSection({
 							</Badge>
 						)}
 					</div>
-					<div className="text-sm text-muted-foreground font-normal">{menu ? `${menu.forecasted_headcount || 0} p. previstas` : "Não planejado"}</div>
+					<div className="text-sm font-normal">
+						{menu ? (
+							menu.forecasted_headcount ? (
+								<span className="text-muted-foreground">{menu.forecasted_headcount} comensais</span>
+							) : (
+								<span className="text-destructive font-medium">Sem comensais</span>
+							)
+						) : (
+							<span className="text-muted-foreground">Não planejado</span>
+						)}
+					</div>
 				</div>
 			</AccordionTrigger>
 			<AccordionContent className="pb-4">
@@ -270,7 +280,7 @@ function MealSection({
 										placeholder="0"
 										className="h-8 w-24"
 									/>
-									<span className="text-xs text-muted-foreground">porções</span>
+									<span className="text-xs text-muted-foreground">comensais</span>
 								</div>
 							</Field>
 						</div>

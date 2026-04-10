@@ -50,7 +50,6 @@ function EditDraftPage() {
 	const initialSelections: TemplateSelection[] = draft.selections.map((s) => ({
 		templateId: s.template.id,
 		templateName: s.template.name || "",
-		defaultHeadcount: s.template.default_headcount,
 		repetitions: s.repetitions,
 	}))
 

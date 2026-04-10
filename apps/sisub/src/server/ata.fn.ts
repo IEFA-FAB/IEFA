@@ -10,7 +10,6 @@ import type { AtaWithDetails } from "@/types/domain/ata"
 const TemplateSelectionSchema = z.object({
 	templateId: z.string(),
 	templateName: z.string(),
-	defaultHeadcount: z.number(),
 	repetitions: z.number().min(1),
 })
 
@@ -50,7 +49,6 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 			.select(
 				`
         id,
-        default_headcount,
         template_type,
         menu_template_items (
           id,
@@ -114,8 +112,8 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 				const recipeData = Array.isArray(item.recipes) ? item.recipes[0] : item.recipes
 				if (!recipeData) continue
 
-				const headcount = item.headcount_override ?? template.default_headcount
-				if (headcount === 0) continue
+				const headcount = item.headcount_override
+				if (!headcount) continue
 
 				const portionYield = recipeData.portion_yield || 1
 				const portionMultiplier = (headcount / portionYield) * selection.repetitions
@@ -288,7 +286,7 @@ export const fetchAtaDetailsFn = createServerFn({ method: "GET" })
         kitchen:kitchen_id ( id, display_name ),
         selections:procurement_ata_selection (
           *,
-          template:template_id ( name, default_headcount, template_type )
+          template:template_id ( name, template_type )
         )
       `
 			)

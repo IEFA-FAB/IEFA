@@ -1,14 +1,21 @@
 import type { ProcurementAtaItem } from "@iefa/database/sisub"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
-import { Archive, ArrowLeft, Download, Send } from "lucide-react"
+import { Archive, ArrowLeft, Download, Link2, Send } from "lucide-react"
+import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
+import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Spinner } from "@/components/ui/spinner"
+import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
 import type { ProcurementNeed } from "@/services/ProcurementService"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
@@ -50,9 +57,20 @@ function ataItemToNeed(item: ProcurementAtaItem): ProcurementNeed {
 
 function AtaDetailPage() {
 	const { unitId: unitIdStr, ataId } = useParams({ strict: false })
+	const unitId = Number(unitIdStr)
+	const [arpModalOpen, setArpModalOpen] = useState(false)
 
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
+	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
+
+	// UASG da unidade para pré-preencher o modal de busca
+	const { data: unitSettings } = useQuery({
+		queryKey: ["unit", "settings", unitId],
+		queryFn: () => fetchUnitSettingsFn({ data: { unitId } }),
+		enabled: Number.isFinite(unitId) && unitId > 0,
+		staleTime: 10 * 60 * 1000,
+	})
 
 	const handleExportCSV = () => {
 		if (!ata) return
@@ -200,6 +218,53 @@ function AtaDetailPage() {
 
 			{/* Itens da Ata */}
 			<AtaItemsTable data={needs} />
+
+			{/* ─── ARP & Empenhos ──────────────────────────────────────────── */}
+			<div className="space-y-3">
+				<div className="flex items-center justify-between">
+					<div>
+						<h2 className="text-base font-semibold">ARP & Empenhos</h2>
+						<p className="text-xs text-muted-foreground mt-0.5">
+							Vincule a Ata de Registro de Preços do Compras.gov.br e registre os empenhos emitidos por item.
+						</p>
+					</div>
+					{!arp && !isArpLoading && (
+						<Button size="sm" variant="outline" className="gap-2" onClick={() => setArpModalOpen(true)}>
+							<Link2 className="h-4 w-4" />
+							Vincular ARP
+						</Button>
+					)}
+				</div>
+
+				{isArpLoading ? (
+					<div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+						<Spinner className="h-4 w-4" />
+						Verificando ARP vinculada...
+					</div>
+				) : arp && ataId ? (
+					<>
+						<div className="flex justify-end">
+							<Button size="sm" variant="ghost" className="gap-2 text-xs" onClick={() => setArpModalOpen(true)}>
+								<Link2 className="h-3.5 w-3.5" />
+								Substituir ARP
+							</Button>
+						</div>
+						<EmpenhoBalancePanel arp={arp} unitId={unitId} ataId={ataId} />
+					</>
+				) : (
+					<Card>
+						<CardContent className="py-10 text-center space-y-2">
+							<p className="text-sm text-muted-foreground">Nenhuma ARP vinculada a esta ATA.</p>
+							<p className="text-xs text-muted-foreground">
+								Clique em <strong>Vincular ARP</strong> para buscar e importar a Ata de Registro de Preços correspondente no Compras.gov.br.
+							</p>
+						</CardContent>
+					</Card>
+				)}
+			</div>
+
+			{/* Modal de busca de ARP */}
+			{ataId && <ArpSearchModal open={arpModalOpen} onOpenChange={setArpModalOpen} ataId={ataId} unitId={unitId} defaultUasg={unitSettings?.uasg} />}
 		</div>
 	)
 }

@@ -1,19 +1,14 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
+import { requirePermission } from "@/auth/pbac"
 import IndicatorsCard, { powerBiUrl } from "@/components/features/analytics/GlobalIndicatorsCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export const Route = createFileRoute("/_protected/_modules/analytics/global")({
-	beforeLoad: async ({ context }) => {
-		const { user } = context.auth
-
-		if (!user?.id) {
-			throw redirect({ to: "/auth" })
-		}
-	},
+	beforeLoad: ({ context }) => requirePermission(context, "analytics", 1),
 	component: SuperAdminPanel,
 	head: () => ({
 		meta: [

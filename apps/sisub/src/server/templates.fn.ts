@@ -10,7 +10,6 @@ const MenuTemplateWriteSchema = z.object({
 	description: z.string().nullable().optional(),
 	kitchen_id: z.number().nullable().optional(),
 	base_template_id: z.string().nullable().optional(),
-	default_headcount: z.number().optional(),
 	template_type: z.enum(["weekly", "event"]).optional(),
 })
 
@@ -27,7 +26,7 @@ export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<TemplateWithItemCounts[]> => {
 		let query = getSupabaseServerClient()
 			.from("menu_template")
-			.select(`*, items:menu_template_items(count)`, { count: "exact" })
+			.select(`*, items:menu_template_items(headcount_override, day_of_week)`)
 			.is("deleted_at", null)
 			.order("name")
 
@@ -40,11 +39,24 @@ export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 		const { data: result, error } = await query
 		if (error) throw new Error(error.message)
 
-		return (result || []).map((t) => ({
-			...t,
-			item_count: t.items?.[0]?.count || 0,
-			recipe_count: t.items?.[0]?.count || 0,
-		}))
+		return (result || []).map((t) => {
+			const items = (t.items as { headcount_override: number | null; day_of_week: number | null }[]) || []
+			const item_count = items.length
+			const headcount_filled = items.filter((i) => i.headcount_override !== null).length
+
+			// Média de comensais Seg–Qui (day_of_week 1–4), refeições mais volumosas
+			const weekdayItems = items.filter((i) => i.day_of_week !== null && i.day_of_week >= 1 && i.day_of_week <= 4 && i.headcount_override !== null)
+			const avg_headcount_weekday =
+				weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcount_override ?? 0), 0) / weekdayItems.length) : null
+
+			return {
+				...t,
+				item_count,
+				recipe_count: item_count,
+				headcount_filled,
+				avg_headcount_weekday,
+			}
+		})
 	})
 
 export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
@@ -52,7 +64,7 @@ export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }): Promise<TemplateWithItemCounts[]> => {
 		let query = getSupabaseServerClient()
 			.from("menu_template")
-			.select(`*, items:menu_template_items(count)`, { count: "exact" })
+			.select(`*, items:menu_template_items(headcount_override, day_of_week)`)
 			.not("deleted_at", "is", null)
 			.order("deleted_at", { ascending: false })
 
@@ -65,11 +77,15 @@ export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
 		const { data: result, error } = await query
 		if (error) throw new Error(error.message)
 
-		return (result || []).map((t) => ({
-			...t,
-			item_count: t.items?.[0]?.count || 0,
-			recipe_count: t.items?.[0]?.count || 0,
-		}))
+		return (result || []).map((t) => {
+			const items = (t.items as { headcount_override: number | null; day_of_week: number | null }[]) || []
+			const item_count = items.length
+			const headcount_filled = items.filter((i) => i.headcount_override !== null).length
+			const weekdayItems = items.filter((i) => i.day_of_week !== null && i.day_of_week >= 1 && i.day_of_week <= 4 && i.headcount_override !== null)
+			const avg_headcount_weekday =
+				weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcount_override ?? 0), 0) / weekdayItems.length) : null
+			return { ...t, item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday }
+		})
 	})
 
 export const fetchTemplateItemsFn = createServerFn({ method: "GET" })

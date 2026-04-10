@@ -1,26 +1,22 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
+import { requirePermission } from "@/auth/pbac"
 import LocalIndicatorsCard, { powerBiUrl } from "@/components/features/analytics/LocalIndicatorsCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-export const Route = createFileRoute("/_protected/_modules/analytics/local-indicators")({
-	beforeLoad: async ({ context }) => {
-		const { user } = context.auth
-
-		if (!user?.id) {
-			throw redirect({ to: "/auth" })
-		}
-	},
+export const Route = createFileRoute("/_protected/_modules/local-analytics/$unitId/indicators")({
+	beforeLoad: ({ context }) => requirePermission(context, "local-analytics", 1),
 	component: LocalIndicatorsPage,
 	head: () => ({
-		meta: [{ title: "Indicadores da Unidade" }, { name: "description", content: "Indicadores e relatórios da sua unidade" }],
+		meta: [{ title: "Indicadores da Unidade" }, { name: "description", content: "Indicadores e relatórios Power BI da unidade" }],
 	}),
 })
 
 function LocalIndicatorsPage() {
+	const { unitId } = Route.useParams()
 	const [expanded, setExpanded] = useState(false)
 
 	return (
@@ -57,7 +53,7 @@ function LocalIndicatorsPage() {
 				</Button>
 			</PageHeader>
 
-			<LocalIndicatorsCard expanded={expanded} />
+			<LocalIndicatorsCard expanded={expanded} unitId={Number(unitId)} />
 		</div>
 	)
 }

@@ -149,7 +149,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 								}}
 							>
 								<SelectTrigger id="start-day">
-									<SelectValue placeholder="Selecione o dia" />
+									<SelectValue placeholder="Selecione o dia">{WEEKDAYS.find((w) => w.value === startDayOfWeek)?.label}</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
 									{WEEKDAYS.map((day) => (

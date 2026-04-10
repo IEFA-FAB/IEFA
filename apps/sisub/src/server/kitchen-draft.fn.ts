@@ -6,7 +6,6 @@ import type { DraftWithSelections, KitchenAtaDraft } from "@/types/domain/ata"
 const TemplateSelectionSchema = z.object({
 	templateId: z.string(),
 	templateName: z.string(),
-	defaultHeadcount: z.number(),
 	repetitions: z.number().min(1),
 })
 
@@ -22,7 +21,7 @@ export const fetchKitchenDraftsFn = createServerFn({ method: "GET" })
         *,
         selections:kitchen_ata_draft_selection (
           *,
-          template:template_id ( id, name, default_headcount, template_type )
+          template:template_id ( id, name, template_type )
         )
       `
 			)
@@ -46,7 +45,7 @@ export const fetchPendingDraftFn = createServerFn({ method: "GET" })
         *,
         selections:kitchen_ata_draft_selection (
           *,
-          template:template_id ( id, name, default_headcount, template_type )
+          template:template_id ( id, name, template_type )
         )
       `
 			)

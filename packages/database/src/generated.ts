@@ -1538,6 +1538,66 @@ export type Database = {
 					},
 				]
 			}
+			empenho: {
+				Row: {
+					arp_item_id: string
+					created_at: string
+					created_by: string | null
+					data_empenho: string
+					id: string
+					nota_lancamento: string | null
+					numero_empenho: string
+					quantidade_empenhada: number
+					status: string
+					unit_id: number
+					valor_total: number
+					valor_unitario: number
+				}
+				Insert: {
+					arp_item_id: string
+					created_at?: string
+					created_by?: string | null
+					data_empenho: string
+					id?: string
+					nota_lancamento?: string | null
+					numero_empenho: string
+					quantidade_empenhada: number
+					status?: string
+					unit_id: number
+					valor_total: number
+					valor_unitario: number
+				}
+				Update: {
+					arp_item_id?: string
+					created_at?: string
+					created_by?: string | null
+					data_empenho?: string
+					id?: string
+					nota_lancamento?: string | null
+					numero_empenho?: string
+					quantidade_empenhada?: number
+					status?: string
+					unit_id?: number
+					valor_total?: number
+					valor_unitario?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "empenho_arp_item_id_fkey"
+						columns: ["arp_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_arp_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "empenho_unit_id_fkey"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			folder: {
 				Row: {
 					created_at: string
@@ -1881,7 +1941,6 @@ export type Database = {
 				Row: {
 					base_template_id: string | null
 					created_at: string
-					default_headcount: number
 					deleted_at: string | null
 					description: string | null
 					id: string
@@ -1892,7 +1951,6 @@ export type Database = {
 				Insert: {
 					base_template_id?: string | null
 					created_at?: string
-					default_headcount?: number
 					deleted_at?: string | null
 					description?: string | null
 					id?: string
@@ -1903,7 +1961,6 @@ export type Database = {
 				Update: {
 					base_template_id?: string | null
 					created_at?: string
-					default_headcount?: number
 					deleted_at?: string | null
 					description?: string | null
 					id?: string
@@ -2205,6 +2262,171 @@ export type Database = {
 					},
 				]
 			}
+			policy_rule: {
+				Row: {
+					active: boolean
+					created_at: string
+					deleted_at: string | null
+					description: string
+					display_order: number
+					id: string
+					target: string
+					title: string
+					updated_at: string
+				}
+				Insert: {
+					active?: boolean
+					created_at?: string
+					deleted_at?: string | null
+					description: string
+					display_order?: number
+					id?: string
+					target: string
+					title: string
+					updated_at?: string
+				}
+				Update: {
+					active?: boolean
+					created_at?: string
+					deleted_at?: string | null
+					description?: string
+					display_order?: number
+					id?: string
+					target?: string
+					title?: string
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			procurement_arp: {
+				Row: {
+					ano_ata: string | null
+					ata_id: string
+					created_at: string
+					data_vigencia_fim: string | null
+					data_vigencia_inicio: string | null
+					id: string
+					last_synced_at: string | null
+					nome_uasg_gerenciadora: string | null
+					numero_ata: string
+					objeto: string | null
+					status_ata: string | null
+					uasg_gerenciadora: string
+					unit_id: number
+				}
+				Insert: {
+					ano_ata?: string | null
+					ata_id: string
+					created_at?: string
+					data_vigencia_fim?: string | null
+					data_vigencia_inicio?: string | null
+					id?: string
+					last_synced_at?: string | null
+					nome_uasg_gerenciadora?: string | null
+					numero_ata: string
+					objeto?: string | null
+					status_ata?: string | null
+					uasg_gerenciadora: string
+					unit_id: number
+				}
+				Update: {
+					ano_ata?: string | null
+					ata_id?: string
+					created_at?: string
+					data_vigencia_fim?: string | null
+					data_vigencia_inicio?: string | null
+					id?: string
+					last_synced_at?: string | null
+					nome_uasg_gerenciadora?: string | null
+					numero_ata?: string
+					objeto?: string | null
+					status_ata?: string | null
+					uasg_gerenciadora?: string
+					unit_id?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_arp_ata_id_fkey"
+						columns: ["ata_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_arp_unit_id_fkey"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_arp_item: {
+				Row: {
+					arp_id: string
+					ata_item_id: string | null
+					catmat_item_codigo: number | null
+					descricao_item: string | null
+					id: string
+					medida_catmat: string | null
+					ni_fornecedor: string | null
+					nome_fornecedor: string | null
+					numero_item: number | null
+					quantidade_empenhada: number | null
+					quantidade_homologada: number | null
+					saldo_empenho: number | null
+					synced_at: string
+					valor_unitario: number | null
+				}
+				Insert: {
+					arp_id: string
+					ata_item_id?: string | null
+					catmat_item_codigo?: number | null
+					descricao_item?: string | null
+					id?: string
+					medida_catmat?: string | null
+					ni_fornecedor?: string | null
+					nome_fornecedor?: string | null
+					numero_item?: number | null
+					quantidade_empenhada?: number | null
+					quantidade_homologada?: number | null
+					saldo_empenho?: number | null
+					synced_at?: string
+					valor_unitario?: number | null
+				}
+				Update: {
+					arp_id?: string
+					ata_item_id?: string | null
+					catmat_item_codigo?: number | null
+					descricao_item?: string | null
+					id?: string
+					medida_catmat?: string | null
+					ni_fornecedor?: string | null
+					nome_fornecedor?: string | null
+					numero_item?: number | null
+					quantidade_empenhada?: number | null
+					quantidade_homologada?: number | null
+					saldo_empenho?: number | null
+					synced_at?: string
+					valor_unitario?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_arp_item_arp_id_fkey"
+						columns: ["arp_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_arp"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_arp_item_ata_item_id_fkey"
+						columns: ["ata_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_ata_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			procurement_ata: {
 				Row: {
 					created_at: string
@@ -2303,6 +2525,13 @@ export type Database = {
 						isOneToOne: false
 						referencedRelation: "product"
 						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_ata_item_product_id_fkey"
+						columns: ["product_id"]
+						isOneToOne: false
+						referencedRelation: "v_product_kg_lt_items"
+						referencedColumns: ["product_id"]
 					},
 				]
 			}
@@ -2615,6 +2844,7 @@ export type Database = {
 					correction_factor: number | null
 					created_at: string
 					deleted_at: string | null
+					density_factor: number | null
 					description: string | null
 					folder_id: string | null
 					id: string
@@ -2629,6 +2859,7 @@ export type Database = {
 					correction_factor?: number | null
 					created_at?: string
 					deleted_at?: string | null
+					density_factor?: number | null
 					description?: string | null
 					folder_id?: string | null
 					id?: string
@@ -2643,6 +2874,7 @@ export type Database = {
 					correction_factor?: number | null
 					created_at?: string
 					deleted_at?: string | null
+					density_factor?: number | null
 					description?: string | null
 					folder_id?: string | null
 					id?: string
@@ -2716,6 +2948,13 @@ export type Database = {
 						referencedRelation: "product"
 						referencedColumns: ["id"]
 					},
+					{
+						foreignKeyName: "product_item_product_id_fkey"
+						columns: ["product_id"]
+						isOneToOne: false
+						referencedRelation: "v_product_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
 				]
 			}
 			product_nutrient: {
@@ -2757,6 +2996,13 @@ export type Database = {
 						isOneToOne: false
 						referencedRelation: "product"
 						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_nutrient_product_id_fkey"
+						columns: ["product_id"]
+						isOneToOne: false
+						referencedRelation: "v_product_kg_lt_items"
+						referencedColumns: ["product_id"]
 					},
 				]
 			}
@@ -2881,6 +3127,13 @@ export type Database = {
 						referencedColumns: ["id"]
 					},
 					{
+						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
+						columns: ["product_id"]
+						isOneToOne: false
+						referencedRelation: "v_product_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+					{
 						foreignKeyName: "recipe_ingredient_alternatives_recipe_ingredient_id_fkey"
 						columns: ["recipe_ingredient_id"]
 						isOneToOne: false
@@ -2892,6 +3145,7 @@ export type Database = {
 			recipe_ingredients: {
 				Row: {
 					created_at: string
+					deleted_at: string | null
 					id: string
 					is_optional: boolean | null
 					net_quantity: number | null
@@ -2901,6 +3155,7 @@ export type Database = {
 				}
 				Insert: {
 					created_at?: string
+					deleted_at?: string | null
 					id?: string
 					is_optional?: boolean | null
 					net_quantity?: number | null
@@ -2910,6 +3165,7 @@ export type Database = {
 				}
 				Update: {
 					created_at?: string
+					deleted_at?: string | null
 					id?: string
 					is_optional?: boolean | null
 					net_quantity?: number | null
@@ -2924,6 +3180,13 @@ export type Database = {
 						isOneToOne: false
 						referencedRelation: "product"
 						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_ingredients_product_id_fkey"
+						columns: ["product_id"]
+						isOneToOne: false
+						referencedRelation: "v_product_kg_lt_items"
+						referencedColumns: ["product_id"]
 					},
 					{
 						foreignKeyName: "recipe_ingredients_recipe_id_fkey"
@@ -3198,6 +3461,20 @@ export type Database = {
 						referencedColumns: ["id"]
 					},
 				]
+			}
+			v_product_kg_lt_items: {
+				Row: {
+					base_unit: string | null
+					density_factor: number | null
+					description: string | null
+					item_created_at: string | null
+					item_description: string | null
+					kg_to_base_factor: number | null
+					product_id: string | null
+					product_item_id: string | null
+					purchase_measure_unit: string | null
+				}
+				Relationships: []
 			}
 			v_user_identity: {
 				Row: {

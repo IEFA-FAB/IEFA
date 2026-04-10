@@ -3,7 +3,7 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
-const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "analytics", "storage"] as const
+const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "analytics", "local-analytics", "storage"] as const
 
 // ---------------------------------------------------------------------------
 // User-facing: permissões filtradas (sem deny, com implicit allow)

@@ -6,9 +6,10 @@ export const powerBiUrl =
 
 interface Props {
 	expanded: boolean
+	unitId: number
 }
 
-export default function LocalIndicatorsCard({ expanded }: Props) {
+export default function LocalIndicatorsCard({ expanded, unitId: _unitId }: Props) {
 	const frameHeight = "clamp(520px, 78vh, 1000px)"
 
 	return (

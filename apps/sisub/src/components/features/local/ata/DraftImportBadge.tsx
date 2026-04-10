@@ -18,7 +18,6 @@ export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportB
 			const item: TemplateSelection = {
 				templateId: sel.template.id,
 				templateName: sel.template.name || "",
-				defaultHeadcount: sel.template.default_headcount,
 				repetitions: sel.repetitions,
 			}
 			if (sel.template.template_type === "event") {

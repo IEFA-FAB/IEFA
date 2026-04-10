@@ -93,7 +93,9 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 
 					<Select value={defaultMessHallCode} onValueChange={handleMessHallChange} disabled={isApplying || saving || !hasMessHalls}>
 						<SelectTrigger className="w-full cursor-pointer bg-background border border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-accent">
-							<SelectValue placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"} />
+							<SelectValue placeholder={hasMessHalls ? "Selecione um rancho..." : "Sem ranchos disponíveis"}>
+								{defaultMessHallCode ? selectedMessHallLabel : undefined}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectContent className="max-h-60">
 							{(!messHalls || messHalls.length === 0) && <div className="px-2 py-4 text-sm text-muted-foreground">Nenhum rancho encontrado.</div>}

@@ -145,3 +145,19 @@ export type ProductionTaskUpdate = TablesUpdate<"production_task">
 
 export type KitchenType = Enums<"kitchen_type">
 export type UnitType = Enums<"unit_type">
+
+export type PolicyRule = Tables<"policy_rule">
+export type PolicyRuleInsert = TablesInsert<"policy_rule">
+export type PolicyRuleUpdate = TablesUpdate<"policy_rule">
+
+export type ProcurementArp = Tables<"procurement_arp">
+export type ProcurementArpInsert = TablesInsert<"procurement_arp">
+export type ProcurementArpUpdate = TablesUpdate<"procurement_arp">
+
+export type ProcurementArpItem = Tables<"procurement_arp_item">
+export type ProcurementArpItemInsert = TablesInsert<"procurement_arp_item">
+export type ProcurementArpItemUpdate = TablesUpdate<"procurement_arp_item">
+
+export type Empenho = Tables<"empenho">
+export type EmpenhoInsert = TablesInsert<"empenho">
+export type EmpenhoUpdate = TablesUpdate<"empenho">

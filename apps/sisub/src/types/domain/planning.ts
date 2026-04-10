@@ -47,7 +47,7 @@ export interface TemplateItemDraft {
 	day_of_week: number // 1-7 (Monday-Sunday)
 	meal_type_id: string
 	recipe_id: string
-	/** Sobrescreve o default_headcount do template para esta preparação específica */
+	/** Previsão de comensais para esta preparação específica */
 	headcount_override?: number | null
 }
 
@@ -62,9 +62,13 @@ export interface ApplyTemplatePayload {
 }
 
 /**
- * Template com contagem de items (para preview)
+ * Template com contagem de items e estatísticas de previsão de comensais.
+ * headcount_filled = itens com headcount_override preenchido
+ * avg_headcount_weekday = média de comensais Seg–Qui (refeições mais volumosas)
  */
 export interface TemplateWithItemCounts extends MenuTemplate {
 	item_count: number
 	recipe_count: number
+	headcount_filled: number
+	avg_headcount_weekday: number | null
 }

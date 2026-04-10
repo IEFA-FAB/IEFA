@@ -1,6 +1,6 @@
+import { Users } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { KitchenSelectionState } from "@/types/domain/ata"
 
 // day_of_week: 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb, 7=Dom
 const WEEKDAY_GROUPS = {
@@ -9,27 +9,27 @@ const WEEKDAY_GROUPS = {
 	weekend: [6, 7], // Sáb-Dom
 }
 
+interface TemplateItemHeadcount {
+	day_of_week: number | null
+	headcount_override: number | null
+}
+
 interface HeadcountRow {
 	kitchenName: string
+	templateName: string
 	weekdays: number | null
 	friday: number | null
 	weekend: number | null
+	filled: number
+	total: number
 }
 
 interface HeadcountSummaryTableProps {
-	kitchenSelections: KitchenSelectionState[]
 	/**
-	 * Mapa de templateId → items do template (com day_of_week e headcount_override)
-	 * Buscados pelo componente pai via useTemplate
+	 * Seleções por cozinha com os itens de cada template (dia + headcount_override).
+	 * Fornecidos pelo componente pai após fetchear os items dos templates selecionados.
 	 */
-	templateItemsMap: Map<
-		string,
-		Array<{
-			day_of_week: number | null
-			headcount_override: number | null
-		}>
-	>
-	templateMap: Map<string, { default_headcount: number }>
+	rows: HeadcountRow[]
 }
 
 function avgHeadcount(values: number[]): number | null {
@@ -37,74 +37,83 @@ function avgHeadcount(values: number[]): number | null {
 	return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
 }
 
-export function HeadcountSummaryTable({ kitchenSelections, templateItemsMap, templateMap }: HeadcountSummaryTableProps) {
-	const rows: HeadcountRow[] = kitchenSelections.map((ks) => {
-		const allSelections = [...ks.templateSelections, ...ks.eventSelections]
+/**
+ * Calcula estatísticas de headcount a partir dos itens de um template.
+ */
+export function calcHeadcountRow(kitchenName: string, templateName: string, items: TemplateItemHeadcount[]): HeadcountRow {
+	const weekdayHC: number[] = []
+	const fridayHC: number[] = []
+	const weekendHC: number[] = []
 
-		// Coletar headcounts por grupo de dia
-		const weekdayHC: number[] = []
-		const fridayHC: number[] = []
-		const weekendHC: number[] = []
+	for (const item of items) {
+		if (!item.day_of_week || !item.headcount_override) continue
+		if (WEEKDAY_GROUPS.weekdays.includes(item.day_of_week)) weekdayHC.push(item.headcount_override)
+		else if (WEEKDAY_GROUPS.friday.includes(item.day_of_week)) fridayHC.push(item.headcount_override)
+		else if (WEEKDAY_GROUPS.weekend.includes(item.day_of_week)) weekendHC.push(item.headcount_override)
+	}
 
-		for (const sel of allSelections) {
-			const items = templateItemsMap.get(sel.templateId) || []
-			const templateDefault = templateMap.get(sel.templateId)?.default_headcount ?? sel.defaultHeadcount
+	return {
+		kitchenName,
+		templateName,
+		weekdays: avgHeadcount(weekdayHC),
+		friday: avgHeadcount(fridayHC),
+		weekend: avgHeadcount(weekendHC),
+		filled: items.filter((i) => i.headcount_override !== null).length,
+		total: items.length,
+	}
+}
 
-			for (const item of items) {
-				if (!item.day_of_week) continue
-				const hc = item.headcount_override ?? templateDefault
-
-				if (WEEKDAY_GROUPS.weekdays.includes(item.day_of_week)) weekdayHC.push(hc)
-				else if (WEEKDAY_GROUPS.friday.includes(item.day_of_week)) fridayHC.push(hc)
-				else if (WEEKDAY_GROUPS.weekend.includes(item.day_of_week)) weekendHC.push(hc)
-			}
-
-			// Se nenhum item tem day_of_week (ex: evento), usar headcount padrão para todas as categorias
-			if (items.every((i) => !i.day_of_week) && items.length > 0) {
-				weekdayHC.push(templateDefault)
-			}
-		}
-
-		return {
-			kitchenName: ks.kitchenName,
-			weekdays: avgHeadcount(weekdayHC),
-			friday: avgHeadcount(fridayHC),
-			weekend: avgHeadcount(weekendHC),
-		}
-	})
-
-	const hasData = rows.some((r) => r.weekdays !== null || r.friday !== null || r.weekend !== null)
-
-	if (!hasData) return null
+export function HeadcountSummaryTable({ rows }: HeadcountSummaryTableProps) {
+	if (rows.length === 0) return null
 
 	return (
 		<Card>
 			<CardHeader className="pb-3">
-				<CardTitle className="text-sm font-semibold">Média de Comensais Prevista por Período</CardTitle>
+				<CardTitle className="text-sm font-semibold flex items-center gap-2">
+					<Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+					Comensais por Cardápio e Período
+				</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<div className="rounded-md border">
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead>Cozinha</TableHead>
+								<TableHead>Cozinha / Cardápio</TableHead>
 								<TableHead className="text-center">Seg–Qui</TableHead>
 								<TableHead className="text-center">Sexta</TableHead>
 								<TableHead className="text-center">Sáb–Dom</TableHead>
+								<TableHead className="text-center">Preenchido</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{rows.map((row) => (
-								<TableRow key={row.kitchenName}>
-									<TableCell className="font-medium">{row.kitchenName}</TableCell>
-									<TableCell className="text-center tabular-nums">
-										{row.weekdays !== null ? <span>{row.weekdays}p</span> : <span className="text-muted-foreground">—</span>}
+							{rows.map((row, i) => (
+								<TableRow key={i}>
+									<TableCell>
+										<p className="text-sm font-medium">{row.templateName}</p>
+										<p className="text-xs text-muted-foreground">{row.kitchenName}</p>
 									</TableCell>
-									<TableCell className="text-center tabular-nums">
-										{row.friday !== null ? <span>{row.friday}p</span> : <span className="text-muted-foreground">—</span>}
+									<TableCell className="text-center tabular-nums text-xs">
+										{row.weekdays !== null ? <span>{row.weekdays} com.</span> : <span className="text-muted-foreground">—</span>}
 									</TableCell>
-									<TableCell className="text-center tabular-nums">
-										{row.weekend !== null ? <span>{row.weekend}p</span> : <span className="text-muted-foreground">—</span>}
+									<TableCell className="text-center tabular-nums text-xs">
+										{row.friday !== null ? <span>{row.friday} com.</span> : <span className="text-muted-foreground">—</span>}
+									</TableCell>
+									<TableCell className="text-center tabular-nums text-xs">
+										{row.weekend !== null ? <span>{row.weekend} com.</span> : <span className="text-muted-foreground">—</span>}
+									</TableCell>
+									<TableCell className="text-center text-xs">
+										{row.total === 0 ? (
+											<span className="text-muted-foreground">—</span>
+										) : row.filled === row.total ? (
+											<span className="text-success font-medium">
+												{row.filled}/{row.total}
+											</span>
+										) : (
+											<span className="text-destructive font-medium">
+												{row.filled}/{row.total}
+											</span>
+										)}
 									</TableCell>
 								</TableRow>
 							))}

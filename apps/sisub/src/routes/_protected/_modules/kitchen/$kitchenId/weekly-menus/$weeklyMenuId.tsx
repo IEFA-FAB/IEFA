@@ -1,7 +1,7 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, Users, X } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -248,7 +248,8 @@ function WeeklyMenuEditorPage() {
 		mealTypeId: string
 	} | null>(null)
 
-	if (template && !initialized) {
+	useEffect(() => {
+		if (!template || initialized) return
 		setName(template.name ?? "")
 		setDescription(template.description ?? "")
 		setItems(
@@ -260,7 +261,7 @@ function WeeklyMenuEditorPage() {
 			}))
 		)
 		setInitialized(true)
-	}
+	}, [template, initialized])
 
 	/** Retorna as preparações de uma célula (dia + tipo de refeição) com seus headcounts individuais. */
 	const getCellItems = (dayOfWeek: number, mealTypeId: string): RecipeWithHeadcount[] => {

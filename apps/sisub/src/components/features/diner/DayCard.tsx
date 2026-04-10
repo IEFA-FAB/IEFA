@@ -165,7 +165,9 @@ function DayCard({
 						disabled={isDisabled}
 					>
 						<SelectTrigger className="flex-1">
-							<SelectValue placeholder="Selecione um rancho..." />
+							<SelectValue placeholder="Selecione um rancho...">
+								{dayMessHallId ? (messHalls?.find((mh) => mh.code === dayMessHallId)?.display_name ?? dayMessHallId) : undefined}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							{messHalls?.map((mh) => (

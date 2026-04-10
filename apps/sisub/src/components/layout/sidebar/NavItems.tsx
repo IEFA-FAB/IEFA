@@ -9,6 +9,7 @@ import {
 	CalendarRange,
 	ChefHat,
 	ClipboardCheck,
+	ClipboardList,
 	FileText,
 	FlameKindling,
 	LayoutDashboard,
@@ -30,14 +31,14 @@ import type { UserPermission } from "@/types/domain/permissions"
 
 export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
-export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics"
+export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics"
 
 export type ModuleDef = {
 	id: ModuleId
 	name: string
 	icon: LucideIcon
 	/**
-	 * Para módulos com escopo (messhall, unit, kitchen, kitchen-production),
+	 * Para módulos com escopo (messhall, unit, kitchen, kitchen-production, local-analytics),
 	 * aponta para o hub de seleção de escopo.
 	 * O TeamSwitcher e o Hub page usam essa URL ao invés de items[0].url.
 	 */
@@ -65,7 +66,8 @@ export const ALL_MODULES: ModuleDef[] = [
 		icon: ShieldCheck,
 		hubUrl: "/messhall",
 		// URLs base — AppShell substitui por /messhall/{id}/... quando dentro de um escopo
-		items: [{ title: "Presenças", url: "/messhall/presence", icon: ClipboardCheck }],
+		// "/messhall/" → após substituição vira "/messhall/{id}/" (rota index)
+		items: [{ title: "Presenças", url: "/messhall/", icon: ClipboardCheck }],
 	},
 	{
 		id: "unit",
@@ -113,23 +115,28 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck },
 			{ title: "Avaliação", url: "/global/evaluation", icon: Star },
 			{ title: "Sync Compras", url: "/global/compras-sync", icon: RefreshCw },
+			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList },
 		],
 	},
 	{
 		id: "analytics",
-		name: "Análises",
+		name: "Análises Globais",
 		icon: BarChart3,
+		items: [{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 }],
+	},
+	{
+		id: "local-analytics",
+		name: "Análises da Unidade",
+		icon: LayoutDashboard,
+		hubUrl: "/local-analytics",
 		items: [
-			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 },
-			{ title: "Análise Local", url: "/analytics/local", icon: LayoutDashboard },
-			{ title: "Indicadores da Unidade", url: "/analytics/local-indicators", icon: BarChart3 },
+			{ title: "Dashboard", url: "/local-analytics/dashboard", icon: LayoutDashboard },
+			{ title: "Indicadores", url: "/local-analytics/indicators", icon: BarChart3 },
 		],
 	},
 ]
 
-/**
- * Retorna apenas os módulos acessíveis para o conjunto de permissões PBAC do usuário.
- */
+/** Retorna apenas os módulos acessíveis para o conjunto de permissões PBAC do usuário. */
 export function getModulesForPermissions(permissions: UserPermission[]): ModuleDef[] {
 	return ALL_MODULES.filter((m) => hasPermission(permissions, m.id))
 }

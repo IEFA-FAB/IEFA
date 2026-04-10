@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { ArrowLeft, ArrowRight, Calculator, Download, Save } from "lucide-react"
+import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, Download, Save } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
 import { type AtaStep, AtaStepIndicator } from "@/components/features/local/ata/AtaStepIndicator"
 import { DraftImportBadge } from "@/components/features/local/ata/DraftImportBadge"
-import { HeadcountSummaryTable } from "@/components/features/local/ata/HeadcountSummaryTable"
 import { KitchenTemplateSection } from "@/components/features/local/ata/KitchenTemplateSection"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -202,10 +201,6 @@ function NewAtaPage() {
 
 	const hasAnySelection = kitchenSelections.some((ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0)
 
-	const templateMap = new Map(
-		kitchenSelections.flatMap((ks) => [...ks.templateSelections, ...ks.eventSelections]).map((s) => [s.templateId, { default_headcount: s.defaultHeadcount }])
-	)
-
 	if (isLoadingKitchens) {
 		return (
 			<div className="space-y-6">
@@ -335,9 +330,6 @@ function NewAtaPage() {
 						</Card>
 					)}
 
-					{/* Tabela de médias de headcount */}
-					<HeadcountSummaryTable kitchenSelections={kitchenSelections} templateItemsMap={new Map()} templateMap={templateMap} />
-
 					{/* Calcular */}
 					<div className="flex justify-center">
 						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
@@ -345,6 +337,20 @@ function NewAtaPage() {
 							{isCalculating ? "Calculando..." : "Calcular Lista"}
 						</Button>
 					</div>
+
+					{/* Aviso pós-cálculo: resultado vazio */}
+					{!isCalculating && savedItems.length === 0 && calculatedItems !== undefined && (
+						<div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm" role="alert">
+							<AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" aria-hidden="true" />
+							<div>
+								<p className="font-medium text-destructive">Nenhum item calculado</p>
+								<p className="text-muted-foreground mt-0.5">
+									Verifique se as preparações dos cardápios selecionados têm previsão de comensais configurada. O indicador{" "}
+									<span className="font-medium">X/Y com comensais</span> nos steps 1 e 2 mostra quais estão incompletas.
+								</p>
+							</div>
+						</div>
+					)}
 
 					{/* Tabela de itens */}
 					<AtaItemsTable data={displayItems} isLoading={isCalculating} />

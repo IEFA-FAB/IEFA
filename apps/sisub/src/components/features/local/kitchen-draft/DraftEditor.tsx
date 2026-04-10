@@ -24,8 +24,6 @@ interface DraftEditorProps {
 	onSend?: (title: string, notes: string, selections: TemplateSelection[]) => void
 }
 
-type ExtendedTemplate = TemplateWithItemCounts & { default_headcount?: number }
-
 export function DraftEditor({
 	initialTitle = "",
 	initialNotes = "",
@@ -45,14 +43,13 @@ export function DraftEditor({
 	const isSelected = (templateId: string) => selections.some((s) => s.templateId === templateId)
 	const getRepetitions = (templateId: string) => selections.find((s) => s.templateId === templateId)?.repetitions ?? 1
 
-	const handleToggle = (template: ExtendedTemplate, checked: boolean) => {
+	const handleToggle = (template: TemplateWithItemCounts, checked: boolean) => {
 		if (checked) {
 			setSelections((prev) => [
 				...prev,
 				{
 					templateId: template.id,
 					templateName: template.name || "",
-					defaultHeadcount: template.default_headcount ?? 0,
 					repetitions: 1,
 				},
 			])
@@ -75,7 +72,7 @@ export function DraftEditor({
 	const handleSave = () => onSave(title, notes, selections)
 	const handleSend = () => onSend?.(title, notes, selections)
 
-	const renderTemplateList = (templates: ExtendedTemplate[], label: string) => (
+	const renderTemplateList = (templates: TemplateWithItemCounts[], label: string) => (
 		<Card>
 			<CardHeader className="pb-3">
 				<CardTitle className="text-sm font-semibold">{label}</CardTitle>
@@ -94,29 +91,38 @@ export function DraftEditor({
 						{templates.map((template) => {
 							const selected = isSelected(template.id)
 							const reps = getRepetitions(template.id)
-							const headcount = template.default_headcount ?? 0
+							const someMissing = template.item_count > 0 && template.headcount_filled < template.item_count
+							const allFilled = template.item_count > 0 && template.headcount_filled === template.item_count
 
 							return (
 								<div
 									key={template.id}
 									className={`flex items-center gap-3 rounded-md border p-3 transition-colors ${selected ? "border-primary/50 bg-primary/5" : "border-border"}`}
 								>
-									<Checkbox
-										id={`draft-${template.id}`}
-										checked={selected}
-										onCheckedChange={(checked) => handleToggle(template as ExtendedTemplate, checked === true)}
-									/>
+									<Checkbox id={`draft-${template.id}`} checked={selected} onCheckedChange={(checked) => handleToggle(template, checked === true)} />
 									<div className="flex-1 min-w-0">
 										<Label htmlFor={`draft-${template.id}`} className="text-sm font-medium cursor-pointer">
 											{template.name || "Sem nome"}
 										</Label>
-										<div className="flex items-center gap-2 mt-0.5">
-											<span className="text-xs text-muted-foreground flex items-center gap-1">
-												<Users className="h-3 w-3" />
-												{headcount > 0 ? `${headcount} pessoas` : "Sem headcount"}
-											</span>
-											<span className="text-xs text-muted-foreground">·</span>
+										<div className="flex items-center gap-2 mt-0.5 flex-wrap">
 											<span className="text-xs text-muted-foreground">{template.recipe_count} preparações</span>
+											{someMissing && (
+												<>
+													<span className="text-xs text-muted-foreground/40">·</span>
+													<span className="text-xs text-destructive font-medium flex items-center gap-1">
+														<Users className="h-3 w-3" />
+														{template.headcount_filled}/{template.item_count} com comensais
+													</span>
+												</>
+											)}
+											{allFilled && template.avg_headcount_weekday !== null && (
+												<>
+													<span className="text-xs text-muted-foreground/40">·</span>
+													<span className="text-xs text-muted-foreground flex items-center gap-1">
+														<Users className="h-3 w-3" />~{template.avg_headcount_weekday} com. (Seg–Qui)
+													</span>
+												</>
+											)}
 										</div>
 									</div>
 									{selected && (
@@ -175,10 +181,10 @@ export function DraftEditor({
 			</Card>
 
 			{/* Cardápios Semanais */}
-			{renderTemplateList(weeklyTemplates as ExtendedTemplate[], "Cardápios Semanais")}
+			{renderTemplateList(weeklyTemplates, "Cardápios Semanais")}
 
 			{/* Eventos */}
-			{renderTemplateList(eventTemplates as ExtendedTemplate[], "Eventos / Refeições Especiais")}
+			{renderTemplateList(eventTemplates, "Eventos / Refeições Especiais")}
 
 			{/* Resumo e Ações */}
 			{selections.length > 0 && (
