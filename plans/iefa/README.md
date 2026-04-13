@@ -15,17 +15,17 @@ O IEFA Journal é um sistema moderno de gestão de publicações científicas qu
 
 ```bash
 # Instalar dependências
-pnpm install
+bun install
 
 # Configurar variáveis de ambiente
 cp .env.example .env.local
 # Editar .env.local com suas credenciais Supabase
 
 # Rodar em desenvolvimento
-pnpm iefa:dev
+bun run iefa:dev
 
 # Build para produção
-pnpm iefa:build
+bun run iefa:build
 ```
 
 ## 📁 Estrutura do Projeto
@@ -236,19 +236,19 @@ function MyComponent() {
 ### Integration Tests (Recomendado)
 ```bash
 # Setup
-pnpm add -D vitest @testing-library/react @testing-library/user-event
+bun add -D vitest @testing-library/react @testing-library/user-event
 
 # Rodar testes
-pnpm test
+bun test
 ```
 
 ### E2E Tests (Fluxos Críticos)
 ```bash
 # Setup
-pnpm add -D @playwright/test
+bun add -D @playwright/test
 
 # Rodar E2E
-pnpm test:e2e
+bun run test:e2e
 ```
 
 ## 🚀 Deploy
@@ -261,7 +261,7 @@ pnpm test:e2e
 
 ### Build
 ```bash
-pnpm iefa:build
+bun run iefa:build
 ```
 
 ### Variáveis de Ambiente Necessárias
@@ -275,7 +275,6 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 - **PRD:** `PRD.md` - Product Requirements Document
 - **Design System:** `design-system.md` - Padrões e guidelines
 - **Steps:** `steps.md` - Plano de implementação
-- **Audit Report:** `.gemini/*/audit_report.md` - Issues e melhorias
 
 ## 🤝 Contribuindo
 

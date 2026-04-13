@@ -9,4 +9,4 @@ O Instituto de Economia, Finanças e Adminitração da Aeronáutica **(IEFA)** t
 
 ## Estrutura
 
-O Projeto utiliza Pnpm Workspaces para manter diversas aplicações em um Mono Repositório para facilitar a manutenção.
+O Projeto utiliza Bun workspaces para manter diversas aplicações em um Mono Repositório para facilitar a manutenção.

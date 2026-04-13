@@ -29,6 +29,15 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 - **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, ai, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 
+## Design Systems
+
+**sisub** e **portal** têm design systems **incompatíveis** — nunca copiar padrões visuais entre os dois:
+
+| App | Sistema | Radius | Referência |
+|-----|---------|--------|------------|
+| `sisub` | Flat design | `0.5rem` genérico; primitivo `<Card>` usa `rounded-xl` (0.75rem) canônico | `apps/sisub/docs/STYLE_CONTRACT.md` |
+| `portal` | Pale Brutalism 2026 | **Zero radius** (`--radius: 0rem`) — nenhum `rounded-*` exceto pílulas explícitas | `apps/portal/STYLE_CONTRACT.md` |
+
 ## DB
 
 - Supabase with schemas: `sisub` (default), `iefa`, `journal`
