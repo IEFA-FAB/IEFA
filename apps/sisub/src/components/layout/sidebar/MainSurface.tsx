@@ -13,7 +13,7 @@ export function MainSurface({ showInitialError, showInitialLoading, onRetry, chi
 	return (
 		<div
 			className={cn(
-				"relative isolate flex flex-col bg-transparent text-foreground transition-colors duration-300",
+				"relative isolate flex flex-1 flex-col bg-transparent text-foreground transition-colors duration-300 h-full",
 				"main-content-surface" // For View Transitions API animations
 			)}
 		>

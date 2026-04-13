@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import type { SyncLog } from "@/types/domain/compras-sync"
 
 // Local dev: IEFA_API_BASE_URL=http://localhost:3000
 // Production: defaults to https://iefa-api.fly.dev
@@ -12,41 +13,9 @@ function adminHeaders() {
 	}
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type SyncStep = {
-	id: number
-	sync_id: number
-	step_name: string
-	status: "pending" | "running" | "success" | "error"
-	current_page: number
-	total_pages: number | null
-	records_upserted: number
-	records_deactivated: number
-	error_message: string | null
-	started_at: string | null
-	finished_at: string | null
-}
-
-export type SyncLog = {
-	id: number
-	started_at: string
-	finished_at: string | null
-	triggered_by: string
-	status: "running" | "success" | "partial" | "error"
-	total_steps: number
-	completed_steps: number
-	successful_steps: number
-	failed_steps: number
-	total_upserted: number
-	total_deactivated: number
-	error_message: string | null
-	steps: SyncStep[]
-}
-
 // ── Server Functions ──────────────────────────────────────────────────────────
 
-export const triggerSync = createServerFn({ method: "POST" }).handler(async () => {
+export const triggerSyncFn = createServerFn({ method: "POST" }).handler(async () => {
 	const res = await fetch(`${API_BASE}/api/admin/compras/sync`, {
 		method: "POST",
 		headers: adminHeaders(),
@@ -63,7 +32,7 @@ export const triggerSync = createServerFn({ method: "POST" }).handler(async () =
 	return { error: null, sync_id: body.sync_id as number }
 })
 
-export const getSyncStatus = createServerFn({ method: "GET" })
+export const getSyncStatusFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		const res = await fetch(`${API_BASE}/api/admin/compras/sync/${data.id}`, {
@@ -73,7 +42,7 @@ export const getSyncStatus = createServerFn({ method: "GET" })
 		return (await res.json()) as SyncLog
 	})
 
-export const stopSync = createServerFn({ method: "POST" })
+export const stopSyncFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		const res = await fetch(`${API_BASE}/api/admin/compras/sync/${data.id}/stop`, {
@@ -87,7 +56,7 @@ export const stopSync = createServerFn({ method: "POST" })
 		return { error: null }
 	})
 
-export const getLatestSync = createServerFn({ method: "GET" }).handler(async () => {
+export const getLatestSyncFn = createServerFn({ method: "GET" }).handler(async () => {
 	const res = await fetch(`${API_BASE}/api/admin/compras/sync/latest`, {
 		headers: adminHeaders(),
 	})

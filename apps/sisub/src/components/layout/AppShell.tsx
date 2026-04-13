@@ -200,7 +200,7 @@ export function AppShell() {
 				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
 
-			<SidebarInset className="bg-transparent h-full overflow-y-scroll w-full flex flex-col">
+			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
 					<div className="flex items-center gap-3">
 						<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
@@ -272,11 +272,16 @@ export function AppShell() {
 					</div>
 				</header>
 
-				<MainSurface showInitialError={showInitialError} showInitialLoading={showInitialLoading} onRetry={handleRetry}>
-					<main className="mx-auto w-full max-w-screen-2xl flex-1 px-3 py-6 sm:px-6 md:py-8 focus:outline-none">
-						<Outlet />
-					</main>
-				</MainSurface>
+				{/* flex-1 min-h-0 constrains children so h-full resolves correctly in nested pages */}
+				<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+					<MainSurface showInitialError={showInitialError} showInitialLoading={showInitialLoading} onRetry={handleRetry}>
+						<main className="h-full overflow-y-auto focus:outline-none">
+							<div className="mx-auto w-full max-w-screen-2xl min-h-full px-3 py-6 sm:px-6 md:py-8">
+								<Outlet />
+							</div>
+						</main>
+					</MainSurface>
+				</div>
 			</SidebarInset>
 		</>
 	)

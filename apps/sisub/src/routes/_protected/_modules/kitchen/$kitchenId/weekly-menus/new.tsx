@@ -1,4 +1,3 @@
-import type { MenuTemplateItemInsert } from "@iefa/database/sisub"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { GitFork, Loader2, Plus } from "lucide-react"
@@ -14,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useTemplate } from "@/hooks/data/useTemplates"
-import supabase from "@/lib/supabase"
+import { createBlankTemplateFn, forkTemplateFn } from "@/server/menu-template-create.fn"
 
 /**
  * KITCHEN — Novo Cardápio Semanal
@@ -48,22 +47,16 @@ function NewWeeklyMenuPage() {
 
 	// Mutation: criar template local (do zero)
 	const { mutate: createBlank, isPending: isCreating } = useMutation({
-		mutationFn: async () => {
+		mutationFn: () => {
 			if (!kitchenId || !name.trim()) throw new Error("Dados incompletos")
-
-			const { data, error } = await supabase
-				.from("menu_template")
-				.insert({
+			return createBlankTemplateFn({
+				data: {
 					name: name.trim(),
 					description: description.trim() || null,
-					kitchen_id: kitchenId,
-					template_type: "weekly",
-				})
-				.select()
-				.single()
-
-			if (error) throw new Error(error.message)
-			return data
+					kitchenId,
+					templateType: "weekly",
+				},
+			})
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
@@ -78,53 +71,17 @@ function NewWeeklyMenuPage() {
 
 	// Mutation: adaptar template global
 	const { mutate: createFork, isPending: isForking } = useMutation({
-		mutationFn: async () => {
+		mutationFn: () => {
 			if (!kitchenId || !forkFrom || !name.trim()) throw new Error("Dados incompletos")
-
-			// 1. Criar novo template local com referência ao base
-			const { data: newTemplate, error: templateError } = await supabase
-				.from("menu_template")
-				.insert({
+			return forkTemplateFn({
+				data: {
 					name: name.trim(),
 					description: description.trim() || null,
-					kitchen_id: kitchenId,
-					base_template_id: forkFrom,
-					template_type: "weekly",
-				})
-				.select()
-				.single()
-
-			if (templateError) throw new Error(templateError.message)
-
-			// 2. Copiar items do template base
-			const { data: baseItems, error: itemsError } = await supabase
-				.from("menu_template_items")
-				.select("day_of_week, meal_type_id, recipe_id")
-				.eq("menu_template_id", forkFrom)
-
-			if (itemsError) {
-				// Rollback
-				await supabase.from("menu_template").delete().eq("id", newTemplate.id)
-				throw new Error(itemsError.message)
-			}
-
-			if (baseItems && baseItems.length > 0) {
-				const forkedItems: MenuTemplateItemInsert[] = baseItems.map((item) => ({
-					menu_template_id: newTemplate.id,
-					day_of_week: item.day_of_week,
-					meal_type_id: item.meal_type_id,
-					recipe_id: item.recipe_id,
-				}))
-
-				const { error: insertError } = await supabase.from("menu_template_items").insert(forkedItems)
-
-				if (insertError) {
-					await supabase.from("menu_template").delete().eq("id", newTemplate.id)
-					throw new Error(insertError.message)
-				}
-			}
-
-			return newTemplate
+					kitchenId,
+					baseTemplateId: forkFrom,
+					templateType: "weekly",
+				},
+			})
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })

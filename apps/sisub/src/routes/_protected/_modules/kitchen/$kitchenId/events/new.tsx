@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import supabase from "@/lib/supabase"
+import { createBlankTemplateFn } from "@/server/menu-template-create.fn"
 
 /**
  * KITCHEN — Novo Evento
@@ -34,22 +34,16 @@ function NewEventPage() {
 	const [description, setDescription] = useState("")
 
 	const { mutate: createEvent, isPending } = useMutation({
-		mutationFn: async () => {
+		mutationFn: () => {
 			if (!kitchenId || !name.trim()) throw new Error("Dados incompletos")
-
-			const { data, error } = await supabase
-				.from("menu_template")
-				.insert({
+			return createBlankTemplateFn({
+				data: {
 					name: name.trim(),
 					description: description.trim() || null,
-					kitchen_id: kitchenId,
-					template_type: "event",
-				})
-				.select()
-				.single()
-
-			if (error) throw new Error(error.message)
-			return data
+					kitchenId,
+					templateType: "event",
+				},
+			})
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })

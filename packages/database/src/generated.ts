@@ -839,6 +839,71 @@ export type Database = {
 	}
 	sisub: {
 		Tables: {
+			analytics_chat_message: {
+				Row: {
+					chart: Json | null
+					chart_type_override: string | null
+					content: string
+					created_at: string
+					error: string | null
+					id: string
+					role: string
+					session_id: string
+				}
+				Insert: {
+					chart?: Json | null
+					chart_type_override?: string | null
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					role: string
+					session_id: string
+				}
+				Update: {
+					chart?: Json | null
+					chart_type_override?: string | null
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					role?: string
+					session_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "analytics_chat_message_session_id_fkey"
+						columns: ["session_id"]
+						isOneToOne: false
+						referencedRelation: "analytics_chat_session"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			analytics_chat_session: {
+				Row: {
+					created_at: string
+					id: string
+					title: string
+					updated_at: string
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					title?: string
+					updated_at?: string
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					title?: string
+					updated_at?: string
+					user_id?: string
+				}
+				Relationships: []
+			}
 			ceafa: {
 				Row: {
 					created_at: string
@@ -3500,12 +3565,17 @@ export type Database = {
 					descricao_item: string
 					nome_classe: string
 					nome_pdm: string
+					pdm_score: number
 					score: number
 					unidades: string[]
 				}[]
 			}
 			catmat_similarity: {
 				Args: { p_left: string; p_right: string }
+				Returns: number
+			}
+			catmat_word_similarity: {
+				Args: { p_query: string; p_text: string }
 				Returns: number
 			}
 			compras_sync_step_failure: {

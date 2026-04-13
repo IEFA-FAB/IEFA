@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { ExternalLink, Maximize2 } from "lucide-react"
 import { useState } from "react"
+import { requirePermission } from "@/auth/pbac"
 import IndicatorsCard, { powerBiUrl } from "@/components/features/analytics/GlobalIndicatorsCard"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export const Route = createFileRoute("/_protected/_modules/analytics/global")({
+	beforeLoad: ({ context }) => requirePermission(context, "analytics", 2),
 	component: SuperAdminPanel,
 	head: () => ({
 		meta: [

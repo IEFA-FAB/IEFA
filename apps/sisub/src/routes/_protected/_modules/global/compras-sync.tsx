@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { getLatestSync, getSyncStatus, type SyncLog, type SyncStep, stopSync, triggerSync } from "@/server/compras-sync.fn"
+import { formatSyncDate, statusColor, statusLabel } from "@/lib/compras-sync"
+import { getLatestSyncFn, getSyncStatusFn, stopSyncFn, triggerSyncFn } from "@/server/compras-sync.fn"
 
 export const Route = createFileRoute("/_protected/_modules/global/compras-sync")({
 	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
 	loader: async () => {
-		return getLatestSync()
+		return getLatestSyncFn()
 	},
 	component: ComprasSyncPage,
 	head: () => ({
@@ -23,34 +24,6 @@ export const Route = createFileRoute("/_protected/_modules/global/compras-sync")
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function statusColor(status: SyncLog["status"] | SyncStep["status"]) {
-	switch (status) {
-		case "running":
-			return "bg-blue-500/15 text-blue-700 dark:text-blue-400"
-		case "success":
-			return "bg-green-500/15 text-green-700 dark:text-green-400"
-		case "partial":
-			return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400"
-		case "error":
-			return "bg-red-500/15 text-red-700 dark:text-red-400"
-		case "pending":
-			return "bg-muted text-muted-foreground"
-		default:
-			return "bg-muted text-muted-foreground"
-	}
-}
-
-function statusLabel(status: string) {
-	const map: Record<string, string> = {
-		running: "Rodando",
-		success: "Concluído",
-		partial: "Parcial",
-		error: "Erro",
-		pending: "Aguardando",
-	}
-	return map[status] ?? status
-}
 
 function StatusIcon({ status }: { status: string }) {
 	switch (status) {
@@ -68,14 +41,6 @@ function StatusIcon({ status }: { status: string }) {
 	}
 }
 
-function formatDate(iso: string | null) {
-	if (!iso) return "—"
-	return new Intl.DateTimeFormat("pt-BR", {
-		dateStyle: "short",
-		timeStyle: "short",
-	}).format(new Date(iso))
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ComprasSyncPage() {
@@ -88,8 +53,8 @@ function ComprasSyncPage() {
 	const { data: polledSync, refetch } = useQuery({
 		queryKey: ["compras-sync", activeSyncId],
 		queryFn: () => {
-			if (activeSyncId) return getSyncStatus({ data: { id: activeSyncId } })
-			return getLatestSync()
+			if (activeSyncId) return getSyncStatusFn({ data: { id: activeSyncId } })
+			return getLatestSyncFn()
 		},
 		initialData: initial ?? undefined,
 		refetchInterval: (query) => {
@@ -105,7 +70,7 @@ function ComprasSyncPage() {
 		if (!sync?.id) return
 		setIsStopping(true)
 		try {
-			const result = await stopSync({ data: { id: sync.id } })
+			const result = await stopSyncFn({ data: { id: sync.id } })
 			if (result.error) {
 				toast.error(result.error)
 			} else {
@@ -123,7 +88,7 @@ function ComprasSyncPage() {
 	async function handleTrigger() {
 		setIsTriggering(true)
 		try {
-			const result = await triggerSync()
+			const result = await triggerSyncFn()
 			if (result.error) {
 				toast.error(result.error)
 			} else if (result.sync_id) {
@@ -181,8 +146,8 @@ function ComprasSyncPage() {
 										<span className="ml-2 text-sm font-normal text-muted-foreground">— disparada por {sync.triggered_by}</span>
 									</CardTitle>
 									<CardDescription>
-										Iniciada em {formatDate(sync.started_at)}
-										{sync.finished_at && ` · Finalizada em ${formatDate(sync.finished_at)}`}
+										Iniciada em {formatSyncDate(sync.started_at)}
+										{sync.finished_at && ` · Finalizada em ${formatSyncDate(sync.finished_at)}`}
 									</CardDescription>
 								</div>
 								<Badge className={`inline-flex items-center gap-1.5 ${statusColor(sync.status)}`}>

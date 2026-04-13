@@ -7,12 +7,13 @@ import supabase from "@/lib/supabase"
 /**
  * Hook para subscrições Realtime do Supabase
  *
- * Escuta mudanças em tempo real e invalida queries relevantes
- * Mostra toast não-intrusivo quando dados são atualizados por outros usuários
+ * ⚠️ Este hook usa o Supabase client diretamente por necessidade:
+ * Realtime subscriptions são WebSockets client-side — não podem ser server functions.
+ * Por isso, vive em hooks/realtime/ (não hooks/data/) para não violar a regra
+ * "data hooks só usam useQuery/useMutation sobre server functions".
  *
  * @example
  * ```tsx
- * // Em um componente de planejamento
  * useRealtimeSubscription({
  *   table: 'daily_menu',
  *   event: '*',
@@ -83,17 +84,3 @@ export function useRealtimeSubscription(options: {
 		}
 	}, [table, event, queryKeyPrefix, message, onUpdate, silent, queryClient])
 }
-
-/**
- * Hook agregado para múltiplas subscrições Realtime
- *
- * Útil quando um componente precisa escutar mudanças em múltiplas tabelas
- *
- * @example
- * ```tsx
- * useRealtimeSubscriptions([
- *   { table: 'daily_menu', queryKeyPrefix: ['planning'] },
- *   { table: 'recipes', queryKeyPrefix: ['recipes'] },
- * ]);
- * ```
- */

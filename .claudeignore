@@ -1,0 +1,41 @@
+# Auto-generated route trees (TanStack Router)
+**/routeTree.gen.ts
+
+# Build output / caches
+.turbo/
+.output/
+.nitro/
+.tanstack/
+.vite/
+dist/
+out/
+coverage/
+.astro/
+
+# Dependencies
+node_modules/
+bun.lock
+
+# Lock file backups
+bun.lockb.bak
+
+# Type declarations (auto-generated)
+apps/docs/.astro/*.d.ts
+
+# Plans (architecture docs, not code)
+plans/
+
+# Docker / Deploy
+.docker/
+fly/
+Dockerfile
+docker-bake.hcl
+
+# Misc
+*.log
+.DS_Store
+testsprite_tests/
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+LICENSE
+favicon.svg

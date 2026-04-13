@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Copy, Download } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import { useRef, useState } from "react"
+import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 
 export const Route = createFileRoute("/_protected/_modules/diner/qr-code")({
+	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
 	component: QrCodePage,
 	head: () => ({
 		meta: [{ title: "Meu QR Code - SISUB" }, { name: "description", content: "Seu QR Code pessoal para identificação no rancho" }],

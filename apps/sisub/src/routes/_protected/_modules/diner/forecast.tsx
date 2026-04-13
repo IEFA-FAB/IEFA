@@ -3,6 +3,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
 import { type JSX, lazy, Suspense, useState } from "react"
+import { requirePermission } from "@/auth/pbac"
 import { BulkMealSelector } from "@/components/features/diner/BulkMealSelector"
 import { DayCardSkeleton } from "@/components/features/diner/DayCardSkeleton"
 import { DefaultMessHallSelector } from "@/components/features/diner/DefaultMessHallSelector"
@@ -15,47 +16,15 @@ import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
-import { createEmptyDayMeals, formatDate, getDayOfWeek, isDateNear } from "@/lib/meal"
+import { getDayCardData, isWeekday, labelAlteracao, labelCard, labelDiaUtil } from "@/lib/forecast"
+import { createEmptyDayMeals, isDateNear } from "@/lib/meal"
 import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 import type { CardData } from "@/types/ui"
 
 const DayCard = lazy(() => import("@/components/features/diner/DayCard"))
 
-/* ============================
-   Utilitários e helpers de texto
-   ============================ */
-
-// Pluralização simples
-const pluralize = (count: number, singular: string, plural: string) => (count === 1 ? singular : plural)
-
-const labelAlteracao = (n: number) => pluralize(n, "alteração", "alterações")
-const labelCard = (n: number) => pluralize(n, "card", "cards")
-const labelDiaUtil = (n: number) => pluralize(n, "dia útil", "dias úteis")
-
-// Dados derivados por card
-const getDayCardData = (date: string, todayString: string, daySelections: DayMeals) => {
-	const formattedDate = formatDate(date)
-	const dayOfWeek = getDayOfWeek(date)
-	const selectedMealsCount = Object.values(daySelections).filter(Boolean).length
-	const isDateNearValue = isDateNear(date, NEAR_DATE_THRESHOLD)
-	const isToday = date === todayString
-
-	return {
-		formattedDate,
-		dayOfWeek,
-		selectedMealsCount,
-		isDateNear: isDateNearValue,
-		isToday,
-	}
-}
-
-const isWeekday = (dateString: string): boolean => {
-	const d = new Date(`${dateString}T00:00:00`)
-	const dow = d.getDay() // 0=Dom, 1=Seg, ..., 6=Sáb
-	return dow >= 1 && dow <= 5
-}
-
 export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
+	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
 	component: Forecast,
 	head: () => ({
 		meta: [{ title: "Previsão SISUB" }, { name: "description", content: "Faça sua previsão" }],
@@ -176,7 +145,7 @@ function Forecast(): JSX.Element {
 	})()
 
 	const dayCardsProps = computedData.cardData.map(({ date, daySelections, dayMessHallCode }) => {
-		const dayCardData = getDayCardData(date, todayString, daySelections)
+		const dayCardData = getDayCardData(date, todayString, daySelections, NEAR_DATE_THRESHOLD)
 		// Determine kitchen ID for this date (logic available if filtering needed)
 		// const mh = messHalls.find((m) => String(m.id) === messHallId);
 		// const kitchenId = mh?.kitchenId;

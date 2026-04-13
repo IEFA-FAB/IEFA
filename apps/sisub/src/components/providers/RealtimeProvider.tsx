@@ -1,4 +1,4 @@
-import { useRealtimeSubscription } from "@/hooks/data/useRealtime"
+import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
 
 /**
  * Provider para subscrições Realtime globais

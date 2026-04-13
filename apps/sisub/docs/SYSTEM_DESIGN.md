@@ -178,6 +178,7 @@ Manter imports diretos por path completo (`@/components/features/diner/DayCard`)
 | Tipo | Convenção | Exemplo |
 |---|---|---|
 | Componente React | PascalCase | `DayCard.tsx`, `PageHeader.tsx` |
+| Componente ui/ (shadcn) | kebab-case (exceção) | `button.tsx`, `card.tsx` |
 | Hook | camelCase com `use` | `useMealForecast.ts` |
 | Server function | camelCase com `Fn` | `fetchForecastFn`, `upsertMenuFn` |
 | Skeleton | Sufixo `Skeleton` | `DayCardSkeleton.tsx` |
@@ -211,6 +212,12 @@ features/local/planning/
 Diálogos que conhecem o domínio (`FiscalDialog`, `EvaluationDialog`, `SaramDialog`) ficam na pasta da feature a que pertencem, não em `providers/`.
 
 `OnboardingDialogs` é a exceção: ela é app-level (orquestra múltiplos diálogos de onboarding de sessão) e fica em `providers/`.
+
+### Layout com dados de sessão (ex: `NavUser`)
+Componentes em `layout/` podem consumir hooks de `hooks/auth/` (dados de sessão/perfil do usuário autenticado). Isso **não** viola a regra "layout não busca dados", que se refere a dados de **domínio** (refeições, cozinhas, etc.). Dados de sessão são cross-cutting e necessários para o chrome do app.
+
+### Realtime subscriptions (ex: `useRealtimeSubscription`)
+Hooks de Realtime usam o Supabase client diretamente (WebSockets são client-side por natureza). Por isso vivem em `hooks/realtime/`, **não** em `hooks/data/`, para não violar a regra "data hooks só usam useQuery/useMutation sobre server functions".
 
 ---
 

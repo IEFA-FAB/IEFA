@@ -9,6 +9,7 @@ import { validateSql, executeSql } from "@/lib/analytics-sql"
 import type { ChartType, StreamEvent } from "@/types/domain/analytics-chat"
 
 const CHART_SPEC_FENCE = "```chart-spec"
+const CHART_SPEC_REGEX = /```\s*chart[-_]?spec/i
 const CLOSING_FENCE = "```"
 type ChartCellValue = string | number | boolean | null
 const CHART_TYPES: ChartType[] = ["bar", "line", "area", "pie", "table"]
@@ -59,8 +60,55 @@ function isChartType(value: string): value is ChartType {
 	return CHART_TYPES.includes(value as ChartType)
 }
 
+/**
+ * Robustly extract a JSON object from the raw chart-spec block content.
+ *
+ * LLMs sometimes wrap the JSON with extra content:
+ *   - Nested ```json fences
+ *   - Explanatory text before/after the JSON
+ *   - Trailing commas (stripped here)
+ *
+ * Returns the cleaned JSON string ready for `JSON.parse`.
+ */
+function extractJsonFromSpec(raw: string): string {
+	let cleaned = raw.trim()
+
+	// Strip nested ```json / ``` markers some LLMs add inside chart-spec
+	cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim()
+
+	// Locate the outermost { … } boundaries
+	const firstBrace = cleaned.indexOf("{")
+	const lastBrace = cleaned.lastIndexOf("}")
+
+	if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+		throw new SyntaxError(
+			`Nenhum objeto JSON encontrado no bloco chart-spec. Início do conteúdo: "${raw.slice(0, 120)}"`
+		)
+	}
+
+	let json = cleaned.slice(firstBrace, lastBrace + 1)
+
+	// Strip trailing commas before } or ] (common LLM mistake, invalid JSON)
+	json = json.replace(/,\s*([\]}])/g, "$1")
+
+	// Escape raw control characters inside JSON string values.
+	// LLMs sometimes emit literal newlines/tabs inside strings which are
+	// invalid JSON and cause "Unterminated string" errors in JSON.parse.
+	json = json.replace(/"((?:[^"\\]|\\[\s\S])*)"/g, (_match, content: string) => {
+		const fixed = content
+			.replace(/\r\n/g, "\\n")
+			.replace(/\n/g, "\\n")
+			.replace(/\r/g, "\\r")
+			.replace(/\t/g, "\\t")
+		return `"${fixed}"`
+	})
+
+	return json
+}
+
 async function emitChartSpec(rawSpec: string, sendEvent: (data: StreamEvent) => void) {
-	const parsed = JSON.parse(rawSpec) as {
+	const jsonStr = extractJsonFromSpec(rawSpec)
+	const parsed = JSON.parse(jsonStr) as {
 		type: string
 		title: string
 		description?: string
@@ -83,6 +131,30 @@ async function emitChartSpec(rawSpec: string, sendEvent: (data: StreamEvent) => 
 	}
 
 	const rows = await executeSql(parsed.sql)
+	const data = normalizeChartRows(rows)
+
+	// Validate that chart keys actually exist in the SQL result columns.
+	// Catches mismatches (e.g. xAxisKey: "mes" but SQL returns "mês")
+	// before sending to the client, where Recharts would silently render empty.
+	if (data.length > 0) {
+		const availableKeys = Object.keys(data[0]!)
+
+		if (!availableKeys.includes(parsed.xAxisKey)) {
+			throw new Error(
+				`Chave do eixo X "${parsed.xAxisKey}" não existe nos resultados SQL. ` +
+					`Colunas disponíveis: ${availableKeys.join(", ")}`
+			)
+		}
+
+		for (const s of parsed.series) {
+			if (!availableKeys.includes(s.key)) {
+				throw new Error(
+					`Chave de série "${s.key}" não existe nos resultados SQL. ` +
+						`Colunas disponíveis: ${availableKeys.join(", ")}`
+				)
+			}
+		}
+	}
 
 	sendEvent({
 		type: "chart_spec",
@@ -92,7 +164,9 @@ async function emitChartSpec(rawSpec: string, sendEvent: (data: StreamEvent) => 
 			description: parsed.description,
 			xAxisKey: parsed.xAxisKey,
 			series: parsed.series,
-			data: normalizeChartRows(rows),
+			data,
+			// sql persisted for replay/refresh; never rendered in the UI
+			sql: parsed.sql,
 		},
 	})
 }
@@ -160,8 +234,10 @@ export default defineHandler(async (event: H3Event) => {
 				const processBuffers = async (forceFlush = false) => {
 					while (true) {
 						if (!inChartSpec) {
-							const markerIndex = textBuffer.indexOf(CHART_SPEC_FENCE)
-							if (markerIndex === -1) {
+							// Regex tolerates whitespace/case variations from the LLM
+							// e.g. "``` chart-spec", "```Chart-Spec", "```chart_spec"
+							const markerMatch = CHART_SPEC_REGEX.exec(textBuffer)
+							if (!markerMatch) {
 								if (forceFlush) {
 									if (textBuffer) {
 										sendEvent({ type: "text_delta", delta: textBuffer })
@@ -170,6 +246,7 @@ export default defineHandler(async (event: H3Event) => {
 									return
 								}
 
+								// Canonical fence for trailing-prefix detection (all variants start with ```)
 								const trailingPrefixLength = getTrailingMarkerPrefixLength(textBuffer, CHART_SPEC_FENCE)
 								const safeText = textBuffer.slice(0, textBuffer.length - trailingPrefixLength)
 								if (safeText) {
@@ -179,12 +256,12 @@ export default defineHandler(async (event: H3Event) => {
 								return
 							}
 
-							const beforeBlock = textBuffer.slice(0, markerIndex)
+							const beforeBlock = textBuffer.slice(0, markerMatch.index)
 							if (beforeBlock) {
 								sendEvent({ type: "text_delta", delta: beforeBlock })
 							}
 
-							textBuffer = textBuffer.slice(markerIndex + CHART_SPEC_FENCE.length)
+							textBuffer = textBuffer.slice(markerMatch.index + markerMatch[0].length)
 							if (textBuffer.startsWith("\r\n")) {
 								textBuffer = textBuffer.slice(2)
 							} else if (textBuffer.startsWith("\n")) {
@@ -218,9 +295,14 @@ export default defineHandler(async (event: H3Event) => {
 						try {
 							await emitChartSpec(rawSpec, sendEvent)
 						} catch (e) {
+							const err = e as Error
+							console.error("[analytics/stream] chart-spec error:", err.message, "\nrawSpec:", rawSpec.slice(0, 300))
 							sendEvent({
 								type: "error",
-								message: `Erro ao gerar gráfico: ${(e as Error).message}`,
+								message:
+									err instanceof SyntaxError
+										? `Erro ao interpretar gráfico: ${err.message}`
+										: `Erro ao gerar gráfico: ${err.message}`,
 							})
 						}
 

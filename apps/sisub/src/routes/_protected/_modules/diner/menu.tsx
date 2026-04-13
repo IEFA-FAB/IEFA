@@ -1,27 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight, UtensilsCrossed } from "lucide-react"
 import { useState } from "react"
+import { requirePermission } from "@/auth/pbac"
+import { MealSection } from "@/components/features/diner/MealSection"
 import { PageHeader } from "@/components/layout/PageHeader"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { type DishDetails, useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
+import { useDailyMenuContent } from "@/hooks/data/useDailyMenuContent"
 import { useMealForecast } from "@/hooks/data/useMealForecast"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
 
 export const Route = createFileRoute("/_protected/_modules/diner/menu")({
+	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
 	component: MenuPage,
 	head: () => ({
 		meta: [{ title: "Cardápio - SISUB" }, { name: "description", content: "Visualize o cardápio do rancho" }],
 	}),
 })
-
-const MEAL_LABELS: Record<string, string> = {
-	cafe: "Café da Manhã",
-	almoco: "Almoço",
-	janta: "Jantar",
-	ceia: "Ceia",
-}
 
 const MEAL_ORDER = ["cafe", "almoco", "janta", "ceia"]
 
@@ -44,41 +39,6 @@ function formatDateLabel(dateStr: string): string {
 	const [year, month, day] = dateStr.split("-").map(Number)
 	const d = new Date(year, month - 1, day)
 	return d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
-}
-
-function DishCard({ dish }: { dish: DishDetails }) {
-	const hasIngredients = dish.ingredients && dish.ingredients.length > 0
-	return (
-		<div className="rounded-md border bg-card p-3 space-y-2">
-			<p className="text-sm font-medium text-foreground">{dish.name}</p>
-			{hasIngredients && (
-				<div className="flex flex-wrap gap-1">
-					{dish.ingredients.map((ing) => (
-						<Badge key={ing.product_name} variant="secondary" className="text-xs">
-							{ing.product_name}
-						</Badge>
-					))}
-				</div>
-			)}
-		</div>
-	)
-}
-
-function MealSection({ mealKey, dishes }: { mealKey: string; dishes: DishDetails[] }) {
-	return (
-		<div className="space-y-2">
-			<h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{MEAL_LABELS[mealKey] ?? mealKey}</h3>
-			{dishes.length === 0 ? (
-				<p className="text-sm text-muted-foreground italic">Sem cardápio planejado.</p>
-			) : (
-				<div className="space-y-2">
-					{dishes.map((dish) => (
-						<DishCard key={dish.id} dish={dish} />
-					))}
-				</div>
-			)}
-		</div>
-	)
 }
 
 function MenuPage() {

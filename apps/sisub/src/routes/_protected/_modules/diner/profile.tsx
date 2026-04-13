@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { useEffect } from "react"
 import { z } from "zod"
+import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +17,7 @@ import { cn } from "@/lib/cn"
 import { toNameCase } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/_modules/diner/profile")({
+	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
 	component: ProfilePage,
 	head: () => ({
 		meta: [{ title: "Perfil - SISUB" }, { name: "description", content: "Gerencie seu perfil e dados militares" }],

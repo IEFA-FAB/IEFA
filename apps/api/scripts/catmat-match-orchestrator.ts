@@ -22,6 +22,7 @@ type CandidateRow = {
 	nome_classe: string
 	unidades: string[]
 	score: number
+	pdm_score: number
 }
 
 type MatchStatus = "matched" | "review" | "no_match" | "skip"
@@ -85,16 +86,24 @@ const STOPWORDS = new Set([
 	"QUILOGRAMAS",
 	"LITRO",
 	"LITROS",
+	// Modificadores de tamanho — não representam o conceito principal do produto
+	"MINI",
+	"GRANDE",
+	"MEGA",
+	"EXTRA",
+	"INDIVIDUAL",
 ])
 
 const GENERIC_CANDIDATE_HEAD_TOKENS = new Set([
 	"ALIMENTO",
 	"BEBIDA",
 	"CALDA",
+	"CARNE",    // ex: "CARNE DE AVE IN NATURA", "CARNE SALGADA" — categoria ampla
 	"COMPOTA",
 	"CONDIMENTO",
 	"CONSERVA",
 	"DOCE",
+	"FRIOS",    // ex: "FRIOS, VARIEDADE: PEITO DE PERU" — categoria de fatiados
 	"FRUTA",
 	"GELEIA",
 	"GELATINA",
@@ -107,6 +116,12 @@ const GENERIC_CANDIDATE_HEAD_TOKENS = new Set([
 ])
 
 const GENERIC_PREPARATION_TERMS = [
+	// Modificadores de tamanho (não alteram conceito do produto para fins de matching)
+	"MINI",
+	"GRANDE",
+	"MEGA",
+	"EXTRA",
+	"INDIVIDUAL",
 	"CONGELADO",
 	"CONGELADA",
 	"PRE COZIDO",
@@ -142,7 +157,7 @@ const READY_MEAL_PATTERNS = [
 const CLASS_HINTS: Array<{ classCode: number; keywords: string[] }> = [
 	{ classCode: 8905, keywords: ["CARNE", "BOVINA", "SUINA", "SUINO", "FRANGO", "GALINHA", "PEIXE", "PESCADO", "ATUM", "SARDINHA", "CAMARAO", "LINGUICA", "BACON", "PERU"] },
 	{ classCode: 8910, keywords: ["LEITE", "QUEIJO", "IOGURTE", "REQUEIJAO", "MANTEIGA", "OVO", "OVOS", "CREME DE LEITE"] },
-	{ classCode: 8915, keywords: ["BANANA", "MACA", "MAMAO", "LARANJA", "ABACAXI", "MELANCIA", "ALFACE", "TOMATE", "BATATA", "CEBOLA", "ALHO", "CENOURA", "CHUCHU", "BETERRABA", "REPOLHO"] },
+	{ classCode: 8915, keywords: ["BANANA", "MACA", "MAMAO", "LARANJA", "ABACAXI", "MELANCIA", "ALFACE", "TOMATE", "BATATA", "CEBOLA", "ALHO", "CENOURA", "CHUCHU", "BETERRABA", "REPOLHO", "CACAU"] },
 	{ classCode: 8920, keywords: ["ARROZ", "FEIJAO", "MACARRAO", "PÃO", "PAO", "FARINHA", "AVEIA", "TRIGO", "MILHO", "CANJICA", "AMIDO", "BISCOITO", "TORRADA"] },
 	{ classCode: 8925, keywords: ["ACUCAR", "AÇUCAR", "DOCE", "BOMBOM", "CHOCOLATE", "CASTANHA", "AMENDOIM", "PAÇOCA", "PACOCA"] },
 	{ classCode: 8930, keywords: ["GELEIA", "CONSERVA", "GELATINA", "COMPOTA", "AZEITONA", "PICLES"] },
@@ -150,7 +165,7 @@ const CLASS_HINTS: Array<{ classCode: number; keywords: string[] }> = [
 	{ classCode: 8940, keywords: ["DIET", "LIGHT", "SUPLEMENTO", "LACTOSE", "GLUTEN", "ENTERAL"] },
 	{ classCode: 8945, keywords: ["OLEO", "ÓLEO", "AZEITE", "GORDURA", "MARGARINA"] },
 	{ classCode: 8950, keywords: ["SAL", "TEMPERO", "CONDIMENTO", "VINAGRE", "MOLHO", "PIMENTA", "ORÉGANO", "OREGANO"] },
-	{ classCode: 8955, keywords: ["CAFE", "CAFÉ", "CHA", "CHÁ", "CACAU", "CHOCOLATE"] },
+	{ classCode: 8955, keywords: ["CAFE", "CAFÉ", "CHA", "CHÁ", "CHOCOLATE"] },
 	{ classCode: 8960, keywords: ["SUCO", "REFRIGERANTE", "BEBIDA", "AGUA", "ÁGUA", "XAROPE", "NECTAR", "NÉCTAR"] },
 ]
 
@@ -260,10 +275,17 @@ function inferCandidateMeasure(candidate: CandidateRow): "mass" | "volume" | "un
 
 function tokenOverlapScore(productTokens: string[], candidate: CandidateRow): number {
 	if (productTokens.length === 0) return 0
-	const candidateTokens = new Set(tokenize(normalizeText(`${candidate.nome_pdm} ${candidate.descricao_item}`)))
+	const candidateTokens = tokenize(normalizeText(`${candidate.nome_pdm} ${candidate.descricao_item}`))
 	let hits = 0
-	for (const token of productTokens) {
-		if (candidateTokens.has(token)) hits++
+	for (const pTok of productTokens) {
+		// Aceita match exato ou prefixo (≥4 chars) para cobrir variações de número/diminutivo:
+		// "COOKIE" bate em "COOKIES", "BATATINHA" bate em "BATATA", etc.
+		const matched = candidateTokens.some((cTok) => {
+			if (pTok === cTok) return true
+			const minLen = Math.min(pTok.length, cTok.length)
+			return minLen >= 4 && (pTok.startsWith(cTok) || cTok.startsWith(pTok))
+		})
+		if (matched) hits++
 	}
 	return hits / productTokens.length
 }
@@ -281,10 +303,14 @@ function buildSearchDescription(description: string | null): string {
 }
 
 function evaluateCandidate(product: ProductRow, cleanedDescription: string, candidate: CandidateRow): number {
-	let score = Math.max(0, Math.min(candidate.score ?? 0, 1))
+	// Sem teto em 1.0: candidatos com bônus maiores (match no PDM, tokens, classe) ficam
+	// acima de 1.0, vencendo candidatos que chegaram exatamente em 1.0 via word_similarity
+	// pura (ex: "CACAU" bate em "MANTEIGA DE CACAU" e em "CACAU EM PÓ" com score=1 cada;
+	// os bônus do segundo são maiores e desempatam corretamente).
+	let score = Math.max(0, candidate.score ?? 0)
 
 	const productTokens = tokenize(cleanedDescription)
-	score += tokenOverlapScore(productTokens, candidate) * 0.12
+	score += tokenOverlapScore(productTokens, candidate) * 0.15
 
 	const productPrimaryToken = getPrimaryToken(cleanedDescription)
 	const candidatePrimaryToken = getPrimaryToken(normalizeText(candidate.nome_pdm))
@@ -311,7 +337,64 @@ function evaluateCandidate(product: ProductRow, cleanedDescription: string, cand
 		score += 0.04
 	}
 
-	return Math.max(0, Math.min(score, 1))
+	// Bônus para tokens curtos (2 chars) significativos presentes no produto.
+	// Exemplo: "Cacau em PÓ" → token "PO" (len=2, abaixo do mínimo do tokenize) deve
+	// dar leve bônus ao item "CACAU, APRESENTAÇÃO: PÓ" sobre "CACAU, APRESENTAÇÃO: IN NATURA".
+	// Usa word-boundary para evitar match de "PO" dentro de "COMPOSICAO", "PRAZO", etc.
+	const shortSuffixTokens = cleanedDescription.split(" ").filter((t) => t.length === 2 && !STOPWORDS.has(t))
+	if (shortSuffixTokens.length > 0) {
+		const normalizedItemDesc = normalizeText(candidate.descricao_item)
+		for (const shortToken of shortSuffixTokens) {
+			if (new RegExp(`\\b${shortToken}\\b`).test(normalizedItemDesc)) score += 0.02
+		}
+	}
+
+	// Penaliza falsos positivos onde o produto aparece na descrição CATMAT como ingrediente,
+	// recheio ou característica adicional — não como sujeito principal do item.
+	// Exemplos de falsos positivos que estas penalidades evitam:
+	//   "Cacau em Pó" → CHOCOLATE EXPRESSO (tem "CACAU EM PÓ" nos INGREDIENTES)
+	//   "Presunto"    → ALIMENTO SEMIPRONTO LASANHA (tem "PRESUNTO" no RECHEIO)
+	//   "Azeite"      → CONDIMENTO TOMATE SECO (tem "AZEITE DE OLIVA" em CARACTERÍSTICAS)
+	//   "Bebida Vegetal de Cacau" → qualquer item onde CACAU aparece após COMPOSIÇÃO
+	const pdmScore = candidate.pdm_score ?? 0
+	if ((candidate.score ?? 0) > 0.7) {
+		const normalizedItemDesc = normalizeText(candidate.descricao_item)
+		const ingredientMarkerIdx = normalizedItemDesc.search(
+			/\bCOMPOSICAO\b|\bINGREDIENTES\b|\bINGREDIENTE\b|\bCARACTERISTICAS\b|\bRECHEIO\b|\bSABOR\b/,
+		)
+		const productTokenInDesc = productPrimaryToken ? normalizedItemDesc.indexOf(productPrimaryToken) : -1
+		const matchesViaIngredientList = ingredientMarkerIdx !== -1 && productTokenInDesc > ingredientMarkerIdx
+
+		// Exceção: primários iguais confirmam mesma categoria; pdm_score baixo vem de busca
+		// secundária (token discriminante), não de falso positivo por ingrediente.
+		// Ex: "BISCOITO COOKIE" → busca secundária "COOKIE" → BISCOITO TIPO COOKIES: primários
+		// "BISCOITO"="BISCOITO" confirmam que é o item correto apesar de pdm_score=0.
+		const primaryTokensMatch =
+			productPrimaryToken != null &&
+			candidatePrimaryToken != null &&
+			productPrimaryToken === candidatePrimaryToken
+
+		if (!primaryTokensMatch) {
+			// Penalidade A: PDM completamente diferente, não genérico — produto é "estranho"
+			// ao candidato (score alto apenas por presença parcial do token na descrição longa).
+			if (pdmScore < 0.2 && !GENERIC_CANDIDATE_HEAD_TOKENS.has(candidatePrimaryToken ?? "")) {
+				score -= 0.35
+			}
+
+			// Penalidade B: produto aparece após marcador de receita/ingrediente/recheio.
+			// Aplica independente de pdm_score e independente de o PDM ser genérico.
+			// Ex: "PRESUNTO" após "RECHEIO:" → penaliza LASANHA; "AZEITE" após "CARACTERÍSTICAS:" → penaliza CONDIMENTO.
+			if (matchesViaIngredientList) {
+				score -= 0.25
+			}
+		}
+	}
+
+	// Só aplica floor (0). Teto removido intencionalmente: bônus acumulados (token,
+	// classe, PDM match) podem empurrar além de 1.0, permitindo desempate correto
+	// entre candidatos com mesmo word_similarity base. Score é clampeado a 1.0
+	// apenas ao persistir no banco (em decideProduct).
+	return Math.max(0, score)
 }
 
 async function loadProducts(options: Options): Promise<ProductRow[]> {
@@ -355,11 +438,54 @@ async function loadProducts(options: Options): Promise<ProductRow[]> {
 async function findCandidates(cleanedDescription: string): Promise<CandidateRow[]> {
 	const { data, error } = await supabase.rpc("catmat_match_candidates", {
 		p_product_description: cleanedDescription,
-		p_limit: 5,
+		p_limit: 25,
 	})
 
 	if (error) throw new Error(`falha ao buscar candidatos CATMAT: ${error.message}`)
-	return (data as CandidateRow[] | null) ?? []
+	const primary = (data as CandidateRow[] | null) ?? []
+
+	// Busca secundária: usa tokens não-primários (len≥5) para capturar itens CATMAT
+	// que contêm o token discriminante mas ficam além do p_limit=25 pelo critério de
+	// ordenação (codigo_item baixo dos genéricos satura o ranking antes dos específicos).
+	// Exemplo: "BISCOITO COOKIE" → busca "COOKIE" separada encontra BISCOITO TIPO COOKIES
+	// que aparecem na posição ~112 da busca principal.
+	const allTokens = tokenize(cleanedDescription)
+	const nonPrimaryTokens = allTokens.slice(1).filter((t) => t.length >= 5)
+	if (nonPrimaryTokens.length > 0) {
+		const secondaryQuery = nonPrimaryTokens.join(" ")
+		const { data: secData } = await supabase.rpc("catmat_match_candidates", {
+			p_product_description: secondaryQuery,
+			p_limit: 10,
+		})
+		if (secData) {
+			const seenIds = new Set(primary.map((c) => c.codigo_item))
+			const productPrimary = getPrimaryToken(cleanedDescription)
+			for (const c of secData as CandidateRow[]) {
+				if (seenIds.has(c.codigo_item)) continue
+				// Filtra candidatos secundários: aceita apenas se o token primário do produto
+				// aparece na descrição CATMAT do candidato (exato ou prefixo ≥4 chars).
+				// Garante que a busca secundária discrimina pelo TIPO/SABOR/APRESENTAÇÃO
+				// sem trazer itens onde o produto é apenas ingrediente/modificador:
+				//   ✓ "BISCOITO COOKIE"      → "BISCOITO TIPO COOKIES"   ("BISCOITO" presente)
+				//   ✓ "FRANGO INTEIRO"       → "CARNE DE AVE TIPO FRANGO" ("FRANGO" presente)
+				//   ✗ "MORTADELA COM PIMENTA"→ "CONDIMENTO PIMENTA"       ("MORTADELA" ausente)
+				//   ✗ "SORVETE DE CREME"    → "CREME FRUTAS INFANTIL"    ("SORVETE" ausente)
+				if (productPrimary != null) {
+					const candidateTokens = tokenize(normalizeText(`${c.nome_pdm} ${c.descricao_item}`))
+					const primaryInCandidate = candidateTokens.some((cTok) => {
+						if (productPrimary === cTok) return true
+						const minLen = Math.min(productPrimary.length, cTok.length)
+						return minLen >= 4 && (productPrimary.startsWith(cTok) || cTok.startsWith(productPrimary))
+					})
+					if (!primaryInCandidate) continue
+				}
+				primary.push(c)
+				seenIds.add(c.codigo_item)
+			}
+		}
+	}
+
+	return primary
 }
 
 async function persistDecision(decision: ProductDecision): Promise<void> {
@@ -424,7 +550,7 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 		return {
 			productId: product.id,
 			status: "no_match",
-			score: best?.finalScore ?? 0,
+			score: Math.min(best?.finalScore ?? 0, 1),
 			catmatItemCodigo: null,
 			catmatItemDescricao: null,
 			reason: "low_score",
@@ -435,7 +561,7 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 		return {
 			productId: product.id,
 			status: "review",
-			score: best.finalScore,
+			score: Math.min(best.finalScore, 1),
 			catmatItemCodigo: best.candidate.codigo_item,
 			catmatItemDescricao: best.candidate.descricao_item,
 			reason: "needs_review",
@@ -445,7 +571,7 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 	return {
 		productId: product.id,
 		status: "matched",
-		score: best.finalScore,
+		score: Math.min(best.finalScore, 1),
 		catmatItemCodigo: best.candidate.codigo_item,
 		catmatItemDescricao: best.candidate.descricao_item,
 	}

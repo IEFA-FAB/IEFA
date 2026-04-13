@@ -3,6 +3,7 @@ name: CI/CD
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -42,6 +43,7 @@ jobs:
               - 'turbo.json'
             sisub:
               - 'apps/sisub/**'
+              - 'packages/database/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -311,7 +313,10 @@ jobs:
           flyctl --config fly/sisub.toml secrets set \
             VITE_SISUB_SUPABASE_URL="${{ vars.VITE_SISUB_SUPABASE_URL }}" \
             SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}" \
-            ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}"
+            ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}" \
+            OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
+            ANALYTICS_LLM_MODEL="${{ vars.ANALYTICS_LLM_MODEL }}" \
+            IEFA_API_BASE_URL="${{ vars.IEFA_API_BASE_URL }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -518,3 +523,11 @@ jobs:
           [[ -n "$PREV" ]] && flyctl deploy -c fly/docs.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # ============================================================
+  # TODO: SISUB-MCP  ── check → build → deploy
+  # ============================================================
+  # Pending: Dockerfile target, docker-bake target, fly/sisub-mcp.toml
+  # Paths filter: 'apps/sisub-mcp/**' + 'packages/database/**'
+  # Runtime secrets: VITE_SISUB_SUPABASE_URL, SISUB_SUPABASE_SECRET_KEY,
+  #                  SISUB_SUPABASE_ANON_KEY, MCP_PORT, MCP_TRANSPORT
