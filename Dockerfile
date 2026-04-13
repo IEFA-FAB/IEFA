@@ -16,7 +16,7 @@ COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/docs/package.json ./apps/docs/
 COPY apps/ai/package.json ./apps/ai/
 COPY packages/database/package.json ./packages/database/
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # =============================================================================
 # API
