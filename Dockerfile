@@ -1,7 +1,7 @@
 # =============================================================================
 # BASE - Alpine com Bun
 # =============================================================================
-FROM oven/bun:1.3.10-alpine AS base
+FROM oven/bun:1.3.12-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -57,7 +57,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/portal/.output/server/index.mjs 
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.10-alpine AS iefa
+FROM oven/bun:1.3.12-alpine AS iefa
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=iefa-build /app/apps/portal/.output ./.output
@@ -94,7 +94,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/sisub/.output/server/index.mjs \
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.10-alpine AS sisub
+FROM oven/bun:1.3.12-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sisub-build /app/apps/sisub/.output ./.output

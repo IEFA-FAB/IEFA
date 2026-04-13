@@ -10,7 +10,9 @@ export interface ChatSession {
 
 // ── Chart & Message ──────────────────────────────────────────────────────────
 
-export type ChartType = "bar" | "line" | "area" | "pie" | "table"
+/** Single source of truth — derive ChartType from this so fn.ts z.enum stays in sync. */
+export const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const
+export type ChartType = (typeof CHART_TYPES)[number]
 
 export interface ChartSpec {
 	type: ChartType

@@ -1,3 +1,5 @@
+import { getSupabaseServerClient } from "@/lib/supabase.server"
+
 /**
  * SQL safety layer for analytics queries.
  *
@@ -84,10 +86,9 @@ export async function executeSql(sql: string): Promise<Record<string, unknown>[]
 	const trimmedSql = sql.trim().replace(/;$/, "")
 	const safeSql = /\bLIMIT\b/i.test(trimmedSql) ? trimmedSql : `${trimmedSql} LIMIT ${MAX_LIMIT}`
 
-	const { getSupabaseServerClient } = await import("@/lib/supabase.server")
-	const client = getSupabaseServerClient()
-
-	const { data, error } = await client.rpc("execute_analytics_query", { query: safeSql })
+	const { data, error } = await getSupabaseServerClient().rpc("execute_analytics_query", {
+		query: safeSql,
+	})
 	if (error) throw new Error(error.message)
 
 	return Array.isArray(data) ? (data as Record<string, unknown>[]) : []

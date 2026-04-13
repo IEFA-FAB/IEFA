@@ -35,6 +35,9 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 	const pendingAssistantId = useRef<string | null>(null)
 	const sessionIdRef = useRef<string | undefined>(sessionId)
 	const isAtBottomRef = useRef(true)
+	// Resolves to the active session ID once it is known (may be a pending creation).
+	// Replaces the old polling loop — the streaming save callback awaits this directly.
+	const sessionPromiseRef = useRef<Promise<string> | null>(null)
 
 	// Keep refs in sync
 	useEffect(() => {
@@ -119,8 +122,8 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 					}
 					const updated = [...prev]
 					updated[idx] = msg
-					// Sync ref eagerly so the persistence callback (setTimeout)
-					// sees the latest accumulated state — useEffect may fire after it.
+					// Sync ref eagerly so the streaming save callback (sessionPromiseRef)
+					// sees the final accumulated state when it reads messagesRef.
 					messagesRef.current = updated
 					return updated
 				})
@@ -129,40 +132,38 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 				if (event.type === "done" || event.type === "error") {
 					pendingAssistantId.current = null
 
-					// Save assistant message to DB after React commits the state update.
-					// Use setTimeout so messagesRef has the final accumulated content.
-					// Phase 1 — wait for session (up to 3 s if first message in new session).
-					// Phase 2 — mutateAsync with exponential-backoff retry (up to 3 attempts).
-					const trySave = (sessionAttempt = 0) => {
-						const sid = sessionIdRef.current
-						if (!sid) {
-							if (sessionAttempt < 20) setTimeout(() => trySave(sessionAttempt + 1), 150)
-							return
-						}
-						const latest = messagesRef.current.find((m) => m.id === id)
-						if (!latest) return
+					// `latest` is read after the setMessages call above, which eagerly
+					// syncs messagesRef.current — so this captures the final accumulated state.
+					const latest = messagesRef.current.find((m) => m.id === id)
+					if (!latest || !sessionPromiseRef.current) return
 
-						const doSave = async (saveAttempt = 0): Promise<void> => {
-							try {
-								await saveMessage.mutateAsync({
-									sessionId: sid,
-									role: "assistant",
-									content: latest.content,
-									chart: latest.chart,
-									error: latest.error,
-								})
-							} catch (_err) {
-								if (saveAttempt < 3) {
-									// Exponential backoff: 1 s, 2 s, 4 s
-									setTimeout(() => void doSave(saveAttempt + 1), 1000 * 2 ** saveAttempt)
-								} else {
-									// max retries reached, fail silently
+					// Await the session promise (already resolved if session existed,
+					// or pending if this is the first message of a new session).
+					// Exponential-backoff retry on save: 1 s, 2 s, 4 s.
+					void sessionPromiseRef.current
+						.then(async (sid) => {
+							const doSave = async (attempt = 0): Promise<void> => {
+								try {
+									await saveMessage.mutateAsync({
+										sessionId: sid,
+										role: "assistant",
+										content: latest.content,
+										chart: latest.chart,
+										error: latest.error,
+									})
+								} catch (err) {
+									if (attempt < 3) {
+										await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
+										return doSave(attempt + 1)
+									}
+									console.error("[analytics-chat] Failed to persist assistant message:", err)
 								}
 							}
-						}
-						void doSave()
-					}
-					setTimeout(trySave, 0)
+							await doSave()
+						})
+						.catch((err) => {
+							console.error("[analytics-chat] No session to save assistant message:", err)
+						})
 				}
 			},
 			[saveMessage]
@@ -229,23 +230,23 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 			// Start streaming immediately — don't block on session creation
 			void submit(message, history)
 
-			// Persist session + user message in parallel (fire-and-forget)
+			// Wire up sessionPromiseRef so the streaming save callback can await
+			// the session ID without polling.
 			const sid = sessionIdRef.current
 			if (sid) {
-				// Session exists — just save the user message
+				sessionPromiseRef.current = Promise.resolve(sid)
 				saveMessage.mutate({ sessionId: sid, role: "user", content: message })
 			} else {
 				// First message — create session, then save user message
-				createSession
-					.mutateAsync(titleFromMessage(message))
-					.then((newSession) => {
-						sessionIdRef.current = newSession.id
-						onSessionCreated(newSession.id)
-						saveMessage.mutate({ sessionId: newSession.id, role: "user", content: message })
-					})
-					.catch(() => {
-						// Session creation failed — stream still works in-memory
-					})
+				const p = createSession.mutateAsync(titleFromMessage(message)).then((newSession) => {
+					sessionIdRef.current = newSession.id
+					onSessionCreated(newSession.id)
+					saveMessage.mutate({ sessionId: newSession.id, role: "user", content: message })
+					return newSession.id
+				})
+				sessionPromiseRef.current = p
+				// Don't add a .catch here — the streaming callback's .catch (L ~165) already
+				// handles the rejection. A second .catch on the same promise would double-log.
 			}
 		},
 		[submit, createSession, saveMessage, onSessionCreated]

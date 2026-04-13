@@ -1,27 +1,26 @@
+import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+import { CHART_TYPES } from "@/types/domain/analytics-chat"
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
-async function requireUserId() {
-	const auth = getSupabaseAuthClient()
+async function requireUserId(): Promise<string> {
 	const {
 		data: { user },
-	} = await auth.auth.getUser()
+	} = await getSupabaseAuthClient().auth.getUser()
 	if (!user) throw new Error("Não autenticado")
 	return user.id
-}
-
-function db() {
-	return getSupabaseServerClient()
 }
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
 export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const userId = await requireUserId()
-	const { data, error } = await db()
+	const supabase = getSupabaseServerClient()
+
+	const { data, error } = await supabase
 		.from("analytics_chat_session")
 		.select("id, user_id, title, created_at, updated_at")
 		.eq("user_id", userId)
@@ -36,7 +35,9 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const { data: row, error } = await db()
+		const supabase = getSupabaseServerClient()
+
+		const { data: row, error } = await supabase
 			.from("analytics_chat_session")
 			.insert({ user_id: userId, title: data.title })
 			.select("id, user_id, title, created_at, updated_at")
@@ -51,7 +52,9 @@ export const renameChatSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const { error } = await db().from("analytics_chat_session").update({ title: data.title }).eq("id", data.sessionId).eq("user_id", userId)
+		const supabase = getSupabaseServerClient()
+
+		const { error } = await supabase.from("analytics_chat_session").update({ title: data.title }).eq("id", data.sessionId).eq("user_id", userId)
 
 		if (error) throw new Error(error.message)
 	})
@@ -60,39 +63,56 @@ export const deleteChatSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const { error } = await db().from("analytics_chat_session").delete().eq("id", data.sessionId).eq("user_id", userId)
+		const supabase = getSupabaseServerClient()
+
+		const { error } = await supabase.from("analytics_chat_session").delete().eq("id", data.sessionId).eq("user_id", userId)
 
 		if (error) throw new Error(error.message)
 	})
 
 // ── Messages ─────────────────────────────────────────────────────────────────
 
+type MessageRow = {
+	id: string
+	session_id: string
+	role: string
+	content: string
+	chart: Json | null
+	error: string | null
+	chart_type_override: string | null
+	created_at: string
+}
+
 export const getChatMessagesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
+		const supabase = getSupabaseServerClient()
 
-		// Verify session ownership
-		const { data: session, error: sessionError } = await db()
+		// Single round-trip: ownership check (session.user_id) + messages via nested select.
+		// PostgREST resolves the FK relationship server-side; we cast the nested array
+		// manually because the reverse relationship is not emitted in the generated TS types.
+		const { data: session, error } = await supabase
 			.from("analytics_chat_session")
-			.select("id")
+			.select("id, analytics_chat_message(id, session_id, role, content, chart, error, chart_type_override, created_at)")
 			.eq("id", data.sessionId)
 			.eq("user_id", userId)
 			.single()
 
-		if (sessionError || !session) throw new Error("Sessão não encontrada")
+		if (error || !session) throw new Error("Sessão não encontrada")
 
-		const { data: messages, error } = await db()
-			.from("analytics_chat_message")
-			.select("id, session_id, role, content, chart, error, chart_type_override, created_at")
-			.eq("session_id", data.sessionId)
-			.order("created_at", { ascending: true })
+		const sessionRaw = session as Record<string, unknown>
 
-		if (error) throw new Error(error.message)
-		return messages ?? []
+		// Guard: if PostgREST doesn't expose the reverse FK (analytics_chat_session →
+		// analytics_chat_message), the key will be absent from the response rather than [].
+		// Fail loudly instead of returning an empty array that looks like "no messages".
+		if (!Array.isArray(sessionRaw.analytics_chat_message)) throw new Error("Sessão não encontrada")
+
+		const messages = sessionRaw.analytics_chat_message as MessageRow[]
+
+		// Sort ascending — nested select order is not guaranteed
+		return messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 	})
-
-const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const
 
 export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.inputValidator(
@@ -107,9 +127,10 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
+		const supabase = getSupabaseServerClient()
 
-		// Verify ownership
-		const { data: session, error: sessionError } = await db()
+		// Verify session ownership — single client reused for the insert below
+		const { data: session, error: sessionError } = await supabase
 			.from("analytics_chat_session")
 			.select("id")
 			.eq("id", data.sessionId)
@@ -118,7 +139,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 
 		if (sessionError || !session) throw new Error("Sessão não encontrada")
 
-		const { data: row, error } = await db()
+		const { data: row, error } = await supabase
 			.from("analytics_chat_message")
 			.insert({
 				session_id: data.sessionId,
@@ -145,21 +166,21 @@ export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
+		const supabase = getSupabaseServerClient()
 
-		// Verify ownership via session join
-		const { data: msg, error: msgError } = await db()
+		// Verify the message belongs to a session owned by this user (FK: message → session)
+		const { data: msg, error: lookupError } = await supabase
 			.from("analytics_chat_message")
-			.select("id, session_id, analytics_chat_session!inner(user_id)")
+			.select("id, analytics_chat_session!inner(user_id)")
 			.eq("id", data.messageId)
 			.single()
 
-		if (msgError || !msg) throw new Error("Mensagem não encontrada")
+		if (lookupError || !msg) throw new Error("Mensagem não encontrada")
 
-		type SessionJoin = { user_id: string }
-		const session = msg.analytics_chat_session as unknown as SessionJoin
-		if (session.user_id !== userId) throw new Error("Acesso negado")
+		const owner = (msg.analytics_chat_session as unknown as { user_id: string }).user_id
+		if (owner !== userId) throw new Error("Acesso negado")
 
-		const { error } = await db().from("analytics_chat_message").update({ chart_type_override: data.chartTypeOverride }).eq("id", data.messageId)
+		const { error } = await supabase.from("analytics_chat_message").update({ chart_type_override: data.chartTypeOverride }).eq("id", data.messageId)
 
 		if (error) throw new Error(error.message)
 	})

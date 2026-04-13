@@ -62,8 +62,6 @@ export function useChatMessages(sessionId: string | undefined) {
 		queryKey: messagesKey(sessionId ?? ""),
 		queryFn: () => getChatMessagesFn({ data: { sessionId: sessionId ?? "" } }),
 		enabled: !!sessionId,
-		// Short staleTime so navigating back to a session refetches fresh data
-		// (charts, latest messages) instead of serving a stale cache snapshot.
 		staleTime: 10_000,
 		refetchOnWindowFocus: false,
 	})
@@ -76,11 +74,11 @@ export function useSaveChatMessage() {
 			saveChatMessageFn({ data: vars }),
 		onSuccess: (_data, vars) => {
 			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
-			// Also refresh sessions list so updated_at reorders
+			// Refresh sessions list so updated_at reorders sidebar
 			qc.invalidateQueries({ queryKey: SESSIONS_KEY })
 		},
-		onError: (_err: unknown, _vars) => {
-			// mutation error handled by caller via isError / error state
+		onError: (err: unknown, vars) => {
+			console.error("[analytics-chat] Failed to save message in session", vars.sessionId, err)
 		},
 	})
 }
@@ -89,12 +87,31 @@ export function useUpdateMessageChartType() {
 	const qc = useQueryClient()
 	return useMutation({
 		mutationFn: (vars: { messageId: string; sessionId: string; chartTypeOverride: ChartType }) =>
-			updateMessageChartTypeFn({ data: { messageId: vars.messageId, chartTypeOverride: vars.chartTypeOverride } }),
-		onSuccess: (_data, vars) => {
-			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
+			updateMessageChartTypeFn({
+				data: { messageId: vars.messageId, chartTypeOverride: vars.chartTypeOverride },
+			}),
+		// Optimistic update — reflect the change in cache immediately so the
+		// DB-sync effect in ChatInterface doesn't flash the old value on next load.
+		onMutate: async (vars) => {
+			await qc.cancelQueries({ queryKey: messagesKey(vars.sessionId) })
+			const snapshot = qc.getQueryData(messagesKey(vars.sessionId))
+			qc.setQueryData(messagesKey(vars.sessionId), (old: unknown) => {
+				if (!Array.isArray(old)) return old
+				return old.map((m: { id: string; chart_type_override?: string | null }) =>
+					m.id === vars.messageId ? { ...m, chart_type_override: vars.chartTypeOverride } : m
+				)
+			})
+			return { snapshot }
 		},
-		onError: (_err: unknown, _vars) => {
-			// mutation error handled by caller via isError / error state
+		onError: (err: unknown, vars, context) => {
+			// Roll back the optimistic update
+			if (context?.snapshot !== undefined) {
+				qc.setQueryData(messagesKey(vars.sessionId), context.snapshot)
+			}
+			console.error("[analytics-chat] Failed to update chart type for message", vars.messageId, err)
+		},
+		onSettled: (_data, _err, vars) => {
+			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
 		},
 	})
 }
