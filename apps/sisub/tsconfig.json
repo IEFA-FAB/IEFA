@@ -21,7 +21,8 @@
         "noFallthroughCasesInSwitch": true,
         "noUncheckedSideEffectImports": true,
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "@rolldown/plugin-babel": ["./node_modules/@rolldown/plugin-babel/dist/index.d.mts"]
         }
     }
 }

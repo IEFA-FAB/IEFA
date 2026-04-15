@@ -125,9 +125,9 @@ CMD ["bun", "apps/ai/src/index.ts"]
 FROM deps AS docs-build
 COPY apps/docs ./apps/docs
 RUN bun --filter='@iefa/docs' run build
-RUN test -f apps/docs/dist/index.html || \
+RUN test -f apps/docs/.output/public/index.html || \
     (echo "❌ Build failed: output missing" && exit 1)
 
 FROM nginx:alpine AS docs
-COPY --from=docs-build /app/apps/docs/dist /usr/share/nginx/html
+COPY --from=docs-build /app/apps/docs/.output/public /usr/share/nginx/html
 EXPOSE 80
