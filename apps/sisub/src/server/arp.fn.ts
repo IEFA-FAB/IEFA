@@ -1,3 +1,10 @@
+/**
+ * @module arp.fn
+ * Integration with Compras.gov.br ARP (Ata de Registro de Preços) API + local empenho management.
+ * CLIENT: getSupabaseServerClient (service role). External: dadosabertos.compras.gov.br (30 s timeout, 3 retries, exponential backoff).
+ * TABLES: procurement_arp, procurement_arp_item, empenho.
+ */
+
 import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -42,6 +49,11 @@ function parseBrDate(value: string | null | undefined): string | null {
 
 // ─── 1. Buscar ARPs no Compras.gov.br ────────────────────────────────────────
 
+/**
+ * Queries Compras.gov.br for ARPs matching the given UASG — read-only, no local persistence.
+ *
+ * @throws {Error} "HTTP {status}" after 3 failed attempts or on AbortSignal timeout (30 s per attempt).
+ */
 export const searchArpFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -65,6 +77,17 @@ export const searchArpFn = createServerFn({ method: "GET" })
 	})
 
 // ─── 2. Importar ARP + seus itens (persiste no banco) ────────────────────────
+
+/**
+ * Imports an ARP and all its items from Compras.gov.br, persisting them locally and linking to internal ATA items by catmat code.
+ *
+ * @remarks
+ * SIDE EFFECTS: upserts procurement_arp (conflict: unit_id + numero_ata + uasg_gerenciadora),
+ *   DELETES all existing procurement_arp_item for the ARP before reinserting — destructive full sync.
+ * BR date strings ("DD/MM/YYYY") are normalised to ISO 8601. Unmatched catmat codes get ata_item_id = null.
+ *
+ * @throws {Error} on HTTP failure (after 3 retries) or any Supabase write error.
+ */
 
 const ArpDataSchema = z.object({
 	numeroAta: z.string(),
@@ -168,6 +191,16 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 // ─── 3. Sincronizar saldo de empenhos via Compras.gov.br ─────────────────────
 
+/**
+ * Refreshes qtdeEmpenhada and saldoEmpenho for all items of an ARP by re-querying Compras.gov.br.
+ *
+ * @remarks
+ * SIDE EFFECTS: updates procurement_arp_item.{quantidade_empenhada, saldo_empenho, synced_at} for each matched item,
+ *   updates procurement_arp.last_synced_at.
+ * Matches by numero_item (not catmat). Fires one UPDATE per item in parallel (Promise.all) — no transaction.
+ *
+ * @throws {Error} if ARP not found locally, on HTTP failure (3 retries), or on any individual item update failure.
+ */
 export const syncArpBalanceFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ arpId: z.string().uuid() }))
 	.handler(async ({ data }) => {
@@ -222,6 +255,9 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 
 // ─── 4. Buscar ARP vinculada a uma ATA ───────────────────────────────────────
 
+/**
+ * Returns the ARP linked to an ATA with all its items ordered by numero_item, or null if none exists.
+ */
 export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ ataId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
@@ -238,6 +274,11 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 
 // ─── 5. Buscar empenhos de um item da ARP ────────────────────────────────────
 
+/**
+ * Lists all empenhos for an ARP item ordered by data_empenho descending.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ arpItemId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<Empenho[]> => {
@@ -253,6 +294,14 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 
 // ─── 6. Registrar empenho ─────────────────────────────────────────────────────
 
+/**
+ * Records a new empenho, computing valor_total = quantidadeEmpenhada × valorUnitario.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts empenho with status "ativo". Normalises numero_empenho (trim + toUpperCase before insert).
+ *
+ * @throws {Error} "já cadastrado" on unique violation (PG code 23505); generic Supabase message otherwise.
+ */
 export const createEmpenhoFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -298,6 +347,11 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 
 // ─── 7. Anular empenho ────────────────────────────────────────────────────────
 
+/**
+ * Cancels an empenho by setting status to "anulado" — no hard delete, saldo on ARP item is NOT auto-restored.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ empenhoId: z.string().uuid() }))
 	.handler(async ({ data }) => {

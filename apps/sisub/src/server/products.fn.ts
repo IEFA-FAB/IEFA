@@ -1,3 +1,10 @@
+/**
+ * @module products.fn
+ * Global product catalogue CRUD: nutrients, CEAFA, CATMAT lookup, folders, products and product items.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: nutrient, product_nutrient, ceafa, compras_material_item, folder, product, product_item (all soft-delete via deleted_at).
+ */
+
 import type { FolderInsert, FolderUpdate, ProductInsert, ProductItemInsert, ProductItemUpdate, ProductUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -7,6 +14,11 @@ import { getSupabaseServerClient } from "@/lib/supabase.server"
 // Nutrients
 // ============================================================================
 
+/**
+ * Lists all active nutrients ordered by display_order.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getSupabaseServerClient().from("nutrient").select("*").is("deleted_at", null).order("display_order", { ascending: true })
 
@@ -14,6 +26,11 @@ export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async 
 	return data || []
 })
 
+/**
+ * Lists active nutrient values for a product with the nutrient definition joined.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchProductNutrientsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ productId: z.string() }))
 	.handler(async ({ data }) => {
@@ -27,6 +44,15 @@ export const fetchProductNutrientsFn = createServerFn({ method: "GET" })
 		return result || []
 	})
 
+/**
+ * Replaces all nutrient values for a product: soft-deletes existing records then inserts non-null values.
+ *
+ * @remarks
+ * SIDE EFFECTS: soft-deletes all active product_nutrient rows for the product, then inserts new rows for nutrient_value != null.
+ * Null-valued nutrients are not inserted (intent: "not measured"). Two-step, no transaction.
+ *
+ * @throws {Error} on soft-delete or insert failure.
+ */
 export const setProductNutrientsFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -61,6 +87,11 @@ export const setProductNutrientsFn = createServerFn({ method: "POST" })
 // CEAFA
 // ============================================================================
 
+/**
+ * Lists up to 50 CEAFA items ordered by description, optionally filtered by description search (ilike, trimmed).
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchCeafaFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ search: z.string().optional() }))
 	.handler(async ({ data }) => {
@@ -79,6 +110,15 @@ export const fetchCeafaFn = createServerFn({ method: "GET" })
 // CATMAT (Catálogo de Materiais — Compras.gov.br)
 // ============================================================================
 
+/**
+ * Searches CATMAT items (Compras.gov.br material catalogue) by code or description. Returns [] for terms under 2 chars.
+ *
+ * @remarks
+ * Numeric term → exact codigo_item match; text → ilike on descricao_item (GIN trigram index expected for performance).
+ * Limit: 40 active items ordered by descricao_item.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ search: z.string() }))
 	.handler(async ({ data }) => {
@@ -135,6 +175,11 @@ const ProductItemWriteSchema = z.object({
 // Folders
 // ============================================================================
 
+/**
+ * Lists all active folders ordered by created_at ascending.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getSupabaseServerClient().from("folder").select("*").is("deleted_at", null).order("created_at", { ascending: true })
 
@@ -142,6 +187,14 @@ export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async ()
 	return data || []
 })
 
+/**
+ * Creates a product folder, optionally nested under a parent_id.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into folder.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const createFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ payload: FolderWriteSchema }))
 	.handler(async ({ data }) => {
@@ -155,6 +208,11 @@ export const createFolderFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Updates a folder's description or parent_id.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), payload: FolderWriteSchema }))
 	.handler(async ({ data }) => {
@@ -169,6 +227,11 @@ export const updateFolderFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Soft-deletes a folder by setting deleted_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const deleteFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -181,6 +244,11 @@ export const deleteFolderFn = createServerFn({ method: "POST" })
 // Products
 // ============================================================================
 
+/**
+ * Fetches a single active product by id.
+ *
+ * @throws {Error} on Supabase query failure or not found (via .single()).
+ */
 export const fetchProductFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -190,6 +258,11 @@ export const fetchProductFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+/**
+ * Lists active products ordered by description, optionally filtered by folderId.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchProductsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ folderId: z.string().optional() }))
 	.handler(async ({ data }) => {
@@ -204,6 +277,14 @@ export const fetchProductsFn = createServerFn({ method: "GET" })
 		return result || []
 	})
 
+/**
+ * Creates a product with optional CATMAT and CEAFA linkage.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into product.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const createProductFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ payload: ProductWriteSchema }))
 	.handler(async ({ data }) => {
@@ -217,6 +298,11 @@ export const createProductFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Updates a product's description, folder, measure_unit, correction_factor or CATMAT linkage.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateProductFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), payload: ProductWriteSchema }))
 	.handler(async ({ data }) => {
@@ -231,6 +317,11 @@ export const updateProductFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Soft-deletes a product by setting deleted_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const deleteProductFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -243,6 +334,11 @@ export const deleteProductFn = createServerFn({ method: "POST" })
 // Product Items
 // ============================================================================
 
+/**
+ * Lists active product_items ordered by description, optionally filtered by productId.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchProductItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ productId: z.string().optional() }))
 	.handler(async ({ data }) => {
@@ -257,6 +353,14 @@ export const fetchProductItemsFn = createServerFn({ method: "GET" })
 		return result || []
 	})
 
+/**
+ * Creates a product_item (purchasable SKU) linked to a product.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into product_item.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const createProductItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ payload: ProductItemWriteSchema }))
 	.handler(async ({ data }) => {
@@ -270,6 +374,11 @@ export const createProductItemFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Updates a product_item's description, barcode, purchase unit or correction factor.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateProductItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), payload: ProductItemWriteSchema }))
 	.handler(async ({ data }) => {
@@ -284,6 +393,11 @@ export const updateProductItemFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Soft-deletes a product_item by setting deleted_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const deleteProductItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {

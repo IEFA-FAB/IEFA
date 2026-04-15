@@ -1,3 +1,10 @@
+/**
+ * @module kitchen-settings.fn
+ * Kitchen address settings CRUD.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLE: kitchen (address_* fields + unit relation).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -18,6 +25,11 @@ export type KitchenSettingsInput = z.infer<typeof kitchenSettingsSchema>
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
+/**
+ * Fetches kitchen detail with all address fields and nested unit (id, code, display_name).
+ *
+ * @throws {Error} on Supabase query failure or not found (via .single()).
+ */
 export const fetchKitchenSettingsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }) => {
@@ -38,6 +50,14 @@ export const fetchKitchenSettingsFn = createServerFn({ method: "GET" })
 
 // ─── Update ───────────────────────────────────────────────────────────────────
 
+/**
+ * Updates all 7 address fields on a kitchen row (all fields replaced; null accepted for each).
+ *
+ * @remarks
+ * SIDE EFFECTS: writes address_* columns on kitchen.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateKitchenSettingsFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ kitchenId: z.number(), settings: kitchenSettingsSchema }))
 	.handler(async ({ data }) => {

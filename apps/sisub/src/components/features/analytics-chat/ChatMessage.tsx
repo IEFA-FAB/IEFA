@@ -1,8 +1,6 @@
 import { AlertCircle, Bot, Check, Copy, User } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkBreaks from "remark-breaks"
-import remarkGfm from "remark-gfm"
+import { ChatMarkdown } from "@/components/ui/chat-markdown"
 import { cn } from "@/lib/cn"
 import type { ChartType, ChatMessage as ChatMessageType } from "@/types/domain/analytics-chat"
 import { ChartTypeSelector } from "./ChartTypeSelector"
@@ -69,16 +67,7 @@ export function ChatMessageBubble({ message, onChartTypeChange }: ChatMessagePro
 								   and ReactMarkdown already escapes raw HTML without rehypeRaw.
 								   The default GitHub schema was stripping attributes/elements
 								   that could interfere with GFM tables and code blocks. */}
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm, remarkBreaks]}
-								components={{
-									p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-									code: ({ children }) => <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-xs">{children}</code>,
-									pre: ({ children }) => <pre className="mt-2 overflow-auto rounded-md bg-black/10 p-3 font-mono text-xs">{children}</pre>,
-								}}
-							>
-								{message.content}
-							</ReactMarkdown>
+							<ChatMarkdown>{message.content}</ChatMarkdown>
 							{message.isStreaming && !message.chart ? <span className="mt-1 inline-block h-4 w-0.5 animate-pulse rounded bg-current align-middle" /> : null}
 						</>
 					) : message.isStreaming ? (

@@ -1,3 +1,12 @@
+/**
+ * @module permissions.fn
+ * User permission resolution and admin CRUD for the sisub RBAC system.
+ * CLIENT: getSupabaseServerClient cast as `any` — user_permissions table not yet in generated Supabase types.
+ * LEVELS: 0=deny (explicit block), 1=read, 2=write. Deny entries are stripped from fetchUserPermissionsFn output.
+ * MODULES: diner | messhall | unit | kitchen | kitchen-production | global | analytics | local-analytics | storage.
+ * SCOPE: permissions can be scoped to mess_hall_id, kitchen_id, or unit_id (at most one per row).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -9,6 +18,17 @@ const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production
 // User-facing: permissões filtradas (sem deny, com implicit allow)
 // ---------------------------------------------------------------------------
 
+/**
+ * Returns the effective permission set for a user — strips deny entries (level=0) and injects an implicit "diner" allow if no rule exists.
+ *
+ * @remarks
+ * CRITICAL: output is NOT raw DB rows. Two transformations applied in order:
+ *   (1) Implicit allow: pushes { module:"diner", level:1, ...null scopes } if no explicit diner rule found.
+ *   (2) Deny strip: filters out level=0 entries — callers see only granted permissions.
+ * Downstream hasPermission checks use level >= minLevel; safe because deny entries are absent from output.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchUserPermissionsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<UserPermission[]> => {
@@ -50,6 +70,11 @@ export type UserSearchResult = {
 	nrOrdem: string | null
 }
 
+/**
+ * Searches users by partial email match (case-insensitive ilike), returning up to 10 results ordered by email. Admin-only use.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ email: z.string().min(1) }))
 	.handler(async ({ data }): Promise<UserSearchResult[]> => {
@@ -77,6 +102,11 @@ export type PermissionRow = {
 	unit_id: number | null
 }
 
+/**
+ * Fetches raw permission rows for a user including row IDs, for admin CRUD operations. Includes deny entries (level=0) — unlike fetchUserPermissionsFn.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<PermissionRow[]> => {
@@ -95,6 +125,14 @@ export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
 // Admin: criar permissão
 // ---------------------------------------------------------------------------
 
+/**
+ * Creates a permission entry for a user. level=0 = explicit deny; level=1 = read; level=2 = write.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into user_permissions. Scope determined by which of mess_hall_id / kitchen_id / unit_id is set.
+ *
+ * @throws {Error} on Supabase insert failure (e.g. duplicate module+user combination).
+ */
 export const createUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -125,6 +163,11 @@ export const createUserPermissionFn = createServerFn({ method: "POST" })
 // Admin: atualizar permissão (nível e escopo)
 // ---------------------------------------------------------------------------
 
+/**
+ * Updates the level and/or scope of an existing permission row by ID.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -155,6 +198,11 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 // Admin: excluir permissão
 // ---------------------------------------------------------------------------
 
+/**
+ * Hard-deletes a permission row — no soft-delete, immediately revokes access.
+ *
+ * @throws {Error} on Supabase delete failure.
+ */
 export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ permissionId: z.string().min(1) }))
 	.handler(async ({ data }) => {

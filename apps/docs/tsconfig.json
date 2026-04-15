@@ -1,5 +1,17 @@
 {
-    "extends": "astro/tsconfigs/strict",
-    "include": [".astro/types.d.ts", "**/*"],
-    "exclude": ["dist"]
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "jsx": "react-jsx",
+        "strict": true,
+        "skipLibCheck": true,
+        "paths": {
+            "@/*": ["./src/*"],
+            "collections/*": ["./.source/*"]
+        }
+    },
+    "include": ["**/*"],
+    "exclude": ["dist", "node_modules", ".source", "source.generated.ts", "pages.gen.ts", "src/pages.gen.ts"]
 }

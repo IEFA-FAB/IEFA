@@ -24,6 +24,12 @@ export default defineConfig(() => ({
 					handler: "./routes/api/analytics/stream.post.ts",
 					format: "web",
 				},
+				{
+					route: "/api/module-chat/stream",
+					method: "POST",
+					handler: "./routes/api/module-chat/stream.post.ts",
+					format: "web",
+				},
 			],
 			routeRules: {
 				"/**": { headers: { "cache-control": "no-cache" } },

@@ -1,8 +1,20 @@
+/**
+ * @module messhall.fn
+ * Mess hall lookup, diner forecast queries and extra-presence (other_presences) tracking.
+ * CLIENT: getSupabaseServerClient (service role). Schema: sisub (explicit .schema("sisub")) on all functions.
+ * TABLES/VIEWS: mess_halls, meal_forecasts, other_presences, v_user_identity (view).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MealKey } from "@/types/domain/meal"
 
+/**
+ * Fetches a mess hall by its unique code string. Returns null if not found.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchMessHallByCodeFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ code: z.string() }))
 	.handler(async ({ data }) => {
@@ -17,6 +29,11 @@ export const fetchMessHallByCodeFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+/**
+ * Returns the numeric id of a mess hall by code, or null if code is empty or row not found.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ code: z.string() }))
 	.handler(async ({ data }): Promise<number | null> => {
@@ -28,6 +45,11 @@ export const fetchMessHallIdByCodeFn = createServerFn({ method: "GET" })
 		return result?.id ?? null
 	})
 
+/**
+ * Checks if a user has a will_eat forecast for a specific date, meal and mess hall. Returns null if no forecast exists.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchUserMealForecastFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -52,6 +74,11 @@ export const fetchUserMealForecastFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+/**
+ * Counts other_presences (admin-managed extra presences) for a meal slot using exact-count mode.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchOtherPresencesCountFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ date: z.string(), meal: z.string(), messHallId: z.number() }))
 	.handler(async ({ data }): Promise<number> => {
@@ -67,6 +94,14 @@ export const fetchOtherPresencesCountFn = createServerFn({ method: "GET" })
 		return count ?? 0
 	})
 
+/**
+ * Inserts an other_presence record attributing an extra presence to an admin for a meal slot.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into other_presences with admin_id.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const addOtherPresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -87,6 +122,9 @@ export const addOtherPresenceFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Resolves a user's display_name from the v_user_identity view. Returns null if not found or name is blank.
+ */
 export const resolveDisplayNameFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }): Promise<string | null> => {

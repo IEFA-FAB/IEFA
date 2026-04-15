@@ -2226,6 +2226,83 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			module_chat_message: {
+				Row: {
+					content: string
+					created_at: string
+					error: string | null
+					id: string
+					role: string
+					session_id: string
+					tool_call_id: string | null
+					tool_calls: Json | null
+					tool_name: string | null
+					tool_result: Json | null
+				}
+				Insert: {
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					role: string
+					session_id: string
+					tool_call_id?: string | null
+					tool_calls?: Json | null
+					tool_name?: string | null
+					tool_result?: Json | null
+				}
+				Update: {
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					role?: string
+					session_id?: string
+					tool_call_id?: string | null
+					tool_calls?: Json | null
+					tool_name?: string | null
+					tool_result?: Json | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "module_chat_message_session_id_fkey"
+						columns: ["session_id"]
+						isOneToOne: false
+						referencedRelation: "module_chat_session"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			module_chat_session: {
+				Row: {
+					created_at: string
+					id: string
+					module: string
+					scope_id: number | null
+					title: string
+					updated_at: string
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					module: string
+					scope_id?: number | null
+					title?: string
+					updated_at?: string
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					module?: string
+					scope_id?: number | null
+					title?: string
+					updated_at?: string
+					user_id?: string
+				}
+				Relationships: []
+			}
 			nutrient: {
 				Row: {
 					created_at: string

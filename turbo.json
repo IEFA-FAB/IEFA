@@ -6,10 +6,17 @@
       "outputs": [".output/**", "dist/**", "build/**"],
       "inputs": [
         "src/**",
+        "pages/**",
+        "content/**",
+        "components/**",
+        "lib/**",
+        "styles/**",
         "package.json",
         "tsconfig.json",
         "turbo.json",
         "vite.config.*",
+        "waku.config.*",
+        "source.config.*",
         "app.config.*",
         "vinxi.config.*"
       ]

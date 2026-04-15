@@ -1,3 +1,11 @@
+/**
+ * @module production.fn
+ * Kitchen production board: production_task lifecycle management.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: daily_menu, menu_items, production_task.
+ * State machine: PENDING → IN_PROGRESS (sets started_at) → DONE (sets completed_at) → PENDING (clears both timestamps).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -7,9 +15,16 @@ import type { RecipeIngredientWithProduct } from "@/types/domain/recipes"
 // ---------------------------------------------------------------------------
 // fetchProductionBoardFn
 // ---------------------------------------------------------------------------
-// Busca todos os menu_items do dia para a cozinha, com recipe_origin + ingredientes
-// + production_task associada. Retorna ProductionItem[].
 
+/**
+ * Fetches ProductionItem[] for a kitchen on a date: menu_items with recipe_origin, ingredients and their production_task.
+ *
+ * @remarks
+ * Only returns items that already have a production_task — call ensureProductionTasksFn first to create them.
+ * Filters out deleted menu_items (deleted_at IS NOT NULL) in memory after fetch.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number(), date: z.string() }))
 	.handler(async ({ data }) => {
@@ -108,9 +123,16 @@ export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 // ---------------------------------------------------------------------------
 // ensureProductionTasksFn
 // ---------------------------------------------------------------------------
-// Cria registros PENDING para todos os menu_items do dia que ainda não têm task.
-// Idempotente via UNIQUE(menu_item_id) + ignoreDuplicates.
 
+/**
+ * Creates PENDING production_task records for all menu_items on a date that don't have one yet. Idempotent.
+ *
+ * @remarks
+ * SIDE EFFECTS: upserts into production_task (conflict on UNIQUE menu_item_id, ignoreDuplicates=true).
+ * Returns { created: n } where n is the attempted count (not only newly inserted rows).
+ *
+ * @throws {Error} on menu query or task upsert failure.
+ */
 export const ensureProductionTasksFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ kitchenId: z.number(), date: z.string() }))
 	.handler(async ({ data }) => {
@@ -153,11 +175,18 @@ export const ensureProductionTasksFn = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 // updateProductionTaskStatusFn
 // ---------------------------------------------------------------------------
-// Atualiza o status e os timestamps de uma production_task.
-// PENDING → IN_PROGRESS: registra started_at
-// IN_PROGRESS → DONE: registra completed_at
-// * → PENDING: limpa ambos os timestamps
 
+/**
+ * Transitions a production_task to a new status, managing timestamps per the state machine.
+ *
+ * @remarks
+ * SIDE EFFECTS: updates production_task.status + updated_at always; additionally:
+ *   IN_PROGRESS → sets started_at=now, clears completed_at.
+ *   DONE → sets completed_at=now (started_at unchanged).
+ *   PENDING → clears both started_at and completed_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateProductionTaskStatusFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({

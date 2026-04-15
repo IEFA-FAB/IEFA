@@ -1,3 +1,11 @@
+/**
+ * @module planning.fn
+ * Planning board CRUD: daily_menu and menu_items management, plus template stamping.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: daily_menu, menu_items, menu_template, menu_template_items.
+ * Soft-delete pattern: deleted_at IS NULL = active; non-null = trashed.
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -30,6 +38,11 @@ const dailyMenuSelect = `
   )
 ` as const
 
+/**
+ * Fetches daily menus for a kitchen in a date range with their menu_items, filtering trashed items in memory (not via DB query).
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchDailyMenusFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -55,6 +68,11 @@ export const fetchDailyMenusFn = createServerFn({ method: "GET" })
 		})) as DailyMenuWithItems[]
 	})
 
+/**
+ * Fetches all daily menus for a single date in a kitchen, filtering trashed items in memory.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchDayDetailsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number(), date: z.string() }))
 	.handler(async ({ data }) => {
@@ -73,6 +91,11 @@ export const fetchDayDetailsFn = createServerFn({ method: "GET" })
 		})) as DailyMenuWithItems[]
 	})
 
+/**
+ * Upserts daily menus with ignoreDuplicates=true — conflicts on (service_date, meal_type_id, kitchen_id) are silently skipped.
+ *
+ * @throws {Error} on Supabase upsert failure.
+ */
 export const upsertDailyMenuFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ menus: z.array(DailyMenuUpsertItemSchema) }))
 	.handler(async ({ data }) => {
@@ -88,6 +111,11 @@ export const upsertDailyMenuFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Inserts a single menu_item into an existing daily_menu.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const addMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ item: MenuItemInsertSchema }))
 	.handler(async ({ data }) => {
@@ -100,6 +128,11 @@ export const addMenuItemFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Patches a daily_menu record (currently only forecasted_headcount).
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateDailyMenuFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -114,6 +147,11 @@ export const updateDailyMenuFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Patches a menu_item's planned_portion_quantity or excluded_from_procurement flag (0 = included, 1 = excluded).
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -131,6 +169,15 @@ export const updateMenuItemFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Replaces the substitutions JSON map on a menu_item — full overwrite, not a merge.
+ *
+ * @remarks
+ * SIDE EFFECTS: overwrites menu_items.substitutions (JSON column) entirely.
+ * Key format: { [ingredientId]: { type: string, rationale: string, updated_at: ISO string } }.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateSubstitutionsFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -148,6 +195,11 @@ export const updateSubstitutionsFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Moves a menu_item to trash by setting deleted_at to now (recoverable via restoreMenuItemFn).
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const softDeleteMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -156,6 +208,11 @@ export const softDeleteMenuItemFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Restores a trashed menu_item by clearing deleted_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const restoreMenuItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -164,6 +221,11 @@ export const restoreMenuItemFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Lists all trashed menu_items for a kitchen (deleted_at IS NOT NULL), ordered by deletion date descending.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchTrashItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }) => {
@@ -184,6 +246,11 @@ export const fetchTrashItemsFn = createServerFn({ method: "GET" })
 		return result ?? []
 	})
 
+/**
+ * Lists menu_templates for a kitchen with full items and recipe_origin. Does not filter by deleted_at.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchTemplatesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }) => {

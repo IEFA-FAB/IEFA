@@ -1,3 +1,10 @@
+/**
+ * @module ata.fn
+ * Internal Procurement ATA (Ata de Registro de Preços) lifecycle: needs calculation, creation, status transitions, soft-delete.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: procurement_ata, procurement_ata_kitchen, procurement_ata_selection, procurement_ata_item.
+ */
+
 import type { ProcurementAta } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -23,6 +30,16 @@ const KitchenSelectionSchema = z.object({
 
 // ─── Calcular necessidades (sem persistir) ────────────────────────────────────
 
+/**
+ * Computes ingredient quantities needed to fulfill a set of menu template selections — read-only, no persistence.
+ *
+ * @remarks
+ * Resolves templates → recipes → ingredients; multiplies net_quantity by (headcount / portion_yield × repetitions).
+ * Aggregates identical product_ids across all kitchenSelections (weekly + events combined).
+ * Sorts result by folder_description → product_name (pt-BR collation).
+ *
+ * @throws {Error} "Erro ao buscar templates: ..." on Supabase query failure.
+ */
 export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -168,6 +185,15 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 
 // ─── Criar ATA (persiste tudo) ────────────────────────────────────────────────
 
+/**
+ * Persists a complete ATA with its kitchen assignments, template selections and pre-calculated items across 4 tables.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts procurement_ata (1 row), procurement_ata_kitchen (n), procurement_ata_selection (m), procurement_ata_item (p).
+ * Steps are sequential — partial failure leaves orphaned rows (no DB transaction). Status defaults to "draft".
+ *
+ * @throws {Error} on any Supabase insert failure at any step.
+ */
 export const createAtaFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -254,6 +280,11 @@ export const createAtaFn = createServerFn({ method: "POST" })
 
 // ─── Listar ATAs da unidade ───────────────────────────────────────────────────
 
+/**
+ * Lists all non-deleted ATAs for a unit, ordered by creation date descending.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchAtaListFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ unitId: z.number() }))
 	.handler(async ({ data }): Promise<ProcurementAta[]> => {
@@ -270,6 +301,14 @@ export const fetchAtaListFn = createServerFn({ method: "GET" })
 
 // ─── Buscar ATA com detalhes ──────────────────────────────────────────────────
 
+/**
+ * Fetches full ATA details including kitchens, template selections and calculated items. Returns null if ATA row not found.
+ *
+ * @remarks
+ * Returns null only on missing ATA (ataError); kitchen/items failures still throw.
+ *
+ * @throws {Error} on kitchens or items query failure — NOT on missing ATA (returns null).
+ */
 export const fetchAtaDetailsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ ataId: z.string() }))
 	.handler(async ({ data }): Promise<AtaWithDetails | null> => {
@@ -309,6 +348,11 @@ export const fetchAtaDetailsFn = createServerFn({ method: "GET" })
 
 // ─── Atualizar status da ATA ──────────────────────────────────────────────────
 
+/**
+ * Transitions ATA status to "draft" | "published" | "archived" and stamps updated_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateAtaStatusFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -326,6 +370,11 @@ export const updateAtaStatusFn = createServerFn({ method: "POST" })
 
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────
 
+/**
+ * Soft-deletes an ATA by setting deleted_at — kitchen associations and items remain intact.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const deleteAtaFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ ataId: z.string() }))
 	.handler(async ({ data }) => {

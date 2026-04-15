@@ -1,3 +1,10 @@
+/**
+ * @module policy.fn
+ * Policy rule CRUD and AI review prompt generation for product and recipe quality control.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLE: policy_rule (soft-delete via deleted_at). Targets: "product" | "recipe".
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -7,6 +14,11 @@ import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 // CRUD
 // ============================================================================
 
+/**
+ * Lists active policy rules for a target type ordered by display_order then created_at.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<PolicyRule[]> => {
@@ -22,6 +34,14 @@ export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
 		return (result ?? []) as PolicyRule[]
 	})
 
+/**
+ * Creates a policy rule for a target type. display_order defaults to 0.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into policy_rule.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const createPolicyRuleFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -47,6 +67,14 @@ export const createPolicyRuleFn = createServerFn({ method: "POST" })
 		return result as PolicyRule
 	})
 
+/**
+ * Patches a policy rule's title, description, display_order or active flag — only provided fields are updated.
+ *
+ * @remarks
+ * SIDE EFFECTS: updates policy_rule + stamps updated_at. Guards against updating soft-deleted rules (IS deleted_at NULL).
+ *
+ * @throws {Error} on Supabase update failure or not found.
+ */
 export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -74,6 +102,11 @@ export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 		return result as PolicyRule
 	})
 
+/**
+ * Soft-deletes a policy rule by setting deleted_at. Guards against double-deletion via IS(deleted_at, null).
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<void> => {
@@ -90,6 +123,18 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 // Geração de Prompt de Revisão
 // ============================================================================
 
+/**
+ * Generates a structured markdown review prompt for Claude containing active policy rules and MCP database hints.
+ *
+ * @remarks
+ * Prompt instructs the LLM to fetch all active items via Supabase MCP, evaluate each against every rule,
+ * and report PASSA/FALHA per rule with a final APROVADO/REPROVADO verdict.
+ * Table hints are target-specific: product → sisub.product; recipe → sisub.recipes + joins.
+ * Returns a plain-language message (not throw) if no active rules exist for the target.
+ * Generated date is embedded in the prompt footer.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const generateReviewPromptFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<string> => {

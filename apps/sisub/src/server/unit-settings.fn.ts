@@ -1,3 +1,10 @@
+/**
+ * @module unit-settings.fn
+ * Unit settings CRUD — UASG code and address fields.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLE: units (uasg + address_* fields).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -19,6 +26,11 @@ export type UnitSettingsInput = z.infer<typeof unitSettingsSchema>
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
+/**
+ * Fetches a unit's settings including UASG code and all address fields.
+ *
+ * @throws {Error} on Supabase query failure or not found (via .single()).
+ */
 export const fetchUnitSettingsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ unitId: z.number() }))
 	.handler(async ({ data }) => {
@@ -36,6 +48,14 @@ export const fetchUnitSettingsFn = createServerFn({ method: "GET" })
 
 // ─── Update ───────────────────────────────────────────────────────────────────
 
+/**
+ * Updates UASG code and all 7 address fields on a unit row (all fields replaced; null accepted for each).
+ *
+ * @remarks
+ * SIDE EFFECTS: writes uasg + address_* columns on units.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const updateUnitSettingsFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ unitId: z.number(), settings: unitSettingsSchema }))
 	.handler(async ({ data }) => {

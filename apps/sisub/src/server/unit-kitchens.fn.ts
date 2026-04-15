@@ -1,3 +1,10 @@
+/**
+ * @module unit-kitchens.fn
+ * Reference list of kitchens belonging to a unit. Read-only.
+ * CLIENT: getSupabaseServerClient (service role).
+ * TABLE: kitchen.
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -7,6 +14,11 @@ export type UnitKitchen = {
 	display_name: string | null
 }
 
+/**
+ * Lists kitchens (id + display_name) for a unit ordered by display_name.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ unitId: z.number() }))
 	.handler(async ({ data }): Promise<UnitKitchen[]> => {

@@ -1,0 +1,76 @@
+---
+title: Visão Geral
+description: Sistema de Subsistência — cardápios, receitas, planejamento e analytics de rancho.
+---
+
+## O que é o SISUB
+
+O **SISUB** (Sistema de Subsistência) é a aplicação responsável pela gestão do rancho militar. Permite criar cardápios semanais, gerenciar receitas, planejar refeições mensalmente e acompanhar analytics de consumo por cozinha.
+
+## Stack Técnica
+
+| Camada | Tecnologia |
+|--------|-----------|
+| Framework | React 19 + TanStack Start |
+| SSR | Nitro (preset Bun) |
+| Roteamento | TanStack Router (file-based) |
+| Banco de dados | Supabase — schema `sisub` |
+| Estilo | Tailwind CSS v4 — **Flat Design** (`rounded-xl` canônico) |
+| Linguagem | TypeScript 5.x |
+
+## Design System
+
+O Sisub usa **Flat Design** — incompatível com o Portal. Regras:
+
+- Radius genérico `0.5rem`; primitivo `<Card>` usa `rounded-xl` (0.75rem) canônico
+- Referência: `apps/sisub/docs/STYLE_CONTRACT.md`
+
+## Módulos
+
+### Cardápios Semanais (`/local/weekly-menus/`)
+CRUD de templates de cardápio semanal (`menu_template`). Cada template define refeições por dia da semana. Templates podem ser **globais** (SDAB, `kitchen_id = null`) ou **locais** (por cozinha).
+
+### Receitas (`/local/recipes/$recipeId/`)
+Cadastro e edição de receitas. Rota usa layout outlet com sub-rotas para detalhes, ingredientes e modo de preparo.
+
+### Planejamento (`/local/planning`)
+**PlanningBoard** — calendário mensal que aplica templates semanais a datas específicas. Permite visualizar e editar o planejamento de refeições de um mês inteiro por cozinha.
+
+### Analytics
+Acompanhamento de consumo, custo e planejamento por cozinha. Dados agregados do schema `sisub` no Supabase.
+
+## Cozinhas: Local vs Global
+
+| Tipo | `kitchen_id` | Visibilidade |
+|------|-------------|-------------|
+| Global (SDAB) | `null` | Todas as cozinhas |
+| Local | UUID da cozinha | Apenas aquela cozinha |
+
+Templates locais podem ser derivados (fork) de templates globais via `base_template_id` — mecânica similar a git.
+
+## Server Functions
+
+Padrão obrigatório para funções server-side (TanStack Start v1.x):
+
+```ts
+// src/server/*.fn.ts
+createServerFn({ method: 'GET' | 'POST' })
+  .inputValidator(z.object({ ... }))   // inputValidator, NÃO validator
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();  // per-request, nunca singleton
+    // ...
+  })
+```
+
+## Banco de Dados
+
+- **Supabase** com schema `sisub` (default)
+- Variáveis de ambiente:
+  - `VITE_SISUB_SUPABASE_URL`
+  - `VITE_SISUB_SUPABASE_PUBLISHABLE_KEY` (client)
+  - `SISUB_SUPABASE_SECRET_KEY` (server)
+
+## Integrações
+
+- **sisub-mcp** — MCP server que expõe os dados do Sisub para agentes AI (stdio/HTTP)
+- **ai** — Serviço de AI com LangChain/LangGraph para ingestão de documentos e orquestração LLM

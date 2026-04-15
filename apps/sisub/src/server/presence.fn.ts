@@ -1,9 +1,25 @@
+/**
+ * @module presence.fn
+ * Fiscal presence tracking: read presences + forecasts, insert/delete presence records.
+ * CLIENT: getSupabaseServerClient (service role). Schema: sisub (explicit .schema("sisub")) on all functions.
+ * VIEWS/TABLES: v_meal_presences_with_user (view), meal_forecasts, meal_presences.
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MealKey } from "@/types/domain/meal"
 import type { FiscalPresenceRecord, ForecastMap, ForecastRow } from "@/types/domain/presence"
 
+/**
+ * Lists presence records for a meal slot with display_name from v_meal_presences_with_user, ordered by created_at descending.
+ *
+ * @remarks
+ * Returns FiscalPresenceRecord[] with display_name attached via Object.assign (field not in base type).
+ * unidade is set to String(messHallId) as a display label.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchPresencesFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -50,6 +66,13 @@ export const fetchPresencesFn = createServerFn({ method: "GET" })
 		})
 	})
 
+/**
+ * Returns a user_id → will_eat map for the given users, date, meal and mess hall.
+ *
+ * @remarks
+ * Returns {} if userIds is empty (short-circuits, no query).
+ * On Supabase error, returns {} silently — caller treats missing forecast as unknown (non-throwing by design).
+ */
 export const fetchForecastsFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -82,6 +105,14 @@ export const fetchForecastsFn = createServerFn({ method: "GET" })
 		return forecastMap
 	})
 
+/**
+ * Records a meal presence for a user in a mess hall.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into sisub.meal_presences.
+ *
+ * @throws {Error} with error.code attached — callers should handle code "23505" (duplicate) explicitly.
+ */
 export const insertPresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -102,6 +133,11 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 		if (error) throw Object.assign(new Error(error.message), { code: error.code })
 	})
 
+/**
+ * Removes a presence record by id (hard delete, no soft-delete).
+ *
+ * @throws {Error} on Supabase delete failure.
+ */
 export const deletePresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {

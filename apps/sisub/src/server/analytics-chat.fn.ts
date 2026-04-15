@@ -1,3 +1,11 @@
+/**
+ * @module analytics-chat.fn
+ * LLM analytics chat session and message management with per-user ownership enforcement.
+ * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getSupabaseServerClient (service role, DB reads/writes).
+ * TABLES: analytics_chat_session, analytics_chat_message.
+ * Auth: all functions call requireUserId() — throws "Não autenticado" if JWT is invalid or missing.
+ */
+
 import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -16,6 +24,11 @@ async function requireUserId(): Promise<string> {
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
+/**
+ * Lists up to 50 chat sessions for the authenticated user ordered by updated_at descending.
+ *
+ * @throws {Error} "Não autenticado" if not logged in; Supabase error on query failure.
+ */
 export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const userId = await requireUserId()
 	const supabase = getSupabaseServerClient()
@@ -31,6 +44,14 @@ export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(asyn
 	return data ?? []
 })
 
+/**
+ * Creates a new chat session for the authenticated user.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts analytics_chat_session with user_id from JWT.
+ *
+ * @throws {Error} "Não autenticado" if not logged in; Supabase error on insert failure.
+ */
 export const createChatSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
@@ -48,6 +69,14 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
 		return row
 	})
 
+/**
+ * Renames a chat session scoped to the authenticated user (user_id guard in WHERE clause).
+ *
+ * @remarks
+ * SIDE EFFECTS: updates analytics_chat_session.title.
+ *
+ * @throws {Error} "Não autenticado" if not logged in; Supabase error on update failure.
+ */
 export const renameChatSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
@@ -59,6 +88,11 @@ export const renameChatSessionFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Hard-deletes a chat session and its messages (cascade via FK), scoped to the authenticated user.
+ *
+ * @throws {Error} "Não autenticado" if not logged in; Supabase error on delete failure.
+ */
 export const deleteChatSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
@@ -71,6 +105,16 @@ export const deleteChatSessionFn = createServerFn({ method: "POST" })
 	})
 
 // ── Messages ─────────────────────────────────────────────────────────────────
+
+/**
+ * Fetches all messages for a session, verifying ownership in a single round-trip. Returns messages sorted by created_at ascending.
+ *
+ * @remarks
+ * Uses PostgREST reverse FK (analytics_chat_session → analytics_chat_message). Throws loudly if nested key is absent
+ * (guard against silent empty array when FK relation is not exposed in generated Supabase types).
+ *
+ * @throws {Error} "Sessão não encontrada" if session missing, not owned by user, or reverse FK not exposed.
+ */
 
 type MessageRow = {
 	id: string
@@ -114,6 +158,14 @@ export const getChatMessagesFn = createServerFn({ method: "GET" })
 		return messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 	})
 
+/**
+ * Inserts a message (user or assistant role) into a session after verifying ownership.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts analytics_chat_message. Ownership verified via separate SELECT before insert (two round-trips).
+ *
+ * @throws {Error} "Sessão não encontrada" if session missing or not owned; Supabase error on insert failure.
+ */
 export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -157,6 +209,15 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 		return row
 	})
 
+/**
+ * Updates chart_type_override for a message, verifying the message belongs to the authenticated user's session via FK join.
+ *
+ * @remarks
+ * SIDE EFFECTS: updates analytics_chat_message.chart_type_override.
+ * Ownership verified via analytics_chat_message → analytics_chat_session.user_id join.
+ *
+ * @throws {Error} "Mensagem não encontrada" or "Acesso negado" on ownership violation; Supabase error on update failure.
+ */
 export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({

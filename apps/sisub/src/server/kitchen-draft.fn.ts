@@ -1,3 +1,11 @@
+/**
+ * @module kitchen-draft.fn
+ * Kitchen ATA draft workflow — pending → sent status lifecycle for kitchen-to-management procurement requests.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: kitchen_ata_draft, kitchen_ata_draft_selection.
+ * Status: "pending" (editable by kitchen) → "sent" (submitted, awaiting management action).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -11,6 +19,11 @@ const TemplateSelectionSchema = z.object({
 
 // ─── Listar rascunhos da cozinha ──────────────────────────────────────────────
 
+/**
+ * Lists all drafts for a kitchen with their template selections, ordered by creation date descending.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchKitchenDraftsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }): Promise<DraftWithSelections[]> => {
@@ -35,6 +48,11 @@ export const fetchKitchenDraftsFn = createServerFn({ method: "GET" })
 
 // ─── Buscar rascunho enviado pendente para a cozinha ──────────────────────────
 
+/**
+ * Returns the most recent "sent" draft for a kitchen (awaiting management action), or null if none exists.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchPendingDraftFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number() }))
 	.handler(async ({ data }): Promise<DraftWithSelections | null> => {
@@ -62,6 +80,14 @@ export const fetchPendingDraftFn = createServerFn({ method: "GET" })
 
 // ─── Criar rascunho ───────────────────────────────────────────────────────────
 
+/**
+ * Creates a draft with status "pending" and inserts its template selections. Rolls back the draft on selection failure.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts kitchen_ata_draft then kitchen_ata_draft_selection. On selection error, hard-deletes the draft (no DB transaction).
+ *
+ * @throws {Error} on draft or selection insert failure (rollback attempted).
+ */
 export const createKitchenDraftFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -105,6 +131,15 @@ export const createKitchenDraftFn = createServerFn({ method: "POST" })
 
 // ─── Atualizar rascunho ───────────────────────────────────────────────────────
 
+/**
+ * Updates draft metadata and optionally replaces all selections (delete-all + re-insert).
+ *
+ * @remarks
+ * SIDE EFFECTS: updates kitchen_ata_draft.updated_at. When selections provided (even empty array), DELETES all existing selections before inserting new ones.
+ * selections=undefined → metadata-only update, existing selections untouched.
+ *
+ * @throws {Error} on any Supabase operation failure.
+ */
 export const updateKitchenDraftFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -147,6 +182,11 @@ export const updateKitchenDraftFn = createServerFn({ method: "POST" })
 
 // ─── Enviar rascunho para a gestão ───────────────────────────────────────────
 
+/**
+ * Transitions a draft from "pending" to "sent", making it visible to management.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const sendKitchenDraftFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ draftId: z.string() }))
 	.handler(async ({ data }): Promise<void> => {
@@ -159,6 +199,11 @@ export const sendKitchenDraftFn = createServerFn({ method: "POST" })
 
 // ─── Deletar rascunho ─────────────────────────────────────────────────────────
 
+/**
+ * Hard-deletes a draft and its selections (cascade via FK). Only pending drafts should be deleted.
+ *
+ * @throws {Error} on Supabase delete failure.
+ */
 export const deleteKitchenDraftFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ draftId: z.string() }))
 	.handler(async ({ data }): Promise<void> => {

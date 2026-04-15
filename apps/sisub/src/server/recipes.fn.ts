@@ -1,3 +1,11 @@
+/**
+ * @module recipes.fn
+ * Recipe CRUD with versioning system (base_recipe_id self-reference git-like branching).
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: recipes, recipe_ingredients, recipe_ingredient_alternatives.
+ * Versioning: base_recipe_id=null → root recipe (version 1); non-null → version branching from that root.
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -23,6 +31,15 @@ const recipeSelectWithAlternatives = `
   )
 ` as const
 
+/**
+ * Lists active recipes with ingredients and products, optionally filtered by kitchen, global-only flag or name search.
+ *
+ * @remarks
+ * Filters are cumulative: kitchen_id → exact match; global_only → kitchen_id IS NULL; search → ilike on name.
+ * No filter means all non-deleted recipes across all kitchens.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchRecipesFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -51,6 +68,11 @@ export const fetchRecipesFn = createServerFn({ method: "GET" })
 		return result as RecipeWithIngredients[]
 	})
 
+/**
+ * Fetches a single recipe with ingredients, products and ingredient alternatives (full detail view including alternatives).
+ *
+ * @throws {Error} on Supabase query failure or not found (via .single()).
+ */
 export const fetchRecipeFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -60,6 +82,11 @@ export const fetchRecipeFn = createServerFn({ method: "GET" })
 		return result as RecipeWithIngredients
 	})
 
+/**
+ * Fetches a single non-deleted recipe with ingredients and products (without alternatives). Throws explicitly if not found.
+ *
+ * @throws {Error} "Recipe {id} not found" if row is missing; Supabase error message otherwise.
+ */
 export const fetchRecipeWithIngredientsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -93,6 +120,14 @@ const recipePayloadSchema = z.object({
 	ingredients: z.array(ingredientSchema).optional(),
 })
 
+/**
+ * Creates a new recipe with version=1 and optionally inserts its ingredients.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into recipes then recipe_ingredients. No rollback on ingredients failure — orphan recipe row possible.
+ *
+ * @throws {Error} on recipe or ingredient insert failure.
+ */
 export const createRecipeFn = createServerFn({ method: "POST" })
 	.inputValidator(recipePayloadSchema)
 	.handler(async ({ data }) => {
@@ -133,6 +168,15 @@ export const createRecipeFn = createServerFn({ method: "POST" })
 		return recipe
 	})
 
+/**
+ * Returns all versions of a recipe family (root + all branches) ordered by version ascending.
+ *
+ * @remarks
+ * Root resolution: if recipeId has base_recipe_id, uses that as rootId; otherwise recipeId itself is root.
+ * Query: OR(id=rootId, base_recipe_id=rootId).
+ *
+ * @throws {Error} "Receita não encontrada" if the initial recipe lookup fails.
+ */
 export const fetchRecipeVersionsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ recipeId: z.string() }))
 	.handler(async ({ data }) => {
@@ -157,6 +201,14 @@ export const fetchRecipeVersionsFn = createServerFn({ method: "GET" })
 		return (versions ?? []) as RecipeWithIngredients[]
 	})
 
+/**
+ * Creates a new recipe version linked to base_recipe_id with a new version number, optionally inserting its ingredients.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into recipes (with base_recipe_id + new_version) then recipe_ingredients. No rollback on ingredients failure.
+ *
+ * @throws {Error} on recipe or ingredient insert failure.
+ */
 export const createRecipeVersionFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		recipePayloadSchema.extend({

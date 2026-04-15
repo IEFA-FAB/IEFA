@@ -77,9 +77,7 @@ export function useSaveChatMessage() {
 			// Refresh sessions list so updated_at reorders sidebar
 			qc.invalidateQueries({ queryKey: SESSIONS_KEY })
 		},
-		onError: (err: unknown, vars) => {
-			console.error("[analytics-chat] Failed to save message in session", vars.sessionId, err)
-		},
+		onError: (_err: unknown, _vars) => {},
 	})
 }
 
@@ -103,12 +101,11 @@ export function useUpdateMessageChartType() {
 			})
 			return { snapshot }
 		},
-		onError: (err: unknown, vars, context) => {
+		onError: (_err: unknown, vars, context) => {
 			// Roll back the optimistic update
 			if (context?.snapshot !== undefined) {
 				qc.setQueryData(messagesKey(vars.sessionId), context.snapshot)
 			}
-			console.error("[analytics-chat] Failed to update chart type for message", vars.messageId, err)
 		},
 		onSettled: (_data, _err, vars) => {
 			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })

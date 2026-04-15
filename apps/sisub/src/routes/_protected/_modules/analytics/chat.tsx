@@ -8,7 +8,7 @@ import { ChatSidebar, MobileChatList } from "@/components/features/analytics-cha
 import { Button } from "@/components/ui/button"
 
 const chatSearchSchema = z.object({
-	session: z.string().uuid().optional(),
+	session: z.uuid().optional(),
 })
 
 export const Route = createFileRoute("/_protected/_modules/analytics/chat")({

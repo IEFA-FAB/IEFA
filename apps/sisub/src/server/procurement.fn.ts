@@ -1,8 +1,31 @@
+/**
+ * @module procurement.fn
+ * Aggregates ingredient quantities from live daily_menu data for a date range. Read-only pipeline, no persistence.
+ * CLIENT: getSupabaseServerClient (service role).
+ * TABLES: menu_items, daily_menu, recipes, recipe_ingredients, product (all reads).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProcurementNeed } from "@/services/ProcurementService"
 
+/**
+ * Computes total ingredient quantities for a kitchen or unit over a date range by walking menu_items → recipes → ingredients.
+ *
+ * @remarks
+ * 6-step pipeline:
+ *   (1) Resolve unit → kitchenIds if unitId provided.
+ *   (2) Fetch menu_items with daily_menu join (excludes excluded_from_procurement=1 and soft-deleted).
+ *   (3) Fetch unique recipes + ingredients + products.
+ *   (4) Aggregate by product_id: quantity = net_quantity × (plannedQty / portionYield).
+ *   (5) Format quantities to 4 decimal places.
+ *   (6) Sort by folder_description → product_name (pt-BR collation).
+ * Does NOT include catmat codes or unit_price — use calculateAtaNeedsFn for ATA creation (template-based).
+ * If neither kitchenId nor unitId provided, query spans all kitchens.
+ *
+ * @throws {Error} on any Supabase query failure.
+ */
 export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({

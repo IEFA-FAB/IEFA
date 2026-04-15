@@ -1,3 +1,11 @@
+/**
+ * @module daily-menu-content.fn
+ * Aggregates daily menu content (dishes + ingredients) across multiple kitchens for a date range.
+ * CLIENT: getSupabaseServerClient (service role).
+ * TABLES: daily_menu, menu_items (read).
+ * Output shape: DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }.
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -38,6 +46,16 @@ const mapMealTypeNameToKey = (name: string): string | null => {
 	return null
 }
 
+/**
+ * Returns a nested map of dishes per date per meal key for the given kitchens and date range.
+ *
+ * @remarks
+ * meal_type.name → mealKey via mapMealTypeNameToKey: "café"→"cafe", "almoço"→"almoco", "jantar"→"janta", "ceia"→"ceia". Unmapped names are silently skipped.
+ * Dish name resolution: prefers recipe JSON snapshot name, falls back to recipe_origin.name, then "Prato sem nome".
+ * Ingredient data sourced from recipe JSON snapshot only — recipe_origin has no ingredient join here.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({

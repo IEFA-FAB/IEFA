@@ -1,21 +1,9 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { useChatMessages, useCreateChatSession, useSaveChatMessage, useUpdateMessageChartType } from "@/hooks/data/useAnalyticsChatHistory"
-import { useAnalyticsStream } from "@/lib/analytics-chat.stream"
-import type { ChartType, ChatMessage, StreamEvent } from "@/types/domain/analytics-chat"
+import { useCallback, useEffect, useRef } from "react"
+import { useChatSession } from "@/hooks/features/useChatSession"
 import { ChatInput } from "./ChatInput"
 import { ChatMessageBubble } from "./ChatMessage"
 import { SuggestedPrompts } from "./SuggestedPrompts"
-
-function generateId() {
-	return Math.random().toString(36).slice(2, 10)
-}
-
-/** Derive a session title from the first user message */
-function titleFromMessage(msg: string) {
-	const trimmed = msg.replace(/\s+/g, " ").trim()
-	return trimmed.length > 60 ? `${trimmed.slice(0, 57)}…` : trimmed
-}
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -27,62 +15,13 @@ interface ChatInterfaceProps {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProps) {
-	const [messages, setMessages] = useState<ChatMessage[]>([])
+	// ── Session logic (state, streaming, persistence) ─────────────────────────
+	const { messages, isStreaming, loadingMessages, handleSubmit, handleAbort, handleChartTypeChange } = useChatSession({ sessionId, onSessionCreated })
 
-	// Refs that never cause re-renders
+	// ── Scroll / virtualizer (UI concern) ─────────────────────────────────────
 	const parentRef = useRef<HTMLDivElement>(null)
-	const messagesRef = useRef<ChatMessage[]>([])
-	const pendingAssistantId = useRef<string | null>(null)
-	const sessionIdRef = useRef<string | undefined>(sessionId)
 	const isAtBottomRef = useRef(true)
-	// Resolves to the active session ID once it is known (may be a pending creation).
-	// Replaces the old polling loop — the streaming save callback awaits this directly.
-	const sessionPromiseRef = useRef<Promise<string> | null>(null)
 
-	// Keep refs in sync
-	useEffect(() => {
-		messagesRef.current = messages
-	}, [messages])
-	useEffect(() => {
-		sessionIdRef.current = sessionId
-	}, [sessionId])
-
-	// ── Persistence hooks ─────────────────────────────────────────────────────
-	const { data: loadedMessages, isLoading: loadingMessages } = useChatMessages(sessionId)
-	const createSession = useCreateChatSession()
-	const saveMessage = useSaveChatMessage()
-	const updateChartType = useUpdateMessageChartType()
-
-	// Sync persisted messages from DB into state.
-	// Skips while streaming (in-memory state is richer) or while a save is
-	// in-flight (in-memory has messages the DB doesn't yet).
-	useEffect(() => {
-		if (!sessionId) {
-			setMessages([])
-			return
-		}
-		if (!loadedMessages) return
-
-		// Don't overwrite in-memory state while actively streaming
-		if (pendingAssistantId.current) return
-
-		// Don't overwrite if we have more messages than DB (save in progress)
-		if (messagesRef.current.length > 0 && messagesRef.current.length > loadedMessages.length) return
-
-		setMessages(
-			loadedMessages.map((m) => ({
-				id: m.id,
-				role: m.role as "user" | "assistant",
-				content: m.content,
-				chart: (m.chart as unknown as ChatMessage["chart"]) ?? undefined,
-				chartTypeOverride: (m.chart_type_override as ChartType | null) ?? undefined,
-				error: m.error ?? undefined,
-				createdAt: new Date(m.created_at),
-			}))
-		)
-	}, [sessionId, loadedMessages])
-
-	// ── Virtual list ──────────────────────────────────────────────────────────
 	const virtualizer = useVirtualizer({
 		count: messages.length,
 		getScrollElement: () => parentRef.current,
@@ -90,85 +29,17 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 		overscan: 5,
 	})
 
-	// ── Scroll tracking ───────────────────────────────────────────────────────
 	const handleScroll = useCallback(() => {
 		const el = parentRef.current
 		if (!el) return
 		isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150
 	}, [])
 
+	// Scroll to bottom when new messages arrive (only if already at bottom)
 	useEffect(() => {
 		if (messages.length === 0 || !isAtBottomRef.current) return
 		virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "auto" })
 	}, [messages.length, virtualizer])
-
-	// ── Streaming ─────────────────────────────────────────────────────────────
-	const { submit, abort, isStreaming } = useAnalyticsStream(
-		useCallback(
-			(event: StreamEvent) => {
-				const id = pendingAssistantId.current
-				if (!id) return
-
-				setMessages((prev) => {
-					const idx = prev.findIndex((m) => m.id === id)
-					if (idx === -1) return prev
-					const msg = { ...prev[idx] }
-					if (event.type === "text_delta") msg.content = (msg.content ?? "") + event.delta
-					else if (event.type === "chart_spec") msg.chart = event.spec
-					else if (event.type === "done") msg.isStreaming = false
-					else if (event.type === "error") {
-						msg.error = event.message
-						msg.isStreaming = false
-					}
-					const updated = [...prev]
-					updated[idx] = msg
-					// Sync ref eagerly so the streaming save callback (sessionPromiseRef)
-					// sees the final accumulated state when it reads messagesRef.
-					messagesRef.current = updated
-					return updated
-				})
-
-				// Persist assistant message on completion
-				if (event.type === "done" || event.type === "error") {
-					pendingAssistantId.current = null
-
-					// `latest` is read after the setMessages call above, which eagerly
-					// syncs messagesRef.current — so this captures the final accumulated state.
-					const latest = messagesRef.current.find((m) => m.id === id)
-					if (!latest || !sessionPromiseRef.current) return
-
-					// Await the session promise (already resolved if session existed,
-					// or pending if this is the first message of a new session).
-					// Exponential-backoff retry on save: 1 s, 2 s, 4 s.
-					void sessionPromiseRef.current
-						.then(async (sid) => {
-							const doSave = async (attempt = 0): Promise<void> => {
-								try {
-									await saveMessage.mutateAsync({
-										sessionId: sid,
-										role: "assistant",
-										content: latest.content,
-										chart: latest.chart,
-										error: latest.error,
-									})
-								} catch (err) {
-									if (attempt < 3) {
-										await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
-										return doSave(attempt + 1)
-									}
-									console.error("[analytics-chat] Failed to persist assistant message:", err)
-								}
-							}
-							await doSave()
-						})
-						.catch((err) => {
-							console.error("[analytics-chat] No session to save assistant message:", err)
-						})
-				}
-			},
-			[saveMessage]
-		)
-	)
 
 	// RAF sticky-scroll during streaming
 	useEffect(() => {
@@ -185,88 +56,13 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 		return () => cancelAnimationFrame(rafId)
 	}, [isStreaming])
 
-	// ── Action handlers ───────────────────────────────────────────────────────
-	const handleAbort = useCallback(() => {
-		abort()
-		const id = pendingAssistantId.current
-		if (!id) return
-		pendingAssistantId.current = null
-		setMessages((prev) =>
-			prev.map((m) =>
-				m.id === id
-					? {
-							...m,
-							isStreaming: false,
-							error: m.content || m.chart || m.error ? m.error : "Geração interrompida.",
-						}
-					: m
-			)
-		)
-	}, [abort])
-
-	const handleSubmit = useCallback(
+	// Force scroll-to-bottom whenever the user sends a new message
+	const onSubmit = useCallback(
 		(message: string) => {
-			const history = messagesRef.current.filter((e) => !e.isStreaming)
-
 			isAtBottomRef.current = true
-
-			const userMsg: ChatMessage = {
-				id: generateId(),
-				role: "user",
-				content: message,
-				createdAt: new Date(),
-			}
-			const assistantId = generateId()
-			pendingAssistantId.current = assistantId
-			const assistantMsg: ChatMessage = {
-				id: assistantId,
-				role: "assistant",
-				content: "",
-				isStreaming: true,
-				createdAt: new Date(),
-			}
-			setMessages((prev) => [...prev, userMsg, assistantMsg])
-
-			// Start streaming immediately — don't block on session creation
-			void submit(message, history)
-
-			// Wire up sessionPromiseRef so the streaming save callback can await
-			// the session ID without polling.
-			const sid = sessionIdRef.current
-			if (sid) {
-				sessionPromiseRef.current = Promise.resolve(sid)
-				saveMessage.mutate({ sessionId: sid, role: "user", content: message })
-			} else {
-				// First message — create session, then save user message
-				const p = createSession.mutateAsync(titleFromMessage(message)).then((newSession) => {
-					sessionIdRef.current = newSession.id
-					onSessionCreated(newSession.id)
-					saveMessage.mutate({ sessionId: newSession.id, role: "user", content: message })
-					return newSession.id
-				})
-				sessionPromiseRef.current = p
-				// Don't add a .catch here — the streaming callback's .catch (L ~165) already
-				// handles the rejection. A second .catch on the same promise would double-log.
-			}
+			handleSubmit(message)
 		},
-		[submit, createSession, saveMessage, onSessionCreated]
-	)
-
-	const handleChartTypeChange = useCallback(
-		(messageId: string, type: ChartType) => {
-			const sid = sessionIdRef.current
-			if (!sid) return
-			// Update in-memory state immediately for snappy UI
-			setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, chartTypeOverride: type } : m)))
-			// Only persist when messageId is a real DB UUID (36-char format).
-			// Client-generated temp IDs (8-char) would fail z.string().uuid() validation.
-			// After the DB sync effect replaces IDs with UUIDs, subsequent calls will persist.
-			const isDbUuid = messageId.length === 36 && messageId[8] === "-"
-			if (isDbUuid) {
-				updateChartType.mutate({ messageId, sessionId: sid, chartTypeOverride: type })
-			}
-		},
-		[updateChartType]
+		[handleSubmit]
 	)
 
 	// ── Render ────────────────────────────────────────────────────────────────
@@ -308,14 +104,14 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 						<div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
 					</div>
 				) : (
-					<SuggestedPrompts onSelect={handleSubmit} />
+					<SuggestedPrompts onSelect={onSubmit} />
 				)}
 			</div>
 
 			{/* Input bar */}
 			<div className="shrink-0 border-t border-border bg-background/80 backdrop-blur-sm px-4 py-3">
 				<div className="mx-auto max-w-3xl">
-					<ChatInput onSubmit={handleSubmit} onAbort={handleAbort} isStreaming={isStreaming} />
+					<ChatInput onSubmit={onSubmit} onAbort={handleAbort} isStreaming={isStreaming} />
 					<p className="mt-1.5 text-center text-[11px] text-muted-foreground">Os dados são consultados em tempo real. Resultados limitados a 500 registros.</p>
 				</div>
 			</div>

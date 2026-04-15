@@ -208,7 +208,23 @@ export default defineHandler(async (event: H3Event) => {
 
 	const stream = new ReadableStream({
 		async start(controller) {
+			let controllerClosed = false
+
+			// SSE keepalive: send a comment frame every 5 s so Bun's idle timeout
+			// (default 10 s) doesn't close the connection while the LLM is "thinking".
+			// Comment frames (": keepalive") are valid SSE and invisible to EventSource.
+			const keepaliveInterval = setInterval(() => {
+				if (controllerClosed) return
+				try {
+					controller.enqueue(encoder.encode(": keepalive\n\n"))
+				} catch {
+					controllerClosed = true
+					clearInterval(keepaliveInterval)
+				}
+			}, 5_000)
+
 			const sendEvent = (data: StreamEvent) => {
+				if (controllerClosed) return
 				controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 			}
 
@@ -296,7 +312,7 @@ export default defineHandler(async (event: H3Event) => {
 							await emitChartSpec(rawSpec, sendEvent)
 						} catch (e) {
 							const err = e as Error
-							console.error("[analytics/stream] chart-spec error:", err.message, "\nrawSpec:", rawSpec.slice(0, 300))
+							console.error("[analytics/stream] chart-spec error:", err.message ?? String(err), "\nrawSpec:", rawSpec.slice(0, 300))
 							sendEvent({
 								type: "error",
 								message:
@@ -325,7 +341,13 @@ export default defineHandler(async (event: H3Event) => {
 			} catch (e) {
 				sendEvent({ type: "error", message: (e as Error).message })
 			} finally {
-				controller.close()
+				clearInterval(keepaliveInterval)
+				controllerClosed = true
+				try {
+					controller.close()
+				} catch {
+					// Already closed (e.g. client disconnected or Bun timeout fired)
+				}
 			}
 		},
 	})

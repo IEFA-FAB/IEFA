@@ -1,0 +1,49 @@
+---
+title: Visão Geral
+description: Portal web institucional do IEFA — CMS, edição de conteúdo e gestão de publicações.
+---
+
+## O que é o Portal IEFA
+
+O **Portal IEFA** é a aplicação web voltada para gestão e publicação de conteúdo institucional. Serve como interface principal para Oficiais Intendentes e administradores gerenciarem informações, documentos e publicações do IEFA e da SEFA.
+
+## Stack Técnica
+
+| Camada | Tecnologia |
+|--------|-----------|
+| Framework | React 19 + Vite |
+| SSR | Nitro (preset Bun) |
+| Roteamento | TanStack Router (file-based) |
+| CMS | Sanity |
+| Estilo | Tailwind CSS v4 — **Pale Brutalism 2026** (zero border-radius) |
+| Linguagem | TypeScript 5.x |
+
+## Design System
+
+O Portal adota o sistema **Pale Brutalism 2026** — incompatível com o Sisub. Regras fundamentais:
+
+- **Zero radius** — `--radius: 0rem`. Nenhum `rounded-*` exceto pílulas explícitas
+- Contraste alto, tipografia pesada, bordas definidas
+- Referência completa: `apps/portal/STYLE_CONTRACT.md`
+
+## Funcionalidades Principais
+
+### CMS (Sanity)
+Integração com Sanity Studio para criação e edição de conteúdo estruturado. Tipos de documento, schemas e queries GROQ são mantidos no pacote de configuração do Sanity.
+
+### Drag & Drop
+Interface de reordenação de conteúdo com suporte a drag-and-drop para gestão de listas, galerias e publicações.
+
+### Edição Markdown
+Editor de markdown integrado para criação de documentos e artigos institucionais com preview em tempo real.
+
+## Roteamento
+
+Usa TanStack Router com geração automática de `routeTree.gen.ts`. Após adicionar novas rotas, executar `bun dev` para regenerar a árvore.
+
+## Comandos
+
+```bash
+bun run dev          # inicia todos os apps (turbo)
+bun run check        # biome check + typecheck
+```

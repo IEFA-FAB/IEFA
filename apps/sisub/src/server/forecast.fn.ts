@@ -1,7 +1,19 @@
+/**
+ * @module forecast.fn
+ * Meal forecast management for individual diners (will_eat intent per date+meal).
+ * CLIENT: getSupabaseServerClient (service role). Schema: sisub (explicit .schema("sisub")) on all functions.
+ * TABLES: meal_forecasts, user_data (schema sisub).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
+/**
+ * Lists meal forecasts for a user in a date range ordered by date ascending, with mess_hall code joined.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchMealForecastsFn = createServerFn({ method: "GET" })
 	.inputValidator(
 		z.object({
@@ -24,6 +36,11 @@ export const fetchMealForecastsFn = createServerFn({ method: "GET" })
 		return result ?? []
 	})
 
+/**
+ * Returns the default_mess_hall_id for a user, or null if not set.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchUserDefaultMessHallFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
@@ -38,6 +55,14 @@ export const fetchUserDefaultMessHallFn = createServerFn({ method: "GET" })
 		return result ?? null
 	})
 
+/**
+ * Upserts the user's default mess hall preference (conflict on id, ignoreDuplicates=false overrides existing value).
+ *
+ * @remarks
+ * SIDE EFFECTS: upserts sisub.user_data.default_mess_hall_id.
+ *
+ * @throws {Error} on Supabase upsert failure.
+ */
 export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -55,6 +80,15 @@ export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Saves or updates a meal forecast, falling back to delete+insert if upsert fails due to a conflict it can't resolve.
+ *
+ * @remarks
+ * SIDE EFFECTS: writes to sisub.meal_forecasts (conflict on user_id+date+meal).
+ * Fallback: on upsert error, deletes the conflicting row and re-inserts — handles edge cases not caught by onConflict.
+ *
+ * @throws {Error} only if both upsert and fallback insert fail.
+ */
 export const upsertForecastFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -93,6 +127,11 @@ export const upsertForecastFn = createServerFn({ method: "POST" })
 		}
 	})
 
+/**
+ * Deletes a specific meal forecast for a user. Silently ignores "No rows deleted" errors.
+ *
+ * @throws {Error} on Supabase delete failure (excluding no-rows-deleted).
+ */
 export const deleteForecastFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ userId: z.string(), date: z.string(), meal: z.string() }))
 	.handler(async ({ data }) => {

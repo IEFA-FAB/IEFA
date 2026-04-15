@@ -1,8 +1,20 @@
+/**
+ * @module evaluation.fn
+ * Super-admin evaluation feature toggle and user opinion collection.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: super_admin_controller (key="evaluation"), opinions.
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
+/**
+ * Returns the current evaluation config (active flag + question text). Never throws on missing row — returns { active: false, value: "" }.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getSupabaseServerClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
 
@@ -14,6 +26,14 @@ export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async
 	} as EvalConfig
 })
 
+/**
+ * Upserts the evaluation config (conflict on key="evaluation") and returns the saved state.
+ *
+ * @remarks
+ * SIDE EFFECTS: writes to super_admin_controller with key "evaluation".
+ *
+ * @throws {Error} on Supabase upsert failure.
+ */
 export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ active: z.boolean(), value: z.string() }))
 	.handler(async ({ data }) => {
@@ -31,6 +51,15 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 		} as EvalConfig
 	})
 
+/**
+ * Determines whether a user should be shown the evaluation prompt: checks if active and user hasn't already answered the current question.
+ *
+ * @remarks
+ * Two-step: (1) fetch config — returns { shouldAsk: false } early if inactive or question is blank;
+ * (2) check opinions table for (user_id, question) pair.
+ *
+ * @throws {Error} on config or opinion query failure.
+ */
 export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }): Promise<EvaluationResult> => {
@@ -61,6 +90,14 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
 		return { shouldAsk: !opinion, question }
 	})
 
+/**
+ * Records a user's evaluation answer for a specific question.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts into opinions. No uniqueness enforcement — duplicate answers are silently allowed.
+ *
+ * @throws {Error} on Supabase insert failure.
+ */
 export const submitEvaluationFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ value: z.number(), question: z.string(), userId: z.string() }))
 	.handler(async ({ data }) => {

@@ -1,3 +1,10 @@
+/**
+ * @module unit-dashboard.fn
+ * Unit procurement health dashboard: published ATAs + ARP items at ≥80% consumption with upcoming-menu annotation.
+ * CLIENT: getSupabaseServerClient (service role).
+ * TABLES: procurement_ata, procurement_arp, procurement_arp_item, procurement_ata_item, kitchen, daily_menu, menu_items (all reads).
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -44,6 +51,22 @@ export interface UnitDashboardData {
 
 // ─── Server Function ──────────────────────────────────────────────────────────
 
+/**
+ * Returns published ATAs and low-balance ARP items (≥80% consumed) for a unit, annotated with in_upcoming_menu flag.
+ *
+ * @remarks
+ * 7-step pipeline:
+ *   (1) Fetch all non-deleted ATAs → filter published.
+ *   (2) Fetch ARPs linked to published ATAs.
+ *   (3) Fetch ARP items with ata_item join (for product_id).
+ *   (4) Filter: qtdeEmpenhada / qtdeHomologada ≥ 0.8.
+ *   (5) Collect product_ids from relevant items.
+ *   (6) Check upcoming menus (today + 30 days) across unit kitchens to compute in_upcoming_menu.
+ *   (7) Sort: in_upcoming_menu=true first, then consumption_pct descending.
+ * Returns early with empty low_balance_items at steps (1), (2) and (4) if no qualifying data found.
+ *
+ * @throws {Error} on ATAs, ARPs or ARP items query failure.
+ */
 export const fetchUnitDashboardFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ unitId: z.number() }))
 	.handler(async ({ data }): Promise<UnitDashboardData> => {

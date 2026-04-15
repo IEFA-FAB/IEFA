@@ -67,38 +67,27 @@ const TAG_TONE: Record<string, string> = {
    ======================================================================== */
 
 // Definido fora do componente para evitar recriação a cada render
+const remarkPlugins = [remarkGfm, remarkBreaks]
+
 const markdownComponents: Partial<Components> = {
-	// biome-ignore lint/suspicious/noExplicitAny: markdown props
-	a: ({ node, href, ...props }: any) => (
-		<a
-			{...props}
-			href={transformLinkUri(href)}
-			className="cursor-pointer text-primary hover:text-primary/90 underline"
-			target="_blank"
-			rel="noopener noreferrer nofollow"
-		/>
+	a: ({ href, children }) => (
+		<a href={transformLinkUri(href)} className="cursor-pointer text-primary hover:text-primary/90 underline" target="_blank" rel="noopener noreferrer nofollow">
+			{children}
+		</a>
 	),
-	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
-	ul: ({ node, ...props }: any) => <ul {...props} className="list-disc pl-6" />,
-	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
-	ol: ({ node, ...props }: any) => <ol {...props} className="list-decimal pl-6" />,
-	// biome-ignore lint/suspicious/noExplicitAny: markdown component props
-	code: (props: any) => {
-		const { inline, className, children, ...rest } = props
-		if (inline) {
-			return (
-				<code {...rest} className={cn("rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground", className)}>
-					{children}
-				</code>
-			)
+	ul: ({ children }) => <ul className="list-disc pl-6">{children}</ul>,
+	ol: ({ children }) => <ol className="list-decimal pl-6">{children}</ol>,
+	// Block code: <pre> wraps the container, <code> just carries the language class.
+	// react-markdown v10 removed the `inline` prop — detect via className instead:
+	// fenced code blocks get className="language-xxx"; inline code gets none.
+	pre: ({ children }) => <pre className="bg-muted text-foreground p-4 rounded-md overflow-x-auto">{children}</pre>,
+	code: ({ className, children }) => {
+		if (className) {
+			// Block code inside <pre> — pre handles the visual container
+			return <code className={className}>{children}</code>
 		}
-		return (
-			<pre className="bg-muted text-foreground p-4 rounded-md overflow-x-auto">
-				<code {...rest} className={className}>
-					{children}
-				</code>
-			</pre>
-		)
+		// Inline code
+		return <code className={cn("rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground")}>{children}</code>
 	},
 }
 
@@ -115,7 +104,7 @@ function TagBadge({ tag }: { id: string; tag: string }) {
 function MarkdownContent({ children }: { children: string }) {
 	return (
 		<div className="prose max-w-none leading-relaxed dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground">
-			<ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+			<ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
 				{children}
 			</ReactMarkdown>
 		</div>

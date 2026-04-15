@@ -1,3 +1,11 @@
+/**
+ * @module templates.fn
+ * Menu template (weekly/event) CRUD and stamping onto the planning board.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: menu_template, menu_template_items, daily_menu, menu_items.
+ * Scope: kitchenId=null → global templates (SDAB only); non-null → global + kitchen-specific templates.
+ */
+
 import type { Json } from "@iefa/database"
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
@@ -21,6 +29,14 @@ const MenuTemplateItemWriteSchema = z.object({
 	headcount_override: z.number().nullable().optional(),
 })
 
+/**
+ * Lists active templates visible to a kitchen scope, computing item_count, headcount_filled and avg_headcount_weekday (Mon–Thu, day_of_week 1–4).
+ *
+ * @remarks
+ * kitchenId=null → global templates only; non-null → global OR matching kitchen (PostgREST OR filter).
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number().nullable() }))
 	.handler(async ({ data }): Promise<TemplateWithItemCounts[]> => {
@@ -59,6 +75,11 @@ export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 		})
 	})
 
+/**
+ * Lists soft-deleted templates for a kitchen scope, ordered by deletion date descending.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ kitchenId: z.number().nullable() }))
 	.handler(async ({ data }): Promise<TemplateWithItemCounts[]> => {
@@ -88,6 +109,11 @@ export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
 		})
 	})
 
+/**
+ * Fetches all items for a template with meal_type and recipe_origin relations, ordered by day_of_week then meal_type_id.
+ *
+ * @throws {Error} on Supabase query failure.
+ */
 export const fetchTemplateItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ templateId: z.string() }))
 	.handler(async ({ data }): Promise<MenuTemplateWithItems["items"]> => {
@@ -103,6 +129,11 @@ export const fetchTemplateItemsFn = createServerFn({ method: "GET" })
 		return (result || []) as any
 	})
 
+/**
+ * Fetches a single template with its items and recipe_origin relations.
+ *
+ * @throws {Error} on template not found (Supabase .single() error) or items query failure.
+ */
 export const fetchTemplateFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ templateId: z.string() }))
 	.handler(async ({ data }): Promise<MenuTemplateWithItems | null> => {
@@ -123,6 +154,15 @@ export const fetchTemplateFn = createServerFn({ method: "GET" })
 		return { ...template, items: (items || []) as any }
 	})
 
+/**
+ * Creates a template and its items — rolls back the template (hard delete) if item insertion fails.
+ *
+ * @remarks
+ * SIDE EFFECTS: inserts menu_template then menu_template_items; on item error, hard-deletes the inserted template.
+ * Partial rollback only (no DB transaction). Succeeds cleanly if items array is empty.
+ *
+ * @throws {Error} on template or item insert failure (rollback attempted but not guaranteed).
+ */
 export const createTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -158,6 +198,15 @@ export const createTemplateFn = createServerFn({ method: "POST" })
 		return newTemplate
 	})
 
+/**
+ * Updates a template's metadata and optionally replaces all its items via delete-all + re-insert.
+ *
+ * @remarks
+ * SIDE EFFECTS: when items is provided (even empty array), DELETES all existing menu_template_items before inserting new ones — destructive replacement.
+ * items=undefined → metadata-only update, existing items untouched.
+ *
+ * @throws {Error} on any Supabase operation failure.
+ */
 export const updateTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
@@ -198,6 +247,11 @@ export const updateTemplateFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Soft-deletes a template by setting deleted_at — items remain intact and recoverable via restoreTemplateFn.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const deleteTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -206,6 +260,11 @@ export const deleteTemplateFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Restores a soft-deleted template by clearing deleted_at.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 export const restoreTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
@@ -214,6 +273,17 @@ export const restoreTemplateFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 	})
 
+/**
+ * Stamps a template onto a set of calendar dates, mapping template days to dates via startDayOfWeek offset.
+ *
+ * @remarks
+ * SIDE EFFECTS: soft-deletes ALL existing daily_menus for (targetDates × kitchenId) before creating new records.
+ *   Inserts daily_menu (one per meal_type per date) and menu_items using crypto.randomUUID(). No DB transaction.
+ * Day mapping: jsDay → templateDay via ((jsDay - startDayOfWeek + 7) % 7) + 1. Sunday is treated as 7, not 0.
+ * Items with null meal_type_id are silently skipped.
+ *
+ * @throws {Error} on template fetch, soft-delete, daily_menu insert, or menu_items insert failure.
+ */
 export const applyTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({

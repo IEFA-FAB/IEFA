@@ -1,3 +1,10 @@
+/**
+ * @module places.fn
+ * Organisational hierarchy CRUD: units, kitchens and mess halls graph management.
+ * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * TABLES: units, kitchen, mess_halls.
+ */
+
 import type { KitchenUpdate, MessHallUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
@@ -6,6 +13,11 @@ import type { PlacesGraphData } from "@/types/domain/places"
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
+/**
+ * Fetches all units, kitchens and mess halls in parallel for the org hierarchy graph view.
+ *
+ * @throws {Error} on any of the three Supabase queries failing.
+ */
 export const fetchPlacesGraphFn = createServerFn({ method: "GET" }).handler(async () => {
 	const client = getSupabaseServerClient()
 
@@ -27,6 +39,15 @@ export const fetchPlacesGraphFn = createServerFn({ method: "GET" }).handler(asyn
 })
 
 // ─── Update entity attributes ─────────────────────────────────────────────────
+
+/**
+ * Updates display attributes of a unit, kitchen or mess_hall using a discriminated-union input.
+ *
+ * @remarks
+ * SIDE EFFECTS: updates one row in units, kitchen or mess_halls depending on entityType.
+ *
+ * @throws {Error} on Supabase update failure.
+ */
 
 const updateEntitySchema = z.discriminatedUnion("entityType", [
 	z.object({
@@ -72,6 +93,16 @@ export const updatePlacesEntityFn = createServerFn({ method: "POST" })
 	})
 
 // ─── Apply relation diffs (batch) ─────────────────────────────────────────────
+
+/**
+ * Applies a batch of FK column updates across kitchen and mess_halls tables sequentially.
+ *
+ * @remarks
+ * SIDE EFFECTS: updates one row per diff entry — sequential (not parallel), stops on first failure.
+ * Supported columns: kitchen.{unit_id, purchase_unit_id, kitchen_id}, mess_halls.{unit_id, kitchen_id}.
+ *
+ * @throws {Error} "Falha ao atualizar {table} (id {n}): ..." on first failing update.
+ */
 
 const diffItemSchema = z.discriminatedUnion("table", [
 	z.object({

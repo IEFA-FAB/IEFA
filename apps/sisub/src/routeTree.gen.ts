@@ -34,6 +34,7 @@ import { Route as ProtectedModulesGlobalPlacesManagerRouteImport } from './route
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
 import { Route as ProtectedModulesGlobalComprasSyncRouteImport } from './routes/_protected/_modules/global/compras-sync'
+import { Route as ProtectedModulesGlobalChatRouteImport } from './routes/_protected/_modules/global/chat'
 import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_protected/_modules/diner/self-check-in'
 import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_protected/_modules/diner/qr-code'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
@@ -56,11 +57,13 @@ import { Route as ProtectedModulesGlobalIngredientsIndexRouteImport } from './ro
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
 import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
+import { Route as ProtectedModulesUnitUnitIdChatRouteImport } from './routes/_protected/_modules/unit/$unitId/chat'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/indicators'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/dashboard'
 import { Route as ProtectedModulesKitchenKitchenIdSettingsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/settings'
 import { Route as ProtectedModulesKitchenKitchenIdQrCodeRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/qr-code'
 import { Route as ProtectedModulesKitchenKitchenIdPlanningRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/planning'
+import { Route as ProtectedModulesKitchenKitchenIdChatRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/chat'
 import { Route as ProtectedModulesGlobalWeeklyPlansNewRouteImport } from './routes/_protected/_modules/global/weekly-plans/new'
 import { Route as ProtectedModulesGlobalWeeklyPlansPlanIdRouteImport } from './routes/_protected/_modules/global/weekly-plans/$planId'
 import { Route as ProtectedModulesGlobalRecipesNewRouteImport } from './routes/_protected/_modules/global/recipes/new'
@@ -222,6 +225,12 @@ const ProtectedModulesGlobalComprasSyncRoute =
     path: '/global/compras-sync',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
+const ProtectedModulesGlobalChatRoute =
+  ProtectedModulesGlobalChatRouteImport.update({
+    id: '/global/chat',
+    path: '/global/chat',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesDinerSelfCheckInRoute =
   ProtectedModulesDinerSelfCheckInRouteImport.update({
     id: '/diner/self-check-in',
@@ -354,6 +363,12 @@ const ProtectedModulesUnitUnitIdDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
   } as any)
+const ProtectedModulesUnitUnitIdChatRoute =
+  ProtectedModulesUnitUnitIdChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
+    getParentRoute: () => ProtectedModulesUnitUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute =
   ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport.update({
     id: '/indicators',
@@ -382,6 +397,12 @@ const ProtectedModulesKitchenKitchenIdPlanningRoute =
   ProtectedModulesKitchenKitchenIdPlanningRouteImport.update({
     id: '/planning',
     path: '/planning',
+    getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
+  } as any)
+const ProtectedModulesKitchenKitchenIdChatRoute =
+  ProtectedModulesKitchenKitchenIdChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
     getParentRoute: () => ProtectedModulesKitchenKitchenIdRouteRoute,
   } as any)
 const ProtectedModulesGlobalWeeklyPlansNewRoute =
@@ -554,6 +575,7 @@ export interface FileRoutesByFullPath {
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
@@ -571,11 +593,13 @@ export interface FileRoutesByFullPath {
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
   '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -623,6 +647,7 @@ export interface FileRoutesByTo {
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
@@ -640,11 +665,13 @@ export interface FileRoutesByTo {
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
   '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsIndexRoute
@@ -700,6 +727,7 @@ export interface FileRoutesById {
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/_protected/_modules/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
   '/_protected/_modules/diner/self-check-in': typeof ProtectedModulesDinerSelfCheckInRoute
+  '/_protected/_modules/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/_protected/_modules/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
@@ -717,11 +745,13 @@ export interface FileRoutesById {
   '/_protected/_modules/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/_protected/_modules/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/_protected/_modules/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  '/_protected/_modules/kitchen/$kitchenId/chat': typeof ProtectedModulesKitchenKitchenIdChatRoute
   '/_protected/_modules/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/_protected/_modules/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/_protected/_modules/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
   '/_protected/_modules/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/_protected/_modules/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
+  '/_protected/_modules/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -777,6 +807,7 @@ export interface FileRouteTypes {
     | '/diner/profile'
     | '/diner/qr-code'
     | '/diner/self-check-in'
+    | '/global/chat'
     | '/global/compras-sync'
     | '/global/evaluation'
     | '/global/permissions'
@@ -794,11 +825,13 @@ export interface FileRouteTypes {
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
+    | '/kitchen/$kitchenId/chat'
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
     | '/local-analytics/$unitId/dashboard'
     | '/local-analytics/$unitId/indicators'
+    | '/unit/$unitId/chat'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/procurement'
     | '/unit/$unitId/settings'
@@ -846,6 +879,7 @@ export interface FileRouteTypes {
     | '/diner/profile'
     | '/diner/qr-code'
     | '/diner/self-check-in'
+    | '/global/chat'
     | '/global/compras-sync'
     | '/global/evaluation'
     | '/global/permissions'
@@ -863,11 +897,13 @@ export interface FileRouteTypes {
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
+    | '/kitchen/$kitchenId/chat'
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
     | '/local-analytics/$unitId/dashboard'
     | '/local-analytics/$unitId/indicators'
+    | '/unit/$unitId/chat'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/settings'
     | '/global/ingredients'
@@ -922,6 +958,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/diner/profile'
     | '/_protected/_modules/diner/qr-code'
     | '/_protected/_modules/diner/self-check-in'
+    | '/_protected/_modules/global/chat'
     | '/_protected/_modules/global/compras-sync'
     | '/_protected/_modules/global/evaluation'
     | '/_protected/_modules/global/permissions'
@@ -939,11 +976,13 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/recipes/new'
     | '/_protected/_modules/global/weekly-plans/$planId'
     | '/_protected/_modules/global/weekly-plans/new'
+    | '/_protected/_modules/kitchen/$kitchenId/chat'
     | '/_protected/_modules/kitchen/$kitchenId/planning'
     | '/_protected/_modules/kitchen/$kitchenId/qr-code'
     | '/_protected/_modules/kitchen/$kitchenId/settings'
     | '/_protected/_modules/local-analytics/$unitId/dashboard'
     | '/_protected/_modules/local-analytics/$unitId/indicators'
+    | '/_protected/_modules/unit/$unitId/chat'
     | '/_protected/_modules/unit/$unitId/dashboard'
     | '/_protected/_modules/unit/$unitId/procurement'
     | '/_protected/_modules/unit/$unitId/settings'
@@ -1160,6 +1199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesGlobalComprasSyncRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
+    '/_protected/_modules/global/chat': {
+      id: '/_protected/_modules/global/chat'
+      path: '/global/chat'
+      fullPath: '/global/chat'
+      preLoaderRoute: typeof ProtectedModulesGlobalChatRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
     '/_protected/_modules/diner/self-check-in': {
       id: '/_protected/_modules/diner/self-check-in'
       path: '/diner/self-check-in'
@@ -1314,6 +1360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesUnitUnitIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
     }
+    '/_protected/_modules/unit/$unitId/chat': {
+      id: '/_protected/_modules/unit/$unitId/chat'
+      path: '/chat'
+      fullPath: '/unit/$unitId/chat'
+      preLoaderRoute: typeof ProtectedModulesUnitUnitIdChatRouteImport
+      parentRoute: typeof ProtectedModulesUnitUnitIdRouteRoute
+    }
     '/_protected/_modules/local-analytics/$unitId/indicators': {
       id: '/_protected/_modules/local-analytics/$unitId/indicators'
       path: '/indicators'
@@ -1347,6 +1400,13 @@ declare module '@tanstack/react-router' {
       path: '/planning'
       fullPath: '/kitchen/$kitchenId/planning'
       preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdPlanningRouteImport
+      parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
+    }
+    '/_protected/_modules/kitchen/$kitchenId/chat': {
+      id: '/_protected/_modules/kitchen/$kitchenId/chat'
+      path: '/chat'
+      fullPath: '/kitchen/$kitchenId/chat'
+      preLoaderRoute: typeof ProtectedModulesKitchenKitchenIdChatRouteImport
       parentRoute: typeof ProtectedModulesKitchenKitchenIdRouteRoute
     }
     '/_protected/_modules/global/weekly-plans/new': {
@@ -1575,6 +1635,7 @@ const ProtectedModulesKitchenKitchenIdRecipesRecipeIdRouteRouteWithChildren =
   )
 
 interface ProtectedModulesKitchenKitchenIdRouteRouteChildren {
+  ProtectedModulesKitchenKitchenIdChatRoute: typeof ProtectedModulesKitchenKitchenIdChatRoute
   ProtectedModulesKitchenKitchenIdPlanningRoute: typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   ProtectedModulesKitchenKitchenIdQrCodeRoute: typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   ProtectedModulesKitchenKitchenIdSettingsRoute: typeof ProtectedModulesKitchenKitchenIdSettingsRoute
@@ -1595,6 +1656,8 @@ interface ProtectedModulesKitchenKitchenIdRouteRouteChildren {
 
 const ProtectedModulesKitchenKitchenIdRouteRouteChildren: ProtectedModulesKitchenKitchenIdRouteRouteChildren =
   {
+    ProtectedModulesKitchenKitchenIdChatRoute:
+      ProtectedModulesKitchenKitchenIdChatRoute,
     ProtectedModulesKitchenKitchenIdPlanningRoute:
       ProtectedModulesKitchenKitchenIdPlanningRoute,
     ProtectedModulesKitchenKitchenIdQrCodeRoute:
@@ -1689,6 +1752,7 @@ const ProtectedModulesUnitUnitIdProcurementRouteWithChildren =
   )
 
 interface ProtectedModulesUnitUnitIdRouteRouteChildren {
+  ProtectedModulesUnitUnitIdChatRoute: typeof ProtectedModulesUnitUnitIdChatRoute
   ProtectedModulesUnitUnitIdDashboardRoute: typeof ProtectedModulesUnitUnitIdDashboardRoute
   ProtectedModulesUnitUnitIdProcurementRoute: typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   ProtectedModulesUnitUnitIdSettingsRoute: typeof ProtectedModulesUnitUnitIdSettingsRoute
@@ -1697,6 +1761,7 @@ interface ProtectedModulesUnitUnitIdRouteRouteChildren {
 
 const ProtectedModulesUnitUnitIdRouteRouteChildren: ProtectedModulesUnitUnitIdRouteRouteChildren =
   {
+    ProtectedModulesUnitUnitIdChatRoute: ProtectedModulesUnitUnitIdChatRoute,
     ProtectedModulesUnitUnitIdDashboardRoute:
       ProtectedModulesUnitUnitIdDashboardRoute,
     ProtectedModulesUnitUnitIdProcurementRoute:
@@ -1723,6 +1788,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
   ProtectedModulesDinerQrCodeRoute: typeof ProtectedModulesDinerQrCodeRoute
   ProtectedModulesDinerSelfCheckInRoute: typeof ProtectedModulesDinerSelfCheckInRoute
+  ProtectedModulesGlobalChatRoute: typeof ProtectedModulesGlobalChatRoute
   ProtectedModulesGlobalComprasSyncRoute: typeof ProtectedModulesGlobalComprasSyncRoute
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
@@ -1764,6 +1830,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
   ProtectedModulesDinerQrCodeRoute: ProtectedModulesDinerQrCodeRoute,
   ProtectedModulesDinerSelfCheckInRoute: ProtectedModulesDinerSelfCheckInRoute,
+  ProtectedModulesGlobalChatRoute: ProtectedModulesGlobalChatRoute,
   ProtectedModulesGlobalComprasSyncRoute:
     ProtectedModulesGlobalComprasSyncRoute,
   ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
