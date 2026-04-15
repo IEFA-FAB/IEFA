@@ -10,7 +10,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | `portal` | React 19 + Vite + Nitro SSR + TanStack Router | Portal web — CMS (Sanity), drag-drop, markdown |
 | `api` | Bun + Hono + OpenAPI (Scalar) | API pública — alimentos, preços, sync workers |
 | `ai` | Bun + Hono + LangChain/LangGraph | Serviço AI — ingestão de docs, orchestração LLM |
-| `docs` | Astro + Starlight | Documentação interna |
+| `docs` | React 19 + TanStack Start + Nitro SSR + Fumadocs | Documentação interna |
 | `sisub-mcp` | Bun + MCP SDK | MCP server — acesso AI aos dados sisub (stdio/HTTP) |
 
 ## Packages
