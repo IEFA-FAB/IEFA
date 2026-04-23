@@ -50,4 +50,4 @@ export type StreamEvent =
 	| { type: "text_delta"; delta: string }
 	| { type: "chart_spec"; spec: ChartSpec }
 	| { type: "done"; meta: StreamMeta }
-	| { type: "error"; message: string; meta: StreamMeta }
+	| { type: "error"; message: string; meta?: StreamMeta }

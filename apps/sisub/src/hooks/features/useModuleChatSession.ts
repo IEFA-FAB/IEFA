@@ -116,11 +116,11 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 						)
 					} else if (event.type === "done") {
 						msg.isStreaming = false
-						pendingMetaRef.current = event.meta
+						pendingMetaRef.current = event.meta ?? null
 					} else if (event.type === "error") {
 						msg.error = event.message
 						msg.isStreaming = false
-						pendingMetaRef.current = event.meta
+						pendingMetaRef.current = event.meta ?? null
 					}
 
 					const updated = [...prev]

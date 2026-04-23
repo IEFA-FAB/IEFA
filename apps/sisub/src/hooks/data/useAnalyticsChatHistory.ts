@@ -70,8 +70,18 @@ export function useChatMessages(sessionId: string | undefined) {
 export function useSaveChatMessage() {
 	const qc = useQueryClient()
 	return useMutation({
-		mutationFn: (vars: { sessionId: string; role: "user" | "assistant"; content: string; chart?: unknown; chartTypeOverride?: ChartType; error?: string }) =>
-			saveChatMessageFn({ data: vars }),
+		mutationFn: (vars: {
+			sessionId: string
+			role: "user" | "assistant"
+			content: string
+			chart?: unknown
+			chartTypeOverride?: ChartType
+			error?: string
+			model?: string
+			latencyMs?: number
+			inputTokens?: number
+			outputTokens?: number
+		}) => saveChatMessageFn({ data: vars }),
 		onSuccess: (_data, vars) => {
 			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
 			// Refresh sessions list so updated_at reorders sidebar

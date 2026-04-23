@@ -847,6 +847,11 @@ export type Database = {
 					created_at: string
 					error: string | null
 					id: string
+					input_tokens: number | null
+					langsmith_run_id: string | null
+					latency_ms: number | null
+					model: string | null
+					output_tokens: number | null
 					role: string
 					session_id: string
 				}
@@ -857,6 +862,11 @@ export type Database = {
 					created_at?: string
 					error?: string | null
 					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
 					role: string
 					session_id: string
 				}
@@ -867,6 +877,11 @@ export type Database = {
 					created_at?: string
 					error?: string | null
 					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
 					role?: string
 					session_id?: string
 				}
@@ -2232,6 +2247,11 @@ export type Database = {
 					created_at: string
 					error: string | null
 					id: string
+					input_tokens: number | null
+					langsmith_run_id: string | null
+					latency_ms: number | null
+					model: string | null
+					output_tokens: number | null
 					role: string
 					session_id: string
 					tool_call_id: string | null
@@ -2244,6 +2264,11 @@ export type Database = {
 					created_at?: string
 					error?: string | null
 					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
 					role: string
 					session_id: string
 					tool_call_id?: string | null
@@ -2256,6 +2281,11 @@ export type Database = {
 					created_at?: string
 					error?: string | null
 					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
 					role?: string
 					session_id?: string
 					tool_call_id?: string | null

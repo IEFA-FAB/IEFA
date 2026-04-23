@@ -178,11 +178,11 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 					else if (event.type === "chart_spec") msg.chart = event.spec
 					else if (event.type === "done") {
 						msg.isStreaming = false
-						pendingMetaRef.current = event.meta
+						pendingMetaRef.current = event.meta ?? null
 					} else if (event.type === "error") {
 						msg.error = event.message
 						msg.isStreaming = false
-						pendingMetaRef.current = event.meta
+						pendingMetaRef.current = event.meta ?? null
 					}
 					const updated = [...prev]
 					updated[idx] = msg

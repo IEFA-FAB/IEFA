@@ -102,6 +102,10 @@ export function useSaveModuleChatMessage(module: ChatModule, scopeId?: number) {
 			toolName?: string
 			toolResult?: unknown
 			error?: string
+			model?: string
+			latencyMs?: number
+			inputTokens?: number
+			outputTokens?: number
 		}) => saveModuleChatMessageFn({ data: vars }),
 		onSuccess: (_data, vars) => {
 			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })

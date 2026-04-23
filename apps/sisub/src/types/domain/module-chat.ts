@@ -60,7 +60,7 @@ export type ModuleStreamEvent =
 	| { type: "tool_call_done"; id: string; name: string; arguments: Record<string, unknown> }
 	| { type: "tool_result"; id: string; name: string; result: unknown; isError?: boolean }
 	| { type: "done"; meta: StreamMeta }
-	| { type: "error"; message: string; meta: StreamMeta }
+	| { type: "error"; message: string; meta?: StreamMeta }
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
