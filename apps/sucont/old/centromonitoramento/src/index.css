@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer utilities {
+	.prose a {
+		@apply text-indigo-600 underline font-medium hover:text-indigo-800 transition-colors;
+	}
+}

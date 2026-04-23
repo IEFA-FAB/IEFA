@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+	--color-fab-blue: #003399;
+	--color-fab-dark: #001a4d;
+	--color-fab-gold: #ffcc00;
+	--color-fab-silver: #e2e8f0;
+}
+
+@layer base {
+	body {
+		@apply bg-slate-50 text-slate-900;
+		background-image: radial-gradient(circle at 2px 2px, rgba(0, 51, 153, 0.08) 1px, transparent 0);
+		background-size: 24px 24px;
+	}
+}
+
+.fab-gradient {
+	background: linear-gradient(135deg, var(--color-fab-blue) 0%, var(--color-fab-dark) 100%);
+}
+
+.diref-card {
+	@apply bg-white border-l-4 border-l-fab-blue shadow-sm hover:shadow-md transition-all;
+}
+
+.military-label {
+	@apply text-[10px] font-black uppercase tracking-[0.2em] text-fab-blue/60;
+}

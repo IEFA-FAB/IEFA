@@ -1,0 +1,125 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Roboto+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/* Markdown Styles */
+.markdown-body {
+  @apply text-slate-800 dark:text-slate-200 leading-relaxed;
+}
+
+.markdown-body h1 {
+  @apply text-3xl font-bold mt-8 mb-4 border-b pb-2 border-slate-200 dark:border-slate-800;
+}
+
+.markdown-body h2 {
+  @apply text-2xl font-bold mt-6 mb-3 border-b pb-1 border-slate-200 dark:border-slate-800;
+}
+
+.markdown-body h3 {
+  @apply text-xl font-bold mt-4 mb-2;
+}
+
+.markdown-body p {
+  @apply mb-4;
+}
+
+.markdown-body ul, .markdown-body ol {
+  @apply mb-4 ml-6 list-disc;
+}
+
+.markdown-body li {
+  @apply mb-1;
+}
+
+.markdown-body table {
+  @apply w-full border-collapse mb-6 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 text-sm;
+}
+
+.markdown-body th {
+  @apply bg-slate-100 dark:bg-slate-800 p-3 text-left font-bold border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200;
+}
+
+.markdown-body td {
+  @apply p-3 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300;
+}
+
+.markdown-body tr:nth-child(even) {
+  @apply bg-slate-50/50 dark:bg-slate-800/20;
+}
+
+.markdown-body tr:hover {
+  @apply bg-slate-100/50 dark:bg-slate-800/40 transition-colors;
+}
+
+.markdown-body blockquote {
+  @apply border-l-4 border-indigo-500 pl-4 italic my-4 text-slate-600 dark:text-slate-400;
+}
+
+.markdown-body code {
+  @apply bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+/* Custom scrollbar for charts */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* Wave Chart Interactivity */
+.custom-brush .recharts-brush-texts {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.recharts-area-curve {
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.recharts-active-dot {
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+.recharts-brush-slide {
+  fill-opacity: 0.1;
+  transition: fill-opacity 0.3s ease;
+}
+
+.recharts-brush-slide:hover {
+  fill-opacity: 0.2;
+}
+
+.recharts-brush-traveller {
+  transition: transform 0.2s ease-out;
+}
+
+.recharts-brush-traveller:hover {
+  transform: scaleY(1.1);
+}

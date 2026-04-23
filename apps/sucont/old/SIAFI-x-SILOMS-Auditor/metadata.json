@@ -1,0 +1,5 @@
+{
+  "name": "V6 SIAFI x SILOMS Auditor",
+  "description": "Financial reconciliation dashboard to analyze discrepancies between SIAFI and SILOMS systems across different management units (UG).",
+  "requestFramePermissions": []
+}

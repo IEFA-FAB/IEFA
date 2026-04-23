@@ -1,0 +1,72 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+	--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+	--font-display: "Outfit", sans-serif;
+
+	--color-brand-primary: #1b365d;
+	--color-brand-secondary: #0056b3;
+	--color-surface-bg: #f8f9fa;
+	--color-surface-card: #ffffff;
+	--color-border-subtle: #e9ecef;
+}
+
+@layer base {
+	body {
+		@apply bg-[var(--color-surface-bg)] text-slate-900 antialiased;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		@apply font-display tracking-tight;
+	}
+}
+
+@layer components {
+	.glass-card {
+		@apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+	}
+
+	.btn-primary {
+		@apply bg-[var(--color-brand-primary)] text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-[var(--color-brand-secondary)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+	}
+
+	.btn-secondary {
+		@apply bg-white text-slate-700 border border-slate-200 px-6 py-2.5 rounded-lg font-semibold hover:bg-slate-50 transition-all active:scale-95 shadow-sm;
+	}
+
+	.input-field {
+		@apply w-full bg-white border border-slate-200 rounded-xl p-4 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400;
+	}
+}
+
+@media print {
+	.no-print {
+		display: none;
+	}
+	body {
+		background: white;
+	}
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 6px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #94a3b8;
+}

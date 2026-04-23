@@ -1,0 +1,5 @@
+{
+  "name": "ANALISTA SUCONT – Cruzamento de Contas Correntes de Cobrança (Q43)",
+  "description": "Ferramenta automatizada para análise de espelhamento entre as contas 897210300 (Em Cobrança na SDPP-PAÍS) e 897110300 (Em Cobrança – A Receber).",
+  "requestFramePermissions": []
+}

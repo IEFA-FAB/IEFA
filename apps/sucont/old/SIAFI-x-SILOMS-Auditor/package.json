@@ -1,0 +1,42 @@
+{
+  "name": "v6-siafi-x-siloms-auditor",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.43.0",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/express": "^4.17.21",
+    "@types/jspdf": "^2.0.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "express": "^4.19.2",
+    "framer-motion": "^12.35.2",
+    "google-auth-library": "^10.6.1",
+    "googleapis": "^171.4.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.2",
+    "lucide-react": "^0.555.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.5.1",
+    "remark-gfm": "^4.0.1",
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.11.0",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Gerador de Ofícios FAB",
+  "description": "Sistema para elaboração de ofícios no padrão do Comando da Aeronáutica (FAB). Adapta rascunhos para o formato oficial.",
+  "requestFramePermissions": []
+}

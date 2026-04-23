@@ -1,0 +1,5 @@
+{
+  "name": "ANALISTA SUCONT - Monitoramento de Contas de Saldo Transitório no COMAER (Q26, Q27, Q28, Q31, Q32 e Q36)",
+  "description": "Ferramenta para análise de saldos de contas contábeis do Tesouro Gerencial, com base no Roteiro de Acompanhamento Contábil (RAC).",
+  "requestFramePermissions": []
+}
