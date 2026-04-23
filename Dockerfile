@@ -16,6 +16,9 @@ COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/docs/package.json ./apps/docs/
 COPY apps/ai/package.json ./apps/ai/
 COPY packages/database/package.json ./packages/database/
+COPY packages/hono-client/package.json ./packages/hono-client/
+COPY packages/ai-client/package.json ./packages/ai-client/
+COPY packages/pbac/package.json ./packages/pbac/
 RUN bun install
 
 # =============================================================================
@@ -41,6 +44,7 @@ CMD ["bun", "apps/api/dist/index.js"]
 FROM deps AS iefa-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
+COPY packages/hono-client ./packages/hono-client
 COPY apps/portal ./apps/portal
 RUN rm -rf apps/portal/.vite apps/portal/.tanstack apps/portal/node_modules/.vite
 RUN bun --filter='@iefa/portal' run build
@@ -72,6 +76,9 @@ FROM deps AS sisub-build
 ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 COPY packages/database ./packages/database
+COPY packages/hono-client ./packages/hono-client
+COPY packages/ai-client ./packages/ai-client
+COPY packages/pbac ./packages/pbac
 COPY apps/sisub ./apps/sisub
 
 # Clear any local cache
@@ -106,6 +113,7 @@ CMD ["bun", ".output/server/index.mjs"]
 # RAG (apps/ai) — Hono + LangGraph + Bun
 # =============================================================================
 FROM deps AS rag-build
+COPY packages/ai-client ./packages/ai-client
 COPY apps/ai ./apps/ai
 RUN test -f apps/ai/src/index.ts || \
     (echo "❌ RAG entrypoint missing" && exit 1)
@@ -127,6 +135,16 @@ COPY apps/docs ./apps/docs
 RUN bun --filter='@iefa/docs' run build
 RUN test -f apps/docs/.output/server/index.mjs || \
     (echo "❌ Build failed: output missing" && exit 1)
+
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/docs/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/docs/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
 
 FROM base AS docs
 ENV NODE_ENV=production

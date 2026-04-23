@@ -323,7 +323,7 @@ function GlobalPlanEditorPage() {
 			<div className="space-y-6">
 				<PageHeader title="Editar Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })}>
 					<div className="flex items-center gap-2">
-						<Button type="button" variant="outline" size="sm" render={<Link to="/global/weekly-plans">Cancelar</Link>} />
+						<Button nativeButton={false} type="button" variant="outline" size="sm" render={<Link to="/global/weekly-plans">Cancelar</Link>} />
 						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
 							{isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
 							Salvar

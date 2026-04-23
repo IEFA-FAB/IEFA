@@ -3,10 +3,10 @@
  * resources e prompts do módulo Kitchen Planning do sisub.
  *
  * O JWT do usuário é capturado em closure na criação do servidor.
- * Cada chamada de tool faz: resolveUserContext(jwt) → valida token → verifica PBAC.
+ * Cada chamada de tool faz: resolveCredential(credential) → valida token → verifica PBAC.
  *
  * Uso:
- *   const server = createMcpServer(jwt)
+ *   const server = createMcpServer(credential)
  *   await server.connect(transport)
  */
 
@@ -21,20 +21,23 @@ import {
 	McpError,
 	ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js"
-import { resolveUserContext } from "./auth.ts"
+import { resolveCredential } from "./auth.ts"
 import { getDataClient } from "./supabase.ts"
+import { kitchenTools } from "./tools/kitchens.ts"
+import { mealTypeTools } from "./tools/meal-types.ts"
 import { planningTools } from "./tools/planning.ts"
+import { recipeTools } from "./tools/recipes.ts"
 import { requireKitchenPermission, safeInt } from "./tools/shared.ts"
 import { templateTools } from "./tools/templates.ts"
 
-// Todas as tools registradas (planning + templates)
-const allTools = [...planningTools, ...templateTools]
+// Todas as tools registradas
+const allTools = [...planningTools, ...templateTools, ...recipeTools, ...mealTypeTools, ...kitchenTools]
 
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createMcpServer(jwt: string): Server {
+export function createMcpServer(credential: string): Server {
 	const server = new Server(
 		{ name: "sisub-mcp", version: "0.1.0" },
 		{
@@ -60,7 +63,7 @@ export function createMcpServer(jwt: string): Server {
 			throw new McpError(ErrorCode.MethodNotFound, `Tool não encontrada: ${name}`)
 		}
 
-		return tool.handler(args, jwt)
+		return tool.handler(args, credential)
 	})
 
 	// ── Resources ─────────────────────────────────────────────────────────────
@@ -96,7 +99,7 @@ export function createMcpServer(jwt: string): Server {
 		if (todayMatch) {
 			// H3: regex já garante dígitos, mas safeInt faz coerção defensiva
 			const kitchenId = safeInt(todayMatch[1], "kitchenId")
-			const ctx = await resolveUserContext(jwt)
+			const ctx = await resolveCredential(credential)
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id: kitchenId })
 
 			const today = new Date().toISOString().split("T")[0]
@@ -130,7 +133,7 @@ export function createMcpServer(jwt: string): Server {
 			const kitchenId = safeInt(planningMatch[1], "kitchenId") // H3
 			const year = planningMatch[2]
 			const month = planningMatch[3]
-			const ctx = await resolveUserContext(jwt)
+			const ctx = await resolveCredential(credential)
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id: kitchenId })
 
 			const startDate = `${year}-${month}-01`
@@ -168,7 +171,7 @@ export function createMcpServer(jwt: string): Server {
 		const templatesMatch = uri.match(/^sisub:\/\/kitchen\/(\d+)\/templates$/)
 		if (templatesMatch) {
 			const kitchenId = safeInt(templatesMatch[1], "kitchenId") // H3
-			const ctx = await resolveUserContext(jwt)
+			const ctx = await resolveCredential(credential)
 			requireKitchenPermission(ctx, 1, { type: "kitchen", id: kitchenId })
 
 			const db = getDataClient()

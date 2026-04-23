@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "storage": {
+    "dir": ".tasktrace"
+  },
+  "git": {
+    "branchPatterns": [
+      "[Cc][Uu]-([a-zA-Z0-9]+)",
+      "([A-Z]+-\\d+)",
+      "#(\\d+)"
+    ],
+    "hooks": {
+      "preCommit": false,
+      "postCommit": true
+    }
+  },
+  "defaults": {
+    "syncMode": "comment",
+    "kind": "implementation"
+  },
+  "provider": {
+    "name": "clickup",
+    "config": {
+      "defaultListId": "901319747187",
+      "workspaceId": "90132431956",
+      "assignees": [236490510]
+    }
+  }
+}

@@ -17,7 +17,7 @@
 import { createServer } from "node:http"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import { resolveUserContext } from "./auth.ts"
+import { resolveCredential } from "./auth.ts"
 import { createMcpServer } from "./server.ts"
 
 const transportMode = process.env.MCP_TRANSPORT ?? "http"
@@ -27,16 +27,16 @@ const transportMode = process.env.MCP_TRANSPORT ?? "http"
 // ────────────────────────────────────────────────────────────────────────────
 
 if (transportMode === "stdio") {
-	const jwt = process.env.SISUB_USER_JWT
+	const credential = process.env.SISUB_USER_JWT
 
-	if (!jwt) {
+	if (!credential) {
 		process.stderr.write("[sisub-mcp] ERRO: SISUB_USER_JWT é obrigatório no modo stdio.\n")
 		process.exit(1)
 	}
 
 	process.stderr.write("[sisub-mcp] Iniciando transporte stdio...\n")
 
-	const mcpServer = createMcpServer(jwt)
+	const mcpServer = createMcpServer(credential)
 	const transport = new StdioServerTransport()
 
 	transport.onerror = (err) => process.stderr.write(`[sisub-mcp] Erro stdio: ${err.message}\n`)
@@ -186,26 +186,28 @@ if (transportMode === "stdio") {
 			return
 		}
 
-		// Auth: JWT obrigatório em TODAS as requisições /mcp
+		// Auth: x-api-key (chave gerada no sisub) ou Authorization: Bearer <jwt>
+		// x-api-key tem precedência — se presente, dispensa o JWT.
+		const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"].trim() : ""
 		const authHeader = req.headers.authorization ?? ""
-		const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""
+		const bearerJwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""
+		const credential = apiKey || bearerJwt
 
-		if (!jwt) {
+		if (!credential) {
 			res.writeHead(401, { "Content-Type": "application/json" })
-			res.end(JSON.stringify({ error: "Authorization header ausente. Use: Authorization: Bearer <supabase-jwt>" }))
+			res.end(JSON.stringify({ error: "Autenticação necessária. Use x-api-key ou Authorization: Bearer <supabase-jwt>" }))
 			return
 		}
 
-		// C1: Validar o JWT atual e extrair o userId — sempre, independente de sessão existente.
-		// Isso garante que um JWT expirado ou de outro usuário seja rejeitado mesmo quando
-		// o cliente envia um mcp-session-id de uma sessão válida criada por outro usuário.
+		// C1: Validar credencial em TODA requisição /mcp, independente de sessão existente.
+		// Garante que chaves revogadas ou JWTs expirados são rejeitados mesmo com session-id válido.
 		let currentUserId: string
 		try {
-			const ctx = await resolveUserContext(jwt)
+			const ctx = await resolveCredential(credential)
 			currentUserId = ctx.userId
 		} catch {
 			res.writeHead(401, { "Content-Type": "application/json" })
-			res.end(JSON.stringify({ error: "Token JWT inválido ou expirado" }))
+			res.end(JSON.stringify({ error: "Credencial inválida, expirada ou revogada" }))
 			return
 		}
 
@@ -242,7 +244,7 @@ if (transportMode === "stdio") {
 			}
 
 			// Nova sessão: criar transport e capturar o JWT atual
-			// O createMcpServer(jwt) captura o jwt em closure para uso nas tool calls.
+			// createMcpServer(credential) captura a credencial em closure para uso nas tool calls.
 			transport = new StreamableHTTPServerTransport({
 				sessionIdGenerator: () => crypto.randomUUID(),
 				onsessioninitialized: (sid) => {
@@ -266,7 +268,7 @@ if (transportMode === "stdio") {
 
 			transport.onerror = (err) => process.stderr.write(`[sisub-mcp] Erro no transport: ${err.message}\n`)
 
-			const mcpServer = createMcpServer(jwt)
+			const mcpServer = createMcpServer(credential)
 			await mcpServer.connect(transport)
 		}
 

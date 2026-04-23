@@ -31,41 +31,44 @@ app.use(
 	})
 )
 
-// Rotas públicas
-app.route("/api", api)
-
-// Rotas admin — protegidas por x-admin-secret
-app.route("/api/admin/compras", comprasAdminRoutes)
-
-// Pesquisa de preços — protegida por x-admin-secret (mesma proteção das rotas admin)
-app.route("/api/admin/price-research", priceResearchRoutes)
-
 // Healthcheck — retorna 503 se a memória RSS ultrapassar 90% do limite do container
 const API_MEMORY_LIMIT_BYTES = 460 * 1024 * 1024 // 460MB — 90% de 512MB
 
-app.get("/health", (c) => {
-	const mem = process.memoryUsage()
-	const rss = mem.rss
+type HealthResponse =
+	| { status: "ok"; service: string; rss_mb: number }
+	| { status: "unhealthy"; service: string; reason: string; rss_mb: number; limit_mb: number }
 
-	if (rss > API_MEMORY_LIMIT_BYTES) {
-		return c.json(
-			{
-				status: "unhealthy",
-				service: "sisub-api",
-				reason: "memory_pressure",
-				rss_mb: Math.round(rss / 1024 / 1024),
-				limit_mb: 460,
-			},
-			503
-		)
-	}
+// Typed chain — all route sub-apps chained for RPC type inference
+// At runtime app === typedApp (same object). TypeScript sees merged schema.
+const typedApp = app
+	.route("/api", api)
+	.route("/api/admin/compras", comprasAdminRoutes)
+	.route("/api/admin/price-research", priceResearchRoutes)
+	.get("/health", (c) => {
+		const mem = process.memoryUsage()
+		const rss = mem.rss
 
-	return c.json({
-		status: "ok",
-		service: "sisub-api",
-		rss_mb: Math.round(rss / 1024 / 1024),
+		if (rss > API_MEMORY_LIMIT_BYTES) {
+			return c.json<HealthResponse>(
+				{
+					status: "unhealthy",
+					service: "sisub-api",
+					reason: "memory_pressure",
+					rss_mb: Math.round(rss / 1024 / 1024),
+					limit_mb: 460,
+				},
+				503
+			)
+		}
+
+		return c.json<HealthResponse>({
+			status: "ok",
+			service: "sisub-api",
+			rss_mb: Math.round(rss / 1024 / 1024),
+		})
 	})
-})
+
+// Non-typed additions (docs, UI — don't affect RPC types)
 
 // Documentação OpenAPI
 app.doc("/doc", {
@@ -107,6 +110,8 @@ app.get(
 )
 
 const port = env.API_PORT
+
+export type AppType = typeof typedApp
 
 export default {
 	port,

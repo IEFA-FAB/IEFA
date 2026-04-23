@@ -8,39 +8,12 @@
  *   e lançar McpError padronizado se negado.
  */
 
+import { hasPermission } from "@iefa/pbac"
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
-import type { AppModule, PermissionScope, UserContext, UserPermission } from "../types.ts"
+import type { PermissionScope, UserContext } from "../types.ts"
 
-// ---------------------------------------------------------------------------
-// hasPermission — pura, sem efeitos colaterais
-// ---------------------------------------------------------------------------
-
-/**
- * Verifica se um conjunto de permissões concede acesso a um módulo.
- * Lógica IDÊNTICA a hasPermission em apps/sisub/src/auth/pbac.ts.
- *
- * @param permissions - Permissões do usuário (carregadas via resolveUserContext)
- * @param module      - Módulo a verificar (ex: "kitchen", "global")
- * @param minLevel    - Nível mínimo exigido (default: 1)
- * @param scope       - Escopo opcional; sem escopo aceita qualquer escopo do módulo
- */
-export function hasPermission(permissions: UserPermission[], module: AppModule, minLevel = 1, scope?: PermissionScope): boolean {
-	return permissions.some((p) => {
-		if (p.module !== module || p.level < minLevel) return false
-
-		// Permissão global (sem escopo) vale para qualquer contexto
-		const isGlobal = p.unit_id === null && p.mess_hall_id === null && p.kitchen_id === null
-		if (isGlobal) return true
-
-		if (!scope) return true // sem restrição de escopo na chamada → aceita qualquer escopo
-
-		if (scope.type === "unit" && p.unit_id === scope.id) return true
-		if (scope.type === "mess_hall" && p.mess_hall_id === scope.id) return true
-		if (scope.type === "kitchen" && p.kitchen_id === scope.id) return true
-
-		return false
-	})
-}
+// hasPermission re-exportado de @iefa/pbac — fonte canônica
+export { hasPermission }
 
 // ---------------------------------------------------------------------------
 // requireKitchenPermission — guarda para tools do módulo kitchen
@@ -148,6 +121,25 @@ export function safeInt(v: unknown, fieldName: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// safePositiveNumber — permite floats não-negativos (ex: planned_portion_quantity)
+// ---------------------------------------------------------------------------
+
+/**
+ * Converte um valor para número não-negativo (aceita decimais) ou lança McpError.
+ * Use para campos como planned_portion_quantity que aceitam frações de porção.
+ *
+ * @param v         - Valor a converter
+ * @param fieldName - Nome do campo, para a mensagem de erro
+ */
+export function safePositiveNumber(v: unknown, fieldName: string): number {
+	const n = Number(v)
+	if (Number.isNaN(n) || n < 0) {
+		throw new McpError(ErrorCode.InvalidParams, `${fieldName} deve ser um número não-negativo`)
+	}
+	return n
+}
+
+// ---------------------------------------------------------------------------
 // ToolDefinition — tipo para organizar as tools em módulos separados
 // ---------------------------------------------------------------------------
 
@@ -164,5 +156,5 @@ export interface ToolSchema {
 export interface ToolDefinition {
 	schema: ToolSchema
 	// biome-ignore lint/suspicious/noExplicitAny: args variam por tool
-	handler: (args: any, jwt: string) => Promise<{ content: { type: "text"; text: string }[]; isError?: true }>
+	handler: (args: any, credential: string) => Promise<{ content: { type: "text"; text: string }[]; isError?: true }>
 }

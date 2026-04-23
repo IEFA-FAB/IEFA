@@ -20,7 +20,7 @@ export function NotFound({ children }: { children?: React.ReactNode }) {
 						<ArrowLeft className="size-4" />
 						Voltar
 					</Button>
-					<Button render={<Link to="/" />} className="w-full">
+					<Button nativeButton={false} render={<Link to="/" />} className="w-full">
 						<Home className="size-4" />
 						Ir para o Início
 					</Button>

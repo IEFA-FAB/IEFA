@@ -38,8 +38,16 @@ export interface ChatMessage {
 	createdAt: Date
 }
 
+/** Observability metadata carried on every terminal SSE event (done / error). */
+export interface StreamMeta {
+	model: string
+	latency_ms: number
+	input_tokens?: number
+	output_tokens?: number
+}
+
 export type StreamEvent =
 	| { type: "text_delta"; delta: string }
 	| { type: "chart_spec"; spec: ChartSpec }
-	| { type: "done" }
-	| { type: "error"; message: string }
+	| { type: "done"; meta: StreamMeta }
+	| { type: "error"; message: string; meta: StreamMeta }

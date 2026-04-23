@@ -1,27 +1,48 @@
-// routes/protected/presence/selfCheckin.tsx
+// routes/_protected/_modules/diner/self-check-in.tsx
+// Handler do QR Code de self check-in do rancho.
+// Fluxo: QR → confirmedCode preenchido → fase "confirm"
+//        Acesso direto → fase "select" → usuário escolhe rancho → fase "confirm"
 
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
+import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/auth/useAuth"
-import { inferDefaultMeal } from "@/lib/fiscal"
+import { inferDefaultMeal, MEAL_LABEL } from "@/lib/fiscal"
 import { insertPresenceFn } from "@/server/presence.fn"
 import { messHallByCodeQueryOptions, userMealForecastQueryOptions } from "@/services/SelfCheckInService"
 import type { WillEnter } from "@/types/domain/presence"
 
-// Schema for search params validation
+// ─── Schema ──────────────────────────────────────────────────────────────────
+
 const selfCheckinSearchSchema = z.object({
 	unit: z.string().optional(),
 	u: z.string().optional(),
 })
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function todayISO(): string {
 	return new Date().toISOString().split("T")[0]
 }
+
+function todayDisplay(): string {
+	return new Date().toLocaleDateString("pt-BR")
+}
+
+function isDuplicateOrConflict(err: unknown): boolean {
+	if (!err || typeof err !== "object") return false
+	const e = err as { code?: string | number; status?: number; message?: string }
+	const msg = String(e.message || "").toLowerCase()
+	return e.code === "23505" || e.code === 23505 || e.code === "409" || e.status === 409 || msg.includes("duplicate key") || msg.includes("conflict")
+}
+
+// ─── Route ───────────────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")({
 	validateSearch: selfCheckinSearchSchema,
@@ -29,105 +50,94 @@ export const Route = createFileRoute("/_protected/_modules/diner/self-check-in")
 		const { user } = context.auth
 
 		if (!user?.id) {
-			throw redirect({
-				to: "/auth",
-				search: {
-					redirect: location.href,
-				},
-			})
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 
+		// Só prefetch se veio com código (via QR). Sem código, usuário selecionará manualmente.
 		const unitParam = search.unit ?? search.u
-		const unidade = unitParam ?? "DIRAD - DIRAD"
+		if (!unitParam) return
 
-		// Prefetch Mess Hall
-		const messHall = await context.queryClient.ensureQueryData(messHallByCodeQueryOptions(unidade))
+		const messHall = await context.queryClient.ensureQueryData(messHallByCodeQueryOptions(unitParam))
 
 		if (messHall) {
-			const date = todayISO()
-			const meal = inferDefaultMeal()
-			// Prefetch Forecast
-			await context.queryClient.ensureQueryData(userMealForecastQueryOptions(user.id, date, meal, messHall.id))
+			await context.queryClient.ensureQueryData(userMealForecastQueryOptions(user.id, todayISO(), inferDefaultMeal(), messHall.id))
 		}
 	},
 	component: SelfCheckin,
 })
 
-const REDIRECT_DELAY_SECONDS = 3
+// ─── Component ───────────────────────────────────────────────────────────────
 
-function isDuplicateOrConflict(err: unknown): boolean {
-	if (!err || typeof err !== "object") return false
-
-	const e = err as { code?: string | number; status?: number; message?: string }
-	const code = e.code
-	const status = e.status
-	const msg = String(e.message || "").toLowerCase()
-
-	return code === "23505" || code === 23505 || code === "409" || status === 409 || msg.includes("duplicate key") || msg.includes("conflict")
-}
+const REDIRECT_DELAY = 3
 
 function SelfCheckin() {
 	"use no memo"
+
 	const search = useSearch({ from: "/_protected/_modules/diner/self-check-in" })
 	const navigate = useNavigate()
 	const { user } = useAuth()
 
-	// Ensure user exists (handled by beforeLoad mostly, but for type safety)
 	const userId = user?.id ?? ""
-
-	// Params and defaults
-	const unitParam = search.unit ?? search.u
-	const unidade = unitParam ?? "DIRAD - DIRAD"
 	const date = todayISO()
 	const meal = inferDefaultMeal()
 
-	// Suspense Queries
-	const { data: messHall } = useSuspenseQuery(messHallByCodeQueryOptions(unidade))
+	// Código do rancho: vem do QR (URL) ou da seleção manual
+	const qrCode = search.unit ?? search.u ?? null
+	const [selectorCode, setSelectorCode] = useState<string>("")
+	// confirmedCode = null → fase "select"; string → fase "confirm"
+	const [confirmedCode, setConfirmedCode] = useState<string | null>(qrCode)
 
-	const { data: forecast } = useSuspenseQuery(userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null))
+	// ── Queries ──────────────────────────────────────────────────────────────
 
-	// Derived State
+	const { data: messHall, isLoading: messHallLoading } = useQuery({
+		...messHallByCodeQueryOptions(confirmedCode ?? ""),
+		enabled: !!confirmedCode,
+	})
+
+	const { data: forecast } = useQuery({
+		...userMealForecastQueryOptions(userId, date, meal, messHall?.id ?? null),
+		enabled: !!messHall?.id,
+	})
+
+	// ── Derived state ─────────────────────────────────────────────────────────
+
 	const systemForecast = !!forecast?.will_eat
+	// messHall=null (não undefined) significa que a query resolveu e não encontrou
+	const messHallNotFound = !!confirmedCode && !messHallLoading && messHall === null
 
-	// Local State
+	// ── Local state ───────────────────────────────────────────────────────────
+
 	const [willEnter, setWillEnter] = useState<WillEnter>("sim")
 	const [submitting, setSubmitting] = useState(false)
-
-	// Countdown State
 	const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null)
+
 	const redirectedRef = useRef(false)
-	const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+	const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-	// Effects for cleanup
+	useEffect(
+		() => () => {
+			if (countdownRef.current) clearInterval(countdownRef.current)
+		},
+		[]
+	)
+
+	// Se QR inválido → volta pra seleção manual com toast
 	useEffect(() => {
-		return () => {
-			if (countdownIntervalRef.current) {
-				clearInterval(countdownIntervalRef.current)
-			}
-		}
-	}, [])
+		if (!messHallNotFound) return
+		toast.error("QR inválido", { description: "Rancho não encontrado. Selecione manualmente." })
+		setConfirmedCode(null)
+	}, [messHallNotFound])
 
-	// If messHall not found, we might want to show error or just let it be.
-	// Provide feedback if messHall is missing but code was provided.
-	useEffect(() => {
-		if (!messHall) {
-			toast.error("QR inválido", {
-				description: "A unidade informada não foi encontrada.",
-			})
-		}
-	}, [messHall])
+	// ── Handlers ──────────────────────────────────────────────────────────────
 
-	const scheduleRedirect = (seconds = REDIRECT_DELAY_SECONDS) => {
+	const scheduleRedirect = (seconds = REDIRECT_DELAY) => {
 		if (redirectedRef.current) return
-
 		setRedirectCountdown(seconds)
-		countdownIntervalRef.current = setInterval(() => {
+		const id = setInterval(() => {
 			setRedirectCountdown((s) => {
 				const next = (s ?? 1) - 1
 				if (next <= 0) {
-					if (countdownIntervalRef.current) {
-						clearInterval(countdownIntervalRef.current)
-					}
+					clearInterval(id)
 					if (!redirectedRef.current) {
 						redirectedRef.current = true
 						navigate({ to: "/hub", replace: true })
@@ -137,118 +147,111 @@ function SelfCheckin() {
 				return next
 			})
 		}, 1000)
+		countdownRef.current = id
 	}
 
 	const handleSubmit = async () => {
 		"use no memo"
-		if (submitting || !userId) return
-		if (!messHall) {
-			toast.error("Rancho inválido")
-			return
-		}
-
+		if (submitting || !userId || !messHall) return
 		setSubmitting(true)
 
 		try {
 			if (willEnter !== "sim") {
-				toast.info("Decisão registrada", {
-					description: "Você optou por não entrar para a refeição.",
-				})
-				scheduleRedirect(REDIRECT_DELAY_SECONDS)
+				toast.info("Decisão registrada", { description: "Você optou por não entrar para a refeição." })
+				scheduleRedirect()
 				return
 			}
 
-			await insertPresenceFn({
-				data: {
-					user_id: userId,
-					date,
-					meal,
-					messHallId: messHall.id,
-				},
-			})
+			await insertPresenceFn({ data: { user_id: userId, date, meal, messHallId: messHall.id } })
 
-			toast.success("Presença registrada", {
-				description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
-			})
-			scheduleRedirect(REDIRECT_DELAY_SECONDS)
+			toast.success("Presença registrada", { description: `Bom apetite! Redirecionando em ${REDIRECT_DELAY}s...` })
+			scheduleRedirect()
 		} catch (err) {
 			if (isDuplicateOrConflict(err)) {
-				toast.info("Já registrado", {
-					description: `Sua presença já está registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY_SECONDS}s...`,
-				})
-				scheduleRedirect(REDIRECT_DELAY_SECONDS)
+				toast.info("Já registrado", { description: `Presença já registrada para esta refeição. Redirecionando em ${REDIRECT_DELAY}s...` })
+				scheduleRedirect()
 				return
 			}
-
-			toast.error("Erro", {
-				description: "Não foi possível registrar sua presença.",
-			})
+			toast.error("Erro", { description: "Não foi possível registrar sua presença." })
 		} finally {
 			setSubmitting(false)
 		}
 	}
 
-	const goHome = () => {
-		if (redirectCountdown !== null) return
-		navigate({ to: "/diner/forecast" })
-	}
+	if (!user) return null
 
-	if (!user) return null // Should be handled by router but strict null check
+	const isSelectPhase = !confirmedCode
+	const isConfirmPhase = !isSelectPhase
+	const blocked = submitting || redirectCountdown !== null
+
+	// ── Render ────────────────────────────────────────────────────────────────
 
 	return (
-		<div className="w-full mx-auto p-6 space-y-6">
-			<PageHeader title="Check-in de Refeição" description={`Unidade: ${unidade} • Data: ${date} • Refeição: ${meal}`} />
+		<div className="w-full max-w-sm mx-auto p-6 space-y-6">
+			<PageHeader
+				title="Check-in de Refeição"
+				description={
+					isSelectPhase
+						? "Selecione o rancho ou escaneie o QR Code"
+						: messHallLoading
+							? "Carregando..."
+							: messHall
+								? `${messHall.display_name} • ${MEAL_LABEL[meal]} • ${todayDisplay()}`
+								: "Rancho não encontrado"
+				}
+			/>
 
-			<div className="rounded-md border p-4 text-left space-y-4 max-w-sm mx-auto">
-				{/* Está na previsão? */}
-				<div className="space-y-2">
-					<div className="text-sm font-medium">Está na previsão?</div>
-					<div className="flex gap-2">
-						<Button disabled variant={systemForecast ? "default" : "outline"} size="sm">
-							Sim
-						</Button>
-						<Button disabled variant={!systemForecast ? "default" : "outline"} size="sm">
-							Não
-						</Button>
-					</div>
-				</div>
+			{/* ── Fase 1: Seleção manual ── */}
+			{isSelectPhase && (
+				<div className="rounded-md border p-4 space-y-4">
+					<p className="text-sm text-muted-foreground">O QR Code do rancho preenche automaticamente. Se não tiver o QR, selecione abaixo:</p>
 
-				{/* Vai entrar? */}
-				<div className="space-y-2">
-					<div className="text-sm font-medium">Vai entrar?</div>
-					<div className="flex gap-2">
-						<Button
-							variant={willEnter === "sim" ? "default" : "outline"}
-							size="sm"
-							onClick={() => setWillEnter("sim")}
-							disabled={submitting || redirectCountdown !== null}
-						>
-							Sim
-						</Button>
-						<Button
-							variant={willEnter === "nao" ? "default" : "outline"}
-							size="sm"
-							onClick={() => setWillEnter("nao")}
-							disabled={submitting || redirectCountdown !== null}
-						>
-							Não
-						</Button>
-					</div>
-				</div>
-			</div>
+					<MessHallSelector value={selectorCode} onChange={setSelectorCode} showLabel showValidation />
 
-			<div className="flex flex-col items-center justify-center gap-2">
-				<div className="flex items-center justify-center gap-3">
-					<Button onClick={handleSubmit} disabled={!messHall || submitting || redirectCountdown !== null}>
-						{submitting ? "Enviando..." : "Enviar"}
-					</Button>
-					<Button variant="outline" onClick={goHome} disabled={submitting || redirectCountdown !== null}>
-						Voltar
+					<Button className="w-full" disabled={!selectorCode} onClick={() => setConfirmedCode(selectorCode)}>
+						Continuar
 					</Button>
 				</div>
+			)}
 
-				{redirectCountdown !== null && <div className="text-xs text-muted-foreground">Redirecionando para o rancho em {redirectCountdown}s...</div>}
-			</div>
+			{/* ── Fase 2: Confirmação de entrada ── */}
+			{isConfirmPhase && (
+				<>
+					<div className="rounded-md border p-4 space-y-4">
+						{/* Previsão (read-only, informativo) */}
+						<div className="space-y-1">
+							<div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Está na previsão?</div>
+							<Badge variant={systemForecast ? "default" : "secondary"}>{systemForecast ? "Sim" : "Não"}</Badge>
+						</div>
+
+						{/* Vai entrar? (interativo) */}
+						<div className="space-y-2">
+							<div className="text-sm font-medium">Vai entrar?</div>
+							<div className="flex gap-2">
+								<Button variant={willEnter === "sim" ? "default" : "outline"} size="sm" onClick={() => setWillEnter("sim")} disabled={blocked}>
+									Sim
+								</Button>
+								<Button variant={willEnter === "nao" ? "default" : "outline"} size="sm" onClick={() => setWillEnter("nao")} disabled={blocked}>
+									Não
+								</Button>
+							</div>
+						</div>
+					</div>
+
+					<div className="flex flex-col items-center gap-2">
+						<div className="flex gap-3">
+							<Button onClick={handleSubmit} disabled={!messHall || blocked}>
+								{submitting ? "Enviando..." : "Confirmar presença"}
+							</Button>
+							<Button variant="outline" onClick={() => navigate({ to: "/diner/forecast" })} disabled={blocked}>
+								Voltar
+							</Button>
+						</div>
+
+						{redirectCountdown !== null && <p className="text-xs text-muted-foreground">Redirecionando em {redirectCountdown}s...</p>}
+					</div>
+				</>
+			)}
 		</div>
 	)
 }

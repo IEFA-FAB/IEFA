@@ -1,0 +1,3 @@
+#!/bin/sh
+# TaskTrace: auto-attach commit to latest worklog entry
+tasktrace attach 2>/dev/null || true

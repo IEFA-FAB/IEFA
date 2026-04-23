@@ -72,6 +72,7 @@ function RouteComponent() {
 						{isAuthenticated ? (
 							<>
 								<Button
+									nativeButton={false}
 									render={
 										<Link to="/journal/submit" aria-label="Submeter novo artigo">
 											Submeter Artigo
@@ -81,6 +82,7 @@ function RouteComponent() {
 									variant="default"
 								/>
 								<Button
+									nativeButton={false}
 									render={
 										<Link to="/journal/submissions" aria-label="Ver minhas submissões">
 											Minhas Submissões
@@ -93,6 +95,7 @@ function RouteComponent() {
 						) : (
 							<>
 								<Button
+									nativeButton={false}
 									render={
 										<Link to="/auth" aria-label="Fazer login">
 											Fazer Login
@@ -102,6 +105,7 @@ function RouteComponent() {
 									variant="default"
 								/>
 								<Button
+									nativeButton={false}
 									render={
 										<Link to="/journal/articles" aria-label="Ver artigos publicados">
 											Artigos Publicados
@@ -259,6 +263,7 @@ function RouteComponent() {
 									Gerencie submissões, atribua revisores e tome decisões sobre artigos.
 								</p>
 								<Button
+									nativeButton={false}
 									render={
 										<Link to="/journal/editorial/dashboard" aria-label="Acessar dashboard editorial">
 											Acessar Dashboard →
@@ -310,6 +315,7 @@ function RouteComponent() {
 
 						{!isAuthenticated && (
 							<Button
+								nativeButton={false}
 								render={
 									<Link to="/auth" aria-label="Fazer login no portal">
 										Fazer Login

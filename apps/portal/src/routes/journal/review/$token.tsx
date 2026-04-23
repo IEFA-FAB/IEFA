@@ -55,7 +55,7 @@ function ReviewInvitation() {
 				</div>
 				<h2 className="text-2xl font-bold mb-2">Convite Expirado</h2>
 				<p className="text-muted-foreground mb-6">Este convite de revisão expirou. Se você ainda deseja revisar este artigo, entre em contato com o editor.</p>
-				<Button render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
+				<Button nativeButton={false} render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 			</div>
 		)
 	}
@@ -73,7 +73,7 @@ function ReviewInvitation() {
 						: "Você recusou este convite anteriormente."}
 				</p>
 				<div className="flex gap-3">
-					{invitation.status === "accepted" && <Button render={<Link to="/journal/review">Ir para Dashboard</Link>} />}
+					{invitation.status === "accepted" && <Button nativeButton={false} render={<Link to="/journal/review">Ir para Dashboard</Link>} />}
 					<Button nativeButton={false} render={<Link to="/journal">Voltar à Página Inicial</Link>} variant="outline" />
 				</div>
 			</div>

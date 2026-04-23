@@ -12,7 +12,9 @@
 
 import { createError, getHeader, readBody, type H3Event } from "h3"
 import { defineHandler } from "nitro"
-import OpenAI from "openai"
+import { ChatOpenAI } from "@langchain/openai"
+import { HumanMessage, AIMessage, SystemMessage, ToolMessage, type BaseMessage } from "@langchain/core/messages"
+import type { AIMessageChunk } from "@langchain/core/messages"
 import type { Database } from "@iefa/database"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
@@ -20,6 +22,7 @@ import { hasPermission } from "@/auth/pbac"
 import { envServer, getAnalyticsEnvServer } from "@/lib/env.server"
 import { findToolHandler, getModuleConfig } from "@/lib/module-chat/tools/registry"
 import { type ToolContext, ToolPermissionError, ToolValidationError, getMaxLevel, toOpenAITools } from "@/lib/module-chat/tools/shared"
+import { classifyLLMError } from "@/lib/llm-errors"
 import type { ChatModule, ModuleStreamEvent } from "@/types/domain/module-chat"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
@@ -119,27 +122,37 @@ export default defineHandler(async (event: H3Event) => {
 		supabase,
 	}
 
-	// 5. Build OpenAI client
+	// 5. Build LangChain LLM client
 	const analyticsEnv = getAnalyticsEnvServer()
-	const openai = new OpenAI({
-		apiKey: analyticsEnv.OPENROUTER_API_KEY,
-		baseURL: "https://openrouter.ai/api/v1",
-		defaultHeaders: {
-			"HTTP-Referer": "https://sisub.fly.dev",
-			"X-Title": "SISUB Module Chat",
-		},
-	})
-
 	const llmModel = process.env.MODULE_CHAT_LLM_MODEL || analyticsEnv.ANALYTICS_LLM_MODEL
 	const openaiTools = tools.length > 0 ? toOpenAITools(tools) : undefined
 
-	// Build message history
-	const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-		{ role: "system", content: systemPrompt },
+	const llm = new ChatOpenAI({
+		model: llmModel,
+		configuration: {
+			baseURL: "https://openrouter.ai/api/v1",
+			apiKey: analyticsEnv.OPENROUTER_API_KEY,
+			defaultHeaders: {
+				"HTTP-Referer": "https://sisub.fly.dev",
+				"X-Title": "SISUB Module Chat",
+			},
+		},
+		temperature: 0.3,
+	})
+
+	// Bind tools — toOpenAITools() returns the {type:"function",function:{...}} format
+	// which is compatible with ChatOpenAI.bindTools()
+	const activeLLM = openaiTools ? llm.bindTools(openaiTools) : llm
+
+	// Build LangChain message history
+	const lcMessages: BaseMessage[] = [
+		new SystemMessage(systemPrompt),
 		...(body.history ?? [])
-			.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-			.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-		{ role: "user", content: body.message },
+			.filter((m: { role: string; content: string; tool_calls?: unknown }) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+			.map((m: { role: string; content: string }) =>
+				m.role === "user" ? new HumanMessage(m.content) : new AIMessage(m.content)
+			),
+		new HumanMessage(body.message),
 	]
 
 	// 6. SSE stream
@@ -147,88 +160,100 @@ export default defineHandler(async (event: H3Event) => {
 
 	const stream = new ReadableStream({
 		async start(controller) {
+			let controllerClosed = false
+
 			const sendEvent = (data: ModuleStreamEvent) => {
+				if (controllerClosed) return
 				controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 			}
 
-			// Heartbeat to keep connection alive during tool execution
+			// Keepalive comment frame every 5 s — must be below Bun's idleTimeout (10 s default)
 			const heartbeatInterval = setInterval(() => {
-				controller.enqueue(encoder.encode(": heartbeat\n\n"))
-			}, 15_000)
+				if (controllerClosed) return
+				try {
+					controller.enqueue(encoder.encode(": heartbeat\n\n"))
+				} catch {
+					controllerClosed = true
+					clearInterval(heartbeatInterval)
+				}
+			}, 5_000)
 
-			try {
+			const startMs = Date.now()
+				let totalInputTokens = 0
+				let totalOutputTokens = 0
+
+				try {
 				let round = 0
 
 				while (round < MAX_TOOL_ROUNDS) {
 					round++
 
-					const completion = await openai.chat.completions.create({
-						model: llmModel,
-						stream: true,
-						temperature: 0.3,
-						messages,
-						...(openaiTools ? { tools: openaiTools } : {}),
-					})
+					const chunkStream = await activeLLM.stream(lcMessages)
 
 					let textBuffer = ""
 					const pendingToolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map()
-					let finishReason: string | null = null
 
-					for await (const chunk of completion) {
-						const choice = chunk.choices[0]
-						if (!choice) continue
+					for await (const chunk of chunkStream) {
+						const typedChunk = chunk as AIMessageChunk
+
+						// Accumulate token usage from chunks (present in final chunk for most providers)
+						if (typedChunk.usage_metadata) {
+							totalInputTokens += typedChunk.usage_metadata.input_tokens ?? 0
+							totalOutputTokens += typedChunk.usage_metadata.output_tokens ?? 0
+						}
 
 						// Text content
-						const textDelta = choice.delta?.content
+						const textDelta = typeof typedChunk.content === "string" ? typedChunk.content : ""
 						if (textDelta) {
 							textBuffer += textDelta
 							sendEvent({ type: "text_delta", delta: textDelta })
 						}
 
-						// Tool calls (accumulated across chunks)
-						if (choice.delta?.tool_calls) {
-							for (const tc of choice.delta.tool_calls) {
-								const idx = tc.index
+						// Tool call chunks (accumulated across streaming deltas)
+						if (typedChunk.tool_call_chunks?.length) {
+							for (const tc of typedChunk.tool_call_chunks) {
+								const idx = tc.index ?? 0
 								if (!pendingToolCalls.has(idx)) {
 									pendingToolCalls.set(idx, {
 										id: tc.id ?? `call_${idx}`,
-										name: tc.function?.name ?? "",
+										name: tc.name ?? "",
 										arguments: "",
 									})
-									if (tc.function?.name) {
-										sendEvent({ type: "tool_call_start", id: tc.id ?? `call_${idx}`, name: tc.function.name })
+									if (tc.name) {
+										sendEvent({ type: "tool_call_start", id: tc.id ?? `call_${idx}`, name: tc.name })
 									}
 								}
 								const existing = pendingToolCalls.get(idx)!
 								if (tc.id && !existing.id.startsWith("call_")) existing.id = tc.id
-								if (tc.function?.name && !existing.name) existing.name = tc.function.name
-								if (tc.function?.arguments) {
-									existing.arguments += tc.function.arguments
-								}
+								if (tc.name && !existing.name) existing.name = tc.name
+								if (tc.args) existing.arguments += tc.args
 							}
-						}
-
-						if (choice.finish_reason) {
-							finishReason = choice.finish_reason
 						}
 					}
 
 					// If no tool calls, we're done
-					if (finishReason !== "tool_calls" || pendingToolCalls.size === 0) {
+					if (pendingToolCalls.size === 0) {
 						break
 					}
 
-					// Execute tool calls
-					const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam = {
-						role: "assistant",
-						content: textBuffer || null,
-						tool_calls: Array.from(pendingToolCalls.values()).map((tc) => ({
-							id: tc.id,
-							type: "function" as const,
-							function: { name: tc.name, arguments: tc.arguments },
-						})),
-					}
-					messages.push(assistantMessage)
+					// Build assistant message with tool calls for message history
+					lcMessages.push(
+						new AIMessage({
+							content: textBuffer,
+							tool_calls: Array.from(pendingToolCalls.values()).map((tc) => ({
+								id: tc.id,
+								name: tc.name,
+								args: (() => {
+									try {
+										return JSON.parse(tc.arguments || "{}")
+									} catch {
+										return {}
+									}
+								})(),
+								type: "tool_call" as const,
+							})),
+						})
+					)
 
 					for (const tc of pendingToolCalls.values()) {
 						let parsedArgs: Record<string, unknown> = {}
@@ -283,23 +308,44 @@ export default defineHandler(async (event: H3Event) => {
 							isError,
 						})
 
-						// Add tool result to messages for next LLM round
-						messages.push({
-							role: "tool",
-							tool_call_id: tc.id,
-							content: resultContent,
-						} as OpenAI.Chat.Completions.ChatCompletionMessageParam)
+						// Add tool result to LangChain message history for next round
+						lcMessages.push(
+							new ToolMessage({
+								content: resultContent,
+								tool_call_id: tc.id,
+							})
+						)
 					}
 
 					// Continue loop — LLM will process tool results in next round
 				}
 
-				sendEvent({ type: "done" })
+				sendEvent({
+					type: "done",
+					meta: {
+						model: llmModel,
+						latency_ms: Date.now() - startMs,
+						input_tokens: totalInputTokens || undefined,
+						output_tokens: totalOutputTokens || undefined,
+					},
+				})
 			} catch (e) {
-				sendEvent({ type: "error", message: (e as Error).message })
+				sendEvent({
+					type: "error",
+					message: classifyLLMError(e),
+					meta: {
+						model: llmModel,
+						latency_ms: Date.now() - startMs,
+					},
+				})
 			} finally {
 				clearInterval(heartbeatInterval)
-				controller.close()
+				controllerClosed = true
+				try {
+					controller.close()
+				} catch {
+					// Already closed (client disconnected or Bun idle timeout fired)
+				}
 			}
 		},
 	})

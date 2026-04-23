@@ -1,0 +1,131 @@
+export interface OrganizacaoInfo {
+	ods: string
+	orgaoSuperior: string
+	nome: string
+	isSetorial: boolean
+	isSTN: boolean
+}
+
+const UG_DATA: Record<string, { ods: string; nome: string; superior: string }> = {
+	"120001": { ods: "GABAER", nome: "GABAER", superior: "GABAER" },
+	"120002": { ods: "SEFA", nome: "DIREF", superior: "SEFA" },
+	"120004": { ods: "COMPREP", nome: "BABR", superior: "VI COMAR" },
+	"120005": { ods: "SEFA", nome: "PABR", superior: "DIRAD" },
+	"120006": { ods: "SEFA", nome: "GAP-BR", superior: "DIRAD" },
+	"120007": { ods: "SEFA", nome: "PARF", superior: "DIRAD" },
+	"120008": { ods: "DECEA", nome: "CINDACTA I", superior: "DECEA" },
+	"120013": { ods: "DCTA", nome: "CLA", superior: "DCTA" },
+	"120014": { ods: "COMPREP", nome: "BAFZ", superior: "II COMAR" },
+	"120015": { ods: "DCTA", nome: "CLBI", superior: "DCTA" },
+	"120016": { ods: "DCTA", nome: "GAP-SJ", superior: "DCTA" },
+	"120017": { ods: "COMPREP", nome: "II COMAR", superior: "COMPREP" },
+	"120018": { ods: "COMPREP", nome: "BARF", superior: "II COMAR" },
+	"120019": { ods: "COMGEP", nome: "HARF", superior: "DIRSA" },
+	"120021": { ods: "DECEA", nome: "CINDACTA III", superior: "DECEA" },
+	"120023": { ods: "COMPREP", nome: "BASV", superior: "II COMAR" },
+	"120025": { ods: "COMGEP", nome: "EPCAR", superior: "DIRENS" },
+	"120026": { ods: "COMGAP", nome: "PAMA-LS", superior: "DIRMAB" },
+	"120029": { ods: "COMPREP", nome: "BAAF", superior: "III COMAR" },
+	"120030": { ods: "COMPREP", nome: "BAGL", superior: "III COMAR" },
+	"120035": { ods: "COMGAP", nome: "CTLA", superior: "CELOG" },
+	"120036": { ods: "DECEA", nome: "DECEA", superior: "DECEA" },
+	"120039": { ods: "SEFA", nome: "GAP-RJ", superior: "DIRAD" },
+	"120040": { ods: "COMGEP", nome: "HCA", superior: "DIRSA" },
+	"120041": { ods: "COMGEP", nome: "HAAF", superior: "DIRSA" },
+	"120042": { ods: "COMGEP", nome: "HFAG", superior: "DIRSA" },
+	"120044": { ods: "SEFA", nome: "BREVET", superior: "DIRAD" },
+	"120045": { ods: "SEFA", nome: "PAGL", superior: "DIRAD" },
+	"120047": { ods: "COMGAP", nome: "PAMB", superior: "DIRMAB" },
+	"120048": { ods: "DECEA", nome: "PAME", superior: "DECEA" },
+	"120049": { ods: "COMGAP", nome: "PAMA-GL", superior: "DIRMAB" },
+	"120052": { ods: "SEFA", nome: "SDPP/PAÍS", superior: "DIRAD" },
+	"120053": { ods: "SEFA", nome: "PAAF", superior: "DIRAD" },
+	"120060": { ods: "COMGEP", nome: "AFA", superior: "DIRENS" },
+	"120061": { ods: "COMPREP", nome: "BAST", superior: "IV COMAR" },
+	"120062": { ods: "COMPREP", nome: "BASP", superior: "IV COMAR" },
+	"120064": { ods: "COMGEP", nome: "EEAR", superior: "DIRENS" },
+	"120065": { ods: "SEFA", nome: "FAYS", superior: "DIRAD" },
+	"120066": { ods: "COMGEP", nome: "HFASP", superior: "DIRSA" },
+	"120068": { ods: "COMGAP", nome: "PAMA-SP", superior: "DIRMAB" },
+	"120069": { ods: "DECEA", nome: "CRCEA-SE", superior: "DECEA" },
+	"120071": { ods: "COMGAP", nome: "CELOG", superior: "COMGAP" },
+	"120072": { ods: "DECEA", nome: "CINDACTA II", superior: "DECEA" },
+	"120073": { ods: "COMPREP", nome: "BAFL", superior: "V COMAR" },
+	"120075": { ods: "COMPREP", nome: "BACO", superior: "V COMAR" },
+	"120077": { ods: "COMGEP", nome: "HACO", superior: "DIRSA" },
+	"120082": { ods: "COMPREP", nome: "BAMN", superior: "VII COMAR" },
+	"120087": { ods: "COMPREP", nome: "BABE", superior: "I COMAR" },
+	"120088": { ods: "COMGAP", nome: "COMARA", superior: "COMGAP" },
+	"120089": { ods: "COMGEP", nome: "HABE", superior: "DIRSA" },
+	"120090": { ods: "COMGAP", nome: "CABW", superior: "CELOG" },
+	"120091": { ods: "COMGAP", nome: "CABE", superior: "CELOG" },
+	"120093": { ods: "SEFA", nome: "SDPP/EXTERIOR", superior: "DIRAD" },
+	"120094": { ods: "DECEA", nome: "CINDACTA IV", superior: "DECEA" },
+	"120096": { ods: "COMGEP", nome: "HFAB", superior: "DIRSA" },
+	"120097": { ods: "SEFA", nome: "PASP", superior: "DIRAD" },
+	"120099": { ods: "COMGAP", nome: "DIRINFRA", superior: "COMGAP" },
+	"120100": { ods: "SEFA", nome: "SDAB", superior: "DIRAD" },
+	"120108": { ods: "DCTA", nome: "COPAC", superior: "DCTA" },
+	"120127": { ods: "DECEA", nome: "CISCEA", superior: "DECEA" },
+	"120152": { ods: "COMPREP", nome: "CPBV", superior: "VI COMAR" },
+	"120154": { ods: "COMGEP", nome: "HAMN", superior: "DIRSA" },
+	"120195": { ods: "SEFA", nome: "CAE", superior: "DIRAD" },
+	"120225": { ods: "COMGAP", nome: "SERINFRA-SJ", superior: "DIRINFRA" },
+	"120255": { ods: "COMGAP", nome: "SERINFRA-BE", superior: "DIRINFRA" },
+	"120257": { ods: "COMGAP", nome: "SERINFRA-RJ", superior: "DIRINFRA" },
+	"120258": { ods: "COMGAP", nome: "SERINFRA-SP", superior: "DIRINFRA" },
+	"120259": { ods: "COMGAP", nome: "SERINFRA-CO", superior: "DIRINFRA" },
+	"120260": { ods: "COMGAP", nome: "SERINFRA-BR", superior: "DIRINFRA" },
+	"120261": { ods: "COMGAP", nome: "SERINFRA-MN", superior: "DIRINFRA" },
+	"120265": { ods: "COMGAP", nome: "SERINFRA-NT", superior: "DIRINFRA" },
+	"120279": { ods: "SEFA", nome: "RANCHO-DIRAD", superior: "DIRAD" },
+	"120512": { ods: "DCTA", nome: "PASJ", superior: "DCTA" },
+	"120623": { ods: "SEFA", nome: "GAP-AF", superior: "DIRAD" },
+	"120624": { ods: "COMPREP", nome: "BAAN", superior: "VI COMAR" },
+	"120625": { ods: "SEFA", nome: "GAP-DF", superior: "DIRAD" },
+	"120628": { ods: "SEFA", nome: "GAP-BE", superior: "DIRAD" },
+	"120629": { ods: "SEFA", nome: "GAP-CO", superior: "DIRAD" },
+	"120630": { ods: "SEFA", nome: "GAP-MN", superior: "DIRAD" },
+	"120631": { ods: "COMPREP", nome: "BANT", superior: "II COMAR" },
+	"120632": { ods: "SEFA", nome: "GAP-RF", superior: "DIRAD" },
+	"120633": { ods: "SEFA", nome: "GAP-SP", superior: "DIRAD" },
+	"120636": { ods: "SEFA", nome: "GAP-LS", superior: "DIRAD" },
+	"120637": { ods: "COMPREP", nome: "BABV", superior: "VII COMAR" },
+	"120638": { ods: "COMPREP", nome: "BACG", superior: "IV COMAR" },
+	"120639": { ods: "SEFA", nome: "GAP-FL", superior: "DIRAD" },
+	"120640": { ods: "SEFA", nome: "GAP-FZ", superior: "DIRAD" },
+	"120641": { ods: "COMPREP", nome: "BAPV", superior: "VII COMAR" },
+	"120642": { ods: "SEFA", nome: "GAP-SV", superior: "DIRAD" },
+	"120643": { ods: "COMPREP", nome: "BASM", superior: "V COMAR" },
+	"120644": { ods: "SEFA", nome: "GAP-CT", superior: "DIRAD" },
+	"120645": { ods: "SEFA", nome: "GAP-GL", superior: "DIRAD" },
+	"120669": { ods: "COMPREP", nome: "BASC", superior: "III COMAR" },
+	"120701": { ods: "SEFA", nome: "DIREF/SUCONT", superior: "SEFA" },
+	"120702": { ods: "SEFA", nome: "DIREF/SUCONV", superior: "SEFA" },
+	"120999": { ods: "GABAER", nome: "CECOMSAER", superior: "GABAER" },
+}
+
+const SETORIAIS = ["120002", "120701", "120702"]
+const STN: string[] = []
+
+export const getOrganizacao = (ug: string): OrganizacaoInfo => {
+	const data = UG_DATA[ug]
+
+	if (data) {
+		return {
+			ods: data.ods,
+			orgaoSuperior: data.superior,
+			nome: data.nome,
+			isSetorial: SETORIAIS.includes(ug),
+			isSTN: STN.includes(ug),
+		}
+	}
+
+	return {
+		ods: "OUTROS",
+		orgaoSuperior: "OUTROS",
+		nome: `UG ${ug}`,
+		isSetorial: false,
+		isSTN: false,
+	}
+}

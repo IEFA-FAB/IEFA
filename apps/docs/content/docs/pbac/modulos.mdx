@@ -1,0 +1,224 @@
+---
+title: Módulos
+description: Cada módulo do PBAC — o que é, sua responsabilidade, como funciona e quem deve ter acesso.
+---
+
+O PBAC define 9 módulos. Cada um mapeia uma área funcional da plataforma. As permissões são armazenadas em `user_permissions` com o campo `module` sendo um dos valores abaixo.
+
+---
+
+## `diner` — Comensal
+
+**Escopo:** Nenhum (global implícito)
+
+### O que é
+O nível mais básico de existência no sistema. Representa qualquer pessoa que se alimenta no rancho.
+
+### Responsabilidade
+Identifica usuários que têm acesso às funcionalidades voltadas ao comensal — visualizar cardápios, consultar informações de refeição, etc.
+
+### Por que funciona assim
+Todo usuário autenticado é, por definição, um comensal. Por isso o `resolveUserPermissions` **injeta automaticamente** `diner` nível `1` quando o usuário não tem nenhuma regra explícita para esse módulo. Não é necessário cadastrar essa permissão manualmente para a maioria dos usuários.
+
+### Quem acessa
+Todos os usuários autenticados da plataforma — militares, servidores civis, alunos.
+
+---
+
+## `messhall` — Rancho
+
+**Escopo:** `mess_hall_id`
+
+### O que é
+Acesso às operações do rancho (local físico onde as refeições são servidas e fiscalizadas).
+
+### Responsabilidade
+Controla quem pode registrar refeições servidas, fiscalizar o rancho, validar comensais e operar o ponto de distribuição.
+
+### Por que funciona assim
+Um rancho é uma unidade operacional distinta. Um fiscal ou operador tem autoridade apenas sobre o rancho onde trabalha — daí o escopo por `mess_hall_id`. A mesma pessoa pode ser operadora em um rancho e não ter acesso a outro.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Operador de rancho — registra e consulta |
+| `2` | Fiscal de rancho — valida, edita, corrige registros |
+| `3+` | Gestor de rancho — administra configurações do rancho |
+
+---
+
+## `unit` — Gestão de Unidade
+
+**Escopo:** `unit_id`
+
+### O que é
+Acesso à administração da unidade militar como um todo — incluindo seus ranchos, cozinhas e usuários.
+
+### Responsabilidade
+Permite configurar a unidade, gerenciar os usuários subordinados e ter visibilidade sobre todas as operações dentro daquela organização militar.
+
+### Por que funciona assim
+Uma unidade pode ter múltiplos ranchos e cozinhas. O módulo `unit` existe para dar visão consolidada e controle administrativo sem precisar de permissão global. O escopo por `unit_id` garante que o gestor de uma OM não acessa dados de outra.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Visualizador da unidade — relatórios e consultas |
+| `2` | Administrador da unidade — edita configurações e usuários |
+| `3+` | Gestor sênior — controle total da unidade |
+
+---
+
+## `kitchen` — Gestão de Cozinha
+
+**Escopo:** `kitchen_id`
+
+### O que é
+Acesso às configurações e administração de uma cozinha específica — cardápios, equipe, configurações operacionais.
+
+### Responsabilidade
+Permite ao chefe de cozinha ou gestor de alimentação definir cardápios semanais, cadastrar receitas, configurar a cozinha e gerenciar o que será produzido.
+
+### Por que funciona assim
+A cozinha tem autonomia sobre seus cardápios e modos de preparo. Separar `kitchen` de `kitchen-production` permite que gestores configurem sem necessariamente operar — e que operadores produzam sem alterar configurações.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Consulta — visualiza cardápios e receitas da cozinha |
+| `2` | Chefe de cozinha — edita cardápios e receitas |
+| `3+` | Gestor de alimentação — administra equipe e configurações |
+
+---
+
+## `kitchen-production` — Produção de Cozinha
+
+**Escopo:** `kitchen_id`
+
+### O que é
+Acesso ao registro e acompanhamento do que está sendo (ou foi) produzido na cozinha — operacional, dia a dia.
+
+### Responsabilidade
+Permite que cozinheiros e auxiliares registrem a produção, confirmem o que foi preparado e acompanhem o planejamento de produção.
+
+### Por que funciona assim
+Produção é operação — não gestão. Um cozinheiro precisa registrar o que fez sem ter acesso às configurações administrativas da cozinha. Separar os módulos segue o princípio de menor privilégio: cada perfil acessa apenas o que precisa.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Auxiliar de cozinha — consulta e registra produção |
+| `2` | Cozinheiro sênior / líder de produção — edita e valida |
+
+---
+
+## `global` — Administração Global
+
+**Escopo:** Nenhum
+
+### O que é
+Acesso irrestrito à plataforma — gerenciamento de todas as unidades, ranchos, cozinhas, usuários e configurações sistêmicas.
+
+### Responsabilidade
+Administrar a plataforma IEFA como um todo. Criar organizações militares, gerenciar integrações, configurar parâmetros globais e resolver problemas que ultrapassam o escopo de uma unidade.
+
+### Por que funciona assim
+Sem escopo porque o administrador global opera *acima* da hierarquia de unidades. Qualquer `hasPermission` com `module: "global"` passa independentemente de qual escopo seja checado.
+
+<Callout type="warn">
+Conceder `global` a um usuário é equivalente a acesso root. Deve ser restrito ao time de TI e gestores centrais do IEFA.
+</Callout>
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `2` | Administrador de sistema — configura e gerencia |
+| `3+` | Super-admin — acesso irrestrito |
+
+---
+
+## `analytics` — Análise Sistêmica Global
+
+**Escopo:** Nenhum
+
+### O que é
+Acesso a dashboards e relatórios agregados de toda a plataforma — consumo, custo, planejamento e indicadores de todas as unidades.
+
+### Responsabilidade
+Permite a gestores centrais e analistas do IEFA visualizar métricas consolidadas, identificar tendências e tomar decisões baseadas em dados de todas as organizações militares.
+
+### Por que funciona assim
+Dados globais exigem visão global. Diferente do `local-analytics`, aqui não há filtro por unidade — o acesso é transversal. Separar do módulo `global` permite dar acesso analítico sem dar poder administrativo.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Analista — visualiza relatórios e dashboards |
+| `2` | Analista sênior — exporta, filtra e gera relatórios customizados |
+
+---
+
+## `local-analytics` — Análises da Unidade
+
+**Escopo:** `unit_id`
+
+### O que é
+Acesso a relatórios e métricas filtrados para uma unidade específica — a versão local do `analytics`.
+
+### Responsabilidade
+Permite que gestores e responsáveis de uma unidade acompanhem os indicadores da sua OM sem ver dados de outras organizações militares.
+
+### Por que funciona assim
+O gestor de uma OM tem interesse e autoridade apenas sobre os dados da sua unidade. O escopo por `unit_id` garante isolamento de dados entre organizações militares distintas.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Responsável pela OM — visualiza métricas da unidade |
+| `2` | Gestor de dados — gera relatórios customizados da unidade |
+
+---
+
+## `storage` — Estoque e Almoxarifado
+
+**Escopo:** A definir (provavelmente `unit_id` ou `kitchen_id`)
+
+### O que é
+Acesso ao controle de estoque — entrada e saída de ingredientes, materiais e insumos do almoxarifado.
+
+### Responsabilidade
+Gerenciar o inventário físico da unidade: registrar recebimentos, baixas, transferências e divergências de estoque.
+
+### Por que funciona assim
+O almoxarifado é uma operação crítica com impacto financeiro direto. Separar em módulo próprio permite que o almoxarife tenha acesso ao estoque sem ter acesso a gestão de cozinha ou analytics — e vice-versa.
+
+### Quem acessa
+
+| Nível | Perfil |
+|-------|--------|
+| `1` | Auxiliar de almoxarifado — consulta saldo e histórico |
+| `2` | Almoxarife — registra movimentações |
+| `3+` | Gestor de estoque — administra inventário e faz ajustes |
+
+---
+
+## Resumo
+
+| Módulo | Escopo | Quem acessa |
+|--------|--------|-------------|
+| `diner` | — | Todos os usuários (injetado automaticamente) |
+| `messhall` | `mess_hall_id` | Operadores e fiscais do rancho |
+| `unit` | `unit_id` | Gestores da unidade militar |
+| `kitchen` | `kitchen_id` | Chefes de cozinha e gestores de alimentação |
+| `kitchen-production` | `kitchen_id` | Cozinheiros e auxiliares de produção |
+| `global` | — | TI e administradores centrais do IEFA |
+| `analytics` | — | Analistas e gestores centrais |
+| `local-analytics` | `unit_id` | Gestores e responsáveis da OM |
+| `storage` | A definir | Almoxarifes e gestores de estoque |

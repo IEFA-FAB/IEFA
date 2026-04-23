@@ -90,6 +90,7 @@ function PostDetailComponent() {
 		<article className="max-w-4xl mx-auto py-10 px-4 sm:px-6">
 			{/* Botão Voltar */}
 			<Button
+				nativeButton={false}
 				variant="ghost"
 				className="mb-8 group"
 				render={
@@ -144,7 +145,7 @@ function PostDetailComponent() {
 			{/* Rodapé do artigo */}
 			<div className="text-center">
 				<p className="text-muted-foreground mb-4">Gostou deste artigo?</p>
-				<Button render={<Link to="/posts">Ler mais artigos</Link>} />
+				<Button nativeButton={false} render={<Link to="/posts">Ler mais artigos</Link>} />
 			</div>
 		</article>
 	)

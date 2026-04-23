@@ -12,6 +12,7 @@ import {
 	ClipboardList,
 	FileText,
 	FlameKindling,
+	KeyRound,
 	LayoutDashboard,
 	type LucideIcon,
 	MapPin,
@@ -59,6 +60,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Meu QR Code", url: "/diner/qr-code", icon: QrCode },
 			{ title: "Perfil", url: "/diner/profile", icon: User },
 			{ title: "Auto Check-in", url: "/diner/self-check-in", icon: ClipboardCheck },
+			{ title: "Chaves MCP", url: "/diner/mcp-keys", icon: KeyRound },
 		],
 	},
 	{
@@ -78,6 +80,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
 			{ title: "Atas", url: "/unit/procurement", icon: FileText },
+			{ title: "Assistente IA", url: "/unit/chat", icon: MessageSquare },
 			{ title: "Configurações", url: "/unit/settings", icon: Settings },
 		],
 	},
@@ -94,6 +97,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
 			{ title: "Suprimentos", url: "/kitchen/suprimentos", icon: ShoppingCart },
 			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode },
+			{ title: "Assistente IA", url: "/kitchen/chat", icon: MessageSquare },
 			{ title: "Configurações", url: "/kitchen/settings", icon: Settings },
 		],
 	},
@@ -117,6 +121,8 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Avaliação", url: "/global/evaluation", icon: Star },
 			{ title: "Sync Compras", url: "/global/compras-sync", icon: RefreshCw },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList },
+
+			{ title: "Assistente IA", url: "/global/chat", icon: MessageSquare },
 		],
 	},
 	{

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useChatMessages, useCreateChatSession, useSaveChatMessage, useUpdateMessageChartType } from "@/hooks/data/useAnalyticsChatHistory"
 import { useAnalyticsStream } from "@/lib/analytics-chat.stream"
-import type { ChartType, ChatMessage, StreamEvent } from "@/types/domain/analytics-chat"
+import type { ChartType, ChatMessage, StreamEvent, StreamMeta } from "@/types/domain/analytics-chat"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 	// (between stream end and the DB sync that assigns real UUIDs).
 	// Flushed and persisted inside the DB sync effect once the UUID is known.
 	const pendingChartOverridesRef = useRef<Map<string, ChartType>>(new Map())
+	const pendingMetaRef = useRef<StreamMeta | null>(null)
 
 	// Keep refs in sync with React state / props
 	useEffect(() => {
@@ -175,10 +176,13 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 					const msg = { ...prev[idx] }
 					if (event.type === "text_delta") msg.content = (msg.content ?? "") + event.delta
 					else if (event.type === "chart_spec") msg.chart = event.spec
-					else if (event.type === "done") msg.isStreaming = false
-					else if (event.type === "error") {
+					else if (event.type === "done") {
+						msg.isStreaming = false
+						pendingMetaRef.current = event.meta
+					} else if (event.type === "error") {
 						msg.error = event.message
 						msg.isStreaming = false
+						pendingMetaRef.current = event.meta
 					}
 					const updated = [...prev]
 					updated[idx] = msg
@@ -205,6 +209,10 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 					const latest = messagesRef.current.find((m) => m.id === id)
 					if (!latest || !sessionPromiseRef.current) return
 
+					// Capture meta before the async closure (ref may be overwritten)
+					const meta = pendingMetaRef.current
+					pendingMetaRef.current = null
+
 					// Await session promise (already resolved if session existed,
 					// pending if this is the first message of a new session).
 					// Exponential-backoff retry: 1 s, 2 s, 4 s.
@@ -218,6 +226,10 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 										content: latest.content,
 										chart: latest.chart,
 										error: latest.error,
+										model: meta?.model,
+										latencyMs: meta?.latency_ms,
+										inputTokens: meta?.input_tokens,
+										outputTokens: meta?.output_tokens,
 									})
 								} catch (_err) {
 									if (attempt < 3) {

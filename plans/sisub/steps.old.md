@@ -29,7 +29,7 @@ O objetivo é preparar o terreno para o desenvolvimento, garantindo que a tipage
 Implementação da estrutura visual e navegação baseada em papéis.
 
 - [X] **2.1. UI Kit Base (`@iefa/ui`)**
-  - Como o PRD cita um pacote interno, criar a pasta `src/components/ui` e implementar os componentes primitivos usando Shadcn/Radix (Button, Input, Label, Card, Dialog, Drawer, Select, Table, Toast).
+  - Como o PRD cita um pacote interno, criar a pasta `src/components/ui` e implementar os componentes primitivos usando Base UI (Button, Input, Label, Card, Dialog, Drawer, Select, Table, Toast).
   - Configurar o componente `Toaster` (Sonner) na raiz.
 
 - [X] **2.2. Estrutura de Rotas (File-based Routing)**

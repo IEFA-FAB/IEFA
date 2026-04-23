@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useCreateModuleChatSession, useModuleChatMessages, useSaveModuleChatMessage } from "@/hooks/data/useModuleChatHistory"
 import { useModuleChatStream } from "@/lib/module-chat/stream"
-import type { ChatModule, ModuleChatMessage, ModuleStreamEvent, ToolCall } from "@/types/domain/module-chat"
+import type { ChatModule, ModuleChatMessage, ModuleStreamEvent, StreamMeta, ToolCall } from "@/types/domain/module-chat"
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -48,6 +48,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const pendingAssistantId = useRef<string | null>(null)
 	const sessionIdRef = useRef<string | undefined>(sessionId)
 	const sessionPromiseRef = useRef<Promise<string> | null>(null)
+	const pendingMetaRef = useRef<StreamMeta | null>(null)
 
 	useEffect(() => {
 		messagesRef.current = messages
@@ -115,9 +116,11 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 						)
 					} else if (event.type === "done") {
 						msg.isStreaming = false
+						pendingMetaRef.current = event.meta
 					} else if (event.type === "error") {
 						msg.error = event.message
 						msg.isStreaming = false
+						pendingMetaRef.current = event.meta
 					}
 
 					const updated = [...prev]
@@ -133,6 +136,10 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 					const latest = messagesRef.current.find((m) => m.id === id)
 					if (!latest || !sessionPromiseRef.current) return
 
+					// Capture meta before the async closure (ref may be overwritten)
+					const meta = pendingMetaRef.current
+					pendingMetaRef.current = null
+
 					void sessionPromiseRef.current
 						.then(async (sid) => {
 							const doSave = async (attempt = 0): Promise<void> => {
@@ -143,6 +150,10 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 										content: latest.content,
 										toolCalls: latest.toolCalls,
 										error: latest.error,
+										model: meta?.model,
+										latencyMs: meta?.latency_ms,
+										inputTokens: meta?.input_tokens,
+										outputTokens: meta?.output_tokens,
 									})
 								} catch (_err) {
 									if (attempt < 3) {

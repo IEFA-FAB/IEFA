@@ -16,7 +16,8 @@
       "**/vite.config.js",
       "!**/src/routeTree.gen.ts",
       "!**/src/styles.css",
-      "!**/src/types/supabase.types.ts"
+      "!**/src/types/supabase.types.ts",
+      "!apps/sucont/old"
     ]
   },
   "formatter": {
@@ -96,6 +97,16 @@
         "rules": {
           "style": {
             "noNonNullAssertion": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/**/index.ts", "apps/**/index.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
           }
         }
       }

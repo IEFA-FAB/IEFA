@@ -1,0 +1,23 @@
+{
+  "name": "@iefa/hono-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api-client.ts",
+    "./ai": "./src/ai-client.ts"
+  },
+  "dependencies": {
+    "hono": "^4.11.9"
+  },
+  "devDependencies": {
+    "@iefa/api": "workspace:*",
+    "@iefa/ai": "workspace:*",
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  }
+}

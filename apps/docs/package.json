@@ -16,7 +16,8 @@
         "fumadocs-mdx": "^14",
         "fumadocs-ui": "^16",
         "react": "^19",
-        "react-dom": "^19"
+        "react-dom": "^19",
+        "tslib": "^2"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4",

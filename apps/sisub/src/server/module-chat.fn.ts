@@ -171,6 +171,12 @@ export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
 			toolName: z.string().optional(),
 			toolResult: z.any().optional(),
 			error: z.string().optional(),
+			// Observability fields
+			model: z.string().optional(),
+			latencyMs: z.number().int().nonnegative().optional(),
+			langsmithRunId: z.string().optional(),
+			inputTokens: z.number().int().nonnegative().optional(),
+			outputTokens: z.number().int().nonnegative().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -198,6 +204,11 @@ export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
 				tool_name: data.toolName ?? null,
 				tool_result: data.toolResult ?? null,
 				error: data.error ?? null,
+				model: data.model ?? null,
+				latency_ms: data.latencyMs ?? null,
+				langsmith_run_id: data.langsmithRunId ?? null,
+				input_tokens: data.inputTokens ?? null,
+				output_tokens: data.outputTokens ?? null,
 			})
 			.select("id, session_id, role, content, tool_calls, tool_call_id, tool_name, tool_result, error, created_at")
 			.single()

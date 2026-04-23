@@ -10,10 +10,10 @@
  *   +   — add_menu_item verifica que a receita pertence à cozinha (ou é global)
  */
 
-import { resolveUserContext } from "../auth.ts"
+import { resolveCredential } from "../auth.ts"
 import { getDataClient } from "../supabase.ts"
 import type { ToolDefinition } from "./shared.ts"
-import { requireKitchenPermission, requireValidDates, safeInt, sanitizeDbError, toolError, toolResult } from "./shared.ts"
+import { requireKitchenPermission, requireValidDates, safeInt, safePositiveNumber, sanitizeDbError, toolError, toolResult } from "./shared.ts"
 
 // ---------------------------------------------------------------------------
 // Helpers de query
@@ -42,8 +42,8 @@ const listKitchens: ToolDefinition = {
 			required: [],
 		},
 	},
-	async handler(_args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(_args, credential) {
+		const ctx = await resolveCredential(credential)
 		// C3: exige pelo menos kitchen level 1 (qualquer escopo) — impede que
 		// usuários com apenas permissão "diner" enumerem todas as cozinhas.
 		requireKitchenPermission(ctx, 1)
@@ -77,8 +77,8 @@ const getMealTypes: ToolDefinition = {
 			required: [],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 
 		// H1: quando kitchenId é fornecido, verificar que o usuário tem permissão
 		// especificamente para aquela cozinha — não basta ter qualquer permissão kitchen.
@@ -122,8 +122,8 @@ const getPlanningCalendar: ToolDefinition = {
 			required: ["kitchenId", "startDate", "endDate"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 
@@ -170,8 +170,8 @@ const getDayDetails: ToolDefinition = {
 			required: ["kitchenId", "date"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
 
@@ -216,8 +216,8 @@ const listRecipes: ToolDefinition = {
 			required: [],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 
 		const db = getDataClient()
 		let query = db.from("recipes").select(`*, ingredients:recipe_ingredients(*, product:product_id(*))`).is("deleted_at", null).order("name")
@@ -267,8 +267,8 @@ const createDailyMenu: ToolDefinition = {
 			required: ["kitchenId", "date", "mealTypeId"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 		const id = safeInt(args.kitchenId, "kitchenId")
 		requireKitchenPermission(ctx, 2, { type: "kitchen", id })
 
@@ -318,8 +318,8 @@ const updateMenuHeadcount: ToolDefinition = {
 			required: ["menuId", "forecastedHeadcount"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 
 		if (typeof args.menuId !== "string" || !args.menuId.trim()) {
 			return toolError("menuId é obrigatório e deve ser uma string (UUID)")
@@ -361,8 +361,8 @@ const addMenuItem: ToolDefinition = {
 			required: ["dailyMenuId", "recipeId"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 
 		if (typeof args.dailyMenuId !== "string" || !args.dailyMenuId.trim()) {
 			return toolError("dailyMenuId é obrigatório e deve ser uma string (UUID)")
@@ -431,8 +431,8 @@ const removeMenuItem: ToolDefinition = {
 			required: ["itemId"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 
 		if (typeof args.itemId !== "string" || !args.itemId.trim()) {
 			return toolError("itemId é obrigatório e deve ser uma string (UUID)")
@@ -473,8 +473,8 @@ const restoreMenuItem: ToolDefinition = {
 			required: ["itemId"],
 		},
 	},
-	async handler(args, jwt) {
-		const ctx = await resolveUserContext(jwt)
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
 
 		if (typeof args.itemId !== "string" || !args.itemId.trim()) {
 			return toolError("itemId é obrigatório e deve ser uma string (UUID)")
@@ -500,6 +500,160 @@ const restoreMenuItem: ToolDefinition = {
 }
 
 // ---------------------------------------------------------------------------
+// update_menu_item
+// ---------------------------------------------------------------------------
+
+const updateMenuItem: ToolDefinition = {
+	schema: {
+		name: "update_menu_item",
+		description: "Atualiza planned_portion_quantity e/ou excluded_from_procurement de um item de menu. Requer permissão kitchen nível 2 na cozinha do menu.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				itemId: { type: "string", description: "ID (UUID) do item de menu" },
+				plannedPortionQuantity: {
+					type: "number",
+					description: "Quantidade planejada de porções (número positivo, aceita decimais)",
+				},
+				excludedFromProcurement: {
+					type: "number",
+					description: "0 = incluído no procurement, 1 = excluído",
+				},
+			},
+			required: ["itemId"],
+		},
+	},
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
+
+		if (typeof args.itemId !== "string" || !args.itemId.trim()) {
+			return toolError("itemId é obrigatório e deve ser uma string (UUID)")
+		}
+
+		const itemId = String(args.itemId).trim()
+		const db = getDataClient()
+
+		// Buscar kitchen_id do menu para verificar permissão de escopo
+		const { data: item, error: fetchError } = await db.from("menu_items").select("id, daily_menu:daily_menu_id(kitchen_id)").eq("id", itemId).single()
+
+		if (fetchError || !item) return toolError("Item de menu não encontrado")
+		const kitchenId = item.daily_menu?.kitchen_id
+		if (kitchenId == null) return toolError("Não foi possível determinar a cozinha do item")
+
+		requireKitchenPermission(ctx, 2, { type: "kitchen", id: kitchenId })
+
+		const updates: Record<string, unknown> = {}
+
+		if (args.plannedPortionQuantity != null) {
+			updates.planned_portion_quantity = safePositiveNumber(args.plannedPortionQuantity, "plannedPortionQuantity")
+		}
+		if (args.excludedFromProcurement != null) {
+			const v = safeInt(args.excludedFromProcurement, "excludedFromProcurement")
+			if (v !== 0 && v !== 1) return toolError("excludedFromProcurement deve ser 0 ou 1")
+			updates.excluded_from_procurement = v
+		}
+
+		if (Object.keys(updates).length === 0) {
+			return toolError("Nenhuma atualização fornecida. Passe plannedPortionQuantity e/ou excludedFromProcurement.")
+		}
+
+		const { data, error } = await db
+			.from("menu_items")
+			// biome-ignore lint/suspicious/noExplicitAny: dynamic update object — keys validated above
+			.update(updates as any)
+			.eq("id", itemId)
+			.select()
+		if (error) return toolError(sanitizeDbError(error, "update_menu_item"))
+		return toolResult(data)
+	},
+}
+
+// ---------------------------------------------------------------------------
+// update_substitutions
+// ---------------------------------------------------------------------------
+
+const updateSubstitutions: ToolDefinition = {
+	schema: {
+		name: "update_substitutions",
+		description:
+			"Substitui completamente o mapa de substituições de ingredientes de um item de menu (sobrescreve — não é merge). Formato: { [ingredientId]: { type, rationale, updated_at } }. Requer permissão kitchen nível 2.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				itemId: { type: "string", description: "ID (UUID) do item de menu" },
+				substitutions: {
+					type: "object",
+					description: "Mapa de substituições. Chave = ingredientId (UUID), valor = { type: string, rationale: string, updated_at: ISO 8601 }",
+				},
+			},
+			required: ["itemId", "substitutions"],
+		},
+	},
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
+
+		if (typeof args.itemId !== "string" || !args.itemId.trim()) {
+			return toolError("itemId é obrigatório e deve ser uma string (UUID)")
+		}
+
+		const itemId = String(args.itemId).trim()
+		const db = getDataClient()
+
+		// Buscar kitchen_id para verificar permissão de escopo
+		const { data: item, error: fetchError } = await db.from("menu_items").select("id, daily_menu:daily_menu_id(kitchen_id)").eq("id", itemId).single()
+
+		if (fetchError || !item) return toolError("Item de menu não encontrado")
+		const kitchenId = item.daily_menu?.kitchen_id
+		if (kitchenId == null) return toolError("Não foi possível determinar a cozinha do item")
+
+		requireKitchenPermission(ctx, 2, { type: "kitchen", id: kitchenId })
+
+		if (typeof args.substitutions !== "object" || Array.isArray(args.substitutions) || args.substitutions === null) {
+			return toolError("substitutions deve ser um objeto (mapa de substituições)")
+		}
+
+		const { error } = await db.from("menu_items").update({ substitutions: args.substitutions }).eq("id", itemId)
+		if (error) return toolError(sanitizeDbError(error, "update_substitutions"))
+		return toolResult({ success: true, itemId, message: "Substituições atualizadas com sucesso" })
+	},
+}
+
+// ---------------------------------------------------------------------------
+// get_trash_items
+// ---------------------------------------------------------------------------
+
+const getTrashItems: ToolDefinition = {
+	schema: {
+		name: "get_trash_items",
+		description:
+			"Lista todos os itens de menu removidos (soft-deleted) de uma cozinha, com receita e menu diário de origem. Ordenados por data de remoção (mais recente primeiro). Use restore_menu_item para recuperar.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				kitchenId: { type: "number", description: "ID da cozinha" },
+			},
+			required: ["kitchenId"],
+		},
+	},
+	async handler(args, credential) {
+		const ctx = await resolveCredential(credential)
+		const id = safeInt(args.kitchenId, "kitchenId")
+		requireKitchenPermission(ctx, 1, { type: "kitchen", id })
+
+		const db = getDataClient()
+		const { data, error } = await db
+			.from("menu_items")
+			.select("*, recipe_origin:recipe_origin_id(*), daily_menu!inner(*)")
+			.not("deleted_at", "is", null)
+			.eq("daily_menu.kitchen_id", id)
+			.order("deleted_at", { ascending: false })
+
+		if (error) return toolError(sanitizeDbError(error, "get_trash_items"))
+		return toolResult(data ?? [])
+	},
+}
+
+// ---------------------------------------------------------------------------
 // Exportação
 // ---------------------------------------------------------------------------
 
@@ -514,4 +668,7 @@ export const planningTools: ToolDefinition[] = [
 	addMenuItem,
 	removeMenuItem,
 	restoreMenuItem,
+	updateMenuItem,
+	updateSubstitutions,
+	getTrashItems,
 ]

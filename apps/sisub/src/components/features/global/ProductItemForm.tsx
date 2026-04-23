@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
 
 // Schema de validação
@@ -115,12 +115,18 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 											Produto Genérico <span className="text-destructive">*</span>
 										</FieldLabel>
 										<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
-											<option value="">Selecione um produto</option>
-											{products?.map((p) => (
-												<option key={p.id} value={p.id}>
-													{p.description}
-												</option>
-											))}
+											<SelectTrigger>
+												<SelectValue placeholder="Selecione um produto">
+													{field.state.value && (products?.find((p) => p.id === field.state.value)?.description ?? field.state.value)}
+												</SelectValue>
+											</SelectTrigger>
+											<SelectContent>
+												{products?.map((p) => (
+													<SelectItem key={p.id} value={p.id}>
+														{p.description}
+													</SelectItem>
+												))}
+											</SelectContent>
 										</Select>
 										<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
 									</Field>

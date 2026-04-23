@@ -75,9 +75,10 @@ export function AppCard({ app }: { app: AppItem }) {
 
 			<CardFooter className="mb-0">
 				{app.to ? (
-					<Button render={<Link to={app.to}>Abrir</Link>} className="w-full" aria-label={`Abrir ${app.title}`} />
+					<Button nativeButton={false} render={<Link to={app.to}>Abrir</Link>} className="w-full" aria-label={`Abrir ${app.title}`} />
 				) : app.href ? (
 					<Button
+						nativeButton={false}
 						render={
 							<a href={app.href} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noreferrer noopener" : undefined}>
 								Acessar

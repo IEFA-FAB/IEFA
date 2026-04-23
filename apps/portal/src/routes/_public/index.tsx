@@ -122,6 +122,7 @@ function Home() {
 
 					<div className="flex flex-wrap gap-3 justify-center items-center pt-2">
 						<Button
+							nativeButton={false}
 							render={
 								<Link to="/facilities" aria-label="Ver todas as facilidades e aplicações">
 									Ver facilidades
@@ -131,6 +132,7 @@ function Home() {
 							variant="default"
 						/>
 						<Button
+							nativeButton={false}
 							render={
 								<Link to="/journal" aria-label="Acessar Sistema de Gestão de Publicações">
 									Publicações
@@ -182,6 +184,7 @@ function Home() {
 
 					<div className="mt-8 flex justify-center">
 						<Button
+							nativeButton={false}
 							render={
 								<Link to="/about" className="inline-flex items-center gap-2">
 									Conheça o Instituto
@@ -222,7 +225,7 @@ function Home() {
 					) : null}
 
 					<div className="mt-6 flex sm:hidden justify-center">
-						<Button render={<Link to="/facilities">Ver todas</Link>} variant="outline" size="sm" />
+						<Button nativeButton={false} render={<Link to="/facilities">Ver todas</Link>} variant="outline" size="sm" />
 					</div>
 				</section>
 
@@ -270,7 +273,7 @@ function Home() {
 							</p>
 						</div>
 
-						<Button render={<Link to="/journal">Acessar</Link>} variant="default" className="shrink-0" />
+						<Button nativeButton={false} render={<Link to="/journal">Acessar</Link>} variant="default" className="shrink-0" />
 					</div>
 				</section>
 			</div>

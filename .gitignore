@@ -1,3 +1,6 @@
+# === TaskTrace (worklog pessoal) ===
+.tasktrace/
+
 # === OS ===
 .DS_Store
 Thumbs.db

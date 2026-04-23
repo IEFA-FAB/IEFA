@@ -49,7 +49,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 								Voltar
 							</Button>
 						)}
-						<Button variant="outline" render={<Link to="/" />} className={cn(isRoot && "col-span-2")}>
+						<Button nativeButton={false} variant="outline" render={<Link to="/" />} className={cn(isRoot && "col-span-2")}>
 							<Home className="size-4" />
 							Ir para o Início
 						</Button>

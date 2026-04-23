@@ -175,6 +175,12 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 			chart: z.any().optional(),
 			chartTypeOverride: z.enum(CHART_TYPES).optional(),
 			error: z.string().optional(),
+			// Observability fields
+			model: z.string().optional(),
+			latencyMs: z.number().int().nonnegative().optional(),
+			langsmithRunId: z.string().optional(),
+			inputTokens: z.number().int().nonnegative().optional(),
+			outputTokens: z.number().int().nonnegative().optional(),
 		})
 	)
 	.handler(async ({ data }) => {
@@ -200,6 +206,11 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 				chart: data.chart ?? null,
 				chart_type_override: data.chartTypeOverride ?? null,
 				error: data.error ?? null,
+				model: data.model ?? null,
+				latency_ms: data.latencyMs ?? null,
+				langsmith_run_id: data.langsmithRunId ?? null,
+				input_tokens: data.inputTokens ?? null,
+				output_tokens: data.outputTokens ?? null,
 			})
 			.select("id, session_id, role, content, chart, chart_type_override, error, created_at")
 			.single()

@@ -48,7 +48,7 @@ export function UserMenu() {
 	// if (!isAuthenticated) logic remains below...
 
 	if (!isAuthenticated) {
-		return <Button render={<Link to="/auth">Entrar</Link>} variant="outline" size="sm" />
+		return <Button nativeButton={false} render={<Link to="/auth">Entrar</Link>} variant="outline" size="sm" />
 	}
 
 	return (

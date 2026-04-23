@@ -39,6 +39,7 @@ export function PostCard({ post }: { post: PostSummary }) {
 			</CardContent>
 			<CardFooter className="pt-4">
 				<Button
+					nativeButton={false}
 					render={
 						<Link to="/posts/$slug" params={{ slug: post.slug.current }}>
 							Ler Artigo

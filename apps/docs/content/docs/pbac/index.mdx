@@ -1,0 +1,138 @@
+---
+title: Visão Geral
+description: Sistema de controle de acesso baseado em permissões — módulos, níveis e escopos do IEFA.
+---
+
+## O que é o PBAC
+
+O **PBAC** (`@iefa/pbac`) é o pacote de controle de acesso da plataforma IEFA. Ele define *quem pode fazer o quê e onde* dentro dos sistemas — sem depender de papéis fixos (roles) pré-definidos.
+
+Em vez de papéis como "admin" ou "operador", o PBAC trabalha com **permissões granulares** compostas de três dimensões:
+
+| Dimensão | O que define |
+|----------|-------------|
+| **Módulo** | Qual área do sistema o usuário pode acessar |
+| **Nível** | O que ele pode fazer dentro daquela área |
+| **Escopo** | Em qual unidade/rancho/cozinha a permissão se aplica |
+
+Isso permite, por exemplo, que um mesmo usuário seja gestor da cozinha em um batalhão e simples comensal em outro — sem precisar de contas separadas.
+
+---
+
+## Conceitos Core
+
+### Níveis de Permissão
+
+Os níveis são inteiros — quanto maior, mais poder:
+
+| Nível | Significado |
+|-------|-------------|
+| `0` | **Deny explícito** — a permissão é removida antes de qualquer verificação |
+| `1` | **Leitura / acesso básico** |
+| `2` | **Escrita / edição** |
+| `3+` | **Administração** |
+
+<Callout type="warn">
+Nível `0` é um bloqueio explícito, não "sem acesso". Ele é removido (stripped) pelo `resolveUserPermissions` antes de chegar ao `hasPermission`, portanto o usuário fica sem aquela permissão — como se nunca tivesse sido cadastrada.
+</Callout>
+
+### Escopos
+
+Módulos que operam dentro de uma estrutura organizacional recebem um escopo para restringir o acesso ao contexto correto:
+
+```ts
+type PermissionScope =
+  | { type: "unit";      id: number }
+  | { type: "mess_hall"; id: number }
+  | { type: "kitchen";   id: number }
+```
+
+Uma permissão sem escopo (todos os IDs `null` no banco) é **global** — válida para qualquer contexto daquele módulo.
+
+---
+
+## Funções Principais
+
+### `resolveUserPermissions`
+
+```ts
+async function resolveUserPermissions(
+  userId: string,
+  supabase: SupabaseClient
+): Promise<UserPermission[]>
+```
+
+Executada **no servidor**, com service role (bypassa RLS). Responsável por:
+
+1. Buscar todas as linhas da tabela `user_permissions` para o `userId`
+2. **Injetar** permissão `diner` nível `1` se o usuário não tiver nenhuma regra de comensal — todo usuário autenticado é implicitamente um comensal
+3. **Remover** entradas com `level = 0` (deny strip) antes de retornar
+
+<Callout>
+Use sempre o cliente Supabase com service role aqui. O client público com RLS pode filtrar linhas que o próprio usuário deveria ver, quebrando a resolução.
+</Callout>
+
+### `hasPermission`
+
+```ts
+function hasPermission(
+  permissions: UserPermission[],
+  module: AppModule,
+  minLevel?: number,      // default: 1
+  scope?: PermissionScope
+): boolean
+```
+
+Executada **no cliente ou no servidor** sobre o array já resolvido. Ordem de verificação:
+
+1. Filtra permissões do `module` com `level >= minLevel`
+2. Se não houver `scope`, qualquer permissão válida retorna `true`
+3. Se houver `scope`, aceita permissão global (todos IDs `null`) **ou** permissão com o ID do escopo correto
+
+```ts
+// Exemplos
+hasPermission(perms, "kitchen", 2, { type: "kitchen", id: 42 })
+// → true se o usuário tiver level ≥ 2 na kitchen 42 (ou permissão global de kitchen)
+
+hasPermission(perms, "global", 3)
+// → true se o usuário tiver level ≥ 3 no módulo global (sem escopo necessário)
+```
+
+---
+
+## Fluxo Completo
+
+```
+[Request do usuário]
+        ↓
+resolveUserPermissions(userId, supabaseServiceClient)
+  → busca user_permissions
+  → injeta diner nível 1 se ausente
+  → remove level = 0
+        ↓
+[Array UserPermission[] em memória]
+        ↓
+hasPermission(permissions, "kitchen-production", 1, { type: "kitchen", id: X })
+  → true / false
+        ↓
+[Acesso liberado ou bloqueado]
+```
+
+---
+
+## Estrutura do Pacote
+
+```
+packages/pbac/src/
+├── types.ts                 # AppModule, UserPermission, PermissionScope
+├── has-permission.ts        # hasPermission()
+├── resolve-permissions.ts   # resolveUserPermissions()
+└── index.ts                 # Exports públicos
+```
+
+Importar como:
+
+```ts
+import { hasPermission, resolveUserPermissions } from "@iefa/pbac"
+import type { AppModule, PermissionScope, UserPermission } from "@iefa/pbac"
+```

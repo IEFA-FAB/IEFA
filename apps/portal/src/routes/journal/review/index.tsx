@@ -141,6 +141,7 @@ function ReviewCard({ assignment, isPending }: ReviewCardProps) {
 				<div className="flex flex-col gap-2">
 					{isPending ? (
 						<Button
+							nativeButton={false}
 							render={
 								<Link to="/journal/review/$assignmentId" params={{ assignmentId: assignment.id }}>
 									<Page className="size-4 mr-2" />
@@ -150,6 +151,7 @@ function ReviewCard({ assignment, isPending }: ReviewCardProps) {
 						/>
 					) : (
 						<Button
+							nativeButton={false}
 							render={
 								<Link to="/journal/review/$assignmentId" params={{ assignmentId: assignment.id }}>
 									Ver Revisão

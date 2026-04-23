@@ -43,6 +43,7 @@ function WeeklyPlansPage() {
 		<div className="space-y-6">
 			<PageHeader title="Planos Semanais Modelo">
 				<Button
+					nativeButton={false}
 					size="sm"
 					render={
 						<Link to="/global/weekly-plans/new">
@@ -63,7 +64,13 @@ function WeeklyPlansPage() {
 						<CalendarDays className="h-10 w-10 mx-auto text-muted-foreground" />
 						<p className="text-sm font-medium text-muted-foreground">Nenhum plano semanal modelo cadastrado.</p>
 						<p className="text-xs text-muted-foreground">Crie um plano para que as unidades possam importá-lo para o calendário local.</p>
-						<Button variant="outline" size="sm" className="mt-2" render={<Link to="/global/weekly-plans/new">Criar primeiro plano</Link>} />
+						<Button
+							nativeButton={false}
+							variant="outline"
+							size="sm"
+							className="mt-2"
+							render={<Link to="/global/weekly-plans/new">Criar primeiro plano</Link>}
+						/>
 					</div>
 				) : (
 					<div className="rounded-md border">

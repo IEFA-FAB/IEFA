@@ -1,9 +1,11 @@
 import { createError, getHeader, readBody, type H3Event } from "h3"
 import { defineHandler } from "nitro"
-import OpenAI from "openai"
+import { ChatOpenAI } from "@langchain/openai"
+import { SystemMessage, HumanMessage, AIMessage, type BaseMessage } from "@langchain/core/messages"
 import { createServerClient } from "@supabase/ssr"
 import type { Database } from "@iefa/database"
 import { envServer, getAnalyticsEnvServer } from "@/lib/env.server"
+import { classifyLLMError } from "@/lib/llm-errors"
 import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { validateSql, executeSql } from "@/lib/analytics-sql"
 import type { ChartType, StreamEvent } from "@/types/domain/analytics-chat"
@@ -193,18 +195,22 @@ export default defineHandler(async (event: H3Event) => {
 	}
 
 	const analyticsEnv = getAnalyticsEnvServer()
+	const model = body.model?.trim() || analyticsEnv.ANALYTICS_LLM_MODEL
 
-	const openai = new OpenAI({
-		apiKey: analyticsEnv.OPENROUTER_API_KEY,
-		baseURL: "https://openrouter.ai/api/v1",
-		defaultHeaders: {
-			"HTTP-Referer": "https://sisub.fly.dev",
-			"X-Title": "SISUB Analytics",
+	const llm = new ChatOpenAI({
+		model,
+		configuration: {
+			baseURL: "https://openrouter.ai/api/v1",
+			apiKey: analyticsEnv.OPENROUTER_API_KEY,
+			defaultHeaders: {
+				"HTTP-Referer": "https://sisub.fly.dev",
+				"X-Title": "SISUB Analytics",
+			},
 		},
+		temperature: 0,
 	})
 
 	const encoder = new TextEncoder()
-	const model = body.model?.trim() || analyticsEnv.ANALYTICS_LLM_MODEL
 
 	const stream = new ReadableStream({
 		async start(controller) {
@@ -223,25 +229,33 @@ export default defineHandler(async (event: H3Event) => {
 				}
 			}, 5_000)
 
+			let outputSent = false
 			const sendEvent = (data: StreamEvent) => {
 				if (controllerClosed) return
+				if (data.type !== "done") outputSent = true
 				controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 			}
 
-			try {
-				const completion = await openai.chat.completions.create({
-					model,
-					stream: true,
-					temperature: 0,
-					messages: [
-						{ role: "system", content: ANALYTICS_SYSTEM_PROMPT },
-						...((body.history ?? []).filter(
-							(message: { role: string; content: string }): message is { role: "user" | "assistant" | "system"; content: string } =>
-								(message.role === "user" || message.role === "assistant" || message.role === "system") && typeof message.content === "string"
-						)),
-						{ role: "user", content: body.message },
-					],
-				})
+			const startMs = Date.now()
+				let totalInputTokens = 0
+				let totalOutputTokens = 0
+
+				try {
+				const lcMessages: BaseMessage[] = [
+					new SystemMessage(ANALYTICS_SYSTEM_PROMPT),
+					...((body.history ?? [])
+						.filter(
+							(m: { role: string; content: string }): m is { role: "user" | "assistant" | "system"; content: string } =>
+								(m.role === "user" || m.role === "assistant" || m.role === "system") && typeof m.content === "string"
+						)
+						.map((m) => {
+							if (m.role === "user") return new HumanMessage(m.content)
+							if (m.role === "assistant") return new AIMessage(m.content)
+							return new SystemMessage(m.content)
+						})),
+					new HumanMessage(body.message),
+				]
+				const completion = await llm.stream(lcMessages)
 
 				let textBuffer = ""
 				let inChartSpec = false
@@ -298,6 +312,7 @@ export default defineHandler(async (event: H3Event) => {
 								sendEvent({
 									type: "error",
 									message: "Resposta da IA terminou com um bloco de gráfico incompleto.",
+									meta: { model, latency_ms: Date.now() - startMs },
 								})
 							}
 							return
@@ -319,6 +334,7 @@ export default defineHandler(async (event: H3Event) => {
 									err instanceof SyntaxError
 										? `Erro ao interpretar gráfico: ${err.message}`
 										: `Erro ao gerar gráfico: ${err.message}`,
+								meta: { model, latency_ms: Date.now() - startMs },
 							})
 						}
 
@@ -327,19 +343,59 @@ export default defineHandler(async (event: H3Event) => {
 				}
 
 				for await (const chunk of completion) {
-					const delta = chunk.choices[0]?.delta?.content ?? ""
-					if (!delta) {
-						continue
+					// chunk.content can be a plain string or MessageContentComplex[] (LangChain
+					// complex content used for multimodal/structured responses). Extract text
+					// from both forms so no content is silently dropped.
+
+					// Accumulate token usage (present in final chunk for most providers)
+					if (chunk.usage_metadata) {
+						totalInputTokens += chunk.usage_metadata.input_tokens ?? 0
+						totalOutputTokens += chunk.usage_metadata.output_tokens ?? 0
 					}
+
+					let delta = ""
+					if (typeof chunk.content === "string") {
+						delta = chunk.content
+					} else if (Array.isArray(chunk.content)) {
+						delta = (chunk.content as { type?: string; text?: string }[])
+							.filter((c) => c.type === "text" && typeof c.text === "string")
+							.map((c) => c.text as string)
+							.join("")
+					}
+					if (!delta) continue
 
 					textBuffer += delta
 					await processBuffers()
 				}
 
 				await processBuffers(true)
-				sendEvent({ type: "done" })
+
+				if (!outputSent) {
+					console.warn("[analytics/stream] empty response from model:", model)
+					sendEvent({
+						type: "error",
+						message: "O modelo não retornou nenhuma resposta. Verifique se o modelo está disponível ou tente novamente.",
+						meta: { model, latency_ms: Date.now() - startMs },
+					})
+				}
+				sendEvent({
+					type: "done",
+					meta: {
+						model,
+						latency_ms: Date.now() - startMs,
+						input_tokens: totalInputTokens || undefined,
+						output_tokens: totalOutputTokens || undefined,
+					},
+				})
 			} catch (e) {
-				sendEvent({ type: "error", message: (e as Error).message })
+				sendEvent({
+					type: "error",
+					message: classifyLLMError(e),
+					meta: {
+						model,
+						latency_ms: Date.now() - startMs,
+					},
+				})
 			} finally {
 				clearInterval(keepaliveInterval)
 				controllerClosed = true

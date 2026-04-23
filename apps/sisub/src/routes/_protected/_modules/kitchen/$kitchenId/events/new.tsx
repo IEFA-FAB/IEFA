@@ -120,6 +120,7 @@ function NewEventPage() {
 						<p className="text-xs text-muted-foreground">Após criar, você será redirecionado para montar o cardápio do evento.</p>
 						<div className="flex gap-2">
 							<Button
+								nativeButton={false}
 								type="button"
 								variant="outline"
 								render={

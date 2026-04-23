@@ -185,6 +185,7 @@ function NewWeeklyMenuPage() {
 						</p>
 						<div className="flex gap-2">
 							<Button
+								nativeButton={false}
 								type="button"
 								variant="outline"
 								render={

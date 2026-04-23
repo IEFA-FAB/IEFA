@@ -10,7 +10,7 @@ const serverEnvSchema = z.object({
 
 const analyticsEnvSchema = z.object({
 	OPENROUTER_API_KEY: z.string().min(1),
-	ANALYTICS_LLM_MODEL: z.string().default("openai/gpt-oss-120b:free"),
+	ANALYTICS_LLM_MODEL: z.string().default("google/gemini-2.0-flash-001"),
 	ANALYTICS_LLM_MODEL_FALLBACK: z.string().optional(),
 })
 

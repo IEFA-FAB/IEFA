@@ -5,17 +5,6 @@ import { analisarPrecos, type OpcoesPesquisa } from "../../workers/pesquisa-prec
 import { consultarMaterialPrecos } from "../../workers/pesquisa-preco/client.ts"
 import type { AmostraPreco, AtaItemPriceResult, PriceAnalysis } from "../../workers/pesquisa-preco/types.ts"
 
-export const priceResearchRoutes = new Hono()
-
-// Middleware: mesma proteção das rotas admin
-priceResearchRoutes.use("*", async (c, next) => {
-	const secret = c.req.header("x-admin-secret")
-	if (!secret || secret !== env.ADMIN_SECRET) {
-		return c.json({ error: "Unauthorized" }, 401)
-	}
-	return next()
-})
-
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "sisub" },
@@ -195,183 +184,193 @@ function serializeAmostra(a: AmostraPreco, researchItemId: string, sampleType: "
 	}
 }
 
-// ─── GET /material/:catmatCode ────────────────────────────────────────────────
-//
-// Consulta exploratória de preços para um único item CATMAT.
-// Não persiste — use o endpoint da ATA para gerar audit trail.
-//
-// Query params: months (default 12) | estado | codigoUasg | codigoMunicipio | similarityThreshold
-
-priceResearchRoutes.get("/material/:catmatCode", async (c) => {
-	const catmatCode = Number(c.req.param("catmatCode"))
-	if (!Number.isInteger(catmatCode) || catmatCode <= 0) {
-		return c.json({ error: "Código CATMAT inválido" }, 400)
-	}
-
-	const q = c.req.query() as Record<string, string>
-	const options: OpcoesPesquisa = {
-		months: Math.min(Math.max(parseInt(q.months ?? "12", 10) || 12, 1), 24),
-		similarityThreshold: Math.min(Math.max(parseFloat(q.similarityThreshold ?? "0.4") || 0.4, 0), 1),
-		...(q.estado ? { estado: q.estado.toUpperCase() } : {}),
-		...(q.codigoUasg ? { codigoUasg: q.codigoUasg } : {}),
-		...(q.codigoMunicipio ? { codigoMunicipio: Number(q.codigoMunicipio) } : {}),
-	}
-
-	const supabase = getSupabase()
-	const catmatDescricao = await buscarDescricaoCatmat(supabase, catmatCode)
-
-	try {
-		const rawItems = await consultarMaterialPrecos(catmatCode, {
-			estado: options.estado,
-			codigoUasg: options.codigoUasg,
-			codigoMunicipio: options.codigoMunicipio,
-		})
-		return c.json(analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err)
-		console.error(`[price-research] CATMAT ${catmatCode}: ${message}`)
-		return c.json({ error: `Falha ao consultar API Compras: ${message}` }, 502)
-	}
-})
-
-// ─── POST /ata/:ataId ─────────────────────────────────────────────────────────
-//
-// Executa pesquisa de preços para todos os itens de uma ATA e PERSISTE
-// automaticamente a memória de cálculo para fins de auditoria.
-//
-// Body JSON (todos opcionais):
-//   { months?, estado?, codigoUasg?, codigoMunicipio?, similarityThreshold? }
-
-priceResearchRoutes.post("/ata/:ataId", async (c) => {
-	const ataId = c.req.param("ataId")
-	if (!ataId) return c.json({ error: "ataId inválido" }, 400)
-
-	const body = (await c.req.json().catch(() => ({}))) as {
-		months?: number
-		estado?: string
-		codigoUasg?: string
-		codigoMunicipio?: number
-		similarityThreshold?: number
-	}
-
-	const options: OpcoesPesquisa = {
-		months: Math.min(Math.max(body.months ?? 12, 1), 24),
-		similarityThreshold: Math.min(Math.max(body.similarityThreshold ?? 0.4, 0), 1),
-		...(body.estado ? { estado: body.estado.toUpperCase() } : {}),
-		...(body.codigoUasg ? { codigoUasg: body.codigoUasg } : {}),
-		...(body.codigoMunicipio ? { codigoMunicipio: body.codigoMunicipio } : {}),
-	}
-
-	const supabase = getSupabase()
-
-	const { data: ata, error: ataError } = await supabase.from("procurement_ata").select("id").eq("id", ataId).is("deleted_at", null).single()
-
-	if (ataError || !ata) return c.json({ error: "ATA não encontrada" }, 404)
-
-	const { data: ataItems, error: itemsError } = await supabase
-		.from("procurement_ata_item")
-		.select("id, product_id, product_name, catmat_item_codigo, catmat_item_descricao")
-		.eq("ata_id", ataId)
-
-	if (itemsError || !ataItems) return c.json({ error: "Erro ao buscar itens da ATA" }, 500)
-
-	// Deduplicar códigos CATMAT
-	const catmatMap = new Map<number, string | null>()
-	for (const item of ataItems) {
-		if (item.catmat_item_codigo != null && !catmatMap.has(item.catmat_item_codigo)) {
-			catmatMap.set(item.catmat_item_codigo, item.catmat_item_descricao ?? null)
+export const priceResearchRoutes = new Hono()
+	// Middleware: mesma proteção das rotas admin
+	.use("*", async (c, next) => {
+		const secret = c.req.header("x-admin-secret")
+		if (!secret || secret !== env.ADMIN_SECRET) {
+			return c.json({ error: "Unauthorized" }, 401)
 		}
-	}
+		return next()
+	})
 
-	// Pesquisar em paralelo (concorrência 3)
-	const analysisMap = new Map<number, PriceAnalysis>()
-	const errorMap = new Map<number, string>()
-	const entries = [...catmatMap.entries()]
-	const CONCURRENCY = 3
+	// ─── GET /material/:catmatCode ────────────────────────────────────────────────
+	//
+	// Consulta exploratória de preços para um único item CATMAT.
+	// Não persiste — use o endpoint da ATA para gerar audit trail.
+	//
+	// Query params: months (default 12) | estado | codigoUasg | codigoMunicipio | similarityThreshold
 
-	for (let i = 0; i < entries.length; i += CONCURRENCY) {
-		const batch = entries.slice(i, i + CONCURRENCY)
-		await Promise.all(
-			batch.map(async ([catmatCode, descricaoAta]) => {
-				try {
-					const catmatDescricao = (await buscarDescricaoCatmat(supabase, catmatCode)) ?? descricaoAta
-					const rawItems = await consultarMaterialPrecos(catmatCode, {
-						estado: options.estado,
-						codigoUasg: options.codigoUasg,
-						codigoMunicipio: options.codigoMunicipio,
-					})
-					analysisMap.set(catmatCode, analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
-				} catch (err) {
-					const msg = err instanceof Error ? err.message : String(err)
-					console.error(`[price-research] ATA ${ataId} CATMAT ${catmatCode}: ${msg}`)
-					errorMap.set(catmatCode, msg)
-				}
+	.get("/material/:catmatCode", async (c) => {
+		const catmatCode = Number(c.req.param("catmatCode"))
+		if (!Number.isInteger(catmatCode) || catmatCode <= 0) {
+			return c.json({ error: "Código CATMAT inválido" }, 400)
+		}
+
+		const q = c.req.query() as Record<string, string>
+		const options: OpcoesPesquisa = {
+			months: Math.min(Math.max(parseInt(q.months ?? "12", 10) || 12, 1), 24),
+			similarityThreshold: Math.min(Math.max(parseFloat(q.similarityThreshold ?? "0.4") || 0.4, 0), 1),
+			...(q.estado ? { estado: q.estado.toUpperCase() } : {}),
+			...(q.codigoUasg ? { codigoUasg: q.codigoUasg } : {}),
+			...(q.codigoMunicipio ? { codigoMunicipio: Number(q.codigoMunicipio) } : {}),
+		}
+
+		const supabase = getSupabase()
+		const catmatDescricao = await buscarDescricaoCatmat(supabase, catmatCode)
+
+		try {
+			const rawItems = await consultarMaterialPrecos(catmatCode, {
+				estado: options.estado,
+				codigoUasg: options.codigoUasg,
+				codigoMunicipio: options.codigoMunicipio,
 			})
-		)
-		if (i + CONCURRENCY < entries.length) await new Promise((r) => setTimeout(r, 500))
-	}
+			return c.json(analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err)
+			console.error(`[price-research] CATMAT ${catmatCode}: ${message}`)
+			return c.json({ error: `Falha ao consultar API Compras: ${message}` }, 502)
+		}
+	})
 
-	// Mapear resultados para os itens da ATA
-	const items: AtaItemPriceResult[] = ataItems.map((item) => {
-		const catmat = item.catmat_item_codigo
-		if (catmat == null) {
+	// ─── POST /ata/:ataId ─────────────────────────────────────────────────────────
+	//
+	// Executa pesquisa de preços para todos os itens de uma ATA e PERSISTE
+	// automaticamente a memória de cálculo para fins de auditoria.
+	//
+	// Body JSON (todos opcionais):
+	//   { months?, estado?, codigoUasg?, codigoMunicipio?, similarityThreshold? }
+
+	.post("/ata/:ataId", async (c) => {
+		const ataId = c.req.param("ataId")
+		if (!ataId) return c.json({ error: "ataId inválido" }, 400)
+
+		const body = (await c.req.json().catch(() => ({}))) as {
+			months?: number
+			estado?: string
+			codigoUasg?: string
+			codigoMunicipio?: number
+			similarityThreshold?: number
+		}
+
+		const options: OpcoesPesquisa = {
+			months: Math.min(Math.max(body.months ?? 12, 1), 24),
+			similarityThreshold: Math.min(Math.max(body.similarityThreshold ?? 0.4, 0), 1),
+			...(body.estado ? { estado: body.estado.toUpperCase() } : {}),
+			...(body.codigoUasg ? { codigoUasg: body.codigoUasg } : {}),
+			...(body.codigoMunicipio ? { codigoMunicipio: body.codigoMunicipio } : {}),
+		}
+
+		const supabase = getSupabase()
+
+		const { data: ata, error: ataError } = await supabase.from("procurement_ata").select("id").eq("id", ataId).is("deleted_at", null).single()
+
+		if (ataError || !ata) return c.json({ error: "ATA não encontrada" }, 404)
+
+		const { data: ataItems, error: itemsError } = await supabase
+			.from("procurement_ata_item")
+			.select("id, product_id, product_name, catmat_item_codigo, catmat_item_descricao")
+			.eq("ata_id", ataId)
+
+		if (itemsError || !ataItems) return c.json({ error: "Erro ao buscar itens da ATA" }, 500)
+
+		// Deduplicar códigos CATMAT
+		const catmatMap = new Map<number, string | null>()
+		for (const item of ataItems) {
+			if (item.catmat_item_codigo != null && !catmatMap.has(item.catmat_item_codigo)) {
+				catmatMap.set(item.catmat_item_codigo, item.catmat_item_descricao ?? null)
+			}
+		}
+
+		// Pesquisar em paralelo (concorrência 3)
+		const analysisMap = new Map<number, PriceAnalysis>()
+		const errorMap = new Map<number, string>()
+		const entries = [...catmatMap.entries()]
+		const CONCURRENCY = 3
+
+		for (let i = 0; i < entries.length; i += CONCURRENCY) {
+			const batch = entries.slice(i, i + CONCURRENCY)
+			await Promise.all(
+				batch.map(async ([catmatCode, descricaoAta]) => {
+					try {
+						const catmatDescricao = (await buscarDescricaoCatmat(supabase, catmatCode)) ?? descricaoAta
+						const rawItems = await consultarMaterialPrecos(catmatCode, {
+							estado: options.estado,
+							codigoUasg: options.codigoUasg,
+							codigoMunicipio: options.codigoMunicipio,
+						})
+						analysisMap.set(catmatCode, analisarPrecos(catmatCode, catmatDescricao, rawItems, options))
+					} catch (err) {
+						const msg = err instanceof Error ? err.message : String(err)
+						console.error(`[price-research] ATA ${ataId} CATMAT ${catmatCode}: ${msg}`)
+						errorMap.set(catmatCode, msg)
+					}
+				})
+			)
+			if (i + CONCURRENCY < entries.length) await new Promise((r) => setTimeout(r, 500))
+		}
+
+		// Mapear resultados para os itens da ATA
+		const items: AtaItemPriceResult[] = ataItems.map((item) => {
+			const catmat = item.catmat_item_codigo
+			if (catmat == null) {
+				return {
+					ataItemId: item.id,
+					productId: item.product_id ?? null,
+					productName: item.product_name,
+					catmatCodigo: null,
+					catmatDescricao: null,
+					analysis: null,
+					error: "Item sem código CATMAT vinculado — vincule o produto a um item do catálogo CATMAT",
+				}
+			}
 			return {
 				ataItemId: item.id,
 				productId: item.product_id ?? null,
 				productName: item.product_name,
-				catmatCodigo: null,
-				catmatDescricao: null,
-				analysis: null,
-				error: "Item sem código CATMAT vinculado — vincule o produto a um item do catálogo CATMAT",
+				catmatCodigo: catmat,
+				catmatDescricao: item.catmat_item_descricao ?? null,
+				analysis: analysisMap.get(catmat) ?? null,
+				error: errorMap.get(catmat) ?? null,
 			}
+		})
+
+		const summary = {
+			total: items.length,
+			withPrice: items.filter((i) => i.analysis?.statistics != null).length,
+			withoutCatmat: items.filter((i) => i.catmatCodigo == null).length,
+			withoutData: items.filter((i) => i.catmatCodigo != null && i.analysis != null && i.analysis.statistics == null && i.error == null).length,
+			withError: items.filter((i) => i.error != null && i.catmatCodigo != null).length,
+			nonCompliant: items.filter((i) => i.analysis != null && !i.analysis.compliance.compliant).length,
 		}
-		return {
-			ataItemId: item.id,
-			productId: item.product_id ?? null,
-			productName: item.product_name,
-			catmatCodigo: catmat,
-			catmatDescricao: item.catmat_item_descricao ?? null,
-			analysis: analysisMap.get(catmat) ?? null,
-			error: errorMap.get(catmat) ?? null,
+
+		// Persistir memória de cálculo (falha silenciosa)
+		const researchId = await persistResearch(supabase, {
+			ataId,
+			options,
+			items,
+			summary,
+		})
+
+		if (!researchId) {
+			console.error(`[price-research] Memória de cálculo NÃO persistida para ATA ${ataId}`)
 		}
+
+		return c.json({ researchId, ataId, consultedAt: new Date().toISOString(), items, summary })
 	})
 
-	const summary = {
-		total: items.length,
-		withPrice: items.filter((i) => i.analysis?.statistics != null).length,
-		withoutCatmat: items.filter((i) => i.catmatCodigo == null).length,
-		withoutData: items.filter((i) => i.catmatCodigo != null && i.analysis != null && i.analysis.statistics == null && i.error == null).length,
-		withError: items.filter((i) => i.error != null && i.catmatCodigo != null).length,
-		nonCompliant: items.filter((i) => i.analysis != null && !i.analysis.compliance.compliant).length,
-	}
+	// ─── GET /ata/:ataId/history ──────────────────────────────────────────────────
+	//
+	// Lista todas as pesquisas realizadas para uma ATA (resumo, sem amostras).
+	// Use GET /research/:researchId para o audit trail completo.
 
-	// Persistir memória de cálculo (falha silenciosa)
-	const researchId = await persistResearch(supabase, {
-		ataId,
-		options,
-		items,
-		summary,
-	})
+	.get("/ata/:ataId/history", async (c) => {
+		const ataId = c.req.param("ataId")
+		const supabase = getSupabase()
 
-	if (!researchId) {
-		console.error(`[price-research] Memória de cálculo NÃO persistida para ATA ${ataId}`)
-	}
-
-	return c.json({ researchId, ataId, consultedAt: new Date().toISOString(), items, summary })
-})
-
-// ─── GET /ata/:ataId/history ──────────────────────────────────────────────────
-//
-// Lista todas as pesquisas realizadas para uma ATA (resumo, sem amostras).
-// Use GET /research/:researchId para o audit trail completo.
-
-priceResearchRoutes.get("/ata/:ataId/history", async (c) => {
-	const ataId = c.req.param("ataId")
-	const supabase = getSupabase()
-
-	const { data, error } = await supabase
-		.from("procurement_pesquisa_preco")
-		.select(`
+		const { data, error } = await supabase
+			.from("procurement_pesquisa_preco")
+			.select(`
       id,
       reference_method,
       period_months,
@@ -385,30 +384,30 @@ priceResearchRoutes.get("/ata/:ataId/history", async (c) => {
       non_compliant_items,
       created_at
     `)
-		.eq("ata_id", ataId)
-		.order("created_at", { ascending: false })
+			.eq("ata_id", ataId)
+			.order("created_at", { ascending: false })
 
-	if (error) return c.json({ error: "Erro ao buscar histórico de pesquisas" }, 500)
+		if (error) return c.json({ error: "Erro ao buscar histórico de pesquisas" }, 500)
 
-	return c.json({ ataId, researches: data ?? [] })
-})
+		return c.json({ ataId, researches: data ?? [] })
+	})
 
-// ─── GET /research/:researchId ────────────────────────────────────────────────
-//
-// Audit trail completo: parâmetros + funil por item + TODAS as amostras
-// classificadas (válidas / outliers / poluição).
+	// ─── GET /research/:researchId ────────────────────────────────────────────────
+	//
+	// Audit trail completo: parâmetros + funil por item + TODAS as amostras
+	// classificadas (válidas / outliers / poluição).
 
-priceResearchRoutes.get("/research/:researchId", async (c) => {
-	const researchId = c.req.param("researchId")
-	const supabase = getSupabase()
+	.get("/research/:researchId", async (c) => {
+		const researchId = c.req.param("researchId")
+		const supabase = getSupabase()
 
-	const { data: research, error: errResearch } = await supabase.from("procurement_pesquisa_preco").select("*").eq("id", researchId).single()
+		const { data: research, error: errResearch } = await supabase.from("procurement_pesquisa_preco").select("*").eq("id", researchId).single()
 
-	if (errResearch || !research) return c.json({ error: "Pesquisa não encontrada" }, 404)
+		if (errResearch || !research) return c.json({ error: "Pesquisa não encontrada" }, 404)
 
-	const { data: items, error: errItems } = await supabase
-		.from("procurement_pesquisa_preco_item")
-		.select(`
+		const { data: items, error: errItems } = await supabase
+			.from("procurement_pesquisa_preco_item")
+			.select(`
       *,
       samples:procurement_pesquisa_preco_amostra (
         id,
@@ -432,10 +431,10 @@ priceResearchRoutes.get("/research/:researchId", async (c) => {
         similarity
       )
     `)
-		.eq("research_id", researchId)
-		.order("id")
+			.eq("research_id", researchId)
+			.order("id")
 
-	if (errItems) return c.json({ error: "Erro ao buscar itens da pesquisa" }, 500)
+		if (errItems) return c.json({ error: "Erro ao buscar itens da pesquisa" }, 500)
 
-	return c.json({ ...research, items: items ?? [] })
-})
+		return c.json({ ...research, items: items ?? [] })
+	})

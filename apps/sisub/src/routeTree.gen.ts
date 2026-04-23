@@ -39,6 +39,7 @@ import { Route as ProtectedModulesDinerSelfCheckInRouteImport } from './routes/_
 import { Route as ProtectedModulesDinerQrCodeRouteImport } from './routes/_protected/_modules/diner/qr-code'
 import { Route as ProtectedModulesDinerProfileRouteImport } from './routes/_protected/_modules/diner/profile'
 import { Route as ProtectedModulesDinerMenuRouteImport } from './routes/_protected/_modules/diner/menu'
+import { Route as ProtectedModulesDinerMcpKeysRouteImport } from './routes/_protected/_modules/diner/mcp-keys'
 import { Route as ProtectedModulesDinerForecastRouteImport } from './routes/_protected/_modules/diner/forecast'
 import { Route as ProtectedModulesAnalyticsGlobalRouteImport } from './routes/_protected/_modules/analytics/global'
 import { Route as ProtectedModulesAnalyticsChatRouteImport } from './routes/_protected/_modules/analytics/chat'
@@ -253,6 +254,12 @@ const ProtectedModulesDinerMenuRoute =
   ProtectedModulesDinerMenuRouteImport.update({
     id: '/diner/menu',
     path: '/diner/menu',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesDinerMcpKeysRoute =
+  ProtectedModulesDinerMcpKeysRouteImport.update({
+    id: '/diner/mcp-keys',
+    path: '/diner/mcp-keys',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesDinerForecastRoute =
@@ -571,6 +578,7 @@ export interface FileRoutesByFullPath {
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
@@ -643,6 +651,7 @@ export interface FileRoutesByTo {
   '/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
@@ -723,6 +732,7 @@ export interface FileRoutesById {
   '/_protected/_modules/analytics/chat': typeof ProtectedModulesAnalyticsChatRoute
   '/_protected/_modules/analytics/global': typeof ProtectedModulesAnalyticsGlobalRoute
   '/_protected/_modules/diner/forecast': typeof ProtectedModulesDinerForecastRoute
+  '/_protected/_modules/diner/mcp-keys': typeof ProtectedModulesDinerMcpKeysRoute
   '/_protected/_modules/diner/menu': typeof ProtectedModulesDinerMenuRoute
   '/_protected/_modules/diner/profile': typeof ProtectedModulesDinerProfileRoute
   '/_protected/_modules/diner/qr-code': typeof ProtectedModulesDinerQrCodeRoute
@@ -803,6 +813,7 @@ export interface FileRouteTypes {
     | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
+    | '/diner/mcp-keys'
     | '/diner/menu'
     | '/diner/profile'
     | '/diner/qr-code'
@@ -875,6 +886,7 @@ export interface FileRouteTypes {
     | '/analytics/chat'
     | '/analytics/global'
     | '/diner/forecast'
+    | '/diner/mcp-keys'
     | '/diner/menu'
     | '/diner/profile'
     | '/diner/qr-code'
@@ -954,6 +966,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/analytics/chat'
     | '/_protected/_modules/analytics/global'
     | '/_protected/_modules/diner/forecast'
+    | '/_protected/_modules/diner/mcp-keys'
     | '/_protected/_modules/diner/menu'
     | '/_protected/_modules/diner/profile'
     | '/_protected/_modules/diner/qr-code'
@@ -1232,6 +1245,13 @@ declare module '@tanstack/react-router' {
       path: '/diner/menu'
       fullPath: '/diner/menu'
       preLoaderRoute: typeof ProtectedModulesDinerMenuRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/diner/mcp-keys': {
+      id: '/_protected/_modules/diner/mcp-keys'
+      path: '/diner/mcp-keys'
+      fullPath: '/diner/mcp-keys'
+      preLoaderRoute: typeof ProtectedModulesDinerMcpKeysRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/diner/forecast': {
@@ -1784,6 +1804,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesMesshallMessHallIdRouteRoute: typeof ProtectedModulesMesshallMessHallIdRouteRouteWithChildren
   ProtectedModulesUnitUnitIdRouteRoute: typeof ProtectedModulesUnitUnitIdRouteRouteWithChildren
   ProtectedModulesDinerForecastRoute: typeof ProtectedModulesDinerForecastRoute
+  ProtectedModulesDinerMcpKeysRoute: typeof ProtectedModulesDinerMcpKeysRoute
   ProtectedModulesDinerMenuRoute: typeof ProtectedModulesDinerMenuRoute
   ProtectedModulesDinerProfileRoute: typeof ProtectedModulesDinerProfileRoute
   ProtectedModulesDinerQrCodeRoute: typeof ProtectedModulesDinerQrCodeRoute
@@ -1826,6 +1847,7 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesUnitUnitIdRouteRoute:
     ProtectedModulesUnitUnitIdRouteRouteWithChildren,
   ProtectedModulesDinerForecastRoute: ProtectedModulesDinerForecastRoute,
+  ProtectedModulesDinerMcpKeysRoute: ProtectedModulesDinerMcpKeysRoute,
   ProtectedModulesDinerMenuRoute: ProtectedModulesDinerMenuRoute,
   ProtectedModulesDinerProfileRoute: ProtectedModulesDinerProfileRoute,
   ProtectedModulesDinerQrCodeRoute: ProtectedModulesDinerQrCodeRoute,

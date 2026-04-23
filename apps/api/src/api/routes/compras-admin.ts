@@ -3,17 +3,6 @@ import { Hono } from "hono"
 import { env } from "../../env.ts"
 import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
-export const comprasAdminRoutes = new Hono()
-
-// Middleware: verifica x-admin-secret
-comprasAdminRoutes.use("*", async (c, next) => {
-	const secret = c.req.header("x-admin-secret")
-	if (!secret || secret !== env.ADMIN_SECRET) {
-		return c.json({ error: "Unauthorized" }, 401)
-	}
-	return next()
-})
-
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
 		db: { schema: "sisub" },
@@ -21,102 +10,112 @@ function getSupabase() {
 	})
 }
 
-// ── POST /admin/compras/sync — trigger manual ────────────────────────────────
+export const comprasAdminRoutes = new Hono()
+	// Middleware: verifica x-admin-secret
+	.use("*", async (c, next) => {
+		const secret = c.req.header("x-admin-secret")
+		if (!secret || secret !== env.ADMIN_SECRET) {
+			return c.json({ error: "Unauthorized" }, 401)
+		}
+		return next()
+	})
 
-comprasAdminRoutes.post("/sync", async (c) => {
-	const supabase = getSupabase()
+	// ── POST /admin/compras/sync — trigger manual ────────────────────────────────
 
-	// Verificar sync concorrente (heartbeat-aware: ignora processos mortos)
-	if (await hasLiveSync(supabase)) {
-		return c.json({ error: "Sync já está em andamento" }, 409)
-	}
+	.post("/sync", async (c) => {
+		const supabase = getSupabase()
 
-	// Disparar sync em background (não awaited)
-	runComprasSync({ triggeredBy: "manual" })
-		.then((syncId) => {
-			console.log(`[compras-admin] Sync manual #${syncId} concluída`)
-		})
-		.catch((err) => {
-			console.error("[compras-admin] Sync manual falhou:", err)
-		})
+		// Verificar sync concorrente (heartbeat-aware: ignora processos mortos)
+		if (await hasLiveSync(supabase)) {
+			return c.json({ error: "Sync já está em andamento" }, 409)
+		}
 
-	// Aguardar brevemente para que o log seja criado antes de retornar
-	await new Promise((resolve) => setTimeout(resolve, 200))
+		// Disparar sync em background (não awaited)
+		runComprasSync({ triggeredBy: "manual" })
+			.then((syncId) => {
+				console.log(`[compras-admin] Sync manual #${syncId} concluída`)
+			})
+			.catch((err) => {
+				console.error("[compras-admin] Sync manual falhou:", err)
+			})
 
-	const { data: latest } = await supabase
-		.from("compras_sync_log")
-		.select("id")
-		.eq("triggered_by", "manual")
-		.order("started_at", { ascending: false })
-		.limit(1)
-		.single()
+		// Aguardar brevemente para que o log seja criado antes de retornar
+		await new Promise((resolve) => setTimeout(resolve, 200))
 
-	return c.json(
-		{
-			sync_id: latest?.id ?? null,
-			message: "Sync iniciada em background",
-		},
-		202
-	)
-})
+		const { data: latest } = await supabase
+			.from("compras_sync_log")
+			.select("id")
+			.eq("triggered_by", "manual")
+			.order("started_at", { ascending: false })
+			.limit(1)
+			.single()
 
-// ── GET /admin/compras/sync/latest — última sync ──────────────────────────────
+		return c.json(
+			{
+				sync_id: latest?.id ?? null,
+				message: "Sync iniciada em background",
+			},
+			202
+		)
+	})
 
-comprasAdminRoutes.get("/sync/latest", async (c) => {
-	const supabase = getSupabase()
+	// ── GET /admin/compras/sync/latest — última sync ──────────────────────────────
 
-	const { data: log, error } = await supabase.from("compras_sync_log").select("*").order("started_at", { ascending: false }).limit(1).single()
+	.get("/sync/latest", async (c) => {
+		const supabase = getSupabase()
 
-	if (error || !log) {
-		return c.json({ error: "Nenhuma sync encontrada" }, 404)
-	}
+		const { data: log, error } = await supabase.from("compras_sync_log").select("*").order("started_at", { ascending: false }).limit(1).single()
 
-	const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
+		if (error || !log) {
+			return c.json({ error: "Nenhuma sync encontrada" }, 404)
+		}
 
-	return c.json({ ...log, steps: steps ?? [] })
-})
+		const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
 
-// ── GET /admin/compras/sync/:id — sync específica (polling) ───────────────────
+		return c.json({ ...log, steps: steps ?? [] })
+	})
 
-comprasAdminRoutes.get("/sync/:id", async (c) => {
-	const id = Number(c.req.param("id"))
-	if (!Number.isInteger(id) || id <= 0) {
-		return c.json({ error: "ID inválido" }, 400)
-	}
+	// ── GET /admin/compras/sync/:id — sync específica (polling) ───────────────────
 
-	const supabase = getSupabase()
+	.get("/sync/:id", async (c) => {
+		const id = Number(c.req.param("id"))
+		if (!Number.isInteger(id) || id <= 0) {
+			return c.json({ error: "ID inválido" }, 400)
+		}
 
-	const { data: log, error } = await supabase.from("compras_sync_log").select("*").eq("id", id).single()
+		const supabase = getSupabase()
 
-	if (error || !log) {
-		return c.json({ error: "Sync não encontrada" }, 404)
-	}
+		const { data: log, error } = await supabase.from("compras_sync_log").select("*").eq("id", id).single()
 
-	const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
+		if (error || !log) {
+			return c.json({ error: "Sync não encontrada" }, 404)
+		}
 
-	return c.json({ ...log, steps: steps ?? [] })
-})
+		const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
 
-// ── POST /admin/compras/sync/:id/stop — solicita parada da sync ───────────────
+		return c.json({ ...log, steps: steps ?? [] })
+	})
 
-comprasAdminRoutes.post("/sync/:id/stop", async (c) => {
-	const id = Number(c.req.param("id"))
-	if (!Number.isInteger(id) || id <= 0) {
-		return c.json({ error: "ID inválido" }, 400)
-	}
+	// ── POST /admin/compras/sync/:id/stop — solicita parada da sync ───────────────
 
-	const supabase = getSupabase()
+	.post("/sync/:id/stop", async (c) => {
+		const id = Number(c.req.param("id"))
+		if (!Number.isInteger(id) || id <= 0) {
+			return c.json({ error: "ID inválido" }, 400)
+		}
 
-	const { data: log, error } = await supabase.from("compras_sync_log").select("id, status").eq("id", id).single()
+		const supabase = getSupabase()
 
-	if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
-	if (log.status !== "running") return c.json({ error: "Sync não está em andamento" }, 409)
+		const { data: log, error } = await supabase.from("compras_sync_log").select("id, status").eq("id", id).single()
 
-	await supabase.from("compras_sync_log").update({ stop_requested: true }).eq("id", id)
+		if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
+		if (log.status !== "running") return c.json({ error: "Sync não está em andamento" }, 409)
 
-	console.log(`[compras-admin] Stop solicitado para sync #${id}`)
-	return c.json({ message: "Parada solicitada — será aplicada ao fim do step atual" })
-})
+		await supabase.from("compras_sync_log").update({ stop_requested: true }).eq("id", id)
+
+		console.log(`[compras-admin] Stop solicitado para sync #${id}`)
+		return c.json({ message: "Parada solicitada — será aplicada ao fim do step atual" })
+	})
 
 // Pesquisa de preços migrada para /api/admin/price-research/*
 // Ver: src/api/routes/price-research.ts

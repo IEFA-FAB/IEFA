@@ -92,6 +92,7 @@ function PublicArticleDetail() {
 				<h3 className="font-semibold text-base mb-2">Artigo não encontrado ou ainda não publicado</h3>
 				<p className="text-sm text-muted-foreground mb-6 max-w-sm text-pretty">Este artigo pode ainda estar em processo de revisão ou não existe.</p>
 				<Button
+					nativeButton={false}
 					render={
 						<Link to="/journal/articles">
 							<ArrowLeft className="size-4 mr-2" aria-hidden="true" />
@@ -125,6 +126,7 @@ function PublicArticleDetail() {
 			{/* ─── Navegação de volta ──────────────────────────────────────────────── */}
 			<div className="mb-8">
 				<Button
+					nativeButton={false}
 					render={
 						<Link to="/journal/articles">
 							<ArrowLeft className="size-4 mr-2" aria-hidden="true" />

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@iefa/database": "workspace:*",
+    "@iefa/pbac": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.10.0",
     "@supabase/supabase-js": "^2.49.0",
     "zod": "^3.25.0"
