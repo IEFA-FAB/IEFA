@@ -1,10 +1,10 @@
-app = "iefa"
+app = "portal"
 primary_region = "gru"
 
 [build]
   dockerfile = "../Dockerfile"
   context = ".."
-  target = "iefa"
+  target = "portal"
 
 [env]
   NODE_ENV = "production"

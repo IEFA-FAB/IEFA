@@ -39,9 +39,9 @@ EXPOSE 3000
 CMD ["bun", "apps/api/dist/index.js"]
 
 # =============================================================================
-# IEFA
+# PORTAL
 # =============================================================================
-FROM deps AS iefa-build
+FROM deps AS portal-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
 COPY packages/hono-client ./packages/hono-client
@@ -61,10 +61,10 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/portal/.output/server/index.mjs 
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.12-alpine AS iefa
+FROM oven/bun:1.3.12-alpine AS portal
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=iefa-build /app/apps/portal/.output ./.output
+COPY --from=portal-build /app/apps/portal/.output ./.output
 USER bun
 EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
@@ -110,19 +110,19 @@ EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
 
 # =============================================================================
-# RAG (apps/ai) — Hono + LangGraph + Bun
+# AI (apps/ai) — Hono + LangGraph + Bun
 # =============================================================================
-FROM deps AS rag-build
+FROM deps AS ai-build
 COPY packages/ai-client ./packages/ai-client
 COPY apps/ai ./apps/ai
 RUN test -f apps/ai/src/index.ts || \
-    (echo "❌ RAG entrypoint missing" && exit 1)
+    (echo "❌ AI entrypoint missing" && exit 1)
 
-FROM base AS rag
+FROM base AS ai
 ENV NODE_ENV=production
 ENV PORT=8000
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=rag-build /app/apps/ai ./apps/ai
+COPY --from=ai-build /app/apps/ai ./apps/ai
 USER bun
 EXPOSE 8000
 CMD ["bun", "apps/ai/src/index.ts"]

@@ -17,10 +17,10 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       api: ${{ steps.filter.outputs.api }}
-      iefa: ${{ steps.filter.outputs.iefa }}
+      portal: ${{ steps.filter.outputs.portal }}
       sisub: ${{ steps.filter.outputs.sisub }}
       docs: ${{ steps.filter.outputs.docs }}
-      rag: ${{ steps.filter.outputs.rag }}
+      ai: ${{ steps.filter.outputs.ai }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -34,7 +34,7 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
-            iefa:
+            portal:
               - 'apps/portal/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
@@ -56,7 +56,7 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
-            rag:
+            ai:
               - 'apps/ai/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
@@ -110,6 +110,7 @@ jobs:
       - name: Build and push
         uses: docker/bake-action@v7
         with:
+          files: ./docker-bake.hcl
           targets: api
           push: true
           set: |
@@ -161,11 +162,11 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # ============================================================
-  # IEFA  ── check → build → deploy
+  # PORTAL  ── check → build → deploy
   # ============================================================
-  check-iefa:
+  check-portal:
     needs: [changes]
-    if: needs.changes.outputs.iefa == 'true'
+    if: needs.changes.outputs.portal == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -184,8 +185,8 @@ jobs:
           VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
-  build-iefa:
-    needs: check-iefa
+  build-portal:
+    needs: check-portal
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:
@@ -204,27 +205,28 @@ jobs:
       - name: Build and push
         uses: docker/bake-action@v7
         with:
-          targets: iefa
+          files: ./docker-bake.hcl
+          targets: portal
           push: true
           set: |
-            iefa.tags=registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
-            iefa.tags=registry.fly.io/iefa:latest
-            iefa.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
-            iefa.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+            portal.tags=registry.fly.io/portal:${{ steps.meta.outputs.tag }}
+            portal.tags=registry.fly.io/portal:latest
+            portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+            portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
-  deploy-iefa:
-    needs: build-iefa
+  deploy-portal:
+    needs: build-portal
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     concurrency:
-      group: fly-deploy-iefa-${{ github.ref_name }}
+      group: fly-deploy-portal-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy
-        run: flyctl deploy -c fly/iefa.toml --image registry.fly.io/iefa:${{ needs.build-iefa.outputs.tag }}
+        run: flyctl deploy -c fly/portal.toml --image registry.fly.io/portal:${{ needs.build-portal.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -232,16 +234,16 @@ jobs:
         run: |
           for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.IEFA_HEALTH_URL }}" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ IEFA health check passed"; exit 0; fi
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ portal health check passed"; exit 0; fi
             echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ IEFA health check failed"; exit 1
+          echo "❌ portal health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
         run: |
-          PREV=$(flyctl releases -c fly/iefa.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/iefa.toml --image "$PREV"
+          PREV=$(flyctl releases -c fly/portal.toml --json | jq -r '.[1].ImageRef // empty')
+          [[ -n "$PREV" ]] && flyctl deploy -c fly/portal.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -290,6 +292,7 @@ jobs:
       - name: Build and push
         uses: docker/bake-action@v7
         with:
+          files: ./docker-bake.hcl
           targets: sisub
           push: true
           set: |
@@ -344,11 +347,11 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # ============================================================
-  # RAG / apps/ai  ── check → build → deploy
+  # AI / apps/ai  ── check → build → deploy
   # ============================================================
-  check-rag:
+  check-ai:
     needs: [changes]
-    if: needs.changes.outputs.rag == 'true'
+    if: needs.changes.outputs.ai == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -369,8 +372,8 @@ jobs:
           DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
 
-  build-rag:
-    needs: check-rag
+  build-ai:
+    needs: check-ai
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:
@@ -389,18 +392,19 @@ jobs:
       - name: Build and push
         uses: docker/bake-action@v7
         with:
-          targets: rag
+          files: ./docker-bake.hcl
+          targets: ai
           push: true
           set: |
-            rag.tags=registry.fly.io/iefa-rag:${{ steps.meta.outputs.tag }}
-            rag.tags=registry.fly.io/iefa-rag:latest
+            ai.tags=registry.fly.io/iefa-ai:${{ steps.meta.outputs.tag }}
+            ai.tags=registry.fly.io/iefa-ai:latest
 
-  deploy-rag:
-    needs: build-rag
+  deploy-ai:
+    needs: build-ai
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     concurrency:
-      group: fly-deploy-rag-${{ github.ref_name }}
+      group: fly-deploy-ai-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
@@ -408,7 +412,7 @@ jobs:
 
       - name: Set Fly secrets
         run: |
-          flyctl --config fly/rag.toml secrets set \
+          flyctl --config fly/ai.toml secrets set \
             SUPABASE_URL="${{ secrets.RAG_SUPABASE_URL }}" \
             SUPABASE_SERVICE_ROLE_KEY="${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}" \
             DATABASE_URL="${{ secrets.RAG_DATABASE_URL }}" \
@@ -424,7 +428,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy
-        run: flyctl deploy -c fly/rag.toml --image registry.fly.io/iefa-rag:${{ needs.build-rag.outputs.tag }}
+        run: flyctl deploy -c fly/ai.toml --image registry.fly.io/iefa-ai:${{ needs.build-ai.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -432,16 +436,16 @@ jobs:
         run: |
           for i in {1..5}; do
             status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.RAG_HEALTH_URL }}" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ RAG health check passed"; exit 0; fi
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ ai health check passed"; exit 0; fi
             echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ RAG health check failed"; exit 1
+          echo "❌ ai health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
         run: |
-          PREV=$(flyctl releases -c fly/rag.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/rag.toml --image "$PREV"
+          PREV=$(flyctl releases -c fly/ai.toml --json | jq -r '.[1].ImageRef // empty')
+          [[ -n "$PREV" ]] && flyctl deploy -c fly/ai.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -486,6 +490,7 @@ jobs:
       - name: Build and push
         uses: docker/bake-action@v7
         with:
+          files: ./docker-bake.hcl
           targets: docs
           push: true
           set: |

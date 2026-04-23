@@ -7,11 +7,11 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["api", "iefa", "sisub", "docs", "rag"]
+  targets = ["api", "portal", "sisub", "docs", "ai"]
 }
 
 group "apps" {
-  targets = ["iefa", "sisub"]
+  targets = ["portal", "sisub"]
 }
 
 target "base" {
@@ -27,12 +27,12 @@ target "api" {
   cache-to = ["type=gha,scope=api,mode=max"]
 }
 
-target "iefa" {
+target "portal" {
   inherits = ["base"]
-  target = "iefa"
-  tags = ["${REGISTRY}/iefa:${TAG}"]
-  cache-from = ["type=gha,scope=iefa"]
-  cache-to = ["type=gha,scope=iefa,mode=max"]
+  target = "portal"
+  tags = ["${REGISTRY}/portal:${TAG}"]
+  cache-from = ["type=gha,scope=portal"]
+  cache-to = ["type=gha,scope=portal,mode=max"]
   args = {
     VITE_IEFA_SUPABASE_URL = ""
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = ""
@@ -59,10 +59,10 @@ target "docs" {
   cache-to = ["type=gha,scope=docs,mode=max"]
 }
 
-target "rag" {
+target "ai" {
   inherits = ["base"]
-  target   = "rag"
-  tags     = ["${REGISTRY}/iefa-rag:${TAG}"]
-  cache-from = ["type=gha,scope=rag"]
-  cache-to = ["type=gha,scope=rag,mode=max"]
+  target   = "ai"
+  tags     = ["${REGISTRY}/iefa-ai:${TAG}"]
+  cache-from = ["type=gha,scope=ai"]
+  cache-to = ["type=gha,scope=ai,mode=max"]
 }
