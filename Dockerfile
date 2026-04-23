@@ -149,7 +149,6 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/docs/.output/server/index.mjs \
 FROM base AS docs
 ENV NODE_ENV=production
 ENV PORT=3003
-COPY --from=deps /app/node_modules ./node_modules
 COPY --from=docs-build /app/apps/docs/.output ./apps/docs/.output
 USER bun
 EXPOSE 3003
