@@ -34,7 +34,6 @@ export default defineConfig(() => ({
 			routeRules: {
 				"/**": { headers: { "cache-control": "no-cache" } },
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-				"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
 				"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 			},
 		}),
@@ -67,21 +66,18 @@ export default defineConfig(() => ({
 		],
 	},
 	ssr: {
-		target: "node",
+		target: "node" as const,
 	},
 	build: {
-		target: "esnext",
-		minify: "oxc",
+		target: "esnext" as const,
+		minify: "oxc" as const,
 		sourcemap: false,
+		// cssCodeSplit: false evita FOUC — sem isso o CSS é injetado por chunk de rota.
+		// NÃO adicionar assetFileNames para style.css: o plugin start-manifest-plugin
+		// (start-plugin-core ≥1.167.35) busca bundleEntry.name === "style.css" no bundle
+		// do rolldown. Com rolldown, bundleEntry.name deriva do basename do output —
+		// renomear para "styles.css" quebra a busca. O padrão com hash preserva name="style.css".
 		cssCodeSplit: false,
 		chunkSizeWarningLimit: 800,
-		rollupOptions: {
-			output: {
-				// Fixed name (no hash) for the main app CSS to prevent SSR vs client
-				// build hash mismatch — Tailwind generates different output in each pass.
-				// Cache-busting is handled server-side via Cache-Control: no-cache.
-				assetFileNames: (asset) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
-			},
-		},
 	},
 }))
