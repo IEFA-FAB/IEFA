@@ -5,6 +5,27 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_api:
+        description: 'Force deploy API'
+        type: boolean
+        default: false
+      force_portal:
+        description: 'Force deploy portal'
+        type: boolean
+        default: false
+      force_sisub:
+        description: 'Force deploy sisub'
+        type: boolean
+        default: false
+      force_docs:
+        description: 'Force deploy docs'
+        type: boolean
+        default: false
+      force_ai:
+        description: 'Force deploy AI'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,11 +38,11 @@ jobs:
   changes:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
-      api: ${{ steps.filter.outputs.api }}
-      portal: ${{ steps.filter.outputs.portal }}
-      sisub: ${{ steps.filter.outputs.sisub }}
-      docs: ${{ steps.filter.outputs.docs }}
-      ai: ${{ steps.filter.outputs.ai }}
+      api: ${{ steps.final.outputs.api }}
+      portal: ${{ steps.final.outputs.portal }}
+      sisub: ${{ steps.final.outputs.sisub }}
+      docs: ${{ steps.final.outputs.docs }}
+      ai: ${{ steps.final.outputs.ai }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -37,6 +58,7 @@ jobs:
               - 'turbo.json'
             portal:
               - 'apps/portal/**'
+              - 'packages/hono-client/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -45,6 +67,9 @@ jobs:
             sisub:
               - 'apps/sisub/**'
               - 'packages/database/**'
+              - 'packages/hono-client/**'
+              - 'packages/ai-client/**'
+              - 'packages/pbac/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -59,16 +84,46 @@ jobs:
               - 'turbo.json'
             ai:
               - 'apps/ai/**'
+              - 'packages/ai-client/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
 
+      # workflow_dispatch: use force_* inputs; push: use paths filter
+      - name: Resolve outputs
+        id: final
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_API: ${{ inputs.force_api }}
+          FORCE_PORTAL: ${{ inputs.force_portal }}
+          FORCE_SISUB: ${{ inputs.force_sisub }}
+          FORCE_DOCS: ${{ inputs.force_docs }}
+          FORCE_AI: ${{ inputs.force_ai }}
+          FILTER_API: ${{ steps.filter.outputs.api }}
+          FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
+          FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
+          FILTER_DOCS: ${{ steps.filter.outputs.docs }}
+          FILTER_AI: ${{ steps.filter.outputs.ai }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
+            echo "portal=$FORCE_PORTAL" >> $GITHUB_OUTPUT
+            echo "sisub=$FORCE_SISUB"   >> $GITHUB_OUTPUT
+            echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
+            echo "ai=$FORCE_AI"         >> $GITHUB_OUTPUT
+          else
+            echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
+            echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
+            echo "sisub=$FILTER_SISUB"   >> $GITHUB_OUTPUT
+            echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
+            echo "ai=$FILTER_AI"         >> $GITHUB_OUTPUT
+          fi
+
   # ============================================================
   # API ── check → build → deploy
   # ============================================================
-
   check-api:
     needs: [changes]
     if: needs.changes.outputs.api == 'true'
@@ -82,8 +137,8 @@ jobs:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/api
         env:
@@ -102,7 +157,9 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Login to Fly Registry
-        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
@@ -130,37 +187,44 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          V_API_PORT: ${{ vars.API_PORT }}
+          V_SUPABASE_URL: ${{ vars.API_SUPABASE_URL }}
+          S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+          S_ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: |
           flyctl --config fly/api.toml secrets set \
-            API_PORT=${{ vars.API_PORT }} \
-            API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }} \
-            API_SUPABASE_URL=${{ vars.API_SUPABASE_URL }} \
-            ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+            "API_PORT=$V_API_PORT" \
+            "API_SUPABASE_URL=$V_SUPABASE_URL" \
+            "API_SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
+            "ADMIN_SECRET=$S_ADMIN_SECRET"
 
       - name: Deploy
-        run: flyctl deploy -c fly/api.toml --image registry.fly.io/iefa-api:${{ needs.build-api.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-api.outputs.tag }}
+        run: flyctl deploy -c fly/api.toml --image "registry.fly.io/iefa-api:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.API_HEALTH_URL }}
         run: |
-          for i in {1..20}; do
-            if curl -fsS "${{ vars.API_HEALTH_URL }}" > /dev/null; then
-              echo "✅ Health check passed"; exit 0
-            fi
-            sleep 10
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ API health check passed"; exit 0; fi
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ Health check failed"; exit 1
+          echo "❌ API health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
-        run: |
-          PREV=$(flyctl releases -c fly/api.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/api.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/api.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/api.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # PORTAL  ── check → build → deploy
@@ -178,8 +242,8 @@ jobs:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/portal
         env:
@@ -197,7 +261,9 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Login to Fly Registry
-        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
@@ -227,26 +293,30 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy
-        run: flyctl deploy -c fly/portal.toml --image registry.fly.io/portal:${{ needs.build-portal.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-portal.outputs.tag }}
+        run: flyctl deploy -c fly/portal.toml --image "registry.fly.io/portal:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.IEFA_HEALTH_URL }}
         run: |
-          for i in {1..5}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.IEFA_HEALTH_URL }}" || true)"
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
             if [[ "${status:0:1}" == "2" ]]; then echo "✅ portal health check passed"; exit 0; fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
           echo "❌ portal health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
-        run: |
-          PREV=$(flyctl releases -c fly/portal.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/portal.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/portal.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/portal.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # SISUB  ── check → build → deploy
@@ -264,8 +334,8 @@ jobs:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/sisub
         env:
@@ -284,7 +354,9 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Login to Fly Registry
-        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
@@ -314,38 +386,48 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          V_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          V_ANALYTICS_LLM_MODEL: ${{ vars.ANALYTICS_LLM_MODEL }}
+          V_IEFA_API_BASE_URL: ${{ vars.IEFA_API_BASE_URL }}
+          S_SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+          S_ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          S_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           flyctl --config fly/sisub.toml secrets set \
-            VITE_SISUB_SUPABASE_URL="${{ vars.VITE_SISUB_SUPABASE_URL }}" \
-            SISUB_SUPABASE_SECRET_KEY="${{ secrets.SISUB_SUPABASE_SECRET_KEY }}" \
-            ADMIN_SECRET="${{ secrets.ADMIN_SECRET }}" \
-            OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
-            ANALYTICS_LLM_MODEL="${{ vars.ANALYTICS_LLM_MODEL }}" \
-            IEFA_API_BASE_URL="${{ vars.IEFA_API_BASE_URL }}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+            "VITE_SISUB_SUPABASE_URL=$V_SISUB_SUPABASE_URL" \
+            "SISUB_SUPABASE_SECRET_KEY=$S_SISUB_SUPABASE_SECRET_KEY" \
+            "ADMIN_SECRET=$S_ADMIN_SECRET" \
+            "OPENROUTER_API_KEY=$S_OPENROUTER_API_KEY" \
+            "ANALYTICS_LLM_MODEL=$V_ANALYTICS_LLM_MODEL" \
+            "IEFA_API_BASE_URL=$V_IEFA_API_BASE_URL"
 
       - name: Deploy
-        run: flyctl deploy -c fly/sisub.toml --image registry.fly.io/sisub:${{ needs.build-sisub.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-sisub.outputs.tag }}
+        run: flyctl deploy -c fly/sisub.toml --image "registry.fly.io/sisub:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.SISUB_HEALTH_URL }}
         run: |
-          for i in {1..5}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.SISUB_HEALTH_URL }}" || true)"
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
             if [[ "${status:0:1}" == "2" ]]; then echo "✅ SISUB health check passed"; exit 0; fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
           echo "❌ SISUB health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
-        run: |
-          PREV=$(flyctl releases -c fly/sisub.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/sisub.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/sisub.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/sisub.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # AI / apps/ai  ── check → build → deploy
@@ -363,8 +445,8 @@ jobs:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Lint · types · tests
         run: bunx turbo run lint typecheck test --filter=./apps/ai
         env:
@@ -382,9 +464,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Ensure Fly app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl apps create iefa-ai || true
 
       - name: Login to Fly Registry
-        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
@@ -412,43 +502,56 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Set Fly secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          V_NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
+          V_LLM_MODEL: ${{ vars.LLM_MODEL }}
+          V_EMB_MODEL: ${{ vars.EMB_MODEL }}
+          V_NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
+          S_SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
+          S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
+          S_DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
+          S_NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          S_LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
         run: |
           flyctl --config fly/ai.toml secrets set \
-            SUPABASE_URL="${{ secrets.RAG_SUPABASE_URL }}" \
-            SUPABASE_SERVICE_ROLE_KEY="${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}" \
-            DATABASE_URL="${{ secrets.RAG_DATABASE_URL }}" \
-            NVIDIA_API_KEY="${{ secrets.NVIDIA_API_KEY }}" \
-            NVIDIA_BASE_URL="${{ vars.NVIDIA_BASE_URL }}" \
-            LLM_MODEL="${{ vars.LLM_MODEL }}" \
-            EMB_MODEL="${{ vars.EMB_MODEL }}" \
-            NVIDIA_RERANK_MODEL="${{ vars.NVIDIA_RERANK_MODEL }}" \
-            LANGCHAIN_API_KEY="${{ secrets.LANGCHAIN_API_KEY }}" \
-            LANGCHAIN_TRACING_V2="true" \
-            LANGCHAIN_PROJECT="atlas-aci"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+            "SUPABASE_URL=$S_SUPABASE_URL" \
+            "SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
+            "DATABASE_URL=$S_DATABASE_URL" \
+            "NVIDIA_API_KEY=$S_NVIDIA_API_KEY" \
+            "NVIDIA_BASE_URL=$V_NVIDIA_BASE_URL" \
+            "LLM_MODEL=$V_LLM_MODEL" \
+            "EMB_MODEL=$V_EMB_MODEL" \
+            "NVIDIA_RERANK_MODEL=$V_NVIDIA_RERANK_MODEL" \
+            "LANGCHAIN_API_KEY=$S_LANGCHAIN_API_KEY" \
+            "LANGCHAIN_TRACING_V2=true" \
+            "LANGCHAIN_PROJECT=atlas-aci"
 
       - name: Deploy
-        run: flyctl deploy -c fly/ai.toml --image registry.fly.io/iefa-ai:${{ needs.build-ai.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-ai.outputs.tag }}
+        run: flyctl deploy -c fly/ai.toml --image "registry.fly.io/iefa-ai:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.RAG_HEALTH_URL }}
         run: |
-          for i in {1..5}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.RAG_HEALTH_URL }}" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ ai health check passed"; exit 0; fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ AI health check passed"; exit 0; fi
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
-          echo "❌ ai health check failed"; exit 1
+          echo "❌ AI health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
-        run: |
-          PREV=$(flyctl releases -c fly/ai.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/ai.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/ai.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/ai.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # DOCS  ── check → build → deploy
@@ -466,8 +569,8 @@ jobs:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
-      - run: bun install --frozen-lockfile
-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Lint · types
         run: bunx turbo run lint typecheck --filter=./apps/docs
 
@@ -482,7 +585,9 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - name: Login to Fly Registry
-        run: echo "${{ secrets.FLY_API_TOKEN }}" | docker login registry.fly.io -u x --password-stdin
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
 
       - name: Generate tag
         id: meta
@@ -510,26 +615,30 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy
-        run: flyctl deploy -c fly/docs.toml --image registry.fly.io/iefa-docs:${{ needs.build-docs.outputs.tag }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-docs.outputs.tag }}
+        run: flyctl deploy -c fly/docs.toml --image "registry.fly.io/iefa-docs:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.DOCS_HEALTH_URL }}
         run: |
-          for i in {1..5}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "${{ vars.DOCS_HEALTH_URL }}" || true)"
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
             if [[ "${status:0:1}" == "2" ]]; then echo "✅ DOCS health check passed"; exit 0; fi
-            echo "Attempt $i/5 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
           echo "❌ DOCS health check failed"; exit 1
 
       - name: Rollback on failure
         if: failure()
-        run: |
-          PREV=$(flyctl releases -c fly/docs.toml --json | jq -r '.[1].ImageRef // empty')
-          [[ -n "$PREV" ]] && flyctl deploy -c fly/docs.toml --image "$PREV"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/docs.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/docs.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # TODO: SISUB-MCP  ── check → build → deploy

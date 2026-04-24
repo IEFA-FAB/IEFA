@@ -66,7 +66,7 @@ export default defineConfig(() => ({
 		cssCodeSplit: false,
 		rollupOptions: {
 			output: {
-				assetFileNames: (asset) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
+				assetFileNames: (asset) => (asset.names?.includes("style.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
 			},
 		},
 	},
