@@ -1,0 +1,48 @@
+schema: spec-driven
+
+context: |
+  # IEFA Monorepo
+
+  Bun monorepo, Turborepo orchestration, Biome formatting/linting.
+
+  ## Apps
+  - **sisub**: React 19 + TanStack Start + Nitro SSR — Sistema de Subsistência (menus, receitas, planejamento, analytics)
+  - **portal**: React 19 + Vite + Nitro SSR + TanStack Router — Portal web (CMS Sanity, drag-drop, markdown)
+  - **api**: Bun + Hono + @hono/zod-openapi + Scalar — API pública (alimentos, preços, sync workers)
+  - **ai**: Bun + Hono + LangChain/LangGraph — Serviço AI (ingestão docs, orchestração LLM)
+  - **docs**: React 19 + TanStack Start + Nitro SSR + Fumadocs — Documentação interna
+  - **sisub-mcp**: Bun + MCP SDK — MCP server (acesso AI aos dados sisub)
+
+  ## Packages
+  - **database**: Tipos TS + migrations Supabase (schemas: sisub, iefa, journal)
+  - **hono-client**: RPC client tipado para o API
+
+  ## Conventions
+  - Server functions (TanStack Start): `createServerFn` com `.inputValidator(z.object(...))`
+  - UI: Base UI (`@base-ui/react/*`) — NUNCA Radix UI
+  - Imports: `@/*` → `src/*`
+  - Commits: Conventional Commits via cz-git (scopes: portal, sisub, ai, api, docs, deps, ci, scripts, root)
+  - Formatting: Biome (pre-commit hook)
+  - DB: Supabase (schemas: sisub, iefa, journal)
+
+  ## Design Systems (incompatíveis entre apps)
+  - sisub: Flat design, radius 0.5rem (Card usa rounded-xl)
+  - portal: Pale Brutalism 2026, zero radius
+
+  ## Language
+  - Codebase: English (code) + Portuguese-BR (user-facing, docs, specs)
+
+rules:
+  proposal:
+    - Write in Portuguese-BR
+    - Always include a "Não-objetivos" (Non-goals) section
+    - Reference which app(s) the change affects (sisub, portal, api, ai, docs)
+  design:
+    - Write in Portuguese-BR
+    - Reference existing patterns in the codebase when applicable
+    - Mention DB schema changes if any (Supabase migration needed)
+  tasks:
+    - Write in Portuguese-BR
+    - Break tasks into chunks of max 2 hours
+    - Prefix each task with the affected app/package scope [sisub], [api], etc.
+    - Include a final task for Biome check (`bun run check`)

@@ -17,6 +17,7 @@
         "@iefa/database": "workspace:*",
         "@iefa/hono-client": "workspace:*",
         "@iefa/pbac": "workspace:*",
+        "@iefa/sisub-domain": "workspace:*",
         "@supabase/ssr": "^0.10.0",
         "@supabase/supabase-js": "^2.101.1",
         "@tailwindcss/vite": "^4.2.2",

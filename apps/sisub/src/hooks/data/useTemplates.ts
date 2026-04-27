@@ -75,8 +75,16 @@ export function useCreateTemplate() {
 		mutationFn: ({ template, items }: { template: MenuTemplateInsert; items: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
 			createTemplateFn({
 				data: {
-					template: template as Record<string, unknown>,
-					items: items as Record<string, unknown>[],
+					name: template.name ?? "",
+					description: template.description ?? undefined,
+					kitchenId: template.kitchen_id ?? null,
+					templateType: (template.template_type ?? "weekly") as "weekly" | "event",
+					items: items.map((i) => ({
+						dayOfWeek: i.day_of_week ?? 1,
+						mealTypeId: i.meal_type_id ?? "",
+						recipeId: i.recipe_id ?? "",
+						headcountOverride: i.headcount_override ?? undefined,
+					})),
 				},
 			}),
 		onSuccess: (data) => {
@@ -93,9 +101,16 @@ export function useUpdateTemplate() {
 		mutationFn: ({ id, updates, items }: { id: string; updates: MenuTemplateUpdate; items?: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
 			updateTemplateFn({
 				data: {
-					id,
-					updates: updates as Record<string, unknown>,
-					items: items as Record<string, unknown>[] | undefined,
+					templateId: id,
+					name: updates.name ?? undefined,
+					description: updates.description ?? undefined,
+					templateType: updates.template_type as "weekly" | "event" | undefined,
+					items: items?.map((i) => ({
+						dayOfWeek: i.day_of_week ?? 1,
+						mealTypeId: i.meal_type_id ?? "",
+						recipeId: i.recipe_id ?? "",
+						headcountOverride: i.headcount_override ?? undefined,
+					})),
 				},
 			}),
 		onSuccess: (data) => {
@@ -111,7 +126,7 @@ export function useUpdateTemplate() {
 export function useDeleteTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (id: string) => deleteTemplateFn({ data: { id } }),
+		mutationFn: (id: string) => deleteTemplateFn({ data: { templateId: id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
 			toast.success("Template removido!")
@@ -123,7 +138,7 @@ export function useDeleteTemplate() {
 export function useRestoreTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: (id: string) => restoreTemplateFn({ data: { id } }),
+		mutationFn: (id: string) => restoreTemplateFn({ data: { templateId: id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
 			toast.success("Template restaurado!")

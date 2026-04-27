@@ -68,6 +68,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 							<Link to="/about" className={navLinkClass}>
 								Sobre
 							</Link>
+							<Link to="/roadmap" className={navLinkClass}>
+								Roadmap
+							</Link>
 						</nav>
 					</div>
 
@@ -129,6 +132,13 @@ export function AppLayout({ children }: AppLayoutProps) {
 							>
 								Sobre o IEFA
 							</Link>
+							<Link
+								to="/roadmap"
+								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
+								onClick={() => setMobileOpen(false)}
+							>
+								Roadmap
+							</Link>
 						</div>
 					</div>
 				)}
@@ -173,6 +183,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 							<li>
 								<Link to="/about" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
 									Sobre o IEFA
+								</Link>
+							</li>
+							<li>
+								<Link to="/roadmap" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Roadmap
 								</Link>
 							</li>
 						</ul>

@@ -5,7 +5,6 @@ import {
 	addMenuItemFn,
 	fetchDailyMenusFn,
 	fetchDayDetailsFn,
-	fetchTemplatesFn,
 	fetchTrashItemsFn,
 	restoreMenuItemFn,
 	softDeleteMenuItemFn,
@@ -13,6 +12,7 @@ import {
 	updateMenuItemFn,
 	upsertDailyMenuFn,
 } from "@/server/planning.fn"
+import { fetchMenuTemplatesFn } from "@/server/templates.fn"
 import type { AppMenuItemInsert, DailyMenuInsert } from "@/types/domain/planning"
 
 // --- Query Options ---
@@ -58,7 +58,24 @@ export function useCreateDailyMenu() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (menus: DailyMenuInsert[]) => upsertDailyMenuFn({ data: { menus } }),
+		mutationFn: async (menus: DailyMenuInsert[]) => {
+			// Domain upserts one menu at a time; iterate (callers typically pass 1 item)
+			const results = []
+			for (const m of menus) {
+				results.push(
+					await upsertDailyMenuFn({
+						data: {
+							kitchenId: m.kitchen_id as number,
+							serviceDate: m.service_date as string,
+							mealTypeId: m.meal_type_id as string,
+							// forecastedHeadcount omitted when 0 (schema requires positive)
+							forecastedHeadcount: m.forecasted_headcount && m.forecasted_headcount > 0 ? m.forecasted_headcount : undefined,
+						},
+					})
+				)
+			}
+			return results
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -74,7 +91,15 @@ export function useAddMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (item: AppMenuItemInsert) => addMenuItemFn({ data: { item } }),
+		mutationFn: (item: AppMenuItemInsert) =>
+			addMenuItemFn({
+				data: {
+					dailyMenuId: item.daily_menu_id as string,
+					recipeId: item.recipe_origin_id as string,
+					plannedPortionQuantity: item.planned_portion_quantity ?? undefined,
+					excludedFromProcurement: (item.excluded_from_procurement as 0 | 1 | undefined) ?? undefined,
+				},
+			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -98,7 +123,13 @@ export function useUpdateDailyMenu() {
 			updates: Partial<{
 				forecasted_headcount: number | null
 			}>
-		}) => updateDailyMenuFn({ data: { id, updates } }),
+		}) =>
+			updateDailyMenuFn({
+				data: {
+					dailyMenuId: id,
+					forecastedHeadcount: updates.forecasted_headcount ?? 1,
+				},
+			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -123,7 +154,14 @@ export function useUpdateMenuItem() {
 				planned_portion_quantity: number | null
 				excluded_from_procurement: number | null
 			}>
-		}) => updateMenuItemFn({ data: { id, updates } }),
+		}) =>
+			updateMenuItemFn({
+				data: {
+					menuItemId: id,
+					plannedPortionQuantity: updates.planned_portion_quantity ?? undefined,
+					excludedFromProcurement: (updates.excluded_from_procurement as 0 | 1 | undefined) ?? undefined,
+				},
+			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -138,7 +176,7 @@ export function useDeleteMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (itemId: string) => softDeleteMenuItemFn({ data: { id: itemId } }),
+		mutationFn: (itemId: string) => softDeleteMenuItemFn({ data: { menuItemId: itemId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
 			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
@@ -155,7 +193,7 @@ export function useDeleteMenuItem() {
 export function useTemplates(kitchenId: number | null) {
 	return useQuery({
 		queryKey: ["planning", "templates", kitchenId],
-		queryFn: () => fetchTemplatesFn({ data: { kitchenId: kitchenId as number } }),
+		queryFn: () => fetchMenuTemplatesFn({ data: { kitchenId } }),
 		enabled: !!kitchenId,
 	})
 }
@@ -188,7 +226,7 @@ export function useRestoreMenuItem() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (itemId: string) => restoreMenuItemFn({ data: { id: itemId } }),
+		mutationFn: (itemId: string) => restoreMenuItemFn({ data: { menuItemId: itemId } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning"] })
 			toast.success("Item restaurado com sucesso!")

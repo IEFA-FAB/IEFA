@@ -19,6 +19,7 @@ import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
 import { Route as JournalProfileRouteImport } from './routes/journal/profile'
 import { Route as JournalAboutRouteImport } from './routes/journal/about'
+import { Route as PublicRoadmapRouteImport } from './routes/_public/roadmap'
 import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
 import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
 import { Route as PublicAboutRouteImport } from './routes/_public/about'
@@ -89,6 +90,11 @@ const JournalAboutRoute = JournalAboutRouteImport.update({
   id: '/about',
   path: '/about',
   getParentRoute: () => JournalRouteRoute,
+} as any)
+const PublicRoadmapRoute = PublicRoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => PublicRouteRoute,
 } as any)
 const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
   id: '/overseerDashboard',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof PublicAboutRoute
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/about': typeof PublicAboutRoute
   '/chatRada': typeof PublicChatRadaRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/_public/about': typeof PublicAboutRoute
   '/_public/chatRada': typeof PublicChatRadaRoute
   '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/_public/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/chatRada'
     | '/overseerDashboard'
+    | '/roadmap'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/chatRada'
     | '/overseerDashboard'
+    | '/roadmap'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/_public/about'
     | '/_public/chatRada'
     | '/_public/overseerDashboard'
+    | '/_public/roadmap'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
@@ -475,6 +487,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/journal/about'
       preLoaderRoute: typeof JournalAboutRouteImport
       parentRoute: typeof JournalRouteRoute
+    }
+    '/_public/roadmap': {
+      id: '/_public/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof PublicRoadmapRouteImport
+      parentRoute: typeof PublicRouteRoute
     }
     '/_public/overseerDashboard': {
       id: '/_public/overseerDashboard'
@@ -630,6 +649,7 @@ interface PublicRouteRouteChildren {
   PublicAboutRoute: typeof PublicAboutRoute
   PublicChatRadaRoute: typeof PublicChatRadaRoute
   PublicOverseerDashboardRoute: typeof PublicOverseerDashboardRoute
+  PublicRoadmapRoute: typeof PublicRoadmapRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicFacilitiesPregoeiroRoute: typeof PublicFacilitiesPregoeiroRoute
   PublicPostsSlugRoute: typeof PublicPostsSlugRoute
@@ -641,6 +661,7 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicAboutRoute: PublicAboutRoute,
   PublicChatRadaRoute: PublicChatRadaRoute,
   PublicOverseerDashboardRoute: PublicOverseerDashboardRoute,
+  PublicRoadmapRoute: PublicRoadmapRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicFacilitiesPregoeiroRoute: PublicFacilitiesPregoeiroRoute,
   PublicPostsSlugRoute: PublicPostsSlugRoute,

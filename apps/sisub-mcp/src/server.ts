@@ -10,6 +10,7 @@
  *   await server.connect(transport)
  */
 
+import { requireKitchen } from "@iefa/sisub-domain"
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import {
 	CallToolRequestSchema,
@@ -27,7 +28,6 @@ import { kitchenTools } from "./tools/kitchens.ts"
 import { mealTypeTools } from "./tools/meal-types.ts"
 import { planningTools } from "./tools/planning.ts"
 import { recipeTools } from "./tools/recipes.ts"
-import { requireKitchenPermission, safeInt } from "./tools/shared.ts"
 import { templateTools } from "./tools/templates.ts"
 
 // Todas as tools registradas
@@ -97,10 +97,9 @@ export function createMcpServer(credential: string): Server {
 		// sisub://kitchen/{kitchenId}/today
 		const todayMatch = uri.match(/^sisub:\/\/kitchen\/(\d+)\/today$/)
 		if (todayMatch) {
-			// H3: regex já garante dígitos, mas safeInt faz coerção defensiva
-			const kitchenId = safeInt(todayMatch[1], "kitchenId")
+			const kitchenId = parseInt(todayMatch[1], 10)
 			const ctx = await resolveCredential(credential)
-			requireKitchenPermission(ctx, 1, { type: "kitchen", id: kitchenId })
+			requireKitchen(ctx, 1, kitchenId)
 
 			const today = new Date().toISOString().split("T")[0]
 			const db = getDataClient()
@@ -130,11 +129,11 @@ export function createMcpServer(credential: string): Server {
 		// sisub://kitchen/{kitchenId}/planning/{year}/{month}
 		const planningMatch = uri.match(/^sisub:\/\/kitchen\/(\d+)\/planning\/(\d{4})\/(\d{2})$/)
 		if (planningMatch) {
-			const kitchenId = safeInt(planningMatch[1], "kitchenId") // H3
+			const kitchenId = parseInt(planningMatch[1], 10)
 			const year = planningMatch[2]
 			const month = planningMatch[3]
 			const ctx = await resolveCredential(credential)
-			requireKitchenPermission(ctx, 1, { type: "kitchen", id: kitchenId })
+			requireKitchen(ctx, 1, kitchenId)
 
 			const startDate = `${year}-${month}-01`
 			const lastDay = new Date(parseInt(year, 10), parseInt(month, 10), 0).getDate()
@@ -170,9 +169,9 @@ export function createMcpServer(credential: string): Server {
 		// sisub://kitchen/{kitchenId}/templates
 		const templatesMatch = uri.match(/^sisub:\/\/kitchen\/(\d+)\/templates$/)
 		if (templatesMatch) {
-			const kitchenId = safeInt(templatesMatch[1], "kitchenId") // H3
+			const kitchenId = parseInt(templatesMatch[1], 10)
 			const ctx = await resolveCredential(credential)
-			requireKitchenPermission(ctx, 1, { type: "kitchen", id: kitchenId })
+			requireKitchen(ctx, 1, kitchenId)
 
 			const db = getDataClient()
 			// H3: kitchenId já passou por safeInt — interpolação segura

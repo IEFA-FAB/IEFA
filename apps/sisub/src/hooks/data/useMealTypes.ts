@@ -49,7 +49,14 @@ export function useCreateMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (payload: MealTypeInsert) => createMealTypeFn({ data: payload }),
+		mutationFn: (payload: MealTypeInsert) =>
+			createMealTypeFn({
+				data: {
+					name: payload.name ?? "",
+					sortOrder: payload.sort_order ?? undefined,
+					kitchenId: payload.kitchen_id ?? null,
+				},
+			}),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success(`Tipo de refeição "${data.name}" criado com sucesso!`)
@@ -80,7 +87,15 @@ export function useUpdateMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: ({ id, ...updates }: { id: string } & MealTypeUpdate) => updateMealTypeFn({ data: { id, updates } }),
+		mutationFn: ({ id, ...updates }: { id: string } & MealTypeUpdate) =>
+			updateMealTypeFn({
+				data: {
+					mealTypeId: id,
+					name: updates.name ?? undefined,
+					sortOrder: updates.sort_order ?? undefined,
+					kitchenId: updates.kitchen_id ?? undefined,
+				},
+			}),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success(`Tipo de refeição "${data.name}" atualizado!`)
@@ -107,7 +122,7 @@ export function useDeleteMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (id: string) => deleteMealTypeFn({ data: { id } }),
+		mutationFn: (id: string) => deleteMealTypeFn({ data: { mealTypeId: id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success("Tipo de refeição removido!")
@@ -132,7 +147,7 @@ export function useRestoreMealType() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (id: string) => restoreMealTypeFn({ data: { id } }),
+		mutationFn: (id: string) => restoreMealTypeFn({ data: { mealTypeId: id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
 			toast.success("Tipo de refeição restaurado!")

@@ -12,7 +12,7 @@ export function useUpdateSubstitutions() {
 		}: {
 			menuItemId: string
 			substitutions: Record<string, { type: string; rationale: string; updated_at: string }>
-		}) => updateSubstitutionsFn({ data: { id: menuItemId, substitutions } }),
+		}) => updateSubstitutionsFn({ data: { menuItemId, substitutions } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["planning"] })
 			toast.success("Substituições salvas com sucesso!")

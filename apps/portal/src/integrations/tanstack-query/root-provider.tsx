@@ -5,7 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 // once, so this effectively produces a single instance per browser session.
 export function getContext() {
 	return {
-		queryClient: new QueryClient(),
+		queryClient: new QueryClient({
+			defaultOptions: {
+				queries: {
+					gcTime: 1000 * 60 * 5, // 5 min — explicit, prevents unbounded cache accumulation
+				},
+			},
+		}),
 	}
 }
 

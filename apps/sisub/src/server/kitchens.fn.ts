@@ -1,35 +1,29 @@
 /**
  * @module kitchens.fn
- * Full kitchen list with nested unit relation. Read-only, no input validation.
- * CLIENT: getSupabaseServerClient (service role).
- * TABLE: kitchen (joined to units via kitchen_unit_id_fkey FK alias).
+ * Thin wrappers delegating to @iefa/sisub-domain operations.
+ * Auth enforced via requireAuth() — all endpoints now require authentication.
  */
 
-import type { Kitchen, Unit } from "@iefa/database/sisub"
+import type { Tables } from "@iefa/database/sisub"
+import { ListUnitKitchensSchema, listKitchens, listUnitKitchens } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireAuth } from "@/lib/auth.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
-export interface KitchenWithUnit extends Kitchen {
-	unit: Unit | null
+/** Kitchen row with the joined unit (id + display_name + code). */
+export type KitchenWithUnit = Tables<"kitchen"> & {
+	unit: { id: number; display_name: string | null; code: string } | null
 }
 
-/**
- * Lists all kitchens ordered by id with their parent unit.
- *
- * @throws {Error} on Supabase query failure.
- */
 export const fetchKitchensFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getSupabaseServerClient()
-		.from("kitchen")
-		.select(
-			`
-      *,
-      unit:units!kitchen_unit_id_fkey(*)
-    `
-		)
-		.order("id")
-
-	if (error) throw new Error(`Failed to fetch kitchens: ${error.message}`)
-
-	return (data ?? []) as KitchenWithUnit[]
+	const ctx = await requireAuth()
+	return (await listKitchens(getSupabaseServerClient(), ctx).catch(handleDomainError)) as unknown as KitchenWithUnit[]
 })
+
+export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
+	.inputValidator(ListUnitKitchensSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listUnitKitchens(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})

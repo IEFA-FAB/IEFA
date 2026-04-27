@@ -11,7 +11,7 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
 export function useRecipes(filters?: { kitchen_id?: number | null; search?: string; origin?: "all" | "global" | "local" }) {
 	const query = useQuery({
 		queryKey: ["recipes", { kitchen_id: filters?.kitchen_id ?? null }],
-		queryFn: () => fetchRecipesFn({ data: { kitchen_id: filters?.kitchen_id } }),
+		queryFn: () => fetchRecipesFn({ data: { kitchenId: filters?.kitchen_id } }),
 		staleTime: 5 * 60 * 1000, // 5 minutes
 	})
 
@@ -37,5 +37,5 @@ export function useRecipes(filters?: { kitchen_id?: number | null; search?: stri
  * Used when creating menu_items to generate the recipe snapshot.
  */
 export async function fetchRecipeWithIngredients(recipeId: string): Promise<RecipeWithIngredients> {
-	return fetchRecipeWithIngredientsFn({ data: { id: recipeId } })
+	return fetchRecipeWithIngredientsFn({ data: { recipeId } })
 }

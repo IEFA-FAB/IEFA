@@ -3,8 +3,10 @@
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import type { QueryClient } from "@tanstack/react-query"
-import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { useEffect } from "react"
 import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
 import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
@@ -12,6 +14,7 @@ import { NotFound } from "@/components/NotFound"
 import { ThemeProvider, ThemeScript } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
+import { supabase } from "@/lib/supabase"
 import AppStyles from "@/styles.css?url"
 
 export interface MyRouterContext {
@@ -68,6 +71,43 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 	shellComponent: RootDocument,
 })
 
+// Registers the Supabase auth listener exactly once per browser session.
+// Lives in a React component so useEffect guarantees cleanup on unmount —
+// preventing the listener from accumulating on the module-level singleton
+// across SSR requests (which was causing the OOM crash on Fly.io).
+function AuthSync() {
+	const router = useRouter()
+	const queryClient = useQueryClient()
+
+	useEffect(() => {
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange(async (event, session) => {
+			if (event === "SIGNED_IN" && session) {
+				queryClient.setQueryData(authQueryOptions().queryKey, {
+					user: session.user,
+					session,
+					isAuthenticated: true,
+					isLoading: false,
+				})
+				router.invalidate()
+			}
+			if (event === "SIGNED_OUT") {
+				queryClient.setQueryData(authQueryOptions().queryKey, {
+					user: null,
+					session: null,
+					isAuthenticated: false,
+					isLoading: false,
+				})
+				router.invalidate()
+			}
+		})
+		return () => subscription.unsubscribe()
+	}, [queryClient, router])
+
+	return null
+}
+
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
 	return (
@@ -93,16 +133,19 @@ function RootDocument() {
 						</CommandPaletteProvider>
 					</ThemeProvider>
 				</HotkeysProvider>
-				<TanStackDevtools
-					config={{ position: "bottom-right" }}
-					plugins={[
-						{
-							name: "Tanstack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-						TanStackQueryDevtools,
-					]}
-				/>
+				<AuthSync />
+				{import.meta.env.DEV && (
+					<TanStackDevtools
+						config={{ position: "bottom-right" }}
+						plugins={[
+							{
+								name: "Tanstack Router",
+								render: <TanStackRouterDevtoolsPanel />,
+							},
+							TanStackQueryDevtools,
+						]}
+					/>
+				)}
 				<Scripts />
 			</body>
 		</html>
