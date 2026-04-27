@@ -1,0 +1,164 @@
+---
+title: As 13 Etapas
+description: Arquitetura de entrega do Projeto α — 13 etapas em 3 fases, do RAG jurídico ao copiloto integrado.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Arquitetura de Entrega
+
+O Projeto α é entregue em **13 etapas** organizadas em 3 fases independentes. Cada etapa produz um entregável funcional e testável.
+
+<Callout type="warn">
+A lógica de fases é sequencial por dependência técnica — a Fase 1 valida o núcleo jurídico antes de escalar. Mais vale fazer pouco muito bem.
+</Callout>
+
+---
+
+## Fase 1 — Módulo ACI
+
+**Etapas 1 a 8 | Prioridade máxima**
+
+Objetivo: validar o núcleo jurídico antes de escalar para os demais módulos.
+
+### Etapa 1 — ChatRADA
+
+RAG híbrido (semântico + BM25) sobre o **Regulamento de Administração da Aeronáutica**.
+
+- Busca semântica para perguntas em linguagem natural
+- BM25 para consultas exatas (artigos, incisos, parágrafos)
+- Fonte: RADA completo indexado
+
+### Etapa 2 — ChatSistemasSEFA
+
+RAG com **memória em grafo** sobre sistemas internos da SEFA.
+
+- Grafo de conhecimento para relações entre sistemas
+- Memória persistente de contexto por sessão
+- Fonte: documentação interna dos sistemas SEFA
+
+### Etapa 3 — ChatLicitaçõesSEFA
+
+RAG com busca em **acórdãos TCU**, **pareceres CJU** e **Web**.
+
+- Integração com bases jurisprudenciais
+- Busca web para normativas atualizadas
+- Citação de fontes com links para documentos originais
+
+### Etapa 4 — AppAnalista
+
+Extrator: transforma **ETP/TR em JSON estruturado** com todos os atributos da contratação.
+
+- Parser de documentos (PDF, DOCX)
+- Schema JSON canônico da contratação
+- Validação de campos obrigatórios
+- **Pré-requisito crítico** — o schema alimenta todas as etapas seguintes
+
+### Etapa 5 — ComparadorEstrutural
+
+Compara a **estrutura do documento** com o modelo oficial da AGU/CJU.
+
+- Mapeamento seção a seção contra template oficial
+- Detecção de seções ausentes ou fora de ordem
+- Relatório de conformidade estrutural
+
+### Etapa 6 — AppVerificadorRestrito
+
+Parser bloco a bloco: verifica **inconformidades legais** item a item com base no JSON.
+
+- Loop item a item sobre o JSON da Etapa 4
+- Validação cruzada contra legislação vigente
+- Detecção de cláusulas contraditórias ou ausentes
+- Output: lista de inconformidades com referência legal
+
+### Etapa 7 — VerificadorAmplo
+
+Integra etapas 4–6: **conformidade legislativa subjetiva + estrutural**.
+
+- Análise holística do documento
+- Gera relatório unificado com:
+  - Erro identificado
+  - Referência normativa
+  - Sugestão de correção
+- Combina verificação restrita (objetiva) com análise ampla (subjetiva)
+
+### Etapa 8 — Plataforma ACI
+
+Interface completa com **persona ACI**, integra etapas 1–7.
+
+- Dashboard do analista de controle interno
+- Acesso a todos os chats (RADA, Sistemas, Licitações)
+- Fluxo integrado de verificação de documentos
+- Relatório final de conformidade para aprovação
+
+---
+
+## Fase 2 — Módulo Requisitante
+
+**Etapas 9 a 12**
+
+Objetivo: guiar o requisitante desde a estruturação da necessidade até a geração de documentos conformes.
+
+### Etapa 9 — AppMontaDoc
+
+Monta documentos no **formato CJU** a partir do JSON + dados do requisitante.
+
+- Template engine com modelos AGU/CJU
+- Preenchimento automático a partir do JSON estruturado
+- Geração de ETP, TR e Edital em formato final
+- Versionamento de documentos gerados
+
+### Etapa 10 — ChatAnaliseProblema
+
+Guia o requisitante na **estruturação da necessidade** via Value Focused Thinking.
+
+- Interface híbrida: formulário + conversa
+- Metodologia VFT para elicitar objetivos e restrições
+- Perguntas guiadas para qualificar a demanda
+- Output: necessidade estruturada em formato processável
+
+### Etapa 11 — AppRefinador
+
+Ciclo de **aprimoramento da solução** com boas práticas da FAB.
+
+- Análise da solução proposta contra histórico de contratações
+- Sugestões de melhoria baseadas em boas práticas
+- Retorna JSON refinado para o MontaDoc (Etapa 9)
+- Loop iterativo até aprovação do requisitante
+
+### Etapa 12 — Plataforma Requisitante
+
+Interface integrada das etapas 9–11.
+
+- Dashboard do requisitante
+- Fluxo guiado: análise de problema → montagem → refinamento
+- Acompanhamento do status do processo
+- Integração com a Plataforma ACI para submissão
+
+---
+
+## Fase 3 — Copiloto Integrado
+
+**Etapa 13**
+
+Objetivo: agente unificado que conduz o fluxo completo de planejamento de contratações.
+
+### Etapa 13 — Copiloto α
+
+Agente com acesso a **todos os módulos ACI e Requisitante**, ativa ferramentas sob demanda.
+
+- Conduz o fluxo completo de planejamento de contratações
+- Seleção automática de ferramenta conforme o estágio do processo
+- Memória de longo prazo por OM e por processo
+- Interface conversacional unificada
+- Ativação sob demanda de qualquer etapa (1–12)
+
+---
+
+## Resumo Visual
+
+| Fase | Etapas | Foco | Entregável final |
+|------|--------|------|-----------------|
+| 1 — Módulo ACI | 1–8 | Validação jurídica | Plataforma ACI completa |
+| 2 — Módulo Requisitante | 9–12 | Estruturação da demanda | Plataforma Requisitante completa |
+| 3 — Copiloto | 13 | Fluxo integrado | Copiloto α |

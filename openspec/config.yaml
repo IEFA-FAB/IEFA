@@ -9,7 +9,7 @@ context: |
   - **sisub**: React 19 + TanStack Start + Nitro SSR — Sistema de Subsistência (menus, receitas, planejamento, analytics)
   - **portal**: React 19 + Vite + Nitro SSR + TanStack Router — Portal web (CMS Sanity, drag-drop, markdown)
   - **api**: Bun + Hono + @hono/zod-openapi + Scalar — API pública (alimentos, preços, sync workers)
-  - **ai**: Bun + Hono + LangChain/LangGraph — Serviço AI (ingestão docs, orchestração LLM)
+  - **alpha**: Bun + Hono + LangChain/LangGraph — Projeto α (IA aplicada a contratações públicas da FAB)
   - **docs**: React 19 + TanStack Start + Nitro SSR + Fumadocs — Documentação interna
   - **sisub-mcp**: Bun + MCP SDK — MCP server (acesso AI aos dados sisub)
 
@@ -21,7 +21,7 @@ context: |
   - Server functions (TanStack Start): `createServerFn` com `.inputValidator(z.object(...))`
   - UI: Base UI (`@base-ui/react/*`) — NUNCA Radix UI
   - Imports: `@/*` → `src/*`
-  - Commits: Conventional Commits via cz-git (scopes: portal, sisub, ai, api, docs, deps, ci, scripts, root)
+  - Commits: Conventional Commits via cz-git (scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root)
   - Formatting: Biome (pre-commit hook)
   - DB: Supabase (schemas: sisub, iefa, journal)
 
@@ -36,7 +36,7 @@ rules:
   proposal:
     - Write in Portuguese-BR
     - Always include a "Não-objetivos" (Non-goals) section
-    - Reference which app(s) the change affects (sisub, portal, api, ai, docs)
+    - Reference which app(s) the change affects (sisub, portal, api, alpha, docs)
   design:
     - Write in Portuguese-BR
     - Reference existing patterns in the codebase when applicable

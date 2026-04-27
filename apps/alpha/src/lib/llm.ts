@@ -1,4 +1,4 @@
-import { makeChatLLM } from "@iefa/ai-client/llm"
+import { makeChatLLM } from "@iefa/alpha-client/llm"
 import type { ChatOpenAI } from "@langchain/openai"
 import { env } from "../env.ts"
 

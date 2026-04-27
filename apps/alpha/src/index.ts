@@ -11,7 +11,7 @@ const app = apiRoutes.get("/health", (c) => {
 		return c.json(
 			{
 				status: "unhealthy" as const,
-				service: "atlas-ai",
+				service: "alpha",
 				reason: "memory_pressure",
 				rss_mb: Math.round(rss / 1024 / 1024),
 				limit_mb: 450,
@@ -22,7 +22,7 @@ const app = apiRoutes.get("/health", (c) => {
 
 	return c.json({
 		status: "ok" as const,
-		service: "atlas-ai",
+		service: "alpha",
 		rss_mb: Math.round(rss / 1024 / 1024),
 	})
 })

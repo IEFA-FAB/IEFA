@@ -14,7 +14,7 @@
       "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
       "project": ["src/**/*.{ts,tsx}"]
     },
-    "apps/ai": {
+    "apps/alpha": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },

@@ -1,4 +1,4 @@
-import { createAiClient, createApiClient } from "@iefa/hono-client"
+import { createAlphaClient, createApiClient } from "@iefa/hono-client"
 
 /**
  * Cliente RPC para @iefa/api (dados públicos: unidades, refeitórios, previsões…)
@@ -11,7 +11,7 @@ export const apiClient = createApiClient({
 })
 
 /**
- * Cria um cliente RPC autenticado para @iefa/ai (RADA).
+ * Cria um cliente RPC autenticado para @iefa/alpha (Projeto α).
  *
  * Chame dentro de handlers/componentes que já possuem o token JWT do usuário.
  * Não persista — tokens expiram; crie sob demanda.
@@ -19,13 +19,13 @@ export const apiClient = createApiClient({
  * @example
  * ```ts
  * const { data: { session } } = await supabase.auth.getSession()
- * const ai = getAiClient(session?.access_token)
- * const res = await ai.api.v1.sessions.$post()
+ * const alpha = getAlphaClient(session?.access_token)
+ * const res = await alpha.api.v1.sessions.$post()
  * ```
  */
-export function getAiClient(token?: string | null) {
-	return createAiClient({
-		baseUrl: (import.meta.env.VITE_AI_API_URL as string | undefined) ?? "https://iefa-ai.fly.dev",
+export function getAlphaClient(token?: string | null) {
+	return createAlphaClient({
+		baseUrl: (import.meta.env.VITE_ALPHA_API_URL as string | undefined) ?? "https://iefa-ai.fly.dev",
 		token: token ?? undefined,
 	})
 }

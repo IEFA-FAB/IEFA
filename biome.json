@@ -77,7 +77,7 @@
       }
     },
     {
-      "includes": ["apps/api/src/**/*", "apps/ai/src/**/*"],
+      "includes": ["apps/api/src/**/*", "apps/alpha/src/**/*"],
       "linter": {
         "rules": {
           "correctness": {

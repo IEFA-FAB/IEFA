@@ -742,7 +742,7 @@ As roles são armazenadas em `auth.users.raw_app_meta_data -> 'role'` e propagad
 
 ```typescript
 // JWT claim esperado (Supabase emite automaticamente após login)
-interface AtlasJWTPayload {
+interface AlphaJWTPayload {
   sub: string;           // user_id (UUID — auth.users.id)
   role: AppRole;         // claim custom: "app_requisitante" | "app_licitacoes" | "app_aci"
   email: string;

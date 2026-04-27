@@ -14,10 +14,10 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/portal/package.json ./apps/portal/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/docs/package.json ./apps/docs/
-COPY apps/ai/package.json ./apps/ai/
+COPY apps/alpha/package.json ./apps/alpha/
 COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
-COPY packages/ai-client/package.json ./packages/ai-client/
+COPY packages/alpha-client/package.json ./packages/alpha-client/
 COPY packages/pbac/package.json ./packages/pbac/
 RUN bun install
 
@@ -77,7 +77,7 @@ ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 COPY packages/database ./packages/database
 COPY packages/hono-client ./packages/hono-client
-COPY packages/ai-client ./packages/ai-client
+COPY packages/alpha-client ./packages/alpha-client
 COPY packages/pbac ./packages/pbac
 COPY apps/sisub ./apps/sisub
 
@@ -110,22 +110,22 @@ EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
 
 # =============================================================================
-# AI (apps/ai) — Hono + LangGraph + Bun
+# Projeto α (apps/alpha) — Hono + LangGraph + Bun
 # =============================================================================
-FROM deps AS ai-build
-COPY packages/ai-client ./packages/ai-client
-COPY apps/ai ./apps/ai
-RUN test -f apps/ai/src/index.ts || \
-    (echo "❌ AI entrypoint missing" && exit 1)
+FROM deps AS alpha-build
+COPY packages/alpha-client ./packages/alpha-client
+COPY apps/alpha ./apps/alpha
+RUN test -f apps/alpha/src/index.ts || \
+    (echo "❌ Alpha entrypoint missing" && exit 1)
 
-FROM base AS ai
+FROM base AS alpha
 ENV NODE_ENV=production
 ENV PORT=8000
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=ai-build /app/apps/ai ./apps/ai
+COPY --from=alpha-build /app/apps/alpha ./apps/alpha
 USER bun
 EXPOSE 8000
-CMD ["bun", "apps/ai/src/index.ts"]
+CMD ["bun", "apps/alpha/src/index.ts"]
 
 # =============================================================================
 # DOCS

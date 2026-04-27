@@ -4,10 +4,10 @@
  * Use em server functions (src/server/*.fn.ts) e handlers Nitro.
  * Não importe em código client-side — usa process.env (server-only).
  */
-import { createAiClient, createApiClient } from "@iefa/hono-client"
+import { createAlphaClient, createApiClient } from "@iefa/hono-client"
 
 const API_BASE_URL = process.env.IEFA_API_BASE_URL ?? "https://iefa-api.fly.dev"
-const AI_BASE_URL = process.env.AI_API_BASE_URL ?? "https://iefa-ai.fly.dev"
+const ALPHA_BASE_URL = process.env.ALPHA_API_BASE_URL ?? "https://iefa-ai.fly.dev"
 
 /**
  * Cliente RPC para rotas públicas de @iefa/api.
@@ -34,20 +34,20 @@ export function getAdminApiClient() {
 }
 
 /**
- * Cria um cliente RPC autenticado para @iefa/ai.
+ * Cria um cliente RPC autenticado para @iefa/alpha (Projeto α).
  * Passe o JWT do usuário obtido em getServerSessionFn ou authMiddleware.
  *
  * @example
  * ```ts
  * // Dentro de um server fn:
  * const { session } = await getServerSessionFn()
- * const ai = getAiClient(session?.access_token)
- * const res = await ai.api.v1.sessions.$post()
+ * const alpha = getAlphaClient(session?.access_token)
+ * const res = await alpha.api.v1.sessions.$post()
  * ```
  */
-export function getAiClient(token?: string | null) {
-	return createAiClient({
-		baseUrl: AI_BASE_URL,
+export function getAlphaClient(token?: string | null) {
+	return createAlphaClient({
+		baseUrl: ALPHA_BASE_URL,
 		token: token ?? undefined,
 	})
 }

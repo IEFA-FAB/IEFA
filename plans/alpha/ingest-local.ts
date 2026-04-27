@@ -9,7 +9,7 @@
  *   bun run ingest-local.ts knowledge/RADA-2023.md
  */
 
-import { ingestMarkdown } from "../../apps/ai/src/ingest/markdown-ingest.ts"
+import { ingestMarkdown } from "../../apps/alpha/src/ingest/markdown-ingest.ts"
 
 const filePath = process.argv[2]
 

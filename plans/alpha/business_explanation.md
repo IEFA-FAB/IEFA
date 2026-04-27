@@ -21,7 +21,7 @@ Problemas centrais identificados:
 
 ## 2\. Solução
 
-O **Atlas** é uma plataforma de IA aplicada ao ciclo de contratações públicas da FAB, composta por módulos autônomos e integráveis, que cobrem desde a estruturação da demanda pelo requisitante até a revisão jurídica pelo ACI — com o humano sempre como decisor final.
+O **Projeto α** é uma plataforma de IA aplicada ao ciclo de contratações públicas da FAB, composta por módulos autônomos e integráveis, que cobrem desde a estruturação da demanda pelo requisitante até a revisão jurídica pelo ACI — com o humano sempre como decisor final.
 
 *"A IA aumenta a produtividade e apura o olhar. A palavra final é sempre do gestor."*
 
@@ -75,7 +75,7 @@ Lógica: validar o núcleo jurídico antes de escalar. Mais vale fazer pouco mui
 
 | Etapa | Entrega | Descrição |
 | :---- | :---- | :---- |
-| 13 | **Atlas Copiloto** | Agente com acesso a todos os módulos ACI e Requisitante, ativa ferramentas sob demanda, conduz o fluxo completo de planejamento de contratações |
+| 13 | **Copiloto α** | Agente com acesso a todos os módulos ACI e Requisitante, ativa ferramentas sob demanda, conduz o fluxo completo de planejamento de contratações |
 
 ---
 

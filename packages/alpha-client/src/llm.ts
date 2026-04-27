@@ -14,7 +14,7 @@ export interface ChatLLMConfig {
  * Factory for ChatOpenAI instances compatible with any OpenAI-compatible endpoint.
  *
  * Supported providers:
- * - NVIDIA NIM API (apps/ai — uses NVIDIA_BASE_URL)
+ * - NVIDIA NIM API (apps/alpha — uses NVIDIA_BASE_URL)
  * - OpenRouter (apps/sisub — uses https://openrouter.ai/api/v1)
  * - OpenAI directly
  *

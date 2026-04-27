@@ -13,6 +13,7 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "sisub:dev": "bun --cwd ./apps/sisub dev",
+    "sisub:test:e2e": "turbo run test:e2e --filter=@iefa/sisub",
     "sisub-mcp:dev": "bun --cwd ./apps/sisub-mcp dev",
     "sisub-mcp:start": "bun --cwd ./apps/sisub-mcp start",
     "portal:dev": "bun --cwd ./apps/portal dev",

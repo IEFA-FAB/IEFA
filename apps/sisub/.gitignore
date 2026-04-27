@@ -1,0 +1,7 @@
+# === Playwright E2E ===
+# Auth state — contém cookies/tokens de sessão, NUNCA comitar
+.auth/
+
+# Relatórios e traces gerados após cada run
+playwright-report/
+test-results/

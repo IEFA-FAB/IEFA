@@ -1,5 +1,5 @@
 {
-  "name": "@iefa/ai",
+  "name": "@iefa/alpha",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,7 +13,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@iefa/ai-client": "workspace:*",
+    "@iefa/alpha-client": "workspace:*",
     "@langchain/core": "^1.1.26",
     "@langchain/langgraph": "^1.1.5",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.0",

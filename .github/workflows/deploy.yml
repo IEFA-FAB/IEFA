@@ -22,8 +22,8 @@ on:
         description: 'Force deploy docs'
         type: boolean
         default: false
-      force_ai:
-        description: 'Force deploy AI'
+      force_alpha:
+        description: 'Force deploy Projeto α'
         type: boolean
         default: false
 
@@ -42,7 +42,7 @@ jobs:
       portal: ${{ steps.final.outputs.portal }}
       sisub: ${{ steps.final.outputs.sisub }}
       docs: ${{ steps.final.outputs.docs }}
-      ai: ${{ steps.final.outputs.ai }}
+      alpha: ${{ steps.final.outputs.alpha }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -68,8 +68,9 @@ jobs:
               - 'apps/sisub/**'
               - 'packages/database/**'
               - 'packages/hono-client/**'
-              - 'packages/ai-client/**'
+              - 'packages/alpha-client/**'
               - 'packages/pbac/**'
+              - 'packages/sisub-domain/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -82,9 +83,9 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
-            ai:
-              - 'apps/ai/**'
-              - 'packages/ai-client/**'
+            alpha:
+              - 'apps/alpha/**'
+              - 'packages/alpha-client/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -100,25 +101,25 @@ jobs:
           FORCE_PORTAL: ${{ inputs.force_portal }}
           FORCE_SISUB: ${{ inputs.force_sisub }}
           FORCE_DOCS: ${{ inputs.force_docs }}
-          FORCE_AI: ${{ inputs.force_ai }}
+          FORCE_ALPHA: ${{ inputs.force_alpha }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
           FILTER_DOCS: ${{ steps.filter.outputs.docs }}
-          FILTER_AI: ${{ steps.filter.outputs.ai }}
+          FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
             echo "portal=$FORCE_PORTAL" >> $GITHUB_OUTPUT
             echo "sisub=$FORCE_SISUB"   >> $GITHUB_OUTPUT
             echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
-            echo "ai=$FORCE_AI"         >> $GITHUB_OUTPUT
+            echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
           else
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
             echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
             echo "sisub=$FILTER_SISUB"   >> $GITHUB_OUTPUT
             echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
-            echo "ai=$FILTER_AI"         >> $GITHUB_OUTPUT
+            echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
           fi
 
   # ============================================================
@@ -430,11 +431,11 @@ jobs:
           flyctl deploy -c fly/sisub.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
-  # AI / apps/ai  ── check → build → deploy
+  # Projeto α / apps/alpha  ── check → build → deploy
   # ============================================================
-  check-ai:
+  check-alpha:
     needs: [changes]
-    if: needs.changes.outputs.ai == 'true'
+    if: needs.changes.outputs.alpha == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -448,15 +449,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/ai
+        run: bunx turbo run lint typecheck test --filter=./apps/alpha
         env:
           SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
           DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
 
-  build-ai:
-    needs: check-ai
+  build-alpha:
+    needs: check-alpha
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:
@@ -484,18 +485,18 @@ jobs:
         uses: docker/bake-action@v7
         with:
           files: ./docker-bake.hcl
-          targets: ai
+          targets: alpha
           push: true
           set: |
-            ai.tags=registry.fly.io/iefa-ai:${{ steps.meta.outputs.tag }}
-            ai.tags=registry.fly.io/iefa-ai:latest
+            alpha.tags=registry.fly.io/iefa-ai:${{ steps.meta.outputs.tag }}
+            alpha.tags=registry.fly.io/iefa-ai:latest
 
-  deploy-ai:
-    needs: build-ai
+  deploy-alpha:
+    needs: build-alpha
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     concurrency:
-      group: fly-deploy-ai-${{ github.ref_name }}
+      group: fly-deploy-alpha-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
@@ -514,7 +515,7 @@ jobs:
           S_NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           S_LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
         run: |
-          flyctl --config fly/ai.toml secrets set \
+          flyctl --config fly/alpha.toml secrets set \
             "SUPABASE_URL=$S_SUPABASE_URL" \
             "SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
             "DATABASE_URL=$S_DATABASE_URL" \
@@ -525,13 +526,13 @@ jobs:
             "NVIDIA_RERANK_MODEL=$V_NVIDIA_RERANK_MODEL" \
             "LANGCHAIN_API_KEY=$S_LANGCHAIN_API_KEY" \
             "LANGCHAIN_TRACING_V2=true" \
-            "LANGCHAIN_PROJECT=atlas-aci"
+            "LANGCHAIN_PROJECT=alpha-aci"
 
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-ai.outputs.tag }}
-        run: flyctl deploy -c fly/ai.toml --image "registry.fly.io/iefa-ai:$IMAGE_TAG" --wait-timeout 300
+          IMAGE_TAG: ${{ needs.build-alpha.outputs.tag }}
+        run: flyctl deploy -c fly/alpha.toml --image "registry.fly.io/iefa-ai:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
         env:
@@ -549,9 +550,9 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          PREV=$(flyctl releases -c fly/ai.toml --json | jq -r '.[1].ImageRef // empty')
+          PREV=$(flyctl releases -c fly/alpha.toml --json | jq -r '.[1].ImageRef // empty')
           if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/ai.toml --image "$PREV" --wait-timeout 300 || true
+          flyctl deploy -c fly/alpha.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # DOCS  ── check → build → deploy
@@ -647,3 +648,65 @@ jobs:
   # Paths filter: 'apps/sisub-mcp/**' + 'packages/database/**'
   # Runtime secrets: VITE_SISUB_SUPABASE_URL, SISUB_SUPABASE_SECRET_KEY,
   #                  SISUB_SUPABASE_ANON_KEY, MCP_PORT, MCP_TRANSPORT
+
+  # ============================================================
+  # SISUB E2E  ── testes end-to-end com Playwright
+  # ============================================================
+  e2e-sisub:
+    needs: [changes, check-sisub]
+    if: needs.changes.outputs.sisub == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 20
+    env:
+      VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+      VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('apps/sisub/package.json') }}
+          restore-keys: ${{ runner.os }}-playwright-
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run E2E tests
+        working-directory: apps/sisub
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/sisub/playwright-report/
+          retention-days: 7
+
+      - name: Upload test results (traces)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: apps/sisub/test-results/
+          retention-days: 7

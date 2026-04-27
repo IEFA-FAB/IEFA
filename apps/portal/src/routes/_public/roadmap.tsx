@@ -349,22 +349,119 @@ const APP_ROADMAPS: AppRoadmap[] = [
 	},
 	{
 		icon: Cpu,
-		slug: "ai",
-		title: "Serviço de IA",
+		slug: "alpha",
+		title: "Projeto α",
 		status: "planned",
 		phases: [
 			{
 				number: "1",
-				title: "Ativação",
-				subtitle: "Ingestão de documentos institucionais, orquestração de LLMs e endpoints para automação analítica.",
+				title: "Módulo ACI",
+				subtitle:
+					"Validação do núcleo jurídico — RAG sobre legislação, extração estruturada de documentos, verificação de conformidade e plataforma integrada para o ACI.",
 				phaseStatus: "planned",
 				steps: [
 					{
 						number: "1.1",
-						label: "Ingestão e orquestração LLM",
+						label: "ChatRADA",
 						description:
-							"Ativação do serviço AI (LangChain/LangGraph) com ingestão de documentos institucionais, orquestração de LLMs e endpoints para automação de tarefas analíticas e geração de relatórios.",
+							"RAG híbrido (semântico + BM25) sobre o Regulamento de Administração da Aeronáutica — busca em linguagem natural e consultas exatas a artigos e incisos.",
 						status: "planned",
+					},
+					{
+						number: "1.2",
+						label: "ChatSistemasSEFA",
+						description: "RAG com memória em grafo sobre sistemas internos da SEFA — relações entre sistemas e contexto persistente por sessão.",
+						status: "planned",
+					},
+					{
+						number: "1.3",
+						label: "ChatLicitaçõesSEFA",
+						description: "RAG com busca em acórdãos TCU, pareceres CJU e Web — citação de fontes com links para documentos originais.",
+						status: "planned",
+					},
+					{
+						number: "1.4",
+						label: "AppAnalista",
+						description:
+							"Extrator que transforma ETP/TR em JSON estruturado com todos os atributos da contratação — pré-requisito crítico para as etapas seguintes.",
+						status: "planned",
+					},
+					{
+						number: "1.5",
+						label: "ComparadorEstrutural",
+						description:
+							"Compara a estrutura do documento com o modelo oficial da AGU/CJU — mapeamento seção a seção, detecção de seções ausentes ou fora de ordem.",
+						status: "planned",
+					},
+					{
+						number: "1.6",
+						label: "AppVerificadorRestrito",
+						description:
+							"Parser bloco a bloco: verifica inconformidades legais item a item com base no JSON extraído, com validação cruzada contra legislação vigente.",
+						status: "planned",
+					},
+					{
+						number: "1.7",
+						label: "VerificadorAmplo",
+						description:
+							"Integra etapas 1.4–1.6: conformidade legislativa subjetiva + estrutural. Gera relatório unificado com erro, referência normativa e sugestão de correção.",
+						status: "planned",
+					},
+					{
+						number: "1.8",
+						label: "Plataforma ACI",
+						description:
+							"Interface completa com persona ACI, integrando etapas 1–7: dashboard do analista, acesso a todos os chats e fluxo de verificação com relatório final de conformidade.",
+						status: "planned",
+					},
+				],
+			},
+			{
+				number: "2",
+				title: "Módulo Requisitante",
+				subtitle: "Guia o requisitante desde a estruturação da necessidade até a geração de documentos conformes — montagem, análise e refinamento iterativo.",
+				phaseStatus: "planned",
+				steps: [
+					{
+						number: "2.1",
+						label: "AppMontaDoc",
+						description: "Monta documentos no formato CJU a partir do JSON estruturado + dados do requisitante — geração de ETP, TR e Edital em formato final.",
+						status: "planned",
+					},
+					{
+						number: "2.2",
+						label: "ChatAnaliseProblema",
+						description:
+							"Guia o requisitante na estruturação da necessidade via Value Focused Thinking — interface híbrida (formulário + conversa) para qualificar a demanda.",
+						status: "planned",
+					},
+					{
+						number: "2.3",
+						label: "AppRefinador",
+						description:
+							"Ciclo de aprimoramento da solução com boas práticas da FAB — análise contra histórico de contratações, retorna JSON refinado para o MontaDoc.",
+						status: "planned",
+					},
+					{
+						number: "2.4",
+						label: "Plataforma Requisitante",
+						description: "Interface integrada das etapas 9–11: dashboard do requisitante com fluxo guiado de análise de problema, montagem e refinamento.",
+						status: "planned",
+					},
+				],
+			},
+			{
+				number: "3",
+				title: "Copiloto Integrado",
+				subtitle: "Agente unificado que conduz o fluxo completo de planejamento de contratações — acesso a todos os módulos sob demanda.",
+				phaseStatus: "vision",
+				steps: [
+					{
+						number: "3.1",
+						label: "Copiloto α",
+						description:
+							"Agente com acesso a todos os módulos ACI e Requisitante, ativa ferramentas sob demanda e conduz o fluxo completo de planejamento de contratações com memória de longo prazo por OM e processo.",
+						status: "vision",
 					},
 				],
 			},
@@ -413,10 +510,10 @@ const APPS: AppEntry[] = [
 	},
 	{
 		icon: Cpu,
-		slug: "ai",
-		title: "Serviço de IA",
+		slug: "alpha",
+		title: "Projeto α",
 		description:
-			"Orquestração de LLMs com LangChain/LangGraph. Ingestão de documentos institucionais, geração de relatórios, automação analítica e endpoints para os demais apps.",
+			"Plataforma de IA aplicada ao ciclo de contratações públicas da FAB (Lei 14.133/21). Módulos de RAG jurídico, extração estruturada, verificação de conformidade e copiloto integrado.",
 		stack: ["Bun", "Hono", "LangChain", "LangGraph"],
 		status: "planned",
 	},
@@ -455,12 +552,12 @@ const PACKAGES: PackageEntry[] = [
 	},
 	{
 		slug: "hono-client",
-		description: "Factories de cliente HTTP tipado para a API e o serviço de IA — exporta createApiClient e createAiClient sobre Hono.",
+		description: "Factories de cliente HTTP tipado para a API e o Projeto α — exporta createApiClient e createAlphaClient sobre Hono.",
 		stack: ["TypeScript", "Hono"],
 	},
 	{
-		slug: "ai-client",
-		description: "Wrapper de integração com LLMs via LangChain + OpenAI — configuração do modelo de chat e rastreamento de execuções.",
+		slug: "alpha-client",
+		description: "Wrapper de integração com LLMs via LangChain + OpenAI — configuração do modelo de chat e rastreamento de execuções para o Projeto α.",
 		stack: ["TypeScript", "LangChain", "OpenAI"],
 	},
 ]

@@ -31,6 +31,15 @@
       "outputs": [],
       "env": ["API_SUPABASE_URL", "API_SUPABASE_SERVICE_ROLE_KEY", "ADMIN_SECRET"]
     },
+    "test:e2e": {
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "env": [
+        "VITE_SISUB_SUPABASE_URL",
+        "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
+        "E2E_TEST_USER_EMAIL",
+        "E2E_TEST_USER_PASSWORD"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true

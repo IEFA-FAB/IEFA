@@ -1,0 +1,30 @@
+---
+title: Gestão de Riscos
+description: Riscos identificados e estratégias de mitigação do Projeto α.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Riscos e Mitigações
+
+<Callout type="warn">
+A gestão de riscos é revisada a cada ciclo de planejamento. Os riscos abaixo representam o mapeamento inicial do projeto.
+</Callout>
+
+| Risco | Mitigação |
+|-------|-----------|
+| **Resistência institucional ao uso de IA** | Posicionamento como "auxiliado por IA" — decisão final sempre humana. Interface evidencia que a IA sugere, o gestor decide. |
+| **Acesso a sistemas externos (TCU, CJU)** | Planejamento da integração antecipado; execução após validação interna. Fallback para ingestão manual de documentos. |
+| **Qualidade do JSON schema** | Mapeamento do modelo CJU como pré-requisito antes das etapas 4–9. Validação iterativa com equipe jurídica. |
+| **Variação de volume entre OMs** | Arquitetura escalável; dimensionamento de infraestrutura por fase. Pode rodar local ou nuvem conforme demanda. |
+| **Normas locais conflitantes** | Camada de customização por OM subordinada às normas sistêmicas da FAB. Hierarquia normativa enforced pelo sistema. |
+
+---
+
+## Princípios de Mitigação
+
+1. **Humano no loop** — toda decisão final é humana. A IA acelera análise, não substitui julgamento.
+2. **Validação incremental** — cada etapa é testada isoladamente antes de integrar.
+3. **Fallback manual** — se a IA falha, o fluxo tradicional continua funcionando.
+4. **Transparência** — toda sugestão da IA cita a fonte normativa utilizada.
+5. **Auditabilidade** — logs completos de interações para rastreabilidade institucional.

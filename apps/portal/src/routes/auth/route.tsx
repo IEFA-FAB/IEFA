@@ -1,16 +1,12 @@
-// src/routes/auth.tsx
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { z } from "zod"
-import { HeroHighlight } from "@/components/hero-highlight"
 
-// Validação para garantir que o redirect seja seguro e opcional
 const authSearchSchema = z.object({
 	redirect: z.string().optional(),
 })
 
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
-	// Proteção Inversa: Se já estiver logado, não deixa ver login/register
 	beforeLoad: ({ context, search }) => {
 		if (context.auth.isAuthenticated) {
 			throw redirect({ to: search.redirect || "/" })
@@ -21,25 +17,65 @@ export const Route = createFileRoute("/auth")({
 
 function AuthLayout() {
 	return (
-		<HeroHighlight
-			className="w-full"
-			containerClassName="align-center justify-center items-center min-h-screen w-full flex flex-col items-center justify-center p-4"
-		>
-			{/* Ambient Light Effect matching Landing Page */}
-			<div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -z-10 opacity-50" />
+		<div className="min-h-screen flex flex-col md:flex-row bg-background">
+			{/* ===== LEFT PANEL — BRAND (desktop only) ===== */}
+			<div className="hidden md:flex md:w-[460px] lg:w-[520px] shrink-0 flex-col justify-between border-r border-border p-12 bg-foreground text-background">
+				<Link to="/" className="inline-block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-background/50">
+					<img src="/favicon.svg" alt="IEFA" className="h-9 w-auto invert" />
+				</Link>
 
-			<div className="w-full relative z-10">
-				{/* Header Brand */}
-				<div className="text-center mb-8 animate-fade-in-up">
-					<Link to="/" className="inline-block hover:opacity-80 transition-opacity">
-						<img src="/favicon.svg" alt="IEFA" className="h-16 w-auto mx-auto drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
-					</Link>
-					<h1 className="mt-6 text-2xl font-bold tracking-tight text-white">Bem-vindo ao IEFA</h1>
+				<div className="space-y-7">
+					<p className="text-background/40 font-medium uppercase" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+						Força Aérea Brasileira · IEFA
+					</p>
+
+					<h1
+						className="font-serif text-background leading-[1.04]"
+						style={{
+							fontSize: "clamp(2.75rem, 4vw, 3.75rem)",
+							fontWeight: 700,
+							letterSpacing: "-0.04em",
+						}}
+					>
+						Capacitar
+						<br />
+						Pesquisar
+						<br />
+						Inovar
+					</h1>
+
+					<p className="text-sm text-background/50 leading-relaxed max-w-[270px]">
+						Portal do Instituto de Estudos e Fomento da Aeronáutica — ferramentas, sistemas e publicações científicas a serviço do COMAER.
+					</p>
 				</div>
 
-				{/* Onde as páginas (Login, Register) serão renderizadas */}
-				<Outlet />
+				<div className="space-y-4">
+					<div className="border-t border-background/15" />
+					<p className="text-background/30 font-medium uppercase" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+						Acesso exclusivo — @fab.mil.br
+					</p>
+				</div>
 			</div>
-		</HeroHighlight>
+
+			{/* ===== MOBILE HEADER ===== */}
+			<div className="md:hidden border-b border-border bg-foreground text-background px-6 py-4 flex items-center gap-3">
+				<Link to="/" className="inline-block">
+					<img src="/favicon.svg" alt="IEFA" className="h-7 w-auto invert" />
+				</Link>
+				<div>
+					<p className="text-sm font-semibold text-background leading-tight">Portal IEFA</p>
+					<p className="text-background/45 font-medium uppercase" style={{ fontSize: "10px", letterSpacing: "0.08em" }}>
+						Força Aérea Brasileira
+					</p>
+				</div>
+			</div>
+
+			{/* ===== RIGHT PANEL — FORM ===== */}
+			<div className="flex-1 flex items-center justify-center p-6 md:p-12 lg:p-16">
+				<div className="w-full max-w-[420px]">
+					<Outlet />
+				</div>
+			</div>
+		</div>
 	)
 }

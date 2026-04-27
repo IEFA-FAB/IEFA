@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator"
-import { createRunCollector } from "@iefa/ai-client/tracer"
+import { createRunCollector } from "@iefa/alpha-client/tracer"
 import { HumanMessage } from "@langchain/core/messages"
 import type { User } from "@supabase/supabase-js"
 import { Hono } from "hono"

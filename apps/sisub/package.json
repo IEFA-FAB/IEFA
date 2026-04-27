@@ -10,7 +10,9 @@
         "lint": "biome lint",
         "check": "biome check",
         "typecheck": "tsgo --noEmit",
-        "validate-env": "bun run src/lib/env.ts"
+        "validate-env": "bun run src/lib/env.ts",
+        "test:e2e": "bunx playwright test",
+        "test:e2e:ui": "bunx playwright test --ui"
     },
     "dependencies": {
         "@base-ui/react": "^1.3.0",
@@ -44,7 +46,7 @@
         "lucide-react": "^1.7.0",
         "motion": "^12.38.0",
         "nitro": "^3.0.260311-beta",
-        "@iefa/ai-client": "workspace:*",
+        "@iefa/alpha-client": "workspace:*",
         "@langchain/core": "^1.1.26",
         "@langchain/openai": "^1.2.8",
         "qr-scanner": "^1.4.2",
@@ -65,6 +67,7 @@
         "zod": "^4.3.6"
     },
     "devDependencies": {
+        "@playwright/test": "^1.59.1",
         "@rolldown/plugin-babel": "^0.2.2",
         "@tanstack/devtools-vite": "^0.6.0",
         "@tanstack/react-devtools": "^0.10.1",

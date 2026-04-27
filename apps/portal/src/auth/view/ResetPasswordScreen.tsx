@@ -1,10 +1,9 @@
 import { Eye, EyeClosed, Lock, Refresh, WarningCircle } from "iconoir-react"
 import { useEffect, useState } from "react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 
 export interface ResetPasswordScreenProps {
 	searchParams: {
@@ -17,6 +16,27 @@ export interface ResetPasswordScreenProps {
 	}
 	onNavigate: (options: { to?: string; search?: Record<string, unknown> }) => void
 	forgotPasswordPath?: string
+}
+
+const LABEL = "text-[11px] font-medium uppercase text-muted-foreground"
+const LABEL_TRACKING = { letterSpacing: "0.06em" } as const
+
+function FieldError({ id, children }: { id?: string; children: React.ReactNode }) {
+	return (
+		<p id={id} role="alert" className="flex items-center gap-1 text-xs text-destructive mt-1">
+			<WarningCircle className="h-3 w-3 shrink-0" aria-hidden />
+			{children}
+		</p>
+	)
+}
+
+function ErrorBanner({ message }: { message: string }) {
+	return (
+		<div className="border-l-2 border-destructive bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
+			<WarningCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+			{message}
+		</div>
+	)
 }
 
 export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotPasswordPath = "/auth" }: ResetPasswordScreenProps) {
@@ -32,248 +52,201 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 	const [tokenValid, setTokenValid] = useState(false)
 
 	useEffect(() => {
-		const verifyToken = async () => {
+		const verify = async () => {
 			if (!searchParams.token_hash || searchParams.type !== "recovery") {
-				setError("Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.")
+				setError("Link inválido ou expirado. Solicite uma nova recuperação de senha.")
 				setIsVerifyingToken(false)
-				setTokenValid(false)
 				return
 			}
-
 			try {
-				const { error: verifyError } = await actions.verifyOtp(searchParams.token_hash, "recovery")
-
-				if (verifyError) {
-					setError("Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.")
+				const { error: e } = await actions.verifyOtp(searchParams.token_hash, "recovery")
+				if (e) {
+					setError("Link inválido ou expirado. Solicite uma nova recuperação de senha.")
 					setTokenValid(false)
 				} else {
 					setTokenValid(true)
 				}
 			} catch {
-				setError("Erro ao verificar o link de recuperação. Tente novamente.")
+				setError("Erro ao verificar o link. Tente novamente.")
 				setTokenValid(false)
 			} finally {
 				setIsVerifyingToken(false)
 			}
 		}
-
-		verifyToken()
+		verify()
 	}, [searchParams.token_hash, searchParams.type, actions])
 
 	const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const value = e.target.value
-		setNewPassword(value)
+		const v = e.target.value
+		setNewPassword(v)
 		setError("")
 		setPasswordError("")
-
-		if (value && value.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
-		}
-
-		if (confirmPassword && value !== confirmPassword) {
-			setConfirmError("As senhas não coincidem.")
-		} else {
-			setConfirmError("")
-		}
+		if (v && v.length < 6) setPasswordError("Mínimo 6 caracteres.")
+		if (confirmPassword && v !== confirmPassword) setConfirmError("As senhas não coincidem.")
+		else setConfirmError("")
 	}
 
-	const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const value = e.target.value
-		setConfirmPassword(value)
+	const handleConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const v = e.target.value
+		setConfirmPassword(v)
 		setConfirmError("")
-
-		if (value && value !== newPassword) {
-			setConfirmError("As senhas não coincidem.")
-		}
+		if (v && v !== newPassword) setConfirmError("As senhas não coincidem.")
 	}
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
-
 		if (newPassword.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
+			setPasswordError("Mínimo 6 caracteres.")
 			return
 		}
-
 		if (newPassword !== confirmPassword) {
 			setConfirmError("As senhas não coincidem.")
 			return
 		}
-
 		setIsSubmitting(true)
 		setError("")
 		setPasswordError("")
 		setConfirmError("")
-
 		try {
-			const { error: updateError } = await actions.updatePassword(newPassword)
-
-			if (updateError) throw updateError
-
+			const { error: e } = await actions.updatePassword(newPassword)
+			if (e) throw e
 			onNavigate({ to: "/auth", search: { tab: "login" } })
 			alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
 		} catch (err) {
-			const errorMsg = err instanceof Error ? err.message : "Erro ao atualizar senha. Tente novamente."
-			setError(errorMsg)
+			setError(err instanceof Error ? err.message : "Erro ao atualizar senha. Tente novamente.")
 		} finally {
 			setIsSubmitting(false)
 		}
 	}
 
-	const handleBackToForgotPassword = () => {
-		onNavigate({ to: forgotPasswordPath })
-	}
-
-	const cardClasses = "w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
-	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
-	const buttonClasses = "w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
-	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
-	const iconClasses = "absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
-
+	// ── Verifying token ───────────────────────────────────────────────────────
 	if (isVerifyingToken) {
 		return (
-			<div className="min-h-screen flex items-center justify-center p-4">
-				<Card className={cardClasses}>
-					<CardContent className="flex flex-col items-center justify-center py-12 gap-4">
-						<Refresh className="h-8 w-8 animate-spin" aria-hidden="true" />
-						<span>Verificando link de recuperação...</span>
-					</CardContent>
-				</Card>
+			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
+				<Refresh className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
+				<span className="text-sm text-muted-foreground">Verificando link de recuperação...</span>
 			</div>
 		)
 	}
 
+	// ── Invalid token ─────────────────────────────────────────────────────────
 	if (!tokenValid) {
 		return (
-			<div className="min-h-screen flex items-center justify-center p-4">
-				<Card className={cardClasses}>
-					<CardHeader className="text-center space-y-3 pb-4 pt-8">
-						<CardTitle className="text-3xl font-bold tracking-tight">Link Inválido</CardTitle>
-						<CardDescription className="text-muted-foreground text-base">O link de recuperação de senha expirou ou é inválido.</CardDescription>
-					</CardHeader>
+			<div className="border border-border bg-card">
+				<div className="px-8 pt-8 pb-6 border-b border-border">
+					<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+						Link Inválido
+					</h2>
+					<p className="text-sm text-muted-foreground mt-1">O link de recuperação expirou ou é inválido.</p>
+				</div>
 
-					<CardContent className="px-8">
-						<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-							<WarningCircle className="h-4 w-4" />
-							<AlertDescription>{error}</AlertDescription>
-						</Alert>
-					</CardContent>
+				<div className="px-8 py-6">
+					<ErrorBanner message={error} />
+				</div>
 
-					<CardFooter className="px-8 pb-8 pt-4">
-						<Button
-							variant="ghost"
-							type="button"
-							className="w-full rounded-full text-muted-foreground hover:text-foreground hover:bg-accent h-10"
-							onClick={handleBackToForgotPassword}
-						>
-							Solicitar Novo Link
-						</Button>
-					</CardFooter>
-				</Card>
+				<div className="px-8 pb-8 border-t border-border pt-5">
+					<Button variant="outline" className="w-full h-11 text-sm" onClick={() => onNavigate({ to: forgotPasswordPath })}>
+						Solicitar Novo Link
+					</Button>
+				</div>
 			</div>
 		)
 	}
 
+	// ── Reset form ────────────────────────────────────────────────────────────
 	return (
-		<div className="min-h-screen flex items-center justify-center p-4">
-			<Card className={cardClasses}>
-				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">Redefinir Senha</CardTitle>
-					<CardDescription className="text-muted-foreground text-base">Digite sua nova senha segura.</CardDescription>
-				</CardHeader>
+		<div className="border border-border bg-card">
+			<div className="px-8 pt-8 pb-6 border-b border-border">
+				<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+					Redefinir Senha
+				</h2>
+				<p className="text-sm text-muted-foreground mt-1">Digite sua nova senha segura.</p>
+			</div>
 
-				<form onSubmit={handleSubmit}>
-					<CardContent className="space-y-6 px-8">
-						{error && (
-							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-								<WarningCircle className="h-4 w-4" />
-								<AlertDescription>{error}</AlertDescription>
-							</Alert>
-						)}
+			<form onSubmit={handleSubmit}>
+				<div className="px-8 py-6 space-y-5">
+					{error && <ErrorBanner message={error} />}
 
-						<div className="space-y-2.5">
-							<Label htmlFor="new-password" className={labelClasses}>
-								Nova Senha
-							</Label>
-							<div className="relative group">
-								<Lock className={iconClasses} aria-hidden="true" />
-								<Input
-									id="new-password"
-									type={showPassword ? "text" : "password"}
-									placeholder="Mínimo 6 caracteres"
-									className={`${inputClasses} pl-11 pr-11 ${passwordError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-									value={newPassword}
-									onChange={handlePasswordChange}
-									required
-									minLength={6}
-									autoComplete="new-password"
-									disabled={isSubmitting}
-									aria-invalid={!!passwordError}
-									aria-describedby={passwordError ? "password-error" : undefined}
-								/>
-								<button
-									type="button"
-									onClick={() => setShowPassword(!showPassword)}
-									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-								>
-									{showPassword ? <EyeClosed className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-								</button>
-							</div>
-							{passwordError && (
-								<p id="password-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
-									<WarningCircle className="h-3 w-3 mr-1" aria-hidden="true" />
-									{passwordError}
-								</p>
-							)}
+					{/* New password */}
+					<div className="space-y-2">
+						<Label htmlFor="new-password" className={LABEL} style={LABEL_TRACKING}>
+							Nova Senha
+						</Label>
+						<div className="relative">
+							<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								id="new-password"
+								type={showPassword ? "text" : "password"}
+								placeholder="Mínimo 6 caracteres"
+								className={cn("h-11 pl-9 pr-10", passwordError && "border-destructive focus-visible:border-destructive")}
+								value={newPassword}
+								onChange={handlePasswordChange}
+								required
+								minLength={6}
+								autoComplete="new-password"
+								disabled={isSubmitting}
+								aria-invalid={!!passwordError}
+								aria-describedby={passwordError ? "pw-error" : undefined}
+							/>
+							{/* Toggle de visibilidade — ação de ícone */}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								onClick={() => setShowPassword(!showPassword)}
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+								aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+							>
+								{showPassword ? <EyeClosed className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+							</Button>
 						</div>
+						{passwordError && <FieldError id="pw-error">{passwordError}</FieldError>}
+					</div>
 
-						<div className="space-y-2.5">
-							<Label htmlFor="confirm-password" className={labelClasses}>
-								Confirmar Nova Senha
-							</Label>
-							<div className="relative group">
-								<Lock className={iconClasses} aria-hidden="true" />
-								<Input
-									id="confirm-password"
-									type={showConfirmPassword ? "text" : "password"}
-									placeholder="Digite a senha novamente"
-									className={`${inputClasses} pl-11 pr-11 ${confirmError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-									value={confirmPassword}
-									onChange={handleConfirmPasswordChange}
-									required
-									minLength={6}
-									autoComplete="new-password"
-									disabled={isSubmitting}
-									aria-invalid={!!confirmError}
-									aria-describedby={confirmError ? "confirm-error" : undefined}
-								/>
-								<button
-									type="button"
-									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-									aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
-								>
-									{showConfirmPassword ? <EyeClosed className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
-								</button>
-							</div>
-							{confirmError && (
-								<p id="confirm-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
-									<WarningCircle className="h-3 w-3 mr-1" aria-hidden="true" />
-									{confirmError}
-								</p>
-							)}
+					{/* Confirm password */}
+					<div className="space-y-2">
+						<Label htmlFor="confirm-password" className={LABEL} style={LABEL_TRACKING}>
+							Confirmar Nova Senha
+						</Label>
+						<div className="relative">
+							<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								id="confirm-password"
+								type={showConfirmPassword ? "text" : "password"}
+								placeholder="Repita a senha"
+								className={cn("h-11 pl-9 pr-10", confirmError && "border-destructive focus-visible:border-destructive")}
+								value={confirmPassword}
+								onChange={handleConfirmChange}
+								required
+								minLength={6}
+								autoComplete="new-password"
+								disabled={isSubmitting}
+								aria-invalid={!!confirmError}
+								aria-describedby={confirmError ? "confirm-error" : undefined}
+							/>
+							{/* Toggle de visibilidade — ação de ícone */}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+								aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+							>
+								{showConfirmPassword ? <EyeClosed className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+							</Button>
 						</div>
-					</CardContent>
+						{confirmError && <FieldError id="confirm-error">{confirmError}</FieldError>}
+					</div>
+				</div>
 
-					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-2">
-						<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}>
-							{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-							{isSubmitting ? "Atualizando..." : "Atualizar Senha"}
-						</Button>
-					</CardFooter>
-				</form>
-			</Card>
+				<div className="px-8 pb-8 border-t border-border pt-5">
+					<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}>
+						{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
+						{isSubmitting ? "Atualizando..." : "Atualizar Senha"}
+					</Button>
+				</div>
+			</form>
 		</div>
 	)
 }

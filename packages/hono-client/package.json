@@ -9,14 +9,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api-client.ts",
-    "./ai": "./src/ai-client.ts"
+    "./alpha": "./src/alpha-client.ts"
   },
   "dependencies": {
     "hono": "^4.11.9"
   },
   "devDependencies": {
     "@iefa/api": "workspace:*",
-    "@iefa/ai": "workspace:*",
+    "@iefa/alpha": "workspace:*",
     "@types/bun": "latest",
     "typescript": "^5.9.3"
   }

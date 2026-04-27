@@ -1,0 +1,72 @@
+---
+title: Visão Geral
+description: Projeto α — plataforma de IA aplicada ao ciclo de contratações públicas da FAB.
+---
+
+## O que é o Projeto α
+
+O **Projeto α** é uma plataforma de IA aplicada ao ciclo de contratações públicas da Força Aérea Brasileira, regido pela Lei 14.133/21 e suas Instruções Normativas.
+
+É composta por módulos autônomos e integráveis que cobrem desde a estruturação da demanda pelo requisitante até a revisão jurídica pelo ACI — com o humano sempre como decisor final.
+
+> "A IA aumenta a produtividade e apura o olhar. A palavra final é sempre do gestor."
+
+Cada módulo é capaz de receber um processo em qualquer estágio e conduzi-lo do início ao fim de forma independente.
+
+---
+
+## Problema
+
+O processo de contratação pública na FAB exige dos oficiais intendentes um volume expressivo de trabalho operacional: montagem, revisão e alinhamento de documentos como ETP, Termo de Referência e Edital com modelos normativos da AGU/CJU.
+
+Esse esforço consome tempo estratégico do intendente, que deveria estar focado em **como prover melhor e comprar com mais inteligência**, não em formalidades documentais.
+
+### Problemas centrais
+
+- Retrabalho entre Requisitante, Licitações e ACI por falta de estruturação prévia da demanda
+- Inconsistências legais não detectadas antes da revisão do ACI
+- Baixo aproveitamento do conhecimento acumulado em jurisprudências TCU e pareceres CJU
+- Ausência de guia estruturado para o requisitante descrever sua necessidade com qualidade
+
+---
+
+## Público-Alvo e Perfis de Acesso (RBAC)
+
+| Perfil | Acesso | Função |
+|--------|--------|--------|
+| **Requisitante** | Somente seu processo | Descreve a necessidade, preenche ETP guiado |
+| **Licitações** | Todo o fluxo, pode modificar | Confere, ajusta e encaminha |
+| **ACI** | Todo o fluxo, pode modificar | Único com poder de aprovação final |
+
+Arquitetura multiorganização: normas sistêmicas da FAB como base, com camada de customização por OM sem possibilidade de suplantar normas superiores.
+
+---
+
+## Decisões Técnicas
+
+| Decisão | Detalhe |
+|---------|---------|
+| **LLM base** | GPT OSS 120B — código aberto, uso comercial permitido, compatível com NVIDIA, pode rodar localmente |
+| **RAG** | Híbrido: busca semântica + sintática (BM25 ou superior) |
+| **Memória em grafo** | Para o módulo de sistemas SEFA (Etapa 2) |
+| **JSON como espinha dorsal** | O schema do AppAnalista alimenta todas as etapas seguintes — seu mapeamento é pré-requisito crítico |
+| **Verificador Restrito** | Lógica de loop item a item com validação cruzada contra o JSON |
+| **Infraestrutura** | A definir entre local (on-premise) e nuvem, a ser dimensionada conforme volume por OM (40 a 1.500 processos/ano) |
+
+---
+
+## Stack
+
+| Tecnologia | Uso |
+|-----------|-----|
+| Bun | Runtime |
+| Hono | HTTP framework |
+| LangChain | Orquestração de LLMs |
+| LangGraph | Agentes e fluxos multi-step |
+| OpenAPI | Documentação de endpoints |
+
+---
+
+## Próximos passos
+
+Consulte as [13 etapas de entrega](/docs/alpha/etapas) para o detalhamento completo da arquitetura de implementação.

@@ -9,7 +9,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 | `sisub` | React 19 + TanStack Start + Nitro SSR | Sistema de Subsistência — menus, receitas, planejamento, analytics |
 | `portal` | React 19 + Vite + Nitro SSR + TanStack Router | Portal web — CMS (Sanity), drag-drop, markdown |
 | `api` | Bun + Hono + OpenAPI (Scalar) | API pública — alimentos, preços, sync workers |
-| `ai` | Bun + Hono + LangChain/LangGraph | Serviço AI — ingestão de docs, orchestração LLM |
+| `alpha` | Bun + Hono + LangChain/LangGraph | Projeto α — IA aplicada a contratações públicas da FAB (Lei 14.133/21) |
 | `docs` | React 19 + TanStack Start + Nitro SSR + Fumadocs | Documentação interna |
 | `sisub-mcp` | Bun + MCP SDK | MCP server — acesso AI aos dados sisub (stdio/HTTP) |
 
@@ -26,7 +26,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 - **Supabase server client**: `getSupabaseServerClient()` per-request inside `.handler()`, never singleton
 - **Imports**: `@/*` → `src/*`
 - **Route tree**: `routeTree.gen.ts` is auto-generated — run `bun dev` after new routes
-- **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, ai, api, docs, deps, ci, scripts, root
+- **Commits**: Conventional Commits via cz-git, scopes: portal, sisub, alpha, api, docs, deps, ci, scripts, root
 - **Formatting**: `bun run format` (Biome). Pre-commit hook runs `format:check`
 
 ## Design Systems

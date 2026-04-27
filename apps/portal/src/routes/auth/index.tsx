@@ -2,14 +2,14 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { Refresh } from "iconoir-react"
 import { z } from "zod"
 import { AuthScreen } from "@/auth/view/AuthScreen"
-import { Card, CardContent } from "@/components/ui/card"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
 
-// Schema for URL search params
+// Schema para search params — view=forgot é URL-driven, não estado local
 const authSearchSchema = z.object({
 	redirect: z.string().optional(),
 	tab: z.enum(["login", "register"]).optional().default("login"),
+	view: z.enum(["forgot"]).optional(),
 	token_hash: z.string().optional(),
 	type: z.string().optional(),
 })
@@ -35,7 +35,6 @@ function AuthPage() {
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
 
-	// Actions adapter
 	const actions = {
 		signIn: async (email: string, password: string) => {
 			await authActions.signIn(email, password)
@@ -47,26 +46,20 @@ function AuthPage() {
 			await authActions.resetPassword(email)
 		},
 		updateUserPassword: async (password: string) => {
-			const { error } = await supabase.auth.updateUser({
-				password: password,
-			})
-			// Return error as Error object if it exists, or null
+			const { error } = await supabase.auth.updateUser({ password })
 			return { error: error ? new Error(error.message) : null }
 		},
 		verifyOtp: async (token_hash: string, type: "email") => {
-			const { error } = await supabase.auth.verifyOtp({
-				token_hash,
-				type,
-			})
+			const { error } = await supabase.auth.verifyOtp({ token_hash, type })
 			return { error: error ? new Error(error.message) : null }
 		},
 	}
 
-	// Navigation adapter
 	const handleNavigate = async (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => {
 		await router.navigate(options as Parameters<typeof router.navigate>[0])
 	}
 
+	// Troca de tab (login/register) — replace: true pois não é fluxo de "volta"
 	const handleTabChange = (tab: "login" | "register") => {
 		navigate({
 			search: (prev) => ({ ...prev, tab }),
@@ -74,16 +67,20 @@ function AuthPage() {
 		})
 	}
 
-	const cardClasses = "w-full max-w-2xl justify-self-center border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden"
+	// Troca de view (forgot) — replace: false para push no histórico (back button funciona)
+	const handleViewChange = (view: "forgot" | null) => {
+		navigate({
+			search: (prev) => ({ ...prev, view: view ?? undefined }),
+			replace: false,
+		})
+	}
 
 	if (isLoading) {
 		return (
-			<Card className={cardClasses}>
-				<CardContent className="flex items-center justify-center py-12">
-					<Refresh className="h-8 w-8 animate-spin mr-2" />
-					<span>Verificando autenticação...</span>
-				</CardContent>
-			</Card>
+			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
+				<Refresh className="h-4 w-4 animate-spin text-muted-foreground" />
+				<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
+			</div>
 		)
 	}
 
@@ -94,6 +91,7 @@ function AuthPage() {
 			searchParams={search}
 			onNavigate={handleNavigate}
 			onTabChange={handleTabChange}
+			onViewChange={handleViewChange}
 			actions={actions}
 		/>
 	)

@@ -7,7 +7,7 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["api", "portal", "sisub", "docs", "ai"]
+  targets = ["api", "portal", "sisub", "docs", "alpha"]
 }
 
 group "apps" {
@@ -59,10 +59,10 @@ target "docs" {
   cache-to = ["type=gha,scope=docs,mode=max"]
 }
 
-target "ai" {
+target "alpha" {
   inherits = ["base"]
-  target   = "ai"
+  target   = "alpha"
   tags     = ["${REGISTRY}/iefa-ai:${TAG}"]
-  cache-from = ["type=gha,scope=ai"]
-  cache-to = ["type=gha,scope=ai,mode=max"]
+  cache-from = ["type=gha,scope=alpha"]
+  cache-to = ["type=gha,scope=alpha,mode=max"]
 }

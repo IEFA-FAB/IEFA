@@ -431,7 +431,7 @@ const NO_BASIS_MESSAGES: Record<TerminationReason, string> = {
 ## 7. Estrutura de Pastas
 
 ```
-apps/ai/
+apps/alpha/
 ├── src/
 │   ├── index.ts                    # Hono app + rotas
 │   ├── graph/

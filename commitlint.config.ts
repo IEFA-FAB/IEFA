@@ -4,7 +4,7 @@ const validScopes = [
 	// apps
 	"portal",
 	"sisub",
-	"ai",
+	"alpha",
 	"api",
 	"docs",
 	// monorepo raiz
