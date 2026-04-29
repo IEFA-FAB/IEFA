@@ -38,11 +38,11 @@ export const getRouter = () => {
 	})
 
 	// Auth state change listener — browser only.
-	// Supabase v2.63+ fires INITIAL_SESSION (not SIGNED_IN) on page load,
-	// so SIGNED_IN here means an actual new sign-in, not a session restore.
+	// INITIAL_SESSION fires on page load/reload (Supabase v2.63+), restoring an
+	// existing session. SIGNED_IN fires only on actual new sign-ins.
 	if (typeof window !== "undefined") {
 		supabase.auth.onAuthStateChange((event, session) => {
-			if (event === "SIGNED_IN" && session) {
+			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
 					user: session.user,
 					session: session,

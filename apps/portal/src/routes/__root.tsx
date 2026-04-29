@@ -83,7 +83,9 @@ function AuthSync() {
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange(async (event, session) => {
-			if (event === "SIGNED_IN" && session) {
+			// INITIAL_SESSION fires on page load/reload (Supabase v2.63+).
+			// SIGNED_IN fires only on actual new sign-ins.
+			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
 				queryClient.setQueryData(authQueryOptions().queryKey, {
 					user: session.user,
 					session,

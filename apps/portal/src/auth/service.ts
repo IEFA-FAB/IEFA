@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js"
 import { queryOptions } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
+import { getServerSessionFn } from "@/server/auth.fn"
 
 export type AuthState = {
 	user: User | null
@@ -81,15 +82,11 @@ export const authActions = {
 export const authQueryOptions = () =>
 	queryOptions({
 		queryKey: ["auth", "user"],
+		// Auth Query Options — usa server function para que funcione tanto no SSR
+		// (lê cookies via getIefaAuthClient) quanto no cliente (HTTP call com cache).
 		queryFn: async () => {
 			try {
-				const {
-					data: { user },
-				} = await supabase.auth.getUser()
-				const {
-					data: { session },
-				} = await supabase.auth.getSession()
-
+				const { user, session } = await getServerSessionFn()
 				return {
 					user,
 					session,
