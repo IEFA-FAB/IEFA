@@ -1,37 +1,38 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowLeft, Home, Xmark } from "iconoir-react"
+import { ArrowLeft, Home } from "iconoir-react"
 import { Button } from "./ui/button"
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card"
 
 export function NotFound({ children }: { children?: React.ReactNode }) {
 	return (
-		<div className="min-h-screen w-full flex items-center justify-center p-4">
-			<Card className="w-full max-w-xl border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
-				<CardHeader className="text-center space-y-4 pb-4 pt-12">
-					<div className="mx-auto w-20 h-20 rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
-						<Xmark className="h-10 w-10 text-primary" />
-					</div>
-					<CardTitle className="text-4xl font-bold tracking-tight">Página não encontrada</CardTitle>
-					<CardDescription className="text-zinc-400 text-lg">{children || "A página que você está procurando não existe ou foi movida."}</CardDescription>
-				</CardHeader>
+		<div className="flex min-h-[calc(100vh-3.5rem)] flex-col justify-center">
+			<div className="mx-auto w-full max-w-2xl border-x border-border px-8 py-20">
+				{/* Typographic statement */}
+				<p
+					aria-hidden="true"
+					className="font-mono font-bold leading-none select-none text-foreground"
+					style={{ fontSize: "clamp(5rem, 14vw, 9rem)", letterSpacing: "-0.04em" }}
+				>
+					404
+				</p>
 
-				<CardFooter className="flex flex-col gap-3 px-8 pb-12 pt-8">
-					<Button
-						onClick={() => window.history.back()}
-						variant="outline"
-						className="w-full rounded-full font-bold h-12 text-base transition-all hover:-translate-y-0.5 border-white/10 bg-white/5 hover:bg-white/10"
-					>
-						<ArrowLeft className="mr-2 h-5 w-5" />
+				<div className="mt-8 border-t border-border pt-8">
+					<h1 className="mb-2 text-xl font-semibold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+						Página não encontrada
+					</h1>
+					<p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{children || "A página que você está procurando não existe ou foi movida."}</p>
+				</div>
+
+				<div className="mt-10 flex flex-wrap gap-3">
+					<Button variant="outline" onClick={() => window.history.back()}>
+						<ArrowLeft />
 						Voltar
 					</Button>
-					<Link to="/" className="w-full">
-						<Button className="w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5">
-							<Home className="mr-2 h-5 w-5" />
-							Ir para o Início
-						</Button>
-					</Link>
-				</CardFooter>
-			</Card>
+					<Button nativeButton={false} render={<Link to="/" />}>
+						<Home />
+						Ir para o Início
+					</Button>
+				</div>
+			</div>
 		</div>
 	)
 }
