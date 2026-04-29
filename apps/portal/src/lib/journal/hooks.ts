@@ -20,6 +20,7 @@ import {
 	getPublishedArticles,
 	getReview,
 	getReviewAssignments,
+	getUserActiveDraft,
 	getUserNotifications,
 	getUserProfile,
 	markNotificationAsRead,
@@ -52,6 +53,13 @@ export const articlesQueryOptions = (filters?: { status?: string; submitter_id?:
 	queryOptions({
 		queryKey: ["journal", "articles", filters],
 		queryFn: () => getArticles(filters),
+		staleTime: 1000 * 60, // 1 minute
+	})
+
+export const userActiveDraftQueryOptions = (userId: string) =>
+	queryOptions({
+		queryKey: ["journal", "user-active-draft", userId],
+		queryFn: () => getUserActiveDraft(userId),
 		staleTime: 1000 * 60, // 1 minute
 	})
 

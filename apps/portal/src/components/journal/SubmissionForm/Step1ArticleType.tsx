@@ -22,7 +22,7 @@ const SUBJECT_AREAS = [
 ]
 
 export function Step1ArticleType() {
-	const { formData, updateFormData } = useSubmissionForm()
+	const { formData, updateFormData, fieldErrors } = useSubmissionForm()
 
 	return (
 		<div className="space-y-6">
@@ -30,8 +30,8 @@ export function Step1ArticleType() {
 				<Label htmlFor="article_type">
 					Tipo de Artigo <span className="text-destructive">*</span>
 				</Label>
-				<Select value={formData.article_type ?? undefined} onValueChange={(value) => updateFormData({ article_type: value ?? undefined })}>
-					<SelectTrigger id="article_type">
+				<Select value={formData.article_type ?? null} onValueChange={(value) => updateFormData({ article_type: value ?? undefined })}>
+					<SelectTrigger id="article_type" className="w-full">
 						<SelectValue placeholder="Selecione o tipo de artigo">
 							{formData.article_type && (ARTICLE_TYPES.find((t) => t.value === formData.article_type)?.label ?? formData.article_type)}
 						</SelectValue>
@@ -44,6 +44,7 @@ export function Step1ArticleType() {
 						))}
 					</SelectContent>
 				</Select>
+				{fieldErrors.article_type && <p className="text-xs text-destructive">{fieldErrors.article_type}</p>}
 				<p className="text-sm text-muted-foreground">Escolha o tipo de artigo que melhor descreve sua submissão</p>
 			</div>
 
@@ -51,8 +52,8 @@ export function Step1ArticleType() {
 				<Label htmlFor="subject_area">
 					Área de Conhecimento <span className="text-destructive">*</span>
 				</Label>
-				<Select value={formData.subject_area ?? undefined} onValueChange={(value) => updateFormData({ subject_area: value ?? undefined })}>
-					<SelectTrigger id="subject_area">
+				<Select value={formData.subject_area ?? null} onValueChange={(value) => updateFormData({ subject_area: value ?? undefined })}>
+					<SelectTrigger id="subject_area" className="w-full">
 						<SelectValue placeholder="Selecione a área de conhecimento">{formData.subject_area || undefined}</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
@@ -63,6 +64,7 @@ export function Step1ArticleType() {
 						))}
 					</SelectContent>
 				</Select>
+				{fieldErrors.subject_area && <p className="text-xs text-destructive">{fieldErrors.subject_area}</p>}
 				<p className="text-sm text-muted-foreground">Selecione a área que melhor representa o conteúdo do artigo</p>
 			</div>
 		</div>

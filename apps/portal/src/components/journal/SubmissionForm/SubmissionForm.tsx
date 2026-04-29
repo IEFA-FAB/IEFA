@@ -1,13 +1,13 @@
 // Main submission form container with step navigation
 // Manages form state across all 6 steps
 
-import { Check, NavArrowLeft, NavArrowRight } from "iconoir-react"
+import { Check, NavArrowLeft, NavArrowRight, Refresh } from "iconoir-react"
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
+// currentStep lives in the URL (?step=N) — passed down as props from the route
 import { Button } from "@/components/ui/button"
-import { saveDraft } from "@/lib/journal/submission"
 import type { ArticleTypeFormData, AuthorsFormData } from "@/lib/journal/validation"
 import { validateStep } from "@/lib/journal/validation"
-// Import step components (will create these next)
+import { saveDraftFn } from "@/server/journal.fn"
 import { Step1ArticleType } from "./Step1ArticleType"
 import { Step2Metadata } from "./Step2Metadata"
 import { Step3Authors } from "./Step3Authors"
@@ -28,10 +28,10 @@ export interface SubmissionFormData {
 	keywords_en?: string[]
 	// Step 3
 	authors?: AuthorsFormData["authors"]
-	// Step 4
-	pdf_file?: File
-	source_file?: File
-	supplementary_files?: File[]
+	// Step 4 — storage paths (files uploaded at step 4, not at submit time)
+	pdf_path?: string
+	source_path?: string
+	supplementary_paths?: string[]
 	// Step 5
 	conflict_of_interest?: string
 	funding_info?: string
@@ -45,7 +45,12 @@ interface SubmissionFormContextValue {
 	updateFormData: (data: Partial<SubmissionFormData>) => void
 	currentStep: number
 	setCurrentStep: (step: number) => void
-	articleId?: string
+	/** Tracks the live article ID — updated when a new draft is first created */
+	currentArticleId: string | undefined
+	setCurrentArticleId: (id: string) => void
+	userId: string
+	/** First error message per field path ("abstract_pt", "authors.0.full_name", …) */
+	fieldErrors: Record<string, string>
 }
 
 const SubmissionFormContext = createContext<SubmissionFormContextValue | null>(null)
@@ -71,31 +76,73 @@ interface SubmissionFormProps {
 	userId: string
 	initialData?: SubmissionFormData
 	articleId?: string
-	onSubmit: (data: SubmissionFormData) => Promise<void>
+	step: number
+	onStepChange: (step: number) => void
+	/** Called with formData + the current articleId when the user clicks "Submeter Artigo" */
+	onSubmit: (data: SubmissionFormData, articleId: string) => Promise<void>
 }
 
-export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }: SubmissionFormProps) {
-	const [currentStep, setCurrentStep] = useState(1)
+export function SubmissionForm({ userId, initialData = {}, articleId, step: currentStep, onStepChange: setCurrentStep, onSubmit }: SubmissionFormProps) {
 	const [formData, setFormData] = useState<SubmissionFormData>(initialData)
+	const [currentArticleId, setCurrentArticleId] = useState<string | undefined>(articleId)
 	const [validationError, setValidationError] = useState<string | null>(null)
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 	const [isSaving, setIsSaving] = useState(false)
 	const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
 	const updateFormData = (data: Partial<SubmissionFormData>) => {
 		setFormData((prev) => ({ ...prev, ...data }))
+		// Clear errors for any fields being updated
+		const changed = Object.keys(data)
+		if (changed.length > 0) {
+			setFieldErrors((prev) => {
+				const next = { ...prev }
+				for (const key of changed) {
+					for (const errKey of Object.keys(next)) {
+						if (errKey === key || errKey.startsWith(`${key}.`)) {
+							delete next[errKey]
+						}
+					}
+				}
+				return next
+			})
+		}
 		setValidationError(null)
 	}
 
 	const handleSaveDraft = useCallback(async () => {
 		setIsSaving(true)
 		try {
-			await saveDraft(formData, userId, articleId)
+			const result = await saveDraftFn({
+				data: {
+					userId,
+					articleId: currentArticleId,
+					article_type: formData.article_type,
+					subject_area: formData.subject_area,
+					title_pt: formData.title_pt,
+					title_en: formData.title_en,
+					abstract_pt: formData.abstract_pt,
+					abstract_en: formData.abstract_en,
+					keywords_pt: formData.keywords_pt,
+					keywords_en: formData.keywords_en,
+					conflict_of_interest: formData.conflict_of_interest,
+					funding_info: formData.funding_info,
+					data_availability: formData.data_availability,
+					ethics_approval: formData.ethics_approval,
+					authors: formData.authors,
+				},
+			})
+			// Update currentArticleId if this was the first draft creation
+			if (!currentArticleId) {
+				setCurrentArticleId(result.articleId)
+			}
 			setLastSaved(new Date())
 		} catch (_error) {
+			// Silent — auto-save failures should not disrupt the user
 		} finally {
 			setIsSaving(false)
 		}
-	}, [formData, userId, articleId])
+	}, [formData, userId, currentArticleId])
 
 	// Auto-save draft every 2 minutes
 	useEffect(() => {
@@ -106,31 +153,37 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 				}
 			},
 			2 * 60 * 1000
-		) // 2 minutes
+		)
 
 		return () => clearInterval(interval)
 	}, [formData, currentStep, handleSaveDraft])
 
 	const handleNext = () => {
-		// Validate current step before proceeding
 		const validation = validateStep(currentStep, formData)
 		if (!validation.success) {
-			setValidationError(validation.error || "Validação falhou")
+			setValidationError(validation.error || "Corrija os erros indicados nos campos abaixo")
+			setFieldErrors(validation.fieldErrors ?? {})
 			return
 		}
 
 		setValidationError(null)
-		setCurrentStep((prev) => Math.min(prev + 1, STEPS.length))
+		setFieldErrors({})
+		setCurrentStep(Math.min(currentStep + 1, STEPS.length))
 	}
 
 	const handleBack = () => {
 		setValidationError(null)
-		setCurrentStep((prev) => Math.max(prev - 1, 1))
+		setFieldErrors({})
+		setCurrentStep(Math.max(currentStep - 1, 1))
 	}
 
 	const handleSubmit = async () => {
+		if (!currentArticleId) {
+			setValidationError("Salve o rascunho antes de submeter")
+			return
+		}
 		setValidationError(null)
-		await onSubmit(formData)
+		await onSubmit(formData, currentArticleId)
 	}
 
 	const CurrentStepComponent = STEPS[currentStep - 1].component
@@ -142,7 +195,10 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 				updateFormData,
 				currentStep,
 				setCurrentStep,
-				articleId,
+				currentArticleId,
+				setCurrentArticleId,
+				userId,
+				fieldErrors,
 			}}
 		>
 			<div className="max-w-4xl mx-auto">
@@ -153,12 +209,12 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 							<div key={step.number} className="flex items-center flex-1">
 								<div className="flex flex-col items-center">
 									<div
-										className={`size-10 rounded-full flex items-center justify-center font-medium transition-colors ${
+										className={`size-10 flex items-center justify-center font-medium transition-colors border-2 ${
 											currentStep > step.number
-												? "bg-primary text-primary-foreground"
+												? "bg-primary text-primary-foreground border-primary"
 												: currentStep === step.number
-													? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-													: "bg-muted text-muted-foreground"
+													? "bg-primary text-primary-foreground border-primary"
+													: "bg-transparent text-muted-foreground border-muted-foreground/30"
 										}`}
 									>
 										{currentStep > step.number ? <Check className="size-5" /> : step.number}
@@ -168,25 +224,19 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 									</span>
 								</div>
 								{index < STEPS.length - 1 && (
-									<div className={`h-1 flex-1 mx-2 rounded transition-colors ${currentStep > step.number ? "bg-primary" : "bg-muted"}`} />
+									<div className={`h-px flex-1 mx-2 transition-colors ${currentStep > step.number ? "bg-primary" : "bg-border"}`} />
 								)}
 							</div>
 						))}
 					</div>
-
-					{lastSaved && (
-						<p className="text-xs text-muted-foreground text-center">
-							{isSaving ? "Salvando rascunho..." : `Último salvamento: ${lastSaved.toLocaleTimeString()}`}
-						</p>
-					)}
 				</div>
 
 				{/* Current Step */}
-				<div className="bg-card border rounded-lg p-6 min-h-[500px]">
+				<div className="bg-card border p-6 min-h-[500px]">
 					<h2 className="text-2xl font-bold mb-6">{STEPS[currentStep - 1].title}</h2>
 
 					{validationError && (
-						<div className="mb-6 p-4 bg-destructive/10 border border-destructive rounded-lg">
+						<div className="mb-6 p-4 bg-destructive/10 border border-destructive">
 							<p className="text-sm text-destructive font-medium">{validationError}</p>
 						</div>
 					)}
@@ -201,10 +251,17 @@ export function SubmissionForm({ userId, initialData = {}, articleId, onSubmit }
 						Voltar
 					</Button>
 
-					<div className="flex gap-3">
-						<Button type="button" variant="outline" onClick={handleSaveDraft}>
-							Salvar Rascunho
-						</Button>
+					<div className="flex gap-3 items-end">
+						<div className="flex flex-col items-end gap-1.5">
+							<Button type="button" variant="outline" onClick={handleSaveDraft} disabled={isSaving}>
+								{isSaving && <Refresh className="size-4 mr-2 animate-spin" />}
+								{isSaving ? "Salvando..." : "Salvar Rascunho"}
+							</Button>
+							<span className={`flex items-center gap-1 text-xs text-muted-foreground ${lastSaved ? "" : "invisible"}`}>
+								<Check className="size-3" />
+								{lastSaved ? `Salvo às ${lastSaved.toLocaleTimeString()}` : "‌"}
+							</span>
+						</div>
 
 						{currentStep < STEPS.length ? (
 							<Button type="button" onClick={handleNext}>

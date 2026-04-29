@@ -1,7 +1,8 @@
 // Journal-specific authentication and authorization helpers
 
-import { journalDb, supabase } from "../supabase"
-import { getUserProfile } from "./client"
+import { canEditArticleFn, canSubmitReviewFn, canViewArticleFn } from "@/server/journal-data.fn"
+import { supabase } from "../supabase"
+import { createUserProfile, getUserProfile } from "./client"
 import type { UserRole } from "./types"
 
 // ============================================
@@ -88,12 +89,7 @@ export async function canEditArticle(articleId: string, userId?: string): Promis
 	// Check if user is editor
 	if (await isEditor(uid)) return true
 
-	// Check if user is the article submitter and article is editable
-	const { data: article } = await journalDb().from("articles").select("submitter_id, status").eq("id", articleId).single()
-
-	if (!article) return false
-
-	return article.submitter_id === uid && (article.status === "draft" || article.status === "revision_requested")
+	return (await canEditArticleFn({ data: { articleId, userId: uid } })) as boolean
 }
 
 /**
@@ -106,33 +102,14 @@ export async function canEditArticle(articleId: string, userId?: string): Promis
 export async function canViewArticle(articleId: string, userId?: string): Promise<boolean> {
 	const uid = userId || (await supabase.auth.getUser()).data.user?.id
 
-	// Check if article is published (public access)
-	const { data: article } = await journalDb().from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).single()
+	// canViewArticleFn verifica published, submitter e reviewer
+	const canView = (await canViewArticleFn({ data: { articleId, userId: uid ?? undefined } })) as boolean
+	if (canView) return true
 
-	if (!article) return false
+	// Editores podem ver tudo
+	if (uid && (await isEditor(uid))) return true
 
-	// Public can view published articles
-	if (article.status === "published" && !article.deleted_at) return true
-
-	// Anonymous users can only view published
-	if (!uid) return false
-
-	// Check if user is editor
-	if (await isEditor(uid)) return true
-
-	// Check if user is the submitter
-	if (article.submitter_id === uid) return true
-
-	// Check if user is assigned reviewer
-	const { data: assignment } = await journalDb()
-		.from("review_assignments")
-		.select("id")
-		.eq("article_id", articleId)
-		.eq("reviewer_id", uid)
-		.in("status", ["accepted", "completed"])
-		.single()
-
-	return !!assignment
+	return false
 }
 
 /**
@@ -142,11 +119,7 @@ export async function canSubmitReview(assignmentId: string, userId?: string): Pr
 	const uid = userId || (await supabase.auth.getUser()).data.user?.id
 	if (!uid) return false
 
-	const { data: assignment } = await journalDb().from("review_assignments").select("reviewer_id, status").eq("id", assignmentId).single()
-
-	if (!assignment) return false
-
-	return assignment.reviewer_id === uid && assignment.status === "accepted"
+	return (await canSubmitReviewFn({ data: { assignmentId, userId: uid } })) as boolean
 }
 
 /**
@@ -184,13 +157,11 @@ export async function ensureUserProfile(userId: string, fullName?: string): Prom
 	} catch {
 		// Profile doesn't exist, create it
 		const { data: user } = await supabase.auth.getUser()
-		await journalDb()
-			.from("user_profiles")
-			.insert({
-				id: userId,
-				full_name: fullName || user.user?.email?.split("@")[0] || "User",
-				role: "author", // Default role
-			})
+		await createUserProfile({
+			id: userId,
+			full_name: fullName || user.user?.email?.split("@")[0] || "User",
+			role: "author",
+		})
 	}
 }
 

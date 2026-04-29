@@ -47,24 +47,11 @@ export const authorsSchema = z.object({
 		.refine((authors) => authors.filter((a) => a.is_corresponding).length <= 1, "Apenas um autor correspondente permitido"),
 })
 
-// Step 4: Files
+// Step 4: Files — validated by uploaded storage paths (upload happens at step 4, not at submit)
 export const filesSchema = z.object({
-	pdf_file: z
-		.instanceof(File, { message: "Arquivo PDF é obrigatório" })
-		.refine((file) => file.size <= 10 * 1024 * 1024, "PDF deve ter no máximo 10MB")
-		.refine((file) => file.type === "application/pdf", "Arquivo deve ser um PDF"),
-	source_file: z
-		.instanceof(File)
-		.refine((file) => !file || file.size <= 10 * 1024 * 1024, "Arquivo fonte deve ter no máximo 10MB")
-		.optional(),
-	supplementary_files: z
-		.array(z.instanceof(File))
-		.refine((files) => {
-			const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-			return totalSize <= 50 * 1024 * 1024
-		}, "Materiais suplementares não podem ultrapassar 50MB no total")
-		.optional()
-		.default([]),
+	pdf_path: z.string().min(1, "Arquivo PDF é obrigatório — faça o upload acima"),
+	source_path: z.string().optional(),
+	supplementary_paths: z.array(z.string()).optional().default([]),
 })
 
 // Step 5: Declarations
@@ -88,33 +75,39 @@ export type FilesFormData = z.infer<typeof filesSchema>
 export type DeclarationsFormData = z.infer<typeof declarationsSchema>
 export type CompleteSubmissionData = z.infer<typeof completeSubmissionSchema>
 
+const STEP_SCHEMAS: Record<number, z.ZodTypeAny> = {
+	1: articleTypeSchema,
+	2: metadataSchema,
+	3: authorsSchema,
+	4: filesSchema,
+	5: declarationsSchema,
+}
+
+export interface StepValidationResult {
+	success: boolean
+	/** Generic summary shown in the step banner */
+	error?: string
+	/** First error message per field path (e.g. "abstract_pt", "authors.0.full_name") */
+	fieldErrors?: Record<string, string>
+}
+
 // Helper function to validate step data
-export function validateStep(step: number, data: unknown): { success: boolean; error?: string } {
-	try {
-		switch (step) {
-			case 1:
-				articleTypeSchema.parse(data)
-				break
-			case 2:
-				metadataSchema.parse(data)
-				break
-			case 3:
-				authorsSchema.parse(data)
-				break
-			case 4:
-				filesSchema.parse(data)
-				break
-			case 5:
-				declarationsSchema.parse(data)
-				break
-			default:
-				return { success: false, error: "Invalid step number" }
-		}
-		return { success: true }
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return { success: false, error: error.toString() }
-		}
-		return { success: false, error: "Validation failed" }
+export function validateStep(step: number, data: unknown): StepValidationResult {
+	const schema = STEP_SCHEMAS[step]
+	if (!schema) return { success: false, error: "Passo inválido" }
+
+	const result = schema.safeParse(data)
+	if (result.success) return { success: true }
+
+	const fieldErrors: Record<string, string> = {}
+	for (const issue of result.error.issues) {
+		const key = issue.path.join(".")
+		if (!fieldErrors[key]) fieldErrors[key] = issue.message
+	}
+
+	return {
+		success: false,
+		error: "Corrija os erros indicados nos campos abaixo",
+		fieldErrors,
 	}
 }

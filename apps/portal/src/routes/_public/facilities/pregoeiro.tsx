@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { portalDb, supabase } from "@/lib/supabase"
+import { Skeleton } from "@/components/ui/skeleton"
+import { supabase } from "@/lib/supabase"
+import { getPreferencesFn, insertFacilityFn, insertPreferencesFn, updateFacilityFn, upsertPreferencesFn } from "@/server/pregoeiro.fn"
 import type { FacilidadesTableProps } from "@/types/domain"
 
 /* -----------------------------------------------
@@ -95,23 +97,18 @@ function usePregoeiroPreferences() {
 			setLoading(true)
 			try {
 				if (userId) {
-					const { data, error } = await supabase.from("pregoeiro_preferences").select("*").eq("user_id", userId).maybeSingle()
+					const row = await getPreferencesFn({ data: { userId } }) as {
+						env?: Record<string, unknown>
+						is_open?: boolean
+					} | null
 
-					if (error) throw error
-
-					if (data) {
-						const env = {
-							...DEFAULT_PREFS.env,
-							...(data.env || {}),
-						}
-						const is_open = data.is_open ?? DEFAULT_PREFS.is_open
+					if (row) {
+						const env = { ...DEFAULT_PREFS.env, ...(row.env || {}) } as typeof DEFAULT_PREFS.env
+						const is_open = row.is_open ?? DEFAULT_PREFS.is_open
 						setPrefs({ env, is_open })
 					} else {
-						// cria registro inicial
-						await supabase.from("pregoeiro_preferences").insert({
-							user_id: userId,
-							env: DEFAULT_PREFS.env,
-							is_open: DEFAULT_PREFS.is_open,
+						await insertPreferencesFn({
+							data: { userId, env: DEFAULT_PREFS.env as Record<string, unknown>, is_open: DEFAULT_PREFS.is_open },
 						})
 						setPrefs(DEFAULT_PREFS)
 					}
@@ -148,11 +145,8 @@ function usePregoeiroPreferences() {
 		saveTimer.current = setTimeout(async () => {
 			try {
 				if (userId) {
-					await supabase.from("pregoeiro_preferences").upsert({
-						user_id: userId,
-						env: next.env,
-						is_open: next.is_open,
-						updated_at: new Date().toISOString(),
+					await upsertPreferencesFn({
+						data: { userId, env: next.env as Record<string, unknown>, is_open: next.is_open },
 					})
 				} else if (typeof window !== "undefined") {
 					localStorage.setItem(LS_KEY, JSON.stringify(next))
@@ -182,6 +176,63 @@ function usePregoeiroPreferences() {
 	}
 
 	return { prefs, setEnv, setIsOpen, loading, userId }
+}
+
+/* -----------------------------------------------
+   Skeleton da tabela (Suspense fallback)
+-------------------------------------------------- */
+
+// Proporções aproximadas das colunas: fase | título | conteúdo | tags | padrão | ações
+const COL_WIDTHS = [14, 22, 36, 12, 8, 8]
+
+function TableSkeleton() {
+	return (
+		<div className="w-full space-y-4">
+			{/* Toolbar */}
+			<div className="flex items-center justify-between gap-2 flex-wrap">
+				<Skeleton className="h-9 w-64" />
+				<div className="flex items-center gap-2">
+					<Skeleton className="h-4 w-32" />
+					<Skeleton className="h-9 w-20" />
+					<Skeleton className="h-9 w-24" />
+				</div>
+			</div>
+
+			{/* Tabela */}
+			<div className="border overflow-hidden">
+				{/* Cabeçalho */}
+				<div className="flex border-b bg-muted/40">
+					{COL_WIDTHS.map((w, i) => (
+						<div key={i} className="p-3 border-r last:border-r-0" style={{ width: `${w}%` }}>
+							<Skeleton className="h-3 w-4/5" />
+						</div>
+					))}
+				</div>
+				{/* Linhas */}
+				{Array.from({ length: 7 }).map((_, ri) => (
+					<div key={ri} className="flex border-b last:border-b-0">
+						{COL_WIDTHS.map((w, ci) => (
+							<div key={ci} className="p-4 border-r last:border-r-0" style={{ width: `${w}%` }}>
+								<Skeleton className="h-4 w-full" />
+								{ci === 2 && <Skeleton className="h-4 w-4/5 mt-2" />}
+								{ci === 2 && <Skeleton className="h-4 w-3/5 mt-2" />}
+							</div>
+						))}
+					</div>
+				))}
+			</div>
+
+			{/* Paginação */}
+			<div className="flex items-center justify-between gap-2 flex-wrap">
+				<Skeleton className="h-4 w-48" />
+				<div className="flex gap-2">
+					{Array.from({ length: 4 }).map((_, i) => (
+						<Skeleton key={i} className="h-8 w-16" />
+					))}
+				</div>
+			</div>
+		</div>
+	)
 }
 
 /* -----------------------------------------------
@@ -252,11 +303,9 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 			}
 
 			if (isEdit && initial?.id) {
-				const { error } = await portalDb().from("facilities_pregoeiro").update(payload).eq("id", initial.id).eq("owner_id", currentUserId)
-				if (error) throw error
+				await updateFacilityFn({ data: { id: initial.id, ownerId: currentUserId, payload } })
 			} else {
-				const { error } = await portalDb().from("facilities_pregoeiro").insert(payload)
-				if (error) throw error
+				await insertFacilityFn({ data: payload })
 			}
 
 			onOpenChange(false)
@@ -346,7 +395,9 @@ function Pregoeiro() {
 
 			{/* Toolbar principal */}
 			<div className="flex w-full max-w-5xl items-center justify-between gap-2 flex-wrap">
-				<div className="text-sm text-muted-foreground">{loading ? "Carregando preferências..." : "Preferências carregadas"}</div>
+				<div className="text-sm text-muted-foreground">
+					{loading ? <Skeleton className="h-4 w-44" /> : null}
+				</div>
 				<div className="flex items-center gap-2">
 					<Button onClick={handleOpenCreate}>Nova frase</Button>
 				</div>
@@ -458,7 +509,7 @@ function Pregoeiro() {
 
 			{/* Tabela com placeholders aplicados a partir das preferências */}
 			<div className="w-full">
-				<Suspense fallback={<div className="p-6 text-sm">Carregando tabela…</div>}>
+				<Suspense fallback={<TableSkeleton />}>
 					<FacilidadesTable
 						OM={prefs.env.OM}
 						Date={prefs.env.Date}

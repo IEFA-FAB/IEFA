@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step5Declarations() {
-	const { formData, updateFormData } = useSubmissionForm()
+	const { formData, updateFormData, fieldErrors } = useSubmissionForm()
 
 	return (
 		<div className="space-y-6">
@@ -21,6 +21,7 @@ export function Step5Declarations() {
 					placeholder="Descreva qualquer conflito de interesse ou declare que não há conflitos"
 					rows={4}
 				/>
+				{fieldErrors.conflict_of_interest && <p className="text-xs text-destructive">{fieldErrors.conflict_of_interest}</p>}
 				<p className="text-sm text-muted-foreground">
 					Exemplo: "Os autores declaram não haver conflitos de interesse" ou descreva qualquer relação financeira ou pessoal relevante
 				</p>

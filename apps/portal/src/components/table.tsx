@@ -16,7 +16,7 @@ import { ArrowSeparateVertical, NavArrowDown } from "iconoir-react"
 import * as React from "react"
 import { useMemo, useRef, useState } from "react"
 import { useFacilitiesPregoeiroQuery } from "@/hooks/useFacilitiesPregoeiro"
-import { supabase } from "@/lib/supabase"
+import { getPreferencesFn, upsertPreferencesFn } from "@/server/pregoeiro.fn"
 import { type Facilidades_pregoeiro, type FacilidadesTableProps, LS_TABLE_SETTINGS_KEY, type TableSettings, type TemplateContext } from "@/types/domain"
 import CopyButton from "./copy-button"
 import { Button } from "./ui/button"
@@ -111,11 +111,8 @@ function useTableSettings(currentUserId?: string) {
 			setLoading(true)
 			try {
 				if (currentUserId) {
-					const { data, error } = await supabase.from("pregoeiro_preferences").select("table_settings").eq("user_id", currentUserId).maybeSingle()
-
-					if (error) throw error
-
-					const tableSettingsFromDb = (data?.table_settings ?? {}) as TableSettings
+					const row = await getPreferencesFn({ data: { userId: currentUserId } })
+					const tableSettingsFromDb = ((row as { table_settings?: TableSettings } | null)?.table_settings ?? {}) as TableSettings
 					if (mounted) setSettings(tableSettingsFromDb)
 				} else {
 					// localStorage
@@ -144,11 +141,8 @@ function useTableSettings(currentUserId?: string) {
 		saveTimer.current = setTimeout(async () => {
 			try {
 				if (currentUserId) {
-					// upsert apenas table_settings; outras colunas permanecem
-					await supabase.from("pregoeiro_preferences").upsert({
-						user_id: currentUserId,
-						table_settings: nextSettings,
-						updated_at: new Date().toISOString(),
+					await upsertPreferencesFn({
+						data: { userId: currentUserId, table_settings: nextSettings as Record<string, unknown> },
 					})
 				} else if (typeof window !== "undefined") {
 					localStorage.setItem(LS_TABLE_SETTINGS_KEY, JSON.stringify(nextSettings))
@@ -349,14 +343,6 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 		saveSettings(nextSettings)
 	}, [columnVisibility, sorting, pageSize, columnFilters, settingsLoading, saveSettings])
 
-	if (isLoading) {
-		return (
-			<div className="w-full flex items-center justify-center py-8" aria-live="polite">
-				<div className="text-center">Carregando...</div>
-			</div>
-		)
-	}
-
 	if (error) {
 		return (
 			<div className="w-full flex items-center justify-center py-8">
@@ -378,7 +364,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 
 				<div className="flex items-center gap-2">
 					<span className="text-sm text-muted-foreground">Linhas por página:</span>
-					<select className="h-9 rounded-md border bg-background px-2 text-sm" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+					<select className="h-9 border bg-background px-2 text-sm" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
 						{[10, 25, 50, 100].map((sizeOption) => (
 							<option key={sizeOption} value={sizeOption}>
 								{sizeOption}
@@ -414,7 +400,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 			</div>
 
 			{/* Tabela */}
-			<div className="rounded-md border overflow-hidden">
+			<div className="border overflow-hidden">
 				<Table className="w-full table-auto">
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (

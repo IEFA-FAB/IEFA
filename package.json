@@ -20,7 +20,7 @@
     "api:dev": "bun --cwd ./apps/api dev",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",
-    "format:check": "biome format .",
+    "format:check": "biome format . --write",
     "fix": "biome check --write .",
     "check": "biome check . && bun run typecheck",
     "ci": "bun run lint && bun run typecheck",

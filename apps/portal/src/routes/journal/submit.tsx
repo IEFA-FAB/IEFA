@@ -2,12 +2,19 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Refresh } from "iconoir-react"
 import { useState } from "react"
+import { z } from "zod"
 import { authQueryOptions } from "@/auth/service"
 import { SubmissionForm } from "@/components/journal/SubmissionForm/SubmissionForm"
-import { userProfileQueryOptions } from "@/lib/journal/hooks"
-import { submitArticle } from "@/lib/journal/submission"
+import type { SubmissionFormData } from "@/components/journal/SubmissionForm/SubmissionForm"
+import { userActiveDraftQueryOptions, userProfileQueryOptions } from "@/lib/journal/hooks"
+import { submitArticleFn } from "@/server/journal.fn"
+
+const searchSchema = z.object({
+	step: z.coerce.number().int().min(1).max(6).catch(1),
+})
 
 export const Route = createFileRoute("/journal/submit")({
+	validateSearch: searchSchema,
 	staticData: {
 		nav: {
 			title: "Nova submissão",
@@ -29,8 +36,11 @@ export const Route = createFileRoute("/journal/submit")({
 	loader: async ({ context }) => {
 		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
 		if (auth.user) {
-			// Pre-load user profile
-			await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
+			// Pre-load user profile and active draft in parallel
+			await Promise.all([
+				context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id)),
+				context.queryClient.ensureQueryData(userActiveDraftQueryOptions(auth.user.id)),
+			])
 		}
 	},
 	component: RouteComponent,
@@ -38,51 +48,93 @@ export const Route = createFileRoute("/journal/submit")({
 
 function RouteComponent() {
 	const { auth } = Route.useRouteContext()
+	const { step } = Route.useSearch()
 	const navigate = useNavigate()
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
-	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(auth.user.id))
+	const handleStepChange = (next: number) => {
+		navigate({ search: (prev) => ({ ...prev, step: next }), replace: false })
+	}
 
-	// biome-ignore lint/suspicious/noExplicitAny: Form data structure is dynamic
-	const handleSubmit = async (formData: any) => {
+	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(auth.user.id))
+	const { data: draft } = useSuspenseQuery(userActiveDraftQueryOptions(auth.user.id))
+
+	const handleSubmit = async (formData: SubmissionFormData, articleId: string) => {
 		setIsSubmitting(true)
 		setError(null)
 
 		try {
-			const result = await submitArticle(formData, auth.user.id)
+			const result = await submitArticleFn({
+				data: {
+					articleId,
+					userId: auth.user.id,
+					article_type: formData.article_type!,
+					subject_area: formData.subject_area!,
+					title_pt: formData.title_pt!,
+					title_en: formData.title_en!,
+					abstract_pt: formData.abstract_pt!,
+					abstract_en: formData.abstract_en!,
+					keywords_pt: formData.keywords_pt!,
+					keywords_en: formData.keywords_en!,
+					authors: formData.authors!,
+					conflict_of_interest: formData.conflict_of_interest!,
+					funding_info: formData.funding_info,
+					data_availability: formData.data_availability,
+					has_ethics_approval: formData.has_ethics_approval ?? false,
+					ethics_approval: formData.ethics_approval,
+				},
+			})
 
-			if (!result.success) {
-				setError(result.error || "Erro ao submeter artigo")
-				setIsSubmitting(false)
-				return
-			}
-
-			// Success - navigate to submission detail
-			if (result.article?.id) {
-				await navigate({
-					to: "/journal/submissions/$id",
-					params: { id: result.article.id },
-				})
-			}
-		} catch (_err) {
-			setError("Erro inesperado ao submeter artigo")
+			await navigate({
+				to: "/journal/submissions/$id",
+				params: { id: result.articleId },
+			})
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Erro inesperado ao submeter artigo")
 			setIsSubmitting(false)
 		}
 	}
 
-	// Initial data pre-filled from profile
-	const initialData = {
-		authors: [
-			{
-				full_name: profile?.full_name || "",
-				email: auth.user.email || "",
-				affiliation: profile?.affiliation || "",
-				orcid: profile?.orcid || "",
-				is_corresponding: true,
-			},
-		],
+	// Seed initial data: draft takes priority over profile defaults
+	const defaultAuthor = {
+		full_name: profile?.full_name || "",
+		email: auth.user.email || "",
+		affiliation: profile?.affiliation || "",
+		orcid: profile?.orcid || "",
+		is_corresponding: true,
 	}
+
+	const initialData: SubmissionFormData = draft
+		? {
+				article_type: draft.article.article_type,
+				subject_area: draft.article.subject_area || undefined,
+				title_pt: draft.article.title_pt || undefined,
+				title_en: draft.article.title_en || undefined,
+				abstract_pt: draft.article.abstract_pt || undefined,
+				abstract_en: draft.article.abstract_en || undefined,
+				keywords_pt: draft.article.keywords_pt?.length ? draft.article.keywords_pt : undefined,
+				keywords_en: draft.article.keywords_en?.length ? draft.article.keywords_en : undefined,
+				conflict_of_interest: draft.article.conflict_of_interest || undefined,
+				funding_info: draft.article.funding_info || undefined,
+				data_availability: draft.article.data_availability || undefined,
+				has_ethics_approval: !!draft.article.ethics_approval,
+				ethics_approval: draft.article.ethics_approval || undefined,
+				authors: draft.authors.length > 0
+					? draft.authors.map((a) => ({
+							full_name: a.full_name,
+							email: a.email || undefined,
+							affiliation: a.affiliation || undefined,
+							orcid: a.orcid || undefined,
+							is_corresponding: a.is_corresponding,
+						}))
+					: [defaultAuthor],
+				// Restore file paths from the saved version record
+				pdf_path: draft.version?.pdf_path || undefined,
+				source_path: draft.version?.source_path || undefined,
+				supplementary_paths: draft.version?.supplementary_paths ?? undefined,
+			}
+		: { authors: [defaultAuthor] }
 
 	return (
 		<div className="container mx-auto max-w-5xl px-4 py-8">
@@ -92,7 +144,7 @@ function RouteComponent() {
 			</div>
 
 			{error && (
-				<div className="mb-6 p-4 bg-destructive/10 border border-destructive rounded-lg">
+				<div className="mb-6 p-4 bg-destructive/10 border border-destructive">
 					<p className="text-destructive font-medium">{error}</p>
 				</div>
 			)}
@@ -104,7 +156,7 @@ function RouteComponent() {
 					<p className="text-sm text-muted-foreground mt-2">Fazendo upload de arquivos e criando registro</p>
 				</div>
 			) : (
-				<SubmissionForm userId={auth.user.id} initialData={initialData} onSubmit={handleSubmit} />
+				<SubmissionForm userId={auth.user.id} initialData={initialData} articleId={draft?.article.id} step={step} onStepChange={handleStepChange} onSubmit={handleSubmit} />
 			)}
 		</div>
 	)

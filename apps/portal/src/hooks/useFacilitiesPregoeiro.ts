@@ -1,19 +1,13 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { portalDb } from "@/lib/supabase"
+import { getFacilitiesFn } from "@/server/pregoeiro.fn"
 import { FACILITIES_QUERY_KEY, type Facilidades_pregoeiro } from "@/types/domain"
 
 export function useFacilitiesPregoeiroQuery() {
 	return useSuspenseQuery<Facilidades_pregoeiro[]>({
 		queryKey: FACILITIES_QUERY_KEY,
 		queryFn: async () => {
-			const { data, error } = await portalDb().from("facilities_pregoeiro").select("*")
-
-			if (error) throw new Error(error.message)
-			if (!data) return []
-
-			const base = data as Facilidades_pregoeiro[]
-
-			return base.map((item) => ({
+			const data = (await getFacilitiesFn()) as Facilidades_pregoeiro[]
+			return data.map((item) => ({
 				...item,
 				tags: item.tags ?? [],
 				default: item.default ?? false,

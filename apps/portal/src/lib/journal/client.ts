@@ -1,7 +1,49 @@
-// Journal-specific Supabase client helpers
-// All queries explicitly use 'journal' schema
+// Journal data access helpers — thin wrappers em torno dos server fns.
+// Todas as queries executam no servidor. Este módulo preserva a API original
+// para que hooks.ts e submission.ts requeiram mudanças mínimas.
 
-import { journalDb, supabase } from "../supabase"
+import {
+	acceptReviewInvitationFn,
+	createArticleAuthorsFn,
+	createArticleFn,
+	createArticleVersionFn,
+	createReviewAssignmentFn,
+	createReviewFn,
+	createSubmissionFn,
+	createUserProfileFn,
+	declineReviewInvitationFn,
+	deleteArticleAuthorFn,
+	deleteArticleAuthorsByArticleIdFn,
+	deleteArticleFn,
+	getArticleAuthorsFn,
+	getArticleFn,
+	getArticleReviewsFn,
+	getArticleVersionsFn,
+	getArticleWithDetailsFn,
+	getArticlesFn,
+	getEditorialDashboardFn,
+	getJournalSettingsFn,
+	getLatestArticleVersionFn,
+	getPublishedArticleFn,
+	getPublishedArticlesFn,
+	getReviewAssignmentByTokenFn,
+	getReviewAssignmentsFn,
+	getReviewFn,
+	getUserActiveDraftFn,
+	getUserNotificationsFn,
+	getUserProfileFn,
+	markNotificationAsReadFn,
+	submitReviewFn,
+	updateArticleAuthorFn,
+	updateArticleFn,
+	updateJournalSettingsFn,
+	updateReviewAssignmentFn,
+	updateReviewFn,
+	updateUserProfileFn,
+	upsertUserProfileFn,
+} from "@/server/journal-data.fn"
+import { getSignedDownloadUrlFn, getSignedUploadUrlFn } from "@/server/journal-storage.fn"
+import { supabase } from "@/lib/supabase"
 import type {
 	Article,
 	ArticleAuthor,
@@ -16,525 +58,220 @@ import type {
 	UserProfile,
 } from "./types"
 
-// ============================================
-// USER PROFILES
-// ============================================
+// ─── User Profiles ────────────────────────────────────────────────────────────
 
-/**
- * Retrieves a user profile by user ID.
- * Returns null if profile doesn't exist (user hasn't completed onboarding).
- *
- * @param userId - The UUID of the user
- * @returns User profile or null if not found
- * @throws {Error} Database error
- */
-export async function getUserProfile(userId: string) {
-	const { data, error } = await journalDb().from("user_profiles").select("*").eq("id", userId).maybeSingle()
-
-	if (error) throw error
-	return data as UserProfile | null
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+	return (await getUserProfileFn({ data: { userId } })) as UserProfile | null
 }
 
-/**
- * Creates a new user profile.
- * Used during onboarding flow when user first accesses journal system.
- *
- * @param profile - Partial profile data (id is required)
- * @returns Created profile
- * @throws {Error} If profile already exists or validation fails
- */
-export async function createUserProfile(profile: Partial<UserProfile>) {
-	const { data, error } = await journalDb().from("user_profiles").insert(profile).select().single()
-
-	if (error) throw error
-	return data as UserProfile
+export async function createUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+	return (await createUserProfileFn({ data: profile as Record<string, unknown> })) as UserProfile
 }
 
-/**
- * Updates an existing user profile.
- *
- * @param userId - User ID to update
- * @param updates - Partial profile data to update
- * @returns Updated profile
- * @throws {Error} If user not found or update fails
- */
-export async function updateUserProfile(userId: string, updates: Partial<UserProfile>) {
-	const { data, error } = await journalDb().from("user_profiles").update(updates).eq("id", userId).select().single()
-
-	if (error) throw error
-	return data as UserProfile
+export async function updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+	return (await updateUserProfileFn({ data: { userId, updates: updates as Record<string, unknown> } })) as UserProfile
 }
 
-/**
- * Creates or updates a user profile (upsert).
- * Useful for ensuring profile exists without checking first.
- *
- * @param profile - Profile data with id
- * @returns Created or updated profile
- */
-export async function upsertUserProfile(profile: Partial<UserProfile>) {
-	const { data, error } = await journalDb().from("user_profiles").upsert(profile).select().single()
-
-	if (error) throw error
-	return data as UserProfile
+export async function upsertUserProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+	return (await upsertUserProfileFn({ data: profile as Record<string, unknown> })) as UserProfile
 }
 
-// ============================================
-// ARTICLES
-// ============================================
+// ─── Articles ─────────────────────────────────────────────────────────────────
 
-export async function getArticles(filters?: { status?: string; submitter_id?: string; limit?: number }) {
-	let query = journalDb().from("articles").select("*")
-
-	if (filters?.status) {
-		query = query.eq("status", filters.status)
-	}
-
-	if (filters?.submitter_id) {
-		query = query.eq("submitter_id", filters.submitter_id)
-	}
-
-	if (filters?.limit) {
-		query = query.limit(filters.limit)
-	}
-
-	const { data, error } = await query.order("created_at", {
-		ascending: false,
-	})
-
-	if (error) throw error
-	return data as Article[]
+export async function getArticles(filters?: { status?: string; submitter_id?: string; limit?: number }): Promise<Article[]> {
+	return (await getArticlesFn({ data: filters ?? {} })) as Article[]
 }
 
-export async function getArticle(articleId: string) {
-	const { data, error } = await journalDb().from("articles").select("*").eq("id", articleId).single()
-
-	if (error) throw error
-	return data as Article
+export async function getArticle(articleId: string): Promise<Article> {
+	return (await getArticleFn({ data: { articleId } })) as Article
 }
 
 export async function getArticleWithDetails(articleId: string) {
-	// Use the helper function from database
-	const { data, error } = await supabase.rpc("get_article_details", {
-		article_uuid: articleId,
-	})
-
-	if (error) throw error
-	return data
+	return getArticleWithDetailsFn({ data: { articleId } })
 }
 
-export async function createArticle(article: Partial<Article>) {
-	const { data, error } = await journalDb().from("articles").insert(article).select().single()
-
-	if (error) throw error
-	return data as Article
+export async function getUserActiveDraft(userId: string): Promise<{ article: Article; authors: ArticleAuthor[] } | null> {
+	return (await getUserActiveDraftFn({ data: { userId } })) as { article: Article; authors: ArticleAuthor[] } | null
 }
 
-export async function updateArticle(articleId: string, updates: Partial<Article>) {
-	const { data, error } = await journalDb().from("articles").update(updates).eq("id", articleId).select().single()
-
-	if (error) throw error
-	return data as Article
+export async function createArticle(article: Partial<Article>): Promise<Article> {
+	return (await createArticleFn({ data: article as Record<string, unknown> })) as Article
 }
 
-export async function deleteArticle(articleId: string) {
-	const { data, error } = await journalDb().from("articles").update({ deleted_at: new Date().toISOString() }).eq("id", articleId).select().single()
-
-	if (error) throw error
-	return data as Article
+export async function updateArticle(articleId: string, updates: Partial<Article>): Promise<Article> {
+	return (await updateArticleFn({ data: { articleId, updates: updates as Record<string, unknown> } })) as Article
 }
 
-/**
- * Creates a new article submission.
- * This is the main entry point for authors submitting articles.
- * Sets initial status to 'submitted' and generates a submission number.
- *
- * @param data - Article data including bilingual metadata
- * @returns Created article with generated submission_number
- * @throws {Error} If validation fails or database error
- */
-export async function createSubmission(data: CreateSubmissionInput) {
-	// Generate submission number (e.g., 2024-001)
-	const year = new Date().getFullYear()
-	const { count } = await journalDb().from("articles").select("*", { count: "exact", head: true }).gte("created_at", `${year}-01-01`)
-
-	const submissionNumber = `${year}-${String((count || 0) + 1).padStart(3, "0")}`
-
-	const { data: article, error } = await journalDb()
-		.from("articles")
-		.insert({
-			...data,
-			submission_number: submissionNumber,
-			status: "submitted",
-			submitted_at: new Date().toISOString(),
-		})
-		.select()
-		.single()
-
-	if (error) throw error
-	return article as Article
+export async function deleteArticle(articleId: string): Promise<Article> {
+	return (await deleteArticleFn({ data: { articleId } })) as Article
 }
 
-/**
- * Accepts a review invitation via token.
- * Updates assignment status and records acceptance timestamp.
- *
- * @param token - Unique invitation token from email
- * @returns Updated review assignment
- * @throws {Error} If token invalid or already responded
- */
+export async function createSubmission(data: CreateSubmissionInput): Promise<Article> {
+	return (await createSubmissionFn({ data: data as Record<string, unknown> })) as Article
+}
+
+// ─── Article Authors ──────────────────────────────────────────────────────────
+
+export async function getArticleAuthors(articleId: string): Promise<ArticleAuthor[]> {
+	return (await getArticleAuthorsFn({ data: { articleId } })) as ArticleAuthor[]
+}
+
+export async function createArticleAuthors(authors: Partial<ArticleAuthor>[]): Promise<ArticleAuthor[]> {
+	return (await createArticleAuthorsFn({ data: authors as Record<string, unknown>[] })) as ArticleAuthor[]
+}
+
+export async function updateArticleAuthor(authorId: string, updates: Partial<ArticleAuthor>): Promise<ArticleAuthor> {
+	return (await updateArticleAuthorFn({ data: { authorId, updates: updates as Record<string, unknown> } })) as ArticleAuthor
+}
+
+export async function deleteArticleAuthor(authorId: string): Promise<void> {
+	await deleteArticleAuthorFn({ data: { authorId } })
+}
+
+export async function deleteArticleAuthorsByArticleId(articleId: string): Promise<void> {
+	await deleteArticleAuthorsByArticleIdFn({ data: { articleId } })
+}
+
+// ─── Article Versions ─────────────────────────────────────────────────────────
+
+export async function getArticleVersions(articleId: string): Promise<ArticleVersion[]> {
+	return (await getArticleVersionsFn({ data: { articleId } })) as ArticleVersion[]
+}
+
+export async function createArticleVersion(version: Partial<ArticleVersion>): Promise<ArticleVersion> {
+	return (await createArticleVersionFn({ data: version as Record<string, unknown> })) as ArticleVersion
+}
+
+export async function getLatestArticleVersion(articleId: string): Promise<ArticleVersion> {
+	return (await getLatestArticleVersionFn({ data: { articleId } })) as ArticleVersion
+}
+
+// ─── Published Articles ───────────────────────────────────────────────────────
+
+export async function getPublishedArticles(filters?: { limit?: number; offset?: number }): Promise<PublishedArticle[]> {
+	return (await getPublishedArticlesFn({ data: filters ?? {} })) as PublishedArticle[]
+}
+
+export async function getPublishedArticle(articleId: string): Promise<PublishedArticle> {
+	return (await getPublishedArticleFn({ data: { articleId } })) as PublishedArticle
+}
+
+// ─── Editorial Dashboard ──────────────────────────────────────────────────────
+
+export async function getEditorialDashboard(filters?: { status?: string; limit?: number }): Promise<EditorialDashboardArticle[]> {
+	return (await getEditorialDashboardFn({ data: filters ?? {} })) as EditorialDashboardArticle[]
+}
+
+// ─── Review Assignments ───────────────────────────────────────────────────────
+
+export async function getReviewAssignments(filters?: { article_id?: string; reviewer_id?: string; status?: string }): Promise<ReviewAssignment[]> {
+	return (await getReviewAssignmentsFn({ data: filters ?? {} })) as ReviewAssignment[]
+}
+
+export async function getReviewAssignmentByToken(token: string): Promise<ReviewAssignment> {
+	return (await getReviewAssignmentByTokenFn({ data: { token } })) as ReviewAssignment
+}
+
+export async function createReviewAssignment(assignment: Partial<ReviewAssignment>): Promise<ReviewAssignment> {
+	return (await createReviewAssignmentFn({ data: assignment as Record<string, unknown> })) as ReviewAssignment
+}
+
+export async function updateReviewAssignment(assignmentId: string, updates: Partial<ReviewAssignment>): Promise<ReviewAssignment> {
+	return (await updateReviewAssignmentFn({ data: { assignmentId, updates: updates as Record<string, unknown> } })) as ReviewAssignment
+}
+
 export async function acceptReviewInvitation(token: string) {
-	const { data, error } = await journalDb()
-		.from("review_assignments")
-		.update({ status: "accepted", responded_at: new Date().toISOString() })
-		.eq("invitation_token", token)
-		.select()
-		.single()
-
-	if (error) throw error
-	return data
+	return acceptReviewInvitationFn({ data: { token } })
 }
 
-/**
- * Declines a review invitation with optional reason.
- *
- * @param token - Invitation token
- * @param reason - Optional decline reason (shown to editor)
- * @returns Updated review assignment
- */
 export async function declineReviewInvitation(token: string, reason?: string) {
-	const { data, error } = await journalDb()
-		.from("review_assignments")
-		.update({
-			status: "declined",
-			responded_at: new Date().toISOString(),
-			decline_reason: reason,
-		})
-		.eq("invitation_token", token)
-		.select()
-		.single()
-
-	if (error) throw error
-	return data
+	return declineReviewInvitationFn({ data: { token, reason } })
 }
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+export async function getReview(assignmentId: string): Promise<Review> {
+	return (await getReviewFn({ data: { assignmentId } })) as Review
+}
+
+export async function getArticleReviews(articleId: string): Promise<Review[]> {
+	return (await getArticleReviewsFn({ data: { articleId } })) as Review[]
+}
+
+export async function createReview(review: Partial<Review>): Promise<Review> {
+	return (await createReviewFn({ data: review as Record<string, unknown> })) as Review
+}
+
+export async function updateReview(reviewId: string, updates: Partial<Review>): Promise<Review> {
+	return (await updateReviewFn({ data: { reviewId, updates: updates as Record<string, unknown> } })) as Review
+}
+
+export async function submitReview(assignmentId: string, reviewData: Partial<Review>) {
+	return submitReviewFn({ data: { assignmentId, reviewData: reviewData as Record<string, unknown> } })
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export async function getUserNotifications(userId: string, unreadOnly = false): Promise<Notification[]> {
+	return (await getUserNotificationsFn({ data: { userId, unreadOnly } })) as Notification[]
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<Notification> {
+	return (await markNotificationAsReadFn({ data: { notificationId } })) as Notification
+}
+
+// ─── Journal Settings ─────────────────────────────────────────────────────────
+
+export async function getJournalSettings(): Promise<JournalSettings> {
+	return (await getJournalSettingsFn()) as JournalSettings
+}
+
+export async function updateJournalSettings(updates: Partial<JournalSettings>): Promise<JournalSettings> {
+	return (await updateJournalSettingsFn({ data: updates as Record<string, unknown> })) as JournalSettings
+}
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
 
 /**
- * Submits a completed review for an article.
- * Creates/updates review record and marks assignment as completed.
- * This is a transaction-like operation that updates both tables.
- *
- * @param assignmentId - Review assignment ID
- * @param reviewData - Review scores, comments, and recommendation
- * @returns Created review record
- * @throws {Error} If assignment not found or review submission fails
+ * Upload via signed URL:
+ * 1. Server gera signed URL (autorização no servidor)
+ * 2. Client faz upload direto ao storage (bytes não trafegam pelo servidor)
  */
-export async function submitReview(assignmentId: string, reviewData: Partial<Review>) {
-	// First create/update the review
-	const { data: review, error: reviewError } = await journalDb()
-		.from("reviews")
-		.upsert({
-			assignment_id: assignmentId,
-			...reviewData,
-			submitted_at: new Date().toISOString(),
-		})
-		.select()
-		.single()
-
-	if (reviewError) throw reviewError
-
-	// Update assignment status
-	const { error: assignmentError } = await journalDb()
-		.from("review_assignments")
-		.update({
-			status: "completed",
-			completed_at: new Date().toISOString(),
-		})
-		.eq("id", assignmentId)
-
-	if (assignmentError) throw assignmentError
-
-	return review
-}
-
-// ============================================
-// ARTICLE AUTHORS
-// ============================================
-
-export async function getArticleAuthors(articleId: string) {
-	const { data, error } = await journalDb().from("article_authors").select("*").eq("article_id", articleId).order("author_order", { ascending: true })
-
-	if (error) throw error
-	return data as ArticleAuthor[]
-}
-
-export async function createArticleAuthors(authors: Partial<ArticleAuthor>[]) {
-	const { data, error } = await journalDb().from("article_authors").insert(authors).select()
-
-	if (error) throw error
-	return data as ArticleAuthor[]
-}
-
-export async function updateArticleAuthor(authorId: string, updates: Partial<ArticleAuthor>) {
-	const { data, error } = await journalDb().from("article_authors").update(updates).eq("id", authorId).select().single()
-
-	if (error) throw error
-	return data as ArticleAuthor
-}
-
-export async function deleteArticleAuthor(authorId: string) {
-	const { error } = await journalDb().from("article_authors").delete().eq("id", authorId)
-
-	if (error) throw error
-}
-
-// ============================================
-// ARTICLE VERSIONS
-// ============================================
-
-export async function getArticleVersions(articleId: string) {
-	const { data, error } = await journalDb().from("article_versions").select("*").eq("article_id", articleId).order("version_number", { ascending: false })
-
-	if (error) throw error
-	return data as ArticleVersion[]
-}
-
-export async function createArticleVersion(version: Partial<ArticleVersion>) {
-	const { data, error } = await journalDb().from("article_versions").insert(version).select().single()
-
-	if (error) throw error
-	return data as ArticleVersion
-}
-
-export async function getLatestArticleVersion(articleId: string) {
-	const { data, error } = await journalDb()
-		.from("article_versions")
-		.select("*")
-		.eq("article_id", articleId)
-		.order("version_number", { ascending: false })
-		.limit(1)
-		.single()
-
-	if (error) throw error
-	return data as ArticleVersion
-}
-
-// ============================================
-// PUBLISHED ARTICLES (View)
-// ============================================
-
-export async function getPublishedArticles(filters?: { limit?: number; offset?: number }) {
-	let query = journalDb().from("published_articles").select("*")
-
-	if (filters?.limit) {
-		query = query.limit(filters.limit)
-	}
-
-	if (filters?.offset) {
-		query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1)
-	}
-
-	const { data, error } = await query.order("published_at", {
-		ascending: false,
-	})
-
-	if (error) throw error
-	return data as PublishedArticle[]
-}
-
-export async function getPublishedArticle(articleId: string) {
-	const { data, error } = await journalDb().from("published_articles").select("*").eq("id", articleId).single()
-
-	if (error) throw error
-	return data as PublishedArticle
-}
-
-// ============================================
-// EDITORIAL DASHBOARD (View)
-// ============================================
-
-export async function getEditorialDashboard(filters?: { status?: string; limit?: number }) {
-	let query = journalDb().from("editorial_dashboard").select("*")
-
-	if (filters?.status) {
-		query = query.eq("status", filters.status)
-	}
-
-	if (filters?.limit) {
-		query = query.limit(filters.limit)
-	}
-
-	const { data, error } = await query
-
-	if (error) throw error
-	return data as EditorialDashboardArticle[]
-}
-
-// ============================================
-// REVIEW ASSIGNMENTS
-// ============================================
-
-export async function getReviewAssignments(filters?: { article_id?: string; reviewer_id?: string; status?: string }) {
-	let query = journalDb().from("review_assignments").select("*")
-
-	if (filters?.article_id) {
-		query = query.eq("article_id", filters.article_id)
-	}
-
-	if (filters?.reviewer_id) {
-		query = query.eq("reviewer_id", filters.reviewer_id)
-	}
-
-	if (filters?.status) {
-		query = query.eq("status", filters.status)
-	}
-
-	const { data, error } = await query.order("created_at", {
-		ascending: false,
-	})
-
-	if (error) throw error
-	return data as ReviewAssignment[]
-}
-
-export async function getReviewAssignmentByToken(token: string) {
-	const { data, error } = await journalDb().from("review_assignments").select("*").eq("invitation_token", token).single()
-
-	if (error) throw error
-	return data as ReviewAssignment
-}
-
-export async function createReviewAssignment(assignment: Partial<ReviewAssignment>) {
-	const { data, error } = await journalDb().from("review_assignments").insert(assignment).select().single()
-
-	if (error) throw error
-	return data as ReviewAssignment
-}
-
-export async function updateReviewAssignment(assignmentId: string, updates: Partial<ReviewAssignment>) {
-	const { data, error } = await journalDb().from("review_assignments").update(updates).eq("id", assignmentId).select().single()
-
-	if (error) throw error
-	return data as ReviewAssignment
-}
-
-// ============================================
-// REVIEWS
-// ============================================
-
-export async function getReview(assignmentId: string) {
-	const { data, error } = await journalDb().from("reviews").select("*").eq("assignment_id", assignmentId).single()
-
-	if (error) throw error
-	return data as Review
-}
-
-export async function getArticleReviews(articleId: string) {
-	const { data, error } = await journalDb()
-		.from("reviews")
-		.select(
-			`
-      *,
-      assignment:review_assignments!inner(article_id)
-    `
-		)
-		.eq("assignment.article_id", articleId)
-
-	if (error) throw error
-	return data as Review[]
-}
-
-export async function createReview(review: Partial<Review>) {
-	const { data, error } = await journalDb().from("reviews").insert(review).select().single()
-
-	if (error) throw error
-	return data as Review
-}
-
-export async function updateReview(reviewId: string, updates: Partial<Review>) {
-	const { data, error } = await journalDb().from("reviews").update(updates).eq("id", reviewId).select().single()
-
-	if (error) throw error
-	return data as Review
-}
-
-// ============================================
-// NOTIFICATIONS
-// ============================================
-
-export async function getUserNotifications(userId: string, unreadOnly = false) {
-	let query = journalDb().from("notifications").select("*").eq("user_id", userId)
-
-	if (unreadOnly) {
-		query = query.eq("read", false)
-	}
-
-	const { data, error } = await query.order("created_at", {
-		ascending: false,
-	})
-
-	if (error) throw error
-	return data as Notification[]
-}
-
-export async function markNotificationAsRead(notificationId: string) {
-	const { data, error } = await journalDb()
-		.from("notifications")
-		.update({ read: true, read_at: new Date().toISOString() })
-		.eq("id", notificationId)
-		.select()
-		.single()
-
-	if (error) throw error
-	return data as Notification
-}
-
-// ============================================
-// JOURNAL SETTINGS
-// ============================================
-
-export async function getJournalSettings() {
-	const { data, error } = await journalDb().from("journal_settings").select("*").limit(1).single()
-
-	if (error) throw error
-	return data as JournalSettings
-}
-
-export async function updateJournalSettings(updates: Partial<JournalSettings>) {
-	// Assuming there's only one settings record
-	const settings = await getJournalSettings()
-
-	const { data, error } = await journalDb().from("journal_settings").update(updates).eq("id", settings.id).select().single()
-
-	if (error) throw error
-	return data as JournalSettings
-}
-
-// ============================================
-// STORAGE HELPERS
-// ============================================
-
-export async function uploadArticleFile(articleId: string, versionNumber: number, file: File, fileType: "manuscript" | "source" | "supplementary") {
+export async function uploadArticleFile(
+	articleId: string,
+	versionNumber: number,
+	file: File,
+	fileType: "manuscript" | "source" | "supplementary",
+	index?: number,
+): Promise<string> {
 	const fileExt = file.name.split(".").pop()
-	const fileName = `${fileType}.${fileExt}`
+	const fileName =
+		fileType === "supplementary" && index !== undefined
+			? `supplementary_${index}.${fileExt}`
+			: `${fileType}.${fileExt}`
 	const filePath = `${articleId}/v${versionNumber}/${fileName}`
 
-	const { data, error } = await supabase.storage.from("journal-submissions").upload(filePath, file, {
-		cacheControl: "3600",
-		upsert: true,
-	})
+	const { token } = await getSignedUploadUrlFn({ data: { filePath } })
+
+	const { data, error } = await supabase.storage
+		.from("journal-submissions")
+		.uploadToSignedUrl(filePath, token, file, { cacheControl: "3600", upsert: true })
 
 	if (error) throw error
 	return data.path
 }
 
-export function getArticleFileUrl(bucket: string, path: string) {
+/** URL pública — não requer auth, apenas constrói a URL. */
+export function getArticleFileUrl(bucket: string, path: string): string {
 	const { data } = supabase.storage.from(bucket).getPublicUrl(path)
 	return data.publicUrl
 }
 
-export async function downloadArticleFile(bucket: string, path: string) {
-	const { data, error } = await supabase.storage.from(bucket).download(path)
-
-	if (error) throw error
-	return data
+/** Download via signed URL gerada no servidor. */
+export async function downloadArticleFile(bucket: string, path: string): Promise<Blob> {
+	const signedUrl = await getSignedDownloadUrlFn({ data: { bucket, path } })
+	const response = await fetch(signedUrl as string)
+	if (!response.ok) throw new Error(`Download failed: ${response.statusText}`)
+	return response.blob()
 }
+

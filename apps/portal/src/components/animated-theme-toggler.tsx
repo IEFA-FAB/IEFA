@@ -51,7 +51,7 @@ export const AnimatedThemeToggler = ({ className, duration = 400, toggle, ...pro
 		<button
 			ref={buttonRef}
 			onClick={handleToggle}
-			className={cn("relative inline-flex items-center justify-center overflow-hidden rounded-full p-2 transition-colors hover:bg-accent", className)}
+			className={cn("relative inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-full p-2 transition-colors hover:bg-accent", className)}
 			{...props}
 		>
 			<div className="relative h-5 w-5">

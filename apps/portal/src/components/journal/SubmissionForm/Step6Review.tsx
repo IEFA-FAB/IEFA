@@ -3,6 +3,13 @@
 import { Globe, Group, Page } from "iconoir-react"
 import { useSubmissionForm } from "./SubmissionForm"
 
+const ARTICLE_TYPE_LABELS: Record<string, string> = {
+	research: "Artigo de Pesquisa",
+	review: "Artigo de Revisão",
+	short_communication: "Comunicação Breve",
+	editorial: "Editorial",
+}
+
 export function Step6Review() {
 	const { formData } = useSubmissionForm()
 
@@ -21,7 +28,7 @@ export function Step6Review() {
 				<dl className="space-y-2 text-sm">
 					<div>
 						<dt className="text-muted-foreground">Tipo:</dt>
-						<dd className="font-medium">{formData.article_type}</dd>
+						<dd className="font-medium">{formData.article_type ? (ARTICLE_TYPE_LABELS[formData.article_type] ?? formData.article_type) : "—"}</dd>
 					</div>
 					<div>
 						<dt className="text-muted-foreground">Área de Conhecimento:</dt>
@@ -80,14 +87,14 @@ export function Step6Review() {
 			<div className="p-4 border rounded-lg">
 				<h3 className="font-medium mb-3">Arquivos</h3>
 				<div className="space-y-2 text-sm">
-					{formData.pdf_file && (
-						<div>
-							✓ Manuscrito PDF: {formData.pdf_file.name} ({(formData.pdf_file.size / 1024 / 1024).toFixed(2)} MB)
-						</div>
+					{formData.pdf_path ? (
+						<div>✓ Manuscrito PDF: {formData.pdf_path.split("/").pop()}</div>
+					) : (
+						<div className="text-destructive">✗ Manuscrito PDF não enviado</div>
 					)}
-					{formData.source_file && <div>✓ Arquivo Fonte: {formData.source_file.name}</div>}
-					{formData.supplementary_files && formData.supplementary_files.length > 0 && (
-						<div>✓ {formData.supplementary_files.length} arquivo(s) suplementar(es)</div>
+					{formData.source_path && <div>✓ Arquivo Fonte: {formData.source_path.split("/").pop()}</div>}
+					{(formData.supplementary_paths?.length ?? 0) > 0 && (
+						<div>✓ {formData.supplementary_paths!.length} arquivo(s) suplementar(es)</div>
 					)}
 				</div>
 			</div>

@@ -1,7 +1,6 @@
 import { useNavigate } from "@tanstack/react-router"
-import { Expand, LogOut, User } from "iconoir-react"
+import { LogOut, User } from "iconoir-react"
 import { useAuth } from "@/hooks/useAuth"
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -22,6 +21,11 @@ function getInitials(nameOrEmail?: string) {
 	return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+function getFirstName(displayName: string): string {
+	if (displayName.includes("@")) return displayName.split("@")[0] ?? displayName
+	return displayName.split(/\s+/)[0] ?? displayName
+}
+
 export function NavUser() {
 	const { isMobile } = useSidebar()
 	const {
@@ -33,8 +37,8 @@ export function NavUser() {
 	const meta = (user?.user_metadata as Record<string, string>) ?? {}
 	const email = user?.email ?? meta.email ?? ""
 	const displayName = meta.display_name || meta.first_name || meta.full_name || email || "Usuário"
-	const avatarUrl = meta.avatar_url || meta.picture || ""
 	const initials = getInitials(displayName)
+	const firstName = getFirstName(displayName)
 
 	const handleLogout = async () => {
 		try {
@@ -48,47 +52,50 @@ export function NavUser() {
 				<DropdownMenu>
 					<DropdownMenuTrigger
 						render={
-							<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-								<Avatar className="h-8 w-8 rounded-lg">
-									<AvatarImage src={avatarUrl} alt={displayName} />
-									<AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
-								</Avatar>
-								<div className="grid flex-1 text-left text-sm leading-tight">
-									<span className="truncate font-semibold">{displayName}</span>
-									<span className="truncate text-xs">{email}</span>
-								</div>
-								<Expand className="ml-auto size-4" />
+							<SidebarMenuButton
+								size="default"
+								className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-2"
+							>
+								{/* Iniciais — visíveis no estado colapsado (icon-only) */}
+								<span className="shrink-0 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+									{initials}
+								</span>
+								{/* Primeiro nome — só aparece no estado expandido */}
+								<span className="flex-1 truncate text-[11px] font-medium uppercase tracking-[0.06em]">
+									{firstName}
+								</span>
 							</SidebarMenuButton>
 						}
 					/>
+
 					<DropdownMenuContent
-						className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+						className="ring-0 border border-foreground min-w-56 shadow-[3px_3px_0_0_var(--foreground)]"
 						side={isMobile ? "bottom" : "right"}
 						align="end"
 						sideOffset={4}
 					>
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="p-0 font-normal">
-								<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-									<Avatar className="h-8 w-8 rounded-lg">
-										<AvatarImage src={avatarUrl} alt={displayName} />
-										<AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
-									</Avatar>
-									<div className="grid flex-1 text-left text-sm leading-tight">
-										<span className="truncate font-semibold">{displayName}</span>
-										<span className="truncate text-xs">{email}</span>
-									</div>
+								<div className="flex flex-col gap-1 px-2 py-2.5 border-b border-border">
+									<span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground leading-none">
+										{displayName}
+									</span>
+									<span className="font-mono text-[11px] leading-none text-muted-foreground">
+										{email}
+									</span>
 								</div>
 							</DropdownMenuLabel>
 						</DropdownMenuGroup>
-						<DropdownMenuSeparator />
+
 						<DropdownMenuItem onClick={() => navigate({ to: "/" })}>
-							<User className="mr-2 h-4 w-4" />
+							<User />
 							Perfil
 						</DropdownMenuItem>
+
 						<DropdownMenuSeparator />
-						<DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
-							<LogOut className="mr-2 h-4 w-4" />
+
+						<DropdownMenuItem variant="destructive" onClick={handleLogout}>
+							<LogOut />
 							Sair
 						</DropdownMenuItem>
 					</DropdownMenuContent>

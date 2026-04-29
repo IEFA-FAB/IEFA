@@ -5,7 +5,7 @@ import { AuthorManager } from "../AuthorManager"
 import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step3Authors() {
-	const { formData, updateFormData } = useSubmissionForm()
+	const { formData, updateFormData, fieldErrors } = useSubmissionForm()
 
 	const handleAddAuthor = () => {
 		const authors = formData.authors || []
@@ -19,8 +19,18 @@ export function Step3Authors() {
 		updateFormData({ authors: [...authors, newAuthor] })
 	}
 
+	// Collect any author-related error (top-level or per-field)
+	const authorError =
+		fieldErrors.authors ||
+		Object.entries(fieldErrors)
+			.filter(([k]) => k.startsWith("authors."))
+			.map(([, msg]) => msg)[0]
+
 	return (
-		<div>
+		<div className="space-y-3">
+			{authorError && (
+				<p className="text-xs text-destructive">{authorError}</p>
+			)}
 			<AuthorManager authors={formData.authors || []} onChange={(authors) => updateFormData({ authors })} onAddAuthor={handleAddAuthor} />
 		</div>
 	)

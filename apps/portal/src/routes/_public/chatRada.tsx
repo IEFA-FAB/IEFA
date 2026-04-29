@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, Plus, Refresh, Send, Sparks, Trash, User, WarningCircle } from "iconoir-react"
+import { ArrowDown, ChatBubble, Check, Copy, Cpu, Link as LinkIcon, NavArrowLeft, Plus, Refresh, Send, Sparks, Trash, User, WarningCircle } from "iconoir-react"
 import { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkBreaks from "remark-breaks"
@@ -60,7 +60,7 @@ function cn(...xs: Array<string | false | null | undefined>) {
 function StatusDot({ status }: { status: HealthStatus }) {
 	const color = status === "ok" ? "bg-emerald-500" : status === "loading" ? "bg-amber-400" : "bg-rose-500"
 	const pulse = status === "loading" ? "animate-pulse" : ""
-	return <span className={`inline-block h-2 w-2 rounded-full ${color} ${pulse} shadow-sm`} aria-hidden="true" />
+	return <span className={`inline-block h-2 w-2 rounded-full ${color} ${pulse}`} aria-hidden="true" />
 }
 
 function prettyStatusText(status: HealthStatus) {
@@ -97,7 +97,7 @@ function extractReferencesMd(text: string): {
 			.trim()
 			.toLowerCase()
 			.normalize("NFD")
-			.replace(/[\u0300-\u036f]/g, "")
+			.replace(/[̀-ͯ]/g, "")
 		if (norm === "referencias") {
 			refStart = i
 			break
@@ -317,8 +317,6 @@ function useHealthQuery() {
 		initialData: "loading" as const,
 	})
 
-	// Increase retry count on each fetch attempt (error or success, to keep checking "if it works")
-	// The user requirement implies we start fast and slow down.
 	useEffect(() => {
 		if (query.isFetched) {
 			setRetryCount((c) => c + 1)
@@ -381,27 +379,17 @@ function useDeleteSessionMutation(client: ReturnType<typeof useRagClient>, userI
 	return useMutation({
 		mutationFn: (sid: string) => client.deleteSession(sid),
 		onMutate: async (sid) => {
-			// Cancela queries em andamento
-			await queryClient.cancelQueries({
-				queryKey: QUERY_KEYS.sessions(userId),
-			})
-
-			// Snapshot do estado anterior
+			await queryClient.cancelQueries({ queryKey: QUERY_KEYS.sessions(userId) })
 			const previousSessions = queryClient.getQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId))
-
-			// Atualização otimista
 			queryClient.setQueryData<SessionSummary[]>(QUERY_KEYS.sessions(userId), (old) => (old ? old.filter((s) => s.id !== sid) : []))
-
 			return { previousSessions }
 		},
 		onError: (_err, _sid, context) => {
-			// Rollback em caso de erro
 			if (context?.previousSessions) {
 				queryClient.setQueryData(QUERY_KEYS.sessions(userId), context.previousSessions)
 			}
 		},
 		onSettled: () => {
-			// Revalida após mutação
 			queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
 		},
 	})
@@ -414,24 +402,24 @@ function useDeleteSessionMutation(client: ReturnType<typeof useRagClient>, userI
 function ReferencesList({ id, references }: { id: string; references: AskReference[] }) {
 	return (
 		<details className="mt-2 max-w-[85%] group">
-			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/30 border border-border/40 px-3 py-2 rounded-xl">
+			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/40 border border-border px-3 py-2">
 				<LinkIcon className="h-3.5 w-3.5" />
 				Referências ({references.length})
 			</summary>
-			<div className="mt-2 space-y-2">
+			<div className="mt-1 space-y-1">
 				{references.map((ref) => {
 					const refKey = `${ref.doc_id ?? "d"}-${ref.source}-${ref.n}-${ref.page ?? "p"}`
 					return (
-						<details key={`${id}-ref-${refKey}`} className="bg-muted/20 border border-border/30 rounded-lg p-2">
+						<details key={`${id}-ref-${refKey}`} className="bg-muted/20 border border-border p-2">
 							<summary className="list-none flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-								<Badge variant="secondary" className="h-5 rounded-md text-[11px]">
+								<Badge variant="secondary" className="h-5 text-[11px]">
 									[{ref.n}]
 								</Badge>
 								<span className="text-xs font-medium truncate">{ref.source}</span>
 								{ref.page != null && <span className="text-xs text-muted-foreground">pág. {ref.page}</span>}
 							</summary>
 							{ref.snippet && (
-								<div className="mt-2 text-xs text-muted-foreground pl-2 border-l-2 border-border/40">
+								<div className="mt-2 bg-muted/30 px-2 py-1.5 text-xs text-muted-foreground">
 									<p className="italic">
 										{ref.snippet.substring(0, 200)}
 										{ref.snippet.length > 200 ? "..." : ""}
@@ -449,25 +437,20 @@ function ReferencesList({ id, references }: { id: string; references: AskReferen
 function SourcesList({ id, sources }: { id: string; sources: string[] }) {
 	return (
 		<details className="mt-2 max-w-[85%] group">
-			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/30 border border-border/40 px-3 py-2 rounded-xl">
+			<summary className="list-none flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none bg-muted/40 border border-border px-3 py-2">
 				<LinkIcon className="h-3.5 w-3.5" />
 				Fontes consultadas ({sources.length})
 			</summary>
-			<ul className="mt-2 space-y-1.5">
+			<ul className="mt-1 space-y-1">
 				{sources.map((s) => (
-					<li key={`${id}-src-${s}`} className="flex items-start gap-2 bg-muted/20 border border-border/30 rounded-lg p-2">
+					<li key={`${id}-src-${s}`} className="flex items-start gap-2 bg-muted/20 border border-border p-2">
 						<span className="text-xs text-muted-foreground mt-0.5">•</span>
 						{isLikelyUrl(s) ? (
-							<a
-								className="text-xs text-primary hover:underline break-all hover:text-primary/80 transition-colors"
-								href={s}
-								target="_blank"
-								rel="noreferrer noopener"
-							>
+							<a className="text-xs text-primary hover:underline break-all transition-colors" href={s} target="_blank" rel="noreferrer noopener">
 								{s}
 							</a>
 						) : (
-							<code className="text-xs bg-muted/70 px-2 py-1 rounded-md border border-border/30">{s}</code>
+							<code className="text-xs bg-muted/70 px-2 py-1 border border-border">{s}</code>
 						)}
 					</li>
 				))}
@@ -484,37 +467,33 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 	const displayMarkdown = parsed?.mainText ?? m.content
 	const hasReferences = !!(m.references && m.references.length > 0)
 
-	const bubbleBase = "px-4 py-3 rounded-2xl inline-block max-w-[85%] shadow-sm"
-	const bubbleUser = "bg-linear-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/10 text-sm leading-relaxed whitespace-pre-wrap"
-	const bubbleError = "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 text-sm leading-relaxed"
-	const bubbleAssistant = "bg-card border border-border/50 text-foreground"
+	// Pale Brutalism: sharp corners, solid fills, border-first hierarchy
+	const bubbleBase = "px-4 py-3 inline-block max-w-[85%]"
+	const bubbleUser = "bg-primary text-primary-foreground text-sm leading-relaxed whitespace-pre-wrap border border-primary"
+	const bubbleError = "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-sm leading-relaxed"
+	const bubbleAssistant = "bg-card border border-border text-foreground"
 
 	return (
-		<li className={cn("flex gap-3 group animate-in fade-in slide-in-from-bottom-4 duration-500", isUser && "flex-row-reverse")}>
-			{/* Avatar */}
+		<li className={cn("flex gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-200", isUser && "flex-row-reverse")}>
+			{/* Avatar — square, no radius */}
 			<div
 				className={cn(
-					"shrink-0 h-9 w-9 rounded-xl flex items-center justify-center text-sm font-medium shadow-sm",
+					"shrink-0 h-9 w-9 flex items-center justify-center text-sm font-medium border",
 					isUser
-						? "bg-linear-to-br from-primary to-primary/80 text-primary-foreground shadow-primary/20"
+						? "bg-primary text-primary-foreground border-primary"
 						: isError
-							? "bg-linear-to-br from-rose-500 to-rose-600 text-white shadow-rose-500/20"
-							: "bg-linear-to-br from-muted to-muted/80 text-muted-foreground border border-border/50"
+							? "bg-rose-500 text-white border-rose-500"
+							: "bg-muted text-muted-foreground border-border"
 				)}
 			>
 				{isUser ? <User className="h-4 w-4" /> : <Cpu className="h-4 w-4" />}
 			</div>
 
-			{/* Conteúdo */}
-			<div className={cn("flex-1 min-w-0 space-y-2", isUser && "flex flex-col items-end")}>
+			{/* Content */}
+			<div className={cn("flex-1 min-w-0 space-y-1.5", isUser && "flex flex-col items-end")}>
 				<div className={cn("flex items-center gap-2", isUser && "flex-row-reverse")}>
 					<span className="text-xs font-semibold text-foreground">{isUser ? "Você" : isError ? "Erro" : "Assistente"}</span>
-					<span className="text-xs text-muted-foreground/70">
-						{new Date(m.createdAt).toLocaleTimeString("pt-BR", {
-							hour: "2-digit",
-							minute: "2-digit",
-						})}
-					</span>
+					<span className="text-xs text-muted-foreground">{new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
 				</div>
 
 				<div className={cn(bubbleBase, isUser && bubbleUser, isError && bubbleError, !isUser && !isError && bubbleAssistant)}>
@@ -531,7 +510,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
 								ol: (props: any) => <ol {...props} className="list-decimal pl-5 my-2 text-sm leading-relaxed" />,
 								// biome-ignore lint/suspicious/noExplicitAny: React ref type mismatch between @types/react versions
-								code: (props: any) => <code {...props} className="bg-muted/70 px-1.5 py-0.5 rounded border border-border/30" />,
+								code: (props: any) => <code {...props} className="bg-muted/70 px-1.5 py-0.5 border border-border text-xs" />,
 							}}
 						>
 							{displayMarkdown}
@@ -550,7 +529,7 @@ function MessageItem({ m, copiedMsgId, onCopy }: { m: ChatMessage; copiedMsgId: 
 				{/* Copiar */}
 				<Button
 					className={cn(
-						"opacity-0 group-hover:opacity-100 transition-all inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/50",
+						"opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1",
 						isUser && "ml-auto"
 					)}
 					variant="ghost"
@@ -598,8 +577,9 @@ function ChatRada() {
 	const [messages, setMessages] = useState<ChatMessage[]>([])
 	const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null)
 	const [isAtBottom, setIsAtBottom] = useState(true)
-
 	const [sessionId, setSessionId] = useState<string | null>(null)
+	// Mobile: 'list' shows session panel full-screen; 'chat' shows active chat full-screen
+	const [mobileView, setMobileView] = useState<"list" | "chat">("list")
 
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const editorRef = useRef<HTMLTextAreaElement>(null)
@@ -618,7 +598,7 @@ function ChatRada() {
 		}
 	}, [isLoggedIn])
 
-	// Carrega histórico ao mudar sessionId (via query)
+	// Load history when sessionId changes
 	const { data: sessionMessages = [] } = useSessionMessagesQuery(client, isLoggedIn, userId, sessionId)
 
 	useEffect(() => {
@@ -626,7 +606,6 @@ function ChatRada() {
 		setMessages(sessionMessages)
 	}, [isLoggedIn, userId, sessionId, sessionMessages])
 
-	// Auto-scroll para o fim quando novas mensagens chegam e o usuário está no fim
 	const scrollToBottom = () => {
 		const el = scrollRef.current
 		if (!el) return
@@ -654,14 +633,19 @@ function ChatRada() {
 			setSessionId(null)
 		}
 		setMessages([])
+		setMobileView("chat")
 	}
 
 	const selectSession = (sid: string) => {
 		if (!isLoggedIn) return
-		if (!sid || sid === sessionId) return
+		if (sid === sessionId) {
+			setMobileView("chat")
+			return
+		}
 		saveSessionId(sid)
 		setSessionId(sid)
 		setMessages([])
+		setMobileView("chat")
 	}
 
 	const deleteSession = async (sid: string, e?: React.MouseEvent<HTMLButtonElement>) => {
@@ -677,7 +661,7 @@ function ChatRada() {
 		}
 	}
 
-	// Cancela SSE ativo ao desmontar
+	// Cancel SSE on unmount
 	useEffect(() => {
 		return () => {
 			if (sseAbortRef.current) {
@@ -697,7 +681,6 @@ function ChatRada() {
 		const question = input.trim()
 		if (!question || sending) return
 
-		// Cancela qualquer SSE anterior antes de iniciar um novo
 		if (sseAbortRef.current) {
 			sseAbortRef.current.abort()
 			sseAbortRef.current = null
@@ -720,9 +703,7 @@ function ChatRada() {
 				const ctrl = new AbortController()
 				sseAbortRef.current = ctrl
 
-				const res = await client.askStream(buildPayload(question), {
-					signal: ctrl.signal,
-				})
+				const res = await client.askStream(buildPayload(question), { signal: ctrl.signal })
 				if (!res.body) {
 					const errText = await res.text().catch(() => "Erro desconhecido")
 					throw new Error(errText)
@@ -737,12 +718,12 @@ function ChatRada() {
 					setMessages((prev) => {
 						if (!hasInserted) {
 							hasInserted = true
-							setSending(false) // Stop loading indicator once we have content
+							setSending(false)
 							return [
 								...prev,
 								{
 									id: assistantId,
-									role: "assistant", // Type cast handled by loop or simple string
+									role: "assistant",
 									content: delta,
 									sources: [],
 									references: [],
@@ -781,18 +762,13 @@ function ChatRada() {
 					if (isLoggedIn && sid) {
 						setSessionId(sid)
 						saveSessionId(sid)
-						await queryClient.invalidateQueries({
-							queryKey: QUERY_KEYS.sessions(userId),
-						})
-						await queryClient.invalidateQueries({
-							queryKey: QUERY_KEYS.sessionMessages(userId, sid),
-						})
+						await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
+						await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessionMessages(userId, sid) })
 					}
 				}
 
 				const processEvent = async (rawEvent: string) => {
 					const lines = rawEvent.split("\n")
-
 					const dataLines: string[] = []
 					for (const line of lines) {
 						const t = line.trim()
@@ -844,12 +820,8 @@ function ChatRada() {
 				if (isLoggedIn && data?.session_id) {
 					setSessionId(data.session_id)
 					saveSessionId(data.session_id)
-					await queryClient.invalidateQueries({
-						queryKey: QUERY_KEYS.sessions(userId),
-					})
-					await queryClient.invalidateQueries({
-						queryKey: QUERY_KEYS.sessionMessages(userId, data.session_id),
-					})
+					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessions(userId) })
+					await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sessionMessages(userId, data.session_id) })
 				}
 			}
 		} catch (err: unknown) {
@@ -866,11 +838,6 @@ function ChatRada() {
 			}
 			setMessages((prev) => [...prev, assistantErr])
 		} finally {
-			// Ensure sending is false if we exit loop (e.g. error or done)
-			// But careful not to flip it if we just inserted.
-			// Actually setSending(false) is called inside insert/error logic.
-			// Just a safety check?
-			// If hasInserted is true, sending is false.
 			setSending(false)
 			if (sseAbortRef.current) {
 				sseAbortRef.current = null
@@ -895,250 +862,243 @@ function ChatRada() {
 		}
 	}
 
-	// React Compiler handles memoization automatically, but if we wanted to be explicit with variable,
-	// we would just assign it. However, since this is JSX, we can just render it directly in the return or Assign to a const
-	const healthBadge = (
-		<div className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-muted/50 border border-border/50">
-			<StatusDot status={health} />
-			<span className="font-medium text-muted-foreground">{prettyStatusText(health)}</span>
-		</div>
-	)
-
 	return (
-		<div className="relative h-[calc(100vh-8rem)] w-full bg-linear-to-b from-background to-muted/20 text-foreground rounded-xl border border-border/50 overflow-hidden shadow-xl">
-			{/* Blobs decorativos */}
-			<div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
-				<div
-					className="absolute left-1/2 top-[-20%] h-200 w-200 -translate-x-1/2 rounded-full blur-3xl
-                     bg-linear-to-br from-primary/20 via-violet-500/10 to-transparent
-                     dark:from-primary/25 dark:via-violet-400/10 animate-pulse"
-					style={{ animationDuration: "4s" }}
-				/>
-				<div
-					className="absolute right-[-10%] bottom-[-10%] h-160 w-160 rounded-full blur-3xl
-                     bg-linear-to-tl from-fuchsia-500/15 via-primary/10 to-transparent
-                     dark:from-fuchsia-400/15 dark:via-primary/10"
-				/>
-			</div>
-
-			<div className="flex h-full">
-				{/* Sidebar */}
-				<aside className="hidden md:flex w-72 flex-col border-r border-border/50 bg-background/80 backdrop-blur-xl">
-					<div className="p-3 border-b border-border/50">
-						<Button
-							onClick={startNewSession}
-							variant="secondary"
-							className="w-full justify-start gap-2 rounded-lg"
-							title={isLoggedIn ? "Iniciar nova sessão" : "Nova conversa (sem histórico)"}
-						>
-							<Plus className="h-4 w-4" />
-							Nova conversa
-						</Button>
-
-						{!isLoggedIn && (
-							<div className="mt-3 text-[11px] text-muted-foreground">
-								<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
-									<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-									<span>Você não está logado. O histórico está desativado e não será salvo.</span>
-								</div>
-							</div>
-						)}
+		// Fixed full-screen below the sticky nav header (h-14 = 3.5rem).
+		// Escapes the AppLayout container so the chat fills the full viewport width.
+		<div className="fixed inset-x-0 top-14 bottom-0 flex overflow-hidden bg-background text-foreground border-t border-border z-10">
+			{/* ── SIDEBAR: session list ── */}
+			<aside
+				className={cn(
+					"flex flex-col bg-background border-r border-border shrink-0",
+					// Mobile: full-screen when on list view, hidden when in chat
+					// Desktop: always visible at fixed width
+					mobileView === "list" ? "flex w-full md:w-72" : "hidden md:flex md:w-72"
+				)}
+			>
+				{/* Header */}
+				<div className="shrink-0 h-14 border-b border-border px-4 flex items-center justify-between">
+					<div className="flex items-center gap-2.5">
+						<Sparks className="h-4 w-4 text-primary" aria-hidden="true" />
+						<span className="text-sm font-semibold tracking-tight">Chat RADA</span>
 					</div>
-
-					<div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-						{!isLoggedIn ? (
-							<div className="h-full flex items-center justify-center text-center px-4">
-								<div className="text-xs text-muted-foreground">Faça login para ver e manter o histórico das suas conversas.</div>
-							</div>
-						) : sessions.length === 0 ? (
-							<div className="h-full flex items-center justify-center text-center px-4">
-								<div className="text-xs text-muted-foreground">Nenhuma conversa encontrada. Inicie um novo bate-papo.</div>
-							</div>
-						) : (
-							<div className="space-y-1">
-								{sessions.map((s) => {
-									const active = s.id === sessionId
-									return (
-										<Button
-											key={s.id}
-											onClick={() => selectSession(s.id)}
-											variant="ghost"
-											className={cn("w-full text-xs", active ? "bg-primary/10 border-primary/30" : "")}
-											title={sessionTitleLikeChatGPT(s)}
-											aria-label={`Abrir sessão ${sessionTitleLikeChatGPT(s)}`}
-										>
-											<ChatBubble className="h-4 w-4 text-muted-foreground" />
-											<div className="flex-1 min-w-0">
-												{sessionTitleLikeChatGPT(s)}
-												<div className="text-[10px] text-muted-foreground truncate">{formatDateShort(s.last_message_at || s.created_at)}</div>
-											</div>
-											<Button
-												onClick={(e) => deleteSession(s.id, e)}
-												variant="ghost"
-												title="Apagar sessão"
-												aria-label="Apagar sessão"
-												disabled={deleteSessionMutation.isPending}
-											>
-												<Trash className="h-3.5 w-3.5" />
-											</Button>
-										</Button>
-									)
-								})}
-							</div>
-						)}
+					<div className="flex items-center gap-1.5">
+						<StatusDot status={health} />
+						<span className="text-xs text-muted-foreground">{prettyStatusText(health)}</span>
 					</div>
+				</div>
 
-					<div className="p-3 border-t border-border/50 text-[11px] text-muted-foreground">
-						{isLoggedIn ? (
-							<div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
-								<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-								<span>As conversas ficam salvas por 7 dias. Inicie uma nova conversa para mudar de assunto.</span>
-							</div>
-						) : (
-							<div className="flex items-start gap-2 bg-muted/40 border border-border/50 rounded-lg p-2">
-								<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
-								<span>Entre para ativar o histórico. Conversas salvas expiram em 7 dias.</span>
-							</div>
-						)}
-					</div>
-				</aside>
+				{/* New conversation */}
+				<div className="shrink-0 p-3 border-b border-border">
+					<Button
+						onClick={startNewSession}
+						variant="default"
+						className="w-full justify-start gap-2 font-medium"
+						title={isLoggedIn ? "Iniciar nova sessão" : "Nova conversa (sem histórico)"}
+					>
+						<Plus className="h-4 w-4" />
+						Nova conversa
+					</Button>
 
-				{/* Main */}
-				<main className="flex-1 flex flex-col">
-					{/* Header */}
-					<header className="shrink-0 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 md:px-6 py-4">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-3">
-								<div className="flex items-center justify-center h-9 w-9 rounded-lg bg-linear-to-br from-primary to-primary/80 shadow-lg shadow-primary/20">
-									<Sparks className="h-5 w-5 text-primary-foreground" />
-								</div>
-								<div>
-									<h2 className="text-base md:text-lg font-semibold tracking-tight">Chat RADA</h2>
-									<p className="text-xs text-muted-foreground">Assistente Inteligente</p>
-								</div>
-							</div>
-
-							<div className="flex items-center gap-2 flex-wrap">
-								{healthBadge}
-
-								{isLoggedIn && sessionId && (
-									<span className="text-[11px] text-muted-foreground px-2 py-1 border border-border/50 rounded-full">sessão: {sessionId.slice(0, 8)}…</span>
-								)}
-
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={checkHealth}
-									className="h-9 w-9 p-0 hover:bg-muted/80 transition-colors"
-									title="Atualizar status"
-									aria-label="Atualizar status"
-								>
-									<Refresh className="h-4 w-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={startNewSession}
-									className="h-9 px-2 hover:bg-muted/80 transition-colors"
-									title={isLoggedIn ? "Iniciar nova sessão (memória reinicia)" : "Nova conversa (histórico desativado)"}
-								>
-									Nova sessão
-								</Button>
-							</div>
-						</div>
-					</header>
-
-					{/* Aviso inicial */}
-					{messages.length === 0 && (
-						<div className="shrink-0 px-4 md:px-6 py-4">
-							<div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3 backdrop-blur-sm">
-								<div className="shrink-0 h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-									<WarningCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-								</div>
-								<div>
-									<p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">Importante</p>
-									{isLoggedIn ? (
-										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											O histórico desta conversa é salvo automaticamente. Use "Nova sessão" para começar um novo assunto, ou "Apagar sessão" para excluir esta
-											conversa.
-										</p>
-									) : (
-										<p className="text-sm text-amber-800/90 dark:text-amber-200/80">
-											Você não está logado. O histórico está desativado e suas mensagens não serão salvas. Entre na conta para ativar o histórico.
-										</p>
-									)}
-								</div>
-							</div>
+					{!isLoggedIn && (
+						<div className="mt-2 flex items-start gap-2 border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+							<WarningCircle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+							<span className="text-[11px] text-muted-foreground">Não logado. Histórico desativado.</span>
 						</div>
 					)}
+				</div>
 
-					{/* Mensagens */}
-					<div className="flex-1 overflow-hidden flex flex-col relative">
-						<div
-							ref={scrollRef}
-							onScroll={onScrollMessages}
-							className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
-						>
-							<div className="px-4 md:px-6 py-6 space-y-6">
-								{messages.length === 0 ? (
-									<div className="h-full flex items-center justify-center text-center">
-										<div className="space-y-4 max-w-md">
-											<div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-linear-to-br from-primary to-primary/80 shadow-lg shadow-primary/20 mb-2">
-												<Sparks className="h-8 w-8 text-primary-foreground" />
-											</div>
-											<div className="text-3xl md:text-4xl font-bold bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-												Chat RADA
-											</div>
-											<p className="text-sm text-muted-foreground leading-relaxed">
-												Consulte o Regulamento de Administração da Aeronáutica usando inteligência artificial
-											</p>
-										</div>
+				{/* Session list */}
+				<div className="flex-1 overflow-y-auto">
+					{!isLoggedIn ? (
+						<div className="py-10 px-6 text-center">
+							<p className="text-xs text-muted-foreground leading-relaxed">Faça login para ver e manter o histórico das suas conversas.</p>
+						</div>
+					) : sessions.length === 0 ? (
+						<div className="py-10 px-6 text-center">
+							<p className="text-xs text-muted-foreground">Nenhuma conversa. Inicie um novo bate-papo.</p>
+						</div>
+					) : (
+						sessions.map((s) => {
+							const active = s.id === sessionId
+							return (
+								<button
+									key={s.id}
+									type="button"
+									onClick={() => selectSession(s.id)}
+									className={cn(
+										"w-full flex items-center gap-3 px-3 py-3 border-b border-border/50 text-left transition-colors group/row",
+										active ? "bg-primary/10" : "hover:bg-muted/50"
+									)}
+									title={sessionTitleLikeChatGPT(s)}
+									aria-label={`Abrir sessão ${sessionTitleLikeChatGPT(s)}`}
+									aria-current={active ? "true" : undefined}
+								>
+									{/* Avatar square */}
+									<div
+										className={cn(
+											"shrink-0 h-9 w-9 flex items-center justify-center border",
+											active ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-border"
+										)}
+									>
+										<ChatBubble className="h-4 w-4" aria-hidden="true" />
 									</div>
-								) : (
-									<ul className="space-y-6">
+
+									{/* Meta */}
+									<div className="flex-1 min-w-0">
+										<p className={cn("text-sm font-medium truncate", active ? "text-primary" : "text-foreground")}>{sessionTitleLikeChatGPT(s)}</p>
+										<p className="text-[11px] text-muted-foreground mt-0.5">{formatDateShort(s.last_message_at || s.created_at)}</p>
+									</div>
+
+									{/* Delete */}
+									<button
+										type="button"
+										onClick={(e) => deleteSession(s.id, e as React.MouseEvent<HTMLButtonElement>)}
+										className="shrink-0 opacity-0 group-hover/row:opacity-100 transition-opacity p-1.5 text-muted-foreground hover:text-rose-600"
+										title="Apagar sessão"
+										aria-label="Apagar sessão"
+										disabled={deleteSessionMutation.isPending}
+									>
+										<Trash className="h-3.5 w-3.5" />
+									</button>
+								</button>
+							)
+						})
+					)}
+				</div>
+
+				{/* Footer note */}
+				<div className="shrink-0 border-t border-border px-4 py-3">
+					<div className="flex items-start gap-2 text-[11px] text-muted-foreground">
+						<WarningCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+						<span>{isLoggedIn ? "Conversas ficam salvas por 7 dias. Nova sessão para mudar de assunto." : "Entre para ativar o histórico permanente."}</span>
+					</div>
+				</div>
+			</aside>
+
+			{/* ── CHAT PANEL ── */}
+			<main className={cn("flex flex-col bg-background overflow-hidden min-w-0", mobileView === "chat" ? "flex flex-1" : "hidden md:flex md:flex-1")}>
+				{/* Chat header */}
+				<header className="shrink-0 h-14 border-b border-border px-4 flex items-center gap-3">
+					{/* Back button — mobile only */}
+					<button
+						type="button"
+						className="md:hidden -ml-1 h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors"
+						onClick={() => setMobileView("list")}
+						aria-label="Voltar para conversas"
+					>
+						<NavArrowLeft className="h-5 w-5" aria-hidden="true" />
+					</button>
+
+					<div className="shrink-0 h-8 w-8 bg-primary flex items-center justify-center" aria-hidden="true">
+						<Sparks className="h-4 w-4 text-primary-foreground" />
+					</div>
+
+					<div className="flex-1 min-w-0">
+						<h1 className="text-sm font-semibold leading-tight">Chat RADA</h1>
+						<p className="text-[11px] text-muted-foreground leading-tight hidden sm:block">Assistente sobre o Regulamento de Administração</p>
+					</div>
+
+					<div className="flex items-center gap-1.5">
+						<div className="hidden sm:flex items-center gap-1.5 border border-border px-2 py-1 text-xs text-muted-foreground">
+							<StatusDot status={health} />
+							<span>{prettyStatusText(health)}</span>
+						</div>
+
+						{isLoggedIn && sessionId && (
+							<span className="hidden lg:inline border border-border px-2 py-1 text-[11px] text-muted-foreground font-mono">{sessionId.slice(0, 8)}…</span>
+						)}
+
+						<Button variant="ghost" size="sm" onClick={checkHealth} className="h-8 w-8 p-0" title="Atualizar status" aria-label="Atualizar status">
+							<Refresh className="h-4 w-4" />
+						</Button>
+
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={startNewSession}
+							className="h-8 px-2 gap-1.5 text-xs"
+							title={isLoggedIn ? "Nova sessão" : "Nova conversa"}
+						>
+							<Plus className="h-3.5 w-3.5" aria-hidden="true" />
+							<span className="hidden sm:inline">Nova sessão</span>
+						</Button>
+					</div>
+				</header>
+
+				{/* Messages area */}
+				<div className="flex-1 overflow-hidden flex flex-col relative">
+					{messages.length === 0 ? (
+						// Empty state
+						<div className="flex-1 flex items-center justify-center p-8">
+							<div className="text-center max-w-sm space-y-5 w-full">
+								<div className="mx-auto h-16 w-16 border border-border bg-muted flex items-center justify-center" aria-hidden="true">
+									<Sparks className="h-7 w-7 text-muted-foreground" />
+								</div>
+								<div>
+									<p className="text-base font-semibold tracking-tight">Chat RADA</p>
+									<p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+										{isLoggedIn && sessions.length > 0
+											? "Selecione uma conversa ou inicie uma nova."
+											: "Faça sua pergunta sobre o Regulamento de Administração da Aeronáutica."}
+									</p>
+								</div>
+								<div className="border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-left">
+									<p className="text-xs font-semibold text-amber-900 dark:text-amber-100 mb-1">Importante</p>
+									<p className="text-xs text-amber-800/80 dark:text-amber-200/70 leading-relaxed">
+										{isLoggedIn
+											? 'O histórico desta conversa é salvo automaticamente por 7 dias. Use "Nova sessão" para mudar de assunto.'
+											: "Você não está logado. Faça login para ativar o histórico de conversas."}
+									</p>
+								</div>
+							</div>
+						</div>
+					) : (
+						<>
+							<div ref={scrollRef} onScroll={onScrollMessages} className="flex-1 overflow-y-auto">
+								<div className="px-4 md:px-6 py-6 max-w-3xl mx-auto">
+									<ul className="space-y-5" aria-label="Mensagens">
 										{messages.map((m) => (
 											<MessageItem key={m.id} m={m} copiedMsgId={copiedMsgId} onCopy={copyMessage} />
 										))}
 
-										{/* Estado enviando */}
+										{/* Sending indicator */}
 										{sending && (
-											<li className="flex gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
-												<div className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center bg-linear-to-br from-muted to-muted/80 border border-border/50 shadow-sm">
-													<Cpu className="h-4 w-4 animate-pulse text-muted-foreground" />
+											<li className="flex gap-3 animate-in fade-in duration-200" aria-label="Processando resposta">
+												<div className="shrink-0 h-9 w-9 flex items-center justify-center border border-border bg-muted">
+													<Cpu className="h-4 w-4 animate-pulse text-muted-foreground" aria-hidden="true" />
 												</div>
-												<div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-card border border-border/50 shadow-sm">
-													<div className="flex gap-1">
-														<span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-														<span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-														<span className="h-2 w-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+												<div className="flex items-center gap-3 px-4 py-3 bg-card border border-border">
+													<div className="flex gap-1" aria-hidden="true">
+														<span className="h-2 w-2 bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+														<span className="h-2 w-2 bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+														<span className="h-2 w-2 bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
 													</div>
-													<span className="text-xs text-muted-foreground font-medium">Processando sua pergunta…</span>
+													<span className="text-xs text-muted-foreground">Processando…</span>
 												</div>
 											</li>
 										)}
 									</ul>
-								)}
+								</div>
 							</div>
-						</div>
 
-						{/* Botão voltar ao fim */}
-						{!isAtBottom && (
-							<div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
-								<Button
-									onClick={scrollToBottom}
-									className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/95 backdrop-blur-xl px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/80 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-								>
-									<ArrowDown className="h-3.5 w-3.5" />
-									Novas mensagens
-								</Button>
-							</div>
-						)}
-					</div>
+							{/* Scroll to bottom */}
+							{!isAtBottom && (
+								<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+									<Button onClick={scrollToBottom} variant="outline" size="sm" className="flex items-center gap-2 text-xs border border-border bg-background">
+										<ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+										Novas mensagens
+									</Button>
+								</div>
+							)}
+						</>
+					)}
+				</div>
 
-					{/* Input */}
-					<div className="shrink-0 border-t border-border/50 bg-background/95 backdrop-blur-xl px-4 md:px-6 py-4">
-						<div className="flex items-end gap-3">
-							<div className="flex-1 relative">
+				{/* Input bar */}
+				<div className="shrink-0 border-t border-border bg-background px-4 md:px-6 py-4">
+					<div className="max-w-3xl mx-auto">
+						<div className="flex items-end gap-2">
+							<div className="flex-1">
 								<textarea
 									ref={editorRef}
 									value={input}
@@ -1146,9 +1106,9 @@ function ChatRada() {
 									onKeyDown={onKeyDown}
 									rows={1}
 									placeholder="Escreva sua pergunta sobre o RADA…"
-									className="w-full resize-none rounded-xl border border-border/60 bg-background px-4 py-3 text-sm
-                             placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2
-                             focus-visible:ring-primary/50 focus-visible:border-primary/50 transition-all shadow-sm"
+									className="w-full resize-none border border-border bg-background px-4 py-3 text-sm
+                    placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2
+                    focus-visible:ring-ring focus-visible:border-ring transition-colors"
 									aria-label="Caixa de texto da mensagem"
 								/>
 							</div>
@@ -1156,7 +1116,7 @@ function ChatRada() {
 								onClick={onSubmit}
 								disabled={sending || !input.trim() || health !== "ok"}
 								size="sm"
-								className="shrink-0 h-11 w-11 rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+								className="shrink-0 h-11 w-11 p-0"
 								title={health !== "ok" ? "Serviço indisponível" : "Enviar"}
 								aria-label="Enviar"
 							>
@@ -1164,21 +1124,21 @@ function ChatRada() {
 							</Button>
 						</div>
 
-						<div className="mt-3 flex items-center justify-between text-xs">
+						<div className="mt-2 flex items-center justify-between text-xs">
 							<span className="text-muted-foreground">
-								<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[10px]">Enter</kbd> para enviar •{" "}
-								<kbd className="px-1.5 py-0.5 rounded bg-muted border border-border/50 font-mono text-[10px]">Shift + Enter</kbd> para quebra de linha
+								<kbd className="px-1.5 py-0.5 border border-border font-mono text-[10px] bg-muted">Enter</kbd> para enviar ·{" "}
+								<kbd className="px-1.5 py-0.5 border border-border font-mono text-[10px] bg-muted">Shift + Enter</kbd> para quebra
 							</span>
 							{health !== "ok" && (
 								<span className="text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1.5">
-									<WarningCircle className="h-3.5 w-3.5" />
+									<WarningCircle className="h-3.5 w-3.5" aria-hidden="true" />
 									Serviço indisponível
 								</span>
 							)}
 						</div>
 					</div>
-				</main>
-			</div>
+				</div>
+			</main>
 		</div>
 	)
 }

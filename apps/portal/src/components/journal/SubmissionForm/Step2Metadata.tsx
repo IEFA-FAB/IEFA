@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useSubmissionForm } from "./SubmissionForm"
 
 export function Step2Metadata() {
-	const { formData, updateFormData } = useSubmissionForm()
+	const { formData, updateFormData, fieldErrors } = useSubmissionForm()
 	const [keywordInputPT, setKeywordInputPT] = useState("")
 	const [keywordInputEN, setKeywordInputEN] = useState("")
 
@@ -33,7 +33,7 @@ export function Step2Metadata() {
 	return (
 		<div className="space-y-6">
 			{/* Portuguese Section */}
-			<div className="p-4 border rounded-lg space-y-4">
+			<div className="p-4 border space-y-4">
 				<h3 className="font-medium">Português</h3>
 
 				<div className="space-y-2">
@@ -46,6 +46,7 @@ export function Step2Metadata() {
 						onChange={(e) => updateFormData({ title_pt: e.target.value })}
 						placeholder="Título do artigo em português"
 					/>
+					{fieldErrors.title_pt && <p className="text-xs text-destructive">{fieldErrors.title_pt}</p>}
 				</div>
 
 				<div className="space-y-2">
@@ -59,6 +60,7 @@ export function Step2Metadata() {
 						placeholder="Resumo do artigo em português (máx. 500 palavras)"
 						rows={6}
 					/>
+					{fieldErrors.abstract_pt && <p className="text-xs text-destructive">{fieldErrors.abstract_pt}</p>}
 					<p className="text-xs text-muted-foreground">{(formData.abstract_pt || "").split(/\s+/).filter(Boolean).length} / 500 palavras</p>
 				</div>
 
@@ -85,7 +87,7 @@ export function Step2Metadata() {
 					</div>
 					<div className="flex flex-wrap gap-2 mt-2">
 						{(formData.keywords_pt || []).map((kw) => (
-							<span key={kw} className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+							<span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]">
 								{kw}
 								<button
 									type="button"
@@ -102,12 +104,13 @@ export function Step2Metadata() {
 							</span>
 						))}
 					</div>
+					{fieldErrors.keywords_pt && <p className="text-xs text-destructive">{fieldErrors.keywords_pt}</p>}
 					<p className="text-xs text-muted-foreground">{(formData.keywords_pt || []).length} / 6 palavras-chave (mínimo 3)</p>
 				</div>
 			</div>
 
 			{/* English Section */}
-			<div className="p-4 border rounded-lg space-y-4">
+			<div className="p-4 border space-y-4">
 				<h3 className="font-medium">English</h3>
 
 				<div className="space-y-2">
@@ -120,6 +123,7 @@ export function Step2Metadata() {
 						onChange={(e) => updateFormData({ title_en: e.target.value })}
 						placeholder="Article title in English"
 					/>
+					{fieldErrors.title_en && <p className="text-xs text-destructive">{fieldErrors.title_en}</p>}
 				</div>
 
 				<div className="space-y-2">
@@ -133,6 +137,7 @@ export function Step2Metadata() {
 						placeholder="Article abstract in English (max 500 words)"
 						rows={6}
 					/>
+					{fieldErrors.abstract_en && <p className="text-xs text-destructive">{fieldErrors.abstract_en}</p>}
 					<p className="text-xs text-muted-foreground">{(formData.abstract_en || "").split(/\s+/).filter(Boolean).length} / 500 words</p>
 				</div>
 
@@ -159,7 +164,7 @@ export function Step2Metadata() {
 					</div>
 					<div className="flex flex-wrap gap-2 mt-2">
 						{(formData.keywords_en || []).map((kw) => (
-							<span key={kw} className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+							<span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]">
 								{kw}
 								<button
 									type="button"
@@ -176,6 +181,7 @@ export function Step2Metadata() {
 							</span>
 						))}
 					</div>
+					{fieldErrors.keywords_en && <p className="text-xs text-destructive">{fieldErrors.keywords_en}</p>}
 					<p className="text-xs text-muted-foreground">{(formData.keywords_en || []).length} / 6 keywords (minimum 3)</p>
 				</div>
 			</div>
