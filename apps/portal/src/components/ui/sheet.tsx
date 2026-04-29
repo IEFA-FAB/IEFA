@@ -10,8 +10,8 @@ function Sheet({ ...props }: SheetPrimitive.Root.Props) {
 	return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
-function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
-	return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
+function SheetTrigger({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
+	return <SheetPrimitive.Trigger data-slot="sheet-trigger" className={cn("cursor-pointer", className)} {...props} />
 }
 
 function SheetClose({ ...props }: SheetPrimitive.Close.Props) {

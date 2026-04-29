@@ -1,14 +1,16 @@
 import { formatForDisplay } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
-import { Menu, OpenNewWindow, Search } from "iconoir-react"
+import { Book, Flask, InfoCircle, Map as MapIcon, Menu, NavArrowDown, OpenNewWindow, Page, PrivacyPolicy, Search, Wrench } from "iconoir-react"
 import { type ReactNode, useState } from "react"
 import { useCommandPalette } from "@/components/command-palette/CommandPaletteProvider"
 import { useTheme } from "@/hooks/useTheme"
 import { COMMAND_PALETTE_HOTKEY } from "@/lib/command-palette"
+import { cn } from "@/lib/utils"
 import { AnimatedThemeToggler } from "./animated-theme-toggler"
 import { UserMenu } from "./UserMenu"
 import { Button } from "./ui/button"
 import { Kbd } from "./ui/kbd"
+import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from "./ui/navigation-menu"
 import { Separator } from "./ui/separator"
 
 const FOOTER_EXTERNAL_LINKS = [
@@ -23,6 +25,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
 	const [mobileOpen, setMobileOpen] = useState(false)
+	const [mobileGroup, setMobileGroup] = useState<string | null>(null)
 	const { toggle } = useTheme()
 	const { openPalette } = useCommandPalette()
 	const shortcutLabel = formatForDisplay(COMMAND_PALETTE_HOTKEY)
@@ -30,8 +33,13 @@ export function AppLayout({ children }: AppLayoutProps) {
 	// Container: full em mobile/tablet; "wide" contido em desktop
 	const container = "w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px]"
 
-	const navLinkClass =
-		"inline-flex items-center text-sm font-medium transition-colors px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&.active]:bg-accent [&.active]:text-accent-foreground text-foreground hover:bg-accent hover:text-accent-foreground"
+	const mobileItemClass =
+		"px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&.active]:bg-accent [&.active]:text-foreground"
+
+	const closeMobile = () => {
+		setMobileOpen(false)
+		setMobileGroup(null)
+	}
 
 	return (
 		<div className="relative isolate flex flex-col bg-background text-foreground min-h-svh supports-[height:100dvh]:min-h-dvh">
@@ -58,19 +66,101 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 						<Separator orientation="vertical" className="h-6 hidden sm:block" />
 
-						<nav className="hidden md:flex items-center gap-1" aria-label="Navegação principal">
-							<Link to="/facilities" className={navLinkClass}>
-								Facilidades
-							</Link>
-							<Link to="/journal" className={navLinkClass}>
-								Publicações
-							</Link>
-							<Link to="/about" className={navLinkClass}>
-								Sobre
-							</Link>
-							<Link to="/roadmap" className={navLinkClass}>
-								Roadmap
-							</Link>
+						{/* Desktop: NavigationMenu com dropdowns */}
+						<nav className="hidden md:flex items-center" aria-label="Navegação principal">
+							<NavigationMenu>
+								<NavigationMenuList>
+									{/* Recursos */}
+									<NavigationMenuItem>
+										<NavigationMenuTrigger>Recursos</NavigationMenuTrigger>
+										<NavigationMenuContent className="min-w-[280px]">
+											<ul className="flex flex-col">
+												<li>
+													<NavigationMenuLink render={<Link to="/facilities" />}>
+														<Wrench className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Soluções</span>
+															<span className="text-xs text-muted-foreground leading-snug">Ferramentas e serviços para organizações militares</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+											</ul>
+										</NavigationMenuContent>
+									</NavigationMenuItem>
+
+									{/* Pesquisa */}
+									<NavigationMenuItem>
+										<NavigationMenuTrigger>Pesquisa</NavigationMenuTrigger>
+										<NavigationMenuContent className="min-w-[280px]">
+											<ul className="flex flex-col">
+												<li>
+													<NavigationMenuLink render={<Link to="/research" />}>
+														<Flask className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Pesquisa & Inovação</span>
+															<span className="text-xs text-muted-foreground leading-snug">Linhas de pesquisa, áreas temáticas e banco de temas</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+												<li className="border-t border-border">
+													<NavigationMenuLink render={<Link to="/journal" />}>
+														<Book className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Journal</span>
+															<span className="text-xs text-muted-foreground leading-snug">Revista científica do IEFA</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+												<li className="border-t border-border">
+													<NavigationMenuLink render={<Link to="/journal/articles" />}>
+														<Page className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Artigos</span>
+															<span className="text-xs text-muted-foreground leading-snug">Publicações acadêmicas revisadas por pares</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+												<li className="border-t border-border">
+													<NavigationMenuLink render={<Link to="/roadmap" />}>
+														<MapIcon className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Roadmap</span>
+															<span className="text-xs text-muted-foreground leading-snug">Planejamento e evolução do portal</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+											</ul>
+										</NavigationMenuContent>
+									</NavigationMenuItem>
+
+									{/* Institucional */}
+									<NavigationMenuItem>
+										<NavigationMenuTrigger>Institucional</NavigationMenuTrigger>
+										<NavigationMenuContent className="min-w-[280px]">
+											<ul className="flex flex-col">
+												<li>
+													<NavigationMenuLink render={<Link to="/about" />}>
+														<InfoCircle className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Sobre</span>
+															<span className="text-xs text-muted-foreground leading-snug">Conheça o Instituto de Economia, Finanças e Administração</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+												<li className="border-t border-border">
+													<NavigationMenuLink render={<Link to="/innovation-policy" />}>
+														<PrivacyPolicy className="size-5 text-muted-foreground shrink-0" aria-hidden="true" />
+														<div className="flex flex-col gap-0.5">
+															<span className="font-medium leading-none">Política de Inovação</span>
+															<span className="text-xs text-muted-foreground leading-snug">Diretrizes institucionais de inovação</span>
+														</div>
+													</NavigationMenuLink>
+												</li>
+											</ul>
+										</NavigationMenuContent>
+									</NavigationMenuItem>
+								</NavigationMenuList>
+							</NavigationMenu>
 						</nav>
 					</div>
 
@@ -107,38 +197,78 @@ export function AppLayout({ children }: AppLayoutProps) {
 					</div>
 				</div>
 
-				{/* Navegação mobile */}
+				{/* Navegação mobile — collapsible groups */}
 				{mobileOpen && (
 					<div id="mobile-nav" className="md:hidden border-t bg-background">
-						<div className={`${container} py-3 flex flex-col gap-1`}>
-							<Link
-								to="/facilities"
-								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
-								onClick={() => setMobileOpen(false)}
+						<div className={`${container} py-3 flex flex-col`}>
+							{/* Recursos */}
+							<button
+								type="button"
+								className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+								onClick={() => setMobileGroup((prev) => (prev === "recursos" ? null : "recursos"))}
+								aria-expanded={mobileGroup === "recursos"}
 							>
-								Facilidades
-							</Link>
-							<Link
-								to="/journal"
-								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
-								onClick={() => setMobileOpen(false)}
+								Recursos
+								<NavArrowDown className={cn("size-3.5 transition-transform duration-200", mobileGroup === "recursos" && "rotate-180")} aria-hidden="true" />
+							</button>
+							{mobileGroup === "recursos" && (
+								<div className="border-l border-border ml-3 flex flex-col">
+									<Link to="/facilities" className={mobileItemClass} onClick={closeMobile}>
+										Soluções
+									</Link>
+								</div>
+							)}
+
+							{/* Pesquisa */}
+							<button
+								type="button"
+								className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+								onClick={() => setMobileGroup((prev) => (prev === "pesquisa" ? null : "pesquisa"))}
+								aria-expanded={mobileGroup === "pesquisa"}
 							>
-								Publicações
-							</Link>
-							<Link
-								to="/about"
-								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
-								onClick={() => setMobileOpen(false)}
+								Pesquisa
+								<NavArrowDown className={cn("size-3.5 transition-transform duration-200", mobileGroup === "pesquisa" && "rotate-180")} aria-hidden="true" />
+							</button>
+							{mobileGroup === "pesquisa" && (
+								<div className="border-l border-border ml-3 flex flex-col">
+									<Link to="/research" className={mobileItemClass} onClick={closeMobile}>
+										Pesquisa & Inovação
+									</Link>
+									<Link to="/journal" className={mobileItemClass} onClick={closeMobile}>
+										Journal
+									</Link>
+									<Link to="/journal/articles" className={mobileItemClass} onClick={closeMobile}>
+										Artigos
+									</Link>
+									<Link to="/roadmap" className={mobileItemClass} onClick={closeMobile}>
+										Roadmap
+									</Link>
+								</div>
+							)}
+
+							{/* Institucional */}
+							<button
+								type="button"
+								className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+								onClick={() => setMobileGroup((prev) => (prev === "institucional" ? null : "institucional"))}
+								aria-expanded={mobileGroup === "institucional"}
 							>
-								Sobre o IEFA
-							</Link>
-							<Link
-								to="/roadmap"
-								className="w-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 hover:bg-accent hover:text-accent-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
-								onClick={() => setMobileOpen(false)}
-							>
-								Roadmap
-							</Link>
+								Institucional
+								<NavArrowDown
+									className={cn("size-3.5 transition-transform duration-200", mobileGroup === "institucional" && "rotate-180")}
+									aria-hidden="true"
+								/>
+							</button>
+							{mobileGroup === "institucional" && (
+								<div className="border-l border-border ml-3 flex flex-col">
+									<Link to="/about" className={mobileItemClass} onClick={closeMobile}>
+										Sobre
+									</Link>
+									<Link to="/innovation-policy" className={mobileItemClass} onClick={closeMobile}>
+										Política de Inovação
+									</Link>
+								</div>
+							)}
 						</div>
 					</div>
 				)}
@@ -172,17 +302,27 @@ export function AppLayout({ children }: AppLayoutProps) {
 							</li>
 							<li>
 								<Link to="/facilities" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-									Facilidades
+									Soluções
+								</Link>
+							</li>
+							<li>
+								<Link to="/research" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Pesquisa & Inovação
 								</Link>
 							</li>
 							<li>
 								<Link to="/journal" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-									Publicações
+									Journal
 								</Link>
 							</li>
 							<li>
 								<Link to="/about" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-									Sobre o IEFA
+									Sobre
+								</Link>
+							</li>
+							<li>
+								<Link to="/innovation-policy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+									Política de Inovação
 								</Link>
 							</li>
 							<li>

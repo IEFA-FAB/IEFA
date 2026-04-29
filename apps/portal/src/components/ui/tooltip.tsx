@@ -14,8 +14,8 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
 	)
 }
 
-function TooltipTrigger({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-	return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+function TooltipTrigger({ className, ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+	return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" className={cn("cursor-pointer", className)} {...props} />
 }
 
 function TooltipContent({

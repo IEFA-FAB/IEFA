@@ -20,7 +20,9 @@ import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
 import { Route as JournalProfileRouteImport } from './routes/journal/profile'
 import { Route as JournalAboutRouteImport } from './routes/journal/about'
 import { Route as PublicRoadmapRouteImport } from './routes/_public/roadmap'
+import { Route as PublicResearchRouteImport } from './routes/_public/research'
 import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
+import { Route as PublicInnovationPolicyRouteImport } from './routes/_public/innovation-policy'
 import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
 import { Route as PublicAboutRouteImport } from './routes/_public/about'
 import { Route as JournalEditorialRouteRouteImport } from './routes/journal/editorial/route'
@@ -96,9 +98,19 @@ const PublicRoadmapRoute = PublicRoadmapRouteImport.update({
   path: '/roadmap',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicResearchRoute = PublicResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
   id: '/overseerDashboard',
   path: '/overseerDashboard',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicInnovationPolicyRoute = PublicInnovationPolicyRouteImport.update({
+  id: '/innovation-policy',
+  path: '/innovation-policy',
   getParentRoute: () => PublicRouteRoute,
 } as any)
 const PublicChatRadaRoute = PublicChatRadaRouteImport.update({
@@ -217,7 +229,9 @@ export interface FileRoutesByFullPath {
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/about': typeof PublicAboutRoute
   '/chatRada': typeof PublicChatRadaRoute
+  '/innovation-policy': typeof PublicInnovationPolicyRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/research': typeof PublicResearchRoute
   '/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
@@ -247,7 +261,9 @@ export interface FileRoutesByTo {
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/about': typeof PublicAboutRoute
   '/chatRada': typeof PublicChatRadaRoute
+  '/innovation-policy': typeof PublicInnovationPolicyRoute
   '/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/research': typeof PublicResearchRoute
   '/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
@@ -282,7 +298,9 @@ export interface FileRoutesById {
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
   '/_public/about': typeof PublicAboutRoute
   '/_public/chatRada': typeof PublicChatRadaRoute
+  '/_public/innovation-policy': typeof PublicInnovationPolicyRoute
   '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
+  '/_public/research': typeof PublicResearchRoute
   '/_public/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
@@ -318,7 +336,9 @@ export interface FileRouteTypes {
     | '/journal/editorial'
     | '/about'
     | '/chatRada'
+    | '/innovation-policy'
     | '/overseerDashboard'
+    | '/research'
     | '/roadmap'
     | '/journal/about'
     | '/journal/profile'
@@ -348,7 +368,9 @@ export interface FileRouteTypes {
     | '/journal/editorial'
     | '/about'
     | '/chatRada'
+    | '/innovation-policy'
     | '/overseerDashboard'
+    | '/research'
     | '/roadmap'
     | '/journal/about'
     | '/journal/profile'
@@ -382,7 +404,9 @@ export interface FileRouteTypes {
     | '/journal/editorial'
     | '/_public/about'
     | '/_public/chatRada'
+    | '/_public/innovation-policy'
     | '/_public/overseerDashboard'
+    | '/_public/research'
     | '/_public/roadmap'
     | '/journal/about'
     | '/journal/profile'
@@ -495,11 +519,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRoadmapRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/research': {
+      id: '/_public/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof PublicResearchRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/overseerDashboard': {
       id: '/_public/overseerDashboard'
       path: '/overseerDashboard'
       fullPath: '/overseerDashboard'
       preLoaderRoute: typeof PublicOverseerDashboardRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/innovation-policy': {
+      id: '/_public/innovation-policy'
+      path: '/innovation-policy'
+      fullPath: '/innovation-policy'
+      preLoaderRoute: typeof PublicInnovationPolicyRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/chatRada': {
@@ -648,7 +686,9 @@ declare module '@tanstack/react-router' {
 interface PublicRouteRouteChildren {
   PublicAboutRoute: typeof PublicAboutRoute
   PublicChatRadaRoute: typeof PublicChatRadaRoute
+  PublicInnovationPolicyRoute: typeof PublicInnovationPolicyRoute
   PublicOverseerDashboardRoute: typeof PublicOverseerDashboardRoute
+  PublicResearchRoute: typeof PublicResearchRoute
   PublicRoadmapRoute: typeof PublicRoadmapRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicFacilitiesPregoeiroRoute: typeof PublicFacilitiesPregoeiroRoute
@@ -660,7 +700,9 @@ interface PublicRouteRouteChildren {
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicAboutRoute: PublicAboutRoute,
   PublicChatRadaRoute: PublicChatRadaRoute,
+  PublicInnovationPolicyRoute: PublicInnovationPolicyRoute,
   PublicOverseerDashboardRoute: PublicOverseerDashboardRoute,
+  PublicResearchRoute: PublicResearchRoute,
   PublicRoadmapRoute: PublicRoadmapRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicFacilitiesPregoeiroRoute: PublicFacilitiesPregoeiroRoute,
