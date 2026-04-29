@@ -75,24 +75,9 @@ function DataTableColumnHeader<TData, TValue>({
 	)
 }
 
-/**
- * Substitui placeholders no formato ${chave} ou {{chave}} por valores do contexto.
- * - Mantém placeholders desconhecidos intactos (não substitui).
- * - Ignora espaços dentro das chaves: ${ chave } ou {{ chave }} também funcionam.
- */
-function renderPlaceholders(inputText: string, context: TemplateContext) {
-	if (!inputText) return ""
-	const placeholderRegex = /\$\{\s*([a-zA-Z0-9_]+)\s*\}|\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g
-
-	return inputText.replace(placeholderRegex, (fullMatch: string, curlyKey?: string, mustacheKey?: string) => {
-		const keyName = (curlyKey ?? mustacheKey) as string
-		const value = context[keyName]
-		if (value === null || value === undefined) {
-			// Deixe o placeholder intacto se não houver valor no contexto
-			return fullMatch
-		}
-		return String(value)
-	})
+function renderPlaceholders(text: string, ctx: TemplateContext): string {
+	if (!text) return ""
+	return text.replaceAll("${OM}", ctx.OM).replaceAll("${date}", ctx.date).replaceAll("${hour}", ctx.hour).replaceAll("${hour_limit}", ctx.hour_limit)
 }
 
 /* ---------------------------------------------------------

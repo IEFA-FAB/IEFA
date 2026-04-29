@@ -100,4 +100,9 @@ export interface FacilidadesTableProps {
 	onEditRow?: (row: Facilidades_pregoeiro) => void
 }
 
-export type TemplateContext = Record<string, string | number | null | undefined>
+export type TemplateContext = {
+	OM: string
+	date: string
+	hour: string
+	hour_limit: string
+}

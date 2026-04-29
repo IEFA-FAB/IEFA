@@ -27,11 +27,7 @@ function getPortalClient() {
 export const getPreferencesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getDefaultClient()
-			.from("pregoeiro_preferences")
-			.select("*")
-			.eq("user_id", data.userId)
-			.maybeSingle()
+		const { data: result, error } = await getDefaultClient().from("pregoeiro_preferences").select("*").eq("user_id", data.userId).maybeSingle()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -42,12 +38,10 @@ export const insertPreferencesFn = createServerFn({ method: "POST" })
 			userId: z.string(),
 			env: z.record(z.unknown()),
 			is_open: z.boolean(),
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
-		const { error } = await getDefaultClient()
-			.from("pregoeiro_preferences")
-			.insert({ user_id: data.userId, env: data.env, is_open: data.is_open })
+		const { error } = await getDefaultClient().from("pregoeiro_preferences").insert({ user_id: data.userId, env: data.env, is_open: data.is_open })
 		if (error) throw new Error(error.message)
 	})
 
@@ -58,7 +52,7 @@ export const upsertPreferencesFn = createServerFn({ method: "POST" })
 			env: z.record(z.unknown()).optional(),
 			is_open: z.boolean().optional(),
 			table_settings: z.record(z.unknown()).optional(),
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
 		const payload: Record<string, unknown> = {
@@ -90,14 +84,10 @@ export const updateFacilityFn = createServerFn({ method: "POST" })
 			id: z.string(),
 			ownerId: z.string(),
 			payload: FacilityPayloadSchema,
-		}),
+		})
 	)
 	.handler(async ({ data }) => {
-		const { error } = await getPortalClient()
-			.from("facilities_pregoeiro")
-			.update(data.payload)
-			.eq("id", data.id)
-			.eq("owner_id", data.ownerId)
+		const { error } = await getPortalClient().from("facilities_pregoeiro").update(data.payload).eq("id", data.id).eq("owner_id", data.ownerId)
 		if (error) throw new Error(error.message)
 	})
 
@@ -117,7 +107,7 @@ export const getAppsFn = createServerFn({ method: "GET" })
 			.from("apps")
 			.select(
 				`title, description, to_path, href, icon_key, external, badges,
-				contributors:app_contributors!app_contributors_app_id_fkey(label, url, icon_key)`,
+				contributors:app_contributors!app_contributors_app_id_fkey(label, url, icon_key)`
 			)
 			.order("title", { ascending: true })
 			.limit(data.limit ?? 50)

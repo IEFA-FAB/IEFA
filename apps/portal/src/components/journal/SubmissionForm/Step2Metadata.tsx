@@ -87,7 +87,10 @@ export function Step2Metadata() {
 					</div>
 					<div className="flex flex-wrap gap-2 mt-2">
 						{(formData.keywords_pt || []).map((kw) => (
-							<span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]">
+							<span
+								key={kw}
+								className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]"
+							>
 								{kw}
 								<button
 									type="button"
@@ -164,7 +167,10 @@ export function Step2Metadata() {
 					</div>
 					<div className="flex flex-wrap gap-2 mt-2">
 						{(formData.keywords_en || []).map((kw) => (
-							<span key={kw} className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]">
+							<span
+								key={kw}
+								className="inline-flex items-center gap-1 px-2 py-0.5 border border-foreground bg-secondary text-foreground text-label uppercase tracking-[0.06em]"
+							>
 								{kw}
 								<button
 									type="button"

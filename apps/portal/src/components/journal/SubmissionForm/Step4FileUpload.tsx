@@ -19,22 +19,14 @@ export function Step4FileUpload() {
 
 	// Upload a file and persist the path via server function.
 	// Returns the storage path or throws.
-	const uploadAndSave = async (
-		file: File,
-		fileType: "manuscript" | "source" | "supplementary",
-		index?: number
-	): Promise<string> => {
+	const uploadAndSave = async (file: File, fileType: "manuscript" | "source" | "supplementary", index?: number): Promise<string> => {
 		if (!currentArticleId) throw new Error("Salve o rascunho antes de fazer o upload")
 		const path = await uploadArticleFile(currentArticleId, 1, file, fileType, index)
 		return path
 	}
 
 	// Persist current paths to DB after any file change
-	const persistPaths = async (overrides: {
-		pdfPath?: string
-		sourcePath?: string
-		supplementaryPaths?: string[]
-	}) => {
+	const persistPaths = async (overrides: { pdfPath?: string; sourcePath?: string; supplementaryPaths?: string[] }) => {
 		if (!currentArticleId) return
 		const pdfPath = overrides.pdfPath ?? formData.pdf_path
 		if (!pdfPath) return // Need at least a PDF to create the version record
@@ -139,9 +131,7 @@ export function Step4FileUpload() {
 
 			{!currentArticleId && (
 				<div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800">
-					<p className="text-sm text-yellow-800 dark:text-yellow-200">
-						Salve o rascunho (botão abaixo) antes de fazer o upload dos arquivos.
-					</p>
+					<p className="text-sm text-yellow-800 dark:text-yellow-200">Salve o rascunho (botão abaixo) antes de fazer o upload dos arquivos.</p>
 				</div>
 			)}
 

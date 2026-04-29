@@ -97,7 +97,7 @@ function usePregoeiroPreferences() {
 			setLoading(true)
 			try {
 				if (userId) {
-					const row = await getPreferencesFn({ data: { userId } }) as {
+					const row = (await getPreferencesFn({ data: { userId } })) as {
 						env?: Record<string, unknown>
 						is_open?: boolean
 					} | null
@@ -395,9 +395,7 @@ function Pregoeiro() {
 
 			{/* Toolbar principal */}
 			<div className="flex w-full max-w-5xl items-center justify-between gap-2 flex-wrap">
-				<div className="text-sm text-muted-foreground">
-					{loading ? <Skeleton className="h-4 w-44" /> : null}
-				</div>
+				<div className="text-sm text-muted-foreground">{loading ? <Skeleton className="h-4 w-44" /> : null}</div>
 				<div className="flex items-center gap-2">
 					<Button onClick={handleOpenCreate}>Nova frase</Button>
 				</div>

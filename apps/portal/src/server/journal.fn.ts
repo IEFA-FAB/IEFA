@@ -135,12 +135,7 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
 		const { articleId, userId, pdfPath, sourcePath, supplementaryPaths } = data
 
 		// Check if version 1 already exists
-		const { data: existing } = await supabase
-			.from("article_versions")
-			.select("id")
-			.eq("article_id", articleId)
-			.eq("version_number", 1)
-			.maybeSingle()
+		const { data: existing } = await supabase.from("article_versions").select("id").eq("article_id", articleId).eq("version_number", 1).maybeSingle()
 
 		if (existing) {
 			const { error } = await supabase

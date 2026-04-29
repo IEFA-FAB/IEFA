@@ -223,9 +223,7 @@ export function SubmissionForm({ userId, initialData = {}, articleId, step: curr
 										{step.title}
 									</span>
 								</div>
-								{index < STEPS.length - 1 && (
-									<div className={`h-px flex-1 mx-2 transition-colors ${currentStep > step.number ? "bg-primary" : "bg-border"}`} />
-								)}
+								{index < STEPS.length - 1 && <div className={`h-px flex-1 mx-2 transition-colors ${currentStep > step.number ? "bg-primary" : "bg-border"}`} />}
 							</div>
 						))}
 					</div>

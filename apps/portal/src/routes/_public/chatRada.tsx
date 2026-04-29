@@ -970,7 +970,7 @@ function ChatRada() {
 				<div className="shrink-0 border-t border-border px-4 py-3">
 					<div className="flex items-start gap-2 text-[11px] text-muted-foreground">
 						<WarningCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-						<span>{isLoggedIn ? "Conversas ficam salvas por 7 dias. Nova sessão para mudar de assunto." : "Entre para ativar o histórico permanente."}</span>
+						<span>{isLoggedIn ? "Conversas ficam salvas por 7 dias." : "Entre para ativar o histórico permanente."}</span>
 					</div>
 				</div>
 			</aside>
@@ -1011,17 +1011,6 @@ function ChatRada() {
 						<Button variant="ghost" size="sm" onClick={checkHealth} className="h-8 w-8 p-0" title="Atualizar status" aria-label="Atualizar status">
 							<Refresh className="h-4 w-4" />
 						</Button>
-
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={startNewSession}
-							className="h-8 px-2 gap-1.5 text-xs"
-							title={isLoggedIn ? "Nova sessão" : "Nova conversa"}
-						>
-							<Plus className="h-3.5 w-3.5" aria-hidden="true" />
-							<span className="hidden sm:inline">Nova sessão</span>
-						</Button>
 					</div>
 				</header>
 
@@ -1046,7 +1035,7 @@ function ChatRada() {
 									<p className="text-xs font-semibold text-amber-900 dark:text-amber-100 mb-1">Importante</p>
 									<p className="text-xs text-amber-800/80 dark:text-amber-200/70 leading-relaxed">
 										{isLoggedIn
-											? 'O histórico desta conversa é salvo automaticamente por 7 dias. Use "Nova sessão" para mudar de assunto.'
+											? 'O histórico desta conversa é salvo automaticamente por 7 dias. Use "Nova conversa" para mudar de assunto.'
 											: "Você não está logado. Faça login para ativar o histórico de conversas."}
 									</p>
 								</div>

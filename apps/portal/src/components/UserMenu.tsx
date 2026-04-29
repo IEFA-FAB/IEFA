@@ -55,38 +55,21 @@ export function UserMenu() {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
-					<Button
-						variant="ghost"
-						size="sm"
-						className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground gap-2 px-2"
-					>
+					<Button variant="ghost" size="sm" className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground gap-2 px-2">
 						{/* Iniciais em mono — único identificador visual */}
-						<span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-							{initials}
-						</span>
+						<span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{initials}</span>
 						{/* Primeiro nome — oculto em mobile */}
-						<span className="hidden sm:block text-[11px] font-medium uppercase tracking-[0.06em]">
-							{firstName}
-						</span>
+						<span className="hidden sm:block text-[11px] font-medium uppercase tracking-[0.06em]">{firstName}</span>
 					</Button>
 				}
 			/>
 
-			<DropdownMenuContent
-				className="ring-0 border border-foreground min-w-56 shadow-[3px_3px_0_0_var(--foreground)]"
-				side="bottom"
-				align="end"
-				sideOffset={6}
-			>
+			<DropdownMenuContent className="ring-0 border border-foreground min-w-56 shadow-[3px_3px_0_0_var(--foreground)]" side="bottom" align="end" sideOffset={6}>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel className="p-0 font-normal">
 						<div className="flex flex-col gap-1 px-2 py-2.5 border-b border-border">
-							<span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground leading-none">
-								{displayName}
-							</span>
-							<span className="font-mono text-[11px] leading-none text-muted-foreground">
-								{email}
-							</span>
+							<span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground leading-none">{displayName}</span>
+							<span className="font-mono text-[11px] leading-none text-muted-foreground">{email}</span>
 						</div>
 					</DropdownMenuLabel>
 				</DropdownMenuGroup>

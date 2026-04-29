@@ -93,9 +93,7 @@ export function Step6Review() {
 						<div className="text-destructive">✗ Manuscrito PDF não enviado</div>
 					)}
 					{formData.source_path && <div>✓ Arquivo Fonte: {formData.source_path.split("/").pop()}</div>}
-					{(formData.supplementary_paths?.length ?? 0) > 0 && (
-						<div>✓ {formData.supplementary_paths!.length} arquivo(s) suplementar(es)</div>
-					)}
+					{(formData.supplementary_paths?.length ?? 0) > 0 && <div>✓ {formData.supplementary_paths!.length} arquivo(s) suplementar(es)</div>}
 				</div>
 			</div>
 

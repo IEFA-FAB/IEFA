@@ -120,15 +120,16 @@ function RouteComponent() {
 				data_availability: draft.article.data_availability || undefined,
 				has_ethics_approval: !!draft.article.ethics_approval,
 				ethics_approval: draft.article.ethics_approval || undefined,
-				authors: draft.authors.length > 0
-					? draft.authors.map((a) => ({
-							full_name: a.full_name,
-							email: a.email || undefined,
-							affiliation: a.affiliation || undefined,
-							orcid: a.orcid || undefined,
-							is_corresponding: a.is_corresponding,
-						}))
-					: [defaultAuthor],
+				authors:
+					draft.authors.length > 0
+						? draft.authors.map((a) => ({
+								full_name: a.full_name,
+								email: a.email || undefined,
+								affiliation: a.affiliation || undefined,
+								orcid: a.orcid || undefined,
+								is_corresponding: a.is_corresponding,
+							}))
+						: [defaultAuthor],
 				// Restore file paths from the saved version record
 				pdf_path: draft.version?.pdf_path || undefined,
 				source_path: draft.version?.source_path || undefined,
@@ -156,7 +157,14 @@ function RouteComponent() {
 					<p className="text-sm text-muted-foreground mt-2">Fazendo upload de arquivos e criando registro</p>
 				</div>
 			) : (
-				<SubmissionForm userId={auth.user.id} initialData={initialData} articleId={draft?.article.id} step={step} onStepChange={handleStepChange} onSubmit={handleSubmit} />
+				<SubmissionForm
+					userId={auth.user.id}
+					initialData={initialData}
+					articleId={draft?.article.id}
+					step={step}
+					onStepChange={handleStepChange}
+					onSubmit={handleSubmit}
+				/>
 			)}
 		</div>
 	)

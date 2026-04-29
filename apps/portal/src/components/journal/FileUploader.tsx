@@ -180,9 +180,7 @@ export function FileUploader({
 						</div>
 					))}
 					{/* Allow re-upload after removing */}
-					<p className="text-xs text-muted-foreground">
-						Para substituir, remova o arquivo acima e selecione um novo.
-					</p>
+					<p className="text-xs text-muted-foreground">Para substituir, remova o arquivo acima e selecione um novo.</p>
 				</div>
 			)}
 

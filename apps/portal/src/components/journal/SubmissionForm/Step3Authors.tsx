@@ -28,9 +28,7 @@ export function Step3Authors() {
 
 	return (
 		<div className="space-y-3">
-			{authorError && (
-				<p className="text-xs text-destructive">{authorError}</p>
-			)}
+			{authorError && <p className="text-xs text-destructive">{authorError}</p>}
 			<AuthorManager authors={formData.authors || []} onChange={(authors) => updateFormData({ authors })} onAddAuthor={handleAddAuthor} />
 		</div>
 	)

@@ -52,18 +52,11 @@ export function NavUser() {
 				<DropdownMenu>
 					<DropdownMenuTrigger
 						render={
-							<SidebarMenuButton
-								size="default"
-								className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-2"
-							>
+							<SidebarMenuButton size="default" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-2">
 								{/* Iniciais — visíveis no estado colapsado (icon-only) */}
-								<span className="shrink-0 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-									{initials}
-								</span>
+								<span className="shrink-0 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{initials}</span>
 								{/* Primeiro nome — só aparece no estado expandido */}
-								<span className="flex-1 truncate text-[11px] font-medium uppercase tracking-[0.06em]">
-									{firstName}
-								</span>
+								<span className="flex-1 truncate text-[11px] font-medium uppercase tracking-[0.06em]">{firstName}</span>
 							</SidebarMenuButton>
 						}
 					/>
@@ -77,12 +70,8 @@ export function NavUser() {
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="p-0 font-normal">
 								<div className="flex flex-col gap-1 px-2 py-2.5 border-b border-border">
-									<span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground leading-none">
-										{displayName}
-									</span>
-									<span className="font-mono text-[11px] leading-none text-muted-foreground">
-										{email}
-									</span>
+									<span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground leading-none">{displayName}</span>
+									<span className="font-mono text-[11px] leading-none text-muted-foreground">{email}</span>
 								</div>
 							</DropdownMenuLabel>
 						</DropdownMenuGroup>

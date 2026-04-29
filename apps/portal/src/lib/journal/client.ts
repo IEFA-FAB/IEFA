@@ -242,20 +242,15 @@ export async function uploadArticleFile(
 	versionNumber: number,
 	file: File,
 	fileType: "manuscript" | "source" | "supplementary",
-	index?: number,
+	index?: number
 ): Promise<string> {
 	const fileExt = file.name.split(".").pop()
-	const fileName =
-		fileType === "supplementary" && index !== undefined
-			? `supplementary_${index}.${fileExt}`
-			: `${fileType}.${fileExt}`
+	const fileName = fileType === "supplementary" && index !== undefined ? `supplementary_${index}.${fileExt}` : `${fileType}.${fileExt}`
 	const filePath = `${articleId}/v${versionNumber}/${fileName}`
 
 	const { token } = await getSignedUploadUrlFn({ data: { filePath } })
 
-	const { data, error } = await supabase.storage
-		.from("journal-submissions")
-		.uploadToSignedUrl(filePath, token, file, { cacheControl: "3600", upsert: true })
+	const { data, error } = await supabase.storage.from("journal-submissions").uploadToSignedUrl(filePath, token, file, { cacheControl: "3600", upsert: true })
 
 	if (error) throw error
 	return data.path
@@ -274,4 +269,3 @@ export async function downloadArticleFile(bucket: string, path: string): Promise
 	if (!response.ok) throw new Error(`Download failed: ${response.statusText}`)
 	return response.blob()
 }
-
