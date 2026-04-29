@@ -510,7 +510,7 @@ function InnovationPolicy() {
 					</h2>
 
 					<a
-						href="/docs/Politica_inovacao.md"
+						href="/docs/Política_Inovação_IEFA.pdf"
 						target="_blank"
 						rel="noreferrer noopener"
 						className="group flex items-center gap-4 border border-border bg-card p-5 transition-colors hover:bg-accent hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
