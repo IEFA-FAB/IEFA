@@ -2,15 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { LogOut } from "iconoir-react"
 import { useAuth } from "@/hooks/useAuth"
 import { Button } from "./ui/button"
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "./ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
 function getInitials(nameOrEmail?: string) {
 	if (!nameOrEmail) return "US"

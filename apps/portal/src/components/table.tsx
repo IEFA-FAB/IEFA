@@ -77,7 +77,11 @@ function DataTableColumnHeader<TData, TValue>({
 
 function renderPlaceholders(text: string, ctx: TemplateContext): string {
 	if (!text) return ""
-	return text.replaceAll("${OM}", ctx.OM).replaceAll("${date}", ctx.date).replaceAll("${hour}", ctx.hour).replaceAll("${hour_limit}", ctx.hour_limit)
+	return text
+		.replace(/\$\{OM\}/g, ctx.OM)
+		.replace(/\$\{date\}/g, ctx.date)
+		.replace(/\$\{hour\}/g, ctx.hour)
+		.replace(/\$\{hour_limit\}/g, ctx.hour_limit)
 }
 
 /* ---------------------------------------------------------
@@ -240,7 +244,7 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 	const [pageSize, setPageSize] = useState<number>(50)
 
-	const { data: baseData = [], isLoading, error } = useFacilitiesPregoeiroQuery()
+	const { data: baseData = [], error } = useFacilitiesPregoeiroQuery()
 
 	// Carrega e persiste configurações da tabela
 	const { settings, saveSettings, loading: settingsLoading } = useTableSettings(currentUserId)

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Book, Box, Calendar, Check, Clock, Code, Cpu, GitBranch, Globe, Map, NavArrowDown, OpenNewWindow, Server } from "iconoir-react"
+import { Book, Box, Calendar, Check, Clock, Code, Cpu, GitBranch, Globe, Map as MapIcon, NavArrowDown, OpenNewWindow, Server } from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
@@ -615,7 +615,7 @@ const STEP_STATUS_CONFIG: Record<StepStatus, { label: string; icon: React.Elemen
 	},
 	vision: {
 		label: "Visão",
-		icon: Map,
+		icon: MapIcon,
 		className: "text-muted-foreground/30",
 	},
 }
@@ -638,7 +638,7 @@ const PHASE_STATUS_CONFIG: Record<PhaseStatus, { label: string; icon: React.Elem
 	},
 	vision: {
 		label: "Visão",
-		icon: Map,
+		icon: MapIcon,
 		className: "text-muted-foreground/30",
 	},
 }

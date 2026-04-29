@@ -74,7 +74,7 @@ function RouteComponent() {
 								<Button
 									nativeButton={false}
 									render={
-										<Link to="/journal/submit" aria-label="Submeter novo artigo">
+										<Link to="/journal/submit" search={{ step: 1 }} aria-label="Submeter novo artigo">
 											Submeter Artigo
 										</Link>
 									}
@@ -143,7 +143,7 @@ function RouteComponent() {
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
 						{isAuthenticated && (
-							<Link to="/journal/submit" className="group">
+							<Link to="/journal/submit" search={{ step: 1 }} className="group">
 								<div className="p-6 border border-border hover:bg-accent hover:border-foreground/20 transition-colors bg-card h-full flex flex-col">
 									<div className="size-10 border border-border bg-muted flex items-center justify-center mb-4 shrink-0">
 										<Upload className="size-5 text-foreground" aria-hidden="true" />

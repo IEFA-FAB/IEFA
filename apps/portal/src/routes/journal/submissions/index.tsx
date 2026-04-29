@@ -90,7 +90,7 @@ function RouteComponent() {
 					<h1 className="text-3xl font-bold tracking-tight">Minhas Submissões</h1>
 					<p className="mt-2 text-muted-foreground">Acompanhe o status de todos os seus artigos submetidos</p>
 				</div>
-				<Link to="/journal/submit">
+				<Link to="/journal/submit" search={{ step: 1 }}>
 					<Button>
 						<Plus className="size-4 mr-2" />
 						Nova Submissão
@@ -120,7 +120,7 @@ function RouteComponent() {
 					<p className="text-muted-foreground mb-4">
 						{searchQuery || statusFilter !== "all" ? "Nenhum artigo encontrado com os filtros selecionados" : "Você ainda não possui submissões"}
 					</p>
-					<Link to="/journal/submit">
+					<Link to="/journal/submit" search={{ step: 1 }}>
 						<Button>
 							<Plus className="size-4 mr-2" />
 							Criar Nova Submissão

@@ -88,10 +88,11 @@ export function Step4FileUpload() {
 		try {
 			// Upload only newly added files (those without a path yet)
 			// Existing paths are preserved as-is
+			if (!currentArticleId) throw new Error("Salve o rascunho antes de fazer o upload")
 			const existingPaths = formData.supplementary_paths ?? []
 			const newPaths: string[] = []
 			for (let i = 0; i < fileList.length; i++) {
-				const path = await uploadArticleFile(currentArticleId!, 1, fileList[i], "supplementary", existingPaths.length + i)
+				const path = await uploadArticleFile(currentArticleId, 1, fileList[i], "supplementary", existingPaths.length + i)
 				newPaths.push(path)
 			}
 			const allPaths = [...existingPaths, ...newPaths]

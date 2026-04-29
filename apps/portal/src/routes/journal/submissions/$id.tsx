@@ -64,7 +64,7 @@ function RouteComponent() {
 
 				{canEdit && (
 					<div className="mt-4">
-						<Link to="/journal/submit" search={{ articleId: articleData.id }}>
+						<Link to="/journal/submit" search={{ step: 1 }}>
 							<Button variant="outline">
 								<EditPencil className="size-4 mr-2" />
 								Editar Submissão

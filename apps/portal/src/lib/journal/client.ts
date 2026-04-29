@@ -2,6 +2,7 @@
 // Todas as queries executam no servidor. Este módulo preserva a API original
 // para que hooks.ts e submission.ts requeiram mudanças mínimas.
 
+import { supabase } from "@/lib/supabase"
 import {
 	acceptReviewInvitationFn,
 	createArticleAuthorsFn,
@@ -18,9 +19,9 @@ import {
 	getArticleAuthorsFn,
 	getArticleFn,
 	getArticleReviewsFn,
+	getArticlesFn,
 	getArticleVersionsFn,
 	getArticleWithDetailsFn,
-	getArticlesFn,
 	getEditorialDashboardFn,
 	getJournalSettingsFn,
 	getLatestArticleVersionFn,
@@ -43,7 +44,6 @@ import {
 	upsertUserProfileFn,
 } from "@/server/journal-data.fn"
 import { getSignedDownloadUrlFn, getSignedUploadUrlFn } from "@/server/journal-storage.fn"
-import { supabase } from "@/lib/supabase"
 import type {
 	Article,
 	ArticleAuthor,
@@ -90,8 +90,8 @@ export async function getArticleWithDetails(articleId: string) {
 	return getArticleWithDetailsFn({ data: { articleId } })
 }
 
-export async function getUserActiveDraft(userId: string): Promise<{ article: Article; authors: ArticleAuthor[] } | null> {
-	return (await getUserActiveDraftFn({ data: { userId } })) as { article: Article; authors: ArticleAuthor[] } | null
+export async function getUserActiveDraft(userId: string): Promise<{ article: Article; authors: ArticleAuthor[]; version: ArticleVersion | null } | null> {
+	return (await getUserActiveDraftFn({ data: { userId } })) as { article: Article; authors: ArticleAuthor[]; version: ArticleVersion | null } | null
 }
 
 export async function createArticle(article: Partial<Article>): Promise<Article> {
@@ -107,7 +107,7 @@ export async function deleteArticle(articleId: string): Promise<Article> {
 }
 
 export async function createSubmission(data: CreateSubmissionInput): Promise<Article> {
-	return (await createSubmissionFn({ data: data as Record<string, unknown> })) as Article
+	return (await createSubmissionFn({ data: data as unknown as Record<string, unknown> })) as Article
 }
 
 // ─── Article Authors ──────────────────────────────────────────────────────────

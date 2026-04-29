@@ -9,7 +9,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
-const looseRecord = z.record(z.unknown())
+const looseRecord = z.record(z.string(), z.unknown())
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
@@ -110,7 +110,14 @@ export const getUserActiveDraftFn = createServerFn({ method: "GET" })
 			.eq("article_id", article.id)
 			.order("author_order", { ascending: true })
 		if (authorsError) throw new Error(authorsError.message)
-		return { article, authors: authors ?? [] }
+		const { data: version } = await db
+			.from("article_versions")
+			.select("*")
+			.eq("article_id", article.id)
+			.order("version_number", { ascending: false })
+			.limit(1)
+			.maybeSingle()
+		return { article, authors: authors ?? [], version: version ?? null }
 	})
 
 export const createArticleFn = createServerFn({ method: "POST" })

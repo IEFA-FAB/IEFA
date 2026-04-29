@@ -13,8 +13,8 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase"
 import { getPreferencesFn, insertFacilityFn, insertPreferencesFn, updateFacilityFn, upsertPreferencesFn } from "@/server/pregoeiro.fn"
 import type { FacilidadesTableProps } from "@/types/domain"
@@ -30,7 +30,7 @@ type Facility = {
 	title: string
 	content: string
 	tags: string[] | null
-	owner_id?: string | null
+	owner_id: string | null
 	default?: boolean | null
 }
 
@@ -108,7 +108,7 @@ function usePregoeiroPreferences() {
 						setPrefs({ env, is_open })
 					} else {
 						await insertPreferencesFn({
-							data: { userId, env: DEFAULT_PREFS.env as Record<string, unknown>, is_open: DEFAULT_PREFS.is_open },
+							data: { userId, env: DEFAULT_PREFS.env as unknown as Record<string, unknown>, is_open: DEFAULT_PREFS.is_open },
 						})
 						setPrefs(DEFAULT_PREFS)
 					}
@@ -146,7 +146,7 @@ function usePregoeiroPreferences() {
 			try {
 				if (userId) {
 					await upsertPreferencesFn({
-						data: { userId, env: next.env as Record<string, unknown>, is_open: next.is_open },
+						data: { userId, env: next.env as unknown as Record<string, unknown>, is_open: next.is_open },
 					})
 				} else if (typeof window !== "undefined") {
 					localStorage.setItem(LS_KEY, JSON.stringify(next))
@@ -298,7 +298,7 @@ function PhraseModal({ open, onOpenChange, initial, currentUserId, onSaved }: Ph
 				title: title.trim(),
 				content: content.trim(),
 				tags: parseTags(tagsText),
-				owner_id: currentUserId,
+				owner_id: currentUserId ?? null,
 				default: false,
 			}
 

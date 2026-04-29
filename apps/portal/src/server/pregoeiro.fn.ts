@@ -4,10 +4,10 @@
  * facilities_pregoeiro (schema iefa).
  */
 
+import { createClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { envServer } from "@/lib/env.server"
-import { createClient } from "@supabase/supabase-js"
 
 function getDefaultClient() {
 	return createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
@@ -36,7 +36,7 @@ export const insertPreferencesFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
 			userId: z.string(),
-			env: z.record(z.unknown()),
+			env: z.record(z.string(), z.unknown()),
 			is_open: z.boolean(),
 		})
 	)
@@ -49,9 +49,9 @@ export const upsertPreferencesFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
 			userId: z.string(),
-			env: z.record(z.unknown()).optional(),
+			env: z.record(z.string(), z.unknown()).optional(),
 			is_open: z.boolean().optional(),
-			table_settings: z.record(z.unknown()).optional(),
+			table_settings: z.record(z.string(), z.unknown()).optional(),
 		})
 	)
 	.handler(async ({ data }) => {

@@ -34,7 +34,9 @@ export const getRouter = () => {
 
 	setupRouterSsrQueryIntegration({
 		router,
-		queryClient: rqContext.queryClient,
+		// Cast through unknown: tsgo resolves @tanstack/query-core from two paths due to
+		// Bun workspace hoisting; both resolve to the same runtime package (5.100.x).
+		queryClient: rqContext.queryClient as unknown as Parameters<typeof setupRouterSsrQueryIntegration>[0]["queryClient"],
 	})
 
 	// Auth state change listener — browser only.

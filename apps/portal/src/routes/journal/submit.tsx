@@ -4,8 +4,8 @@ import { Refresh } from "iconoir-react"
 import { useState } from "react"
 import { z } from "zod"
 import { authQueryOptions } from "@/auth/service"
-import { SubmissionForm } from "@/components/journal/SubmissionForm/SubmissionForm"
 import type { SubmissionFormData } from "@/components/journal/SubmissionForm/SubmissionForm"
+import { SubmissionForm } from "@/components/journal/SubmissionForm/SubmissionForm"
 import { userActiveDraftQueryOptions, userProfileQueryOptions } from "@/lib/journal/hooks"
 import { submitArticleFn } from "@/server/journal.fn"
 
@@ -54,7 +54,7 @@ function RouteComponent() {
 	const [error, setError] = useState<string | null>(null)
 
 	const handleStepChange = (next: number) => {
-		navigate({ search: (prev) => ({ ...prev, step: next }), replace: false })
+		navigate({ to: "/journal/submit", search: { step: next } })
 	}
 
 	const { data: profile } = useSuspenseQuery(userProfileQueryOptions(auth.user.id))
@@ -64,21 +64,39 @@ function RouteComponent() {
 		setIsSubmitting(true)
 		setError(null)
 
+		const { article_type, subject_area, title_pt, title_en, abstract_pt, abstract_en, keywords_pt, keywords_en, authors, conflict_of_interest } = formData
+		if (
+			!article_type ||
+			!subject_area ||
+			!title_pt ||
+			!title_en ||
+			!abstract_pt ||
+			!abstract_en ||
+			!keywords_pt ||
+			!keywords_en ||
+			!authors ||
+			!conflict_of_interest
+		) {
+			setError("Preencha todos os campos obrigatórios antes de submeter")
+			setIsSubmitting(false)
+			return
+		}
+
 		try {
 			const result = await submitArticleFn({
 				data: {
 					articleId,
 					userId: auth.user.id,
-					article_type: formData.article_type!,
-					subject_area: formData.subject_area!,
-					title_pt: formData.title_pt!,
-					title_en: formData.title_en!,
-					abstract_pt: formData.abstract_pt!,
-					abstract_en: formData.abstract_en!,
-					keywords_pt: formData.keywords_pt!,
-					keywords_en: formData.keywords_en!,
-					authors: formData.authors!,
-					conflict_of_interest: formData.conflict_of_interest!,
+					article_type,
+					subject_area,
+					title_pt,
+					title_en,
+					abstract_pt,
+					abstract_en,
+					keywords_pt,
+					keywords_en,
+					authors,
+					conflict_of_interest,
 					funding_info: formData.funding_info,
 					data_availability: formData.data_availability,
 					has_ethics_approval: formData.has_ethics_approval ?? false,
