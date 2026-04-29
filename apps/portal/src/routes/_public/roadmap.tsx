@@ -778,11 +778,10 @@ function Roadmap() {
 													{/* Steps */}
 													<ol className="flex flex-col" aria-label={`Passos da fase ${phase.number}: ${phase.title}`}>
 														{phase.steps.map((step) => {
-															const { icon: StepIcon, className: stepClassName } = STEP_STATUS_CONFIG[step.status]
-															const isStepFuture = step.status === "planned" || step.status === "vision"
+															const { icon: StepIcon, className: stepClassName, label: stepLabel } = STEP_STATUS_CONFIG[step.status]
 
 															return (
-																<li key={step.number} className={`flex gap-5 md:gap-6 border-t border-border py-5 ${isStepFuture ? "opacity-60" : ""}`}>
+																<li key={step.number} className="flex gap-5 md:gap-6 border-t border-border py-5">
 																	{/* Step number */}
 																	<span className="font-mono text-[10px] text-muted-foreground/40 tabular-nums shrink-0 w-7 pt-1 leading-none">
 																		{step.number}
@@ -793,16 +792,18 @@ function Roadmap() {
 																		<StepIcon className={`h-4 w-4 ${stepClassName}`} aria-hidden="true" />
 																	</div>
 
-																	{/* Date */}
-																	<div className="shrink-0 w-20 pt-0.5">
-																		{step.date && <time className="text-label text-muted-foreground">{step.date}</time>}
+																	{/* Date or status label */}
+																	<div className="shrink-0 w-28 pt-0.5">
+																		{step.date ? (
+																			<time className="text-label text-muted-foreground">{step.date}</time>
+																		) : (
+																			<span className={`text-label ${stepClassName}`}>{stepLabel}</span>
+																		)}
 																	</div>
 
 																	{/* Content */}
 																	<div className="flex flex-col gap-1.5 flex-1 min-w-0">
-																		<div className="flex flex-wrap items-center gap-3">
-																			<h5 className="font-semibold text-base">{step.label}</h5>
-																		</div>
+																		<h5 className="font-semibold text-base">{step.label}</h5>
 																		<p className="text-sm text-muted-foreground text-pretty leading-relaxed">{step.description}</p>
 																	</div>
 																</li>

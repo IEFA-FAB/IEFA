@@ -32,7 +32,9 @@ export function Step1ArticleType() {
 				</Label>
 				<Select value={formData.article_type ?? undefined} onValueChange={(value) => updateFormData({ article_type: value ?? undefined })}>
 					<SelectTrigger id="article_type">
-						<SelectValue placeholder="Selecione o tipo de artigo" />
+						<SelectValue placeholder="Selecione o tipo de artigo">
+							{formData.article_type && (ARTICLE_TYPES.find((t) => t.value === formData.article_type)?.label ?? formData.article_type)}
+						</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
 						{ARTICLE_TYPES.map((type) => (
@@ -51,7 +53,7 @@ export function Step1ArticleType() {
 				</Label>
 				<Select value={formData.subject_area ?? undefined} onValueChange={(value) => updateFormData({ subject_area: value ?? undefined })}>
 					<SelectTrigger id="subject_area">
-						<SelectValue placeholder="Selecione a área de conhecimento" />
+						<SelectValue placeholder="Selecione a área de conhecimento">{formData.subject_area || undefined}</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
 						{SUBJECT_AREAS.map((area) => (
