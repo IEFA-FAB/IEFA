@@ -19,6 +19,7 @@ COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
 COPY packages/alpha-client/package.json ./packages/alpha-client/
 COPY packages/pbac/package.json ./packages/pbac/
+COPY packages/sisub-domain/package.json ./packages/sisub-domain/
 RUN bun install
 
 # =============================================================================
@@ -79,6 +80,7 @@ COPY packages/database ./packages/database
 COPY packages/hono-client ./packages/hono-client
 COPY packages/alpha-client ./packages/alpha-client
 COPY packages/pbac ./packages/pbac
+COPY packages/sisub-domain ./packages/sisub-domain
 COPY apps/sisub ./apps/sisub
 
 # Clear any local cache
