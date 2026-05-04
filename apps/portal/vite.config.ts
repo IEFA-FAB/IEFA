@@ -21,7 +21,6 @@ export default defineConfig(() => ({
 			routeRules: {
 				"/**": { headers: { "cache-control": "no-cache" } },
 				"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-				"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
 				"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 			},
 		}),
@@ -63,15 +62,5 @@ export default defineConfig(() => ({
 		target: "esnext" as const,
 		minify: "oxc" as const,
 		sourcemap: false,
-		// cssCodeSplit: false evita FOUC — sem isso o CSS é injetado por chunk de rota.
-		cssCodeSplit: false,
-		rollupOptions: {
-			output: {
-				// Nome fixo (sem hash) para o CSS principal — previne mismatch de hash entre
-				// o build SSR e o build client: Tailwind gera output diferente em cada pass.
-				// Cache-busting feito server-side via Cache-Control: no-cache em /assets/styles.css.
-				assetFileNames: (asset) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
-			},
-		},
 	},
 }))
