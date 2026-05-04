@@ -277,8 +277,8 @@ jobs:
           targets: portal
           push: true
           set: |
-            portal.tags=registry.fly.io/portal:${{ steps.meta.outputs.tag }}
-            portal.tags=registry.fly.io/portal:latest
+            portal.tags=registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
+            portal.tags=registry.fly.io/iefa:latest
             portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
             portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
@@ -297,7 +297,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           IMAGE_TAG: ${{ needs.build-portal.outputs.tag }}
-        run: flyctl deploy -c fly/portal.toml --image "registry.fly.io/portal:$IMAGE_TAG" --wait-timeout 300
+        run: flyctl deploy -c fly/portal.toml --image "registry.fly.io/iefa:$IMAGE_TAG" --wait-timeout 300
 
       - name: Smoke test
         env:

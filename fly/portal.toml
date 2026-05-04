@@ -1,4 +1,4 @@
-app = "portal"
+app = "iefa"
 primary_region = "gru"
 
 [build]
