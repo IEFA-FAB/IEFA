@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/useAuth"
 import { addViewerFn, getQuestionnaireFn, getResponsesFn, getViewersFn, removeViewerFn } from "@/server/forms.fn"
 
@@ -46,7 +47,9 @@ function ResponsesPage() {
 	const { data: responses } = useSuspenseQuery(responsesQueryOptions(questionnaireId))
 	const { data: viewers } = useSuspenseQuery(viewersQueryOptions(questionnaireId))
 
-	const allQuestions = (questionnaire.section ?? []).flatMap((s: { question?: { id: string; text: string }[] }) => s.question ?? [])
+	const allQuestions = (questionnaire.section ?? []).flatMap(
+		(s: { question?: { id: string; text: string; type: string; options?: string[] | null }[] }) => s.question ?? []
+	)
 	const isCreator = questionnaire.created_by === user?.id
 
 	return (
@@ -65,57 +68,211 @@ function ResponsesPage() {
 
 			{isCreator && <ViewerManager questionnaireId={questionnaireId} viewers={viewers ?? []} />}
 
-			{!responses || responses.length === 0 ? (
-				<Card>
-					<CardContent className="py-12 text-center">
-						<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
-					</CardContent>
-				</Card>
-			) : (
-				<div className="space-y-6">
-					{responses.map((qr, idx) => (
-						<Card key={qr.id}>
-							<CardHeader className="pb-3">
-								<div className="flex items-center justify-between">
-									<CardTitle className="text-base">Resposta #{idx + 1}</CardTitle>
-									<div className="flex items-center gap-2">
-										<Badge variant="secondary">{qr.respondent_id.slice(0, 8)}</Badge>
-										{qr.submitted_at && <span className="text-xs text-muted-foreground">{format(new Date(qr.submitted_at), "dd/MM/yyyy HH:mm")}</span>}
-									</div>
-								</div>
-							</CardHeader>
-							<CardContent>
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Pergunta</TableHead>
-											<TableHead>Resposta</TableHead>
-											<TableHead>Observação</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{allQuestions.map((q: { id: string; text: string }) => {
-											const answer = (qr.response ?? []).find((r: { question_id: string }) => r.question_id === q.id) as
-												| { value: unknown; observation: string | null }
-												| undefined
-											return (
-												<TableRow key={q.id}>
-													<TableCell className="font-medium">{q.text}</TableCell>
-													<TableCell>{answer ? formatValue(answer.value) : <span className="text-muted-foreground">—</span>}</TableCell>
-													<TableCell className="text-sm text-muted-foreground">{answer?.observation || "—"}</TableCell>
-												</TableRow>
-											)
-										})}
-									</TableBody>
-								</Table>
+			<Tabs defaultValue="summary">
+				<TabsList>
+					<TabsTrigger value="summary">Resumo</TabsTrigger>
+					<TabsTrigger value="individual">Individual</TabsTrigger>
+				</TabsList>
+
+				<TabsContent value="summary">
+					{!responses || responses.length === 0 ? (
+						<Card>
+							<CardContent className="py-12 text-center">
+								<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
 							</CardContent>
 						</Card>
-					))}
-				</div>
-			)}
+					) : (
+						<div className="space-y-4">
+							{buildSummaries(allQuestions, responses).map((s) => (
+								<QuestionSummaryCard key={s.id} summary={s} totalResponses={responses.length} />
+							))}
+						</div>
+					)}
+				</TabsContent>
+
+				<TabsContent value="individual">
+					{!responses || responses.length === 0 ? (
+						<Card>
+							<CardContent className="py-12 text-center">
+								<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
+							</CardContent>
+						</Card>
+					) : (
+						<div className="space-y-6">
+							{responses.map((qr, idx) => (
+								<Card key={qr.id}>
+									<CardHeader className="pb-3">
+										<div className="flex items-center justify-between">
+											<CardTitle className="text-base">Resposta #{idx + 1}</CardTitle>
+											<div className="flex items-center gap-2">
+												<Badge variant="secondary">{qr.respondent_id.slice(0, 8)}</Badge>
+												{qr.submitted_at && <span className="text-xs text-muted-foreground">{format(new Date(qr.submitted_at), "dd/MM/yyyy HH:mm")}</span>}
+											</div>
+										</div>
+									</CardHeader>
+									<CardContent>
+										<Table>
+											<TableHeader>
+												<TableRow>
+													<TableHead>Pergunta</TableHead>
+													<TableHead>Resposta</TableHead>
+													<TableHead>Observação</TableHead>
+												</TableRow>
+											</TableHeader>
+											<TableBody>
+												{allQuestions.map((q: { id: string; text: string }) => {
+													const answer = (qr.response ?? []).find((r: { question_id: string }) => r.question_id === q.id) as
+														| { value: unknown; observation: string | null }
+														| undefined
+													return (
+														<TableRow key={q.id}>
+															<TableCell className="font-medium">{q.text}</TableCell>
+															<TableCell>{answer ? formatValue(answer.value) : <span className="text-muted-foreground">—</span>}</TableCell>
+															<TableCell className="text-sm text-muted-foreground">{answer?.observation || "—"}</TableCell>
+														</TableRow>
+													)
+												})}
+											</TableBody>
+										</Table>
+									</CardContent>
+								</Card>
+							))}
+						</div>
+					)}
+				</TabsContent>
+			</Tabs>
 		</div>
 	)
 }
+
+// ── Summary helpers ───────────────────────────────────────────────────────────
+
+type Question = { id: string; text: string; type: string; options?: string[] | null }
+type ResponseRow = {
+	id: string
+	respondent_id: string
+	submitted_at: string | null
+	response: Array<{ question_id: string; value: unknown; observation: string | null }> | null
+}
+
+function buildSummaries(questions: Question[], responses: ResponseRow[]) {
+	return questions.map((q) => {
+		const answers = responses
+			.flatMap((r) => r.response ?? [])
+			.filter((a) => a.question_id === q.id && a.value != null && a.value !== "")
+			.map((a) => a.value)
+		return { ...q, answers }
+	})
+}
+
+type Summary = ReturnType<typeof buildSummaries>[number]
+
+function QuestionSummaryCard({ summary, totalResponses }: { summary: Summary; totalResponses: number }) {
+	const { text, type, options, answers } = summary
+
+	let content: React.ReactNode
+
+	if (type === "boolean") {
+		const simCount = answers.filter((v) => v === true).length
+		const naoCount = answers.filter((v) => v === false).length
+		content = (
+			<div className="space-y-2">
+				<BarRow label="Sim" count={simCount} total={totalResponses} />
+				<BarRow label="Não" count={naoCount} total={totalResponses} />
+			</div>
+		)
+	} else if (type === "single_choice") {
+		const opts = Array.isArray(options) ? (options as string[]) : []
+		content = (
+			<div className="space-y-2">
+				{opts.map((opt) => (
+					<BarRow key={opt} label={opt} count={answers.filter((v) => v === opt).length} total={totalResponses} />
+				))}
+			</div>
+		)
+	} else if (type === "multiple_choice") {
+		const opts = Array.isArray(options) ? (options as string[]) : []
+		const flat = answers.flatMap((v) => (Array.isArray(v) ? (v as string[]) : [String(v)]))
+		content = (
+			<div className="space-y-2">
+				{opts.map((opt) => (
+					<BarRow key={opt} label={opt} count={flat.filter((v) => v === opt).length} total={totalResponses} />
+				))}
+			</div>
+		)
+	} else if (type === "scale" || type === "number") {
+		const nums = answers.map((v) => Number(v)).filter((n) => !Number.isNaN(n))
+		if (nums.length === 0) {
+			content = <p className="text-sm text-muted-foreground">Sem respostas numéricas.</p>
+		} else {
+			const avg = nums.reduce((a, b) => a + b, 0) / nums.length
+			const min = Math.min(...nums)
+			const max = Math.max(...nums)
+			content = (
+				<div className="flex gap-8 text-sm">
+					<div>
+						<p className="text-muted-foreground text-xs mb-0.5">Média</p>
+						<p className="text-2xl font-semibold tabular-nums">{avg.toFixed(1)}</p>
+					</div>
+					<div>
+						<p className="text-muted-foreground text-xs mb-0.5">Mín</p>
+						<p className="text-2xl font-semibold tabular-nums">{min}</p>
+					</div>
+					<div>
+						<p className="text-muted-foreground text-xs mb-0.5">Máx</p>
+						<p className="text-2xl font-semibold tabular-nums">{max}</p>
+					</div>
+				</div>
+			)
+		}
+	} else {
+		content =
+			answers.length === 0 ? (
+				<p className="text-sm text-muted-foreground">Sem respostas.</p>
+			) : (
+				<ul className="space-y-1.5">
+					{answers.map((v, i) => (
+						<li key={i} className="text-sm border-l-2 border-muted pl-3 py-0.5 text-foreground">
+							{String(v)}
+						</li>
+					))}
+				</ul>
+			)
+	}
+
+	return (
+		<Card>
+			<CardHeader className="pb-2">
+				<div className="flex items-start justify-between gap-3">
+					<CardTitle className="text-base font-medium leading-snug">{text}</CardTitle>
+					<Badge variant="secondary" className="shrink-0 tabular-nums">
+						{answers.length}/{totalResponses}
+					</Badge>
+				</div>
+			</CardHeader>
+			<CardContent>{content}</CardContent>
+		</Card>
+	)
+}
+
+function BarRow({ label, count, total }: { label: string; count: number; total: number }) {
+	const pct = total > 0 ? (count / total) * 100 : 0
+	return (
+		<div className="space-y-1">
+			<div className="flex justify-between text-sm">
+				<span>{label}</span>
+				<span className="text-muted-foreground tabular-nums">
+					{count} ({Math.round(pct)}%)
+				</span>
+			</div>
+			<div className="h-2 bg-muted rounded-full overflow-hidden">
+				<div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+			</div>
+		</div>
+	)
+}
+
+// ── Viewer Manager ────────────────────────────────────────────────────────────
 
 type Viewer = { id: string; viewer_email: string; questionnaire_id: string }
 
