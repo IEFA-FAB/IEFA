@@ -14,6 +14,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/portal/package.json ./apps/portal/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/docs/package.json ./apps/docs/
+COPY apps/forms/package.json ./apps/forms/
 COPY apps/alpha/package.json ./apps/alpha/
 COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
@@ -107,6 +108,37 @@ FROM oven/bun:1.3.12-alpine AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
+USER bun
+EXPOSE 3000
+CMD ["bun", ".output/server/index.mjs"]
+
+# =============================================================================
+# FORMS
+# =============================================================================
+FROM deps AS forms-build
+ARG VITE_IEFA_SUPABASE_URL
+ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
+COPY packages/database ./packages/database
+COPY apps/forms ./apps/forms
+RUN rm -rf apps/forms/.vite apps/forms/.tanstack apps/forms/node_modules/.vite
+RUN bun --filter='@iefa/forms' run build
+RUN test -f apps/forms/.output/server/index.mjs || \
+    (echo "❌ Build failed: output missing" && exit 1)
+
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/forms/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/forms/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
+
+FROM oven/bun:1.3.12-alpine AS forms
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=forms-build /app/apps/forms/.output ./.output
 USER bun
 EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]

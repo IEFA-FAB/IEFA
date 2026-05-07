@@ -19,6 +19,7 @@
     "sisub-mcp:start": "bun --cwd ./apps/sisub-mcp start",
     "portal:dev": "bun --cwd ./apps/portal dev",
     "api:dev": "bun --cwd ./apps/api dev",
+    "forms:dev": "bun --cwd ./apps/forms dev",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",
     "format:check": "biome format . --write",

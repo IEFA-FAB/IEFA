@@ -1,0 +1,1635 @@
+{
+  "ADMINISTRATIVA": {
+    "area": "ADMINISTRATIVA",
+    "sections": [
+      {
+        "code": "1",
+        "sense": "1S",
+        "title": "1 QUESTIONÁRIO DE AVALIAÇÃO 1S SENSO DE UTILIZAÇÃO PARA ÁREA ADMINISTRATIVA",
+        "subsections": [
+          {
+            "code": "1.1",
+            "title": "IDENTIFICAÇÃO DE ITENS SEM SERVENTIA PARA ÁREA ADMINISTRATIVA",
+            "categories": [
+              {
+                "code": "1.1.1",
+                "title": "Documentos e Arquivos Digitais",
+                "questions": [
+                  {
+                    "number": 1,
+                    "sense": "1S",
+                    "text": "Existem e-mails antigos que não são mais relevantes e podem ser deletados?"
+                  },
+                  {
+                    "number": 2,
+                    "sense": "1S",
+                    "text": "Há pastas de e-mails que precisam ser organizadas ou limpas?"
+                  },
+                  {
+                    "number": 3,
+                    "sense": "1S",
+                    "text": "Existem correntes de e-mails de projetos finalizados que podem ser arquivadas ou removidas?"
+                  },
+                  {
+                    "number": 4,
+                    "sense": "1S",
+                    "text": "Existem arquivos digitais antigos que não são mais necessários e podem ser deletados?"
+                  },
+                  {
+                    "number": 5,
+                    "sense": "1S",
+                    "text": "Existem arquivos duplicados no seu sistema que podem serem removidos?"
+                  },
+                  {
+                    "number": 6,
+                    "sense": "1S",
+                    "text": "Existem documentos armazenados que não foram acessados nos últimos 12 meses?"
+                  },
+                  {
+                    "number": 7,
+                    "sense": "1S",
+                    "text": "Os backups antigos de projetos finalizados já foram removidos ou arquivados?"
+                  },
+                  {
+                    "number": 8,
+                    "sense": "1S",
+                    "text": "Existem versões antigas de software ou ferramentas que não são mais utilizadas e podem ser removidas?"
+                  },
+                  {
+                    "number": 9,
+                    "sense": "1S",
+                    "text": "Há discos rígidos ou unidades de armazenamento externo com dados desatualizados?"
+                  },
+                  {
+                    "number": 10,
+                    "sense": "1S",
+                    "text": "Existem manuais ou guias antigos que foram substituídos por versões mais recentes e podem ser descartados?"
+                  },
+                  {
+                    "number": 11,
+                    "sense": "1S",
+                    "text": "Existem listas de contatos desatualizadas ou duplicadas que podem ser atualizadas ou removidas?"
+                  },
+                  {
+                    "number": 12,
+                    "sense": "1S",
+                    "text": "Existem relatórios ou estudos de casos antigos que não são mais relevantes para as operações atuais?"
+                  },
+                  {
+                    "number": 13,
+                    "sense": "1S",
+                    "text": "A área de trabalho digital (desktop) dos militares está cheia de atalhos e arquivos que não são mais necessários?"
+                  },
+                  {
+                    "number": 14,
+                    "sense": "1S",
+                    "text": "Existem aplicativos ou softwares instalados no seu computador que não são mais utilizados e podem ser removidos?"
+                  },
+                  {
+                    "number": 15,
+                    "sense": "1S",
+                    "text": "Existem documentos temporários ou de trabalho que podem ser arquivados ou deletados?"
+                  },
+                  {
+                    "number": 16,
+                    "sense": "1S",
+                    "text": "Existem CDs, DVDs ou pendrives com dados antigos que podem ser descartados ou arquivados?"
+                  },
+                  {
+                    "number": 17,
+                    "sense": "1S",
+                    "text": "Existem materiais impressos que já foram digitalizados e podem ser reciclados?"
+                  },
+                  {
+                    "number": 18,
+                    "sense": "1S",
+                    "text": "Existem pastas físicas ou arquivos de papel que podem ser convertidos para formato digital e removidos do espaço físico?"
+                  }
+                ]
+              },
+              {
+                "code": "1.1.2",
+                "title": "Papéis e Documentos",
+                "questions": [
+                  {
+                    "number": 19,
+                    "sense": "1S",
+                    "text": "Existem relatórios antigos que não são mais necessários?"
+                  },
+                  {
+                    "number": 20,
+                    "sense": "1S",
+                    "text": "Existem formulários desatualizados em sua área de trabalho?"
+                  },
+                  {
+                    "number": 21,
+                    "sense": "1S",
+                    "text": "Há cópias extras de documentos já arquivados digitalmente?"
+                  },
+                  {
+                    "number": 22,
+                    "sense": "1S",
+                    "text": "Existem post-its com informações já processadas que podem ser descartados?"
+                  },
+                  {
+                    "number": 23,
+                    "sense": "1S",
+                    "text": "Há rascunhos de projetos finalizados que não são mais necessários?"
+                  },
+                  {
+                    "number": 24,
+                    "sense": "1S",
+                    "text": "Existem materiais de marketing para eventos passados que podem ser descartados?"
+                  }
+                ]
+              },
+              {
+                "code": "1.1.3",
+                "title": "Equipamentos e Materiais de Escritório",
+                "questions": [
+                  {
+                    "number": 25,
+                    "sense": "1S",
+                    "text": "Existem computadores, monitores ou impressoras antigos e não funcionais em sua área?"
+                  },
+                  {
+                    "number": 26,
+                    "sense": "1S",
+                    "text": "Há teclados ou mouses quebrados que precisam ser descartados?"
+                  },
+                  {
+                    "number": 27,
+                    "sense": "1S",
+                    "text": "Existem máquinas de fax ou telefones antigos que não são mais utilizados?"
+                  },
+                  {
+                    "number": 28,
+                    "sense": "1S",
+                    "text": "Há cabos e carregadores antigos e não utilizados?"
+                  },
+                  {
+                    "number": 29,
+                    "sense": "1S",
+                    "text": "Há disquetes, CDs ou DVDs obsoletos que podem ser descartados?"
+                  },
+                  {
+                    "number": 30,
+                    "sense": "1S",
+                    "text": "Existem roteadores ou modems antigos que não são mais necessários?"
+                  },
+                  {
+                    "number": 31,
+                    "sense": "1S",
+                    "text": "Existem canetas ou marcadores secos que podem ser descartados?"
+                  },
+                  {
+                    "number": 32,
+                    "sense": "1S",
+                    "text": "Existem grampeadores ou perfuradores quebrados que não podem ser consertados?"
+                  },
+                  {
+                    "number": 33,
+                    "sense": "1S",
+                    "text": "Há clips de papel enferrujados ou danificados em sua área?"
+                  }
+                ]
+              },
+              {
+                "code": "1.1.4",
+                "title": "Mobiliário e Decorações",
+                "questions": [
+                  {
+                    "number": 34,
+                    "sense": "1S",
+                    "text": "Existem cadeiras com rodas quebradas ou estofamento rasgado?"
+                  },
+                  {
+                    "number": 35,
+                    "sense": "1S",
+                    "text": "Existem mesas com superfícies danificadas em sua área de trabalho?"
+                  },
+                  {
+                    "number": 36,
+                    "sense": "1S",
+                    "text": "Há armários que não fecham corretamente e precisam ser descartados?"
+                  },
+                  {
+                    "number": 37,
+                    "sense": "1S",
+                    "text": "Existem cartazes e avisos desatualizados no escritório?"
+                  },
+                  {
+                    "number": 38,
+                    "sense": "1S",
+                    "text": "Há plantas artificiais antigas e empoeiradas?"
+                  }
+                ]
+              },
+              {
+                "code": "1.1.5",
+                "title": "Utensílios de Cozinha e Descartáveis",
+                "questions": [
+                  {
+                    "number": 39,
+                    "sense": "1S",
+                    "text": "Existem cafeteiras, micro-ondas ou geladeiras que não funcionam?"
+                  },
+                  {
+                    "number": 40,
+                    "sense": "1S",
+                    "text": "Existem utensílios de cozinha quebrados que precisam ser descartados?"
+                  }
+                ]
+              },
+              {
+                "code": "1.1.6",
+                "title": "Itens Pessoais",
+                "questions": [
+                  {
+                    "number": 41,
+                    "sense": "1S",
+                    "text": "Existem uniformes desgastados e não mais utilizados em sua área?"
+                  },
+                  {
+                    "number": 42,
+                    "sense": "1S",
+                    "text": "Existem sapatos ou acessórios de trabalho danificados?"
+                  },
+                  {
+                    "number": 43,
+                    "sense": "1S",
+                    "text": "Há equipamentos de proteção individual (EPI) fora do prazo de validade?"
+                  }
+                ]
+              },
+              {
+                "code": "1.1.7",
+                "title": "Diversos",
+                "questions": [
+                  {
+                    "number": 44,
+                    "sense": "1S",
+                    "text": "Existem manuais de instruções para equipamentos que não são mais usados?"
+                  },
+                  {
+                    "number": 45,
+                    "sense": "1S",
+                    "text": "Existem guias e catálogos de produtos desatualizados que podem ser descartados?"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "4",
+        "sense": "2S",
+        "title": "4 QUESTIONÁRIO DE AVALIAÇÃO 2S SENSO DE ORDENAÇÃO PARA ÁREA ADMINISTRATIVA",
+        "subsections": [
+          {
+            "code": "4.1",
+            "title": "IDENTIFICAÇÃO DE ITENS PARA ÁREA ADMINISTRATIVA",
+            "categories": [
+              {
+                "code": "4.1.1",
+                "title": "Acesso e Utilização de Objetos",
+                "questions": [
+                  {
+                    "number": 127,
+                    "sense": "2S",
+                    "text": "Os objetos e documentos utilizados com frequência estão facilmente acessíveis?"
+                  },
+                  {
+                    "number": 128,
+                    "sense": "2S",
+                    "text": "Existem objetos ou documentos que são difíceis de acessar devido à sua localização?"
+                  },
+                  {
+                    "number": 129,
+                    "sense": "2S",
+                    "text": "Os itens utilizados diariamente estão posicionados de maneira conveniente?"
+                  },
+                  {
+                    "number": 130,
+                    "sense": "2S",
+                    "text": "Os itens raramente utilizados estão armazenados de forma a não interferir com os itens de uso frequente?"
+                  }
+                ]
+              },
+              {
+                "code": "4.1.2",
+                "title": "Layout e Utilização de Espaço",
+                "questions": [
+                  {
+                    "number": 131,
+                    "sense": "2S",
+                    "text": "O layout do espaço de trabalho permite uma melhor utilização do espaço disponível?"
+                  },
+                  {
+                    "number": 132,
+                    "sense": "2S",
+                    "text": "Existe espaço suficiente para movimentação segura e confortável no ambiente de trabalho?"
+                  },
+                  {
+                    "number": 133,
+                    "sense": "2S",
+                    "text": "O layout do espaço de trabalho torna o trabalho mais seguro e menos desgastante fisicamente?"
+                  },
+                  {
+                    "number": 134,
+                    "sense": "2S",
+                    "text": "Estão sendo utilizados móveis e equipamentos ergonômicos para minimizar o desgaste físico?"
+                  }
+                ]
+              },
+              {
+                "code": "4.1.3",
+                "title": "Organização e Sistematização",
+                "questions": [
+                  {
+                    "number": 135,
+                    "sense": "2S",
+                    "text": "Cada objeto ou documento tem um local determinado para ser guardado?"
+                  },
+                  {
+                    "number": 136,
+                    "sense": "2S",
+                    "text": "Todos sabem e seguem a sistemática de guarda de objetos e documentos?"
+                  },
+                  {
+                    "number": 137,
+                    "sense": "2S",
+                    "text": "Os itens são retirados de sobre a mesa imediatamente após seu uso?"
+                  },
+                  {
+                    "number": 138,
+                    "sense": "2S",
+                    "text": "Existe um local específico para colocar itens temporariamente enquanto estão em uso?"
+                  }
+                ]
+              },
+              {
+                "code": "1.4",
+                "title": "Manutenção da Ordem",
+                "questions": [
+                  {
+                    "number": 139,
+                    "sense": "2S",
+                    "text": "As mesas, arquivos e prateleiras estão mantidas em ordem?"
+                  },
+                  {
+                    "number": 140,
+                    "sense": "2S",
+                    "text": "Existem verificações regulares para garantir a manutenção da ordem?"
+                  },
+                  {
+                    "number": 141,
+                    "sense": "2S",
+                    "text": "Os locais e objetos estão identificados e sinalizados de maneira compreensível?"
+                  },
+                  {
+                    "number": 142,
+                    "sense": "2S",
+                    "text": "Há identificação no lado externo sobre o conteúdo do lado interno de gavetas, armários e pastas?"
+                  }
+                ]
+              },
+              {
+                "code": "4.1.5",
+                "title": "Otimização de Recursos",
+                "questions": [
+                  {
+                    "number": 143,
+                    "sense": "2S",
+                    "text": "Existe uma otimização dos recursos disponíveis, como espaço, tempo e materiais?"
+                  },
+                  {
+                    "number": 144,
+                    "sense": "2S",
+                    "text": "Os recursos estão sendo utilizados de maneira eficiente, sem desperdício?"
+                  }
+                ]
+              },
+              {
+                "code": "4.1.6",
+                "title": "Implementação e Monitoramento",
+                "questions": [
+                  {
+                    "number": 145,
+                    "sense": "2S",
+                    "text": "O efetivo recebe treinamento sobre os princípios de ordenação e organização?"
+                  },
+                  {
+                    "number": 146,
+                    "sense": "2S",
+                    "text": "Os arquivos (físicos e digitais) estão organizados de acordo com um sistema lógico e de fácil acesso?"
+                  }
+                ]
+              },
+              {
+                "code": "4.1.7",
+                "title": "Materiais e Componentes",
+                "questions": [
+                  {
+                    "number": 147,
+                    "sense": "2S",
+                    "text": "Os documentos físicos estão organizados em pastas e arquivos rotulados corretamente?"
+                  },
+                  {
+                    "number": 148,
+                    "sense": "2S",
+                    "text": "Existem áreas específicas designadas para documentos de diferentes categorias (ex.: manuais, relatórios, contratos)?"
+                  },
+                  {
+                    "number": 149,
+                    "sense": "2S",
+                    "text": "Os arquivos físicos são facilmente acessíveis e bem ordenados por data, tipo ou importância?"
+                  },
+                  {
+                    "number": 150,
+                    "sense": "2S",
+                    "text": "Existe um sistema de nomeação padronizado para documentos e arquivos digitais que todos os membros da equipe utilizam?"
+                  },
+                  {
+                    "number": 151,
+                    "sense": "2S",
+                    "text": "Os nomes dos arquivos contêm informações suficientes para identificá-los rapidamente (ex.: data, tipo de documento, autor)?"
+                  },
+                  {
+                    "number": 152,
+                    "sense": "2S",
+                    "text": "Há inconsistências na nomeação de arquivos que precisam ser corrigidas?"
+                  },
+                  {
+                    "number": 153,
+                    "sense": "2S",
+                    "text": "Os manuais de manutenção estão armazenados em locais designados e etiquetados corretamente?"
+                  },
+                  {
+                    "number": 154,
+                    "sense": "2S",
+                    "text": "Existe uma biblioteca digital de manuais e procedimentos atualizada e organizada?"
+                  },
+                  {
+                    "number": 155,
+                    "sense": "2S",
+                    "text": "Os procedimentos de manutenção estão facilmente acessíveis para todos os técnicos?"
+                  },
+                  {
+                    "number": 156,
+                    "sense": "2S",
+                    "text": "Existem ferramentas de pesquisa e indexação que ajudam a localizar documentos e arquivos rapidamente?"
+                  },
+                  {
+                    "number": 157,
+                    "sense": "2S",
+                    "text": "Os metadados dos arquivos estão preenchidos corretamente para facilitar a busca e a recuperação?"
+                  },
+                  {
+                    "number": 158,
+                    "sense": "2S",
+                    "text": "O efetivo está treinado para utilizar as ferramentas de pesquisa e indexação de documentos?"
+                  },
+                  {
+                    "number": 159,
+                    "sense": "2S",
+                    "text": "Existe um cronograma regular para revisar e organizar documentos físicos e digitais?"
+                  },
+                  {
+                    "number": 160,
+                    "sense": "2S",
+                    "text": "O efetivo dedica tempo específico para a organização de seus arquivos e documentos?"
+                  },
+                  {
+                    "number": 161,
+                    "sense": "2S",
+                    "text": "Todos os documentos físicos e digitais são etiquetados ou rotulados de forma clara e consistente?"
+                  },
+                  {
+                    "number": 162,
+                    "sense": "2S",
+                    "text": "Existem diretrizes específicas para a rotulação de arquivos e pastas?"
+                  },
+                  {
+                    "number": 163,
+                    "sense": "2S",
+                    "text": "Existem pastas ou áreas designadas para documentos que precisam ser acessados com frequência?"
+                  },
+                  {
+                    "number": 164,
+                    "sense": "2S",
+                    "text": "Os documentos de referência rápida estão organizados e facilmente acessíveis para todos os membros da equipe?"
+                  },
+                  {
+                    "number": 165,
+                    "sense": "2S",
+                    "text": "Há uma sistemática para garantir que esses documentos sejam mantidos atualizados?"
+                  },
+                  {
+                    "number": 166,
+                    "sense": "2S",
+                    "text": "Existe um procedimento claro para arquivar documentos após serem utilizados?"
+                  },
+                  {
+                    "number": 167,
+                    "sense": "2S",
+                    "text": "Os documentos são arquivados imediatamente após o uso para evitar acúmulo desorganizado?"
+                  },
+                  {
+                    "number": 168,
+                    "sense": "2S",
+                    "text": "Há uma verificação periódica para garantir que os procedimentos de arquivamento estão sendo seguidos corretamente?"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "7",
+        "sense": "3S",
+        "title": "7 QUESTIONÁRIO DE AVALIAÇÃO 3S SENSO DE LIMPEZA PARA ÁREA ADMINISTRATIVA",
+        "subsections": [
+          {
+            "code": "7.1",
+            "title": "IDENTIFICAÇÃO DE ITENS PARA ÁREA ADMINISTRATIVA",
+            "categories": [
+              {
+                "code": "7.1.1",
+                "title": "Identificação e Pintura das Instalações",
+                "questions": [
+                  {
+                    "number": 250,
+                    "sense": "3S",
+                    "text": "As instalações estão devidamente identificadas e pintadas?"
+                  },
+                  {
+                    "number": 251,
+                    "sense": "3S",
+                    "text": "As placas de identificação e sinalização estão limpas e legíveis?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.2",
+                "title": "Limpeza de Paredes, Pisos e Tetos",
+                "questions": [
+                  {
+                    "number": 252,
+                    "sense": "3S",
+                    "text": "As paredes estão limpas e isentas de poeira?"
+                  },
+                  {
+                    "number": 253,
+                    "sense": "3S",
+                    "text": "Os pisos estão limpos e sem manchas?"
+                  },
+                  {
+                    "number": 254,
+                    "sense": "3S",
+                    "text": "Os tetos estão limpos e livres de teias de aranha e poeira?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.3",
+                "title": "Limpeza de Mobiliário e Equipamentos",
+                "questions": [
+                  {
+                    "number": 255,
+                    "sense": "3S",
+                    "text": "As mesas e cadeiras são limpas rotineiramente?"
+                  },
+                  {
+                    "number": 256,
+                    "sense": "3S",
+                    "text": "Existem resíduos ou sujeiras visíveis nas mesas e cadeiras?"
+                  },
+                  {
+                    "number": 257,
+                    "sense": "3S",
+                    "text": "Os objetos, computadores e demais equipamentos estão limpos?"
+                  },
+                  {
+                    "number": 258,
+                    "sense": "3S",
+                    "text": "Os monitores, teclados e mouses estão livres de poeira e sujeira?"
+                  },
+                  {
+                    "number": 259,
+                    "sense": "3S",
+                    "text": "Existe etiqueta de controle de limpeza dos filtros e da manutenção geral de ar-condicionado?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.4",
+                "title": "Distribuição de Tarefas de Limpeza",
+                "questions": [
+                  {
+                    "number": 260,
+                    "sense": "3S",
+                    "text": "As tarefas de limpeza são distribuídas entre os membros do setor?"
+                  },
+                  {
+                    "number": 261,
+                    "sense": "3S",
+                    "text": "Todo efetivo sabe de suas responsabilidades em relação a limpeza?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.5",
+                "title": "Limpeza de Lixeiras",
+                "questions": [
+                  {
+                    "number": 262,
+                    "sense": "3S",
+                    "text": "No final do expediente, as lixeiras são deixadas limpas?"
+                  },
+                  {
+                    "number": 263,
+                    "sense": "3S",
+                    "text": "As lixeiras estão sendo esvaziadas regularmente ao longo do dia?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.6",
+                "title": "Limpeza do Chão",
+                "questions": [
+                  {
+                    "number": 264,
+                    "sense": "3S",
+                    "text": "A limpeza do chão é feita rotineiramente?"
+                  },
+                  {
+                    "number": 265,
+                    "sense": "3S",
+                    "text": "Existem áreas do chão que são negligenciadas durante a limpeza?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.7",
+                "title": "Limpeza de Janelas e Vidros",
+                "questions": [
+                  {
+                    "number": 266,
+                    "sense": "3S",
+                    "text": "As janelas e vidros estão limpos e sem manchas?"
+                  },
+                  {
+                    "number": 267,
+                    "sense": "3S",
+                    "text": "A limpeza das janelas e vidros é feita regularmente?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.8",
+                "title": "Limpeza de Equipamentos Específicos",
+                "questions": [
+                  {
+                    "number": 268,
+                    "sense": "3S",
+                    "text": "As impressoras, máquinas de café e outros equipamentos específicos são limpos regularmente?"
+                  },
+                  {
+                    "number": 269,
+                    "sense": "3S",
+                    "text": "Existem áreas desses equipamentos que são frequentemente negligenciadas durante a limpeza?"
+                  }
+                ]
+              },
+              {
+                "code": "7.1.9",
+                "title": "Monitoramento e Melhoria Contínua",
+                "questions": [
+                  {
+                    "number": 270,
+                    "sense": "3S",
+                    "text": "Existe um cronograma de limpeza estabelecido e seguido?"
+                  },
+                  {
+                    "number": 271,
+                    "sense": "3S",
+                    "text": "As tarefas de limpeza são monitoradas e verificadas regularmente?"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "AREAS_COMUNS": {
+    "area": "AREAS_COMUNS",
+    "sections": [
+      {
+        "code": "3",
+        "sense": "1S",
+        "title": "3 QUESTIONÁRIO DE AVALIAÇÃO 1S SENSO DE UTILIZAÇÃO PARA ÁREAS COMUNS",
+        "subsections": [
+          {
+            "code": "3.1",
+            "title": "IDENTIFICAÇÃO DE ITENS SEM SERVENTIA EM ÁREAS COMUNS, ALOJAMENTOS, BANHEIROS E SALAS DE ESTAR",
+            "categories": [
+              {
+                "code": "3.1.1",
+                "title": "Alojamentos",
+                "questions": [
+                  {
+                    "number": 80,
+                    "sense": "1S",
+                    "text": "Existem roupas de cama (lençóis, cobertores, travesseiros) que não são mais usadas?"
+                  },
+                  {
+                    "number": 81,
+                    "sense": "1S",
+                    "text": "Existem almofadas ou colchas em excesso ou danificadas?"
+                  },
+                  {
+                    "number": 82,
+                    "sense": "1S",
+                    "text": "Existem roupas ou sapatos deixados para trás ou não utilizados há muito tempo?"
+                  },
+                  {
+                    "number": 83,
+                    "sense": "1S",
+                    "text": "Existem móveis (camas, mesas, cadeiras) que estão quebrados ou em mau estado?"
+                  },
+                  {
+                    "number": 84,
+                    "sense": "1S",
+                    "text": "Existem itens decorativos (quadros, vasos) que estão desgastados, danificados ou fora de lugar?"
+                  },
+                  {
+                    "number": 85,
+                    "sense": "1S",
+                    "text": "Existem objetos pessoais que foram deixados para trás e não são reclamados há muito tempo?"
+                  },
+                  {
+                    "number": 86,
+                    "sense": "1S",
+                    "text": "Existem itens de armazenamento (caixas, gavetas) que estão cheios de itens sem utilidade?"
+                  },
+                  {
+                    "number": 87,
+                    "sense": "1S",
+                    "text": "Existem materiais de limpeza antigos ou não utilizados que ocupam espaço?"
+                  },
+                  {
+                    "number": 88,
+                    "sense": "1S",
+                    "text": "Existem produtos de limpeza vencidos ou em mau estado que podem ser descartados?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.2",
+                "title": "Banheiros De Uso Comum",
+                "questions": [
+                  {
+                    "number": 89,
+                    "sense": "1S",
+                    "text": "Existem sabonetes, shampoos, condicionadores ou outros produtos de higiene que não são mais utilizados?"
+                  },
+                  {
+                    "number": 90,
+                    "sense": "1S",
+                    "text": "Existem produtos de higiene vencidos ou em mau estado?"
+                  },
+                  {
+                    "number": 91,
+                    "sense": "1S",
+                    "text": "Existem embalagens vazias ou quase vazias de produtos de higiene que podem ser descartadas?"
+                  },
+                  {
+                    "number": 92,
+                    "sense": "1S",
+                    "text": "Existem toalhas desgastadas ou em excesso que não são mais utilizadas?"
+                  },
+                  {
+                    "number": 93,
+                    "sense": "1S",
+                    "text": "Existem acessórios de banheiro (porta-sabonetes, escovas de dente) que estão quebrados ou não são mais utilizados?"
+                  },
+                  {
+                    "number": 94,
+                    "sense": "1S",
+                    "text": "Existem materiais de limpeza (esponjas, escovas, panos) que estão desgastados e não são mais eficazes?"
+                  },
+                  {
+                    "number": 95,
+                    "sense": "1S",
+                    "text": "Existem produtos de limpeza vencidos ou não utilizados?"
+                  },
+                  {
+                    "number": 96,
+                    "sense": "1S",
+                    "text": "Existem armários, prateleiras ou estantes que estão danificados ou não são mais necessários?"
+                  },
+                  {
+                    "number": 97,
+                    "sense": "1S",
+                    "text": "Existem caixas ou cestos de armazenamento que estão quebrados ou em mau estado?"
+                  },
+                  {
+                    "number": 98,
+                    "sense": "1S",
+                    "text": "Existem tapetes antiderrapantes ou barras de apoio que estão desgastados ou não são mais seguros?"
+                  },
+                  {
+                    "number": 99,
+                    "sense": "1S",
+                    "text": "Existem itens de segurança que não estão sendo utilizados e ocupam espaço desnecessário?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.3",
+                "title": "Aparelhos Eletrônicos",
+                "questions": [
+                  {
+                    "number": 100,
+                    "sense": "1S",
+                    "text": "Existem aparelhos eletrônicos (televisões, rádios, consoles de jogos) que estão quebrados ou não funcionam mais?"
+                  },
+                  {
+                    "number": 101,
+                    "sense": "1S",
+                    "text": "Existem cabos ou acessórios eletrônicos que não são mais necessários ou estão em mau estado?"
+                  },
+                  {
+                    "number": 102,
+                    "sense": "1S",
+                    "text": "Existem aparelhos eletrônicos que não são utilizados frequentemente e podem ser removidos?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.4",
+                "title": "Livros, Revistas e Materiais de Leitura",
+                "questions": [
+                  {
+                    "number": 103,
+                    "sense": "1S",
+                    "text": "Existem livros ou revistas desatualizados ou em excesso que podem ser removidos?"
+                  },
+                  {
+                    "number": 104,
+                    "sense": "1S",
+                    "text": "Existem jogos de tabuleiro, DVDs ou outros materiais de entretenimento que não são mais utilizados?"
+                  },
+                  {
+                    "number": 105,
+                    "sense": "1S",
+                    "text": "Existem prateleiras ou estantes com itens acumulados que podem ser organizados ou descartados?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.5",
+                "title": "Plantas e Itens Naturais",
+                "questions": [
+                  {
+                    "number": 106,
+                    "sense": "1S",
+                    "text": "Existem plantas que estão mortas, em mau estado ou que não são mais desejadas?"
+                  },
+                  {
+                    "number": 107,
+                    "sense": "1S",
+                    "text": "Existem vasos ou suportes de plantas que estão quebrados ou desnecessários?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.6",
+                "title": "Acessórios de Sala de estar",
+                "questions": [
+                  {
+                    "number": 108,
+                    "sense": "1S",
+                    "text": "Existem almofadas, cobertores ou mantas que estão desgastados ou em excesso?"
+                  },
+                  {
+                    "number": 109,
+                    "sense": "1S",
+                    "text": "Existem porta-retratos, relógios ou outros acessórios que estão quebrados ou não são mais necessários?"
+                  },
+                  {
+                    "number": 110,
+                    "sense": "1S",
+                    "text": "Existem cestos, caixas ou outros itens de armazenamento que não são utilizados?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.7",
+                "title": "Itens de Segurança e Conforto",
+                "questions": [
+                  {
+                    "number": 111,
+                    "sense": "1S",
+                    "text": "Existem itens de segurança (extintores de incêndio, kits de primeiros socorros) que estão vencidos ou não são mais utilizados?"
+                  },
+                  {
+                    "number": 112,
+                    "sense": "1S",
+                    "text": "Existem itens de conforto (ventiladores, aquecedores, condicionadores de ar) que não funcionam ou não são mais necessários?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.8",
+                "title": "Outros Itens Diversos",
+                "questions": [
+                  {
+                    "number": 113,
+                    "sense": "1S",
+                    "text": "Existem itens pessoais ou de uso comum que foram deixados para trás por longos períodos?"
+                  },
+                  {
+                    "number": 114,
+                    "sense": "1S",
+                    "text": "Existem objetos decorativos de temporadas anteriores (natal, páscoa, etc.) que não foram guardados adequadamente?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.9",
+                "title": "Utensílios de Cozinha",
+                "questions": [
+                  {
+                    "number": 115,
+                    "sense": "1S",
+                    "text": "Existem utensílios de cozinha (pratos, talheres, copos) que estão quebrados ou em mau estado?"
+                  },
+                  {
+                    "number": 116,
+                    "sense": "1S",
+                    "text": "Existem utensílios duplicados ou em excesso que não são utilizados regularmente?"
+                  },
+                  {
+                    "number": 117,
+                    "sense": "1S",
+                    "text": "Existem utensílios específicos (panelas, frigideiras, espátulas) que não são mais utilizados?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.10",
+                "title": "Aparelhos Eletrônicos",
+                "questions": [
+                  {
+                    "number": 118,
+                    "sense": "1S",
+                    "text": "Existem aparelhos eletrônicos (micro-ondas, cafeteiras, torradeiras) que estão quebrados ou não funcionam mais?"
+                  },
+                  {
+                    "number": 119,
+                    "sense": "1S",
+                    "text": "Existem aparelhos eletrônicos que não são utilizados frequentemente e podem ser removidos?"
+                  },
+                  {
+                    "number": 120,
+                    "sense": "1S",
+                    "text": "Existem cabos ou acessórios eletrônicos que não são mais necessários ou estão em mau estado?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.11",
+                "title": "Alimentos e Bebidas",
+                "questions": [
+                  {
+                    "number": 121,
+                    "sense": "1S",
+                    "text": "Existem alimentos ou bebidas que estão vencidos ou não são mais consumíveis?"
+                  },
+                  {
+                    "number": 122,
+                    "sense": "1S",
+                    "text": "Existem itens alimentares duplicados ou em excesso que ocupam espaço desnecessário?"
+                  },
+                  {
+                    "number": 123,
+                    "sense": "1S",
+                    "text": "Existem embalagens vazias ou quase vazias que podem ser descartadas?"
+                  }
+                ]
+              },
+              {
+                "code": "3.1.12",
+                "title": "Equipamentos de Refrigeração e Armazenamento",
+                "questions": [
+                  {
+                    "number": 124,
+                    "sense": "1S",
+                    "text": "Existem geladeiras ou freezers que estão em mau estado ou não funcionam corretamente?"
+                  },
+                  {
+                    "number": 125,
+                    "sense": "1S",
+                    "text": "Existem prateleiras ou compartimentos de armazenamento que estão quebrados ou não são mais utilizados?"
+                  },
+                  {
+                    "number": 126,
+                    "sense": "1S",
+                    "text": "Existem itens armazenados na geladeira ou no freezer que estão vencidos ou não são mais necessários?"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "6",
+        "sense": "2S",
+        "title": "6 QUESTIONÁRIO DE AVALIAÇÃO 2S SENSO DE ORDENAÇÃO PARA ÁREAS COMUNS",
+        "subsections": [
+          {
+            "code": "6.1",
+            "title": "IDENTIFICAÇÃO DE ITENS SEM SERVENTIA EM ÁREAS COMUNS, ALOJAMENTOS, BANHEIROS E SALAS DE ESTAR",
+            "categories": [
+              {
+                "code": "6.1.1",
+                "title": "Alojamentos",
+                "questions": [
+                  {
+                    "number": 205,
+                    "sense": "2S",
+                    "text": "Os lençóis, cobertores e travesseiros têm locais designados e organizados?"
+                  },
+                  {
+                    "number": 206,
+                    "sense": "2S",
+                    "text": "As almofadas e colchas estão organizadas de forma acessível e eficiente?"
+                  },
+                  {
+                    "number": 207,
+                    "sense": "2S",
+                    "text": "Existem sistemas de armazenamento para roupas de cama que não estão em uso?"
+                  },
+                  {
+                    "number": 208,
+                    "sense": "2S",
+                    "text": "Os móveis (camas, mesas, cadeiras) estão dispostos de maneira a otimizar o espaço e facilitar a circulação?"
+                  },
+                  {
+                    "number": 209,
+                    "sense": "2S",
+                    "text": "A disposição dos móveis permite fácil acesso a todas as áreas do alojamento?"
+                  },
+                  {
+                    "number": 210,
+                    "sense": "2S",
+                    "text": "Os objetos pessoais dos usuários estão organizados em locais específicos?"
+                  },
+                  {
+                    "number": 211,
+                    "sense": "2S",
+                    "text": "Há sistemas de armazenamento (gavetas, caixas, estantes, armários) para facilitar a organização dos objetos pessoais?"
+                  },
+                  {
+                    "number": 212,
+                    "sense": "2S",
+                    "text": "Os materiais de limpeza estão organizados e armazenados em locais apropriados?"
+                  },
+                  {
+                    "number": 213,
+                    "sense": "2S",
+                    "text": "Existe um sistema para garantir que os materiais de limpeza sejam mantidos em boas condições e facilmente localizáveis?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.2",
+                "title": "Banheiros de Uso Comum",
+                "questions": [
+                  {
+                    "number": 214,
+                    "sense": "2S",
+                    "text": "Os produtos de higiene (sabonetes, shampoos, condicionadores) estão organizados e de fácil acesso?"
+                  },
+                  {
+                    "number": 215,
+                    "sense": "2S",
+                    "text": "Existe um sistema de rotatividade para garantir que os produtos mais antigos sejam usados primeiro?"
+                  },
+                  {
+                    "number": 216,
+                    "sense": "2S",
+                    "text": "Existem embalagens vazias ou quase vazias de produtos de higiene que podem ser descartadas?"
+                  },
+                  {
+                    "number": 217,
+                    "sense": "2S",
+                    "text": "As toalhas estão organizadas e armazenadas de maneira higiênica?"
+                  },
+                  {
+                    "number": 218,
+                    "sense": "2S",
+                    "text": "Existe um local específico para toalhas sujas e limpas?"
+                  },
+                  {
+                    "number": 219,
+                    "sense": "2S",
+                    "text": "Os acessórios de banheiro (porta-sabonetes, suportes para escova de dente) estão dispostos de forma organizada?"
+                  },
+                  {
+                    "number": 220,
+                    "sense": "2S",
+                    "text": "Os itens de segurança (tapetes antiderrapantes, barras de apoio) estão corretamente instalados e acessíveis?"
+                  },
+                  {
+                    "number": 221,
+                    "sense": "2S",
+                    "text": "O layout do banheiro facilita o acesso e o uso de todos os itens armazenados?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.3",
+                "title": "Aparelhos Eletrônicos",
+                "questions": [
+                  {
+                    "number": 222,
+                    "sense": "2S",
+                    "text": "Os aparelhos eletrônicos (televisões, rádios, consoles de jogos) estão organizados e em locais de fácil acesso?"
+                  },
+                  {
+                    "number": 223,
+                    "sense": "2S",
+                    "text": "Os aparelhos eletrônicos (micro-ondas, cafeteiras, torradeiras) estão organizados e em locais de fácil acesso?"
+                  },
+                  {
+                    "number": 224,
+                    "sense": "2S",
+                    "text": "Existem aparelhos eletrônicos que não são utilizados frequentemente e podem ser removidos ou armazenados em outro local?"
+                  },
+                  {
+                    "number": 225,
+                    "sense": "2S",
+                    "text": "Os cabos e acessórios eletrônicos estão organizados e não estão emaranhados?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.4",
+                "title": "Itens de Armazenamento",
+                "questions": [
+                  {
+                    "number": 226,
+                    "sense": "2S",
+                    "text": "Os itens de armazenamento (caixas, estantes, prateleiras) estão organizados de maneira eficiente?"
+                  },
+                  {
+                    "number": 227,
+                    "sense": "2S",
+                    "text": "Há um sistema claro para o armazenamento e recuperação de itens armazenados?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.5",
+                "title": "Itens de Segurança e Conforto",
+                "questions": [
+                  {
+                    "number": 228,
+                    "sense": "2S",
+                    "text": "Os livros e revistas estão organizados em prateleiras ou estantes de maneira lógica?"
+                  },
+                  {
+                    "number": 229,
+                    "sense": "2S",
+                    "text": "Existem livros ou revistas desatualizados ou em excesso que podem ser removidos?"
+                  },
+                  {
+                    "number": 230,
+                    "sense": "2S",
+                    "text": "Os jogos de tabuleiro, DVDs e outros materiais de entretenimento estão organizados de forma acessível?"
+                  },
+                  {
+                    "number": 231,
+                    "sense": "2S",
+                    "text": "Os itens de segurança (extintores de incêndio, kits de primeiros socorros) estão localizados de maneira acessível e organizada?"
+                  },
+                  {
+                    "number": 232,
+                    "sense": "2S",
+                    "text": "Os itens de conforto (ventiladores, aquecedores, condicionadores de ar) estão organizados e funcionando adequadamente?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.6",
+                "title": "Plantas e Itens Naturais",
+                "questions": [
+                  {
+                    "number": 233,
+                    "sense": "2S",
+                    "text": "As plantas estão dispostas de maneira organizada e são regularmente cuidadas?"
+                  },
+                  {
+                    "number": 234,
+                    "sense": "2S",
+                    "text": "Existem plantas que estão mortas, em mau estado ou que não são mais desejadas?"
+                  },
+                  {
+                    "number": 235,
+                    "sense": "2S",
+                    "text": "Os vasos ou suportes de plantas estão organizados e em boas condições?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.7",
+                "title": "Decoração e Acessórios",
+                "questions": [
+                  {
+                    "number": 236,
+                    "sense": "2S",
+                    "text": "Os itens decorativos (quadros, vasos, tapetes) estão organizados de maneira harmoniosa e sem excesso?"
+                  },
+                  {
+                    "number": 237,
+                    "sense": "2S",
+                    "text": "Os porta-retratos, relógios ou outros acessórios estão organizados e em boas condições?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.8",
+                "title": "Utensílios de Cozinha",
+                "questions": [
+                  {
+                    "number": 238,
+                    "sense": "2S",
+                    "text": "Os pratos, talheres e copos estão organizados de maneira lógica e de fácil acesso?"
+                  },
+                  {
+                    "number": 239,
+                    "sense": "2S",
+                    "text": "Existe um local designado para cada tipo de utensílio (pratos, copos, talheres) na cozinha?"
+                  },
+                  {
+                    "number": 240,
+                    "sense": "2S",
+                    "text": "Os utensílios de cozinha (panelas, frigideiras, espátulas) estão organizados e armazenados adequadamente?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.9",
+                "title": "Alimentos e Bebidas",
+                "questions": [
+                  {
+                    "number": 241,
+                    "sense": "2S",
+                    "text": "Os alimentos e bebidas estão organizados de maneira lógica e fácil de acessar?"
+                  },
+                  {
+                    "number": 242,
+                    "sense": "2S",
+                    "text": "Existe um sistema de rotatividade para garantir que os alimentos mais antigos sejam usados primeiro?"
+                  },
+                  {
+                    "number": 243,
+                    "sense": "2S",
+                    "text": "Os itens alimentares estão armazenados em locais designados e apropriados?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.10",
+                "title": "Acessórios de Refeitório",
+                "questions": [
+                  {
+                    "number": 244,
+                    "sense": "2S",
+                    "text": "Os acessórios de refeitório (porta-guardanapos, saleiros, açucareiros) estão organizados e de fácil acesso?"
+                  },
+                  {
+                    "number": 245,
+                    "sense": "2S",
+                    "text": "Existem cestos, caixas ou outros itens de armazenamento que não são utilizados ou que poderiam ser melhor organizados?"
+                  },
+                  {
+                    "number": 246,
+                    "sense": "2S",
+                    "text": "Os itens decorativos no refeitório estão organizados de maneira harmoniosa e sem excesso?"
+                  }
+                ]
+              },
+              {
+                "code": "6.1.11",
+                "title": "Equipamentos de Refrigeração e Armazenamento",
+                "questions": [
+                  {
+                    "number": 247,
+                    "sense": "2S",
+                    "text": "As geladeiras e freezers estão organizados e de fácil acesso?"
+                  },
+                  {
+                    "number": 248,
+                    "sense": "2S",
+                    "text": "As prateleiras e compartimentos de armazenamento dentro das geladeiras e freezers estão organizados de maneira lógica?"
+                  },
+                  {
+                    "number": 249,
+                    "sense": "2S",
+                    "text": "Existe um sistema para garantir que os itens armazenados na geladeira ou no freezer sejam mantidos em boas condições?"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "9",
+        "sense": "3S",
+        "title": "9 QUESTIONÁRIO DE AVALIAÇÃO 3S SENSO DE LIMPEZA PARA ÁREAS COMUNS",
+        "subsections": [
+          {
+            "code": "9.1",
+            "title": "IDENTIFICAÇÃO DE ITENS SEM SERVENTIA EM ÁREAS COMUNS, ALOJAMENTOS, BANHEIROS E SALAS DE ESTAR",
+            "categories": [
+              {
+                "code": "9.1.1",
+                "title": "Identificação e Pintura das Instalações",
+                "questions": [
+                  {
+                    "number": 296,
+                    "sense": "3S",
+                    "text": "As camas e colchões são limpos e higienizados regularmente?"
+                  },
+                  {
+                    "number": 297,
+                    "sense": "3S",
+                    "text": "As superfícies de contato frequente (mesas de cabeceira, puxadores de portas, interruptores) são desinfetadas regularmente?"
+                  },
+                  {
+                    "number": 298,
+                    "sense": "3S",
+                    "text": "As estantes, prateleiras e outras superfícies horizontais são limpas de poeira e sujeira regularmente?"
+                  },
+                  {
+                    "number": 299,
+                    "sense": "3S",
+                    "text": "Os estofados (poltronas, cadeiras) são aspirados e limpos regularmente?"
+                  },
+                  {
+                    "number": 300,
+                    "sense": "3S",
+                    "text": "Os móveis de madeira ou metal são limpos e polidos conforme necessário?"
+                  },
+                  {
+                    "number": 301,
+                    "sense": "3S",
+                    "text": "Existem móveis que precisam de limpeza profunda ou manutenção?"
+                  },
+                  {
+                    "number": 302,
+                    "sense": "3S",
+                    "text": "Os cestos de lixo são esvaziados regularmente e os sacos de lixo são trocados?"
+                  },
+                  {
+                    "number": 303,
+                    "sense": "3S",
+                    "text": "Há lixeiras suficientes e bem distribuídas pelos alojamentos?"
+                  },
+                  {
+                    "number": 304,
+                    "sense": "3S",
+                    "text": "Os resíduos são segregados adequadamente (orgânicos, recicláveis, não recicláveis)?"
+                  },
+                  {
+                    "number": 305,
+                    "sense": "3S",
+                    "text": "Os produtos de higiene (sabonetes, desinfetantes) estão armazenados de maneira higiênica e de fácil acesso?"
+                  },
+                  {
+                    "number": 306,
+                    "sense": "3S",
+                    "text": "Os materiais de limpeza (esponjas, panos, esfregões) são substituídos regularmente para garantir a eficácia da limpeza?"
+                  },
+                  {
+                    "number": 307,
+                    "sense": "3S",
+                    "text": "Existem produtos de limpeza que estão vencidos ou não são mais utilizados?"
+                  },
+                  {
+                    "number": 308,
+                    "sense": "3S",
+                    "text": "Os pisos são varridos e esfregados regularmente?"
+                  },
+                  {
+                    "number": 309,
+                    "sense": "3S",
+                    "text": "Os carpetes são aspirados e limpos com frequência?"
+                  },
+                  {
+                    "number": 310,
+                    "sense": "3S",
+                    "text": "Existem áreas do piso ou carpete que precisam de reparos ou limpeza profunda?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.2",
+                "title": "Banheiros de Uso Comum",
+                "questions": [
+                  {
+                    "number": 311,
+                    "sense": "3S",
+                    "text": "As pias e bancadas são limpas e desinfetadas regularmente?"
+                  },
+                  {
+                    "number": 312,
+                    "sense": "3S",
+                    "text": "Os espelhos e superfícies de vidro são limpos frequentemente?"
+                  },
+                  {
+                    "number": 313,
+                    "sense": "3S",
+                    "text": "As superfícies de contato frequente (puxadores de portas, torneiras) são desinfetadas regularmente?"
+                  },
+                  {
+                    "number": 314,
+                    "sense": "3S",
+                    "text": "Os vasos sanitários são limpos e desinfetados diariamente?"
+                  },
+                  {
+                    "number": 315,
+                    "sense": "3S",
+                    "text": "Os chuveiros e box são limpos e desinfetados regularmente?"
+                  },
+                  {
+                    "number": 316,
+                    "sense": "3S",
+                    "text": "Os ralos e áreas de drenagem são limpos para evitar entupimentos?"
+                  },
+                  {
+                    "number": 317,
+                    "sense": "3S",
+                    "text": "Os pisos e azulejos são varridos e esfregados regularmente?"
+                  },
+                  {
+                    "number": 318,
+                    "sense": "3S",
+                    "text": "Existem áreas do piso ou azulejos que precisam de reparos ou limpeza profunda?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.3",
+                "title": "Limpeza de Aparelhos Eletrônicos",
+                "questions": [
+                  {
+                    "number": 319,
+                    "sense": "3S",
+                    "text": "Os aparelhos eletrônicos (televisões, rádios, consoles de jogos) são limpos regularmente?"
+                  },
+                  {
+                    "number": 320,
+                    "sense": "3S",
+                    "text": "Os controles remotos e outros acessórios eletrônicos são desinfetados regularmente?"
+                  },
+                  {
+                    "number": 321,
+                    "sense": "3S",
+                    "text": "Existem aparelhos eletrônicos que precisam de manutenção ou limpeza profunda?"
+                  },
+                  {
+                    "number": 322,
+                    "sense": "3S",
+                    "text": "Existe etiqueta de controle de limpeza dos filtros e da manutenção geral de ar-condicionado?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.4",
+                "title": "Limpeza de Janelas e Vidros",
+                "questions": [
+                  {
+                    "number": 323,
+                    "sense": "3S",
+                    "text": "As janelas são limpas regularmente para remover sujeira e manchas?"
+                  },
+                  {
+                    "number": 324,
+                    "sense": "3S",
+                    "text": "Os vidros das portas e divisórias são limpos e desinfetados frequentemente?"
+                  },
+                  {
+                    "number": 325,
+                    "sense": "3S",
+                    "text": "Existem janelas ou vidros que precisam de limpeza ou manutenção adicional?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.5",
+                "title": "Itens de Segurança e Conforto",
+                "questions": [
+                  {
+                    "number": 326,
+                    "sense": "3S",
+                    "text": "Os itens de segurança (extintores de incêndio, kits de primeiros socorros) estão localizados de maneira acessível e verificados regularmente?"
+                  },
+                  {
+                    "number": 327,
+                    "sense": "3S",
+                    "text": "As saídas de emergência e áreas de circulação estão livres de obstruções e limpas regularmente?"
+                  },
+                  {
+                    "number": 328,
+                    "sense": "3S",
+                    "text": "Existem tapetes antiderrapantes, ou outros itens de segurança que precisam de limpeza ou substituição?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.6",
+                "title": "Limpeza de Superfícies",
+                "questions": [
+                  {
+                    "number": 329,
+                    "sense": "3S",
+                    "text": "As bancadas e áreas de preparo de alimentos são higienizadas diariamente?"
+                  },
+                  {
+                    "number": 330,
+                    "sense": "3S",
+                    "text": "As superfícies de contato frequente (puxadores de portas, interruptores) são desinfetadas regularmente?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.7",
+                "title": "Limpeza de Utensílios de Cozinha",
+                "questions": [
+                  {
+                    "number": 331,
+                    "sense": "3S",
+                    "text": "Os pratos, talheres e copos são lavados e desinfetados adequadamente após cada uso?"
+                  },
+                  {
+                    "number": 332,
+                    "sense": "3S",
+                    "text": "Os utensílios de cozinha (panelas, frigideiras, espátulas) são limpos e armazenados em locais apropriados?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.8",
+                "title": "Limpeza de Aparelhos Eletrônicos",
+                "questions": [
+                  {
+                    "number": 333,
+                    "sense": "3S",
+                    "text": "Os aparelhos eletrônicos (micro-ondas, cafeteiras, torradeiras) são limpos regularmente?"
+                  },
+                  {
+                    "number": 334,
+                    "sense": "3S",
+                    "text": "Os filtros e componentes removíveis dos aparelhos eletrônicos são limpos e substituídos conforme necessário?"
+                  },
+                  {
+                    "number": 335,
+                    "sense": "3S",
+                    "text": "Existem aparelhos eletrônicos que precisam de manutenção ou limpeza profunda?"
+                  }
+                ]
+              },
+              {
+                "code": "9.1.9",
+                "title": "Limpeza de Alimentos e Bebidas",
+                "questions": [
+                  {
+                    "number": 336,
+                    "sense": "3S",
+                    "text": "As áreas de armazenamento de alimentos e bebidas (geladeiras, armários) são limpas regularmente?"
+                  },
+                  {
+                    "number": 337,
+                    "sense": "3S",
+                    "text": "Existe um sistema para garantir que os alimentos e bebidas sejam armazenados de maneira higiênica e organizada?"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

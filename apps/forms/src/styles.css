@@ -1,0 +1,412 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './fonts.css';
+
+@config "../tailwind.config";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   PORTAL IEFA — PALE BRUTALISM
+   Estética: bordas duras, contornos finos, paleta acromática,
+   tracking negativo em display, zero arredondamento.
+   Referências: adidas.com, greptile.com, Vercel Geist, Linear
+   ============================================================ */
+
+/* ---- GRAY RAMP (base absoluta) ---- */
+:root {
+  --gray-50:   oklch(0.9900 0 0);
+  --gray-100:  oklch(0.9671 0 0);
+  --gray-150:  oklch(0.9400 0 0);
+  --gray-200:  oklch(0.9127 0 0);
+  --gray-300:  oklch(0.8546 0 0);
+  --gray-400:  oklch(0.6988 0 0);
+  --gray-500:  oklch(0.5600 0 0);
+  --gray-600:  oklch(0.4401 0 0);
+  --gray-700:  oklch(0.3549 0 0);
+  --gray-800:  oklch(0.2447 0 0);
+  --gray-900:  oklch(0.1770 0 0);
+  --gray-950:  oklch(0.1000 0 0);
+}
+
+/* ---- LIGHT MODE ---- */
+:root {
+  /* Canvas: off-white levemente quente — papel, não néon */
+  --background:            oklch(0.9875 0.003 98);
+  --foreground:            oklch(0.1000 0 0);
+
+  /* Card: branco puro sobre o canvas levemente cru */
+  --card:                  oklch(1.0000 0 0);
+  --card-foreground:       oklch(0.1000 0 0);
+
+  /* Popover */
+  --popover:               oklch(1.0000 0 0);
+  --popover-foreground:    oklch(0.1000 0 0);
+
+  /* Primary: preto absoluto + foreground branco */
+  --primary:               oklch(0.1000 0 0);
+  --primary-foreground:    oklch(1.0000 0 0);
+
+  /* Secondary: cinza pálido */
+  --secondary:             var(--gray-100);
+  --secondary-foreground:  oklch(0.1000 0 0);
+
+  /* Muted */
+  --muted:                 var(--gray-100);
+  --muted-foreground:      var(--gray-500);
+
+  /* Accent: cinza-200 — hover sutil, sem cor */
+  --accent:                var(--gray-200);
+  --accent-foreground:     oklch(0.1000 0 0);
+
+  /* Destructive */
+  --destructive:           oklch(0.5771 0.2450 27.33);
+  --destructive-foreground: oklch(1.0000 0 0);
+
+  /* Border + Input: cinza-300 — visível mas refinado */
+  --border:                var(--gray-300);
+  --input:                 var(--gray-300);
+
+  /* Ring: preto — foco explícito, brutal */
+  --ring:                  oklch(0.1000 0 0);
+
+  /* Charts: escala acromática */
+  --chart-1:               oklch(0.1000 0 0);
+  --chart-2:               var(--gray-700);
+  --chart-3:               var(--gray-500);
+  --chart-4:               var(--gray-400);
+  --chart-5:               var(--gray-300);
+
+  /* Sidebar */
+  --sidebar:               var(--gray-100);
+  --sidebar-foreground:    oklch(0.1000 0 0);
+  --sidebar-primary:       oklch(0.1000 0 0);
+  --sidebar-primary-foreground: oklch(1.0000 0 0);
+  --sidebar-accent:        var(--gray-200);
+  --sidebar-accent-foreground: oklch(0.1000 0 0);
+  --sidebar-border:        var(--gray-300);
+  --sidebar-ring:          oklch(0.1000 0 0);
+
+  /* Tipografia */
+  --font-sans:  'IBM Plex Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Lora', Georgia, serif;
+  --font-mono:  'IBM Plex Mono', 'Geist Mono', Menlo, monospace;
+
+  /* Tracking */
+  --tracking-tighter: -0.04em;
+  --tracking-tight:   -0.02em;
+  --tracking-normal:  -0.01em;
+  --tracking-label:    0.06em;   /* usado em tags/labels uppercase */
+
+  /* ── RAIO ZERO — coração do brutalismo pálido ── */
+  --radius: 0rem;
+
+  /* Bordas */
+  --border-width-thin:   1px;
+  --border-width-base:   1px;
+  --border-width-bold:   2px;
+  --border-width-brutal: 3px;
+
+  /* Sombras: planas e estruturais — zero blur */
+  --shadow-none: none;
+  --shadow-xs:   0 1px 2px 0 oklch(0 0 0 / 0.04);
+  --shadow-sm:   0 1px 3px 0 oklch(0 0 0 / 0.06);
+  --shadow-md:   none;
+  --shadow-lg:   none;
+  --shadow-xl:   none;
+  --shadow-2xl:  none;
+  --shadow-2xs:  none;
+
+  /* Sombras brutalistas (offset duro, sem blur) */
+  --shadow-hard-sm:  3px 3px 0 0 oklch(0.1000 0 0);
+  --shadow-hard-md:  4px 4px 0 0 oklch(0.1000 0 0);
+  --shadow-hard-lg:  6px 6px 0 0 oklch(0.1000 0 0);
+}
+
+/* ---- DARK MODE ---- */
+.dark {
+  --background:            oklch(0.1000 0 0);
+  --foreground:            oklch(0.9671 0 0);
+
+  --card:                  oklch(0.1500 0 0);
+  --card-foreground:       oklch(0.9671 0 0);
+
+  --popover:               oklch(0.1000 0 0);
+  --popover-foreground:    oklch(0.9671 0 0);
+
+  --primary:               oklch(0.9671 0 0);
+  --primary-foreground:    oklch(0.1000 0 0);
+
+  --secondary:             var(--gray-800);
+  --secondary-foreground:  oklch(0.9671 0 0);
+
+  --muted:                 var(--gray-900);
+  --muted-foreground:      var(--gray-400);
+
+  --accent:                var(--gray-800);
+  --accent-foreground:     oklch(0.9671 0 0);
+
+  --destructive:           oklch(0.5771 0.2450 27.33);
+  --destructive-foreground: oklch(1.0000 0 0);
+
+  --border:                var(--gray-800);
+  --input:                 var(--gray-800);
+
+  --ring:                  oklch(0.9671 0 0);
+
+  --chart-1:               oklch(0.9671 0 0);
+  --chart-2:               var(--gray-400);
+  --chart-3:               var(--gray-500);
+  --chart-4:               var(--gray-600);
+  --chart-5:               var(--gray-700);
+
+  --sidebar:               oklch(0.1500 0 0);
+  --sidebar-foreground:    oklch(0.9671 0 0);
+  --sidebar-primary:       oklch(0.9671 0 0);
+  --sidebar-primary-foreground: oklch(0.1000 0 0);
+  --sidebar-accent:        var(--gray-800);
+  --sidebar-accent-foreground: oklch(0.9671 0 0);
+  --sidebar-border:        var(--gray-800);
+  --sidebar-ring:          oklch(0.9671 0 0);
+
+  --shadow-hard-sm:  3px 3px 0 0 oklch(0.9671 0 0);
+  --shadow-hard-md:  4px 4px 0 0 oklch(0.9671 0 0);
+  --shadow-hard-lg:  6px 6px 0 0 oklch(0.9671 0 0);
+}
+
+/* ---- MAPEAMENTO @THEME (Tailwind v4) ---- */
+@theme inline {
+  --color-background:                var(--background);
+  --color-foreground:                var(--foreground);
+  --color-card:                      var(--card);
+  --color-card-foreground:           var(--card-foreground);
+  --color-popover:                   var(--popover);
+  --color-popover-foreground:        var(--popover-foreground);
+  --color-primary:                   var(--primary);
+  --color-primary-foreground:        var(--primary-foreground);
+  --color-secondary:                 var(--secondary);
+  --color-secondary-foreground:      var(--secondary-foreground);
+  --color-muted:                     var(--muted);
+  --color-muted-foreground:          var(--muted-foreground);
+  --color-accent:                    var(--accent);
+  --color-accent-foreground:         var(--accent-foreground);
+  --color-destructive:               var(--destructive);
+  --color-destructive-foreground:    var(--destructive-foreground);
+  --color-border:                    var(--border);
+  --color-input:                     var(--input);
+  --color-ring:                      var(--ring);
+  --color-chart-1:                   var(--chart-1);
+  --color-chart-2:                   var(--chart-2);
+  --color-chart-3:                   var(--chart-3);
+  --color-chart-4:                   var(--chart-4);
+  --color-chart-5:                   var(--chart-5);
+  --color-sidebar:                   var(--sidebar);
+  --color-sidebar-foreground:        var(--sidebar-foreground);
+  --color-sidebar-primary:           var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:            var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border:            var(--sidebar-border);
+  --color-sidebar-ring:              var(--sidebar-ring);
+
+  --font-sans:  var(--font-sans);
+  --font-mono:  var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  /* Radius derivado — tudo parte do zero */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: var(--radius);
+  --radius-xl: 0px;
+
+  /* Sombras expostas ao Tailwind */
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs:  var(--shadow-xs);
+  --shadow-sm:  var(--shadow-sm);
+  --shadow:     var(--shadow-none);
+  --shadow-md:  var(--shadow-md);
+  --shadow-lg:  var(--shadow-lg);
+  --shadow-xl:  var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+/* ---- BASE ---- */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    letter-spacing: var(--tracking-normal);
+  }
+
+  /* Headings: tracking negativo — traço mais importante do brutalismo pálido */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: var(--tracking-tight);
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  h1 { letter-spacing: var(--tracking-tighter); }
+
+  /* Links: sublinhado sutil, sem decoração em nav */
+  a:not([class]) {
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  /* Focus: anel preto explícito — sem sombras difusas */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar discreta */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+  }
+}
+
+/* ---- UTILITÁRIOS BRUTALISTAS ---- */
+@layer utilities {
+  /* Tipografia: escala de display com tracking negativo */
+
+  /* Hero: título principal de página — máximo visual */
+  .text-hero {
+    font-size: clamp(3.75rem, 11vw, 8rem);
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    line-height: 1.0;
+  }
+
+  .text-display {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tighter);
+    line-height: 1.05;
+  }
+
+  .text-headline {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.15;
+  }
+
+  /* Label/tag: uppercase com tracking largo */
+  .text-label {
+    font-size: 0.6875rem;     /* 11px */
+    font-weight: 500;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+
+  /* Delimitador horizontal como separador de seção (estilo greptile) */
+  .section-rule {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+
+  /* Frame de página com bordas laterais (estilo greptile) */
+  .page-frame {
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  /* Sombra hard offset — modificador brutalista */
+  .shadow-hard-sm {
+    box-shadow: var(--shadow-hard-sm);
+  }
+  .shadow-hard-md {
+    box-shadow: var(--shadow-hard-md);
+  }
+  .shadow-hard-lg {
+    box-shadow: var(--shadow-hard-lg);
+  }
+
+  /* Variante hover brutalista: sombra some, elemento translada */
+  .brutal-hover {
+    transition: box-shadow 100ms ease, transform 100ms ease;
+  }
+  .brutal-hover:hover {
+    transform: translate(4px, 4px);
+    box-shadow: none !important;
+  }
+
+  /* Borda de ênfase — 2px preta para elementos ativos/destacados */
+  .border-hard {
+    border: 2px solid oklch(0.1000 0 0);
+  }
+  .dark .border-hard {
+    border-color: oklch(0.9671 0 0);
+  }
+
+  /* Badge / tag estilo Pole B */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    border: 1px solid var(--gray-300);
+    padding: 0.1875rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+  .dark .tag {
+    background: var(--gray-800);
+    color: var(--gray-400);
+    border-color: var(--gray-700);
+  }
+
+  /* Contêiner com largura máxima estendida */
+  .container-wide {
+    width: 100%;
+    max-width: 1500px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  /* Animação de rolagem (marquee, etc.) */
+  .animate-scroll {
+    animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+  }
+}
+
+/* ---- KEYFRAMES ---- */
+@keyframes scroll {
+  to {
+    transform: translate(calc(-50% - 0.5rem));
+  }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Desabilita animações de transição de view */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

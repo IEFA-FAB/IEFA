@@ -22,6 +22,10 @@ on:
         description: 'Force deploy docs'
         type: boolean
         default: false
+      force_forms:
+        description: 'Force deploy forms'
+        type: boolean
+        default: false
       force_alpha:
         description: 'Force deploy Projeto α'
         type: boolean
@@ -41,6 +45,7 @@ jobs:
       api: ${{ steps.final.outputs.api }}
       portal: ${{ steps.final.outputs.portal }}
       sisub: ${{ steps.final.outputs.sisub }}
+      forms: ${{ steps.final.outputs.forms }}
       docs: ${{ steps.final.outputs.docs }}
       alpha: ${{ steps.final.outputs.alpha }}
     steps:
@@ -76,6 +81,14 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
+            forms:
+              - 'apps/forms/**'
+              - 'packages/database/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+              - '.github/workflows/deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
             docs:
               - 'apps/docs/**'
               - 'Dockerfile'
@@ -101,10 +114,12 @@ jobs:
           FORCE_PORTAL: ${{ inputs.force_portal }}
           FORCE_SISUB: ${{ inputs.force_sisub }}
           FORCE_DOCS: ${{ inputs.force_docs }}
+          FORCE_FORMS: ${{ inputs.force_forms }}
           FORCE_ALPHA: ${{ inputs.force_alpha }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
+          FILTER_FORMS: ${{ steps.filter.outputs.forms }}
           FILTER_DOCS: ${{ steps.filter.outputs.docs }}
           FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
         run: |
@@ -112,12 +127,14 @@ jobs:
             echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
             echo "portal=$FORCE_PORTAL" >> $GITHUB_OUTPUT
             echo "sisub=$FORCE_SISUB"   >> $GITHUB_OUTPUT
+            echo "forms=$FORCE_FORMS"   >> $GITHUB_OUTPUT
             echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
             echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
           else
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
             echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
             echo "sisub=$FILTER_SISUB"   >> $GITHUB_OUTPUT
+            echo "forms=$FILTER_FORMS"   >> $GITHUB_OUTPUT
             echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
             echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
           fi
@@ -439,6 +456,108 @@ jobs:
           PREV=$(flyctl releases -c fly/sisub.toml --json | jq -r '.[1].ImageRef // empty')
           if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
           flyctl deploy -c fly/sisub.toml --image "$PREV" --wait-timeout 300 || true
+
+  # ============================================================
+  # FORMS  ── check → build → deploy
+  # ============================================================
+  check-forms:
+    needs: [changes]
+    if: needs.changes.outputs.forms == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint · types · tests
+        run: bunx turbo run lint typecheck test --filter=./apps/forms
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+
+  build-forms:
+    needs: check-forms
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Login to Fly Registry
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
+
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/bake-action@v7
+        with:
+          files: ./docker-bake.hcl
+          targets: forms
+          push: true
+          set: |
+            forms.tags=registry.fly.io/iefa-forms:${{ steps.meta.outputs.tag }}
+            forms.tags=registry.fly.io/iefa-forms:latest
+            forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+            forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+
+  deploy-forms:
+    needs: build-forms
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    concurrency:
+      group: fly-deploy-forms-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Set Fly secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+        run: |
+          flyctl secrets set --config fly/forms.toml \
+            "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
+            "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
+
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-forms.outputs.tag }}
+        run: flyctl deploy -c fly/forms.toml --image "registry.fly.io/iefa-forms:$IMAGE_TAG" --wait-timeout 300
+
+      - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.FORMS_HEALTH_URL }}
+        run: |
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ forms health check passed"; exit 0; fi
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+          done
+          echo "❌ forms health check failed"; exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/forms.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/forms.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # Projeto α / apps/alpha  ── check → build → deploy
