@@ -262,7 +262,21 @@ export const getDraftResponseFn = createServerFn({ method: "GET" })
 export const getResponsesFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
 		const db = getFormsServerClient()
+
+		const { data: q } = await db.from("questionnaire").select("created_by").eq("id", questionnaire_id).single()
+		if (!q) throw new Error("Questionário não encontrado")
+
+		if (q.created_by !== user.id) {
+			const { data: viewerRow } = await db.from("response_viewer").select("id").eq("questionnaire_id", questionnaire_id).eq("viewer_id", user.id).maybeSingle()
+			if (!viewerRow) throw new Error("Sem permissão para visualizar as respostas")
+		}
+
 		const { data, error } = await db
 			.from("questionnaire_response")
 			.select("*, response(*)")
@@ -272,3 +286,89 @@ export const getResponsesFn = createServerFn({ method: "GET" })
 		if (error) throw new Error(error.message)
 		return data
 	})
+
+// ── Response Viewers ──────────────────────────────────────────────────────────
+
+export const getViewersFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.handler(async ({ data: { questionnaire_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+
+		const { data: q } = await db.from("questionnaire").select("created_by").eq("id", questionnaire_id).single()
+		if (!q || q.created_by !== user.id) return null
+
+		const { data, error } = await db.from("response_viewer").select("*").eq("questionnaire_id", questionnaire_id).order("created_at", { ascending: true })
+		if (error) throw new Error(error.message)
+		return data ?? []
+	})
+
+export const addViewerFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ questionnaire_id: z.string().uuid(), email: z.string().email() }))
+	.handler(async ({ data: { questionnaire_id, email } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+
+		const { data: q } = await db.from("questionnaire").select("created_by").eq("id", questionnaire_id).single()
+		if (!q || q.created_by !== user.id) throw new Error("Sem permissão")
+
+		const normalizedEmail = email.toLowerCase().trim()
+		const { data: viewerUserId, error: lookupError } = await db.rpc("lookup_user_id_by_email", { p_email: normalizedEmail })
+		if (lookupError) throw new Error(lookupError.message)
+		if (!viewerUserId) throw new Error("Usuário não encontrado com esse email")
+		if (viewerUserId === user.id) throw new Error("Você já é o criador do questionário")
+
+		const { data, error } = await db
+			.from("response_viewer")
+			.insert({ questionnaire_id, viewer_id: viewerUserId, viewer_email: normalizedEmail, added_by: user.id })
+			.select()
+			.single()
+		if (error) {
+			if (error.code === "23505") throw new Error("Este usuário já é um visualizador")
+			throw new Error(error.message)
+		}
+		return data
+	})
+
+export const removeViewerFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
+	.handler(async ({ data: { id, questionnaire_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+
+		const { data: q } = await db.from("questionnaire").select("created_by").eq("id", questionnaire_id).single()
+		if (!q || q.created_by !== user.id) throw new Error("Sem permissão")
+
+		const { error } = await db.from("response_viewer").delete().eq("id", id)
+		if (error) throw new Error(error.message)
+	})
+
+export const getSharedWithMeFn = createServerFn({ method: "GET" }).handler(async () => {
+	const {
+		data: { user },
+	} = await getAuthenticatedUser()
+	if (!user) throw new Error("Não autenticado")
+
+	const db = getFormsServerClient()
+
+	const { data: viewerRows, error: viewerError } = await db.from("response_viewer").select("questionnaire_id").eq("viewer_id", user.id)
+	if (viewerError) throw new Error(viewerError.message)
+	if (!viewerRows || viewerRows.length === 0) return []
+
+	const ids = viewerRows.map((r) => r.questionnaire_id)
+	const { data, error } = await db.from("questionnaire").select("*").in("id", ids).order("created_at", { ascending: false })
+	if (error) throw new Error(error.message)
+	return data ?? []
+})
