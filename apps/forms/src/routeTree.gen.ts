@@ -14,10 +14,10 @@ import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as RespondIdRouteImport } from './routes/respond/$id'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedResponsesIndexRouteImport } from './routes/_authenticated/responses/index'
 import { Route as AuthenticatedResponsesQuestionnaireIdRouteImport } from './routes/_authenticated/responses/$questionnaireId'
-import { Route as AuthenticatedRespondIdRouteImport } from './routes/_authenticated/respond/$id'
 import { Route as AuthenticatedQuestionnairesNewRouteImport } from './routes/_authenticated/questionnaires/new'
 import { Route as AuthenticatedQuestionnairesIdRouteImport } from './routes/_authenticated/questionnaires/$id'
 
@@ -45,6 +45,11 @@ const AuthIndexRoute = AuthIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const RespondIdRoute = RespondIdRouteImport.update({
+  id: '/respond/$id',
+  path: '/respond/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -62,11 +67,6 @@ const AuthenticatedResponsesQuestionnaireIdRoute =
     path: '/responses/$questionnaireId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedRespondIdRoute = AuthenticatedRespondIdRouteImport.update({
-  id: '/respond/$id',
-  path: '/respond/$id',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedQuestionnairesNewRoute =
   AuthenticatedQuestionnairesNewRouteImport.update({
     id: '/questionnaires/new',
@@ -85,10 +85,10 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/respond/$id': typeof RespondIdRoute
   '/auth/': typeof AuthIndexRoute
   '/questionnaires/$id': typeof AuthenticatedQuestionnairesIdRoute
   '/questionnaires/new': typeof AuthenticatedQuestionnairesNewRoute
-  '/respond/$id': typeof AuthenticatedRespondIdRoute
   '/responses/$questionnaireId': typeof AuthenticatedResponsesQuestionnaireIdRoute
   '/responses/': typeof AuthenticatedResponsesIndexRoute
 }
@@ -96,10 +96,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/health': typeof HealthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/respond/$id': typeof RespondIdRoute
   '/auth': typeof AuthIndexRoute
   '/questionnaires/$id': typeof AuthenticatedQuestionnairesIdRoute
   '/questionnaires/new': typeof AuthenticatedQuestionnairesNewRoute
-  '/respond/$id': typeof AuthenticatedRespondIdRoute
   '/responses/$questionnaireId': typeof AuthenticatedResponsesQuestionnaireIdRoute
   '/responses': typeof AuthenticatedResponsesIndexRoute
 }
@@ -110,10 +110,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/respond/$id': typeof RespondIdRoute
   '/auth/': typeof AuthIndexRoute
   '/_authenticated/questionnaires/$id': typeof AuthenticatedQuestionnairesIdRoute
   '/_authenticated/questionnaires/new': typeof AuthenticatedQuestionnairesNewRoute
-  '/_authenticated/respond/$id': typeof AuthenticatedRespondIdRoute
   '/_authenticated/responses/$questionnaireId': typeof AuthenticatedResponsesQuestionnaireIdRoute
   '/_authenticated/responses/': typeof AuthenticatedResponsesIndexRoute
 }
@@ -124,10 +124,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/health'
     | '/dashboard'
+    | '/respond/$id'
     | '/auth/'
     | '/questionnaires/$id'
     | '/questionnaires/new'
-    | '/respond/$id'
     | '/responses/$questionnaireId'
     | '/responses/'
   fileRoutesByTo: FileRoutesByTo
@@ -135,10 +135,10 @@ export interface FileRouteTypes {
     | '/'
     | '/health'
     | '/dashboard'
+    | '/respond/$id'
     | '/auth'
     | '/questionnaires/$id'
     | '/questionnaires/new'
-    | '/respond/$id'
     | '/responses/$questionnaireId'
     | '/responses'
   id:
@@ -148,10 +148,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/health'
     | '/_authenticated/dashboard'
+    | '/respond/$id'
     | '/auth/'
     | '/_authenticated/questionnaires/$id'
     | '/_authenticated/questionnaires/new'
-    | '/_authenticated/respond/$id'
     | '/_authenticated/responses/$questionnaireId'
     | '/_authenticated/responses/'
   fileRoutesById: FileRoutesById
@@ -161,6 +161,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HealthRoute: typeof HealthRoute
+  RespondIdRoute: typeof RespondIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -200,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/respond/$id': {
+      id: '/respond/$id'
+      path: '/respond/$id'
+      fullPath: '/respond/$id'
+      preLoaderRoute: typeof RespondIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -219,13 +227,6 @@ declare module '@tanstack/react-router' {
       path: '/responses/$questionnaireId'
       fullPath: '/responses/$questionnaireId'
       preLoaderRoute: typeof AuthenticatedResponsesQuestionnaireIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/respond/$id': {
-      id: '/_authenticated/respond/$id'
-      path: '/respond/$id'
-      fullPath: '/respond/$id'
-      preLoaderRoute: typeof AuthenticatedRespondIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/questionnaires/new': {
@@ -249,7 +250,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedQuestionnairesIdRoute: typeof AuthenticatedQuestionnairesIdRoute
   AuthenticatedQuestionnairesNewRoute: typeof AuthenticatedQuestionnairesNewRoute
-  AuthenticatedRespondIdRoute: typeof AuthenticatedRespondIdRoute
   AuthenticatedResponsesQuestionnaireIdRoute: typeof AuthenticatedResponsesQuestionnaireIdRoute
   AuthenticatedResponsesIndexRoute: typeof AuthenticatedResponsesIndexRoute
 }
@@ -258,7 +258,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedQuestionnairesIdRoute: AuthenticatedQuestionnairesIdRoute,
   AuthenticatedQuestionnairesNewRoute: AuthenticatedQuestionnairesNewRoute,
-  AuthenticatedRespondIdRoute: AuthenticatedRespondIdRoute,
   AuthenticatedResponsesQuestionnaireIdRoute:
     AuthenticatedResponsesQuestionnaireIdRoute,
   AuthenticatedResponsesIndexRoute: AuthenticatedResponsesIndexRoute,
@@ -284,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HealthRoute: HealthRoute,
+  RespondIdRoute: RespondIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

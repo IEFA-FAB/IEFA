@@ -33,9 +33,10 @@ const sidebarData: AppSidebarData = {
 }
 
 export const Route = createFileRoute("/_authenticated")({
-	beforeLoad: ({ context }) => {
+	beforeLoad: ({ context, location }) => {
 		if (!context.auth.isAuthenticated) {
-			throw redirect({ to: "/auth", search: { redirect: location.pathname } })
+			const redirectTarget = `${location.pathname}${location.search}${location.hash}`
+			throw redirect({ to: "/auth", search: { redirect: redirectTarget } })
 		}
 	},
 	component: AuthenticatedLayout,

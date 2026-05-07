@@ -19,6 +19,11 @@ export const getQuestionnairesFn = createServerFn({ method: "GET" }).handler(asy
 export const getQuestionnaireFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
 		const db = getFormsServerClient()
 		const { data, error } = await db
 			.from("questionnaire")
@@ -27,6 +32,9 @@ export const getQuestionnaireFn = createServerFn({ method: "GET" })
 			.order("sort_order", { referencedTable: "section", ascending: true })
 			.single()
 		if (error) throw new Error(error.message)
+		if (data.status !== "sent" && data.created_by !== user.id) {
+			throw new Error("Sem permissão para acessar este questionário")
+		}
 		if (data?.section) {
 			for (const section of data.section) {
 				if (section.question) {
@@ -172,6 +180,40 @@ export const reorderQuestionsFn = createServerFn({ method: "POST" })
 
 // ── Response Flow ─────────────────────────────────────────────────────────────
 
+export const getMyResponseStateFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.handler(async ({ data: { questionnaire_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+		const baseQuery = db.from("questionnaire_response").select("*, response(*)").eq("questionnaire_id", questionnaire_id).eq("respondent_id", user.id)
+
+		const { data: draft, error: draftError } = await baseQuery.eq("status", "draft").maybeSingle()
+		if (draftError) throw new Error(draftError.message)
+		if (draft) {
+			return { status: "draft" as const, session: draft }
+		}
+
+		const { data: submitted, error: submittedError } = await db
+			.from("questionnaire_response")
+			.select("*, response(*)")
+			.eq("questionnaire_id", questionnaire_id)
+			.eq("respondent_id", user.id)
+			.eq("status", "sent")
+			.order("submitted_at", { ascending: false })
+			.limit(1)
+			.maybeSingle()
+		if (submittedError) throw new Error(submittedError.message)
+		if (submitted) {
+			return { status: "submitted" as const, session: submitted }
+		}
+
+		return { status: "not_started" as const, session: null }
+	})
+
 export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
@@ -192,6 +234,17 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 
 		if (existing) return existing
 
+		const { data: submitted } = await db
+			.from("questionnaire_response")
+			.select("*")
+			.eq("questionnaire_id", questionnaire_id)
+			.eq("respondent_id", user.id)
+			.eq("status", "sent")
+			.order("submitted_at", { ascending: false })
+			.limit(1)
+			.maybeSingle()
+		if (submitted) throw new Error("Questionário já respondido")
+
 		const { data: created, error } = await db.from("questionnaire_response").insert({ questionnaire_id, respondent_id: user.id }).select().single()
 		if (error) throw new Error(error.message)
 		return created
@@ -207,7 +260,22 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data: { questionnaire_response_id, question_id, value, observation } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
 		const db = getFormsServerClient()
+		const { data: session, error: sessionError } = await db
+			.from("questionnaire_response")
+			.select("respondent_id, status")
+			.eq("id", questionnaire_response_id)
+			.single()
+		if (sessionError) throw new Error(sessionError.message)
+		if (session.respondent_id !== user.id || session.status !== "draft") {
+			throw new Error("Sem permissão para alterar esta resposta")
+		}
+
 		const { data, error } = await db
 			.from("response")
 			.upsert(
@@ -228,7 +296,18 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 export const submitResponseFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
 		const db = getFormsServerClient()
+		const { data: session, error: sessionError } = await db.from("questionnaire_response").select("respondent_id, status").eq("id", id).single()
+		if (sessionError) throw new Error(sessionError.message)
+		if (session.respondent_id !== user.id || session.status !== "draft") {
+			throw new Error("Sem permissão para enviar esta resposta")
+		}
+
 		const { data, error } = await db
 			.from("questionnaire_response")
 			.update({ status: "sent", submitted_at: new Date().toISOString() })

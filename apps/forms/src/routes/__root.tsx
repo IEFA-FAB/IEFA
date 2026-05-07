@@ -33,8 +33,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Formulários IEFA" }],
 		favicon: "/favicon.svg",
 		links: [
-			{ rel: "preload", href: AppStyles, as: "style" },
-			{ rel: "stylesheet", href: AppStyles },
 			{
 				rel: "icon",
 				type: "image/svg+xml",
@@ -46,20 +44,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				href: "/manifest.json",
 			},
 			{ rel: "icon", href: "/favicon.svg" },
-			{
-				rel: "preload",
-				href: "/fonts/Lora-Variable.ttf",
-				as: "font",
-				type: "font/ttf",
-				crossOrigin: "anonymous",
-			},
-			{
-				rel: "preload",
-				href: "/fonts/IBMPlexSans-Variable.ttf",
-				as: "font",
-				type: "font/ttf",
-				crossOrigin: "anonymous",
-			},
 		],
 	}),
 	errorComponent: DefaultCatchBoundary,
@@ -105,12 +89,12 @@ function RootDocument() {
 	return (
 		<html lang="pt-BR" suppressHydrationWarning>
 			<head>
+				<ThemeScript />
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
 				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
 				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
 				<HeadContent />
-				<ThemeScript />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
 				<div

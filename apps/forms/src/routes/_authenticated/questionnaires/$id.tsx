@@ -49,9 +49,11 @@ function EditQuestionnairePage() {
 	const queryClient = useQueryClient()
 	const { data: questionnaire } = useSuspenseQuery(questionnaireQueryOptions(id))
 	const [saving, setSaving] = useState(false)
+	const [copiedShareLink, setCopiedShareLink] = useState(false)
 
 	const isDraft = questionnaire.status === "draft"
 	const sections = questionnaire.section ?? []
+	const shareUrl = typeof window !== "undefined" ? new URL(`/respond/${id}`, window.location.origin).toString() : `/respond/${id}`
 
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["questionnaire", id] })
 
@@ -100,6 +102,13 @@ function EditQuestionnairePage() {
 	const handleDeleteQuestion = async (questionId: string) => {
 		await deleteQuestionFn({ data: { id: questionId } })
 		invalidate()
+	}
+
+	const handleCopyShareLink = async () => {
+		if (typeof navigator === "undefined" || !navigator.clipboard) return
+		await navigator.clipboard.writeText(shareUrl)
+		setCopiedShareLink(true)
+		window.setTimeout(() => setCopiedShareLink(false), 2000)
 	}
 
 	return (
@@ -155,6 +164,23 @@ function EditQuestionnairePage() {
 								onBlur={(e) => updateQuestionnaireFn({ data: { id, description: e.target.value } }).then(() => invalidate())}
 								rows={2}
 							/>
+						</div>
+					</CardContent>
+				</Card>
+			)}
+
+			{questionnaire.status === "sent" && (
+				<Card>
+					<CardHeader className="pb-3">
+						<CardTitle className="text-lg">Link fixo para respostas</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-3">
+						<p className="text-sm text-muted-foreground">Compartilhe este link. O usuário fará login e será redirecionado direto para a página de resposta.</p>
+						<div className="flex flex-col gap-2 md:flex-row">
+							<Input value={shareUrl} readOnly className="font-mono text-xs" />
+							<Button type="button" variant="outline" onClick={handleCopyShareLink} className="md:shrink-0">
+								{copiedShareLink ? "Copiado" : "Copiar link"}
+							</Button>
 						</div>
 					</CardContent>
 				</Card>
