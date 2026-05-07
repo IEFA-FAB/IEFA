@@ -141,7 +141,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 	useEffect(() => {
 		if (!isLoading && isAuthenticated) {
-			onNavigate({ to: safeRedirect(searchParams.redirect, "/"), replace: true })
+			onNavigate({ to: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
 		}
 	}, [isAuthenticated, isLoading, searchParams.redirect, onNavigate])
 
@@ -202,7 +202,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			await actions.signIn(norm, loginPassword)
 			if (rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-			await onNavigate({ to: safeRedirect(searchParams.redirect, "/"), replace: true })
+			await onNavigate({ to: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"
 			if (msg.includes("Email ou senha incorretos") || msg.includes("Invalid login credentials")) {
@@ -286,7 +286,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			const { error } = await actions.updateUserPassword(newPassword)
 			if (error) throw error
 			alert("Senha atualizada com sucesso!")
-			await onNavigate({ to: "/" })
+			await onNavigate({ to: "/dashboard" })
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Erro ao atualizar senha.")
 		} finally {

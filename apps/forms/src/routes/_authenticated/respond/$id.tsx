@@ -1,5 +1,5 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, Check, NavArrowDown, Refresh, SendDiagonal } from "iconoir-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +28,7 @@ type AnswerMap = Record<string, { value: unknown; observation: string | null }>
 function RespondPage() {
 	const { id } = Route.useParams()
 	const navigate = useNavigate()
+	const router = useRouter()
 	const { data: questionnaire } = useSuspenseQuery(questionnaireQueryOptions(id))
 	const [responseSessionId, setResponseSessionId] = useState<string | null>(null)
 	const [answers, setAnswers] = useState<AnswerMap>({})
@@ -111,7 +112,7 @@ function RespondPage() {
 						<Check className="h-12 w-12 mx-auto text-foreground" />
 						<h2 className="text-xl font-bold">Resposta enviada!</h2>
 						<p className="text-sm text-muted-foreground">Obrigado por responder o questionário.</p>
-						<Button onClick={() => navigate({ to: "/" })}>Voltar ao painel</Button>
+						<Button onClick={() => navigate({ to: "/dashboard" })}>Voltar ao painel</Button>
 					</CardContent>
 				</Card>
 			</div>
@@ -120,30 +121,32 @@ function RespondPage() {
 
 	return (
 		<div className="p-6 md:p-10  space-y-6">
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-3">
-					<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/" })}>
-						<ArrowLeft className="h-4 w-4" />
-					</Button>
-					<div>
-						<h1 className="text-2xl font-bold tracking-tight">{questionnaire.title}</h1>
-						{questionnaire.description && <p className="text-sm text-muted-foreground mt-1">{questionnaire.description}</p>}
+			<div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border -mx-6 md:-mx-10 px-6 md:px-10 py-4 space-y-3">
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						<Button variant="ghost" size="sm" onClick={() => router.history.back()}>
+							<ArrowLeft className="h-4 w-4" />
+						</Button>
+						<div>
+							<h1 className="text-2xl font-bold tracking-tight">{questionnaire.title}</h1>
+							{questionnaire.description && <p className="text-sm text-muted-foreground mt-1">{questionnaire.description}</p>}
+						</div>
 					</div>
+					<Badge variant="secondary" className="text-xs">
+						{saveStatus === "saving" && "Salvando..."}
+						{saveStatus === "saved" && "Salvo"}
+						{saveStatus === "error" && "Erro ao salvar"}
+						{saveStatus === "idle" && "Auto-save ativo"}
+					</Badge>
 				</div>
-				<Badge variant="secondary" className="text-xs">
-					{saveStatus === "saving" && "Salvando..."}
-					{saveStatus === "saved" && "Salvo"}
-					{saveStatus === "error" && "Erro ao salvar"}
-					{saveStatus === "idle" && "Auto-save ativo"}
-				</Badge>
-			</div>
 
-			<div className="space-y-1">
-				<div className="flex items-center justify-between text-xs text-muted-foreground">
-					<span>Progresso</span>
-					<span>{progressPct}%</span>
+				<div className="space-y-1">
+					<div className="flex items-center justify-between text-xs text-muted-foreground">
+						<span>Progresso</span>
+						<span>{progressPct}%</span>
+					</div>
+					<Progress value={progressPct} />
 				</div>
-				<Progress value={progressPct} />
 			</div>
 
 			{(questionnaire.section ?? []).map(
