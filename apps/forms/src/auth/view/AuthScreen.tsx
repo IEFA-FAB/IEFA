@@ -1,16 +1,25 @@
 import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
 import { useEffect, useState } from "react"
+import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
-const FAB_EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@fab\.mil\.br$/
+const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
 const STORAGE_KEY_REMEMBER_EMAIL = "fab_remember_email"
 
 function normalizeEmail(email: string) {
 	return email.trim().toLowerCase()
+}
+
+function getPasswordError(v: string): string | null {
+	if (v.length < 8) return "Mínimo de 8 caracteres."
+	if (!/[a-z]/.test(v)) return "Inclua pelo menos uma letra minúscula."
+	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
+	if (!/\d/.test(v)) return "Inclua pelo menos um número."
+	return null
 }
 
 function safeRedirect(target: string | null | undefined, fallback = "/"): string {
@@ -94,6 +103,8 @@ function SuccessBanner({ message }: { message: string }) {
 // ─── AuthScreen ───────────────────────────────────────────────────────────────
 
 export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigate, onTabChange, onViewChange, actions }: AuthScreenProps) {
+	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
+
 	// ── View derivada da URL — nunca estado local ─────────────────────────────
 	// Prioridade: token_hash → reset | ?view=forgot → forgot | default → auth tabs
 	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
@@ -162,7 +173,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		setError("")
 		setEmailError("")
 		if (v && !FAB_EMAIL_REGEX.test(normalizeEmail(v))) {
-			setEmailError("Utilize um email institucional (@fab.mil.br).")
+			setEmailError("Use seu email institucional @fab.mil.br (sem caracteres especiais).")
 		}
 	}
 
@@ -185,13 +196,15 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 	const handleLogin = async (e: React.FormEvent) => {
 		e.preventDefault()
+		if (isLocked) return
 		const norm = normalizeEmail(loginEmail)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setEmailError("Email inválido da FAB.")
+			setEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
 			return
 		}
-		if (loginPassword.length < 6) {
-			setPasswordError("Mínimo 6 caracteres.")
+		const pwErr = getPasswordError(loginPassword)
+		if (pwErr) {
+			setPasswordError(pwErr)
 			return
 		}
 		setIsSubmitting(true)
@@ -200,10 +213,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		setPasswordError("")
 		try {
 			await actions.signIn(norm, loginPassword)
+			onSuccess()
 			if (rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
 			await onNavigate({ to: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
 		} catch (err) {
+			onFailure()
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"
 			if (msg.includes("Email ou senha incorretos") || msg.includes("Invalid login credentials")) {
 				setPasswordError("Senha incorreta ou email não cadastrado")
@@ -221,7 +236,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		setError("")
 		setRegisterEmailError("")
 		if (v && !FAB_EMAIL_REGEX.test(normalizeEmail(v))) {
-			setRegisterEmailError("Utilize um email institucional (@fab.mil.br).")
+			setRegisterEmailError("Use seu email institucional @fab.mil.br (sem caracteres especiais).")
 		}
 	}
 
@@ -229,11 +244,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		e.preventDefault()
 		const norm = normalizeEmail(registerData.email)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setRegisterEmailError("Email inválido da FAB.")
+			setRegisterEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
 			return
 		}
-		if (registerData.password.length < 6) {
-			setError("Mínimo 6 caracteres.")
+		const regPwErr = getPasswordError(registerData.password)
+		if (regPwErr) {
+			setError(regPwErr)
 			return
 		}
 		if (registerData.password !== registerData.confirm) {
@@ -259,7 +275,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		e.preventDefault()
 		const norm = normalizeEmail(forgotEmail)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setError("Email inválido da FAB.")
+			setError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
 			return
 		}
 		setIsSubmitting(true)
@@ -276,8 +292,9 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 	const handleResetPassword = async (e: React.FormEvent) => {
 		e.preventDefault()
-		if (newPassword.length < 6) {
-			setError("Mínimo 6 caracteres.")
+		const resetPwErr = getPasswordError(newPassword)
+		if (resetPwErr) {
+			setError(resetPwErr)
 			return
 		}
 		setIsSubmitting(true)
@@ -346,8 +363,8 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 										value={newPassword}
 										onChange={(e) => setNewPassword(e.target.value)}
 										required
-										minLength={6}
-										placeholder="Mínimo 6 caracteres"
+										minLength={8}
+										placeholder="Mínimo 8 caracteres"
 										autoComplete="new-password"
 									/>
 								</div>
@@ -443,7 +460,8 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 						<form onSubmit={handleLogin}>
 							<div className="px-8 pb-6 space-y-5">
-								{error && <ErrorBanner message={error} />}
+								{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+								{error && !isLocked && <ErrorBanner message={error} />}
 								{successMessage && <SuccessBanner message={successMessage} />}
 
 								{/* Email */}
@@ -493,7 +511,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											onChange={handleLoginPasswordChange}
 											required
 											autoComplete="current-password"
-											minLength={6}
+											minLength={8}
 											disabled={isSubmitting}
 										/>
 										<Button
@@ -527,9 +545,15 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 							</div>
 
 							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || !!emailError || !!passwordError}>
-									{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
-									{isSubmitting ? "Entrando..." : "Entrar"}
+								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
+									{isLocked ? (
+										`Bloqueado (${retryAfter}s)`
+									) : (
+										<>
+											{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+											{isSubmitting ? "Entrando..." : "Entrar"}
+										</>
+									)}
 								</Button>
 							</div>
 						</form>
@@ -590,12 +614,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
 										<Input
 											type="password"
-											placeholder="Mínimo 6 caracteres"
+											placeholder="Mínimo 8 caracteres"
 											className="h-11 pl-9"
 											value={registerData.password}
 											onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
 											required
-											minLength={6}
+											minLength={8}
 											autoComplete="new-password"
 											disabled={isSubmitting}
 										/>

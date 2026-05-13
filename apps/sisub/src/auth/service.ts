@@ -34,7 +34,7 @@ function getAuthErrorMessage(error: unknown): string {
 	if (/invalid login credentials/i.test(msg)) return "Email ou senha incorretos"
 	if (/email not confirmed/i.test(msg)) return "Por favor, confirme seu email antes de fazer login"
 	if (/user already registered/i.test(msg)) return "Este email já está cadastrado"
-	if (/password should be at least 6 characters/i.test(msg)) return "A senha deve ter pelo menos 6 caracteres"
+	if (/password should be at least/i.test(msg)) return "A senha deve ter pelo menos 8 caracteres, com maiúscula, minúscula e número"
 	if (/invalid format/i.test(msg)) return "Formato de email inválido"
 	if (/signup is disabled/i.test(msg)) return "Cadastro temporariamente desabilitado"
 	return msg
@@ -49,12 +49,13 @@ export const authActions = {
 		if (error) throw new Error(getAuthErrorMessage(error))
 	},
 
-	signUp: async (email: string, password: string, redirectTo?: string) => {
+	signUp: async (email: string, password: string, name?: string) => {
 		const { error } = await supabase.auth.signUp({
 			email: normalizeEmail(email),
 			password,
 			options: {
-				emailRedirectTo: redirectTo ?? (typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined),
+				data: name ? { display_name: name } : undefined,
+				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
 			},
 		})
 		if (error) throw new Error(getAuthErrorMessage(error))

@@ -49,9 +49,7 @@ export async function listRecipes(client: AnyClient, ctx: UserContext, input: Li
 
 	let query = client.from("recipes").select(RECIPE_WITH_INGREDIENTS).is("deleted_at", null).order("name")
 
-	if (input.globalOnly) {
-		query = query.is("kitchen_id", null)
-	} else if (input.kitchenId != null) {
+	if (input.kitchenId != null && !input.globalOnly) {
 		query = query.or(`kitchen_id.is.null,kitchen_id.eq.${input.kitchenId}`)
 	} else {
 		query = query.is("kitchen_id", null)

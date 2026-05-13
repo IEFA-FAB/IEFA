@@ -1,7 +1,15 @@
-import { useQuery } from "@tanstack/react-query"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { fetchRecipesFn, fetchRecipeWithIngredientsFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
+
+export const recipesQueryOptions = (kitchenId?: number | null) =>
+	queryOptions({
+		queryKey: ["recipes", { kitchen_id: kitchenId ?? null }],
+		queryFn: () => fetchRecipesFn({ data: { kitchenId } }),
+		staleTime: 5 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
+	})
 
 /**
  * Busca todas as receitas uma única vez com query key estável.
@@ -9,11 +17,7 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
  * para evitar requests por keystroke e manter UX instantânea.
  */
 export function useRecipes(filters?: { kitchen_id?: number | null; search?: string; origin?: "all" | "global" | "local" }) {
-	const query = useQuery({
-		queryKey: ["recipes", { kitchen_id: filters?.kitchen_id ?? null }],
-		queryFn: () => fetchRecipesFn({ data: { kitchenId: filters?.kitchen_id } }),
-		staleTime: 5 * 60 * 1000, // 5 minutes
-	})
+	const query = useQuery(recipesQueryOptions(filters?.kitchen_id))
 
 	const data = useMemo(() => {
 		if (!query.data) return query.data

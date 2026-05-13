@@ -4,6 +4,7 @@ import { ChefHat, GitFork, Globe, Search, TextSearch } from "lucide-react"
 import { useDeferredValue, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useRecipes } from "@/hooks/data/useRecipes"
@@ -33,12 +34,13 @@ export function RecipesManager() {
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => ROW_HEIGHT,
 		overscan: 10,
+		getItemKey: (index) => filteredRecipes[index]?.id ?? index,
 	})
 
 	return (
 		<div className="space-y-6">
 			{/* Search & Filters */}
-			<div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center bg-card p-5 rounded-md border">
+			<Card className="flex-col sm:flex-row items-stretch sm:items-center gap-4 p-5 overflow-visible">
 				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 					<Input placeholder="Buscar Preparação..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -54,10 +56,10 @@ export function RecipesManager() {
 						Locais
 					</Button>
 				</div>
-			</div>
+			</Card>
 
 			{/* Virtualized Table */}
-			<div className="rounded-md border bg-card overflow-hidden">
+			<Card className="py-0">
 				{/* Header row */}
 				<div className="grid grid-cols-[1fr_80px_110px_120px_190px] border-b border-border/50 bg-muted/30 text-sm font-sans font-semibold text-muted-foreground">
 					<div className="px-6 py-3">Nome</div>
@@ -78,9 +80,15 @@ export function RecipesManager() {
 								const recipe = filteredRecipes[vRow.index]
 								return (
 									<div
-										key={recipe.id}
-										className="grid grid-cols-[1fr_80px_110px_120px_190px] items-center border-b border-border/30 hover:bg-muted/30 transition-colors absolute inset-x-0"
-										style={{ top: vRow.start, height: ROW_HEIGHT }}
+										key={vRow.key}
+										className="grid grid-cols-[1fr_80px_110px_120px_190px] items-center border-b border-border/30 hover:bg-muted/30 transition-colors absolute"
+										style={{
+											top: 0,
+											left: 0,
+											width: "100%",
+											height: `${vRow.size}px`,
+											transform: `translateY(${vRow.start}px)`,
+										}}
 									>
 										<div className="px-6 font-sans font-medium text-sm truncate">
 											{recipe.name}
@@ -194,7 +202,7 @@ export function RecipesManager() {
 						</div>
 					</div>
 				)}
-			</div>
+			</Card>
 		</div>
 	)
 }

@@ -91,43 +91,49 @@ export async function listDeletedTemplates(client: AnyClient, ctx: UserContext, 
 }
 
 export async function getTemplate(client: AnyClient, ctx: UserContext, input: GetTemplate) {
-	const template = await validateTemplateAccess(client, input.templateId, null)
+	const { data, error } = await client
+		.from("menu_template")
+		.select(`id, kitchen_id, name, deleted_at, items:menu_template_items(${TEMPLATE_ITEMS_FULL})`)
+		.eq("id", input.templateId)
+		.single()
 
-	if (template.kitchen_id !== null) {
-		requireKitchen(ctx, 1, template.kitchen_id)
+	if (error || !data) throw new NotFoundError("menu_template", input.templateId)
+	// biome-ignore lint/suspicious/noExplicitAny: untyped row
+	const tmpl = data as any
+	if (tmpl.deleted_at !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.templateId} is deleted`)
+
+	if (tmpl.kitchen_id !== null) {
+		requireKitchen(ctx, 1, tmpl.kitchen_id)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	const { data: items, error } = await client
-		.from("menu_template_items")
-		.select(TEMPLATE_ITEMS_FULL)
-		.eq("menu_template_id", input.templateId)
-		.order("day_of_week")
-		.order("meal_type_id")
-
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return { ...template, items: items ?? [] }
+	const { items: rawItems, ...templateMeta } = tmpl
+	// biome-ignore lint/suspicious/noExplicitAny: untyped items
+	const items = ((rawItems ?? []) as any[]).sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? 0) - (b.meal_type_id ?? 0))
+	return { ...templateMeta, items }
 }
 
 export async function getTemplateItems(client: AnyClient, ctx: UserContext, input: GetTemplate) {
-	const template = await validateTemplateAccess(client, input.templateId, null)
+	const { data, error } = await client
+		.from("menu_template")
+		.select(`id, kitchen_id, deleted_at, items:menu_template_items(${TEMPLATE_ITEMS_FULL})`)
+		.eq("id", input.templateId)
+		.single()
 
-	if (template.kitchen_id !== null) {
-		requireKitchen(ctx, 1, template.kitchen_id)
+	if (error || !data) throw new NotFoundError("menu_template", input.templateId)
+	// biome-ignore lint/suspicious/noExplicitAny: untyped row
+	const tmpl = data as any
+	if (tmpl.deleted_at !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.templateId} is deleted`)
+
+	if (tmpl.kitchen_id !== null) {
+		requireKitchen(ctx, 1, tmpl.kitchen_id)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	const { data, error } = await client
-		.from("menu_template_items")
-		.select(TEMPLATE_ITEMS_FULL)
-		.eq("menu_template_id", input.templateId)
-		.order("day_of_week")
-		.order("meal_type_id")
-
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	// biome-ignore lint/suspicious/noExplicitAny: untyped items
+	return ((tmpl.items ?? []) as any[]).sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? 0) - (b.meal_type_id ?? 0))
 }
 
 function buildTemplateItemRows(templateId: string, items: TemplateItem[]) {
@@ -197,8 +203,18 @@ export async function createBlankTemplate(client: AnyClient, ctx: UserContext, i
 }
 
 export async function forkTemplate(client: AnyClient, ctx: UserContext, input: ForkTemplate) {
-	// Check read access on source template
-	const source = await validateTemplateAccess(client, input.sourceTemplateId, null)
+	// Single query: fetch source template + items together
+	const { data: sourceData, error: sourceFetchError } = await client
+		.from("menu_template")
+		.select("id, kitchen_id, name, deleted_at, template_type, items:menu_template_items(day_of_week, meal_type_id, recipe_id)")
+		.eq("id", input.sourceTemplateId)
+		.single()
+
+	if (sourceFetchError || !sourceData) throw new NotFoundError("menu_template", input.sourceTemplateId)
+	// biome-ignore lint/suspicious/noExplicitAny: untyped row
+	const source = sourceData as any
+	if (source.deleted_at !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.sourceTemplateId} is deleted`)
+
 	if (source.kitchen_id !== null) {
 		requireKitchen(ctx, 1, source.kitchen_id)
 	} else {
@@ -213,13 +229,7 @@ export async function forkTemplate(client: AnyClient, ctx: UserContext, input: F
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	// Fetch source items
-	const { data: sourceItems, error: itemsFetchError } = await client
-		.from("menu_template_items")
-		.select("day_of_week, meal_type_id, recipe_id")
-		.eq("menu_template_id", input.sourceTemplateId)
-
-	if (itemsFetchError) throw new DomainError("FETCH_FAILED", itemsFetchError.message)
+	const sourceItems: Array<{ day_of_week: number | null; meal_type_id: string; recipe_id: string }> = source.items ?? []
 
 	// Create fork
 	const { data: newTemplate, error: templateError } = await client
@@ -228,8 +238,7 @@ export async function forkTemplate(client: AnyClient, ctx: UserContext, input: F
 			name: input.newName ?? source.name,
 			kitchen_id: targetKitchenId,
 			base_template_id: input.sourceTemplateId,
-			// biome-ignore lint/suspicious/noExplicitAny: source row is untyped
-			template_type: (source as any).template_type ?? "weekly",
+			template_type: source.template_type ?? "weekly",
 		})
 		.select()
 		.single()
@@ -280,13 +289,27 @@ export async function updateTemplate(client: AnyClient, ctx: UserContext, input:
 
 	// Destructive item replacement if items provided
 	if (input.items !== undefined) {
+		// Backup existing items so they can be restored if the subsequent insert fails
+		const { data: prevItems } = await client
+			.from("menu_template_items")
+			.select("day_of_week, meal_type_id, recipe_id, headcount_override")
+			.eq("menu_template_id", input.templateId)
+
 		const { error: deleteError } = await client.from("menu_template_items").delete().eq("menu_template_id", input.templateId)
 		if (deleteError) throw new DomainError("DELETE_ITEMS_FAILED", deleteError.message)
 
 		if (input.items.length > 0) {
 			const rows = buildTemplateItemRows(input.templateId, input.items)
 			const { error: insertError } = await client.from("menu_template_items").insert(rows)
-			if (insertError) throw new DomainError("INSERT_ITEMS_FAILED", insertError.message)
+			if (insertError) {
+				if (prevItems?.length) {
+					await client.from("menu_template_items").insert(
+						// biome-ignore lint/suspicious/noExplicitAny: untyped backup rows
+						prevItems.map((i: any) => ({ menu_template_id: input.templateId, ...i }))
+					)
+				}
+				throw new DomainError("INSERT_ITEMS_FAILED", insertError.message)
+			}
 		}
 	}
 
@@ -363,7 +386,8 @@ export async function applyTemplate(
 	async function rollback(): Promise<void> {
 		if (!deletedMenus?.length) return
 		const ids = deletedMenus.map((m: { id: string }) => m.id)
-		await client.from("daily_menu").update({ deleted_at: null }).in("id", ids)
+		const { error } = await client.from("daily_menu").update({ deleted_at: null }).in("id", ids)
+		if (error) throw new DomainError("ROLLBACK_FAILED", `Failed to restore ${ids.length} menus: ${error.message}`)
 	}
 
 	// Build new menus and items
@@ -408,13 +432,14 @@ export async function applyTemplate(
 	if (newMenuItems.length > 0) {
 		const { error: itemInsertError } = await client.from("menu_items").insert(newMenuItems)
 		if (itemInsertError) {
-			await client
+			const { error: cleanupError } = await client
 				.from("daily_menu")
 				.delete()
 				.in(
 					"id",
 					newMenus.map((m) => m.id)
 				)
+			if (cleanupError) throw new DomainError("ROLLBACK_FAILED", `Failed to clean up inserted menus: ${cleanupError.message}`)
 			await rollback()
 			throw new DomainError("INSERT_ITEMS_FAILED", itemInsertError.message)
 		}

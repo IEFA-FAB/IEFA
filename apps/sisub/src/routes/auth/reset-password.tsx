@@ -13,6 +13,14 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
 
+function getPasswordError(v: string): string | null {
+	if (v.length < 8) return "Mínimo de 8 caracteres."
+	if (!/[a-z]/.test(v)) return "Inclua pelo menos uma letra minúscula."
+	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
+	if (!/\d/.test(v)) return "Inclua pelo menos um número."
+	return null
+}
+
 /* ========================================================================
    ROUTE DEFINITION
    ======================================================================== */
@@ -46,7 +54,7 @@ function ResetPasswordPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [error, setError] = useState("")
 
-	const passwordErr = newPassword && newPassword.length < 6 ? "Mínimo de 6 caracteres." : null
+	const passwordErr = newPassword ? getPasswordError(newPassword) : null
 	const confirmErr = confirm && confirm !== newPassword ? "As senhas não coincidem." : null
 
 	// Aguarda o evento de recuperação de senha do Supabase (via hash do link)
@@ -79,7 +87,7 @@ function ResetPasswordPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		"use no memo"
 		e.preventDefault()
-		if (!newPassword || newPassword.length < 6) return
+		if (!newPassword || getPasswordError(newPassword)) return
 		if (newPassword !== confirm) return
 
 		setIsSubmitting(true)
@@ -176,7 +184,7 @@ function ResetPasswordPage() {
 								id="new-password"
 								type={showPassword ? "text" : "password"}
 								autoComplete="new-password"
-								placeholder="Mínimo 6 caracteres"
+								placeholder="Mínimo 8 caracteres"
 								value={newPassword}
 								onChange={(e) => {
 									setNewPassword(e.target.value)
@@ -186,7 +194,7 @@ function ResetPasswordPage() {
 								aria-invalid={!!passwordErr || undefined}
 								aria-describedby={passwordErr ? "new-password-error" : undefined}
 								disabled={isSubmitting}
-								minLength={6}
+								minLength={8}
 								required
 							/>
 							<button
@@ -226,7 +234,7 @@ function ResetPasswordPage() {
 								aria-invalid={!!confirmErr || undefined}
 								aria-describedby={confirmErr ? "confirm-password-error" : undefined}
 								disabled={isSubmitting}
-								minLength={6}
+								minLength={8}
 								required
 							/>
 							<button

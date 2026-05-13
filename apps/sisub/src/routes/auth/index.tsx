@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 // Hooks + Services
+import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -56,18 +57,21 @@ export const Route = createFileRoute("/auth/")({
    HELPERS
    ======================================================================== */
 
-const FAB_EMAIL_RE = /^[a-zA-Z0-9._%+-]+@fab\.mil\.br$/
+const FAB_EMAIL_RE = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
 const REMEMBER_KEY = "fab_remember_email"
 
 function validateEmail(v: string): string | null {
 	if (!v) return "Email obrigatório."
-	if (!FAB_EMAIL_RE.test(v)) return "Use seu email institucional @fab.mil.br."
+	if (!FAB_EMAIL_RE.test(v)) return "Use seu email institucional @fab.mil.br (sem caracteres especiais)."
 	return null
 }
 
 function validatePassword(v: string): string | null {
 	if (!v) return "Senha obrigatória."
-	if (v.length < 6) return "Mínimo de 6 caracteres."
+	if (v.length < 8) return "Mínimo de 8 caracteres."
+	if (!/[a-z]/.test(v)) return "Inclua pelo menos uma letra minúscula."
+	if (!/[A-Z]/.test(v)) return "Inclua pelo menos uma letra maiúscula."
+	if (!/\d/.test(v)) return "Inclua pelo menos um número."
 	return null
 }
 
@@ -250,6 +254,7 @@ interface LoginViewProps {
 
 function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	"use no memo"
+	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
 	const [email, setEmail] = useState(() => {
 		try {
 			return localStorage.getItem(REMEMBER_KEY) ?? ""
@@ -275,6 +280,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	const handleSubmit = async (e: React.FormEvent) => {
 		"use no memo"
 		e.preventDefault()
+		if (isLocked) return
 		const eErr = validateEmail(email)
 		const pErr = validatePassword(password)
 		if (eErr || pErr) {
@@ -287,7 +293,9 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 			if (remember) localStorage.setItem(REMEMBER_KEY, email)
 			else localStorage.removeItem(REMEMBER_KEY)
 			await onSubmit(email.trim().toLowerCase(), password)
+			onSuccess()
 		} catch (err) {
+			onFailure()
 			setError(err instanceof Error ? err.message : "Erro ao entrar. Tente novamente.")
 		} finally {
 			setIsSubmitting(false)
@@ -296,7 +304,13 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 
 	return (
 		<form onSubmit={handleSubmit} noValidate className="space-y-5">
-			{error && (
+			{isLocked && (
+				<Alert variant="destructive">
+					<AlertCircle className="h-4 w-4" />
+					<AlertDescription>Muitas tentativas. Tente novamente em {retryAfter}s.</AlertDescription>
+				</Alert>
+			)}
+			{error && !isLocked && (
 				<Alert variant="destructive">
 					<AlertCircle className="h-4 w-4" />
 					<AlertDescription>{error}</AlertDescription>
@@ -388,8 +402,10 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 				</label>
 			</div>
 
-			<Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
-				{isSubmitting ? (
+			<Button type="submit" className="w-full gap-2" disabled={isSubmitting || isLocked}>
+				{isLocked ? (
+					<>Bloqueado ({retryAfter}s)</>
+				) : isSubmitting ? (
 					<>
 						<Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Entrando...
 					</>
@@ -543,7 +559,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						id="reg-password"
 						type={showPassword ? "text" : "password"}
 						autoComplete="new-password"
-						placeholder="Mínimo 6 caracteres"
+						placeholder="Mínimo 8 caracteres"
 						value={password}
 						onChange={(e) => {
 							setPassword(e.target.value)

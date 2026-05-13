@@ -8,7 +8,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { requireKitchen } from "../guards/require-permission.ts"
-import { resolveKitchenFromMenu, resolveKitchenFromMenuItem, validateRecipeAccess } from "../guards/validate-scope.ts"
+import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
 	AddMenuItem,
 	DailyMenuFetch,
@@ -94,14 +94,10 @@ export async function upsertDailyMenu(client: AnyClient, ctx: UserContext, input
 }
 
 export async function addMenuItem(client: AnyClient, ctx: UserContext, input: AddMenuItem) {
-	// 1. Fetch menu to get kitchen_id for permission check
 	const kitchenId = await resolveKitchenFromMenu(client, input.dailyMenuId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	// 2. Validate recipe belongs to kitchen (or is global) — BUG FIX: was missing in sisub
-	await validateRecipeAccess(client, input.recipeId, kitchenId)
-
-	// 3. Fetch full recipe for snapshot
+	// Fetch full recipe (includes kitchen_id) — replaces separate validateRecipeAccess call
 	const { data: recipe, error: recipeError } = await client
 		.from("recipes")
 		.select("*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))")
@@ -110,6 +106,11 @@ export async function addMenuItem(client: AnyClient, ctx: UserContext, input: Ad
 		.single()
 
 	if (recipeError || !recipe) throw new DomainError("RECIPE_NOT_FOUND", `Recipe ${input.recipeId} not found`)
+
+	// biome-ignore lint/suspicious/noExplicitAny: untyped row
+	if ((recipe as any).kitchen_id !== null && (recipe as any).kitchen_id !== kitchenId) {
+		throw new DomainError("RECIPE_ACCESS_DENIED", `Recipe ${input.recipeId} does not belong to kitchen ${kitchenId}`)
+	}
 
 	// 4. Insert with recipe snapshot
 	const { data, error } = await client

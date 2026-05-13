@@ -80,10 +80,24 @@ app.doc("/doc", {
 	},
 	servers: [
 		{
+			url: "https://iefa-api.fly.dev",
+			description: "Produção",
+		},
+		{
 			url: "http://localhost:3000",
-			description: "Servidor local",
+			description: "Local",
 		},
 	],
+	components: {
+		securitySchemes: {
+			AdminSecret: {
+				type: "apiKey",
+				in: "header",
+				name: "x-admin-secret",
+				description: "Secret obrigatório para endpoints /api/admin/*. Configurado via env ADMIN_SECRET em iefa-api.fly.dev.",
+			},
+		},
+	},
 })
 
 // Interface Scalar para documentação interativa (recomendado: tema 'purple' ou 'moon')
@@ -98,12 +112,18 @@ app.doc("/doc", {
 
 // Alternativa com configuração dinâmica (útil para diferentes ambientes)
 
+app.get("/favicon.svg", (c) => {
+	const file = Bun.file(new URL("../public/favicon.svg", import.meta.url))
+	return new Response(file, { headers: { "Content-Type": "image/svg+xml" } })
+})
+
 app.get(
 	"/",
 	Scalar(() => ({
 		url: "/doc",
 		pageTitle: "Sisub API - Documentação",
 		theme: "kepler",
+		favicon: "/favicon.svg",
 		// Proxy para desenvolvimento (se necessário)
 		// proxyUrl: c.env.ENVIRONMENT === "development" ? "https://proxy.scalar.com" : undefined,
 	})) as any // Cast necessário devido a conflito de versões do Hono no @scalar/hono-api-reference
