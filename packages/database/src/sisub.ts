@@ -64,13 +64,13 @@ export type MenuTemplateItem = Tables<"menu_template_items">
 export type MenuTemplateItemInsert = TablesInsert<"menu_template_items">
 export type MenuTemplateItemUpdate = TablesUpdate<"menu_template_items">
 
-export type Product = Tables<"product">
-export type ProductInsert = TablesInsert<"product">
-export type ProductUpdate = TablesUpdate<"product">
+export type Ingredient = Tables<"ingredient">
+export type IngredientInsert = TablesInsert<"ingredient">
+export type IngredientUpdate = TablesUpdate<"ingredient">
 
-export type ProductItem = Tables<"product_item">
-export type ProductItemInsert = TablesInsert<"product_item">
-export type ProductItemUpdate = TablesUpdate<"product_item">
+export type IngredientItem = Tables<"ingredient_item">
+export type IngredientItemInsert = TablesInsert<"ingredient_item">
+export type IngredientItemUpdate = TablesUpdate<"ingredient_item">
 
 export type Nutrient = Tables<"nutrient">
 export type NutrientInsert = TablesInsert<"nutrient">
@@ -80,9 +80,9 @@ export type Ceafa = Tables<"ceafa">
 export type CeafaInsert = TablesInsert<"ceafa">
 export type CeafaUpdate = TablesUpdate<"ceafa">
 
-export type ProductNutrient = Tables<"product_nutrient">
-export type ProductNutrientInsert = TablesInsert<"product_nutrient">
-export type ProductNutrientUpdate = TablesUpdate<"product_nutrient">
+export type IngredientNutrient = Tables<"ingredient_nutrient">
+export type IngredientNutrientInsert = TablesInsert<"ingredient_nutrient">
+export type IngredientNutrientUpdate = TablesUpdate<"ingredient_nutrient">
 
 export type Recipe = Tables<"recipes">
 export type RecipeInsert = TablesInsert<"recipes">
@@ -96,21 +96,21 @@ export type RecipeIngredientAlternative = Tables<"recipe_ingredient_alternatives
 export type RecipeIngredientAlternativeInsert = TablesInsert<"recipe_ingredient_alternatives">
 export type RecipeIngredientAlternativeUpdate = TablesUpdate<"recipe_ingredient_alternatives">
 
-export type ProcurementAta = Tables<"procurement_ata">
-export type ProcurementAtaInsert = TablesInsert<"procurement_ata">
-export type ProcurementAtaUpdate = TablesUpdate<"procurement_ata">
+export type ProcurementList = Tables<"procurement_list">
+export type ProcurementListInsert = TablesInsert<"procurement_list">
+export type ProcurementListUpdate = TablesUpdate<"procurement_list">
 
-export type ProcurementAtaKitchen = Tables<"procurement_ata_kitchen">
-export type ProcurementAtaKitchenInsert = TablesInsert<"procurement_ata_kitchen">
-export type ProcurementAtaKitchenUpdate = TablesUpdate<"procurement_ata_kitchen">
+export type ProcurementListKitchen = Tables<"procurement_list_kitchen">
+export type ProcurementListKitchenInsert = TablesInsert<"procurement_list_kitchen">
+export type ProcurementListKitchenUpdate = TablesUpdate<"procurement_list_kitchen">
 
-export type ProcurementAtaSelection = Tables<"procurement_ata_selection">
-export type ProcurementAtaSelectionInsert = TablesInsert<"procurement_ata_selection">
-export type ProcurementAtaSelectionUpdate = TablesUpdate<"procurement_ata_selection">
+export type ProcurementListSelection = Tables<"procurement_list_selection">
+export type ProcurementListSelectionInsert = TablesInsert<"procurement_list_selection">
+export type ProcurementListSelectionUpdate = TablesUpdate<"procurement_list_selection">
 
-export type ProcurementAtaItem = Tables<"procurement_ata_item">
-export type ProcurementAtaItemInsert = TablesInsert<"procurement_ata_item">
-export type ProcurementAtaItemUpdate = TablesUpdate<"procurement_ata_item">
+export type ProcurementListItem = Tables<"procurement_list_item">
+export type ProcurementListItemInsert = TablesInsert<"procurement_list_item">
+export type ProcurementListItemUpdate = TablesUpdate<"procurement_list_item">
 
 export type KitchenAtaDraft = Tables<"kitchen_ata_draft">
 export type KitchenAtaDraftInsert = TablesInsert<"kitchen_ata_draft">

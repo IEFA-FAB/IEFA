@@ -1,4 +1,4 @@
-import type { ProductItem } from "@iefa/database/sisub"
+import type { IngredientItem } from "@iefa/database/sisub"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Edit, PackagePlus, ShoppingCart, Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -18,33 +18,33 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
-import { useDeleteProductItem, useProductItems } from "@/services/ProductsService"
-import { ProductItemForm } from "./ProductItemForm"
+import { useDeleteIngredientItem, useIngredientItems } from "@/services/IngredientsService"
+import { IngredientItemForm } from "./IngredientItemForm"
 
-interface ProductItemsManagerProps {
-	productId: string
+interface IngredientItemsManagerProps {
+	ingredientId: string
 }
 
 interface DialogState {
 	isOpen: boolean
 	mode: "create" | "edit"
-	item?: ProductItem
+	item?: IngredientItem
 }
 
 /**
- * Gerenciador de itens de compra de um produto específico.
+ * Gerenciador de itens de compra de um ingrediente específico.
  * Responsabilidade única: listar, criar, editar e excluir itens de compra.
  */
-export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
+export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerProps) {
 	const queryClient = useQueryClient()
-	const { productItems } = useProductItems(productId)
-	const { deleteProductItem, isDeleting } = useDeleteProductItem()
+	const { ingredientItems } = useIngredientItems(ingredientId)
+	const { deleteIngredientItem, isDeleting } = useDeleteIngredientItem()
 
 	const [dialogState, setDialogState] = useState<DialogState>({
 		isOpen: false,
 		mode: "create",
 	})
-	const [deleteTarget, setDeleteTarget] = useState<ProductItem | null>(null)
+	const [deleteTarget, setDeleteTarget] = useState<IngredientItem | null>(null)
 	const [openItems, setOpenItems] = useState<Set<string>>(new Set())
 
 	const toggleItem = (id: string) => {
@@ -59,8 +59,8 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 	const handleDeleteConfirm = async () => {
 		if (!deleteTarget) return
 		try {
-			await deleteProductItem(deleteTarget.id)
-			await queryClient.invalidateQueries({ queryKey: ["products"] })
+			await deleteIngredientItem(deleteTarget.id)
+			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 			toast.success("Item excluído com sucesso!")
 		} catch {
 			toast.error("Erro ao excluir item")
@@ -70,10 +70,10 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 	}
 
 	const openCreate = () => setDialogState({ isOpen: true, mode: "create" })
-	const openEdit = (item: ProductItem) => setDialogState({ isOpen: true, mode: "edit", item })
+	const openEdit = (item: IngredientItem) => setDialogState({ isOpen: true, mode: "edit", item })
 	const closeDialog = () => setDialogState({ isOpen: false, mode: "create" })
 
-	const isEmpty = !productItems || productItems.length === 0
+	const isEmpty = !ingredientItems || ingredientItems.length === 0
 
 	return (
 		<div className="space-y-4">
@@ -82,7 +82,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 				<div className="flex items-center gap-2">
 					<ShoppingCart className="w-5 h-5 text-success" />
 					<h2 className="text-lg font-semibold">Itens de Compra</h2>
-					{productItems && <Badge variant="success">{productItems.length}</Badge>}
+					{ingredientItems && <Badge variant="success">{ingredientItems.length}</Badge>}
 				</div>
 				<Button size="sm" onClick={openCreate} className="gap-2">
 					<PackagePlus className="w-4 h-4" />
@@ -103,7 +103,7 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 					</div>
 				) : (
 					<div className="divide-y divide-border/50">
-						{productItems?.map((item) => (
+						{ingredientItems?.map((item) => (
 							<Collapsible key={item.id} open={openItems.has(item.id)} onOpenChange={() => toggleItem(item.id)}>
 								<div className="group flex items-center px-4 py-3 hover:bg-muted/50 transition-colors gap-2">
 									<CollapsibleTrigger className="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-[var(--radius)]">
@@ -194,7 +194,13 @@ export function ProductItemsManager({ productId }: ProductItemsManagerProps) {
 			</Card>
 
 			{/* Dialog de criação/edição */}
-			<ProductItemForm isOpen={dialogState.isOpen} onClose={closeDialog} mode={dialogState.mode} productItem={dialogState.item} defaultProductId={productId} />
+			<IngredientItemForm
+				isOpen={dialogState.isOpen}
+				onClose={closeDialog}
+				mode={dialogState.mode}
+				ingredientItem={dialogState.item}
+				defaultIngredientId={ingredientId}
+			/>
 
 			{/* AlertDialog de confirmação de exclusão */}
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

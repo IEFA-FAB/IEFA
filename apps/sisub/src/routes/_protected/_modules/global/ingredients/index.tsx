@@ -2,11 +2,11 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { DownloadIcon } from "lucide-react"
 import { requirePermission } from "@/auth/pbac"
-import { ProductsTreeManager } from "@/components/features/global/ProductsTreeManager"
+import { IngredientsTreeManager } from "@/components/features/global/IngredientsTreeManager"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
-import { useExportProductsCSV } from "@/hooks/business/useExportProductsCSV"
-import { productsTreeQueryOptions } from "@/services/ProductsService"
+import { useExportIngredientsCSV } from "@/hooks/business/useExportIngredientsCSV"
+import { ingredientsTreeQueryOptions } from "@/services/IngredientsService"
 
 /**
  * Rota: /global/ingredients
@@ -15,7 +15,7 @@ import { productsTreeQueryOptions } from "@/services/ProductsService"
 export const Route = createFileRoute("/_protected/_modules/global/ingredients/")({
 	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
 	loader: ({ context }) => {
-		return context.queryClient.ensureQueryData(productsTreeQueryOptions())
+		return context.queryClient.ensureQueryData(ingredientsTreeQueryOptions())
 	},
 	component: IngredientsPage,
 	head: () => ({
@@ -30,10 +30,10 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/")
 })
 
 function IngredientsPage() {
-	const { exportCSV } = useExportProductsCSV()
+	const { exportCSV } = useExportIngredientsCSV()
 
 	// Ensure data é carregado (suspense query via loader)
-	useSuspenseQuery(productsTreeQueryOptions())
+	useSuspenseQuery(ingredientsTreeQueryOptions())
 
 	return (
 		<div className="space-y-6">
@@ -43,7 +43,7 @@ function IngredientsPage() {
 					Exportar CSV
 				</Button>
 			</PageHeader>
-			<ProductsTreeManager />
+			<IngredientsTreeManager />
 		</div>
 	)
 }

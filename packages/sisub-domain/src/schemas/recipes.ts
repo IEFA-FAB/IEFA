@@ -20,7 +20,7 @@ export const ListRecipeVersionsSchema = z.object({
 export type ListRecipeVersions = z.infer<typeof ListRecipeVersionsSchema>
 
 export const IngredientSchema = z.object({
-	productId: UuidSchema,
+	ingredientId: UuidSchema,
 	netQuantity: z.number().positive(),
 	isOptional: z.boolean(),
 	priorityOrder: z.number().int().nonnegative(),

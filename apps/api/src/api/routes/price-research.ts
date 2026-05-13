@@ -92,7 +92,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 					catmat_codigo: item.catmatCodigo ?? null,
 					catmat_descricao: item.catmatDescricao ?? null,
 					// Campo interno
-					product_name: item.productName,
+					ingredient_name: item.ingredientName,
 					// Funil interno
 					total_raw: analysis?.counts.raw ?? 0,
 					total_after_date_filter: analysis?.counts.afterDateFilter ?? 0,
@@ -269,7 +269,7 @@ export const priceResearchRoutes = new Hono()
 
 		const { data: ataItems, error: itemsError } = await supabase
 			.from("procurement_ata_item")
-			.select("id, product_id, product_name, catmat_item_codigo, catmat_item_descricao")
+			.select("id, ingredient_id, ingredient_name, catmat_item_codigo, catmat_item_descricao")
 			.eq("ata_id", ataId)
 
 		if (itemsError || !ataItems) return c.json({ error: "Erro ao buscar itens da ATA" }, 500)
@@ -316,18 +316,18 @@ export const priceResearchRoutes = new Hono()
 			if (catmat == null) {
 				return {
 					ataItemId: item.id,
-					productId: item.product_id ?? null,
-					productName: item.product_name,
+					ingredientId: item.ingredient_id ?? null,
+					ingredientName: item.ingredient_name,
 					catmatCodigo: null,
 					catmatDescricao: null,
 					analysis: null,
-					error: "Item sem código CATMAT vinculado — vincule o produto a um item do catálogo CATMAT",
+					error: "Item sem código CATMAT vinculado — vincule o ingrediente a um item do catálogo CATMAT",
 				}
 			}
 			return {
 				ataItemId: item.id,
-				productId: item.product_id ?? null,
-				productName: item.product_name,
+				ingredientId: item.ingredient_id ?? null,
+				ingredientName: item.ingredient_name,
 				catmatCodigo: catmat,
 				catmatDescricao: item.catmat_item_descricao ?? null,
 				analysis: analysisMap.get(catmat) ?? null,

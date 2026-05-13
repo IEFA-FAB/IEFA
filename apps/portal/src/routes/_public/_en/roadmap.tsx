@@ -3,7 +3,7 @@ import { Book, Box, Calendar, Check, Clock, Code, Cpu, GitBranch, Globe, Map as 
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
-export const Route = createFileRoute("/_public/roadmap")({
+export const Route = createFileRoute("/_public/_en/roadmap")({
 	component: Roadmap,
 	head: () => ({
 		meta: [

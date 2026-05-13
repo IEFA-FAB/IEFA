@@ -10,7 +10,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProductionItem, ProductionTask, ProductionTaskStatus } from "@/types/domain/production"
-import type { RecipeIngredientWithProduct } from "@/types/domain/recipes"
+import type { RecipeIngredientWithIngredient } from "@/types/domain/recipes"
 
 // ---------------------------------------------------------------------------
 // fetchProductionBoardFn
@@ -56,7 +56,7 @@ export const fetchProductionBoardFn = createServerFn({ method: "GET" })
               net_quantity,
               priority_order,
               is_optional,
-              product:product_id(id, description, measure_unit)
+              ingredient:ingredient_id(id, description, measure_unit)
             )
           ),
           production_task(id, status, started_at, completed_at, notes, updated_at, created_at, kitchen_id, menu_item_id, production_date)
@@ -107,7 +107,7 @@ export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 						recipe_with_ingredients: recipeOrigin
 							? {
 									...recipeOrigin,
-									ingredients: (recipeOrigin.ingredients ?? []) as RecipeIngredientWithProduct[],
+									ingredients: (recipeOrigin.ingredients ?? []) as RecipeIngredientWithIngredient[],
 								}
 							: null,
 						// biome-ignore lint/suspicious/noExplicitAny: inherited Json type from DB

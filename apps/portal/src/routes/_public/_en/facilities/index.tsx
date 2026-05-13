@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { useAppsData } from "@/hooks/useAppsData"
 import type { AppItem } from "@/types/domain"
 
-export const Route = createFileRoute("/_public/facilities/")({
+export const Route = createFileRoute("/_public/_en/facilities/")({
 	staticData: {
 		nav: {
 			title: "Facilidades",

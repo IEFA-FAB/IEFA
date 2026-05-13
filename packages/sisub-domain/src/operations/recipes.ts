@@ -16,15 +16,15 @@ type AnyClient = SupabaseClient<any, any, any>
 
 const RECIPE_WITH_INGREDIENTS = `
   *,
-  ingredients:recipe_ingredients(*, product:product_id(*))
+  ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))
 ` as const
 
 const RECIPE_WITH_ALTERNATIVES = `
   *,
   ingredients:recipe_ingredients(
     *,
-    product:product_id(*),
-    alternatives:recipe_ingredient_alternatives(*, product:product_id(*))
+    ingredient:ingredient_id(*),
+    alternatives:recipe_ingredient_alternatives(*, ingredient:ingredient_id(*))
   )
 ` as const
 
@@ -89,7 +89,7 @@ async function insertIngredients(client: AnyClient, recipeId: string, ingredient
 	if (!ingredients?.length) return
 	const rows = ingredients.map((ing) => ({
 		recipe_id: recipeId,
-		product_id: ing.productId,
+		ingredient_id: ing.ingredientId,
 		net_quantity: ing.netQuantity,
 		is_optional: ing.isOptional,
 		priority_order: ing.priorityOrder,

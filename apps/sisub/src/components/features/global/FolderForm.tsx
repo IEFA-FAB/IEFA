@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useCreateFolder, useFolders, useUpdateFolder } from "@/services/ProductsService"
+import { useCreateFolder, useFolders, useUpdateFolder } from "@/services/IngredientsService"
 
 // Schema de validação
 const folderSchema = z.object({
@@ -48,7 +48,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 				}
 
 				await queryClient.invalidateQueries({
-					queryKey: ["products"],
+					queryKey: ["ingredients"],
 				})
 
 				onClose()

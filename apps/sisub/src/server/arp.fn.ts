@@ -128,7 +128,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 
 		// ── 2. Buscar os itens da ATA interna para fazer o match por catmat ──────
 
-		const { data: ataItems } = await supabase.from("procurement_ata_item").select("id, catmat_item_codigo").eq("ata_id", ataId)
+		const { data: ataItems } = await supabase.from("procurement_list_item").select("id, catmat_item_codigo").eq("list_id", ataId)
 
 		const catmatToAtaItemId = new Map<number, string>()
 		for (const item of ataItems ?? []) {

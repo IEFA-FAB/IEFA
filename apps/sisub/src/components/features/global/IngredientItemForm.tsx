@@ -1,4 +1,4 @@
-import type { ProductItem } from "@iefa/database/sisub"
+import type { IngredientItem } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -8,59 +8,59 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useCreateProductItem, useProducts, useUpdateProductItem } from "@/services/ProductsService"
+import { useCreateIngredientItem, useIngredients, useUpdateIngredientItem } from "@/services/IngredientsService"
 
 // Schema de validação
-const productItemSchema = z.object({
+const ingredientItemSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
-	product_id: z.string().uuid("Selecione um produto"),
+	ingredient_id: z.string().uuid("Selecione um insumo"),
 	barcode: z.string(),
 	purchase_measure_unit: z.string(),
 	unit_content_quantity: z.number().min(0),
 	correction_factor: z.number().min(0),
 })
 
-interface ProductItemFormProps {
+interface IngredientItemFormProps {
 	isOpen: boolean
 	onClose: () => void
 	mode: "create" | "edit"
-	productItem?: ProductItem
-	defaultProductId?: string
+	ingredientItem?: IngredientItem
+	defaultIngredientId?: string
 }
 
-export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultProductId }: ProductItemFormProps) {
+export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defaultIngredientId }: IngredientItemFormProps) {
 	const queryClient = useQueryClient()
-	const { products } = useProducts()
-	const { createProductItem, isCreating } = useCreateProductItem()
-	const { updateProductItem, isUpdating } = useUpdateProductItem()
+	const { ingredients } = useIngredients()
+	const { createIngredientItem, isCreating } = useCreateIngredientItem()
+	const { updateIngredientItem, isUpdating } = useUpdateIngredientItem()
 
 	const form = useForm({
 		defaultValues: {
-			description: productItem?.description || "",
-			product_id: productItem?.product_id || defaultProductId || "",
-			barcode: productItem?.barcode || "",
-			purchase_measure_unit: productItem?.purchase_measure_unit || "",
-			unit_content_quantity: productItem?.unit_content_quantity ? Number(productItem.unit_content_quantity) : 1.0,
-			correction_factor: productItem?.correction_factor ? Number(productItem.correction_factor) : 1.0,
+			description: ingredientItem?.description || "",
+			ingredient_id: ingredientItem?.ingredient_id || defaultIngredientId || "",
+			barcode: ingredientItem?.barcode || "",
+			purchase_measure_unit: ingredientItem?.purchase_measure_unit || "",
+			unit_content_quantity: ingredientItem?.unit_content_quantity ? Number(ingredientItem.unit_content_quantity) : 1.0,
+			correction_factor: ingredientItem?.correction_factor ? Number(ingredientItem.correction_factor) : 1.0,
 		},
 		validators: {
-			onChange: productItemSchema,
+			onChange: ingredientItemSchema,
 		},
 		onSubmit: async ({ value }) => {
 			try {
 				if (mode === "create") {
-					await createProductItem(value)
+					await createIngredientItem(value)
 					toast.success("Item criado com sucesso!")
-				} else if (productItem) {
-					await updateProductItem({
-						id: productItem.id,
+				} else if (ingredientItem) {
+					await updateIngredientItem({
+						id: ingredientItem.id,
 						payload: value,
 					})
 					toast.success("Item atualizado com sucesso!")
 				}
 
 				await queryClient.invalidateQueries({
-					queryKey: ["products"],
+					queryKey: ["ingredients"],
 				})
 
 				onClose()
@@ -106,22 +106,22 @@ export function ProductItemForm({ isOpen, onClose, mode, productItem, defaultPro
 							)}
 						</form.Field>
 
-						{/* Produto Genérico — só exibido fora do contexto de rota com produto fixo */}
-						{!defaultProductId && (
-							<form.Field name="product_id">
+						{/* Insumo Genérico — só exibido fora do contexto de rota com insumo fixo */}
+						{!defaultIngredientId && (
+							<form.Field name="ingredient_id">
 								{(field) => (
 									<Field>
 										<FieldLabel htmlFor={field.name}>
-											Produto Genérico <span className="text-destructive">*</span>
+											Insumo Genérico <span className="text-destructive">*</span>
 										</FieldLabel>
 										<Select value={field.state.value} onValueChange={(value) => field.handleChange(value || "")}>
 											<SelectTrigger>
-												<SelectValue placeholder="Selecione um produto">
-													{field.state.value && (products?.find((p) => p.id === field.state.value)?.description ?? field.state.value)}
+												<SelectValue placeholder="Selecione um insumo">
+													{field.state.value && (ingredients?.find((p) => p.id === field.state.value)?.description ?? field.state.value)}
 												</SelectValue>
 											</SelectTrigger>
 											<SelectContent>
-												{products?.map((p) => (
+												{ingredients?.map((p) => (
 													<SelectItem key={p.id} value={p.id}>
 														{p.description}
 													</SelectItem>

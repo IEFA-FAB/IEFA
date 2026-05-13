@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { NavArrowDown, OpenNewWindow } from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 
-export const Route = createFileRoute("/_public/innovation-policy")({
+export const Route = createFileRoute("/_public/_en/innovation-policy")({
 	staticData: {
 		nav: {
 			title: "Política de Inovação",

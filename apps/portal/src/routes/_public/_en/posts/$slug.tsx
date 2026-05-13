@@ -70,7 +70,7 @@ const postQuery = `*[_type == "post" && slug.current == $slug][0]{
   body
 }`
 
-export const Route = createFileRoute("/_public/posts/$slug")({
+export const Route = createFileRoute("/_public/_en/posts/$slug")({
 	component: PostDetailComponent,
 	loader: async ({ params }): Promise<PostDetail> => {
 		const post = await client.fetch<PostDetail>(postQuery, {

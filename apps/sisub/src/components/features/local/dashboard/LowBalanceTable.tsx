@@ -38,7 +38,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 						{items.map((item) => (
 							<tr key={item.id} className={`hover:bg-muted/30 transition-colors ${item.in_upcoming_menu ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}>
 								<td className="py-2.5 px-3">
-									<p className="font-medium text-sm line-clamp-1">{item.product_name ?? item.descricao_item ?? "—"}</p>
+									<p className="font-medium text-sm line-clamp-1">{item.ingredient_name ?? item.descricao_item ?? "—"}</p>
 									<p className="text-xs text-muted-foreground font-mono mt-0.5">
 										{item.catmat_item_codigo ? `CATMAT ${item.catmat_item_codigo}` : "Sem CATMAT"}
 										{item.nome_fornecedor && ` · ${item.nome_fornecedor}`}

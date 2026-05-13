@@ -58,13 +58,13 @@ function computeDiff(from: RecipeWithIngredients, to: RecipeWithIngredients) {
 		}
 	}
 
-	const fromIngMap = new Map(from.ingredients.map((i) => [i.product_id, i]))
-	const toIngMap = new Map(to.ingredients.map((i) => [i.product_id, i]))
+	const fromIngMap = new Map(from.ingredients.map((i) => [i.ingredient_id, i]))
+	const toIngMap = new Map(to.ingredients.map((i) => [i.ingredient_id, i]))
 
-	const addedIngredients = to.ingredients.filter((i) => !fromIngMap.has(i.product_id))
-	const removedIngredients = from.ingredients.filter((i) => !toIngMap.has(i.product_id))
+	const addedIngredients = to.ingredients.filter((i) => !fromIngMap.has(i.ingredient_id))
+	const removedIngredients = from.ingredients.filter((i) => !toIngMap.has(i.ingredient_id))
 	const changedQuantities = to.ingredients.filter((i) => {
-		const fromIng = fromIngMap.get(i.product_id)
+		const fromIng = fromIngMap.get(i.ingredient_id)
 		return fromIng && fromIng.net_quantity !== i.net_quantity
 	})
 
@@ -115,25 +115,25 @@ function DiffView({ from, to }: { from: RecipeWithIngredients; to: RecipeWithIng
 					</div>
 					<div className="p-3 space-y-1.5">
 						{diff.removedIngredients.map((i) => (
-							<div key={i.product_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-destructive/10 text-xs">
+							<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-destructive/10 text-xs">
 								<span className="font-mono font-bold text-destructive w-4 shrink-0">−</span>
-								<span className="text-destructive flex-1">{i.product?.description ?? i.product_id}</span>
+								<span className="text-destructive flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 								<span className="text-destructive/70 shrink-0 font-mono">{i.net_quantity}g</span>
 							</div>
 						))}
 						{diff.addedIngredients.map((i) => (
-							<div key={i.product_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-success/10 text-xs">
+							<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-success/10 text-xs">
 								<span className="font-mono font-bold text-success w-4 shrink-0">+</span>
-								<span className="text-success flex-1">{i.product?.description ?? i.product_id}</span>
+								<span className="text-success flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 								<span className="text-success/70 shrink-0 font-mono">{i.net_quantity}g</span>
 							</div>
 						))}
 						{diff.changedQuantities.map((i) => {
-							const fromIng = from.ingredients.find((fi) => fi.product_id === i.product_id)
+							const fromIng = from.ingredients.find((fi) => fi.ingredient_id === i.ingredient_id)
 							return (
-								<div key={i.product_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/20 text-xs">
+								<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/20 text-xs">
 									<span className="font-mono font-bold text-amber-600 w-4 shrink-0">~</span>
-									<span className="text-foreground flex-1">{i.product?.description ?? i.product_id}</span>
+									<span className="text-foreground flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 									<span className="shrink-0 font-mono space-x-1">
 										<span className="line-through text-destructive/70">{fromIng?.net_quantity}g</span>
 										<span className="text-muted-foreground">→</span>

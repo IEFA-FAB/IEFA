@@ -1,20 +1,20 @@
 import type { Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
-import type { Product } from "./products"
+import type { Ingredient } from "./ingredients"
 
 // Extended recipe with ingredients (Query Result)
 export interface RecipeWithIngredients extends Recipe {
-	ingredients: RecipeIngredientWithProduct[]
+	ingredients: RecipeIngredientWithIngredient[]
 }
 
-// Ingredient with product details
-export interface RecipeIngredientWithProduct extends RecipeIngredient {
-	product: Product | null
-	alternatives?: RecipeIngredientAlternativeWithProduct[]
+// Recipe ingredient with ingredient details
+export interface RecipeIngredientWithIngredient extends RecipeIngredient {
+	ingredient: Ingredient | null
+	alternatives?: RecipeIngredientAlternativeWithIngredient[]
 }
 
-// Alternative with product details
-export interface RecipeIngredientAlternativeWithProduct extends RecipeIngredientAlternative {
-	product: Product | null
+// Alternative with ingredient details
+export interface RecipeIngredientAlternativeWithIngredient extends RecipeIngredientAlternative {
+	ingredient: Ingredient | null
 }
 
 // Form Data (Input)
@@ -33,7 +33,7 @@ export interface RecipeFormData {
 
 export interface RecipeIngredientFormData {
 	id?: string
-	product_id: string
+	ingredient_id: string
 	net_quantity: number
 	is_optional: boolean
 	priority_order: number

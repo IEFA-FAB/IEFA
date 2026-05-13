@@ -1,4 +1,4 @@
-import type { ProcurementAtaItem } from "@iefa/database/sisub"
+import type { ProcurementListItem } from "@iefa/database/sisub"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { Archive, ArrowLeft, Download, Link2, Send } from "lucide-react"
@@ -40,18 +40,17 @@ const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
-function ataItemToNeed(item: ProcurementAtaItem): ProcurementNeed {
+function ataItemToNeed(item: ProcurementListItem): ProcurementNeed {
 	return {
 		folder_id: item.folder_id,
 		folder_description: item.folder_description,
-		product_id: item.product_id || item.id,
-		product_name: item.product_name,
+		ingredient_id: item.ingredient_id || item.id,
+		ingredient_name: item.ingredient_name,
 		measure_unit: item.measure_unit,
 		total_quantity: Number(item.total_quantity),
 		catmat_item_codigo: item.catmat_item_codigo,
 		catmat_item_descricao: item.catmat_item_descricao,
 		unit_price: item.unit_price !== null ? Number(item.unit_price) : null,
-		total_value: item.total_value !== null ? Number(item.total_value) : null,
 	}
 }
 
@@ -79,11 +78,11 @@ function AtaDetailPage() {
 			item.folder_description || "Sem categoria",
 			item.catmat_item_codigo || "",
 			item.catmat_item_descricao || "",
-			item.product_name,
+			item.ingredient_name,
 			Number(item.total_quantity).toFixed(4),
 			item.measure_unit || "UN",
 			item.unit_price !== null ? Number(item.unit_price).toFixed(4) : "",
-			item.total_value !== null ? Number(item.total_value).toFixed(2) : "",
+			item.unit_price !== null ? (Number(item.total_quantity) * Number(item.unit_price)).toFixed(2) : "",
 		])
 		const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
 		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
@@ -122,8 +121,8 @@ function AtaDetailPage() {
 	}
 
 	const needs = ata.items.map(ataItemToNeed)
-	const grandTotal = ata.items.reduce((sum, item) => sum + (item.total_value !== null ? Number(item.total_value) : 0), 0)
-	const hasPrices = ata.items.some((item) => item.total_value !== null)
+	const hasPrices = ata.items.some((item) => item.unit_price !== null)
+	const grandTotal = ata.items.reduce((sum, item) => sum + (item.unit_price !== null ? Number(item.total_quantity) * Number(item.unit_price) : 0), 0)
 
 	return (
 		<div className="space-y-6">

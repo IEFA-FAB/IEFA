@@ -15,16 +15,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/cn"
-import { useDeleteFolder, useDeleteProduct } from "@/services/ProductsService"
-import type { Folder, Product, ProductTreeNode, TreeNodeType } from "@/types/domain/products"
+import { useDeleteFolder, useDeleteIngredient } from "@/services/IngredientsService"
+import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
 
-interface ProductsTreeNodeProps {
-	node: ProductTreeNode
-	onEdit: (type: TreeNodeType, data: Folder | Product) => void
+interface IngredientsTreeNodeProps {
+	node: IngredientTreeNode
+	onEdit: (type: TreeNodeType, data: Folder | Ingredient) => void
 	onToggle: (nodeId: string) => void
-	/** Quantidade de itens de compra vinculados (apenas para nós do tipo "product") */
+	/** Quantidade de itens de compra vinculados (apenas para nós do tipo "ingredient") */
 	itemCount?: number
-	/** Callback de navegação para a página de detalhe do produto */
+	/** Callback de navegação para a página de detalhe do ingrediente */
 	onNavigate?: () => void
 }
 
@@ -32,14 +32,14 @@ interface ProductsTreeNodeProps {
  * Nó individual da árvore de produtos
  * Renderização otimizada para virtualização
  */
-export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate }: ProductsTreeNodeProps) {
+export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate }: IngredientsTreeNodeProps) {
 	const queryClient = useQueryClient()
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
-	const { deleteProduct, isDeleting: isDeletingProduct } = useDeleteProduct()
+	const { deleteIngredient, isDeleting: isDeletingIngredient } = useDeleteIngredient()
 
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
-	const isDeleting = isDeletingFolder || isDeletingProduct
+	const isDeleting = isDeletingFolder || isDeletingIngredient
 
 	const Icon = node.type === "folder" ? FolderIcon : Package
 
@@ -49,15 +49,15 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 			iconColor: "text-warning",
 			border: "border-warning/20",
 		},
-		product: {
+		ingredient: {
 			iconBg: "bg-primary/10 dark:bg-primary/20",
 			iconColor: "text-primary",
 			border: "border-primary/20",
 		},
 	}
 
-	const style = typeStyles[node.type as "folder" | "product"]
-	const isNavigable = node.type === "product" && !!onNavigate
+	const style = typeStyles[node.type as "folder" | "ingredient"]
+	const isNavigable = node.type === "ingredient" && !!onNavigate
 
 	const handleDeleteConfirm = async () => {
 		try {
@@ -65,11 +65,11 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 				await deleteFolder(node.id)
 				toast.success("Pasta excluída com sucesso!")
 			} else {
-				await deleteProduct(node.id)
-				toast.success("Produto excluído com sucesso!")
+				await deleteIngredient(node.id)
+				toast.success("Insumo excluído com sucesso!")
 			}
 
-			await queryClient.invalidateQueries({ queryKey: ["products"] })
+			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 		} catch (_error) {
 			toast.error("Erro ao excluir item")
 		} finally {
@@ -140,10 +140,10 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 					<span className={cn("text-sm truncate", node.type === "folder" ? "font-semibold" : "font-normal")}>{node.label}</span>
 
 					{/* Badge de unidade de medida */}
-					{node.type === "product" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
+					{node.type === "ingredient" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
 
 					{/* Badge de contagem de itens de compra */}
-					{node.type === "product" && itemCount !== undefined && itemCount > 0 && (
+					{node.type === "ingredient" && itemCount !== undefined && itemCount > 0 && (
 						<Badge variant="success">
 							{itemCount} {itemCount === 1 ? "item" : "itens"}
 						</Badge>
@@ -157,10 +157,10 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 						size="icon"
 						onClick={(e) => {
 							e.stopPropagation()
-							if (node.type === "product" && onNavigate) {
+							if (node.type === "ingredient" && onNavigate) {
 								onNavigate()
 							} else {
-								onEdit(node.type, node.data as Folder | Product)
+								onEdit(node.type, node.data as Folder | Ingredient)
 							}
 						}}
 						disabled={isDeleting}
@@ -187,7 +187,7 @@ export function ProductsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate
 			<AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
 				<AlertDialogContent size="sm">
 					<AlertDialogHeader>
-						<AlertDialogTitle>Excluir {node.type === "folder" ? "pasta" : "produto"}</AlertDialogTitle>
+						<AlertDialogTitle>Excluir {node.type === "folder" ? "pasta" : "insumo"}</AlertDialogTitle>
 						<AlertDialogDescription>
 							Tem certeza que deseja excluir <strong>{node.label}</strong>? Esta ação não pode ser desfeita.
 						</AlertDialogDescription>

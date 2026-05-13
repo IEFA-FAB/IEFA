@@ -32,16 +32,16 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 - id, name, portion_yield, preparation_time_minutes, kitchen_id
 
 ### recipe_ingredients
-- recipe_id → recipes.id, product_id → product.id, net_quantity
+- recipe_id → recipes.id, ingredient_id → ingredient.id, net_quantity
 
 ### production_task
 - id, kitchen_id, production_date, status (PENDING|IN_PROGRESS|DONE), started_at, completed_at
 
-### procurement_ata
+### procurement_list
 - id, unit_id → units.id, title, status (draft|published)
 
-### procurement_ata_item
-- id, ata_id → procurement_ata.id, product_name, total_quantity, unit_price, total_value
+### procurement_list_item
+- id, list_id → procurement_list.id, ingredient_name, total_quantity, unit_price
 
 ### procurement_arp_item
 - id, quantidade_homologada, quantidade_empenhada, saldo_empenho, valor_unitario
@@ -49,7 +49,7 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 ### empenho
 - id, arp_item_id, data_empenho, quantidade_empenhada, valor_unitario
 
-### product
+### ingredient
 - id, description, measure_unit
 
 ### Views

@@ -2,19 +2,19 @@ import type { Tables } from "@iefa/database/sisub"
 
 // ─── Base Table Types ─────────────────────────────────────────────────────────
 
-export type ProcurementAta = Tables<"procurement_ata">
-export type ProcurementAtaKitchen = Tables<"procurement_ata_kitchen">
-export type ProcurementAtaSelection = Tables<"procurement_ata_selection">
-export type ProcurementAtaItem = Tables<"procurement_ata_item">
+export type ProcurementList = Tables<"procurement_list">
+export type ProcurementListKitchen = Tables<"procurement_list_kitchen">
+export type ProcurementListSelection = Tables<"procurement_list_selection">
+export type ProcurementListItem = Tables<"procurement_list_item">
 
 export type KitchenAtaDraft = Tables<"kitchen_ata_draft">
 export type KitchenAtaDraftSelection = Tables<"kitchen_ata_draft_selection">
 
-// ─── ATA com detalhes carregados ─────────────────────────────────────────────
+// ─── List com detalhes carregados ─────────────────────────────────────────────
 
-export interface AtaKitchenWithDetails extends ProcurementAtaKitchen {
+export interface AtaKitchenWithDetails extends ProcurementListKitchen {
 	kitchen: { id: number; display_name: string | null }
-	selections: (ProcurementAtaSelection & {
+	selections: (ProcurementListSelection & {
 		template: {
 			name: string | null
 			template_type: string
@@ -22,9 +22,9 @@ export interface AtaKitchenWithDetails extends ProcurementAtaKitchen {
 	})[]
 }
 
-export interface AtaWithDetails extends ProcurementAta {
+export interface AtaWithDetails extends ProcurementList {
 	kitchens: AtaKitchenWithDetails[]
-	items: ProcurementAtaItem[]
+	items: ProcurementListItem[]
 }
 
 // ─── Rascunho com seleções carregadas ────────────────────────────────────────

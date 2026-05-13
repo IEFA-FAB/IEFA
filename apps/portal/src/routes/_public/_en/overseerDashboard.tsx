@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 
-export const Route = createFileRoute("/_public/overseerDashboard")({
+export const Route = createFileRoute("/_public/_en/overseerDashboard")({
 	staticData: {
 		nav: {
 			title: "Overseer Dashboard",

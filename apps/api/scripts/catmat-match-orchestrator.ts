@@ -7,7 +7,7 @@ const PRODUCT_PAGE_SIZE = 1000
 const REVIEW_THRESHOLD = 0.5
 const MATCH_THRESHOLD = 0.75
 
-type ProductRow = {
+type IngredientRow = {
 	id: string
 	description: string | null
 	measure_unit: string | null
@@ -27,8 +27,8 @@ type CandidateRow = {
 
 type MatchStatus = "matched" | "review" | "no_match" | "skip"
 
-type ProductDecision = {
-	productId: string
+type IngredientDecision = {
+	ingredientId: string
 	status: MatchStatus
 	score: number | null
 	catmatItemCodigo: number | null
@@ -302,7 +302,7 @@ function buildSearchDescription(description: string | null): string {
 	return removePreparationTerms(normalized)
 }
 
-function evaluateCandidate(product: ProductRow, cleanedDescription: string, candidate: CandidateRow): number {
+function evaluateCandidate(ingredient: IngredientRow, cleanedDescription: string, candidate: CandidateRow): number {
 	// Sem teto em 1.0: candidatos com bônus maiores (match no PDM, tokens, classe) ficam
 	// acima de 1.0, vencendo candidatos que chegaram exatamente em 1.0 via word_similarity
 	// pura (ex: "CACAU" bate em "MANTEIGA DE CACAU" e em "CACAU EM PÓ" com score=1 cada;
@@ -322,7 +322,7 @@ function evaluateCandidate(product: ProductRow, cleanedDescription: string, cand
 		}
 	}
 
-	const measureUnit = normalizeMeasureUnit(product.measure_unit)
+	const measureUnit = normalizeMeasureUnit(ingredient.measure_unit)
 	const candidateMeasure = inferCandidateMeasure(candidate)
 	if (measureUnit && candidateMeasure) {
 		score += measureUnit === candidateMeasure ? 0.06 : -0.07
@@ -397,8 +397,8 @@ function evaluateCandidate(product: ProductRow, cleanedDescription: string, cand
 	return Math.max(0, score)
 }
 
-async function loadProducts(options: Options): Promise<ProductRow[]> {
-	const rows: ProductRow[] = []
+async function loadIngredients(options: Options): Promise<IngredientRow[]> {
+	const rows: IngredientRow[] = []
 	let from = options.offset
 	let remaining = options.limit ?? Number.POSITIVE_INFINITY
 
@@ -407,7 +407,7 @@ async function loadProducts(options: Options): Promise<ProductRow[]> {
 		const to = from + pageSize - 1
 
 		let query = supabase
-			.from("product")
+			.from("ingredient")
 			.select("id, description, measure_unit")
 			.is("deleted_at", null)
 			.order("description", { ascending: true, nullsFirst: false })
@@ -422,10 +422,10 @@ async function loadProducts(options: Options): Promise<ProductRow[]> {
 		}
 
 		const { data, error } = await query
-		if (error) throw new Error(`falha ao carregar produtos: ${error.message}`)
+		if (error) throw new Error(`falha ao carregar ingredientes: ${error.message}`)
 		if (!data || data.length === 0) break
 
-		rows.push(...(data as ProductRow[]))
+		rows.push(...(data as IngredientRow[]))
 		if (data.length < pageSize) break
 
 		from += pageSize
@@ -488,26 +488,26 @@ async function findCandidates(cleanedDescription: string): Promise<CandidateRow[
 	return primary
 }
 
-async function persistDecision(decision: ProductDecision): Promise<void> {
+async function persistDecision(decision: IngredientDecision): Promise<void> {
 	const { error } = await supabase
-		.from("product")
+		.from("ingredient")
 		.update({
 			catmat_item_codigo: decision.catmatItemCodigo,
 			catmat_item_descricao: decision.catmatItemDescricao,
 			catmat_match_status: decision.status,
 			catmat_match_score: decision.score,
 		})
-		.eq("id", decision.productId)
+		.eq("id", decision.ingredientId)
 
-	if (error) throw new Error(`falha ao atualizar produto ${decision.productId}: ${error.message}`)
+	if (error) throw new Error(`falha ao atualizar ingrediente ${decision.ingredientId}: ${error.message}`)
 }
 
-async function decideProduct(product: ProductRow): Promise<ProductDecision> {
-	const cleanedDescription = buildSearchDescription(product.description)
+async function decideIngredient(ingredient: IngredientRow): Promise<IngredientDecision> {
+	const cleanedDescription = buildSearchDescription(ingredient.description)
 
 	if (!cleanedDescription) {
 		return {
-			productId: product.id,
+			ingredientId: ingredient.id,
 			status: "no_match",
 			score: 0,
 			catmatItemCodigo: null,
@@ -516,9 +516,9 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 		}
 	}
 
-	if (isPreparedFoodWithoutClearInput(product.description ?? "", cleanedDescription)) {
+	if (isPreparedFoodWithoutClearInput(ingredient.description ?? "", cleanedDescription)) {
 		return {
-			productId: product.id,
+			ingredientId: ingredient.id,
 			status: "skip",
 			score: null,
 			catmatItemCodigo: null,
@@ -530,7 +530,7 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 	const candidates = await findCandidates(cleanedDescription)
 	if (candidates.length === 0) {
 		return {
-			productId: product.id,
+			ingredientId: ingredient.id,
 			status: "no_match",
 			score: 0,
 			catmatItemCodigo: null,
@@ -542,13 +542,13 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 	const best = candidates
 		.map((candidate) => ({
 			candidate,
-			finalScore: evaluateCandidate(product, cleanedDescription, candidate),
+			finalScore: evaluateCandidate(ingredient, cleanedDescription, candidate),
 		}))
 		.sort((left, right) => right.finalScore - left.finalScore)[0]
 
 	if (!best || best.finalScore < REVIEW_THRESHOLD) {
 		return {
-			productId: product.id,
+			ingredientId: ingredient.id,
 			status: "no_match",
 			score: Math.min(best?.finalScore ?? 0, 1),
 			catmatItemCodigo: null,
@@ -559,7 +559,7 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 
 	if (best.finalScore < MATCH_THRESHOLD) {
 		return {
-			productId: product.id,
+			ingredientId: ingredient.id,
 			status: "review",
 			score: Math.min(best.finalScore, 1),
 			catmatItemCodigo: best.candidate.codigo_item,
@@ -569,7 +569,7 @@ async function decideProduct(product: ProductRow): Promise<ProductDecision> {
 	}
 
 	return {
-		productId: product.id,
+		ingredientId: ingredient.id,
 		status: "matched",
 		score: Math.min(best.finalScore, 1),
 		catmatItemCodigo: best.candidate.codigo_item,
@@ -585,7 +585,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 	return batches
 }
 
-function incrementSummary(summary: Summary, decision: ProductDecision) {
+function incrementSummary(summary: Summary, decision: IngredientDecision) {
 	summary.processed++
 	switch (decision.status) {
 		case "matched":
@@ -603,16 +603,16 @@ function incrementSummary(summary: Summary, decision: ProductDecision) {
 	}
 }
 
-async function processBatch(batch: ProductRow[], summary: Summary, batchNumber: number, totalBatches: number): Promise<void> {
-	for (const product of batch) {
+async function processBatch(batch: IngredientRow[], summary: Summary, batchNumber: number, totalBatches: number): Promise<void> {
+	for (const ingredient of batch) {
 		try {
-			const decision = await decideProduct(product)
+			const decision = await decideIngredient(ingredient)
 			await persistDecision(decision)
 			incrementSummary(summary, decision)
 		} catch (error) {
 			summary.errors++
 			const message = error instanceof Error ? error.message : String(error)
-			console.error(`[catmat-match] produto ${product.id}: ${message}`)
+			console.error(`[catmat-match] ingrediente ${ingredient.id}: ${message}`)
 		}
 	}
 
@@ -632,7 +632,7 @@ async function run(): Promise<void> {
 	const options = parseArgs(Bun.argv.slice(2))
 
 	console.log(
-		`[catmat-match] carregando produtos` +
+		`[catmat-match] carregando ingredientes` +
 			` | offset=${options.offset}` +
 			` limit=${options.limit ?? "all"}` +
 			` batchSize=${options.batchSize}` +
@@ -640,8 +640,8 @@ async function run(): Promise<void> {
 			` reprocessAll=${options.reprocessAll}`
 	)
 
-	const products = await loadProducts(options)
-	const batches = chunk(products, options.batchSize)
+	const ingredients = await loadIngredients(options)
+	const batches = chunk(ingredients, options.batchSize)
 	const summary: Summary = {
 		processed: 0,
 		matched: 0,
@@ -651,7 +651,7 @@ async function run(): Promise<void> {
 		errors: 0,
 	}
 
-	console.log(`[catmat-match] ${products.length} produto(s) carregado(s) em ${batches.length} batch(es)`)
+	console.log(`[catmat-match] ${ingredients.length} ingrediente(s) carregado(s) em ${batches.length} batch(es)`)
 
 	let nextBatchIndex = 0
 

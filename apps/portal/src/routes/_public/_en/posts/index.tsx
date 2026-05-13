@@ -17,7 +17,7 @@ const postsQueryOptions = {
 	staleTime: 1000 * 60 * 5, // 5 minutes
 }
 
-export const Route = createFileRoute("/_public/posts/")({
+export const Route = createFileRoute("/_public/_en/posts/")({
 	staticData: {
 		nav: {
 			title: "Blog & Artigos",

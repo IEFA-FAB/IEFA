@@ -34,7 +34,7 @@ type Facility = {
 	default?: boolean | null
 }
 
-export const Route = createFileRoute("/_public/facilities/pregoeiro")({
+export const Route = createFileRoute("/_public/_en/facilities/pregoeiro")({
 	staticData: {
 		nav: {
 			title: "Pregoeiro",

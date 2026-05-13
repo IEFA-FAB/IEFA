@@ -19,8 +19,8 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Schema Validation
 const ingredientSchema = z.object({
-	product_id: z.string().uuid(),
-	product_name: z.string(), // Helper for UI
+	ingredient_id: z.string().uuid(),
+	ingredient_name: z.string(), // Helper for UI
 	measure_unit: z.string(), // Helper for UI
 	net_quantity: z.number().min(0.001, "Quantidade deve ser maior que 0"),
 	is_optional: z.boolean().default(false),
@@ -35,6 +35,15 @@ const recipeSchema = z.object({
 	cooking_factor: z.number().default(1.0),
 	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 })
+
+interface IngredientFormItem {
+	ingredient_id: string | null
+	ingredient_name: string
+	measure_unit: string
+	net_quantity: number | null
+	is_optional: boolean
+	priority_order: number
+}
 
 interface RecipeFormProps {
 	initialData?: RecipeWithIngredients | null
@@ -61,9 +70,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			cooking_factor: initialData?.cooking_factor || 1.0,
 			ingredients:
 				initialData?.ingredients?.map((ing) => ({
-					product_id: ing.product_id,
-					product_name: ing.product?.description || "Produto Desconhecido",
-					measure_unit: ing.product?.measure_unit || "UN",
+					ingredient_id: ing.ingredient_id,
+					ingredient_name: ing.ingredient?.description || "Insumo Desconhecido",
+					measure_unit: ing.ingredient?.measure_unit || "UN",
 					net_quantity: ing.net_quantity,
 					is_optional: ing.is_optional || false,
 					priority_order: ing.priority_order || 0,
@@ -256,11 +265,11 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 									{field.state.value.length === 0 ? (
 										<div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">Nenhum ingrediente adicionado.</div>
 									) : (
-										field.state.value.map((ingredient, index) => (
-											<div key={ingredient.product_id || index} className="grid grid-cols-12 gap-4 items-end p-3 border rounded-md bg-muted/20">
+										field.state.value.map((ingredient: IngredientFormItem, index: number) => (
+											<div key={ingredient.ingredient_id || index} className="grid grid-cols-12 gap-4 items-end p-3 border rounded-md bg-muted/20">
 												<div className="col-span-5">
-													<Label className="text-xs">Produto</Label>
-													<Input value={ingredient.product_name} disabled className="bg-muted" />
+													<Label className="text-xs">Insumo</Label>
+													<Input value={ingredient.ingredient_name} disabled className="bg-muted" />
 												</div>
 												<div className="col-span-3">
 													<Label className="text-xs">Qtd. Líquida ({ingredient.measure_unit})</Label>
@@ -297,7 +306,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 														size="icon"
 														className="text-destructive hover:bg-destructive/10"
 														onClick={() => {
-															const newList = field.state.value.filter((_, i) => i !== index)
+															const newList = field.state.value.filter((_: IngredientFormItem, i: number) => i !== index)
 															field.handleChange(newList)
 														}}
 													>
@@ -330,11 +339,11 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			<IngredientSelector
 				isOpen={selectorOpen}
 				onClose={() => setSelectorOpen(false)}
-				onSelect={(product) => {
+				onSelect={(ingredient) => {
 					form.pushFieldValue("ingredients", {
-						product_id: product.id,
-						product_name: product.description ?? "",
-						measure_unit: product.measure_unit ?? "UN",
+						ingredient_id: ingredient.id,
+						ingredient_name: ingredient.description ?? "",
+						measure_unit: ingredient.measure_unit ?? "UN",
 						net_quantity: 0,
 						is_optional: false,
 						priority_order: form.getFieldValue("ingredients").length + 1,

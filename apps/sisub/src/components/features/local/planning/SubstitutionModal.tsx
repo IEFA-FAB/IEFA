@@ -22,8 +22,8 @@ interface RecipeSnapshot {
 	name: string
 	description?: string
 	ingredients?: Array<{
-		product_id: string
-		product_name: string // Assuming snapshot includes denormalized name
+		ingredient_id: string
+		ingredient_name: string // Assuming snapshot includes denormalized name
 		quantity: number
 		measure_unit: string
 	}>
@@ -44,7 +44,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 
 		// In a real implementation we would capture:
 		// - original_ingredient_id
-		// - new_product_id (from a search/selector)
+		// - new_ingredient_id (from a search/selector)
 		// - quantity conversion
 
 		const substitutions = {
@@ -96,16 +96,16 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 								{/* List ingredients to select for substitution */}
 								{ingredients.map((ing) => (
 									<button
-										key={ing.product_id}
+										key={ing.ingredient_id}
 										type="button"
 										className={cn(
 											"w-full text-left p-2 rounded border cursor-pointer hover:bg-accent",
-											selectedIngredientId === ing.product_id && "border-primary bg-primary/5"
+											selectedIngredientId === ing.ingredient_id && "border-primary bg-primary/5"
 										)}
-										onClick={() => setSelectedIngredientId(ing.product_id)}
+										onClick={() => setSelectedIngredientId(ing.ingredient_id)}
 									>
 										<div className="flex justify-between text-sm">
-											<span className="font-medium">{ing.product_name || "Produto Inexistente"}</span>
+											<span className="font-medium">{ing.ingredient_name || "Insumo Inexistente"}</span>
 											<span className="text-muted-foreground">
 												{ing.quantity} {ing.measure_unit}
 											</span>
@@ -117,14 +117,14 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 					</ScrollArea>
 
 					<div className="space-y-2">
-						<Label>Produto Substituto</Label>
+						<Label>Insumo Substituto</Label>
 						<Select disabled>
 							<SelectTrigger>
-								<SelectValue placeholder="Selecione um produto..." />
+								<SelectValue placeholder="Selecione um insumo..." />
 							</SelectTrigger>
 							<SelectContent>{/* Populate with fetch */}</SelectContent>
 						</Select>
-						<p className="text-[10px] text-muted-foreground">* Seleção de produtos desativada nesta versão.</p>
+						<p className="text-[10px] text-muted-foreground">* Seleção de insumos desativada nesta versão.</p>
 					</div>
 
 					<div className="space-y-2">

@@ -6,6 +6,245 @@ export type Database = {
 	__InternalSupabase: {
 		PostgrestVersion: "12.2.3 (519615d)"
 	}
+	forms: {
+		Tables: {
+			question: {
+				Row: {
+					created_at: string
+					description: string | null
+					id: string
+					options: Json | null
+					required: boolean
+					section_id: string
+					sort_order: number
+					text: string
+					type: Database["forms"]["Enums"]["question_type"]
+				}
+				Insert: {
+					created_at?: string
+					description?: string | null
+					id?: string
+					options?: Json | null
+					required?: boolean
+					section_id: string
+					sort_order?: number
+					text: string
+					type?: Database["forms"]["Enums"]["question_type"]
+				}
+				Update: {
+					created_at?: string
+					description?: string | null
+					id?: string
+					options?: Json | null
+					required?: boolean
+					section_id?: string
+					sort_order?: number
+					text?: string
+					type?: Database["forms"]["Enums"]["question_type"]
+				}
+				Relationships: [
+					{
+						foreignKeyName: "question_section_id_fkey"
+						columns: ["section_id"]
+						isOneToOne: false
+						referencedRelation: "section"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			questionnaire: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					description: string | null
+					id: string
+					status: Database["forms"]["Enums"]["questionnaire_status"]
+					title: string
+					updated_at: string
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					description?: string | null
+					id?: string
+					status?: Database["forms"]["Enums"]["questionnaire_status"]
+					title: string
+					updated_at?: string
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					description?: string | null
+					id?: string
+					status?: Database["forms"]["Enums"]["questionnaire_status"]
+					title?: string
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			questionnaire_response: {
+				Row: {
+					id: string
+					questionnaire_id: string
+					respondent_id: string
+					started_at: string
+					status: Database["forms"]["Enums"]["questionnaire_response_status"]
+					submitted_at: string | null
+				}
+				Insert: {
+					id?: string
+					questionnaire_id: string
+					respondent_id: string
+					started_at?: string
+					status?: Database["forms"]["Enums"]["questionnaire_response_status"]
+					submitted_at?: string | null
+				}
+				Update: {
+					id?: string
+					questionnaire_id?: string
+					respondent_id?: string
+					started_at?: string
+					status?: Database["forms"]["Enums"]["questionnaire_response_status"]
+					submitted_at?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "questionnaire_response_questionnaire_id_fkey"
+						columns: ["questionnaire_id"]
+						isOneToOne: false
+						referencedRelation: "questionnaire"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			response: {
+				Row: {
+					id: string
+					observation: string | null
+					question_id: string
+					questionnaire_response_id: string
+					updated_at: string
+					value: Json | null
+				}
+				Insert: {
+					id?: string
+					observation?: string | null
+					question_id: string
+					questionnaire_response_id: string
+					updated_at?: string
+					value?: Json | null
+				}
+				Update: {
+					id?: string
+					observation?: string | null
+					question_id?: string
+					questionnaire_response_id?: string
+					updated_at?: string
+					value?: Json | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "response_question_id_fkey"
+						columns: ["question_id"]
+						isOneToOne: false
+						referencedRelation: "question"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "response_questionnaire_response_id_fkey"
+						columns: ["questionnaire_response_id"]
+						isOneToOne: false
+						referencedRelation: "questionnaire_response"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			response_viewer: {
+				Row: {
+					added_by: string
+					created_at: string
+					id: string
+					questionnaire_id: string
+					viewer_email: string
+					viewer_id: string
+				}
+				Insert: {
+					added_by: string
+					created_at?: string
+					id?: string
+					questionnaire_id: string
+					viewer_email: string
+					viewer_id: string
+				}
+				Update: {
+					added_by?: string
+					created_at?: string
+					id?: string
+					questionnaire_id?: string
+					viewer_email?: string
+					viewer_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "response_viewer_questionnaire_id_fkey"
+						columns: ["questionnaire_id"]
+						isOneToOne: false
+						referencedRelation: "questionnaire"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			section: {
+				Row: {
+					created_at: string
+					description: string | null
+					id: string
+					questionnaire_id: string
+					sort_order: number
+					title: string
+				}
+				Insert: {
+					created_at?: string
+					description?: string | null
+					id?: string
+					questionnaire_id: string
+					sort_order?: number
+					title: string
+				}
+				Update: {
+					created_at?: string
+					description?: string | null
+					id?: string
+					questionnaire_id?: string
+					sort_order?: number
+					title?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "section_questionnaire_id_fkey"
+						columns: ["questionnaire_id"]
+						isOneToOne: false
+						referencedRelation: "questionnaire"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+		}
+		Views: {
+			[_ in never]: never
+		}
+		Functions: {
+			lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }
+		}
+		Enums: {
+			question_type: "text" | "textarea" | "single_choice" | "multiple_choice" | "number" | "date" | "scale" | "boolean"
+			questionnaire_response_status: "draft" | "sent"
+			questionnaire_status: "draft" | "sent"
+		}
+		CompositeTypes: {
+			[_ in never]: never
+		}
+	}
 	iefa: {
 		Tables: {
 			app_contributors: {
@@ -1705,6 +1944,182 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			ingredient: {
+				Row: {
+					catmat_item_codigo: number | null
+					catmat_item_descricao: string | null
+					catmat_match_score: number | null
+					catmat_match_status: string | null
+					ceafa_id: string | null
+					correction_factor: number | null
+					created_at: string
+					deleted_at: string | null
+					density_factor: number | null
+					description: string | null
+					folder_id: string | null
+					id: string
+					legacy_id: number | null
+					measure_unit: string | null
+					unit_price: number | null
+				}
+				Insert: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
+					ceafa_id?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					density_factor?: number | null
+					description?: string | null
+					folder_id?: string | null
+					id?: string
+					legacy_id?: number | null
+					measure_unit?: string | null
+					unit_price?: number | null
+				}
+				Update: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
+					ceafa_id?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					density_factor?: number | null
+					description?: string | null
+					folder_id?: string | null
+					id?: string
+					legacy_id?: number | null
+					measure_unit?: string | null
+					unit_price?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "product_catmat_item_codigo_fkey"
+						columns: ["catmat_item_codigo"]
+						isOneToOne: false
+						referencedRelation: "compras_material_item"
+						referencedColumns: ["codigo_item"]
+					},
+					{
+						foreignKeyName: "product_ceafa_id_fkey"
+						columns: ["ceafa_id"]
+						isOneToOne: false
+						referencedRelation: "ceafa"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_folder_id_fkey"
+						columns: ["folder_id"]
+						isOneToOne: false
+						referencedRelation: "folder"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			ingredient_item: {
+				Row: {
+					barcode: string | null
+					correction_factor: number | null
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					id: string
+					ingredient_id: string | null
+					purchase_measure_unit: string | null
+					unit_content_quantity: number | null
+				}
+				Insert: {
+					barcode?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					ingredient_id?: string | null
+					purchase_measure_unit?: string | null
+					unit_content_quantity?: number | null
+				}
+				Update: {
+					barcode?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					ingredient_id?: string | null
+					purchase_measure_unit?: string | null
+					unit_content_quantity?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "product_item_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_item_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_nutrient: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					ingredient_id: string
+					nutrient_id: string
+					nutrient_value: number | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					ingredient_id: string
+					nutrient_id: string
+					nutrient_value?: number | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					ingredient_id?: string
+					nutrient_id?: string
+					nutrient_value?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "product_nutrient_nutrient_id_fkey"
+						columns: ["nutrient_id"]
+						isOneToOne: false
+						referencedRelation: "nutrient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_nutrient_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_nutrient_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
 			kitchen: {
 				Row: {
 					address_bairro: string | null
@@ -1851,6 +2266,39 @@ export type Database = {
 						referencedColumns: ["id"]
 					},
 				]
+			}
+			mcp_api_keys: {
+				Row: {
+					created_at: string
+					id: string
+					is_active: boolean
+					key_hash: string
+					key_prefix: string
+					label: string
+					last_used_at: string | null
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					is_active?: boolean
+					key_hash: string
+					key_prefix: string
+					label: string
+					last_used_at?: string | null
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					is_active?: boolean
+					key_hash?: string
+					key_prefix?: string
+					label?: string
+					last_used_at?: string | null
+					user_id?: string
+				}
+				Relationships: []
 			}
 			meal_forecasts: {
 				Row: {
@@ -2521,7 +2969,7 @@ export type Database = {
 						foreignKeyName: "procurement_arp_ata_id_fkey"
 						columns: ["ata_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata"
+						referencedRelation: "procurement_list"
 						referencedColumns: ["id"]
 					},
 					{
@@ -2594,12 +3042,12 @@ export type Database = {
 						foreignKeyName: "procurement_arp_item_ata_item_id_fkey"
 						columns: ["ata_item_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata_item"
+						referencedRelation: "procurement_list_item"
 						referencedColumns: ["id"]
 					},
 				]
 			}
-			procurement_ata: {
+			procurement_list: {
 				Row: {
 					created_at: string
 					deleted_at: string | null
@@ -2640,98 +3088,95 @@ export type Database = {
 					},
 				]
 			}
-			procurement_ata_item: {
+			procurement_list_item: {
 				Row: {
-					ata_id: string
 					catmat_item_codigo: number | null
 					catmat_item_descricao: string | null
 					folder_description: string | null
 					folder_id: string | null
 					id: string
+					ingredient_id: string | null
+					ingredient_name: string
+					list_id: string
 					measure_unit: string | null
-					product_id: string | null
-					product_name: string
 					total_quantity: number
-					total_value: number | null
 					unit_price: number | null
 				}
 				Insert: {
-					ata_id: string
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
 					folder_description?: string | null
 					folder_id?: string | null
 					id?: string
+					ingredient_id?: string | null
+					ingredient_name: string
+					list_id: string
 					measure_unit?: string | null
-					product_id?: string | null
-					product_name: string
 					total_quantity: number
-					total_value?: number | null
 					unit_price?: number | null
 				}
 				Update: {
-					ata_id?: string
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
 					folder_description?: string | null
 					folder_id?: string | null
 					id?: string
+					ingredient_id?: string | null
+					ingredient_name?: string
+					list_id?: string
 					measure_unit?: string | null
-					product_id?: string | null
-					product_name?: string
 					total_quantity?: number
-					total_value?: number | null
 					unit_price?: number | null
 				}
 				Relationships: [
 					{
 						foreignKeyName: "procurement_ata_item_ata_id_fkey"
-						columns: ["ata_id"]
+						columns: ["list_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata"
+						referencedRelation: "procurement_list"
 						referencedColumns: ["id"]
 					},
 					{
 						foreignKeyName: "procurement_ata_item_product_id_fkey"
-						columns: ["product_id"]
+						columns: ["ingredient_id"]
 						isOneToOne: false
-						referencedRelation: "product"
+						referencedRelation: "ingredient"
 						referencedColumns: ["id"]
 					},
 					{
 						foreignKeyName: "procurement_ata_item_product_id_fkey"
-						columns: ["product_id"]
+						columns: ["ingredient_id"]
 						isOneToOne: false
-						referencedRelation: "v_product_kg_lt_items"
+						referencedRelation: "v_ingredient_kg_lt_items"
 						referencedColumns: ["product_id"]
 					},
 				]
 			}
-			procurement_ata_kitchen: {
+			procurement_list_kitchen: {
 				Row: {
-					ata_id: string
 					delivery_notes: string | null
 					id: string
 					kitchen_id: number
+					list_id: string
 				}
 				Insert: {
-					ata_id: string
 					delivery_notes?: string | null
 					id?: string
 					kitchen_id: number
+					list_id: string
 				}
 				Update: {
-					ata_id?: string
 					delivery_notes?: string | null
 					id?: string
 					kitchen_id?: number
+					list_id?: string
 				}
 				Relationships: [
 					{
 						foreignKeyName: "procurement_ata_kitchen_ata_id_fkey"
-						columns: ["ata_id"]
+						columns: ["list_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata"
+						referencedRelation: "procurement_list"
 						referencedColumns: ["id"]
 					},
 					{
@@ -2743,31 +3188,31 @@ export type Database = {
 					},
 				]
 			}
-			procurement_ata_selection: {
+			procurement_list_selection: {
 				Row: {
-					ata_kitchen_id: string
 					id: string
+					list_kitchen_id: string
 					repetitions: number
 					template_id: string
 				}
 				Insert: {
-					ata_kitchen_id: string
 					id?: string
+					list_kitchen_id: string
 					repetitions?: number
 					template_id: string
 				}
 				Update: {
-					ata_kitchen_id?: string
 					id?: string
+					list_kitchen_id?: string
 					repetitions?: number
 					template_id?: string
 				}
 				Relationships: [
 					{
 						foreignKeyName: "procurement_ata_selection_ata_kitchen_id_fkey"
-						columns: ["ata_kitchen_id"]
+						columns: ["list_kitchen_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata_kitchen"
+						referencedRelation: "procurement_list_kitchen"
 						referencedColumns: ["id"]
 					},
 					{
@@ -2830,7 +3275,7 @@ export type Database = {
 						foreignKeyName: "procurement_pesquisa_preco_ata_id_fkey"
 						columns: ["ata_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata"
+						referencedRelation: "procurement_list"
 						referencedColumns: ["id"]
 					},
 				]
@@ -2996,7 +3441,7 @@ export type Database = {
 						foreignKeyName: "procurement_pesquisa_preco_item_ata_item_id_fkey"
 						columns: ["ata_item_id"]
 						isOneToOne: false
-						referencedRelation: "procurement_ata_item"
+						referencedRelation: "procurement_list_item"
 						referencedColumns: ["id"]
 					},
 					{
@@ -3005,182 +3450,6 @@ export type Database = {
 						isOneToOne: false
 						referencedRelation: "procurement_pesquisa_preco"
 						referencedColumns: ["id"]
-					},
-				]
-			}
-			product: {
-				Row: {
-					catmat_item_codigo: number | null
-					catmat_item_descricao: string | null
-					catmat_match_score: number | null
-					catmat_match_status: string | null
-					ceafa_id: string | null
-					correction_factor: number | null
-					created_at: string
-					deleted_at: string | null
-					density_factor: number | null
-					description: string | null
-					folder_id: string | null
-					id: string
-					legacy_id: number | null
-					measure_unit: string | null
-					unit_price: number | null
-				}
-				Insert: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					catmat_match_score?: number | null
-					catmat_match_status?: string | null
-					ceafa_id?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					density_factor?: number | null
-					description?: string | null
-					folder_id?: string | null
-					id?: string
-					legacy_id?: number | null
-					measure_unit?: string | null
-					unit_price?: number | null
-				}
-				Update: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					catmat_match_score?: number | null
-					catmat_match_status?: string | null
-					ceafa_id?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					density_factor?: number | null
-					description?: string | null
-					folder_id?: string | null
-					id?: string
-					legacy_id?: number | null
-					measure_unit?: string | null
-					unit_price?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "product_catmat_item_codigo_fkey"
-						columns: ["catmat_item_codigo"]
-						isOneToOne: false
-						referencedRelation: "compras_material_item"
-						referencedColumns: ["codigo_item"]
-					},
-					{
-						foreignKeyName: "product_ceafa_id_fkey"
-						columns: ["ceafa_id"]
-						isOneToOne: false
-						referencedRelation: "ceafa"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_folder_id_fkey"
-						columns: ["folder_id"]
-						isOneToOne: false
-						referencedRelation: "folder"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			product_item: {
-				Row: {
-					barcode: string | null
-					correction_factor: number | null
-					created_at: string
-					deleted_at: string | null
-					description: string | null
-					id: string
-					product_id: string | null
-					purchase_measure_unit: string | null
-					unit_content_quantity: number | null
-				}
-				Insert: {
-					barcode?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					product_id?: string | null
-					purchase_measure_unit?: string | null
-					unit_content_quantity?: number | null
-				}
-				Update: {
-					barcode?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					product_id?: string | null
-					purchase_measure_unit?: string | null
-					unit_content_quantity?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "product_item_product_id_fkey"
-						columns: ["product_id"]
-						isOneToOne: false
-						referencedRelation: "product"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_item_product_id_fkey"
-						columns: ["product_id"]
-						isOneToOne: false
-						referencedRelation: "v_product_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-				]
-			}
-			product_nutrient: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					nutrient_id: string
-					nutrient_value: number | null
-					product_id: string
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					nutrient_id: string
-					nutrient_value?: number | null
-					product_id: string
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					nutrient_id?: string
-					nutrient_value?: number | null
-					product_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "product_nutrient_nutrient_id_fkey"
-						columns: ["nutrient_id"]
-						isOneToOne: false
-						referencedRelation: "nutrient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_nutrient_product_id_fkey"
-						columns: ["product_id"]
-						isOneToOne: false
-						referencedRelation: "product"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_nutrient_product_id_fkey"
-						columns: ["product_id"]
-						isOneToOne: false
-						referencedRelation: "v_product_kg_lt_items"
-						referencedColumns: ["product_id"]
 					},
 				]
 			}
@@ -3275,40 +3544,40 @@ export type Database = {
 				Row: {
 					created_at: string
 					id: string
+					ingredient_id: string | null
 					net_quantity: number | null
 					priority_order: number | null
-					product_id: string | null
 					recipe_ingredient_id: string | null
 				}
 				Insert: {
 					created_at?: string
 					id?: string
+					ingredient_id?: string | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					product_id?: string | null
 					recipe_ingredient_id?: string | null
 				}
 				Update: {
 					created_at?: string
 					id?: string
+					ingredient_id?: string | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					product_id?: string | null
 					recipe_ingredient_id?: string | null
 				}
 				Relationships: [
 					{
 						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
-						columns: ["product_id"]
+						columns: ["ingredient_id"]
 						isOneToOne: false
-						referencedRelation: "product"
+						referencedRelation: "ingredient"
 						referencedColumns: ["id"]
 					},
 					{
 						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
-						columns: ["product_id"]
+						columns: ["ingredient_id"]
 						isOneToOne: false
-						referencedRelation: "v_product_kg_lt_items"
+						referencedRelation: "v_ingredient_kg_lt_items"
 						referencedColumns: ["product_id"]
 					},
 					{
@@ -3325,45 +3594,45 @@ export type Database = {
 					created_at: string
 					deleted_at: string | null
 					id: string
+					ingredient_id: string | null
 					is_optional: boolean | null
 					net_quantity: number | null
 					priority_order: number | null
-					product_id: string | null
 					recipe_id: string | null
 				}
 				Insert: {
 					created_at?: string
 					deleted_at?: string | null
 					id?: string
+					ingredient_id?: string | null
 					is_optional?: boolean | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					product_id?: string | null
 					recipe_id?: string | null
 				}
 				Update: {
 					created_at?: string
 					deleted_at?: string | null
 					id?: string
+					ingredient_id?: string | null
 					is_optional?: boolean | null
 					net_quantity?: number | null
 					priority_order?: number | null
-					product_id?: string | null
 					recipe_id?: string | null
 				}
 				Relationships: [
 					{
 						foreignKeyName: "recipe_ingredients_product_id_fkey"
-						columns: ["product_id"]
+						columns: ["ingredient_id"]
 						isOneToOne: false
-						referencedRelation: "product"
+						referencedRelation: "ingredient"
 						referencedColumns: ["id"]
 					},
 					{
 						foreignKeyName: "recipe_ingredients_product_id_fkey"
-						columns: ["product_id"]
+						columns: ["ingredient_id"]
 						isOneToOne: false
-						referencedRelation: "v_product_kg_lt_items"
+						referencedRelation: "v_ingredient_kg_lt_items"
 						referencedColumns: ["product_id"]
 					},
 					{
@@ -3619,6 +3888,20 @@ export type Database = {
 			}
 		}
 		Views: {
+			v_ingredient_kg_lt_items: {
+				Row: {
+					base_unit: string | null
+					density_factor: number | null
+					description: string | null
+					item_created_at: string | null
+					item_description: string | null
+					kg_to_base_factor: number | null
+					product_id: string | null
+					product_item_id: string | null
+					purchase_measure_unit: string | null
+				}
+				Relationships: []
+			}
 			v_meal_presences_with_user: {
 				Row: {
 					created_at: string | null
@@ -3639,20 +3922,6 @@ export type Database = {
 						referencedColumns: ["id"]
 					},
 				]
-			}
-			v_product_kg_lt_items: {
-				Row: {
-					base_unit: string | null
-					density_factor: number | null
-					description: string | null
-					item_created_at: string | null
-					item_description: string | null
-					kg_to_base_factor: number | null
-					product_id: string | null
-					product_item_id: string | null
-					purchase_measure_unit: string | null
-				}
-				Relationships: []
 			}
 			v_user_identity: {
 				Row: {
@@ -3814,6 +4083,13 @@ export type CompositeTypes<
 		: never
 
 export const Constants = {
+	forms: {
+		Enums: {
+			question_type: ["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean"],
+			questionnaire_response_status: ["draft", "sent"],
+			questionnaire_status: ["draft", "sent"],
+		},
+	},
 	iefa: {
 		Enums: {},
 	},

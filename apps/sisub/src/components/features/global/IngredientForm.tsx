@@ -1,4 +1,4 @@
-import type { Product } from "@iefa/database/sisub"
+import type { Ingredient } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useCreateProduct, useFolders, useUpdateProduct } from "@/services/ProductsService"
+import { useCreateIngredient, useFolders, useUpdateIngredient } from "@/services/IngredientsService"
 
 // Schema de validação
 const productSchema = z.object({
@@ -26,26 +26,26 @@ const MEASURE_UNIT_LABELS: Record<string, string> = {
 	ML: "ML (Mililitro)",
 }
 
-interface ProductFormProps {
+interface IngredientFormProps {
 	isOpen: boolean
 	onClose: () => void
 	mode: "create" | "edit"
-	product?: Product
+	ingredient?: Ingredient
 	defaultFolderId?: string | null
 }
 
-export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }: ProductFormProps) {
+export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolderId }: IngredientFormProps) {
 	const queryClient = useQueryClient()
 	const { folders } = useFolders()
-	const { createProduct, isCreating } = useCreateProduct()
-	const { updateProduct, isUpdating } = useUpdateProduct()
+	const { createIngredient, isCreating } = useCreateIngredient()
+	const { updateIngredient, isUpdating } = useUpdateIngredient()
 
 	const form = useForm({
 		defaultValues: {
-			description: product?.description || "",
-			folder_id: product?.folder_id || defaultFolderId || null,
-			measure_unit: product?.measure_unit || "",
-			correction_factor: product?.correction_factor ? Number(product.correction_factor) : 1.0,
+			description: ingredient?.description || "",
+			folder_id: ingredient?.folder_id || defaultFolderId || null,
+			measure_unit: ingredient?.measure_unit || "",
+			correction_factor: ingredient?.correction_factor ? Number(ingredient.correction_factor) : 1.0,
 		},
 		validators: {
 			onChange: productSchema,
@@ -53,21 +53,21 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 		onSubmit: async ({ value }) => {
 			try {
 				if (mode === "create") {
-					await createProduct(value)
-					toast.success("Produto criado com sucesso!")
-				} else if (product) {
-					await updateProduct({ id: product.id, payload: value })
-					toast.success("Produto atualizado com sucesso!")
+					await createIngredient(value)
+					toast.success("Insumo criado com sucesso!")
+				} else if (ingredient) {
+					await updateIngredient({ id: ingredient.id, payload: value })
+					toast.success("Insumo atualizado com sucesso!")
 				}
 
 				await queryClient.invalidateQueries({
-					queryKey: ["products"],
+					queryKey: ["ingredients"],
 				})
 
 				onClose()
 				form.reset()
 			} catch (_error) {
-				toast.error(mode === "create" ? "Erro ao criar produto" : "Erro ao atualizar produto")
+				toast.error(mode === "create" ? "Erro ao criar insumo" : "Erro ao atualizar insumo")
 			}
 		},
 	})
@@ -78,7 +78,7 @@ export function ProductForm({ isOpen, onClose, mode, product, defaultFolderId }:
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>{mode === "create" ? "Novo Produto" : "Editar Produto"}</DialogTitle>
+					<DialogTitle>{mode === "create" ? "Novo Insumo" : "Editar Insumo"}</DialogTitle>
 				</DialogHeader>
 
 				<form

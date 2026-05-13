@@ -123,13 +123,13 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 											.map((ingredient) => (
 												<TableRow key={ingredient.id} className={ingredient.is_optional ? "opacity-60" : undefined}>
 													<TableCell className="font-medium">
-														{ingredient.product?.description ?? "—"}
+														{ingredient.ingredient?.description ?? "—"}
 														{ingredient.is_optional && <span className="ml-1.5 text-xs text-muted-foreground">(opcional)</span>}
 													</TableCell>
 													<TableCell className="text-right tabular-nums">
 														{scaleIngredientQty(ingredient.net_quantity, plannedPortions, portionYield)}
 													</TableCell>
-													<TableCell className="text-muted-foreground text-xs">{ingredient.product?.measure_unit ?? "—"}</TableCell>
+													<TableCell className="text-muted-foreground text-xs">{ingredient.ingredient?.measure_unit ?? "—"}</TableCell>
 												</TableRow>
 											))}
 									</TableBody>

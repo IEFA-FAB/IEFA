@@ -68,7 +68,7 @@ import { Route as ProtectedModulesKitchenKitchenIdChatRouteImport } from './rout
 import { Route as ProtectedModulesGlobalWeeklyPlansNewRouteImport } from './routes/_protected/_modules/global/weekly-plans/new'
 import { Route as ProtectedModulesGlobalWeeklyPlansPlanIdRouteImport } from './routes/_protected/_modules/global/weekly-plans/$planId'
 import { Route as ProtectedModulesGlobalRecipesNewRouteImport } from './routes/_protected/_modules/global/recipes/new'
-import { Route as ProtectedModulesGlobalIngredientsProductIdRouteImport } from './routes/_protected/_modules/global/ingredients/$productId'
+import { Route as ProtectedModulesGlobalIngredientsIngredientIdRouteImport } from './routes/_protected/_modules/global/ingredients/$ingredientId'
 import { Route as ProtectedModulesUnitUnitIdProcurementIndexRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement/index'
 import { Route as ProtectedModulesKitchenKitchenIdWeeklyMenusIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/weekly-menus/index'
 import { Route as ProtectedModulesKitchenKitchenIdSuprimentosIndexRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/suprimentos/index'
@@ -430,10 +430,10 @@ const ProtectedModulesGlobalRecipesNewRoute =
     path: '/global/recipes/new',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
-const ProtectedModulesGlobalIngredientsProductIdRoute =
-  ProtectedModulesGlobalIngredientsProductIdRouteImport.update({
-    id: '/global/ingredients/$productId',
-    path: '/global/ingredients/$productId',
+const ProtectedModulesGlobalIngredientsIngredientIdRoute =
+  ProtectedModulesGlobalIngredientsIngredientIdRouteImport.update({
+    id: '/global/ingredients/$ingredientId',
+    path: '/global/ingredients/$ingredientId',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesUnitUnitIdProcurementIndexRoute =
@@ -597,7 +597,7 @@ export interface FileRoutesByFullPath {
   '/local-analytics/': typeof ProtectedModulesLocalAnalyticsIndexRoute
   '/messhall/': typeof ProtectedModulesMesshallIndexRoute
   '/unit/': typeof ProtectedModulesUnitIndexRoute
-  '/global/ingredients/$productId': typeof ProtectedModulesGlobalIngredientsProductIdRoute
+  '/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
@@ -670,7 +670,7 @@ export interface FileRoutesByTo {
   '/local-analytics': typeof ProtectedModulesLocalAnalyticsIndexRoute
   '/messhall': typeof ProtectedModulesMesshallIndexRoute
   '/unit': typeof ProtectedModulesUnitIndexRoute
-  '/global/ingredients/$productId': typeof ProtectedModulesGlobalIngredientsProductIdRoute
+  '/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
@@ -751,7 +751,7 @@ export interface FileRoutesById {
   '/_protected/_modules/local-analytics/': typeof ProtectedModulesLocalAnalyticsIndexRoute
   '/_protected/_modules/messhall/': typeof ProtectedModulesMesshallIndexRoute
   '/_protected/_modules/unit/': typeof ProtectedModulesUnitIndexRoute
-  '/_protected/_modules/global/ingredients/$productId': typeof ProtectedModulesGlobalIngredientsProductIdRoute
+  '/_protected/_modules/global/ingredients/$ingredientId': typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   '/_protected/_modules/global/recipes/new': typeof ProtectedModulesGlobalRecipesNewRoute
   '/_protected/_modules/global/weekly-plans/$planId': typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   '/_protected/_modules/global/weekly-plans/new': typeof ProtectedModulesGlobalWeeklyPlansNewRoute
@@ -832,7 +832,7 @@ export interface FileRouteTypes {
     | '/local-analytics/'
     | '/messhall/'
     | '/unit/'
-    | '/global/ingredients/$productId'
+    | '/global/ingredients/$ingredientId'
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
@@ -905,7 +905,7 @@ export interface FileRouteTypes {
     | '/local-analytics'
     | '/messhall'
     | '/unit'
-    | '/global/ingredients/$productId'
+    | '/global/ingredients/$ingredientId'
     | '/global/recipes/new'
     | '/global/weekly-plans/$planId'
     | '/global/weekly-plans/new'
@@ -985,7 +985,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/local-analytics/'
     | '/_protected/_modules/messhall/'
     | '/_protected/_modules/unit/'
-    | '/_protected/_modules/global/ingredients/$productId'
+    | '/_protected/_modules/global/ingredients/$ingredientId'
     | '/_protected/_modules/global/recipes/new'
     | '/_protected/_modules/global/weekly-plans/$planId'
     | '/_protected/_modules/global/weekly-plans/new'
@@ -1450,11 +1450,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesGlobalRecipesNewRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
-    '/_protected/_modules/global/ingredients/$productId': {
-      id: '/_protected/_modules/global/ingredients/$productId'
-      path: '/global/ingredients/$productId'
-      fullPath: '/global/ingredients/$productId'
-      preLoaderRoute: typeof ProtectedModulesGlobalIngredientsProductIdRouteImport
+    '/_protected/_modules/global/ingredients/$ingredientId': {
+      id: '/_protected/_modules/global/ingredients/$ingredientId'
+      path: '/global/ingredients/$ingredientId'
+      fullPath: '/global/ingredients/$ingredientId'
+      preLoaderRoute: typeof ProtectedModulesGlobalIngredientsIngredientIdRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/unit/$unitId/procurement/': {
@@ -1822,7 +1822,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesLocalAnalyticsIndexRoute: typeof ProtectedModulesLocalAnalyticsIndexRoute
   ProtectedModulesMesshallIndexRoute: typeof ProtectedModulesMesshallIndexRoute
   ProtectedModulesUnitIndexRoute: typeof ProtectedModulesUnitIndexRoute
-  ProtectedModulesGlobalIngredientsProductIdRoute: typeof ProtectedModulesGlobalIngredientsProductIdRoute
+  ProtectedModulesGlobalIngredientsIngredientIdRoute: typeof ProtectedModulesGlobalIngredientsIngredientIdRoute
   ProtectedModulesGlobalRecipesNewRoute: typeof ProtectedModulesGlobalRecipesNewRoute
   ProtectedModulesGlobalWeeklyPlansPlanIdRoute: typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   ProtectedModulesGlobalWeeklyPlansNewRoute: typeof ProtectedModulesGlobalWeeklyPlansNewRoute
@@ -1870,8 +1870,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesLocalAnalyticsIndexRoute,
   ProtectedModulesMesshallIndexRoute: ProtectedModulesMesshallIndexRoute,
   ProtectedModulesUnitIndexRoute: ProtectedModulesUnitIndexRoute,
-  ProtectedModulesGlobalIngredientsProductIdRoute:
-    ProtectedModulesGlobalIngredientsProductIdRoute,
+  ProtectedModulesGlobalIngredientsIngredientIdRoute:
+    ProtectedModulesGlobalIngredientsIngredientIdRoute,
   ProtectedModulesGlobalRecipesNewRoute: ProtectedModulesGlobalRecipesNewRoute,
   ProtectedModulesGlobalWeeklyPlansPlanIdRoute:
     ProtectedModulesGlobalWeeklyPlansPlanIdRoute,

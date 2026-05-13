@@ -1,15 +1,15 @@
 import { toast } from "sonner"
-import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
-import type { ProductItem } from "@/types/domain/products"
+import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
+import type { IngredientItem } from "@/types/domain/ingredients"
 
 /**
- * Hook de negócio para exportar dados de produtos em CSV
+ * Hook de negócio para exportar dados de ingredientes em CSV
  * Orquestra múltiplos dados e gerencia lógica de export
  *
  * Segue padrão: hooks/business/ contém lógica de negócio complexa
  */
-export function useExportProductsCSV() {
-	const { flatTree } = useProductsHierarchy("")
+export function useExportIngredientsCSV() {
+	const { flatTree } = useIngredientsHierarchy("")
 
 	const exportCSV = () => {
 		if (!flatTree || flatTree.nodes.length === 0) {
@@ -52,16 +52,16 @@ export function useExportProductsCSV() {
 					if (node.parentId) {
 						folder = getFolderPath(node)
 					}
-				} else if (node.type === "product") {
-					type = "Produto"
+				} else if (node.type === "ingredient") {
+					type = "Insumo"
 					name = node.label
 					folder = getFolderPath(node)
-				} else if (node.type === "product_item") {
+				} else if (node.type === "ingredient_item") {
 					type = "Item de Compra"
 					name = node.label
 					folder = getFolderPath(node)
 
-					const itemData = node.data as ProductItem
+					const itemData = node.data as IngredientItem
 					unit = itemData.purchase_measure_unit || ""
 					factor = itemData.correction_factor?.toString() || ""
 					barcode = itemData.barcode || ""

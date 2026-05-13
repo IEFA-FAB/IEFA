@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Brain, Code, Flask, LightBulb, NavArrowDown, OpenNewWindow } from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 
-export const Route = createFileRoute("/_public/research")({
+export const Route = createFileRoute("/_public/_en/research")({
 	staticData: {
 		nav: {
 			title: "Pesquisa & Inovação",

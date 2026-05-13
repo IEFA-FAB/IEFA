@@ -21,7 +21,7 @@ const listAtas: ModuleToolDefinition = {
 		const unitId = safeInt(args.unitId, "unitId")
 		requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
 
-		const { data, error } = await untypedFrom(ctx, "procurement_ata").select("*").eq("unit_id", unitId).order("created_at", { ascending: false })
+		const { data, error } = await untypedFrom(ctx, "procurement_list").select("*").eq("unit_id", unitId).order("created_at", { ascending: false })
 
 		if (error) return toolErr(sanitizeDbError(error, "list_atas"))
 		return toolOk(data ?? [])
@@ -43,8 +43,8 @@ const getAtaDetails: ModuleToolDefinition = {
 		const ataId = requireUuid(args.ataId, "ataId")
 
 		const { data: ata, error } = await ctx.supabase
-			.from("procurement_ata")
-			.select(`*, kitchens:procurement_ata_kitchen(*, selections:procurement_ata_selection(*)), items:procurement_ata_item(*)`)
+			.from("procurement_list")
+			.select(`*, kitchens:procurement_list_kitchen(*, selections:procurement_list_selection(*)), items:procurement_list_item(*)`)
 			.eq("id", ataId)
 			.single()
 
@@ -75,12 +75,12 @@ const updateAtaStatus: ModuleToolDefinition = {
 			return toolErr("Status deve ser: draft, published ou archived")
 		}
 
-		const { data: ata, error: fetchError } = await untypedFrom(ctx, "procurement_ata").select("unit_id").eq("id", ataId).single()
+		const { data: ata, error: fetchError } = await untypedFrom(ctx, "procurement_list").select("unit_id").eq("id", ataId).single()
 		if (fetchError || !ata) return toolErr("ATA não encontrada")
 
 		requireUnitPermission(ctx, 2, { type: "unit", id: ata.unit_id })
 
-		const { data, error } = await untypedFrom(ctx, "procurement_ata").update({ status }).eq("id", ataId).select().single()
+		const { data, error } = await untypedFrom(ctx, "procurement_list").update({ status }).eq("id", ataId).select().single()
 		if (error) return toolErr(sanitizeDbError(error, "update_ata_status"))
 		return toolOk(data)
 	},
@@ -102,14 +102,14 @@ const getUnitDashboard: ModuleToolDefinition = {
 		requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
 
 		// Published ATAs count
-		const { count: ataCount } = await untypedFrom(ctx, "procurement_ata")
+		const { count: ataCount } = await untypedFrom(ctx, "procurement_list")
 			.select("id", { count: "exact", head: true })
 			.eq("unit_id", unitId)
 			.eq("status", "published")
 
 		// All ATAs for listing
 		const { data: atas } = await ctx.supabase
-			.from("procurement_ata")
+			.from("procurement_list")
 			.select("id, name, status, created_at")
 			.eq("unit_id", unitId)
 			.order("created_at", { ascending: false })
@@ -183,7 +183,7 @@ const listEmpenhos: ModuleToolDefinition = {
 	async handler(args, ctx) {
 		const ataId = requireUuid(args.ataId, "ataId")
 
-		const { data: ata, error: ataError } = await untypedFrom(ctx, "procurement_ata").select("unit_id").eq("id", ataId).single()
+		const { data: ata, error: ataError } = await untypedFrom(ctx, "procurement_list").select("unit_id").eq("id", ataId).single()
 		if (ataError || !ata) return toolErr("ATA não encontrada")
 
 		requireUnitPermission(ctx, 1, { type: "unit", id: ata.unit_id })

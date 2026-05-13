@@ -104,7 +104,7 @@ export async function addMenuItem(client: AnyClient, ctx: UserContext, input: Ad
 	// 3. Fetch full recipe for snapshot
 	const { data: recipe, error: recipeError } = await client
 		.from("recipes")
-		.select("*, ingredients:recipe_ingredients(*, product:product_id(*))")
+		.select("*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))")
 		.eq("id", input.recipeId)
 		.is("deleted_at", null)
 		.single()

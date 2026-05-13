@@ -2,7 +2,7 @@
  * @module procurement.fn
  * Aggregates ingredient quantities from live daily_menu data for a date range. Read-only pipeline, no persistence.
  * CLIENT: getSupabaseServerClient (service role).
- * TABLES: menu_items, daily_menu, recipes, recipe_ingredients, product (all reads).
+ * TABLES: menu_items, daily_menu, recipes, recipe_ingredients, ingredient (all reads).
  */
 
 import { createServerFn } from "@tanstack/react-start"
@@ -17,10 +17,10 @@ import type { ProcurementNeed } from "@/services/ProcurementService"
  * 6-step pipeline:
  *   (1) Resolve unit → kitchenIds if unitId provided.
  *   (2) Fetch menu_items with daily_menu join (excludes excluded_from_procurement=1 and soft-deleted).
- *   (3) Fetch unique recipes + ingredients + products.
- *   (4) Aggregate by product_id: quantity = net_quantity × (plannedQty / portionYield).
+ *   (3) Fetch unique recipes + ingredients.
+ *   (4) Aggregate by ingredient_id: quantity = net_quantity × (plannedQty / portionYield).
  *   (5) Format quantities to 4 decimal places.
- *   (6) Sort by folder_description → product_name (pt-BR collation).
+ *   (6) Sort by folder_description → ingredient_name (pt-BR collation).
  * Does NOT include catmat codes or unit_price — use calculateAtaNeedsFn for ATA creation (template-based).
  * If neither kitchenId nor unitId provided, query spans all kitchens.
  *
@@ -83,7 +83,7 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 		const recipeIds = [...new Set(menuItems.map((item) => item.recipe_origin_id).filter((id): id is string => id !== null))]
 		if (recipeIds.length === 0) return []
 
-		// 3. Buscar Preparações com ingredientes e produtos
+		// 3. Buscar Preparações com ingredientes
 		const { data: recipes, error: recipesError } = await supabase
 			.from("recipes")
 			.select(
@@ -91,9 +91,9 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
         id,
         portion_yield,
         recipe_ingredients (
-          product_id,
+          ingredient_id,
           net_quantity,
-          product (
+          ingredient (
             id,
             description,
             measure_unit,
@@ -111,11 +111,11 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 		if (recipesError) throw new Error(`Erro ao buscar Preparações: ${recipesError.message}`)
 		if (!recipes || recipes.length === 0) return []
 
-		// 4. Calcular necessidades por produto
+		// 4. Calcular necessidades por ingrediente
 		const needsMap = new Map<
 			string,
 			{
-				product: {
+				ingredient: {
 					id: string
 					description: string
 					measure_unit: string | null
@@ -132,48 +132,47 @@ export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
 
 			const portionMultiplier = (menuItem.planned_portion_quantity || 0) / (recipe.portion_yield || 1)
 
-			for (const ingredient of recipe.recipe_ingredients) {
-				const product = Array.isArray(ingredient.product) ? ingredient.product[0] : ingredient.product
-				if (!product) continue
+			for (const ri of recipe.recipe_ingredients) {
+				const ingredientRaw = Array.isArray(ri.ingredient) ? ri.ingredient[0] : ri.ingredient
+				if (!ingredientRaw) continue
 
-				const normalizedProduct = {
-					...product,
-					folder: Array.isArray(product.folder) ? product.folder[0] : product.folder,
+				const normalizedIngredient = {
+					...ingredientRaw,
+					folder: Array.isArray(ingredientRaw.folder) ? ingredientRaw.folder[0] : ingredientRaw.folder,
 				}
 
-				const productId = ingredient.product_id
-				if (!productId) continue
-				const quantityNeeded = (ingredient.net_quantity || 0) * portionMultiplier
+				const ingredientId = ri.ingredient_id
+				if (!ingredientId) continue
+				const quantityNeeded = (ri.net_quantity || 0) * portionMultiplier
 
-				if (needsMap.has(productId)) {
-					const existing = needsMap.get(productId)
+				if (needsMap.has(ingredientId)) {
+					const existing = needsMap.get(ingredientId)
 					if (existing) existing.total_quantity += quantityNeeded
 				} else {
-					needsMap.set(productId, { product: normalizedProduct, total_quantity: quantityNeeded })
+					needsMap.set(ingredientId, { ingredient: normalizedIngredient, total_quantity: quantityNeeded })
 				}
 			}
 		}
 
 		// 5. Converter para array e formatar
-		const needs: ProcurementNeed[] = Array.from(needsMap.entries()).map(([productId, d]) => ({
-			folder_id: d.product.folder_id,
-			folder_description: d.product.folder?.description || null,
-			product_id: productId,
-			product_name: d.product.description,
-			measure_unit: d.product.measure_unit,
+		const needs: ProcurementNeed[] = Array.from(needsMap.entries()).map(([ingredientId, d]) => ({
+			folder_id: d.ingredient.folder_id,
+			folder_description: d.ingredient.folder?.description || null,
+			ingredient_id: ingredientId,
+			ingredient_name: d.ingredient.description,
+			measure_unit: d.ingredient.measure_unit,
 			total_quantity: Number(d.total_quantity.toFixed(4)),
 			catmat_item_codigo: null,
 			catmat_item_descricao: null,
 			unit_price: null,
-			total_value: null,
 		}))
 
-		// 6. Ordenar por categoria e produto
+		// 6. Ordenar por categoria e ingrediente
 		needs.sort((a, b) => {
 			const folderA = a.folder_description || "Sem categoria"
 			const folderB = b.folder_description || "Sem categoria"
 			if (folderA !== folderB) return folderA.localeCompare(folderB, "pt-BR")
-			return a.product_name.localeCompare(b.product_name, "pt-BR")
+			return a.ingredient_name.localeCompare(b.ingredient_name, "pt-BR")
 		})
 
 		return needs

@@ -1,4 +1,4 @@
-import type { ProcurementAta } from "@iefa/database/sisub"
+import type { ProcurementList } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { calculateAtaNeedsFn, createAtaFn, deleteAtaFn, fetchAtaDetailsFn, fetchAtaListFn, updateAtaStatusFn } from "@/server/ata.fn"
@@ -8,8 +8,8 @@ import type { AtaWithDetails, AtaWizardState } from "@/types/domain/ata"
 
 export function useAtaList(unitId: number | null) {
 	return useQuery({
-		queryKey: ["procurement_ata", "list", unitId],
-		queryFn: () => fetchAtaListFn({ data: { unitId: unitId as number } }) as Promise<ProcurementAta[]>,
+		queryKey: ["procurement_list", "list", unitId],
+		queryFn: () => fetchAtaListFn({ data: { unitId: unitId as number } }) as Promise<ProcurementList[]>,
 		enabled: unitId !== null,
 		staleTime: 5 * 60 * 1000,
 	})
@@ -17,7 +17,7 @@ export function useAtaList(unitId: number | null) {
 
 export function useAtaDetails(ataId: string | null) {
 	return useQuery({
-		queryKey: ["procurement_ata", "details", ataId],
+		queryKey: ["procurement_list", "details", ataId],
 		queryFn: () => fetchAtaDetailsFn({ data: { ataId: ataId as string } }) as Promise<AtaWithDetails | null>,
 		enabled: ataId !== null,
 		staleTime: 5 * 60 * 1000,
@@ -50,7 +50,7 @@ export function useCreateAta() {
 				},
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["procurement_ata", "list"] })
+			queryClient.invalidateQueries({ queryKey: ["procurement_list", "list"] })
 			toast.success(`Ata "${data?.title}" criada com sucesso!`)
 		},
 		onError: (error) => toast.error(`Erro ao criar ata: ${error.message}`),
@@ -62,7 +62,7 @@ export function useUpdateAtaStatus() {
 	return useMutation({
 		mutationFn: ({ ataId, status }: { ataId: string; status: "draft" | "published" | "archived" }) => updateAtaStatusFn({ data: { ataId, status } }),
 		onSuccess: (_, variables) => {
-			queryClient.invalidateQueries({ queryKey: ["procurement_ata"] })
+			queryClient.invalidateQueries({ queryKey: ["procurement_list"] })
 			const labels: Record<string, string> = {
 				draft: "Rascunho",
 				published: "Publicada",
@@ -79,7 +79,7 @@ export function useDeleteAta() {
 	return useMutation({
 		mutationFn: (ataId: string) => deleteAtaFn({ data: { ataId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["procurement_ata", "list"] })
+			queryClient.invalidateQueries({ queryKey: ["procurement_list", "list"] })
 			toast.success("Ata removida.")
 		},
 		onError: (error) => toast.error(`Erro ao remover ata: ${error.message}`),

@@ -5,28 +5,28 @@ import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
-import type { Folder, Product, ProductDialogState } from "@/types/domain/products"
+import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
+import type { Folder, Ingredient, IngredientDialogState } from "@/types/domain/ingredients"
 import { FolderForm } from "./FolderForm"
-import { ProductForm } from "./ProductForm"
-import { ProductsTreeNode } from "./ProductsTreeNode"
+import { IngredientForm } from "./IngredientForm"
+import { IngredientsTreeNode } from "./IngredientsTreeNode"
 
 /**
  * Gerenciador da árvore de insumos
  * Responsabilidade: Pastas + Produtos (hierarquia e CRUD)
- * Itens de compra vivem em /global/ingredients/$productId
+ * Itens de compra vivem em /global/ingredients/$ingredientId
  */
-export function ProductsTreeManager() {
+export function IngredientsTreeManager() {
 	"use no memo"
 	const navigate = useNavigate()
 	const [filterText, setFilterText] = useState("")
-	const [dialogState, setDialogState] = useState<ProductDialogState>({
+	const [dialogState, setDialogState] = useState<IngredientDialogState>({
 		isOpen: false,
 		mode: "create",
 		type: "folder",
 	})
 
-	const { flatTree, stats, itemCountByProductId, error, refetch, toggleExpand, expandAll, collapseAll } = useProductsHierarchy(filterText)
+	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(filterText)
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -39,7 +39,7 @@ export function ProductsTreeManager() {
 		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
 	})
 
-	const handleOpenDialog = (type: "folder" | "product", mode: "create" | "edit" = "create", data?: Folder | Product, parentId?: string | null) => {
+	const handleOpenDialog = (type: "folder" | "ingredient", mode: "create" | "edit" = "create", data?: Folder | Ingredient, parentId?: string | null) => {
 		setDialogState({ isOpen: true, mode, type, data, parentId })
 	}
 
@@ -59,7 +59,7 @@ export function ProductsTreeManager() {
 		return (
 			<Card className="p-6">
 				<div className="text-center space-y-4">
-					<p className="text-destructive">Erro ao carregar árvore de produtos</p>
+					<p className="text-destructive">Erro ao carregar árvore de insumos</p>
 					<p className="text-sm text-muted-foreground">{error.message}</p>
 					<Button onClick={() => refetch()}>Tentar Novamente</Button>
 				</div>
@@ -96,7 +96,7 @@ export function ProductsTreeManager() {
 						<span className="hidden sm:inline">Nova Pasta</span>
 						<span className="sm:hidden">Pasta</span>
 					</Button>
-					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("product", "create")} aria-label="Novo insumo" className="flex-1 sm:flex-none">
+					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("ingredient", "create")} aria-label="Novo insumo" className="flex-1 sm:flex-none">
 						<PackagePlus className="w-4 h-4 mr-2" />
 						<span className="hidden sm:inline">Novo Insumo</span>
 						<span className="sm:hidden">Insumo</span>
@@ -135,17 +135,17 @@ export function ProductsTreeManager() {
 											transform: `translateY(${virtualRow.start}px)`,
 										}}
 									>
-										<ProductsTreeNode
+										<IngredientsTreeNode
 											node={node}
-											onEdit={(type, data) => handleOpenDialog(type as "folder" | "product", "edit", data as Folder | Product)}
+											onEdit={(type, data) => handleOpenDialog(type as "folder" | "ingredient", "edit", data as Folder | Ingredient)}
 											onToggle={toggleExpand}
-											itemCount={node.type === "product" ? (itemCountByProductId[node.id] ?? 0) : undefined}
+											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
 											onNavigate={
-												node.type === "product"
+												node.type === "ingredient"
 													? () =>
 															navigate({
-																to: "/global/ingredients/$productId",
-																params: { productId: node.id },
+																to: "/global/ingredients/$ingredientId",
+																params: { ingredientId: node.id },
 															})
 													: undefined
 											}
@@ -163,7 +163,7 @@ export function ProductsTreeManager() {
 						</span>
 						<span aria-hidden>·</span>
 						<span>
-							{stats.totalProducts} {stats.totalProducts === 1 ? "insumo" : "insumos"}
+							{stats.totalIngredients} {stats.totalIngredients === 1 ? "insumo" : "insumos"}
 						</span>
 					</CardFooter>
 				)}
@@ -179,8 +179,8 @@ export function ProductsTreeManager() {
 				/>
 			)}
 
-			{dialogState.type === "product" && dialogState.mode === "create" && (
-				<ProductForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode="create" defaultFolderId={dialogState.parentId ?? undefined} />
+			{dialogState.type === "ingredient" && dialogState.mode === "create" && (
+				<IngredientForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode="create" defaultFolderId={dialogState.parentId ?? undefined} />
 			)}
 		</div>
 	)

@@ -149,7 +149,7 @@ const listRecipes: ModuleToolDefinition = {
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
-		let query = ctx.supabase.from("recipes").select(`*, ingredients:recipe_ingredients(*, product:product_id(*))`).is("deleted_at", null).order("name")
+		let query = ctx.supabase.from("recipes").select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`).is("deleted_at", null).order("name")
 
 		if (args.kitchenId != null) {
 			const id = safeInt(args.kitchenId, "kitchenId")
@@ -188,7 +188,7 @@ const getRecipe: ModuleToolDefinition = {
 
 		const { data, error } = await ctx.supabase
 			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, product:product_id(*))`)
+			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
 			.eq("id", recipeId)
 			.is("deleted_at", null)
 			.single()
@@ -264,7 +264,7 @@ const addMenuItem: ModuleToolDefinition = {
 
 		const { data: recipe, error: recipeError } = await ctx.supabase
 			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, product:product_id(*))`)
+			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
 			.eq("id", recipeId)
 			.is("deleted_at", null)
 			.single()

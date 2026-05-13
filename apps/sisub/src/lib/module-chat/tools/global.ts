@@ -1,6 +1,6 @@
 /**
- * Global module tools — recipes, products, templates, permissions management.
- * Ported from server functions: recipes.fn.ts, products.fn.ts, templates.fn.ts
+ * Global module tools — recipes, ingredients, templates, permissions management.
+ * Ported from server functions: recipes.fn.ts, ingredients.fn.ts, templates.fn.ts
  */
 
 import type { ModuleToolDefinition } from "./shared"
@@ -21,7 +21,7 @@ const listRecipes: ModuleToolDefinition = {
 		requireGlobalPermission(ctx, 1)
 		let query = ctx.supabase
 			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, product:product_id(*))`)
+			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
 			.is("deleted_at", null)
 			.is("kitchen_id", null)
 			.order("name")
@@ -51,7 +51,7 @@ const getRecipe: ModuleToolDefinition = {
 
 		const { data, error } = await ctx.supabase
 			.from("recipes")
-			.select(`*, ingredients:recipe_ingredients(*, product:product_id(*))`)
+			.select(`*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))`)
 			.eq("id", recipeId)
 			.is("deleted_at", null)
 			.single()
@@ -61,9 +61,9 @@ const getRecipe: ModuleToolDefinition = {
 	},
 }
 
-const listProducts: ModuleToolDefinition = {
-	name: "list_products",
-	description: "Lista produtos do catálogo com nutrientes e código CATMAT. Suporta busca por nome.",
+const listIngredients: ModuleToolDefinition = {
+	name: "list_ingredients",
+	description: "Lista ingredientes do catálogo com nutrientes e código CATMAT. Suporta busca por nome.",
 	parameters: {
 		type: "object",
 		properties: {
@@ -75,7 +75,7 @@ const listProducts: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		let query = untypedFrom(ctx, "products").select(`*, folder:folder_id(*)`).is("deleted_at", null).order("name")
+		let query = untypedFrom(ctx, "ingredient").select(`*, folder:folder_id(*)`).is("deleted_at", null).order("name")
 
 		if (args.search) {
 			query = query.ilike("name", `%${String(args.search).slice(0, 200)}%`)
@@ -85,31 +85,31 @@ const listProducts: ModuleToolDefinition = {
 		}
 
 		const { data, error } = await query
-		if (error) return toolErr(sanitizeDbError(error, "list_products"))
+		if (error) return toolErr(sanitizeDbError(error, "list_ingredients"))
 		return toolOk(data ?? [])
 	},
 }
 
-const getProduct: ModuleToolDefinition = {
-	name: "get_product",
-	description: "Retorna detalhes de um produto com nutrientes e itens (SKUs).",
+const getIngredient: ModuleToolDefinition = {
+	name: "get_ingredient",
+	description: "Retorna detalhes de um ingrediente com nutrientes e itens (SKUs).",
 	parameters: {
 		type: "object",
-		properties: { productId: { type: "string", description: "ID (UUID) do produto" } },
-		required: ["productId"],
+		properties: { ingredientId: { type: "string", description: "ID (UUID) do ingrediente" } },
+		required: ["ingredientId"],
 	},
 	requiredLevel: 1,
 	async handler(args, ctx) {
 		requireGlobalPermission(ctx, 1)
-		const productId = requireUuid(args.productId, "productId")
+		const ingredientId = requireUuid(args.ingredientId, "ingredientId")
 
-		const { data, error } = await untypedFrom(ctx, "products")
-			.select(`*, nutrients:product_nutrients(*), items:product_items(*)`)
-			.eq("id", productId)
+		const { data, error } = await untypedFrom(ctx, "ingredient")
+			.select(`*, nutrients:ingredient_nutrients(*), items:ingredient_items(*)`)
+			.eq("id", ingredientId)
 			.is("deleted_at", null)
 			.single()
 
-		if (error) return toolErr(sanitizeDbError(error, "get_product"))
+		if (error) return toolErr(sanitizeDbError(error, "get_ingredient"))
 		return toolOk(data)
 	},
 }
@@ -202,4 +202,4 @@ const updateRecipe: ModuleToolDefinition = {
 	},
 }
 
-export const globalTools: ModuleToolDefinition[] = [listRecipes, getRecipe, listProducts, getProduct, listMenuTemplates, createRecipe, updateRecipe]
+export const globalTools: ModuleToolDefinition[] = [listRecipes, getRecipe, listIngredients, getIngredient, listMenuTemplates, createRecipe, updateRecipe]

@@ -3,20 +3,20 @@ import { Loader2, Search, X } from "lucide-react"
 import { useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { useProductsHierarchy } from "@/hooks/data/useProductsHierarchy"
+import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import { cn } from "@/lib/cn"
-import type { Product } from "@/types/domain/products"
+import type { Ingredient } from "@/types/domain/ingredients"
 
 interface IngredientSelectorProps {
 	isOpen: boolean
 	onClose: () => void
-	onSelect: (product: Product) => void
+	onSelect: (ingredient: Ingredient) => void
 }
 
 export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSelectorProps) {
 	"use no memo"
 	const [filterText, setFilterText] = useState("")
-	const { flatTree, error } = useProductsHierarchy(filterText)
+	const { flatTree, error } = useIngredientsHierarchy(filterText)
 
 	// Virtualization
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -44,7 +44,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 					<div className="relative flex items-center">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform group-focus-within:scale-110" />
 						<Input
-							placeholder="Buscar produto..."
+							placeholder="Buscar insumo..."
 							value={filterText}
 							onChange={(e) => setFilterText(e.target.value)}
 							className="pl-10 pr-10 group transition-all focus:ring-2 focus:ring-primary/50"
@@ -84,9 +84,9 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 
 									if (!node) return null
 
-									// useProductsHierarchy nunca insere product_item na árvore visível
-									// (itens de compra vivem em /global/ingredients/$productId)
-									const isProduct = node.type === "product"
+									// useIngredientsHierarchy nunca insere ingredient_item na árvore visível
+									// (itens de compra vivem em /global/ingredients/$ingredientId)
+									const isProduct = node.type === "ingredient"
 									const iconBg = node.type === "folder" ? "bg-warning/10 dark:bg-warning/20" : "bg-primary/10 dark:bg-primary/20"
 									const iconColor = node.type === "folder" ? "text-warning" : "text-primary"
 
@@ -113,14 +113,14 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 												disabled={!isProduct}
 												onClick={() => {
 													if (isProduct && node.data) {
-														onSelect(node.data as Product)
+														onSelect(node.data as Ingredient)
 														onClose()
 													}
 												}}
 												onKeyDown={(e) => {
 													if ((e.key === "Enter" || e.key === " ") && isProduct && node.data) {
 														e.preventDefault()
-														onSelect(node.data as Product)
+														onSelect(node.data as Ingredient)
 														onClose()
 													}
 												}}

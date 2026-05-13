@@ -8,14 +8,13 @@ import { fetchProcurementNeedsFn } from "@/server/procurement.fn"
 export interface ProcurementNeed {
 	folder_id: string | null
 	folder_description: string | null
-	product_id: string
-	product_name: string
+	ingredient_id: string
+	ingredient_name: string
 	measure_unit: string | null
 	total_quantity: number
 	catmat_item_codigo: number | null
 	catmat_item_descricao: string | null
 	unit_price: number | null
-	total_value: number | null
 }
 
 export interface ProcurementParams {

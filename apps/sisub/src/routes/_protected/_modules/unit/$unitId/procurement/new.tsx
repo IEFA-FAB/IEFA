@@ -177,11 +177,11 @@ function NewAtaPage() {
 			item.folder_description || "Sem categoria",
 			item.catmat_item_codigo?.toString() || "",
 			item.catmat_item_descricao || "",
-			item.product_name,
+			item.ingredient_name,
 			item.total_quantity.toFixed(4),
 			item.measure_unit || "UN",
 			item.unit_price !== null ? item.unit_price.toFixed(4) : "",
-			item.total_value !== null ? item.total_value.toFixed(2) : "",
+			item.unit_price !== null ? (item.total_quantity * item.unit_price).toFixed(2) : "",
 		])
 		const csv = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
 		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })

@@ -129,7 +129,7 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
  * @remarks
  * Prompt instructs the LLM to fetch all active items via Supabase MCP, evaluate each against every rule,
  * and report PASSA/FALHA per rule with a final APROVADO/REPROVADO verdict.
- * Table hints are target-specific: product → sisub.product; recipe → sisub.recipes + joins.
+ * Table hints are target-specific: product → sisub.ingredient; recipe → sisub.recipes + joins.
  * Returns a plain-language message (not throw) if no active rules exist for the target.
  * Generated date is embedded in the prompt footer.
  *
@@ -160,8 +160,8 @@ export const generateReviewPromptFn = createServerFn({ method: "GET" })
 		const itemLabel = target === "product" ? "insumo" : "preparação"
 		const tableHint =
 			target === "product"
-				? "tabela `sisub.product` (campos relevantes: id, description, measure_unit, correction_factor, catmat_item_descricao) — filtre por `deleted_at IS NULL`"
-				: "tabela `sisub.recipes` com join em `sisub.recipe_ingredients` → `sisub.product` (campos: id, name, preparation_method, portion_yield, preparation_time_minutes, ingredientes) — filtre por `deleted_at IS NULL` e `kitchen_id IS NULL` (somente globais)"
+				? "tabela `sisub.ingredient` (campos relevantes: id, description, measure_unit, correction_factor, catmat_item_descricao) — filtre por `deleted_at IS NULL`"
+				: "tabela `sisub.recipes` com join em `sisub.recipe_ingredients` → `sisub.ingredient` (campos: id, name, preparation_method, portion_yield, preparation_time_minutes, ingredientes) — filtre por `deleted_at IS NULL` e `kitchen_id IS NULL` (somente globais)"
 
 		const rulesText = rules.map((r, i) => `${i + 1}. **${r.title}**: ${r.description}`).join("\n")
 

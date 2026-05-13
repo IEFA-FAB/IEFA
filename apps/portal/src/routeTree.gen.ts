@@ -19,18 +19,10 @@ import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as JournalSubmitRouteImport } from './routes/journal/submit'
 import { Route as JournalProfileRouteImport } from './routes/journal/profile'
 import { Route as JournalAboutRouteImport } from './routes/journal/about'
-import { Route as PublicRoadmapRouteImport } from './routes/_public/roadmap'
-import { Route as PublicResearchRouteImport } from './routes/_public/research'
-import { Route as PublicOverseerDashboardRouteImport } from './routes/_public/overseerDashboard'
-import { Route as PublicInnovationPolicyRouteImport } from './routes/_public/innovation-policy'
-import { Route as PublicChatRadaRouteImport } from './routes/_public/chatRada'
-import { Route as PublicAboutRouteImport } from './routes/_public/about'
 import { Route as JournalEditorialRouteRouteImport } from './routes/journal/editorial/route'
 import { Route as JournalSubmissionsIndexRouteImport } from './routes/journal/submissions/index'
 import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/index'
 import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
-import { Route as PublicPostsIndexRouteImport } from './routes/_public/posts/index'
-import { Route as PublicFacilitiesIndexRouteImport } from './routes/_public/facilities/index'
 import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
 import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
 import { Route as JournalReviewAssignmentIdRouteImport } from './routes/journal/review/$assignmentId'
@@ -40,9 +32,26 @@ import { Route as JournalEditorialPublicationRouteImport } from './routes/journa
 import { Route as JournalEditorialMetadataExportRouteImport } from './routes/journal/editorial/metadata-export'
 import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
 import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
-import { Route as PublicPostsSlugRouteImport } from './routes/_public/posts/$slug'
-import { Route as PublicFacilitiesPregoeiroRouteImport } from './routes/_public/facilities/pregoeiro'
+import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
+import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
+import { Route as PublicPtPoliticaDeInovacaoRouteImport } from './routes/_public/_pt/politica-de-inovacao'
+import { Route as PublicPtPesquisaRouteImport } from './routes/_public/_pt/pesquisa'
+import { Route as PublicPtPainelFiscalRouteImport } from './routes/_public/_pt/painel-fiscal'
+import { Route as PublicEnRoadmapRouteImport } from './routes/_public/_en/roadmap'
+import { Route as PublicEnResearchRouteImport } from './routes/_public/_en/research'
+import { Route as PublicEnOverseerDashboardRouteImport } from './routes/_public/_en/overseerDashboard'
+import { Route as PublicEnInnovationPolicyRouteImport } from './routes/_public/_en/innovation-policy'
+import { Route as PublicEnChatRadaRouteImport } from './routes/_public/_en/chatRada'
+import { Route as PublicEnAboutRouteImport } from './routes/_public/_en/about'
+import { Route as PublicPtPublicacoesIndexRouteImport } from './routes/_public/_pt/publicacoes/index'
+import { Route as PublicPtInstalacoesIndexRouteImport } from './routes/_public/_pt/instalacoes/index'
+import { Route as PublicEnPostsIndexRouteImport } from './routes/_public/_en/posts/index'
+import { Route as PublicEnFacilitiesIndexRouteImport } from './routes/_public/_en/facilities/index'
 import { Route as JournalEditorialArticlesArticleIdRouteImport } from './routes/journal/editorial/articles/$articleId'
+import { Route as PublicPtPublicacoesSlugRouteImport } from './routes/_public/_pt/publicacoes/$slug'
+import { Route as PublicPtInstalacoesPregoeiroRouteImport } from './routes/_public/_pt/instalacoes/pregoeiro'
+import { Route as PublicEnPostsSlugRouteImport } from './routes/_public/_en/posts/$slug'
+import { Route as PublicEnFacilitiesPregoeiroRouteImport } from './routes/_public/_en/facilities/pregoeiro'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -93,36 +102,6 @@ const JournalAboutRoute = JournalAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const PublicRoadmapRoute = PublicRoadmapRouteImport.update({
-  id: '/roadmap',
-  path: '/roadmap',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicResearchRoute = PublicResearchRouteImport.update({
-  id: '/research',
-  path: '/research',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicOverseerDashboardRoute = PublicOverseerDashboardRouteImport.update({
-  id: '/overseerDashboard',
-  path: '/overseerDashboard',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicInnovationPolicyRoute = PublicInnovationPolicyRouteImport.update({
-  id: '/innovation-policy',
-  path: '/innovation-policy',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicChatRadaRoute = PublicChatRadaRouteImport.update({
-  id: '/chatRada',
-  path: '/chatRada',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicAboutRoute = PublicAboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
 const JournalEditorialRouteRoute = JournalEditorialRouteRouteImport.update({
   id: '/editorial',
   path: '/editorial',
@@ -142,16 +121,6 @@ const JournalArticlesIndexRoute = JournalArticlesIndexRouteImport.update({
   id: '/articles/',
   path: '/articles/',
   getParentRoute: () => JournalRouteRoute,
-} as any)
-const PublicPostsIndexRoute = PublicPostsIndexRouteImport.update({
-  id: '/posts/',
-  path: '/posts/',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
-const PublicFacilitiesIndexRoute = PublicFacilitiesIndexRouteImport.update({
-  id: '/facilities/',
-  path: '/facilities/',
-  getParentRoute: () => PublicRouteRoute,
 } as any)
 const JournalSubmissionsIdRoute = JournalSubmissionsIdRouteImport.update({
   id: '/submissions/$id',
@@ -203,22 +172,113 @@ const JournalArticlesIdRoute = JournalArticlesIdRouteImport.update({
   path: '/articles/$id',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const PublicPostsSlugRoute = PublicPostsSlugRouteImport.update({
-  id: '/posts/$slug',
-  path: '/posts/$slug',
+const PublicPtSobreRoute = PublicPtSobreRouteImport.update({
+  id: '/_pt/sobre',
+  path: '/sobre',
   getParentRoute: () => PublicRouteRoute,
 } as any)
-const PublicFacilitiesPregoeiroRoute =
-  PublicFacilitiesPregoeiroRouteImport.update({
-    id: '/facilities/pregoeiro',
-    path: '/facilities/pregoeiro',
+const PublicPtRoteiroRoute = PublicPtRoteiroRouteImport.update({
+  id: '/_pt/roteiro',
+  path: '/roteiro',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtPoliticaDeInovacaoRoute =
+  PublicPtPoliticaDeInovacaoRouteImport.update({
+    id: '/_pt/politica-de-inovacao',
+    path: '/politica-de-inovacao',
     getParentRoute: () => PublicRouteRoute,
   } as any)
+const PublicPtPesquisaRoute = PublicPtPesquisaRouteImport.update({
+  id: '/_pt/pesquisa',
+  path: '/pesquisa',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtPainelFiscalRoute = PublicPtPainelFiscalRouteImport.update({
+  id: '/_pt/painel-fiscal',
+  path: '/painel-fiscal',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnRoadmapRoute = PublicEnRoadmapRouteImport.update({
+  id: '/_en/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnResearchRoute = PublicEnResearchRouteImport.update({
+  id: '/_en/research',
+  path: '/research',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnOverseerDashboardRoute =
+  PublicEnOverseerDashboardRouteImport.update({
+    id: '/_en/overseerDashboard',
+    path: '/overseerDashboard',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicEnInnovationPolicyRoute =
+  PublicEnInnovationPolicyRouteImport.update({
+    id: '/_en/innovation-policy',
+    path: '/innovation-policy',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicEnChatRadaRoute = PublicEnChatRadaRouteImport.update({
+  id: '/_en/chatRada',
+  path: '/chatRada',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnAboutRoute = PublicEnAboutRouteImport.update({
+  id: '/_en/about',
+  path: '/about',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtPublicacoesIndexRoute =
+  PublicPtPublicacoesIndexRouteImport.update({
+    id: '/_pt/publicacoes/',
+    path: '/publicacoes/',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicPtInstalacoesIndexRoute =
+  PublicPtInstalacoesIndexRouteImport.update({
+    id: '/_pt/instalacoes/',
+    path: '/instalacoes/',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicEnPostsIndexRoute = PublicEnPostsIndexRouteImport.update({
+  id: '/_en/posts/',
+  path: '/posts/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnFacilitiesIndexRoute = PublicEnFacilitiesIndexRouteImport.update({
+  id: '/_en/facilities/',
+  path: '/facilities/',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const JournalEditorialArticlesArticleIdRoute =
   JournalEditorialArticlesArticleIdRouteImport.update({
     id: '/articles/$articleId',
     path: '/articles/$articleId',
     getParentRoute: () => JournalEditorialRouteRoute,
+  } as any)
+const PublicPtPublicacoesSlugRoute = PublicPtPublicacoesSlugRouteImport.update({
+  id: '/_pt/publicacoes/$slug',
+  path: '/publicacoes/$slug',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPtInstalacoesPregoeiroRoute =
+  PublicPtInstalacoesPregoeiroRouteImport.update({
+    id: '/_pt/instalacoes/pregoeiro',
+    path: '/instalacoes/pregoeiro',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
+const PublicEnPostsSlugRoute = PublicEnPostsSlugRouteImport.update({
+  id: '/_en/posts/$slug',
+  path: '/posts/$slug',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicEnFacilitiesPregoeiroRoute =
+  PublicEnFacilitiesPregoeiroRouteImport.update({
+    id: '/_en/facilities/pregoeiro',
+    path: '/facilities/pregoeiro',
+    getParentRoute: () => PublicRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -227,19 +287,22 @@ export interface FileRoutesByFullPath {
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
-  '/about': typeof PublicAboutRoute
-  '/chatRada': typeof PublicChatRadaRoute
-  '/innovation-policy': typeof PublicInnovationPolicyRoute
-  '/overseerDashboard': typeof PublicOverseerDashboardRoute
-  '/research': typeof PublicResearchRoute
-  '/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
-  '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
-  '/posts/$slug': typeof PublicPostsSlugRoute
+  '/about': typeof PublicEnAboutRoute
+  '/chatRada': typeof PublicEnChatRadaRoute
+  '/innovation-policy': typeof PublicEnInnovationPolicyRoute
+  '/overseerDashboard': typeof PublicEnOverseerDashboardRoute
+  '/research': typeof PublicEnResearchRoute
+  '/roadmap': typeof PublicEnRoadmapRoute
+  '/painel-fiscal': typeof PublicPtPainelFiscalRoute
+  '/pesquisa': typeof PublicPtPesquisaRoute
+  '/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
+  '/roteiro': typeof PublicPtRoteiroRoute
+  '/sobre': typeof PublicPtSobreRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -249,30 +312,39 @@ export interface FileRoutesByFullPath {
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
-  '/facilities/': typeof PublicFacilitiesIndexRoute
-  '/posts/': typeof PublicPostsIndexRoute
   '/journal/articles/': typeof JournalArticlesIndexRoute
   '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
+  '/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
+  '/posts/$slug': typeof PublicEnPostsSlugRoute
+  '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
+  '/publicacoes/$slug': typeof PublicPtPublicacoesSlugRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
+  '/facilities/': typeof PublicEnFacilitiesIndexRoute
+  '/posts/': typeof PublicEnPostsIndexRoute
+  '/instalacoes/': typeof PublicPtInstalacoesIndexRoute
+  '/publicacoes/': typeof PublicPtPublicacoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
-  '/about': typeof PublicAboutRoute
-  '/chatRada': typeof PublicChatRadaRoute
-  '/innovation-policy': typeof PublicInnovationPolicyRoute
-  '/overseerDashboard': typeof PublicOverseerDashboardRoute
-  '/research': typeof PublicResearchRoute
-  '/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/': typeof PublicIndexRoute
   '/auth': typeof AuthIndexRoute
   '/journal': typeof JournalIndexRoute
-  '/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
-  '/posts/$slug': typeof PublicPostsSlugRoute
+  '/about': typeof PublicEnAboutRoute
+  '/chatRada': typeof PublicEnChatRadaRoute
+  '/innovation-policy': typeof PublicEnInnovationPolicyRoute
+  '/overseerDashboard': typeof PublicEnOverseerDashboardRoute
+  '/research': typeof PublicEnResearchRoute
+  '/roadmap': typeof PublicEnRoadmapRoute
+  '/painel-fiscal': typeof PublicPtPainelFiscalRoute
+  '/pesquisa': typeof PublicPtPesquisaRoute
+  '/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
+  '/roteiro': typeof PublicPtRoteiroRoute
+  '/sobre': typeof PublicPtSobreRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -282,12 +354,18 @@ export interface FileRoutesByTo {
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
-  '/facilities': typeof PublicFacilitiesIndexRoute
-  '/posts': typeof PublicPostsIndexRoute
   '/journal/articles': typeof JournalArticlesIndexRoute
   '/journal/review': typeof JournalReviewIndexRoute
   '/journal/submissions': typeof JournalSubmissionsIndexRoute
+  '/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
+  '/posts/$slug': typeof PublicEnPostsSlugRoute
+  '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
+  '/publicacoes/$slug': typeof PublicPtPublicacoesSlugRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
+  '/facilities': typeof PublicEnFacilitiesIndexRoute
+  '/posts': typeof PublicEnPostsIndexRoute
+  '/instalacoes': typeof PublicPtInstalacoesIndexRoute
+  '/publicacoes': typeof PublicPtPublicacoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -296,20 +374,23 @@ export interface FileRoutesById {
   '/journal': typeof JournalRouteRouteWithChildren
   '/health': typeof HealthRoute
   '/journal/editorial': typeof JournalEditorialRouteRouteWithChildren
-  '/_public/about': typeof PublicAboutRoute
-  '/_public/chatRada': typeof PublicChatRadaRoute
-  '/_public/innovation-policy': typeof PublicInnovationPolicyRoute
-  '/_public/overseerDashboard': typeof PublicOverseerDashboardRoute
-  '/_public/research': typeof PublicResearchRoute
-  '/_public/roadmap': typeof PublicRoadmapRoute
   '/journal/about': typeof JournalAboutRoute
   '/journal/profile': typeof JournalProfileRoute
   '/journal/submit': typeof JournalSubmitRoute
   '/_public/': typeof PublicIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/journal/': typeof JournalIndexRoute
-  '/_public/facilities/pregoeiro': typeof PublicFacilitiesPregoeiroRoute
-  '/_public/posts/$slug': typeof PublicPostsSlugRoute
+  '/_public/_en/about': typeof PublicEnAboutRoute
+  '/_public/_en/chatRada': typeof PublicEnChatRadaRoute
+  '/_public/_en/innovation-policy': typeof PublicEnInnovationPolicyRoute
+  '/_public/_en/overseerDashboard': typeof PublicEnOverseerDashboardRoute
+  '/_public/_en/research': typeof PublicEnResearchRoute
+  '/_public/_en/roadmap': typeof PublicEnRoadmapRoute
+  '/_public/_pt/painel-fiscal': typeof PublicPtPainelFiscalRoute
+  '/_public/_pt/pesquisa': typeof PublicPtPesquisaRoute
+  '/_public/_pt/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
+  '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
+  '/_public/_pt/sobre': typeof PublicPtSobreRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -319,12 +400,18 @@ export interface FileRoutesById {
   '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
-  '/_public/facilities/': typeof PublicFacilitiesIndexRoute
-  '/_public/posts/': typeof PublicPostsIndexRoute
   '/journal/articles/': typeof JournalArticlesIndexRoute
   '/journal/review/': typeof JournalReviewIndexRoute
   '/journal/submissions/': typeof JournalSubmissionsIndexRoute
+  '/_public/_en/facilities/pregoeiro': typeof PublicEnFacilitiesPregoeiroRoute
+  '/_public/_en/posts/$slug': typeof PublicEnPostsSlugRoute
+  '/_public/_pt/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
+  '/_public/_pt/publicacoes/$slug': typeof PublicPtPublicacoesSlugRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
+  '/_public/_en/facilities/': typeof PublicEnFacilitiesIndexRoute
+  '/_public/_en/posts/': typeof PublicEnPostsIndexRoute
+  '/_public/_pt/instalacoes/': typeof PublicPtInstalacoesIndexRoute
+  '/_public/_pt/publicacoes/': typeof PublicPtPublicacoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -334,19 +421,22 @@ export interface FileRouteTypes {
     | '/journal'
     | '/health'
     | '/journal/editorial'
+    | '/journal/about'
+    | '/journal/profile'
+    | '/journal/submit'
+    | '/auth/'
+    | '/journal/'
     | '/about'
     | '/chatRada'
     | '/innovation-policy'
     | '/overseerDashboard'
     | '/research'
     | '/roadmap'
-    | '/journal/about'
-    | '/journal/profile'
-    | '/journal/submit'
-    | '/auth/'
-    | '/journal/'
-    | '/facilities/pregoeiro'
-    | '/posts/$slug'
+    | '/painel-fiscal'
+    | '/pesquisa'
+    | '/politica-de-inovacao'
+    | '/roteiro'
+    | '/sobre'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -356,30 +446,39 @@ export interface FileRouteTypes {
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
-    | '/facilities/'
-    | '/posts/'
     | '/journal/articles/'
     | '/journal/review/'
     | '/journal/submissions/'
+    | '/facilities/pregoeiro'
+    | '/posts/$slug'
+    | '/instalacoes/pregoeiro'
+    | '/publicacoes/$slug'
     | '/journal/editorial/articles/$articleId'
+    | '/facilities/'
+    | '/posts/'
+    | '/instalacoes/'
+    | '/publicacoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
     | '/journal/editorial'
-    | '/about'
-    | '/chatRada'
-    | '/innovation-policy'
-    | '/overseerDashboard'
-    | '/research'
-    | '/roadmap'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/'
     | '/auth'
     | '/journal'
-    | '/facilities/pregoeiro'
-    | '/posts/$slug'
+    | '/about'
+    | '/chatRada'
+    | '/innovation-policy'
+    | '/overseerDashboard'
+    | '/research'
+    | '/roadmap'
+    | '/painel-fiscal'
+    | '/pesquisa'
+    | '/politica-de-inovacao'
+    | '/roteiro'
+    | '/sobre'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -389,12 +488,18 @@ export interface FileRouteTypes {
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
-    | '/facilities'
-    | '/posts'
     | '/journal/articles'
     | '/journal/review'
     | '/journal/submissions'
+    | '/facilities/pregoeiro'
+    | '/posts/$slug'
+    | '/instalacoes/pregoeiro'
+    | '/publicacoes/$slug'
     | '/journal/editorial/articles/$articleId'
+    | '/facilities'
+    | '/posts'
+    | '/instalacoes'
+    | '/publicacoes'
   id:
     | '__root__'
     | '/_public'
@@ -402,20 +507,23 @@ export interface FileRouteTypes {
     | '/journal'
     | '/health'
     | '/journal/editorial'
-    | '/_public/about'
-    | '/_public/chatRada'
-    | '/_public/innovation-policy'
-    | '/_public/overseerDashboard'
-    | '/_public/research'
-    | '/_public/roadmap'
     | '/journal/about'
     | '/journal/profile'
     | '/journal/submit'
     | '/_public/'
     | '/auth/'
     | '/journal/'
-    | '/_public/facilities/pregoeiro'
-    | '/_public/posts/$slug'
+    | '/_public/_en/about'
+    | '/_public/_en/chatRada'
+    | '/_public/_en/innovation-policy'
+    | '/_public/_en/overseerDashboard'
+    | '/_public/_en/research'
+    | '/_public/_en/roadmap'
+    | '/_public/_pt/painel-fiscal'
+    | '/_public/_pt/pesquisa'
+    | '/_public/_pt/politica-de-inovacao'
+    | '/_public/_pt/roteiro'
+    | '/_public/_pt/sobre'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -425,12 +533,18 @@ export interface FileRouteTypes {
     | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
-    | '/_public/facilities/'
-    | '/_public/posts/'
     | '/journal/articles/'
     | '/journal/review/'
     | '/journal/submissions/'
+    | '/_public/_en/facilities/pregoeiro'
+    | '/_public/_en/posts/$slug'
+    | '/_public/_pt/instalacoes/pregoeiro'
+    | '/_public/_pt/publicacoes/$slug'
     | '/journal/editorial/articles/$articleId'
+    | '/_public/_en/facilities/'
+    | '/_public/_en/posts/'
+    | '/_public/_pt/instalacoes/'
+    | '/_public/_pt/publicacoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -512,48 +626,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalAboutRouteImport
       parentRoute: typeof JournalRouteRoute
     }
-    '/_public/roadmap': {
-      id: '/_public/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof PublicRoadmapRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/research': {
-      id: '/_public/research'
-      path: '/research'
-      fullPath: '/research'
-      preLoaderRoute: typeof PublicResearchRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/overseerDashboard': {
-      id: '/_public/overseerDashboard'
-      path: '/overseerDashboard'
-      fullPath: '/overseerDashboard'
-      preLoaderRoute: typeof PublicOverseerDashboardRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/innovation-policy': {
-      id: '/_public/innovation-policy'
-      path: '/innovation-policy'
-      fullPath: '/innovation-policy'
-      preLoaderRoute: typeof PublicInnovationPolicyRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/chatRada': {
-      id: '/_public/chatRada'
-      path: '/chatRada'
-      fullPath: '/chatRada'
-      preLoaderRoute: typeof PublicChatRadaRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/about': {
-      id: '/_public/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof PublicAboutRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
     '/journal/editorial': {
       id: '/journal/editorial'
       path: '/editorial'
@@ -581,20 +653,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/journal/articles/'
       preLoaderRoute: typeof JournalArticlesIndexRouteImport
       parentRoute: typeof JournalRouteRoute
-    }
-    '/_public/posts/': {
-      id: '/_public/posts/'
-      path: '/posts'
-      fullPath: '/posts/'
-      preLoaderRoute: typeof PublicPostsIndexRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
-    '/_public/facilities/': {
-      id: '/_public/facilities/'
-      path: '/facilities'
-      fullPath: '/facilities/'
-      preLoaderRoute: typeof PublicFacilitiesIndexRouteImport
-      parentRoute: typeof PublicRouteRoute
     }
     '/journal/submissions/$id': {
       id: '/journal/submissions/$id'
@@ -659,18 +717,109 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalArticlesIdRouteImport
       parentRoute: typeof JournalRouteRoute
     }
-    '/_public/posts/$slug': {
-      id: '/_public/posts/$slug'
-      path: '/posts/$slug'
-      fullPath: '/posts/$slug'
-      preLoaderRoute: typeof PublicPostsSlugRouteImport
+    '/_public/_pt/sobre': {
+      id: '/_public/_pt/sobre'
+      path: '/sobre'
+      fullPath: '/sobre'
+      preLoaderRoute: typeof PublicPtSobreRouteImport
       parentRoute: typeof PublicRouteRoute
     }
-    '/_public/facilities/pregoeiro': {
-      id: '/_public/facilities/pregoeiro'
-      path: '/facilities/pregoeiro'
-      fullPath: '/facilities/pregoeiro'
-      preLoaderRoute: typeof PublicFacilitiesPregoeiroRouteImport
+    '/_public/_pt/roteiro': {
+      id: '/_public/_pt/roteiro'
+      path: '/roteiro'
+      fullPath: '/roteiro'
+      preLoaderRoute: typeof PublicPtRoteiroRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/politica-de-inovacao': {
+      id: '/_public/_pt/politica-de-inovacao'
+      path: '/politica-de-inovacao'
+      fullPath: '/politica-de-inovacao'
+      preLoaderRoute: typeof PublicPtPoliticaDeInovacaoRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/pesquisa': {
+      id: '/_public/_pt/pesquisa'
+      path: '/pesquisa'
+      fullPath: '/pesquisa'
+      preLoaderRoute: typeof PublicPtPesquisaRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/painel-fiscal': {
+      id: '/_public/_pt/painel-fiscal'
+      path: '/painel-fiscal'
+      fullPath: '/painel-fiscal'
+      preLoaderRoute: typeof PublicPtPainelFiscalRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/roadmap': {
+      id: '/_public/_en/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof PublicEnRoadmapRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/research': {
+      id: '/_public/_en/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof PublicEnResearchRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/overseerDashboard': {
+      id: '/_public/_en/overseerDashboard'
+      path: '/overseerDashboard'
+      fullPath: '/overseerDashboard'
+      preLoaderRoute: typeof PublicEnOverseerDashboardRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/innovation-policy': {
+      id: '/_public/_en/innovation-policy'
+      path: '/innovation-policy'
+      fullPath: '/innovation-policy'
+      preLoaderRoute: typeof PublicEnInnovationPolicyRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/chatRada': {
+      id: '/_public/_en/chatRada'
+      path: '/chatRada'
+      fullPath: '/chatRada'
+      preLoaderRoute: typeof PublicEnChatRadaRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/about': {
+      id: '/_public/_en/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof PublicEnAboutRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/publicacoes/': {
+      id: '/_public/_pt/publicacoes/'
+      path: '/publicacoes'
+      fullPath: '/publicacoes/'
+      preLoaderRoute: typeof PublicPtPublicacoesIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/instalacoes/': {
+      id: '/_public/_pt/instalacoes/'
+      path: '/instalacoes'
+      fullPath: '/instalacoes/'
+      preLoaderRoute: typeof PublicPtInstalacoesIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/posts/': {
+      id: '/_public/_en/posts/'
+      path: '/posts'
+      fullPath: '/posts/'
+      preLoaderRoute: typeof PublicEnPostsIndexRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/facilities/': {
+      id: '/_public/_en/facilities/'
+      path: '/facilities'
+      fullPath: '/facilities/'
+      preLoaderRoute: typeof PublicEnFacilitiesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/journal/editorial/articles/$articleId': {
@@ -680,35 +829,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalEditorialArticlesArticleIdRouteImport
       parentRoute: typeof JournalEditorialRouteRoute
     }
+    '/_public/_pt/publicacoes/$slug': {
+      id: '/_public/_pt/publicacoes/$slug'
+      path: '/publicacoes/$slug'
+      fullPath: '/publicacoes/$slug'
+      preLoaderRoute: typeof PublicPtPublicacoesSlugRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/instalacoes/pregoeiro': {
+      id: '/_public/_pt/instalacoes/pregoeiro'
+      path: '/instalacoes/pregoeiro'
+      fullPath: '/instalacoes/pregoeiro'
+      preLoaderRoute: typeof PublicPtInstalacoesPregoeiroRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/posts/$slug': {
+      id: '/_public/_en/posts/$slug'
+      path: '/posts/$slug'
+      fullPath: '/posts/$slug'
+      preLoaderRoute: typeof PublicEnPostsSlugRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_en/facilities/pregoeiro': {
+      id: '/_public/_en/facilities/pregoeiro'
+      path: '/facilities/pregoeiro'
+      fullPath: '/facilities/pregoeiro'
+      preLoaderRoute: typeof PublicEnFacilitiesPregoeiroRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
   }
 }
 
 interface PublicRouteRouteChildren {
-  PublicAboutRoute: typeof PublicAboutRoute
-  PublicChatRadaRoute: typeof PublicChatRadaRoute
-  PublicInnovationPolicyRoute: typeof PublicInnovationPolicyRoute
-  PublicOverseerDashboardRoute: typeof PublicOverseerDashboardRoute
-  PublicResearchRoute: typeof PublicResearchRoute
-  PublicRoadmapRoute: typeof PublicRoadmapRoute
   PublicIndexRoute: typeof PublicIndexRoute
-  PublicFacilitiesPregoeiroRoute: typeof PublicFacilitiesPregoeiroRoute
-  PublicPostsSlugRoute: typeof PublicPostsSlugRoute
-  PublicFacilitiesIndexRoute: typeof PublicFacilitiesIndexRoute
-  PublicPostsIndexRoute: typeof PublicPostsIndexRoute
+  PublicEnAboutRoute: typeof PublicEnAboutRoute
+  PublicEnChatRadaRoute: typeof PublicEnChatRadaRoute
+  PublicEnInnovationPolicyRoute: typeof PublicEnInnovationPolicyRoute
+  PublicEnOverseerDashboardRoute: typeof PublicEnOverseerDashboardRoute
+  PublicEnResearchRoute: typeof PublicEnResearchRoute
+  PublicEnRoadmapRoute: typeof PublicEnRoadmapRoute
+  PublicPtPainelFiscalRoute: typeof PublicPtPainelFiscalRoute
+  PublicPtPesquisaRoute: typeof PublicPtPesquisaRoute
+  PublicPtPoliticaDeInovacaoRoute: typeof PublicPtPoliticaDeInovacaoRoute
+  PublicPtRoteiroRoute: typeof PublicPtRoteiroRoute
+  PublicPtSobreRoute: typeof PublicPtSobreRoute
+  PublicEnFacilitiesPregoeiroRoute: typeof PublicEnFacilitiesPregoeiroRoute
+  PublicEnPostsSlugRoute: typeof PublicEnPostsSlugRoute
+  PublicPtInstalacoesPregoeiroRoute: typeof PublicPtInstalacoesPregoeiroRoute
+  PublicPtPublicacoesSlugRoute: typeof PublicPtPublicacoesSlugRoute
+  PublicEnFacilitiesIndexRoute: typeof PublicEnFacilitiesIndexRoute
+  PublicEnPostsIndexRoute: typeof PublicEnPostsIndexRoute
+  PublicPtInstalacoesIndexRoute: typeof PublicPtInstalacoesIndexRoute
+  PublicPtPublicacoesIndexRoute: typeof PublicPtPublicacoesIndexRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
-  PublicAboutRoute: PublicAboutRoute,
-  PublicChatRadaRoute: PublicChatRadaRoute,
-  PublicInnovationPolicyRoute: PublicInnovationPolicyRoute,
-  PublicOverseerDashboardRoute: PublicOverseerDashboardRoute,
-  PublicResearchRoute: PublicResearchRoute,
-  PublicRoadmapRoute: PublicRoadmapRoute,
   PublicIndexRoute: PublicIndexRoute,
-  PublicFacilitiesPregoeiroRoute: PublicFacilitiesPregoeiroRoute,
-  PublicPostsSlugRoute: PublicPostsSlugRoute,
-  PublicFacilitiesIndexRoute: PublicFacilitiesIndexRoute,
-  PublicPostsIndexRoute: PublicPostsIndexRoute,
+  PublicEnAboutRoute: PublicEnAboutRoute,
+  PublicEnChatRadaRoute: PublicEnChatRadaRoute,
+  PublicEnInnovationPolicyRoute: PublicEnInnovationPolicyRoute,
+  PublicEnOverseerDashboardRoute: PublicEnOverseerDashboardRoute,
+  PublicEnResearchRoute: PublicEnResearchRoute,
+  PublicEnRoadmapRoute: PublicEnRoadmapRoute,
+  PublicPtPainelFiscalRoute: PublicPtPainelFiscalRoute,
+  PublicPtPesquisaRoute: PublicPtPesquisaRoute,
+  PublicPtPoliticaDeInovacaoRoute: PublicPtPoliticaDeInovacaoRoute,
+  PublicPtRoteiroRoute: PublicPtRoteiroRoute,
+  PublicPtSobreRoute: PublicPtSobreRoute,
+  PublicEnFacilitiesPregoeiroRoute: PublicEnFacilitiesPregoeiroRoute,
+  PublicEnPostsSlugRoute: PublicEnPostsSlugRoute,
+  PublicPtInstalacoesPregoeiroRoute: PublicPtInstalacoesPregoeiroRoute,
+  PublicPtPublicacoesSlugRoute: PublicPtPublicacoesSlugRoute,
+  PublicEnFacilitiesIndexRoute: PublicEnFacilitiesIndexRoute,
+  PublicEnPostsIndexRoute: PublicEnPostsIndexRoute,
+  PublicPtInstalacoesIndexRoute: PublicPtInstalacoesIndexRoute,
+  PublicPtPublicacoesIndexRoute: PublicPtPublicacoesIndexRoute,
 }
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(

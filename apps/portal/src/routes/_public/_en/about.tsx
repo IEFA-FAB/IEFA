@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Building, Calendar, Flask, GraduationCap, MapPin, NavArrowDown, OpenNewWindow } from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 
-export const Route = createFileRoute("/_public/about")({
+export const Route = createFileRoute("/_public/_en/about")({
 	component: About,
 	head: () => ({
 		meta: [

@@ -12,10 +12,10 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 	if (!oldVersion || !newVersion) return null
 
 	// Helper to find ingredient in a list
-	const findIngredient = (list: typeof oldVersion.ingredients, productId: string) => list.find((i) => i.product_id === productId)
+	const findIngredient = (list: typeof oldVersion.ingredients, ingredientId: string) => list.find((i) => i.ingredient_id === ingredientId)
 
 	// Collect all unique product IDs
-	const allProductIds = Array.from(new Set([...oldVersion.ingredients.map((i) => i.product_id), ...newVersion.ingredients.map((i) => i.product_id)]))
+	const allIngredientIds = Array.from(new Set([...oldVersion.ingredients.map((i) => i.ingredient_id), ...newVersion.ingredients.map((i) => i.ingredient_id)]))
 
 	return (
 		<div className="grid grid-cols-2 gap-4">
@@ -77,23 +77,23 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 			<div className="col-span-2 mt-4">
 				<h3 className="text-sm font-medium mb-2">Comparativo de Ingredientes</h3>
 				<div className="border rounded-md divide-y">
-					{allProductIds.map((productId) => {
-						if (productId == null) {
+					{allIngredientIds.map((ingredientId) => {
+						if (ingredientId == null) {
 							return null
 						}
 
-						const oldIng = findIngredient(oldVersion.ingredients, productId)
-						const newIng = findIngredient(newVersion.ingredients, productId)
+						const oldIng = findIngredient(oldVersion.ingredients, ingredientId)
+						const newIng = findIngredient(newVersion.ingredients, ingredientId)
 
 						// Unchanged?
 						if (oldIng && newIng && oldIng.net_quantity === newIng.net_quantity) {
 							return (
-								<div key={productId} className="grid grid-cols-2 p-2 text-sm text-muted-foreground/70 bg-muted/20">
+								<div key={ingredientId} className="grid grid-cols-2 p-2 text-sm text-muted-foreground/70 bg-muted/20">
 									<div>
-										{oldIng.product?.description} - {oldIng.net_quantity} {oldIng.product?.measure_unit}
+										{oldIng.ingredient?.description} - {oldIng.net_quantity} {oldIng.ingredient?.measure_unit}
 									</div>
 									<div>
-										{newIng.product?.description} - {newIng.net_quantity} {newIng.product?.measure_unit}
+										{newIng.ingredient?.description} - {newIng.net_quantity} {newIng.ingredient?.measure_unit}
 									</div>
 								</div>
 							)
@@ -102,12 +102,12 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						// Modified?
 						if (oldIng && newIng && oldIng.net_quantity !== newIng.net_quantity) {
 							return (
-								<div key={productId} className="grid grid-cols-2 p-2 text-sm bg-warning/10">
+								<div key={ingredientId} className="grid grid-cols-2 p-2 text-sm bg-warning/10">
 									<div className="text-warning">
-										{oldIng.product?.description} - {oldIng.net_quantity} {oldIng.product?.measure_unit}
+										{oldIng.ingredient?.description} - {oldIng.net_quantity} {oldIng.ingredient?.measure_unit}
 									</div>
 									<div className="font-medium text-warning">
-										{newIng.product?.description} - {newIng.net_quantity} {newIng.product?.measure_unit}
+										{newIng.ingredient?.description} - {newIng.net_quantity} {newIng.ingredient?.measure_unit}
 										<Badge variant="outline" className="ml-2 border-warning text-warning">
 											Alterado
 										</Badge>
@@ -119,9 +119,9 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						// Removed?
 						if (oldIng && !newIng) {
 							return (
-								<div key={productId} className="grid grid-cols-2 p-2 text-sm bg-destructive/10">
+								<div key={ingredientId} className="grid grid-cols-2 p-2 text-sm bg-destructive/10">
 									<div className="text-destructive font-medium line-through">
-										{oldIng.product?.description} - {oldIng.net_quantity} {oldIng.product?.measure_unit}
+										{oldIng.ingredient?.description} - {oldIng.net_quantity} {oldIng.ingredient?.measure_unit}
 										<Badge variant="outline" className="ml-2 border-destructive text-destructive">
 											Removido
 										</Badge>
@@ -134,10 +134,10 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						// Added?
 						if (!oldIng && newIng) {
 							return (
-								<div key={productId} className="grid grid-cols-2 p-2 text-sm bg-success/10">
+								<div key={ingredientId} className="grid grid-cols-2 p-2 text-sm bg-success/10">
 									<div className="text-muted-foreground">-</div>
 									<div className="text-success font-medium">
-										{newIng.product?.description} - {newIng.net_quantity} {newIng.product?.measure_unit}
+										{newIng.ingredient?.description} - {newIng.net_quantity} {newIng.ingredient?.measure_unit}
 										<Badge variant="outline" className="ml-2 border-success text-success">
 											Novo
 										</Badge>

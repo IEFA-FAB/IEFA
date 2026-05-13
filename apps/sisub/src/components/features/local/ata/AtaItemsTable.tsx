@@ -67,9 +67,8 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 		)
 	}
 
-	// Total geral estimado
-	const grandTotal = data.reduce((sum, item) => sum + (item.total_value || 0), 0)
-	const hasPrices = data.some((item) => item.total_value !== null)
+	const hasPrices = data.some((item) => item.unit_price !== null)
+	const grandTotal = data.reduce((sum, item) => sum + (item.unit_price !== null ? item.total_quantity * item.unit_price : 0), 0)
 
 	return (
 		<div className="space-y-6">
@@ -100,19 +99,19 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 								</TableHeader>
 								<TableBody>
 									{items.map((item) => (
-										<TableRow key={item.product_id}>
+										<TableRow key={item.ingredient_id}>
 											<TableCell className="font-mono text-xs text-muted-foreground">{formatCatmat(item.catmat_item_codigo)}</TableCell>
 											<TableCell className="text-xs max-w-48 truncate" title={item.catmat_item_descricao || undefined}>
 												{item.catmat_item_descricao || <span className="text-muted-foreground">—</span>}
 											</TableCell>
-											<TableCell className="font-medium">{item.product_name}</TableCell>
+											<TableCell className="font-medium">{item.ingredient_name}</TableCell>
 											<TableCell className="text-right tabular-nums">{NUM.format(item.total_quantity)}</TableCell>
 											<TableCell className="text-right text-muted-foreground text-xs">{item.measure_unit || "UN"}</TableCell>
 											<TableCell className="text-right tabular-nums text-sm">
 												{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
 											</TableCell>
 											<TableCell className="text-right tabular-nums text-sm font-medium">
-												{item.total_value !== null ? BRL.format(item.total_value) : <span className="text-muted-foreground">—</span>}
+												{item.unit_price !== null ? BRL.format(item.total_quantity * item.unit_price) : <span className="text-muted-foreground">—</span>}
 											</TableCell>
 										</TableRow>
 									))}

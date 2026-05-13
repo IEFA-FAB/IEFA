@@ -11,7 +11,7 @@ import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export interface DishIngredient {
-	product_name: string
+	ingredient_name: string
 	quantity: number
 	measure_unit: string
 }
@@ -31,7 +31,7 @@ export interface DayMenuContent {
 interface RecipeSnapshot {
 	name: string
 	ingredients?: Array<{
-		product_name: string
+		ingredient_name: string
 		quantity: number
 		measure_unit: string
 	}>

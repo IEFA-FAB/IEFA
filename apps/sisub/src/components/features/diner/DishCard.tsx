@@ -9,8 +9,8 @@ export function DishCard({ dish }: { dish: DishDetails }) {
 			{hasIngredients && (
 				<div className="flex flex-wrap gap-1">
 					{dish.ingredients.map((ing) => (
-						<Badge key={ing.product_name} variant="secondary" className="text-xs">
-							{ing.product_name}
+						<Badge key={ing.ingredient_name} variant="secondary" className="text-xs">
+							{ing.ingredient_name}
 						</Badge>
 					))}
 				</div>

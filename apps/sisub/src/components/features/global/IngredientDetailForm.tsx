@@ -1,4 +1,4 @@
-import type { Ceafa, Folder, Nutrient, Product } from "@iefa/database/sisub"
+import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, ChevronsUpDown, Loader2, Save } from "lucide-react"
@@ -14,8 +14,15 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/cn"
-import { catmatQueryOptions, ceafaQueryOptions, useNutrients, useProductNutrients, useSetProductNutrients, useUpdateProduct } from "@/services/ProductsService"
-import { ProductItemsManager } from "./ProductItemsManager"
+import {
+	catmatQueryOptions,
+	ceafaQueryOptions,
+	useIngredientNutrients,
+	useNutrients,
+	useSetIngredientNutrients,
+	useUpdateIngredient,
+} from "@/services/IngredientsService"
+import { IngredientItemsManager } from "./IngredientItemsManager"
 
 const productSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
@@ -35,22 +42,22 @@ const MEASURE_UNIT_LABELS: Record<string, string> = {
 	ML: "ML (Mililitro)",
 }
 
-interface ProductDetailFormProps {
-	product: Product
+interface IngredientDetailFormProps {
+	ingredient: Ingredient
 	folders: Folder[]
 }
 
-export function ProductDetailForm({ product, folders }: ProductDetailFormProps) {
+export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFormProps) {
 	const queryClient = useQueryClient()
-	const { updateProduct, isUpdating } = useUpdateProduct()
-	const { setProductNutrients, isSaving: isSavingNutrients } = useSetProductNutrients()
+	const { updateIngredient, isUpdating } = useUpdateIngredient()
+	const { setIngredientNutrients, isSaving: isSavingNutrients } = useSetIngredientNutrients()
 
 	const { nutrients } = useNutrients()
-	const { productNutrients } = useProductNutrients(product.id)
+	const { ingredientNutrients } = useIngredientNutrients(ingredient.id)
 
 	const [ceafaOpen, setCeafaOpen] = useState(false)
 	const [ceafaSearch, setCeafaSearch] = useState("")
-	const [catmatDescricao, setCatmatDescricao] = useState<string | null>(product.catmat_item_descricao ?? null)
+	const [catmatDescricao, setCatmatDescricao] = useState<string | null>(ingredient.catmat_item_descricao ?? null)
 
 	// Load ceafa list reactively via query
 	const ceafaList = queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions(ceafaSearch).queryKey) ?? []
@@ -59,10 +66,10 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 
 	// Derive initial nutrient values from server data; user edits are tracked via overrides
 	const baseNutrientValues = useMemo(() => {
-		if (!nutrients || !productNutrients) return {}
-		const map = Object.fromEntries(productNutrients.map((pn) => [pn.nutrient_id, pn.nutrient_value]))
+		if (!nutrients || !ingredientNutrients) return {}
+		const map = Object.fromEntries(ingredientNutrients.map((pn) => [pn.nutrient_id, pn.nutrient_value]))
 		return Object.fromEntries(nutrients.map((n) => [n.id, map[n.id] != null ? String(map[n.id]) : ""]))
-	}, [nutrients, productNutrients])
+	}, [nutrients, ingredientNutrients])
 
 	// Local nutrient state (controlled separately from the main form)
 	const [nutrientOverrides, setNutrientOverrides] = useState<Record<string, string>>({})
@@ -73,17 +80,17 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 			return typeof action === "function" ? action(base) : action
 		})
 	}
-	const currentCeafa = product.ceafa_id ? queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions("").queryKey)?.find((c) => c.id === product.ceafa_id) : null
+	const currentCeafa = ingredient.ceafa_id ? queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions("").queryKey)?.find((c) => c.id === ingredient.ceafa_id) : null
 
 	const form = useForm({
 		defaultValues: {
-			description: product.description ?? "",
-			folder_id: product.folder_id ?? null,
-			measure_unit: product.measure_unit ?? "",
-			correction_factor: product.correction_factor ? Number(product.correction_factor) : 1.0,
-			ceafa_id: product.ceafa_id ?? null,
-			catmat_item_codigo: product.catmat_item_codigo ?? null,
-			catmat_item_descricao: product.catmat_item_descricao ?? null,
+			description: ingredient.description ?? "",
+			folder_id: ingredient.folder_id ?? null,
+			measure_unit: ingredient.measure_unit ?? "",
+			correction_factor: ingredient.correction_factor ? Number(ingredient.correction_factor) : 1.0,
+			ceafa_id: ingredient.ceafa_id ?? null,
+			catmat_item_codigo: ingredient.catmat_item_codigo ?? null,
+			catmat_item_descricao: ingredient.catmat_item_descricao ?? null,
 		},
 		onSubmit: async ({ value }) => {
 			const validation = productSchema.safeParse(value)
@@ -93,16 +100,16 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 			}
 
 			try {
-				await updateProduct({ id: product.id, payload: value })
+				await updateIngredient({ id: ingredient.id, payload: value })
 
 				// Save nutrients
 				const nutrientsPayload = syncedNutrients.map((n) => ({
 					nutrient_id: n.id,
 					nutrient_value: nutrientValues[n.id] !== "" ? Number(nutrientValues[n.id]) : null,
 				}))
-				await setProductNutrients({ productId: product.id, nutrients: nutrientsPayload })
+				await setIngredientNutrients({ ingredientId: ingredient.id, nutrients: nutrientsPayload })
 
-				await queryClient.invalidateQueries({ queryKey: ["products"] })
+				await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 				toast.success("Insumo atualizado com sucesso!")
 			} catch {
 				toast.error("Erro ao atualizar insumo")
@@ -112,11 +119,11 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 
 	const isPending = isUpdating || isSavingNutrients
 
-	const folder = folders.find((f) => f.id === product.folder_id)
+	const folder = folders.find((f) => f.id === ingredient.folder_id)
 
 	return (
 		<div className="space-y-6 pb-20">
-			<PageHeader title={product.description ?? "Insumo"} description={folder?.description ?? undefined} onBack={() => window.history.back()} />
+			<PageHeader title={ingredient.description ?? "Insumo"} description={folder?.description ?? undefined} onBack={() => window.history.back()} />
 
 			<form
 				onSubmit={(e) => {
@@ -355,7 +362,7 @@ export function ProductDetailForm({ product, folders }: ProductDetailFormProps) 
 
 			{/* Itens de Compra */}
 			<div className="max-w-5xl mx-auto">
-				<ProductItemsManager productId={product.id} />
+				<IngredientItemsManager ingredientId={ingredient.id} />
 			</div>
 		</div>
 	)

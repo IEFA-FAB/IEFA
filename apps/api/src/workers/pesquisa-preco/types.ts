@@ -151,8 +151,8 @@ export interface PriceAnalysis {
 
 export interface AtaItemPriceResult {
 	ataItemId: string
-	productId: string | null
-	productName: string
+	ingredientId: string | null
+	ingredientName: string
 	// Identificadores externos do catálogo
 	catmatCodigo: number | null
 	catmatDescricao: string | null

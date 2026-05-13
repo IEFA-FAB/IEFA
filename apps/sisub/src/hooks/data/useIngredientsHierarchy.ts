@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useProductsTree } from "@/services/ProductsService"
-import type { FlatProductTree, ProductTreeNode } from "@/types/domain/products"
+import { useIngredientsTree } from "@/services/IngredientsService"
+import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingredients"
 
 /**
- * Hook avançado que orquestra os dados de produtos
+ * Hook avançado que orquestra os dados de ingredientes
  * Gerencia estado de filtro, árvore hierárquica e virtualização
  *
  * Segue padrão: hooks/ orquestram múltiplos services e gerenciam estado de UI
  */
-export function useProductsHierarchy(filterText = "") {
+export function useIngredientsHierarchy(filterText = "") {
 	// Busca dados via service
-	const { tree, error, refetch } = useProductsTree()
+	const { tree, error, refetch } = useIngredientsTree()
 
 	// Estado de expand/collapse
 	// Inicializa com todas as pastas de primeiro nível expandidas.
@@ -42,7 +42,7 @@ export function useProductsHierarchy(filterText = "") {
 
 	const expandAll = () => {
 		if (!tree) return
-		// Products are leaf nodes (items live on detail page), only expand folders
+		// Ingredients are leaf nodes (items live on detail page), only expand folders
 		setExpandedIds(new Set(tree.folders.map((f) => f.id)))
 	}
 
@@ -50,13 +50,13 @@ export function useProductsHierarchy(filterText = "") {
 		setExpandedIds(new Set())
 	}
 
-	// Contagem de itens de compra por produto (para badges na árvore)
-	const itemCountByProductId = useMemo<Record<string, number>>(() => {
+	// Contagem de itens de compra por ingrediente (para badges na árvore)
+	const itemCountByIngredientId = useMemo<Record<string, number>>(() => {
 		if (!tree) return {}
 		const counts: Record<string, number> = {}
-		for (const item of tree.productItems) {
-			if (item.product_id) {
-				counts[item.product_id] = (counts[item.product_id] || 0) + 1
+		for (const item of tree.ingredientItems) {
+			if (item.ingredient_id) {
+				counts[item.ingredient_id] = (counts[item.ingredient_id] || 0) + 1
 			}
 		}
 		return counts
@@ -64,7 +64,7 @@ export function useProductsHierarchy(filterText = "") {
 
 	// Constrói estrutura flat da árvore para virtualização
 	// Agora com suporte a expand/collapse
-	const flatTree = useMemo<FlatProductTree | null>(() => {
+	const flatTree = useMemo<FlatIngredientTree | null>(() => {
 		if (!tree) return null
 
 		const filter = filterText.toLowerCase().trim()
@@ -90,11 +90,11 @@ export function useProductsHierarchy(filterText = "") {
 				}
 			}
 
-			tree.products.forEach((product) => {
-				const description = product.description || "Sem descrição"
+			tree.ingredients.forEach((ingredient) => {
+				const description = ingredient.description || "Sem descrição"
 				if (description.toLowerCase().includes(filter)) {
-					includedIds.add(product.id)
-					addWithAncestors(product.folder_id)
+					includedIds.add(ingredient.id)
+					addWithAncestors(ingredient.folder_id)
 				}
 			})
 
@@ -107,15 +107,15 @@ export function useProductsHierarchy(filterText = "") {
 			})
 		}
 
-		const byId: Record<string, ProductTreeNode> = {}
-		const byParentId: Record<string, ProductTreeNode[]> = {}
+		const byId: Record<string, IngredientTreeNode> = {}
+		const byParentId: Record<string, IngredientTreeNode[]> = {}
 
 		// 1. Criar todos os nós
 		tree.folders.forEach((folder) => {
 			if (isFiltering && !includedIds.has(folder.id)) return
 
 			const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
-			const node: ProductTreeNode = {
+			const node: IngredientTreeNode = {
 				id: folder.id,
 				type: "folder",
 				label: description,
@@ -136,37 +136,37 @@ export function useProductsHierarchy(filterText = "") {
 			byParentId[parentKey].push(node)
 		})
 
-		tree.products.forEach((product) => {
-			if (isFiltering && !includedIds.has(product.id)) return
+		tree.ingredients.forEach((ingredient) => {
+			if (isFiltering && !includedIds.has(ingredient.id)) return
 
-			const description = product.description || "Sem descrição"
-			const node: ProductTreeNode = {
-				id: product.id,
-				type: "product",
+			const description = ingredient.description || "Sem descrição"
+			const node: IngredientTreeNode = {
+				id: ingredient.id,
+				type: "ingredient",
 				label: description,
-				parentId: product.folder_id,
+				parentId: ingredient.folder_id,
 				level: 1,
-				// Produtos são folhas: itens de compra vivem na página de detalhe
+				// Ingredientes são folhas: itens de compra vivem na página de detalhe
 				hasChildren: false,
 				isExpanded: false,
-				data: product,
+				data: ingredient,
 			}
 
-			byId[product.id] = node
+			byId[ingredient.id] = node
 
-			const parentKey = product.folder_id || "root"
+			const parentKey = ingredient.folder_id || "root"
 			if (!byParentId[parentKey]) {
 				byParentId[parentKey] = []
 			}
 			byParentId[parentKey].push(node)
 		})
 
-		// product_items não são adicionados à árvore —
-		// eles vivem em /global/ingredients/$productId
+		// ingredient_items não são adicionados à árvore —
+		// eles vivem em /global/ingredients/$ingredientId
 
 		// 2. Atualizar hasChildren + calcular níveis em O(N) via DFS a partir da raiz.
 		// Evita o antigo calculateLevel recursivo que era O(N × profundidade).
-		const visibleNodes: ProductTreeNode[] = []
+		const visibleNodes: IngredientTreeNode[] = []
 
 		const traverse = (parentId: string | null, level: number) => {
 			const children = byParentId[parentId || "root"] || []
@@ -197,8 +197,8 @@ export function useProductsHierarchy(filterText = "") {
 
 		return {
 			totalFolders: tree.folders.length,
-			totalProducts: tree.products.length,
-			totalItems: tree.productItems.length,
+			totalIngredients: tree.ingredients.length,
+			totalItems: tree.ingredientItems.length,
 		}
 	}, [tree])
 
@@ -206,7 +206,7 @@ export function useProductsHierarchy(filterText = "") {
 		// Dados
 		flatTree,
 		stats,
-		itemCountByProductId,
+		itemCountByIngredientId,
 
 		// Estados (componente decide skeleton)
 		error,

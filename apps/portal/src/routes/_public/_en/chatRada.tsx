@@ -184,7 +184,7 @@ function parseContentJson(input: unknown): ContentJson {
 	return {}
 }
 
-export const Route = createFileRoute("/_public/chatRada")({
+export const Route = createFileRoute("/_public/_en/chatRada")({
 	staticData: {
 		nav: {
 			title: "Chat RADA",
