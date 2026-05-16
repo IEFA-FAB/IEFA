@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchProcurementNeedsFn } from "@/server/procurement.fn"
 
 // ============================================================================
@@ -30,7 +31,7 @@ export interface ProcurementParams {
 
 export const procurementNeedsQueryOptions = (params: ProcurementParams) =>
 	queryOptions({
-		queryKey: ["procurement", "needs", params] as const,
+		queryKey: queryKeys.ata.needs(params),
 		queryFn: () =>
 			fetchProcurementNeedsFn({
 				data: {

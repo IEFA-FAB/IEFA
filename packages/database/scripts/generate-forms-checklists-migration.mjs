@@ -105,8 +105,10 @@ function buildMigration(data) {
 			lines.push("    returning id into section_id;")
 
 			for (const question of section.questions) {
-				lines.push("    insert into forms.question (section_id, text, description, type, required, sort_order)")
-				lines.push(`    values (section_id, ${sqlString(question.text)}, ${sqlString(question.description)}, 'boolean', true, ${question.sortOrder});`)
+				lines.push("    insert into forms.question (section_id, text, description, type, options, required, sort_order)")
+				lines.push(
+					`    values (section_id, ${sqlString(question.text)}, ${sqlString(question.description)}, 'conformity', '{"weight":1,"weightLabel":"Desejável"}'::jsonb, true, ${question.sortOrder});`,
+				)
 			}
 		}
 

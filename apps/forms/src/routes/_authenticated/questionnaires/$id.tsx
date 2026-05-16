@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { CONFORMITY_WEIGHTS, type ConformityOptions } from "@/lib/conformity"
 import {
 	createQuestionFn,
 	createSectionFn,
@@ -30,6 +31,7 @@ const QUESTION_TYPES = [
 	{ value: "date", label: "Data" },
 	{ value: "scale", label: "Escala" },
 	{ value: "boolean", label: "Sim / Não" },
+	{ value: "conformity", label: "Conformidade (A/AP/NA/NO)" },
 ] as const
 
 const questionnaireQueryOptions = (id: string) =>
@@ -226,9 +228,9 @@ function EditQuestionnairePage() {
 														<Trash className="h-4 w-4" />
 													</Button>
 												</div>
-												<div className="flex items-center gap-3">
+												<div className="flex flex-wrap items-center gap-3">
 													<Select value={question.type} onValueChange={(v) => handleUpdateQuestion(question.id, { type: v })}>
-														<SelectTrigger className="w-[180px]">
+														<SelectTrigger className="w-[220px]">
 															<SelectValue placeholder="Tipo">
 																{question.type && (QUESTION_TYPES.find((t) => t.value === question.type)?.label ?? question.type)}
 															</SelectValue>
@@ -241,6 +243,33 @@ function EditQuestionnairePage() {
 															))}
 														</SelectContent>
 													</Select>
+													{question.type === "conformity" && (
+														<Select
+															value={(question.options as ConformityOptions | null)?.weight ?? null}
+															onValueChange={(v) => {
+																const w = Number(v) as 1 | 3 | 5
+																handleUpdateQuestion(question.id, {
+																	options: { weight: w, weightLabel: CONFORMITY_WEIGHTS.find((x) => x.value === w)?.label ?? "Desejável" },
+																})
+															}}
+														>
+															<SelectTrigger className="w-[200px]">
+																<SelectValue placeholder="Peso">
+																	{(() => {
+																		const w = (question.options as ConformityOptions | null)?.weight
+																		return w ? `${w} — ${CONFORMITY_WEIGHTS.find((x) => x.value === w)?.label ?? ""}` : undefined
+																	})()}
+																</SelectValue>
+															</SelectTrigger>
+															<SelectContent>
+																{CONFORMITY_WEIGHTS.map((w) => (
+																	<SelectItem key={w.value} value={w.value}>
+																		{w.value} — {w.label}
+																	</SelectItem>
+																))}
+															</SelectContent>
+														</Select>
+													)}
 													<label className="flex items-center gap-2 text-sm">
 														<input
 															type="checkbox"

@@ -200,8 +200,7 @@ Retorne um JSON com os campos:
 			contents: [{ role: "user", parts: [{ text: prompt }] }],
 			config: {
 				responseMimeType: "application/json",
-				// biome-ignore lint/suspicious/noExplicitAny: Gemini schema built dynamically
-				responseSchema: schema as any,
+				responseSchema: schema,
 			},
 		})
 
@@ -209,8 +208,7 @@ Retorne um JSON com os campos:
 			setTimeout(() => reject(new Error("O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto.")), 45000)
 		)
 
-		// biome-ignore lint/suspicious/noExplicitAny: Gemini response lacks precise types
-		const response = (await Promise.race([apiCall, timeoutPromise])) as any
+		const response = await Promise.race([apiCall, timeoutPromise])
 
 		if (!response?.text) {
 			throw new Error("A IA retornou uma resposta inválida ou vazia.")

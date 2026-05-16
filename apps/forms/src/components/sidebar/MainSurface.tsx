@@ -12,6 +12,7 @@ export type MainSurfaceProps = {
 export function MainSurface({ showInitialError, showInitialLoading, onRetry, children }: MainSurfaceProps) {
 	return (
 		<div
+			data-surface="main"
 			className={cn(
 				" relative isolate flex flex-col bg-background text-foreground ",
 				"min-h-svh supports-[height:100dvh]:min-h-dvh",

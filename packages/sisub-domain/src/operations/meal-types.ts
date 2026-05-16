@@ -58,13 +58,7 @@ export async function updateMealType(client: AnyClient, ctx: UserContext, input:
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
-	const { data, error } = await client
-		.from("meal_type")
-		// biome-ignore lint/suspicious/noExplicitAny: dynamic update object
-		.update(updates as any)
-		.eq("id", input.mealTypeId)
-		.select()
-		.single()
+	const { data, error } = await client.from("meal_type").update(updates).eq("id", input.mealTypeId).select().single()
 
 	if (error) throw new DomainError("UPDATE_FAILED", error.message)
 	return data

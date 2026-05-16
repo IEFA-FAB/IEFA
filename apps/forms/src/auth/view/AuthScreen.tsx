@@ -202,9 +202,8 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			setEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
 			return
 		}
-		const pwErr = getPasswordError(loginPassword)
-		if (pwErr) {
-			setPasswordError(pwErr)
+		if (!loginPassword) {
+			setPasswordError("Informe a senha.")
 			return
 		}
 		setIsSubmitting(true)
@@ -511,7 +510,6 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											onChange={handleLoginPasswordChange}
 											required
 											autoComplete="current-password"
-											minLength={8}
 											disabled={isSubmitting}
 										/>
 										<Button

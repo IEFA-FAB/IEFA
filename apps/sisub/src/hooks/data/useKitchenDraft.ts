@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import {
 	createKitchenDraftFn,
 	deleteKitchenDraftFn,
@@ -14,7 +15,7 @@ import type { DraftWithSelections, TemplateSelection } from "@/types/domain/ata"
 
 export function useKitchenDrafts(kitchenId: number | null) {
 	return useQuery({
-		queryKey: ["kitchen_ata_draft", "list", kitchenId],
+		queryKey: queryKeys.kitchenDraft.list(kitchenId),
 		queryFn: () => fetchKitchenDraftsFn({ data: { kitchenId: kitchenId as number } }) as Promise<DraftWithSelections[]>,
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000,
@@ -27,7 +28,7 @@ export function useKitchenDrafts(kitchenId: number | null) {
  */
 export function usePendingDraft(kitchenId: number | null) {
 	return useQuery({
-		queryKey: ["kitchen_ata_draft", "pending", kitchenId],
+		queryKey: queryKeys.kitchenDraft.pending(kitchenId),
 		queryFn: () => fetchPendingDraftFn({ data: { kitchenId: kitchenId as number } }) as Promise<DraftWithSelections | null>,
 		enabled: kitchenId !== null,
 		staleTime: 2 * 60 * 1000,
@@ -44,7 +45,7 @@ export function useCreateKitchenDraft() {
 				data: { kitchenId, title, notes, selections },
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["kitchen_ata_draft", "list"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
 			toast.success(`Rascunho "${data?.title}" criado!`)
 		},
 		onError: (error) => toast.error(`Erro ao criar rascunho: ${error.message}`),
@@ -59,7 +60,7 @@ export function useUpdateKitchenDraft() {
 				data: { draftId, updates, selections },
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["kitchen_ata_draft"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
 			toast.success(`Rascunho "${data?.title}" atualizado!`)
 		},
 		onError: (error) => toast.error(`Erro ao atualizar rascunho: ${error.message}`),
@@ -71,7 +72,7 @@ export function useSendKitchenDraft() {
 	return useMutation({
 		mutationFn: (draftId: string) => sendKitchenDraftFn({ data: { draftId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["kitchen_ata_draft"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.all() })
 			toast.success("Rascunho enviado para a gestão da unidade!")
 		},
 		onError: (error) => toast.error(`Erro ao enviar rascunho: ${error.message}`),
@@ -83,7 +84,7 @@ export function useDeleteKitchenDraft() {
 	return useMutation({
 		mutationFn: (draftId: string) => deleteKitchenDraftFn({ data: { draftId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["kitchen_ata_draft", "list"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.kitchenDraft.listAll() })
 			toast.success("Rascunho removido.")
 		},
 		onError: (error) => toast.error(`Erro ao remover rascunho: ${error.message}`),

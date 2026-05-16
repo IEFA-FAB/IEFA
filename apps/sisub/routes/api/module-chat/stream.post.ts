@@ -55,11 +55,10 @@ function getDataClient() {
 }
 
 async function loadUserPermissions(supabase: ReturnType<typeof getDataClient>, userId: string): Promise<UserPermission[]> {
-	// biome-ignore lint/suspicious/noExplicitAny: user_permissions may not be in sisub schema types
-	const { data, error } = await (supabase as any).from("user_permissions").select("module, level, mess_hall_id, kitchen_id, unit_id").eq("user_id", userId)
+	const { data, error } = await supabase.from("user_permissions").select("module, level, mess_hall_id, kitchen_id, unit_id").eq("user_id", userId)
 
 	if (error) throw new Error("Erro ao carregar permissões")
-	return ((data as unknown[]) ?? []).filter((p: any) => p.level > 0) as UserPermission[]
+	return ((data ?? []) as UserPermission[]).filter((p) => p.level > 0)
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────

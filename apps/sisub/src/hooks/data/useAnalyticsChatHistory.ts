@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import {
 	createChatSessionFn,
 	deleteChatSessionFn,
@@ -10,14 +11,11 @@ import {
 } from "@/server/analytics-chat.fn"
 import type { ChartType, ChatSession } from "@/types/domain/analytics-chat"
 
-const SESSIONS_KEY = ["sisub", "analytics-chat-sessions"] as const
-const messagesKey = (sessionId: string) => ["sisub", "analytics-chat-messages", sessionId] as const
-
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
 export function useChatSessions() {
 	return useQuery<ChatSession[]>({
-		queryKey: SESSIONS_KEY,
+		queryKey: queryKeys.sisub.analyticsSessions(),
 		queryFn: () => listChatSessionsFn(),
 		staleTime: 60_000,
 		refetchOnWindowFocus: false,
@@ -29,7 +27,7 @@ export function useCreateChatSession() {
 	return useMutation({
 		mutationFn: (title: string) => createChatSessionFn({ data: { title } }),
 		onSuccess: () => {
-			qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.analyticsSessions() })
 		},
 	})
 }
@@ -39,7 +37,7 @@ export function useRenameChatSession() {
 	return useMutation({
 		mutationFn: (vars: { sessionId: string; title: string }) => renameChatSessionFn({ data: vars }),
 		onSuccess: () => {
-			qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.analyticsSessions() })
 		},
 	})
 }
@@ -49,8 +47,8 @@ export function useDeleteChatSession() {
 	return useMutation({
 		mutationFn: (sessionId: string) => deleteChatSessionFn({ data: { sessionId } }),
 		onSuccess: (_data, sessionId) => {
-			qc.invalidateQueries({ queryKey: SESSIONS_KEY })
-			qc.removeQueries({ queryKey: messagesKey(sessionId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.analyticsSessions() })
+			qc.removeQueries({ queryKey: queryKeys.sisub.analyticsMessages(sessionId) })
 		},
 	})
 }
@@ -59,7 +57,7 @@ export function useDeleteChatSession() {
 
 export function useChatMessages(sessionId: string | undefined) {
 	return useQuery({
-		queryKey: messagesKey(sessionId ?? ""),
+		queryKey: queryKeys.sisub.analyticsMessages(sessionId ?? ""),
 		queryFn: () => getChatMessagesFn({ data: { sessionId: sessionId ?? "" } }),
 		enabled: !!sessionId,
 		staleTime: 10_000,
@@ -83,9 +81,9 @@ export function useSaveChatMessage() {
 			outputTokens?: number
 		}) => saveChatMessageFn({ data: vars }),
 		onSuccess: (_data, vars) => {
-			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.analyticsMessages(vars.sessionId) })
 			// Refresh sessions list so updated_at reorders sidebar
-			qc.invalidateQueries({ queryKey: SESSIONS_KEY })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.analyticsSessions() })
 		},
 		onError: (_err: unknown, _vars) => {},
 	})
@@ -101,9 +99,9 @@ export function useUpdateMessageChartType() {
 		// Optimistic update — reflect the change in cache immediately so the
 		// DB-sync effect in ChatInterface doesn't flash the old value on next load.
 		onMutate: async (vars) => {
-			await qc.cancelQueries({ queryKey: messagesKey(vars.sessionId) })
-			const snapshot = qc.getQueryData(messagesKey(vars.sessionId))
-			qc.setQueryData(messagesKey(vars.sessionId), (old: unknown) => {
+			await qc.cancelQueries({ queryKey: queryKeys.sisub.analyticsMessages(vars.sessionId) })
+			const snapshot = qc.getQueryData(queryKeys.sisub.analyticsMessages(vars.sessionId))
+			qc.setQueryData(queryKeys.sisub.analyticsMessages(vars.sessionId), (old: unknown) => {
 				if (!Array.isArray(old)) return old
 				return old.map((m: { id: string; chart_type_override?: string | null }) =>
 					m.id === vars.messageId ? { ...m, chart_type_override: vars.chartTypeOverride } : m
@@ -114,11 +112,11 @@ export function useUpdateMessageChartType() {
 		onError: (_err: unknown, vars, context) => {
 			// Roll back the optimistic update
 			if (context?.snapshot !== undefined) {
-				qc.setQueryData(messagesKey(vars.sessionId), context.snapshot)
+				qc.setQueryData(queryKeys.sisub.analyticsMessages(vars.sessionId), context.snapshot)
 			}
 		},
 		onSettled: (_data, _err, vars) => {
-			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.analyticsMessages(vars.sessionId) })
 		},
 	})
 }

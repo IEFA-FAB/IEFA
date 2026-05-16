@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import {
 	createModuleChatSessionFn,
 	deleteModuleChatSessionFn,
@@ -9,16 +10,11 @@ import {
 } from "@/server/module-chat.fn"
 import type { ChatModule, ModuleChatSession } from "@/types/domain/module-chat"
 
-// ── Query keys ──────────────────────────────────────────────────────────────
-
-const sessionsKey = (module: ChatModule, scopeId?: number) => ["sisub", "module-chat-sessions", module, scopeId ?? "global"] as const
-const messagesKey = (sessionId: string) => ["sisub", "module-chat-messages", sessionId] as const
-
 // ── Sessions ────────────────────────────────────────────────────────────────
 
 export function useModuleChatSessions(module: ChatModule, scopeId?: number) {
 	return useQuery({
-		queryKey: sessionsKey(module, scopeId),
+		queryKey: queryKeys.sisub.moduleSessions(module, scopeId),
 		queryFn: async () => {
 			const data = await listModuleChatSessionsFn({ data: { module, scopeId } })
 			return data as unknown as ModuleChatSession[]
@@ -36,7 +32,7 @@ export function useCreateModuleChatSession(module: ChatModule, scopeId?: number)
 			return data as unknown as ModuleChatSession
 		},
 		onSuccess: () => {
-			qc.invalidateQueries({ queryKey: sessionsKey(module, scopeId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.moduleSessions(module, scopeId) })
 		},
 	})
 }
@@ -46,7 +42,7 @@ export function useRenameModuleChatSession(module: ChatModule, scopeId?: number)
 	return useMutation({
 		mutationFn: (vars: { sessionId: string; title: string }) => renameModuleChatSessionFn({ data: vars }),
 		onSuccess: () => {
-			qc.invalidateQueries({ queryKey: sessionsKey(module, scopeId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.moduleSessions(module, scopeId) })
 		},
 	})
 }
@@ -56,8 +52,8 @@ export function useDeleteModuleChatSession(module: ChatModule, scopeId?: number)
 	return useMutation({
 		mutationFn: (sessionId: string) => deleteModuleChatSessionFn({ data: { sessionId } }),
 		onSuccess: (_data, sessionId) => {
-			qc.invalidateQueries({ queryKey: sessionsKey(module, scopeId) })
-			qc.removeQueries({ queryKey: messagesKey(sessionId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.moduleSessions(module, scopeId) })
+			qc.removeQueries({ queryKey: queryKeys.sisub.moduleMessages(sessionId) })
 		},
 	})
 }
@@ -79,7 +75,7 @@ interface ModuleChatMessageRow {
 
 export function useModuleChatMessages(sessionId: string | undefined) {
 	return useQuery({
-		queryKey: messagesKey(sessionId ?? ""),
+		queryKey: queryKeys.sisub.moduleMessages(sessionId ?? ""),
 		queryFn: async () => {
 			const data = await getModuleChatMessagesFn({ data: { sessionId: sessionId ?? "" } })
 			return data as unknown as ModuleChatMessageRow[]
@@ -108,8 +104,8 @@ export function useSaveModuleChatMessage(module: ChatModule, scopeId?: number) {
 			outputTokens?: number
 		}) => saveModuleChatMessageFn({ data: vars }),
 		onSuccess: (_data, vars) => {
-			qc.invalidateQueries({ queryKey: messagesKey(vars.sessionId) })
-			qc.invalidateQueries({ queryKey: sessionsKey(module, scopeId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.moduleMessages(vars.sessionId) })
+			qc.invalidateQueries({ queryKey: queryKeys.sisub.moduleSessions(module, scopeId) })
 		},
 		onError: (_err: unknown, _vars) => {},
 	})

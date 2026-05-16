@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/hooks/auth/useAuth"
 import type { DayMeals } from "@/lib/meal"
+import { queryKeys } from "@/lib/query-keys"
 import { deleteForecastFn, fetchMealForecastsFn, fetchUserDefaultMessHallFn, persistDefaultMessHallFn, upsertForecastFn } from "@/server/forecast.fn"
 import type { MealForecastHook, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 
@@ -121,8 +122,8 @@ export const useMealForecast = (): MealForecastHook => {
 	// Datas/keys estáveis
 	const dates = useMemo(() => generateDates(DAYS_TO_SHOW), [])
 	const todayString = useMemo(() => toYYYYMMDD(new Date()), [])
-	const forecastsQueryKey = useMemo(() => ["mealForecasts", user?.id, dates[0], dates[dates.length - 1]], [user?.id, dates])
-	const userDataQueryKey = useMemo(() => ["userData", user?.id], [user?.id])
+	const forecastsQueryKey = useMemo(() => queryKeys.mealForecasts.list(user?.id, dates[0], dates[dates.length - 1]), [user?.id, dates])
+	const userDataQueryKey = useMemo(() => queryKeys.mealForecasts.userData(user?.id), [user?.id])
 
 	// Mensagens
 	const clearMessages = useCallback(() => {
@@ -254,7 +255,7 @@ export const useMealForecast = (): MealForecastHook => {
 
 		try {
 			await persistDefaultMessHallFn({
-				data: { userId: user.id, email: user.email ?? "", messHallId: idNum },
+				data: { email: user.email ?? "", messHallId: idNum },
 			})
 		} catch {
 			// Reverter estado local para manter coerência com DB (fonte da verdade)
@@ -302,7 +303,6 @@ export const useMealForecast = (): MealForecastHook => {
 								}
 								await upsertForecastFn({
 									data: {
-										userId: user.id,
 										date: change.date,
 										meal: change.meal,
 										willEat: true,
@@ -311,7 +311,7 @@ export const useMealForecast = (): MealForecastHook => {
 								})
 							} else {
 								await deleteForecastFn({
-									data: { userId: user.id, date: change.date, meal: change.meal },
+									data: { date: change.date, meal: change.meal },
 								})
 							}
 

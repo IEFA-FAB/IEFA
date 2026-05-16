@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchUasgInfoFn } from "@/server/uasg-lookup.fn"
 
 /**
@@ -12,7 +13,7 @@ export function useUasgInfo(codigoUasg: string | null | undefined) {
 	const enabled = typeof codigoUasg === "string" && /^\d{6}$/.test(codigoUasg)
 
 	return useQuery({
-		queryKey: ["compras", "uasg", codigoUasg],
+		queryKey: queryKeys.compras.uasg(codigoUasg),
 		queryFn: () => fetchUasgInfoFn({ data: { codigoUasg: codigoUasg ?? "" } }),
 		enabled,
 		staleTime: 30 * 60 * 1000,

@@ -155,10 +155,10 @@ export function sanitizeDbError(error: { message?: string; code?: string } | Err
  * (e.g., after a migration that hasn't been regenerated).
  * Also useful for tables whose generated types have column-name mismatches.
  */
-// biome-ignore lint/suspicious/noExplicitAny: bypass strict table typing
+// biome-ignore lint/suspicious/noExplicitAny: dynamic table string — no generated type for runtime-resolved table names
 export function untypedFrom(ctx: ToolContext, table: string): any {
-	// biome-ignore lint/suspicious/noExplicitAny: bypass strict table typing
-	return (ctx.supabase as any).from(table)
+	// biome-ignore lint/suspicious/noExplicitAny: dynamic table string — no generated type for runtime-resolved table names
+	return (ctx.supabase as SupabaseClient<any, any>).from(table)
 }
 
 /**

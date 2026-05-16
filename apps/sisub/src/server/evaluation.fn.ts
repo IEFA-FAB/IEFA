@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
@@ -37,6 +38,7 @@ export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async
 export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ active: z.boolean(), value: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("super_admin_controller")
 			.upsert({ key: "evaluation", active: data.active, value: data.value }, { onConflict: "key" })
@@ -99,11 +101,12 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
  * @throws {Error} on Supabase insert failure.
  */
 export const submitEvaluationFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ value: z.number(), question: z.string(), userId: z.string() }))
+	.inputValidator(z.object({ value: z.number(), question: z.string() }))
 	.handler(async ({ data }) => {
+		const userId = await requireUserId()
 		const { error } = await getSupabaseServerClient()
 			.from("opinions")
-			.insert([{ value: data.value, question: data.question, userId: data.userId }])
+			.insert([{ value: data.value, question: data.question, userId }])
 
 		if (error) throw new Error(error.message)
 	})

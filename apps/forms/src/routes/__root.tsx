@@ -10,8 +10,10 @@ import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { ThemeProvider, ThemeScript } from "@/components/themeService"
 import { Toaster } from "@/components/ui/sonner"
+import { env } from "@/env"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { supabase } from "@/lib/supabase"
+import { TenantProvider } from "@/lib/tenant"
 import AppStyles from "@/styles.css?url"
 
 export interface MyRouterContext {
@@ -29,23 +31,27 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			return { auth: { user: null, isAuthenticated: false } }
 		}
 	},
-	head: () => ({
-		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Formulários IEFA" }],
-		favicon: "/favicon.svg",
-		links: [
-			{
-				rel: "icon",
-				type: "image/svg+xml",
-				sizes: "any",
-				href: "/favicon.svg",
-			},
-			{
-				rel: "manifest",
-				href: "/manifest.json",
-			},
-			{ rel: "icon", href: "/favicon.svg" },
-		],
-	}),
+	head: () => {
+		const isCincoS = env.VITE_APP_TENANT === "cinco-s"
+		const faviconHref = isCincoS ? "/5s/favicon.svg" : "/favicon.svg"
+		const title = isCincoS ? "Programa VETOR 5S — SEFA" : "Formulários IEFA"
+		return {
+			meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title }],
+			links: [
+				{
+					rel: "icon",
+					type: "image/svg+xml",
+					sizes: "any",
+					href: faviconHref,
+				},
+				{
+					rel: "manifest",
+					href: "/manifest.json",
+				},
+				{ rel: "icon", href: faviconHref },
+			],
+		}
+	},
 	errorComponent: DefaultCatchBoundary,
 	notFoundComponent: () => <NotFound />,
 	shellComponent: RootDocument,
@@ -87,7 +93,7 @@ function AuthSync() {
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
 	return (
-		<html lang="pt-BR" suppressHydrationWarning>
+		<html lang="pt-BR" data-tenant={env.VITE_APP_TENANT} suppressHydrationWarning>
 			<head>
 				<ThemeScript />
 				<link rel="preload" href={AppStyles} as="style" />
@@ -101,12 +107,14 @@ function RootDocument() {
 					suppressHydrationWarning
 					className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`}
 				/>
-				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
-					<ThemeProvider>
-						<Outlet />
-						<Toaster />
-					</ThemeProvider>
-				</HotkeysProvider>
+				<TenantProvider tenant={env.VITE_APP_TENANT}>
+					<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
+						<ThemeProvider>
+							<Outlet />
+							<Toaster />
+						</ThemeProvider>
+					</HotkeysProvider>
+				</TenantProvider>
 				<AuthSync />
 				{import.meta.env.DEV && (
 					<TanStackDevtools

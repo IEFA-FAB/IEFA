@@ -1,16 +1,8 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { ensureProductionTasksFn, fetchProductionBoardFn, updateProductionTaskStatusFn } from "@/server/production.fn"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
-
-// ---------------------------------------------------------------------------
-// Query key factory
-// ---------------------------------------------------------------------------
-
-export const productionKeys = {
-	all: ["production"] as const,
-	board: (kitchenId: number, date: string) => ["production", "board", kitchenId, date] as const,
-}
 
 // ---------------------------------------------------------------------------
 // Query Options
@@ -18,7 +10,7 @@ export const productionKeys = {
 
 export const productionBoardQueryOptions = (kitchenId: number | null, date: string) =>
 	queryOptions({
-		queryKey: productionKeys.board(kitchenId as number, date),
+		queryKey: queryKeys.production.board(kitchenId as number, date),
 		queryFn: () =>
 			fetchProductionBoardFn({
 				data: { kitchenId: kitchenId as number, date },
@@ -64,7 +56,7 @@ export function useUpdateTaskStatus() {
 			updateProductionTaskStatusFn({ data: { taskId, status } }),
 
 		onMutate: async ({ taskId, status, kitchenId, date }) => {
-			const queryKey = productionKeys.board(kitchenId, date)
+			const queryKey = queryKeys.production.board(kitchenId, date)
 
 			// Cancela refetches em andamento para evitar sobrescrever o optimistic update
 			await queryClient.cancelQueries({ queryKey })
@@ -103,7 +95,7 @@ export function useUpdateTaskStatus() {
 
 		onSuccess: (_data, { kitchenId, date }) => {
 			// Invalida para garantir consistência com o banco
-			queryClient.invalidateQueries({ queryKey: productionKeys.board(kitchenId, date) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, date) })
 		},
 	})
 }

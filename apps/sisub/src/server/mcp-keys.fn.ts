@@ -11,7 +11,8 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+import { requireUserId } from "@/lib/auth.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 // ---------------------------------------------------------------------------
 // Helpers internos
@@ -22,15 +23,6 @@ async function sha256hex(input: string): Promise<string> {
 	return Array.from(new Uint8Array(buf))
 		.map((b) => b.toString(16).padStart(2, "0"))
 		.join("")
-}
-
-async function getCurrentUser() {
-	const supabase = getSupabaseAuthClient()
-	const {
-		data: { user },
-	} = await supabase.auth.getUser()
-	if (!user) throw new Error("Não autenticado")
-	return user
 }
 
 // ---------------------------------------------------------------------------
@@ -55,14 +47,13 @@ export type McpApiKey = {
  * Ordenadas por criação decrescente.
  */
 export const listMcpKeysFn = createServerFn({ method: "GET" }).handler(async (): Promise<McpApiKey[]> => {
-	const user = await getCurrentUser()
+	const userId = await requireUserId()
 	const db = getSupabaseServerClient()
 
-	// biome-ignore lint/suspicious/noExplicitAny: mcp_api_keys não está nos tipos gerados ainda
-	const { data, error } = await (db as any)
+	const { data, error } = await db
 		.from("mcp_api_keys")
 		.select("id, label, key_prefix, is_active, last_used_at, created_at")
-		.eq("user_id", user.id)
+		.eq("user_id", userId)
 		.order("created_at", { ascending: false })
 
 	if (error) throw new Error(error.message)
@@ -82,7 +73,7 @@ export const listMcpKeysFn = createServerFn({ method: "GET" }).handler(async ():
 export const createMcpKeyFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ label: z.string().min(1).max(100) }))
 	.handler(async ({ data }): Promise<{ key: string; row: McpApiKey }> => {
-		const user = await getCurrentUser()
+		const userId = await requireUserId()
 
 		// Gerar chave: smcp_ + 32 bytes aleatórios em hex (69 chars total)
 		const rawBytes = crypto.getRandomValues(new Uint8Array(32))
@@ -95,11 +86,10 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
 		const hashHex = await sha256hex(rawKey)
 
 		const db = getSupabaseServerClient()
-		// biome-ignore lint/suspicious/noExplicitAny: mcp_api_keys não está nos tipos gerados ainda
-		const { data: row, error } = await (db as any)
+		const { data: row, error } = await db
 			.from("mcp_api_keys")
 			.insert({
-				user_id: user.id,
+				user_id: userId,
 				label: data.label,
 				key_hash: hashHex,
 				key_prefix: keyPrefix,
@@ -122,11 +112,10 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
 export const revokeMcpKeyFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		const user = await getCurrentUser()
+		const userId = await requireUserId()
 		const db = getSupabaseServerClient()
 
-		// biome-ignore lint/suspicious/noExplicitAny: mcp_api_keys não está nos tipos gerados ainda
-		const { error } = await (db as any).from("mcp_api_keys").update({ is_active: false }).eq("id", data.id).eq("user_id", user.id)
+		const { error } = await db.from("mcp_api_keys").update({ is_active: false }).eq("id", data.id).eq("user_id", userId)
 
 		if (error) throw new Error(error.message)
 		return { success: true }
@@ -143,11 +132,10 @@ export const revokeMcpKeyFn = createServerFn({ method: "POST" })
 export const deleteMcpKeyFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		const user = await getCurrentUser()
+		const userId = await requireUserId()
 		const db = getSupabaseServerClient()
 
-		// biome-ignore lint/suspicious/noExplicitAny: mcp_api_keys não está nos tipos gerados ainda
-		const { error } = await (db as any).from("mcp_api_keys").delete().eq("id", data.id).eq("user_id", user.id)
+		const { error } = await db.from("mcp_api_keys").delete().eq("id", data.id).eq("user_id", userId)
 
 		if (error) throw new Error(error.message)
 		return { success: true }

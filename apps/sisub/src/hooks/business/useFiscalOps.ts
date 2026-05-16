@@ -1,12 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { addOtherPresenceFn, fetchOtherPresencesCountFn, fetchUserMealForecastFn } from "@/server/messhall.fn"
 import type { FiscalFilters } from "@/types/domain/presence"
-
-// QUERY KEYS
-const opsKeys = {
-	othersCount: (date: string, meal: string, messHallId: number) => ["othersCount", date, meal, messHallId] as const,
-}
 
 // ============================================================================
 // OTHERS PRESENCE
@@ -14,7 +10,7 @@ const opsKeys = {
 
 export function useOtherPresencesCount(filters: FiscalFilters) {
 	return useQuery({
-		queryKey: opsKeys.othersCount(filters.date, filters.meal, filters.messHallId),
+		queryKey: queryKeys.presences.othersCount(filters.date, filters.meal, filters.messHallId),
 		queryFn: () =>
 			fetchOtherPresencesCountFn({
 				data: { date: filters.date, meal: filters.meal, messHallId: filters.messHallId },
@@ -38,7 +34,7 @@ export function useAddOtherPresence() {
 			})
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["othersCount"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.presences.othersCountAll() })
 			toast.success("Outro registrado", {
 				description: "Entrada sem cadastro adicionada com sucesso.",
 			})

@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ export const fetchKitchenSettingsFn = createServerFn({ method: "GET" })
 export const updateKitchenSettingsFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ kitchenId: z.number(), settings: kitchenSettingsSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient()
 			.from("kitchen")
 			.update({

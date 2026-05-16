@@ -10,6 +10,15 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/useAuth"
+import {
+	CONFORMITY_OPTIONS,
+	type ConformityAnswer,
+	type ConformityOptions,
+	calculateConformityScore,
+	formatConformityAnswer,
+	getScoreBgColor,
+	getScoreColor,
+} from "@/lib/conformity"
 import { addViewerFn, getQuestionnaireFn, getResponsesFn, getViewersFn, removeViewerFn } from "@/server/forms.fn"
 
 const questionnaireQueryOptions = (id: string) =>
@@ -47,9 +56,9 @@ function ResponsesPage() {
 	const { data: responses } = useSuspenseQuery(responsesQueryOptions(questionnaireId))
 	const { data: viewers } = useSuspenseQuery(viewersQueryOptions(questionnaireId))
 
-	const allQuestions = (questionnaire.section ?? []).flatMap(
-		(s: { question?: { id: string; text: string; type: string; options?: string[] | null }[] }) => s.question ?? []
-	)
+	type QRow = { id: string; text: string; type: string; options?: unknown }
+	const allQuestions = (questionnaire.section ?? []).flatMap((s: { question?: QRow[] }) => s.question ?? []) as QRow[]
+	const isConformityForm = allQuestions.some((q) => q.type === "conformity")
 	const isCreator = questionnaire.created_by === user?.id
 
 	return (
@@ -67,6 +76,8 @@ function ResponsesPage() {
 			</div>
 
 			{isCreator && <ViewerManager questionnaireId={questionnaireId} viewers={viewers ?? []} />}
+
+			{isConformityForm && responses && responses.length > 0 && <ConformityScoreOverview questionnaire={questionnaire} responses={responses} />}
 
 			<Tabs defaultValue="summary">
 				<TabsList>
@@ -120,14 +131,14 @@ function ResponsesPage() {
 												</TableRow>
 											</TableHeader>
 											<TableBody>
-												{allQuestions.map((q: { id: string; text: string }) => {
+												{allQuestions.map((q: { id: string; text: string; type: string }) => {
 													const answer = (qr.response ?? []).find((r: { question_id: string }) => r.question_id === q.id) as
 														| { value: unknown; observation: string | null }
 														| undefined
 													return (
 														<TableRow key={q.id}>
 															<TableCell className="font-medium">{q.text}</TableCell>
-															<TableCell>{answer ? formatValue(answer.value) : <span className="text-muted-foreground">—</span>}</TableCell>
+															<TableCell>{answer ? formatValue(answer.value, q.type) : <span className="text-muted-foreground">—</span>}</TableCell>
 															<TableCell className="text-sm text-muted-foreground">{answer?.observation || "—"}</TableCell>
 														</TableRow>
 													)
@@ -147,7 +158,7 @@ function ResponsesPage() {
 
 // ── Summary helpers ───────────────────────────────────────────────────────────
 
-type Question = { id: string; text: string; type: string; options?: string[] | null }
+type Question = { id: string; text: string; type: string; options?: unknown }
 type ResponseRow = {
 	id: string
 	respondent_id: string
@@ -172,7 +183,26 @@ function QuestionSummaryCard({ summary, totalResponses }: { summary: Summary; to
 
 	let content: React.ReactNode
 
-	if (type === "boolean") {
+	if (type === "conformity") {
+		const conformityAnswers = answers.filter((v) => typeof v === "string" && ["A", "AP", "NA", "NO"].includes(v as string)) as ConformityAnswer[]
+		const opts = options as ConformityOptions | null
+		const weight = opts?.weight ?? 1
+		const weightLabel = opts?.weightLabel ?? "Desejável"
+		const counts: Record<ConformityAnswer, number> = { A: 0, AP: 0, NA: 0, NO: 0 }
+		for (const v of conformityAnswers) counts[v]++
+		content = (
+			<div className="space-y-3">
+				<p className="text-xs text-muted-foreground">
+					Peso {weight} — {weightLabel}
+				</p>
+				<div className="space-y-2">
+					{CONFORMITY_OPTIONS.map((opt) => (
+						<BarRow key={opt.value} label={`${opt.value} — ${opt.label}`} count={counts[opt.value]} total={totalResponses} />
+					))}
+				</div>
+			</div>
+		)
+	} else if (type === "boolean") {
 		const simCount = answers.filter((v) => v === true).length
 		const naoCount = answers.filter((v) => v === false).length
 		content = (
@@ -343,9 +373,103 @@ function ViewerManager({ questionnaireId, viewers }: { questionnaireId: string; 
 	)
 }
 
-function formatValue(value: unknown): string {
+function formatValue(value: unknown, type?: string): string {
 	if (value == null) return "—"
+	if (type === "conformity") return formatConformityAnswer(value)
 	if (typeof value === "boolean") return value ? "Sim" : "Não"
 	if (Array.isArray(value)) return value.join(", ")
 	return String(value)
+}
+
+// ── Conformity Overview ───────────────────────────────────────────────────────
+
+type Section = {
+	id: string
+	title: string
+	question?: { id: string; text: string; type: string; options?: unknown }[] | null
+}
+
+function ConformityScoreOverview({ questionnaire, responses }: { questionnaire: { section?: Section[] | null }; responses: ResponseRow[] }) {
+	const sections = questionnaire.section ?? []
+	const allConformityAnswers = responses.flatMap((r) => {
+		return (r.response ?? [])
+			.filter((resp) => {
+				const q = sections.flatMap((s) => s.question ?? []).find((q) => q.id === resp.question_id)
+				return q?.type === "conformity"
+			})
+			.map((resp) => {
+				const q = sections.flatMap((s) => s.question ?? []).find((q) => q.id === resp.question_id)
+				return { value: resp.value, options: q?.options ?? null }
+			})
+	})
+
+	const overall = calculateConformityScore(allConformityAnswers)
+
+	return (
+		<div className="space-y-4">
+			<Card>
+				<CardHeader className="pb-2">
+					<CardTitle className="text-base">Pontuação Geral — 5S</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<div className="flex items-end gap-6">
+						<div>
+							<p className={`text-4xl font-bold tabular-nums ${getScoreColor(overall.scorePct)}`}>{overall.scorePct.toFixed(1)}%</p>
+							<p className="text-xs text-muted-foreground mt-1">
+								{overall.earned.toFixed(1)} / {overall.possible} pontos
+							</p>
+						</div>
+						<div className="flex gap-4 text-sm pb-1">
+							{CONFORMITY_OPTIONS.map((opt) => (
+								<div key={opt.value} className="text-center">
+									<p className="font-semibold tabular-nums">{overall.counts[opt.value as ConformityAnswer]}</p>
+									<p className="text-xs text-muted-foreground">{opt.value}</p>
+								</div>
+							))}
+						</div>
+					</div>
+					<div className="mt-3 h-2.5 bg-muted rounded-full overflow-hidden">
+						<div className={`h-full rounded-full transition-all ${getScoreBgColor(overall.scorePct)}`} style={{ width: `${overall.scorePct}%` }} />
+					</div>
+				</CardContent>
+			</Card>
+
+			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				{sections
+					.filter((s) => (s.question ?? []).some((q) => q.type === "conformity"))
+					.map((section) => {
+						const sectionAnswers = responses.flatMap((r) =>
+							(r.response ?? [])
+								.filter((resp) => {
+									const q = (section.question ?? []).find((q) => q.id === resp.question_id)
+									return q?.type === "conformity"
+								})
+								.map((resp) => {
+									const q = (section.question ?? []).find((q) => q.id === resp.question_id)
+									return { value: resp.value, options: q?.options ?? null }
+								})
+						)
+						const score = calculateConformityScore(sectionAnswers)
+						return (
+							<Card key={section.id}>
+								<CardContent className="p-4">
+									<p className="text-xs font-medium text-muted-foreground truncate">{section.title}</p>
+									<p className={`text-2xl font-bold tabular-nums mt-1 ${getScoreColor(score.scorePct)}`}>{score.scorePct.toFixed(1)}%</p>
+									<div className="flex gap-2 mt-2 text-xs text-muted-foreground">
+										{CONFORMITY_OPTIONS.map((opt) => (
+											<span key={opt.value}>
+												{opt.value}:{score.counts[opt.value as ConformityAnswer]}
+											</span>
+										))}
+									</div>
+									<div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+										<div className={`h-full rounded-full ${getScoreBgColor(score.scorePct)}`} style={{ width: `${score.scorePct}%` }} />
+									</div>
+								</CardContent>
+							</Card>
+						)
+					})}
+			</div>
+		</div>
+	)
 }

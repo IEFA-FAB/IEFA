@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#0d1a3a"/>
+  <text
+    x="256"
+    y="348"
+    text-anchor="middle"
+    font-family="system-ui,-apple-system,sans-serif"
+    font-weight="900"
+    font-size="232"
+    letter-spacing="-8"
+    fill="#5b8fff"
+  >5S</text>
+  <rect x="80" y="390" width="352" height="6" rx="3" fill="#5b8fff" opacity="0.35"/>
+</svg>

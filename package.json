@@ -20,6 +20,7 @@
     "portal:dev": "bun --cwd ./apps/portal dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "forms:dev": "bun --cwd ./apps/forms dev",
+    "5s:dev": "VITE_APP_TENANT=cinco-s bun --cwd ./apps/forms dev -- --port 3002",
     "docs:dev": "bun --cwd ./apps/docs dev",
     "format": "biome format --write .",
     "format:check": "biome format . --write",

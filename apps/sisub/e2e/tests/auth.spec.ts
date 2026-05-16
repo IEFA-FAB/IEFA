@@ -1,5 +1,18 @@
 import { expect, test } from "@playwright/test";
 
+/** Aguarda React hidratar o elemento antes de interagir via UI. */
+async function waitForReactHydration(page: import("@playwright/test").Page, selector: string) {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      return Object.keys(el).some((k) => k.startsWith("__reactFiber"));
+    },
+    selector,
+    { timeout: 30_000 },
+  );
+}
+
 /**
  * Testes de autenticação — fluxo de login via UI.
  * Todos os testes rodam sem storageState (página não autenticada).
@@ -20,6 +33,7 @@ test.describe("Auth — fluxo de login via UI", () => {
 
     await page.goto("/auth");
     await expect(page.locator("#login-email")).toBeVisible();
+    await waitForReactHydration(page, "#login-email");
 
     await page.fill("#login-email", email!);
     await page.fill("#login-password", password!);
@@ -35,6 +49,7 @@ test.describe("Auth — fluxo de login via UI", () => {
   }) => {
     await page.goto("/auth");
     await expect(page.locator("#login-email")).toBeVisible();
+    await waitForReactHydration(page, "#login-email");
 
     // Credenciais inválidas — email válido (formato @fab.mil.br) mas senha errada
     await page.fill("#login-email", "usuario.invalido@fab.mil.br");

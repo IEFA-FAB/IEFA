@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import React from "react"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchKitchensFn, type KitchenWithUnit } from "@/server/kitchens.fn"
 
 export type { KitchenWithUnit }
@@ -16,7 +17,7 @@ export type { KitchenWithUnit }
  */
 export function useUserKitchens() {
 	return useQuery({
-		queryKey: ["user", "kitchens"],
+		queryKey: queryKeys.user.kitchens(),
 		queryFn: (): Promise<KitchenWithUnit[]> => fetchKitchensFn(),
 		staleTime: 10 * 60 * 1000, // 10 minutes - kitchens rarely change
 	})
@@ -89,8 +90,8 @@ export function useKitchenPreference() {
 			}
 
 			// Invalidar queries relacionadas ao planejamento
-			queryClient.invalidateQueries({ queryKey: ["daily_menus"] })
-			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.mealTypes.all() })
 		},
 		[queryClient]
 	)

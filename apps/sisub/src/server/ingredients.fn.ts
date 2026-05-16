@@ -1,6 +1,7 @@
 import type { FolderInsert, FolderUpdate, IngredientInsert, IngredientItemInsert, IngredientItemUpdate, IngredientUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
@@ -31,6 +32,7 @@ export const setIngredientNutrientsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 
 		const { error: delError } = await supabase
@@ -125,6 +127,7 @@ export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async ()
 export const createFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ payload: FolderWriteSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("folder")
 			.insert(data.payload as FolderInsert)
@@ -138,6 +141,7 @@ export const createFolderFn = createServerFn({ method: "POST" })
 export const updateFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), payload: FolderWriteSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("folder")
 			.update(data.payload as FolderUpdate)
@@ -152,6 +156,7 @@ export const updateFolderFn = createServerFn({ method: "POST" })
 export const deleteFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("folder").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
@@ -183,6 +188,7 @@ export const fetchIngredientsFn = createServerFn({ method: "GET" })
 export const createIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ payload: IngredientWriteSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("ingredient")
 			.insert(data.payload as IngredientInsert)
@@ -196,6 +202,7 @@ export const createIngredientFn = createServerFn({ method: "POST" })
 export const updateIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), payload: IngredientWriteSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("ingredient")
 			.update(data.payload as IngredientUpdate)
@@ -210,6 +217,7 @@ export const updateIngredientFn = createServerFn({ method: "POST" })
 export const deleteIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)
@@ -232,6 +240,7 @@ export const fetchIngredientItemsFn = createServerFn({ method: "GET" })
 export const createIngredientItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ payload: IngredientItemWriteSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("ingredient_item")
 			.insert(data.payload as IngredientItemInsert)
@@ -245,6 +254,7 @@ export const createIngredientItemFn = createServerFn({ method: "POST" })
 export const updateIngredientItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string(), payload: IngredientItemWriteSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("ingredient_item")
 			.update(data.payload as IngredientItemUpdate)
@@ -259,6 +269,7 @@ export const updateIngredientItemFn = createServerFn({ method: "POST" })
 export const deleteIngredientItemFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("ingredient_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 
 		if (error) throw new Error(error.message)

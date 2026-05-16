@@ -291,10 +291,8 @@ function deriveTargetsFromHealth(data: RawHealthPayload | undefined): ServiceTar
 	if (!data) return []
 
 	// Caso 1: objeto com `services`
-	// biome-ignore lint/suspicious/noExplicitAny: Parsing untyped health payload
-	if (typeof (data as any)?.services !== "undefined") {
-		// biome-ignore lint/suspicious/noExplicitAny: Parsing untyped health payload
-		const sv = (data as any).services
+	if (!Array.isArray(data) && "services" in data && typeof data.services !== "undefined") {
+		const sv = data.services
 
 		// 1a) services como array
 		if (Array.isArray(sv)) {

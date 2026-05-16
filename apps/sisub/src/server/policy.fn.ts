@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 
@@ -52,6 +53,7 @@ export const createPolicyRuleFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<PolicyRule> => {
+		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("policy_rule")
 			.insert({
@@ -86,6 +88,7 @@ export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<PolicyRule> => {
+		await requireAuth()
 		const { id, ...fields } = data
 
 		const payload = {
@@ -110,6 +113,7 @@ export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<void> => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient()
 			.from("policy_rule")
 			.update({ deleted_at: new Date().toISOString() })

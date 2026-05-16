@@ -8,6 +8,7 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
 
@@ -109,6 +110,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<ArpWithItems> => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 		const { ataId, unitId, arpData } = data
 
@@ -204,6 +206,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 export const syncArpBalanceFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ arpId: z.string().uuid() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 
 		const { data: arp, error: arpError } = await supabase.from("procurement_arp").select("numero_ata, ano_ata, uasg_gerenciadora").eq("id", data.arpId).single()
@@ -315,6 +318,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<Empenho> => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
 
@@ -355,6 +359,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ empenhoId: z.string().uuid() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
 
 		if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchMilitaryDataFn, fetchUserDataFn } from "@/server/user.fn"
 import type { MilitaryDataRow, UserDataRow } from "@/types/domain/admin"
 import { useAuth } from "./useAuth"
@@ -10,7 +11,7 @@ export function useProfile() {
 
 export function useUserData(userId: string | undefined) {
 	return useQuery({
-		queryKey: ["user_data", userId],
+		queryKey: queryKeys.user.data(userId),
 		enabled: !!userId,
 		queryFn: (): Promise<UserDataRow | null> => fetchUserDataFn({ data: { userId: userId as string } }) as Promise<UserDataRow | null>,
 		staleTime: 5 * 60_000,
@@ -19,7 +20,7 @@ export function useUserData(userId: string | undefined) {
 
 export function useMilitaryData(nrOrdem: string | null | undefined) {
 	return useQuery({
-		queryKey: ["military", nrOrdem],
+		queryKey: queryKeys.user.military(nrOrdem),
 		enabled: !!nrOrdem && nrOrdem.trim().length > 0,
 		queryFn: (): Promise<MilitaryDataRow | null> =>
 			fetchMilitaryDataFn({

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { createRecipeFn, createRecipeVersionFn } from "@/server/recipes.fn"
 import type { RecipeFormData } from "@/types/domain/recipes"
 
@@ -20,7 +21,7 @@ export function useCreateRecipe() {
 				},
 			}),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["recipes"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.all() })
 			toast.success("Preparação criada com sucesso")
 		},
 		onError: (error) => {
@@ -48,7 +49,7 @@ export function useVersionRecipe() {
 				},
 			}),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["recipes"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.all() })
 			toast.success("Nova versão criada com sucesso")
 		},
 		onError: (error) => {

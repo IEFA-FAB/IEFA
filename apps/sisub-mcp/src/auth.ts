@@ -79,16 +79,14 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 	const hash = await sha256hex(rawKey)
 	const db = getDataClient()
 
-	// biome-ignore lint/suspicious/noExplicitAny: mcp_api_keys não está nos tipos gerados ainda
-	const { data, error } = await (db as any).from("mcp_api_keys").select("user_id").eq("key_hash", hash).eq("is_active", true).single()
+	const { data, error } = await db.from("mcp_api_keys").select("user_id").eq("key_hash", hash).eq("is_active", true).single()
 
 	if (error || !data) {
 		throw new McpError(ErrorCode.InvalidRequest, "API key inválida ou revogada")
 	}
 
 	// Fire-and-forget: atualizar last_used_at sem bloquear
-	// biome-ignore lint/suspicious/noExplicitAny: mcp_api_keys não está nos tipos gerados ainda
-	void (db as any).from("mcp_api_keys").update({ last_used_at: new Date().toISOString() }).eq("key_hash", hash)
+	void db.from("mcp_api_keys").update({ last_used_at: new Date().toISOString() }).eq("key_hash", hash)
 
 	try {
 		const permissions = await resolveUserPermissions(data.user_id, db)

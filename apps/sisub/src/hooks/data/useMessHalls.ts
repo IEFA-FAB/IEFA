@@ -2,6 +2,7 @@
 // Uses centralized types from @/types/domain as per design system guidelines.
 
 import { useQuery } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchMessHallsFn, fetchUnitsFn } from "@/server/mess-halls.fn"
 import type { MessHall, Unit } from "@/types/domain/meal"
 
@@ -43,7 +44,7 @@ import type { MessHall, Unit } from "@/types/domain/meal"
 export const useMessHalls = () => {
 	// Units
 	const unitsQuery = useQuery<readonly Unit[], Error>({
-		queryKey: ["sisub", "units"],
+		queryKey: queryKeys.sisub.units(),
 		refetchOnWindowFocus: false,
 		staleTime: 600_000, // 10 minutes
 		retry: 1,
@@ -52,7 +53,7 @@ export const useMessHalls = () => {
 
 	// Mess Halls
 	const messHallsQuery = useQuery<readonly MessHall[], Error>({
-		queryKey: ["sisub", "mess_halls"],
+		queryKey: queryKeys.sisub.messHalls(),
 		refetchOnWindowFocus: false,
 		staleTime: 600_000, // 10 minutes
 		retry: 1,

@@ -1,0 +1,173 @@
+/* ============================================================
+   PROGRAMA VETOR 5S — TEMA INSTITUCIONAL
+   Paleta: azul-marinho (navy) + âmbar + teal + azul elétrico
+   ============================================================ */
+
+html[data-tenant="cinco-s"] {
+	/* ── Paleta base ── */
+	--5s-navy: oklch(0.22 0.06 258);
+	--5s-navy-mid: oklch(0.35 0.08 258);
+	--5s-navy-pale: oklch(0.93 0.025 255);
+	--5s-navy-deep: oklch(0.15 0.06 258);
+	--5s-amber: oklch(0.75 0.16 85);
+	--5s-amber-pale: oklch(0.95 0.04 90);
+	--5s-teal: oklch(0.55 0.12 195);
+	--5s-electric: oklch(0.55 0.25 255);
+	--5s-gold: oklch(0.78 0.15 85);
+	--5s-gold-dark: oklch(0.55 0.12 85);
+
+	/* ── Cores por fase (NITI DUS) ── */
+	--5s-phase-n: oklch(0.5 0.18 255);
+	--5s-phase-i: oklch(0.45 0.15 245);
+	--5s-phase-t: oklch(0.5 0.14 195);
+	--5s-phase-i2: oklch(0.45 0.14 155);
+	--5s-phase-d: oklch(0.6 0.18 55);
+	--5s-phase-u: oklch(0.45 0.15 300);
+	--5s-phase-s: oklch(0.25 0.08 258);
+
+	/* ── Canvas ── */
+	--background: oklch(0.987 0.003 255);
+	--foreground: var(--5s-navy);
+
+	/* ── Cards ── */
+	--card: oklch(1 0 0);
+	--card-foreground: var(--5s-navy);
+
+	/* ── Popover ── */
+	--popover: oklch(1 0 0);
+	--popover-foreground: var(--5s-navy);
+
+	/* ── Primary: azul-marinho profundo ── */
+	--primary: var(--5s-navy);
+	--primary-foreground: oklch(1 0 0);
+
+	/* ── Secondary: azul pálido ── */
+	--secondary: var(--5s-navy-pale);
+	--secondary-foreground: var(--5s-navy);
+
+	/* ── Muted ── */
+	--muted: oklch(0.945 0.018 255);
+	--muted-foreground: oklch(0.47 0.06 258);
+
+	/* ── Accent: âmbar suave ── */
+	--accent: var(--5s-amber-pale);
+	--accent-foreground: var(--5s-navy);
+
+	/* ── Destructive (mantido) ── */
+	--destructive: oklch(0.5771 0.245 27.33);
+	--destructive-foreground: oklch(1 0 0);
+
+	/* ── Borders ── */
+	--border: oklch(0.84 0.025 255);
+	--input: oklch(0.84 0.025 255);
+
+	/* ── Ring ── */
+	--ring: var(--5s-navy);
+
+	/* ── Sidebar ── */
+	--sidebar: oklch(0.96 0.018 255);
+	--sidebar-foreground: var(--5s-navy);
+	--sidebar-primary: var(--5s-navy);
+	--sidebar-primary-foreground: oklch(1 0 0);
+	--sidebar-accent: oklch(0.9 0.025 255);
+	--sidebar-accent-foreground: var(--5s-navy);
+	--sidebar-border: oklch(0.87 0.022 255);
+	--sidebar-ring: var(--5s-navy);
+
+	/* ── Radius institucional (arredondado, anti-brutalista) ── */
+	--radius: 0.75rem;
+	--radius-sm: 0.5rem;
+	--radius-md: 0.875rem;
+	--radius-lg: 1.25rem;
+	--radius-xl: 1.75rem;
+
+	/* ── Sombras suaves (com blur) ── */
+	--shadow-xs: 0 1px 2px 0 oklch(0.22 0.06 258 / 0.08);
+	--shadow-sm: 0 1px 4px 0 oklch(0.22 0.06 258 / 0.1);
+	--shadow-md: 0 4px 12px 0 oklch(0.22 0.06 258 / 0.12);
+	--shadow-lg: 0 8px 24px 0 oklch(0.22 0.06 258 / 0.14);
+	--shadow-xl: 0 16px 40px 0 oklch(0.22 0.06 258 / 0.16);
+	--shadow-2xl: 0 24px 60px 0 oklch(0.22 0.06 258 / 0.2);
+
+	--shadow-hard-sm: 0 2px 8px 0 oklch(0.22 0.06 258 / 0.15);
+	--shadow-hard-md: 0 4px 16px 0 oklch(0.22 0.06 258 / 0.2);
+	--shadow-hard-lg: 0 8px 32px 0 oklch(0.22 0.06 258 / 0.25);
+
+	/* ── Tracking menos agressivo ── */
+	--tracking-tighter: -0.02em;
+	--tracking-tight: -0.01em;
+	--tracking-normal: 0em;
+	--tracking-label: 0.08em;
+}
+
+/* ── Neutralizar hover brutalista nos botões ─────────────────────────────── */
+html[data-tenant="cinco-s"] [data-slot="button"]:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-sm);
+}
+
+/* ── Neutralizar utilitários brutalistas ─────────────────────────────────── */
+html[data-tenant="cinco-s"] .brutal-hover:hover {
+	transform: none;
+	box-shadow: var(--shadow-md);
+}
+
+html[data-tenant="cinco-s"] .shadow-hard-sm,
+html[data-tenant="cinco-s"] .shadow-hard-md,
+html[data-tenant="cinco-s"] .shadow-hard-lg {
+	box-shadow: var(--shadow-md);
+}
+
+html[data-tenant="cinco-s"] .border-hard {
+	border: 1px solid var(--border);
+}
+
+/* ── Scrollbar navy tint ─────────────────────────────────────────────────── */
+html[data-tenant="cinco-s"] ::-webkit-scrollbar-thumb {
+	background: oklch(0.7 0.03 258);
+}
+
+/* ── Border-radius: Base UI não aplica rounded por padrão (brutalista) ─────── */
+
+/* Botões: sem rounded no buttonVariants */
+html[data-tenant="cinco-s"] [data-slot="button"] {
+	border-radius: var(--radius-sm);
+}
+
+/* Inputs: sem rounded no Input */
+html[data-tenant="cinco-s"] [data-slot="input"] {
+	border-radius: var(--radius-sm);
+}
+
+/* Cards (componente Card) e qualquer container com bg-card */
+html[data-tenant="cinco-s"] [data-slot="card"],
+html[data-tenant="cinco-s"] .bg-card {
+	border-radius: var(--radius);
+}
+
+/* bg-card DENTRO de tab-content: conecta com a tab acima → só arredonda embaixo */
+html[data-tenant="cinco-s"] [data-slot="tabs-content"] .bg-card {
+	border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* Badges */
+html[data-tenant="cinco-s"] [data-slot="badge"] {
+	border-radius: 0.25rem;
+}
+
+/* Tabs: rounded-none explícito (Tailwind @layer utilities) é sobrescrito aqui */
+html[data-tenant="cinco-s"] [data-slot="tabs-list"].rounded-none {
+	border-radius: var(--radius) var(--radius) 0 0;
+}
+
+html[data-tenant="cinco-s"] [data-slot="tabs-trigger"].rounded-none {
+	border-radius: 0;
+}
+
+/* ── MainSurface — gradientes navy/electric em vez de green/cyan/purple ──── */
+html[data-tenant="cinco-s"] [data-surface="main"]::before {
+	background-image:
+		radial-gradient(1200px 800px at 10% -10%, oklch(0.22 0.06 258 / 0.14), transparent 60%),
+		radial-gradient(900px 600px at 90% 0%, oklch(0.55 0.25 255 / 0.12), transparent 60%),
+		radial-gradient(800px 800px at 50% 100%, oklch(0.35 0.08 258 / 0.1), transparent 60%);
+}

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { CONFORMITY_WEIGHTS } from "@/lib/conformity"
+import { useTenant } from "@/lib/tenant"
 import { createQuestionFn, createQuestionnaireFn, createSectionFn, publishQuestionnaireFn } from "@/server/forms.fn"
 
 type QuestionDraft = {
@@ -16,6 +18,8 @@ type QuestionDraft = {
 	type: string
 	options: string[]
 	required: boolean
+	weight?: 1 | 3 | 5
+	weightLabel?: string
 }
 
 type SectionDraft = {
@@ -33,6 +37,7 @@ const QUESTION_TYPES = [
 	{ value: "date", label: "Data" },
 	{ value: "scale", label: "Escala" },
 	{ value: "boolean", label: "Sim / Não" },
+	{ value: "conformity", label: "Conformidade (A/AP/NA/NO)" },
 ] as const
 
 export const Route = createFileRoute("/_authenticated/questionnaires/new")({
@@ -42,6 +47,7 @@ export const Route = createFileRoute("/_authenticated/questionnaires/new")({
 function NewQuestionnairePage() {
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
+	const { tagFilter } = useTenant()
 	const [title, setTitle] = useState("")
 	const [description, setDescription] = useState("")
 	const [sections, setSections] = useState<SectionDraft[]>([{ title: "Seção 1", description: "", questions: [] }])
@@ -77,19 +83,23 @@ function NewQuestionnairePage() {
 		if (!title.trim()) return
 		setSaving(true)
 		try {
-			const questionnaire = await createQuestionnaireFn({ data: { title, description } })
+			const questionnaire = await createQuestionnaireFn({ data: { title, description, tags: (tagFilter ?? []) as "5s"[] } })
 			for (let si = 0; si < sections.length; si++) {
 				const s = sections[si]
 				const section = await createSectionFn({ data: { questionnaire_id: questionnaire.id, title: s.title, description: s.description, sort_order: si } })
 				for (let qi = 0; qi < s.questions.length; qi++) {
 					const q = s.questions[qi]
+					const conformityOptions =
+						q.type === "conformity"
+							? { weight: q.weight ?? 1, weightLabel: CONFORMITY_WEIGHTS.find((w) => w.value === (q.weight ?? 1))?.label ?? "Desejável" }
+							: undefined
 					await createQuestionFn({
 						data: {
 							section_id: section.id,
 							text: q.text,
 							description: q.description || undefined,
 							type: q.type as "text",
-							options: q.options.length > 0 ? q.options : undefined,
+							options: q.type === "conformity" ? conformityOptions : q.options.length > 0 ? q.options : undefined,
 							required: q.required,
 							sort_order: qi,
 						},
@@ -200,6 +210,31 @@ function NewQuestionnairePage() {
 													rows={3}
 													placeholder={"Opção 1\nOpção 2\nOpção 3"}
 												/>
+											</div>
+										)}
+										{question.type === "conformity" && (
+											<div className="space-y-1">
+												<Label className="text-xs text-muted-foreground">Peso da pergunta</Label>
+												<Select
+													value={question.weight ?? null}
+													onValueChange={(v) => {
+														const w = Number(v) as 1 | 3 | 5
+														updateQuestion(si, qi, { weight: w, weightLabel: CONFORMITY_WEIGHTS.find((x) => x.value === w)?.label })
+													}}
+												>
+													<SelectTrigger className="w-[200px]">
+														<SelectValue placeholder="Selecione o peso">
+															{question.weight ? `${question.weight} — ${CONFORMITY_WEIGHTS.find((w) => w.value === question.weight)?.label ?? ""}` : undefined}
+														</SelectValue>
+													</SelectTrigger>
+													<SelectContent>
+														{CONFORMITY_WEIGHTS.map((w) => (
+															<SelectItem key={w.value} value={w.value}>
+																{w.value} — {w.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
 											</div>
 										)}
 									</div>

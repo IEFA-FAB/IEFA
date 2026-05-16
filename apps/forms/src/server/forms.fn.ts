@@ -9,12 +9,18 @@ function getAuthenticatedUser() {
 
 // ── Questionnaire CRUD ───────────────────────────────────────────────────────
 
-export const getQuestionnairesFn = createServerFn({ method: "GET" }).handler(async () => {
-	const db = getFormsServerClient()
-	const { data, error } = await db.from("questionnaire").select("*").order("created_at", { ascending: false })
-	if (error) throw new Error(error.message)
-	return data
-})
+export const getQuestionnairesFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ tags: z.array(z.string()).optional() }))
+	.handler(async ({ data: { tags } }) => {
+		const db = getFormsServerClient()
+		let query = db.from("questionnaire").select("*").order("created_at", { ascending: false })
+		if (tags?.length) {
+			query = query.contains("tags", tags)
+		}
+		const { data, error } = await query
+		if (error) throw new Error(error.message)
+		return data
+	})
 
 export const getQuestionnaireFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
@@ -46,8 +52,17 @@ export const getQuestionnaireFn = createServerFn({ method: "GET" })
 	})
 
 export const createQuestionnaireFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ title: z.string().min(1), description: z.string().optional() }))
-	.handler(async ({ data: { title, description } }) => {
+	.inputValidator(
+		z.object({
+			title: z.string().min(1),
+			description: z.string().optional(),
+			tags: z
+				.array(z.enum(["5s"]))
+				.optional()
+				.default([]),
+		})
+	)
+	.handler(async ({ data: { title, description, tags } }) => {
 		const {
 			data: { user },
 		} = await getAuthenticatedUser()
@@ -56,7 +71,7 @@ export const createQuestionnaireFn = createServerFn({ method: "POST" })
 		const db = getFormsServerClient()
 		const { data, error } = await db
 			.from("questionnaire")
-			.insert({ title, description: description ?? null, created_by: user.id })
+			.insert({ title, description: description ?? null, created_by: user.id, tags })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -129,7 +144,7 @@ export const createQuestionFn = createServerFn({ method: "POST" })
 			section_id: z.string().uuid(),
 			text: z.string().min(1),
 			description: z.string().optional(),
-			type: z.enum(["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean"]).optional(),
+			type: z.enum(["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean", "conformity"]).optional(),
 			options: z.any().optional(),
 			required: z.boolean().optional(),
 			sort_order: z.number().int().optional(),
@@ -148,7 +163,7 @@ export const updateQuestionFn = createServerFn({ method: "POST" })
 			id: z.string().uuid(),
 			text: z.string().min(1).optional(),
 			description: z.string().optional(),
-			type: z.enum(["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean"]).optional(),
+			type: z.enum(["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean", "conformity"]).optional(),
 			options: z.any().optional(),
 			required: z.boolean().optional(),
 		})

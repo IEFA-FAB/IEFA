@@ -8,6 +8,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { DraftWithSelections, KitchenAtaDraft } from "@/types/domain/ata"
 
@@ -42,8 +43,7 @@ export const fetchKitchenDraftsFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: false })
 
 		if (error) throw new Error(`Erro ao buscar rascunhos: ${error.message}`)
-		// biome-ignore lint/suspicious/noExplicitAny: relation shape differs from generated types
-		return (drafts as any) || []
+		return (drafts ?? []) as unknown as DraftWithSelections[]
 	})
 
 // ─── Buscar rascunho enviado pendente para a cozinha ──────────────────────────
@@ -74,8 +74,7 @@ export const fetchPendingDraftFn = createServerFn({ method: "GET" })
 			.maybeSingle()
 
 		if (error) throw new Error(`Erro ao buscar rascunho pendente: ${error.message}`)
-		// biome-ignore lint/suspicious/noExplicitAny: relation shape differs from generated types
-		return (draft as any) || null
+		return draft as unknown as DraftWithSelections | null
 	})
 
 // ─── Criar rascunho ───────────────────────────────────────────────────────────
@@ -98,6 +97,7 @@ export const createKitchenDraftFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<KitchenAtaDraft> => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 
 		const { data: draft, error: draftError } = await supabase
@@ -152,6 +152,7 @@ export const updateKitchenDraftFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<KitchenAtaDraft> => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 
 		const { data: draft, error } = await supabase
@@ -190,6 +191,7 @@ export const updateKitchenDraftFn = createServerFn({ method: "POST" })
 export const sendKitchenDraftFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ draftId: z.string() }))
 	.handler(async ({ data }): Promise<void> => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient()
 			.from("kitchen_ata_draft")
 			.update({ status: "sent", updated_at: new Date().toISOString() })
@@ -207,6 +209,7 @@ export const sendKitchenDraftFn = createServerFn({ method: "POST" })
 export const deleteKitchenDraftFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ draftId: z.string() }))
 	.handler(async ({ data }): Promise<void> => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("kitchen_ata_draft").delete().eq("id", data.draftId)
 		if (error) throw new Error(`Erro ao deletar rascunho: ${error.message}`)
 	})

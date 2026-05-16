@@ -1,5 +1,18 @@
 import { expect, test } from "../fixtures/auth";
 
+/** Aguarda React hidratar um elemento antes de interagir via UI. */
+async function waitForReactHydration(page: import("@playwright/test").Page, selector: string) {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      return Object.keys(el).some((k) => k.startsWith("__reactFiber"));
+    },
+    selector,
+    { timeout: 30_000 },
+  );
+}
+
 /**
  * Testes de navegação — rotas protegidas e SPA navigation.
  * Usa o fixture `authenticatedPage` (sessão ativa via storageState).
@@ -29,6 +42,10 @@ test.describe("Navigation — rotas protegidas", () => {
   }) => {
     await authenticatedPage.goto("/hub");
     await expect(authenticatedPage).toHaveURL(/\/hub/);
+
+    // Aguarda React hidratar para que TanStack Router intercepte os cliques nos links
+    // sem hidratação, o browser faz full page navigation ao clicar um <Link>
+    await waitForReactHydration(authenticatedPage, 'a[href*="/diner"]');
 
     // Captura o timestamp de carregamento da página atual
     const navStart = await authenticatedPage.evaluate(

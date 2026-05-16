@@ -9,18 +9,9 @@
 import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+import { requireUserId } from "@/lib/auth.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 import { CHART_TYPES } from "@/types/domain/analytics-chat"
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function requireUserId(): Promise<string> {
-	const {
-		data: { user },
-	} = await getSupabaseAuthClient().auth.getUser()
-	if (!user) throw new Error("Não autenticado")
-	return user.id
-}
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 

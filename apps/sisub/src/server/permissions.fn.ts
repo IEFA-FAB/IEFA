@@ -1,7 +1,6 @@
 /**
  * @module permissions.fn
  * User permission resolution and admin CRUD for the sisub RBAC system.
- * CLIENT: getSupabaseServerClient cast as `any` — user_permissions table not yet in generated Supabase types.
  * LEVELS: 0=deny (explicit block), 1=read, 2=write. Deny entries are stripped from fetchUserPermissionsFn output.
  * MODULES: diner | messhall | unit | kitchen | kitchen-production | global | analytics | local-analytics | storage.
  * SCOPE: permissions can be scoped to mess_hall_id, kitchen_id, or unit_id (at most one per row).
@@ -32,8 +31,7 @@ const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production
 export const fetchUserPermissionsFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<UserPermission[]> => {
-		// biome-ignore lint/suspicious/noExplicitAny: user_permissions table not yet in generated Supabase types
-		const { data: rows, error } = await (getSupabaseServerClient() as any)
+		const { data: rows, error } = await getSupabaseServerClient()
 			.from("user_permissions")
 			.select("module, level, mess_hall_id, kitchen_id, unit_id")
 			.eq("user_id", data.userId)
@@ -110,8 +108,7 @@ export type PermissionRow = {
 export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<PermissionRow[]> => {
-		// biome-ignore lint/suspicious/noExplicitAny: user_permissions table not yet in generated Supabase types
-		const { data: rows, error } = await (getSupabaseServerClient() as any)
+		const { data: rows, error } = await getSupabaseServerClient()
 			.from("user_permissions")
 			.select("id, module, level, mess_hall_id, kitchen_id, unit_id")
 			.eq("user_id", data.userId)
@@ -145,15 +142,16 @@ export const createUserPermissionFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		// biome-ignore lint/suspicious/noExplicitAny: user_permissions table not yet in generated Supabase types
-		const { error } = await (getSupabaseServerClient() as any).from("user_permissions").insert({
-			user_id: data.userId,
-			module: data.module,
-			level: data.level,
-			mess_hall_id: data.mess_hall_id ?? null,
-			kitchen_id: data.kitchen_id ?? null,
-			unit_id: data.unit_id ?? null,
-		})
+		const { error } = await getSupabaseServerClient()
+			.from("user_permissions")
+			.insert({
+				user_id: data.userId,
+				module: data.module,
+				level: data.level,
+				mess_hall_id: data.mess_hall_id ?? null,
+				kitchen_id: data.kitchen_id ?? null,
+				unit_id: data.unit_id ?? null,
+			})
 
 		if (error) throw new Error(error.message)
 		return { success: true }
@@ -179,8 +177,7 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		// biome-ignore lint/suspicious/noExplicitAny: user_permissions table not yet in generated Supabase types
-		const { error } = await (getSupabaseServerClient() as any)
+		const { error } = await getSupabaseServerClient()
 			.from("user_permissions")
 			.update({
 				level: data.level,
@@ -206,8 +203,7 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ permissionId: z.string().min(1) }))
 	.handler(async ({ data }) => {
-		// biome-ignore lint/suspicious/noExplicitAny: user_permissions table not yet in generated Supabase types
-		const { error } = await (getSupabaseServerClient() as any).from("user_permissions").delete().eq("id", data.permissionId)
+		const { error } = await getSupabaseServerClient().from("user_permissions").delete().eq("id", data.permissionId)
 
 		if (error) throw new Error(error.message)
 		return { success: true }

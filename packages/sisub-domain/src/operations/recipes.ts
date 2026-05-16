@@ -70,8 +70,7 @@ export async function listRecipeVersions(client: AnyClient, ctx: UserContext, in
 	const { data: recipe, error: recipeError } = await client.from("recipes").select("id, base_recipe_id").eq("id", input.recipeId).single()
 	if (recipeError || !recipe) throw new NotFoundError("recipe", input.recipeId)
 
-	// biome-ignore lint/suspicious/noExplicitAny: untyped row
-	const rootId = (recipe as any).base_recipe_id ?? recipe.id
+	const rootId = recipe.base_recipe_id ?? recipe.id
 
 	const { data, error } = await client
 		.from("recipes")

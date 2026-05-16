@@ -1,11 +1,12 @@
 import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchRecipesFn, fetchRecipeWithIngredientsFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 export const recipesQueryOptions = (kitchenId?: number | null) =>
 	queryOptions({
-		queryKey: ["recipes", { kitchen_id: kitchenId ?? null }],
+		queryKey: queryKeys.recipes.list(kitchenId),
 		queryFn: () => fetchRecipesFn({ data: { kitchenId } }),
 		staleTime: 5 * 60 * 1000,
 		gcTime: 5 * 60 * 1000,

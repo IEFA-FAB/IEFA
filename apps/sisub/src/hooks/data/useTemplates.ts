@@ -1,6 +1,7 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import {
 	applyTemplateFn,
 	createTemplateFn,
@@ -18,7 +19,7 @@ import type { ApplyTemplatePayload, MenuTemplateWithItems, TemplateWithItemCount
 
 export const menuTemplatesQueryOptions = (kitchenId: number | null) =>
 	queryOptions({
-		queryKey: ["menu_templates", kitchenId],
+		queryKey: queryKeys.templates.list(kitchenId),
 		queryFn: () => fetchMenuTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000,
@@ -26,7 +27,7 @@ export const menuTemplatesQueryOptions = (kitchenId: number | null) =>
 
 export const templateItemsQueryOptions = (templateId: string | null) =>
 	queryOptions({
-		queryKey: ["template_items", templateId],
+		queryKey: queryKeys.templates.items(templateId),
 		queryFn: () =>
 			templateId
 				? (fetchTemplateItemsFn({
@@ -39,7 +40,7 @@ export const templateItemsQueryOptions = (templateId: string | null) =>
 
 export const templateQueryOptions = (templateId: string | null) =>
 	queryOptions({
-		queryKey: ["template", templateId],
+		queryKey: queryKeys.templates.detail(templateId),
 		queryFn: () => (templateId ? (fetchTemplateFn({ data: { templateId } }) as Promise<MenuTemplateWithItems | null>) : Promise.resolve(null)),
 		enabled: !!templateId,
 	})
@@ -60,7 +61,7 @@ export function useTemplate(templateId: string | null) {
 
 export function useDeletedTemplates(kitchenId: number | null) {
 	return useQuery({
-		queryKey: ["deleted_templates", kitchenId],
+		queryKey: queryKeys.templates.deleted(kitchenId),
 		queryFn: () => fetchDeletedTemplatesFn({ data: { kitchenId } }) as Promise<TemplateWithItemCounts[]>,
 		enabled: kitchenId !== null,
 		staleTime: 1 * 60 * 1000,
@@ -88,7 +89,7 @@ export function useCreateTemplate() {
 				},
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
 			toast.success(`Template "${data?.name}" criado com sucesso!`)
 		},
 		onError: (error) => toast.error(`Erro ao criar template: ${error.message}`),
@@ -114,9 +115,9 @@ export function useUpdateTemplate() {
 				},
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
-			queryClient.invalidateQueries({ queryKey: ["template", data?.id] })
-			queryClient.invalidateQueries({ queryKey: ["template_items", data?.id] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.detail(data?.id ?? null) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.items(data?.id ?? null) })
 			toast.success(`Template "${data?.name}" atualizado!`)
 		},
 		onError: (error) => toast.error(`Erro ao atualizar template: ${error.message}`),
@@ -128,7 +129,7 @@ export function useDeleteTemplate() {
 	return useMutation({
 		mutationFn: (id: string) => deleteTemplateFn({ data: { templateId: id } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
 			toast.success("Template removido!")
 		},
 		onError: (error) => toast.error(`Erro ao remover template: ${error.message}`),
@@ -140,7 +141,7 @@ export function useRestoreTemplate() {
 	return useMutation({
 		mutationFn: (id: string) => restoreTemplateFn({ data: { templateId: id } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
 			toast.success("Template restaurado!")
 		},
 		onError: (error) => toast.error(`Erro ao restaurar template: ${error.message}`),
@@ -153,8 +154,8 @@ export function useApplyTemplate() {
 		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId }: ApplyTemplatePayload) =>
 			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId } }),
 		onSuccess: (result) => {
-			queryClient.invalidateQueries({ queryKey: ["daily_menus"] })
-			queryClient.invalidateQueries({ queryKey: ["planning"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} items criados.`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),

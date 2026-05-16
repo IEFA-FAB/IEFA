@@ -1,27 +1,10 @@
 // Dashboard Service - IEFA API Integration
 
 import { queryOptions } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import type { DashboardPresenceRecord, ForecastRecord, MessHallAPI, UnitAPI, UserDataAPI, UserMilitaryDataAPI } from "@/types/domain/dashboard"
 
 const IEFA_API_BASE = "https://iefa-api.fly.dev"
-
-// ============================================================================
-// QUERY KEYS
-// ============================================================================
-
-export const DASHBOARD_QUERY_KEYS = {
-	forecasts: (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) => ["dashboard", "forecasts", params] as const,
-
-	presences: (params: { mess_hall_id?: number }) => ["dashboard", "presences", params] as const,
-
-	messHalls: (unit_id?: number) => ["mess-halls", unit_id] as const,
-
-	units: () => ["units"] as const,
-
-	userData: (ids?: string[]) => ["user-data", ids] as const,
-
-	userMilitaryData: (nrOrdemList?: string[]) => ["user-military-data", nrOrdemList] as const,
-} as const
 
 // ============================================================================
 // FETCHERS
@@ -162,7 +145,7 @@ export async function fetchUserMilitaryData(nrOrdemList?: string[]): Promise<Use
  */
 export const dashboardForecastsQueryOptions = (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) =>
 	queryOptions({
-		queryKey: DASHBOARD_QUERY_KEYS.forecasts(params),
+		queryKey: queryKeys.dashboard.forecasts(params),
 		queryFn: () => fetchForecasts(params),
 		staleTime: 1000 * 60 * 2, // 2 minutes
 		gcTime: 1000 * 60 * 10, // 10 minutes
@@ -173,7 +156,7 @@ export const dashboardForecastsQueryOptions = (params: { mess_hall_id?: number; 
  */
 export const dashboardPresencesQueryOptions = (params: { mess_hall_id?: number; startDate?: string; endDate?: string }) =>
 	queryOptions({
-		queryKey: DASHBOARD_QUERY_KEYS.presences(params),
+		queryKey: queryKeys.dashboard.presences(params),
 		queryFn: () => fetchPresences(params),
 		staleTime: 1000 * 60 * 1, // 1 minute
 		gcTime: 1000 * 60 * 10,
@@ -184,7 +167,7 @@ export const dashboardPresencesQueryOptions = (params: { mess_hall_id?: number; 
  */
 export const messHallsQueryOptions = (unit_id?: number) =>
 	queryOptions({
-		queryKey: DASHBOARD_QUERY_KEYS.messHalls(unit_id),
+		queryKey: queryKeys.dashboard.messHalls(unit_id),
 		queryFn: () => fetchMessHalls(unit_id),
 		staleTime: 1000 * 60 * 10, // 10 minutes (reference data)
 		gcTime: 1000 * 60 * 30, // 30 minutes
@@ -195,7 +178,7 @@ export const messHallsQueryOptions = (unit_id?: number) =>
  */
 export const unitsQueryOptions = () =>
 	queryOptions({
-		queryKey: DASHBOARD_QUERY_KEYS.units(),
+		queryKey: queryKeys.dashboard.units(),
 		queryFn: fetchUnits,
 		staleTime: 1000 * 60 * 30, // 30 minutes (reference data)
 		gcTime: 1000 * 60 * 60, // 1 hour
@@ -206,7 +189,7 @@ export const unitsQueryOptions = () =>
  */
 export const userDataQueryOptions = (ids?: string[]) =>
 	queryOptions({
-		queryKey: DASHBOARD_QUERY_KEYS.userData(ids),
+		queryKey: queryKeys.dashboard.userData(ids),
 		queryFn: () => fetchUserData(ids),
 		staleTime: 1000 * 60 * 5, // 5 minutes
 		gcTime: 1000 * 60 * 15,
@@ -218,7 +201,7 @@ export const userDataQueryOptions = (ids?: string[]) =>
  */
 export const userMilitaryDataQueryOptions = (nrOrdemList?: string[]) =>
 	queryOptions({
-		queryKey: DASHBOARD_QUERY_KEYS.userMilitaryData(nrOrdemList),
+		queryKey: queryKeys.dashboard.userMilitaryData(nrOrdemList),
 		queryFn: () => fetchUserMilitaryData(nrOrdemList),
 		staleTime: 1000 * 60 * 5, // 5 minutes
 		gcTime: 1000 * 60 * 15,

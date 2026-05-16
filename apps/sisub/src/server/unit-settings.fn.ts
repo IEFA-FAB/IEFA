@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ export const fetchUnitSettingsFn = createServerFn({ method: "GET" })
 export const updateUnitSettingsFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ unitId: z.number(), settings: unitSettingsSchema }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient()
 			.from("units")
 			.update({

@@ -8,6 +8,7 @@
 import type { KitchenUpdate, MessHallUpdate } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { PlacesGraphData } from "@/types/domain/places"
 
@@ -76,6 +77,7 @@ export type UpdateEntityInput = z.infer<typeof updateEntitySchema>
 export const updatePlacesEntityFn = createServerFn({ method: "POST" })
 	.inputValidator(updateEntitySchema)
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const client = getSupabaseServerClient()
 
 		if (data.entityType === "unit") {
@@ -142,6 +144,7 @@ function buildMessHallUpdate(column: "unit_id" | "kitchen_id", newValue: number)
 export const applyPlacesDiffFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ diffs: z.array(diffItemSchema) }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const client = getSupabaseServerClient()
 
 		for (const diff of data.diffs) {

@@ -4,8 +4,8 @@ import type { PostgrestError } from "@supabase/supabase-js"
 import { type UseMutationResult, type UseQueryResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { deletePresenceFn, fetchForecastsFn, fetchPresencesFn, insertPresenceFn } from "@/server/presence.fn"
-import type { MealKey } from "@/types/domain/meal"
 import type {
 	ConfirmPresenceParams,
 	ConfirmPresenceResult,
@@ -31,16 +31,6 @@ const isPostgrestError = (e: unknown): e is PostgrestError => {
 }
 
 type MutationError = UnitRequiredError | PostgrestError
-
-// ============================================================================
-// QUERY KEYS
-// ============================================================================
-const presenceKeys = {
-	all: ["presences"] as const,
-	list: (date: string, meal: MealKey, messHallId: number) => [...presenceKeys.all, date, meal, messHallId] as const,
-	confirm: (date: string, meal: MealKey, messHallId: number) => ["confirmPresence", date, meal, messHallId] as const,
-	remove: (date: string, meal: MealKey, messHallId: number) => ["removePresence", date, meal, messHallId] as const,
-} as const
 
 // ============================================================================
 // VALIDATION
@@ -82,7 +72,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	// QUERY: Fetch Presences & Forecasts
 	// ============================================================================
 	const presencesQuery: UseQueryResult<QueryResult, PostgrestError> = useQuery<QueryResult, PostgrestError>({
-		queryKey: presenceKeys.list(filters.date, filters.meal, filters.messHallId),
+		queryKey: queryKeys.presences.list(filters.date, filters.meal, filters.messHallId),
 		queryFn: async (): Promise<QueryResult> => {
 			const presences = await fetchPresencesFn({
 				data: { date: filters.date, meal: filters.meal, messHallId: filters.messHallId },
@@ -117,7 +107,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		MutationError,
 		ConfirmPresenceParams
 	>({
-		mutationKey: presenceKeys.confirm(filters.date, filters.meal, filters.messHallId),
+		mutationKey: queryKeys.presences.confirm(filters.date, filters.meal, filters.messHallId),
 		mutationFn: async (params): Promise<ConfirmPresenceResult> => {
 			if (!params.willEnter) {
 				toast.info("Registro atualizado", {
@@ -144,7 +134,7 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({
-				queryKey: presenceKeys.list(filters.date, filters.meal, filters.messHallId),
+				queryKey: queryKeys.presences.list(filters.date, filters.meal, filters.messHallId),
 			})
 		},
 		onError: handleConfirmPresenceError,
@@ -154,14 +144,14 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	// MUTATION: Remove Presence
 	// ============================================================================
 	const removePresenceMutation: UseMutationResult<void, PostgrestError, FiscalPresenceRecord> = useMutation<void, PostgrestError, FiscalPresenceRecord>({
-		mutationKey: presenceKeys.remove(filters.date, filters.meal, filters.messHallId),
+		mutationKey: queryKeys.presences.remove(filters.date, filters.meal, filters.messHallId),
 		mutationFn: async (row): Promise<void> => {
 			await deletePresenceFn({ data: { id: row.id } })
 			toast.success("Excluído", { description: "Registro removido." })
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({
-				queryKey: presenceKeys.list(filters.date, filters.meal, filters.messHallId),
+				queryKey: queryKeys.presences.list(filters.date, filters.meal, filters.messHallId),
 			})
 		},
 		onError: handleRemovePresenceError,

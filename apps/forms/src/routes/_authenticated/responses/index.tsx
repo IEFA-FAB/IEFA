@@ -3,14 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, List } from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { env } from "@/env"
 import { useAuth } from "@/hooks/useAuth"
-import { getQuestionnairesFn, getSharedWithMeFn } from "@/server/forms.fn"
-
-const questionnairesQueryOptions = () =>
-	queryOptions({
-		queryKey: ["questionnaires"],
-		queryFn: () => getQuestionnairesFn(),
-	})
+import { questionnairesQueryOptions, useQuestionnaires } from "@/hooks/useQuestionnaires"
+import { TENANTS } from "@/lib/tenant"
+import { getSharedWithMeFn } from "@/server/forms.fn"
 
 const sharedQueryOptions = () =>
 	queryOptions({
@@ -20,7 +17,8 @@ const sharedQueryOptions = () =>
 
 export const Route = createFileRoute("/_authenticated/responses/")({
 	loader: ({ context }) => {
-		context.queryClient.ensureQueryData(questionnairesQueryOptions())
+		const { tagFilter } = TENANTS[env.VITE_APP_TENANT]
+		context.queryClient.ensureQueryData(questionnairesQueryOptions(tagFilter))
 		return context.queryClient.ensureQueryData(sharedQueryOptions())
 	},
 	component: ResponsesIndexPage,
@@ -28,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/responses/")({
 
 function ResponsesIndexPage() {
 	const { user } = useAuth()
-	const { data: questionnaires } = useSuspenseQuery(questionnairesQueryOptions())
+	const { data: questionnaires } = useQuestionnaires()
 	const { data: sharedQuestionnaires } = useSuspenseQuery(sharedQueryOptions())
 
 	const myQuestionnaires = questionnaires?.filter((q) => q.created_by === user?.id) ?? []

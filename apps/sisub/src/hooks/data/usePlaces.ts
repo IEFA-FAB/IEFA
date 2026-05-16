@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import type { UpdateEntityInput } from "@/server/places.fn"
 import { applyPlacesDiffFn, fetchPlacesGraphFn, updatePlacesEntityFn } from "@/server/places.fn"
 import type { PlacesDiff } from "@/types/domain/places"
@@ -10,7 +11,7 @@ export type { UpdateEntityInput }
 
 export const placesGraphQueryOptions = () =>
 	queryOptions({
-		queryKey: ["places_graph"],
+		queryKey: queryKeys.places.graph(),
 		queryFn: () => fetchPlacesGraphFn(),
 		staleTime: 10 * 60 * 1000,
 	})
@@ -28,7 +29,7 @@ export function useUpdatePlacesEntity() {
 	return useMutation({
 		mutationFn: (input: UpdateEntityInput) => updatePlacesEntityFn({ data: input }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["places_graph"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.places.graph() })
 			toast.success("Registro atualizado.")
 		},
 		onError: (e: Error) => toast.error(e.message),
@@ -64,7 +65,7 @@ export function useApplyPlacesDiff() {
 			toast.loading("Salvando alterações...", { id: "places-save" })
 		},
 		onSuccess: (_, diffs) => {
-			queryClient.invalidateQueries({ queryKey: ["places_graph"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.places.graph() })
 			toast.success(`${diffs.length} alteração(ões) salva(s).`, { id: "places-save" })
 		},
 		onError: (e: Error) => {

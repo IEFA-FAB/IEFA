@@ -57,7 +57,7 @@ function dayBounds(dateStr: string) {
 	return { start, end }
 }
 
-export function createApiHandler(config: ApiConfig) {
+export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any) => Promise<Response>] {
 	const {
 		table,
 		select,

@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import {
 	addMenuItemFn,
 	fetchDailyMenusFn,
@@ -19,7 +20,7 @@ import type { AppMenuItemInsert, DailyMenuInsert } from "@/types/domain/planning
 
 export const dailyMenusQueryOptions = (kitchenId: number | null, startDate: Date, endDate: Date) =>
 	queryOptions({
-		queryKey: ["planning", "menus", kitchenId, startDate.toISOString(), endDate.toISOString()],
+		queryKey: queryKeys.planning.menu(kitchenId, startDate.toISOString(), endDate.toISOString()),
 		queryFn: () =>
 			fetchDailyMenusFn({
 				data: {
@@ -33,7 +34,7 @@ export const dailyMenusQueryOptions = (kitchenId: number | null, startDate: Date
 
 export const dayDetailsQueryOptions = (kitchenId: number | null, date: Date) =>
 	queryOptions({
-		queryKey: ["planning", "day", kitchenId, date.toISOString()],
+		queryKey: queryKeys.planning.dayDetail(kitchenId, date.toISOString()),
 		queryFn: () =>
 			fetchDayDetailsFn({
 				data: {
@@ -77,8 +78,8 @@ export function useCreateDailyMenu() {
 			return results
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
-			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
 			toast.success("Cardápio diário criado com sucesso!")
 		},
 		onError: (error) => {
@@ -101,8 +102,8 @@ export function useAddMenuItem() {
 				},
 			}),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
-			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
 			toast.success("Item adicionado ao cardápio!")
 		},
 		onError: (error) => {
@@ -131,8 +132,8 @@ export function useUpdateDailyMenu() {
 				},
 			}),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
-			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
 			toast.success("Cardápio atualizado!")
 		},
 		onError: (error) => {
@@ -163,8 +164,8 @@ export function useUpdateMenuItem() {
 				},
 			}),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
-			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
 		},
 		onError: (error) => {
 			toast.error(`Erro ao atualizar item: ${error.message}`)
@@ -178,8 +179,8 @@ export function useDeleteMenuItem() {
 	return useMutation({
 		mutationFn: (itemId: string) => softDeleteMenuItemFn({ data: { menuItemId: itemId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning", "menus"] })
-			queryClient.invalidateQueries({ queryKey: ["planning", "day"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.day() })
 			toast.success("Item removido!")
 		},
 		onError: (error) => {
@@ -192,7 +193,7 @@ export function useDeleteMenuItem() {
 
 export function useTemplates(kitchenId: number | null) {
 	return useQuery({
-		queryKey: ["planning", "templates", kitchenId],
+		queryKey: queryKeys.planning.templates(kitchenId),
 		queryFn: () => fetchMenuTemplatesFn({ data: { kitchenId } }),
 		enabled: !!kitchenId,
 	})
@@ -216,7 +217,7 @@ export function useApplyTemplate() {
 
 export function useTrashItems(kitchenId: number | null) {
 	return useQuery({
-		queryKey: ["planning", "trash", kitchenId],
+		queryKey: queryKeys.planning.trash(kitchenId),
 		queryFn: () => fetchTrashItemsFn({ data: { kitchenId: kitchenId as number } }),
 		enabled: !!kitchenId,
 	})
@@ -228,7 +229,7 @@ export function useRestoreMenuItem() {
 	return useMutation({
 		mutationFn: (itemId: string) => restoreMenuItemFn({ data: { menuItemId: itemId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			toast.success("Item restaurado com sucesso!")
 		},
 		onError: (error) => {

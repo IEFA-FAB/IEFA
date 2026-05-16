@@ -1,6 +1,7 @@
 import type { MealType, MealTypeInsert, MealTypeUpdate } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { createMealTypeFn, deleteMealTypeFn, fetchMealTypesFn, restoreMealTypeFn, updateMealTypeFn } from "@/server/meal-types.fn"
 
 /**
@@ -9,7 +10,7 @@ import { createMealTypeFn, deleteMealTypeFn, fetchMealTypesFn, restoreMealTypeFn
  */
 export const mealTypesQueryOptions = (kitchenId: number | null) =>
 	queryOptions({
-		queryKey: ["meal_types", kitchenId],
+		queryKey: queryKeys.mealTypes.byKitchen(kitchenId),
 		queryFn: (): Promise<MealType[]> => fetchMealTypesFn({ data: { kitchenId } }),
 		enabled: kitchenId !== null,
 		staleTime: 5 * 60 * 1000, // 5 minutes - meal types don't change frequently
@@ -58,7 +59,7 @@ export function useCreateMealType() {
 				},
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.mealTypes.all() })
 			toast.success(`Tipo de refeição "${data.name}" criado com sucesso!`)
 		},
 		onError: (error) => {
@@ -97,7 +98,7 @@ export function useUpdateMealType() {
 				},
 			}),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.mealTypes.all() })
 			toast.success(`Tipo de refeição "${data.name}" atualizado!`)
 		},
 		onError: (error) => {
@@ -124,7 +125,7 @@ export function useDeleteMealType() {
 	return useMutation({
 		mutationFn: (id: string) => deleteMealTypeFn({ data: { mealTypeId: id } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.mealTypes.all() })
 			toast.success("Tipo de refeição removido!")
 		},
 		onError: (error) => {
@@ -149,7 +150,7 @@ export function useRestoreMealType() {
 	return useMutation({
 		mutationFn: (id: string) => restoreMealTypeFn({ data: { mealTypeId: id } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["meal_types"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.mealTypes.all() })
 			toast.success("Tipo de refeição restaurado!")
 		},
 		onError: (error) => {

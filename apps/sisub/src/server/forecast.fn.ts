@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireUserId } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 /**
@@ -66,16 +67,16 @@ export const fetchUserDefaultMessHallFn = createServerFn({ method: "GET" })
 export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
-			userId: z.string(),
 			email: z.string(),
 			messHallId: z.number(),
 		})
 	)
 	.handler(async ({ data }) => {
+		const userId = await requireUserId()
 		const { error } = await getSupabaseServerClient()
 			.schema("sisub")
 			.from("user_data")
-			.upsert({ id: data.userId, default_mess_hall_id: data.messHallId, email: data.email }, { onConflict: "id", ignoreDuplicates: false })
+			.upsert({ id: userId, default_mess_hall_id: data.messHallId, email: data.email }, { onConflict: "id", ignoreDuplicates: false })
 
 		if (error) throw new Error(error.message)
 	})
@@ -92,7 +93,6 @@ export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 export const upsertForecastFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
-			userId: z.string(),
 			date: z.string(),
 			meal: z.string(),
 			willEat: z.boolean(),
@@ -100,10 +100,11 @@ export const upsertForecastFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		const userId = await requireUserId()
 		const { error: upsertError } = await getSupabaseServerClient().schema("sisub").from("meal_forecasts").upsert(
 			{
 				date: data.date,
-				user_id: data.userId,
+				user_id: userId,
 				meal: data.meal,
 				will_eat: data.willEat,
 				mess_hall_id: data.messHallId,
@@ -113,11 +114,11 @@ export const upsertForecastFn = createServerFn({ method: "POST" })
 
 		if (upsertError) {
 			// fallback: delete + insert
-			await getSupabaseServerClient().schema("sisub").from("meal_forecasts").delete().eq("user_id", data.userId).eq("date", data.date).eq("meal", data.meal)
+			await getSupabaseServerClient().schema("sisub").from("meal_forecasts").delete().eq("user_id", userId).eq("date", data.date).eq("meal", data.meal)
 
 			const { error: insertError } = await getSupabaseServerClient().schema("sisub").from("meal_forecasts").insert({
 				date: data.date,
-				user_id: data.userId,
+				user_id: userId,
 				meal: data.meal,
 				will_eat: data.willEat,
 				mess_hall_id: data.messHallId,
@@ -133,13 +134,14 @@ export const upsertForecastFn = createServerFn({ method: "POST" })
  * @throws {Error} on Supabase delete failure (excluding no-rows-deleted).
  */
 export const deleteForecastFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ userId: z.string(), date: z.string(), meal: z.string() }))
+	.inputValidator(z.object({ date: z.string(), meal: z.string() }))
 	.handler(async ({ data }) => {
+		const userId = await requireUserId()
 		const { error } = await getSupabaseServerClient()
 			.schema("sisub")
 			.from("meal_forecasts")
 			.delete()
-			.eq("user_id", data.userId)
+			.eq("user_id", userId)
 			.eq("date", data.date)
 			.eq("meal", data.meal)
 

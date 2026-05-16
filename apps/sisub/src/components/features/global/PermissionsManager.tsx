@@ -47,10 +47,6 @@ const LEVEL_CONFIG: Record<number, { label: string; variant: "destructive" | "se
 
 type ScopeType = "global" | "unit" | "kitchen" | "mess_hall"
 
-/**
- * Escopos válidos por módulo.
- * Módulos não listados aqui só aceitam "global".
- */
 const MODULE_SCOPES: Partial<Record<AppModule, ScopeType[]>> = {
 	messhall: ["global", "mess_hall"],
 	unit: ["global", "unit"],
@@ -104,7 +100,7 @@ function scopeTypeOf(perm: PermissionRow): ScopeType {
 	return "global"
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Display Helpers ──────────────────────────────────────────────────────────
 
 function ModuleBadge({ module }: { module: AppModule }) {
 	return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium">{MODULE_LABELS[module] ?? module}</span>
@@ -134,10 +130,9 @@ function ScopeLabel({
 
 // ─── Permission Dialog ────────────────────────────────────────────────────────
 
-// Aplicado em todos os SelectContent do formulário:
-//   w-auto               → popup cresce para envolver o conteúdo (não fica preso na largura do trigger)
-//   min-w-[var(...)]     → mínimo igual à largura do trigger, para não ficar menor
-//   p-1                  → padding interno proporcional ao rounded-lg do popup (8px ≈ rounded-lg)
+// w-auto               → popup cresce para envolver o conteúdo (não fica preso na largura do trigger)
+// min-w-[var(...)]     → mínimo igual à largura do trigger, para não ficar menor
+// p-1                  → padding interno proporcional ao rounded-lg do popup (8px ≈ rounded-lg)
 const CONTENT_CLS = "w-auto min-w-(--anchor-width) p-2"
 
 function PermissionDialog({
@@ -355,37 +350,9 @@ function DeleteDialog({ perm, isPending, onConfirm, onClose }: { perm: Permissio
 	)
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── CRUD Hook ────────────────────────────────────────────────────────────────
 
-export default function PermissionsManager() {
-	"use no memo"
-
-	// ── Lookup data ──────────────────────────────────────────────────────────
-	const { units, messHalls } = useMessHalls()
-	const { data: kitchens = [] } = useUserKitchens()
-
-	const unitMap = React.useMemo(() => Object.fromEntries(units.map((u) => [u.id, u.display_name ?? u.code])), [units])
-	const messHallMap = React.useMemo(() => Object.fromEntries(messHalls.map((m) => [m.id, m.display_name ?? m.code])), [messHalls])
-	const kitchenMap = React.useMemo(() => Object.fromEntries(kitchens.map((k) => [k.id, k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`])), [kitchens])
-
-	// ── Search ────────────────────────────────────────────────────────────────
-	const [emailInput, setEmailInput] = React.useState("")
-	const [debouncedEmail, setDebouncedEmail] = React.useState("")
-	const [selectedUser, setSelectedUser] = React.useState<UserSearchResult | null>(null)
-
-	React.useEffect(() => {
-		const t = setTimeout(() => setDebouncedEmail(emailInput), 300)
-		return () => clearTimeout(t)
-	}, [emailInput])
-
-	const { data: searchResults = [], isLoading: isSearching } = useQuery({
-		queryKey: ["userSearch", debouncedEmail],
-		queryFn: () => searchUsersByEmailFn({ data: { email: debouncedEmail } }),
-		enabled: debouncedEmail.length >= 3,
-		staleTime: 30_000,
-	})
-
-	// ── Permissions ───────────────────────────────────────────────────────────
+function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 	const queryClient = useQueryClient()
 	const permsKey = ["adminPermissions", selectedUser?.id]
 
@@ -395,7 +362,6 @@ export default function PermissionsManager() {
 		enabled: !!selectedUser,
 	})
 
-	// ── Dialog state ──────────────────────────────────────────────────────────
 	const [dialog, setDialog] = React.useState<DialogState | null>(null)
 	const [deleteTarget, setDeleteTarget] = React.useState<PermissionRow | null>(null)
 	const [form, setForm] = React.useState<FormState>(INITIAL_FORM)
@@ -414,10 +380,7 @@ export default function PermissionsManager() {
 
 	const closeDialog = () => setDialog(null)
 
-	// ── Mutations ─────────────────────────────────────────────────────────────
 	const invalidatePerms = () => {
-		// Invalida a tabela admin (UI local) e também o cache de permissões do
-		// próprio usuário editado — usado por usePBAC() e pelo hub de módulos.
 		queryClient.invalidateQueries({ queryKey: permsKey })
 		queryClient.invalidateQueries({ queryKey: ["userPermissions", selectedUser?.id] })
 	}
@@ -474,175 +437,264 @@ export default function PermissionsManager() {
 		else if (dialog?.mode === "edit") updatePerm.mutate()
 	}
 
-	const isMutating = createPerm.isPending || updatePerm.isPending
+	return {
+		permissions,
+		isLoadingPerms,
+		dialog,
+		deleteTarget,
+		setDeleteTarget,
+		form,
+		setForm,
+		openAdd,
+		openEdit,
+		closeDialog,
+		handleSubmit,
+		isMutating: createPerm.isPending || updatePerm.isPending,
+		isDeleting: deletePerm.isPending,
+		deletePerm,
+	}
+}
 
-	// ── Render ────────────────────────────────────────────────────────────────
+// ─── User Search Panel ────────────────────────────────────────────────────────
+
+function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => void }) {
+	const [emailInput, setEmailInput] = React.useState("")
+	const [debouncedEmail, setDebouncedEmail] = React.useState("")
+
+	React.useEffect(() => {
+		const t = setTimeout(() => setDebouncedEmail(emailInput), 300)
+		return () => clearTimeout(t)
+	}, [emailInput])
+
+	const { data: searchResults = [], isLoading: isSearching } = useQuery({
+		queryKey: ["userSearch", debouncedEmail],
+		queryFn: () => searchUsersByEmailFn({ data: { email: debouncedEmail } }),
+		enabled: debouncedEmail.length >= 3,
+		staleTime: 30_000,
+	})
+
 	return (
-		<div className="space-y-6">
-			{/* ── Search Section ──────────────────────────────────────────────── */}
-			{!selectedUser ? (
-				<div className="rounded-lg border bg-card p-6 space-y-4">
-					<div>
-						<h2 className="text-base font-semibold">Buscar Usuário</h2>
-						<p className="text-sm text-muted-foreground mt-0.5">Digite o email do usuário para gerenciar suas permissões.</p>
-					</div>
+		<div className="rounded-lg border bg-card p-6 space-y-4">
+			<div>
+				<h2 className="text-base font-semibold">Buscar Usuário</h2>
+				<p className="text-sm text-muted-foreground mt-0.5">Digite o email do usuário para gerenciar suas permissões.</p>
+			</div>
 
-					<div className="relative max-w-md">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-						<Input value={emailInput} onChange={(e) => setEmailInput(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" />
-					</div>
+			<div className="relative max-w-md">
+				<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+				<Input value={emailInput} onChange={(e) => setEmailInput(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" />
+			</div>
 
-					{/* Results */}
-					{debouncedEmail.length >= 3 && (
-						<div className="space-y-1">
-							{isSearching ? (
-								<div className="space-y-2 pt-1">
-									<Skeleton className="h-12 w-full rounded-lg" />
-									<Skeleton className="h-12 w-full rounded-lg" />
+			{debouncedEmail.length >= 3 && (
+				<div className="space-y-1">
+					{isSearching ? (
+						<div className="space-y-2 pt-1">
+							<Skeleton className="h-12 w-full rounded-lg" />
+							<Skeleton className="h-12 w-full rounded-lg" />
+						</div>
+					) : searchResults.length === 0 ? (
+						<p className="text-sm text-muted-foreground py-2">Nenhum usuário encontrado para &ldquo;{debouncedEmail}&rdquo;.</p>
+					) : (
+						searchResults.map((user) => (
+							<button
+								key={user.id}
+								type="button"
+								onClick={() => onSelect(user)}
+								className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm hover:bg-accent transition-colors group"
+							>
+								<div>
+									<p className="font-medium">{user.email}</p>
+									{user.nrOrdem && <p className="text-xs text-muted-foreground mt-0.5">Nr. Ordem: {user.nrOrdem}</p>}
 								</div>
-							) : searchResults.length === 0 ? (
-								<p className="text-sm text-muted-foreground py-2">Nenhum usuário encontrado para &ldquo;{debouncedEmail}&rdquo;.</p>
-							) : (
-								searchResults.map((user) => (
-									<button
-										key={user.id}
-										type="button"
-										onClick={() => setSelectedUser(user)}
-										className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm hover:bg-accent transition-colors group"
-									>
-										<div>
-											<p className="font-medium">{user.email}</p>
-											{user.nrOrdem && <p className="text-xs text-muted-foreground mt-0.5">Nr. Ordem: {user.nrOrdem}</p>}
-										</div>
-										<span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Selecionar →</span>
-									</button>
-								))
-							)}
-						</div>
+								<span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Selecionar →</span>
+							</button>
+						))
 					)}
-
-					{debouncedEmail.length > 0 && debouncedEmail.length < 3 && <p className="text-xs text-muted-foreground">Digite ao menos 3 caracteres para buscar.</p>}
-				</div>
-			) : (
-				/* ── User Permissions Panel ───────────────────────────────────── */
-				<div className="space-y-4">
-					{/* User info + back */}
-					<div className="flex items-start justify-between gap-4">
-						<div className="flex items-center gap-3">
-							<Button variant="ghost" size="sm" onClick={() => setSelectedUser(null)} className="gap-1.5">
-								<ArrowLeft className="h-4 w-4" />
-								Voltar
-							</Button>
-							<div className="h-5 w-px bg-border" />
-							<div>
-								<p className="font-semibold text-sm">{selectedUser.email}</p>
-								{selectedUser.nrOrdem && <p className="text-xs text-muted-foreground">Nr. Ordem: {selectedUser.nrOrdem}</p>}
-							</div>
-						</div>
-						<Button size="sm" onClick={openAdd} className="gap-1.5 shrink-0">
-							<Plus className="h-4 w-4" />
-							Adicionar permissão
-						</Button>
-					</div>
-
-					{/* Permissions table */}
-					<div className="rounded-lg border bg-card overflow-hidden p-6">
-						<Table>
-							<TableHeader className="border-b border-foreground">
-								<TableRow>
-									<TableHead className="text-foreground font-semibold">Módulo</TableHead>
-									<TableHead className="text-foreground font-semibold">Nível</TableHead>
-									<TableHead className="text-foreground font-semibold">Escopo</TableHead>
-									<TableHead className="w-[80px]" />
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{isLoadingPerms ? (
-									Array.from({ length: 3 }).map((_, i) => (
-										<TableRow key={i}>
-											<TableCell>
-												<Skeleton className="h-5 w-28" />
-											</TableCell>
-											<TableCell>
-												<Skeleton className="h-5 w-16" />
-											</TableCell>
-											<TableCell>
-												<Skeleton className="h-5 w-24" />
-											</TableCell>
-											<TableCell />
-										</TableRow>
-									))
-								) : permissions.length === 0 ? (
-									<TableRow>
-										<TableCell colSpan={4} className="h-24 text-center text-muted-foreground text-sm">
-											<div className="flex flex-col items-center gap-1">
-												<span>Nenhuma permissão cadastrada.</span>
-												<span className="text-xs">Acesso implícito de Comensal ativo por padrão.</span>
-											</div>
-										</TableCell>
-									</TableRow>
-								) : (
-									permissions.map((perm) => (
-										<TableRow key={perm.id} className="hover:bg-accent/40">
-											<TableCell>
-												<ModuleBadge module={perm.module} />
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={perm.level} />
-											</TableCell>
-											<TableCell className="text-sm">
-												<ScopeLabel perm={perm} unitMap={unitMap} kitchenMap={kitchenMap} messHallMap={messHallMap} />
-											</TableCell>
-											<TableCell>
-												<div className="flex items-center gap-1 justify-end">
-													<Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(perm)}>
-														<Pencil className="h-3.5 w-3.5" />
-														<span className="sr-only">Editar</span>
-													</Button>
-													<Button
-														variant="ghost"
-														size="sm"
-														className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-														onClick={() => setDeleteTarget(perm)}
-													>
-														<Trash2 className="h-3.5 w-3.5" />
-														<span className="sr-only">Remover</span>
-													</Button>
-												</div>
-											</TableCell>
-										</TableRow>
-									))
-								)}
-							</TableBody>
-						</Table>
-					</div>
-
-					<p className="text-xs text-muted-foreground">
-						<span className="font-medium">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma
-						permissão <span className="font-medium">diner — Negado</span>.
-					</p>
 				</div>
 			)}
 
-			{/* ── Dialogs ─────────────────────────────────────────────────────── */}
+			{debouncedEmail.length > 0 && debouncedEmail.length < 3 && <p className="text-xs text-muted-foreground">Digite ao menos 3 caracteres para buscar.</p>}
+		</div>
+	)
+}
+
+// ─── User Permissions Panel ───────────────────────────────────────────────────
+
+function UserPermissionsPanel({
+	user,
+	permissions,
+	isLoading,
+	unitMap,
+	kitchenMap,
+	messHallMap,
+	onBack,
+	onAdd,
+	onEdit,
+	onDeleteTarget,
+}: {
+	user: UserSearchResult
+	permissions: PermissionRow[]
+	isLoading: boolean
+	unitMap: Record<number, string>
+	kitchenMap: Record<number, string>
+	messHallMap: Record<number, string>
+	onBack: () => void
+	onAdd: () => void
+	onEdit: (perm: PermissionRow) => void
+	onDeleteTarget: (perm: PermissionRow) => void
+}) {
+	return (
+		<div className="space-y-4">
+			<div className="flex items-start justify-between gap-4">
+				<div className="flex items-center gap-3">
+					<Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+						<ArrowLeft className="h-4 w-4" />
+						Voltar
+					</Button>
+					<div className="h-5 w-px bg-border" />
+					<div>
+						<p className="font-semibold text-sm">{user.email}</p>
+						{user.nrOrdem && <p className="text-xs text-muted-foreground">Nr. Ordem: {user.nrOrdem}</p>}
+					</div>
+				</div>
+				<Button size="sm" onClick={onAdd} className="gap-1.5 shrink-0">
+					<Plus className="h-4 w-4" />
+					Adicionar permissão
+				</Button>
+			</div>
+
+			<div className="rounded-lg border bg-card overflow-hidden p-6">
+				<Table>
+					<TableHeader className="border-b border-foreground">
+						<TableRow>
+							<TableHead className="text-foreground font-semibold">Módulo</TableHead>
+							<TableHead className="text-foreground font-semibold">Nível</TableHead>
+							<TableHead className="text-foreground font-semibold">Escopo</TableHead>
+							<TableHead className="w-[80px]" />
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{isLoading ? (
+							Array.from({ length: 3 }).map((_, i) => (
+								<TableRow key={i}>
+									<TableCell>
+										<Skeleton className="h-5 w-28" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-5 w-16" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-5 w-24" />
+									</TableCell>
+									<TableCell />
+								</TableRow>
+							))
+						) : permissions.length === 0 ? (
+							<TableRow>
+								<TableCell colSpan={4} className="h-24 text-center text-muted-foreground text-sm">
+									<div className="flex flex-col items-center gap-1">
+										<span>Nenhuma permissão cadastrada.</span>
+										<span className="text-xs">Acesso implícito de Comensal ativo por padrão.</span>
+									</div>
+								</TableCell>
+							</TableRow>
+						) : (
+							permissions.map((perm) => (
+								<TableRow key={perm.id} className="hover:bg-accent/40">
+									<TableCell>
+										<ModuleBadge module={perm.module} />
+									</TableCell>
+									<TableCell>
+										<LevelBadge level={perm.level} />
+									</TableCell>
+									<TableCell className="text-sm">
+										<ScopeLabel perm={perm} unitMap={unitMap} kitchenMap={kitchenMap} messHallMap={messHallMap} />
+									</TableCell>
+									<TableCell>
+										<div className="flex items-center gap-1 justify-end">
+											<Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEdit(perm)}>
+												<Pencil className="h-3.5 w-3.5" />
+												<span className="sr-only">Editar</span>
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+												onClick={() => onDeleteTarget(perm)}
+											>
+												<Trash2 className="h-3.5 w-3.5" />
+												<span className="sr-only">Remover</span>
+											</Button>
+										</div>
+									</TableCell>
+								</TableRow>
+							))
+						)}
+					</TableBody>
+				</Table>
+			</div>
+
+			<p className="text-xs text-muted-foreground">
+				<span className="font-medium">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma permissão{" "}
+				<span className="font-medium">diner — Negado</span>.
+			</p>
+		</div>
+	)
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function PermissionsManager() {
+	"use no memo"
+
+	const { units, messHalls } = useMessHalls()
+	const { data: kitchens = [] } = useUserKitchens()
+
+	const unitMap = React.useMemo(() => Object.fromEntries(units.map((u) => [u.id, u.display_name ?? u.code])), [units])
+	const messHallMap = React.useMemo(() => Object.fromEntries(messHalls.map((m) => [m.id, m.display_name ?? m.code])), [messHalls])
+	const kitchenMap = React.useMemo(() => Object.fromEntries(kitchens.map((k) => [k.id, k.unit?.display_name ?? k.unit?.code ?? `Cozinha ${k.id}`])), [kitchens])
+
+	const [selectedUser, setSelectedUser] = React.useState<UserSearchResult | null>(null)
+
+	const crud = usePermissionCRUD(selectedUser)
+
+	return (
+		<div className="space-y-6">
+			{!selectedUser ? (
+				<UserSearchPanel onSelect={setSelectedUser} />
+			) : (
+				<UserPermissionsPanel
+					user={selectedUser}
+					permissions={crud.permissions}
+					isLoading={crud.isLoadingPerms}
+					unitMap={unitMap}
+					kitchenMap={kitchenMap}
+					messHallMap={messHallMap}
+					onBack={() => setSelectedUser(null)}
+					onAdd={crud.openAdd}
+					onEdit={crud.openEdit}
+					onDeleteTarget={crud.setDeleteTarget}
+				/>
+			)}
+
 			<PermissionDialog
-				open={!!dialog}
-				dialog={dialog}
-				form={form}
-				setForm={setForm}
-				isPending={isMutating}
+				open={!!crud.dialog}
+				dialog={crud.dialog}
+				form={crud.form}
+				setForm={crud.setForm}
+				isPending={crud.isMutating}
 				units={[...units]}
 				kitchens={kitchens}
 				messHalls={[...messHalls]}
-				onSubmit={handleSubmit}
-				onClose={closeDialog}
+				onSubmit={crud.handleSubmit}
+				onClose={crud.closeDialog}
 			/>
 
 			<DeleteDialog
-				perm={deleteTarget}
-				isPending={deletePerm.isPending}
-				onConfirm={() => deleteTarget && deletePerm.mutate(deleteTarget.id)}
-				onClose={() => setDeleteTarget(null)}
+				perm={crud.deleteTarget}
+				isPending={crud.isDeleting}
+				onConfirm={() => crud.deleteTarget && crud.deletePerm.mutate(crud.deleteTarget.id)}
+				onClose={() => crud.setDeleteTarget(null)}
 			/>
 		</div>
 	)

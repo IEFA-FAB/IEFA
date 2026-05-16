@@ -4,13 +4,16 @@ import { AppSidebar } from "@/components/sidebar/AppSidebar"
 import { MainSurface } from "@/components/sidebar/MainSurface"
 import type { AppSidebarData } from "@/components/sidebar/SidebarTypes"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { env } from "@/env"
+
+const isCincoS = env.VITE_APP_TENANT === "cinco-s"
 
 const sidebarData: AppSidebarData = {
 	teams: [
 		{
-			name: "Formulários IEFA",
-			logo: "/favicon.svg",
-			plan: "Questionários Internos",
+			name: isCincoS ? "Programa VETOR 5S" : "Formulários IEFA",
+			logo: isCincoS ? "/5s/favicon.svg" : "/favicon.svg",
+			plan: isCincoS ? "SEFA · Melhoria Contínua" : "Questionários Internos",
 		},
 	],
 	navMain: [
@@ -20,7 +23,7 @@ const sidebarData: AppSidebarData = {
 			icon: Home,
 		},
 		{
-			title: "Questionários",
+			title: isCincoS ? "Checklists" : "Questionários",
 			url: "/questionnaires/new",
 			icon: ClipboardCheck,
 		},

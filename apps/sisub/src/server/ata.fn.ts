@@ -8,9 +8,10 @@
 import type { ProcurementList } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProcurementNeed } from "@/services/ProcurementService"
-import type { AtaWithDetails } from "@/types/domain/ata"
+import type { AtaKitchenWithDetails, AtaWithDetails } from "@/types/domain/ata"
 
 // ─── Input Schemas ────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<ProcurementNeed[]> => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 		const { kitchenSelections } = data
 
@@ -216,6 +218,7 @@ export const createAtaFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<ProcurementList> => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 		const { unitId, title, notes, kitchenSelections, items } = data
 
@@ -339,8 +342,7 @@ export const fetchAtaDetailsFn = createServerFn({ method: "GET" })
 
 		if (itemsError) throw new Error(`Erro ao buscar itens: ${itemsError.message}`)
 
-		// biome-ignore lint/suspicious/noExplicitAny: relation shape differs from generated types
-		return { ...ata, kitchens: (kitchens as any) || [], items: items || [] }
+		return { ...ata, kitchens: (kitchens ?? []) as unknown as AtaKitchenWithDetails[], items: items || [] }
 	})
 
 // ─── Atualizar status da ATA ──────────────────────────────────────────────────
@@ -358,6 +360,7 @@ export const updateAtaStatusFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient()
 			.from("procurement_list")
 			.update({ status: data.status, updated_at: new Date().toISOString() })
@@ -375,6 +378,7 @@ export const updateAtaStatusFn = createServerFn({ method: "POST" })
 export const deleteAtaFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ ataId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("procurement_list").update({ deleted_at: new Date().toISOString() }).eq("id", data.ataId)
 		if (error) throw new Error(`Erro ao deletar lista: ${error.message}`)
 	})

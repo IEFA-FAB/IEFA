@@ -1,21 +1,15 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { anularEmpenhoFn, createEmpenhoFn, fetchArpForAtaFn, fetchEmpenhosFn, importArpItemsFn, searchArpFn, syncArpBalanceFn } from "@/server/arp.fn"
 import type { ArpWithItems, ComprasArpPage, CreateEmpenhoPayload } from "@/types/domain/arp"
-
-// ─── Query Keys ───────────────────────────────────────────────────────────────
-
-const keys = {
-	arp: (ataId: string | null) => ["procurement_arp", "ata", ataId] as const,
-	empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
-}
 
 // ─── Query: ARP vinculada à ATA ───────────────────────────────────────────────
 
 export function useArpForAta(ataId: string | null) {
 	return useQuery({
-		queryKey: keys.arp(ataId),
+		queryKey: queryKeys.ata.arp(ataId),
 		queryFn: () => fetchArpForAtaFn({ data: { ataId: ataId as string } }) as Promise<ArpWithItems | null>,
 		enabled: ataId !== null,
 		staleTime: 2 * 60 * 1000, // 2 min — pode mudar após sync
@@ -26,7 +20,7 @@ export function useArpForAta(ataId: string | null) {
 
 export function useEmpenhos(arpItemId: string | null) {
 	return useQuery({
-		queryKey: keys.empenhos(arpItemId),
+		queryKey: queryKeys.ata.empenhos(arpItemId),
 		queryFn: () => fetchEmpenhosFn({ data: { arpItemId: arpItemId as string } }) as Promise<Empenho[]>,
 		enabled: arpItemId !== null,
 		staleTime: 1 * 60 * 1000,
@@ -49,7 +43,7 @@ export function useImportArp(ataId: string) {
 	return useMutation({
 		mutationFn: (params: Parameters<typeof importArpItemsFn>[0]["data"]) => importArpItemsFn({ data: params }),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: keys.arp(ataId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.arp(ataId) })
 			const n = data.items.length
 			toast.success(`ARP ${data.numero_ata}/${data.ano_ata ?? ""} importada com ${n} ${n === 1 ? "item" : "itens"}`)
 		},
@@ -64,7 +58,7 @@ export function useSyncArpBalance(ataId: string) {
 	return useMutation({
 		mutationFn: (arpId: string) => syncArpBalanceFn({ data: { arpId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: keys.arp(ataId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.arp(ataId) })
 			toast.success("Saldo de empenhos sincronizado com Compras.gov.br")
 		},
 		onError: (error) => toast.error(`Erro ao sincronizar saldo: ${error.message}`),
@@ -78,7 +72,7 @@ export function useCreateEmpenho(arpItemId: string) {
 	return useMutation({
 		mutationFn: (payload: CreateEmpenhoPayload) => createEmpenhoFn({ data: payload }),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: keys.empenhos(arpItemId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
 			toast.success(`Empenho ${data.numero_empenho} registrado com sucesso`)
 		},
 		onError: (error) => toast.error(`Erro ao registrar empenho: ${error.message}`),
@@ -92,7 +86,7 @@ export function useAnularEmpenho(arpItemId: string) {
 	return useMutation({
 		mutationFn: (empenhoId: string) => anularEmpenhoFn({ data: { empenhoId } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: keys.empenhos(arpItemId) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.empenhos(arpItemId) })
 			toast.success("Empenho anulado")
 		},
 		onError: (error) => toast.error(`Erro ao anular empenho: ${error.message}`),

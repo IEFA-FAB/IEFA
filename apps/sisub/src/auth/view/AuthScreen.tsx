@@ -191,9 +191,8 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			return
 		}
 
-		const pwErr = getPasswordError(loginPassword)
-		if (pwErr) {
-			setPasswordError(pwErr)
+		if (!loginPassword) {
+			setPasswordError("Informe a senha.")
 			return
 		}
 
@@ -570,7 +569,6 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											onChange={handleLoginPasswordChange}
 											required
 											autoComplete="current-password"
-											minLength={8}
 											disabled={isSubmitting}
 										/>
 										<button

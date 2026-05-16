@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import supabase from "@/lib/supabase"
 import { getServerSessionFn } from "@/server/auth.fn"
 import type { AuthContextType } from "../types/domain/auth"
@@ -10,7 +11,7 @@ export type AuthState = Pick<AuthContextType, "user" | "session" | "isLoading" |
 // (lê cookies via getSupabaseServerClient) quanto no cliente (HTTP call com cache).
 export const authQueryOptions = () =>
 	queryOptions({
-		queryKey: ["auth", "user"],
+		queryKey: queryKeys.auth.user(),
 		queryFn: async () => {
 			const { user, session } = await getServerSessionFn()
 			return {

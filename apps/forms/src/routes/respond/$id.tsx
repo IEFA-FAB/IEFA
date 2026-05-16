@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoSave } from "@/hooks/useAutoSave"
+import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
 import { getMyResponseStateFn, getOrCreateResponseSessionFn, getQuestionnaireFn, submitResponseFn } from "@/server/forms.fn"
 
 const questionnaireQueryOptions = (id: string) =>
@@ -311,6 +312,33 @@ function QuestionInput({
 					))}
 				</div>
 			)
+		case "conformity": {
+			const conformityOpts = question.options as ConformityOptions | null
+			const weight = conformityOpts?.weight ?? 1
+			const weightLabel = conformityOpts?.weightLabel ?? "Desejável"
+			return (
+				<div className="space-y-2">
+					<div className="flex flex-wrap gap-2">
+						{CONFORMITY_OPTIONS.map((opt) => (
+							<Button
+								key={opt.value}
+								type="button"
+								variant={value === opt.value ? "default" : "outline"}
+								size="sm"
+								onClick={() => onChange(opt.value)}
+								className="min-w-[3.5rem]"
+							>
+								{opt.value}
+							</Button>
+						))}
+					</div>
+					<p className="text-xs text-muted-foreground">
+						{value ? CONFORMITY_OPTIONS.find((o) => o.value === value)?.label : "Selecione uma opção"}
+						{" · "}Peso {weight} — {weightLabel}
+					</p>
+				</div>
+			)
+		}
 		case "scale":
 			return (
 				<div className="flex gap-1">

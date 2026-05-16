@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireUserId } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { MealKey } from "@/types/domain/meal"
 import type { FiscalPresenceRecord, ForecastMap, ForecastRow } from "@/types/domain/presence"
@@ -123,6 +124,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		await requireUserId()
 		const { error } = await getSupabaseServerClient().schema("sisub").from("meal_presences").insert({
 			user_id: data.user_id,
 			date: data.date,
@@ -141,6 +143,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 export const deletePresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.string() }))
 	.handler(async ({ data }) => {
+		await requireUserId()
 		const { error } = await getSupabaseServerClient().schema("sisub").from("meal_presences").delete().eq("id", data.id)
 
 		if (error) throw new Error(error.message)

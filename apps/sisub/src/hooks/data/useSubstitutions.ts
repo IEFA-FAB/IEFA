@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { updateSubstitutionsFn } from "@/server/planning.fn"
 
 export function useUpdateSubstitutions() {
@@ -14,7 +15,7 @@ export function useUpdateSubstitutions() {
 			substitutions: Record<string, { type: string; rationale: string; updated_at: string }>
 		}) => updateSubstitutionsFn({ data: { menuItemId, substitutions } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["planning"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			toast.success("Substituições salvas com sucesso!")
 		},
 		onError: (error) => {

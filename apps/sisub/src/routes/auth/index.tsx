@@ -21,6 +21,8 @@ import {
 import { useEffect, useState } from "react"
 // Validation
 import { z } from "zod"
+// Hooks + Services
+import { useLoginRateLimiter } from "@/auth/rate-limiter"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -28,8 +30,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// Hooks + Services
-import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { cn } from "@/lib/cn"
 import supabase from "@/lib/supabase"
@@ -275,16 +275,19 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
 	const emailErr = email ? validateEmail(email) : null
-	const passwordErr = password ? validatePassword(password) : null
+	const passwordErr = null
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		"use no memo"
 		e.preventDefault()
 		if (isLocked) return
 		const eErr = validateEmail(email)
-		const pErr = validatePassword(password)
-		if (eErr || pErr) {
-			setError(eErr || pErr || "")
+		if (!password) {
+			setError("Senha obrigatória.")
+			return
+		}
+		if (eErr) {
+			setError(eErr)
 			return
 		}
 		setIsSubmitting(true)

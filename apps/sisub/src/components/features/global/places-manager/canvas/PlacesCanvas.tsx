@@ -5,10 +5,12 @@ import {
 	Controls,
 	type Edge,
 	type EdgeChange,
+	type EdgeTypes,
 	type IsValidConnection,
 	MiniMap,
 	type Node,
 	type NodeChange,
+	type NodeTypes,
 	type OnReconnect,
 	ReactFlow,
 	reconnectEdge,
@@ -95,10 +97,8 @@ export function PlacesCanvas({
 			<ReactFlow
 				nodes={nodes as Node[]}
 				edges={edges as Edge[]}
-				// biome-ignore lint/suspicious/noExplicitAny: ReactFlow NodeTypes/EdgeTypes require generic cast
-				nodeTypes={nodeTypes as any}
-				// biome-ignore lint/suspicious/noExplicitAny: ReactFlow NodeTypes/EdgeTypes require generic cast
-				edgeTypes={edgeTypes as any}
+				nodeTypes={nodeTypes as NodeTypes}
+				edgeTypes={edgeTypes as EdgeTypes}
 				defaultEdgeOptions={defaultEdgeOptions}
 				onNodesChange={onNodesChange as (changes: NodeChange[]) => void}
 				onEdgesChange={onEdgesChange as (changes: EdgeChange[]) => void}

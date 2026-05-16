@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js"
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
@@ -155,17 +155,17 @@ const stopSyncRoute = createRoute({
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export const comprasAdminRoutes = new OpenAPIHono()
-	// Middleware: verifica x-admin-secret
-	.use("*", async (c, next) => {
-		const secret = c.req.header("x-admin-secret")
-		if (!secret || secret !== env.ADMIN_SECRET) {
-			return c.json({ error: "Unauthorized" }, 401)
-		}
-		return next()
-	})
 
+comprasAdminRoutes.use("*", async (c, next) => {
+	const secret = c.req.header("x-admin-secret")
+	if (!secret || secret !== env.ADMIN_SECRET) {
+		return c.json({ error: "Unauthorized" }, 401)
+	}
+	return next()
+})
+
+comprasAdminRoutes
 	// ── POST /admin/compras/sync — trigger manual ──────────────────────────────
-
 	.openapi(triggerSyncRoute, async (c) => {
 		const supabase = getSupabase()
 
@@ -201,7 +201,7 @@ export const comprasAdminRoutes = new OpenAPIHono()
 
 		const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
 
-		return c.json({ ...log, steps: steps ?? [] } as any, 200)
+		return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
 	})
 
 	// ── GET /admin/compras/sync/:id — sync específica (polling) ───────────────
@@ -216,7 +216,7 @@ export const comprasAdminRoutes = new OpenAPIHono()
 
 		const { data: steps } = await supabase.from("compras_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
 
-		return c.json({ ...log, steps: steps ?? [] } as any, 200)
+		return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
 	})
 
 	// ── POST /admin/compras/sync/:id/stop — solicita parada da sync ───────────

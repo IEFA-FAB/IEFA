@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { queryKeys } from "@/lib/query-keys"
 import { createPolicyRuleFn, deletePolicyRuleFn, fetchPolicyRulesFn, generateReviewPromptFn, updatePolicyRuleFn } from "@/server/policy.fn"
 import type { PolicyRule, PolicyRuleInsert, PolicyRuleUpdate, PolicyTarget } from "@/types/domain/policy"
 
@@ -9,14 +10,14 @@ import type { PolicyRule, PolicyRuleInsert, PolicyRuleUpdate, PolicyTarget } fro
 
 export const policyRulesQueryOptions = (target: PolicyTarget) =>
 	queryOptions({
-		queryKey: ["sisub", "policy-rules", target],
+		queryKey: queryKeys.sisub.policyRules(target),
 		queryFn: () => fetchPolicyRulesFn({ data: { target } }) as Promise<PolicyRule[]>,
 		staleTime: 5 * 60 * 1000,
 	})
 
 export const reviewPromptQueryOptions = (target: PolicyTarget) =>
 	queryOptions({
-		queryKey: ["sisub", "policy-prompt", target],
+		queryKey: queryKeys.sisub.policyPrompt(target),
 		queryFn: () => generateReviewPromptFn({ data: { target } }) as Promise<string>,
 		staleTime: 0,
 		enabled: false,
@@ -44,7 +45,7 @@ export function useCreatePolicyRule() {
 	return useMutation({
 		mutationFn: (input: PolicyRuleInsert) => createPolicyRuleFn({ data: input }),
 		onSuccess: (created) => {
-			queryClient.invalidateQueries({ queryKey: ["sisub", "policy-rules", created.target] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.sisub.policyRules(created.target) })
 			toast.success("Regra criada com sucesso.")
 		},
 		onError: (error) => {
@@ -61,7 +62,7 @@ export function useUpdatePolicyRule() {
 	return useMutation({
 		mutationFn: (vars: { id: string; target: PolicyTarget; payload: PolicyRuleUpdate }) => updatePolicyRuleFn({ data: { id: vars.id, ...vars.payload } }),
 		onSuccess: (_updated, { target }) => {
-			queryClient.invalidateQueries({ queryKey: ["sisub", "policy-rules", target] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.sisub.policyRules(target) })
 			toast.success("Regra atualizada.")
 		},
 		onError: (error) => {
@@ -78,7 +79,7 @@ export function useDeletePolicyRule() {
 	return useMutation({
 		mutationFn: (vars: { id: string; target: PolicyTarget }) => deletePolicyRuleFn({ data: { id: vars.id } }),
 		onSuccess: (_data, { target }) => {
-			queryClient.invalidateQueries({ queryKey: ["sisub", "policy-rules", target] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.sisub.policyRules(target) })
 			toast.success("Regra removida.")
 		},
 		onError: (error) => {

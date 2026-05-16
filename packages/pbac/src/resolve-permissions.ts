@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import type { UserPermission } from "./types.ts"
 
 /**
@@ -13,12 +14,8 @@ import type { UserPermission } from "./types.ts"
  * @param supabase - Cliente Supabase com service role (bypass RLS)
  */
 // biome-ignore lint/suspicious/noExplicitAny: aceita qualquer schema de SupabaseClient
-export async function resolveUserPermissions(userId: string, supabase: any): Promise<UserPermission[]> {
-	// biome-ignore lint/suspicious/noExplicitAny: user_permissions não está nos tipos gerados
-	const { data: rows, error } = await (supabase as any)
-		.from("user_permissions")
-		.select("module, level, mess_hall_id, kitchen_id, unit_id")
-		.eq("user_id", userId)
+export async function resolveUserPermissions(userId: string, supabase: SupabaseClient<any, any>): Promise<UserPermission[]> {
+	const { data: rows, error } = await supabase.from("user_permissions").select("module, level, mess_hall_id, kitchen_id, unit_id").eq("user_id", userId)
 
 	if (error) throw new Error(`Falha ao buscar permissões: ${error.message}`)
 

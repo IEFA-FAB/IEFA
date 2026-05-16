@@ -8,6 +8,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProductionItem, ProductionTask, ProductionTaskStatus } from "@/types/domain/production"
 import type { RecipeIngredientWithIngredient } from "@/types/domain/recipes"
@@ -110,8 +111,7 @@ export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 									ingredients: (recipeOrigin.ingredients ?? []) as RecipeIngredientWithIngredient[],
 								}
 							: null,
-						// biome-ignore lint/suspicious/noExplicitAny: inherited Json type from DB
-					} as any,
+					} as unknown as ProductionItem["menuItem"],
 					mealType: mealType ?? null,
 				})
 			}
@@ -136,6 +136,7 @@ export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 export const ensureProductionTasksFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ kitchenId: z.number(), date: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 
 		// 1. Buscar todos os menu_item_ids do dia para esta cozinha
@@ -195,6 +196,7 @@ export const updateProductionTaskStatusFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		await requireAuth()
 		const supabase = getSupabaseServerClient()
 
 		const now = new Date().toISOString()

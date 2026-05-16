@@ -8,23 +8,14 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+import { requireUserId } from "@/lib/auth.server"
+import { getSupabaseServerClient } from "@/lib/supabase.server"
 import { CHAT_MODULES } from "@/types/domain/module-chat"
 
 // The module_chat_* tables are created via migration but not yet in the generated
 // Supabase types. We use `as any` for .from() calls until types are regenerated.
 // biome-ignore lint/suspicious/noExplicitAny: tables not in generated types yet
 type AnyFrom = any
-
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-async function requireUserId(): Promise<string> {
-	const {
-		data: { user },
-	} = await getSupabaseAuthClient().auth.getUser()
-	if (!user) throw new Error("Não autenticado")
-	return user.id
-}
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
@@ -152,9 +143,8 @@ export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
 		const sessionRaw = session as unknown as Record<string, unknown>
 		if (!Array.isArray(sessionRaw.module_chat_message)) throw new Error("Sessão não encontrada")
 
-		// biome-ignore lint/suspicious/noExplicitAny: message rows from dynamic join
-		const messages = sessionRaw.module_chat_message as any[]
-		return messages.sort((a: { created_at: string }, b: { created_at: string }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+		const messages = sessionRaw.module_chat_message as Array<{ created_at: string }>
+		return messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 	})
 
 /**

@@ -70,6 +70,13 @@ const typedApp = app
 
 // Non-typed additions (docs, UI — don't affect RPC types)
 
+app.openAPIRegistry.registerComponent("securitySchemes", "AdminSecret", {
+	type: "apiKey",
+	in: "header",
+	name: "x-admin-secret",
+	description: "Secret obrigatório para endpoints /api/admin/*. Configurado via env ADMIN_SECRET em iefa-api.fly.dev.",
+})
+
 // Documentação OpenAPI
 app.doc("/doc", {
 	openapi: "3.0.0",
@@ -88,16 +95,6 @@ app.doc("/doc", {
 			description: "Local",
 		},
 	],
-	components: {
-		securitySchemes: {
-			AdminSecret: {
-				type: "apiKey",
-				in: "header",
-				name: "x-admin-secret",
-				description: "Secret obrigatório para endpoints /api/admin/*. Configurado via env ADMIN_SECRET em iefa-api.fly.dev.",
-			},
-		},
-	},
 })
 
 // Interface Scalar para documentação interativa (recomendado: tema 'purple' ou 'moon')
@@ -112,7 +109,7 @@ app.doc("/doc", {
 
 // Alternativa com configuração dinâmica (útil para diferentes ambientes)
 
-app.get("/favicon.svg", (c) => {
+app.get("/favicon.svg", (_c) => {
 	const file = Bun.file(new URL("../public/favicon.svg", import.meta.url))
 	return new Response(file, { headers: { "Content-Type": "image/svg+xml" } })
 })

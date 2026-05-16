@@ -1,19 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ClipboardCheck, Lock, NavArrowDown, SendDiagonal, StatsReport } from "iconoir-react"
+import { lazy, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { env } from "@/env"
+import { useTenant } from "@/lib/tenant"
+
+const CincoSLanding = lazy(() => import("@/components/cinco-s/Landing").then((m) => ({ default: m.CincoSLanding })))
 
 export const Route = createFileRoute("/")({
-	component: Home,
+	component: IndexPage,
 	head: () => ({
-		meta: [
-			{ title: "Formulários IEFA" },
-			{
-				name: "description",
-				content: "Sistema de questionários internos do Instituto de Economia, Finanças e Administração da Aeronáutica",
-			},
-		],
+		meta:
+			env.VITE_APP_TENANT === "cinco-s"
+				? [{ title: "Programa VETOR 5S — SEFA" }, { name: "description", content: "Programa VETOR 5S — Melhoria Contínua — SEFA/FAB" }]
+				: [
+						{ title: "Formulários IEFA" },
+						{
+							name: "description",
+							content: "Sistema de questionários internos do Instituto de Economia, Finanças e Administração da Aeronáutica",
+						},
+					],
 	}),
 })
 
@@ -35,7 +43,21 @@ const FEATURES = [
 	},
 ]
 
-function Home() {
+function IndexPage() {
+	const { id } = useTenant()
+
+	if (id === "cinco-s") {
+		return (
+			<Suspense>
+				<CincoSLanding />
+			</Suspense>
+		)
+	}
+
+	return <FormsHome />
+}
+
+function FormsHome() {
 	return (
 		<div className="relative flex flex-col w-full text-foreground">
 			{/* ─── Hero ─────────────────────────────────────────────────────────── */}

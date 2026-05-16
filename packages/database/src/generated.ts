@@ -59,6 +59,7 @@ export type Database = {
 					description: string | null
 					id: string
 					status: Database["forms"]["Enums"]["questionnaire_status"]
+					tags: string[]
 					title: string
 					updated_at: string
 				}
@@ -68,6 +69,7 @@ export type Database = {
 					description?: string | null
 					id?: string
 					status?: Database["forms"]["Enums"]["questionnaire_status"]
+					tags?: string[]
 					title: string
 					updated_at?: string
 				}
@@ -77,6 +79,7 @@ export type Database = {
 					description?: string | null
 					id?: string
 					status?: Database["forms"]["Enums"]["questionnaire_status"]
+					tags?: string[]
 					title?: string
 					updated_at?: string
 				}
@@ -237,7 +240,7 @@ export type Database = {
 			lookup_user_id_by_email: { Args: { p_email: string }; Returns: string }
 		}
 		Enums: {
-			question_type: "text" | "textarea" | "single_choice" | "multiple_choice" | "number" | "date" | "scale" | "boolean"
+			question_type: "text" | "textarea" | "single_choice" | "multiple_choice" | "number" | "date" | "scale" | "boolean" | "conformity"
 			questionnaire_response_status: "draft" | "sent"
 			questionnaire_status: "draft" | "sent"
 		}
@@ -4085,7 +4088,7 @@ export type CompositeTypes<
 export const Constants = {
 	forms: {
 		Enums: {
-			question_type: ["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean"],
+			question_type: ["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean", "conformity"],
 			questionnaire_response_status: ["draft", "sent"],
 			questionnaire_status: ["draft", "sent"],
 		},

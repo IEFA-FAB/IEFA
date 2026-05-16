@@ -47,8 +47,7 @@ export async function fetchDailyMenus(client: AnyClient, ctx: UserContext, input
 		.order("meal_type_id")
 
 	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	// biome-ignore lint/suspicious/noExplicitAny: untyped rows
-	return (data ?? []).map((menu: any) => ({
+	return (data ?? []).map((menu) => ({
 		...menu,
 		menu_items: (menu.menu_items ?? []).filter((item: { deleted_at: string | null }) => !item.deleted_at),
 	}))
@@ -65,8 +64,7 @@ export async function fetchDayDetails(client: AnyClient, ctx: UserContext, input
 		.is("deleted_at", null)
 
 	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	// biome-ignore lint/suspicious/noExplicitAny: untyped rows
-	return (data ?? []).map((menu: any) => ({
+	return (data ?? []).map((menu) => ({
 		...menu,
 		menu_items: (menu.menu_items ?? []).filter((item: { deleted_at: string | null }) => !item.deleted_at),
 	}))
@@ -107,12 +105,11 @@ export async function addMenuItem(client: AnyClient, ctx: UserContext, input: Ad
 
 	if (recipeError || !recipe) throw new DomainError("RECIPE_NOT_FOUND", `Recipe ${input.recipeId} not found`)
 
-	// biome-ignore lint/suspicious/noExplicitAny: untyped row
-	if ((recipe as any).kitchen_id !== null && (recipe as any).kitchen_id !== kitchenId) {
+	if (recipe.kitchen_id !== null && recipe.kitchen_id !== kitchenId) {
 		throw new DomainError("RECIPE_ACCESS_DENIED", `Recipe ${input.recipeId} does not belong to kitchen ${kitchenId}`)
 	}
 
-	// 4. Insert with recipe snapshot
+	// Insert with recipe snapshot
 	const { data, error } = await client
 		.from("menu_items")
 		.insert({
@@ -138,12 +135,7 @@ export async function updateMenuItem(client: AnyClient, ctx: UserContext, input:
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
-	const { data, error } = await client
-		.from("menu_items")
-		// biome-ignore lint/suspicious/noExplicitAny: dynamic update object
-		.update(updates as any)
-		.eq("id", input.menuItemId)
-		.select()
+	const { data, error } = await client.from("menu_items").update(updates).eq("id", input.menuItemId).select()
 
 	if (error) throw new DomainError("UPDATE_FAILED", error.message)
 	return data
@@ -179,11 +171,7 @@ export async function updateSubstitutions(client: AnyClient, ctx: UserContext, i
 	const kitchenId = await resolveKitchenFromMenuItem(client, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const { error } = await client
-		.from("menu_items")
-		// biome-ignore lint/suspicious/noExplicitAny: Json column
-		.update({ substitutions: input.substitutions as any })
-		.eq("id", input.menuItemId)
+	const { error } = await client.from("menu_items").update({ substitutions: input.substitutions }).eq("id", input.menuItemId)
 
 	if (error) throw new DomainError("UPDATE_FAILED", error.message)
 }

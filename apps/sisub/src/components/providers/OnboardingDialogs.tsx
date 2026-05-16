@@ -97,7 +97,7 @@ export function OnboardingDialogs() {
 		}
 	}, [])
 
-	const submitVoteMutation = useSubmitEvaluation()
+	const submitVoteMutation = useSubmitEvaluation(userId)
 
 	const [prevVoteSuccess, setPrevVoteSuccess] = useState(submitVoteMutation.isSuccess)
 	if (prevVoteSuccess !== submitVoteMutation.isSuccess) {
@@ -110,7 +110,7 @@ export function OnboardingDialogs() {
 	const handleSubmitVote = () => {
 		const question = evaluationQuestion
 		if (!userId || !question || selectedRating == null) return
-		submitVoteMutation.mutate({ value: selectedRating, question, userId })
+		submitVoteMutation.mutate({ value: selectedRating, question })
 	}
 
 	return (

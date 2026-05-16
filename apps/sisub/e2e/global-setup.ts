@@ -35,12 +35,25 @@ async function globalSetup() {
   // Navega para a página de login
   await page.goto("http://localhost:3000/auth");
 
-  // Aguarda o formulário estar visível
+  // Aguarda o formulário estar visível no DOM (pode ser SSR)
   await page.waitForSelector("#login-email", { timeout: 30_000 });
 
+  // Aguarda React hidratar — o formulário só tem onSubmit funcional após hydration.
+  // TanStack Start com Nitro SSR serve HTML pré-renderizado: o seletor é encontrado
+  // imediatamente, mas React ainda não montou seus event handlers no cliente.
+  // React 18 atribui __reactFiber$* nos elementos DOM após montar.
+  await page.waitForFunction(
+    () => {
+      const input = document.querySelector("#login-email");
+      if (!input) return false;
+      return Object.keys(input).some((k) => k.startsWith("__reactFiber"));
+    },
+    { timeout: 30_000 },
+  );
+
   // Preenche credenciais e submete
-  await page.fill("#login-email", email);
-  await page.fill("#login-password", password);
+  await page.locator("#login-email").fill(email);
+  await page.locator("#login-password").fill(password);
   await page.click('button[type="submit"]');
 
   // Aguarda redirect para /hub após login bem-sucedido
