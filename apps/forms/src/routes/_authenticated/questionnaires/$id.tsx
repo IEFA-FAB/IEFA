@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/hooks/useAuth"
 import { CONFORMITY_WEIGHTS, type ConformityOptions } from "@/lib/conformity"
 import {
 	createQuestionFn,
@@ -49,18 +50,20 @@ function EditQuestionnairePage() {
 	const { id } = Route.useParams()
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
+	const { user } = useAuth()
 	const { data: questionnaire } = useSuspenseQuery(questionnaireQueryOptions(id))
 	const [saving, setSaving] = useState(false)
 	const [copiedShareLink, setCopiedShareLink] = useState(false)
 
 	const isDraft = questionnaire.status === "draft"
+	const isCreator = questionnaire.created_by === user?.id
 	const sections = questionnaire.section ?? []
 	const shareUrl = typeof window !== "undefined" ? new URL(`/respond/${id}`, window.location.origin).toString() : `/respond/${id}`
 
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["questionnaire", id] })
 
 	const handleUpdateTitle = async (title: string) => {
-		if (!title.trim() || !isDraft) return
+		if (!title.trim() || !isCreator) return
 		await updateQuestionnaireFn({ data: { id, title } })
 		invalidate()
 	}
@@ -117,19 +120,19 @@ function EditQuestionnairePage() {
 		<div className="p-6 md:p-10 space-y-6">
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-3">
-					<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/" })}>
-						<ArrowLeft className="h-4 w-4" />
+					<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/dashboard" })}>
+						<ArrowLeft className="size-4" />
 					</Button>
 					<div>
-						<h1 className="text-2xl font-bold tracking-tight">{questionnaire.title}</h1>
+						<h1 className="text-2xl font-semibold tracking-tight">{questionnaire.title}</h1>
 						<Badge variant={isDraft ? "secondary" : "default"} className="mt-1">
 							{isDraft ? (
 								<>
-									<EditPencil className="h-3 w-3" /> Rascunho
+									<EditPencil className="size-3" /> Rascunho
 								</>
 							) : (
 								<>
-									<SendDiagonal className="h-3 w-3" /> Enviado
+									<SendDiagonal className="size-3" /> Enviado
 								</>
 							)}
 						</Badge>
@@ -138,21 +141,21 @@ function EditQuestionnairePage() {
 				<div className="flex items-center gap-2">
 					{questionnaire.status === "sent" && (
 						<Button variant="outline" nativeButton={false} render={<Link to="/responses/$questionnaireId" params={{ questionnaireId: id }} />}>
-							<Eye className="h-4 w-4" />
+							<Eye className="size-4" />
 							Ver respostas
 						</Button>
 					)}
 					{isDraft && (
 						<Button onClick={handlePublish} disabled={saving}>
-							{saving && <Refresh className="h-4 w-4 animate-spin" />}
-							<SendDiagonal className="h-4 w-4" />
+							{saving && <Refresh className="size-4 animate-spin" />}
+							<SendDiagonal className="size-4" />
 							Publicar
 						</Button>
 					)}
 				</div>
 			</div>
 
-			{isDraft && (
+			{isCreator && (
 				<Card>
 					<CardContent className="p-6 space-y-4">
 						<div className="space-y-2">
@@ -199,7 +202,7 @@ function EditQuestionnairePage() {
 						<CardHeader className="pb-3">
 							<div className="flex items-center justify-between">
 								<CardTitle className="text-lg">
-									{isDraft ? (
+									{isCreator ? (
 										<Input
 											defaultValue={section.title}
 											onBlur={(e) => handleUpdateSection(section.id, { title: e.target.value })}
@@ -209,9 +212,9 @@ function EditQuestionnairePage() {
 										section.title
 									)}
 								</CardTitle>
-								{isDraft && (
+								{isCreator && (
 									<Button variant="ghost" size="icon-xs" onClick={() => handleDeleteSection(section.id)}>
-										<Trash className="h-4 w-4" />
+										<Trash className="size-4" />
 									</Button>
 								)}
 							</div>
@@ -220,12 +223,12 @@ function EditQuestionnairePage() {
 							{(section.question ?? []).map(
 								(question: { id: string; text: string; description: string | null; type: string; options: unknown; required: boolean }) => (
 									<div key={question.id} className="border border-border p-4 space-y-3">
-										{isDraft ? (
+										{isCreator ? (
 											<div className="space-y-3">
 												<div className="flex items-start justify-between gap-3">
 													<Input defaultValue={question.text} onBlur={(e) => handleUpdateQuestion(question.id, { text: e.target.value })} className="flex-1" />
 													<Button variant="ghost" size="icon-xs" onClick={() => handleDeleteQuestion(question.id)}>
-														<Trash className="h-4 w-4" />
+														<Trash className="size-4" />
 													</Button>
 												</div>
 												<div className="flex flex-wrap items-center gap-3">
@@ -264,7 +267,7 @@ function EditQuestionnairePage() {
 															<SelectContent>
 																{CONFORMITY_WEIGHTS.map((w) => (
 																	<SelectItem key={w.value} value={w.value}>
-																		{w.value} — {w.label}
+																		{w.value}: {w.label}
 																	</SelectItem>
 																))}
 															</SelectContent>
@@ -275,7 +278,7 @@ function EditQuestionnairePage() {
 															type="checkbox"
 															defaultChecked={question.required}
 															onChange={(e) => handleUpdateQuestion(question.id, { required: e.target.checked })}
-															className="h-3.5 w-3.5 border border-border accent-foreground"
+															className="size-3.5 border border-border accent-foreground"
 														/>
 														Obrigatória
 													</label>
@@ -293,9 +296,9 @@ function EditQuestionnairePage() {
 									</div>
 								)
 							)}
-							{isDraft && (
+							{isCreator && (
 								<Button variant="outline" size="sm" onClick={() => handleAddQuestion(section.id, (section.question ?? []).length)}>
-									<Plus className="h-4 w-4" />
+									<Plus className="size-4" />
 									Adicionar pergunta
 								</Button>
 							)}
@@ -304,9 +307,9 @@ function EditQuestionnairePage() {
 				)
 			)}
 
-			{isDraft && (
+			{isCreator && (
 				<Button variant="outline" onClick={handleAddSection} className="w-full">
-					<Plus className="h-4 w-4" />
+					<Plus className="size-4" />
 					Adicionar seção
 				</Button>
 			)}

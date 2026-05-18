@@ -2,7 +2,7 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { Check, Refresh, SendDiagonal } from "iconoir-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useReducer } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,15 +37,119 @@ export const Route = createFileRoute("/respond/$id")({
 type AnswerMap = Record<string, { value: unknown; observation: string | null }>
 type ResponseViewState = "loading" | "metadata" | "draft" | "submitted"
 
+type RespondState = {
+	responseSessionId: string | null
+	answers: AnswerMap
+	submitting: boolean
+	viewState: ResponseViewState
+	submittedAt: string | null
+	showObs: Record<string, boolean>
+	currentVersion: number | null
+}
+
+type RespondAction =
+	| { type: "INIT_DRAFT"; sessionId: string; answers: AnswerMap; version: number | null }
+	| { type: "INIT_METADATA" }
+	| { type: "SESSION_CREATED"; sessionId: string }
+	| { type: "SET_ANSWER"; questionId: string; value: unknown }
+	| { type: "TOGGLE_OBS"; questionId: string }
+	| { type: "SET_OBS"; questionId: string; observation: string | null }
+	| { type: "SUBMITTING" }
+	| { type: "SUBMITTED"; submittedAt: string | null }
+	| { type: "SUBMIT_FAILED" }
+	| { type: "NEW_RESPONSE" }
+
+const initialRespondState: RespondState = {
+	responseSessionId: null,
+	answers: {},
+	submitting: false,
+	viewState: "loading",
+	submittedAt: null,
+	showObs: {},
+	currentVersion: null,
+}
+
+function respondReducer(state: RespondState, action: RespondAction): RespondState {
+	switch (action.type) {
+		case "INIT_DRAFT":
+			return { ...state, responseSessionId: action.sessionId, answers: action.answers, currentVersion: action.version, viewState: "draft" }
+		case "INIT_METADATA":
+			return { ...state, viewState: "metadata" }
+		case "SESSION_CREATED":
+			return { ...state, responseSessionId: action.sessionId, answers: {}, viewState: "draft" }
+		case "SET_ANSWER": {
+			const existing = state.answers[action.questionId]
+			return { ...state, answers: { ...state.answers, [action.questionId]: { value: action.value, observation: existing?.observation ?? null } } }
+		}
+		case "TOGGLE_OBS":
+			return { ...state, showObs: { ...state.showObs, [action.questionId]: !state.showObs[action.questionId] } }
+		case "SET_OBS": {
+			const existing = state.answers[action.questionId]
+			return { ...state, answers: { ...state.answers, [action.questionId]: { value: existing?.value ?? null, observation: action.observation } } }
+		}
+		case "SUBMITTING":
+			return { ...state, submitting: true }
+		case "SUBMITTED":
+			return { ...state, submittedAt: action.submittedAt, viewState: "submitted", submitting: false }
+		case "SUBMIT_FAILED":
+			return { ...state, submitting: false }
+		case "NEW_RESPONSE":
+			return { ...state, viewState: "metadata" }
+		default:
+			return state
+	}
+}
+
+type MetadataState = {
+	evaluationType: EvaluationType | null
+	om: string | null
+	omCustom: string
+	secao: string
+	loading: boolean
+	omOptions: { id: number; name: string }[]
+}
+
+type MetadataAction =
+	| { type: "SET_EVALUATION_TYPE"; value: EvaluationType }
+	| { type: "SET_OM"; value: string | null }
+	| { type: "SET_OM_CUSTOM"; value: string }
+	| { type: "SET_SECAO"; value: string }
+	| { type: "SET_LOADING"; value: boolean }
+	| { type: "SET_OM_OPTIONS"; options: { id: number; name: string }[] }
+
+const initialMetadataState: MetadataState = {
+	evaluationType: null,
+	om: null,
+	omCustom: "",
+	secao: "",
+	loading: false,
+	omOptions: [],
+}
+
+function metadataReducer(state: MetadataState, action: MetadataAction): MetadataState {
+	switch (action.type) {
+		case "SET_EVALUATION_TYPE":
+			return { ...state, evaluationType: action.value }
+		case "SET_OM":
+			return { ...state, om: action.value }
+		case "SET_OM_CUSTOM":
+			return { ...state, omCustom: action.value }
+		case "SET_SECAO":
+			return { ...state, secao: action.value }
+		case "SET_LOADING":
+			return { ...state, loading: action.value }
+		case "SET_OM_OPTIONS":
+			return { ...state, omOptions: action.options }
+		default:
+			return state
+	}
+}
+
 function RespondPage() {
 	const { id } = Route.useParams()
 	const { data: questionnaire } = useSuspenseQuery(questionnaireQueryOptions(id))
-	const [responseSessionId, setResponseSessionId] = useState<string | null>(null)
-	const [answers, setAnswers] = useState<AnswerMap>({})
-	const [submitting, setSubmitting] = useState(false)
-	const [viewState, setViewState] = useState<ResponseViewState>("loading")
-	const [submittedAt, setSubmittedAt] = useState<string | null>(null)
-	const [showObs, setShowObs] = useState<Record<string, boolean>>({})
+	const [state, dispatch] = useReducer(respondReducer, initialRespondState)
+	const { responseSessionId, answers, submitting, viewState, submittedAt, showObs, currentVersion } = state
 
 	const { save, flush, status: saveStatus } = useAutoSave(viewState === "draft" ? responseSessionId : null)
 
@@ -65,17 +169,20 @@ function RespondPage() {
 		let isMounted = true
 
 		const init = async () => {
-			const state = await getMyResponseStateFn({ data: { questionnaire_id: id } })
+			const responseState = await getMyResponseStateFn({ data: { questionnaire_id: id } })
 			if (!isMounted) return
 
-			if (state.status === "draft" && state.session) {
-				setResponseSessionId(state.session.id)
-				setAnswers(buildAnswerMap(state.session.response))
-				setViewState("draft")
+			if (responseState.status === "draft" && responseState.session) {
+				dispatch({
+					type: "INIT_DRAFT",
+					sessionId: responseState.session.id,
+					answers: buildAnswerMap(responseState.session.response),
+					version: responseState.session.current_version ?? null,
+				})
 				return
 			}
 
-			setViewState("metadata")
+			dispatch({ type: "INIT_METADATA" })
 		}
 
 		init()
@@ -87,14 +194,13 @@ function RespondPage() {
 
 	const handleSubmit = async () => {
 		if (!responseSessionId) return
-		setSubmitting(true)
+		dispatch({ type: "SUBMITTING" })
 		try {
 			await flush()
 			const submitted = await submitResponseFn({ data: { id: responseSessionId } })
-			setSubmittedAt(submitted.submitted_at ?? null)
-			setViewState("submitted")
-		} finally {
-			setSubmitting(false)
+			dispatch({ type: "SUBMITTED", submittedAt: submitted.submitted_at ?? null })
+		} catch {
+			dispatch({ type: "SUBMIT_FAILED" })
 		}
 	}
 
@@ -103,7 +209,7 @@ function RespondPage() {
 			<ResponseShell>
 				<Card className="mx-auto max-w-xl">
 					<CardContent className="py-16 text-center space-y-3">
-						<h1 className="text-2xl font-bold">Questionário indisponível</h1>
+						<h1 className="text-2xl font-semibold">Questionário indisponível</h1>
 						<p className="text-sm text-muted-foreground">Este questionário ainda não foi publicado para respostas.</p>
 						<Button nativeButton={false} render={<Link to="/dashboard" />}>
 							Ir para o painel
@@ -119,8 +225,8 @@ function RespondPage() {
 			<ResponseShell>
 				<Card className="mx-auto max-w-xl">
 					<CardContent className="py-16 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-						<Refresh className="h-4 w-4 animate-spin" />
-						Carregando questionário...
+						<Refresh className="size-4 animate-spin" />
+						Carregando questionário…
 					</CardContent>
 				</Card>
 			</ResponseShell>
@@ -134,9 +240,7 @@ function RespondPage() {
 					questionnaireId={id}
 					questionnaireTitle={questionnaire.title}
 					onSessionCreated={(session) => {
-						setResponseSessionId(session.id)
-						setAnswers({})
-						setViewState("draft")
+						dispatch({ type: "SESSION_CREATED", sessionId: session.id })
 					}}
 				/>
 			</ResponseShell>
@@ -148,14 +252,18 @@ function RespondPage() {
 			<ResponseShell>
 				<Card className="mx-auto max-w-xl">
 					<CardContent className="py-16 text-center space-y-4">
-						<Check className="h-12 w-12 mx-auto text-foreground" />
+						<Check className="size-12 mx-auto text-foreground" />
 						<div className="space-y-1">
-							<h1 className="text-2xl font-bold">Resposta enviada</h1>
+							<h1 className="text-2xl font-semibold">Resposta enviada</h1>
 							<p className="text-sm text-muted-foreground">Sua resposta para {questionnaire.title} já foi registrada.</p>
 						</div>
-						{submittedAt && <p className="text-xs text-muted-foreground">Enviado em {format(new Date(submittedAt), "dd/MM/yyyy 'às' HH:mm")}</p>}
+						{submittedAt && (
+							<p className="text-xs text-muted-foreground" suppressHydrationWarning>
+								Enviado em {format(new Date(submittedAt), "dd/MM/yyyy 'às' HH:mm")}
+							</p>
+						)}
 						<div className="flex gap-3 justify-center">
-							<Button variant="outline" onClick={() => setViewState("metadata")}>
+							<Button variant="outline" onClick={() => dispatch({ type: "NEW_RESPONSE" })}>
 								Nova resposta
 							</Button>
 							<Button nativeButton={false} variant="outline" render={<Link to="/dashboard" />}>
@@ -175,7 +283,7 @@ function RespondPage() {
 					<div className="flex items-start justify-between gap-4">
 						<div className="space-y-1">
 							<p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Formulários IEFA</p>
-							<h1 className="text-2xl font-bold tracking-tight">{questionnaire.title}</h1>
+							<h1 className="text-2xl font-semibold tracking-tight">{questionnaire.title}</h1>
 							{questionnaire.description && <p className="text-sm text-muted-foreground">{questionnaire.description}</p>}
 						</div>
 						<Badge variant="secondary" className="text-xs shrink-0">
@@ -194,6 +302,12 @@ function RespondPage() {
 						<Progress value={progressPct} />
 					</div>
 				</div>
+
+				{currentVersion != null && (
+					<div className="mx-6 md:mx-8 rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+						Você está editando a versão {currentVersion} desta resposta. Ao enviar, uma nova versão será criada.
+					</div>
+				)}
 
 				<div className="px-6 pb-8 space-y-6 md:px-8">
 					{(questionnaire.section ?? []).map(
@@ -223,19 +337,16 @@ function RespondPage() {
 														question={question}
 														value={answer?.value}
 														onChange={(value) => {
-															setAnswers((prev) => {
-																const existing = prev[question.id]
-																const updated = { ...prev, [question.id]: { value, observation: existing?.observation ?? null } }
-																save(question.id, value, existing?.observation ?? null)
-																return updated
-															})
+															const existing = answers[question.id]
+															dispatch({ type: "SET_ANSWER", questionId: question.id, value })
+															save(question.id, value, existing?.observation ?? null)
 														}}
 													/>
 
 													<button
 														type="button"
 														className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-														onClick={() => setShowObs((prev) => ({ ...prev, [question.id]: !prev[question.id] }))}
+														onClick={() => dispatch({ type: "TOGGLE_OBS", questionId: question.id })}
 													>
 														Observação
 													</button>
@@ -245,12 +356,9 @@ function RespondPage() {
 															value={answer?.observation ?? ""}
 															onChange={(event) => {
 																const observation = event.target.value || null
-																setAnswers((prev) => {
-																	const existing = prev[question.id]
-																	const updated = { ...prev, [question.id]: { value: existing?.value ?? null, observation } }
-																	save(question.id, existing?.value ?? null, observation)
-																	return updated
-																})
+																const existing = answers[question.id]
+																dispatch({ type: "SET_OBS", questionId: question.id, observation })
+																save(question.id, existing?.value ?? null, observation)
 															}}
 															rows={2}
 															className="text-sm"
@@ -267,7 +375,7 @@ function RespondPage() {
 
 					<div className="flex justify-end pt-4 border-t border-border">
 						<Button onClick={handleSubmit} disabled={submitting}>
-							{submitting ? <Refresh className="h-4 w-4 animate-spin" /> : <SendDiagonal className="h-4 w-4" />}
+							{submitting ? <Refresh className="size-4 animate-spin" /> : <SendDiagonal className="size-4" />}
 							Enviar respostas
 						</Button>
 					</div>
@@ -286,15 +394,11 @@ function MetadataStep({
 	questionnaireTitle: string
 	onSessionCreated: (session: { id: string }) => void
 }) {
-	const [evaluationType, setEvaluationType] = useState<EvaluationType | null>(null)
-	const [om, setOm] = useState<string | null>(null)
-	const [omCustom, setOmCustom] = useState("")
-	const [secao, setSecao] = useState("")
-	const [loading, setLoading] = useState(false)
-	const [omOptions, setOmOptions] = useState<{ id: number; name: string }[]>([])
+	const [state, dispatch] = useReducer(metadataReducer, initialMetadataState)
+	const { evaluationType, om, omCustom, secao, loading, omOptions } = state
 
 	useEffect(() => {
-		getOmOptionsFn().then(setOmOptions)
+		getOmOptionsFn().then((options) => dispatch({ type: "SET_OM_OPTIONS", options }))
 	}, [])
 
 	const resolvedOm = om === "__outro" ? omCustom.trim() : (om ?? "")
@@ -302,7 +406,7 @@ function MetadataStep({
 
 	const handleStart = async () => {
 		if (!canSubmit) return
-		setLoading(true)
+		dispatch({ type: "SET_LOADING", value: true })
 		try {
 			const session = await getOrCreateResponseSessionFn({
 				data: {
@@ -314,7 +418,7 @@ function MetadataStep({
 			})
 			onSessionCreated(session)
 		} finally {
-			setLoading(false)
+			dispatch({ type: "SET_LOADING", value: false })
 		}
 	}
 
@@ -328,7 +432,7 @@ function MetadataStep({
 			<CardContent className="space-y-6">
 				<div className="space-y-3">
 					<Label className="text-sm font-medium">Tipo de Avaliação</Label>
-					<RadioGroup value={evaluationType ?? ""} onValueChange={(v) => setEvaluationType(v as EvaluationType)}>
+					<RadioGroup value={evaluationType ?? ""} onValueChange={(v) => dispatch({ type: "SET_EVALUATION_TYPE", value: v as EvaluationType })}>
 						{EVALUATION_TYPES.map((t) => (
 							<label key={t.value} htmlFor={`eval-type-${t.value}`} className="flex items-center gap-2.5 text-sm cursor-pointer">
 								<RadioGroupItem id={`eval-type-${t.value}`} value={t.value} />
@@ -340,9 +444,9 @@ function MetadataStep({
 
 				<div className="space-y-2">
 					<Label className="text-sm font-medium">OM (Organização Militar)</Label>
-					<Select value={om ?? null} onValueChange={(v) => setOm(v)}>
+					<Select value={om ?? null} onValueChange={(v) => dispatch({ type: "SET_OM", value: v })}>
 						<SelectTrigger className="w-full">
-							<SelectValue placeholder="Selecione a OM...">
+							<SelectValue placeholder="Selecione a OM…">
 								{om === "__outro" ? "Outro" : om ? (omOptions.find((o) => o.name === om)?.name ?? om) : undefined}
 							</SelectValue>
 						</SelectTrigger>
@@ -352,20 +456,27 @@ function MetadataStep({
 									{o.name}
 								</SelectItem>
 							))}
-							<SelectItem value="__outro">Outro...</SelectItem>
+							<SelectItem value="__outro">Outro…</SelectItem>
 						</SelectContent>
 					</Select>
-					{om === "__outro" && <Input value={omCustom} onChange={(e) => setOmCustom(e.target.value)} placeholder="Digite o nome da OM" className="mt-2" />}
+					{om === "__outro" && (
+						<Input
+							value={omCustom}
+							onChange={(e) => dispatch({ type: "SET_OM_CUSTOM", value: e.target.value })}
+							placeholder="Digite o nome da OM"
+							className="mt-2"
+						/>
+					)}
 				</div>
 
 				<div className="space-y-2">
 					<Label className="text-sm font-medium">Seção</Label>
-					<Input value={secao} onChange={(e) => setSecao(e.target.value)} placeholder="Ex: Seção de Subsistência" />
+					<Input value={secao} onChange={(e) => dispatch({ type: "SET_SECAO", value: e.target.value })} placeholder="Ex: Seção de Subsistência" />
 				</div>
 
 				<div className="pt-2">
 					<Button onClick={handleStart} disabled={!canSubmit || loading} className="w-full">
-						{loading ? <Refresh className="h-4 w-4 animate-spin" /> : null}
+						{loading ? <Refresh className="size-4 animate-spin" /> : null}
 						Iniciar Avaliação
 					</Button>
 				</div>
@@ -445,7 +556,7 @@ function QuestionInput({
 					</div>
 					<p className="text-xs text-muted-foreground">
 						{value ? CONFORMITY_OPTIONS.find((o) => o.value === value)?.label : "Selecione uma opção"}
-						{" · "}Peso {weight} — {weightLabel}
+						{" · "}Peso {weight}: {weightLabel}
 					</p>
 				</div>
 			)
@@ -470,7 +581,7 @@ function QuestionInput({
 								name={`question-${question.id}`}
 								checked={value === option}
 								onChange={() => onChange(option)}
-								className="h-4 w-4 accent-foreground"
+								className="size-4 accent-foreground"
 							/>
 							{option}
 						</label>
@@ -489,7 +600,7 @@ function QuestionInput({
 									type="checkbox"
 									checked={checked}
 									onChange={() => onChange(checked ? selected.filter((item) => item !== option) : [...selected, option])}
-									className="h-4 w-4 accent-foreground"
+									className="size-4 accent-foreground"
 								/>
 								{option}
 							</label>

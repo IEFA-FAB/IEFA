@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "lint": "biome check src/"
   },
   "dependencies": {
@@ -14,11 +14,12 @@
     "@iefa/pbac": "workspace:*",
     "@iefa/sisub-domain": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.10.0",
-    "@supabase/supabase-js": "^2.49.0",
+    "@supabase/supabase-js": "^2.103.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.8.0"
+    "@typescript/native-preview": "^7.0.0-dev.20260410.1",
+    "typescript": "^6.0.2"
   }
 }

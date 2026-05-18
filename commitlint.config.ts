@@ -4,9 +4,19 @@ const validScopes = [
 	// apps
 	"portal",
 	"sisub",
+	"sisub-mcp",
 	"alpha",
 	"api",
 	"docs",
+	"forms",
+	"5s",
+	"sucont",
+	// packages
+	"database",
+	"sisub-domain",
+	"alpha-client",
+	"hono-client",
+	"pbac",
 	// monorepo raiz
 	"deps",
 	"ci",

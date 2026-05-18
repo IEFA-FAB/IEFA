@@ -40,6 +40,8 @@ const QUESTION_TYPES = [
 	{ value: "conformity", label: "Conformidade (A/AP/NA/NO)" },
 ] as const
 
+const CONFORMITY_WEIGHT_MAP = new Map(CONFORMITY_WEIGHTS.map((w) => [w.value, w.label]))
+
 export const Route = createFileRoute("/_authenticated/questionnaires/new")({
 	component: NewQuestionnairePage,
 })
@@ -84,28 +86,28 @@ function NewQuestionnairePage() {
 		setSaving(true)
 		try {
 			const questionnaire = await createQuestionnaireFn({ data: { title, description, tags: (tagFilter ?? []) as "5s"[] } })
-			for (let si = 0; si < sections.length; si++) {
-				const s = sections[si]
-				const section = await createSectionFn({ data: { questionnaire_id: questionnaire.id, title: s.title, description: s.description, sort_order: si } })
-				for (let qi = 0; qi < s.questions.length; qi++) {
-					const q = s.questions[qi]
-					const conformityOptions =
-						q.type === "conformity"
-							? { weight: q.weight ?? 1, weightLabel: CONFORMITY_WEIGHTS.find((w) => w.value === (q.weight ?? 1))?.label ?? "Desejável" }
-							: undefined
-					await createQuestionFn({
-						data: {
-							section_id: section.id,
-							text: q.text,
-							description: q.description || undefined,
-							type: q.type as "text",
-							options: q.type === "conformity" ? conformityOptions : q.options.length > 0 ? q.options : undefined,
-							required: q.required,
-							sort_order: qi,
-						},
-					})
-				}
-			}
+			await Promise.all(
+				sections.map(async (s, si) => {
+					const section = await createSectionFn({ data: { questionnaire_id: questionnaire.id, title: s.title, description: s.description, sort_order: si } })
+					await Promise.all(
+						s.questions.map(async (q, qi) => {
+							const conformityOptions =
+								q.type === "conformity" ? { weight: q.weight ?? 1, weightLabel: CONFORMITY_WEIGHT_MAP.get(q.weight ?? 1) ?? "Desejável" } : undefined
+							await createQuestionFn({
+								data: {
+									section_id: section.id,
+									text: q.text,
+									description: q.description || undefined,
+									type: q.type as "text",
+									options: q.type === "conformity" ? conformityOptions : q.options.length > 0 ? q.options : undefined,
+									required: q.required,
+									sort_order: qi,
+								},
+							})
+						})
+					)
+				})
+			)
 			if (publish) {
 				await publishQuestionnaireFn({ data: { id: questionnaire.id } })
 			}
@@ -120,10 +122,10 @@ function NewQuestionnairePage() {
 	return (
 		<div className="p-6 md:p-10 space-y-6">
 			<div className="flex items-center gap-3">
-				<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/" })}>
-					<ArrowLeft className="h-4 w-4" />
+				<Button variant="ghost" size="sm" onClick={() => navigate({ to: "/dashboard" })}>
+					<ArrowLeft className="size-4" />
 				</Button>
-				<h1 className="text-2xl font-bold tracking-tight">Novo Questionário</h1>
+				<h1 className="text-2xl font-semibold tracking-tight">Novo Questionário</h1>
 			</div>
 
 			<Card>
@@ -153,7 +155,7 @@ function NewQuestionnairePage() {
 							</CardTitle>
 							{sections.length > 1 && (
 								<Button variant="ghost" size="icon-xs" onClick={() => removeSection(si)}>
-									<Trash className="h-4 w-4" />
+									<Trash className="size-4" />
 								</Button>
 							)}
 						</div>
@@ -196,7 +198,7 @@ function NewQuestionnairePage() {
 													type="checkbox"
 													checked={question.required}
 													onChange={(e) => updateQuestion(si, qi, { required: e.target.checked })}
-													className="h-3.5 w-3.5 border border-border accent-foreground"
+													className="size-3.5 border border-border accent-foreground"
 												/>
 												Obrigatória
 											</label>
@@ -219,18 +221,18 @@ function NewQuestionnairePage() {
 													value={question.weight ?? null}
 													onValueChange={(v) => {
 														const w = Number(v) as 1 | 3 | 5
-														updateQuestion(si, qi, { weight: w, weightLabel: CONFORMITY_WEIGHTS.find((x) => x.value === w)?.label })
+														updateQuestion(si, qi, { weight: w, weightLabel: CONFORMITY_WEIGHT_MAP.get(w) })
 													}}
 												>
 													<SelectTrigger className="w-[200px]">
 														<SelectValue placeholder="Selecione o peso">
-															{question.weight ? `${question.weight} — ${CONFORMITY_WEIGHTS.find((w) => w.value === question.weight)?.label ?? ""}` : undefined}
+															{question.weight ? `${question.weight} — ${CONFORMITY_WEIGHT_MAP.get(question.weight) ?? ""}` : undefined}
 														</SelectValue>
 													</SelectTrigger>
 													<SelectContent>
 														{CONFORMITY_WEIGHTS.map((w) => (
 															<SelectItem key={w.value} value={w.value}>
-																{w.value} — {w.label}
+																{w.value}: {w.label}
 															</SelectItem>
 														))}
 													</SelectContent>
@@ -239,13 +241,13 @@ function NewQuestionnairePage() {
 										)}
 									</div>
 									<Button variant="ghost" size="icon-xs" onClick={() => removeQuestion(si, qi)}>
-										<Trash className="h-4 w-4" />
+										<Trash className="size-4" />
 									</Button>
 								</div>
 							</div>
 						))}
 						<Button variant="outline" size="sm" onClick={() => addQuestion(si)}>
-							<Plus className="h-4 w-4" />
+							<Plus className="size-4" />
 							Adicionar pergunta
 						</Button>
 					</CardContent>
@@ -253,17 +255,17 @@ function NewQuestionnairePage() {
 			))}
 
 			<Button variant="outline" onClick={addSection} className="w-full">
-				<Plus className="h-4 w-4" />
+				<Plus className="size-4" />
 				Adicionar seção
 			</Button>
 
 			<div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
 				<Button variant="outline" onClick={() => handleSave(false)} disabled={saving || !title.trim()}>
-					{saving && <Refresh className="h-4 w-4 animate-spin" />}
+					{saving && <Refresh className="size-4 animate-spin" />}
 					Salvar rascunho
 				</Button>
 				<Button onClick={() => handleSave(true)} disabled={saving || !title.trim()}>
-					{saving && <Refresh className="h-4 w-4 animate-spin" />}
+					{saving && <Refresh className="size-4 animate-spin" />}
 					Publicar
 				</Button>
 			</div>

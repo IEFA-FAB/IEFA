@@ -5,7 +5,7 @@
   "overrides": {
     "react": "^19.2",
     "react-dom": "^19.2",
-    "@tanstack/query-core": "5.100.6"
+    "@tanstack/query-core": "5.100.10"
   },
   "scripts": {
     "dev": "turbo dev",
@@ -41,14 +41,14 @@
     }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.13",
-    "@commitlint/cli": "^20.5.2",
-    "@commitlint/config-conventional": "^20.5.0",
+    "@biomejs/biome": "^2.4.15",
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "commitizen": "^4.3.1",
-    "cz-git": "^1.13.0",
+    "cz-git": "^1.13.1",
     "husky": "^9.1.7",
-    "knip": "^6.9.0",
-    "turbo": "^2.9.6",
+    "knip": "^6.14.1",
+    "turbo": "^2.9.14",
     "vite-tsconfig-paths": "^6.1.1"
   },
   "workspaces": [
@@ -56,8 +56,9 @@
     "packages/*"
   ],
   "dependencies": {
-    "@tanstack/cli": "^0.64.5",
+    "@tanstack/cli": "^0.68.0",
     "greptile": "^2.4.0",
+    "react-doctor": "^0.1.6",
     "root": "tanstack/cli"
   }
 }

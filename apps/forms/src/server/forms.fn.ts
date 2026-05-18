@@ -311,15 +311,44 @@ export const submitResponseFn = createServerFn({ method: "POST" })
 		if (!user) throw new Error("Não autenticado")
 
 		const db = getFormsServerClient()
-		const { data: session, error: sessionError } = await db.from("questionnaire_response").select("respondent_id, status").eq("id", id).single()
+		const { data: session, error: sessionError } = await db
+			.from("questionnaire_response")
+			.select("respondent_id, status, evaluation_type, om, secao")
+			.eq("id", id)
+			.single()
 		if (sessionError) throw new Error(sessionError.message)
 		if (session.respondent_id !== user.id || session.status !== "draft") {
 			throw new Error("Sem permissão para enviar esta resposta")
 		}
 
+		const { data: responses, error: respError } = await db.from("response").select("question_id, value, observation").eq("questionnaire_response_id", id)
+		if (respError) throw new Error(respError.message)
+
+		const { data: maxVersion } = await db
+			.from("response_version")
+			.select("version_number")
+			.eq("questionnaire_response_id", id)
+			.order("version_number", { ascending: false })
+			.limit(1)
+			.maybeSingle()
+
+		const versionNumber = (maxVersion?.version_number ?? 0) + 1
+		const submittedAt = new Date().toISOString()
+
+		const { error: versionError } = await db.from("response_version").insert({
+			questionnaire_response_id: id,
+			version_number: versionNumber,
+			answers: responses ?? [],
+			evaluation_type: session.evaluation_type,
+			om: session.om,
+			secao: session.secao,
+			submitted_at: submittedAt,
+		})
+		if (versionError) throw new Error(versionError.message)
+
 		const { data, error } = await db
 			.from("questionnaire_response")
-			.update({ status: "sent", submitted_at: new Date().toISOString() })
+			.update({ status: "sent", submitted_at: submittedAt, current_version: versionNumber })
 			.eq("id", id)
 			.select()
 			.single()
@@ -441,6 +470,159 @@ export const removeViewerFn = createServerFn({ method: "POST" })
 
 		const { error } = await db.from("response_viewer").delete().eq("id", id)
 		if (error) throw new Error(error.message)
+	})
+
+// ── Response Versioning ─────────────────────────────────────────────────────
+
+export const reopenResponseFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ questionnaire_response_id: z.string().uuid() }))
+	.handler(async ({ data: { questionnaire_response_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+		const { data: session, error: sessionError } = await db.from("questionnaire_response").select("*, response(*)").eq("id", questionnaire_response_id).single()
+		if (sessionError) throw new Error(sessionError.message)
+		if (session.respondent_id !== user.id) throw new Error("Sem permissão")
+		if (session.status !== "sent") throw new Error("Resposta não está enviada")
+
+		const { data: existingDraft } = await db
+			.from("questionnaire_response")
+			.select("id")
+			.eq("questionnaire_id", session.questionnaire_id)
+			.eq("respondent_id", user.id)
+			.eq("status", "draft")
+			.maybeSingle()
+		if (existingDraft) throw new Error("Você já tem um rascunho em andamento para este questionário")
+
+		const { data, error } = await db
+			.from("questionnaire_response")
+			.update({ status: "draft", submitted_at: null })
+			.eq("id", questionnaire_response_id)
+			.select("*, response(*)")
+			.single()
+		if (error) throw new Error(error.message)
+		return data
+	})
+
+export const getResponseVersionsFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ questionnaire_response_id: z.string().uuid() }))
+	.handler(async ({ data: { questionnaire_response_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+		const { data: session, error: sessionError } = await db
+			.from("questionnaire_response")
+			.select("respondent_id, questionnaire_id")
+			.eq("id", questionnaire_response_id)
+			.single()
+		if (sessionError) throw new Error(sessionError.message)
+
+		const isRespondent = session.respondent_id === user.id
+		if (!isRespondent) {
+			const { data: q } = await db.from("questionnaire").select("created_by").eq("id", session.questionnaire_id).single()
+			const isCreator = q?.created_by === user.id
+			if (!isCreator) {
+				const { data: viewerRow } = await db
+					.from("response_viewer")
+					.select("id")
+					.eq("questionnaire_id", session.questionnaire_id)
+					.eq("viewer_id", user.id)
+					.maybeSingle()
+				if (!viewerRow) throw new Error("Sem permissão para ver versões")
+			}
+		}
+
+		const { data, error } = await db
+			.from("response_version")
+			.select("id, version_number, evaluation_type, om, secao, submitted_at, created_at")
+			.eq("questionnaire_response_id", questionnaire_response_id)
+			.order("version_number", { ascending: false })
+		if (error) throw new Error(error.message)
+		return data
+	})
+
+export const getResponseVersionFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ version_id: z.string().uuid() }))
+	.handler(async ({ data: { version_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+		const { data: version, error } = await db.from("response_version").select("*").eq("id", version_id).single()
+		if (error) throw new Error(error.message)
+
+		const { data: session } = await db
+			.from("questionnaire_response")
+			.select("respondent_id, questionnaire_id")
+			.eq("id", version.questionnaire_response_id)
+			.single()
+		if (!session) throw new Error("Sessão não encontrada")
+
+		const isRespondent = session.respondent_id === user.id
+		if (!isRespondent) {
+			const { data: q } = await db.from("questionnaire").select("created_by").eq("id", session.questionnaire_id).single()
+			const isCreator = q?.created_by === user.id
+			if (!isCreator) {
+				const { data: viewerRow } = await db
+					.from("response_viewer")
+					.select("id")
+					.eq("questionnaire_id", session.questionnaire_id)
+					.eq("viewer_id", user.id)
+					.maybeSingle()
+				if (!viewerRow) throw new Error("Sem permissão para ver esta versão")
+			}
+		}
+
+		return version
+	})
+
+export const revertToVersionFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ questionnaire_response_id: z.string().uuid(), version_id: z.string().uuid() }))
+	.handler(async ({ data: { questionnaire_response_id, version_id } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+		const { data: session, error: sessionError } = await db
+			.from("questionnaire_response")
+			.select("respondent_id, status")
+			.eq("id", questionnaire_response_id)
+			.single()
+		if (sessionError) throw new Error(sessionError.message)
+		if (session.respondent_id !== user.id) throw new Error("Sem permissão")
+		if (session.status !== "draft") throw new Error("Resposta precisa estar reaberta para restaurar")
+
+		const { data: version, error: versionError } = await db.from("response_version").select("*").eq("id", version_id).single()
+		if (versionError) throw new Error(versionError.message)
+		if (version.questionnaire_response_id !== questionnaire_response_id) throw new Error("Versão não pertence a esta sessão")
+
+		const answers = version.answers as Array<{ question_id: string; value: unknown; observation: string | null }>
+
+		const { error: deleteError } = await db.from("response").delete().eq("questionnaire_response_id", questionnaire_response_id)
+		if (deleteError) throw new Error(deleteError.message)
+
+		if (answers.length > 0) {
+			const rows = answers.map((a) => ({
+				questionnaire_response_id,
+				question_id: a.question_id,
+				value: a.value,
+				observation: a.observation,
+			}))
+			const { error: insertError } = await db.from("response").insert(rows)
+			if (insertError) throw new Error(insertError.message)
+		}
+
+		return { success: true }
 	})
 
 export const getSharedWithMeFn = createServerFn({ method: "GET" }).handler(async () => {

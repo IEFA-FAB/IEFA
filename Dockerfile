@@ -36,6 +36,7 @@ FROM base AS api
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=api-build /app/apps/api/dist ./apps/api/dist
+COPY --from=api-build /app/apps/api/public ./apps/api/public
 USER bun
 EXPOSE 3000
 CMD ["bun", "apps/api/dist/index.js"]
