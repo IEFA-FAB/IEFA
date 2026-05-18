@@ -93,7 +93,7 @@ export function PlacesCanvas({
 	)
 
 	return (
-		<div className="w-full h-full rounded-md border border-border overflow-hidden bg-background">
+		<div className="size-full rounded-md border border-border overflow-hidden bg-background">
 			<ReactFlow
 				nodes={nodes as Node[]}
 				edges={edges as Edge[]}

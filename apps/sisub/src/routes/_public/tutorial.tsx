@@ -226,7 +226,7 @@ function StepList({ steps }: { steps: StepItem[] }) {
 						</span>
 						<div className="pt-0.5">
 							<div className="flex items-center gap-2 mb-1">
-								<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
+								<Icon className="size-4 text-primary shrink-0" aria-hidden />
 								<h3 className="font-bold text-sm text-foreground">{step.title}</h3>
 							</div>
 							<p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
@@ -263,23 +263,23 @@ function Tutorial() {
 				<Tabs defaultValue="comensal" className="w-full">
 					<TabsList className="w-full mt-6 mb-2">
 						<TabsTrigger value="comensal" className="gap-1.5" aria-label="Comensal">
-							<UtensilsCrossed className="h-3.5 w-3.5 shrink-0" aria-hidden />
+							<UtensilsCrossed className="size-3.5 shrink-0" aria-hidden />
 							<span className="hidden sm:inline">Comensal</span>
 						</TabsTrigger>
 						<TabsTrigger value="refeitorio" className="gap-1.5" aria-label="Refeitório">
-							<Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+							<Building2 className="size-3.5 shrink-0" aria-hidden />
 							<span className="hidden sm:inline">Refeitório</span>
 						</TabsTrigger>
 						<TabsTrigger value="cozinha" className="gap-1.5" aria-label="Cozinha">
-							<ChefHat className="h-3.5 w-3.5 shrink-0" aria-hidden />
+							<ChefHat className="size-3.5 shrink-0" aria-hidden />
 							<span className="hidden sm:inline">Cozinha</span>
 						</TabsTrigger>
 						<TabsTrigger value="unidade" className="gap-1.5" aria-label="Unidade">
-							<Truck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+							<Truck className="size-3.5 shrink-0" aria-hidden />
 							<span className="hidden sm:inline">Unidade</span>
 						</TabsTrigger>
 						<TabsTrigger value="duvidas" className="gap-1.5" aria-label="Dúvidas">
-							<HelpCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+							<HelpCircle className="size-3.5 shrink-0" aria-hidden />
 							<span className="hidden sm:inline">Dúvidas</span>
 						</TabsTrigger>
 					</TabsList>
@@ -372,17 +372,17 @@ function Tutorial() {
 							render={
 								<Link to="/hub" className="flex items-center gap-2">
 									Ir para o Hub
-									<ChevronRight className="h-4 w-4" />
+									<ChevronRight className="size-4" />
 								</Link>
 							}
 						/>
 						<div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
 							<span className="flex items-center gap-1.5">
-								<ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+								<ShieldCheck className="size-3.5" aria-hidden />
 								Seguro
 							</span>
 							<span className="flex items-center gap-1.5">
-								<Settings className="h-3.5 w-3.5" aria-hidden />
+								<Settings className="size-3.5" aria-hidden />
 								Multi-módulo
 							</span>
 						</div>

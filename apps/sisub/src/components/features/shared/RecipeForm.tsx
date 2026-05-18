@@ -254,7 +254,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Ingredientes</CardTitle>
 						<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
-							<Plus className="w-4 h-4 mr-2" />
+							<Plus className="size-4 mr-2" />
 							Adicionar
 						</Button>
 					</CardHeader>
@@ -289,7 +289,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 														<span className="text-xs text-muted-foreground">Opcional?</span>
 														<Input
 															type="checkbox"
-															className="w-4 h-4"
+															className="size-4"
 															checked={ingredient.is_optional}
 															onChange={(e) => {
 																const newList = [...field.state.value]
@@ -310,7 +310,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 															field.handleChange(newList)
 														}}
 													>
-														<Trash2 className="w-4 h-4" />
+														<Trash2 className="size-4" />
 													</Button>
 												</div>
 											</div>
@@ -328,8 +328,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						Cancelar
 					</Button>
 					<Button type="submit" disabled={createMutation.isPending || versionMutation.isPending}>
-						{(createMutation.isPending || versionMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-						<Save className="w-4 h-4 mr-2" />
+						{(createMutation.isPending || versionMutation.isPending) && <Loader2 className="size-4 mr-2 animate-spin" />}
+						<Save className="size-4 mr-2" />
 						Salvar Preparação
 					</Button>
 				</div>

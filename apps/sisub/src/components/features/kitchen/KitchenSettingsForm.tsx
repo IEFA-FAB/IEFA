@@ -35,7 +35,7 @@ export function KitchenSettingsForm({ kitchenId, defaultValues }: { kitchenId: n
 			<Card>
 				<CardHeader>
 					<div className="flex items-center gap-2">
-						<MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+						<MapPin className="size-4 text-muted-foreground" aria-hidden="true" />
 						<CardTitle className="text-base">Endereço de Entrega</CardTitle>
 					</div>
 					<CardDescription>

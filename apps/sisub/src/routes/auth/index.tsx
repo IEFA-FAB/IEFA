@@ -107,14 +107,16 @@ function AuthPage() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount, hasOtp/navigate/search are stable
 	useEffect(() => {
 		if (!hasOtp) return
+		let timerId: ReturnType<typeof setTimeout>
 		supabase.auth.verifyOtp({ token_hash: search.token_hash as string, type: "email" }).then(({ error }) => {
 			if (error) {
 				setView("verify-error")
 			} else {
 				setView("verify-success")
-				setTimeout(() => navigate({ to: search.redirect || "/hub" }), 2000)
+				timerId = setTimeout(() => navigate({ to: search.redirect || "/hub" }), 2000)
 			}
 		})
+		return () => clearTimeout(timerId)
 	}, [])
 
 	const changeTab = (tab: "login" | "register") => navigate({ search: (prev) => ({ ...prev, tab }), replace: true })
@@ -159,7 +161,7 @@ function AuthPage() {
 								<span className="font-mono text-xl font-bold text-muted-foreground/40 tabular-nums min-w-[2rem] leading-none">
 									{String(i + 1).padStart(2, "0")}
 								</span>
-								<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
+								<Icon className="size-4 text-primary shrink-0" aria-hidden />
 								<span className="text-sm font-medium">{item.text}</span>
 							</div>
 						)
@@ -167,7 +169,7 @@ function AuthPage() {
 				</div>
 
 				<p className="mt-8 flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
-					<ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+					<ShieldCheck className="size-3.5 shrink-0" aria-hidden />
 					Acesso restrito a militares da FAB (@fab.mil.br)
 				</p>
 			</aside>
@@ -180,7 +182,7 @@ function AuthPage() {
 					{/* ── OTP: verificando ── */}
 					{view === "verify-loading" && (
 						<div className="flex flex-col items-center gap-4 py-16" role="status" aria-live="polite">
-							<Loader2 className="h-7 w-7 animate-spin text-muted-foreground" aria-hidden />
+							<Loader2 className="size-7 animate-spin text-muted-foreground" aria-hidden />
 							<p className="font-mono text-sm text-muted-foreground">Verificando email...</p>
 						</div>
 					)}
@@ -188,7 +190,7 @@ function AuthPage() {
 					{/* ── OTP: email confirmado ── */}
 					{view === "verify-success" && (
 						<div className="flex flex-col items-center gap-4 py-16" role="status" aria-live="polite">
-							<CheckCircle2 className="h-8 w-8 text-primary" aria-hidden />
+							<CheckCircle2 className="size-8 text-primary" aria-hidden />
 							<p className="font-bold text-lg">Email confirmado!</p>
 							<p className="font-mono text-sm text-muted-foreground">Redirecionando para o sistema...</p>
 						</div>
@@ -203,11 +205,11 @@ function AuthPage() {
 								<p className="text-sm text-muted-foreground">O link de confirmação expirou ou não é mais válido.</p>
 							</div>
 							<Alert variant="destructive">
-								<AlertCircle className="h-4 w-4" />
+								<AlertCircle className="size-4" />
 								<AlertDescription>Solicite um novo email de confirmação.</AlertDescription>
 							</Alert>
 							<Button variant="ghost" size="sm" onClick={() => setView("tabs")} className="self-start gap-1.5 font-mono text-xs">
-								<ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+								<ArrowLeft className="size-3.5" aria-hidden />
 								Voltar ao login
 							</Button>
 						</div>
@@ -309,13 +311,13 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 		<form onSubmit={handleSubmit} noValidate className="space-y-5">
 			{isLocked && (
 				<Alert variant="destructive">
-					<AlertCircle className="h-4 w-4" />
+					<AlertCircle className="size-4" />
 					<AlertDescription>Muitas tentativas. Tente novamente em {retryAfter}s.</AlertDescription>
 				</Alert>
 			)}
 			{error && !isLocked && (
 				<Alert variant="destructive">
-					<AlertCircle className="h-4 w-4" />
+					<AlertCircle className="size-4" />
 					<AlertDescription>{error}</AlertDescription>
 				</Alert>
 			)}
@@ -326,7 +328,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					Email
 				</Label>
 				<div className="relative">
-					<Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+					<Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 					<Input
 						id="login-email"
 						type="email"
@@ -345,7 +347,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 				</div>
 				{emailErr && (
 					<p id="login-email-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-						<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {emailErr}
+						<AlertCircle className="size-3 shrink-0" aria-hidden /> {emailErr}
 					</p>
 				)}
 			</div>
@@ -365,7 +367,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					</button>
 				</div>
 				<div className="relative">
-					<Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+					<Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 					<Input
 						id="login-password"
 						type={showPassword ? "text" : "password"}
@@ -387,12 +389,12 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
-						{showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+						{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
 					</button>
 				</div>
 				{passwordErr && (
 					<p id="login-password-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-						<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {passwordErr}
+						<AlertCircle className="size-3 shrink-0" aria-hidden /> {passwordErr}
 					</p>
 				)}
 			</div>
@@ -410,11 +412,11 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					<>Bloqueado ({retryAfter}s)</>
 				) : isSubmitting ? (
 					<>
-						<Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Entrando...
+						<Loader2 className="size-4 animate-spin" aria-hidden /> Entrando...
 					</>
 				) : (
 					<>
-						Entrar <ChevronRight className="h-4 w-4" aria-hidden />
+						Entrar <ChevronRight className="size-4" aria-hidden />
 					</>
 				)}
 			</Button>
@@ -476,13 +478,13 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 	if (submitted) {
 		return (
 			<div className="flex flex-col items-center gap-5 py-8 text-center">
-				<CheckCircle2 className="h-10 w-10 text-primary" aria-hidden />
+				<CheckCircle2 className="size-10 text-primary" aria-hidden />
 				<div>
 					<p className="font-bold text-base mb-1">Cadastro realizado!</p>
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique seu email institucional para ativar a conta antes de fazer login.</p>
 				</div>
 				<Button variant="outline" size="sm" onClick={onBack} className="gap-1.5 font-mono text-xs mt-2">
-					<ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+					<ArrowLeft className="size-3.5" aria-hidden />
 					Ir para o login
 				</Button>
 			</div>
@@ -493,7 +495,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 		<form onSubmit={handleSubmit} noValidate className="space-y-4">
 			{error && (
 				<Alert variant="destructive">
-					<AlertCircle className="h-4 w-4" />
+					<AlertCircle className="size-4" />
 					<AlertDescription>{error}</AlertDescription>
 				</Alert>
 			)}
@@ -504,7 +506,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					Nome completo
 				</Label>
 				<div className="relative">
-					<UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+					<UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 					<Input
 						id="reg-name"
 						type="text"
@@ -527,7 +529,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					Email institucional
 				</Label>
 				<div className="relative">
-					<Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+					<Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 					<Input
 						id="reg-email"
 						type="email"
@@ -546,7 +548,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 				</div>
 				{emailErr && (
 					<p id="reg-email-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-						<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {emailErr}
+						<AlertCircle className="size-3 shrink-0" aria-hidden /> {emailErr}
 					</p>
 				)}
 			</div>
@@ -557,7 +559,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					Senha
 				</Label>
 				<div className="relative">
-					<Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+					<Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 					<Input
 						id="reg-password"
 						type={showPassword ? "text" : "password"}
@@ -579,12 +581,12 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
-						{showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+						{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
 					</button>
 				</div>
 				{passwordErr && (
 					<p id="reg-password-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-						<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {passwordErr}
+						<AlertCircle className="size-3 shrink-0" aria-hidden /> {passwordErr}
 					</p>
 				)}
 			</div>
@@ -595,7 +597,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					Confirmar senha
 				</Label>
 				<div className="relative">
-					<Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+					<Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 					<Input
 						id="reg-confirm"
 						type={showConfirm ? "text" : "password"}
@@ -617,12 +619,12 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 					>
-						{showConfirm ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+						{showConfirm ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
 					</button>
 				</div>
 				{confirmErr && (
 					<p id="reg-confirm-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-						<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {confirmErr}
+						<AlertCircle className="size-3 shrink-0" aria-hidden /> {confirmErr}
 					</p>
 				)}
 			</div>
@@ -630,11 +632,11 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 			<Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
 				{isSubmitting ? (
 					<>
-						<Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Criando conta...
+						<Loader2 className="size-4 animate-spin" aria-hidden /> Criando conta...
 					</>
 				) : (
 					<>
-						Criar conta <ChevronRight className="h-4 w-4" aria-hidden />
+						Criar conta <ChevronRight className="size-4" aria-hidden />
 					</>
 				)}
 			</Button>
@@ -689,7 +691,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique sua caixa de entrada. O link de redefinição expira em alguns minutos.</p>
 				</div>
 				<Button variant="ghost" size="sm" onClick={onBack} className="self-start gap-1.5 font-mono text-xs">
-					<ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+					<ArrowLeft className="size-3.5" aria-hidden />
 					Voltar ao login
 				</Button>
 			</div>
@@ -707,7 +709,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 			<form onSubmit={handleSubmit} noValidate className="space-y-5">
 				{error && (
 					<Alert variant="destructive">
-						<AlertCircle className="h-4 w-4" />
+						<AlertCircle className="size-4" />
 						<AlertDescription>{error}</AlertDescription>
 					</Alert>
 				)}
@@ -717,7 +719,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 						Email
 					</Label>
 					<div className="relative">
-						<Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+						<Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 						<Input
 							id="forgot-email"
 							type="email"
@@ -736,7 +738,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 					</div>
 					{emailErr && (
 						<p id="forgot-email-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-							<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {emailErr}
+							<AlertCircle className="size-3 shrink-0" aria-hidden /> {emailErr}
 						</p>
 					)}
 				</div>
@@ -745,16 +747,16 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 					<Button type="submit" className="flex-1 gap-2" disabled={isSubmitting}>
 						{isSubmitting ? (
 							<>
-								<Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Enviando...
+								<Loader2 className="size-4 animate-spin" aria-hidden /> Enviando...
 							</>
 						) : (
 							<>
-								Enviar link <ChevronRight className="h-4 w-4" aria-hidden />
+								Enviar link <ChevronRight className="size-4" aria-hidden />
 							</>
 						)}
 					</Button>
 					<Button type="button" variant="ghost" onClick={onBack} disabled={isSubmitting} aria-label="Voltar ao login">
-						<ArrowLeft className="h-4 w-4" aria-hidden />
+						<ArrowLeft className="size-4" aria-hidden />
 					</Button>
 				</div>
 			</form>

@@ -53,11 +53,11 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 
 	const statusIcon =
 		toolCall.status === "calling" ? (
-			<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+			<Loader2 className="size-3.5 animate-spin text-muted-foreground" />
 		) : toolCall.status === "error" ? (
-			<AlertCircle className="h-3.5 w-3.5 text-destructive" />
+			<AlertCircle className="size-3.5 text-destructive" />
 		) : (
-			<Check className="h-3.5 w-3.5 text-emerald-600" />
+			<Check className="size-3.5 text-emerald-600" />
 		)
 
 	let parsedArgs: Record<string, unknown> | null = null
@@ -77,7 +77,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 			>
 				{statusIcon}
 				<span className="flex-1 font-medium text-foreground">{getToolLabel(toolCall.name, toolCall.status)}</span>
-				{expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+				{expanded ? <ChevronDown className="size-3 text-muted-foreground" /> : <ChevronRight className="size-3 text-muted-foreground" />}
 			</button>
 
 			{/* Expandable details */}

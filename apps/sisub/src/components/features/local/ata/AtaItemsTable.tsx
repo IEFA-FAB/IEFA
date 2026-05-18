@@ -33,7 +33,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Package className="h-5 w-5" aria-hidden="true" />
+						<Package className="size-5" aria-hidden="true" />
 						Lista de Itens da Ata
 					</CardTitle>
 					<CardDescription>Calculando quantitativos...</CardDescription>
@@ -54,12 +54,12 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Package className="h-5 w-5" aria-hidden="true" />
+						<Package className="size-5" aria-hidden="true" />
 						Lista de Itens da Ata
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col items-center justify-center py-12 text-center">
-					<Package className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
+					<Package className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
 					<p className="text-muted-foreground">Nenhum item calculado.</p>
 					<p className="text-sm text-muted-foreground mt-1">Selecione templates e clique em Calcular Lista.</p>
 				</CardContent>
@@ -76,7 +76,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 				<Card key={category}>
 					<CardHeader className="pb-3">
 						<CardTitle className="flex items-center gap-2 text-base">
-							<Package className="h-4 w-4 text-primary" aria-hidden="true" />
+							<Package className="size-4 text-primary" aria-hidden="true" />
 							{category}
 						</CardTitle>
 						<CardDescription>

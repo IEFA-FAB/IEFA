@@ -23,7 +23,7 @@ function RecipeVersionsPage() {
 	if (isLoading) {
 		return (
 			<div className="flex justify-center p-12">
-				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+				<Loader2 className="size-8 animate-spin text-muted-foreground" />
 			</div>
 		)
 	}
@@ -49,7 +49,7 @@ function RecipeVersionsPage() {
 				<div className="rounded-lg border bg-card p-5 space-y-3">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
-							<GitCompare className="h-4 w-4 text-muted-foreground" />
+							<GitCompare className="size-4 text-muted-foreground" />
 							<span className="font-medium text-sm">Versão atual</span>
 						</div>
 						<Badge variant="default">v{recipe.version ?? 1}</Badge>
@@ -58,7 +58,7 @@ function RecipeVersionsPage() {
 				</div>
 
 				<div className="rounded-md border border-dashed p-8 text-center space-y-2">
-					<GitCompare className="h-8 w-8 mx-auto text-muted-foreground" />
+					<GitCompare className="size-8 mx-auto text-muted-foreground" />
 					<p className="text-sm font-medium text-muted-foreground">Comparador de versões</p>
 					<p className="text-xs text-muted-foreground">
 						O histórico completo de versões e o diff visual serão exibidos aqui.

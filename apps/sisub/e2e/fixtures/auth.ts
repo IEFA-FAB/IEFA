@@ -14,6 +14,7 @@ type AuthFixtures = {
  *   test("meu teste", async ({ authenticatedPage }) => { ... })
  */
 export const test = base.extend<AuthFixtures>({
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   authenticatedPage: async ({ page }, use) => {
     // storageState já injetado via playwright.config.ts → use.storageState
     await use(page);

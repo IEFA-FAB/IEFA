@@ -43,12 +43,12 @@ export function ChatInput({ onSubmit, onAbort, isStreaming, disabled, placeholde
 				)}
 			/>
 			{isStreaming ? (
-				<Button size="icon" variant="outline" className="shrink-0 h-8 w-8" onClick={onAbort} aria-label="Parar geração">
-					<Square className="h-3.5 w-3.5 fill-current" />
+				<Button size="icon" variant="outline" className="shrink-0 size-8" onClick={onAbort} aria-label="Parar geração">
+					<Square className="size-3.5 fill-current" />
 				</Button>
 			) : (
-				<Button size="icon" className="shrink-0 h-8 w-8" disabled={disabled} onClick={handleSubmit} aria-label="Enviar">
-					<ArrowUp className="h-4 w-4" />
+				<Button size="icon" className="shrink-0 size-8" disabled={disabled} onClick={handleSubmit} aria-label="Enviar">
+					<ArrowUp className="size-4" />
 				</Button>
 			)}
 		</div>

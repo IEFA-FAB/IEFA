@@ -56,9 +56,9 @@ function PersonCard({ person, variant }: { person: PersonDetail; variant: "missi
 	}
 
 	const icon = {
-		missing: <X className="h-3 w-3 text-chart-5" />,
-		present: <Check className="h-3 w-3 text-chart-2" />,
-		extra: <AlertTriangle className="h-3 w-3 text-chart-1" />,
+		missing: <X className="size-3 text-chart-5" />,
+		present: <Check className="size-3 text-chart-2" />,
+		extra: <AlertTriangle className="size-3 text-chart-1" />,
 	}
 
 	const displayName = person.name || person.email.split("@")[0]
@@ -67,7 +67,7 @@ function PersonCard({ person, variant }: { person: PersonDetail; variant: "missi
 		<Item variant="outline" className={cn("transition-all", borderClass[variant])}>
 			<ItemMedia>
 				<div className="relative">
-					<Avatar className={cn("h-10 w-10 border-2 border-white", avatarClass[variant])}>
+					<Avatar className={cn("size-10 border-2 border-white", avatarClass[variant])}>
 						<AvatarFallback className={avatarClass[variant]}>{getInitials(displayName)}</AvatarFallback>
 					</Avatar>
 					<div className="absolute -bottom-1 -right-1 bg-card rounded-full p-0.5 border">{icon[variant]}</div>
@@ -138,7 +138,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 		navigator.clipboard.writeText(csvContent)
 		toast.success("Dados copiados para a área de transferência", {
 			description: `${rows.length} registros exportados`,
-			icon: <CheckCircle className="h-4 w-4 text-chart-2" />,
+			icon: <CheckCircle className="size-4 text-chart-2" />,
 		})
 	}
 
@@ -151,9 +151,9 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 	}
 
 	const getRateIcon = (rate: number) => {
-		if (rate >= 90) return <TrendingUp className="h-4 w-4" />
-		if (rate >= 70) return <Check className="h-4 w-4" />
-		return <TrendingDown className="h-4 w-4" />
+		if (rate >= 90) return <TrendingUp className="size-4" />
+		if (rate >= 70) return <Check className="size-4" />
+		return <TrendingDown className="size-4" />
 	}
 
 	if (aggregatedData.length === 0) {
@@ -161,7 +161,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Users className="h-5 w-5" aria-hidden="true" />
+						<Users className="size-5" aria-hidden="true" />
 						Análise de Presenças
 					</CardTitle>
 				</CardHeader>
@@ -176,7 +176,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
-					<Users className="h-5 w-5" aria-hidden="true" />
+					<Users className="size-5" aria-hidden="true" />
 					Análise de Presenças
 				</CardTitle>
 				<CardDescription>Comparação entre previsões e presenças por dia, refeição e rancho</CardDescription>
@@ -210,9 +210,9 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 										<TableRow key={rowKey} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleOpen(rowKey)}>
 											<TableCell>
 												{isOpen ? (
-													<ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+													<ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
 												) : (
-													<ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+													<ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
 												)}
 											</TableCell>
 											<TableCell className="font-medium">
@@ -270,7 +270,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																</span>
 															</h3>
 															<Button variant="outline" size="sm" onClick={() => handleCopyCsv(record)} className="gap-2">
-																<Copy className="h-4 w-4" />
+																<Copy className="size-4" />
 																Copiar CSV
 															</Button>
 														</div>
@@ -280,7 +280,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 															<div className="rounded-lg border border-chart-5/20 bg-chart-5/5 p-4">
 																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-5">
 																	<div className="p-1 rounded bg-chart-5/10">
-																		<X className="h-4 w-4" aria-hidden="true" />
+																		<X className="size-4" aria-hidden="true" />
 																	</div>
 																	Faltaram ({record.absences.length})
 																	<span className="text-muted-foreground font-normal ml-1">- Previram mas não compareceram</span>
@@ -298,7 +298,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 															<div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4">
 																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-2">
 																	<div className="p-1 rounded bg-chart-2/10">
-																		<Check className="h-4 w-4" aria-hidden="true" />
+																		<Check className="size-4" aria-hidden="true" />
 																	</div>
 																	Compareceram ({record.attended.length})<span className="text-muted-foreground font-normal ml-1">- Confirmados</span>
 																</h4>
@@ -315,7 +315,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 															<div className="rounded-lg border border-chart-1/20 bg-chart-1/5 p-4">
 																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-1">
 																	<div className="p-1 rounded bg-chart-1/10">
-																		<AlertTriangle className="h-4 w-4" aria-hidden="true" />
+																		<AlertTriangle className="size-4" aria-hidden="true" />
 																	</div>
 																	Extras ({record.extras.length})<span className="text-muted-foreground font-normal ml-1">- Não previram mas compareceram</span>
 																</h4>
@@ -331,7 +331,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 														{!hasAbsences && !hasExtras && (
 															<div className="text-center py-8">
 																<div className="inline-flex items-center justify-center p-3 rounded-full bg-chart-2/10 mb-3">
-																	<Check className="h-6 w-6 text-chart-2" />
+																	<Check className="size-6 text-chart-2" />
 																</div>
 																<h4 className="font-semibold text-lg text-chart-2">Balanço Perfeito</h4>
 																<p className="text-muted-foreground">Todos que previram compareceram e não houveram extras.</p>

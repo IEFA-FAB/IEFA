@@ -25,7 +25,7 @@ function InfoPanel({ icon: Icon, label, title, description, tags = [], to, cta, 
 		<div className={cn("border border-border rounded-md bg-card p-5 flex flex-col gap-4", "hover:bg-muted/30 transition-colors", className)}>
 			{/* Panel label */}
 			<div className="flex items-center gap-2">
-				<Icon className="h-3.5 w-3.5 text-primary flex-shrink-0" aria-hidden />
+				<Icon className="size-3.5 text-primary flex-shrink-0" aria-hidden />
 				<span className="font-mono text-xs text-muted-foreground uppercase tracking-widest">{label}</span>
 			</div>
 
@@ -53,7 +53,7 @@ function InfoPanel({ icon: Icon, label, title, description, tags = [], to, cta, 
 				render={
 					<Link to={to} className="flex items-center gap-2">
 						{cta}
-						<ChevronRight className="h-4 w-4" />
+						<ChevronRight className="size-4" />
 					</Link>
 				}
 				className="self-start mt-auto"

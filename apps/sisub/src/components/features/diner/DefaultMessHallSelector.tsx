@@ -68,8 +68,8 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 				<div className="flex items-start justify-between gap-3">
 					<CardTitle className="text-foreground">
 						<span className="flex items-center gap-2">
-							<span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-background text-foreground ring-1 ring-border">
-								<Settings className="h-4.5 w-4.5" />
+							<span className="inline-flex items-center justify-center size-8 rounded-lg bg-background text-foreground ring-1 ring-border">
+								<Settings className="size-4.5" />
 							</span>
 							<span className="font-semibold">Configurar Rancho Padrão</span>
 						</span>
@@ -78,7 +78,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 
 				<CardDescription className="mt-3">
 					<div className="flex gap-2 rounded-md border p-2.5 bg-accent/10 text-accent-foreground border-accent/30">
-						<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+						<AlertTriangle className="size-4 mt-0.5 shrink-0" />
 						<span className="text-sm">
 							Defina um rancho padrão para os cards que ainda não possuem rancho definido no banco de dados. Esta ação afetará apenas os cards sem rancho
 							configurado.
@@ -113,7 +113,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 
 					{defaultMessHallCode && (
 						<div className="flex items-center gap-2 text-xs rounded-md border p-2 bg-muted text-muted-foreground border-border">
-							<CheckCircle className="h-3.5 w-3.5" />
+							<CheckCircle className="size-3.5" />
 							<span>
 								Rancho selecionado: <strong className="text-foreground">{selectedMessHallLabel}</strong>
 							</span>
@@ -130,12 +130,12 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 					>
 						{isApplying || saving ? (
 							<>
-								<Loader2 className="h-4 w-4 animate-spin mr-2" />
+								<Loader2 className="size-4 animate-spin mr-2" />
 								Aplicando...
 							</>
 						) : (
 							<>
-								<CheckCircle className="h-4 w-4 mr-2" />
+								<CheckCircle className="size-4 mr-2" />
 								Aplicar
 							</>
 						)}

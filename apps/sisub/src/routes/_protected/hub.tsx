@@ -101,13 +101,13 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 				<CardContent className="flex flex-col gap-4">
 					{/* Header: icon + name + arrow */}
 					<div className="flex items-start gap-3">
-						<div className={cn("flex h-9 w-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
-							<Icon className="h-4 w-4" />
+						<div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
+							<Icon className="size-4" />
 						</div>
 						<span className="flex-1 font-semibold text-foreground text-sm leading-snug pt-1">{module.name}</span>
 						<ArrowUpRight
 							className={cn(
-								"h-4 w-4 shrink-0 mt-0.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5",
+								"size-4 shrink-0 mt-0.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5",
 								ACCENT_CLASSES[color]
 							)}
 						/>
@@ -118,7 +118,7 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 						<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
 							{module.items.map((item) => (
 								<div key={item.url} className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
-									<item.icon className="h-3 w-3 shrink-0" />
+									<item.icon className="size-3 shrink-0" />
 									<span className="truncate">{item.title}</span>
 								</div>
 							))}

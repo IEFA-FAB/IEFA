@@ -26,11 +26,11 @@ export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
 			{/* Avatar */}
 			<div
 				className={cn(
-					"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium mt-0.5",
+					"flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium mt-0.5",
 					isUser ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground border border-border"
 				)}
 			>
-				{isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+				{isUser ? <User className="size-3.5" /> : <Bot className="size-3.5" />}
 			</div>
 
 			{/* Bubble */}
@@ -50,9 +50,9 @@ export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
 						</>
 					) : message.isStreaming ? (
 						<span className="inline-flex items-center gap-1">
-							<span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-							<span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-							<span className="h-2 w-2 animate-bounce rounded-full bg-current" />
+							<span className="size-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+							<span className="size-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+							<span className="size-2 animate-bounce rounded-full bg-current" />
 						</span>
 					) : null}
 				</div>
@@ -65,7 +65,7 @@ export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
 						className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 						aria-label={copied ? "Copiado!" : "Copiar resposta"}
 					>
-						{copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+						{copied ? <Check className="size-3" /> : <Copy className="size-3" />}
 						{copied ? "Copiado!" : "Copiar"}
 					</button>
 				)}
@@ -73,7 +73,7 @@ export function ModuleChatMessageBubble({ message }: ModuleChatMessageProps) {
 				{/* Error */}
 				{message.error && (
 					<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-						<AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+						<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
 						{message.error}
 					</div>
 				)}

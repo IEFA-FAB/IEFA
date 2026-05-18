@@ -125,15 +125,15 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 							}}
 							aria-label={node.isExpanded ? "Recolher" : "Expandir"}
 						>
-							{node.isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+							{node.isExpanded ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
 						</Button>
 					) : (
 						<div className="w-5" />
 					)}
 
 					{/* Ícone com fundo colorido */}
-					<div className={cn("flex items-center justify-center w-7 h-7 rounded-[var(--radius)] border", style.iconBg, style.border)}>
-						<Icon className={cn("w-3.5 h-3.5", style.iconColor)} />
+					<div className={cn("flex items-center justify-center size-7 rounded-[var(--radius)] border", style.iconBg, style.border)}>
+						<Icon className={cn("size-3.5", style.iconColor)} />
 					</div>
 
 					{/* Label */}

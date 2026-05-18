@@ -41,7 +41,7 @@ function applyEdgeFilters(edges: PlacesEdge[], visibleNodeIds: Set<string>): Pla
 
 function GraphLoadingSkeleton() {
 	return (
-		<div className="w-full h-full flex items-center justify-center bg-muted/20 rounded-md border border-border">
+		<div className="size-full flex items-center justify-center bg-muted/20 rounded-md border border-border">
 			<div className="flex flex-col items-center gap-3">
 				<div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
 				<p className="text-sm text-muted-foreground">Carregando grafo...</p>
@@ -52,7 +52,7 @@ function GraphLoadingSkeleton() {
 
 function GraphEmptyState() {
 	return (
-		<div className="w-full h-full flex items-center justify-center bg-muted/20 rounded-md border border-border">
+		<div className="size-full flex items-center justify-center bg-muted/20 rounded-md border border-border">
 			<div className="flex flex-col items-center gap-2 text-center max-w-xs">
 				<p className="text-sm font-medium text-foreground">Nenhum dado encontrado</p>
 				<p className="text-xs text-muted-foreground">Cadastre unidades, cozinhas e refeitórios para visualizar o grafo.</p>
@@ -63,7 +63,7 @@ function GraphEmptyState() {
 
 function GraphErrorState() {
 	return (
-		<div className="w-full h-full flex items-center justify-center bg-destructive/5 rounded-md border border-destructive/20">
+		<div className="size-full flex items-center justify-center bg-destructive/5 rounded-md border border-destructive/20">
 			<p className="text-sm text-destructive">Erro ao carregar os dados. Recarregue a página.</p>
 		</div>
 	)

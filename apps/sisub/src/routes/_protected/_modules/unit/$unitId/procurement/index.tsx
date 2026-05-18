@@ -48,7 +48,7 @@ function ProcurementIndexPage() {
 					nativeButton={false}
 					render={
 						<Link to="/unit/$unitId/procurement/new" params={{ unitId: unitIdStr as string }}>
-							<Plus className="h-4 w-4 mr-2" />
+							<Plus className="size-4 mr-2" />
 							Nova ata
 						</Link>
 					}
@@ -64,7 +64,7 @@ function ProcurementIndexPage() {
 			) : !atas || atas.length === 0 ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
-						<ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
+						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
 						<p className="font-medium text-muted-foreground">Nenhuma ata criada ainda.</p>
 						<p className="text-sm text-muted-foreground mt-1">Crie uma nova ata para calcular e registrar os quantitativos de aquisição.</p>
 						<Button
@@ -74,7 +74,7 @@ function ProcurementIndexPage() {
 							nativeButton={false}
 							render={
 								<Link to="/unit/$unitId/procurement/new" params={{ unitId: unitIdStr as string }}>
-									<Plus className="h-4 w-4 mr-2" />
+									<Plus className="size-4 mr-2" />
 									Criar primeira ata
 								</Link>
 							}
@@ -89,7 +89,7 @@ function ProcurementIndexPage() {
 								<div className="flex items-start justify-between gap-2">
 									<div className="flex-1 min-w-0">
 										<CardTitle className="text-base flex items-center gap-2">
-											<FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+											<FileText className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
 											{ata.title}
 										</CardTitle>
 										{ata.notes && <CardDescription className="mt-1 line-clamp-2">{ata.notes}</CardDescription>}

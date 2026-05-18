@@ -7,7 +7,7 @@ export function PresenceTableSkeleton() {
 		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
-					<Users className="h-5 w-5" aria-hidden="true" />
+					<Users className="size-5" aria-hidden="true" />
 					Análise de Presenças
 				</CardTitle>
 				<CardDescription>Comparação entre previsões e presenças por dia, refeição e rancho</CardDescription>
@@ -31,7 +31,7 @@ export function PresenceTableSkeleton() {
 							{[...Array(5)].map((_, v) => (
 								<TableRow key={`skeleton-row-${v}`}>
 									<TableCell>
-										<div className="h-4 w-4 bg-muted animate-pulse rounded" />
+										<div className="size-4 bg-muted animate-pulse rounded" />
 									</TableCell>
 									<TableCell>
 										<div className="space-y-2">

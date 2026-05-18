@@ -144,19 +144,19 @@ function Home() {
 							render={
 								<Link to="/auth" className="flex items-center gap-2">
 									Acessar Sistema
-									<ChevronRight className="h-4 w-4" />
+									<ChevronRight className="size-4" />
 								</Link>
 							}
 							size="lg"
 						/>
 						<span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-							<ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+							<ShieldCheck className="size-3.5" aria-hidden />
 							Login obrigatório
 						</span>
 					</div>
 				</div>
 				<div className="flex justify-center pb-2" aria-hidden>
-					<ChevronsDown className="h-5 w-5 text-muted-foreground/40 animate-bounce" />
+					<ChevronsDown className="size-5 text-muted-foreground/40 animate-bounce" />
 				</div>
 			</section>
 
@@ -173,7 +173,7 @@ function Home() {
 								</span>
 								<div className="pt-0.5">
 									<div className="flex items-center gap-2 mb-1">
-										<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
+										<Icon className="size-4 text-primary shrink-0" aria-hidden />
 										<h3 className="font-bold text-sm text-foreground">{step.title}</h3>
 									</div>
 									<p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
@@ -193,7 +193,7 @@ function Home() {
 						return (
 							<Item key={mod.label} variant="default">
 								<ItemMedia variant="icon">
-									<Icon className="h-4 w-4 text-primary" aria-hidden />
+									<Icon className="size-4 text-primary" aria-hidden />
 								</ItemMedia>
 								<ItemContent>
 									<ItemTitle className="font-semibold">{mod.label}</ItemTitle>
@@ -217,7 +217,7 @@ function Home() {
 							<Card key={feature.title} variant="tile">
 								<CardHeader className="pb-0">
 									<div className="flex items-center gap-2">
-										<Icon className="h-4 w-4 text-primary shrink-0" aria-hidden />
+										<Icon className="size-4 text-primary shrink-0" aria-hidden />
 										<CardTitle className="text-sm font-bold">{feature.title}</CardTitle>
 									</div>
 								</CardHeader>
@@ -270,21 +270,21 @@ function Home() {
 							render={
 								<Link to="/auth" className="flex items-center gap-2">
 									Fazer Login
-									<ChevronRight className="h-4 w-4" />
+									<ChevronRight className="size-4" />
 								</Link>
 							}
 						/>
 						<div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
 							<span className="flex items-center gap-1.5">
-								<Users className="h-3.5 w-3.5" aria-hidden />
+								<Users className="size-3.5" aria-hidden />
 								Multi-perfil
 							</span>
 							<span className="flex items-center gap-1.5">
-								<Clock className="h-3.5 w-3.5" aria-hidden />
+								<Clock className="size-3.5" aria-hidden />
 								24/7
 							</span>
 							<span className="flex items-center gap-1.5">
-								<ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+								<ShieldCheck className="size-3.5" aria-hidden />
 								Seguro
 							</span>
 						</div>

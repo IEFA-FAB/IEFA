@@ -88,7 +88,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 					>
 						<div className="flex items-center justify-between w-full">
 							<span>{mh.display_name ?? mh.code}</span>
-							{value === mh.code && <Check className="h-4 w-4 text-primary ml-2" />}
+							{value === mh.code && <Check className="size-4 text-primary ml-2" />}
 						</div>
 					</SelectItem>
 				)),
@@ -126,13 +126,13 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				{showLabel && (
 					<Label className={classes.label}>
 						<div className="flex items-center space-x-1">
-							<MapPin className="h-4 w-4" />
+							<MapPin className="size-4" />
 							<span>Rancho:</span>
 						</div>
 
 						<div className="flex items-center space-x-2">
 							{indicators}
-							{isInvalid && <AlertCircle className="h-4 w-4 text-destructive" />}
+							{isInvalid && <AlertCircle className="size-4 text-destructive" />}
 						</div>
 					</Label>
 				)}
@@ -162,7 +162,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				{/* Informação adicional para rancho padrão */}
 				{showLabel && hasDefault && (
 					<div className="text-xs text-muted-foreground flex items-center space-x-1">
-						<AlertCircle className="h-3 w-3" />
+						<AlertCircle className="size-3" />
 						<span>Este é o rancho padrão configurado</span>
 					</div>
 				)}
@@ -170,7 +170,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 				{/* Validação de erro */}
 				{showLabel && showValidation && !isValidSelection && value && (
 					<div className="text-xs text-destructive flex items-center space-x-1">
-						<AlertCircle className="h-3 w-3" />
+						<AlertCircle className="size-3" />
 						<span>Rancho não encontrado: "{value}"</span>
 					</div>
 				)}

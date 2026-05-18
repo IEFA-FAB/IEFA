@@ -56,7 +56,7 @@ function McpKeysPage() {
 			<Card className="border-dashed bg-muted/30">
 				<CardHeader className="pb-2">
 					<CardTitle className="text-sm font-medium flex items-center gap-2">
-						<Terminal className="h-4 w-4 text-muted-foreground" />
+						<Terminal className="size-4 text-muted-foreground" />
 						Como usar
 					</CardTitle>
 				</CardHeader>
@@ -77,7 +77,7 @@ function McpKeysPage() {
 					{isLoading ? "Carregando…" : `${(keys ?? []).length} ${(keys ?? []).length === 1 ? "chave cadastrada" : "chaves cadastradas"}`}
 				</p>
 				<Button size="sm" onClick={() => setCreateOpen(true)} className="gap-2">
-					<Plus className="h-4 w-4" />
+					<Plus className="size-4" />
 					Nova Chave
 				</Button>
 			</div>
@@ -95,11 +95,11 @@ function McpKeysPage() {
 			{!isLoading && (keys ?? []).length === 0 && (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-12 text-center">
-						<KeyRound className="h-10 w-10 text-muted-foreground/40 mb-3" />
+						<KeyRound className="size-10 text-muted-foreground/40 mb-3" />
 						<p className="text-sm font-medium text-muted-foreground">Nenhuma chave cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Crie uma chave para usar o sisub-mcp com Claude ou Cursor.</p>
 						<Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="mt-4 gap-2">
-							<Plus className="h-4 w-4" />
+							<Plus className="size-4" />
 							Nova Chave
 						</Button>
 					</CardContent>
@@ -163,7 +163,7 @@ function KeyItem({ apiKey }: KeyItemProps) {
 	return (
 		<Card className={!apiKey.is_active ? "opacity-60" : ""}>
 			<CardContent className="flex items-center gap-4 py-4">
-				<KeyRound className="h-5 w-5 shrink-0 text-muted-foreground" />
+				<KeyRound className="size-5 shrink-0 text-muted-foreground" />
 
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 flex-wrap">
@@ -187,13 +187,13 @@ function KeyItem({ apiKey }: KeyItemProps) {
 									<Button
 										variant="ghost"
 										size="icon"
-										className="h-8 w-8 text-muted-foreground hover:text-foreground"
+										className="size-8 text-muted-foreground hover:text-foreground"
 										aria-label="Revogar chave"
 										disabled={isRevoking}
 									/>
 								}
 							>
-								{isRevoking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldOff className="h-4 w-4" />}
+								{isRevoking ? <Loader2 className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
 							</AlertDialogTrigger>
 							<AlertDialogContent>
 								<AlertDialogHeader>
@@ -217,13 +217,13 @@ function KeyItem({ apiKey }: KeyItemProps) {
 								<Button
 									variant="ghost"
 									size="icon"
-									className="h-8 w-8 text-destructive hover:text-destructive"
+									className="size-8 text-destructive hover:text-destructive"
 									aria-label="Remover chave"
 									disabled={isDeleting}
 								/>
 							}
 						>
-							{isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+							{isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
 						</AlertDialogTrigger>
 						<AlertDialogContent>
 							<AlertDialogHeader>
@@ -342,12 +342,12 @@ function CreateKeyDialog({ open, onOpenChange, onKeyCreated }: CreateKeyDialogPr
 									<Button type="submit" disabled={!canSubmit || createMutation.isPending || isSubmitting} className="gap-2">
 										{createMutation.isPending || isSubmitting ? (
 											<>
-												<Loader2 className="h-4 w-4 animate-spin" />
+												<Loader2 className="size-4 animate-spin" />
 												Gerando…
 											</>
 										) : (
 											<>
-												<Plus className="h-4 w-4" />
+												<Plus className="size-4" />
 												Gerar Chave
 											</>
 										)}
@@ -396,7 +396,7 @@ function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<KeyRound className="h-5 w-5 text-muted-foreground" />
+						<KeyRound className="size-5 text-muted-foreground" />
 						Chave gerada com sucesso
 					</DialogTitle>
 				</DialogHeader>
@@ -415,11 +415,11 @@ function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
 						<Button
 							variant="ghost"
 							size="icon"
-							className="shrink-0 h-9 w-9"
+							className="shrink-0 size-9"
 							onClick={() => setVisible(!visible)}
 							aria-label={visible ? "Ocultar chave" : "Revelar chave"}
 						>
-							{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+							{visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
 						</Button>
 					</div>
 
@@ -435,12 +435,12 @@ function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
 					<Button onClick={handleCopy} className="gap-2">
 						{copied ? (
 							<>
-								<Check className="h-4 w-4" />
+								<Check className="size-4" />
 								Copiado!
 							</>
 						) : (
 							<>
-								<Copy className="h-4 w-4" />
+								<Copy className="size-4" />
 								Copiar Chave
 							</>
 						)}

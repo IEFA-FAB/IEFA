@@ -50,7 +50,7 @@ export function IngredientsTreeManager() {
 	if (!flatTree && !error) {
 		return (
 			<div className="flex items-center justify-center h-96">
-				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+				<Loader2 className="size-8 animate-spin text-muted-foreground" />
 			</div>
 		)
 	}
@@ -72,7 +72,7 @@ export function IngredientsTreeManager() {
 			{/* Toolbar */}
 			<Card className="flex-col sm:flex-row items-stretch sm:items-center gap-4 p-5 overflow-visible">
 				<div className="relative flex-1 max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 					<Input
 						type="search"
 						placeholder="Buscar pastas ou insumos..."
@@ -92,12 +92,12 @@ export function IngredientsTreeManager() {
 					</Button>
 
 					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("folder", "create")} aria-label="Nova pasta" className="flex-1 sm:flex-none">
-						<FolderPlus className="w-4 h-4 mr-2" />
+						<FolderPlus className="size-4 mr-2" />
 						<span className="hidden sm:inline">Nova Pasta</span>
 						<span className="sm:hidden">Pasta</span>
 					</Button>
 					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("ingredient", "create")} aria-label="Novo insumo" className="flex-1 sm:flex-none">
-						<PackagePlus className="w-4 h-4 mr-2" />
+						<PackagePlus className="size-4 mr-2" />
 						<span className="hidden sm:inline">Novo Insumo</span>
 						<span className="sm:hidden">Insumo</span>
 					</Button>

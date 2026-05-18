@@ -28,14 +28,14 @@ export const Route = createFileRoute("/_protected/_modules/global/compras-sync")
 function StatusIcon({ status }: { status: string }) {
 	switch (status) {
 		case "running":
-			return <Loader2 className="h-3.5 w-3.5 animate-spin" />
+			return <Loader2 className="size-3.5 animate-spin" />
 		case "success":
-			return <CheckCircle2 className="h-3.5 w-3.5" />
+			return <CheckCircle2 className="size-3.5" />
 		case "error":
 		case "partial":
-			return <AlertCircle className="h-3.5 w-3.5" />
+			return <AlertCircle className="size-3.5" />
 		case "pending":
-			return <Clock className="h-3.5 w-3.5" />
+			return <Clock className="size-3.5" />
 		default:
 			return null
 	}
@@ -112,17 +112,17 @@ function ComprasSyncPage() {
 			<PageHeader title="Sync Compras.gov.br">
 				<div className="flex items-center gap-2">
 					<Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRunning} className="gap-2">
-						<RefreshCw className="h-4 w-4" />
+						<RefreshCw className="size-4" />
 						Atualizar
 					</Button>
 					{isRunning && (
 						<Button size="sm" variant="destructive" onClick={handleStop} disabled={isStopping} className="gap-2">
-							{isStopping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+							{isStopping ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
 							Parar Sync
 						</Button>
 					)}
 					<Button size="sm" onClick={handleTrigger} disabled={isTriggering || isRunning} className="gap-2">
-						{isTriggering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+						{isTriggering ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
 						{isRunning ? "Sync em andamento…" : "Iniciar Sync"}
 					</Button>
 				</div>

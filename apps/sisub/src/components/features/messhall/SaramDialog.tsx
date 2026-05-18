@@ -83,7 +83,7 @@ export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onCh
 						<Button type="submit" disabled={!canSubmit} className="disabled:cursor-not-allowed disabled:opacity-50">
 							{isSaving ? (
 								<span className="inline-flex items-center gap-2">
-									<span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent" />
+									<span className="size-4 animate-spin rounded-full border-2 border-current border-b-transparent" />
 									Salvando...
 								</span>
 							) : (

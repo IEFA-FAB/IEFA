@@ -45,7 +45,7 @@ function EventsPage() {
 						nativeButton={false}
 						render={
 							<Link to="/kitchen/$kitchenId/events/new" params={{ kitchenId: kitchenIdStr as string }}>
-								<Plus className="h-4 w-4 mr-2" />
+								<Plus className="size-4 mr-2" />
 								Novo Evento
 							</Link>
 						}
@@ -55,7 +55,7 @@ function EventsPage() {
 
 			<div>
 				<div className="flex items-center gap-2 mb-3">
-					<CalendarRange className="w-4 h-4 text-muted-foreground" />
+					<CalendarRange className="size-4 text-muted-foreground" />
 					<h2 className="text-sm font-semibold">Cardápios de Eventos</h2>
 					<Badge variant="outline" className="text-xs">
 						Selecionáveis na licitação
@@ -66,7 +66,7 @@ function EventsPage() {
 					<div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando eventos...</div>
 				) : eventTemplates.length === 0 ? (
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
-						<CalendarRange className="h-10 w-10 mx-auto text-muted-foreground" />
+						<CalendarRange className="size-10 mx-auto text-muted-foreground" />
 						<p className="text-sm font-medium text-muted-foreground">Nenhum evento criado ainda.</p>
 						<p className="text-xs text-muted-foreground max-w-sm mx-auto">
 							Crie cardápios para datas comemorativas, formaturas, visitas e outras refeições especiais. Eles serão selecionáveis na composição das Atas de
@@ -79,7 +79,7 @@ function EventsPage() {
 							nativeButton={false}
 							render={
 								<Link to="/kitchen/$kitchenId/events/new" params={{ kitchenId: kitchenIdStr as string }}>
-									<Plus className="w-4 h-4 mr-2" />
+									<Plus className="size-4 mr-2" />
 									Criar primeiro evento
 								</Link>
 							}
@@ -117,7 +117,7 @@ function EventsPage() {
 																nativeButton={false}
 																render={
 																	<Link to="/kitchen/$kitchenId/events/$eventId" params={{ kitchenId: kitchenIdStr as string, eventId: template.id }}>
-																		<Edit className="w-4 h-4" />
+																		<Edit className="size-4" />
 																	</Link>
 																}
 															/>
@@ -129,7 +129,7 @@ function EventsPage() {
 													<TooltipTrigger
 														render={
 															<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
-																<Trash2 className="w-4 h-4 text-destructive" />
+																<Trash2 className="size-4 text-destructive" />
 															</Button>
 														}
 													></TooltipTrigger>

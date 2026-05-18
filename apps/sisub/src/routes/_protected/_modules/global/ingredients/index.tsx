@@ -39,7 +39,7 @@ function IngredientsPage() {
 		<div className="space-y-6">
 			<PageHeader title="Gestão de Insumos">
 				<Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
-					<DownloadIcon className="h-4 w-4" />
+					<DownloadIcon className="size-4" />
 					Exportar CSV
 				</Button>
 			</PageHeader>

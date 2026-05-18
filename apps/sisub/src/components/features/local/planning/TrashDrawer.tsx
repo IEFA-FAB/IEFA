@@ -30,7 +30,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 			<SheetContent className="sm:max-w-2xl w-full">
 				<SheetHeader className="mb-6">
 					<SheetTitle className="flex items-center gap-2">
-						<Trash2 className="w-5 h-5 text-destructive" />
+						<Trash2 className="size-5 text-destructive" />
 						Lixeira
 					</SheetTitle>
 					<SheetDescription>Items e templates removidos. Restaure se necessário.</SheetDescription>
@@ -38,13 +38,13 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 
 				{isLoading ? (
 					<div className="flex justify-center py-10">
-						<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+						<Loader2 className="size-8 animate-spin text-muted-foreground" />
 					</div>
 				) : (
 					<Tabs defaultValue="items" className="w-full">
 						<TabsList className="grid w-full grid-cols-2">
 							<TabsTrigger value="items" className="gap-2">
-								<UtensilsCrossed className="w-4 h-4" />
+								<UtensilsCrossed className="size-4" />
 								Items de Cardápio
 								{trashItems && trashItems.length > 0 && (
 									<Badge variant="secondary" className="ml-1 text-[10px]">
@@ -53,7 +53,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 								)}
 							</TabsTrigger>
 							<TabsTrigger value="templates" className="gap-2">
-								<CalendarDays className="w-4 h-4" />
+								<CalendarDays className="size-4" />
 								Templates
 								{deletedTemplates && deletedTemplates.length > 0 && (
 									<Badge variant="secondary" className="ml-1 text-[10px]">
@@ -99,7 +99,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 														onClick={() => restoreItem(item.id)}
 														disabled={isPending}
 													>
-														<RefreshCcw className="w-3 h-3" />
+														<RefreshCcw className="size-3" />
 														Restaurar
 													</Button>
 												</ItemFooter>
@@ -151,7 +151,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 														onClick={() => restoreTemplate(template.id)}
 														disabled={isPending}
 													>
-														<RefreshCcw className="w-3 h-3" />
+														<RefreshCcw className="size-3" />
 														Restaurar Template
 													</Button>
 												</ItemFooter>

@@ -107,7 +107,7 @@ export function ModuleChatInterface({ config, sessionId, onSessionCreated }: Mod
 					</div>
 				) : loadingMessages ? (
 					<div className="flex items-center justify-center py-20">
-						<div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+						<div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
 					</div>
 				) : (
 					<ModuleSuggestedPrompts config={config} onSelect={onSubmit} />

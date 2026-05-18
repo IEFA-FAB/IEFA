@@ -112,7 +112,7 @@ function ResetPasswordPage() {
 		return (
 			<div className="flex-1 flex items-center justify-center px-4 py-12">
 				<div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
-					<Loader2 className="h-7 w-7 animate-spin text-muted-foreground" aria-hidden />
+					<Loader2 className="size-7 animate-spin text-muted-foreground" aria-hidden />
 					<p className="font-mono text-sm text-muted-foreground">Verificando link de recuperação...</p>
 				</div>
 			</div>
@@ -124,7 +124,7 @@ function ResetPasswordPage() {
 		return (
 			<div className="flex-1 flex items-center justify-center px-4 py-12">
 				<div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
-					<CheckCircle2 className="h-8 w-8 text-primary" aria-hidden />
+					<CheckCircle2 className="size-8 text-primary" aria-hidden />
 					<p className="font-bold text-lg">Senha atualizada!</p>
 					<p className="font-mono text-sm text-muted-foreground">Redirecionando para o login...</p>
 				</div>
@@ -143,7 +143,7 @@ function ResetPasswordPage() {
 						<p className="text-sm text-muted-foreground leading-relaxed">O link de recuperação expirou ou não é mais válido.</p>
 					</div>
 					<Alert variant="destructive">
-						<AlertCircle className="h-4 w-4" />
+						<AlertCircle className="size-4" />
 						<AlertDescription>Solicite uma nova recuperação de senha.</AlertDescription>
 					</Alert>
 					<Button variant="outline" onClick={() => router.navigate({ to: "/auth" })} className="self-start">
@@ -168,7 +168,7 @@ function ResetPasswordPage() {
 				<form onSubmit={handleSubmit} noValidate className="space-y-5">
 					{error && (
 						<Alert variant="destructive">
-							<AlertCircle className="h-4 w-4" />
+							<AlertCircle className="size-4" />
 							<AlertDescription>{error}</AlertDescription>
 						</Alert>
 					)}
@@ -179,7 +179,7 @@ function ResetPasswordPage() {
 							Nova senha
 						</Label>
 						<div className="relative">
-							<Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 							<Input
 								id="new-password"
 								type={showPassword ? "text" : "password"}
@@ -203,12 +203,12 @@ function ResetPasswordPage() {
 								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 								aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 							>
-								{showPassword ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+								{showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
 							</button>
 						</div>
 						{passwordErr && (
 							<p id="new-password-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-								<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {passwordErr}
+								<AlertCircle className="size-3 shrink-0" aria-hidden /> {passwordErr}
 							</p>
 						)}
 					</div>
@@ -219,7 +219,7 @@ function ResetPasswordPage() {
 							Confirmar senha
 						</Label>
 						<div className="relative">
-							<Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
 							<Input
 								id="confirm-password"
 								type={showConfirm ? "text" : "password"}
@@ -243,12 +243,12 @@ function ResetPasswordPage() {
 								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 								aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 							>
-								{showConfirm ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+								{showConfirm ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
 							</button>
 						</div>
 						{confirmErr && (
 							<p id="confirm-password-error" role="alert" className="flex items-center gap-1.5 font-mono text-xs text-destructive">
-								<AlertCircle className="h-3 w-3 shrink-0" aria-hidden /> {confirmErr}
+								<AlertCircle className="size-3 shrink-0" aria-hidden /> {confirmErr}
 							</p>
 						)}
 					</div>
@@ -256,11 +256,11 @@ function ResetPasswordPage() {
 					<Button type="submit" className="w-full gap-2" disabled={isSubmitting || !!passwordErr || !!confirmErr || !newPassword || !confirm}>
 						{isSubmitting ? (
 							<>
-								<Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Atualizando...
+								<Loader2 className="size-4 animate-spin" aria-hidden /> Atualizando...
 							</>
 						) : (
 							<>
-								Atualizar senha <ChevronRight className="h-4 w-4" aria-hidden />
+								Atualizar senha <ChevronRight className="size-4" aria-hidden />
 							</>
 						)}
 					</Button>

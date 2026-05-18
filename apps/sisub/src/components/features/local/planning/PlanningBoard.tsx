@@ -129,8 +129,8 @@ export function PlanningBoard() {
 				<div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center">
 					<div className="flex items-center gap-2">
 						<div className="flex items-center ">
-							<Button variant="ghost" size="sm" onClick={() => handleMonthChange(-1)} aria-label="Mês anterior" className="h-8 w-8 p-0">
-								<ChevronLeft className="w-4 h-4" />
+							<Button variant="ghost" size="sm" onClick={() => handleMonthChange(-1)} aria-label="Mês anterior" className="size-8 p-0">
+								<ChevronLeft className="size-4" />
 							</Button>
 							<Tooltip>
 								<TooltipTrigger
@@ -142,8 +142,8 @@ export function PlanningBoard() {
 								></TooltipTrigger>
 								<TooltipContent>Voltar ao mês atual</TooltipContent>
 							</Tooltip>
-							<Button variant="ghost" size="sm" onClick={() => handleMonthChange(1)} aria-label="Próximo mês" className="h-8 w-8 p-0">
-								<ChevronRight className="w-4 h-4" />
+							<Button variant="ghost" size="sm" onClick={() => handleMonthChange(1)} aria-label="Próximo mês" className="size-8 p-0">
+								<ChevronRight className="size-4" />
 							</Button>
 						</div>
 					</div>
@@ -162,7 +162,7 @@ export function PlanningBoard() {
 										nativeButton={false}
 										render={
 											<Link to="/kitchen/$kitchenId/weekly-menus" params={{ kitchenId: kitchenIdStr }}>
-												<CalendarDays className="w-4 h-4 sm:mr-2" />
+												<CalendarDays className="size-4 sm:mr-2" />
 												<span className="hidden sm:inline">Cardápios Semanais</span>
 											</Link>
 										}
@@ -175,8 +175,8 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button variant="ghost" size="sm" onClick={() => setIsMealTypeManagerOpen(true)} className="h-9 w-9 p-0">
-									<Settings className="w-4 h-4" />
+								<Button variant="ghost" size="sm" onClick={() => setIsMealTypeManagerOpen(true)} className="size-9 p-0">
+									<Settings className="size-4" />
 								</Button>
 							}
 						></TooltipTrigger>
@@ -185,15 +185,15 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button variant="ghost" size="sm" onClick={() => setIsTrashOpen(true)} className="h-9 w-9 p-0">
-									<Trash2 className="w-4 h-4" />
+								<Button variant="ghost" size="sm" onClick={() => setIsTrashOpen(true)} className="size-9 p-0">
+									<Trash2 className="size-4" />
 								</Button>
 							}
 						></TooltipTrigger>
 						<TooltipContent>Lixeira</TooltipContent>
 					</Tooltip>
 					<Button variant="outline" size="sm" onClick={() => setIsTemplateModalOpen(true)} disabled={selectedDays.size === 0} className="h-9">
-						<CalendarIcon className="w-4 h-4 sm:mr-2" />
+						<CalendarIcon className="size-4 sm:mr-2" />
 						<span className="hidden sm:inline">Aplicar</span>
 						<span className="ml-1">({selectedDays.size})</span>
 					</Button>
@@ -254,13 +254,13 @@ export function PlanningBoard() {
 							>
 								<div className="flex items-center justify-between mb-2">
 									<span
-										className={cn("text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}
+										className={cn("text-sm font-medium size-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}
 									>
 										{format(day, "d")}
 									</span>
 									{hasMenus && (
 										<Badge variant="outline" className="text-[10px] h-5 px-1 font-normal text-muted-foreground gap-1">
-											<Users className="w-3 h-3" />
+											<Users className="size-3" />
 											{totalHeadcount > 0 ? totalHeadcount : "-"}
 										</Badge>
 									)}
@@ -275,7 +275,7 @@ export function PlanningBoard() {
 
 										return (
 											<div key={menu.id} className="text-xs truncate flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:bg-accent">
-												<span className={cn("w-1.5 h-1.5 rounded-full", statusColor)} />
+												<span className={cn("size-1.5 rounded-full", statusColor)} />
 												<span className="font-medium text-foreground/80">{mealName.substring(0, 3)}</span>
 												<span className="text-muted-foreground ml-auto">{itemCount}</span>
 											</div>

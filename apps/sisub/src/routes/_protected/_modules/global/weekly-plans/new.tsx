@@ -93,7 +93,7 @@ function NewWeeklyPlanPage() {
 							Cancelar
 						</Button>
 						<Button type="submit" disabled={isPending || !name.trim()}>
-							{isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+							{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Plus className="size-4 mr-2" />}
 							Criar Plano
 						</Button>
 					</div>

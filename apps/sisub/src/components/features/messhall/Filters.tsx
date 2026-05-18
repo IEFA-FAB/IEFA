@@ -33,7 +33,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 						<div className="space-y-2">
 							<Label className="text-sm font-medium flex items-center justify-between text-foreground">
 								<div className="flex items-center space-x-1">
-									<Calendar className="h-4 w-4" />
+									<Calendar className="size-4" />
 									<span>Dia:</span>
 								</div>
 								{isInvalid && (
@@ -41,7 +41,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 										<Badge variant="destructive" className="text-xs">
 											Inválido
 										</Badge>
-										<AlertCircle className="h-4 w-4 text-destructive" />
+										<AlertCircle className="size-4 text-destructive" />
 									</div>
 								)}
 							</Label>
@@ -64,7 +64,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 
 							{isInvalid && (
 								<div className="text-xs text-destructive flex items-center space-x-1">
-									<AlertCircle className="h-3 w-3" />
+									<AlertCircle className="size-3" />
 									<span>Data inválida selecionada</span>
 								</div>
 							)}
@@ -83,7 +83,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 						<div className="space-y-2">
 							<Label className="text-sm font-medium flex items-center justify-between text-foreground">
 								<div className="flex items-center space-x-1">
-									<Utensils className="h-4 w-4" />
+									<Utensils className="size-4" />
 									<span>Refeição:</span>
 								</div>
 								{isInvalid && (
@@ -91,7 +91,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 										<Badge variant="destructive" className="text-xs">
 											Inválida
 										</Badge>
-										<AlertCircle className="h-4 w-4 text-destructive" />
+										<AlertCircle className="size-4 text-destructive" />
 									</div>
 								)}
 							</Label>
@@ -114,7 +114,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 
 							{isInvalid && (
 								<div className="text-xs text-destructive flex items-center space-x-1">
-									<AlertCircle className="h-3 w-3" />
+									<AlertCircle className="size-3" />
 									<span>Refeição inválida selecionada</span>
 								</div>
 							)}

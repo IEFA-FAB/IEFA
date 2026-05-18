@@ -93,11 +93,11 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 				<CardTitle className="flex items-center gap-2 text-foreground">
 					<span
 						className="
-                  inline-flex items-center justify-center h-8 w-8 rounded-lg
+                  inline-flex items-center justify-center size-8 rounded-lg
                   bg-background text-primary ring-1 ring-border
                 "
 					>
-						<UtensilsCrossed className="h-5 w-5" />
+						<UtensilsCrossed className="size-5" />
 					</span>
 					Aplicar Refeições em Massa
 				</CardTitle>
@@ -194,12 +194,12 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 					>
 						{isApplying ? (
 							<>
-								<Loader2 className="h-4 w-4 animate-spin mr-2" />
+								<Loader2 className="size-4 animate-spin mr-2" />
 								Aplicando...
 							</>
 						) : (
 							<>
-								<CheckCircle className="h-4 w-4 mr-2" />
+								<CheckCircle className="size-4 mr-2" />
 								Aplicar a {cardsCount} card{cardsCount !== 1 ? "s" : ""}
 							</>
 						)}

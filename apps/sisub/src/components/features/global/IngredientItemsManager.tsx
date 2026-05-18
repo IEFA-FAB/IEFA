@@ -80,12 +80,12 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 			{/* Header da seção */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
-					<ShoppingCart className="w-5 h-5 text-success" />
+					<ShoppingCart className="size-5 text-success" />
 					<h2 className="text-lg font-semibold">Itens de Compra</h2>
 					{ingredientItems && <Badge variant="success">{ingredientItems.length}</Badge>}
 				</div>
 				<Button size="sm" onClick={openCreate} className="gap-2">
-					<PackagePlus className="w-4 h-4" />
+					<PackagePlus className="size-4" />
 					Novo Item
 				</Button>
 			</div>
@@ -94,10 +94,10 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 			<Card>
 				{isEmpty ? (
 					<div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
-						<ShoppingCart className="w-10 h-10 opacity-30" />
+						<ShoppingCart className="size-10 opacity-30" />
 						<p className="font-sans">Nenhum item de compra cadastrado</p>
 						<Button variant="outline" size="sm" onClick={openCreate}>
-							<PackagePlus className="w-4 h-4 mr-2" />
+							<PackagePlus className="size-4 mr-2" />
 							Adicionar primeiro item
 						</Button>
 					</div>
@@ -107,14 +107,14 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 							<Collapsible key={item.id} open={openItems.has(item.id)} onOpenChange={() => toggleItem(item.id)}>
 								<div className="group flex items-center px-4 py-3 hover:bg-muted/50 transition-colors gap-2">
 									<CollapsibleTrigger className="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-[var(--radius)]">
-										<div className="flex items-center justify-center w-8 h-8 rounded-[var(--radius)] bg-success/10 border border-success/20 shrink-0">
-											<ShoppingCart className="w-4 h-4 text-success" />
+										<div className="flex items-center justify-center size-8 rounded-[var(--radius)] bg-success/10 border border-success/20 shrink-0">
+											<ShoppingCart className="size-4 text-success" />
 										</div>
 										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-1.5">
 												<p className="text-sm font-medium truncate">{item.description}</p>
 												<ChevronDown
-													className={cn("w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")}
+													className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")}
 												/>
 											</div>
 											<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -141,7 +141,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 
 									<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
 										<Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)} disabled={isDeleting} aria-label={`Editar ${item.description}`}>
-											<Edit className="w-3.5 h-3.5" />
+											<Edit className="size-3.5" />
 										</Button>
 										<Button
 											variant="destructive"
@@ -150,7 +150,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 											disabled={isDeleting}
 											aria-label={`Excluir ${item.description}`}
 										>
-											<Trash2 className="w-3.5 h-3.5" />
+											<Trash2 className="size-3.5" />
 										</Button>
 									</div>
 								</div>

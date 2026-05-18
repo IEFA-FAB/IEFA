@@ -56,11 +56,11 @@ function PolicyPage() {
 			<Tabs defaultValue="product">
 				<TabsList className="mb-4">
 					<TabsTrigger value="product" className="gap-2">
-						<Wheat className="h-4 w-4" />
+						<Wheat className="size-4" />
 						Insumos
 					</TabsTrigger>
 					<TabsTrigger value="recipe" className="gap-2">
-						<UtensilsCrossed className="h-4 w-4" />
+						<UtensilsCrossed className="size-4" />
 						Preparações
 					</TabsTrigger>
 				</TabsList>
@@ -140,11 +140,11 @@ function PolicyTab({ target }: PolicyTabProps) {
 				</p>
 				<div className="flex items-center gap-2">
 					<Button variant="outline" size="sm" onClick={handleGeneratePrompt} className="gap-2">
-						<ClipboardList className="h-4 w-4" />
+						<ClipboardList className="size-4" />
 						Gerar Prompt de Revisão
 					</Button>
 					<Button size="sm" onClick={handleAddRule} className="gap-2">
-						<Plus className="h-4 w-4" />
+						<Plus className="size-4" />
 						Nova Regra
 					</Button>
 				</div>
@@ -154,11 +154,11 @@ function PolicyTab({ target }: PolicyTabProps) {
 			{activeRules.length === 0 ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-12 text-center">
-						<ClipboardList className="h-10 w-10 text-muted-foreground/40 mb-3" />
+						<ClipboardList className="size-10 text-muted-foreground/40 mb-3" />
 						<p className="text-sm font-medium text-muted-foreground">Nenhuma regra cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Adicione regras de política para {label}.</p>
 						<Button size="sm" variant="outline" onClick={handleAddRule} className="mt-4 gap-2">
-							<Plus className="h-4 w-4" />
+							<Plus className="size-4" />
 							Nova Regra
 						</Button>
 					</CardContent>
@@ -213,7 +213,7 @@ function RuleItem({ rule, target, onEdit, onToggleActive }: RuleItemProps) {
 		<Card className={rule.active ? "" : "opacity-60"}>
 			<CardContent className="flex items-start gap-4 py-4">
 				{/* Order badge */}
-				<span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground mt-0.5">
+				<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground mt-0.5">
 					{rule.display_order}
 				</span>
 
@@ -231,14 +231,14 @@ function RuleItem({ rule, target, onEdit, onToggleActive }: RuleItemProps) {
 						disabled={isToggling}
 						aria-label={rule.active ? "Desativar regra" : "Ativar regra"}
 					/>
-					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(rule)} aria-label="Editar regra">
-						<Pencil className="h-4 w-4" />
+					<Button variant="ghost" size="icon" className="size-8" onClick={() => onEdit(rule)} aria-label="Editar regra">
+						<Pencil className="size-4" />
 					</Button>
 					<AlertDialog>
 						<AlertDialogTrigger
-							render={<Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" aria-label="Remover regra" />}
+							render={<Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" aria-label="Remover regra" />}
 						>
-							<Trash2 className="h-4 w-4" />
+							<Trash2 className="size-4" />
 						</AlertDialogTrigger>
 						<AlertDialogContent>
 							<AlertDialogHeader>
@@ -255,7 +255,7 @@ function RuleItem({ rule, target, onEdit, onToggleActive }: RuleItemProps) {
 								>
 									{deleteMutation.isPending ? (
 										<span className="inline-flex items-center gap-2">
-											<Loader2 className="h-4 w-4 animate-spin" />
+											<Loader2 className="size-4 animate-spin" />
 											Removendo…
 										</span>
 									) : (
@@ -432,7 +432,7 @@ function RuleFormDialog({ open, onOpenChange, target, editingRule, nextOrder }: 
 									<Button type="submit" disabled={!canSubmit || isSaving || isSubmitting}>
 										{isSaving || isSubmitting ? (
 											<span className="inline-flex items-center gap-2">
-												<Loader2 className="h-4 w-4 animate-spin" />
+												<Loader2 className="size-4 animate-spin" />
 												Salvando…
 											</span>
 										) : (
@@ -477,7 +477,7 @@ function PromptDialog({ open, onOpenChange, target, prompt, isFetching }: Prompt
 			<DialogContent className="sm:max-w-3xl flex flex-col max-h-[90dvh]">
 				<DialogHeader className="shrink-0">
 					<DialogTitle className="flex items-center gap-2">
-						<ClipboardList className="h-5 w-5 text-muted-foreground" />
+						<ClipboardList className="size-5 text-muted-foreground" />
 						Prompt de Revisão — {label}
 					</DialogTitle>
 				</DialogHeader>
@@ -512,12 +512,12 @@ function PromptDialog({ open, onOpenChange, target, prompt, isFetching }: Prompt
 					<Button onClick={handleCopy} disabled={isFetching || !prompt} className="gap-2">
 						{copied ? (
 							<>
-								<Check className="h-4 w-4" />
+								<Check className="size-4" />
 								Copiado!
 							</>
 						) : (
 							<>
-								<Copy className="h-4 w-4" />
+								<Copy className="size-4" />
 								Copiar Prompt
 							</>
 						)}

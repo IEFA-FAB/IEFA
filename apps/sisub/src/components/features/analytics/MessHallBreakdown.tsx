@@ -41,7 +41,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Building2 className="h-5 w-5" aria-hidden="true" />
+						<Building2 className="size-5" aria-hidden="true" />
 						Detalhamento por Rancho
 					</CardTitle>
 				</CardHeader>
@@ -53,9 +53,9 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 	}
 
 	const getTrendIcon = (rate: number) => {
-		if (rate >= 90) return <TrendingUp className="h-4 w-4" />
-		if (rate >= 70) return <Minus className="h-4 w-4" />
-		return <TrendingDown className="h-4 w-4" />
+		if (rate >= 90) return <TrendingUp className="size-4" />
+		if (rate >= 70) return <Minus className="size-4" />
+		return <TrendingDown className="size-4" />
 	}
 
 	const getTrendColor = (rate: number) => {
@@ -70,7 +70,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 				<div className="flex items-start justify-between gap-4">
 					<div>
 						<CardTitle className="flex items-center gap-2">
-							<Building2 className="h-5 w-5" aria-hidden="true" />
+							<Building2 className="size-5" aria-hidden="true" />
 							Detalhamento por Rancho
 						</CardTitle>
 						<CardDescription>Previsão e presença por refeitório</CardDescription>
@@ -80,7 +80,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 							<TooltipTrigger
 								render={
 									<Button variant="outline" size="sm" onClick={expandAll} className="text-xs gap-1">
-										<Maximize2 className="h-3 w-3" aria-hidden="true" />
+										<Maximize2 className="size-3" aria-hidden="true" />
 										<span className="hidden sm:inline">Expandir</span>
 									</Button>
 								}
@@ -91,7 +91,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 							<TooltipTrigger
 								render={
 									<Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
-										<Minimize2 className="h-3 w-3" aria-hidden="true" />
+										<Minimize2 className="size-3" aria-hidden="true" />
 										<span className="hidden sm:inline">Recolher</span>
 									</Button>
 								}
@@ -113,9 +113,9 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 								<div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer">
 									<div className="flex items-center gap-3">
 										{isOpen ? (
-											<ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+											<ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
 										) : (
-											<ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+											<ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
 										)}
 										<h3 className="font-semibold text-lg text-left">{mh.mess_hall_name}</h3>
 									</div>

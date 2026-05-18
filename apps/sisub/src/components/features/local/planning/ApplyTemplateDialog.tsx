@@ -128,7 +128,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 													{tpl.recipe_count !== 1 ? "s" : ""}
 												</p>
 											</div>
-											{selectedTemplateId === tpl.id && <Calendar className="w-4 h-4 text-primary" />}
+											{selectedTemplateId === tpl.id && <Calendar className="size-4 text-primary" />}
 										</Button>
 									))}
 								</div>
@@ -179,7 +179,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 												})}
 											</Badge>
 											<span className="text-xs text-muted-foreground">({getWeekdayLabel(mapping.realDay)})</span>
-											<ChevronRight className="w-3 h-3 text-muted-foreground" />
+											<ChevronRight className="size-3 text-muted-foreground" />
 											<span className="text-xs font-medium">Dia {mapping.templateDay} do template</span>
 										</Item>
 									))}
@@ -194,7 +194,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 						Cancelar
 					</Button>
 					<Button onClick={handleApply} disabled={!selectedTemplateId || isPending}>
-						{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+						{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 						Aplicar Template
 					</Button>
 				</DialogFooter>

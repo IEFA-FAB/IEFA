@@ -70,7 +70,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 						<DialogTitle>Gerenciar Tipos de Refeição</DialogTitle>
 					</DialogHeader>
 					<div className="flex items-center gap-2 p-4 text-muted-foreground">
-						<AlertCircle className="w-4 h-4" />
+						<AlertCircle className="size-4" />
 						<p className="text-sm">Selecione uma cozinha para gerenciar tipos de refeição.</p>
 					</div>
 				</DialogContent>
@@ -91,7 +91,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 						{/* Generic Types Section */}
 						<div>
 							<div className="flex items-center gap-2 mb-3">
-								<Lock className="w-4 h-4 text-muted-foreground" />
+								<Lock className="size-4 text-muted-foreground" />
 								<h3 className="text-sm font-medium">Tipos Genéricos</h3>
 								<Badge variant="outline" className="text-xs">
 									Global
@@ -140,7 +140,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 									</Badge>
 								</div>
 								<Button size="sm" onClick={handleCreate}>
-									<Plus className="w-4 h-4 mr-2" />
+									<Plus className="size-4 mr-2" />
 									Novo Tipo
 								</Button>
 							</div>
@@ -171,7 +171,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 															<TooltipTrigger
 																render={
 																	<Button size="icon" variant="ghost" onClick={() => handleEdit(mealType)}>
-																		<Edit className="w-4 h-4" />
+																		<Edit className="size-4" />
 																	</Button>
 																}
 															></TooltipTrigger>
@@ -181,7 +181,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 															<TooltipTrigger
 																render={
 																	<Button size="icon" variant="ghost" onClick={() => handleDelete(mealType)} disabled={isDeleting}>
-																		<Trash2 className="w-4 h-4 text-destructive" />
+																		<Trash2 className="size-4 text-destructive" />
 																	</Button>
 																}
 															></TooltipTrigger>
@@ -197,7 +197,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 								<div className="py-8 text-center border-2 border-dashed rounded-lg">
 									<p className="text-sm text-muted-foreground mb-2">Nenhum tipo customizado criado ainda.</p>
 									<Button size="sm" variant="outline" onClick={handleCreate}>
-										<Plus className="w-4 h-4 mr-2" />
+										<Plus className="size-4 mr-2" />
 										Criar Primeiro Tipo
 									</Button>
 								</div>

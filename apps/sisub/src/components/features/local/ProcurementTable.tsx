@@ -29,7 +29,7 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Package className="h-5 w-5" aria-hidden="true" />
+						<Package className="size-5" aria-hidden="true" />
 						Necessidades de Compra
 					</CardTitle>
 					<CardDescription>Calculando quantidades necessárias...</CardDescription>
@@ -50,13 +50,13 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<Package className="h-5 w-5" aria-hidden="true" />
+						<Package className="size-5" aria-hidden="true" />
 						Necessidades de Compra
 					</CardTitle>
 					<CardDescription>Nenhum cardápio planejado neste período</CardDescription>
 				</CardHeader>
 				<CardContent className="flex flex-col items-center justify-center py-12 text-center">
-					<Package className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
+					<Package className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
 					<p className="text-muted-foreground">Não há itens para compra no período selecionado.</p>
 					<p className="text-sm text-muted-foreground mt-2">Planeje cardápios para ver as necessidades de aquisição.</p>
 				</CardContent>
@@ -70,7 +70,7 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 				<Card key={category}>
 					<CardHeader>
 						<CardTitle className="flex items-center gap-2">
-							<Package className="h-5 w-5 text-primary" aria-hidden="true" />
+							<Package className="size-5 text-primary" aria-hidden="true" />
 							{category}
 						</CardTitle>
 						<CardDescription>

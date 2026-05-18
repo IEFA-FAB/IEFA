@@ -139,7 +139,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 							<Button type="submit" disabled={!canSubmit || isSaving || isSubmitting}>
 								{isSaving || isSubmitting ? (
 									<span className="inline-flex items-center gap-2">
-										<Loader2 className="h-4 w-4 animate-spin" />
+										<Loader2 className="size-4 animate-spin" />
 										Salvando...
 									</span>
 								) : (

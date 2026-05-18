@@ -37,7 +37,7 @@ function SuperAdminPanel() {
 								className="gap-2"
 								aria-label="Abrir relatório em nova aba"
 							>
-								<ExternalLink className="h-4 w-4" aria-hidden="true" />
+								<ExternalLink className="size-4" aria-hidden="true" />
 								Abrir
 							</Button>
 						}
@@ -53,7 +53,7 @@ function SuperAdminPanel() {
 					aria-pressed={expanded}
 					aria-label={expanded ? "Reduzir" : "Expandir"}
 				>
-					<Maximize2 className="h-4 w-4" aria-hidden="true" />
+					<Maximize2 className="size-4" aria-hidden="true" />
 					{expanded ? "Reduzir" : "Expandir"}
 				</Button>
 			</PageHeader>

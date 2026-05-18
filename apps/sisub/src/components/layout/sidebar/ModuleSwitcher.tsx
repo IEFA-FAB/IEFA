@@ -80,7 +80,7 @@ export function ModuleSwitcher({
 									render={
 										<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 											<div className="flex h-8 p-2 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-												<activeModule.logo className="h-4 w-4" />
+												<activeModule.logo className="size-4" />
 											</div>
 
 											<div className="grid flex-1 text-left text-sm leading-tight">
@@ -105,8 +105,8 @@ export function ModuleSwitcher({
 							<DropdownMenuLabel className="text-muted-foreground text-xs">Módulos</DropdownMenuLabel>
 							{modules.map((module, i) => (
 								<DropdownMenuItem key={module.name} onClick={() => handleChange(module)} className="cursor-pointer gap-2 p-2">
-									<div className="flex h-6 w-6 items-center justify-center rounded-md border bg-sidebar-accent">
-										<module.logo className="h-3.5 w-3.5" />
+									<div className="flex size-6 items-center justify-center rounded-md border bg-sidebar-accent">
+										<module.logo className="size-3.5" />
 									</div>
 									<span className="flex-1">{module.name}</span>
 									{i < 9 && <kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground opacity-60">{altLabel(i + 1)}</kbd>}

@@ -50,7 +50,7 @@ export default function DashboardFilters({ dateRange, onDateRangeChange, messHal
 		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
-					<Calendar className="h-4 w-4" aria-hidden="true" />
+					<Calendar className="size-4" aria-hidden="true" />
 					Filtros
 				</CardTitle>
 			</CardHeader>

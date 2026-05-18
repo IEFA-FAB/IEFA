@@ -13,8 +13,8 @@ const chatSearchSchema = z.object({
 })
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/chat")({
-	beforeLoad: ({ context, params }) => requirePermission(context, "kitchen", 1, { type: "kitchen", id: Number(params.kitchenId) }),
 	validateSearch: chatSearchSchema,
+	beforeLoad: ({ context, params }) => requirePermission(context, "kitchen", 1, { type: "kitchen", id: Number(params.kitchenId) }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Cozinha" }],
 	}),
@@ -68,7 +68,7 @@ function KitchenChatPage() {
 					<>
 						<div className="flex items-center gap-2 shrink-0 border-b border-border/60 px-2 py-2">
 							<Button variant="ghost" size="icon-sm" onClick={handleBack} aria-label="Voltar">
-								<ArrowLeft className="h-4 w-4" />
+								<ArrowLeft className="size-4" />
 							</Button>
 							<span className="text-sm font-medium text-foreground truncate">{config.persona.name}</span>
 						</div>

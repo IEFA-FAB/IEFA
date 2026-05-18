@@ -74,17 +74,17 @@ export default function DashboardCard({ unitId: _unitId }: { unitId: number }) {
 						<Tabs defaultValue="overview" className="w-full">
 							<TabsList className="grid w-full grid-cols-3">
 								<TabsTrigger value="overview" className="gap-2">
-									<LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+									<LayoutDashboard className="size-4" aria-hidden="true" />
 									<span className="hidden sm:inline">Resumo</span>
 									<span className="sm:hidden">Resumo</span>
 								</TabsTrigger>
 								<TabsTrigger value="mess-halls" className="gap-2">
-									<Building2 className="h-4 w-4" aria-hidden="true" />
+									<Building2 className="size-4" aria-hidden="true" />
 									<span className="hidden sm:inline">Por Rancho</span>
 									<span className="sm:hidden">Ranchos</span>
 								</TabsTrigger>
 								<TabsTrigger value="presence" className="gap-2">
-									<Users className="h-4 w-4" aria-hidden="true" />
+									<Users className="size-4" aria-hidden="true" />
 									<span className="hidden sm:inline">Presenças</span>
 									<span className="sm:hidden">Pessoas</span>
 								</TabsTrigger>

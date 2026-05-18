@@ -69,8 +69,8 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => onSubstitute(item)}>
-									<ArrowLeftRight className="w-3.5 h-3.5" />
+								<Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-primary" onClick={() => onSubstitute(item)}>
+									<ArrowLeftRight className="size-3.5" />
 								</Button>
 							}
 						></TooltipTrigger>
@@ -79,8 +79,8 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => onDelete(item.id, recipeName)}>
-									<Trash2 className="w-3.5 h-3.5" />
+								<Button size="icon" variant="ghost" className="size-7 text-destructive hover:bg-destructive/10" onClick={() => onDelete(item.id, recipeName)}>
+									<Trash2 className="size-3.5" />
 								</Button>
 							}
 						></TooltipTrigger>

@@ -150,7 +150,7 @@ export function MealTypeForm({ open, onClose, kitchenId, mealType }: MealTypeFor
 							Cancelar
 						</Button>
 						<Button type="submit" disabled={isPending}>
-							{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+							{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 							{isEditing ? "Salvar Alterações" : "Criar Tipo"}
 						</Button>
 					</DialogFooter>

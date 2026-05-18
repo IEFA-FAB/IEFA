@@ -81,7 +81,7 @@ function DiffView({ from, to }: { from: RecipeWithIngredients; to: RecipeWithIng
 	if (!hasChanges) {
 		return (
 			<div className="rounded-md border border-dashed p-8 text-center space-y-2">
-				<GitCompare className="h-6 w-6 mx-auto text-muted-foreground" />
+				<GitCompare className="size-6 mx-auto text-muted-foreground" />
 				<p className="text-sm text-muted-foreground">Nenhuma diferença encontrada entre as versões selecionadas.</p>
 			</div>
 		)
@@ -166,7 +166,7 @@ function GlobalRecipeVersionsPage() {
 	if (isLoading) {
 		return (
 			<div className="flex justify-center p-12">
-				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+				<Loader2 className="size-8 animate-spin text-muted-foreground" />
 			</div>
 		)
 	}
@@ -200,7 +200,7 @@ function GlobalRecipeVersionsPage() {
 			<div className="mx-auto w-full max-w-4xl space-y-6">
 				{/* Resumo */}
 				<div className="flex items-center gap-3 px-1">
-					<GitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
+					<GitBranch className="size-4 text-muted-foreground shrink-0" />
 					<span className="text-sm text-muted-foreground">
 						{sortedVersions.length === 1 ? "1 versão registrada" : `${sortedVersions.length} versões registradas`}
 					</span>
@@ -212,7 +212,7 @@ function GlobalRecipeVersionsPage() {
 				{!hasMultipleVersions ? (
 					/* Apenas uma versão — sem histórico ainda */
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
-						<GitCompare className="h-8 w-8 mx-auto text-muted-foreground" />
+						<GitCompare className="size-8 mx-auto text-muted-foreground" />
 						<p className="text-sm font-medium text-muted-foreground">Nenhuma versão anterior</p>
 						<p className="text-xs text-muted-foreground">
 							Esta preparação ainda tem apenas uma versão (v{recipe.version ?? 1}).
@@ -261,7 +261,7 @@ function GlobalRecipeVersionsPage() {
 											</div>
 										</div>
 										<div className="flex items-center gap-1.5 mt-1.5">
-											<Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+											<Clock className="size-3 text-muted-foreground shrink-0" />
 											<span className="text-xs text-muted-foreground">{formatDate(v.created_at)}</span>
 										</div>
 									</button>
@@ -287,7 +287,7 @@ function GlobalRecipeVersionsPage() {
 								</>
 							) : (
 								<div className="rounded-md border border-dashed p-8 text-center space-y-2">
-									<GitCompare className="h-6 w-6 mx-auto text-muted-foreground" />
+									<GitCompare className="size-6 mx-auto text-muted-foreground" />
 									<p className="text-sm text-muted-foreground">Selecione uma versão anterior para comparar com a atual.</p>
 								</div>
 							)}

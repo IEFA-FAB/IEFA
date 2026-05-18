@@ -76,7 +76,7 @@ function NewEventPage() {
 
 			<div className="mx-auto w-full max-w-2xl space-y-6">
 				<div className="rounded-md border bg-muted/30 p-4 flex items-start gap-3">
-					<CalendarRange className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+					<CalendarRange className="size-4 text-muted-foreground mt-0.5 shrink-0" />
 					<p className="text-sm text-muted-foreground">
 						Eventos são cardápios de refeições especiais — datas comemorativas, formaturas, exercícios de campo, visitas. Após criar, você montará o cardápio
 						dia a dia. O evento poderá ser selecionado na composição das Atas de Registro de Preços.
@@ -130,8 +130,8 @@ function NewEventPage() {
 								}
 							/>
 							<Button type="submit" disabled={isPending || !name.trim() || !kitchenId}>
-								{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-								<Plus className="w-4 h-4 mr-2" />
+								{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+								<Plus className="size-4 mr-2" />
 								Criar Evento
 							</Button>
 						</div>

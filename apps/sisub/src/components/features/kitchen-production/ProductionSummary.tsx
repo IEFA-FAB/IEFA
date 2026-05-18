@@ -20,7 +20,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 		<div className="rounded-lg border border-border bg-card px-4 py-3 space-y-3">
 			<div className="flex flex-wrap items-center gap-3">
 				<div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-					<UtensilsCrossed className="h-4 w-4" />
+					<UtensilsCrossed className="size-4" />
 					<span className="font-medium text-foreground">{total}</span>
 					<span>preparações</span>
 				</div>
@@ -28,7 +28,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 				<div className="h-3.5 w-px bg-border" />
 
 				<div className="flex items-center gap-1.5 text-sm">
-					<Clock className="h-3.5 w-3.5 text-muted-foreground" />
+					<Clock className="size-3.5 text-muted-foreground" />
 					<Badge variant="outline" className="font-mono text-xs">
 						{pending}
 					</Badge>
@@ -36,7 +36,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 				</div>
 
 				<div className="flex items-center gap-1.5 text-sm">
-					<ChefHat className="h-3.5 w-3.5 text-warning" />
+					<ChefHat className="size-3.5 text-warning" />
 					<Badge variant="warning" className="font-mono text-xs">
 						{inProgress}
 					</Badge>
@@ -44,7 +44,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 				</div>
 
 				<div className="flex items-center gap-1.5 text-sm">
-					<CheckCircle2 className="h-3.5 w-3.5 text-success" />
+					<CheckCircle2 className="size-3.5 text-success" />
 					<Badge variant="success" className="font-mono text-xs">
 						{done}
 					</Badge>

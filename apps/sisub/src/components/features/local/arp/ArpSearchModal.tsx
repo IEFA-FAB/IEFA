@@ -137,7 +137,7 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 					</div>
 				</div>
 				<Button onClick={handleSearch} disabled={!uasg.trim() || isSearching} className="self-end gap-2">
-					{isSearching ? <Spinner className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+					{isSearching ? <Spinner className="size-4" /> : <Search className="size-4" />}
 					Buscar
 				</Button>
 
@@ -175,7 +175,7 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 											</div>
 										</div>
 										<Button size="sm" onClick={() => handleImport(item)} disabled={isImporting} className="shrink-0">
-											{isThis && isImporting ? <Spinner className="h-4 w-4 mr-1.5" /> : null}
+											{isThis && isImporting ? <Spinner className="size-4 mr-1.5" /> : null}
 											Importar
 										</Button>
 									</div>

@@ -83,7 +83,7 @@ export default function PresenceTable({ selectedDate, selectedMeal, presences, f
 													onClick={() => actions.removePresence(row)}
 													aria-label="Remover presença"
 												>
-													<Trash2 className="h-4 w-4" />
+													<Trash2 className="size-4" />
 												</Button>
 											</TableCell>
 										</TableRow>

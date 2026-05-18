@@ -51,7 +51,7 @@ export default function QRAutoCheckinCard({
 		<div className="rounded-md border p-6">
 			<div className="flex items-center justify-between mb-2">
 				<div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs border">
-					<QrCode className="h-4 w-4" aria-hidden="true" />
+					<QrCode className="size-4" aria-hidden="true" />
 					Auto Check-In
 				</div>
 				{currentOm ? <span className="text-xs">OM: {currentOm}</span> : <span className="text-xs">OM não definida</span>}
@@ -79,7 +79,7 @@ export default function QRAutoCheckinCard({
 					<QRCodeCanvas value={qrValue} size={256} level="Q" bgColor="#ffffff" fgColor="#1f2937" aria-label="QR code para auto check-in da OM" marginSize={2} />
 				) : (
 					<div className="inline-flex items-center gap-2 rounded-md border px-3 py-2" aria-live="polite">
-						<AlertCircle className="h-4 w-4" aria-hidden="true" />
+						<AlertCircle className="size-4" aria-hidden="true" />
 						Defina uma OM para gerar o QR Code.
 					</div>
 				)}
@@ -89,18 +89,18 @@ export default function QRAutoCheckinCard({
 				<Button variant="default" size="sm" onClick={handleCopyOm} disabled={!currentOm} className="gap-2 flex-1">
 					{copied ? (
 						<>
-							<CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+							<CheckCircle2 className="size-4" aria-hidden="true" />
 							Copiado
 						</>
 					) : (
 						<>
-							<Copy className="h-4 w-4" aria-hidden="true" />
+							<Copy className="size-4" aria-hidden="true" />
 							Copiar OM
 						</>
 					)}
 				</Button>
 				<Button variant="outline" size="sm" onClick={handleDownloadPng} disabled={!currentOm} className="gap-2 flex-1">
-					<Download className="h-4 w-4" aria-hidden="true" />
+					<Download className="size-4" aria-hidden="true" />
 					Baixar PNG do QR
 				</Button>
 			</div>

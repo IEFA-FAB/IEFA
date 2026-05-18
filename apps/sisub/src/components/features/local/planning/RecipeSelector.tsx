@@ -83,7 +83,7 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 			</DialogHeader>
 
 			<div className="relative">
-				<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+				<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
 				<Input placeholder="Buscar por nome ou código..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
 			</div>
 
@@ -120,15 +120,15 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 									<Button
 										variant="ghost"
 										onClick={() => handleToggleRecipe(recipe.id)}
-										className={cn("w-full h-full flex justify-start items-center gap-3 px-3 text-left rounded-none font-normal", isSelected && "bg-accent/50")}
+										className={cn("size-full flex justify-start items-center gap-3 px-3 text-left rounded-none font-normal", isSelected && "bg-accent/50")}
 									>
 										<div
 											className={cn(
-												"flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+												"flex size-5 shrink-0 items-center justify-center rounded border",
 												isSelected ? "bg-primary border-primary" : "border-muted-foreground"
 											)}
 										>
-											{isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+											{isSelected && <Check className="size-3 text-primary-foreground" />}
 										</div>
 
 										<div className="flex-1 min-w-0">

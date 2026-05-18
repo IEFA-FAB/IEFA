@@ -204,7 +204,7 @@ function Changelog() {
 					<Button nativeButton={false} render={<Link to="/">← Voltar</Link>} variant="outline" size="lg" />
 				</div>
 				<div className="flex justify-center pb-2" aria-hidden>
-					<ChevronsDown className="h-5 w-5 text-muted-foreground/40 animate-bounce" />
+					<ChevronsDown className="size-5 text-muted-foreground/40 animate-bounce" />
 				</div>
 			</section>
 

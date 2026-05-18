@@ -201,6 +201,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 													type="button"
 													role="combobox"
 													aria-expanded={ceafaOpen}
+													aria-controls="ceafa-combobox-popup"
 													className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between font-normal")}
 												>
 													<span className="truncate">
@@ -208,9 +209,9 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 															? (ceafaList.find((c) => c.id === field.state.value)?.description ?? currentCeafa?.description ?? "CEAFA selecionado")
 															: "Buscar alimento CEAFA..."}
 													</span>
-													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+													<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
 												</PopoverTrigger>
-												<PopoverContent className="w-[400px] p-0" align="start">
+												<PopoverContent id="ceafa-combobox-popup" className="w-[400px] p-0" align="start">
 													<Command shouldFilter={false}>
 														<CommandInput
 															placeholder="Pesquisar CEAFA..."
@@ -243,7 +244,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 																			setCeafaOpen(false)
 																		}}
 																	>
-																		<Check className={cn("mr-2 h-4 w-4", field.state.value === ceafa.id ? "opacity-100" : "opacity-0")} />
+																		<Check className={cn("mr-2 size-4", field.state.value === ceafa.id ? "opacity-100" : "opacity-0")} />
 																		<span className="truncate">{ceafa.description}</span>
 																		<span className="ml-auto text-xs text-muted-foreground shrink-0">{ceafa.quantity}g</span>
 																	</CommandItem>
@@ -353,8 +354,8 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 						Cancelar
 					</Button>
 					<Button type="submit" disabled={isPending}>
-						{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-						<Save className="w-4 h-4 mr-2" />
+						{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+						<Save className="size-4 mr-2" />
 						Salvar Insumo
 					</Button>
 				</div>
@@ -489,6 +490,7 @@ function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxProps) {
 				type="button"
 				role="combobox"
 				aria-expanded={open}
+				aria-controls="catmat-combobox-popup"
 				className={cn(buttonVariants({ variant: "outline" }), "h-auto min-h-9 w-full justify-between font-normal")}
 			>
 				{value ? (
@@ -499,10 +501,10 @@ function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxProps) {
 				) : (
 					<span className="text-muted-foreground">Vincular código CATMAT...</span>
 				)}
-				<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+				<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
 			</PopoverTrigger>
 
-			<PopoverContent className="p-0" style={{ width: "var(--radix-popover-trigger-width)", minWidth: "360px", maxWidth: "700px" }} align="start">
+			<PopoverContent id="catmat-combobox-popup" className="p-0" style={{ width: "var(--radix-popover-trigger-width)", minWidth: "360px", maxWidth: "700px" }} align="start">
 				<Command shouldFilter={false}>
 					<CommandInput placeholder="Código (ex: 327430) ou parte da descrição..." value={inputValue} onValueChange={setInputValue} />
 
@@ -513,7 +515,7 @@ function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxProps) {
 						{/* Loading / debouncing */}
 						{inputValue.trim().length >= 3 && showLoading && (
 							<div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-								<Loader2 className="h-4 w-4 animate-spin" />
+								<Loader2 className="size-4 animate-spin" />
 								Buscando...
 							</div>
 						)}
@@ -548,7 +550,7 @@ function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxProps) {
 											}}
 											className="flex items-start gap-2"
 										>
-											<Check className={cn("mt-0.5 h-4 w-4 shrink-0", value === item.codigo_item ? "opacity-100" : "opacity-0")} />
+											<Check className={cn("mt-0.5 size-4 shrink-0", value === item.codigo_item ? "opacity-100" : "opacity-0")} />
 											<span className="shrink-0 font-mono text-xs text-muted-foreground">#{item.codigo_item}</span>
 											<span className="flex-1 text-sm leading-snug">{item.descricao_item}</span>
 											{item.item_sustentavel && <span className="mt-0.5 shrink-0 rounded bg-success/10 px-1.5 py-0.5 text-xs text-success">Sustentável</span>}

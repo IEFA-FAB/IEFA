@@ -114,7 +114,7 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-destructive font-medium flex items-center gap-1">
-														<Users className="h-3 w-3" aria-hidden="true" />
+														<Users className="size-3" aria-hidden="true" />
 														{template.headcount_filled}/{template.item_count} com comensais
 													</span>
 												</>
@@ -125,7 +125,7 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-muted-foreground flex items-center gap-1">
-														<Users className="h-3 w-3" aria-hidden="true" />~{template.avg_headcount_weekday} com. (Seg–Qui)
+														<Users className="size-3" aria-hidden="true" />~{template.avg_headcount_weekday} com. (Seg–Qui)
 													</span>
 												</>
 											)}
@@ -136,12 +136,12 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 											<Button
 												size="icon"
 												variant="outline"
-												className="h-7 w-7"
+												className="size-7"
 												onClick={() => handleRepetitions(template.id, -1)}
 												disabled={reps <= 1}
 												aria-label="Diminuir repetições"
 											>
-												<Minus className="h-3 w-3" aria-hidden="true" />
+												<Minus className="size-3" aria-hidden="true" />
 											</Button>
 											<Input
 												type="number"
@@ -154,11 +154,11 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 											<Button
 												size="icon"
 												variant="outline"
-												className="h-7 w-7"
+												className="size-7"
 												onClick={() => handleRepetitions(template.id, 1)}
 												aria-label="Aumentar repetições"
 											>
-												<Plus className="h-3 w-3" aria-hidden="true" />
+												<Plus className="size-3" aria-hidden="true" />
 											</Button>
 											<span className="text-xs text-muted-foreground ml-1">×</span>
 										</div>

@@ -21,10 +21,10 @@ import { createBlankTemplateFn, forkTemplateFn } from "@/server/menu-template-cr
  * - Search param `forkFrom`: ID do template global a ser adaptado
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/weekly-menus/new")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
 	validateSearch: z.object({
 		forkFrom: z.string().optional(),
 	}),
+	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
 	component: NewWeeklyMenuPage,
 	head: () => ({
 		meta: [{ title: "Novo Cardápio Semanal - SISUB" }],
@@ -124,7 +124,7 @@ function NewWeeklyMenuPage() {
 					<Card className="border-dashed">
 						<CardHeader className="pb-3">
 							<CardTitle className="text-sm flex items-center gap-2">
-								<GitFork className="w-4 h-4 text-muted-foreground" />
+								<GitFork className="size-4 text-muted-foreground" />
 								Plano de origem
 							</CardTitle>
 							<CardDescription>
@@ -195,15 +195,15 @@ function NewWeeklyMenuPage() {
 								}
 							/>
 							<Button type="submit" disabled={isPending || !name.trim() || !kitchenId}>
-								{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+								{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 								{isFork ? (
 									<>
-										<GitFork className="w-4 h-4 mr-2" />
+										<GitFork className="size-4 mr-2" />
 										Criar Adaptação
 									</>
 								) : (
 									<>
-										<Plus className="w-4 h-4 mr-2" />
+										<Plus className="size-4 mr-2" />
 										Criar Cardápio Semanal
 									</>
 								)}

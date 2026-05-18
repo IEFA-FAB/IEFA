@@ -17,8 +17,8 @@ const searchSchema = z.object({
  * Acesso: módulo "global" nível 1+
  */
 export const Route = createFileRoute("/_protected/_modules/global/recipes/")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
 	validateSearch: searchSchema,
+	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
 	component: GlobalRecipesPage,
 	head: () => ({
 		meta: [{ title: "Preparações Globais - SISUB" }, { name: "description", content: "Catálogo de preparações padrão FAB" }],
@@ -34,7 +34,7 @@ function GlobalRecipesPage() {
 					nativeButton={false}
 					render={
 						<Link to="/global/recipes/new">
-							<Plus className="h-4 w-4 mr-2" />
+							<Plus className="size-4 mr-2" />
 							Nova Preparação
 						</Link>
 					}

@@ -46,7 +46,7 @@ function WeeklyMenusPage() {
 						nativeButton={false}
 						render={
 							<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
-								<Plus className="h-4 w-4 mr-2" />
+								<Plus className="size-4 mr-2" />
 								Novo Cardápio Semanal
 							</Link>
 						}
@@ -59,7 +59,7 @@ function WeeklyMenusPage() {
 				{globalTemplates.length > 0 && (
 					<div>
 						<div className="flex items-center gap-2 mb-3">
-							<CalendarDays className="w-4 h-4 text-muted-foreground" />
+							<CalendarDays className="size-4 text-muted-foreground" />
 							<h2 className="text-sm font-semibold">Planos Globais da SDAB</h2>
 							<Badge variant="outline" className="text-xs">
 								Somente leitura · disponíveis para adaptar
@@ -92,7 +92,7 @@ function WeeklyMenusPage() {
 													nativeButton={false}
 													render={
 														<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }} search={{ forkFrom: template.id }}>
-															<GitFork className="w-3.5 h-3.5 mr-1.5" />
+															<GitFork className="size-3.5 mr-1.5" />
 															Adaptar
 														</Link>
 													}
@@ -121,7 +121,7 @@ function WeeklyMenusPage() {
 						<div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Carregando cardápios semanais...</div>
 					) : localTemplates.length === 0 ? (
 						<div className="rounded-md border border-dashed p-10 text-center space-y-3">
-							<CalendarDays className="h-10 w-10 mx-auto text-muted-foreground" />
+							<CalendarDays className="size-10 mx-auto text-muted-foreground" />
 							<p className="text-sm font-medium text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
 							<p className="text-xs text-muted-foreground">Crie do zero ou adapte um plano global da SDAB.</p>
 							<Button
@@ -131,7 +131,7 @@ function WeeklyMenusPage() {
 								nativeButton={false}
 								render={
 									<Link to="/kitchen/$kitchenId/weekly-menus/new" params={{ kitchenId: kitchenIdStr as string }}>
-										<Plus className="w-4 h-4 mr-2" />
+										<Plus className="size-4 mr-2" />
 										Criar primeiro cardápio semanal
 									</Link>
 								}
@@ -155,7 +155,7 @@ function WeeklyMenusPage() {
 											<TableCell>
 												{template.base_template_id ? (
 													<Badge variant="secondary" className="text-xs gap-1 font-normal">
-														<GitFork className="w-3 h-3" />
+														<GitFork className="size-3" />
 														Adaptado da SDAB
 													</Badge>
 												) : (
@@ -184,7 +184,7 @@ function WeeklyMenusPage() {
 																				weeklyMenuId: template.id,
 																			}}
 																		>
-																			<Edit className="w-4 h-4" />
+																			<Edit className="size-4" />
 																		</Link>
 																	}
 																/>
@@ -196,7 +196,7 @@ function WeeklyMenusPage() {
 														<TooltipTrigger
 															render={
 																<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
-																	<Trash2 className="w-4 h-4 text-destructive" />
+																	<Trash2 className="size-4 text-destructive" />
 																</Button>
 															}
 														></TooltipTrigger>

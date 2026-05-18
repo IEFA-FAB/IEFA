@@ -97,19 +97,19 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 				</span>
 			) : (
 				<span className="text-muted-foreground flex items-center gap-1.5">
-					<MinusCircle className="h-3.5 w-3.5 shrink-0" />
+					<MinusCircle className="size-3.5 shrink-0" />
 					Nenhuma refeição agendada
 				</span>
 			)}
 
 			{uncoveredDays === 0 ? (
 				<span className="text-success flex items-center gap-1.5">
-					<CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+					<CheckCircle2 className="size-3.5 shrink-0" />
 					Semana coberta
 				</span>
 			) : (
 				<span className="text-warning flex items-center gap-1.5">
-					<CalendarX2 className="h-3.5 w-3.5 shrink-0" />
+					<CalendarX2 className="size-3.5 shrink-0" />
 					{uncoveredDays} {uncoveredDays === 1 ? "dia descoberto" : "dias descobertos"}
 				</span>
 			)}

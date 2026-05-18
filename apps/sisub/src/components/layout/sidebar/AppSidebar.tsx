@@ -23,7 +23,7 @@ export function AppSidebar({
 			<Sidebar collapsible="icon" variant="sidebar" {...props}>
 				<SidebarHeader>
 					<div className="flex items-center gap-2 p-2">
-						<div className="h-8 w-8 rounded-lg bg-sidebar-accent/10 animate-pulse" />
+						<div className="size-8 rounded-lg bg-sidebar-accent/10 animate-pulse" />
 						<div className="flex flex-col gap-1 flex-1">
 							<div className="h-4 w-24 rounded bg-sidebar-accent/10 animate-pulse" />
 							<div className="h-3 w-16 rounded bg-sidebar-accent/10 animate-pulse" />

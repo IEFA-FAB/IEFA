@@ -58,8 +58,8 @@ export function ProductionKanbanColumn({ status, items, onSelectItem, onUpdateSt
 			{/* Column Header */}
 			<div className={cn("flex items-center justify-between px-3 py-2.5 border-b", config.headerClass)}>
 				<div className="flex items-center gap-2">
-					<span className={cn("h-2 w-2 rounded-full", config.dotClass)} />
-					<Icon className="h-4 w-4 text-muted-foreground" />
+					<span className={cn("size-2 rounded-full", config.dotClass)} />
+					<Icon className="size-4 text-muted-foreground" />
 					<span className="text-sm font-medium text-foreground">{config.label}</span>
 				</div>
 				<Badge variant="secondary" className="font-mono text-xs">
@@ -71,7 +71,7 @@ export function ProductionKanbanColumn({ status, items, onSelectItem, onUpdateSt
 			<div className="flex-1 overflow-y-auto p-2 space-y-2 bg-muted/20">
 				{items.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-8 text-center">
-						<Icon className="h-8 w-8 text-muted-foreground/40 mb-2" />
+						<Icon className="size-8 text-muted-foreground/40 mb-2" />
 						<p className="text-xs text-muted-foreground">
 							{status === "PENDING" && "Nenhuma preparação pendente"}
 							{status === "IN_PROGRESS" && "Nenhuma em andamento"}

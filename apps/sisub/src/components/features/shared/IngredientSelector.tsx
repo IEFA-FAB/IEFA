@@ -42,7 +42,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 				{/* Search Bar - Enhanced */}
 				<div className="px-6 sm:px-0">
 					<div className="relative flex items-center">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform group-focus-within:scale-110" />
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-transform group-focus-within:scale-110" />
 						<Input
 							placeholder="Buscar insumo..."
 							value={filterText}
@@ -53,10 +53,10 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 							<button
 								type="button"
 								onClick={handleClearSearch}
-								className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
+								className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
 								aria-label="Limpar busca"
 							>
-								<X className="h-3 w-3 text-muted-foreground" />
+								<X className="size-3 text-muted-foreground" />
 							</button>
 						)}
 					</div>
@@ -66,7 +66,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 				<div className="flex-1 overflow-hidden min-h-0 px-6 pb-6 sm:px-0 sm:pb-0">
 					{!flatTree && !error ? (
 						<div className="flex items-center justify-center h-full">
-							<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+							<Loader2 className="size-8 animate-spin text-muted-foreground" />
 						</div>
 					) : error ? (
 						<div className="text-destructive text-center p-4">Erro ao carregar insumos</div>
@@ -128,7 +128,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 												{/* Icon with background */}
 												<div
 													className={cn(
-														"flex items-center justify-center w-7 h-7 rounded-md mr-3 border border-border/30 transition-transform",
+														"flex items-center justify-center size-7 rounded-md mr-3 border border-border/30 transition-transform",
 														iconBg,
 														isProduct && "group-hover:scale-110"
 													)}

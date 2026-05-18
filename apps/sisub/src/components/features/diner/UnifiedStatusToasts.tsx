@@ -36,7 +36,7 @@ export function UnifiedStatusToasts({ success, error, onClearMessages, pendingCh
 		toast.success(success, {
 			id,
 			duration: autoHideSuccessMs,
-			icon: <CheckCircle className="h-4 w-4" />,
+			icon: <CheckCircle className="size-4" />,
 		})
 		const t = setTimeout(() => onClearMessages(), autoHideSuccessMs)
 		return () => clearTimeout(t)
@@ -51,7 +51,7 @@ export function UnifiedStatusToasts({ success, error, onClearMessages, pendingCh
 			id,
 			duration: 10000,
 			closeButton: true,
-			icon: <AlertTriangle className="h-4 w-4" />,
+			icon: <AlertTriangle className="size-4" />,
 			action: {
 				label: "Fechar",
 				onClick: () => {
@@ -71,13 +71,13 @@ export function UnifiedStatusToasts({ success, error, onClearMessages, pendingCh
 				toast(`Salvando ${baseMsg}...`, {
 					id: PENDING_ID,
 					duration: Infinity,
-					icon: <Loader2 className="h-4 w-4 animate-spin" />,
+					icon: <Loader2 className="size-4 animate-spin" />,
 				})
 			} else {
 				toast(`${baseMsg} ${labelPendente(count)} — salvamento automático em andamento`, {
 					id: PENDING_ID,
 					duration: Infinity,
-					icon: <Save className="h-4 w-4" />,
+					icon: <Save className="size-4" />,
 				})
 			}
 		} else {

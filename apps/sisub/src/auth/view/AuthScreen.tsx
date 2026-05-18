@@ -348,14 +348,14 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
 	const buttonClasses = "w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
 	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
-	const iconClasses = "absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
+	const iconClasses = "absolute left-4 top-4 size-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	// Loading state during auth check
 	if (isLoading) {
 		return (
 			<Card className={cardClasses}>
 				<CardContent className="flex items-center justify-center py-12">
-					<Loader2 className="h-8 w-8 animate-spin mr-2" />
+					<Loader2 className="size-8 animate-spin mr-2" />
 					<span>Verificando autenticação...</span>
 				</CardContent>
 			</Card>
@@ -374,7 +374,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					<CardContent className="space-y-6 px-8">
 						{error && (
 							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-								<AlertCircle className="h-4 w-4" />
+								<AlertCircle className="size-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
 						)}
@@ -397,7 +397,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					</CardContent>
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-2">
 						<Button type="submit" className={buttonClasses} disabled={isSubmitting}>
-							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+							{isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
 							Atualizar Senha
 						</Button>
 						<Button
@@ -426,13 +426,13 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					<CardContent className="space-y-6 px-8">
 						{error && (
 							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-								<AlertCircle className="h-4 w-4" />
+								<AlertCircle className="size-4" />
 								<AlertDescription>{error}</AlertDescription>
 							</Alert>
 						)}
 						{successMessage && (
 							<Alert className="bg-success/10 border-success/20 text-success">
-								<CheckCircle2 className="h-4 w-4" />
+								<CheckCircle2 className="size-4" />
 								<AlertDescription>{successMessage}</AlertDescription>
 							</Alert>
 						)}
@@ -454,7 +454,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					</CardContent>
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-8">
 						<Button type="submit" className={buttonClasses} disabled={isSubmitting}>
-							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+							{isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
 							Enviar Link
 						</Button>
 						<Button
@@ -463,7 +463,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 							className="w-full rounded-full text-muted-foreground hover:text-foreground hover:bg-accent h-10"
 							onClick={() => switchView("auth")}
 						>
-							<ArrowLeft className="mr-2 h-4 w-4" />
+							<ArrowLeft className="mr-2 size-4" />
 							Voltar ao Login
 						</Button>
 					</CardFooter>
@@ -504,19 +504,19 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 							<CardContent className="space-y-6 px-8">
 								{isLocked && (
 									<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-										<AlertCircle className="h-4 w-4" />
+										<AlertCircle className="size-4" />
 										<AlertDescription>Muitas tentativas. Tente novamente em {retryAfter}s.</AlertDescription>
 									</Alert>
 								)}
 								{error && !isLocked && (
 									<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-										<AlertCircle className="h-4 w-4" />
+										<AlertCircle className="size-4" />
 										<AlertDescription>{error}</AlertDescription>
 									</Alert>
 								)}
 								{successMessage && (
 									<Alert className="bg-success/10 border-success/20 text-success">
-										<CheckCircle2 className="h-4 w-4" />
+										<CheckCircle2 className="size-4" />
 										<AlertDescription>{successMessage}</AlertDescription>
 									</Alert>
 								)}
@@ -540,7 +540,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									</div>
 									{emailError && (
 										<p className="text-sm text-destructive mt-1 flex items-center">
-											<AlertCircle className="h-3 w-3 mr-1" />
+											<AlertCircle className="size-3 mr-1" />
 											{emailError}
 										</p>
 									)}
@@ -576,12 +576,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											onClick={() => setShowPassword(!showPassword)}
 											className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
 										>
-											{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+											{showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
 										</button>
 									</div>
 									{passwordError && (
 										<p className="text-sm text-destructive mt-1 flex items-center">
-											<AlertCircle className="h-3 w-3 mr-1" />
+											<AlertCircle className="size-3 mr-1" />
 											{passwordError}
 										</p>
 									)}
@@ -608,7 +608,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 										`Bloqueado (${retryAfter}s)`
 									) : (
 										<>
-											{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+											{isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
 											{isSubmitting ? "Entrando..." : "Entrar"}
 										</>
 									)}
@@ -629,7 +629,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 							<CardContent className="space-y-6 px-8">
 								{error && (
 									<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-										<AlertCircle className="h-4 w-4" />
+										<AlertCircle className="size-4" />
 										<AlertDescription>{error}</AlertDescription>
 									</Alert>
 								)}
@@ -670,7 +670,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									</div>
 									{registerEmailError && (
 										<p className="text-sm text-destructive mt-1 flex items-center">
-											<AlertCircle className="h-3 w-3 mr-1" />
+											<AlertCircle className="size-3 mr-1" />
 											{registerEmailError}
 										</p>
 									)}
@@ -721,7 +721,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 							</CardContent>
 							<CardFooter className="pb-8 px-8 pt-8">
 								<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!registerEmailError}>
-									{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+									{isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
 									{isSubmitting ? "Criando..." : "Criar conta"}
 								</Button>
 							</CardFooter>

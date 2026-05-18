@@ -348,7 +348,7 @@ export function ChatChart({ spec, overrideType }: ChatChartProps) {
 								className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 								title="Baixar como SVG"
 							>
-								<Download className="h-3 w-3" />
+								<Download className="size-3" />
 								SVG
 							</button>
 							<button
@@ -357,7 +357,7 @@ export function ChatChart({ spec, overrideType }: ChatChartProps) {
 								className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 								title="Baixar como PNG"
 							>
-								<Download className="h-3 w-3" />
+								<Download className="size-3" />
 								PNG
 							</button>
 						</div>

@@ -70,7 +70,7 @@ export function HeadcountSummaryTable({ rows }: HeadcountSummaryTableProps) {
 		<Card>
 			<CardHeader className="pb-3">
 				<CardTitle className="text-sm font-semibold flex items-center gap-2">
-					<Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+					<Users className="size-4 text-muted-foreground" aria-hidden="true" />
 					Comensais por Cardápio e Período
 				</CardTitle>
 			</CardHeader>

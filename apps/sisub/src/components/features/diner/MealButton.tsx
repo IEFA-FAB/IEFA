@@ -46,8 +46,8 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 	)
 
 	const iconClasses = cn("transition-colors duration-200", {
-		"h-4 w-4": compact,
-		"h-5 w-5": !compact,
+		"size-4": compact,
+		"size-5": !compact,
 		"text-success": isSelected,
 		"text-muted-foreground group-hover:text-foreground": !isSelected && !disabled,
 	})
@@ -65,7 +65,7 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 									<span className="text-xs font-medium truncate w-full text-center">{meal.label}</span>
 
 									{/* Indicador visual via token */}
-									<div className={cn("w-2 h-2 rounded-sm transition-colors duration-200", isSelected ? "bg-success" : "bg-muted-foreground/30")} />
+									<div className={cn("size-2 rounded-sm transition-colors duration-200", isSelected ? "bg-success" : "bg-muted-foreground/30")} />
 								</div>
 							</Button>
 						}
@@ -115,12 +115,12 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 
 				{/* Status icon via tokens */}
 				<div
-					className={cn("flex items-center justify-center w-6 h-6 rounded-sm transition-colors duration-200", {
+					className={cn("flex items-center justify-center size-6 rounded-sm transition-colors duration-200", {
 						"bg-success text-success-foreground": isSelected,
 						"bg-muted text-muted-foreground": !isSelected,
 					})}
 				>
-					{isSelected ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+					{isSelected ? <Check className="size-3" /> : <X className="size-3" />}
 				</div>
 			</div>
 		</button>

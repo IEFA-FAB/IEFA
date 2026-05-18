@@ -75,7 +75,7 @@ function EventGroupSection({
 				</div>
 
 				<Button type="button" size="sm" variant="ghost" onClick={onOpenSelector} className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
-					<Plus className="h-3.5 w-3.5" />
+					<Plus className="size-3.5" />
 					Adicionar
 				</Button>
 			</div>
@@ -92,7 +92,7 @@ function EventGroupSection({
 							{/* Comensais por preparação */}
 							<Tooltip>
 								<TooltipTrigger className="flex items-center gap-1 shrink-0 cursor-default" onClick={(e) => e.stopPropagation()}>
-									<Users className="h-3 w-3 text-muted-foreground" />
+									<Users className="size-3 text-muted-foreground" />
 									<Input
 										type="number"
 										min="1"
@@ -118,10 +118,10 @@ function EventGroupSection({
 											type="button"
 											size="icon"
 											variant="ghost"
-											className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+											className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
 											onClick={() => onRemoveRecipe(recipe.id)}
 										>
-											<X className="h-3.5 w-3.5" />
+											<X className="size-3.5" />
 										</Button>
 									}
 								></TooltipTrigger>
@@ -134,7 +134,7 @@ function EventGroupSection({
 				<div className="px-4 py-6 text-center">
 					<p className="text-xs text-muted-foreground mb-2">Nenhuma preparação atribuída</p>
 					<Button type="button" size="sm" variant="outline" onClick={onOpenSelector} className="text-xs">
-						<Plus className="h-3.5 w-3.5 mr-1" />
+						<Plus className="size-3.5 mr-1" />
 						Adicionar Preparações
 					</Button>
 				</div>
@@ -258,7 +258,7 @@ function EventEditorPage() {
 	if (templateLoading) {
 		return (
 			<div className="flex justify-center p-12">
-				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+				<Loader2 className="size-8 animate-spin text-muted-foreground" />
 			</div>
 		)
 	}
@@ -303,7 +303,7 @@ function EventEditorPage() {
 							}
 						/>
 						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
-							{isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+							{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 							Salvar
 						</Button>
 					</div>

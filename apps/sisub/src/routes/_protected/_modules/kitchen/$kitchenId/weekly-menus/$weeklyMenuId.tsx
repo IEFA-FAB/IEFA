@@ -86,9 +86,9 @@ function DayOverviewCard({
 					return (
 						<div key={mt.id} className="flex items-center gap-2">
 							{count > 0 ? (
-								<CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+								<CheckCircle2 className="size-3.5 text-success shrink-0" />
 							) : (
-								<Circle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+								<Circle className="size-3.5 text-muted-foreground/30 shrink-0" />
 							)}
 							<span className={cn("text-xs truncate flex-1", count > 0 ? "text-foreground" : "text-muted-foreground/50")}>{mt.name}</span>
 							{count > 0 && (
@@ -104,7 +104,7 @@ function DayOverviewCard({
 											{entries.map(({ id, name }) =>
 												name === undefined ? (
 													<li key={id} className="flex items-center">
-														<Loader2 className="h-3 w-3 animate-spin" />
+														<Loader2 className="size-3 animate-spin" />
 													</li>
 												) : (
 													<li key={id} className="text-xs">
@@ -157,7 +157,7 @@ function DayMealSection({
 				</div>
 
 				<Button type="button" size="sm" variant="ghost" onClick={onOpenSelector} className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
-					<Plus className="h-3.5 w-3.5" />
+					<Plus className="size-3.5" />
 					Adicionar
 				</Button>
 			</div>
@@ -174,7 +174,7 @@ function DayMealSection({
 							{/* Comensais por preparação */}
 							<Tooltip>
 								<TooltipTrigger className="flex items-center gap-1 shrink-0 cursor-default" onClick={(e) => e.stopPropagation()}>
-									<Users className="h-3 w-3 text-muted-foreground" />
+									<Users className="size-3 text-muted-foreground" />
 									<Input
 										type="number"
 										min="1"
@@ -200,10 +200,10 @@ function DayMealSection({
 											type="button"
 											size="icon"
 											variant="ghost"
-											className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+											className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
 											onClick={() => onRemoveRecipe(recipe.id)}
 										>
-											<X className="h-3.5 w-3.5" />
+											<X className="size-3.5" />
 										</Button>
 									}
 								></TooltipTrigger>
@@ -216,7 +216,7 @@ function DayMealSection({
 				<div className="px-4 py-6 text-center">
 					<p className="text-xs text-muted-foreground mb-2">Nenhuma receita atribuída</p>
 					<Button type="button" size="sm" variant="outline" onClick={onOpenSelector} className="text-xs">
-						<Plus className="h-3.5 w-3.5 mr-1" />
+						<Plus className="size-3.5 mr-1" />
 						Adicionar Preparações
 					</Button>
 				</div>
@@ -343,7 +343,7 @@ function WeeklyMenuEditorPage() {
 	if (templateLoading) {
 		return (
 			<div className="flex justify-center p-12">
-				<Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+				<Loader2 className="size-8 animate-spin text-muted-foreground" />
 			</div>
 		)
 	}
@@ -390,7 +390,7 @@ function WeeklyMenuEditorPage() {
 							}
 						/>
 						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
-							{isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+							{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 							Salvar
 						</Button>
 					</div>
@@ -414,7 +414,7 @@ function WeeklyMenuEditorPage() {
 							</FieldGroup>
 							{isFork && (
 								<div className="mt-4 flex items-center gap-2">
-									<GitFork className="w-3.5 h-3.5 text-muted-foreground" />
+									<GitFork className="size-3.5 text-muted-foreground" />
 									<span className="text-xs text-muted-foreground">Adaptado do plano global da SDAB</span>
 									<Badge variant="outline" className="text-xs">
 										Independente — alterações no original não afetam este cardápio

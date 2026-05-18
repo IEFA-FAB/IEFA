@@ -44,25 +44,25 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 			<CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-xs text-muted-foreground">
 				{portions && (
 					<span className="flex items-center gap-1">
-						<Utensils className="h-3 w-3" />
+						<Utensils className="size-3" />
 						{portions} porções
 					</span>
 				)}
 				{prepTime && (
 					<span className="flex items-center gap-1">
-						<Timer className="h-3 w-3" />
+						<Timer className="size-3" />
 						{prepTime} min
 					</span>
 				)}
 				{task.status === "IN_PROGRESS" && task.started_at && (
 					<span className="flex items-center gap-1 text-warning">
-						<Clock className="h-3 w-3" />
+						<Clock className="size-3" />
 						Iniciado às {new Date(task.started_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
 					</span>
 				)}
 				{task.status === "DONE" && task.completed_at && (
 					<span className="flex items-center gap-1 text-success">
-						<CheckCircle2 className="h-3 w-3" />
+						<CheckCircle2 className="size-3" />
 						{new Date(task.completed_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
 					</span>
 				)}
@@ -71,24 +71,24 @@ export function ProductionTaskCard({ item, onSelect, onUpdateStatus, isUpdating 
 			<CardFooter className="bg-transparent border-t-0 pt-0 pb-2 px-3">
 				{task.status === "PENDING" && (
 					<Button size="sm" variant="outline" className="w-full" disabled={isUpdating} onClick={(e) => handleActionClick(e, "IN_PROGRESS")}>
-						<PlayCircle className="h-3.5 w-3.5" />
+						<PlayCircle className="size-3.5" />
 						Iniciar
 					</Button>
 				)}
 				{task.status === "IN_PROGRESS" && (
 					<div className="flex gap-1.5 w-full">
 						<Button size="sm" variant="success" className="flex-1" disabled={isUpdating} onClick={(e) => handleActionClick(e, "DONE")}>
-							<CheckCircle2 className="h-3.5 w-3.5" />
+							<CheckCircle2 className="size-3.5" />
 							Concluir
 						</Button>
 						<Button size="sm" variant="ghost" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
-							<RotateCcw className="h-3.5 w-3.5" />
+							<RotateCcw className="size-3.5" />
 						</Button>
 					</div>
 				)}
 				{task.status === "DONE" && (
 					<Button size="sm" variant="ghost" className="w-full text-muted-foreground" disabled={isUpdating} onClick={(e) => handleActionClick(e, "PENDING")}>
-						<RotateCcw className="h-3.5 w-3.5" />
+						<RotateCcw className="size-3.5" />
 						Reabrir
 					</Button>
 				)}

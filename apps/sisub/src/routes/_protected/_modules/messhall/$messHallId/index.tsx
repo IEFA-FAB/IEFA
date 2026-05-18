@@ -331,12 +331,12 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 					</div>
 
 					<Button variant="outline" size="sm" onClick={toggleScan} disabled={!scannerState.hasPermission} className="shrink-0">
-						<Camera className="h-4 w-4 mr-2" />
+						<Camera className="size-4 mr-2" />
 						{scannerState.isScanning ? "Pausar" : "Ler"}
 					</Button>
 
 					<Button variant="outline" size="sm" onClick={refresh} disabled={!scannerState.hasPermission} className="shrink-0">
-						<RefreshCw className={cn("h-4 w-4", scannerState.isScanning && "animate-spin")} />
+						<RefreshCw className={cn("size-4", scannerState.isScanning && "animate-spin")} />
 					</Button>
 
 					{lastScanResult && (
@@ -347,7 +347,7 @@ function ScannerTab({ filters, onFiltersChange }: { filters: FiscalFilters; onFi
 
 					{/* MESSHALL-04: +1 Outro */}
 					<Button variant="default" size="sm" onClick={handleAddOtherPresence} disabled={addOtherMutation.isPending} className="shrink-0">
-						<UserPlus className="h-4 w-4 mr-2" />
+						<UserPlus className="size-4 mr-2" />
 						Outros {othersCount ? `(${othersCount})` : ""}
 					</Button>
 				</div>
@@ -424,11 +424,11 @@ function PresencePage() {
 			<Tabs defaultValue="scanner" className="w-full">
 				<TabsList className="mb-4">
 					<TabsTrigger value="scanner" className="gap-2">
-						<Camera className="h-4 w-4" />
+						<Camera className="size-4" />
 						Scanner QR
 					</TabsTrigger>
 					<TabsTrigger value="attendance" className="gap-2">
-						<ClipboardList className="h-4 w-4" />
+						<ClipboardList className="size-4" />
 						Lista de Presenças
 					</TabsTrigger>
 				</TabsList>

@@ -26,8 +26,8 @@ const searchSchema = z.object({
 })
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/new")({
-	beforeLoad: ({ context }) => requirePermission(context, "unit", 2),
 	validateSearch: searchSchema,
+	beforeLoad: ({ context }) => requirePermission(context, "unit", 2),
 	component: NewAtaPage,
 	head: () => ({
 		meta: [{ title: "Nova Ata de Registro de Preços" }],
@@ -237,7 +237,7 @@ function NewAtaPage() {
 					<div className="flex justify-end pt-2">
 						<Button onClick={() => goToStep(2)} className="gap-2">
 							Próximo: Eventos
-							<ArrowRight className="h-4 w-4" aria-hidden="true" />
+							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
 					</div>
 				</div>
@@ -260,12 +260,12 @@ function NewAtaPage() {
 					)}
 					<div className="flex justify-between pt-2">
 						<Button variant="outline" onClick={() => goToStep(1)} className="gap-2">
-							<ArrowLeft className="h-4 w-4" aria-hidden="true" />
+							<ArrowLeft className="size-4" aria-hidden="true" />
 							Cardápios
 						</Button>
 						<Button onClick={() => goToStep(3)} className="gap-2">
 							Próximo: Resumo
-							<ArrowRight className="h-4 w-4" aria-hidden="true" />
+							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
 					</div>
 				</div>
@@ -333,7 +333,7 @@ function NewAtaPage() {
 					{/* Calcular */}
 					<div className="flex justify-center">
 						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
-							<Calculator className="h-5 w-5" aria-hidden="true" />
+							<Calculator className="size-5" aria-hidden="true" />
 							{isCalculating ? "Calculando..." : "Calcular Lista"}
 						</Button>
 					</div>
@@ -341,7 +341,7 @@ function NewAtaPage() {
 					{/* Aviso pós-cálculo: resultado vazio */}
 					{!isCalculating && savedItems.length === 0 && calculatedItems !== undefined && (
 						<div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm" role="alert">
-							<AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" aria-hidden="true" />
+							<AlertTriangle className="size-4 text-destructive mt-0.5 shrink-0" aria-hidden="true" />
 							<div>
 								<p className="font-medium text-destructive">Nenhum item calculado</p>
 								<p className="text-muted-foreground mt-0.5">
@@ -358,18 +358,18 @@ function NewAtaPage() {
 					{/* Ações finais */}
 					<div className="flex items-center justify-between pt-2">
 						<Button variant="outline" onClick={() => goToStep(2)} className="gap-2">
-							<ArrowLeft className="h-4 w-4" aria-hidden="true" />
+							<ArrowLeft className="size-4" aria-hidden="true" />
 							Eventos
 						</Button>
 						<div className="flex items-center gap-3">
 							{displayItems.length > 0 && (
 								<Button variant="outline" onClick={handleExportCSV} className="gap-2">
-									<Download className="h-4 w-4" aria-hidden="true" />
+									<Download className="size-4" aria-hidden="true" />
 									Exportar CSV
 								</Button>
 							)}
 							<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isCreating} className="gap-2">
-								<Save className="h-4 w-4" aria-hidden="true" />
+								<Save className="size-4" aria-hidden="true" />
 								{isCreating ? "Salvando..." : "Salvar ata"}
 							</Button>
 						</div>

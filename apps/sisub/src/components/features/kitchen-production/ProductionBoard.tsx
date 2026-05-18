@@ -51,7 +51,7 @@ export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, d
 		return (
 			<div className="flex flex-1 items-center justify-center py-20">
 				<div className="flex flex-col items-center gap-3 text-muted-foreground">
-					<Loader2 className="h-8 w-8 animate-spin" />
+					<Loader2 className="size-8 animate-spin" />
 					<p className="text-sm">Carregando painel de produção…</p>
 				</div>
 			</div>
@@ -64,7 +64,7 @@ export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, d
 			<div className="flex flex-1 items-center justify-center py-20">
 				<div className="flex flex-col items-center gap-3 text-center max-w-xs">
 					<div className="rounded-full bg-muted p-4">
-						<CalendarX2 className="h-8 w-8 text-muted-foreground" />
+						<CalendarX2 className="size-8 text-muted-foreground" />
 					</div>
 					<p className="text-sm font-medium text-foreground">Nenhuma preparação planejada</p>
 					<p className="text-xs text-muted-foreground">

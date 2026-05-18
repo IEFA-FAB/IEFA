@@ -139,14 +139,14 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
 	const buttonClasses = "w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
 	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
-	const iconClasses = "absolute left-4 top-4 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors"
+	const iconClasses = "absolute left-4 top-4 size-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	if (isVerifyingToken) {
 		return (
 			<div className="min-h-screen flex items-center justify-center p-4">
 				<Card className={cardClasses}>
 					<CardContent className="flex flex-col items-center justify-center py-12 gap-4">
-						<Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+						<Loader2 className="size-8 animate-spin" aria-hidden="true" />
 						<span>Verificando link de recuperação...</span>
 					</CardContent>
 				</Card>
@@ -165,7 +165,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 
 					<CardContent className="px-8">
 						<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-							<AlertCircle className="h-4 w-4" />
+							<AlertCircle className="size-4" />
 							<AlertDescription>{verifyError}</AlertDescription>
 						</Alert>
 					</CardContent>
@@ -197,7 +197,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 					<CardContent className="space-y-6 px-8">
 						{submitError && (
 							<Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
-								<AlertCircle className="h-4 w-4" />
+								<AlertCircle className="size-4" />
 								<AlertDescription>{submitError}</AlertDescription>
 							</Alert>
 						)}
@@ -228,12 +228,12 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
-									{showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+									{showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
 								</button>
 							</div>
 							{passwordError && (
 								<p id="password-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
-									<AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+									<AlertCircle className="size-3 mr-1" aria-hidden="true" />
 									{passwordError}
 								</p>
 							)}
@@ -265,12 +265,12 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
-									{showConfirmPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+									{showConfirmPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
 								</button>
 							</div>
 							{confirmError && (
 								<p id="confirm-error" role="alert" className="text-sm text-destructive mt-1 flex items-center">
-									<AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+									<AlertCircle className="size-3 mr-1" aria-hidden="true" />
 									{confirmError}
 								</p>
 							)}
@@ -279,7 +279,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 
 					<CardFooter className="flex flex-col gap-4 px-8 pb-8 pt-2">
 						<Button type="submit" className={buttonClasses} disabled={isSubmitting || !!passwordError || !!confirmError || !newPassword}>
-							{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+							{isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />}
 							{isSubmitting ? "Atualizando..." : "Atualizar Senha"}
 						</Button>
 					</CardFooter>

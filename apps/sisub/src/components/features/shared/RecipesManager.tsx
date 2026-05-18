@@ -42,7 +42,7 @@ export function RecipesManager() {
 			{/* Search & Filters */}
 			<Card className="flex-col sm:flex-row items-stretch sm:items-center gap-4 p-5 overflow-visible">
 				<div className="relative flex-1 max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 					<Input placeholder="Buscar Preparação..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
 				</div>
 				<div className="flex gap-2">
@@ -106,11 +106,11 @@ export function RecipesManager() {
 										<div>
 											{recipe.kitchen_id ? (
 												<span className="flex items-center text-muted-foreground text-sm font-sans">
-													<ChefHat className="w-3.5 h-3.5 mr-1.5" /> Local
+													<ChefHat className="size-3.5 mr-1.5" /> Local
 												</span>
 											) : (
 												<span className="flex items-center text-primary text-sm font-medium">
-													<Globe className="w-3.5 h-3.5 mr-1.5" /> Global
+													<Globe className="size-3.5 mr-1.5" /> Global
 												</span>
 											)}
 										</div>
@@ -167,7 +167,7 @@ export function RecipesManager() {
 																	nativeButton={false}
 																	render={
 																		<Link to="/kitchen/$kitchenId/recipes/new" params={{ kitchenId }} search={{ forkFrom: recipe.id }}>
-																			<GitFork className="w-3.5 h-3.5 mr-1.5" />
+																			<GitFork className="size-3.5 mr-1.5" />
 																		</Link>
 																	}
 																/>
@@ -186,7 +186,7 @@ export function RecipesManager() {
 																	className="hover:bg-accent/10 hover:border-accent/30 transition-all"
 																	render={
 																		<Link to="/global/recipes/new" search={{ forkFrom: recipe.id }}>
-																			<GitFork className="w-3.5 h-3.5" />
+																			<GitFork className="size-3.5" />
 																		</Link>
 																	}
 																/>

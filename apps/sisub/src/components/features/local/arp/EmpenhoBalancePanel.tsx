@@ -38,7 +38,7 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 	if (empenho.status === "anulado") {
 		return (
 			<div className="flex items-center gap-3 py-1.5 text-xs text-muted-foreground line-through opacity-60">
-				<XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+				<XCircle className="size-3.5 shrink-0 text-destructive" />
 				<span className="font-mono">{empenho.numero_empenho}</span>
 				<span>{fmtDate(empenho.data_empenho)}</span>
 				<span>
@@ -54,7 +54,7 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 
 	return (
 		<div className="flex items-center gap-3 py-1.5 text-xs">
-			<CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
+			<CheckCircle2 className="size-3.5 shrink-0 text-green-600" />
 			<span className="font-mono font-medium">{empenho.numero_empenho}</span>
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
 			<span>
@@ -80,7 +80,7 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 							disabled={isPending}
 							onClick={() => anular(empenho.id, { onSettled: () => setConfirming(false) })}
 						>
-							{isPending ? <Spinner className="h-3 w-3" /> : "Confirmar"}
+							{isPending ? <Spinner className="size-3" /> : "Confirmar"}
 						</Button>
 						<Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setConfirming(false)}>
 							Cancelar
@@ -198,7 +198,7 @@ function EmpenhoForm({ unitId, arpItemId, onSuccess }: EmpenhoFormProps) {
 					<span />
 				)}
 				<Button type="submit" size="sm" disabled={isPending || !numero.trim() || !qtd || !valor} className="gap-1.5">
-					{isPending && <Spinner className="h-3.5 w-3.5" />}
+					{isPending && <Spinner className="size-3.5" />}
 					Registrar
 				</Button>
 			</div>
@@ -229,7 +229,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 		<>
 			<tr className="group cursor-pointer hover:bg-muted/40 transition-colors" onClick={() => setExpanded((v) => !v)}>
 				<td className="py-2.5 px-3 w-6">
-					{expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+					{expanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
 				</td>
 				<td className="py-2.5 px-2 text-xs font-mono text-muted-foreground">{item.numero_item ?? "—"}</td>
 				<td className="py-2.5 px-2 text-xs font-mono">{item.catmat_item_codigo ?? "—"}</td>
@@ -247,7 +247,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 						{saldoBaixo && (
 							<Tooltip>
 								<TooltipTrigger>
-									<AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+									<AlertTriangle className="size-3.5 text-amber-500 shrink-0" />
 								</TooltipTrigger>
 								<TooltipContent>Mais de 90% do saldo empenhado</TooltipContent>
 							</Tooltip>
@@ -276,7 +276,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 						<div className="ml-6 space-y-1">
 							{isLoading ? (
 								<div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-									<Spinner className="h-3.5 w-3.5" />
+									<Spinner className="size-3.5" />
 									Carregando empenhos...
 								</div>
 							) : empenhos.length === 0 ? (
@@ -299,7 +299,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 										setShowForm(true)
 									}}
 								>
-									<PlusCircle className="h-3.5 w-3.5" />
+									<PlusCircle className="size-3.5" />
 									Registrar empenho
 								</Button>
 							) : (
@@ -354,7 +354,7 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 						</p>
 					</div>
 					<Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={() => syncBalance(arp.id)} disabled={isSyncing}>
-						{isSyncing ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+						{isSyncing ? <Spinner className="size-3.5" /> : <RefreshCw className="size-3.5" />}
 						Sincronizar saldo
 					</Button>
 				</div>

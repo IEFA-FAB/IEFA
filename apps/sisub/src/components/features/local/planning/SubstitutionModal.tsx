@@ -81,7 +81,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 
 				<div className="space-y-4 py-4">
 					<div className="bg-warning/10 border border-warning/20 p-3 rounded-md text-sm text-warning flex items-start gap-2">
-						<AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+						<AlertTriangle className="size-4 mt-0.5 shrink-0" />
 						<p>Substituições alteram a ficha técnica apenas para este dia. O histórico original da Preparação é preservado.</p>
 					</div>
 
@@ -138,7 +138,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 						Cancelar
 					</Button>
 					<Button onClick={handleSave} disabled={isPending || !rationale}>
-						{isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+						{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
 						Salvar Substituição
 					</Button>
 				</DialogFooter>

@@ -110,7 +110,7 @@ export function DraftEditor({
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-destructive font-medium flex items-center gap-1">
-														<Users className="h-3 w-3" />
+														<Users className="size-3" />
 														{template.headcount_filled}/{template.item_count} com comensais
 													</span>
 												</>
@@ -119,7 +119,7 @@ export function DraftEditor({
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-muted-foreground flex items-center gap-1">
-														<Users className="h-3 w-3" />~{template.avg_headcount_weekday} com. (Seg–Qui)
+														<Users className="size-3" />~{template.avg_headcount_weekday} com. (Seg–Qui)
 													</span>
 												</>
 											)}
@@ -127,8 +127,8 @@ export function DraftEditor({
 									</div>
 									{selected && (
 										<div className="flex items-center gap-1.5 shrink-0">
-											<Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleRepetitions(template.id, -1)} disabled={reps <= 1}>
-												<Minus className="h-3 w-3" />
+											<Button size="icon" variant="outline" className="size-7" onClick={() => handleRepetitions(template.id, -1)} disabled={reps <= 1}>
+												<Minus className="size-3" />
 											</Button>
 											<Input
 												type="number"
@@ -137,8 +137,8 @@ export function DraftEditor({
 												onChange={(e) => handleRepetitionsInput(template.id, e.target.value)}
 												className="h-7 w-14 text-center tabular-nums text-sm"
 											/>
-											<Button size="icon" variant="outline" className="h-7 w-7" onClick={() => handleRepetitions(template.id, 1)}>
-												<Plus className="h-3 w-3" />
+											<Button size="icon" variant="outline" className="size-7" onClick={() => handleRepetitions(template.id, 1)}>
+												<Plus className="size-3" />
 											</Button>
 											<span className="text-xs text-muted-foreground ml-1">×</span>
 										</div>

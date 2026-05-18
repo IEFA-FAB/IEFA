@@ -30,14 +30,14 @@ export function AtaStepIndicator({ currentStep }: AtaStepIndicatorProps) {
 						<div className="flex items-center gap-2">
 							<div
 								className={cn(
-									"flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors",
+									"flex size-8 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors",
 									isCompleted && "border-primary bg-primary text-primary-foreground",
 									isActive && "border-primary bg-background text-primary",
 									!isCompleted && !isActive && "border-muted-foreground/30 text-muted-foreground"
 								)}
 								aria-current={isActive ? "step" : undefined}
 							>
-								{isCompleted ? <Check className="h-4 w-4" aria-hidden="true" /> : <span>{step.number}</span>}
+								{isCompleted ? <Check className="size-4" aria-hidden="true" /> : <span>{step.number}</span>}
 							</div>
 							<span
 								className={cn(

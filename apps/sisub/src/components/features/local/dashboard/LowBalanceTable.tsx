@@ -12,7 +12,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 		return (
 			<Card>
 				<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-					<CheckCircle2 className="h-9 w-9 text-green-500" />
+					<CheckCircle2 className="size-9 text-green-500" />
 					<p className="font-medium text-muted-foreground">Nenhum item com saldo crítico</p>
 					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas às atas publicadas estão com saldo confortável.</p>
 				</CardContent>
@@ -80,7 +80,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 								<td className="py-2.5 px-3 text-center">
 									{item.in_upcoming_menu ? (
 										<Badge variant="outline" className="text-[10px] gap-1 border-amber-400 text-amber-700 dark:text-amber-400">
-											<ChefHat className="h-2.5 w-2.5" />
+											<ChefHat className="size-2.5" />
 											No cardápio
 										</Badge>
 									) : (

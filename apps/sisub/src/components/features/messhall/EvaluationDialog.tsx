@@ -25,7 +25,7 @@ const RATING_LABEL: Record<(typeof RATINGS)[number], string> = {
 function buttonToneClasses(value: number, selected: number | null) {
 	const isSelected = selected === value
 	const base =
-		"flex h-12 w-12 items-center justify-center rounded-lg font-semibold transition-transform select-none border " +
+		"flex size-12 items-center justify-center rounded-lg font-semibold transition-transform select-none border " +
 		"peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
 
 	if (!isSelected) {
@@ -95,7 +95,7 @@ export function EvaluationDialog({ open, question, selectedRating, isSubmitting,
 						<Button type="submit" disabled={selectedRating == null || isSubmitting} className={submitToneClasses(selectedRating)}>
 							{isSubmitting ? (
 								<span className="inline-flex items-center gap-2">
-									<span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent" />
+									<span className="size-4 animate-spin rounded-full border-2 border-current border-b-transparent" />
 									Enviando...
 								</span>
 							) : (

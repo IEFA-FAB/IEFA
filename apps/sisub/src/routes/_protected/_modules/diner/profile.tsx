@@ -131,7 +131,7 @@ function ProfilePage() {
 								<Button type="submit" disabled={updateNrOrdem.isPending || !!form.state.isSubmitting}>
 									{updateNrOrdem.isPending ? (
 										<>
-											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											<Loader2 className="mr-2 size-4 animate-spin" />
 											Salvando...
 										</>
 									) : (
@@ -140,7 +140,7 @@ function ProfilePage() {
 								</Button>
 								{isLoadingUserData && (
 									<span className="text-muted-foreground text-sm flex items-center gap-2">
-										<Loader2 className="h-4 w-4 animate-spin" />
+										<Loader2 className="size-4 animate-spin" />
 										Carregando dados...
 									</span>
 								)}
@@ -160,7 +160,7 @@ function ProfilePage() {
 							<div className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">Nenhum nrOrdem informado.</div>
 						) : isLoadingMilitary ? (
 							<div className="flex items-center justify-center py-8 text-muted-foreground">
-								<Loader2 className="h-6 w-6 animate-spin mr-2" />
+								<Loader2 className="size-6 animate-spin mr-2" />
 								Buscando dados...
 							</div>
 						) : military ? (

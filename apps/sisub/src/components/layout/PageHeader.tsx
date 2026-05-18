@@ -23,7 +23,7 @@ interface PageHeaderProps {
  *   return (
  *     <div className="space-y-6">
  *       <PageHeader title="Preparações">
- *         <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Nova</Button>
+ *         <Button size="sm"><Plus className="size-4 mr-1.5" />Nova</Button>
  *       </PageHeader>
  *       <MyContentComponent />
  *     </div>
@@ -39,8 +39,8 @@ export function PageHeader({ title, description, badge, children, onBack }: Page
 		<header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 border-b border-border/60 pb-4">
 			<div className="flex items-start gap-2 min-w-0">
 				{onBack && (
-					<Button variant="ghost" size="icon" onClick={onBack} className="mt-0.5 h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground">
-						<ArrowLeft className="h-4 w-4" />
+					<Button variant="ghost" size="icon" onClick={onBack} className="mt-0.5 size-7 shrink-0 text-muted-foreground hover:text-foreground">
+						<ArrowLeft className="size-4" />
 					</Button>
 				)}
 				<div className="min-w-0">

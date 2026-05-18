@@ -33,7 +33,7 @@ export function ChartTypeSelector({ value, onChange }: ChartTypeSelectorProps) {
 					)}
 					aria-pressed={value === type}
 				>
-					<Icon className="h-3 w-3" />
+					<Icon className="size-3" />
 					{label}
 				</button>
 			))}

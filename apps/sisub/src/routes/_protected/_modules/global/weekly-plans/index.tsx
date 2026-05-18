@@ -47,7 +47,7 @@ function WeeklyPlansPage() {
 					size="sm"
 					render={
 						<Link to="/global/weekly-plans/new">
-							<Plus className="h-4 w-4 mr-2" />
+							<Plus className="size-4 mr-2" />
 							Novo Plano
 						</Link>
 					}
@@ -57,11 +57,11 @@ function WeeklyPlansPage() {
 			<div>
 				{isLoading ? (
 					<div className="flex justify-center p-12">
-						<Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+						<Loader2 className="size-6 animate-spin text-muted-foreground" />
 					</div>
 				) : !templates || templates.length === 0 ? (
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
-						<CalendarDays className="h-10 w-10 mx-auto text-muted-foreground" />
+						<CalendarDays className="size-10 mx-auto text-muted-foreground" />
 						<p className="text-sm font-medium text-muted-foreground">Nenhum plano semanal modelo cadastrado.</p>
 						<p className="text-xs text-muted-foreground">Crie um plano para que as unidades possam importá-lo para o calendário local.</p>
 						<Button
@@ -104,7 +104,7 @@ function WeeklyPlansPage() {
 																nativeButton={false}
 																render={
 																	<Link to="/global/weekly-plans/$planId" params={{ planId: template.id }}>
-																		<Edit className="w-4 h-4" />
+																		<Edit className="size-4" />
 																	</Link>
 																}
 															/>
@@ -116,7 +116,7 @@ function WeeklyPlansPage() {
 													<TooltipTrigger
 														render={
 															<Button size="icon" variant="ghost" onClick={() => handleDelete(template.id, template.name ?? "")} disabled={isDeleting}>
-																<Trash2 className="w-4 h-4 text-destructive" />
+																<Trash2 className="size-4 text-destructive" />
 															</Button>
 														}
 													></TooltipTrigger>

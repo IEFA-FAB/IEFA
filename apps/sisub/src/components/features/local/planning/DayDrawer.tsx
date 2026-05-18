@@ -88,7 +88,7 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 
 				{isLoading ? (
 					<div className="flex justify-center py-10">
-						<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+						<Loader2 className="size-8 animate-spin text-muted-foreground" />
 					</div>
 				) : (
 					<ScrollArea className="h-[calc(100vh-180px)] pr-4">
@@ -258,7 +258,7 @@ function MealSection({
 					<div className="text-center py-6 space-y-3">
 						<p className="text-muted-foreground text-sm">Nenhum cardápio criado para {mealType.name || "esta refeição"}.</p>
 						<Button size="sm" variant="outline" onClick={handleCreateMenu} disabled={isCreating}>
-							<Plus className="w-4 h-4 mr-2" />
+							<Plus className="size-4 mr-2" />
 							Iniciar Planejamento
 						</Button>
 					</div>
@@ -307,7 +307,7 @@ function MealSection({
 									}
 								}}
 							>
-								<Plus className="w-4 h-4 mr-2" />
+								<Plus className="size-4 mr-2" />
 								Adicionar Preparação
 							</Button>
 						</div>

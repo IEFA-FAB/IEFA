@@ -137,18 +137,18 @@ function AtaDetailPage() {
 						nativeButton={false}
 						render={
 							<Link to="/unit/$unitId/procurement" params={{ unitId: unitIdStr as string }}>
-								<ArrowLeft className="h-4 w-4 mr-1.5" aria-hidden="true" />
+								<ArrowLeft className="size-4 mr-1.5" aria-hidden="true" />
 								Atas
 							</Link>
 						}
 					/>
 					<Button size="sm" variant="outline" onClick={handleExportCSV} className="gap-2">
-						<Download className="h-4 w-4" aria-hidden="true" />
+						<Download className="size-4" aria-hidden="true" />
 						Exportar CSV
 					</Button>
 					{ata.status === "draft" && (
 						<Button size="sm" onClick={() => updateStatus({ ataId: ata.id, status: "published" })} disabled={isUpdating} className="gap-2">
-							<Send className="h-4 w-4" aria-hidden="true" />
+							<Send className="size-4" aria-hidden="true" />
 							Publicar
 						</Button>
 					)}
@@ -160,7 +160,7 @@ function AtaDetailPage() {
 							disabled={isUpdating}
 							className="gap-2 text-muted-foreground"
 						>
-							<Archive className="h-4 w-4" aria-hidden="true" />
+							<Archive className="size-4" aria-hidden="true" />
 							Arquivar
 						</Button>
 					)}
@@ -229,7 +229,7 @@ function AtaDetailPage() {
 					</div>
 					{!arp && !isArpLoading && (
 						<Button size="sm" variant="outline" className="gap-2" onClick={() => setArpModalOpen(true)}>
-							<Link2 className="h-4 w-4" />
+							<Link2 className="size-4" />
 							Vincular ARP
 						</Button>
 					)}
@@ -237,14 +237,14 @@ function AtaDetailPage() {
 
 				{isArpLoading ? (
 					<div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-						<Spinner className="h-4 w-4" />
+						<Spinner className="size-4" />
 						Verificando ARP vinculada...
 					</div>
 				) : arp && ataId ? (
 					<>
 						<div className="flex justify-end">
 							<Button size="sm" variant="ghost" className="gap-2 text-xs" onClick={() => setArpModalOpen(true)}>
-								<Link2 className="h-3.5 w-3.5" />
+								<Link2 className="size-3.5" />
 								Substituir ARP
 							</Button>
 						</div>

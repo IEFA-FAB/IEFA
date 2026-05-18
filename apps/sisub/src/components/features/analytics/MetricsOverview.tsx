@@ -43,7 +43,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 				<CardContent className="p-4 md:p-6">
 					<div className="flex items-center gap-3">
 						<div className="p-2 bg-primary/10 rounded-md">
-							<Users className="h-6 w-6 text-primary" aria-hidden="true" />
+							<Users className="size-6 text-primary" aria-hidden="true" />
 						</div>
 						<div className="flex-1">
 							<p className="text-xs md:text-sm text-muted-foreground font-medium">Total Previsto</p>
@@ -65,7 +65,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 						<CardContent className="p-4 md:p-6">
 							<div className="flex items-center gap-2 md:gap-3">
 								<div className={cn("bg", color, " p-2 rounded-md after:bg-foregorund/10")}>
-									<Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} aria-hidden="true" />
+									<Icon className={cn("size-4 md:h-5 md:w-5", iconColor)} aria-hidden="true" />
 								</div>
 								<div className="flex-1 min-w-0">
 									<p className="text-xs md:text-sm text-muted-foreground font-medium truncate">{MEAL_LABELS[stat.meal]}</p>

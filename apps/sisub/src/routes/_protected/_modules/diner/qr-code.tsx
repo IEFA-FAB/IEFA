@@ -88,11 +88,11 @@ function QrCodePage() {
 				{/* Ações */}
 				<div className="flex w-full gap-2">
 					<Button variant="outline" size="sm" className="flex-1" onClick={handleCopy} disabled={!userId}>
-						<Copy className="h-3.5 w-3.5 mr-2" />
+						<Copy className="size-3.5 mr-2" />
 						{hasCopied ? "Copiado!" : "Copiar ID"}
 					</Button>
 					<Button variant="default" size="sm" className="flex-1" onClick={handleDownload} disabled={!userId}>
-						<Download className="h-3.5 w-3.5 mr-2" />
+						<Download className="size-3.5 mr-2" />
 						Baixar PNG
 					</Button>
 				</div>

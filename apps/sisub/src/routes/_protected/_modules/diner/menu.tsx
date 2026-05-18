@@ -67,7 +67,7 @@ function MenuPage() {
 			{/* Navegação de datas */}
 			<div className="flex items-center justify-between gap-2 rounded-md border bg-card p-3">
 				<Button variant="ghost" size="icon" onClick={() => setSelectedDate(dates[selectedIndex - 1])} disabled={!canGoPrev} aria-label="Dia anterior">
-					<ChevronLeft className="h-5 w-5" />
+					<ChevronLeft className="size-5" />
 				</Button>
 
 				<div className="text-center">
@@ -76,7 +76,7 @@ function MenuPage() {
 				</div>
 
 				<Button variant="ghost" size="icon" onClick={() => setSelectedDate(dates[selectedIndex + 1])} disabled={!canGoNext} aria-label="Próximo dia">
-					<ChevronRight className="h-5 w-5" />
+					<ChevronRight className="size-5" />
 				</Button>
 			</div>
 
@@ -107,7 +107,7 @@ function MenuPage() {
 			{/* Conteúdo */}
 			{!defaultMessHall && !isLoading ? (
 				<div className="rounded-md border border-dashed p-6 text-center space-y-2">
-					<UtensilsCrossed className="h-8 w-8 mx-auto text-muted-foreground" />
+					<UtensilsCrossed className="size-8 mx-auto text-muted-foreground" />
 					<p className="text-sm text-muted-foreground">
 						Defina seu rancho padrão em <strong>Previsão</strong> para ver o cardápio.
 					</p>

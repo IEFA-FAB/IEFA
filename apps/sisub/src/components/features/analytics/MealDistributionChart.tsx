@@ -13,7 +13,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
-						<BarChart3 className="h-5 w-5" aria-hidden="true" />
+						<BarChart3 className="size-5" aria-hidden="true" />
 						Refeições por Período do Dia
 					</CardTitle>
 				</CardHeader>
@@ -39,7 +39,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
-					<BarChart3 className="h-5 w-5" aria-hidden="true" />
+					<BarChart3 className="size-5" aria-hidden="true" />
 					Refeições por Período do Dia
 				</CardTitle>
 				<CardDescription>Distribuição temporal de previsões por tipo de refeição</CardDescription>
@@ -124,19 +124,19 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 				{/* Legend */}
 				<div className="flex gap-4 justify-center mt-6 flex-wrap pt-4 border-t">
 					<div className="flex items-center gap-2">
-						<div className="w-4 h-4 bg-chart-2 rounded" />
+						<div className="size-4 bg-chart-2 rounded" />
 						<span className="text-sm">Café</span>
 					</div>
 					<div className="flex items-center gap-2">
-						<div className="w-4 h-4 bg-chart-3 rounded" />
+						<div className="size-4 bg-chart-3 rounded" />
 						<span className="text-sm">Almoço</span>
 					</div>
 					<div className="flex items-center gap-2">
-						<div className="w-4 h-4 bg-chart-5 rounded" />
+						<div className="size-4 bg-chart-5 rounded" />
 						<span className="text-sm">Janta</span>
 					</div>
 					<div className="flex items-center gap-2">
-						<div className="w-4 h-4 bg-chart-1 rounded" />
+						<div className="size-4 bg-chart-1 rounded" />
 						<span className="text-sm">Ceia</span>
 					</div>
 				</div>

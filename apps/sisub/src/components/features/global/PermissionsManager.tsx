@@ -481,7 +481,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 			</div>
 
 			<div className="relative max-w-md">
-				<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+				<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 				<Input value={emailInput} onChange={(e) => setEmailInput(e.target.value)} placeholder="email@fab.mil.br" className="pl-9" />
 			</div>
 
@@ -548,7 +548,7 @@ function UserPermissionsPanel({
 			<div className="flex items-start justify-between gap-4">
 				<div className="flex items-center gap-3">
 					<Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
-						<ArrowLeft className="h-4 w-4" />
+						<ArrowLeft className="size-4" />
 						Voltar
 					</Button>
 					<div className="h-5 w-px bg-border" />
@@ -558,7 +558,7 @@ function UserPermissionsPanel({
 					</div>
 				</div>
 				<Button size="sm" onClick={onAdd} className="gap-1.5 shrink-0">
-					<Plus className="h-4 w-4" />
+					<Plus className="size-4" />
 					Adicionar permissão
 				</Button>
 			</div>
@@ -612,17 +612,17 @@ function UserPermissionsPanel({
 									</TableCell>
 									<TableCell>
 										<div className="flex items-center gap-1 justify-end">
-											<Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEdit(perm)}>
-												<Pencil className="h-3.5 w-3.5" />
+											<Button variant="ghost" size="sm" className="size-7 p-0" onClick={() => onEdit(perm)}>
+												<Pencil className="size-3.5" />
 												<span className="sr-only">Editar</span>
 											</Button>
 											<Button
 												variant="ghost"
 												size="sm"
-												className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+												className="size-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
 												onClick={() => onDeleteTarget(perm)}
 											>
-												<Trash2 className="h-3.5 w-3.5" />
+												<Trash2 className="size-3.5" />
 												<span className="sr-only">Remover</span>
 											</Button>
 										</div>

@@ -55,7 +55,7 @@ function KitchenSuprimentosPage() {
 					nativeButton={false}
 					render={
 						<Link to="/kitchen/$kitchenId/suprimentos/new" params={{ kitchenId: kitchenIdStr as string }}>
-							<Plus className="h-4 w-4 mr-2" />
+							<Plus className="size-4 mr-2" />
 							Novo Rascunho
 						</Link>
 					}
@@ -71,7 +71,7 @@ function KitchenSuprimentosPage() {
 			) : !drafts || drafts.length === 0 ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
-						<ShoppingCart className="h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
+						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
 						<p className="font-medium text-muted-foreground">Nenhum rascunho criado ainda.</p>
 						<p className="text-sm text-muted-foreground mt-1">Crie um rascunho com os templates que você quer sugerir para a próxima ata.</p>
 						<Button
@@ -81,7 +81,7 @@ function KitchenSuprimentosPage() {
 							nativeButton={false}
 							render={
 								<Link to="/kitchen/$kitchenId/suprimentos/new" params={{ kitchenId: kitchenIdStr as string }}>
-									<Plus className="h-4 w-4 mr-2" />
+									<Plus className="size-4 mr-2" />
 									Criar primeiro rascunho
 								</Link>
 							}
@@ -96,7 +96,7 @@ function KitchenSuprimentosPage() {
 								<div className="flex items-start justify-between gap-2">
 									<div className="flex-1 min-w-0">
 										<CardTitle className="text-base flex items-center gap-2">
-											<FileText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+											<FileText className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
 											{draft.title}
 										</CardTitle>
 										{draft.notes && <CardDescription className="mt-1 line-clamp-2">{draft.notes}</CardDescription>}
@@ -131,7 +131,7 @@ function KitchenSuprimentosPage() {
 													disabled={isSending || draft.selections.length === 0}
 													className="gap-1.5"
 												>
-													<Send className="h-3.5 w-3.5" aria-hidden="true" />
+													<Send className="size-3.5" aria-hidden="true" />
 													Enviar
 												</Button>
 											</>

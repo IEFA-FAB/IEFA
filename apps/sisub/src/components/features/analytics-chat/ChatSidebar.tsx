@@ -112,15 +112,15 @@ function SessionItem({
 							/>
 						}
 					>
-						<MoreHorizontal className="h-3.5 w-3.5" />
+						<MoreHorizontal className="size-3.5" />
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-36">
 						<DropdownMenuItem onClick={startRename}>
-							<Pencil className="mr-2 h-3.5 w-3.5" />
+							<Pencil className="mr-2 size-3.5" />
 							Renomear
 						</DropdownMenuItem>
 						<DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(session.id)}>
-							<Trash2 className="mr-2 h-3.5 w-3.5" />
+							<Trash2 className="mr-2 size-3.5" />
 							Excluir
 						</DropdownMenuItem>
 					</DropdownMenuContent>
@@ -167,7 +167,7 @@ export function ChatSidebar({ activeSessionId, onSelectSession, onNewChat }: Cha
 		<div className="flex h-full flex-col">
 			<div className="shrink-0 p-3">
 				<Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={onNewChat}>
-					<MessageSquarePlus className="h-4 w-4" />
+					<MessageSquarePlus className="size-4" />
 					Novo chat
 				</Button>
 			</div>
@@ -229,8 +229,8 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 			<div className="shrink-0 px-4 pt-4 pb-3">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-2.5">
-						<div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-							<Sparkles className="h-4.5 w-4.5" />
+						<div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+							<Sparkles className="size-4.5" />
 						</div>
 						<div>
 							<h1 className="text-lg font-semibold text-foreground leading-tight">Assistente IA</h1>
@@ -238,7 +238,7 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 						</div>
 					</div>
 					<Button size="icon-sm" variant="ghost" onClick={onNewChat} aria-label="Novo chat">
-						<MessageSquarePlus className="h-5 w-5" />
+						<MessageSquarePlus className="size-5" />
 					</Button>
 				</div>
 			</div>
@@ -253,8 +253,8 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 					</div>
 				) : sessions.length === 0 ? (
 					<div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
-						<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
-							<MessageSquarePlus className="h-6 w-6" />
+						<div className="flex size-14 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
+							<MessageSquarePlus className="size-6" />
 						</div>
 						<div>
 							<p className="text-sm font-medium text-foreground">Nenhuma conversa</p>
@@ -274,8 +274,8 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 								tabIndex={0}
 							>
 								{/* Avatar circle */}
-								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-									<Sparkles className="h-4 w-4" />
+								<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+									<Sparkles className="size-4" />
 								</div>
 
 								{/* Title + time */}
@@ -299,11 +299,11 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 											/>
 										}
 									>
-										<MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+										<MoreHorizontal className="size-4 text-muted-foreground" />
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end" className="w-36">
 										<DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(session.id)}>
-											<Trash2 className="mr-2 h-3.5 w-3.5" />
+											<Trash2 className="mr-2 size-3.5" />
 											Excluir
 										</DropdownMenuItem>
 									</DropdownMenuContent>

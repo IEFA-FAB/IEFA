@@ -55,7 +55,7 @@ function KitchenProductionPage() {
 				{/* Date navigation */}
 				<div className="flex items-center gap-1">
 					<Button variant="ghost" size="icon-sm" onClick={goToPrevDay} aria-label="Dia anterior">
-						<ChevronLeft className="h-4 w-4" />
+						<ChevronLeft className="size-4" />
 					</Button>
 
 					<button
@@ -73,7 +73,7 @@ function KitchenProductionPage() {
 					</button>
 
 					<Button variant="ghost" size="icon-sm" onClick={goToNextDay} aria-label="Próximo dia">
-						<ChevronRight className="h-4 w-4" />
+						<ChevronRight className="size-4" />
 					</Button>
 				</div>
 			</PageHeader>

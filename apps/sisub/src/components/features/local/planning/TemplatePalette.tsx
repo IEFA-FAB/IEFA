@@ -17,7 +17,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 		return (
 			<div className="bg-card border p-4">
 				<div className="flex items-center gap-2 text-sm text-muted-foreground">
-					<Calendar className="w-4 h-4 animate-pulse" />
+					<Calendar className="size-4 animate-pulse" />
 					<span>Carregando templates...</span>
 				</div>
 			</div>
@@ -29,11 +29,11 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 			<div className="bg-card border p-4">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
-						<Calendar className="w-4 h-4" />
+						<Calendar className="size-4" />
 						<span>Nenhum template disponível</span>
 					</div>
 					<Button size="sm" variant="outline" onClick={onCreateNew}>
-						<Plus className="w-4 h-4 mr-2" />
+						<Plus className="size-4 mr-2" />
 						Criar Template
 					</Button>
 				</div>
@@ -45,7 +45,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 		<div className="bg-card border p-4">
 			<div className="flex items-center gap-3 mb-3">
 				<div className="flex items-center gap-2 text-sm font-medium">
-					<Calendar className="w-4 h-4" />
+					<Calendar className="size-4" />
 					<span>Selecione um Template:</span>
 				</div>
 				{selectedTemplateId && (
@@ -72,7 +72,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 							)}
 						>
 							<div className="flex items-center gap-2 w-full">
-								<div className="w-3 h-3 rounded-full bg-primary" />
+								<div className="size-3 rounded-full bg-primary" />
 								<span className="font-medium text-sm truncate flex-1 text-left">{template.name}</span>
 							</div>
 
@@ -94,7 +94,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 				})}
 
 				<Button size="sm" variant="outline" onClick={onCreateNew} className="min-w-[140px] h-[76px] border-dashed">
-					<Plus className="w-4 h-4 mr-2" />
+					<Plus className="size-4 mr-2" />
 					Novo Template
 				</Button>
 			</div>

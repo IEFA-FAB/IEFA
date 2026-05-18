@@ -77,19 +77,19 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 						<SheetDescription className="flex flex-wrap items-center gap-3 mt-1">
 							{plannedPortions && (
 								<span className="flex items-center gap-1">
-									<Utensils className="h-3.5 w-3.5" />
+									<Utensils className="size-3.5" />
 									{plannedPortions} porções planejadas
 								</span>
 							)}
 							{recipe?.preparation_time_minutes && (
 								<span className="flex items-center gap-1">
-									<Timer className="h-3.5 w-3.5" />
+									<Timer className="size-3.5" />
 									{recipe.preparation_time_minutes} min
 								</span>
 							)}
 							{portionYield && (
 								<span className="flex items-center gap-1 text-muted-foreground">
-									<ChefHat className="h-3.5 w-3.5" />
+									<ChefHat className="size-3.5" />
 									rendimento base: {portionYield} porções
 								</span>
 							)}
@@ -102,7 +102,7 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 					{recipe?.ingredients && recipe.ingredients.length > 0 ? (
 						<div className="p-4 space-y-2">
 							<h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-								<Utensils className="h-4 w-4 text-muted-foreground" />
+								<Utensils className="size-4 text-muted-foreground" />
 								Ingredientes
 								{plannedPortions && portionYield && (
 									<span className="text-xs text-muted-foreground font-normal">(quantidades para {plannedPortions} porções)</span>
@@ -144,7 +144,7 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 					{recipe?.preparation_method && (
 						<div className="px-4 pb-4 space-y-2">
 							<h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-								<Clock className="h-4 w-4 text-muted-foreground" />
+								<Clock className="size-4 text-muted-foreground" />
 								Modo de Preparo
 							</h3>
 							<div className="rounded-md border border-border bg-muted/30 p-3">
@@ -182,25 +182,25 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 				<SheetFooter className="border-t border-border">
 					{task.status === "PENDING" && (
 						<Button className="w-full" onClick={() => onUpdateStatus(task.id, "IN_PROGRESS")} disabled={isUpdating}>
-							<PlayCircle className="h-4 w-4" />
+							<PlayCircle className="size-4" />
 							Iniciar Preparo
 						</Button>
 					)}
 					{task.status === "IN_PROGRESS" && (
 						<>
 							<Button variant="success" className="flex-1" onClick={() => onUpdateStatus(task.id, "DONE")} disabled={isUpdating}>
-								<CheckCircle2 className="h-4 w-4" />
+								<CheckCircle2 className="size-4" />
 								Marcar como Pronto
 							</Button>
 							<Button variant="ghost" onClick={() => onUpdateStatus(task.id, "PENDING")} disabled={isUpdating}>
-								<RotateCcw className="h-4 w-4" />
+								<RotateCcw className="size-4" />
 								Desfazer
 							</Button>
 						</>
 					)}
 					{task.status === "DONE" && (
 						<Button variant="outline" className="w-full" onClick={() => onUpdateStatus(task.id, "PENDING")} disabled={isUpdating}>
-							<RotateCcw className="h-4 w-4" />
+							<RotateCcw className="size-4" />
 							Reabrir Preparo
 						</Button>
 					)}

@@ -67,7 +67,7 @@ function AuthLayout() {
 							nativeButton={false}
 							render={
 								<Link to="/" className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
-									<ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+									<ArrowLeft className="size-3.5" aria-hidden />
 									Início
 								</Link>
 							}

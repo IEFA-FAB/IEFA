@@ -60,7 +60,7 @@ function UnitDashboardPage() {
 				<PageHeader title="Painel — Gestão Unidade" />
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-						<AlertTriangle className="h-9 w-9 text-destructive" />
+						<AlertTriangle className="size-9 text-destructive" />
 						<p className="font-medium">Erro ao carregar o painel</p>
 						<p className="text-sm text-muted-foreground">{error.message}</p>
 					</CardContent>
@@ -118,7 +118,7 @@ function UnitDashboardPage() {
 				{publishedAtas.length === 0 ? (
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-							<PackageSearch className="h-9 w-9 text-muted-foreground" />
+							<PackageSearch className="size-9 text-muted-foreground" />
 							<p className="font-medium text-muted-foreground">Nenhuma ata publicada</p>
 							<p className="text-sm text-muted-foreground max-w-sm">Publique uma ata de registro de preços para que ela apareça aqui.</p>
 							<Button
@@ -139,7 +139,7 @@ function UnitDashboardPage() {
 							<Card key={ata.id} className="hover:border-primary/30 transition-colors">
 								<CardHeader className="pb-2 pt-4">
 									<CardTitle className="text-sm flex items-start gap-2">
-										<FileText className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+										<FileText className="size-4 text-muted-foreground shrink-0 mt-0.5" />
 										<span className="line-clamp-2 leading-snug">{ata.title}</span>
 									</CardTitle>
 								</CardHeader>
@@ -169,7 +169,7 @@ function UnitDashboardPage() {
 				<SectionTitle>Nível de estoque</SectionTitle>
 				<Card className="border-dashed">
 					<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-						<Warehouse className="h-9 w-9 text-muted-foreground/50" />
+						<Warehouse className="size-9 text-muted-foreground/50" />
 						<p className="font-medium text-muted-foreground">Em desenvolvimento</p>
 						<p className="text-sm text-muted-foreground max-w-sm">O módulo de controle de estoque será integrado aqui em breve.</p>
 					</CardContent>
@@ -205,7 +205,7 @@ function UnitDashboardPage() {
 				{criticalMenuItems.length === 0 ? (
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-							<CheckCircle2 className="h-9 w-9 text-green-500" />
+							<CheckCircle2 className="size-9 text-green-500" />
 							<p className="font-medium text-muted-foreground">Sem alertas no momento</p>
 							<p className="text-sm text-muted-foreground max-w-sm">Nenhum item com saldo crítico está nos cardápios planejados das cozinhas desta unidade.</p>
 						</CardContent>

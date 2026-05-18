@@ -203,7 +203,7 @@ export function AppShell() {
 			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
 					<div className="flex items-center gap-3">
-						<SidebarTrigger className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
+						<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
 						<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
 						{isMobile ? (
 							// Mobile: ← pai  /  página atual
@@ -219,7 +219,7 @@ export function AppShell() {
 												to={backTo as Parameters<typeof Link>[0]["to"]}
 												className="flex shrink-0 items-center gap-1 text-muted-foreground hover:text-primary transition-colors"
 											>
-												<ChevronLeft className="h-4 w-4" />
+												<ChevronLeft className="size-4" />
 												<span>{backLabel}</span>
 											</Link>
 											{currentCrumb && (
