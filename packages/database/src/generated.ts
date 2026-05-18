@@ -106,6 +106,41 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			questionnaire_editor: {
+				Row: {
+					added_by: string
+					created_at: string
+					editor_email: string
+					editor_id: string
+					id: string
+					questionnaire_id: string
+				}
+				Insert: {
+					added_by: string
+					created_at?: string
+					editor_email: string
+					editor_id: string
+					id?: string
+					questionnaire_id: string
+				}
+				Update: {
+					added_by?: string
+					created_at?: string
+					editor_email?: string
+					editor_id?: string
+					id?: string
+					questionnaire_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "questionnaire_editor_questionnaire_id_fkey"
+						columns: ["questionnaire_id"]
+						isOneToOne: false
+						referencedRelation: "questionnaire"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			questionnaire_response: {
 				Row: {
 					current_version: number | null
