@@ -9,6 +9,7 @@ primary_region = "gru"
 [env]
   NODE_ENV = "production"
   PORT = "3000"
+  VITE_APP_TENANT = "cinco-s"
 
 [http_service]
   internal_port = 3000

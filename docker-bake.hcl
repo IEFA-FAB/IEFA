@@ -60,6 +60,7 @@ target "forms" {
   args = {
     VITE_IEFA_SUPABASE_URL = ""
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = ""
+    VITE_APP_TENANT = "forms"
   }
 }
 
@@ -88,5 +89,6 @@ target "5s" {
   args = {
     VITE_IEFA_SUPABASE_URL = ""
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = ""
+    VITE_APP_TENANT = "cinco-s"
   }
 }

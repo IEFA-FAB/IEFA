@@ -1,6 +1,6 @@
 export const EVALUATION_TYPES = [
-	{ value: "interna", label: "Auditoria Interna" },
-	{ value: "externa", label: "Auditoria Externa" },
+	{ value: "auditoria_interna", label: "Auditoria Interna" },
+	{ value: "auditoria_externa", label: "Auditoria Externa" },
 	{ value: "preparatoria", label: "Preparatória" },
 ] as const
 

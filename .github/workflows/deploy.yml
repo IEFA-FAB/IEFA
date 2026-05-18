@@ -528,6 +528,7 @@ jobs:
             forms.tags=registry.fly.io/iefa-forms:latest
             forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
             forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+            forms.args.VITE_APP_TENANT=forms
 
   deploy-forms:
     needs: build-forms
@@ -847,6 +848,7 @@ jobs:
             5s.tags=registry.fly.io/iefa-5s:latest
             5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
             5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+            5s.args.VITE_APP_TENANT=cinco-s
 
   deploy-5s:
     needs: build-5s

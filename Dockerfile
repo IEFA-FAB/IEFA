@@ -118,6 +118,7 @@ CMD ["bun", ".output/server/index.mjs"]
 FROM deps AS forms-build
 ARG VITE_IEFA_SUPABASE_URL
 ARG VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_APP_TENANT=forms
 COPY packages/database ./packages/database
 COPY apps/forms ./apps/forms
 RUN rm -rf apps/forms/.vite apps/forms/.tanstack apps/forms/node_modules/.vite
