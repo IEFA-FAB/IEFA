@@ -86,11 +86,7 @@ function DayOverviewCard({
 					const entries = mtItems.map((i) => ({ id: i.recipe_id, name: recipeMap.get(i.recipe_id) }))
 					return (
 						<div key={mt.id} className="flex items-center gap-2">
-							{count > 0 ? (
-								<CheckCircle2 className="size-3.5 text-success shrink-0" />
-							) : (
-								<Circle className="size-3.5 text-muted-foreground/30 shrink-0" />
-							)}
+							{count > 0 ? <CheckCircle2 className="size-3.5 text-success shrink-0" /> : <Circle className="size-3.5 text-muted-foreground/30 shrink-0" />}
 							<span className={cn("text-xs truncate flex-1", count > 0 ? "text-foreground" : "text-muted-foreground/50")}>{mt.name}</span>
 							{count > 0 && (
 								<Tooltip>

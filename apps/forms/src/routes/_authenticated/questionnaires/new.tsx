@@ -112,7 +112,7 @@ function NewQuestionnairePage() {
 				await publishQuestionnaireFn({ data: { id: questionnaire.id } })
 			}
 			await queryClient.invalidateQueries({ queryKey: ["questionnaires"] })
-			navigate({ to: "/" })
+			navigate({ to: "/dashboard" })
 		} catch (_err) {
 		} finally {
 			setSaving(false)

@@ -195,12 +195,14 @@ export const reorderQuestionsFn = createServerFn({ method: "POST" })
 
 // ── Response Flow ─────────────────────────────────────────────────────────────
 
-export const getOmOptionsFn = createServerFn({ method: "GET" }).handler(async () => {
-	const db = getFormsServerClient()
-	const { data, error } = await db.from("om_option").select("id, name").eq("active", true).order("sort_order", { ascending: true })
-	if (error) throw new Error(error.message)
-	return data
-})
+export const getOmOptionsFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({}))
+	.handler(async () => {
+		const db = getFormsServerClient()
+		const { data, error } = await db.from("om_option").select("id, name").eq("active", true).order("sort_order", { ascending: true })
+		if (error) throw new Error(error.message)
+		return data
+	})
 
 export const getMyResponseStateFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
@@ -625,20 +627,22 @@ export const revertToVersionFn = createServerFn({ method: "POST" })
 		return { success: true }
 	})
 
-export const getSharedWithMeFn = createServerFn({ method: "GET" }).handler(async () => {
-	const {
-		data: { user },
-	} = await getAuthenticatedUser()
-	if (!user) throw new Error("Não autenticado")
+export const getSharedWithMeFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({}))
+	.handler(async () => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
 
-	const db = getFormsServerClient()
+		const db = getFormsServerClient()
 
-	const { data: viewerRows, error: viewerError } = await db.from("response_viewer").select("questionnaire_id").eq("viewer_id", user.id)
-	if (viewerError) throw new Error(viewerError.message)
-	if (!viewerRows || viewerRows.length === 0) return []
+		const { data: viewerRows, error: viewerError } = await db.from("response_viewer").select("questionnaire_id").eq("viewer_id", user.id)
+		if (viewerError) throw new Error(viewerError.message)
+		if (!viewerRows || viewerRows.length === 0) return []
 
-	const ids = viewerRows.map((r) => r.questionnaire_id)
-	const { data, error } = await db.from("questionnaire").select("*").in("id", ids).order("created_at", { ascending: false })
-	if (error) throw new Error(error.message)
-	return data ?? []
-})
+		const ids = viewerRows.map((r) => r.questionnaire_id)
+		const { data, error } = await db.from("questionnaire").select("*").in("id", ids).order("created_at", { ascending: false })
+		if (error) throw new Error(error.message)
+		return data ?? []
+	})

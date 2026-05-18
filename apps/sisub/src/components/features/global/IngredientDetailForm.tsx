@@ -504,7 +504,12 @@ function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxProps) {
 				<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
 			</PopoverTrigger>
 
-			<PopoverContent id="catmat-combobox-popup" className="p-0" style={{ width: "var(--radix-popover-trigger-width)", minWidth: "360px", maxWidth: "700px" }} align="start">
+			<PopoverContent
+				id="catmat-combobox-popup"
+				className="p-0"
+				style={{ width: "var(--radix-popover-trigger-width)", minWidth: "360px", maxWidth: "700px" }}
+				align="start"
+			>
 				<Command shouldFilter={false}>
 					<CommandInput placeholder="Código (ex: 327430) ou parte da descrição..." value={inputValue} onValueChange={setInputValue} />
 

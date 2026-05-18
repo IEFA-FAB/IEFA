@@ -1,17 +1,21 @@
 import { createServerFn } from "@tanstack/react-start"
+import { z } from "zod"
 import { getIefaAuthClient } from "@/lib/supabase.server"
 
-export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
-	const supabase = getIefaAuthClient()
-	const {
-		data: { user },
-	} = await supabase.auth.getUser()
-	const {
-		data: { session },
-	} = await supabase.auth.getSession()
-
-	return {
-		user: user ?? null,
-		session: session ?? null,
-	}
-})
+export const getServerSessionFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({}))
+	.handler(async () => {
+		const supabase = getIefaAuthClient()
+		const [
+			{
+				data: { user },
+			},
+			{
+				data: { session },
+			},
+		] = await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()])
+		return {
+			user: user ?? null,
+			session: session ?? null,
+		}
+	})

@@ -4,9 +4,7 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "reac
 import { cn } from "../../lib/utils"
 
 function ResizablePanelGroup({ className, ...props }: React.ComponentProps<typeof PanelGroup>) {
-	return (
-		<PanelGroup data-slot="resizable-panel-group" className={cn("flex size-full data-[panel-group-direction=vertical]:flex-col", className)} {...props} />
-	)
+	return <PanelGroup data-slot="resizable-panel-group" className={cn("flex size-full data-[panel-group-direction=vertical]:flex-col", className)} {...props} />
 }
 
 function ResizablePanel({ ...props }: React.ComponentProps<typeof Panel>) {

@@ -113,9 +113,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-1.5">
 												<p className="text-sm font-medium truncate">{item.description}</p>
-												<ChevronDown
-													className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")}
-												/>
+												<ChevronDown className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")} />
 											</div>
 											<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
 												{item.barcode && (

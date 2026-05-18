@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
-import { useEffect, useState } from "react"
+import { useEffect, useReducer } from "react"
 import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,8 +38,6 @@ function safeRedirect(target: string | null | undefined, fallback = "/"): string
 export type AuthView = "auth" | "forgot" | "reset"
 
 export interface AuthScreenProps {
-	isLoading: boolean
-	isAuthenticated: boolean
 	searchParams: {
 		redirect?: string
 		tab?: "login" | "register"
@@ -57,6 +55,99 @@ export interface AuthScreenProps {
 		resetPassword: (email: string) => Promise<void>
 		updateUserPassword: (password: string) => Promise<{ error: Error | null }>
 		verifyOtp: (token_hash: string, type: "email") => Promise<{ error: Error | null }>
+	}
+}
+
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type AuthState = {
+	isSubmitting: boolean
+	error: string
+	successMessage: string
+	showPassword: boolean
+	loginEmail: string
+	loginPassword: string
+	rememberMe: boolean
+	emailError: string
+	passwordError: string
+	registerData: { name: string; email: string; password: string; confirm: string }
+	registerEmailError: string
+	forgotEmail: string
+	newPassword: string
+}
+
+type AuthAction =
+	| { type: "SUBMITTING" }
+	| { type: "SUBMITTED" }
+	| { type: "SET_ERROR"; message: string }
+	| { type: "SET_SUCCESS"; message: string }
+	| { type: "CLEAR_FEEDBACK" }
+	| { type: "TOGGLE_PASSWORD" }
+	| { type: "LOGIN_EMAIL"; value: string; emailError: string }
+	| { type: "LOGIN_PASSWORD"; value: string }
+	| { type: "REMEMBER_ME"; value: boolean }
+	| { type: "EMAIL_ERROR"; error: string }
+	| { type: "PASSWORD_ERROR"; error: string }
+	| { type: "REGISTER_DATA"; patch: Partial<AuthState["registerData"]>; emailError?: string }
+	| { type: "REGISTER_EMAIL_ERROR"; error: string }
+	| { type: "FORGOT_EMAIL"; value: string }
+	| { type: "NEW_PASSWORD"; value: string }
+	| { type: "INIT_EMAIL"; email: string }
+
+const initialState: AuthState = {
+	isSubmitting: false,
+	error: "",
+	successMessage: "",
+	showPassword: false,
+	loginEmail: "",
+	loginPassword: "",
+	rememberMe: false,
+	emailError: "",
+	passwordError: "",
+	registerData: { name: "", email: "", password: "", confirm: "" },
+	registerEmailError: "",
+	forgotEmail: "",
+	newPassword: "",
+}
+
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+	switch (action.type) {
+		case "SUBMITTING":
+			return { ...state, isSubmitting: true, error: "", emailError: "", passwordError: "" }
+		case "SUBMITTED":
+			return { ...state, isSubmitting: false }
+		case "SET_ERROR":
+			return { ...state, error: action.message, isSubmitting: false }
+		case "SET_SUCCESS":
+			return { ...state, successMessage: action.message, isSubmitting: false }
+		case "CLEAR_FEEDBACK":
+			return { ...state, error: "", successMessage: "", emailError: "", passwordError: "", registerEmailError: "" }
+		case "TOGGLE_PASSWORD":
+			return { ...state, showPassword: !state.showPassword }
+		case "LOGIN_EMAIL":
+			return { ...state, loginEmail: action.value, error: "", emailError: action.emailError }
+		case "LOGIN_PASSWORD":
+			return { ...state, loginPassword: action.value, error: "", passwordError: "" }
+		case "REMEMBER_ME":
+			return { ...state, rememberMe: action.value }
+		case "EMAIL_ERROR":
+			return { ...state, emailError: action.error }
+		case "PASSWORD_ERROR":
+			return { ...state, passwordError: action.error }
+		case "REGISTER_DATA":
+			return {
+				...state,
+				registerData: { ...state.registerData, ...action.patch },
+				...(action.emailError !== undefined ? { error: "", registerEmailError: action.emailError } : {}),
+			}
+		case "REGISTER_EMAIL_ERROR":
+			return { ...state, registerEmailError: action.error }
+		case "FORGOT_EMAIL":
+			return { ...state, forgotEmail: action.value }
+		case "NEW_PASSWORD":
+			return { ...state, newPassword: action.value }
+		case "INIT_EMAIL":
+			return { ...state, loginEmail: action.email, rememberMe: true }
 	}
 }
 
@@ -100,215 +191,496 @@ function SuccessBanner({ message }: { message: string }) {
 	)
 }
 
-// ─── AuthScreen ───────────────────────────────────────────────────────────────
+// ─── ResetView ────────────────────────────────────────────────────────────────
 
-export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigate, onTabChange, onViewChange, actions }: AuthScreenProps) {
-	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
+interface ResetViewProps {
+	state: AuthState
+	dispatch: React.Dispatch<AuthAction>
+	actions: AuthScreenProps["actions"]
+	onNavigate: AuthScreenProps["onNavigate"]
+	goToAuth: () => void
+}
 
-	// ── View derivada da URL — nunca estado local ─────────────────────────────
-	// Prioridade: token_hash → reset | ?view=forgot → forgot | default → auth tabs
-	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
-
-	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
-
-	useEffect(() => {
-		if (searchParams.tab) setActiveTab(searchParams.tab)
-	}, [searchParams.tab])
-
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [error, setError] = useState("")
-	const [successMessage, setSuccessMessage] = useState("")
-	const [showPassword, setShowPassword] = useState(false)
-
-	const [loginEmail, setLoginEmail] = useState("")
-	const [loginPassword, setLoginPassword] = useState("")
-	const [rememberMe, setRememberMe] = useState(false)
-	const [emailError, setEmailError] = useState("")
-	const [passwordError, setPasswordError] = useState("")
-
-	const [registerData, setRegisterData] = useState({ name: "", email: "", password: "", confirm: "" })
-	const [registerEmailError, setRegisterEmailError] = useState("")
-
-	const [forgotEmail, setForgotEmail] = useState("")
-	const [newPassword, setNewPassword] = useState("")
-
-	// Limpa erros sempre que a view muda via URL (ex: back button, goToForgot)
-	// biome-ignore lint/correctness/useExhaustiveDependencies: setters são estáveis; deps intencionais para reagir à mudança de view
-	useEffect(() => {
-		setError("")
-		setSuccessMessage("")
-		setEmailError("")
-		setPasswordError("")
-		setRegisterEmailError("")
-	}, [searchParams.view, searchParams.token_hash])
-
-	useEffect(() => {
-		const saved = localStorage.getItem(STORAGE_KEY_REMEMBER_EMAIL)
-		if (saved) {
-			setLoginEmail(saved)
-			setRememberMe(true)
+function ResetView({ state, dispatch, actions, onNavigate, goToAuth }: ResetViewProps) {
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
+		const pwErr = getPasswordError(state.newPassword)
+		if (pwErr) {
+			dispatch({ type: "SET_ERROR", message: pwErr })
+			return
 		}
-	}, [])
-
-	useEffect(() => {
-		if (!isLoading && isAuthenticated) {
-			onNavigate({ to: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
+		dispatch({ type: "SUBMITTING" })
+		try {
+			const { error } = await actions.updateUserPassword(state.newPassword)
+			if (error) throw error
+			alert("Senha atualizada com sucesso!")
+			await onNavigate({ to: "/dashboard" })
+		} catch (err) {
+			dispatch({ type: "SET_ERROR", message: err instanceof Error ? err.message : "Erro ao atualizar senha." })
 		}
-	}, [isAuthenticated, isLoading, searchParams.redirect, onNavigate])
-
-	// ── Navegação de view via URL ─────────────────────────────────────────────
-	const goToForgot = () => onViewChange?.("forgot")
-	const goToAuth = () => onViewChange?.(null)
-
-	const handleTabChange = (value: string) => {
-		setActiveTab(value)
-		if (onTabChange) onTabChange(value as "login" | "register")
 	}
 
-	// ── Handlers de formulário ────────────────────────────────────────────────
+	return (
+		<div className="w-full">
+			<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+				<ArrowLeft className="h-3.5 w-3.5" />
+				Voltar ao login
+			</Button>
 
-	const handleLoginEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+			<div className="border border-border bg-card">
+				<div className="px-8 pt-8 pb-6 border-b border-border">
+					<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+						Nova Senha
+					</h2>
+					<p className="text-sm text-muted-foreground mt-1">Defina uma nova senha segura.</p>
+				</div>
+
+				<form onSubmit={handleSubmit}>
+					<div className="px-8 py-6 space-y-5">
+						{state.error && <ErrorBanner message={state.error} />}
+						<div className="space-y-2">
+							<FieldLabel>Nova Senha</FieldLabel>
+							<div className="relative">
+								<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+								<Input
+									type="password"
+									className="h-11 pl-9"
+									value={state.newPassword}
+									onChange={(e) => dispatch({ type: "NEW_PASSWORD", value: e.target.value })}
+									required
+									minLength={8}
+									placeholder="Mínimo 8 caracteres"
+									autoComplete="new-password"
+								/>
+							</div>
+						</div>
+					</div>
+					<div className="px-8 pb-8 pt-2 border-t border-border">
+						<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting}>
+							{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+							Atualizar Senha
+						</Button>
+					</div>
+				</form>
+			</div>
+		</div>
+	)
+}
+
+// ─── ForgotView ───────────────────────────────────────────────────────────────
+
+interface ForgotViewProps {
+	state: AuthState
+	dispatch: React.Dispatch<AuthAction>
+	actions: AuthScreenProps["actions"]
+	goToAuth: () => void
+}
+
+function ForgotView({ state, dispatch, actions, goToAuth }: ForgotViewProps) {
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
+		const norm = normalizeEmail(state.forgotEmail)
+		if (!FAB_EMAIL_REGEX.test(norm)) {
+			dispatch({ type: "SET_ERROR", message: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
+			return
+		}
+		dispatch({ type: "SUBMITTING" })
+		try {
+			await actions.resetPassword(norm)
+			dispatch({ type: "SET_SUCCESS", message: "Link enviado! Verifique sua caixa de entrada." })
+		} catch (err) {
+			dispatch({ type: "SET_ERROR", message: err instanceof Error ? err.message : "Erro ao enviar email." })
+		}
+	}
+
+	return (
+		<div className="w-full">
+			{/* goToAuth remove ?view=forgot — back button do browser também funciona */}
+			<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+				<ArrowLeft className="h-3.5 w-3.5" />
+				Voltar ao login
+			</Button>
+
+			<div className="border border-border bg-card">
+				<div className="px-8 pt-8 pb-6 border-b border-border">
+					<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+						Recuperar Senha
+					</h2>
+					<p className="text-sm text-muted-foreground mt-1">Enviaremos um link de redefinição para seu email.</p>
+				</div>
+
+				<form onSubmit={handleSubmit}>
+					<div className="px-8 py-6 space-y-5">
+						{state.error && <ErrorBanner message={state.error} />}
+						{state.successMessage && <SuccessBanner message={state.successMessage} />}
+
+						<div className="space-y-2">
+							<FieldLabel htmlFor="forgot-email">Email Institucional</FieldLabel>
+							<div className="relative">
+								<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+								<Input
+									id="forgot-email"
+									type="email"
+									placeholder="seu.nome@fab.mil.br"
+									className="h-11 pl-9"
+									value={state.forgotEmail}
+									onChange={(e) => dispatch({ type: "FORGOT_EMAIL", value: e.target.value })}
+									required
+									autoComplete="email"
+								/>
+							</div>
+						</div>
+					</div>
+
+					<div className="px-8 pb-8 pt-2 border-t border-border">
+						<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting}>
+							{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+							Enviar Link
+						</Button>
+					</div>
+				</form>
+			</div>
+		</div>
+	)
+}
+
+// ─── LoginTabContent ──────────────────────────────────────────────────────────
+
+interface LoginTabContentProps {
+	state: AuthState
+	dispatch: React.Dispatch<AuthAction>
+	actions: AuthScreenProps["actions"]
+	onNavigate: AuthScreenProps["onNavigate"]
+	searchParams: AuthScreenProps["searchParams"]
+	isLocked: boolean
+	retryAfter: number
+	onSuccess: () => void
+	onFailure: () => void
+	goToForgot: () => void
+}
+
+function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, isLocked, retryAfter, onSuccess, onFailure, goToForgot }: LoginTabContentProps) {
+	const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const v = e.target.value
-		setLoginEmail(v)
-		setError("")
-		setEmailError("")
-		if (v && !FAB_EMAIL_REGEX.test(normalizeEmail(v))) {
-			setEmailError("Use seu email institucional @fab.mil.br (sem caracteres especiais).")
-		}
-	}
-
-	const handleLoginPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setLoginPassword(e.target.value)
-		setError("")
-		setPasswordError("")
+		const emailError = v && !FAB_EMAIL_REGEX.test(normalizeEmail(v)) ? "Use seu email institucional @fab.mil.br (sem caracteres especiais)." : ""
+		dispatch({ type: "LOGIN_EMAIL", value: v, emailError })
 	}
 
 	const handleRememberMeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const checked = e.target.checked
-		setRememberMe(checked)
-		const norm = normalizeEmail(loginEmail)
-		if (checked && loginEmail && FAB_EMAIL_REGEX.test(norm)) {
+		dispatch({ type: "REMEMBER_ME", value: checked })
+		const norm = normalizeEmail(state.loginEmail)
+		if (checked && state.loginEmail && FAB_EMAIL_REGEX.test(norm)) {
 			localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 		} else {
 			localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
 		}
 	}
 
-	const handleLogin = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
 		if (isLocked) return
-		const norm = normalizeEmail(loginEmail)
+		const norm = normalizeEmail(state.loginEmail)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "EMAIL_ERROR", error: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
 			return
 		}
-		if (!loginPassword) {
-			setPasswordError("Informe a senha.")
+		if (!state.loginPassword) {
+			dispatch({ type: "PASSWORD_ERROR", error: "Informe a senha." })
 			return
 		}
-		setIsSubmitting(true)
-		setError("")
-		setEmailError("")
-		setPasswordError("")
+		dispatch({ type: "SUBMITTING" })
 		try {
-			await actions.signIn(norm, loginPassword)
+			await actions.signIn(norm, state.loginPassword)
 			onSuccess()
-			if (rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
+			if (state.rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
 			await onNavigate({ to: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
 		} catch (err) {
 			onFailure()
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"
 			if (msg.includes("Email ou senha incorretos") || msg.includes("Invalid login credentials")) {
-				setPasswordError("Senha incorreta ou email não cadastrado")
+				dispatch({ type: "PASSWORD_ERROR", error: "Senha incorreta ou email não cadastrado" })
 			} else {
-				setError(msg || "Erro durante a autenticação. Tente mais tarde.")
+				dispatch({ type: "SET_ERROR", message: msg || "Erro durante a autenticação. Tente mais tarde." })
 			}
-		} finally {
-			setIsSubmitting(false)
 		}
 	}
 
-	const handleRegisterEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	return (
+		<div className="border border-t-0 border-border bg-card">
+			<div className="px-8 pt-7 pb-5">
+				<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+					Bem-vindo de volta
+				</h2>
+				<p className="text-sm text-muted-foreground mt-1">Acesso restrito a emails @fab.mil.br</p>
+			</div>
+
+			<form onSubmit={handleSubmit}>
+				<div className="px-8 pb-6 space-y-5">
+					{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+					{state.error && !isLocked && <ErrorBanner message={state.error} />}
+					{state.successMessage && <SuccessBanner message={state.successMessage} />}
+
+					{/* Email */}
+					<div className="space-y-2">
+						<FieldLabel htmlFor="login-email">Email Institucional</FieldLabel>
+						<div className="relative">
+							<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								id="login-email"
+								type="email"
+								placeholder="seu.nome@fab.mil.br"
+								className={cn("h-11 pl-9", state.emailError && "border-destructive focus-visible:border-destructive")}
+								value={state.loginEmail}
+								onChange={handleEmailChange}
+								required
+								autoComplete="username"
+								disabled={state.isSubmitting}
+							/>
+						</div>
+						{state.emailError && <FieldError>{state.emailError}</FieldError>}
+					</div>
+
+					{/* Password */}
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<FieldLabel htmlFor="login-password">Senha</FieldLabel>
+							{/* goToForgot → push ?view=forgot na URL */}
+							<Button
+								type="button"
+								variant="link"
+								size="sm"
+								onClick={goToForgot}
+								className="h-auto p-0 text-[11px] text-muted-foreground hover:text-foreground"
+								style={LABEL_TRACKING}
+							>
+								Esqueceu a senha?
+							</Button>
+						</div>
+						<div className="relative">
+							<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								id="login-password"
+								type={state.showPassword ? "text" : "password"}
+								placeholder="••••••••"
+								className={cn("h-11 pl-9 pr-10", state.passwordError && "border-destructive focus-visible:border-destructive")}
+								value={state.loginPassword}
+								onChange={(e) => dispatch({ type: "LOGIN_PASSWORD", value: e.target.value })}
+								required
+								autoComplete="current-password"
+								disabled={state.isSubmitting}
+							/>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								onClick={() => dispatch({ type: "TOGGLE_PASSWORD" })}
+								className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+								aria-label={state.showPassword ? "Ocultar senha" : "Mostrar senha"}
+							>
+								{state.showPassword ? <EyeClosed className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+							</Button>
+						</div>
+						{state.passwordError && <FieldError>{state.passwordError}</FieldError>}
+					</div>
+
+					{/* Remember me */}
+					<div className="flex items-center gap-2">
+						<input
+							id="remember"
+							type="checkbox"
+							checked={state.rememberMe}
+							onChange={handleRememberMeChange}
+							className="h-3.5 w-3.5 border border-border accent-foreground cursor-pointer"
+							disabled={state.isSubmitting}
+						/>
+						<label htmlFor="remember" className={cn(LABEL, "cursor-pointer")} style={LABEL_TRACKING}>
+							Lembrar email
+						</label>
+					</div>
+				</div>
+
+				<div className="px-8 pb-8 border-t border-border pt-5">
+					<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting || isLocked || !!state.emailError || !!state.passwordError}>
+						{isLocked ? (
+							`Bloqueado (${retryAfter}s)`
+						) : (
+							<>
+								{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+								{state.isSubmitting ? "Entrando..." : "Entrar"}
+							</>
+						)}
+					</Button>
+				</div>
+			</form>
+		</div>
+	)
+}
+
+// ─── RegisterTabContent ───────────────────────────────────────────────────────
+
+interface RegisterTabContentProps {
+	state: AuthState
+	dispatch: React.Dispatch<AuthAction>
+	actions: AuthScreenProps["actions"]
+	onTabChange?: AuthScreenProps["onTabChange"]
+}
+
+function RegisterTabContent({ state, dispatch, actions, onTabChange }: RegisterTabContentProps) {
+	const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const v = e.target.value
-		setRegisterData({ ...registerData, email: v })
-		setError("")
-		setRegisterEmailError("")
-		if (v && !FAB_EMAIL_REGEX.test(normalizeEmail(v))) {
-			setRegisterEmailError("Use seu email institucional @fab.mil.br (sem caracteres especiais).")
-		}
+		const emailError = v && !FAB_EMAIL_REGEX.test(normalizeEmail(v)) ? "Use seu email institucional @fab.mil.br (sem caracteres especiais)." : ""
+		dispatch({ type: "REGISTER_DATA", patch: { email: v }, emailError })
 	}
 
-	const handleRegister = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
-		const norm = normalizeEmail(registerData.email)
+		const norm = normalizeEmail(state.registerData.email)
 		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setRegisterEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "REGISTER_EMAIL_ERROR", error: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
 			return
 		}
-		const regPwErr = getPasswordError(registerData.password)
+		const regPwErr = getPasswordError(state.registerData.password)
 		if (regPwErr) {
-			setError(regPwErr)
+			dispatch({ type: "SET_ERROR", message: regPwErr })
 			return
 		}
-		if (registerData.password !== registerData.confirm) {
-			setError("As senhas não coincidem.")
+		if (state.registerData.password !== state.registerData.confirm) {
+			dispatch({ type: "SET_ERROR", message: "As senhas não coincidem." })
 			return
 		}
-		setIsSubmitting(true)
-		setError("")
-		setRegisterEmailError("")
+		dispatch({ type: "SUBMITTING" })
 		try {
-			await actions.signUp(norm, registerData.password, registerData.name)
-			setSuccessMessage("Conta criada! Verifique seu email.")
-			handleTabChange("login")
-			setLoginEmail(norm)
+			await actions.signUp(norm, state.registerData.password, state.registerData.name)
+			dispatch({ type: "SET_SUCCESS", message: "Conta criada! Verifique seu email." })
+			if (onTabChange) onTabChange("login")
+			dispatch({ type: "LOGIN_EMAIL", value: norm, emailError: "" })
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao criar conta.")
-		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_ERROR", message: err instanceof Error ? err.message : "Erro ao criar conta." })
 		}
 	}
 
-	const handleForgotPassword = async (e: React.FormEvent) => {
-		e.preventDefault()
-		const norm = normalizeEmail(forgotEmail)
-		if (!FAB_EMAIL_REGEX.test(norm)) {
-			setError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
-			return
-		}
-		setIsSubmitting(true)
-		setError("")
-		try {
-			await actions.resetPassword(norm)
-			setSuccessMessage("Link enviado! Verifique sua caixa de entrada.")
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao enviar email.")
-		} finally {
-			setIsSubmitting(false)
-		}
+	return (
+		<div className="border border-t-0 border-border bg-card">
+			<div className="px-8 pt-7 pb-5">
+				<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
+					Criar conta
+				</h2>
+				<p className="text-sm text-muted-foreground mt-1">Acesso restrito a emails @fab.mil.br</p>
+			</div>
+
+			<form onSubmit={handleSubmit}>
+				<div className="px-8 pb-6 space-y-5">
+					{state.error && <ErrorBanner message={state.error} />}
+
+					<div className="space-y-2">
+						<FieldLabel>Nome</FieldLabel>
+						<div className="relative">
+							<User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								placeholder="Seu nome completo"
+								className="h-11 pl-9"
+								value={state.registerData.name}
+								onChange={(e) => dispatch({ type: "REGISTER_DATA", patch: { name: e.target.value } })}
+								required
+								autoComplete="name"
+								disabled={state.isSubmitting}
+							/>
+						</div>
+					</div>
+
+					<div className="space-y-2">
+						<FieldLabel>Email Institucional</FieldLabel>
+						<div className="relative">
+							<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								type="email"
+								placeholder="seu.nome@fab.mil.br"
+								className={cn("h-11 pl-9", state.registerEmailError && "border-destructive focus-visible:border-destructive")}
+								value={state.registerData.email}
+								onChange={handleEmailChange}
+								required
+								autoComplete="email"
+								disabled={state.isSubmitting}
+							/>
+						</div>
+						{state.registerEmailError && <FieldError>{state.registerEmailError}</FieldError>}
+					</div>
+
+					<div className="space-y-2">
+						<FieldLabel>Senha</FieldLabel>
+						<div className="relative">
+							<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								type="password"
+								placeholder="Mínimo 8 caracteres"
+								className="h-11 pl-9"
+								value={state.registerData.password}
+								onChange={(e) => dispatch({ type: "REGISTER_DATA", patch: { password: e.target.value } })}
+								required
+								minLength={8}
+								autoComplete="new-password"
+								disabled={state.isSubmitting}
+							/>
+						</div>
+					</div>
+
+					<div className="space-y-2">
+						<FieldLabel>Confirmar Senha</FieldLabel>
+						<div className="relative">
+							<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+							<Input
+								type="password"
+								placeholder="Repita a senha"
+								className="h-11 pl-9"
+								value={state.registerData.confirm}
+								onChange={(e) => dispatch({ type: "REGISTER_DATA", patch: { confirm: e.target.value } })}
+								required
+								autoComplete="new-password"
+								disabled={state.isSubmitting}
+							/>
+						</div>
+					</div>
+				</div>
+
+				<div className="px-8 pb-8 border-t border-border pt-5">
+					<Button type="submit" className="w-full h-11 text-sm" disabled={state.isSubmitting || !!state.registerEmailError}>
+						{state.isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+						{state.isSubmitting ? "Criando..." : "Criar conta"}
+					</Button>
+				</div>
+			</form>
+		</div>
+	)
+}
+
+// ─── AuthScreen ───────────────────────────────────────────────────────────────
+
+export function AuthScreen({ searchParams, onNavigate, onTabChange, onViewChange, actions }: AuthScreenProps) {
+	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
+	const [state, dispatch] = useReducer(authReducer, initialState)
+
+	// view derivada da URL — nunca estado local
+	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
+	const activeTab = searchParams.tab ?? "login"
+
+	const goToForgot = () => onViewChange?.("forgot")
+	const goToAuth = () => onViewChange?.(null)
+
+	const handleTabChange = (value: string) => {
+		if (onTabChange) onTabChange(value as "login" | "register")
 	}
 
-	const handleResetPassword = async (e: React.FormEvent) => {
-		e.preventDefault()
-		const resetPwErr = getPasswordError(newPassword)
-		if (resetPwErr) {
-			setError(resetPwErr)
-			return
-		}
-		setIsSubmitting(true)
-		setError("")
-		try {
-			const { error } = await actions.updateUserPassword(newPassword)
-			if (error) throw error
-			alert("Senha atualizada com sucesso!")
-			await onNavigate({ to: "/dashboard" })
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao atualizar senha.")
-		} finally {
-			setIsSubmitting(false)
-		}
-	}
+	// biome-ignore lint/correctness/useExhaustiveDependencies: dispatch é estável; deps intencionais para reagir à mudança de view
+	useEffect(() => {
+		dispatch({ type: "CLEAR_FEEDBACK" })
+	}, [searchParams.view, searchParams.token_hash])
+
+	useEffect(() => {
+		const saved = localStorage.getItem(STORAGE_KEY_REMEMBER_EMAIL)
+		if (saved) dispatch({ type: "INIT_EMAIL", email: saved })
+	}, [])
 
 	useEffect(() => {
 		// currentView === "reset" ≡ !!searchParams.token_hash — sem necessidade de incluí-lo nos deps
@@ -316,122 +688,18 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			const tokenHash = searchParams.token_hash
 			const verify = async () => {
 				const { error } = await actions.verifyOtp(tokenHash, "email")
-				if (error) setError("Link inválido ou expirado. Solicite uma nova recuperação.")
+				if (error) dispatch({ type: "SET_ERROR", message: "Link inválido ou expirado. Solicite uma nova recuperação." })
 			}
 			verify()
 		}
 	}, [searchParams.token_hash, searchParams.type, actions])
 
-	// ── Loading ───────────────────────────────────────────────────────────────
-	if (isLoading) {
-		return (
-			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
-				<Refresh className="h-4 w-4 animate-spin text-muted-foreground" />
-				<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
-			</div>
-		)
-	}
-
-	// ── Reset password — ativado por token_hash na URL (link do email) ────────
 	if (currentView === "reset") {
-		return (
-			<div className="w-full">
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
-					<ArrowLeft className="h-3.5 w-3.5" />
-					Voltar ao login
-				</Button>
-
-				<div className="border border-border bg-card">
-					<div className="px-8 pt-8 pb-6 border-b border-border">
-						<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-							Nova Senha
-						</h2>
-						<p className="text-sm text-muted-foreground mt-1">Defina uma nova senha segura.</p>
-					</div>
-
-					<form onSubmit={handleResetPassword}>
-						<div className="px-8 py-6 space-y-5">
-							{error && <ErrorBanner message={error} />}
-							<div className="space-y-2">
-								<FieldLabel>Nova Senha</FieldLabel>
-								<div className="relative">
-									<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-									<Input
-										type="password"
-										className="h-11 pl-9"
-										value={newPassword}
-										onChange={(e) => setNewPassword(e.target.value)}
-										required
-										minLength={8}
-										placeholder="Mínimo 8 caracteres"
-										autoComplete="new-password"
-									/>
-								</div>
-							</div>
-						</div>
-						<div className="px-8 pb-8 pt-2 border-t border-border">
-							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
-								{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
-								Atualizar Senha
-							</Button>
-						</div>
-					</form>
-				</div>
-			</div>
-		)
+		return <ResetView state={state} dispatch={dispatch} actions={actions} onNavigate={onNavigate} goToAuth={goToAuth} />
 	}
 
-	// ── Forgot password — ativado por ?view=forgot na URL ────────────────────
 	if (currentView === "forgot") {
-		return (
-			<div className="w-full">
-				{/* goToAuth remove ?view=forgot — back button do browser também funciona */}
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
-					<ArrowLeft className="h-3.5 w-3.5" />
-					Voltar ao login
-				</Button>
-
-				<div className="border border-border bg-card">
-					<div className="px-8 pt-8 pb-6 border-b border-border">
-						<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-							Recuperar Senha
-						</h2>
-						<p className="text-sm text-muted-foreground mt-1">Enviaremos um link de redefinição para seu email.</p>
-					</div>
-
-					<form onSubmit={handleForgotPassword}>
-						<div className="px-8 py-6 space-y-5">
-							{error && <ErrorBanner message={error} />}
-							{successMessage && <SuccessBanner message={successMessage} />}
-
-							<div className="space-y-2">
-								<FieldLabel htmlFor="forgot-email">Email Institucional</FieldLabel>
-								<div className="relative">
-									<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-									<Input
-										id="forgot-email"
-										type="email"
-										placeholder="seu.nome@fab.mil.br"
-										className="h-11 pl-9"
-										value={forgotEmail}
-										onChange={(e) => setForgotEmail(e.target.value)}
-										required
-										autoComplete="email"
-									/>
-								</div>
-							</div>
-						</div>
-
-						<div className="px-8 pb-8 pt-2 border-t border-border">
-							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
-								{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
-								Enviar Link
-							</Button>
-						</div>
-					</form>
-				</div>
-			</div>
-		)
+		return <ForgotView state={state} dispatch={dispatch} actions={actions} goToAuth={goToAuth} />
 	}
 
 	// ── Auth: Login + Register tabs ───────────────────────────────────────────
@@ -447,209 +715,23 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 					</TabsTrigger>
 				</TabsList>
 
-				{/* ── LOGIN ── */}
 				<TabsContent value="login" className="mt-0">
-					<div className="border border-t-0 border-border bg-card">
-						<div className="px-8 pt-7 pb-5">
-							<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-								Bem-vindo de volta
-							</h2>
-							<p className="text-sm text-muted-foreground mt-1">Acesso restrito a emails @fab.mil.br</p>
-						</div>
-
-						<form onSubmit={handleLogin}>
-							<div className="px-8 pb-6 space-y-5">
-								{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
-								{error && !isLocked && <ErrorBanner message={error} />}
-								{successMessage && <SuccessBanner message={successMessage} />}
-
-								{/* Email */}
-								<div className="space-y-2">
-									<FieldLabel htmlFor="login-email">Email Institucional</FieldLabel>
-									<div className="relative">
-										<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											id="login-email"
-											type="email"
-											placeholder="seu.nome@fab.mil.br"
-											className={cn("h-11 pl-9", emailError && "border-destructive focus-visible:border-destructive")}
-											value={loginEmail}
-											onChange={handleLoginEmailChange}
-											required
-											autoComplete="username"
-											disabled={isSubmitting}
-										/>
-									</div>
-									{emailError && <FieldError>{emailError}</FieldError>}
-								</div>
-
-								{/* Password */}
-								<div className="space-y-2">
-									<div className="flex items-center justify-between">
-										<FieldLabel htmlFor="login-password">Senha</FieldLabel>
-										{/* goToForgot → push ?view=forgot na URL */}
-										<Button
-											type="button"
-											variant="link"
-											size="sm"
-											onClick={goToForgot}
-											className="h-auto p-0 text-[11px] text-muted-foreground hover:text-foreground"
-											style={LABEL_TRACKING}
-										>
-											Esqueceu a senha?
-										</Button>
-									</div>
-									<div className="relative">
-										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											id="login-password"
-											type={showPassword ? "text" : "password"}
-											placeholder="••••••••"
-											className={cn("h-11 pl-9 pr-10", passwordError && "border-destructive focus-visible:border-destructive")}
-											value={loginPassword}
-											onChange={handleLoginPasswordChange}
-											required
-											autoComplete="current-password"
-											disabled={isSubmitting}
-										/>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-xs"
-											onClick={() => setShowPassword(!showPassword)}
-											className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-											aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-										>
-											{showPassword ? <EyeClosed className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-										</Button>
-									</div>
-									{passwordError && <FieldError>{passwordError}</FieldError>}
-								</div>
-
-								{/* Remember me */}
-								<div className="flex items-center gap-2">
-									<input
-										id="remember"
-										type="checkbox"
-										checked={rememberMe}
-										onChange={handleRememberMeChange}
-										className="h-3.5 w-3.5 border border-border accent-foreground cursor-pointer"
-										disabled={isSubmitting}
-									/>
-									<label htmlFor="remember" className={cn(LABEL, "cursor-pointer")} style={LABEL_TRACKING}>
-										Lembrar email
-									</label>
-								</div>
-							</div>
-
-							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
-									{isLocked ? (
-										`Bloqueado (${retryAfter}s)`
-									) : (
-										<>
-											{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
-											{isSubmitting ? "Entrando..." : "Entrar"}
-										</>
-									)}
-								</Button>
-							</div>
-						</form>
-					</div>
+					<LoginTabContent
+						state={state}
+						dispatch={dispatch}
+						actions={actions}
+						onNavigate={onNavigate}
+						searchParams={searchParams}
+						isLocked={isLocked}
+						retryAfter={retryAfter}
+						onSuccess={onSuccess}
+						onFailure={onFailure}
+						goToForgot={goToForgot}
+					/>
 				</TabsContent>
 
-				{/* ── REGISTER ── */}
 				<TabsContent value="register" className="mt-0">
-					<div className="border border-t-0 border-border bg-card">
-						<div className="px-8 pt-7 pb-5">
-							<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-								Criar conta
-							</h2>
-							<p className="text-sm text-muted-foreground mt-1">Acesso restrito a emails @fab.mil.br</p>
-						</div>
-
-						<form onSubmit={handleRegister}>
-							<div className="px-8 pb-6 space-y-5">
-								{error && <ErrorBanner message={error} />}
-
-								<div className="space-y-2">
-									<FieldLabel>Nome</FieldLabel>
-									<div className="relative">
-										<User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											placeholder="Seu nome completo"
-											className="h-11 pl-9"
-											value={registerData.name}
-											onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-											required
-											autoComplete="name"
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<FieldLabel>Email Institucional</FieldLabel>
-									<div className="relative">
-										<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											type="email"
-											placeholder="seu.nome@fab.mil.br"
-											className={cn("h-11 pl-9", registerEmailError && "border-destructive focus-visible:border-destructive")}
-											value={registerData.email}
-											onChange={handleRegisterEmailChange}
-											required
-											autoComplete="email"
-											disabled={isSubmitting}
-										/>
-									</div>
-									{registerEmailError && <FieldError>{registerEmailError}</FieldError>}
-								</div>
-
-								<div className="space-y-2">
-									<FieldLabel>Senha</FieldLabel>
-									<div className="relative">
-										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											type="password"
-											placeholder="Mínimo 8 caracteres"
-											className="h-11 pl-9"
-											value={registerData.password}
-											onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-											required
-											minLength={8}
-											autoComplete="new-password"
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<FieldLabel>Confirmar Senha</FieldLabel>
-									<div className="relative">
-										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											type="password"
-											placeholder="Repita a senha"
-											className="h-11 pl-9"
-											value={registerData.confirm}
-											onChange={(e) => setRegisterData({ ...registerData, confirm: e.target.value })}
-											required
-											autoComplete="new-password"
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-							</div>
-
-							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || !!registerEmailError}>
-									{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
-									{isSubmitting ? "Criando..." : "Criar conta"}
-								</Button>
-							</div>
-						</form>
-					</div>
+					<RegisterTabContent state={state} dispatch={dispatch} actions={actions} onTabChange={onTabChange} />
 				</TabsContent>
 			</Tabs>
 		</div>

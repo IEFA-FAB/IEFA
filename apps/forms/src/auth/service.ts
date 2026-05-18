@@ -83,7 +83,7 @@ export const authQueryOptions = () =>
 		queryKey: ["auth", "user"],
 		queryFn: async () => {
 			try {
-				const { user, session } = await getServerSessionFn()
+				const { user, session } = await getServerSessionFn({ data: {} })
 				return {
 					user,
 					session,

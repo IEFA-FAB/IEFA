@@ -12,7 +12,7 @@ import { getSharedWithMeFn } from "@/server/forms.fn"
 const sharedQueryOptions = () =>
 	queryOptions({
 		queryKey: ["shared-with-me"],
-		queryFn: () => getSharedWithMeFn(),
+		queryFn: () => getSharedWithMeFn({ data: {} }),
 	})
 
 export const Route = createFileRoute("/_authenticated/responses/")({

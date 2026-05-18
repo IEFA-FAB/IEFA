@@ -398,7 +398,7 @@ function MetadataStep({
 	const { evaluationType, om, omCustom, secao, loading, omOptions } = state
 
 	useEffect(() => {
-		getOmOptionsFn().then((options) => dispatch({ type: "SET_OM_OPTIONS", options }))
+		getOmOptionsFn({ data: {} }).then((options) => dispatch({ type: "SET_OM_OPTIONS", options }))
 	}, [])
 
 	const resolvedOm = om === "__outro" ? omCustom.trim() : (om ?? "")
