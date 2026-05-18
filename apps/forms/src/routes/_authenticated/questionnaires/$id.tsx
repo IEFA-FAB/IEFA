@@ -3,14 +3,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, EditPencil, Eye, Plus, Refresh, SendDiagonal, Trash } from "iconoir-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { ViewerManager } from "@/components/forms/ViewerManager"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { CONFORMITY_WEIGHTS, type ConformityOptions } from "@/lib/conformity"
+import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
 import {
 	addEditorFn,
 	createQuestionFn,
@@ -19,6 +22,7 @@ import {
 	deleteSectionFn,
 	getEditorsFn,
 	getQuestionnaireFn,
+	getViewersFn,
 	publishQuestionnaireFn,
 	removeEditorFn,
 	updateQuestionFn,
@@ -62,6 +66,12 @@ const editorsQueryOptions = (questionnaireId: string) =>
 		queryFn: () => getEditorsFn({ data: { questionnaire_id: questionnaireId } }),
 	})
 
+const viewersQueryOptions = (questionnaireId: string) =>
+	queryOptions({
+		queryKey: ["viewers", questionnaireId],
+		queryFn: () => getViewersFn({ data: { questionnaire_id: questionnaireId } }),
+	})
+
 export const Route = createFileRoute("/_authenticated/questionnaires/$id")({
 	loader: ({ context, params }) => context.queryClient.ensureQueryData(questionnaireQueryOptions(params.id)),
 	component: EditQuestionnairePage,
@@ -76,6 +86,10 @@ function EditQuestionnairePage() {
 		...editorsQueryOptions(id),
 		enabled: questionnaire.access.isCreator,
 	})
+	const { data: viewers = [] } = useQuery({
+		...viewersQueryOptions(id),
+		enabled: questionnaire.access.canEdit,
+	})
 	const [saving, setSaving] = useState(false)
 	const [copiedShareLink, setCopiedShareLink] = useState(false)
 
@@ -84,6 +98,7 @@ function EditQuestionnairePage() {
 	const canEdit = access.canEdit
 	const isCreator = access.isCreator
 	const sections = questionnaire.section ?? []
+	const metadataConfig = parseResponseMetadataConfig(questionnaire.response_metadata_config)
 	const shareUrl = typeof window !== "undefined" ? new URL(`/respond/${id}`, window.location.origin).toString() : `/respond/${id}`
 
 	const invalidateQuestionnaire = () => queryClient.invalidateQueries({ queryKey: ["questionnaire", id] })
@@ -115,6 +130,17 @@ function EditQuestionnairePage() {
 			await invalidateQuestionnaire()
 		} catch (error) {
 			reportError(error, "Erro ao atualizar descrição")
+		}
+	}
+
+	const handleToggleOmScopeable = async (checked: boolean) => {
+		if (!canEdit) return
+		try {
+			await updateQuestionnaireFn({ data: { id, response_metadata_config: { om: { scopeable: checked } } } })
+			await invalidateQuestionnaire()
+			await queryClient.invalidateQueries({ queryKey: ["viewers", id] })
+		} catch (error) {
+			reportError(error, "Erro ao atualizar segmentação por OM")
 		}
 	}
 
@@ -247,11 +273,19 @@ function EditQuestionnairePage() {
 							<Label>Descrição</Label>
 							<Textarea defaultValue={questionnaire.description ?? ""} onBlur={(e) => handleUpdateDescription(e.target.value)} rows={2} />
 						</div>
+						<div className="flex items-center justify-between gap-4 rounded-md border px-4 py-3">
+							<div className="space-y-1">
+								<Label>Segmentação por OM</Label>
+								<p className="text-sm text-muted-foreground">Permite configurar visualizadores de respostas escopados por OM.</p>
+							</div>
+							<Switch checked={Boolean(metadataConfig.om?.scopeable)} onCheckedChange={handleToggleOmScopeable} />
+						</div>
 					</CardContent>
 				</Card>
 			)}
 
 			{isCreator && <EditorManager questionnaireId={id} editors={editors as Editor[]} />}
+			{canEdit && <ViewerManager questionnaireId={id} viewers={viewers} omScopeable={Boolean(metadataConfig.om?.scopeable)} />}
 
 			{questionnaire.status === "sent" && (
 				<Card>

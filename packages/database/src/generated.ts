@@ -79,6 +79,7 @@ export type Database = {
 					created_by: string | null
 					description: string | null
 					id: string
+					response_metadata_config: Json
 					status: Database["forms"]["Enums"]["questionnaire_status"]
 					tags: string[]
 					title: string
@@ -89,6 +90,7 @@ export type Database = {
 					created_by?: string | null
 					description?: string | null
 					id?: string
+					response_metadata_config?: Json
 					status?: Database["forms"]["Enums"]["questionnaire_status"]
 					tags?: string[]
 					title: string
@@ -99,6 +101,7 @@ export type Database = {
 					created_by?: string | null
 					description?: string | null
 					id?: string
+					response_metadata_config?: Json
 					status?: Database["forms"]["Enums"]["questionnaire_status"]
 					tags?: string[]
 					title?: string
@@ -280,6 +283,7 @@ export type Database = {
 					created_at: string
 					id: string
 					questionnaire_id: string
+					scope_mode: Database["forms"]["Enums"]["response_scope_mode"]
 					viewer_email: string
 					viewer_id: string
 				}
@@ -288,6 +292,7 @@ export type Database = {
 					created_at?: string
 					id?: string
 					questionnaire_id: string
+					scope_mode?: Database["forms"]["Enums"]["response_scope_mode"]
 					viewer_email: string
 					viewer_id: string
 				}
@@ -296,6 +301,7 @@ export type Database = {
 					created_at?: string
 					id?: string
 					questionnaire_id?: string
+					scope_mode?: Database["forms"]["Enums"]["response_scope_mode"]
 					viewer_email?: string
 					viewer_id?: string
 				}
@@ -305,6 +311,41 @@ export type Database = {
 						columns: ["questionnaire_id"]
 						isOneToOne: false
 						referencedRelation: "questionnaire"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			response_viewer_scope_binding: {
+				Row: {
+					attribute_key: string
+					created_at: string
+					effect: Database["forms"]["Enums"]["response_scope_effect"]
+					id: string
+					response_viewer_id: string
+					value: string
+				}
+				Insert: {
+					attribute_key: string
+					created_at?: string
+					effect: Database["forms"]["Enums"]["response_scope_effect"]
+					id?: string
+					response_viewer_id: string
+					value: string
+				}
+				Update: {
+					attribute_key?: string
+					created_at?: string
+					effect?: Database["forms"]["Enums"]["response_scope_effect"]
+					id?: string
+					response_viewer_id?: string
+					value?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "response_viewer_scope_binding_response_viewer_id_fkey"
+						columns: ["response_viewer_id"]
+						isOneToOne: false
+						referencedRelation: "response_viewer"
 						referencedColumns: ["id"]
 					},
 				]
@@ -356,6 +397,8 @@ export type Database = {
 			question_type: "text" | "textarea" | "single_choice" | "multiple_choice" | "number" | "date" | "scale" | "boolean" | "conformity"
 			questionnaire_response_status: "draft" | "sent"
 			questionnaire_status: "draft" | "sent"
+			response_scope_effect: "allow" | "deny"
+			response_scope_mode: "global" | "scoped"
 		}
 		CompositeTypes: {
 			[_ in never]: never
@@ -4205,6 +4248,8 @@ export const Constants = {
 			question_type: ["text", "textarea", "single_choice", "multiple_choice", "number", "date", "scale", "boolean", "conformity"],
 			questionnaire_response_status: ["draft", "sent"],
 			questionnaire_status: ["draft", "sent"],
+			response_scope_effect: ["allow", "deny"],
+			response_scope_mode: ["global", "scoped"],
 		},
 	},
 	iefa: {

@@ -1,5 +1,18 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import {
+	buildBindingsFromPolicyInput,
+	filterResponsesByViewerPolicy,
+	isOmScopeable,
+	matchesViewerPolicy,
+	normalizeScopeValue,
+	parseResponseMetadataConfig,
+	type ResponseMetadataConfig,
+	type ViewerPolicy,
+	type ViewerScopeBinding,
+	type ViewerScopeMode,
+	validateViewerPolicyInput,
+} from "@/lib/response-visibility-policy"
 import { getFormsServerClient, getIefaAuthClient } from "@/lib/supabase.server"
 
 type FormsDbClient = ReturnType<typeof getFormsServerClient>
@@ -11,6 +24,36 @@ type QuestionnaireAccess = {
 	isEditor: boolean
 	canEdit: boolean
 }
+
+type ResponseVisibilityAccess = {
+	questionnaireAccess: QuestionnaireAccess
+	metadataConfig: ResponseMetadataConfig
+	viewerPolicy: ViewerPolicy | null
+	canViewResponses: boolean
+	canViewAllResponses: boolean
+	canManageViewers: boolean
+}
+
+const responseMetadataConfigSchema = z
+	.object({
+		om: z
+			.object({
+				scopeable: z.boolean().optional(),
+			})
+			.optional(),
+	})
+	.optional()
+
+const viewerPolicySchema = z
+	.object({
+		om: z
+			.object({
+				allow: z.array(z.string()).optional(),
+				deny: z.array(z.string()).optional(),
+			})
+			.optional(),
+	})
+	.optional()
 
 function getAuthenticatedUser() {
 	const auth = getIefaAuthClient()
@@ -62,6 +105,12 @@ async function requireQuestionnaireEditAccess(db: FormsDbClient, questionnaireId
 	return access
 }
 
+async function requireQuestionnaireViewerManagementAccess(db: FormsDbClient, questionnaireId: string, userId: string) {
+	const access = await getQuestionnaireAccess(db, questionnaireId, userId)
+	if (!access.canEdit) throw new Error("Sem permissão")
+	return access
+}
+
 async function getQuestionnaireIdBySectionId(db: FormsDbClient, sectionId: string) {
 	const { data, error } = await db.from("section").select("questionnaire_id").eq("id", sectionId).single()
 	if (error) throw new Error(error.message)
@@ -74,13 +123,137 @@ async function getQuestionnaireIdByQuestionId(db: FormsDbClient, questionId: str
 	return getQuestionnaireIdBySectionId(db, data.section_id)
 }
 
-async function canViewQuestionnaireResponses(db: FormsDbClient, questionnaireId: string, userId: string) {
-	const access = await getQuestionnaireAccess(db, questionnaireId, userId)
-	if (access.isCreator) return true
-
-	const { data: viewerRow, error } = await db.from("response_viewer").select("id").eq("questionnaire_id", questionnaireId).eq("viewer_id", userId).maybeSingle()
+async function getViewerBindings(db: FormsDbClient, responseViewerId: string): Promise<ViewerScopeBinding[]> {
+	const { data, error } = await db
+		.from("response_viewer_scope_binding")
+		.select("id, attribute_key, effect, value")
+		.eq("response_viewer_id", responseViewerId)
+		.order("created_at", { ascending: true })
 	if (error) throw new Error(error.message)
-	return Boolean(viewerRow)
+	return (data ?? []) as ViewerScopeBinding[]
+}
+
+async function resolveResponseVisibilityAccess(db: FormsDbClient, questionnaireId: string, userId: string): Promise<ResponseVisibilityAccess> {
+	const { data: questionnaire, error } = await db.from("questionnaire").select("id, created_by, response_metadata_config").eq("id", questionnaireId).single()
+	if (error) throw new Error(error.message)
+
+	const questionnaireAccess = await getQuestionnaireAccessFromRow(db, questionnaire.id, questionnaire.created_by, userId)
+	const metadataConfig = parseResponseMetadataConfig(questionnaire.response_metadata_config)
+	if (questionnaireAccess.isCreator) {
+		return {
+			questionnaireAccess,
+			metadataConfig,
+			viewerPolicy: null,
+			canViewResponses: true,
+			canViewAllResponses: true,
+			canManageViewers: true,
+		}
+	}
+
+	const { data: viewerRow, error: viewerError } = await db
+		.from("response_viewer")
+		.select("id, scope_mode")
+		.eq("questionnaire_id", questionnaireId)
+		.eq("viewer_id", userId)
+		.maybeSingle()
+	if (viewerError) throw new Error(viewerError.message)
+
+	if (!viewerRow) {
+		return {
+			questionnaireAccess,
+			metadataConfig,
+			viewerPolicy: null,
+			canViewResponses: false,
+			canViewAllResponses: false,
+			canManageViewers: questionnaireAccess.canEdit,
+		}
+	}
+
+	const bindings = await getViewerBindings(db, viewerRow.id)
+	const viewerPolicy: ViewerPolicy = {
+		scope_mode: viewerRow.scope_mode as ViewerScopeMode,
+		bindings,
+	}
+
+	return {
+		questionnaireAccess,
+		metadataConfig,
+		viewerPolicy,
+		canViewResponses: true,
+		canViewAllResponses: viewerPolicy.scope_mode === "global",
+		canManageViewers: questionnaireAccess.canEdit,
+	}
+}
+
+function buildDefaultResponseMetadataConfig(tags: string[], requested?: ResponseMetadataConfig) {
+	if (requested) return requested
+	if (tags.includes("5s")) {
+		return { om: { scopeable: true } }
+	}
+	return {}
+}
+
+async function assertQuestionnaireCanDisableOmScope(db: FormsDbClient, questionnaireId: string) {
+	const { data: scopedViewer, error } = await db
+		.from("response_viewer")
+		.select("id")
+		.eq("questionnaire_id", questionnaireId)
+		.eq("scope_mode", "scoped")
+		.limit(1)
+		.maybeSingle()
+	if (error) throw new Error(error.message)
+	if (scopedViewer) {
+		throw new Error("Converta ou remova os visualizadores escopados antes de desativar a segmentação por OM")
+	}
+}
+
+async function replaceViewerPolicyBindings(db: FormsDbClient, responseViewerId: string, bindings: ViewerScopeBinding[]) {
+	const { error: deleteError } = await db.from("response_viewer_scope_binding").delete().eq("response_viewer_id", responseViewerId)
+	if (deleteError) throw new Error(deleteError.message)
+
+	if (bindings.length === 0) return
+
+	const { error: insertError } = await db.from("response_viewer_scope_binding").insert(
+		bindings.map((binding) => ({
+			response_viewer_id: responseViewerId,
+			attribute_key: binding.attribute_key,
+			effect: binding.effect,
+			value: binding.value,
+		}))
+	)
+	if (insertError) throw new Error(insertError.message)
+}
+
+async function getViewerPolicyListForQuestionnaire(db: FormsDbClient, questionnaireId: string) {
+	const { data: viewers, error } = await db.from("response_viewer").select("*").eq("questionnaire_id", questionnaireId).order("created_at", { ascending: true })
+	if (error) throw new Error(error.message)
+
+	const viewerIds = (viewers ?? []).map((viewer) => viewer.id)
+	const bindingMap = new Map<string, ViewerScopeBinding[]>()
+	if (viewerIds.length > 0) {
+		const { data: bindings, error: bindingsError } = await db
+			.from("response_viewer_scope_binding")
+			.select("id, response_viewer_id, attribute_key, effect, value")
+			.in("response_viewer_id", viewerIds)
+			.order("created_at", { ascending: true })
+		if (bindingsError) throw new Error(bindingsError.message)
+
+		for (const binding of bindings ?? []) {
+			const existing = bindingMap.get(binding.response_viewer_id) ?? []
+			existing.push({
+				id: binding.id,
+				attribute_key: binding.attribute_key as "om",
+				effect: binding.effect as "allow" | "deny",
+				value: binding.value,
+			})
+			bindingMap.set(binding.response_viewer_id, existing)
+		}
+	}
+
+	return (viewers ?? []).map((viewer) => ({
+		...viewer,
+		bindings: bindingMap.get(viewer.id) ?? [],
+	}))
 }
 
 async function lookupUserIdByEmail(db: FormsDbClient, email: string) {
@@ -158,18 +331,20 @@ export const createQuestionnaireFn = createServerFn({ method: "POST" })
 				.array(z.enum(["5s"]))
 				.optional()
 				.default([]),
+			response_metadata_config: responseMetadataConfigSchema,
 		})
 	)
-	.handler(async ({ data: { title, description, tags } }) => {
+	.handler(async ({ data: { title, description, tags, response_metadata_config } }) => {
 		const {
 			data: { user },
 		} = await getAuthenticatedUser()
 		if (!user) throw new Error("Não autenticado")
 
 		const db = getFormsServerClient()
+		const metadataConfig = buildDefaultResponseMetadataConfig(tags, response_metadata_config)
 		const { data, error } = await db
 			.from("questionnaire")
-			.insert({ title, description: description ?? null, created_by: user.id, tags })
+			.insert({ title, description: description ?? null, created_by: user.id, tags, response_metadata_config: metadataConfig })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -177,7 +352,14 @@ export const createQuestionnaireFn = createServerFn({ method: "POST" })
 	})
 
 export const updateQuestionnaireFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid(), title: z.string().min(1).optional(), description: z.string().optional() }))
+	.inputValidator(
+		z.object({
+			id: z.string().uuid(),
+			title: z.string().min(1).optional(),
+			description: z.string().optional(),
+			response_metadata_config: responseMetadataConfigSchema,
+		})
+	)
 	.handler(async ({ data: { id, ...updates } }) => {
 		const {
 			data: { user },
@@ -186,6 +368,9 @@ export const updateQuestionnaireFn = createServerFn({ method: "POST" })
 
 		const db = getFormsServerClient()
 		await requireQuestionnaireEditAccess(db, id, user.id)
+		if (updates.response_metadata_config && !isOmScopeable(updates.response_metadata_config)) {
+			await assertQuestionnaireCanDisableOmScope(db, id)
+		}
 		const { data, error } = await db.from("questionnaire").update(updates).eq("id", id).select().single()
 		if (error) throw new Error(error.message)
 		return data
@@ -427,7 +612,7 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 
 		const { data: created, error } = await db
 			.from("questionnaire_response")
-			.insert({ questionnaire_id, respondent_id: user.id, evaluation_type, om, secao })
+			.insert({ questionnaire_id, respondent_id: user.id, evaluation_type, om: normalizeScopeValue(om), secao })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -560,17 +745,23 @@ export const getResponsesFn = createServerFn({ method: "GET" })
 		if (!user) throw new Error("Não autenticado")
 
 		const db = getFormsServerClient()
-		const canView = await canViewQuestionnaireResponses(db, questionnaire_id, user.id)
-		if (!canView) throw new Error("Sem permissão para visualizar as respostas")
+		const visibilityAccess = await resolveResponseVisibilityAccess(db, questionnaire_id, user.id)
+		if (!visibilityAccess.canViewResponses) throw new Error("Sem permissão para visualizar as respostas")
 
-		const { data, error } = await db
-			.from("questionnaire_response")
-			.select("*, response(*)")
-			.eq("questionnaire_id", questionnaire_id)
-			.eq("status", "sent")
-			.order("submitted_at", { ascending: false })
+		let query = db.from("questionnaire_response").select("*, response(*)").eq("questionnaire_id", questionnaire_id).eq("status", "sent")
+		if (visibilityAccess.viewerPolicy?.scope_mode === "scoped") {
+			const allowedOms = visibilityAccess.viewerPolicy.bindings
+				.filter((binding) => binding.attribute_key === "om" && binding.effect === "allow")
+				.map((binding) => binding.value)
+			if (allowedOms.length > 0) {
+				query = query.in("om", allowedOms)
+			}
+		}
+
+		const { data, error } = await query.order("submitted_at", { ascending: false })
 		if (error) throw new Error(error.message)
-		return data
+		if (!visibilityAccess.viewerPolicy) return data
+		return filterResponsesByViewerPolicy(data ?? [], visibilityAccess.viewerPolicy, visibilityAccess.metadataConfig)
 	})
 
 // ── Response Viewers ──────────────────────────────────────────────────────────
@@ -585,38 +776,78 @@ export const getViewersFn = createServerFn({ method: "GET" })
 
 		const db = getFormsServerClient()
 		const access = await getQuestionnaireAccess(db, questionnaire_id, user.id)
-		if (!access.isCreator) return null
-
-		const { data, error } = await db.from("response_viewer").select("*").eq("questionnaire_id", questionnaire_id).order("created_at", { ascending: true })
-		if (error) throw new Error(error.message)
-		return data ?? []
+		if (!access.canEdit) return []
+		return getViewerPolicyListForQuestionnaire(db, questionnaire_id)
 	})
 
 export const addViewerFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid(), email: z.string().email() }))
-	.handler(async ({ data: { questionnaire_id, email } }) => {
+	.inputValidator(
+		z.object({
+			questionnaire_id: z.string().uuid(),
+			email: z.string().email(),
+			scope_mode: z.enum(["global", "scoped"]).optional(),
+			policy: viewerPolicySchema,
+		})
+	)
+	.handler(async ({ data: { questionnaire_id, email, scope_mode = "global", policy } }) => {
 		const {
 			data: { user },
 		} = await getAuthenticatedUser()
 		if (!user) throw new Error("Não autenticado")
 
 		const db = getFormsServerClient()
-		await requireQuestionnaireCreatorAccess(db, questionnaire_id, user.id)
+		const questionnaireAccess = await requireQuestionnaireViewerManagementAccess(db, questionnaire_id, user.id)
+		const visibilityAccess = await resolveResponseVisibilityAccess(db, questionnaire_id, user.id)
+		validateViewerPolicyInput(scope_mode, visibilityAccess.metadataConfig, policy)
 
 		const { normalizedEmail, userId: viewerUserId } = await lookupUserIdByEmail(db, email)
 		if (!viewerUserId) throw new Error("Usuário não encontrado com esse email")
-		if (viewerUserId === user.id) throw new Error("Você já é o criador do questionário")
+		if (viewerUserId === user.id && questionnaireAccess.isCreator) throw new Error("Você já é o criador do questionário")
 
 		const { data, error } = await db
 			.from("response_viewer")
-			.insert({ questionnaire_id, viewer_id: viewerUserId, viewer_email: normalizedEmail, added_by: user.id })
+			.insert({ questionnaire_id, viewer_id: viewerUserId, viewer_email: normalizedEmail, added_by: user.id, scope_mode })
 			.select()
 			.single()
 		if (error) {
 			if (error.code === "23505") throw new Error("Este usuário já é um visualizador")
 			throw new Error(error.message)
 		}
+		await replaceViewerPolicyBindings(db, data.id, buildBindingsFromPolicyInput(policy))
 		return data
+	})
+
+export const updateViewerPolicyFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			questionnaire_id: z.string().uuid(),
+			viewer_id: z.string().uuid(),
+			scope_mode: z.enum(["global", "scoped"]),
+			policy: viewerPolicySchema,
+		})
+	)
+	.handler(async ({ data: { questionnaire_id, viewer_id, scope_mode, policy } }) => {
+		const {
+			data: { user },
+		} = await getAuthenticatedUser()
+		if (!user) throw new Error("Não autenticado")
+
+		const db = getFormsServerClient()
+		const visibilityAccess = await resolveResponseVisibilityAccess(db, questionnaire_id, user.id)
+		if (!visibilityAccess.canManageViewers) throw new Error("Sem permissão")
+		validateViewerPolicyInput(scope_mode, visibilityAccess.metadataConfig, policy)
+
+		const { data: viewer, error } = await db
+			.from("response_viewer")
+			.update({ scope_mode })
+			.eq("id", viewer_id)
+			.eq("questionnaire_id", questionnaire_id)
+			.select()
+			.single()
+		if (error) throw new Error(error.message)
+
+		await replaceViewerPolicyBindings(db, viewer.id, buildBindingsFromPolicyInput(policy))
+		return viewer
 	})
 
 export const removeViewerFn = createServerFn({ method: "POST" })
@@ -628,7 +859,7 @@ export const removeViewerFn = createServerFn({ method: "POST" })
 		if (!user) throw new Error("Não autenticado")
 
 		const db = getFormsServerClient()
-		await requireQuestionnaireCreatorAccess(db, questionnaire_id, user.id)
+		await requireQuestionnaireViewerManagementAccess(db, questionnaire_id, user.id)
 
 		const { error } = await db.from("response_viewer").delete().eq("id", id).eq("questionnaire_id", questionnaire_id)
 		if (error) throw new Error(error.message)
@@ -742,15 +973,22 @@ export const getResponseVersionsFn = createServerFn({ method: "GET" })
 		const db = getFormsServerClient()
 		const { data: session, error: sessionError } = await db
 			.from("questionnaire_response")
-			.select("respondent_id, questionnaire_id")
+			.select("respondent_id, questionnaire_id, om")
 			.eq("id", questionnaire_response_id)
 			.single()
 		if (sessionError) throw new Error(sessionError.message)
 
 		const isRespondent = session.respondent_id === user.id
 		if (!isRespondent) {
-			const canView = await canViewQuestionnaireResponses(db, session.questionnaire_id, user.id)
-			if (!canView) throw new Error("Sem permissão para ver versões")
+			const visibilityAccess = await resolveResponseVisibilityAccess(db, session.questionnaire_id, user.id)
+			if (!visibilityAccess.canViewResponses) throw new Error("Sem permissão para ver versões")
+			if (
+				!visibilityAccess.canViewAllResponses &&
+				visibilityAccess.viewerPolicy &&
+				!matchesViewerPolicy(visibilityAccess.viewerPolicy, { om: session.om }, visibilityAccess.metadataConfig)
+			) {
+				throw new Error("Sem permissão para ver versões")
+			}
 		}
 
 		const { data, error } = await db
@@ -783,8 +1021,15 @@ export const getResponseVersionFn = createServerFn({ method: "GET" })
 
 		const isRespondent = session.respondent_id === user.id
 		if (!isRespondent) {
-			const canView = await canViewQuestionnaireResponses(db, session.questionnaire_id, user.id)
-			if (!canView) throw new Error("Sem permissão para ver esta versão")
+			const visibilityAccess = await resolveResponseVisibilityAccess(db, session.questionnaire_id, user.id)
+			if (!visibilityAccess.canViewResponses) throw new Error("Sem permissão para ver esta versão")
+			if (
+				!visibilityAccess.canViewAllResponses &&
+				visibilityAccess.viewerPolicy &&
+				!matchesViewerPolicy(visibilityAccess.viewerPolicy, { om: version.om }, visibilityAccess.metadataConfig)
+			) {
+				throw new Error("Sem permissão para ver esta versão")
+			}
 		}
 
 		return version

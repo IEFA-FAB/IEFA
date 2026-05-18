@@ -1,15 +1,15 @@
 import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { format } from "date-fns"
-import { ArrowLeft, EditPencil, HistoricShield, NavArrowDown, Redo, Trash } from "iconoir-react"
+import { ArrowLeft, EditPencil, HistoricShield, NavArrowDown, Redo } from "iconoir-react"
 import { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
+import { ViewerManager } from "@/components/forms/ViewerManager"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/useAuth"
@@ -23,14 +23,13 @@ import {
 	getScoreBgColor,
 	getScoreColor,
 } from "@/lib/conformity"
+import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
 import {
-	addViewerFn,
 	getQuestionnaireFn,
 	getResponsesFn,
 	getResponseVersionFn,
 	getResponseVersionsFn,
 	getViewersFn,
-	removeViewerFn,
 	reopenResponseFn,
 	revertToVersionFn,
 } from "@/server/forms.fn"
@@ -74,7 +73,8 @@ function ResponsesPage() {
 	type QRow = { id: string; text: string; type: string; options?: unknown }
 	const allQuestions = (questionnaire.section ?? []).flatMap((s: { question?: QRow[] }) => s.question ?? []) as QRow[]
 	const isConformityForm = allQuestions.some((q) => q.type === "conformity")
-	const isCreator = questionnaire.created_by === user?.id
+	const canManageViewers = Boolean(questionnaire.access?.canEdit)
+	const metadataConfig = parseResponseMetadataConfig(questionnaire.response_metadata_config)
 
 	const [evalFilter, setEvalFilter] = useState<string>("all")
 	const [reopening, setReopening] = useState<string | null>(null)
@@ -126,7 +126,7 @@ function ResponsesPage() {
 				))}
 			</div>
 
-			{isCreator && <ViewerManager questionnaireId={questionnaireId} viewers={viewers ?? []} />}
+			{canManageViewers && <ViewerManager questionnaireId={questionnaireId} viewers={viewers ?? []} omScopeable={Boolean(metadataConfig.om?.scopeable)} />}
 
 			{isConformityForm && filteredResponses.length > 0 && <ConformityScoreOverview questionnaire={questionnaire} responses={filteredResponses} />}
 
@@ -140,7 +140,7 @@ function ResponsesPage() {
 					{filteredResponses.length === 0 ? (
 						<Card>
 							<CardContent className="py-12 text-center">
-								<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
+								<p className="text-sm text-muted-foreground">Nenhuma resposta dentro do seu escopo.</p>
 							</CardContent>
 						</Card>
 					) : (
@@ -156,7 +156,7 @@ function ResponsesPage() {
 					{filteredResponses.length === 0 ? (
 						<Card>
 							<CardContent className="py-12 text-center">
-								<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
+								<p className="text-sm text-muted-foreground">Nenhuma resposta dentro do seu escopo.</p>
 							</CardContent>
 						</Card>
 					) : (
@@ -538,77 +538,6 @@ function BarRow({ label, count, total }: { label: string; count: number; total: 
 				<div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
 			</div>
 		</div>
-	)
-}
-
-// ── Viewer Manager ────────────────────────────────────────────────────────────
-
-type Viewer = { id: string; viewer_email: string; questionnaire_id: string }
-
-function ViewerManager({ questionnaireId, viewers }: { questionnaireId: string; viewers: Viewer[] }) {
-	const queryClient = useQueryClient()
-	const [email, setEmail] = useState("")
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-
-	async function handleAdd() {
-		if (!email.trim()) return
-		setLoading(true)
-		setError(null)
-		try {
-			await addViewerFn({ data: { questionnaire_id: questionnaireId, email: email.trim() } })
-			setEmail("")
-			queryClient.invalidateQueries({ queryKey: ["viewers", questionnaireId] })
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Erro ao adicionar visualizador")
-		} finally {
-			setLoading(false)
-		}
-	}
-
-	async function handleRemove(id: string) {
-		try {
-			await removeViewerFn({ data: { id, questionnaire_id: questionnaireId } })
-			queryClient.invalidateQueries({ queryKey: ["viewers", questionnaireId] })
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Erro ao remover visualizador")
-		}
-	}
-
-	return (
-		<Card>
-			<CardHeader className="pb-3">
-				<CardTitle className="text-base">Visualizadores</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				<div className="flex gap-2">
-					<Input
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-						placeholder="email@fab.mil.br"
-						className="max-w-sm"
-					/>
-					<Button onClick={handleAdd} disabled={loading || !email.trim()} size="sm">
-						Adicionar
-					</Button>
-				</div>
-				{error && <p className="text-sm text-destructive">{error}</p>}
-				{viewers.length > 0 && (
-					<ul className="space-y-1">
-						{viewers.map((v) => (
-							<li key={v.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-								<span className="text-sm">{v.viewer_email}</span>
-								<Button variant="ghost" size="sm" onClick={() => handleRemove(v.id)} className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
-									<Trash className="h-3.5 w-3.5" />
-								</Button>
-							</li>
-						))}
-					</ul>
-				)}
-				{viewers.length === 0 && <p className="text-sm text-muted-foreground">Nenhum visualizador adicionado.</p>}
-			</CardContent>
-		</Card>
 	)
 }
 

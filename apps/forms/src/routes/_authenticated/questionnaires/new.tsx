@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { CONFORMITY_WEIGHTS } from "@/lib/conformity"
 import { useTenant } from "@/lib/tenant"
@@ -52,6 +53,7 @@ function NewQuestionnairePage() {
 	const { tagFilter } = useTenant()
 	const [title, setTitle] = useState("")
 	const [description, setDescription] = useState("")
+	const [omScopeable, setOmScopeable] = useState(Boolean(tagFilter?.includes("5s")))
 	const [sections, setSections] = useState<SectionDraft[]>([{ title: "Seção 1", description: "", questions: [] }])
 	const [saving, setSaving] = useState(false)
 
@@ -85,7 +87,14 @@ function NewQuestionnairePage() {
 		if (!title.trim()) return
 		setSaving(true)
 		try {
-			const questionnaire = await createQuestionnaireFn({ data: { title, description, tags: (tagFilter ?? []) as "5s"[] } })
+			const questionnaire = await createQuestionnaireFn({
+				data: {
+					title,
+					description,
+					tags: (tagFilter ?? []) as "5s"[],
+					response_metadata_config: { om: { scopeable: omScopeable } },
+				},
+			})
 			await Promise.all(
 				sections.map(async (s, si) => {
 					const section = await createSectionFn({ data: { questionnaire_id: questionnaire.id, title: s.title, description: s.description, sort_order: si } })
@@ -137,6 +146,13 @@ function NewQuestionnairePage() {
 					<div className="space-y-2">
 						<Label>Descrição</Label>
 						<Textarea placeholder="Descrição opcional" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+					</div>
+					<div className="flex items-center justify-between gap-4 rounded-md border px-4 py-3">
+						<div className="space-y-1">
+							<Label>Segmentação por OM</Label>
+							<p className="text-sm text-muted-foreground">Permite restringir visualizadores de respostas por OM neste formulário.</p>
+						</div>
+						<Switch checked={omScopeable} onCheckedChange={setOmScopeable} />
 					</div>
 				</CardContent>
 			</Card>
