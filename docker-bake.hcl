@@ -7,7 +7,7 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["api", "portal", "sisub", "forms", "docs", "alpha"]
+  targets = ["api", "portal", "sisub", "forms", "docs", "alpha", "5s"]
 }
 
 group "apps" {
@@ -77,4 +77,16 @@ target "alpha" {
   tags     = ["${REGISTRY}/iefa-ai:${TAG}"]
   cache-from = ["type=gha,scope=alpha"]
   cache-to = ["type=gha,scope=alpha,mode=max"]
+}
+
+target "5s" {
+  inherits = ["base"]
+  target = "forms"
+  tags = ["${REGISTRY}/iefa-5s:${TAG}"]
+  cache-from = ["type=gha,scope=5s"]
+  cache-to = ["type=gha,scope=5s,mode=max"]
+  args = {
+    VITE_IEFA_SUPABASE_URL = ""
+    VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = ""
+  }
 }

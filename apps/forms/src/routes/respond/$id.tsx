@@ -9,10 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoSave } from "@/hooks/useAutoSave"
+import { EVALUATION_TYPES, type EvaluationType } from "@/lib/5s-constants"
 import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
-import { getMyResponseStateFn, getOrCreateResponseSessionFn, getQuestionnaireFn, submitResponseFn } from "@/server/forms.fn"
+import { getMyResponseStateFn, getOmOptionsFn, getOrCreateResponseSessionFn, getQuestionnaireFn, submitResponseFn } from "@/server/forms.fn"
 
 const questionnaireQueryOptions = (id: string) =>
 	queryOptions({
@@ -32,7 +35,7 @@ export const Route = createFileRoute("/respond/$id")({
 })
 
 type AnswerMap = Record<string, { value: unknown; observation: string | null }>
-type ResponseViewState = "loading" | "draft" | "submitted"
+type ResponseViewState = "loading" | "metadata" | "draft" | "submitted"
 
 function RespondPage() {
 	const { id } = Route.useParams()
@@ -65,12 +68,6 @@ function RespondPage() {
 			const state = await getMyResponseStateFn({ data: { questionnaire_id: id } })
 			if (!isMounted) return
 
-			if (state.status === "submitted") {
-				setSubmittedAt(state.session?.submitted_at ?? null)
-				setViewState("submitted")
-				return
-			}
-
 			if (state.status === "draft" && state.session) {
 				setResponseSessionId(state.session.id)
 				setAnswers(buildAnswerMap(state.session.response))
@@ -78,11 +75,7 @@ function RespondPage() {
 				return
 			}
 
-			const session = await getOrCreateResponseSessionFn({ data: { questionnaire_id: id } })
-			if (!isMounted) return
-			setResponseSessionId(session.id)
-			setAnswers({})
-			setViewState("draft")
+			setViewState("metadata")
 		}
 
 		init()
@@ -134,6 +127,22 @@ function RespondPage() {
 		)
 	}
 
+	if (viewState === "metadata") {
+		return (
+			<ResponseShell>
+				<MetadataStep
+					questionnaireId={id}
+					questionnaireTitle={questionnaire.title}
+					onSessionCreated={(session) => {
+						setResponseSessionId(session.id)
+						setAnswers({})
+						setViewState("draft")
+					}}
+				/>
+			</ResponseShell>
+		)
+	}
+
 	if (viewState === "submitted") {
 		return (
 			<ResponseShell>
@@ -145,9 +154,14 @@ function RespondPage() {
 							<p className="text-sm text-muted-foreground">Sua resposta para {questionnaire.title} já foi registrada.</p>
 						</div>
 						{submittedAt && <p className="text-xs text-muted-foreground">Enviado em {format(new Date(submittedAt), "dd/MM/yyyy 'às' HH:mm")}</p>}
-						<Button nativeButton={false} variant="outline" render={<Link to="/dashboard" />}>
-							Ir para o painel
-						</Button>
+						<div className="flex gap-3 justify-center">
+							<Button variant="outline" onClick={() => setViewState("metadata")}>
+								Nova resposta
+							</Button>
+							<Button nativeButton={false} variant="outline" render={<Link to="/dashboard" />}>
+								Ir para o painel
+							</Button>
+						</div>
 					</CardContent>
 				</Card>
 			</ResponseShell>
@@ -260,6 +274,103 @@ function RespondPage() {
 				</div>
 			</div>
 		</ResponseShell>
+	)
+}
+
+function MetadataStep({
+	questionnaireId,
+	questionnaireTitle,
+	onSessionCreated,
+}: {
+	questionnaireId: string
+	questionnaireTitle: string
+	onSessionCreated: (session: { id: string }) => void
+}) {
+	const [evaluationType, setEvaluationType] = useState<EvaluationType | null>(null)
+	const [om, setOm] = useState<string | null>(null)
+	const [omCustom, setOmCustom] = useState("")
+	const [secao, setSecao] = useState("")
+	const [loading, setLoading] = useState(false)
+	const [omOptions, setOmOptions] = useState<{ id: number; name: string }[]>([])
+
+	useEffect(() => {
+		getOmOptionsFn().then(setOmOptions)
+	}, [])
+
+	const resolvedOm = om === "__outro" ? omCustom.trim() : (om ?? "")
+	const canSubmit = evaluationType && resolvedOm && secao.trim()
+
+	const handleStart = async () => {
+		if (!canSubmit) return
+		setLoading(true)
+		try {
+			const session = await getOrCreateResponseSessionFn({
+				data: {
+					questionnaire_id: questionnaireId,
+					evaluation_type: evaluationType,
+					om: resolvedOm,
+					secao: secao.trim(),
+				},
+			})
+			onSessionCreated(session)
+		} finally {
+			setLoading(false)
+		}
+	}
+
+	return (
+		<Card className="mx-auto max-w-xl">
+			<CardHeader>
+				<p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Formulários IEFA</p>
+				<CardTitle className="text-xl">{questionnaireTitle}</CardTitle>
+				<p className="text-sm text-muted-foreground">Preencha os dados abaixo antes de iniciar a avaliação.</p>
+			</CardHeader>
+			<CardContent className="space-y-6">
+				<div className="space-y-3">
+					<Label className="text-sm font-medium">Tipo de Avaliação</Label>
+					<RadioGroup value={evaluationType ?? ""} onValueChange={(v) => setEvaluationType(v as EvaluationType)}>
+						{EVALUATION_TYPES.map((t) => (
+							<label key={t.value} htmlFor={`eval-type-${t.value}`} className="flex items-center gap-2.5 text-sm cursor-pointer">
+								<RadioGroupItem id={`eval-type-${t.value}`} value={t.value} />
+								{t.label}
+							</label>
+						))}
+					</RadioGroup>
+				</div>
+
+				<div className="space-y-2">
+					<Label className="text-sm font-medium">OM (Organização Militar)</Label>
+					<Select value={om ?? null} onValueChange={(v) => setOm(v)}>
+						<SelectTrigger className="w-full">
+							<SelectValue placeholder="Selecione a OM...">
+								{om === "__outro" ? "Outro" : om ? (omOptions.find((o) => o.name === om)?.name ?? om) : undefined}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{omOptions.map((o) => (
+								<SelectItem key={o.id} value={o.name}>
+									{o.name}
+								</SelectItem>
+							))}
+							<SelectItem value="__outro">Outro...</SelectItem>
+						</SelectContent>
+					</Select>
+					{om === "__outro" && <Input value={omCustom} onChange={(e) => setOmCustom(e.target.value)} placeholder="Digite o nome da OM" className="mt-2" />}
+				</div>
+
+				<div className="space-y-2">
+					<Label className="text-sm font-medium">Seção</Label>
+					<Input value={secao} onChange={(e) => setSecao(e.target.value)} placeholder="Ex: Seção de Subsistência" />
+				</div>
+
+				<div className="pt-2">
+					<Button onClick={handleStart} disabled={!canSubmit || loading} className="w-full">
+						{loading ? <Refresh className="h-4 w-4 animate-spin" /> : null}
+						Iniciar Avaliação
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
 	)
 }
 

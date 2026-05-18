@@ -195,6 +195,13 @@ export const reorderQuestionsFn = createServerFn({ method: "POST" })
 
 // ── Response Flow ─────────────────────────────────────────────────────────────
 
+export const getOmOptionsFn = createServerFn({ method: "GET" }).handler(async () => {
+	const db = getFormsServerClient()
+	const { data, error } = await db.from("om_option").select("id, name").eq("active", true).order("sort_order", { ascending: true })
+	if (error) throw new Error(error.message)
+	return data
+})
+
 export const getMyResponseStateFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
@@ -212,26 +219,20 @@ export const getMyResponseStateFn = createServerFn({ method: "GET" })
 			return { status: "draft" as const, session: draft }
 		}
 
-		const { data: submitted, error: submittedError } = await db
-			.from("questionnaire_response")
-			.select("*, response(*)")
-			.eq("questionnaire_id", questionnaire_id)
-			.eq("respondent_id", user.id)
-			.eq("status", "sent")
-			.order("submitted_at", { ascending: false })
-			.limit(1)
-			.maybeSingle()
-		if (submittedError) throw new Error(submittedError.message)
-		if (submitted) {
-			return { status: "submitted" as const, session: submitted }
-		}
-
+		// Always allow new responses — return not_started even if previously submitted
 		return { status: "not_started" as const, session: null }
 	})
 
 export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
-	.handler(async ({ data: { questionnaire_id } }) => {
+	.inputValidator(
+		z.object({
+			questionnaire_id: z.string().uuid(),
+			evaluation_type: z.string(),
+			om: z.string(),
+			secao: z.string(),
+		})
+	)
+	.handler(async ({ data: { questionnaire_id, evaluation_type, om, secao } }) => {
 		const {
 			data: { user },
 		} = await getAuthenticatedUser()
@@ -249,18 +250,11 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 
 		if (existing) return existing
 
-		const { data: submitted } = await db
+		const { data: created, error } = await db
 			.from("questionnaire_response")
-			.select("*")
-			.eq("questionnaire_id", questionnaire_id)
-			.eq("respondent_id", user.id)
-			.eq("status", "sent")
-			.order("submitted_at", { ascending: false })
-			.limit(1)
-			.maybeSingle()
-		if (submitted) throw new Error("Questionário já respondido")
-
-		const { data: created, error } = await db.from("questionnaire_response").insert({ questionnaire_id, respondent_id: user.id }).select().single()
+			.insert({ questionnaire_id, respondent_id: user.id, evaluation_type, om, secao })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return created
 	})

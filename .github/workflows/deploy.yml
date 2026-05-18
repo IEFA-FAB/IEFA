@@ -30,6 +30,10 @@ on:
         description: 'Force deploy Projeto α'
         type: boolean
         default: false
+      force_5s:
+        description: 'Force deploy 5S'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -48,6 +52,7 @@ jobs:
       forms: ${{ steps.final.outputs.forms }}
       docs: ${{ steps.final.outputs.docs }}
       alpha: ${{ steps.final.outputs.alpha }}
+      5s: ${{ steps.final.outputs['5s'] }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -104,6 +109,14 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
+            5s:
+              - 'apps/forms/**'
+              - 'packages/database/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+              - '.github/workflows/deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
 
       # workflow_dispatch: use force_* inputs; push: use paths filter
       - name: Resolve outputs
@@ -116,12 +129,14 @@ jobs:
           FORCE_DOCS: ${{ inputs.force_docs }}
           FORCE_FORMS: ${{ inputs.force_forms }}
           FORCE_ALPHA: ${{ inputs.force_alpha }}
+          FORCE_5S: ${{ inputs.force_5s }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
           FILTER_FORMS: ${{ steps.filter.outputs.forms }}
           FILTER_DOCS: ${{ steps.filter.outputs.docs }}
           FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
+          FILTER_5S: ${{ steps.filter.outputs['5s'] }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
@@ -130,6 +145,7 @@ jobs:
             echo "forms=$FORCE_FORMS"   >> $GITHUB_OUTPUT
             echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
             echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
+            echo "5s=$FORCE_5S"         >> $GITHUB_OUTPUT
           else
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
             echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
@@ -137,6 +153,7 @@ jobs:
             echo "forms=$FILTER_FORMS"   >> $GITHUB_OUTPUT
             echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
             echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
+            echo "5s=$FILTER_5S"         >> $GITHUB_OUTPUT
           fi
 
   # ============================================================
@@ -769,6 +786,115 @@ jobs:
           PREV=$(flyctl releases -c fly/docs.toml --json | jq -r '.[1].ImageRef // empty')
           if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
           flyctl deploy -c fly/docs.toml --image "$PREV" --wait-timeout 300 || true
+
+  # ============================================================
+  # 5S (apps/forms)  ── check → build → deploy
+  # ============================================================
+  check-5s:
+    needs: [changes]
+    if: needs.changes.outputs['5s'] == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint · types · tests
+        run: bunx turbo run lint typecheck test --filter=./apps/forms
+        env:
+          VITE_IEFA_SUPABASE_URL: ${{ vars.VITE_IEFA_SUPABASE_URL }}
+          VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
+
+  build-5s:
+    needs: check-5s
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Ensure Fly app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl apps create iefa-5s || true
+
+      - name: Login to Fly Registry
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
+
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/bake-action@v7
+        with:
+          files: ./docker-bake.hcl
+          targets: 5s
+          push: true
+          set: |
+            5s.tags=registry.fly.io/iefa-5s:${{ steps.meta.outputs.tag }}
+            5s.tags=registry.fly.io/iefa-5s:latest
+            5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+            5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+
+  deploy-5s:
+    needs: build-5s
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+    concurrency:
+      group: fly-deploy-5s-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Set Fly secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+        run: |
+          flyctl secrets set --config fly/5s.toml \
+            "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
+            "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
+
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE_TAG: ${{ needs.build-5s.outputs.tag }}
+        run: flyctl deploy -c fly/5s.toml --image "registry.fly.io/iefa-5s:$IMAGE_TAG" --wait-timeout 300
+
+      - name: Smoke test
+        env:
+          HEALTH_URL: ${{ vars.FORMS_5S_HEALTH_URL }}
+        run: |
+          if [[ -z "$HEALTH_URL" ]]; then echo "⚠️ FORMS_5S_HEALTH_URL not set, skipping smoke test"; exit 0; fi
+          for i in {1..10}; do
+            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+            if [[ "${status:0:1}" == "2" ]]; then echo "✅ 5S health check passed"; exit 0; fi
+            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+          done
+          echo "❌ 5S health check failed"; exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          PREV=$(flyctl releases -c fly/5s.toml --json | jq -r '.[1].ImageRef // empty')
+          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+          flyctl deploy -c fly/5s.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # TODO: SISUB-MCP  ── check → build → deploy

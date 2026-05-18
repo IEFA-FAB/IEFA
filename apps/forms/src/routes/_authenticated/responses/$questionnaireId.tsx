@@ -2,7 +2,7 @@ import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { format } from "date-fns"
 import { ArrowLeft, Trash } from "iconoir-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/hooks/useAuth"
+import { EVALUATION_TYPES } from "@/lib/5s-constants"
 import {
 	CONFORMITY_OPTIONS,
 	type ConformityAnswer,
@@ -61,6 +62,14 @@ function ResponsesPage() {
 	const isConformityForm = allQuestions.some((q) => q.type === "conformity")
 	const isCreator = questionnaire.created_by === user?.id
 
+	const [evalFilter, setEvalFilter] = useState<string>("all")
+
+	const filteredResponses = useMemo(() => {
+		if (!responses) return []
+		if (evalFilter === "all") return responses
+		return responses.filter((r) => r.evaluation_type === evalFilter)
+	}, [responses, evalFilter])
+
 	return (
 		<div className="p-6 md:p-10 space-y-6">
 			<div className="flex items-center gap-3">
@@ -70,14 +79,25 @@ function ResponsesPage() {
 				<div>
 					<h1 className="text-2xl font-bold tracking-tight">{questionnaire.title}</h1>
 					<p className="text-sm text-muted-foreground mt-1">
-						{responses?.length ?? 0} {(responses?.length ?? 0) === 1 ? "resposta" : "respostas"} recebidas
+						{filteredResponses.length} de {responses?.length ?? 0} {(responses?.length ?? 0) === 1 ? "resposta" : "respostas"}
 					</p>
 				</div>
 			</div>
 
+			<div className="flex gap-1.5 flex-wrap">
+				<Button variant={evalFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setEvalFilter("all")}>
+					Todas
+				</Button>
+				{EVALUATION_TYPES.map((t) => (
+					<Button key={t.value} variant={evalFilter === t.value ? "default" : "outline"} size="sm" onClick={() => setEvalFilter(t.value)}>
+						{t.label}
+					</Button>
+				))}
+			</div>
+
 			{isCreator && <ViewerManager questionnaireId={questionnaireId} viewers={viewers ?? []} />}
 
-			{isConformityForm && responses && responses.length > 0 && <ConformityScoreOverview questionnaire={questionnaire} responses={responses} />}
+			{isConformityForm && filteredResponses.length > 0 && <ConformityScoreOverview questionnaire={questionnaire} responses={filteredResponses} />}
 
 			<Tabs defaultValue="summary">
 				<TabsList>
@@ -86,7 +106,7 @@ function ResponsesPage() {
 				</TabsList>
 
 				<TabsContent value="summary">
-					{!responses || responses.length === 0 ? (
+					{filteredResponses.length === 0 ? (
 						<Card>
 							<CardContent className="py-12 text-center">
 								<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
@@ -94,15 +114,15 @@ function ResponsesPage() {
 						</Card>
 					) : (
 						<div className="space-y-4">
-							{buildSummaries(allQuestions, responses).map((s) => (
-								<QuestionSummaryCard key={s.id} summary={s} totalResponses={responses.length} />
+							{buildSummaries(allQuestions, filteredResponses).map((s) => (
+								<QuestionSummaryCard key={s.id} summary={s} totalResponses={filteredResponses.length} />
 							))}
 						</div>
 					)}
 				</TabsContent>
 
 				<TabsContent value="individual">
-					{!responses || responses.length === 0 ? (
+					{filteredResponses.length === 0 ? (
 						<Card>
 							<CardContent className="py-12 text-center">
 								<p className="text-sm text-muted-foreground">Nenhuma resposta recebida ainda.</p>
@@ -110,13 +130,17 @@ function ResponsesPage() {
 						</Card>
 					) : (
 						<div className="space-y-6">
-							{responses.map((qr, idx) => (
+							{filteredResponses.map((qr, idx) => (
 								<Card key={qr.id}>
 									<CardHeader className="pb-3">
 										<div className="flex items-center justify-between">
 											<CardTitle className="text-base">Resposta #{idx + 1}</CardTitle>
-											<div className="flex items-center gap-2">
-												<Badge variant="secondary">{qr.respondent_id.slice(0, 8)}</Badge>
+											<div className="flex items-center gap-2 flex-wrap justify-end">
+												{qr.evaluation_type && (
+													<Badge variant="outline">{EVALUATION_TYPES.find((t) => t.value === qr.evaluation_type)?.label ?? qr.evaluation_type}</Badge>
+												)}
+												{qr.om && <Badge variant="secondary">{qr.om}</Badge>}
+												{qr.secao && <Badge variant="secondary">{qr.secao}</Badge>}
 												{qr.submitted_at && <span className="text-xs text-muted-foreground">{format(new Date(qr.submitted_at), "dd/MM/yyyy HH:mm")}</span>}
 											</div>
 										</div>
@@ -163,6 +187,9 @@ type ResponseRow = {
 	id: string
 	respondent_id: string
 	submitted_at: string | null
+	evaluation_type: string | null
+	om: string | null
+	secao: string | null
 	response: Array<{ question_id: string; value: unknown; observation: string | null }> | null
 }
 

@@ -85,27 +85,57 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			om_option: {
+				Row: {
+					id: number
+					name: string
+					active: boolean
+					sort_order: number
+				}
+				Insert: {
+					id?: number
+					name: string
+					active?: boolean
+					sort_order?: number
+				}
+				Update: {
+					id?: number
+					name?: string
+					active?: boolean
+					sort_order?: number
+				}
+				Relationships: []
+			}
 			questionnaire_response: {
 				Row: {
+					evaluation_type: string | null
 					id: string
+					om: string | null
 					questionnaire_id: string
 					respondent_id: string
+					secao: string | null
 					started_at: string
 					status: Database["forms"]["Enums"]["questionnaire_response_status"]
 					submitted_at: string | null
 				}
 				Insert: {
+					evaluation_type?: string | null
 					id?: string
+					om?: string | null
 					questionnaire_id: string
 					respondent_id: string
+					secao?: string | null
 					started_at?: string
 					status?: Database["forms"]["Enums"]["questionnaire_response_status"]
 					submitted_at?: string | null
 				}
 				Update: {
+					evaluation_type?: string | null
 					id?: string
+					om?: string | null
 					questionnaire_id?: string
 					respondent_id?: string
+					secao?: string | null
 					started_at?: string
 					status?: Database["forms"]["Enums"]["questionnaire_response_status"]
 					submitted_at?: string | null
