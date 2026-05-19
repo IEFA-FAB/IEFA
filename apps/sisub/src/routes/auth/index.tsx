@@ -18,7 +18,7 @@ import {
 	User as UserIcon,
 } from "lucide-react"
 // React
-import { useEffect, useState } from "react"
+import { useEffect, useReducer, useState } from "react"
 // Validation
 import { z } from "zod"
 // Hooks + Services
@@ -249,6 +249,44 @@ function AuthPage() {
    LOGIN VIEW
    ======================================================================== */
 
+// ─── LoginView reducer ────────────────────────────────────────────────────────
+
+type LoginState = {
+	email: string
+	password: string
+	remember: boolean
+	showPassword: boolean
+	error: string
+	isSubmitting: boolean
+}
+
+type LoginAction =
+	| { type: "SET_EMAIL"; value: string }
+	| { type: "SET_PASSWORD"; value: string }
+	| { type: "SET_REMEMBER"; value: boolean }
+	| { type: "TOGGLE_SHOW_PASSWORD" }
+	| { type: "SET_ERROR"; value: string }
+	| { type: "SET_SUBMITTING"; value: boolean }
+
+function loginReducer(state: LoginState, action: LoginAction): LoginState {
+	switch (action.type) {
+		case "SET_EMAIL":
+			return { ...state, email: action.value }
+		case "SET_PASSWORD":
+			return { ...state, password: action.value }
+		case "SET_REMEMBER":
+			return { ...state, remember: action.value }
+		case "TOGGLE_SHOW_PASSWORD":
+			return { ...state, showPassword: !state.showPassword }
+		case "SET_ERROR":
+			return { ...state, error: action.value }
+		case "SET_SUBMITTING":
+			return { ...state, isSubmitting: action.value }
+		default:
+			return state
+	}
+}
+
 interface LoginViewProps {
 	onSubmit: (email: string, password: string) => Promise<void>
 	onForgotPassword: () => void
@@ -257,24 +295,16 @@ interface LoginViewProps {
 function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 	"use no memo"
 	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
-	const [email, setEmail] = useState(() => {
+	const [loginState, dispatch] = useReducer(loginReducer, undefined, () => {
+		let savedEmail = ""
+		let hasSaved = false
 		try {
-			return localStorage.getItem(REMEMBER_KEY) ?? ""
-		} catch {
-			return ""
-		}
+			savedEmail = localStorage.getItem(REMEMBER_KEY) ?? ""
+			hasSaved = !!savedEmail
+		} catch {}
+		return { email: savedEmail, password: "", remember: hasSaved, showPassword: false, error: "", isSubmitting: false }
 	})
-	const [password, setPassword] = useState("")
-	const [remember, setRemember] = useState(() => {
-		try {
-			return !!localStorage.getItem(REMEMBER_KEY)
-		} catch {
-			return false
-		}
-	})
-	const [showPassword, setShowPassword] = useState(false)
-	const [error, setError] = useState("")
-	const [isSubmitting, setIsSubmitting] = useState(false)
+	const { email, password, remember, showPassword, error, isSubmitting } = loginState
 
 	const emailErr = email ? validateEmail(email) : null
 	const passwordErr = null
@@ -285,15 +315,15 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 		if (isLocked) return
 		const eErr = validateEmail(email)
 		if (!password) {
-			setError("Senha obrigatória.")
+			dispatch({ type: "SET_ERROR", value: "Senha obrigatória." })
 			return
 		}
 		if (eErr) {
-			setError(eErr)
+			dispatch({ type: "SET_ERROR", value: eErr })
 			return
 		}
-		setIsSubmitting(true)
-		setError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
 		try {
 			if (remember) localStorage.setItem(REMEMBER_KEY, email)
 			else localStorage.removeItem(REMEMBER_KEY)
@@ -301,9 +331,9 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 			onSuccess()
 		} catch (err) {
 			onFailure()
-			setError(err instanceof Error ? err.message : "Erro ao entrar. Tente novamente.")
+			dispatch({ type: "SET_ERROR", value: err instanceof Error ? err.message : "Erro ao entrar. Tente novamente." })
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -336,8 +366,8 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 						placeholder="seu.nome@fab.mil.br"
 						value={email}
 						onChange={(e) => {
-							setEmail(e.target.value)
-							setError("")
+							dispatch({ type: "SET_EMAIL", value: e.target.value })
+							dispatch({ type: "SET_ERROR", value: "" })
 						}}
 						className={cn("pl-9", emailErr && "border-destructive")}
 						aria-invalid={!!emailErr || undefined}
@@ -375,8 +405,8 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 						placeholder="••••••"
 						value={password}
 						onChange={(e) => {
-							setPassword(e.target.value)
-							setError("")
+							dispatch({ type: "SET_PASSWORD", value: e.target.value })
+							dispatch({ type: "SET_ERROR", value: "" })
 						}}
 						className={cn("pl-9 pr-10", passwordErr && "border-destructive")}
 						aria-invalid={!!passwordErr || undefined}
@@ -385,7 +415,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 					/>
 					<button
 						type="button"
-						onClick={() => setShowPassword(!showPassword)}
+						onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
 						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
@@ -401,7 +431,7 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
 
 			{/* Lembrar email */}
 			<div className="flex items-center gap-2">
-				<Checkbox id="remember" checked={remember} onCheckedChange={(c) => setRemember(!!c)} disabled={isSubmitting} />
+				<Checkbox id="remember" checked={remember} onCheckedChange={(c) => dispatch({ type: "SET_REMEMBER", value: !!c })} disabled={isSubmitting} />
 				<label htmlFor="remember" className="font-mono text-xs text-muted-foreground cursor-pointer select-none">
 					Lembrar email
 				</label>
@@ -428,6 +458,68 @@ function LoginView({ onSubmit, onForgotPassword }: LoginViewProps) {
    REGISTER VIEW
    ======================================================================== */
 
+// ─── RegisterView reducer ─────────────────────────────────────────────────────
+
+type RegisterState = {
+	name: string
+	email: string
+	password: string
+	confirm: string
+	showPassword: boolean
+	showConfirm: boolean
+	error: string
+	isSubmitting: boolean
+	submitted: boolean
+}
+
+type RegisterAction =
+	| { type: "SET_NAME"; value: string }
+	| { type: "SET_EMAIL"; value: string }
+	| { type: "SET_PASSWORD"; value: string }
+	| { type: "SET_CONFIRM"; value: string }
+	| { type: "TOGGLE_SHOW_PASSWORD" }
+	| { type: "TOGGLE_SHOW_CONFIRM" }
+	| { type: "SET_ERROR"; value: string }
+	| { type: "SET_SUBMITTING"; value: boolean }
+	| { type: "SET_SUBMITTED"; value: boolean }
+
+const initialRegisterState: RegisterState = {
+	name: "",
+	email: "",
+	password: "",
+	confirm: "",
+	showPassword: false,
+	showConfirm: false,
+	error: "",
+	isSubmitting: false,
+	submitted: false,
+}
+
+function registerReducer(state: RegisterState, action: RegisterAction): RegisterState {
+	switch (action.type) {
+		case "SET_NAME":
+			return { ...state, name: action.value }
+		case "SET_EMAIL":
+			return { ...state, email: action.value }
+		case "SET_PASSWORD":
+			return { ...state, password: action.value }
+		case "SET_CONFIRM":
+			return { ...state, confirm: action.value }
+		case "TOGGLE_SHOW_PASSWORD":
+			return { ...state, showPassword: !state.showPassword }
+		case "TOGGLE_SHOW_CONFIRM":
+			return { ...state, showConfirm: !state.showConfirm }
+		case "SET_ERROR":
+			return { ...state, error: action.value }
+		case "SET_SUBMITTING":
+			return { ...state, isSubmitting: action.value }
+		case "SET_SUBMITTED":
+			return { ...state, submitted: action.value }
+		default:
+			return state
+	}
+}
+
 interface RegisterViewProps {
 	onSubmit: (email: string, password: string, name: string) => Promise<void>
 	onBack: () => void
@@ -435,15 +527,8 @@ interface RegisterViewProps {
 
 function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 	"use no memo"
-	const [name, setName] = useState("")
-	const [email, setEmail] = useState("")
-	const [password, setPassword] = useState("")
-	const [confirm, setConfirm] = useState("")
-	const [showPassword, setShowPassword] = useState(false)
-	const [showConfirm, setShowConfirm] = useState(false)
-	const [error, setError] = useState("")
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [submitted, setSubmitted] = useState(false)
+	const [regState, dispatch] = useReducer(registerReducer, initialRegisterState)
+	const { name, email, password, confirm, showPassword, showConfirm, error, isSubmitting, submitted } = regState
 
 	const emailErr = email ? validateEmail(email) : null
 	const passwordErr = password ? validatePassword(password) : null
@@ -453,25 +538,25 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 		"use no memo"
 		e.preventDefault()
 		if (!name.trim()) {
-			setError("Nome obrigatório.")
+			dispatch({ type: "SET_ERROR", value: "Nome obrigatório." })
 			return
 		}
 		const eErr = validateEmail(email)
 		const pErr = validatePassword(password)
 		const cErr = password !== confirm ? "As senhas não coincidem." : null
 		if (eErr || pErr || cErr) {
-			setError(eErr || pErr || cErr || "")
+			dispatch({ type: "SET_ERROR", value: eErr || pErr || cErr || "" })
 			return
 		}
-		setIsSubmitting(true)
-		setError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
 		try {
 			await onSubmit(email.trim().toLowerCase(), password, name.trim())
-			setSubmitted(true)
+			dispatch({ type: "SET_SUBMITTED", value: true })
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao criar conta. Tente novamente.")
+			dispatch({ type: "SET_ERROR", value: err instanceof Error ? err.message : "Erro ao criar conta. Tente novamente." })
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -514,8 +599,8 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						placeholder="Ten. Fulano da Silva"
 						value={name}
 						onChange={(e) => {
-							setName(e.target.value)
-							setError("")
+							dispatch({ type: "SET_NAME", value: e.target.value })
+							dispatch({ type: "SET_ERROR", value: "" })
 						}}
 						className="pl-9"
 						disabled={isSubmitting}
@@ -537,8 +622,8 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						placeholder="seu.nome@fab.mil.br"
 						value={email}
 						onChange={(e) => {
-							setEmail(e.target.value)
-							setError("")
+							dispatch({ type: "SET_EMAIL", value: e.target.value })
+							dispatch({ type: "SET_ERROR", value: "" })
 						}}
 						className={cn("pl-9", emailErr && "border-destructive")}
 						aria-invalid={!!emailErr || undefined}
@@ -567,8 +652,8 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						placeholder="Mínimo 8 caracteres"
 						value={password}
 						onChange={(e) => {
-							setPassword(e.target.value)
-							setError("")
+							dispatch({ type: "SET_PASSWORD", value: e.target.value })
+							dispatch({ type: "SET_ERROR", value: "" })
 						}}
 						className={cn("pl-9 pr-10", passwordErr && "border-destructive")}
 						aria-invalid={!!passwordErr || undefined}
@@ -577,7 +662,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					/>
 					<button
 						type="button"
-						onClick={() => setShowPassword(!showPassword)}
+						onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
 						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 					>
@@ -605,8 +690,8 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 						placeholder="Digite a senha novamente"
 						value={confirm}
 						onChange={(e) => {
-							setConfirm(e.target.value)
-							setError("")
+							dispatch({ type: "SET_CONFIRM", value: e.target.value })
+							dispatch({ type: "SET_ERROR", value: "" })
 						}}
 						className={cn("pl-9 pr-10", confirmErr && "border-destructive")}
 						aria-invalid={!!confirmErr || undefined}
@@ -615,7 +700,7 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
 					/>
 					<button
 						type="button"
-						onClick={() => setShowConfirm(!showConfirm)}
+						onClick={() => dispatch({ type: "TOGGLE_SHOW_CONFIRM" })}
 						className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 					>
@@ -648,6 +733,38 @@ function RegisterView({ onSubmit, onBack }: RegisterViewProps) {
    FORGOT VIEW
    ======================================================================== */
 
+// ─── ForgotView reducer ───────────────────────────────────────────────────────
+
+type ForgotState = {
+	email: string
+	error: string
+	isSubmitting: boolean
+	submitted: boolean
+}
+
+type ForgotAction =
+	| { type: "SET_EMAIL"; value: string }
+	| { type: "SET_ERROR"; value: string }
+	| { type: "SET_SUBMITTING"; value: boolean }
+	| { type: "SET_SUBMITTED"; value: boolean }
+
+const initialForgotState: ForgotState = { email: "", error: "", isSubmitting: false, submitted: false }
+
+function forgotReducer(state: ForgotState, action: ForgotAction): ForgotState {
+	switch (action.type) {
+		case "SET_EMAIL":
+			return { ...state, email: action.value }
+		case "SET_ERROR":
+			return { ...state, error: action.value }
+		case "SET_SUBMITTING":
+			return { ...state, isSubmitting: action.value }
+		case "SET_SUBMITTED":
+			return { ...state, submitted: action.value }
+		default:
+			return state
+	}
+}
+
 interface ForgotViewProps {
 	onBack: () => void
 	onSubmit: (email: string) => Promise<void>
@@ -655,10 +772,8 @@ interface ForgotViewProps {
 
 function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 	"use no memo"
-	const [email, setEmail] = useState("")
-	const [error, setError] = useState("")
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [submitted, setSubmitted] = useState(false)
+	const [forgotState, dispatch] = useReducer(forgotReducer, initialForgotState)
+	const { email, error, isSubmitting, submitted } = forgotState
 
 	const emailErr = email ? validateEmail(email) : null
 
@@ -667,18 +782,18 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 		e.preventDefault()
 		const eErr = validateEmail(email)
 		if (eErr) {
-			setError(eErr)
+			dispatch({ type: "SET_ERROR", value: eErr })
 			return
 		}
-		setIsSubmitting(true)
-		setError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
 		try {
 			await onSubmit(email.trim().toLowerCase())
-			setSubmitted(true)
+			dispatch({ type: "SET_SUBMITTED", value: true })
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Erro ao enviar. Tente novamente.")
+			dispatch({ type: "SET_ERROR", value: err instanceof Error ? err.message : "Erro ao enviar. Tente novamente." })
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -727,8 +842,8 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 							placeholder="seu.nome@fab.mil.br"
 							value={email}
 							onChange={(e) => {
-								setEmail(e.target.value)
-								setError("")
+								dispatch({ type: "SET_EMAIL", value: e.target.value })
+								dispatch({ type: "SET_ERROR", value: "" })
 							}}
 							className={cn("pl-9", emailErr && "border-destructive")}
 							aria-invalid={!!emailErr || undefined}

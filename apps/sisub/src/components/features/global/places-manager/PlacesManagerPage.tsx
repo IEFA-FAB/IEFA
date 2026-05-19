@@ -1,5 +1,5 @@
 import { type Connection, type Edge, type Node, useEdgesState, useNodesState } from "@xyflow/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer } from "react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useApplyPlacesDiff, usePlacesGraph } from "@/hooks/data/usePlaces"
 import { buildDiffFromReconnection } from "@/lib/places-graph/diff"
@@ -69,6 +69,58 @@ function GraphErrorState() {
 	)
 }
 
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type PlacesManagerState = {
+	editorMode: PlacesEditorMode
+	selection: PlacesSelection
+	pendingDiffs: Map<string, PlacesDiff>
+	isLayouting: boolean
+	showMinimap: boolean
+	mounted: boolean
+	filters: PlacesFilterState
+}
+
+type PlacesManagerAction =
+	| { type: "SET_EDITOR_MODE"; value: PlacesEditorMode }
+	| { type: "SET_SELECTION"; value: PlacesSelection }
+	| { type: "SET_PENDING_DIFFS"; value: Map<string, PlacesDiff> }
+	| { type: "SET_LAYOUTING"; value: boolean }
+	| { type: "TOGGLE_MINIMAP" }
+	| { type: "SET_MOUNTED" }
+	| { type: "SET_FILTERS"; value: PlacesFilterState }
+
+const initialPlacesManagerState: PlacesManagerState = {
+	editorMode: "view",
+	selection: null,
+	pendingDiffs: new Map(),
+	isLayouting: false,
+	showMinimap: false,
+	mounted: false,
+	filters: { showUnits: true, showKitchens: true, showMessHalls: true, search: "" },
+}
+
+function placesManagerReducer(state: PlacesManagerState, action: PlacesManagerAction): PlacesManagerState {
+	switch (action.type) {
+		case "SET_EDITOR_MODE":
+			return { ...state, editorMode: action.value }
+		case "SET_SELECTION":
+			return { ...state, selection: action.value }
+		case "SET_PENDING_DIFFS":
+			return { ...state, pendingDiffs: action.value }
+		case "SET_LAYOUTING":
+			return { ...state, isLayouting: action.value }
+		case "TOGGLE_MINIMAP":
+			return { ...state, showMinimap: !state.showMinimap }
+		case "SET_MOUNTED":
+			return { ...state, mounted: true }
+		case "SET_FILTERS":
+			return { ...state, filters: action.value }
+		default:
+			return state
+	}
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export function PlacesManagerPage() {
@@ -81,22 +133,12 @@ export function PlacesManagerPage() {
 	const [edges, setEdges, onEdgesChange] = useEdgesState<PlacesEdge>([])
 
 	// ── App state ─────────────────────────────────────────────────────────────
-	const [editorMode, setEditorMode] = useState<PlacesEditorMode>("view")
-	const [selection, setSelection] = useState<PlacesSelection>(null)
-	const [pendingDiffs, setPendingDiffs] = useState<Map<string, PlacesDiff>>(new Map())
-	const [isLayouting, setIsLayouting] = useState(false)
-	const [showMinimap, setShowMinimap] = useState(false)
-	const [mounted, setMounted] = useState(false)
-	const [filters, setFilters] = useState<PlacesFilterState>({
-		showUnits: true,
-		showKitchens: true,
-		showMessHalls: true,
-		search: "",
-	})
+	const [pmState, dispatch] = useReducer(placesManagerReducer, initialPlacesManagerState)
+	const { editorMode, selection, pendingDiffs, isLayouting, showMinimap, mounted, filters } = pmState
 
 	// ── Client-side mount guard (prevents SSR hydration issues with ReactFlow) ─
 	useEffect(() => {
-		setMounted(true)
+		dispatch({ type: "SET_MOUNTED" })
 	}, [])
 
 	// ── Initial layout when data arrives ─────────────────────────────────────
@@ -107,7 +149,7 @@ export function PlacesManagerPage() {
 		const savedPositions = loadSavedPositions()
 		const hasManualPositions = Object.keys(savedPositions).length > 0
 
-		setIsLayouting(true)
+		dispatch({ type: "SET_LAYOUTING", value: true })
 		computeElkLayout(rawNodes, rawEdges)
 			.then((layoutedNodes) => {
 				// Manual positions override ELK positions for nodes the user has dragged
@@ -116,7 +158,7 @@ export function PlacesManagerPage() {
 				setNodes(finalNodes)
 				setEdges(rawEdges)
 			})
-			.finally(() => setIsLayouting(false))
+			.finally(() => dispatch({ type: "SET_LAYOUTING", value: false }))
 	}, [data, setEdges, setNodes]) // intentionally only on data change (not setNodes/setEdges)
 
 	// ── Filtered nodes/edges for rendering ────────────────────────────────────
@@ -145,11 +187,11 @@ export function PlacesManagerPage() {
 
 	// ── Node/edge selection ───────────────────────────────────────────────────
 	const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-		setSelection({ type: "node", node: node as PlacesNode })
+		dispatch({ type: "SET_SELECTION", value: { type: "node", node: node as PlacesNode } })
 	}, [])
 
 	const handleEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-		setSelection({ type: "edge", edge: edge as PlacesEdge })
+		dispatch({ type: "SET_SELECTION", value: { type: "edge", edge: edge as PlacesEdge } })
 	}, [])
 
 	// ── Edge reconnection (edit mode only) ────────────────────────────────────
@@ -159,11 +201,9 @@ export function PlacesManagerPage() {
 
 			try {
 				const diff = buildDiffFromReconnection(oldEdge, newConnection.target, nodes)
-				setPendingDiffs((prev) => {
-					const next = new Map(prev)
-					next.set(oldEdge.id, diff)
-					return next
-				})
+				const nextDiffs = new Map(pendingDiffs)
+				nextDiffs.set(oldEdge.id, diff)
+				dispatch({ type: "SET_PENDING_DIFFS", value: nextDiffs })
 				// Mark the edge as dirty
 				setEdges((eds) =>
 					eds.map((e) => (e.id === oldEdge.id ? { ...e, target: newConnection.target as string, data: { ...(e.data as PlacesEdgeData), isDirty: true } } : e))
@@ -172,7 +212,7 @@ export function PlacesManagerPage() {
 				// diff building failed (target node not found) — ignore
 			}
 		},
-		[nodes, setEdges]
+		[nodes, pendingDiffs, setEdges]
 	)
 
 	// Edge list updater used by PlacesCanvas after reconnectEdge helper runs
@@ -185,13 +225,13 @@ export function PlacesManagerPage() {
 
 	// ── Auto-layout ───────────────────────────────────────────────────────────
 	const handleAutoLayout = useCallback(async () => {
-		setIsLayouting(true)
+		dispatch({ type: "SET_LAYOUTING", value: true })
 		try {
 			const layoutedNodes = await computeElkLayout(nodes, edges)
 			setNodes(layoutedNodes)
 			savePositions(layoutedNodes)
 		} finally {
-			setIsLayouting(false)
+			dispatch({ type: "SET_LAYOUTING", value: false })
 		}
 	}, [nodes, edges, setNodes])
 
@@ -199,7 +239,7 @@ export function PlacesManagerPage() {
 	const handleSaveAll = useCallback(async () => {
 		const diffs = Array.from(pendingDiffs.values())
 		await applyDiffMutation.mutateAsync(diffs)
-		setPendingDiffs(new Map())
+		dispatch({ type: "SET_PENDING_DIFFS", value: new Map() })
 		// Re-run layout after data re-fetch to reflect any structural changes
 	}, [pendingDiffs, applyDiffMutation])
 
@@ -208,7 +248,7 @@ export function PlacesManagerPage() {
 		if (!data) return
 		const { edges: rawEdges } = transformToGraph(data)
 		setEdges(rawEdges)
-		setPendingDiffs(new Map())
+		dispatch({ type: "SET_PENDING_DIFFS", value: new Map() })
 	}, [data, setEdges])
 
 	// ── Switching to view mode discards pending edits ──────────────────────────
@@ -218,7 +258,7 @@ export function PlacesManagerPage() {
 				// Discard silently when switching back to view
 				handleDiscard()
 			}
-			setEditorMode(mode)
+			dispatch({ type: "SET_EDITOR_MODE", value: mode })
 		},
 		[pendingDiffs, handleDiscard]
 	)
@@ -231,9 +271,9 @@ export function PlacesManagerPage() {
 
 			<GraphToolbar
 				filters={filters}
-				onFiltersChange={setFilters}
+				onFiltersChange={(f) => dispatch({ type: "SET_FILTERS", value: f })}
 				onAutoLayout={handleAutoLayout}
-				onToggleMinimap={() => setShowMinimap((v) => !v)}
+				onToggleMinimap={() => dispatch({ type: "TOGGLE_MINIMAP" })}
 				isLayouting={isLayouting}
 				showMinimap={showMinimap}
 				editorMode={editorMode}
@@ -263,7 +303,13 @@ export function PlacesManagerPage() {
 			</div>
 
 			{/* Inspector sheet — contextual, opens on node selection */}
-			<EntityInspectorSheet selection={selection} edges={edges} nodes={nodes} onClose={() => setSelection(null)} editorMode={editorMode} />
+			<EntityInspectorSheet
+				selection={selection}
+				edges={edges}
+				nodes={nodes}
+				onClose={() => dispatch({ type: "SET_SELECTION", value: null })}
+				editorMode={editorMode}
+			/>
 
 			{/* Dirty changes bar — appears only in edit mode with pending changes */}
 			{editorMode === "edit" && (

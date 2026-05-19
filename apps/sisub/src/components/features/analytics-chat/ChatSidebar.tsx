@@ -9,8 +9,7 @@ import type { ChatSession } from "@/types/domain/analytics-chat"
 
 // ── Date grouping ────────────────────────────────────────────────────────────
 
-function groupByDate(sessions: ChatSession[]) {
-	const now = new Date()
+function groupByDate(sessions: ChatSession[], now: Date) {
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 	const yesterday = new Date(today.getTime() - 86_400_000)
 	const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000)
@@ -143,7 +142,8 @@ export function ChatSidebar({ activeSessionId, onSelectSession, onNewChat }: Cha
 	const deleteMutation = useDeleteChatSession()
 	const renameMutation = useRenameChatSession()
 
-	const groups = useMemo(() => groupByDate(sessions), [sessions])
+	const nowRef = useRef<Date>(new Date())
+	const groups = useMemo(() => groupByDate(sessions, nowRef.current), [sessions])
 
 	const handleDelete = useCallback(
 		(id: string) => {

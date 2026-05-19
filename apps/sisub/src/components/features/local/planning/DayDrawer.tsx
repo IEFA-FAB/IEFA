@@ -127,21 +127,23 @@ export function DayDrawer({ date, kitchenId, onClose, open }: DayDrawerProps) {
 						}
 
 						// Create menu items for each selected recipe with snapshots
-						for (const recipeId of recipeIds) {
-							const portionQty = recipeSelectorMenu.forecasted_headcount || 150
-							try {
-								const recipeSnapshot = await fetchRecipeWithIngredients(recipeId)
+						await Promise.all(
+							recipeIds.map(async (recipeId) => {
+								const portionQty = recipeSelectorMenu.forecasted_headcount || 150
+								try {
+									const recipeSnapshot = await fetchRecipeWithIngredients(recipeId)
 
-								// Create menu item with recipe snapshot (PRD RF12)
-								addMenuItem({
-									daily_menu_id: recipeSelectorMenu.id,
-									recipe_origin_id: recipeId,
-									recipe: recipeSnapshot,
-									planned_portion_quantity: portionQty,
-									excluded_from_procurement: 0,
-								})
-							} catch (_error) {}
-						}
+									// Create menu item with recipe snapshot (PRD RF12)
+									addMenuItem({
+										daily_menu_id: recipeSelectorMenu.id,
+										recipe_origin_id: recipeId,
+										recipe: recipeSnapshot,
+										planned_portion_quantity: portionQty,
+										excluded_from_procurement: 0,
+									})
+								} catch (_error) {}
+							})
+						)
 
 						setRecipeSelectorMenu(null)
 					}}

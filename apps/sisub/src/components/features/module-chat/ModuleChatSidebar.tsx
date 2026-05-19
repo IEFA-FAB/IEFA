@@ -9,8 +9,7 @@ import type { ModuleChatConfig, ModuleChatSession } from "@/types/domain/module-
 
 // ── Date grouping ───────────────────────────────────────────────────────────
 
-function groupByDate(sessions: ModuleChatSession[]) {
-	const now = new Date()
+function groupByDate(sessions: ModuleChatSession[], now: Date) {
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 	const yesterday = new Date(today.getTime() - 86_400_000)
 	const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000)
@@ -144,7 +143,8 @@ export function ModuleChatSidebar({ config, activeSessionId, onSelectSession, on
 	const deleteMutation = useDeleteModuleChatSession(config.module, config.scopeId)
 	const renameMutation = useRenameModuleChatSession(config.module, config.scopeId)
 
-	const groups = useMemo(() => groupByDate(sessions), [sessions])
+	const nowRef = useRef<Date>(new Date())
+	const groups = useMemo(() => groupByDate(sessions, nowRef.current), [sessions])
 
 	const handleDelete = useCallback(
 		(id: string) => {

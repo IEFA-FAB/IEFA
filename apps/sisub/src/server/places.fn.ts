@@ -147,16 +147,17 @@ export const applyPlacesDiffFn = createServerFn({ method: "POST" })
 		await requireAuth()
 		const client = getSupabaseServerClient()
 
-		for (const diff of data.diffs) {
-			const { error } =
-				diff.table === "kitchen"
-					? await client.from("kitchen").update(buildKitchenUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
-					: await client.from("mess_halls").update(buildMessHallUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
-
-			if (error) {
-				throw new Error(`Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${error.message}`)
-			}
-		}
+		await Promise.all(
+			data.diffs.map(async (diff) => {
+				const { error } =
+					diff.table === "kitchen"
+						? await client.from("kitchen").update(buildKitchenUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
+						: await client.from("mess_halls").update(buildMessHallUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
+				if (error) {
+					throw new Error(`Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${error.message}`)
+				}
+			})
+		)
 
 		return { ok: true, count: data.diffs.length }
 	})

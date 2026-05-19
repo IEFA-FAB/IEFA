@@ -231,31 +231,33 @@ export const createAtaFn = createServerFn({ method: "POST" })
 		if (ataError) throw new Error(`Erro ao criar lista: ${ataError.message}`)
 
 		// 2. Para cada cozinha com seleções, criar procurement_list_kitchen + selections
-		for (const ks of kitchenSelections) {
-			const allSels = [...ks.templateSelections, ...ks.eventSelections]
-			if (allSels.length === 0) continue
+		await Promise.all(
+			kitchenSelections.map(async (ks) => {
+				const allSels = [...ks.templateSelections, ...ks.eventSelections]
+				if (allSels.length === 0) return
 
-			const { data: ataKitchen, error: kitchenError } = await supabase
-				.from("procurement_list_kitchen")
-				.insert({
-					list_id: ata.id,
-					kitchen_id: ks.kitchenId,
-					delivery_notes: ks.deliveryNotes || null,
-				})
-				.select()
-				.single()
-			if (kitchenError) throw new Error(`Erro ao associar cozinha: ${kitchenError.message}`)
+				const { data: ataKitchen, error: kitchenError } = await supabase
+					.from("procurement_list_kitchen")
+					.insert({
+						list_id: ata.id,
+						kitchen_id: ks.kitchenId,
+						delivery_notes: ks.deliveryNotes || null,
+					})
+					.select()
+					.single()
+				if (kitchenError) throw new Error(`Erro ao associar cozinha: ${kitchenError.message}`)
 
-			if (allSels.length > 0) {
-				const selectionRows = allSels.map((s) => ({
-					list_kitchen_id: ataKitchen.id,
-					template_id: s.templateId,
-					repetitions: s.repetitions,
-				}))
-				const { error: selError } = await supabase.from("procurement_list_selection").insert(selectionRows)
-				if (selError) throw new Error(`Erro ao salvar seleções: ${selError.message}`)
-			}
-		}
+				if (allSels.length > 0) {
+					const selectionRows = allSels.map((s) => ({
+						list_kitchen_id: ataKitchen.id,
+						template_id: s.templateId,
+						repetitions: s.repetitions,
+					}))
+					const { error: selError } = await supabase.from("procurement_list_selection").insert(selectionRows)
+					if (selError) throw new Error(`Erro ao salvar seleções: ${selError.message}`)
+				}
+			})
+		)
 
 		// 3. Inserir itens calculados
 		if (items.length > 0) {

@@ -159,7 +159,11 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 													ARP {item.numeroAta}/{item.anoAta}
 												</span>
 												<span className="text-xs text-muted-foreground">UASG {item.uasgGerenciadora}</span>
-												<Badge variant={status === "ativa" ? "default" : status === "vencida" ? "destructive" : "secondary"} className="text-xs">
+												<Badge
+													suppressHydrationWarning
+													variant={status === "ativa" ? "default" : status === "vencida" ? "destructive" : "secondary"}
+													className="text-xs"
+												>
 													{status === "ativa" ? "Ativa" : status === "vencida" ? "Vencida" : "Vigência desconhecida"}
 												</Badge>
 											</div>

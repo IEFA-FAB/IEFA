@@ -1,11 +1,76 @@
 import { AlertCircle, Eye, EyeOff, Loader2, Lock } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useReducer } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/cn"
+
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type ResetPasswordState = {
+	newPassword: string
+	confirmPassword: string
+	showPassword: boolean
+	showConfirmPassword: boolean
+	isSubmitting: boolean
+	submitError: string
+	passwordError: string
+	confirmError: string
+	verifyState: { isVerifying: boolean; isValid: boolean; error: string }
+}
+
+type ResetPasswordAction =
+	| { type: "SET_NEW_PASSWORD"; value: string }
+	| { type: "SET_CONFIRM_PASSWORD"; value: string }
+	| { type: "TOGGLE_SHOW_PASSWORD" }
+	| { type: "TOGGLE_SHOW_CONFIRM_PASSWORD" }
+	| { type: "SET_SUBMITTING"; value: boolean }
+	| { type: "SET_SUBMIT_ERROR"; value: string }
+	| { type: "SET_PASSWORD_ERROR"; value: string }
+	| { type: "SET_CONFIRM_ERROR"; value: string }
+	| { type: "CLEAR_ERRORS" }
+	| { type: "SET_VERIFY_STATE"; value: { isVerifying: boolean; isValid: boolean; error: string } }
+
+const initialResetPasswordState: ResetPasswordState = {
+	newPassword: "",
+	confirmPassword: "",
+	showPassword: false,
+	showConfirmPassword: false,
+	isSubmitting: false,
+	submitError: "",
+	passwordError: "",
+	confirmError: "",
+	verifyState: { isVerifying: true, isValid: false, error: "" },
+}
+
+function resetPasswordReducer(state: ResetPasswordState, action: ResetPasswordAction): ResetPasswordState {
+	switch (action.type) {
+		case "SET_NEW_PASSWORD":
+			return { ...state, newPassword: action.value }
+		case "SET_CONFIRM_PASSWORD":
+			return { ...state, confirmPassword: action.value }
+		case "TOGGLE_SHOW_PASSWORD":
+			return { ...state, showPassword: !state.showPassword }
+		case "TOGGLE_SHOW_CONFIRM_PASSWORD":
+			return { ...state, showConfirmPassword: !state.showConfirmPassword }
+		case "SET_SUBMITTING":
+			return { ...state, isSubmitting: action.value }
+		case "SET_SUBMIT_ERROR":
+			return { ...state, submitError: action.value }
+		case "SET_PASSWORD_ERROR":
+			return { ...state, passwordError: action.value }
+		case "SET_CONFIRM_ERROR":
+			return { ...state, confirmError: action.value }
+		case "CLEAR_ERRORS":
+			return { ...state, submitError: "", passwordError: "", confirmError: "" }
+		case "SET_VERIFY_STATE":
+			return { ...state, verifyState: action.value }
+		default:
+			return state
+	}
+}
 
 export interface ResetPasswordScreenProps {
 	searchParams: {
@@ -22,24 +87,16 @@ export interface ResetPasswordScreenProps {
 
 export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotPasswordPath = "/auth" }: ResetPasswordScreenProps) {
 	"use no memo"
-	const [newPassword, setNewPassword] = useState("")
-	const [confirmPassword, setConfirmPassword] = useState("")
-	const [showPassword, setShowPassword] = useState(false)
-	const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [submitError, setSubmitError] = useState("")
-	const [passwordError, setPasswordError] = useState("")
-	const [confirmError, setConfirmError] = useState("")
-	const [verifyState, setVerifyState] = useState({ isVerifying: true, isValid: false, error: "" })
+	const [state, dispatch] = useReducer(resetPasswordReducer, initialResetPasswordState)
+	const { newPassword, confirmPassword, showPassword, showConfirmPassword, isSubmitting, submitError, passwordError, confirmError, verifyState } = state
 	const { isVerifying: isVerifyingToken, isValid: tokenValid, error: verifyError } = verifyState
 
 	useEffect(() => {
 		const verifyToken = async () => {
 			if (!searchParams.token_hash || searchParams.type !== "recovery") {
-				setVerifyState({
-					isVerifying: false,
-					isValid: false,
-					error: "Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.",
+				dispatch({
+					type: "SET_VERIFY_STATE",
+					value: { isVerifying: false, isValid: false, error: "Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha." },
 				})
 				return
 			}
@@ -48,23 +105,17 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 				const { error: verifyErr } = await actions.verifyOtp(searchParams.token_hash, "recovery")
 
 				if (verifyErr) {
-					setVerifyState({
-						isVerifying: false,
-						isValid: false,
-						error: "Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha.",
+					dispatch({
+						type: "SET_VERIFY_STATE",
+						value: { isVerifying: false, isValid: false, error: "Link inválido ou expirado. Por favor, solicite uma nova recuperação de senha." },
 					})
 				} else {
-					setVerifyState({
-						isVerifying: false,
-						isValid: true,
-						error: "",
-					})
+					dispatch({ type: "SET_VERIFY_STATE", value: { isVerifying: false, isValid: true, error: "" } })
 				}
 			} catch {
-				setVerifyState({
-					isVerifying: false,
-					isValid: false,
-					error: "Erro ao verificar o link de recuperação. Tente novamente.",
+				dispatch({
+					type: "SET_VERIFY_STATE",
+					value: { isVerifying: false, isValid: false, error: "Erro ao verificar o link de recuperação. Tente novamente." },
 				})
 			}
 		}
@@ -74,28 +125,28 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 
 	const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const value = e.target.value
-		setNewPassword(value)
-		setSubmitError("")
-		setPasswordError("")
+		dispatch({ type: "SET_NEW_PASSWORD", value })
+		dispatch({ type: "SET_SUBMIT_ERROR", value: "" })
+		dispatch({ type: "SET_PASSWORD_ERROR", value: "" })
 
 		if (value && value.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
+			dispatch({ type: "SET_PASSWORD_ERROR", value: "A senha deve ter pelo menos 6 caracteres." })
 		}
 
 		if (confirmPassword && value !== confirmPassword) {
-			setConfirmError("As senhas não coincidem.")
+			dispatch({ type: "SET_CONFIRM_ERROR", value: "As senhas não coincidem." })
 		} else {
-			setConfirmError("")
+			dispatch({ type: "SET_CONFIRM_ERROR", value: "" })
 		}
 	}
 
 	const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const value = e.target.value
-		setConfirmPassword(value)
-		setConfirmError("")
+		dispatch({ type: "SET_CONFIRM_PASSWORD", value })
+		dispatch({ type: "SET_CONFIRM_ERROR", value: "" })
 
 		if (value && value !== newPassword) {
-			setConfirmError("As senhas não coincidem.")
+			dispatch({ type: "SET_CONFIRM_ERROR", value: "As senhas não coincidem." })
 		}
 	}
 
@@ -103,30 +154,28 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 		e.preventDefault()
 
 		if (newPassword.length < 6) {
-			setPasswordError("A senha deve ter pelo menos 6 caracteres.")
+			dispatch({ type: "SET_PASSWORD_ERROR", value: "A senha deve ter pelo menos 6 caracteres." })
 			return
 		}
 
 		if (newPassword !== confirmPassword) {
-			setConfirmError("As senhas não coincidem.")
+			dispatch({ type: "SET_CONFIRM_ERROR", value: "As senhas não coincidem." })
 			return
 		}
 
-		setIsSubmitting(true)
-		setSubmitError("")
-		setPasswordError("")
-		setConfirmError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "CLEAR_ERRORS" })
 
 		const { error: updateError } = await actions.updatePassword(newPassword)
 
 		if (updateError) {
 			const errorMsg = updateError instanceof Error ? updateError.message : "Erro ao atualizar senha. Tente novamente."
-			setSubmitError(errorMsg)
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMIT_ERROR", value: errorMsg })
+			dispatch({ type: "SET_SUBMITTING", value: false })
 			return
 		}
 
-		setIsSubmitting(false)
+		dispatch({ type: "SET_SUBMITTING", value: false })
 		onNavigate({ to: "/auth", search: { tab: "login" } })
 		alert("Senha atualizada com sucesso! Faça login com sua nova senha.")
 	}
@@ -224,7 +273,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 								/>
 								<button
 									type="button"
-									onClick={() => setShowPassword(!showPassword)}
+									onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 								>
@@ -261,7 +310,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 								/>
 								<button
 									type="button"
-									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+									onClick={() => dispatch({ type: "TOGGLE_SHOW_CONFIRM_PASSWORD" })}
 									className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
 									aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
 								>

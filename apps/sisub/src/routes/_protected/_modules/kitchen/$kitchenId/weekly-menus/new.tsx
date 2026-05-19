@@ -164,6 +164,7 @@ function NewWeeklyMenuPage() {
 								onChange={(e) => setName(e.target.value)}
 								placeholder={isFork ? `Ex.: ${baseTemplate?.name ?? "Cópia"} — ${new Date().getFullYear()}` : "Ex.: Semana Padrão, Semana de Feriados"}
 								required
+								suppressHydrationWarning
 							/>
 						</div>
 

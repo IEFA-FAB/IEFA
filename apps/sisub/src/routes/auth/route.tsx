@@ -88,7 +88,7 @@ function AuthLayout() {
 			    FOOTER
 			    ============================================================ */}
 			<footer className="border-t">
-				<Container className="h-14 flex items-center justify-center font-mono text-xs text-muted-foreground">
+				<Container suppressHydrationWarning className="h-14 flex items-center justify-center font-mono text-xs text-muted-foreground">
 					© {new Date().getFullYear()} SISUB · Sistema de Subsistência · FAB
 				</Container>
 			</footer>

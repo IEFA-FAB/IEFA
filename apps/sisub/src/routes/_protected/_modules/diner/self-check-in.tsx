@@ -5,7 +5,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useReducer, useRef } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { MessHallSelector } from "@/components/features/diner/MessHallSelector"
@@ -40,6 +40,40 @@ function isDuplicateOrConflict(err: unknown): boolean {
 	const e = err as { code?: string | number; status?: number; message?: string }
 	const msg = String(e.message || "").toLowerCase()
 	return e.code === "23505" || e.code === 23505 || e.code === "409" || e.status === 409 || msg.includes("duplicate key") || msg.includes("conflict")
+}
+
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type SelfCheckinState = {
+	selectorCode: string
+	confirmedCode: string | null
+	willEnter: WillEnter
+	submitting: boolean
+	redirectCountdown: number | null
+}
+
+type SelfCheckinAction =
+	| { type: "SET_SELECTOR_CODE"; value: string }
+	| { type: "SET_CONFIRMED_CODE"; value: string | null }
+	| { type: "SET_WILL_ENTER"; value: WillEnter }
+	| { type: "SET_SUBMITTING"; value: boolean }
+	| { type: "SET_REDIRECT_COUNTDOWN"; value: number | null }
+
+function selfCheckinReducer(state: SelfCheckinState, action: SelfCheckinAction): SelfCheckinState {
+	switch (action.type) {
+		case "SET_SELECTOR_CODE":
+			return { ...state, selectorCode: action.value }
+		case "SET_CONFIRMED_CODE":
+			return { ...state, confirmedCode: action.value }
+		case "SET_WILL_ENTER":
+			return { ...state, willEnter: action.value }
+		case "SET_SUBMITTING":
+			return { ...state, submitting: action.value }
+		case "SET_REDIRECT_COUNTDOWN":
+			return { ...state, redirectCountdown: action.value }
+		default:
+			return state
+	}
 }
 
 // ─── Route ───────────────────────────────────────────────────────────────────
@@ -83,9 +117,14 @@ function SelfCheckin() {
 
 	// Código do rancho: vem do QR (URL) ou da seleção manual
 	const qrCode = search.unit ?? search.u ?? null
-	const [selectorCode, setSelectorCode] = useState<string>("")
-	// confirmedCode = null → fase "select"; string → fase "confirm"
-	const [confirmedCode, setConfirmedCode] = useState<string | null>(qrCode)
+	const [checkinState, dispatch] = useReducer(selfCheckinReducer, {
+		selectorCode: "",
+		confirmedCode: qrCode,
+		willEnter: "sim",
+		submitting: false,
+		redirectCountdown: null,
+	})
+	const { selectorCode, confirmedCode, willEnter, submitting, redirectCountdown } = checkinState
 
 	// ── Queries ──────────────────────────────────────────────────────────────
 
@@ -105,12 +144,6 @@ function SelfCheckin() {
 	// messHall=null (não undefined) significa que a query resolveu e não encontrou
 	const messHallNotFound = !!confirmedCode && !messHallLoading && messHall === null
 
-	// ── Local state ───────────────────────────────────────────────────────────
-
-	const [willEnter, setWillEnter] = useState<WillEnter>("sim")
-	const [submitting, setSubmitting] = useState(false)
-	const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null)
-
 	const redirectedRef = useRef(false)
 	const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -125,27 +158,31 @@ function SelfCheckin() {
 	useEffect(() => {
 		if (!messHallNotFound) return
 		toast.error("QR inválido", { description: "Rancho não encontrado. Selecione manualmente." })
-		setConfirmedCode(null)
+		dispatch({ type: "SET_CONFIRMED_CODE", value: null })
 	}, [messHallNotFound])
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 
+	const countdownValueRef = useRef<number | null>(null)
+
 	const scheduleRedirect = (seconds = REDIRECT_DELAY) => {
 		if (redirectedRef.current) return
-		setRedirectCountdown(seconds)
+		countdownValueRef.current = seconds
+		dispatch({ type: "SET_REDIRECT_COUNTDOWN", value: seconds })
 		const id = setInterval(() => {
-			setRedirectCountdown((s) => {
-				const next = (s ?? 1) - 1
-				if (next <= 0) {
-					clearInterval(id)
-					if (!redirectedRef.current) {
-						redirectedRef.current = true
-						navigate({ to: "/hub", replace: true })
-					}
-					return null
+			const current = countdownValueRef.current ?? 1
+			const next = current - 1
+			countdownValueRef.current = next
+			if (next <= 0) {
+				clearInterval(id)
+				dispatch({ type: "SET_REDIRECT_COUNTDOWN", value: null })
+				if (!redirectedRef.current) {
+					redirectedRef.current = true
+					navigate({ to: "/hub", replace: true })
 				}
-				return next
-			})
+			} else {
+				dispatch({ type: "SET_REDIRECT_COUNTDOWN", value: next })
+			}
 		}, 1000)
 		countdownRef.current = id
 	}
@@ -153,7 +190,7 @@ function SelfCheckin() {
 	const handleSubmit = async () => {
 		"use no memo"
 		if (submitting || !userId || !messHall) return
-		setSubmitting(true)
+		dispatch({ type: "SET_SUBMITTING", value: true })
 
 		try {
 			if (willEnter !== "sim") {
@@ -174,7 +211,7 @@ function SelfCheckin() {
 			}
 			toast.error("Erro", { description: "Não foi possível registrar sua presença." })
 		} finally {
-			setSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -199,6 +236,7 @@ function SelfCheckin() {
 								? `${messHall.display_name} • ${MEAL_LABEL[meal]} • ${todayDisplay()}`
 								: "Rancho não encontrado"
 				}
+				suppressDescriptionHydrationWarning
 			/>
 
 			{/* ── Fase 1: Seleção manual ── */}
@@ -206,9 +244,9 @@ function SelfCheckin() {
 				<div className="rounded-md border p-4 space-y-4">
 					<p className="text-sm text-muted-foreground">O QR Code do rancho preenche automaticamente. Se não tiver o QR, selecione abaixo:</p>
 
-					<MessHallSelector value={selectorCode} onChange={setSelectorCode} showLabel showValidation />
+					<MessHallSelector value={selectorCode} onChange={(v) => dispatch({ type: "SET_SELECTOR_CODE", value: v })} showLabel showValidation />
 
-					<Button className="w-full" disabled={!selectorCode} onClick={() => setConfirmedCode(selectorCode)}>
+					<Button className="w-full" disabled={!selectorCode} onClick={() => dispatch({ type: "SET_CONFIRMED_CODE", value: selectorCode })}>
 						Continuar
 					</Button>
 				</div>
@@ -228,10 +266,20 @@ function SelfCheckin() {
 						<div className="space-y-2">
 							<div className="text-sm font-medium">Vai entrar?</div>
 							<div className="flex gap-2">
-								<Button variant={willEnter === "sim" ? "default" : "outline"} size="sm" onClick={() => setWillEnter("sim")} disabled={blocked}>
+								<Button
+									variant={willEnter === "sim" ? "default" : "outline"}
+									size="sm"
+									onClick={() => dispatch({ type: "SET_WILL_ENTER", value: "sim" })}
+									disabled={blocked}
+								>
 									Sim
 								</Button>
-								<Button variant={willEnter === "nao" ? "default" : "outline"} size="sm" onClick={() => setWillEnter("nao")} disabled={blocked}>
+								<Button
+									variant={willEnter === "nao" ? "default" : "outline"}
+									size="sm"
+									onClick={() => dispatch({ type: "SET_WILL_ENTER", value: "nao" })}
+									disabled={blocked}
+								>
 									Não
 								</Button>
 							</div>

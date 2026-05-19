@@ -339,7 +339,7 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 					<div className="space-y-0.5">
 						<CardTitle className="text-sm font-semibold flex items-center gap-2">
 							ARP {arp.numero_ata}/{arp.ano_ata ?? ""}
-							<Badge variant={isVencida ? "destructive" : "default"} className="text-xs">
+							<Badge suppressHydrationWarning variant={isVencida ? "destructive" : "default"} className="text-xs">
 								{isVencida ? "Vencida" : "Ativa"}
 							</Badge>
 						</CardTitle>

@@ -3,7 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router"
 // Icons
 import { AlertCircle, CheckCircle2, ChevronRight, Eye, EyeOff, Loader2, Lock } from "lucide-react"
 // React
-import { useEffect, useState } from "react"
+import { useEffect, useReducer } from "react"
 // UI
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,58 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 type PageState = "verifying" | "invalid" | "form" | "success"
 
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type ResetPasswordRouteState = {
+	pageState: PageState
+	newPassword: string
+	confirm: string
+	showPassword: boolean
+	showConfirm: boolean
+	isSubmitting: boolean
+	error: string
+}
+
+type ResetPasswordRouteAction =
+	| { type: "SET_PAGE_STATE"; value: PageState }
+	| { type: "SET_NEW_PASSWORD"; value: string }
+	| { type: "SET_CONFIRM"; value: string }
+	| { type: "TOGGLE_SHOW_PASSWORD" }
+	| { type: "TOGGLE_SHOW_CONFIRM" }
+	| { type: "SET_SUBMITTING"; value: boolean }
+	| { type: "SET_ERROR"; value: string }
+
+const initialResetPasswordRouteState: ResetPasswordRouteState = {
+	pageState: "verifying",
+	newPassword: "",
+	confirm: "",
+	showPassword: false,
+	showConfirm: false,
+	isSubmitting: false,
+	error: "",
+}
+
+function resetPasswordRouteReducer(state: ResetPasswordRouteState, action: ResetPasswordRouteAction): ResetPasswordRouteState {
+	switch (action.type) {
+		case "SET_PAGE_STATE":
+			return { ...state, pageState: action.value }
+		case "SET_NEW_PASSWORD":
+			return { ...state, newPassword: action.value }
+		case "SET_CONFIRM":
+			return { ...state, confirm: action.value }
+		case "TOGGLE_SHOW_PASSWORD":
+			return { ...state, showPassword: !state.showPassword }
+		case "TOGGLE_SHOW_CONFIRM":
+			return { ...state, showConfirm: !state.showConfirm }
+		case "SET_SUBMITTING":
+			return { ...state, isSubmitting: action.value }
+		case "SET_ERROR":
+			return { ...state, error: action.value }
+		default:
+			return state
+	}
+}
+
 /* ========================================================================
    COMPONENT
    ======================================================================== */
@@ -46,13 +98,8 @@ function ResetPasswordPage() {
 	"use no memo"
 	const router = useRouter()
 
-	const [pageState, setPageState] = useState<PageState>("verifying")
-	const [newPassword, setNewPassword] = useState("")
-	const [confirm, setConfirm] = useState("")
-	const [showPassword, setShowPassword] = useState(false)
-	const [showConfirm, setShowConfirm] = useState(false)
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [error, setError] = useState("")
+	const [state, dispatch] = useReducer(resetPasswordRouteReducer, initialResetPasswordRouteState)
+	const { pageState, newPassword, confirm, showPassword, showConfirm, isSubmitting, error } = state
 
 	const passwordErr = newPassword ? getPasswordError(newPassword) : null
 	const confirmErr = confirm && confirm !== newPassword ? "As senhas não coincidem." : null
@@ -64,7 +111,7 @@ function ResetPasswordPage() {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((event, session) => {
 			if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
-				setPageState("form")
+				dispatch({ type: "SET_PAGE_STATE", value: "form" })
 			}
 		})
 
@@ -74,7 +121,7 @@ function ResetPasswordPage() {
 				data: { session },
 			} = await supabase.auth.getSession()
 			if (pageState === "verifying") {
-				setPageState(session ? "form" : "invalid")
+				dispatch({ type: "SET_PAGE_STATE", value: session ? "form" : "invalid" })
 			}
 		}, 1500)
 
@@ -90,20 +137,20 @@ function ResetPasswordPage() {
 		if (!newPassword || getPasswordError(newPassword)) return
 		if (newPassword !== confirm) return
 
-		setIsSubmitting(true)
-		setError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
 
 		const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
 
 		if (updateError) {
-			setError(updateError.message)
-			setIsSubmitting(false)
+			dispatch({ type: "SET_ERROR", value: updateError.message })
+			dispatch({ type: "SET_SUBMITTING", value: false })
 			return
 		}
 
 		await supabase.auth.signOut()
-		setIsSubmitting(false)
-		setPageState("success")
+		dispatch({ type: "SET_SUBMITTING", value: false })
+		dispatch({ type: "SET_PAGE_STATE", value: "success" })
 		setTimeout(() => router.navigate({ to: "/auth", search: { tab: "login" } }), 2000)
 	}
 
@@ -187,8 +234,8 @@ function ResetPasswordPage() {
 								placeholder="Mínimo 8 caracteres"
 								value={newPassword}
 								onChange={(e) => {
-									setNewPassword(e.target.value)
-									setError("")
+									dispatch({ type: "SET_NEW_PASSWORD", value: e.target.value })
+									dispatch({ type: "SET_ERROR", value: "" })
 								}}
 								className={cn("pl-9 pr-10", passwordErr && "border-destructive")}
 								aria-invalid={!!passwordErr || undefined}
@@ -199,7 +246,7 @@ function ResetPasswordPage() {
 							/>
 							<button
 								type="button"
-								onClick={() => setShowPassword(!showPassword)}
+								onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
 								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 								aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 							>
@@ -227,8 +274,8 @@ function ResetPasswordPage() {
 								placeholder="Digite a senha novamente"
 								value={confirm}
 								onChange={(e) => {
-									setConfirm(e.target.value)
-									setError("")
+									dispatch({ type: "SET_CONFIRM", value: e.target.value })
+									dispatch({ type: "SET_ERROR", value: "" })
 								}}
 								className={cn("pl-9 pr-10", confirmErr && "border-destructive")}
 								aria-invalid={!!confirmErr || undefined}
@@ -239,7 +286,7 @@ function ResetPasswordPage() {
 							/>
 							<button
 								type="button"
-								onClick={() => setShowConfirm(!showConfirm)}
+								onClick={() => dispatch({ type: "TOGGLE_SHOW_CONFIRM" })}
 								className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 								aria-label={showConfirm ? "Ocultar confirmação" : "Mostrar confirmação"}
 							>

@@ -1,6 +1,5 @@
 import { Moon, Sun } from "lucide-react"
-import { useRef } from "react"
-import { flushSync } from "react-dom"
+import { startTransition, useRef } from "react"
 import { cn } from "@/lib/utils"
 
 interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"button"> {
@@ -11,7 +10,7 @@ interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"butt
 export const AnimatedThemeToggler = ({ className, duration = 400, toggle, ...props }: AnimatedThemeTogglerProps) => {
 	const buttonRef = useRef<HTMLButtonElement>(null)
 
-	const handleToggle = async () => {
+	const handleToggle = () => {
 		if (!document.startViewTransition) {
 			toggle()
 			return
@@ -19,12 +18,6 @@ export const AnimatedThemeToggler = ({ className, duration = 400, toggle, ...pro
 
 		const button = buttonRef.current
 		if (!button) return
-
-		await document.startViewTransition(() => {
-			flushSync(() => {
-				toggle()
-			})
-		}).ready
 
 		const { top, left, width, height } = button.getBoundingClientRect()
 
@@ -35,16 +28,16 @@ export const AnimatedThemeToggler = ({ className, duration = 400, toggle, ...pro
 		const bottom = window.innerHeight - top
 		const maxRadius = Math.hypot(Math.max(left, right), Math.max(top, bottom))
 
-		document.documentElement.animate(
-			{
-				clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${maxRadius}px at ${x}px ${y}px)`],
-			},
-			{
-				duration,
-				easing: "ease-in-out",
-				pseudoElement: "::view-transition-new(root)",
-			}
-		)
+		document.documentElement.style.setProperty("--vt-clip-x", `${x}px`)
+		document.documentElement.style.setProperty("--vt-clip-y", `${y}px`)
+		document.documentElement.style.setProperty("--vt-clip-r", `${maxRadius}px`)
+		document.documentElement.style.setProperty("--vt-duration", `${duration}ms`)
+
+		document.startViewTransition(() => {
+			startTransition(() => {
+				toggle()
+			})
+		})
 	}
 
 	return (

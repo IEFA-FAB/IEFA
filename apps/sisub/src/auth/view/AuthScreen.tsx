@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useReducer } from "react"
 import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -7,6 +7,83 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type AuthScreenState = {
+	currentView: AuthView
+	activeTab: string
+	isSubmitting: boolean
+	error: string
+	successMessage: string
+	showPassword: boolean
+	loginEmail: string
+	loginPassword: string
+	rememberMe: boolean
+	emailError: string
+	passwordError: string
+	registerData: { name: string; email: string; password: string; confirm: string }
+	registerEmailError: string
+	forgotEmail: string
+	newPassword: string
+}
+
+type AuthScreenAction =
+	| { type: "SET_VIEW"; value: AuthView }
+	| { type: "SET_TAB"; value: string }
+	| { type: "SET_SUBMITTING"; value: boolean }
+	| { type: "SET_ERROR"; value: string }
+	| { type: "SET_SUCCESS_MESSAGE"; value: string }
+	| { type: "TOGGLE_SHOW_PASSWORD" }
+	| { type: "SET_LOGIN_EMAIL"; value: string }
+	| { type: "SET_LOGIN_PASSWORD"; value: string }
+	| { type: "SET_REMEMBER_ME"; value: boolean }
+	| { type: "SET_EMAIL_ERROR"; value: string }
+	| { type: "SET_PASSWORD_ERROR"; value: string }
+	| { type: "SET_REGISTER_DATA"; value: Partial<AuthScreenState["registerData"]> }
+	| { type: "SET_REGISTER_EMAIL_ERROR"; value: string }
+	| { type: "SET_FORGOT_EMAIL"; value: string }
+	| { type: "SET_NEW_PASSWORD"; value: string }
+	| { type: "CLEAR_MESSAGES" }
+
+function authScreenReducer(state: AuthScreenState, action: AuthScreenAction): AuthScreenState {
+	switch (action.type) {
+		case "SET_VIEW":
+			return { ...state, currentView: action.value }
+		case "SET_TAB":
+			return { ...state, activeTab: action.value }
+		case "SET_SUBMITTING":
+			return { ...state, isSubmitting: action.value }
+		case "SET_ERROR":
+			return { ...state, error: action.value }
+		case "SET_SUCCESS_MESSAGE":
+			return { ...state, successMessage: action.value }
+		case "TOGGLE_SHOW_PASSWORD":
+			return { ...state, showPassword: !state.showPassword }
+		case "SET_LOGIN_EMAIL":
+			return { ...state, loginEmail: action.value }
+		case "SET_LOGIN_PASSWORD":
+			return { ...state, loginPassword: action.value }
+		case "SET_REMEMBER_ME":
+			return { ...state, rememberMe: action.value }
+		case "SET_EMAIL_ERROR":
+			return { ...state, emailError: action.value }
+		case "SET_PASSWORD_ERROR":
+			return { ...state, passwordError: action.value }
+		case "SET_REGISTER_DATA":
+			return { ...state, registerData: { ...state.registerData, ...action.value } }
+		case "SET_REGISTER_EMAIL_ERROR":
+			return { ...state, registerEmailError: action.value }
+		case "SET_FORGOT_EMAIL":
+			return { ...state, forgotEmail: action.value }
+		case "SET_NEW_PASSWORD":
+			return { ...state, newPassword: action.value }
+		case "CLEAR_MESSAGES":
+			return { ...state, error: "", successMessage: "", emailError: "", passwordError: "", registerEmailError: "" }
+		default:
+			return state
+	}
+}
 
 // FAB Email validation regex
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
@@ -69,48 +146,47 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	// --- RATE LIMITER ---
 	const { isLocked, retryAfter, onFailure, onSuccess } = useLoginRateLimiter()
 
-	// --- ESTADOS GERAIS ---
-	const [currentView, setCurrentView] = useState<AuthView>(searchParams.token_hash ? "reset" : "auth")
-
-	// Local state for active tab if not controlled, or sync with props
-	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
-
-	// Sync internal tab state with prop changes
-	useEffect(() => {
-		if (searchParams.tab) {
-			setActiveTab(searchParams.tab)
-		}
-	}, [searchParams.tab])
-
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [error, setError] = useState("")
-	const [successMessage, setSuccessMessage] = useState("")
-	const [showPassword, setShowPassword] = useState(false)
-
-	// --- ESTADOS DOS FORMULÁRIOS ---
-	const [loginEmail, setLoginEmail] = useState("")
-	const [loginPassword, setLoginPassword] = useState("")
-	const [rememberMe, setRememberMe] = useState(false)
-	const [emailError, setEmailError] = useState("")
-	const [passwordError, setPasswordError] = useState("")
-
-	const [registerData, setRegisterData] = useState({
-		name: "",
-		email: "",
-		password: "",
-		confirm: "",
+	const [authState, dispatch] = useReducer(authScreenReducer, {
+		currentView: searchParams.token_hash ? "reset" : "auth",
+		activeTab: searchParams.tab || "login",
+		isSubmitting: false,
+		error: "",
+		successMessage: "",
+		showPassword: false,
+		loginEmail: "",
+		loginPassword: "",
+		rememberMe: false,
+		emailError: "",
+		passwordError: "",
+		registerData: { name: "", email: "", password: "", confirm: "" },
+		registerEmailError: "",
+		forgotEmail: "",
+		newPassword: "",
 	})
-	const [registerEmailError, setRegisterEmailError] = useState("")
-
-	const [forgotEmail, setForgotEmail] = useState("")
-	const [newPassword, setNewPassword] = useState("")
+	const {
+		currentView,
+		activeTab,
+		isSubmitting,
+		error,
+		successMessage,
+		showPassword,
+		loginEmail,
+		loginPassword,
+		rememberMe,
+		emailError,
+		passwordError,
+		registerData,
+		registerEmailError,
+		forgotEmail,
+		newPassword,
+	} = authState
 
 	// Carrega email salvo (remember me) ao montar
 	useEffect(() => {
 		const savedEmail = localStorage.getItem(STORAGE_KEY_REMEMBER_EMAIL)
 		if (savedEmail) {
-			setLoginEmail(savedEmail)
-			setRememberMe(true)
+			dispatch({ type: "SET_LOGIN_EMAIL", value: savedEmail })
+			dispatch({ type: "SET_REMEMBER_ME", value: true })
 		}
 	}, [])
 
@@ -124,52 +200,43 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 	// Sincroniza a Tab com a URL
 	const handleTabChange = (value: string) => {
-		setActiveTab(value)
-		setError("")
-		setSuccessMessage("")
+		dispatch({ type: "SET_TAB", value })
+		dispatch({ type: "SET_ERROR", value: "" })
+		dispatch({ type: "SET_SUCCESS_MESSAGE", value: "" })
 		if (onTabChange) {
 			onTabChange(value as "login" | "register")
-		} else {
-			// Fallback if no specific handler, try generic navigate?
-			// Actually index.tsx used navigate to update search params.
-			// We can let the parent handle this via onTabChange or generic onNavigate if needed,
-			// but here we just update local state if parent doesn't redirect.
 		}
 	}
 
 	// Troca de visualização (Login <-> Esqueci Senha)
 	const switchView = (view: AuthView) => {
-		setError("")
-		setSuccessMessage("")
-		setEmailError("")
-		setPasswordError("")
-		setRegisterEmailError("")
-		setCurrentView(view)
+		dispatch({ type: "CLEAR_MESSAGES" })
+		dispatch({ type: "SET_VIEW", value: view })
 	}
 
 	// --- HANDLERS ---
 
 	const handleLoginEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const email = e.target.value
-		setLoginEmail(email)
-		setError("")
-		setEmailError("")
+		dispatch({ type: "SET_LOGIN_EMAIL", value: email })
+		dispatch({ type: "SET_ERROR", value: "" })
+		dispatch({ type: "SET_EMAIL_ERROR", value: "" })
 
 		const normalized = normalizeEmail(email)
 		if (email && !FAB_EMAIL_REGEX.test(normalized)) {
-			setEmailError("Use seu email institucional @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "SET_EMAIL_ERROR", value: "Use seu email institucional @fab.mil.br (sem caracteres especiais)." })
 		}
 	}
 
 	const handleLoginPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setLoginPassword(e.target.value)
-		setError("")
-		setPasswordError("")
+		dispatch({ type: "SET_LOGIN_PASSWORD", value: e.target.value })
+		dispatch({ type: "SET_ERROR", value: "" })
+		dispatch({ type: "SET_PASSWORD_ERROR", value: "" })
 	}
 
 	const handleRememberMeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const checked = e.target.checked
-		setRememberMe(checked)
+		dispatch({ type: "SET_REMEMBER_ME", value: checked })
 
 		const normalized = normalizeEmail(loginEmail)
 		if (checked && loginEmail && FAB_EMAIL_REGEX.test(normalized)) {
@@ -187,19 +254,19 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 		// Validação local
 		if (!FAB_EMAIL_REGEX.test(normalized)) {
-			setEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "SET_EMAIL_ERROR", value: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
 			return
 		}
 
 		if (!loginPassword) {
-			setPasswordError("Informe a senha.")
+			dispatch({ type: "SET_PASSWORD_ERROR", value: "Informe a senha." })
 			return
 		}
 
-		setIsSubmitting(true)
-		setError("")
-		setEmailError("")
-		setPasswordError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
+		dispatch({ type: "SET_EMAIL_ERROR", value: "" })
+		dispatch({ type: "SET_PASSWORD_ERROR", value: "" })
 
 		try {
 			await actions.signIn(normalized, loginPassword)
@@ -220,24 +287,24 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			const errorMsg = err instanceof Error ? err.message : "Erro desconhecido"
 			// Tratamento de erros específicos
 			if (errorMsg.includes("Email ou senha incorretos") || errorMsg.includes("Invalid login credentials")) {
-				setPasswordError("Senha incorreta ou email não cadastrado")
+				dispatch({ type: "SET_PASSWORD_ERROR", value: "Senha incorreta ou email não cadastrado" })
 			} else {
-				setError(errorMsg || "Ocorreu um erro durante a autenticação. Tente mais tarde.")
+				dispatch({ type: "SET_ERROR", value: errorMsg || "Ocorreu um erro durante a autenticação. Tente mais tarde." })
 			}
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
 	const handleRegisterEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const email = e.target.value
-		setRegisterData({ ...registerData, email })
-		setError("")
-		setRegisterEmailError("")
+		dispatch({ type: "SET_REGISTER_DATA", value: { email } })
+		dispatch({ type: "SET_ERROR", value: "" })
+		dispatch({ type: "SET_REGISTER_EMAIL_ERROR", value: "" })
 
 		const normalized = normalizeEmail(email)
 		if (email && !FAB_EMAIL_REGEX.test(normalized)) {
-			setRegisterEmailError("Use seu email institucional @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "SET_REGISTER_EMAIL_ERROR", value: "Use seu email institucional @fab.mil.br (sem caracteres especiais)." })
 		}
 	}
 
@@ -248,35 +315,35 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 		// Validação local
 		if (!FAB_EMAIL_REGEX.test(normalized)) {
-			setRegisterEmailError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "SET_REGISTER_EMAIL_ERROR", value: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
 			return
 		}
 
 		const regPwErr = getPasswordError(registerData.password)
 		if (regPwErr) {
-			setError(regPwErr)
+			dispatch({ type: "SET_ERROR", value: regPwErr })
 			return
 		}
 
 		if (registerData.password !== registerData.confirm) {
-			setError("As senhas não coincidem.")
+			dispatch({ type: "SET_ERROR", value: "As senhas não coincidem." })
 			return
 		}
 
-		setIsSubmitting(true)
-		setError("")
-		setRegisterEmailError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
+		dispatch({ type: "SET_REGISTER_EMAIL_ERROR", value: "" })
 
 		try {
 			await actions.signUp(normalized, registerData.password, registerData.name)
-			setSuccessMessage("Conta criada! Verifique seu email.")
+			dispatch({ type: "SET_SUCCESS_MESSAGE", value: "Conta criada! Verifique seu email." })
 			handleTabChange("login")
-			setLoginEmail(normalized)
+			dispatch({ type: "SET_LOGIN_EMAIL", value: normalized })
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : "Erro ao criar conta."
-			setError(errorMsg)
+			dispatch({ type: "SET_ERROR", value: errorMsg })
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -286,21 +353,21 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		const normalized = normalizeEmail(forgotEmail)
 
 		if (!FAB_EMAIL_REGEX.test(normalized)) {
-			setError("Email inválido. Use seu email @fab.mil.br (sem caracteres especiais).")
+			dispatch({ type: "SET_ERROR", value: "Email inválido. Use seu email @fab.mil.br (sem caracteres especiais)." })
 			return
 		}
 
-		setIsSubmitting(true)
-		setError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
 
 		try {
 			await actions.resetPassword(normalized)
-			setSuccessMessage("Email de recuperação enviado! Verifique sua caixa de entrada.")
+			dispatch({ type: "SET_SUCCESS_MESSAGE", value: "Email de recuperação enviado! Verifique sua caixa de entrada." })
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : "Erro ao enviar email."
-			setError(errorMsg)
+			dispatch({ type: "SET_ERROR", value: errorMsg })
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -309,12 +376,12 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 		const resetPwErr = getPasswordError(newPassword)
 		if (resetPwErr) {
-			setError(resetPwErr)
+			dispatch({ type: "SET_ERROR", value: resetPwErr })
 			return
 		}
 
-		setIsSubmitting(true)
-		setError("")
+		dispatch({ type: "SET_SUBMITTING", value: true })
+		dispatch({ type: "SET_ERROR", value: "" })
 
 		try {
 			const { error } = await actions.updateUserPassword(newPassword)
@@ -323,9 +390,9 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			await onNavigate({ to: "/" })
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : "Erro ao atualizar senha."
-			setError(errorMsg)
+			dispatch({ type: "SET_ERROR", value: errorMsg })
 		} finally {
-			setIsSubmitting(false)
+			dispatch({ type: "SET_SUBMITTING", value: false })
 		}
 	}
 
@@ -336,7 +403,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 			const verifyOtp = async () => {
 				const { error } = await actions.verifyOtp(tokenHash, "email")
 				if (error) {
-					setError("Link inválido ou expirado. Solicite uma nova recuperação.")
+					dispatch({ type: "SET_ERROR", value: "Link inválido ou expirado. Solicite uma nova recuperação." })
 				}
 			}
 			verifyOtp()
@@ -386,7 +453,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									type="password"
 									className={`${inputClasses} pl-11`}
 									value={newPassword}
-									onChange={(e) => setNewPassword(e.target.value)}
+									onChange={(e) => dispatch({ type: "SET_NEW_PASSWORD", value: e.target.value })}
 									required
 									minLength={8}
 									placeholder="Mínimo 8 caracteres"
@@ -445,7 +512,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 									placeholder="seu.nome@fab.mil.br"
 									className={`${inputClasses} pl-11`}
 									value={forgotEmail}
-									onChange={(e) => setForgotEmail(e.target.value)}
+									onChange={(e) => dispatch({ type: "SET_FORGOT_EMAIL", value: e.target.value })}
 									required
 									autoComplete="email"
 								/>
@@ -573,7 +640,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 										/>
 										<button
 											type="button"
-											onClick={() => setShowPassword(!showPassword)}
+											onClick={() => dispatch({ type: "TOGGLE_SHOW_PASSWORD" })}
 											className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
 										>
 											{showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -641,12 +708,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											placeholder="Seu nome"
 											className={`${inputClasses} pl-11`}
 											value={registerData.name}
-											onChange={(e) =>
-												setRegisterData({
-													...registerData,
-													name: e.target.value,
-												})
-											}
+											onChange={(e) => dispatch({ type: "SET_REGISTER_DATA", value: { name: e.target.value } })}
 											required
 											autoComplete="name"
 											disabled={isSubmitting}
@@ -684,12 +746,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											placeholder="••••••••"
 											className={`${inputClasses} pl-11`}
 											value={registerData.password}
-											onChange={(e) =>
-												setRegisterData({
-													...registerData,
-													password: e.target.value,
-												})
-											}
+											onChange={(e) => dispatch({ type: "SET_REGISTER_DATA", value: { password: e.target.value } })}
 											required
 											minLength={8}
 											autoComplete="new-password"
@@ -706,12 +763,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											placeholder="••••••••"
 											className={`${inputClasses} pl-11`}
 											value={registerData.confirm}
-											onChange={(e) =>
-												setRegisterData({
-													...registerData,
-													confirm: e.target.value,
-												})
-											}
+											onChange={(e) => dispatch({ type: "SET_REGISTER_DATA", value: { confirm: e.target.value } })}
 											required
 											autoComplete="new-password"
 											disabled={isSubmitting}

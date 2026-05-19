@@ -1,7 +1,7 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { Loader2, Plus, Save, Users, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useReducer } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -143,6 +143,53 @@ function EventGroupSection({
 	)
 }
 
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type EventEditorState = {
+	name: string
+	description: string
+	items: TemplateItemDraft[]
+	initialized: boolean
+	selectorOpen: boolean
+	selectedMealTypeId: string | null
+}
+
+type EventEditorAction =
+	| { type: "SET_NAME"; value: string }
+	| { type: "SET_DESCRIPTION"; value: string }
+	| { type: "SET_ITEMS"; value: TemplateItemDraft[] }
+	| { type: "SET_INITIALIZED" }
+	| { type: "SET_SELECTOR_OPEN"; value: boolean }
+	| { type: "SET_SELECTED_MEAL_TYPE_ID"; value: string | null }
+
+const initialEventEditorState: EventEditorState = {
+	name: "",
+	description: "",
+	items: [],
+	initialized: false,
+	selectorOpen: false,
+	selectedMealTypeId: null,
+}
+
+function eventEditorReducer(state: EventEditorState, action: EventEditorAction): EventEditorState {
+	switch (action.type) {
+		case "SET_NAME":
+			return { ...state, name: action.value }
+		case "SET_DESCRIPTION":
+			return { ...state, description: action.value }
+		case "SET_ITEMS":
+			return { ...state, items: action.value }
+		case "SET_INITIALIZED":
+			return { ...state, initialized: true }
+		case "SET_SELECTOR_OPEN":
+			return { ...state, selectorOpen: action.value }
+		case "SET_SELECTED_MEAL_TYPE_ID":
+			return { ...state, selectedMealTypeId: action.value }
+		default:
+			return state
+	}
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function EventEditorPage() {
@@ -155,26 +202,23 @@ function EventEditorPage() {
 	const { data: allRecipes } = useRecipes()
 	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
 
-	const [name, setName] = useState("")
-	const [description, setDescription] = useState("")
-	const [items, setItems] = useState<TemplateItemDraft[]>([])
-	const [initialized, setInitialized] = useState(false)
-	const [selectorOpen, setSelectorOpen] = useState(false)
-	const [selectedMealTypeId, setSelectedMealTypeId] = useState<string | null>(null)
+	const [editorState, dispatch] = useReducer(eventEditorReducer, initialEventEditorState)
+	const { name, description, items, initialized, selectorOpen, selectedMealTypeId } = editorState
 
 	useEffect(() => {
 		if (!template || initialized) return
-		setName(template.name ?? "")
-		setDescription(template.description ?? "")
-		setItems(
-			template.items.map((item) => ({
+		dispatch({ type: "SET_NAME", value: template.name ?? "" })
+		dispatch({ type: "SET_DESCRIPTION", value: template.description ?? "" })
+		dispatch({
+			type: "SET_ITEMS",
+			value: template.items.map((item) => ({
 				day_of_week: EVENT_DAY,
 				meal_type_id: item.meal_type_id ?? "",
 				recipe_id: item.recipe_id ?? "",
 				headcount_override: item.headcount_override ?? null,
-			}))
-		)
-		setInitialized(true)
+			})),
+		})
+		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized])
 
 	// ── Helpers ────────────────────────────────────────────────────────────────
@@ -191,12 +235,15 @@ function EventEditorPage() {
 
 	/** Atualiza o headcount de uma preparação específica dentro de um grupo. */
 	const handleItemHeadcountChange = (mealTypeId: string, recipeId: string, value: number | null) => {
-		setItems((prev) => prev.map((i) => (i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i)))
+		dispatch({
+			type: "SET_ITEMS",
+			value: items.map((i) => (i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i)),
+		})
 	}
 
 	const handleOpenSelector = (mealTypeId: string) => {
-		setSelectedMealTypeId(mealTypeId)
-		setSelectorOpen(true)
+		dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: mealTypeId })
+		dispatch({ type: "SET_SELECTOR_OPEN", value: true })
 	}
 
 	const handleSelectRecipes = (recipeIds: string[]) => {
@@ -211,12 +258,12 @@ function EventEditorPage() {
 			recipe_id: recipeId,
 			headcount_override: existingHeadcounts.get(recipeId) ?? null,
 		}))
-		setItems([...filtered, ...newItems])
-		setSelectedMealTypeId(null)
+		dispatch({ type: "SET_ITEMS", value: [...filtered, ...newItems] })
+		dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: null })
 	}
 
 	const handleRemoveRecipe = (mealTypeId: string, recipeId: string) => {
-		setItems(items.filter((i) => !(i.meal_type_id === mealTypeId && i.recipe_id === recipeId)))
+		dispatch({ type: "SET_ITEMS", value: items.filter((i) => !(i.meal_type_id === mealTypeId && i.recipe_id === recipeId)) })
 	}
 
 	const handleSave = () => {
@@ -318,11 +365,22 @@ function EventEditorPage() {
 									<FieldLabel htmlFor="name">
 										Nome <span className="text-destructive">*</span>
 									</FieldLabel>
-									<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Almoço de Formatura" required />
+									<Input
+										id="name"
+										value={name}
+										onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })}
+										placeholder="Ex.: Almoço de Formatura"
+										required
+									/>
 								</Field>
 								<Field>
 									<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-									<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Contexto ou observações" />
+									<Input
+										id="description"
+										value={description}
+										onChange={(e) => dispatch({ type: "SET_DESCRIPTION", value: e.target.value })}
+										placeholder="Contexto ou observações"
+									/>
 								</Field>
 							</FieldGroup>
 						</CardContent>
@@ -370,8 +428,8 @@ function EventEditorPage() {
 				<RecipeSelector
 					open={selectorOpen}
 					onClose={() => {
-						setSelectorOpen(false)
-						setSelectedMealTypeId(null)
+						dispatch({ type: "SET_SELECTOR_OPEN", value: false })
+						dispatch({ type: "SET_SELECTED_MEAL_TYPE_ID", value: null })
 					}}
 					kitchenId={kitchenId}
 					selectedRecipeIds={currentSelectorRecipeIds}

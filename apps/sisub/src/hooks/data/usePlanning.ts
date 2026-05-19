@@ -60,11 +60,9 @@ export function useCreateDailyMenu() {
 
 	return useMutation({
 		mutationFn: async (menus: DailyMenuInsert[]) => {
-			// Domain upserts one menu at a time; iterate (callers typically pass 1 item)
-			const results = []
-			for (const m of menus) {
-				results.push(
-					await upsertDailyMenuFn({
+			return await Promise.all(
+				menus.map(async (m) =>
+					upsertDailyMenuFn({
 						data: {
 							kitchenId: m.kitchen_id as number,
 							serviceDate: m.service_date as string,
@@ -74,8 +72,7 @@ export function useCreateDailyMenu() {
 						},
 					})
 				)
-			}
-			return results
+			)
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.menus() })

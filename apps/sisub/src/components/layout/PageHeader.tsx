@@ -11,6 +11,8 @@ interface PageHeaderProps {
 	children?: ReactNode
 	/** Simple programmatic back — para back via Link, passe-o dentro de children */
 	onBack?: () => void
+	/** Suppress hydration warning on the description <p> (use when description contains client-only values like new Date()) */
+	suppressDescriptionHydrationWarning?: boolean
 }
 
 /**
@@ -34,7 +36,7 @@ interface PageHeaderProps {
  * Adicione `description` apenas quando a página precisa de contexto que o título
  * não transmite (ex.: orientação de uso, nome dinâmico de entidade, dados de contexto).
  */
-export function PageHeader({ title, description, badge, children, onBack }: PageHeaderProps) {
+export function PageHeader({ title, description, badge, children, onBack, suppressDescriptionHydrationWarning }: PageHeaderProps) {
 	return (
 		<header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 border-b border-border/60 pb-4">
 			<div className="flex items-start gap-2 min-w-0">
@@ -48,7 +50,11 @@ export function PageHeader({ title, description, badge, children, onBack }: Page
 						<h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">{title}</h1>
 						{badge}
 					</div>
-					{description && <p className="mt-0.5 text-sm text-muted-foreground leading-snug max-w-prose">{description}</p>}
+					{description && (
+						<p suppressHydrationWarning={suppressDescriptionHydrationWarning} className="mt-0.5 text-sm text-muted-foreground leading-snug max-w-prose">
+							{description}
+						</p>
+					)}
 				</div>
 			</div>
 			{children && <div className="flex flex-wrap items-center gap-2 shrink-0 sm:pt-px">{children}</div>}

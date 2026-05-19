@@ -8,7 +8,7 @@
  * Motivo da separação: o layout _protected/route.tsx é responsável apenas por
  * autenticação e fundo visual. A lógica de onboarding tem responsabilidade própria.
  */
-import { useCallback, useState } from "react"
+import { useCallback, useReducer } from "react"
 import { EvaluationDialog } from "@/components/features/messhall/EvaluationDialog"
 import { SaramDialog } from "@/components/features/messhall/SaramDialog"
 import { useAuth } from "@/hooks/auth/useAuth"
@@ -17,6 +17,65 @@ import { useEvaluation, useSubmitEvaluation } from "@/hooks/data/useEvaluation"
 
 const NR_ORDEM_MIN_LEN = 7
 
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type OnboardingState = {
+	nrDialogOpenState: boolean
+	nrOrdem: string
+	nrError: string | null
+	prevServerNrOrdem: string
+	evaluationDismissed: boolean
+	selectedRating: number | null
+	prevSaveStatus: string
+	prevVoteSuccess: boolean
+}
+
+type OnboardingAction =
+	| { type: "SET_NR_DIALOG_OPEN"; value: boolean }
+	| { type: "SET_NR_ORDEM"; value: string }
+	| { type: "SET_NR_ERROR"; value: string | null }
+	| { type: "SET_PREV_SERVER_NR_ORDEM"; value: string }
+	| { type: "SET_EVALUATION_DISMISSED"; value: boolean }
+	| { type: "SET_SELECTED_RATING"; value: number | null }
+	| { type: "SET_PREV_SAVE_STATUS"; value: string }
+	| { type: "SET_PREV_VOTE_SUCCESS"; value: boolean }
+
+function onboardingReducer(state: OnboardingState, action: OnboardingAction): OnboardingState {
+	switch (action.type) {
+		case "SET_NR_DIALOG_OPEN":
+			return { ...state, nrDialogOpenState: action.value }
+		case "SET_NR_ORDEM":
+			return { ...state, nrOrdem: action.value }
+		case "SET_NR_ERROR":
+			return { ...state, nrError: action.value }
+		case "SET_PREV_SERVER_NR_ORDEM":
+			return { ...state, prevServerNrOrdem: action.value }
+		case "SET_EVALUATION_DISMISSED":
+			return { ...state, evaluationDismissed: action.value }
+		case "SET_SELECTED_RATING":
+			return { ...state, selectedRating: action.value }
+		case "SET_PREV_SAVE_STATUS":
+			return { ...state, prevSaveStatus: action.value }
+		case "SET_PREV_VOTE_SUCCESS":
+			return { ...state, prevVoteSuccess: action.value }
+		default:
+			return state
+	}
+}
+
+function makeInitialOnboardingState(serverNrOrdem: string): OnboardingState {
+	return {
+		nrDialogOpenState: false,
+		nrOrdem: serverNrOrdem,
+		nrError: null,
+		prevServerNrOrdem: serverNrOrdem,
+		evaluationDismissed: false,
+		selectedRating: null,
+		prevSaveStatus: "idle",
+		prevVoteSuccess: false,
+	}
+}
+
 export function OnboardingDialogs() {
 	const { user } = useAuth()
 	const userId = user?.id ?? null
@@ -24,18 +83,16 @@ export function OnboardingDialogs() {
 	const nrOrdemQuery = useUserNrOrdem(userId)
 	const evaluationQuery = useEvaluation(userId)
 
+	const serverNrOrdem = !userId ? "" : nrOrdemQuery.data ? String(nrOrdemQuery.data) : ""
+	const [state, dispatch] = useReducer(onboardingReducer, serverNrOrdem, makeInitialOnboardingState)
+	const { nrDialogOpenState, nrOrdem, nrError, prevServerNrOrdem, evaluationDismissed, selectedRating, prevSaveStatus, prevVoteSuccess } = state
+
 	/* ------------------------------------------------------------------
 	   NrOrdem Dialog
 	   ------------------------------------------------------------------ */
-	const serverNrOrdem = !userId ? "" : nrOrdemQuery.data ? String(nrOrdemQuery.data) : ""
-	const [nrDialogOpenState, setNrDialogOpenState] = useState(false)
-	const [nrOrdem, setNrOrdem] = useState(serverNrOrdem)
-	const [nrError, setNrError] = useState<string | null>(null)
-	const [prevServerNrOrdem, setPrevServerNrOrdem] = useState(serverNrOrdem)
-
 	if (prevServerNrOrdem !== serverNrOrdem) {
-		setPrevServerNrOrdem(serverNrOrdem)
-		setNrOrdem(serverNrOrdem)
+		dispatch({ type: "SET_PREV_SERVER_NR_ORDEM", value: serverNrOrdem })
+		dispatch({ type: "SET_NR_ORDEM", value: serverNrOrdem })
 	}
 
 	const shouldForceNrDialog = !!userId && nrOrdemQuery.isSuccess && !nrOrdemQuery.data
@@ -43,34 +100,33 @@ export function OnboardingDialogs() {
 
 	const saveNrMutation = useUpdateNrOrdem()
 
-	const [prevSaveStatus, setPrevSaveStatus] = useState(saveNrMutation.status)
 	if (prevSaveStatus !== saveNrMutation.status) {
-		setPrevSaveStatus(saveNrMutation.status)
+		dispatch({ type: "SET_PREV_SAVE_STATUS", value: saveNrMutation.status })
 		if (saveNrMutation.isError) {
-			setNrError("Não foi possível salvar. Tente novamente.")
+			dispatch({ type: "SET_NR_ERROR", value: "Não foi possível salvar. Tente novamente." })
 		} else if (saveNrMutation.isSuccess) {
-			setNrDialogOpenState(false)
+			dispatch({ type: "SET_NR_DIALOG_OPEN", value: false })
 		}
 	}
 
 	const handleNrDialogOpenChange = (open: boolean) => {
 		if (!open && shouldForceNrDialog) return
-		setNrDialogOpenState(open)
+		dispatch({ type: "SET_NR_DIALOG_OPEN", value: open })
 	}
 
 	const handleNrOrdemChange = (value: string) => {
-		setNrOrdem(value)
-		if (nrError) setNrError(null)
+		dispatch({ type: "SET_NR_ORDEM", value })
+		if (nrError) dispatch({ type: "SET_NR_ERROR", value: null })
 	}
 
 	const handleSubmitNrOrdem = () => {
 		const digitsOnly = nrOrdem.replace(/\D/g, "").trim()
 		if (!digitsOnly) {
-			setNrError("Informe seu número de Ordem.")
+			dispatch({ type: "SET_NR_ERROR", value: "Informe seu número de Ordem." })
 			return
 		}
 		if (digitsOnly.length < NR_ORDEM_MIN_LEN) {
-			setNrError("Nr. de Ordem parece curto. Confira e tente novamente.")
+			dispatch({ type: "SET_NR_ERROR", value: "Nr. de Ordem parece curto. Confira e tente novamente." })
 			return
 		}
 		if (!user) return
@@ -80,9 +136,6 @@ export function OnboardingDialogs() {
 	/* ------------------------------------------------------------------
 	   Evaluation Dialog
 	   ------------------------------------------------------------------ */
-	const [evaluationDismissed, setEvaluationDismissed] = useState(false)
-	const [selectedRating, setSelectedRating] = useState<number | null>(null)
-
 	const evaluationQuestion = evaluationQuery.data?.question ?? null
 	const evaluationShouldAsk = Boolean(evaluationQuery.data?.shouldAsk && evaluationQuestion)
 
@@ -90,18 +143,17 @@ export function OnboardingDialogs() {
 
 	const handleEvaluationOpenChange = useCallback((open: boolean) => {
 		if (!open) {
-			setEvaluationDismissed(true)
-			setSelectedRating(null)
+			dispatch({ type: "SET_EVALUATION_DISMISSED", value: true })
+			dispatch({ type: "SET_SELECTED_RATING", value: null })
 		} else {
-			setEvaluationDismissed(false)
+			dispatch({ type: "SET_EVALUATION_DISMISSED", value: false })
 		}
 	}, [])
 
 	const submitVoteMutation = useSubmitEvaluation(userId)
 
-	const [prevVoteSuccess, setPrevVoteSuccess] = useState(submitVoteMutation.isSuccess)
 	if (prevVoteSuccess !== submitVoteMutation.isSuccess) {
-		setPrevVoteSuccess(submitVoteMutation.isSuccess)
+		dispatch({ type: "SET_PREV_VOTE_SUCCESS", value: submitVoteMutation.isSuccess })
 		if (submitVoteMutation.isSuccess) {
 			handleEvaluationOpenChange(false)
 		}
@@ -131,7 +183,7 @@ export function OnboardingDialogs() {
 				selectedRating={selectedRating}
 				isSubmitting={submitVoteMutation.isPending}
 				onOpenChange={handleEvaluationOpenChange}
-				onSelectRating={setSelectedRating}
+				onSelectRating={(rating) => dispatch({ type: "SET_SELECTED_RATING", value: rating })}
 				onSubmit={handleSubmitVote}
 			/>
 		</>

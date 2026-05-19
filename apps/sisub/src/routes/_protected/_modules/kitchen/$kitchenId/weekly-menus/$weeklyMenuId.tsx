@@ -1,7 +1,7 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, Users, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useReducer } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -221,6 +221,58 @@ function DayMealSection({
 	)
 }
 
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type WeeklyMenuEditorState = {
+	name: string
+	description: string
+	items: TemplateItemDraft[]
+	initialized: boolean
+	activeTab: string
+	selectorOpen: boolean
+	selectedCell: { dayOfWeek: number; mealTypeId: string } | null
+}
+
+type WeeklyMenuEditorAction =
+	| { type: "SET_NAME"; value: string }
+	| { type: "SET_DESCRIPTION"; value: string }
+	| { type: "SET_ITEMS"; value: TemplateItemDraft[] }
+	| { type: "SET_INITIALIZED" }
+	| { type: "SET_ACTIVE_TAB"; value: string }
+	| { type: "SET_SELECTOR_OPEN"; value: boolean }
+	| { type: "SET_SELECTED_CELL"; value: { dayOfWeek: number; mealTypeId: string } | null }
+
+const initialWeeklyMenuEditorState: WeeklyMenuEditorState = {
+	name: "",
+	description: "",
+	items: [],
+	initialized: false,
+	activeTab: "overview",
+	selectorOpen: false,
+	selectedCell: null,
+}
+
+function weeklyMenuEditorReducer(state: WeeklyMenuEditorState, action: WeeklyMenuEditorAction): WeeklyMenuEditorState {
+	switch (action.type) {
+		case "SET_NAME":
+			return { ...state, name: action.value }
+		case "SET_DESCRIPTION":
+			return { ...state, description: action.value }
+		case "SET_ITEMS":
+			return { ...state, items: action.value }
+		case "SET_INITIALIZED":
+			return { ...state, initialized: true }
+		case "SET_ACTIVE_TAB":
+			return { ...state, activeTab: action.value }
+		case "SET_SELECTOR_OPEN":
+			return { ...state, selectorOpen: action.value }
+		case "SET_SELECTED_CELL":
+			return { ...state, selectedCell: action.value }
+		default:
+			return state
+	}
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function WeeklyMenuEditorPage() {
@@ -233,30 +285,23 @@ function WeeklyMenuEditorPage() {
 	const { data: allRecipes } = useRecipes()
 	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
 
-	const [name, setName] = useState("")
-	const [description, setDescription] = useState("")
-	const [items, setItems] = useState<TemplateItemDraft[]>([])
-	const [initialized, setInitialized] = useState(false)
-	const [activeTab, setActiveTab] = useState("overview")
-	const [selectorOpen, setSelectorOpen] = useState(false)
-	const [selectedCell, setSelectedCell] = useState<{
-		dayOfWeek: number
-		mealTypeId: string
-	} | null>(null)
+	const [editorState, dispatch] = useReducer(weeklyMenuEditorReducer, initialWeeklyMenuEditorState)
+	const { name, description, items, initialized, activeTab, selectorOpen, selectedCell } = editorState
 
 	useEffect(() => {
 		if (!template || initialized) return
-		setName(template.name ?? "")
-		setDescription(template.description ?? "")
-		setItems(
-			template.items.map((item) => ({
+		dispatch({ type: "SET_NAME", value: template.name ?? "" })
+		dispatch({ type: "SET_DESCRIPTION", value: template.description ?? "" })
+		dispatch({
+			type: "SET_ITEMS",
+			value: template.items.map((item) => ({
 				day_of_week: item.day_of_week ?? 0,
 				meal_type_id: item.meal_type_id ?? "",
 				recipe_id: item.recipe_id ?? "",
 				headcount_override: item.headcount_override ?? null,
-			}))
-		)
-		setInitialized(true)
+			})),
+		})
+		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized])
 
 	/** Retorna as preparações de uma célula (dia + tipo de refeição) com seus headcounts individuais. */
@@ -271,14 +316,17 @@ function WeeklyMenuEditorPage() {
 
 	/** Atualiza o headcount de uma preparação específica dentro de uma célula. */
 	const handleItemHeadcountChange = (dayOfWeek: number, mealTypeId: string, recipeId: string, value: number | null) => {
-		setItems((prev) =>
-			prev.map((i) => (i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i))
-		)
+		dispatch({
+			type: "SET_ITEMS",
+			value: items.map((i) =>
+				i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, headcount_override: value } : i
+			),
+		})
 	}
 
 	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string) => {
-		setSelectedCell({ dayOfWeek, mealTypeId })
-		setSelectorOpen(true)
+		dispatch({ type: "SET_SELECTED_CELL", value: { dayOfWeek, mealTypeId } })
+		dispatch({ type: "SET_SELECTOR_OPEN", value: true })
 	}
 
 	const handleSelectRecipes = (recipeIds: string[]) => {
@@ -293,12 +341,12 @@ function WeeklyMenuEditorPage() {
 			recipe_id: recipeId,
 			headcount_override: existingHeadcounts.get(recipeId) ?? null,
 		}))
-		setItems([...filtered, ...newItems])
-		setSelectedCell(null)
+		dispatch({ type: "SET_ITEMS", value: [...filtered, ...newItems] })
+		dispatch({ type: "SET_SELECTED_CELL", value: null })
 	}
 
 	const handleRemoveRecipe = (dayOfWeek: number, mealTypeId: string, recipeId: string) => {
-		setItems(items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId)))
+		dispatch({ type: "SET_ITEMS", value: items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId)) })
 	}
 
 	const currentCellRecipeIds = selectedCell
@@ -401,11 +449,22 @@ function WeeklyMenuEditorPage() {
 									<FieldLabel htmlFor="name">
 										Nome <span className="text-destructive">*</span>
 									</FieldLabel>
-									<Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Semana Padrão" required />
+									<Input
+										id="name"
+										value={name}
+										onChange={(e) => dispatch({ type: "SET_NAME", value: e.target.value })}
+										placeholder="Ex.: Semana Padrão"
+										required
+									/>
 								</Field>
 								<Field>
 									<FieldLabel htmlFor="description">Descrição (opcional)</FieldLabel>
-									<Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Breve descrição" />
+									<Input
+										id="description"
+										value={description}
+										onChange={(e) => dispatch({ type: "SET_DESCRIPTION", value: e.target.value })}
+										placeholder="Breve descrição"
+									/>
 								</Field>
 							</FieldGroup>
 							{isFork && (
@@ -421,7 +480,7 @@ function WeeklyMenuEditorPage() {
 					</Card>
 
 					{/* Tabs: Visão Geral + dias */}
-					<Tabs value={activeTab} onValueChange={setActiveTab}>
+					<Tabs value={activeTab} onValueChange={(v) => dispatch({ type: "SET_ACTIVE_TAB", value: v })}>
 						<TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden">
 							<TabsTrigger value="overview" className="gap-1.5">
 								<span>Visão Geral</span>
@@ -465,7 +524,7 @@ function WeeklyMenuEditorPage() {
 										mealTypes={mealTypes ?? []}
 										items={items}
 										recipeMap={recipeMap}
-										onNavigate={() => setActiveTab(String(day.num))}
+										onNavigate={() => dispatch({ type: "SET_ACTIVE_TAB", value: String(day.num) })}
 									/>
 								))}
 							</div>
@@ -512,8 +571,8 @@ function WeeklyMenuEditorPage() {
 				<RecipeSelector
 					open={selectorOpen}
 					onClose={() => {
-						setSelectorOpen(false)
-						setSelectedCell(null)
+						dispatch({ type: "SET_SELECTOR_OPEN", value: false })
+						dispatch({ type: "SET_SELECTED_CELL", value: null })
 					}}
 					kitchenId={kitchenId}
 					selectedRecipeIds={currentCellRecipeIds}

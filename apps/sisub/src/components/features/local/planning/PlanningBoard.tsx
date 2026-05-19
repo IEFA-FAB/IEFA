@@ -15,7 +15,7 @@ import {
 } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { CalendarDays, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Trash2, Users } from "lucide-react"
-import { useState } from "react"
+import { useReducer } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -28,21 +28,84 @@ import { MealTypeManager } from "./MealTypeManager"
 import { TemplatePalette } from "./TemplatePalette"
 import { TrashDrawer } from "./TrashDrawer"
 
+// ─── Reducer ─────────────────────────────────────────────────────────────────
+
+type PlanningBoardState = {
+	currentMonth: Date
+	selectedDay: Date | null
+	selectedDays: Set<string>
+	isDrawerOpen: boolean
+	isTemplateModalOpen: boolean
+	isTrashOpen: boolean
+	isMealTypeManagerOpen: boolean
+	selectedTemplateId: string | null
+	templateTargetDates: string[]
+}
+
+type PlanningBoardAction =
+	| { type: "SET_CURRENT_MONTH"; value: Date }
+	| { type: "SET_SELECTED_DAY"; value: Date | null }
+	| { type: "SET_SELECTED_DAYS"; value: Set<string> }
+	| { type: "SET_DRAWER_OPEN"; value: boolean }
+	| { type: "SET_TEMPLATE_MODAL_OPEN"; value: boolean }
+	| { type: "SET_TRASH_OPEN"; value: boolean }
+	| { type: "SET_MEAL_TYPE_MANAGER_OPEN"; value: boolean }
+	| { type: "SET_SELECTED_TEMPLATE_ID"; value: string | null }
+	| { type: "SET_TEMPLATE_TARGET_DATES"; value: string[] }
+
+function planningBoardReducer(state: PlanningBoardState, action: PlanningBoardAction): PlanningBoardState {
+	switch (action.type) {
+		case "SET_CURRENT_MONTH":
+			return { ...state, currentMonth: action.value }
+		case "SET_SELECTED_DAY":
+			return { ...state, selectedDay: action.value }
+		case "SET_SELECTED_DAYS":
+			return { ...state, selectedDays: action.value }
+		case "SET_DRAWER_OPEN":
+			return { ...state, isDrawerOpen: action.value }
+		case "SET_TEMPLATE_MODAL_OPEN":
+			return { ...state, isTemplateModalOpen: action.value }
+		case "SET_TRASH_OPEN":
+			return { ...state, isTrashOpen: action.value }
+		case "SET_MEAL_TYPE_MANAGER_OPEN":
+			return { ...state, isMealTypeManagerOpen: action.value }
+		case "SET_SELECTED_TEMPLATE_ID":
+			return { ...state, selectedTemplateId: action.value }
+		case "SET_TEMPLATE_TARGET_DATES":
+			return { ...state, templateTargetDates: action.value }
+		default:
+			return state
+	}
+}
+
+const initialPlanningBoardState: PlanningBoardState = {
+	currentMonth: new Date(),
+	selectedDay: null,
+	selectedDays: new Set(),
+	isDrawerOpen: false,
+	isTemplateModalOpen: false,
+	isTrashOpen: false,
+	isMealTypeManagerOpen: false,
+	selectedTemplateId: null,
+	templateTargetDates: [],
+}
+
 export function PlanningBoard() {
 	const navigate = useNavigate()
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = Number(kitchenIdStr)
-	const [currentMonth, setCurrentMonth] = useState(new Date())
-	const [selectedDay, setSelectedDay] = useState<Date | null>(null) // For Drawer
-	const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set()) // For Bulk Actions
-	const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
-	const [isTrashOpen, setIsTrashOpen] = useState(false)
-	const [isMealTypeManagerOpen, setIsMealTypeManagerOpen] = useState(false)
-
-	// Template Brush System states
-	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
-	const [templateTargetDates, setTemplateTargetDates] = useState<string[]>([])
+	const [boardState, dispatch] = useReducer(planningBoardReducer, initialPlanningBoardState)
+	const {
+		currentMonth,
+		selectedDay,
+		selectedDays,
+		isDrawerOpen,
+		isTemplateModalOpen,
+		isTrashOpen,
+		isMealTypeManagerOpen,
+		selectedTemplateId,
+		templateTargetDates,
+	} = boardState
 
 	const monthStart = startOfMonth(currentMonth)
 	const monthEnd = endOfMonth(monthStart)
@@ -76,8 +139,8 @@ export function PlanningBoard() {
 		const targetDates = weekDays.map((d) => format(d, "yyyy-MM-dd"))
 
 		// Set dates and open dialog
-		setTemplateTargetDates(targetDates)
-		setIsTemplateModalOpen(true)
+		dispatch({ type: "SET_TEMPLATE_TARGET_DATES", value: targetDates })
+		dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: true })
 	}
 
 	const handleDayClick = (day: Date, e: React.MouseEvent) => {
@@ -97,21 +160,21 @@ export function PlanningBoard() {
 			} else {
 				newSelected.add(dayStr)
 			}
-			setSelectedDays(newSelected)
+			dispatch({ type: "SET_SELECTED_DAYS", value: newSelected })
 		} else {
 			// Single selection (View Drawer)
-			setSelectedDay(day)
-			setIsDrawerOpen(true)
+			dispatch({ type: "SET_SELECTED_DAY", value: day })
+			dispatch({ type: "SET_DRAWER_OPEN", value: true })
 		}
 	}
 
 	const handleMonthChange = (direction: -1 | 0 | 1) => {
 		if (direction === -1) {
-			setCurrentMonth((prev) => subMonths(prev, 1))
+			dispatch({ type: "SET_CURRENT_MONTH", value: subMonths(currentMonth, 1) })
 		} else if (direction === 1) {
-			setCurrentMonth((prev) => addMonths(prev, 1))
+			dispatch({ type: "SET_CURRENT_MONTH", value: addMonths(currentMonth, 1) })
 		} else {
-			setCurrentMonth(new Date())
+			dispatch({ type: "SET_CURRENT_MONTH", value: new Date() })
 		}
 	}
 
@@ -136,7 +199,9 @@ export function PlanningBoard() {
 								<TooltipTrigger
 									render={
 										<Button variant="ghost" size="sm" onClick={() => handleMonthChange(0)} className="h-8 px-2 text-xs">
-											<h2 className="w-sm text-xl sm:text-2xl font-bold tracking-tight capitalize">{format(currentMonth, "MMMM yyyy", { locale: ptBR })}</h2>
+											<h2 suppressHydrationWarning className="w-sm text-xl sm:text-2xl font-bold tracking-tight capitalize">
+												{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+											</h2>
 										</Button>
 									}
 								></TooltipTrigger>
@@ -175,7 +240,7 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button variant="ghost" size="sm" onClick={() => setIsMealTypeManagerOpen(true)} className="size-9 p-0">
+								<Button variant="ghost" size="sm" onClick={() => dispatch({ type: "SET_MEAL_TYPE_MANAGER_OPEN", value: true })} className="size-9 p-0">
 									<Settings className="size-4" />
 								</Button>
 							}
@@ -185,14 +250,20 @@ export function PlanningBoard() {
 					<Tooltip>
 						<TooltipTrigger
 							render={
-								<Button variant="ghost" size="sm" onClick={() => setIsTrashOpen(true)} className="size-9 p-0">
+								<Button variant="ghost" size="sm" onClick={() => dispatch({ type: "SET_TRASH_OPEN", value: true })} className="size-9 p-0">
 									<Trash2 className="size-4" />
 								</Button>
 							}
 						></TooltipTrigger>
 						<TooltipContent>Lixeira</TooltipContent>
 					</Tooltip>
-					<Button variant="outline" size="sm" onClick={() => setIsTemplateModalOpen(true)} disabled={selectedDays.size === 0} className="h-9">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: true })}
+						disabled={selectedDays.size === 0}
+						className="h-9"
+					>
 						<CalendarIcon className="size-4 sm:mr-2" />
 						<span className="hidden sm:inline">Aplicar</span>
 						<span className="ml-1">({selectedDays.size})</span>
@@ -204,7 +275,7 @@ export function PlanningBoard() {
 			<TemplatePalette
 				templates={templates || []}
 				selectedTemplateId={selectedTemplateId}
-				onSelectTemplate={setSelectedTemplateId}
+				onSelectTemplate={(id) => dispatch({ type: "SET_SELECTED_TEMPLATE_ID", value: id })}
 				onCreateNew={() =>
 					kitchenIdStr
 						? navigate({
@@ -288,21 +359,21 @@ export function PlanningBoard() {
 				</div>
 			</div>
 
-			<DayDrawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} date={selectedDay} kitchenId={kitchenId} />
+			<DayDrawer open={isDrawerOpen} onClose={() => dispatch({ type: "SET_DRAWER_OPEN", value: false })} date={selectedDay} kitchenId={kitchenId} />
 
 			<ApplyTemplateDialog
 				open={isTemplateModalOpen}
 				onClose={() => {
-					setIsTemplateModalOpen(false)
-					setTemplateTargetDates([])
+					dispatch({ type: "SET_TEMPLATE_MODAL_OPEN", value: false })
+					dispatch({ type: "SET_TEMPLATE_TARGET_DATES", value: [] })
 				}}
 				targetDates={templateTargetDates}
 				kitchenId={kitchenId || 0}
 			/>
 
-			<TrashDrawer open={isTrashOpen} onClose={() => setIsTrashOpen(false)} kitchenId={kitchenId || 0} />
+			<TrashDrawer open={isTrashOpen} onClose={() => dispatch({ type: "SET_TRASH_OPEN", value: false })} kitchenId={kitchenId || 0} />
 
-			<MealTypeManager open={isMealTypeManagerOpen} onClose={() => setIsMealTypeManagerOpen(false)} kitchenId={kitchenId} />
+			<MealTypeManager open={isMealTypeManagerOpen} onClose={() => dispatch({ type: "SET_MEAL_TYPE_MANAGER_OPEN", value: false })} kitchenId={kitchenId} />
 		</div>
 	)
 }

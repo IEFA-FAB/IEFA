@@ -253,9 +253,23 @@
 }
 
 
-::view-transition-old(root), ::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
+/* Theme toggle view transition — circular reveal from button position */
+::view-transition-new(root) {
+	animation: vt-theme-reveal var(--vt-duration, 400ms) ease-in-out;
+	clip-path: circle(0px at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
+}
+
+::view-transition-old(root) {
+	animation: none;
+}
+
+@keyframes vt-theme-reveal {
+	from {
+		clip-path: circle(0px at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
+	}
+	to {
+		clip-path: circle(var(--vt-clip-r, 100vmax) at var(--vt-clip-x, 50%) var(--vt-clip-y, 50%));
+	}
 }
 
 
