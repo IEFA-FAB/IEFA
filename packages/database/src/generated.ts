@@ -507,6 +507,45 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			legal_documents: {
+				Row: {
+					content_md: string
+					created_at: string
+					doc_type: string
+					effective_date: string
+					id: string
+					locale: string
+					metadata: Json
+					published_at: string | null
+					updated_at: string
+					version: string
+				}
+				Insert: {
+					content_md: string
+					created_at?: string
+					doc_type: string
+					effective_date: string
+					id?: string
+					locale?: string
+					metadata?: Json
+					published_at?: string | null
+					updated_at?: string
+					version: string
+				}
+				Update: {
+					content_md?: string
+					created_at?: string
+					doc_type?: string
+					effective_date?: string
+					id?: string
+					locale?: string
+					metadata?: Json
+					published_at?: string | null
+					updated_at?: string
+					version?: string
+				}
+				Relationships: []
+			}
 			pregoeiro_preferences: {
 				Row: {
 					env: Json
@@ -531,9 +570,65 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			user_legal_acceptances: {
+				Row: {
+					accepted_at: string
+					document_id: string
+					id: string
+					ip_address: unknown
+					user_agent: string | null
+					user_id: string
+				}
+				Insert: {
+					accepted_at?: string
+					document_id: string
+					id?: string
+					ip_address?: unknown
+					user_agent?: string | null
+					user_id: string
+				}
+				Update: {
+					accepted_at?: string
+					document_id?: string
+					id?: string
+					ip_address?: unknown
+					user_agent?: string | null
+					user_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "user_legal_acceptances_document_id_fkey"
+						columns: ["document_id"]
+						isOneToOne: false
+						referencedRelation: "legal_documents"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "user_legal_acceptances_document_id_fkey"
+						columns: ["document_id"]
+						isOneToOne: false
+						referencedRelation: "legal_documents_current"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 		}
 		Views: {
-			[_ in never]: never
+			legal_documents_current: {
+				Row: {
+					content_md: string | null
+					created_at: string | null
+					doc_type: string | null
+					effective_date: string | null
+					id: string | null
+					locale: string | null
+					metadata: Json | null
+					published_at: string | null
+					updated_at: string | null
+					version: string | null
+				}
+				Relationships: []
+			}
 		}
 		Functions: {
 			[_ in never]: never

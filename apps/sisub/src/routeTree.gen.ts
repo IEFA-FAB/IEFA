@@ -17,6 +17,8 @@ import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as PublicTutorialRouteImport } from './routes/_public/tutorial'
+import { Route as PublicTermosDeUsoRouteImport } from './routes/_public/termos-de-uso'
+import { Route as PublicPoliticaDePrivacidadeRouteImport } from './routes/_public/politica-de-privacidade'
 import { Route as PublicChangelogRouteImport } from './routes/_public/changelog'
 import { Route as ProtectedHubRouteImport } from './routes/_protected/hub'
 import { Route as ProtectedModulesRouteRouteImport } from './routes/_protected/_modules/route'
@@ -128,6 +130,17 @@ const PublicTutorialRoute = PublicTutorialRouteImport.update({
   path: '/tutorial',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicTermosDeUsoRoute = PublicTermosDeUsoRouteImport.update({
+  id: '/termos-de-uso',
+  path: '/termos-de-uso',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
+const PublicPoliticaDePrivacidadeRoute =
+  PublicPoliticaDePrivacidadeRouteImport.update({
+    id: '/politica-de-privacidade',
+    path: '/politica-de-privacidade',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
 const PublicChangelogRoute = PublicChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
@@ -566,6 +579,8 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
+  '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/': typeof AuthIndexRoute
@@ -644,6 +659,8 @@ export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/hub': typeof ProtectedHubRoute
   '/changelog': typeof PublicChangelogRoute
+  '/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
+  '/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth': typeof AuthIndexRoute
@@ -719,6 +736,8 @@ export interface FileRoutesById {
   '/_protected/_modules': typeof ProtectedModulesRouteRouteWithChildren
   '/_protected/hub': typeof ProtectedHubRoute
   '/_public/changelog': typeof PublicChangelogRoute
+  '/_public/politica-de-privacidade': typeof PublicPoliticaDePrivacidadeRoute
+  '/_public/termos-de-uso': typeof PublicTermosDeUsoRoute
   '/_public/tutorial': typeof PublicTutorialRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_public/': typeof PublicIndexRoute
@@ -801,6 +820,8 @@ export interface FileRouteTypes {
     | '/health'
     | '/hub'
     | '/changelog'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth/'
@@ -879,6 +900,8 @@ export interface FileRouteTypes {
     | '/health'
     | '/hub'
     | '/changelog'
+    | '/politica-de-privacidade'
+    | '/termos-de-uso'
     | '/tutorial'
     | '/auth/reset-password'
     | '/auth'
@@ -953,6 +976,8 @@ export interface FileRouteTypes {
     | '/_protected/_modules'
     | '/_protected/hub'
     | '/_public/changelog'
+    | '/_public/politica-de-privacidade'
+    | '/_public/termos-de-uso'
     | '/_public/tutorial'
     | '/auth/reset-password'
     | '/_public/'
@@ -1091,6 +1116,20 @@ declare module '@tanstack/react-router' {
       path: '/tutorial'
       fullPath: '/tutorial'
       preLoaderRoute: typeof PublicTutorialRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/termos-de-uso': {
+      id: '/_public/termos-de-uso'
+      path: '/termos-de-uso'
+      fullPath: '/termos-de-uso'
+      preLoaderRoute: typeof PublicTermosDeUsoRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/politica-de-privacidade': {
+      id: '/_public/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PublicPoliticaDePrivacidadeRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/changelog': {
@@ -1910,12 +1949,16 @@ const ProtectedRouteRouteWithChildren = ProtectedRouteRoute._addFileChildren(
 
 interface PublicRouteRouteChildren {
   PublicChangelogRoute: typeof PublicChangelogRoute
+  PublicPoliticaDePrivacidadeRoute: typeof PublicPoliticaDePrivacidadeRoute
+  PublicTermosDeUsoRoute: typeof PublicTermosDeUsoRoute
   PublicTutorialRoute: typeof PublicTutorialRoute
   PublicIndexRoute: typeof PublicIndexRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicChangelogRoute: PublicChangelogRoute,
+  PublicPoliticaDePrivacidadeRoute: PublicPoliticaDePrivacidadeRoute,
+  PublicTermosDeUsoRoute: PublicTermosDeUsoRoute,
   PublicTutorialRoute: PublicTutorialRoute,
   PublicIndexRoute: PublicIndexRoute,
 }

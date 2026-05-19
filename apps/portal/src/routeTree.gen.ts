@@ -32,8 +32,10 @@ import { Route as JournalEditorialPublicationRouteImport } from './routes/journa
 import { Route as JournalEditorialMetadataExportRouteImport } from './routes/journal/editorial/metadata-export'
 import { Route as JournalEditorialDashboardRouteImport } from './routes/journal/editorial/dashboard'
 import { Route as JournalArticlesIdRouteImport } from './routes/journal/articles/$id'
+import { Route as PublicPtTermosDeUsoRouteImport } from './routes/_public/_pt/termos-de-uso'
 import { Route as PublicPtSobreRouteImport } from './routes/_public/_pt/sobre'
 import { Route as PublicPtRoteiroRouteImport } from './routes/_public/_pt/roteiro'
+import { Route as PublicPtPoliticaDePrivacidadeRouteImport } from './routes/_public/_pt/politica-de-privacidade'
 import { Route as PublicPtPoliticaDeInovacaoRouteImport } from './routes/_public/_pt/politica-de-inovacao'
 import { Route as PublicPtPesquisaRouteImport } from './routes/_public/_pt/pesquisa'
 import { Route as PublicPtPainelFiscalRouteImport } from './routes/_public/_pt/painel-fiscal'
@@ -172,6 +174,11 @@ const JournalArticlesIdRoute = JournalArticlesIdRouteImport.update({
   path: '/articles/$id',
   getParentRoute: () => JournalRouteRoute,
 } as any)
+const PublicPtTermosDeUsoRoute = PublicPtTermosDeUsoRouteImport.update({
+  id: '/_pt/termos-de-uso',
+  path: '/termos-de-uso',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const PublicPtSobreRoute = PublicPtSobreRouteImport.update({
   id: '/_pt/sobre',
   path: '/sobre',
@@ -182,6 +189,12 @@ const PublicPtRoteiroRoute = PublicPtRoteiroRouteImport.update({
   path: '/roteiro',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicPtPoliticaDePrivacidadeRoute =
+  PublicPtPoliticaDePrivacidadeRouteImport.update({
+    id: '/_pt/politica-de-privacidade',
+    path: '/politica-de-privacidade',
+    getParentRoute: () => PublicRouteRoute,
+  } as any)
 const PublicPtPoliticaDeInovacaoRoute =
   PublicPtPoliticaDeInovacaoRouteImport.update({
     id: '/_pt/politica-de-inovacao',
@@ -301,8 +314,10 @@ export interface FileRoutesByFullPath {
   '/painel-fiscal': typeof PublicPtPainelFiscalRoute
   '/pesquisa': typeof PublicPtPesquisaRoute
   '/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
+  '/politica-de-privacidade': typeof PublicPtPoliticaDePrivacidadeRoute
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
+  '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -343,8 +358,10 @@ export interface FileRoutesByTo {
   '/painel-fiscal': typeof PublicPtPainelFiscalRoute
   '/pesquisa': typeof PublicPtPesquisaRoute
   '/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
+  '/politica-de-privacidade': typeof PublicPtPoliticaDePrivacidadeRoute
   '/roteiro': typeof PublicPtRoteiroRoute
   '/sobre': typeof PublicPtSobreRoute
+  '/termos-de-uso': typeof PublicPtTermosDeUsoRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -389,8 +406,10 @@ export interface FileRoutesById {
   '/_public/_pt/painel-fiscal': typeof PublicPtPainelFiscalRoute
   '/_public/_pt/pesquisa': typeof PublicPtPesquisaRoute
   '/_public/_pt/politica-de-inovacao': typeof PublicPtPoliticaDeInovacaoRoute
+  '/_public/_pt/politica-de-privacidade': typeof PublicPtPoliticaDePrivacidadeRoute
   '/_public/_pt/roteiro': typeof PublicPtRoteiroRoute
   '/_public/_pt/sobre': typeof PublicPtSobreRoute
+  '/_public/_pt/termos-de-uso': typeof PublicPtTermosDeUsoRoute
   '/journal/articles/$id': typeof JournalArticlesIdRoute
   '/journal/editorial/dashboard': typeof JournalEditorialDashboardRoute
   '/journal/editorial/metadata-export': typeof JournalEditorialMetadataExportRoute
@@ -435,8 +454,10 @@ export interface FileRouteTypes {
     | '/painel-fiscal'
     | '/pesquisa'
     | '/politica-de-inovacao'
+    | '/politica-de-privacidade'
     | '/roteiro'
     | '/sobre'
+    | '/termos-de-uso'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -477,8 +498,10 @@ export interface FileRouteTypes {
     | '/painel-fiscal'
     | '/pesquisa'
     | '/politica-de-inovacao'
+    | '/politica-de-privacidade'
     | '/roteiro'
     | '/sobre'
+    | '/termos-de-uso'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -522,8 +545,10 @@ export interface FileRouteTypes {
     | '/_public/_pt/painel-fiscal'
     | '/_public/_pt/pesquisa'
     | '/_public/_pt/politica-de-inovacao'
+    | '/_public/_pt/politica-de-privacidade'
     | '/_public/_pt/roteiro'
     | '/_public/_pt/sobre'
+    | '/_public/_pt/termos-de-uso'
     | '/journal/articles/$id'
     | '/journal/editorial/dashboard'
     | '/journal/editorial/metadata-export'
@@ -717,6 +742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalArticlesIdRouteImport
       parentRoute: typeof JournalRouteRoute
     }
+    '/_public/_pt/termos-de-uso': {
+      id: '/_public/_pt/termos-de-uso'
+      path: '/termos-de-uso'
+      fullPath: '/termos-de-uso'
+      preLoaderRoute: typeof PublicPtTermosDeUsoRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_public/_pt/sobre': {
       id: '/_public/_pt/sobre'
       path: '/sobre'
@@ -729,6 +761,13 @@ declare module '@tanstack/react-router' {
       path: '/roteiro'
       fullPath: '/roteiro'
       preLoaderRoute: typeof PublicPtRoteiroRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
+    '/_public/_pt/politica-de-privacidade': {
+      id: '/_public/_pt/politica-de-privacidade'
+      path: '/politica-de-privacidade'
+      fullPath: '/politica-de-privacidade'
+      preLoaderRoute: typeof PublicPtPoliticaDePrivacidadeRouteImport
       parentRoute: typeof PublicRouteRoute
     }
     '/_public/_pt/politica-de-inovacao': {
@@ -871,8 +910,10 @@ interface PublicRouteRouteChildren {
   PublicPtPainelFiscalRoute: typeof PublicPtPainelFiscalRoute
   PublicPtPesquisaRoute: typeof PublicPtPesquisaRoute
   PublicPtPoliticaDeInovacaoRoute: typeof PublicPtPoliticaDeInovacaoRoute
+  PublicPtPoliticaDePrivacidadeRoute: typeof PublicPtPoliticaDePrivacidadeRoute
   PublicPtRoteiroRoute: typeof PublicPtRoteiroRoute
   PublicPtSobreRoute: typeof PublicPtSobreRoute
+  PublicPtTermosDeUsoRoute: typeof PublicPtTermosDeUsoRoute
   PublicEnFacilitiesPregoeiroRoute: typeof PublicEnFacilitiesPregoeiroRoute
   PublicEnPostsSlugRoute: typeof PublicEnPostsSlugRoute
   PublicPtInstalacoesPregoeiroRoute: typeof PublicPtInstalacoesPregoeiroRoute
@@ -894,8 +935,10 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicPtPainelFiscalRoute: PublicPtPainelFiscalRoute,
   PublicPtPesquisaRoute: PublicPtPesquisaRoute,
   PublicPtPoliticaDeInovacaoRoute: PublicPtPoliticaDeInovacaoRoute,
+  PublicPtPoliticaDePrivacidadeRoute: PublicPtPoliticaDePrivacidadeRoute,
   PublicPtRoteiroRoute: PublicPtRoteiroRoute,
   PublicPtSobreRoute: PublicPtSobreRoute,
+  PublicPtTermosDeUsoRoute: PublicPtTermosDeUsoRoute,
   PublicEnFacilitiesPregoeiroRoute: PublicEnFacilitiesPregoeiroRoute,
   PublicEnPostsSlugRoute: PublicEnPostsSlugRoute,
   PublicPtInstalacoesPregoeiroRoute: PublicPtInstalacoesPregoeiroRoute,

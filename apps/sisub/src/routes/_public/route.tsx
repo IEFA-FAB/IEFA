@@ -76,8 +76,16 @@ function PublicLayout() {
 			    FOOTER
 			    ============================================================ */}
 			<footer className="border-t">
-				<Container suppressHydrationWarning className="h-14 flex items-center justify-center text-xs text-muted-foreground">
-					© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Ten. Bruno (GAP-MN).
+				<Container suppressHydrationWarning className="h-14 flex items-center justify-between text-xs text-muted-foreground">
+					<span>© {new Date().getFullYear()} SISUB • Desenvolvido por Ten. Nanni (IEFA) e Ten. Bruno (GAP-MN).</span>
+					<nav className="flex items-center gap-3">
+						<Link to="/termos-de-uso" className="hover:text-foreground transition-colors">
+							Termos de Uso
+						</Link>
+						<Link to="/politica-de-privacidade" className="hover:text-foreground transition-colors">
+							Privacidade
+						</Link>
+					</nav>
 				</Container>
 			</footer>
 		</div>
