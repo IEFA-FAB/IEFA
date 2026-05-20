@@ -323,7 +323,7 @@ export function ChatChart({ spec, overrideType }: ChatChartProps) {
 	if (keyError) {
 		return (
 			<div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
-				<p className="font-medium">Dados incompatíveis com a configuração do gráfico</p>
+				<p className="text-subheading">Dados incompatíveis com a configuração do gráfico</p>
 				<p className="mt-1 text-xs opacity-80">{keyError}</p>
 			</div>
 		)

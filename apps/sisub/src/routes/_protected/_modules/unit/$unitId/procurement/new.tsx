@@ -343,10 +343,10 @@ function NewAtaPage() {
 						<div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm" role="alert">
 							<AlertTriangle className="size-4 text-destructive mt-0.5 shrink-0" aria-hidden="true" />
 							<div>
-								<p className="font-medium text-destructive">Nenhum item calculado</p>
+								<p className="text-heading text-destructive">Nenhum item calculado</p>
 								<p className="text-muted-foreground mt-0.5">
 									Verifique se as preparações dos cardápios selecionados têm previsão de comensais configurada. O indicador{" "}
-									<span className="font-medium">X/Y com comensais</span> nos steps 1 e 2 mostra quais estão incompletas.
+									<span className="text-subheading">X/Y com comensais</span> nos steps 1 e 2 mostra quais estão incompletas.
 								</p>
 							</div>
 						</div>

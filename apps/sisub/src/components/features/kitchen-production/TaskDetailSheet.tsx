@@ -120,7 +120,7 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 											.sort((a, b) => (a.priority_order ?? 0) - (b.priority_order ?? 0))
 											.map((ingredient) => (
 												<TableRow key={ingredient.id} className={ingredient.is_optional ? "opacity-60" : undefined}>
-													<TableCell className="font-medium">
+													<TableCell className="text-subheading">
 														{ingredient.ingredient?.description ?? "—"}
 														{ingredient.is_optional && <span className="ml-1.5 text-xs text-muted-foreground">(opcional)</span>}
 													</TableCell>

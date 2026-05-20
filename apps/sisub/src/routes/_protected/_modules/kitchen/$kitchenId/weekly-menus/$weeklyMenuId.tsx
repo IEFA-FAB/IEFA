@@ -71,7 +71,7 @@ function DayOverviewCard({
 			className={cn("text-left w-full h-auto p-4 flex-col items-start justify-start", allFilled && "border-success/40 h-full")}
 		>
 			<div className="flex items-center justify-between mb-3">
-				<span className="text-sm font-semibold">{day.abbr}</span>
+				<span className="text-sm text-subheading">{day.abbr}</span>
 				<Badge variant={totalRecipes > 0 ? "default" : "outline"} className="text-xs tabular-nums">
 					{totalRecipes}
 				</Badge>
@@ -182,7 +182,7 @@ function DayMealSection({
 									/>
 								</TooltipTrigger>
 								<TooltipContent side="top">
-									<p className="text-xs font-medium">Comensais desta preparação</p>
+									<p className="text-caption text-foreground">Comensais desta preparação</p>
 									<p className="text-xs text-muted-foreground mt-0.5">
 										{recipe.headcountOverride ? `${recipe.headcountOverride} pessoas previstas` : "Informe o nº de comensais"}
 									</p>
@@ -540,7 +540,7 @@ function WeeklyMenuEditorPage() {
 						{WEEKDAYS.map((day) => (
 							<TabsContent key={day.num} value={String(day.num)} className="mt-4 space-y-3">
 								<div className="flex items-center justify-between px-1">
-									<h2 className="text-sm font-semibold">{day.label}</h2>
+									<h2 className="text-sm text-heading">{day.label}</h2>
 									<span className="text-xs text-muted-foreground">
 										{items.filter((i) => i.day_of_week === day.num).length} receita
 										{items.filter((i) => i.day_of_week === day.num).length !== 1 ? "s" : ""}

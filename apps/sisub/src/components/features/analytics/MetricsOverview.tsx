@@ -47,7 +47,7 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 						</div>
 						<div className="flex-1">
 							<p className="text-caption">Total Previsto</p>
-							<p className="text-2xl md:text-3xl font-bold text-primary">{metrics.total_forecast}</p>
+							<p className="text-display text-primary">{metrics.total_forecast}</p>
 							<p className="text-xs text-muted-foreground mt-1">Presença: {metrics.total_presence}</p>
 						</div>
 					</div>
@@ -68,10 +68,10 @@ export default function MetricsOverview({ metrics }: MetricsOverviewProps) {
 									<Icon className={cn("size-4 md:h-5 md:w-5", iconColor)} aria-hidden="true" />
 								</div>
 								<div className="flex-1 min-w-0">
-									<p className="text-xs md:text-sm text-muted-foreground font-medium truncate">{MEAL_LABELS[stat.meal]}</p>
+									<p className="text-subheading text-muted-foreground truncate">{MEAL_LABELS[stat.meal]}</p>
 									<div className="flex items-baseline gap-1 md:gap-2">
 										<p className="text-body">{stat.forecast}</p>
-										<span className="text-xs text-muted-foreground font-medium">{stat.percentage.toFixed(1)}%</span>
+										<span className="text-label text-muted-foreground">{stat.percentage.toFixed(1)}%</span>
 									</div>
 									<p className="text-xs text-muted-foreground mt-1">Presença: {stat.presence}</p>
 								</div>

@@ -65,7 +65,7 @@ function ProcurementIndexPage() {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
 						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
-						<p className="font-medium text-muted-foreground">Nenhuma ata criada ainda.</p>
+						<p className="text-subheading text-muted-foreground">Nenhuma ata criada ainda.</p>
 						<p className="text-sm text-muted-foreground mt-1">Crie uma nova ata para calcular e registrar os quantitativos de aquisição.</p>
 						<Button
 							variant="outline"

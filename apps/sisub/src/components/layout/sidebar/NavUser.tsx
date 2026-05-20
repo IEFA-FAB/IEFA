@@ -42,7 +42,7 @@ export function UserProfileRow() {
 		<div className="flex items-center gap-2 px-2 py-1.5">
 			<Avatar className="size-8 rounded-lg grayscale shrink-0">
 				<AvatarImage src={avatarUrl} alt={displayName} />
-				<AvatarFallback className="rounded-lg text-[10px] font-semibold">{posto || "—"}</AvatarFallback>
+				<AvatarFallback className="rounded-lg text-hint text-foreground">{posto || "—"}</AvatarFallback>
 			</Avatar>
 			<div className="hidden sm:grid flex-1 text-left leading-tight min-w-0">
 				<span className="truncate text-subheading">{displayName}</span>

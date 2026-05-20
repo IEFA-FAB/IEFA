@@ -120,7 +120,7 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 										<h3 className="text-heading text-left">{mh.mess_hall_name}</h3>
 									</div>
 									{/* Taxa de comparecimento sempre visível */}
-									<div className={cn("flex items-center gap-2 font-semibold", trendColor)}>
+									<div className={cn("flex items-center gap-2 text-heading", trendColor)}>
 										{getTrendIcon(attendanceRate)}
 										<span className="text-body">{attendanceRate.toFixed(1)}%</span>
 									</div>

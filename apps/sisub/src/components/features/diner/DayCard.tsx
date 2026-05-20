@@ -144,12 +144,12 @@ function DayCard({
 			<CardHeader className="pb-3">
 				<div className="flex items-center justify-center gap-3">
 					<div className="flex flex-col items-end">
-						<span className="text-5xl font-bold leading-none text-foreground">{dayNumber}</span>
+						<span className="text-display leading-none text-foreground">{dayNumber}</span>
 						<span className="text-label text-muted-foreground">{monthAbbr}</span>
 					</div>
 					<Separator orientation="vertical" className="h-12" />
 					<div className="flex items-center">
-						<span className={cn("text-4xl font-bold", getDayOfWeekColor(date))}>{dayOfWeekShort}</span>
+						<span className={cn("text-display", getDayOfWeekColor(date))}>{dayOfWeekShort}</span>
 					</div>
 				</div>
 			</CardHeader>

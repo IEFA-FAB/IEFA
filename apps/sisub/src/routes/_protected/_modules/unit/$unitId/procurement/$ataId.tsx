@@ -192,7 +192,7 @@ function AtaDetailPage() {
 			{ata.kitchens.length > 0 && (
 				<Card>
 					<CardHeader className="pb-3">
-						<CardTitle className="text-sm font-semibold">Cozinhas Participantes</CardTitle>
+						<CardTitle className="text-subheading">Cozinhas Participantes</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div className="space-y-4">

@@ -60,7 +60,7 @@ function HubHeader() {
 				<div className="flex items-center gap-4">
 					<Link
 						to="/"
-						className="font-mono font-bold text-base tracking-widest uppercase focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+						className="font-mono font-bold text-base focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
 						aria-label="Página inicial - SISUB"
 					>
 						SISUB
@@ -102,7 +102,7 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 						<div className={cn("flex size-9 items-center justify-center rounded-lg shrink-0 mt-0.5", ICON_CLASSES[color])}>
 							<Icon className="size-4" />
 						</div>
-						<span className="flex-1 font-semibold text-foreground text-sm leading-snug pt-1">{module.name}</span>
+						<span className="flex-1 text-heading text-foreground text-sm leading-snug pt-1">{module.name}</span>
 						<ArrowUpRight
 							className={cn(
 								"size-4 shrink-0 mt-0.5 transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5",
@@ -170,7 +170,7 @@ function HubPage() {
 								if (groupModules.length === 0) return null
 								return (
 									<section key={group.label}>
-										<h2 className={cn("text-xs font-semibold tracking-wide mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
+										<h2 className={cn("text-xs text-label mb-3", ACCENT_CLASSES[group.color])}>{group.label}</h2>
 										<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 											{groupModules.map((mod) => (
 												<ModuleCard key={mod.id} module={mod} color={group.color} />

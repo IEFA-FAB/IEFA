@@ -104,7 +104,7 @@ function EventGroupSection({
 									/>
 								</TooltipTrigger>
 								<TooltipContent side="top">
-									<p className="text-xs font-medium">Comensais desta preparação</p>
+									<p className="text-xs text-subheading">Comensais desta preparação</p>
 									<p className="text-xs text-muted-foreground mt-0.5">
 										{recipe.headcountOverride ? `${recipe.headcountOverride} pessoas previstas` : "Informe o nº de comensais"}
 									</p>

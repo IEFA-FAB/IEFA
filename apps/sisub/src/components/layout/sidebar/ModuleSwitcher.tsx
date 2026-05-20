@@ -93,7 +93,7 @@ export function ModuleSwitcher({
 											</div>
 
 											<div className="grid flex-1 text-left text-sm leading-tight">
-												<span className="truncate font-medium">{activeModule.name}</span>
+												<span className="truncate text-subheading">{activeModule.name}</span>
 											</div>
 											<ChevronsUpDown className="ml-auto" />
 										</SidebarMenuButton>

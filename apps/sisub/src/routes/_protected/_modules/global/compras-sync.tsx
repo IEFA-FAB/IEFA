@@ -181,7 +181,7 @@ function ComprasSyncPage() {
 								).map(([label, val]) => (
 									<div key={label} className="rounded-lg border bg-muted/30 px-4 py-3">
 										<p className="text-xs text-muted-foreground">{label}</p>
-										<p className="mt-0.5 text-xl font-semibold tabular-nums">{val.toLocaleString("pt-BR")}</p>
+										<p className="mt-0.5 text-xl text-display tabular-nums">{val.toLocaleString("pt-BR")}</p>
 									</div>
 								))}
 							</div>
@@ -205,11 +205,11 @@ function ComprasSyncPage() {
 									<table className="w-full text-sm">
 										<thead>
 											<tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-												<th className="px-4 py-2.5 text-left font-medium">Step</th>
-												<th className="px-4 py-2.5 text-left font-medium">Status</th>
-												<th className="px-4 py-2.5 text-right font-medium">Página</th>
-												<th className="px-4 py-2.5 text-right font-medium">Registros</th>
-												<th className="px-4 py-2.5 text-left font-medium">Erro</th>
+												<th className="px-4 py-2.5 text-left text-subheading">Step</th>
+												<th className="px-4 py-2.5 text-left text-subheading">Status</th>
+												<th className="px-4 py-2.5 text-right text-subheading">Página</th>
+												<th className="px-4 py-2.5 text-right text-subheading">Registros</th>
+												<th className="px-4 py-2.5 text-left text-subheading">Erro</th>
 											</tr>
 										</thead>
 										<tbody className="divide-y">
@@ -217,7 +217,7 @@ function ComprasSyncPage() {
 												<tr key={step.id} className={step.status === "running" ? "bg-blue-500/5" : step.status === "error" ? "bg-red-500/5" : undefined}>
 													<td className="px-4 py-2.5 font-mono text-xs">{step.step_name}</td>
 													<td className="px-4 py-2.5">
-														<span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColor(step.status)}`}>
+														<span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption ${statusColor(step.status)}`}>
 															<StatusIcon status={step.status} />
 															{statusLabel(step.status)}
 														</span>

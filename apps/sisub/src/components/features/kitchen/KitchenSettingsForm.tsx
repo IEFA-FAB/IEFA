@@ -156,7 +156,7 @@ export function KitchenSettingsForm({ kitchenId, defaultValues }: { kitchenId: n
 													onBlur={field.handleBlur}
 													placeholder="DF"
 													maxLength={2}
-													className="uppercase max-w-20"
+													className="max-w-20 text-label"
 												/>
 											</FieldContent>
 											<FieldError>

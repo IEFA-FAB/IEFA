@@ -76,7 +76,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 				className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/30 transition-colors rounded-lg"
 			>
 				{statusIcon}
-				<span className="flex-1 font-medium text-foreground">{getToolLabel(toolCall.name, toolCall.status)}</span>
+				<span className="flex-1 text-subheading text-foreground">{getToolLabel(toolCall.name, toolCall.status)}</span>
 				{expanded ? <ChevronDown className="size-3 text-muted-foreground" /> : <ChevronRight className="size-3 text-muted-foreground" />}
 			</button>
 

@@ -72,7 +72,7 @@ function KitchenSuprimentosPage() {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-14 text-center">
 						<ShoppingCart className="size-12 text-muted-foreground mb-4" aria-hidden="true" />
-						<p className="font-medium text-muted-foreground">Nenhum rascunho criado ainda.</p>
+						<p className="text-subheading text-muted-foreground">Nenhum rascunho criado ainda.</p>
 						<p className="text-sm text-muted-foreground mt-1">Crie um rascunho com os templates que você quer sugerir para a próxima ata.</p>
 						<Button
 							variant="outline"

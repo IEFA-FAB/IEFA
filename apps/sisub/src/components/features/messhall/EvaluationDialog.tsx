@@ -25,7 +25,7 @@ const RATING_LABEL: Record<(typeof RATINGS)[number], string> = {
 function buttonToneClasses(value: number, selected: number | null) {
 	const isSelected = selected === value
 	const base =
-		"flex size-12 items-center justify-center rounded-lg font-semibold transition-transform select-none border " +
+		"flex size-12 items-center justify-center rounded-lg text-heading transition-transform select-none border " +
 		"peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
 
 	if (!isSelected) {
