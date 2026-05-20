@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowUpRight } from "lucide-react"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
-import { getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
+import { type GroupColor, getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
 import { UserProfileRow } from "@/components/layout/sidebar/NavUser"
 import { Card, CardContent } from "@/components/ui/card"
 import { Container } from "@/components/ui/container"
@@ -20,8 +20,6 @@ export const Route = createFileRoute("/_protected/hub")({
 })
 
 // ── Module groups ────────────────────────────────────────────────────────────
-
-type GroupColor = "success" | "primary" | "warning" | "governance"
 
 const MODULE_GROUPS: { label: string; ids: ModuleId[]; color: GroupColor }[] = [
 	{ label: "Usuário", ids: ["diner"], color: "success" },

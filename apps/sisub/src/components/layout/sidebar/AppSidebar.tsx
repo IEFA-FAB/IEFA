@@ -51,6 +51,7 @@ export function AppSidebar({
 	const sidebarModules: Module[] = availableModules.map((m) => ({
 		name: m.name,
 		logo: m.icon,
+		color: m.color,
 	}))
 
 	const navMain = activeModule

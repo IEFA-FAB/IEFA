@@ -35,10 +35,13 @@ export type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
 export type ModuleId = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics"
 
+export type GroupColor = "success" | "primary" | "warning" | "governance"
+
 export type ModuleDef = {
 	id: ModuleId
 	name: string
 	icon: LucideIcon
+	color: GroupColor
 	/**
 	 * Para módulos com escopo (messhall, unit, kitchen, kitchen-production, local-analytics),
 	 * aponta para o hub de seleção de escopo.
@@ -54,6 +57,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "diner",
 		name: "Comensal",
 		icon: UtensilsCrossed,
+		color: "success",
 		items: [
 			{ title: "Previsão", url: "/diner/forecast", icon: Calendar },
 			{ title: "Cardápio", url: "/diner/menu", icon: BookOpen },
@@ -67,6 +71,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "messhall",
 		name: "Fiscal",
 		icon: ShieldCheck,
+		color: "primary",
 		hubUrl: "/messhall",
 		// URLs base — AppShell substitui por /messhall/{id}/... quando dentro de um escopo
 		// "/messhall/" → após substituição vira "/messhall/{id}/" (rota index)
@@ -76,6 +81,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "unit",
 		name: "Gestão Unidade",
 		icon: Building2,
+		color: "warning",
 		hubUrl: "/unit",
 		items: [
 			{ title: "Painel", url: "/unit/dashboard", icon: LayoutDashboard },
@@ -88,6 +94,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "kitchen",
 		name: "Gestão Cozinha",
 		icon: ChefHat,
+		color: "warning",
 		hubUrl: "/kitchen",
 		// URLs base — AppShell substitui por /kitchen/{id}/... quando dentro de um escopo
 		items: [
@@ -105,6 +112,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "kitchen-production",
 		name: "Produção Cozinha",
 		icon: FlameKindling,
+		color: "primary",
 		hubUrl: "/kitchen-production",
 		items: [{ title: "Painel", url: "/kitchen-production/dashboard", icon: LayoutDashboard }],
 	},
@@ -112,6 +120,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "global",
 		name: "SDAB",
 		icon: Settings,
+		color: "governance",
 		items: [
 			{ title: "Insumos", url: "/global/ingredients", icon: Wheat },
 			{ title: "Preparações", url: "/global/recipes", icon: UtensilsCrossed },
@@ -129,6 +138,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "analytics",
 		name: "Análises Globais",
 		icon: BarChart3,
+		color: "governance",
 		items: [
 			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 },
 			{ title: "Assistente IA", url: "/analytics/chat", icon: MessageSquare },
@@ -138,6 +148,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		id: "local-analytics",
 		name: "Análises da Unidade",
 		icon: LayoutDashboard,
+		color: "governance",
 		hubUrl: "/local-analytics",
 		items: [
 			{ title: "Dashboard", url: "/local-analytics/dashboard", icon: LayoutDashboard },

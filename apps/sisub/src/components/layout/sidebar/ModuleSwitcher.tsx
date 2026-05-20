@@ -6,7 +6,16 @@ import * as React from "react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn } from "@/lib/cn"
+import type { GroupColor } from "./NavItems"
 import type { Module } from "./SidebarTypes"
+
+const MODULE_LOGO_CLASSES: Record<GroupColor, string> = {
+	success: "bg-success/15 text-success",
+	primary: "bg-primary/15 text-primary",
+	warning: "bg-warning/15 text-warning",
+	governance: "bg-governance/15 text-governance",
+}
 
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
 
@@ -79,7 +88,7 @@ export function ModuleSwitcher({
 									className="cursor-pointer"
 									render={
 										<SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-											<div className="flex h-8 p-2 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+											<div className={cn("flex h-8 p-2 items-center justify-center rounded-lg", MODULE_LOGO_CLASSES[activeModule.color])}>
 												<activeModule.logo className="size-4" />
 											</div>
 
@@ -105,7 +114,7 @@ export function ModuleSwitcher({
 							<DropdownMenuLabel className="text-muted-foreground text-xs">Módulos</DropdownMenuLabel>
 							{modules.map((module, i) => (
 								<DropdownMenuItem key={module.name} onClick={() => handleChange(module)} className="cursor-pointer gap-2 p-2">
-									<div className="flex size-6 items-center justify-center rounded-md border bg-sidebar-accent">
+									<div className={cn("flex size-6 items-center justify-center rounded-md", MODULE_LOGO_CLASSES[module.color])}>
 										<module.logo className="size-3.5" />
 									</div>
 									<span className="flex-1">{module.name}</span>

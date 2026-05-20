@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react"
+import type { GroupColor } from "./NavItems"
 
 export type Module = {
 	name: string
 	logo: LucideIcon
+	color: GroupColor
 }
 
 export type NavItemLeaf = {
