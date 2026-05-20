@@ -27,8 +27,8 @@ export default function PresenceTable({ selectedDate, selectedMeal, presences, f
 			<div className="rounded-xl border bg-card text-card-foreground">
 				<div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/50">
 					<div>
-						<h3 className="font-semibold">Presenças registradas</h3>
-						<p className="text-sm text-muted-foreground">
+						<h3 className="text-subheading">Presenças registradas</h3>
+						<p className="text-caption text-muted-foreground">
 							Dia {formatDate(selectedDate)} · {MEAL_LABEL[selectedMeal]}
 						</p>
 					</div>
@@ -65,9 +65,9 @@ export default function PresenceTable({ selectedDate, selectedMeal, presences, f
 										<TableRow key={row.id} className="hover:bg-accent/50">
 											<TableCell>
 												<div className="flex flex-col">
-													<span className="font-medium">{name}</span>
+													<span className="text-body">{name}</span>
 													{/* Mostra sempre o UUID em menor destaque */}
-													<span className="font-mono text-xs text-muted-foreground">{row.user_id}</span>
+													<span className="font-mono text-caption text-muted-foreground">{row.user_id}</span>
 												</div>
 											</TableCell>
 

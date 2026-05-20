@@ -54,7 +54,7 @@ function GraphEmptyState() {
 	return (
 		<div className="size-full flex items-center justify-center bg-muted/20 rounded-md border border-border">
 			<div className="flex flex-col items-center gap-2 text-center max-w-xs">
-				<p className="text-sm font-medium text-foreground">Nenhum dado encontrado</p>
+				<p className="text-subheading text-foreground">Nenhum dado encontrado</p>
 				<p className="text-xs text-muted-foreground">Cadastre unidades, cozinhas e refeitórios para visualizar o grafo.</p>
 			</div>
 		</div>

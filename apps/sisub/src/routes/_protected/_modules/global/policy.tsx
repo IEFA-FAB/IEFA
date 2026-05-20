@@ -155,7 +155,7 @@ function PolicyTab({ target }: PolicyTabProps) {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-12 text-center">
 						<ClipboardList className="size-10 text-muted-foreground/40 mb-3" />
-						<p className="text-sm font-medium text-muted-foreground">Nenhuma regra cadastrada</p>
+						<p className="text-subheading text-muted-foreground">Nenhuma regra cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Adicione regras de política para {label}.</p>
 						<Button size="sm" variant="outline" onClick={handleAddRule} className="mt-4 gap-2">
 							<Plus className="size-4" />
@@ -213,13 +213,13 @@ function RuleItem({ rule, target, onEdit, onToggleActive }: RuleItemProps) {
 		<Card className={rule.active ? "" : "opacity-60"}>
 			<CardContent className="flex items-start gap-4 py-4">
 				{/* Order badge */}
-				<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground mt-0.5">
+				<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-caption text-muted-foreground mt-0.5">
 					{rule.display_order}
 				</span>
 
 				{/* Content */}
 				<div className="flex-1 min-w-0">
-					<p className="text-sm font-semibold leading-snug">{rule.title}</p>
+					<p className="text-subheading leading-snug">{rule.title}</p>
 					<p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{rule.description}</p>
 				</div>
 
@@ -485,7 +485,7 @@ function PromptDialog({ open, onOpenChange, target, prompt, isFetching }: Prompt
 				<div className="flex-1 overflow-y-auto min-h-0">
 					<Card className="border-dashed">
 						<CardHeader className="pb-2">
-							<CardTitle className="text-sm font-medium text-muted-foreground">Prompt gerado</CardTitle>
+							<CardTitle className="text-subheading text-muted-foreground">Prompt gerado</CardTitle>
 							<CardDescription className="text-xs">
 								Copie o texto abaixo e cole em uma sessão do Claude com acesso ao MCP do Supabase para revisar os itens.
 							</CardDescription>

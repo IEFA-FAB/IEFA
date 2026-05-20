@@ -76,7 +76,7 @@ function PersonCard({ person, variant }: { person: PersonDetail; variant: "missi
 			<ItemContent>
 				<ItemTitle className="max-w-full">{displayName}</ItemTitle>
 				<ItemDescription>
-					<span className="font-medium text-foreground/80">{person.posto || "-"}</span>
+					<span className="text-subheading">{person.posto || "-"}</span>
 					{" • "}
 					<span>{person.org || "-"}</span>
 				</ItemDescription>
@@ -215,7 +215,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 													<ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
 												)}
 											</TableCell>
-											<TableCell className="font-medium">
+											<TableCell className="text-subheading">
 												<div className="flex flex-col">
 													<span>
 														{parseLocalDate(record.date).toLocaleDateString("pt-BR", {
@@ -232,15 +232,15 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 											</TableCell>
 											<TableCell className="text-sm">{record.mess_hall_name}</TableCell>
 											<TableCell>
-												<span className={cn("inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border", MEAL_BADGES[record.meal])}>
+												<span className={cn("inline-flex items-center px-2 py-1 rounded-md text-label border", MEAL_BADGES[record.meal])}>
 													{MEAL_LABELS[record.meal]}
 												</span>
 											</TableCell>
-											<TableCell className="text-center font-semibold">{record.forecast_count}</TableCell>
-											<TableCell className="text-center font-semibold">{record.presence_count}</TableCell>
+											<TableCell className="text-center text-subheading">{record.forecast_count}</TableCell>
+											<TableCell className="text-center text-subheading">{record.presence_count}</TableCell>
 											<TableCell
 												className={cn(
-													"text-center font-semibold",
+													"text-center text-subheading",
 													record.difference < 0 && "text-destructive",
 													record.difference > 0 && "text-primary",
 													record.difference === 0 && "text-muted-foreground"
@@ -250,7 +250,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 												{record.difference}
 											</TableCell>
 											<TableCell className="text-center">
-												<div className={cn("flex items-center justify-center gap-1 font-semibold", rateColor)}>
+												<div className={cn("flex items-center justify-center gap-1 text-subheading", rateColor)}>
 													{getRateIcon(record.attendance_rate)}
 													<span className="text-sm">{record.attendance_rate.toFixed(1)}%</span>
 												</div>
@@ -263,7 +263,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 												<TableCell colSpan={8} className="bg-muted/10 p-0">
 													<div className="p-6 space-y-8 border-t border-b bg-muted/20">
 														<div className="flex items-center justify-between">
-															<h3 className="font-semibold text-lg flex items-center gap-2">
+															<h3 className="text-heading flex items-center gap-2">
 																Detalhamento
 																<span className="text-sm font-normal text-muted-foreground">
 																	({record.forecast_count + record.extras.length} pessoas total)
@@ -278,12 +278,11 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 														{/* Absences */}
 														{hasAbsences && (
 															<div className="rounded-lg border border-chart-5/20 bg-chart-5/5 p-4">
-																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-5">
+																<h4 className="text-subheading mb-4 flex items-center gap-2 text-chart-5">
 																	<div className="p-1 rounded bg-chart-5/10">
 																		<X className="size-4" aria-hidden="true" />
 																	</div>
-																	Faltaram ({record.absences.length})
-																	<span className="text-muted-foreground font-normal ml-1">- Previram mas não compareceram</span>
+																	Faltaram ({record.absences.length})<span className="text-muted-foreground ml-1">- Previram mas não compareceram</span>
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.absences.map((person) => (
@@ -296,11 +295,11 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 														{/* Attended */}
 														{record.attended.length > 0 && (
 															<div className="rounded-lg border border-chart-2/20 bg-chart-2/5 p-4">
-																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-2">
+																<h4 className="text-subheading mb-4 flex items-center gap-2 text-chart-2">
 																	<div className="p-1 rounded bg-chart-2/10">
 																		<Check className="size-4" aria-hidden="true" />
 																	</div>
-																	Compareceram ({record.attended.length})<span className="text-muted-foreground font-normal ml-1">- Confirmados</span>
+																	Compareceram ({record.attended.length})<span className="text-muted-foreground ml-1">- Confirmados</span>
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.attended.map((person) => (
@@ -313,11 +312,11 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 														{/* Extras */}
 														{hasExtras && (
 															<div className="rounded-lg border border-chart-1/20 bg-chart-1/5 p-4">
-																<h4 className="font-semibold text-sm mb-4 flex items-center gap-2 text-chart-1">
+																<h4 className="text-subheading mb-4 flex items-center gap-2 text-chart-1">
 																	<div className="p-1 rounded bg-chart-1/10">
 																		<AlertTriangle className="size-4" aria-hidden="true" />
 																	</div>
-																	Extras ({record.extras.length})<span className="text-muted-foreground font-normal ml-1">- Não previram mas compareceram</span>
+																	Extras ({record.extras.length})<span className="text-muted-foreground ml-1">- Não previram mas compareceram</span>
 																</h4>
 																<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 																	{record.extras.map((person) => (
@@ -333,7 +332,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 																<div className="inline-flex items-center justify-center p-3 rounded-full bg-chart-2/10 mb-3">
 																	<Check className="size-6 text-chart-2" />
 																</div>
-																<h4 className="font-semibold text-lg text-chart-2">Balanço Perfeito</h4>
+																<h4 className="text-heading text-chart-2">Balanço Perfeito</h4>
 																<p className="text-muted-foreground">Todos que previram compareceram e não houveram extras.</p>
 															</div>
 														)}

@@ -172,7 +172,7 @@ function ResetPasswordPage() {
 			<div className="flex-1 flex items-center justify-center px-4 py-12">
 				<div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
 					<CheckCircle2 className="size-8 text-primary" aria-hidden />
-					<p className="font-bold text-lg">Senha atualizada!</p>
+					<p className="text-display">Senha atualizada!</p>
 					<p className="font-mono text-sm text-muted-foreground">Redirecionando para o login...</p>
 				</div>
 			</div>
@@ -186,7 +186,7 @@ function ResetPasswordPage() {
 				<div className="w-full max-w-sm flex flex-col gap-5">
 					<div>
 						<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Redefinição de senha</p>
-						<h1 className="text-2xl font-bold mb-1">Link inválido</h1>
+						<h1 className="text-display mb-1">Link inválido</h1>
 						<p className="text-sm text-muted-foreground leading-relaxed">O link de recuperação expirou ou não é mais válido.</p>
 					</div>
 					<Alert variant="destructive">
@@ -208,7 +208,7 @@ function ResetPasswordPage() {
 				{/* Cabeçalho — mesma linguagem mono do resto da autenticação */}
 				<div className="mb-8">
 					<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Redefinição de senha</p>
-					<h1 className="text-2xl font-bold mb-1">Nova senha</h1>
+					<h1 className="text-display mb-1">Nova senha</h1>
 					<p className="text-sm text-muted-foreground">Escolha uma senha segura para sua conta.</p>
 				</div>
 

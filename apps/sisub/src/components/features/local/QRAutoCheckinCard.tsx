@@ -57,7 +57,7 @@ export default function QRAutoCheckinCard({
 				{currentOm ? <span className="text-xs">OM: {currentOm}</span> : <span className="text-xs">OM não definida</span>}
 			</div>
 
-			<h2 className="text-xl font-bold mb-4">QR Code de Auto Check-In</h2>
+			<h2 className="text-display mb-4">QR Code de Auto Check-In</h2>
 
 			{/* UnitSelector — escolhe a OM do QR */}
 			<div className="mb-4">

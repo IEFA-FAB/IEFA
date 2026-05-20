@@ -60,7 +60,7 @@ export function ProductionKanbanColumn({ status, items, onSelectItem, onUpdateSt
 				<div className="flex items-center gap-2">
 					<span className={cn("size-2 rounded-full", config.dotClass)} />
 					<Icon className="size-4 text-muted-foreground" />
-					<span className="text-sm font-medium text-foreground">{config.label}</span>
+					<span className="text-subheading text-foreground">{config.label}</span>
 				</div>
 				<Badge variant="secondary" className="font-mono text-xs">
 					{items.length}

@@ -89,7 +89,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 						{ingredients.length === 0 ? (
 							<div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm p-4">
 								<p>Não foi possível ler os ingredientes do snapshot.</p>
-								<p className="text-xs opacity-70 mt-1">(Isso pode ocorrer se o snapshot for antigo ou estiver em formato incompatível)</p>
+								<p className="text-hint text-muted-foreground mt-1">(Isso pode ocorrer se o snapshot for antigo ou estiver em formato incompatível)</p>
 							</div>
 						) : (
 							<div className="space-y-2">
@@ -105,7 +105,7 @@ export function SubstitutionModal({ open, onClose, menuItem }: SubstitutionModal
 										onClick={() => setSelectedIngredientId(ing.ingredient_id)}
 									>
 										<div className="flex justify-between text-sm">
-											<span className="font-medium">{ing.ingredient_name || "Insumo Inexistente"}</span>
+											<span className="text-subheading">{ing.ingredient_name || "Insumo Inexistente"}</span>
 											<span className="text-muted-foreground">
 												{ing.quantity} {ing.measure_unit}
 											</span>

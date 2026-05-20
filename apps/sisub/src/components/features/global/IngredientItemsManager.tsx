@@ -81,7 +81,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
 					<ShoppingCart className="size-5 text-success" />
-					<h2 className="text-lg font-semibold">Itens de Compra</h2>
+					<h2 className="text-heading">Itens de Compra</h2>
 					{ingredientItems && <Badge variant="success">{ingredientItems.length}</Badge>}
 				</div>
 				<Button size="sm" onClick={openCreate} className="gap-2">
@@ -112,7 +112,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 										</div>
 										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-1.5">
-												<p className="text-sm font-medium truncate">{item.description}</p>
+												<p className="text-subheading truncate">{item.description}</p>
 												<ChevronDown className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")} />
 											</div>
 											<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

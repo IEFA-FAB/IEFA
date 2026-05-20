@@ -70,7 +70,7 @@ function UnitChatPage() {
 							<Button variant="ghost" size="icon-sm" onClick={handleBack} aria-label="Voltar">
 								<ArrowLeft className="size-4" />
 							</Button>
-							<span className="text-sm font-medium text-foreground truncate">{config.persona.name}</span>
+							<span className="text-subheading text-foreground truncate">{config.persona.name}</span>
 						</div>
 						<ModuleChatInterface config={config} sessionId={sessionId} onSessionCreated={handleSessionCreated} />
 					</>

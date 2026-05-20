@@ -184,7 +184,7 @@ export function ChatSidebar({ activeSessionId, onSelectSession, onNewChat }: Cha
 				) : (
 					groups.map((group) => (
 						<div key={group.label} className="mb-4">
-							<p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">{group.label}</p>
+							<p className="mb-1.5 px-2.5 text-label text-muted-foreground/60">{group.label}</p>
 							<div className="space-y-0.5">
 								{group.items.map((session) => (
 									<SessionItem
@@ -233,7 +233,7 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 							<Sparkles className="size-4.5" />
 						</div>
 						<div>
-							<h1 className="text-lg font-semibold text-foreground leading-tight">Assistente IA</h1>
+							<h1 className="text-heading text-foreground leading-tight">Assistente IA</h1>
 							<p className="text-xs text-muted-foreground">Analytics em tempo real</p>
 						</div>
 					</div>
@@ -257,7 +257,7 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 							<MessageSquarePlus className="size-6" />
 						</div>
 						<div>
-							<p className="text-sm font-medium text-foreground">Nenhuma conversa</p>
+							<p className="text-subheading text-foreground">Nenhuma conversa</p>
 							<p className="mt-1 text-xs text-muted-foreground leading-relaxed">Toque no botão acima para iniciar uma nova análise com o assistente.</p>
 						</div>
 					</div>
@@ -281,8 +281,8 @@ export function MobileChatList({ onSelectSession, onNewChat }: MobileChatListPro
 								{/* Title + time */}
 								<div className="flex-1 min-w-0">
 									<div className="flex items-baseline justify-between gap-2">
-										<p className="text-sm font-medium text-foreground truncate">{session.title}</p>
-										<span className="shrink-0 text-[11px] text-muted-foreground">{formatTime(session.updated_at)}</span>
+										<p className="text-subheading text-foreground truncate">{session.title}</p>
+										<span className="shrink-0 text-hint text-muted-foreground">{formatTime(session.updated_at)}</span>
 									</div>
 									<p className="mt-0.5 text-xs text-muted-foreground truncate">Assistente de Analytics</p>
 								</div>

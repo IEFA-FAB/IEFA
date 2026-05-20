@@ -55,7 +55,7 @@ function UasgInfoRow({ label, value }: { label: string; value: React.ReactNode }
 	return (
 		<div className="flex flex-col gap-0.5 min-w-0">
 			<span className="text-xs text-muted-foreground">{label}</span>
-			<span className="text-sm font-medium truncate">{value ?? "—"}</span>
+			<span className="text-subheading truncate">{value ?? "—"}</span>
 		</div>
 	)
 }
@@ -150,7 +150,7 @@ function UasgInfoCard({ data }: { data: UasgInfo }) {
 				<div className="space-y-5">
 					{/* Identificação */}
 					<section>
-						<h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Identificação</h4>
+						<h4 className="text-label text-muted-foreground mb-3">Identificação</h4>
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							<UasgInfoRow label="Nome da UASG" value={data.nomeUasg} />
 							<UasgInfoRow label="Código UASG" value={data.codigoUasg} />
@@ -170,7 +170,7 @@ function UasgInfoCard({ data }: { data: UasgInfo }) {
 
 					{/* Órgão */}
 					<section>
-						<h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Órgão Superior</h4>
+						<h4 className="text-label text-muted-foreground mb-3">Órgão Superior</h4>
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							<UasgInfoRow label="Código do Órgão" value={data.codigoOrgao || "—"} />
 							<UasgInfoRow label="CNPJ do Órgão" value={data.cnpjCpfOrgao ? formatCnpj(data.cnpjCpfOrgao) : "—"} />
@@ -181,7 +181,7 @@ function UasgInfoCard({ data }: { data: UasgInfo }) {
 
 					{/* Sistemas */}
 					<section>
-						<h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Sistemas</h4>
+						<h4 className="text-label text-muted-foreground mb-3">Sistemas</h4>
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							<UasgInfoRow
 								label="Uso SISG"
@@ -206,7 +206,7 @@ function UasgInfoCard({ data }: { data: UasgInfo }) {
 
 					{/* Datas */}
 					<section>
-						<h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Histórico</h4>
+						<h4 className="text-label text-muted-foreground mb-3">Histórico</h4>
 						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							<UasgInfoRow label="Implantação SIDEC" value={formatDate(data.dataImplantacaoSidec)} />
 							<UasgInfoRow label="Última atualização" value={formatDate(data.dataHoraMovimento)} />

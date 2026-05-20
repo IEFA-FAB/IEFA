@@ -110,16 +110,23 @@ export const features: Feature[] = [
    ======================================================================== */
 
 export const Route = createFileRoute("/_public/")({
-	head: () => ({
-		meta: [
-			{ title: "SISUB - Sistema de Subsistência" },
-			{
-				name: "description",
-				content:
-					"Plataforma integrada de gestão de subsistência da Força Aérea Brasileira. Do planejamento nutricional ao empenho de insumos — um sistema para toda a cadeia do rancho.",
-			},
-		],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const title = "SISUB - Sistema de Subsistência"
+		const description = "Plataforma integrada de gestão de subsistência da Força Aérea Brasileira — do planejamento nutricional ao empenho de insumos."
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: `${baseUrl}/` },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: `${baseUrl}/` },
+			],
+		}
+	},
 	component: Home,
 })
 

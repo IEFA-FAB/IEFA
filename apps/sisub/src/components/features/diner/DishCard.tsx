@@ -5,7 +5,7 @@ export function DishCard({ dish }: { dish: DishDetails }) {
 	const hasIngredients = dish.ingredients && dish.ingredients.length > 0
 	return (
 		<div className="rounded-md border bg-card p-3 space-y-2">
-			<p className="text-sm font-medium text-foreground">{dish.name}</p>
+			<p className="text-subheading text-foreground">{dish.name}</p>
 			{hasIngredients && (
 				<div className="flex flex-wrap gap-1">
 					{dish.ingredients.map((ing) => (

@@ -155,7 +155,7 @@ export function ArpSearchModal({ open, onOpenChange, ataId, unitId, defaultUasg 
 									<div key={key} className="border rounded-lg p-4 flex items-start justify-between gap-4 hover:bg-muted/50 transition-colors">
 										<div className="space-y-1 min-w-0">
 											<div className="flex items-center gap-2 flex-wrap">
-												<span className="font-semibold text-sm">
+												<span className="text-subheading">
 													ARP {item.numeroAta}/{item.anoAta}
 												</span>
 												<span className="text-xs text-muted-foreground">UASG {item.uasgGerenciadora}</span>

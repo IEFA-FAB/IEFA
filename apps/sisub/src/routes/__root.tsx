@@ -39,23 +39,47 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			}
 		}
 	},
-	head: () => ({
-		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Previsão SISUB" }],
-		favicon: "/favicon.svg",
-		links: [
-			{
-				rel: "icon",
-				type: "image/svg+xml",
-				sizes: "any",
-				href: "/favicon.svg",
-			},
-			{
-				rel: "manifest",
-				href: "/manifest.json",
-			},
-			{ rel: "icon", href: "/favicon.svg" },
-		],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const ogImage = `${baseUrl}/og-image.png`
+		const description = "Sistema de Subsistência — planejamento de menus, receitas e analytics para a FAB."
+		const title = "Previsão SISUB"
+		return {
+			meta: [
+				{ charSet: "utf-8" },
+				{ name: "viewport", content: "width=device-width, initial-scale=1" },
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:type", content: "website" },
+				{ property: "og:site_name", content: "SISUB" },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: baseUrl },
+				{ property: "og:image", content: ogImage },
+				{ property: "og:image:width", content: "1200" },
+				{ property: "og:image:height", content: "630" },
+				{ name: "twitter:card", content: "summary_large_image" },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: baseUrl },
+				{ name: "twitter:image", content: ogImage },
+			],
+			favicon: "/favicon.svg",
+			links: [
+				{
+					rel: "icon",
+					type: "image/svg+xml",
+					sizes: "any",
+					href: "/favicon.svg",
+				},
+				{
+					rel: "manifest",
+					href: "/manifest.json",
+				},
+				{ rel: "icon", href: "/favicon.svg" },
+			],
+		}
+	},
 	errorComponent: DefaultCatchBoundary,
 	notFoundComponent: () => <NotFound />,
 	shellComponent: RootDocument,

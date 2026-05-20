@@ -41,7 +41,7 @@ export function SuggestedPrompts({ onSelect }: SuggestedPromptsProps) {
 					<Sparkles className="size-6" />
 				</div>
 				<div>
-					<h2 className="text-lg font-semibold text-foreground">Assistente de Analytics</h2>
+					<h2 className="text-heading text-foreground">Assistente de Analytics</h2>
 					<p className="mt-1 max-w-sm text-sm text-muted-foreground leading-relaxed">
 						Descreva o que você quer analisar — o gráfico é gerado automaticamente com dados em tempo real.
 					</p>
@@ -61,7 +61,7 @@ export function SuggestedPrompts({ onSelect }: SuggestedPromptsProps) {
 							<Icon className="size-4" />
 						</div>
 						<div className="min-w-0">
-							<p className="text-sm font-medium text-foreground leading-snug">{text}</p>
+							<p className="text-subheading text-foreground leading-snug">{text}</p>
 							<p className="mt-0.5 text-xs text-muted-foreground leading-snug">{description}</p>
 						</div>
 					</button>

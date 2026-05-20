@@ -71,7 +71,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 							<span className="inline-flex items-center justify-center size-8 rounded-lg bg-background text-foreground ring-1 ring-border">
 								<Settings className="size-4.5" />
 							</span>
-							<span className="font-semibold">Configurar Rancho Padrão</span>
+							<span className="text-subheading">Configurar Rancho Padrão</span>
 						</span>
 					</CardTitle>
 				</div>
@@ -89,7 +89,7 @@ export function DefaultMessHallSelector({ defaultMessHallCode, setDefaultMessHal
 
 			<CardContent className="space-y-6">
 				<div className="space-y-3">
-					<Label className="text-sm font-medium text-foreground">Selecione o rancho padrão:</Label>
+					<Label className="text-subheading">Selecione o rancho padrão:</Label>
 
 					<Select value={defaultMessHallCode} onValueChange={handleMessHallChange} disabled={isApplying || saving || !hasMessHalls}>
 						<SelectTrigger className="w-full cursor-pointer bg-background border border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background hover:border-accent">

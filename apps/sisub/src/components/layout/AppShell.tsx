@@ -207,7 +207,7 @@ export function AppShell() {
 						<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
 						{isMobile ? (
 							// Mobile: ← pai  /  página atual
-							<div className="flex items-center gap-1 text-sm font-medium min-w-0">
+							<div className="flex items-center gap-1 text-subheading min-w-0">
 								{(() => {
 									const parentCrumb = crumbs.length >= 2 ? crumbs[crumbs.length - 2] : null
 									const currentCrumb = crumbs.length >= 1 ? crumbs[crumbs.length - 1] : null
@@ -224,8 +224,8 @@ export function AppShell() {
 											</Link>
 											{currentCrumb && (
 												<>
-													<span className="text-muted-foreground/40 px-1">/</span>
-													<span className="text-foreground font-semibold truncate">{currentCrumb.label}</span>
+													<span className="text-muted-foreground px-1">/</span>
+													<span className="text-subheading truncate">{currentCrumb.label}</span>
 												</>
 											)}
 										</>
@@ -235,7 +235,7 @@ export function AppShell() {
 						) : (
 							// Desktop: trilha completa
 							<Breadcrumb>
-								<BreadcrumbList className="text-sm font-medium">
+								<BreadcrumbList className="text-subheading">
 									<BreadcrumbItem>
 										<BreadcrumbLink
 											render={
@@ -250,7 +250,7 @@ export function AppShell() {
 											<BreadcrumbSeparator className="text-muted-foreground/50 px-2" />
 											<BreadcrumbItem>
 												{idx === crumbs.length - 1 ? (
-													<span className="text-foreground font-semibold text-center">{c.label}</span>
+													<span className="text-subheading text-center">{c.label}</span>
 												) : (
 													<BreadcrumbLink
 														render={

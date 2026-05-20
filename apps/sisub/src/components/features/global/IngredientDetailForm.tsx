@@ -210,7 +210,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 															? (ceafaList.find((c) => c.id === field.state.value)?.description ?? currentCeafa?.description ?? "CEAFA selecionado")
 															: "Buscar alimento CEAFA..."}
 													</span>
-													<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+													<ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
 												</PopoverTrigger>
 												<PopoverContent id="ceafa-combobox-popup" className="w-[400px] p-0" align="start">
 													<Command shouldFilter={false}>
@@ -395,13 +395,13 @@ function NutrientsCard({ nutrients, values, onChange }: NutrientsCardProps) {
 			<CardContent className="space-y-6">
 				{energyNutrients.length > 0 && (
 					<div>
-						<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Valores Energéticos</p>
+						<p className="text-label text-muted-foreground mb-3">Valores Energéticos</p>
 						<NutrientGrid nutrients={energyNutrients} values={values} onChange={onChange} />
 					</div>
 				)}
 				{regularNutrients.length > 0 && (
 					<div>
-						<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Nutrientes</p>
+						<p className="text-label text-muted-foreground mb-3">Nutrientes</p>
 						<NutrientGrid nutrients={regularNutrients} values={values} onChange={onChange} />
 					</div>
 				)}
@@ -421,7 +421,7 @@ function NutrientGrid({ nutrients, values, onChange }: NutrientGridProps) {
 		<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
 			{nutrients.map((n) => (
 				<div key={n.id} className="space-y-1">
-					<label htmlFor={`nutrient-${n.id}`} className="text-xs font-medium text-foreground">
+					<label htmlFor={`nutrient-${n.id}`} className="text-caption text-foreground">
 						{n.name}
 						{n.daily_value && <span className="text-muted-foreground ml-1">(VD: {n.daily_value})</span>}
 					</label>
@@ -502,7 +502,7 @@ function CatmatCombobox({ value, descricao, onChange }: CatmatComboboxProps) {
 				) : (
 					<span className="text-muted-foreground">Vincular código CATMAT...</span>
 				)}
-				<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+				<ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
 			</PopoverTrigger>
 
 			<PopoverContent

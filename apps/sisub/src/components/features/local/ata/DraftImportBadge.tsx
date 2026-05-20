@@ -33,7 +33,7 @@ export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportB
 	return (
 		<Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
 			<Send className="size-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-			<AlertTitle className="text-blue-800 dark:text-blue-300 text-sm font-semibold">Rascunho enviado pela cozinha</AlertTitle>
+			<AlertTitle className="text-blue-800 dark:text-blue-300 text-subheading">Rascunho enviado pela cozinha</AlertTitle>
 			<AlertDescription className="flex items-center justify-between gap-2 mt-1">
 				<span className="text-sm text-blue-700 dark:text-blue-400">
 					<strong>{kitchenState.kitchenName}</strong> enviou o rascunho <strong>"{draft.title}"</strong> com {draft.selections.length}{" "}

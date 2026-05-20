@@ -23,8 +23,8 @@ class ChartErrorBoundary extends Component<{ children: ReactNode }, ChartErrorBo
 		if (this.state.error) {
 			return (
 				<div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-					<p className="font-medium">Erro ao renderizar gráfico</p>
-					<p className="mt-1 text-xs opacity-80">{this.state.error.message}</p>
+					<p className="text-subheading">Erro ao renderizar gráfico</p>
+					<p className="mt-1 text-hint text-muted-foreground">{this.state.error.message}</p>
 				</div>
 			)
 		}
@@ -267,7 +267,7 @@ function DataTable({ spec }: { spec: ChartSpec }) {
 				<TableHeader>
 					<TableRow>
 						{headers.map((h) => (
-							<TableHead key={h} className="whitespace-nowrap text-xs">
+							<TableHead key={h} className="whitespace-nowrap text-label">
 								{h}
 							</TableHead>
 						))}
@@ -277,7 +277,7 @@ function DataTable({ spec }: { spec: ChartSpec }) {
 					{spec.data.map((row, i) => (
 						<TableRow key={i}>
 							{columns.map((col) => (
-								<TableCell key={col} className="text-xs">
+								<TableCell key={col} className="text-caption">
 									{String(row[col] ?? "")}
 								</TableCell>
 							))}
@@ -337,7 +337,7 @@ export function ChatChart({ spec, overrideType }: ChatChartProps) {
 			{(spec.title || spec.description || isChart) && (
 				<div className="mb-3 flex items-start justify-between gap-2">
 					<div className="min-w-0">
-						{spec.title && <p className="text-sm font-medium text-foreground">{spec.title}</p>}
+						{spec.title && <p className="text-subheading text-foreground">{spec.title}</p>}
 						{spec.description && <p className="mt-0.5 text-xs text-muted-foreground">{spec.description}</p>}
 					</div>
 					{isChart && (

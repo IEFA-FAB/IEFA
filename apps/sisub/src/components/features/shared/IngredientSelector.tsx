@@ -36,7 +36,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className="max-w-full sm:max-w-3xl h-screen sm:h-[80vh] flex flex-col p-0 sm:p-6 gap-0 sm:gap-4">
 				<DialogHeader className="px-6 pt-6 sm:px-0 sm:pt-0">
-					<DialogTitle className="font-sans font-bold text-xl md:text-2xl">Selecionar Insumo</DialogTitle>
+					<DialogTitle className="font-sans text-display md:text-2xl">Selecionar Insumo</DialogTitle>
 				</DialogHeader>
 
 				{/* Search Bar - Enhanced */}
@@ -107,7 +107,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 												type="button"
 												className={cn(
 													"flex items-center p-3 w-full text-left border-b border-border/50 transition-all duration-150",
-													isProduct ? "hover:bg-primary/5 cursor-pointer hover:border-l-2 hover:border-l-primary" : "cursor-default opacity-60"
+													isProduct ? "hover:bg-primary/5 cursor-pointer hover:border-l-2 hover:border-l-primary" : "cursor-default text-muted-foreground"
 												)}
 												style={{ paddingLeft: `${node.level * 20 + 12}px` }}
 												disabled={!isProduct}
@@ -136,10 +136,10 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 													<span className={cn("text-base", iconColor)}>{node.type === "folder" ? "📁" : "📦"}</span>
 												</div>
 
-												<span className={cn("flex-1 font-sans text-sm", isProduct && "font-medium")}>{node.label}</span>
+												<span className={cn("flex-1 font-sans text-sm", isProduct && "text-subheading")}>{node.label}</span>
 
 												{isProduct && (
-													<span className="ml-auto px-2.5 py-1 rounded-md text-xs font-mono tracking-wide bg-primary/10 text-primary border border-primary/20 transition-all opacity-0 group-hover:opacity-100">
+													<span className="ml-auto px-2.5 py-1 rounded-md text-xs font-mono bg-primary/10 text-primary border border-primary/20 transition-all opacity-0 group-hover:opacity-100">
 														Selecionar
 													</span>
 												)}

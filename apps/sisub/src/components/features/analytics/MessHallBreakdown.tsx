@@ -117,12 +117,12 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 										) : (
 											<ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
 										)}
-										<h3 className="font-semibold text-lg text-left">{mh.mess_hall_name}</h3>
+										<h3 className="text-heading text-left">{mh.mess_hall_name}</h3>
 									</div>
 									{/* Taxa de comparecimento sempre visível */}
 									<div className={cn("flex items-center gap-2 font-semibold", trendColor)}>
 										{getTrendIcon(attendanceRate)}
-										<span className="text-sm">{attendanceRate.toFixed(1)}%</span>
+										<span className="text-body">{attendanceRate.toFixed(1)}%</span>
 									</div>
 								</div>
 							</CollapsibleTrigger>
@@ -132,26 +132,26 @@ export default function MessHallBreakdown({ data }: MessHallBreakdownProps) {
 									{/* Grid com métricas */}
 									<div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 										<div>
-											<p className="text-sm text-muted-foreground">Total Previsto</p>
-											<p className="text-2xl font-bold">{mh.total_forecast}</p>
+											<p className="text-caption text-muted-foreground">Total Previsto</p>
+											<p className="text-display">{mh.total_forecast}</p>
 										</div>
 										<div>
-											<p className="text-sm text-muted-foreground">Total Presença</p>
-											<p className="text-2xl font-bold">{mh.total_presence}</p>
+											<p className="text-caption text-muted-foreground">Total Presença</p>
+											<p className="text-display">{mh.total_presence}</p>
 										</div>
 										<div className="col-span-2 md:col-span-1">
-											<p className="text-sm text-muted-foreground">Taxa de Comparecimento</p>
-											<p className={cn("text-2xl font-bold", trendColor)}>{attendanceRate.toFixed(1)}%</p>
+											<p className="text-caption text-muted-foreground">Taxa de Comparecimento</p>
+											<p className={cn("text-display", trendColor)}>{attendanceRate.toFixed(1)}%</p>
 										</div>
 									</div>
 
 									{/* By meal breakdown */}
 									<div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-3 border-t">
 										{mh.by_meal.map((meal) => (
-											<div key={meal.meal} className="p-2 bg-muted/50 rounded text-xs">
-												<span className="font-medium capitalize block mb-1">{meal.meal}</span>
+											<div key={meal.meal} className="p-2 bg-muted/50 rounded text-caption">
+												<span className="text-caption capitalize block mb-1">{meal.meal}</span>
 												<div className="flex items-baseline gap-1">
-													<span className="text-sm font-semibold">{meal.forecast}</span>
+													<span className="text-body">{meal.forecast}</span>
 													<span className="text-muted-foreground">/</span>
 													<span className="text-sm text-muted-foreground">{meal.presence}</span>
 												</div>

@@ -75,7 +75,7 @@ export function DraftEditor({
 	const renderTemplateList = (templates: TemplateWithItemCounts[], label: string) => (
 		<Card>
 			<CardHeader className="pb-3">
-				<CardTitle className="text-sm font-semibold">{label}</CardTitle>
+				<CardTitle className="text-subheading">{label}</CardTitle>
 			</CardHeader>
 			<CardContent>
 				{isLoadingTemplates ? (
@@ -101,7 +101,7 @@ export function DraftEditor({
 								>
 									<Checkbox id={`draft-${template.id}`} checked={selected} onCheckedChange={(checked) => handleToggle(template, checked === true)} />
 									<div className="flex-1 min-w-0">
-										<Label htmlFor={`draft-${template.id}`} className="text-sm font-medium cursor-pointer">
+										<Label htmlFor={`draft-${template.id}`} className="text-subheading cursor-pointer">
 											{template.name || "Sem nome"}
 										</Label>
 										<div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -109,7 +109,7 @@ export function DraftEditor({
 											{someMissing && (
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
-													<span className="text-xs text-destructive font-medium flex items-center gap-1">
+													<span className="text-caption text-destructive flex items-center gap-1">
 														<Users className="size-3" />
 														{template.headcount_filled}/{template.item_count} com comensais
 													</span>
@@ -189,7 +189,7 @@ export function DraftEditor({
 			{/* Resumo e Ações */}
 			{selections.length > 0 && (
 				<div className="rounded-md border bg-muted/30 p-4">
-					<p className="text-sm font-medium mb-2">Resumo das Seleções:</p>
+					<p className="text-subheading mb-2">Resumo das Seleções:</p>
 					<div className="flex flex-wrap gap-2">
 						{selections.map((s) => (
 							<Badge key={s.templateId} variant="secondary" className="text-xs">

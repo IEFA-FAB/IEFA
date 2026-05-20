@@ -145,7 +145,7 @@ function DayCard({
 				<div className="flex items-center justify-center gap-3">
 					<div className="flex flex-col items-end">
 						<span className="text-5xl font-bold leading-none text-foreground">{dayNumber}</span>
-						<span className="text-xs text-muted-foreground uppercase tracking-wide">{monthAbbr}</span>
+						<span className="text-label text-muted-foreground">{monthAbbr}</span>
 					</div>
 					<Separator orientation="vertical" className="h-12" />
 					<div className="flex items-center">

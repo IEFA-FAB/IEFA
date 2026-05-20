@@ -30,7 +30,7 @@ export function AtaStepIndicator({ currentStep }: AtaStepIndicatorProps) {
 						<div className="flex items-center gap-2">
 							<div
 								className={cn(
-									"flex size-8 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors",
+									"flex size-8 items-center justify-center rounded-full border-2 text-subheading transition-colors",
 									isCompleted && "border-primary bg-primary text-primary-foreground",
 									isActive && "border-primary bg-background text-primary",
 									!isCompleted && !isActive && "border-muted-foreground/30 text-muted-foreground"
@@ -41,7 +41,7 @@ export function AtaStepIndicator({ currentStep }: AtaStepIndicatorProps) {
 							</div>
 							<span
 								className={cn(
-									"text-sm font-medium hidden sm:inline",
+									"text-subheading hidden sm:inline",
 									isActive && "text-primary",
 									isCompleted && "text-foreground",
 									!isCompleted && !isActive && "text-muted-foreground"

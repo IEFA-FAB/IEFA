@@ -19,15 +19,23 @@ export const Route = createFileRoute("/_public/")({
 		},
 	},
 	component: Home,
-	head: () => ({
-		meta: [
-			{ title: "Portal IEFA" },
-			{
-				name: "description",
-				content: "Portal do Instituto de Economia, Finanças e Administração da Aeronáutica",
-			},
-		],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const title = "Portal IEFA"
+		const description = "Portal do Instituto de Economia, Finanças e Administração da Aeronáutica."
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: `${baseUrl}/` },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: `${baseUrl}/` },
+			],
+		}
+	},
 })
 
 const PILLARS = [

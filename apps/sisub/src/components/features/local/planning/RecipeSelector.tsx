@@ -120,7 +120,7 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 									<Button
 										variant="ghost"
 										onClick={() => handleToggleRecipe(recipe.id)}
-										className={cn("size-full flex justify-start items-center gap-3 px-3 text-left rounded-none font-normal", isSelected && "bg-accent/50")}
+										className={cn("size-full flex justify-start items-center gap-3 px-3 text-left rounded-none", isSelected && "bg-accent/50")}
 									>
 										<div
 											className={cn(
@@ -133,7 +133,7 @@ function RecipeSelectorContent({ onClose, kitchenId, selectedRecipeIds, onSelect
 
 										<div className="flex-1 min-w-0">
 											<div className="flex items-center gap-2">
-												<span className="font-medium truncate">{recipe.name}</span>
+												<span className="text-subheading truncate">{recipe.name}</span>
 												{recipe.kitchen_id === null && (
 													<Badge variant="outline" className="text-xs shrink-0">
 														Global

@@ -58,7 +58,7 @@ function QrCodePage() {
 			<div className="mx-auto max-w-sm rounded-md border bg-card p-6 flex flex-col items-center gap-4">
 				{/* Identificação */}
 				<div className="text-center space-y-0.5">
-					<p className="font-semibold text-foreground">{displayName}</p>
+					<p className="text-subheading text-foreground">{displayName}</p>
 					{rankAndUnit && <p className="text-xs text-muted-foreground">{rankAndUnit}</p>}
 				</div>
 

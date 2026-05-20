@@ -68,7 +68,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Café: ${day.cafe}`}
 										/>
-										{day.cafe > 0 && <span className="text-xs font-medium text-chart-2">{day.cafe}</span>}
+										{day.cafe > 0 && <span className="text-caption text-chart-2">{day.cafe}</span>}
 									</div>
 
 									{/* Almoço */}
@@ -81,7 +81,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Almoço: ${day.almoco}`}
 										/>
-										{day.almoco > 0 && <span className="text-xs font-medium text-chart-3">{day.almoco}</span>}
+										{day.almoco > 0 && <span className="text-caption text-chart-3">{day.almoco}</span>}
 									</div>
 
 									{/* Janta */}
@@ -94,7 +94,7 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Janta: ${day.janta}`}
 										/>
-										{day.janta > 0 && <span className="text-xs font-medium text-chart-5">{day.janta}</span>}
+										{day.janta > 0 && <span className="text-caption text-chart-5">{day.janta}</span>}
 									</div>
 
 									{/* Ceia */}
@@ -107,14 +107,14 @@ export default function MealDistributionChart({ data }: MealDistributionChartPro
 											}}
 											title={`Ceia: ${day.ceia}`}
 										/>
-										{day.ceia > 0 && <span className="text-xs font-medium text-chart-1">{day.ceia}</span>}
+										{day.ceia > 0 && <span className="text-caption text-chart-1">{day.ceia}</span>}
 									</div>
 								</div>
 
 								{/* Date Label */}
 								<div className="flex flex-col items-center">
-									<span className="text-xs font-medium capitalize">{weekday}</span>
-									<span className="text-xs text-muted-foreground">{formattedDate}</span>
+									<span className="text-caption capitalize">{weekday}</span>
+									<span className="text-caption text-muted-foreground">{formattedDate}</span>
 								</div>
 							</div>
 						)

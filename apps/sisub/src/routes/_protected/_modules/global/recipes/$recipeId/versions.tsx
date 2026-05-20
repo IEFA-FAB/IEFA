@@ -93,12 +93,12 @@ function DiffView({ from, to }: { from: RecipeWithIngredients; to: RecipeWithIng
 			{diff.changedFields.length > 0 && (
 				<div className="rounded-lg border bg-card overflow-hidden">
 					<div className="px-4 py-2.5 bg-muted/30 border-b">
-						<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Campos alterados</span>
+						<span className="text-label text-muted-foreground">Campos alterados</span>
 					</div>
 					<div className="divide-y">
 						{diff.changedFields.map((f) => (
 							<div key={f.key} className="px-4 py-3 grid grid-cols-[130px_1fr_1fr] gap-3 items-start text-sm">
-								<span className="text-xs font-medium text-muted-foreground pt-1">{f.label}</span>
+								<span className="text-caption text-muted-foreground pt-1">{f.label}</span>
 								<div className="rounded bg-destructive/10 px-2.5 py-2 text-destructive text-xs whitespace-pre-wrap break-words">{formatFieldValue(f.from)}</div>
 								<div className="rounded bg-success/10 px-2.5 py-2 text-success text-xs whitespace-pre-wrap break-words">{formatFieldValue(f.to)}</div>
 							</div>
@@ -111,19 +111,19 @@ function DiffView({ from, to }: { from: RecipeWithIngredients; to: RecipeWithIng
 			{(diff.addedIngredients.length > 0 || diff.removedIngredients.length > 0 || diff.changedQuantities.length > 0) && (
 				<div className="rounded-lg border bg-card overflow-hidden">
 					<div className="px-4 py-2.5 bg-muted/30 border-b">
-						<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ingredientes</span>
+						<span className="text-label text-muted-foreground">Ingredientes</span>
 					</div>
 					<div className="p-3 space-y-1.5">
 						{diff.removedIngredients.map((i) => (
 							<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-destructive/10 text-xs">
-								<span className="font-mono font-bold text-destructive w-4 shrink-0">−</span>
+								<span className="font-mono font-semibold text-destructive w-4 shrink-0">−</span>
 								<span className="text-destructive flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 								<span className="text-destructive/70 shrink-0 font-mono">{i.net_quantity}g</span>
 							</div>
 						))}
 						{diff.addedIngredients.map((i) => (
 							<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-success/10 text-xs">
-								<span className="font-mono font-bold text-success w-4 shrink-0">+</span>
+								<span className="font-mono font-semibold text-success w-4 shrink-0">+</span>
 								<span className="text-success flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 								<span className="text-success/70 shrink-0 font-mono">{i.net_quantity}g</span>
 							</div>
@@ -132,7 +132,7 @@ function DiffView({ from, to }: { from: RecipeWithIngredients; to: RecipeWithIng
 							const fromIng = from.ingredients.find((fi) => fi.ingredient_id === i.ingredient_id)
 							return (
 								<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/20 text-xs">
-									<span className="font-mono font-bold text-amber-600 w-4 shrink-0">~</span>
+									<span className="font-mono font-semibold text-amber-600 w-4 shrink-0">~</span>
 									<span className="text-foreground flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 									<span className="shrink-0 font-mono space-x-1">
 										<span className="line-through text-destructive/70">{fromIng?.net_quantity}g</span>
@@ -213,7 +213,7 @@ function GlobalRecipeVersionsPage() {
 					/* Apenas uma versão — sem histórico ainda */
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 						<GitCompare className="size-8 mx-auto text-muted-foreground" />
-						<p className="text-sm font-medium text-muted-foreground">Nenhuma versão anterior</p>
+						<p className="text-subheading text-muted-foreground">Nenhuma versão anterior</p>
 						<p className="text-xs text-muted-foreground">
 							Esta preparação ainda tem apenas uma versão (v{recipe.version ?? 1}).
 							<br />
@@ -225,7 +225,7 @@ function GlobalRecipeVersionsPage() {
 					<div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 items-start">
 						{/* Timeline de versões */}
 						<div className="space-y-2">
-							<p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">Versões</p>
+							<p className="text-label text-muted-foreground px-1">Versões</p>
 
 							{sortedVersions.map((v, idx) => {
 								const isLatest = idx === sortedVersions.length - 1

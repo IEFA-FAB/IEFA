@@ -47,9 +47,23 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/auth/")({
 	validateSearch: searchSchema,
-	head: () => ({
-		meta: [{ title: "Entrar — SISUB" }, { name: "description", content: "Acesse o Sistema de Subsistência da Força Aérea Brasileira." }],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const title = "Entrar — SISUB"
+		const description = "Acesse o Sistema de Subsistência da Força Aérea Brasileira."
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: `${baseUrl}/auth` },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: `${baseUrl}/auth` },
+			],
+		}
+	},
 	component: AuthPage,
 })
 
@@ -158,11 +172,9 @@ function AuthPage() {
 						const Icon = item.icon
 						return (
 							<div key={item.text} className="flex items-center gap-4 py-4 stagger-item">
-								<span className="font-mono text-xl font-bold text-muted-foreground/40 tabular-nums min-w-[2rem] leading-none">
-									{String(i + 1).padStart(2, "0")}
-								</span>
+								<span className="font-mono text-display text-muted-foreground/40 tabular-nums min-w-[2rem] leading-none">{String(i + 1).padStart(2, "0")}</span>
 								<Icon className="size-4 text-primary shrink-0" aria-hidden />
-								<span className="text-sm font-medium">{item.text}</span>
+								<span className="text-subheading">{item.text}</span>
 							</div>
 						)
 					})}
@@ -191,7 +203,7 @@ function AuthPage() {
 					{view === "verify-success" && (
 						<div className="flex flex-col items-center gap-4 py-16" role="status" aria-live="polite">
 							<CheckCircle2 className="size-8 text-primary" aria-hidden />
-							<p className="font-bold text-lg">Email confirmado!</p>
+							<p className="text-display">Email confirmado!</p>
 							<p className="font-mono text-sm text-muted-foreground">Redirecionando para o sistema...</p>
 						</div>
 					)}
@@ -201,7 +213,7 @@ function AuthPage() {
 						<div className="flex flex-col gap-5">
 							<div>
 								<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Confirmação de email</p>
-								<h2 className="text-xl font-bold mb-1">Link inválido</h2>
+								<h2 className="text-display mb-1">Link inválido</h2>
 								<p className="text-sm text-muted-foreground">O link de confirmação expirou ou não é mais válido.</p>
 							</div>
 							<Alert variant="destructive">
@@ -802,7 +814,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 			<div className="flex flex-col gap-6">
 				<div>
 					<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Recuperação de senha</p>
-					<h2 className="text-xl font-bold mb-1">Email enviado!</h2>
+					<h2 className="text-display mb-1">Email enviado!</h2>
 					<p className="text-sm text-muted-foreground leading-relaxed">Verifique sua caixa de entrada. O link de redefinição expira em alguns minutos.</p>
 				</div>
 				<Button variant="ghost" size="sm" onClick={onBack} className="self-start gap-1.5 font-mono text-xs">
@@ -817,7 +829,7 @@ function ForgotView({ onBack, onSubmit }: ForgotViewProps) {
 		<div className="flex flex-col gap-6">
 			<div>
 				<p className="font-mono text-xs text-muted-foreground tracking-[0.1em] uppercase mb-2">Recuperação de senha</p>
-				<h2 className="text-xl font-bold mb-1">Esqueceu sua senha?</h2>
+				<h2 className="text-display mb-1">Esqueceu sua senha?</h2>
 				<p className="text-sm text-muted-foreground leading-relaxed">Informe seu email institucional e enviaremos um link de redefinição.</p>
 			</div>
 

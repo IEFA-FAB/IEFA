@@ -186,8 +186,9 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 
 	const cardClasses = "w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
 	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
-	const buttonClasses = "w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
-	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
+	const buttonClasses =
+		"w-full rounded-full text-heading shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
+	const labelClasses = "text-muted-foreground text-subheading ml-1 text-sm"
 	const iconClasses = "absolute left-4 top-4 size-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	if (isVerifyingToken) {
@@ -208,7 +209,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 			<div className="min-h-screen flex items-center justify-center p-4">
 				<Card className={cardClasses}>
 					<CardHeader className="text-center space-y-3 pb-4 pt-8">
-						<CardTitle className="text-3xl font-bold tracking-tight">Link Inválido</CardTitle>
+						<CardTitle className="text-display">Link Inválido</CardTitle>
 						<CardDescription className="text-muted-foreground text-base">O link de recuperação de senha expirou ou é inválido.</CardDescription>
 					</CardHeader>
 
@@ -238,7 +239,7 @@ export function ResetPasswordScreen({ searchParams, actions, onNavigate, forgotP
 		<div className="min-h-screen flex items-center justify-center p-4">
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">Redefinir Senha</CardTitle>
+					<CardTitle className="text-display">Redefinir Senha</CardTitle>
 					<CardDescription className="text-muted-foreground text-base">Digite sua nova senha segura.</CardDescription>
 				</CardHeader>
 

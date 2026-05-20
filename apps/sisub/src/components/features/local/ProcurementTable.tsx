@@ -94,13 +94,13 @@ export function ProcurementTable({ data, isLoading }: ProcurementTableProps) {
 									{items.map((item) => (
 										<TableRow key={item.ingredient_id}>
 											<TableCell className="font-mono text-xs text-muted-foreground">{item.catmat_item_codigo || "—"}</TableCell>
-											<TableCell className="font-medium">{item.ingredient_name}</TableCell>
+											<TableCell className="text-subheading">{item.ingredient_name}</TableCell>
 											<TableCell className="text-right tabular-nums">{item.total_quantity.toFixed(2)}</TableCell>
 											<TableCell className="text-right text-muted-foreground">{item.measure_unit || "UN"}</TableCell>
 											<TableCell className="text-right tabular-nums text-sm">
 												{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
 											</TableCell>
-											<TableCell className="text-right tabular-nums text-sm font-medium">
+											<TableCell className="text-right tabular-nums text-subheading">
 												{item.unit_price !== null ? BRL.format(item.total_quantity * item.unit_price) : <span className="text-muted-foreground">—</span>}
 											</TableCell>
 										</TableRow>

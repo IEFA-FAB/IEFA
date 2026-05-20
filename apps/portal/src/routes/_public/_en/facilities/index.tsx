@@ -16,9 +16,23 @@ export const Route = createFileRoute("/_public/_en/facilities/")({
 		},
 	},
 	component: Home,
-	head: () => ({
-		meta: [{ title: "Facilidades IEFA" }, { name: "description", content: "Suite de Soluções do IEFA" }],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const title = "Facilidades IEFA"
+		const description = "Ferramentas, aplicações e serviços do ecossistema IEFA — a suite completa de soluções desenvolvidas pelo Instituto."
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: `${baseUrl}/facilities` },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: `${baseUrl}/facilities` },
+			],
+		}
+	},
 })
 
 function Home() {

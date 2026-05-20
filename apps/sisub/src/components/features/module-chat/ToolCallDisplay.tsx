@@ -85,7 +85,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 				<div className="border-t border-border/40 px-3 py-2 space-y-2">
 					{parsedArgs && Object.keys(parsedArgs).length > 0 && (
 						<div>
-							<p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">Parâmetros</p>
+							<p className="text-label text-muted-foreground/60 mb-1">Parâmetros</p>
 							<pre className="overflow-auto rounded bg-background/60 p-2 text-[11px] text-muted-foreground font-mono leading-relaxed">
 								{JSON.stringify(parsedArgs, null, 2)}
 							</pre>
@@ -94,7 +94,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 
 					{toolCall.result !== undefined && (
 						<div>
-							<p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">Resultado</p>
+							<p className="text-label text-muted-foreground/60 mb-1">Resultado</p>
 							<pre className="overflow-auto rounded bg-background/60 p-2 text-[11px] text-muted-foreground font-mono leading-relaxed max-h-[200px]">
 								{typeof toolCall.result === "string" ? toolCall.result : JSON.stringify(toolCall.result, null, 2)}
 							</pre>

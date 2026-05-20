@@ -25,7 +25,7 @@ export function ChartTypeSelector({ value, onChange }: ChartTypeSelectorProps) {
 					type="button"
 					onClick={() => onChange(type)}
 					className={cn(
-						"inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+						"inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-label transition-colors",
 						"border",
 						value === type
 							? "bg-primary text-primary-foreground border-primary"

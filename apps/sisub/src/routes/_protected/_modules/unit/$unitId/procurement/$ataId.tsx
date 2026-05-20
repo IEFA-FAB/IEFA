@@ -198,7 +198,7 @@ function AtaDetailPage() {
 						<div className="space-y-4">
 							{ata.kitchens.map((kitchenEntry) => (
 								<div key={kitchenEntry.id}>
-									<p className="text-sm font-medium">{kitchenEntry.kitchen.display_name || `Cozinha ${kitchenEntry.kitchen_id}`}</p>
+									<p className="text-subheading">{kitchenEntry.kitchen.display_name || `Cozinha ${kitchenEntry.kitchen_id}`}</p>
 									{kitchenEntry.delivery_notes && <p className="text-xs text-muted-foreground mt-0.5">{kitchenEntry.delivery_notes}</p>}
 									<div className="flex flex-wrap gap-1.5 mt-2">
 										{kitchenEntry.selections.map((sel) => (
@@ -222,7 +222,7 @@ function AtaDetailPage() {
 			<div className="space-y-3">
 				<div className="flex items-center justify-between">
 					<div>
-						<h2 className="text-base font-semibold">ARP & Empenhos</h2>
+						<h2 className="text-heading">ARP & Empenhos</h2>
 						<p className="text-xs text-muted-foreground mt-0.5">
 							Vincule a Ata de Registro de Preços do Compras.gov.br e registre os empenhos emitidos por item.
 						</p>

@@ -112,7 +112,7 @@ export function ChatInterface({ sessionId, onSessionCreated }: ChatInterfaceProp
 			<div className="shrink-0 border-t border-border bg-background/80 backdrop-blur-sm px-4 py-3">
 				<div className="mx-auto max-w-3xl">
 					<ChatInput onSubmit={onSubmit} onAbort={handleAbort} isStreaming={isStreaming} />
-					<p className="mt-1.5 text-center text-[11px] text-muted-foreground">Os dados são consultados em tempo real. Resultados limitados a 500 registros.</p>
+					<p className="mt-1.5 text-center text-hint text-muted-foreground">Os dados são consultados em tempo real. Resultados limitados a 500 registros.</p>
 				</div>
 			</div>
 		</div>

@@ -60,7 +60,7 @@ function KitchenProductionPage() {
 
 					<button
 						type="button"
-						className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium hover:bg-muted transition-colors"
+						className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-subheading hover:bg-muted transition-colors"
 						onClick={goToToday}
 						title="Ir para hoje"
 					>

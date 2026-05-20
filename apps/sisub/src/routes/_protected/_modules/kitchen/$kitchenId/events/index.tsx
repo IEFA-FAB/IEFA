@@ -56,7 +56,7 @@ function EventsPage() {
 			<div>
 				<div className="flex items-center gap-2 mb-3">
 					<CalendarRange className="size-4 text-muted-foreground" />
-					<h2 className="text-sm font-semibold">Cardápios de Eventos</h2>
+					<h2 className="text-subheading">Cardápios de Eventos</h2>
 					<Badge variant="outline" className="text-xs">
 						Selecionáveis na licitação
 					</Badge>
@@ -67,7 +67,7 @@ function EventsPage() {
 				) : eventTemplates.length === 0 ? (
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 						<CalendarRange className="size-10 mx-auto text-muted-foreground" />
-						<p className="text-sm font-medium text-muted-foreground">Nenhum evento criado ainda.</p>
+						<p className="text-subheading text-muted-foreground">Nenhum evento criado ainda.</p>
 						<p className="text-xs text-muted-foreground max-w-sm mx-auto">
 							Crie cardápios para datas comemorativas, formaturas, visitas e outras refeições especiais. Eles serão selecionáveis na composição das Atas de
 							Registro de Preços.
@@ -99,7 +99,7 @@ function EventsPage() {
 							<TableBody>
 								{eventTemplates.map((template) => (
 									<TableRow key={template.id}>
-										<TableCell className="font-medium">{template.name}</TableCell>
+										<TableCell className="text-subheading">{template.name}</TableCell>
 										<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 										<TableCell className="text-center">
 											<Badge variant="secondary" className="font-mono text-xs">

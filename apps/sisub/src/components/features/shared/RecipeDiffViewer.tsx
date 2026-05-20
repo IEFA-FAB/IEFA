@@ -22,7 +22,7 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 			{/* Old Version Column */}
 			<Card className="border-muted">
 				<CardHeader>
-					<CardTitle className="text-sm font-medium text-muted-foreground">Versão {oldVersion.version} (Atual)</CardTitle>
+					<CardTitle className="text-subheading text-muted-foreground">Versão {oldVersion.version} (Atual)</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div>
@@ -49,12 +49,12 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 			{/* New Version Column */}
 			<Card className="border-primary">
 				<CardHeader>
-					<CardTitle className="text-sm font-medium text-primary">Versão {newVersion.version} (Nova)</CardTitle>
+					<CardTitle className="text-subheading text-primary">Versão {newVersion.version} (Nova)</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div>
 						<span className="text-xs text-muted-foreground">Nome</span>
-						<p className={oldVersion.name !== newVersion.name ? "text-primary font-medium" : ""}>{newVersion.name}</p>
+						<p className={oldVersion.name !== newVersion.name ? "text-primary text-subheading" : ""}>{newVersion.name}</p>
 					</div>
 					<div>
 						<span className="text-xs text-muted-foreground">Modo de Preparo</span>
@@ -75,7 +75,7 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 
 			{/* Ingredients Comparison (Full Width) */}
 			<div className="col-span-2 mt-4">
-				<h3 className="text-sm font-medium mb-2">Comparativo de Ingredientes</h3>
+				<h3 className="text-subheading mb-2">Comparativo de Ingredientes</h3>
 				<div className="border rounded-md divide-y">
 					{allIngredientIds.map((ingredientId) => {
 						if (ingredientId == null) {
@@ -106,7 +106,7 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 									<div className="text-warning">
 										{oldIng.ingredient?.description} - {oldIng.net_quantity} {oldIng.ingredient?.measure_unit}
 									</div>
-									<div className="font-medium text-warning">
+									<div className="text-subheading text-warning">
 										{newIng.ingredient?.description} - {newIng.net_quantity} {newIng.ingredient?.measure_unit}
 										<Badge variant="outline" className="ml-2 border-warning text-warning">
 											Alterado
@@ -120,7 +120,7 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 						if (oldIng && !newIng) {
 							return (
 								<div key={ingredientId} className="grid grid-cols-2 p-2 text-sm bg-destructive/10">
-									<div className="text-destructive font-medium line-through">
+									<div className="text-destructive text-subheading line-through">
 										{oldIng.ingredient?.description} - {oldIng.net_quantity} {oldIng.ingredient?.measure_unit}
 										<Badge variant="outline" className="ml-2 border-destructive text-destructive">
 											Removido
@@ -136,7 +136,7 @@ export function RecipeDiffViewer({ oldVersion, newVersion }: RecipeDiffViewerPro
 							return (
 								<div key={ingredientId} className="grid grid-cols-2 p-2 text-sm bg-success/10">
 									<div className="text-muted-foreground">-</div>
-									<div className="text-success font-medium">
+									<div className="text-success text-subheading">
 										{newIng.ingredient?.description} - {newIng.net_quantity} {newIng.ingredient?.measure_unit}
 										<Badge variant="outline" className="ml-2 border-success text-success">
 											Novo

@@ -90,7 +90,7 @@ export function KitchenSettingsForm({ kitchenId, defaultValues }: { kitchenId: n
 								<Field>
 									<FieldLabel htmlFor={field.name}>
 										Complemento
-										<span className="text-muted-foreground font-normal ml-1 text-xs">(opcional)</span>
+										<span className="text-muted-foreground ml-1 text-hint">(opcional)</span>
 									</FieldLabel>
 									<FieldContent>
 										<Input

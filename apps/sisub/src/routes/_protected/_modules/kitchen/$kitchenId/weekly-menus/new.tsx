@@ -134,7 +134,7 @@ function NewWeeklyMenuPage() {
 						<CardContent>
 							<div className="flex items-center gap-3">
 								<div>
-									<p className="font-medium text-sm">{baseTemplate.name}</p>
+									<p className="text-subheading">{baseTemplate.name}</p>
 									{baseTemplate.description && <p className="text-xs text-muted-foreground mt-0.5">{baseTemplate.description}</p>}
 								</div>
 								<Badge variant="outline" className="ml-auto text-xs">

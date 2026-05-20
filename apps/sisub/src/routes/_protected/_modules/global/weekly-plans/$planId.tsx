@@ -72,7 +72,7 @@ function DayOverviewCard({
 			className={cn("text-left w-full h-auto p-4 flex-col items-start justify-start", allFilled && "border-success/40 h-full")}
 		>
 			<div className="flex items-center justify-between mb-3">
-				<span className="text-sm font-semibold">{day.abbr}</span>
+				<span className="text-subheading">{day.abbr}</span>
 				<Badge variant={totalRecipes > 0 ? "default" : "outline"} className="text-xs tabular-nums">
 					{totalRecipes}
 				</Badge>
@@ -142,7 +142,7 @@ function DayMealSection({
 		<Card className="overflow-hidden p-0 gap-0">
 			<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
 				<div className="flex items-center gap-2">
-					<span className="text-sm font-medium">{mealType.name}</span>
+					<span className="text-subheading">{mealType.name}</span>
 					{hasRecipes && (
 						<Badge variant="secondary" className="text-xs">
 							{recipes.length}
@@ -306,7 +306,7 @@ function GlobalPlanEditorPage() {
 	if (!template) {
 		return (
 			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-sm font-medium">Plano semanal não encontrado.</p>
+				<p className="text-subheading">Plano semanal não encontrado.</p>
 				<Link to="/global/weekly-plans" className="cursor-pointer text-sm text-primary mt-2 flex items-center justify-center hover:underline">
 					← Voltar para listagem
 				</Link>
@@ -413,7 +413,7 @@ function GlobalPlanEditorPage() {
 						{WEEKDAYS.map((day) => (
 							<TabsContent key={day.num} value={String(day.num)} className="mt-4 space-y-3">
 								<div className="flex items-center justify-between px-1">
-									<h2 className="text-sm font-semibold">{day.label}</h2>
+									<h2 className="text-subheading">{day.label}</h2>
 									<span className="text-xs text-muted-foreground">
 										{items.filter((i) => i.day_of_week === day.num).length} preparaç
 										{items.filter((i) => i.day_of_week === day.num).length !== 1 ? "ões" : "ão"}

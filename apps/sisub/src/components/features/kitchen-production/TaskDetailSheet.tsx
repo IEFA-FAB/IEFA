@@ -101,12 +101,10 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 				<div className="flex-1 overflow-y-auto">
 					{recipe?.ingredients && recipe.ingredients.length > 0 ? (
 						<div className="p-4 space-y-2">
-							<h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+							<h3 className="text-subheading text-foreground flex items-center gap-2">
 								<Utensils className="size-4 text-muted-foreground" />
 								Ingredientes
-								{plannedPortions && portionYield && (
-									<span className="text-xs text-muted-foreground font-normal">(quantidades para {plannedPortions} porções)</span>
-								)}
+								{plannedPortions && portionYield && <span className="text-hint text-muted-foreground">(quantidades para {plannedPortions} porções)</span>}
 							</h3>
 							<div className="rounded-md border border-border overflow-hidden">
 								<Table>
@@ -143,7 +141,7 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 					{/* Modo de Preparo */}
 					{recipe?.preparation_method && (
 						<div className="px-4 pb-4 space-y-2">
-							<h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+							<h3 className="text-subheading text-foreground flex items-center gap-2">
 								<Clock className="size-4 text-muted-foreground" />
 								Modo de Preparo
 							</h3>

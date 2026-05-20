@@ -45,7 +45,7 @@ export function GraphLegend() {
 			</Tooltip>
 
 			<PopoverContent side="bottom" align="end" className="w-72 p-3">
-				<p className="text-xs font-semibold text-foreground mb-2">Entidades</p>
+				<p className="text-subheading text-foreground mb-2">Entidades</p>
 				<div className="flex flex-col gap-1.5">
 					{NODE_ENTRIES.map(({ icon: Icon, label, description, color }) => (
 						<div key={label} className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export function GraphLegend() {
 								<Icon className="size-3" style={{ color }} />
 							</div>
 							<div className="min-w-0">
-								<span className="text-xs font-medium text-foreground">{label}</span>
+								<span className="text-caption text-foreground">{label}</span>
 								<span className="text-xs text-muted-foreground"> — {description}</span>
 							</div>
 						</div>
@@ -65,13 +65,13 @@ export function GraphLegend() {
 
 				<Separator className="my-2.5" />
 
-				<p className="text-xs font-semibold text-foreground mb-2">Relações</p>
+				<p className="text-subheading text-foreground mb-2">Relações</p>
 				<div className="flex flex-col gap-1.5">
 					{RELATION_ENTRIES.map(([relationType, label]) => (
 						<div key={relationType} className="flex items-center gap-2">
 							<div className="w-5 h-0.5 flex-shrink-0" style={{ backgroundColor: RELATION_COLORS[relationType] }} />
 							<div className="min-w-0">
-								<span className="text-xs font-medium text-foreground">{label}</span>
+								<span className="text-caption text-foreground">{label}</span>
 								<p className="text-[10px] text-muted-foreground leading-tight">{RELATION_DESCRIPTIONS[relationType]}</p>
 							</div>
 						</div>

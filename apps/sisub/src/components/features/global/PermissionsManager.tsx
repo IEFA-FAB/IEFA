@@ -103,7 +103,7 @@ function scopeTypeOf(perm: PermissionRow): ScopeType {
 // ─── Display Helpers ──────────────────────────────────────────────────────────
 
 function ModuleBadge({ module }: { module: AppModule }) {
-	return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium">{MODULE_LABELS[module] ?? module}</span>
+	return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption">{MODULE_LABELS[module] ?? module}</span>
 }
 
 function LevelBadge({ level }: { level: number }) {
@@ -331,7 +331,7 @@ function DeleteDialog({ perm, isPending, onConfirm, onClose }: { perm: Permissio
 					<DialogTitle>Remover permissão</DialogTitle>
 				</DialogHeader>
 				<p className="text-sm text-muted-foreground py-2">
-					Tem certeza que deseja remover a permissão <span className="font-medium text-foreground">{perm ? MODULE_LABELS[perm.module] : ""}</span> (nível{" "}
+					Tem certeza que deseja remover a permissão <span className="text-subheading text-foreground">{perm ? MODULE_LABELS[perm.module] : ""}</span> (nível{" "}
 					{perm?.level ?? ""})?{" "}
 					{perm?.module === "diner" && perm?.level === 0 && (
 						<span className="text-warning">Isso restaurará o acesso implícito de Comensal para este usuário.</span>
@@ -476,7 +476,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 	return (
 		<div className="rounded-lg border bg-card p-6 space-y-4">
 			<div>
-				<h2 className="text-base font-semibold">Buscar Usuário</h2>
+				<h2 className="text-heading">Buscar Usuário</h2>
 				<p className="text-sm text-muted-foreground mt-0.5">Digite o email do usuário para gerenciar suas permissões.</p>
 			</div>
 
@@ -503,7 +503,7 @@ function UserSearchPanel({ onSelect }: { onSelect: (user: UserSearchResult) => v
 								className="w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm hover:bg-accent transition-colors group"
 							>
 								<div>
-									<p className="font-medium">{user.email}</p>
+									<p className="text-subheading">{user.email}</p>
 									{user.nrOrdem && <p className="text-xs text-muted-foreground mt-0.5">Nr. Ordem: {user.nrOrdem}</p>}
 								</div>
 								<span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Selecionar →</span>
@@ -553,7 +553,7 @@ function UserPermissionsPanel({
 					</Button>
 					<div className="h-5 w-px bg-border" />
 					<div>
-						<p className="font-semibold text-sm">{user.email}</p>
+						<p className="text-subheading">{user.email}</p>
 						{user.nrOrdem && <p className="text-xs text-muted-foreground">Nr. Ordem: {user.nrOrdem}</p>}
 					</div>
 				</div>
@@ -567,9 +567,9 @@ function UserPermissionsPanel({
 				<Table>
 					<TableHeader className="border-b border-foreground">
 						<TableRow>
-							<TableHead className="text-foreground font-semibold">Módulo</TableHead>
-							<TableHead className="text-foreground font-semibold">Nível</TableHead>
-							<TableHead className="text-foreground font-semibold">Escopo</TableHead>
+							<TableHead className="text-foreground text-subheading">Módulo</TableHead>
+							<TableHead className="text-foreground text-subheading">Nível</TableHead>
+							<TableHead className="text-foreground text-subheading">Escopo</TableHead>
 							<TableHead className="w-[80px]" />
 						</TableRow>
 					</TableHeader>
@@ -635,8 +635,8 @@ function UserPermissionsPanel({
 			</div>
 
 			<p className="text-xs text-muted-foreground">
-				<span className="font-medium">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma permissão{" "}
-				<span className="font-medium">diner — Negado</span>.
+				<span className="text-subheading">Regra implícita:</span> todo usuário possui acesso de Comensal (nível 1) por padrão. Para revogar, adicione uma
+				permissão <span className="text-subheading">diner — Negado</span>.
 			</p>
 		</div>
 	)

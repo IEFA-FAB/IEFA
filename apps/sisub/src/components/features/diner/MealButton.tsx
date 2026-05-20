@@ -62,7 +62,7 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 							<Button type="button" onClick={onToggle} disabled={disabled} className={buttonClasses}>
 								<div className="flex flex-col items-center space-y-1 w-full">
 									<Icon className={iconClasses} />
-									<span className="text-xs font-medium truncate w-full text-center">{meal.label}</span>
+									<span className="text-caption truncate w-full text-center">{meal.label}</span>
 
 									{/* Indicador visual via token */}
 									<div className={cn("size-2 rounded-sm transition-colors duration-200", isSelected ? "bg-success" : "bg-muted-foreground/30")} />
@@ -78,10 +78,10 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 				{mainDish && (
 					<Accordion className="w-full bg-muted/20 rounded-md border border-border/50">
 						<AccordionItem value="details" className="border-0">
-							<AccordionTrigger className="px-2 py-1.5 text-xs hover:no-underline hover:bg-muted/50 rounded-t-md data-[state=open]:rounded-b-none [&>svg]:w-3 [&>svg]:h-3">
-								<span className="truncate text-left font-medium max-w-25 leading-tight text-foreground/80">{mainDish.name}</span>
+							<AccordionTrigger className="px-2 py-1.5 text-caption hover:no-underline hover:bg-muted/50 rounded-t-md data-[state=open]:rounded-b-none [&>svg]:w-3 [&>svg]:h-3">
+								<span className="truncate text-left text-caption max-w-25 leading-tight text-foreground/80">{mainDish.name}</span>
 							</AccordionTrigger>
-							<AccordionContent className="px-2 pb-2 text-[10px] text-muted-foreground bg-background/50 rounded-b-md">
+							<AccordionContent className="px-2 pb-2 text-hint text-muted-foreground bg-background/50 rounded-b-md">
 								{mainDish.ingredients.length > 0 ? (
 									<ul className="list-disc pl-3 space-y-0.5 mt-1">
 										{mainDish.ingredients.map((ing, i) => (
@@ -110,7 +110,7 @@ export const MealButton = memo<MealButtonProps>(({ meal, isSelected, onToggle, d
 			<div className="flex items-center justify-between w-full">
 				<div className="flex items-center space-x-3">
 					<Icon className={iconClasses} />
-					<span className="font-medium">{meal.label}</span>
+					<span className="text-body">{meal.label}</span>
 				</div>
 
 				{/* Status icon via tokens */}

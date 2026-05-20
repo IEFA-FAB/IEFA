@@ -44,7 +44,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 	return (
 		<div className="bg-card border p-4">
 			<div className="flex items-center gap-3 mb-3">
-				<div className="flex items-center gap-2 text-sm font-medium">
+				<div className="flex items-center gap-2 text-subheading">
 					<Calendar className="size-4" />
 					<span>Selecione um Template:</span>
 				</div>
@@ -73,7 +73,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 						>
 							<div className="flex items-center gap-2 w-full">
 								<div className="size-3 rounded-full bg-primary" />
-								<span className="font-medium text-sm truncate flex-1 text-left">{template.name}</span>
+								<span className="text-subheading truncate flex-1 text-left">{template.name}</span>
 							</div>
 
 							<div className="flex items-center gap-2 w-full text-xs text-muted-foreground">
@@ -101,7 +101,7 @@ export function TemplatePalette({ templates, selectedTemplateId, onSelectTemplat
 
 			{selectedTemplateId && (
 				<p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-					<span className="font-medium">Dica:</span>
+					<span className="text-subheading">Dica:</span>
 					Clique em qualquer dia da semana para aplicar este template.
 				</p>
 			)}

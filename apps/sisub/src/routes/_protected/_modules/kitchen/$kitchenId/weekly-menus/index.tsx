@@ -60,7 +60,7 @@ function WeeklyMenusPage() {
 					<div>
 						<div className="flex items-center gap-2 mb-3">
 							<CalendarDays className="size-4 text-muted-foreground" />
-							<h2 className="text-sm font-semibold">Planos Globais da SDAB</h2>
+							<h2 className="text-subheading">Planos Globais da SDAB</h2>
 							<Badge variant="outline" className="text-xs">
 								Somente leitura · disponíveis para adaptar
 							</Badge>
@@ -78,7 +78,7 @@ function WeeklyMenusPage() {
 								<TableBody>
 									{globalTemplates.map((template) => (
 										<TableRow key={template.id}>
-											<TableCell className="font-medium">{template.name}</TableCell>
+											<TableCell className="text-subheading">{template.name}</TableCell>
 											<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 											<TableCell className="text-center">
 												<Badge variant="secondary" className="font-mono text-xs">
@@ -110,7 +110,7 @@ function WeeklyMenusPage() {
 				<div>
 					<div className="flex items-center justify-between mb-3">
 						<div className="flex items-center gap-2">
-							<h2 className="text-sm font-semibold">Cardápios Semanais Locais</h2>
+							<h2 className="text-subheading">Cardápios Semanais Locais</h2>
 							<Badge variant="default" className="text-xs">
 								Esta Cozinha
 							</Badge>
@@ -122,7 +122,7 @@ function WeeklyMenusPage() {
 					) : localTemplates.length === 0 ? (
 						<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 							<CalendarDays className="size-10 mx-auto text-muted-foreground" />
-							<p className="text-sm font-medium text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
+							<p className="text-subheading text-muted-foreground">Nenhum cardápio semanal criado ainda.</p>
 							<p className="text-xs text-muted-foreground">Crie do zero ou adapte um plano global da SDAB.</p>
 							<Button
 								variant="outline"
@@ -151,7 +151,7 @@ function WeeklyMenusPage() {
 								<TableBody>
 									{localTemplates.map((template) => (
 										<TableRow key={template.id}>
-											<TableCell className="font-medium">{template.name}</TableCell>
+											<TableCell className="text-subheading">{template.name}</TableCell>
 											<TableCell>
 												{template.base_template_id ? (
 													<Badge variant="secondary" className="text-xs gap-1 font-normal">

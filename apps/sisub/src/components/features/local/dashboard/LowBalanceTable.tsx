@@ -13,7 +13,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 			<Card>
 				<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 					<CheckCircle2 className="size-9 text-green-500" />
-					<p className="font-medium text-muted-foreground">Nenhum item com saldo crítico</p>
+					<p className="text-subheading">Nenhum item com saldo crítico</p>
 					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas às atas publicadas estão com saldo confortável.</p>
 				</CardContent>
 			</Card>
@@ -26,19 +26,19 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 				<table className="w-full text-sm">
 					<thead>
 						<tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-							<th className="py-2.5 px-3 text-left font-medium">Descrição / CATMAT</th>
-							<th className="py-2.5 px-3 text-left font-medium hidden md:table-cell">ARP / ATA</th>
-							<th className="py-2.5 px-3 text-right font-medium w-28 hidden sm:table-cell">Qtd Reg.</th>
-							<th className="py-2.5 px-3 text-right font-medium w-28 hidden sm:table-cell">Saldo</th>
-							<th className="py-2.5 px-3 text-left font-medium w-40">Consumido</th>
-							<th className="py-2.5 px-3 text-center font-medium w-28">Cardápio</th>
+							<th className="py-2.5 px-3 text-left text-label">Descrição / CATMAT</th>
+							<th className="py-2.5 px-3 text-left text-label hidden md:table-cell">ARP / ATA</th>
+							<th className="py-2.5 px-3 text-right text-label w-28 hidden sm:table-cell">Qtd Reg.</th>
+							<th className="py-2.5 px-3 text-right text-label w-28 hidden sm:table-cell">Saldo</th>
+							<th className="py-2.5 px-3 text-left text-label w-40">Consumido</th>
+							<th className="py-2.5 px-3 text-center text-label w-28">Cardápio</th>
 						</tr>
 					</thead>
 					<tbody className="divide-y divide-border/60">
 						{items.map((item) => (
 							<tr key={item.id} className={`hover:bg-muted/30 transition-colors ${item.in_upcoming_menu ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}>
 								<td className="py-2.5 px-3">
-									<p className="font-medium text-sm line-clamp-1">{item.ingredient_name ?? item.descricao_item ?? "—"}</p>
+									<p className="text-subheading line-clamp-1">{item.ingredient_name ?? item.descricao_item ?? "—"}</p>
 									<p className="text-xs text-muted-foreground font-mono mt-0.5">
 										{item.catmat_item_codigo ? `CATMAT ${item.catmat_item_codigo}` : "Sem CATMAT"}
 										{item.nome_fornecedor && ` · ${item.nome_fornecedor}`}
@@ -64,9 +64,9 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 									<span
 										className={
 											(item.saldo_empenho != null ? Number(item.saldo_empenho) : 0) <= 0
-												? "text-destructive font-semibold"
+												? "text-destructive text-subheading"
 												: item.consumption_pct >= 90
-													? "text-amber-600 font-semibold"
+													? "text-amber-600 text-subheading"
 													: ""
 										}
 									>

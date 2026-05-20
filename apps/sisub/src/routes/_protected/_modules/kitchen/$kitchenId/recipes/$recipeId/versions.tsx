@@ -50,7 +50,7 @@ function RecipeVersionsPage() {
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<GitCompare className="size-4 text-muted-foreground" />
-							<span className="font-medium text-sm">Versão atual</span>
+							<span className="text-subheading">Versão atual</span>
 						</div>
 						<Badge variant="default">v{recipe.version ?? 1}</Badge>
 					</div>
@@ -59,7 +59,7 @@ function RecipeVersionsPage() {
 
 				<div className="rounded-md border border-dashed p-8 text-center space-y-2">
 					<GitCompare className="size-8 mx-auto text-muted-foreground" />
-					<p className="text-sm font-medium text-muted-foreground">Comparador de versões</p>
+					<p className="text-subheading text-muted-foreground">Comparador de versões</p>
 					<p className="text-xs text-muted-foreground">
 						O histórico completo de versões e o diff visual serão exibidos aqui.
 						<br />

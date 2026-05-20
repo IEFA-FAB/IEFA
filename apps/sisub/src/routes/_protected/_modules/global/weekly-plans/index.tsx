@@ -62,7 +62,7 @@ function WeeklyPlansPage() {
 				) : !templates || templates.length === 0 ? (
 					<div className="rounded-md border border-dashed p-10 text-center space-y-3">
 						<CalendarDays className="size-10 mx-auto text-muted-foreground" />
-						<p className="text-sm font-medium text-muted-foreground">Nenhum plano semanal modelo cadastrado.</p>
+						<p className="text-subheading text-muted-foreground">Nenhum plano semanal modelo cadastrado.</p>
 						<p className="text-xs text-muted-foreground">Crie um plano para que as unidades possam importá-lo para o calendário local.</p>
 						<Button
 							nativeButton={false}
@@ -86,7 +86,7 @@ function WeeklyPlansPage() {
 							<TableBody>
 								{templates.map((template) => (
 									<TableRow key={template.id}>
-										<TableCell className="font-medium">{template.name}</TableCell>
+										<TableCell className="text-subheading">{template.name}</TableCell>
 										<TableCell className="text-sm text-muted-foreground">{template.description || "—"}</TableCell>
 										<TableCell className="text-center">
 											<Badge variant="secondary" className="font-mono text-xs">

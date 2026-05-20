@@ -11,7 +11,7 @@ const MEAL_LABELS: Record<string, string> = {
 export function MealSection({ mealKey, dishes }: { mealKey: string; dishes: DishDetails[] }) {
 	return (
 		<div className="space-y-2">
-			<h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{MEAL_LABELS[mealKey] ?? mealKey}</h3>
+			<h3 className="text-label text-muted-foreground">{MEAL_LABELS[mealKey] ?? mealKey}</h3>
 			{dishes.length === 0 ? (
 				<p className="text-sm text-muted-foreground italic">Sem cardápio planejado.</p>
 			) : (

@@ -47,7 +47,7 @@ export function PageHeader({ title, description, badge, children, onBack, suppre
 				)}
 				<div className="min-w-0">
 					<div className="flex items-center gap-2">
-						<h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">{title}</h1>
+						<h1 className="text-heading leading-tight">{title}</h1>
 						{badge}
 					</div>
 					{description && (

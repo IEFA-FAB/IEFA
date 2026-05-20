@@ -13,16 +13,23 @@ export const Route = createFileRoute("/_public/_en/research")({
 		},
 	},
 	component: Research,
-	head: () => ({
-		meta: [
-			{ title: "Pesquisa & Inovação | Portal IEFA" },
-			{
-				name: "description",
-				content:
-					"Conheça as linhas de pesquisa, áreas temáticas e projetos de pesquisa fomentados pelo Instituto de Economia, Finanças e Administração da Aeronáutica (IEFA).",
-			},
-		],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const title = "Pesquisa & Inovação | Portal IEFA"
+		const description = "Linhas de pesquisa, áreas temáticas e projetos fomentados pelo IEFA — Instituto de Economia, Finanças e Administração da Aeronáutica."
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: `${baseUrl}/research` },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: `${baseUrl}/research` },
+			],
+		}
+	},
 })
 
 /* ─── Dados estáticos ─────────────────────────────────────────────────────── */

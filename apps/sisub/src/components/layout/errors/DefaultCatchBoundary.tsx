@@ -30,7 +30,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 					<Alert variant="destructive">
 						<AlertCircle className="size-4" />
 						<AlertDescription>
-							<strong className="font-semibold">Detalhes do erro:</strong>
+							<strong className="text-subheading">Detalhes do erro:</strong>
 							<code className="mt-2 block bg-muted p-2 font-mono text-sm text-muted-foreground">{errorMessage}</code>
 						</AlertDescription>
 					</Alert>

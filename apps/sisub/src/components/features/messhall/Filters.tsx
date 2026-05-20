@@ -31,7 +31,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 
 					return (
 						<div className="space-y-2">
-							<Label className="text-sm font-medium flex items-center justify-between text-foreground">
+							<Label className="text-subheading flex items-center justify-between">
 								<div className="flex items-center space-x-1">
 									<Calendar className="size-4" />
 									<span>Dia:</span>
@@ -81,7 +81,7 @@ export default function Filters({ selectedDate, setSelectedDate, selectedMeal, s
 
 					return (
 						<div className="space-y-2">
-							<Label className="text-sm font-medium flex items-center justify-between text-foreground">
+							<Label className="text-subheading flex items-center justify-between">
 								<div className="flex items-center space-x-1">
 									<Utensils className="size-4" />
 									<span>Refeição:</span>

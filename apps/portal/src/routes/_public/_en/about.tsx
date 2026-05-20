@@ -4,15 +4,23 @@ import { Badge } from "@/components/ui/badge"
 
 export const Route = createFileRoute("/_public/_en/about")({
 	component: About,
-	head: () => ({
-		meta: [
-			{ title: "Sobre o IEFA | Portal IEFA" },
-			{
-				name: "description",
-				content: "Conheça o Instituto de Economia, Finanças e Administração da Aeronáutica — sua história, missão, competências, estrutura e atuação.",
-			},
-		],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const title = "Sobre o IEFA | Portal IEFA"
+		const description = "Conheça o Instituto de Economia, Finanças e Administração da Aeronáutica — sua história, missão, competências, estrutura e atuação."
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: `${baseUrl}/about` },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: `${baseUrl}/about` },
+			],
+		}
+	},
 })
 
 const HISTORY_ITEMS = [

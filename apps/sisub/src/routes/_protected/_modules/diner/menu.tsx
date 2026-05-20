@@ -71,8 +71,8 @@ function MenuPage() {
 				</Button>
 
 				<div className="text-center">
-					<p className="text-sm font-semibold capitalize">{formatDateLabel(selectedDate)}</p>
-					{selectedDate === todayISO() && <span className="text-xs text-primary font-medium">Hoje</span>}
+					<p className="text-subheading capitalize">{formatDateLabel(selectedDate)}</p>
+					{selectedDate === todayISO() && <span className="text-caption text-primary">Hoje</span>}
 				</div>
 
 				<Button variant="ghost" size="icon" onClick={() => setSelectedDate(dates[selectedIndex + 1])} disabled={!canGoNext} aria-label="Próximo dia">

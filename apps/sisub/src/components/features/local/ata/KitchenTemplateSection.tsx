@@ -103,7 +103,7 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 										aria-label={`Selecionar ${template.name}`}
 									/>
 									<div className="flex-1 min-w-0">
-										<Label htmlFor={`template-${template.id}`} className="text-sm font-medium cursor-pointer">
+										<Label htmlFor={`template-${template.id}`} className="text-subheading cursor-pointer">
 											{template.name || "Sem nome"}
 										</Label>
 										<div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -113,7 +113,7 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 											{someMissing && (
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
-													<span className="text-xs text-destructive font-medium flex items-center gap-1">
+													<span className="text-caption text-destructive flex items-center gap-1">
 														<Users className="size-3" aria-hidden="true" />
 														{template.headcount_filled}/{template.item_count} com comensais
 													</span>

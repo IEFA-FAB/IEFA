@@ -21,3 +21,9 @@ CREATE POLICY "realtime_select" ON sisub.menu_items
 
 -- Publication (required for postgres_changes to work)
 ALTER PUBLICATION supabase_realtime ADD TABLE sisub.daily_menu, sisub.recipes, sisub.menu_items;
+
+-- supabase_realtime_admin must have USAGE on the schema and SELECT on published tables
+-- for the Realtime service to deliver WAL events. Without these grants, channel
+-- subscriptions silently time out even though the publication is configured.
+GRANT USAGE ON SCHEMA sisub TO supabase_realtime_admin;
+GRANT SELECT ON sisub.daily_menu, sisub.recipes, sisub.menu_items TO supabase_realtime_admin;

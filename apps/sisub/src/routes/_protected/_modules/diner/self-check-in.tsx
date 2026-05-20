@@ -263,7 +263,7 @@ function SelfCheckin() {
 
 					{/* Vai entrar? (interativo) */}
 					<div className="space-y-3">
-						<p className="text-sm font-medium text-foreground">Vai entrar na refeição?</p>
+						<p className="text-subheading text-foreground">Vai entrar na refeição?</p>
 						<div className="flex gap-2">
 							<Button
 								variant={willEnter === "sim" ? "default" : "outline"}

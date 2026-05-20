@@ -30,7 +30,7 @@ function fmtDate(iso: string | null | undefined): string {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-	return <h2 className="text-base font-semibold tracking-tight text-foreground">{children}</h2>
+	return <h2 className="text-heading tracking-tight text-foreground">{children}</h2>
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function UnitDashboardPage() {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 						<AlertTriangle className="size-9 text-destructive" />
-						<p className="font-medium">Erro ao carregar o painel</p>
+						<p className="text-subheading">Erro ao carregar o painel</p>
 						<p className="text-sm text-muted-foreground">{error.message}</p>
 					</CardContent>
 				</Card>
@@ -119,7 +119,7 @@ function UnitDashboardPage() {
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 							<PackageSearch className="size-9 text-muted-foreground" />
-							<p className="font-medium text-muted-foreground">Nenhuma ata publicada</p>
+							<p className="text-subheading text-muted-foreground">Nenhuma ata publicada</p>
 							<p className="text-sm text-muted-foreground max-w-sm">Publique uma ata de registro de preços para que ela apareça aqui.</p>
 							<Button
 								size="sm"
@@ -170,7 +170,7 @@ function UnitDashboardPage() {
 				<Card className="border-dashed">
 					<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 						<Warehouse className="size-9 text-muted-foreground/50" />
-						<p className="font-medium text-muted-foreground">Em desenvolvimento</p>
+						<p className="text-subheading text-muted-foreground">Em desenvolvimento</p>
 						<p className="text-sm text-muted-foreground max-w-sm">O módulo de controle de estoque será integrado aqui em breve.</p>
 					</CardContent>
 				</Card>
@@ -206,7 +206,7 @@ function UnitDashboardPage() {
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
 							<CheckCircle2 className="size-9 text-green-500" />
-							<p className="font-medium text-muted-foreground">Sem alertas no momento</p>
+							<p className="text-subheading text-muted-foreground">Sem alertas no momento</p>
 							<p className="text-sm text-muted-foreground max-w-sm">Nenhum item com saldo crítico está nos cardápios planejados das cozinhas desta unidade.</p>
 						</CardContent>
 					</Card>

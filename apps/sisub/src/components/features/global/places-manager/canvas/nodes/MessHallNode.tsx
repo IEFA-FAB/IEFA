@@ -26,7 +26,7 @@ function MessHallNodeComponent({ data, selected }: NodeProps) {
 			</div>
 
 			<div className="flex-1 min-w-0">
-				<p className="text-sm font-medium text-foreground truncate leading-tight">{record.display_name ?? record.code}</p>
+				<p className="text-subheading text-foreground truncate leading-tight">{record.display_name ?? record.code}</p>
 				<p className="text-xs text-muted-foreground font-mono mt-0.5">{record.code}</p>
 			</div>
 

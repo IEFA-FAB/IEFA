@@ -9,9 +9,7 @@ export function ConsumptionBar({ pct }: { pct: number }) {
 					<ProgressIndicator className={color} />
 				</ProgressTrack>
 			</Progress>
-			<span className={`text-xs tabular-nums font-medium w-9 text-right ${pct >= 90 ? "text-destructive" : pct >= 80 ? "text-amber-600" : "text-foreground"}`}>
-				{pct}%
-			</span>
+			<span className={`text-caption w-9 text-right ${pct >= 90 ? "text-destructive" : pct >= 80 ? "text-amber-600" : "text-foreground"}`}>{pct}%</span>
 		</div>
 	)
 }

@@ -37,14 +37,14 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 
 	if (empenho.status === "anulado") {
 		return (
-			<div className="flex items-center gap-3 py-1.5 text-xs text-muted-foreground line-through opacity-60">
+			<div className="flex items-center gap-3 py-1.5 text-caption text-muted-foreground line-through">
 				<XCircle className="size-3.5 shrink-0 text-destructive" />
 				<span className="font-mono">{empenho.numero_empenho}</span>
 				<span>{fmtDate(empenho.data_empenho)}</span>
 				<span>
 					{NUM.format(empenho.quantidade_empenhada)} × {BRL.format(empenho.valor_unitario)}
 				</span>
-				<span className="font-medium">{BRL.format(empenho.valor_total)}</span>
+				<span className="text-caption text-foreground">{BRL.format(empenho.valor_total)}</span>
 				<Badge variant="outline" className="ml-auto text-xs">
 					Anulado
 				</Badge>
@@ -55,12 +55,12 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 	return (
 		<div className="flex items-center gap-3 py-1.5 text-xs">
 			<CheckCircle2 className="size-3.5 shrink-0 text-green-600" />
-			<span className="font-mono font-medium">{empenho.numero_empenho}</span>
+			<span className="font-mono text-caption text-foreground">{empenho.numero_empenho}</span>
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
 			<span>
 				{NUM.format(empenho.quantidade_empenhada)} × {BRL.format(empenho.valor_unitario)}
 			</span>
-			<span className="font-medium">{BRL.format(empenho.valor_total)}</span>
+			<span className="text-caption text-foreground">{BRL.format(empenho.valor_total)}</span>
 			{empenho.nota_lancamento && (
 				<Tooltip>
 					<TooltipTrigger className="text-muted-foreground underline decoration-dotted cursor-help truncate max-w-[140px] text-xs text-left">
@@ -142,7 +142,7 @@ function EmpenhoForm({ unitId, arpItemId, onSuccess }: EmpenhoFormProps) {
 
 	return (
 		<form onSubmit={handleSubmit} className="bg-muted/40 rounded-lg p-3 space-y-3 mt-2">
-			<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Registrar empenho</p>
+			<p className="text-label text-muted-foreground">Registrar empenho</p>
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				<div className="space-y-1">
 					<Label className="text-xs">Nº Empenho *</Label>
@@ -252,7 +252,7 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 								<TooltipContent>Mais de 90% do saldo empenhado</TooltipContent>
 							</Tooltip>
 						)}
-						<span className={saldoBaixo ? "text-amber-600 font-semibold" : ""}>{NUM.format(saldo)}</span>
+						<span className={saldoBaixo ? "text-amber-600 text-subheading" : ""}>{NUM.format(saldo)}</span>
 					</div>
 				</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{item.valor_unitario != null ? BRL.format(item.valor_unitario) : "—"}</td>
@@ -337,7 +337,7 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 			<CardHeader className="pb-3">
 				<div className="flex items-start justify-between gap-4 flex-wrap">
 					<div className="space-y-0.5">
-						<CardTitle className="text-sm font-semibold flex items-center gap-2">
+						<CardTitle className="text-heading flex items-center gap-2">
 							ARP {arp.numero_ata}/{arp.ano_ata ?? ""}
 							<Badge suppressHydrationWarning variant={isVencida ? "destructive" : "default"} className="text-xs">
 								{isVencida ? "Vencida" : "Ativa"}
@@ -371,14 +371,14 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 							<thead>
 								<tr className="border-b bg-muted/40 text-xs text-muted-foreground">
 									<th className="py-2 px-3 w-6" />
-									<th className="py-2 px-2 text-left font-medium w-14">Item</th>
-									<th className="py-2 px-2 text-left font-medium w-24">CATMAT</th>
-									<th className="py-2 px-2 text-left font-medium">Descrição / Fornecedor</th>
-									<th className="py-2 px-2 text-right font-medium w-32">Qtd Registrada</th>
-									<th className="py-2 px-2 text-right font-medium w-28">Qtd Empenhada</th>
-									<th className="py-2 px-2 text-right font-medium w-28">Saldo</th>
-									<th className="py-2 px-2 text-right font-medium w-28">Valor Unit.</th>
-									<th className="py-2 px-2 text-center font-medium w-24">ATA</th>
+									<th className="py-2 px-2 text-left text-label w-14">Item</th>
+									<th className="py-2 px-2 text-left text-label w-24">CATMAT</th>
+									<th className="py-2 px-2 text-left text-label">Descrição / Fornecedor</th>
+									<th className="py-2 px-2 text-right text-label w-32">Qtd Registrada</th>
+									<th className="py-2 px-2 text-right text-label w-28">Qtd Empenhada</th>
+									<th className="py-2 px-2 text-right text-label w-28">Saldo</th>
+									<th className="py-2 px-2 text-right text-label w-28">Valor Unit.</th>
+									<th className="py-2 px-2 text-center text-label w-24">ATA</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/60">

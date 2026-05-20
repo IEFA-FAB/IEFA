@@ -53,7 +53,7 @@ function RelationsList({ nodeId, edges, nodeNames }: { nodeId: string; edges: Pl
 		<div className="flex flex-col gap-4">
 			{outgoing.length > 0 && (
 				<div>
-					<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Aponta para</p>
+					<p className="text-label text-muted-foreground mb-2">Aponta para</p>
 					<div className="flex flex-col gap-1.5">
 						{outgoing.map((edge) => {
 							if (!edge.data) return null
@@ -64,7 +64,7 @@ function RelationsList({ nodeId, edges, nodeNames }: { nodeId: string; edges: Pl
 									<ArrowRight className="size-3.5 text-muted-foreground flex-shrink-0" />
 									<div className="flex flex-col min-w-0">
 										<span className="text-[10px] text-muted-foreground">{label}</span>
-										<span className="text-xs font-medium text-foreground">{targetName}</span>
+										<span className="text-caption text-foreground">{targetName}</span>
 									</div>
 									{edge.data.isDirty && (
 										<Badge variant="warning" className="ml-auto text-[10px] h-4 px-1.5">
@@ -80,7 +80,7 @@ function RelationsList({ nodeId, edges, nodeNames }: { nodeId: string; edges: Pl
 
 			{incoming.length > 0 && (
 				<div>
-					<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Recebe de</p>
+					<p className="text-label text-muted-foreground mb-2">Recebe de</p>
 					<div className="flex flex-col gap-1.5">
 						{incoming.map((edge) => {
 							if (!edge.data) return null
@@ -91,7 +91,7 @@ function RelationsList({ nodeId, edges, nodeNames }: { nodeId: string; edges: Pl
 									<ArrowRight className="size-3.5 text-muted-foreground flex-shrink-0 rotate-180" />
 									<div className="flex flex-col min-w-0">
 										<span className="text-[10px] text-muted-foreground">{label}</span>
-										<span className="text-xs font-medium text-foreground">{sourceName}</span>
+										<span className="text-caption text-foreground">{sourceName}</span>
 									</div>
 								</div>
 							)
@@ -164,7 +164,7 @@ export function EntityInspectorSheet({ selection, edges, nodes, onClose, editorM
 								<div className="flex flex-col gap-4">
 									<ReadOnlyFields record={record} entityType={entityType} />
 									<p className="text-xs text-muted-foreground">
-										Ative o modo <span className="font-medium text-foreground">Editar</span> para modificar os campos.
+										Ative o modo <span className="text-subheading text-foreground">Editar</span> para modificar os campos.
 									</p>
 								</div>
 							)}
@@ -206,7 +206,7 @@ function ReadOnlyFields({
 		<div className="flex flex-col gap-2">
 			{fields.map(({ label, value }) => (
 				<div key={label} className="grid grid-cols-[5rem_1fr] items-baseline gap-x-3">
-					<span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</span>
+					<span className="text-label text-muted-foreground">{label}</span>
 					<span className="text-sm text-foreground break-words">{value}</span>
 				</div>
 			))}

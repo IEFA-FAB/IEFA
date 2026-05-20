@@ -199,7 +199,7 @@ export function PlanningBoard() {
 								<TooltipTrigger
 									render={
 										<Button variant="ghost" size="sm" onClick={() => handleMonthChange(0)} className="h-8 px-2 text-xs">
-											<h2 suppressHydrationWarning className="w-sm text-xl sm:text-2xl font-bold tracking-tight capitalize">
+											<h2 suppressHydrationWarning className="w-sm text-xl sm:text-display capitalize">
 												{format(currentMonth, "MMMM yyyy", { locale: ptBR })}
 											</h2>
 										</Button>
@@ -292,7 +292,7 @@ export function PlanningBoard() {
 				{/* Week Days Header */}
 				<div className="grid grid-cols-7 border-b bg-muted/40 text-center">
 					{weekDays.map((day) => (
-						<div key={day} className="py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">
+						<div key={day} className="py-2 text-label text-muted-foreground">
 							{day}
 						</div>
 					))}
@@ -324,9 +324,7 @@ export function PlanningBoard() {
 								)}
 							>
 								<div className="flex items-center justify-between mb-2">
-									<span
-										className={cn("text-sm font-medium size-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}
-									>
+									<span className={cn("text-subheading size-7 flex items-center justify-center rounded-full", isToday && "bg-primary text-primary-foreground")}>
 										{format(day, "d")}
 									</span>
 									{hasMenus && (
@@ -347,7 +345,7 @@ export function PlanningBoard() {
 										return (
 											<div key={menu.id} className="text-xs truncate flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm hover:bg-accent">
 												<span className={cn("size-1.5 rounded-full", statusColor)} />
-												<span className="font-medium text-foreground/80">{mealName.substring(0, 3)}</span>
+												<span className="text-subheading">{mealName.substring(0, 3)}</span>
 												<span className="text-muted-foreground ml-auto">{itemCount}</span>
 											</div>
 										)

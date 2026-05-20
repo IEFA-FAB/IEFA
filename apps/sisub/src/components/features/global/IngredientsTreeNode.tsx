@@ -137,7 +137,7 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 					</div>
 
 					{/* Label */}
-					<span className={cn("text-sm truncate", node.type === "folder" ? "font-semibold" : "font-normal")}>{node.label}</span>
+					<span className={cn("text-sm truncate", node.type === "folder" ? "text-subheading" : "font-normal")}>{node.label}</span>
 
 					{/* Badge de unidade de medida */}
 					{node.type === "ingredient" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}

@@ -16,7 +16,7 @@ export function ModuleSuggestedPrompts({ config, onSelect }: ModuleSuggestedProm
 					<PersonaIcon className="size-6" />
 				</div>
 				<div>
-					<h2 className="text-lg font-semibold text-foreground">{config.persona.name}</h2>
+					<h2 className="text-heading text-foreground">{config.persona.name}</h2>
 					<p className="mt-1 max-w-sm text-sm text-muted-foreground leading-relaxed">{config.persona.description}</p>
 				</div>
 			</div>
@@ -34,7 +34,7 @@ export function ModuleSuggestedPrompts({ config, onSelect }: ModuleSuggestedProm
 							<Icon className="size-4" />
 						</div>
 						<div className="min-w-0">
-							<p className="text-sm font-medium text-foreground leading-snug">{text}</p>
+							<p className="text-subheading text-foreground leading-snug">{text}</p>
 							<p className="mt-0.5 text-xs text-muted-foreground leading-snug">{description}</p>
 						</div>
 					</button>

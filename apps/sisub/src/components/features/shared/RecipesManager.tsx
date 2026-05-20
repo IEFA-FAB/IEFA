@@ -138,7 +138,7 @@ export function RecipesManager() {
 											>
 												{recipe.kitchen_id ? <ChefHat className="size-3.5 text-muted-foreground" /> : <Globe className="size-3.5 text-primary" />}
 											</div>
-											<span className="text-sm font-medium truncate">{recipe.name}</span>
+											<span className="text-subheading truncate">{recipe.name}</span>
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">
 													v{recipe.version}

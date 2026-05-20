@@ -66,7 +66,7 @@ export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, d
 					<div className="rounded-full bg-muted p-4">
 						<CalendarX2 className="size-8 text-muted-foreground" />
 					</div>
-					<p className="text-sm font-medium text-foreground">Nenhuma preparação planejada</p>
+					<p className="text-subheading text-foreground">Nenhuma preparação planejada</p>
 					<p className="text-xs text-muted-foreground">
 						Não há itens no cardápio para esta data. Planeje as refeições no módulo de Planejamento para que apareçam aqui.
 					</p>

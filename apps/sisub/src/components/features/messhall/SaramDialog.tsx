@@ -52,8 +52,8 @@ export function SaramDialog({ open, nrOrdem, error, isSaving, onOpenChange, onCh
 
 				<form onSubmit={handleSubmit} className="space-y-3">
 					<div className="space-y-2">
-						<label className="text-sm font-medium" htmlFor="nrOrdemInput">
-							nrOrdem
+						<label htmlFor="nrOrdemInput">
+							<span className="text-subheading">nrOrdem</span>
 						</label>
 						<Input
 							id="nrOrdemInput"

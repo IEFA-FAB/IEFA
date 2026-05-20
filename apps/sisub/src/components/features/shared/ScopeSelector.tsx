@@ -67,7 +67,7 @@ export function ScopeSelector({
 						<Icon className="size-4.5" />
 					</div>
 					<div className="min-w-0">
-						<h1 className="text-lg font-semibold tracking-tight text-foreground leading-tight">{title}</h1>
+						<h1 className="text-heading tracking-tight text-foreground leading-tight">{title}</h1>
 						{description && <p className="text-sm text-muted-foreground leading-snug">{description}</p>}
 					</div>
 				</div>
@@ -79,7 +79,7 @@ export function ScopeSelector({
 			) : items.length === 0 ? (
 				<div className="flex flex-col items-center gap-2 py-16 text-center">
 					<Icon className="size-10 text-muted-foreground/25" />
-					<p className="text-sm font-medium text-muted-foreground">{emptyTitle}</p>
+					<p className="text-subheading text-muted-foreground">{emptyTitle}</p>
 					<p className="text-xs text-muted-foreground/60 max-w-xs">{emptyDescription}</p>
 				</div>
 			) : (
@@ -92,7 +92,7 @@ export function ScopeSelector({
 							className="group flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none cursor-pointer"
 						>
 							<div className="flex-1 min-w-0">
-								<p className="text-sm font-medium text-foreground leading-tight">{item.name}</p>
+								<p className="text-subheading text-foreground leading-tight">{item.name}</p>
 								{item.subtitle && <p className="text-xs text-muted-foreground leading-snug mt-0.5">{item.subtitle}</p>}
 								{item.meta && <p className="text-xs text-muted-foreground/60 leading-snug mt-1">{item.meta}</p>}
 							</div>

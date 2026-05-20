@@ -71,7 +71,7 @@ function ChatPage() {
 							<Button variant="ghost" size="icon-sm" onClick={handleBack} aria-label="Voltar">
 								<ArrowLeft className="size-4" />
 							</Button>
-							<span className="text-sm font-medium text-foreground truncate">Assistente IA</span>
+							<span className="text-subheading text-foreground truncate">Assistente IA</span>
 						</div>
 						<ChatInterface sessionId={sessionId} onSessionCreated={handleSessionCreated} />
 					</>

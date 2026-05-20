@@ -46,7 +46,7 @@ export function ChatMessageBubble({ message, onChartTypeChange }: ChatMessagePro
 			{/* Avatar */}
 			<div
 				className={cn(
-					"flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium mt-0.5",
+					"flex size-7 shrink-0 items-center justify-center rounded-full text-label mt-0.5",
 					isUser ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground border border-border"
 				)}
 			>

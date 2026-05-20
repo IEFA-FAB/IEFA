@@ -57,7 +57,7 @@ function RelationEdgeComponent({ id, sourceX, sourceY, targetX, targetY, sourceP
 					className="nodrag nopan"
 				>
 					<span
-						className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-background border text-muted-foreground leading-none"
+						className="text-hint px-1.5 py-0.5 rounded bg-background border text-muted-foreground leading-none"
 						style={{
 							color: data.isDirty ? "var(--color-warning)" : strokeColor,
 							borderColor: data.isDirty ? "color-mix(in oklch, var(--color-warning) 40%, transparent)" : "var(--color-border)",

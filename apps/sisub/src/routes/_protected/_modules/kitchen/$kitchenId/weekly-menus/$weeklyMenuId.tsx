@@ -144,7 +144,7 @@ function DayMealSection({
 		<Card className="overflow-hidden p-0 gap-0">
 			<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
 				<div className="flex items-center gap-2">
-					<span className="text-sm font-medium">{mealType.name}</span>
+					<span className="text-subheading">{mealType.name}</span>
 					{hasRecipes && (
 						<Badge variant="secondary" className="text-xs">
 							{recipes.length}
@@ -395,7 +395,7 @@ function WeeklyMenuEditorPage() {
 	if (!template) {
 		return (
 			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-sm font-medium">Cardápio semanal não encontrado.</p>
+				<p className="text-subheading">Cardápio semanal não encontrado.</p>
 				<Link
 					to="/kitchen/$kitchenId/weekly-menus"
 					params={{ kitchenId: kitchenIdStr as string }}

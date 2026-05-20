@@ -235,7 +235,7 @@ function MealSection({
 			<AccordionTrigger className="hover:no-underline py-4">
 				<div className="flex items-center justify-between w-full mr-4">
 					<div className="flex items-center gap-2">
-						<span className="font-semibold">{mealType.name}</span>
+						<span className="text-subheading">{mealType.name}</span>
 						{menu && (
 							<Badge variant={menu.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px] h-5">
 								{menu.status === "PUBLISHED" ? "Publicado" : "Planejado"}
@@ -247,7 +247,7 @@ function MealSection({
 							menu.forecasted_headcount ? (
 								<span className="text-muted-foreground">{menu.forecasted_headcount} comensais</span>
 							) : (
-								<span className="text-destructive font-medium">Sem comensais</span>
+								<span className="text-destructive text-subheading">Sem comensais</span>
 							)
 						) : (
 							<span className="text-muted-foreground">Não planejado</span>
@@ -269,7 +269,7 @@ function MealSection({
 						{/* Editable Forecasted Headcount */}
 						<div className="bg-muted/30 p-3 rounded-md">
 							<Field orientation="vertical" className="gap-2">
-								<FieldLabel htmlFor={`headcount-${menu.id}`} className="text-xs font-medium">
+								<FieldLabel htmlFor={`headcount-${menu.id}`} className="text-caption">
 									Previsão de Comensais
 								</FieldLabel>
 								<div className="flex items-center gap-2">
@@ -288,7 +288,7 @@ function MealSection({
 						</div>
 
 						<div className="space-y-2">
-							<h4 className="text-sm font-medium text-muted-foreground">Itens do Cardápio</h4>
+							<h4 className="text-subheading">Itens do Cardápio</h4>
 							{!menu.menu_items || menu.menu_items.length === 0 ? (
 								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 							) : (

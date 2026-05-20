@@ -82,14 +82,14 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 					<DialogDescription>
 						Selecione um template e configure como ele será aplicado aos {targetDates.length} dias selecionados.
 						<br />
-						<span className="text-xs text-warning font-medium">Atenção: Isso substituirá o planejamento existente para esses dias.</span>
+						<span className="text-caption text-warning">Atenção: Isso substituirá o planejamento existente para esses dias.</span>
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="py-4 space-y-4">
 					{/* Selected Dates */}
 					<div className="bg-muted/50 p-3 rounded-md text-sm">
-						<span className="font-semibold block mb-1">Dias selecionados:</span>
+						<span className="text-subheading block mb-1">Dias selecionados:</span>
 						<div className="flex flex-wrap gap-1">
 							{targetDates.map((d) => (
 								<Badge key={d} variant="outline" className="bg-background">
@@ -101,7 +101,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 
 					{/* Template Selection */}
 					<div className="space-y-2">
-						<Label className="text-sm font-medium">Templates Disponíveis</Label>
+						<Label className="text-subheading">Templates Disponíveis</Label>
 						{isLoading ? (
 							<div className="flex justify-center p-4">
 								<Loader2 className="animate-spin text-muted-foreground" />
@@ -121,7 +121,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 											)}
 										>
 											<div>
-												<p className="font-medium text-sm">{tpl.name}</p>
+												<p className="text-subheading">{tpl.name}</p>
 												{tpl.description && <p className="text-xs text-muted-foreground truncate max-w-[250px]">{tpl.description}</p>}
 												<p className="text-xs text-muted-foreground">
 													{tpl.recipe_count || 0} Preparação
@@ -139,7 +139,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 					{/* Start Day Selection */}
 					{selectedTemplateId && (
 						<div className="space-y-2">
-							<Label htmlFor="start-day" className="text-sm font-medium">
+							<Label htmlFor="start-day" className="text-subheading">
 								Dia inicial do template
 							</Label>
 							<Select
@@ -168,7 +168,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 					{/* Mapping Preview */}
 					{selectedTemplateId && dayMappings.length > 0 && (
 						<div className="space-y-2">
-							<Label className="text-sm font-medium">Preview do Mapeamento</Label>
+							<Label className="text-subheading">Preview do Mapeamento</Label>
 							<div className="border rounded-md p-3 bg-muted/20 max-h-48 overflow-y-auto">
 								<ItemGroup>
 									{dayMappings.map((mapping) => (
@@ -180,7 +180,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 											</Badge>
 											<span className="text-xs text-muted-foreground">({getWeekdayLabel(mapping.realDay)})</span>
 											<ChevronRight className="size-3 text-muted-foreground" />
-											<span className="text-xs font-medium">Dia {mapping.templateDay} do template</span>
+											<span className="text-caption">Dia {mapping.templateDay} do template</span>
 										</Item>
 									))}
 								</ItemGroup>

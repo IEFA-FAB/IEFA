@@ -310,13 +310,13 @@ function NewAtaPage() {
 					{hasAnySelection && (
 						<Card>
 							<CardContent className="pt-6">
-								<p className="text-sm font-medium mb-3">Seleções por cozinha:</p>
+								<p className="text-subheading mb-3">Seleções por cozinha:</p>
 								<div className="space-y-3">
 									{kitchenSelections.map((ks) => {
 										const total = [...ks.templateSelections, ...ks.eventSelections]
 										return (
 											<div key={ks.kitchenId}>
-												<p className="text-sm font-medium">{ks.kitchenName}</p>
+												<p className="text-subheading">{ks.kitchenName}</p>
 												{total.length === 0 ? (
 													<p className="text-xs text-muted-foreground">Nenhuma seleção</p>
 												) : (

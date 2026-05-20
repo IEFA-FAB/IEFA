@@ -69,7 +69,7 @@ export function HeadcountSummaryTable({ rows }: HeadcountSummaryTableProps) {
 	return (
 		<Card>
 			<CardHeader className="pb-3">
-				<CardTitle className="text-sm font-semibold flex items-center gap-2">
+				<CardTitle className="text-subheading flex items-center gap-2">
 					<Users className="size-4 text-muted-foreground" aria-hidden="true" />
 					Comensais por Cardápio e Período
 				</CardTitle>
@@ -90,7 +90,7 @@ export function HeadcountSummaryTable({ rows }: HeadcountSummaryTableProps) {
 							{rows.map((row, i) => (
 								<TableRow key={i}>
 									<TableCell>
-										<p className="text-sm font-medium">{row.templateName}</p>
+										<p className="text-subheading">{row.templateName}</p>
 										<p className="text-xs text-muted-foreground">{row.kitchenName}</p>
 									</TableCell>
 									<TableCell className="text-center tabular-nums text-xs">
@@ -106,11 +106,11 @@ export function HeadcountSummaryTable({ rows }: HeadcountSummaryTableProps) {
 										{row.total === 0 ? (
 											<span className="text-muted-foreground">—</span>
 										) : row.filled === row.total ? (
-											<span className="text-success font-medium">
+											<span className="text-success text-caption">
 												{row.filled}/{row.total}
 											</span>
 										) : (
-											<span className="text-destructive font-medium">
+											<span className="text-destructive text-caption">
 												{row.filled}/{row.total}
 											</span>
 										)}

@@ -91,7 +91,7 @@ function SimplifiedMilitaryStats({ selections, dates, isLoading = false }: Simpl
 		<div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
 			{nextMeal ? (
 				<span className="text-muted-foreground">
-					Próxima: <span className="font-medium text-foreground">{formatMeal(nextMeal.meal)}</span>
+					Próxima: <span className="text-body text-foreground">{formatMeal(nextMeal.meal)}</span>
 					{" · "}
 					<span>{formatDate(nextMeal.date)}</span>
 				</span>

@@ -40,7 +40,7 @@ function UnitNodeComponent({ data, selected }: NodeProps) {
 			</div>
 
 			<div className="flex-1 min-w-0">
-				<p className="text-sm font-medium text-foreground truncate leading-tight">{record.display_name ?? record.code}</p>
+				<p className="text-subheading text-foreground truncate leading-tight">{record.display_name ?? record.code}</p>
 				<div className="flex items-center gap-1 mt-0.5">
 					<span className="text-xs text-muted-foreground font-mono">{record.code}</span>
 					{typeLabel && (

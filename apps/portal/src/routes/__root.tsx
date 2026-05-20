@@ -33,39 +33,63 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 			return { auth: { user: null, isAuthenticated: false } }
 		}
 	},
-	head: () => ({
-		meta: [{ charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title: "Portal IEFA" }],
-		favicon: "/favicon.svg",
-		links: [
-			{ rel: "preload", href: AppStyles, as: "style" },
-			{ rel: "stylesheet", href: AppStyles },
-			{
-				rel: "icon",
-				type: "image/svg+xml",
-				sizes: "any",
-				href: "/favicon.svg",
-			},
-			{
-				rel: "manifest",
-				href: "/manifest.json",
-			},
-			{ rel: "icon", href: "/favicon.svg" },
-			{
-				rel: "preload",
-				href: "/fonts/Lora-Variable.ttf",
-				as: "font",
-				type: "font/ttf",
-				crossOrigin: "anonymous",
-			},
-			{
-				rel: "preload",
-				href: "/fonts/IBMPlexSans-Variable.ttf",
-				as: "font",
-				type: "font/ttf",
-				crossOrigin: "anonymous",
-			},
-		],
-	}),
+	head: () => {
+		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
+		const ogImage = `${baseUrl}/og-image.png`
+		const description = "Portal do Instituto de Economia, Finanças e Administração da Aeronáutica — capacitar, pesquisar, inovar."
+		const title = "Portal IEFA"
+		return {
+			meta: [
+				{ charSet: "utf-8" },
+				{ name: "viewport", content: "width=device-width, initial-scale=1" },
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:type", content: "website" },
+				{ property: "og:site_name", content: "Portal IEFA" },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: baseUrl },
+				{ property: "og:image", content: ogImage },
+				{ property: "og:image:width", content: "1200" },
+				{ property: "og:image:height", content: "630" },
+				{ name: "twitter:card", content: "summary_large_image" },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: baseUrl },
+				{ name: "twitter:image", content: ogImage },
+			],
+			favicon: "/favicon.svg",
+			links: [
+				{ rel: "preload", href: AppStyles, as: "style" },
+				{ rel: "stylesheet", href: AppStyles },
+				{
+					rel: "icon",
+					type: "image/svg+xml",
+					sizes: "any",
+					href: "/favicon.svg",
+				},
+				{
+					rel: "manifest",
+					href: "/manifest.json",
+				},
+				{ rel: "icon", href: "/favicon.svg" },
+				{
+					rel: "preload",
+					href: "/fonts/Lora-Variable.ttf",
+					as: "font",
+					type: "font/ttf",
+					crossOrigin: "anonymous",
+				},
+				{
+					rel: "preload",
+					href: "/fonts/IBMPlexSans-Variable.ttf",
+					as: "font",
+					type: "font/ttf",
+					crossOrigin: "anonymous",
+				},
+			],
+		}
+	},
 	errorComponent: DefaultCatchBoundary,
 	notFoundComponent: () => <NotFound />,
 	shellComponent: RootDocument,

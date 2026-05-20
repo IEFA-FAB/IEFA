@@ -111,14 +111,14 @@ export function ModuleSwitcher({
 						sideOffset={4}
 					>
 						<DropdownMenuGroup>
-							<DropdownMenuLabel className="text-muted-foreground text-xs">Módulos</DropdownMenuLabel>
+							<DropdownMenuLabel className="text-muted-foreground text-label">Módulos</DropdownMenuLabel>
 							{modules.map((module, i) => (
 								<DropdownMenuItem key={module.name} onClick={() => handleChange(module)} className="cursor-pointer gap-2 p-2">
 									<div className={cn("flex size-6 items-center justify-center rounded-md", MODULE_LOGO_CLASSES[module.color])}>
 										<module.logo className="size-3.5" />
 									</div>
 									<span className="flex-1">{module.name}</span>
-									{i < 9 && <kbd className="pointer-events-none ml-auto font-mono text-[10px] text-muted-foreground opacity-60">{altLabel(i + 1)}</kbd>}
+									{i < 9 && <kbd className="pointer-events-none ml-auto font-mono text-hint text-muted-foreground">{altLabel(i + 1)}</kbd>}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuGroup>

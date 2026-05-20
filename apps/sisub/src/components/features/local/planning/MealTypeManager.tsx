@@ -92,7 +92,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 						<div>
 							<div className="flex items-center gap-2 mb-3">
 								<Lock className="size-4 text-muted-foreground" />
-								<h3 className="text-sm font-medium">Tipos Genéricos</h3>
+								<h3 className="text-subheading">Tipos Genéricos</h3>
 								<Badge variant="outline" className="text-xs">
 									Global
 								</Badge>
@@ -110,7 +110,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 									<TableBody>
 										{genericTypes.map((mealType) => (
 											<TableRow key={mealType.id}>
-												<TableCell className="font-medium">{mealType.name}</TableCell>
+												<TableCell className="text-subheading">{mealType.name}</TableCell>
 												<TableCell>
 													<Badge variant="secondary" className="font-mono text-xs">
 														{mealType.sort_order}
@@ -134,7 +134,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 						<div>
 							<div className="flex items-center justify-between mb-3">
 								<div className="flex items-center gap-2">
-									<h3 className="text-sm font-medium">Tipos Customizados</h3>
+									<h3 className="text-subheading">Tipos Customizados</h3>
 									<Badge variant="default" className="text-xs">
 										Esta Cozinha
 									</Badge>
@@ -159,7 +159,7 @@ export function MealTypeManager({ open, onClose, kitchenId }: MealTypeManagerPro
 									<TableBody>
 										{customTypes.map((mealType) => (
 											<TableRow key={mealType.id}>
-												<TableCell className="font-medium">{mealType.name}</TableCell>
+												<TableCell className="text-subheading">{mealType.name}</TableCell>
 												<TableCell>
 													<Badge variant="secondary" className="font-mono text-xs">
 														{mealType.sort_order}

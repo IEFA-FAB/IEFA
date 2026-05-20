@@ -45,13 +45,16 @@ async function createTestUser(adminClient: SisubServiceClient) {
 	return { client: anonClient, userId: data.user.id }
 }
 
-function waitForSubscribed(channel: RealtimeChannel, timeoutMs = 5000) {
+function waitForSubscribed(channel: RealtimeChannel, timeoutMs = 8000) {
 	return new Promise<void>((resolve, reject) => {
-		const t = setTimeout(() => reject(new Error("subscription timeout")), timeoutMs)
-		channel.subscribe((status) => {
+		const t = setTimeout(() => reject(new Error(`subscription timeout (channel: ${channel.topic})`)), timeoutMs)
+		channel.subscribe((status, err) => {
 			if (status === "SUBSCRIBED") {
 				clearTimeout(t)
 				resolve()
+			} else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+				clearTimeout(t)
+				reject(new Error(`subscription failed with status ${status}: ${err?.message ?? ""}`))
 			}
 		})
 	})
@@ -107,31 +110,28 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 
 describeSupabaseIntegration("Realtime event delivery", () => {
 	let reachable = false
-	let supabase: SisubServiceClient
-	const cleanupIds: string[] = []
 
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
-		if (!reachable || !supabaseEnv) return
-		supabase = createSisubServiceClient(supabaseEnv)
-	})
-
-	afterAll(async () => {
-		if (!reachable || cleanupIds.length === 0) return
-		for (const id of cleanupIds) {
-			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", id)
-		}
+		if (!reachable) return
+		// Wait for Realtime tenant to stabilize after the previous suite's auth cleanup
+		// (deleteUser triggers a tenant reinitialization that takes ~2s)
+		await new Promise((r) => setTimeout(r, 3000))
 	})
 
 	test("receives event when recipe is inserted", async () => {
-		if (!reachable) return
+		if (!reachable || !supabaseEnv) return
 
+		// Fresh client per test — avoids lingering auth state from previous suites
+		const supabase = createSisubServiceClient(supabaseEnv)
 		const events: unknown[] = []
 
 		const channel = supabase
-			.channel("test-recipes-realtime")
+			.channel(`test-recipes-rt-${Date.now()}`)
 			.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes" }, (payload) => events.push(payload))
 		await waitForSubscribed(channel)
+		// Allow tenant replication slot to finish initializing after fresh connection
+		await new Promise((r) => setTimeout(r, 2000))
 
 		const { data: recipe, error } = await supabase
 			.from("recipes")
@@ -140,28 +140,34 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 			.single()
 
 		expect(error).toBeNull()
-		if (recipe) cleanupIds.push(recipe.id)
 
 		await new Promise((r) => setTimeout(r, 3000))
 		await supabase.removeChannel(channel)
+
+		if (recipe) {
+			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipe.id)
+		}
 
 		expect(events.length).toBeGreaterThanOrEqual(1)
 		expect((events[0] as Record<string, unknown>).eventType).toBe("INSERT")
 	}, 15_000)
 
 	test("filter delivers only matching kitchen_id events", async () => {
-		if (!reachable) return
+		if (!reachable || !supabaseEnv) return
 
+		// Fresh client per test
+		const supabase = createSisubServiceClient(supabaseEnv)
+		const ts = Date.now()
 		const KITCHEN_ID = 1
 		const matched: unknown[] = []
 		const missed: unknown[] = []
 
 		const matchChannel = supabase
-			.channel("test-filter-hit")
+			.channel(`test-filter-hit-${ts}`)
 			.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes", filter: `kitchen_id=eq.${KITCHEN_ID}` }, (payload) => matched.push(payload))
 
 		const missChannel = supabase
-			.channel("test-filter-miss")
+			.channel(`test-filter-miss-${ts}`)
 			.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes", filter: "kitchen_id=eq.999999" }, (payload) => missed.push(payload))
 
 		await Promise.all([waitForSubscribed(matchChannel), waitForSubscribed(missChannel)])
@@ -173,11 +179,14 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 			.single()
 
 		expect(error).toBeNull()
-		if (recipe) cleanupIds.push(recipe.id)
 
 		await new Promise((r) => setTimeout(r, 3000))
 		await supabase.removeChannel(matchChannel)
 		await supabase.removeChannel(missChannel)
+
+		if (recipe) {
+			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipe.id)
+		}
 
 		expect(matched.length).toBeGreaterThanOrEqual(1)
 		expect(missed.length).toBe(0)

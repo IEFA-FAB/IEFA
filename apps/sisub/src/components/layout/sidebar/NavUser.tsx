@@ -44,9 +44,9 @@ export function UserProfileRow() {
 				<AvatarImage src={avatarUrl} alt={displayName} />
 				<AvatarFallback className="rounded-lg text-[10px] font-semibold">{posto || "—"}</AvatarFallback>
 			</Avatar>
-			<div className="hidden sm:grid flex-1 text-left text-sm leading-tight min-w-0">
-				<span className="truncate font-medium">{displayName}</span>
-				<span className="text-muted-foreground truncate text-xs">{email}</span>
+			<div className="hidden sm:grid flex-1 text-left leading-tight min-w-0">
+				<span className="truncate text-subheading">{displayName}</span>
+				<span className="text-muted-foreground truncate text-caption">{email}</span>
 			</div>
 			<Tooltip>
 				<TooltipTrigger

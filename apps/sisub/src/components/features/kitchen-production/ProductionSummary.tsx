@@ -19,15 +19,15 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 	return (
 		<div className="rounded-lg border border-border bg-card px-4 py-3 space-y-3">
 			<div className="flex flex-wrap items-center gap-3">
-				<div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+				<div className="flex items-center gap-1.5 text-body">
 					<UtensilsCrossed className="size-4" />
-					<span className="font-medium text-foreground">{total}</span>
+					<span className="text-foreground">{total}</span>
 					<span>preparações</span>
 				</div>
 
 				<div className="h-3.5 w-px bg-border" />
 
-				<div className="flex items-center gap-1.5 text-sm">
+				<div className="flex items-center gap-1.5 text-body">
 					<Clock className="size-3.5 text-muted-foreground" />
 					<Badge variant="outline" className="font-mono text-xs">
 						{pending}
@@ -35,7 +35,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 					<span className="text-muted-foreground">pendentes</span>
 				</div>
 
-				<div className="flex items-center gap-1.5 text-sm">
+				<div className="flex items-center gap-1.5 text-body">
 					<ChefHat className="size-3.5 text-warning" />
 					<Badge variant="warning" className="font-mono text-xs">
 						{inProgress}
@@ -43,7 +43,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 					<span className="text-muted-foreground">em andamento</span>
 				</div>
 
-				<div className="flex items-center gap-1.5 text-sm">
+				<div className="flex items-center gap-1.5 text-body">
 					<CheckCircle2 className="size-3.5 text-success" />
 					<Badge variant="success" className="font-mono text-xs">
 						{done}
@@ -53,7 +53,7 @@ export function ProductionSummary({ items }: ProductionSummaryProps) {
 			</div>
 
 			<Progress value={progressValue}>
-				<ProgressLabel className="text-xs text-muted-foreground">Progresso do turno</ProgressLabel>
+				<ProgressLabel className="text-caption text-muted-foreground">Progresso do turno</ProgressLabel>
 				<ProgressValue className="text-xs" />
 				<ProgressTrack>
 					<ProgressIndicator className="bg-success" />

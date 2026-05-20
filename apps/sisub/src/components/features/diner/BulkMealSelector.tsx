@@ -106,7 +106,7 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 			<CardContent className="space-y-6">
 				{/* Modo de aplicação */}
 				<div className="space-y-2">
-					<Label className="text-sm font-medium text-foreground">Modo de aplicação:</Label>
+					<Label className="text-subheading">Modo de aplicação:</Label>
 					<div className="flex flex-wrap gap-2">
 						<Button
 							type="button"
@@ -134,7 +134,7 @@ export function BulkMealSelector({ targetDates, initialTemplate, onApply, onCanc
 
 				{/* Grid de refeições (padrão do DayCard) */}
 				<div className="space-y-3">
-					<Label className="text-sm font-medium text-foreground">Escolha as refeições:</Label>
+					<Label className="text-subheading">Escolha as refeições:</Label>
 					<div className="grid grid-cols-2 gap-2">
 						{MEAL_TYPES.map((meal) => {
 							const mealKey = meal.value as keyof DayMeals

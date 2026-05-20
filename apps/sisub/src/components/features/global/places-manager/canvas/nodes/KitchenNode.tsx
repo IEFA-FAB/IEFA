@@ -38,7 +38,7 @@ function KitchenNodeComponent({ data, selected }: NodeProps) {
 			</div>
 
 			<div className="flex-1 min-w-0">
-				<p className="text-sm font-medium text-foreground truncate leading-tight">{record.display_name ?? `Cozinha #${record.id}`}</p>
+				<p className="text-subheading text-foreground truncate leading-tight">{record.display_name ?? `Cozinha #${record.id}`}</p>
 				{typeLabel && (
 					<Badge variant={typeVariant} className="text-[10px] h-4 px-1.5 mt-0.5">
 						{typeLabel}

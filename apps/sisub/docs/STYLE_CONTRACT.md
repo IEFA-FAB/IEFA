@@ -66,8 +66,38 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
   - **Não deve** conter declarações focadas na essência gráfica (como mudança de cor textual, background de status, ou shadows).
 - **Decisão:** Elementos de feature devem se comportar como "montadores" de peças prontas, delegando controle de cor e variantes aos wrappers ou primitives contidos.
 
+### 4.6 Tipografia — Hierarquia semântica
+
+- **Função:** Estabelecer 7 níveis tipográficos com vetores distintos (tamanho, peso, tracking), eliminando decisões ad-hoc de `font-*` / `text-*` nos componentes de feature.
+- **Tokens de tracking** (definidos em `styles.css` `:root`): `--tracking-tight: -0.02em` · `--tracking-normal: 0em` · `--tracking-label: 0.05em`
+- **Pesos reconhecidos:** 400 (regular), 500 (medium), 600 (semibold), 700 (bold). Cada peso tem um papel fixo no sistema — ver tabela abaixo.
+- **Classes utilitárias** (definidas em `@layer utilities` de `styles.css`):
+
+| Nível | Classe | Tamanho | Peso | Tracking | Uso canônico |
+|-------|--------|---------|------|---------|--------------|
+| Display | `.text-display` | 1.375rem | 700 | −0.02em | PageHeader — título de página |
+| Heading | `.text-heading` | 1.125rem | 600 | −0.02em | CardTitle, títulos de seção |
+| Subheading | `.text-subheading` | 0.875rem | 500 | 0em | Títulos de dialog/drawer, section headers menores, ênfase de dados em tabelas |
+| Body | `.text-body` | 0.875rem | 400 | 0em | Conteúdo principal, ItemTitle |
+| Label | `.text-label` | 0.75rem | 600 | +0.05em + uppercase | Rótulos de seção, `<th>` com uppercase, badges de categoria |
+| Caption | `.text-caption` | 0.75rem | 400 | 0em | ItemDescription, metadados, timestamps |
+| Hint | `.text-hint` | 0.6875rem | 400 | 0em | FieldDescription, helper text |
+
+- **Cor é composicional, não embutida.** Nenhuma classe tipográfica define cor. Compor com tokens de cor semânticos:
+  - `text-foreground` — padrão para display, heading, subheading, body, label
+  - `text-muted-foreground` — padrão para caption e hint (aplicar via classe Tailwind, não embutido na tipográfica)
+- **Regras de composição obrigatórias:**
+  - Peso 600+ → sempre `text-foreground` — nunca `text-muted-foreground` (peso alto + cor fraca = ilegível)
+  - `.text-label` é o único nível uppercase com tracking positivo — não criar equivalentes locais
+  - `caption` e `label` têm o mesmo tamanho (0.75rem) mas diferem em peso e tracking: distinção intencional
+  - `subheading` e `body` têm o mesmo tamanho (0.875rem) mas diferem em peso: 500 vs 400
+- **Fronteira primitivo/feature:**
+  - **Primitivos UI (`src/components/ui/`)** controlam seus próprios pesos internamente (`font-medium` em Button, Badge, Label, CardTitle, etc.). Isso é canônico — não alterar.
+  - **Feature components** não devem usar `font-medium`, `font-semibold`, `font-bold`, `text-xs`, `text-sm`, `text-base`, `text-lg`, `tracking-*` ou `uppercase` diretamente. Mapear a um nível semântico da tabela acima.
+
 ## 5. Convenções obrigatórias
 - **Cores:** Obrigatório usar a escala lógica (`background`, `foreground`, `primary`, `secondary`, `muted`, `destructive`, `success`, `warning`).
+- **Tipografia:** Usar as classes utilitárias semânticas (`.text-display`, `.text-heading`, `.text-subheading`, `.text-body`, `.text-label`, `.text-caption`, `.text-hint`) em vez de combinações ad-hoc de `text-*` + `font-*`. Cor tipográfica é composicional — compor com `text-foreground` ou `text-muted-foreground` separadamente. Ver seção 4.6.
 - **Radius:** Guiado através do token padrão global (`0.5rem` = `rounded-lg`). Proibido estampar classes predefinidas soltas (ex. `rounded-lg`, `rounded-xl`) fora do componente base. **Exceção estrutural:** elementos que cobrem fisicamente um primitive (ex: overlay `<Link>` absoluto sobre `<Card>`) devem usar o radius do primitive que revestem — `rounded-xl` para `<Card>`, `rounded-lg` para demais shapes. Essa correspondência é estrutural, não estética. **Nota sistêmica:** o primitivo `<Card>` usa `rounded-xl` (0.75rem) como seu radius canônico e estabelecido. O token `0.5rem` orienta elementos genéricos; quando um primitive define seu próprio radius, esse valor é a referência para tudo que o compõe ou reveste.
 - **Hierarquia de superfície:** Dois padrões são reconhecidos e mutuamente exclusivos por nível:
   - **Nível 1 — Contêiner de seção** (grupo lógico com título, descrição e conteúdo relacionado): obrigatório usar o primitivo `<Card>`. Proibido reimplementar com `div.rounded-* border bg-card`. `<Card>` pode ser usado sem `CardHeader` interno quando o título do grupo está imediatamente fora do Card no mesmo bloco visual coeso (ex: seção com `<h2>` externo + `<Card>` como container de lista). Proibido usar `<Card>` sem `CardHeader` como substituto de `div.rounded-md border` em wrappers de tabelas sem título.
@@ -88,14 +118,34 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Formatação de nomes para exibição:** Strings provenientes de campos de banco armazenados em caixa alta (ex: `nmGuerra`, `full_name`) devem ser normalizadas para Title Case via `toNameCase()` de `@/lib/utils` antes de qualquer renderização. Não aplicar a siglas e abreviaturas (ex: `sgPosto` — `"CAP"`, `"TEN"`).
 
 ## 6. Proibições explícitas
-- **Proibido** usar classes de cor Tailwind diretamente (ex: `bg-green-500`, `ring-purple-500`, `bg-emerald-500`).
-- **Proibido** enviar strings atreladas a propriedades de variant (ex: `variant="floating"`, `variant="present"`, `variant="missing"`) não estabelecidas no construtor CVA.
-- **Proibido** uso de concatenação nativa de strings para classes dinâmicas (ex: ```className={`class1 ${ativo ? 'bg-primary' : ''}`}```). Usar `cn()`.
-- **Proibido** aninhar tags HTML interativas para criar componentes visuais (ex: `<Link><Button>...</Button></Link>` ou `<Button><Link>...</Link></Button>`).
-- **Proibido** usar `div.flex.items-center.gap-*.p-*.rounded-*.border` como linha de lista quando há entidade repetível. Usar o primitivo `<Item>` de `item.tsx`.
-- **Proibido** criar elementos `<Label>` soltos combinados com tags vermelhas soltas para erros de formulário, ignorando a infraestrutura de `field.tsx`.
-- **Proibido** usar `<p className="text-xs text-muted-foreground">` como hint de campo dentro de um `<Field>`. Usar `<FieldDescription>` de `field.tsx`.
-- **Proibido** usar o atributo `title` como tooltip em elementos interativos (`<Button>`, `<a>`, etc.). Usar o primitivo `<Tooltip>` do design system.
+
+### 6.1 Regras estruturais (todas as camadas)
+- **Proibido** usar classes de cor Tailwind diretamente (ex: `bg-green-500`, `ring-purple-500`). Usar tokens semânticos.
+- **Proibido** enviar propriedades de variant não estabelecidas no construtor CVA (ex: `variant="floating"`).
+- **Proibido** concatenação nativa de strings para classes dinâmicas. Usar `cn()`.
+- **Proibido** aninhar tags HTML interativas (ex: `<Link><Button>...</Button></Link>`). Usar `render` ou `asChild`.
+- **Proibido** reimplementar patterns existentes: `div.flex.border.rounded` para listas → usar `<Item>`; `<Label>` + tag de erro solta → usar `field.tsx`; `<p className="text-xs ...">` como hint → usar `<FieldDescription>`.
+- **Proibido** usar o atributo `title` como tooltip. Usar o primitivo `<Tooltip>`.
+
+### 6.2 Fronteira tipográfica — a regra única
+
+**Em feature components (`routes/`, `components/features/`, `components/layout/`):**
+
+Proibido usar classes tipográficas brutas do Tailwind. Toda tipografia deve ser expressa via classe semântica (`.text-display` a `.text-hint`). Isso inclui:
+
+| Proibido em features | Por quê | Usar |
+|---------------------|---------|------|
+| `font-medium`, `font-semibold`, `font-bold` | Peso sem nível semântico | `.text-subheading` (500), `.text-heading` (600), `.text-display` (700) |
+| `text-xs`, `text-sm`, `text-base`, `text-lg` | Tamanho sem nível semântico | Classe semântica correspondente ao uso |
+| `tracking-tight`, `tracking-wide`, `tracking-widest` | Tracking é interno às classes semânticas | `.text-label` (tracking-label), `.text-heading`/`.text-display` (tracking-tight) |
+| `uppercase` | Reservado a `.text-label` | `.text-label` |
+| `opacity-50`/`60`/`70` em texto | Simula muted sem semântica | `text-muted-foreground` ou `.text-caption`/`.text-hint` |
+| `text-foreground/50`, `/60`, `/70` | Opacidade fracionada em cor | `text-muted-foreground` |
+| `font-extrabold`, `font-black` | Fora do contrato (pesos: 400, 500, 600, 700) | Não existe nível semântico — reprojetar |
+
+**Em primitivos UI (`components/ui/`):** pesos, tracking e tamanhos diretos são válidos — primitivos controlam sua própria tipografia internamente.
+
+**Exceção estrutural:** `opacity-50` em estados `disabled`/`aria-disabled` é comportamento de componente, não simulação de muted. Primitivos controlam isso via CVA ou data-attributes.
 
 ## 7. Critérios de decisão
 
@@ -130,6 +180,8 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 - [ ] O código utiliza apenas tokens semânticos (zero `bg-red-500`, `text-blue-600` puros)?
 - [ ] As variants chamadas existem formalmente no componente importado?
 - [ ] Condicionais de CSS utilizam `cn()` ao invés de interpolações literais de strings com condições lógicas brutas?
+- [ ] Tipografia em features usa exclusivamente classes semânticas (`.text-display` a `.text-hint`)? Zero `font-medium`/`font-semibold`/`text-xs`/`text-sm` direto?
+- [ ] Cor tipográfica composta separadamente (`text-foreground`, `text-muted-foreground`) — não embutida na classe semântica?
 - [ ] O componente está acessível e mantém indicadores de foco (focus-visible)?
 - [ ] Tooltips em elementos interativos usam o primitivo `<Tooltip>` (não o atributo `title`)?
 - [ ] Formulários adotaram as instâncias do `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription` para hints)?

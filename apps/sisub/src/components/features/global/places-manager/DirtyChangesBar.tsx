@@ -32,7 +32,7 @@ export function DirtyChangesBar({ diffs, onSave, onDiscard, isSaving }: DirtyCha
 			<div className="flex items-center gap-3 px-4 py-2.5">
 				<AlertTriangle className="size-4 text-warning flex-shrink-0" aria-hidden />
 
-				<span className="text-sm font-medium text-foreground flex-1 min-w-0">
+				<span className="text-subheading text-foreground flex-1 min-w-0">
 					{diffs.length === 1 ? "1 relação alterada" : `${diffs.length} relações alteradas`}
 					<span className="text-muted-foreground font-normal"> — não salvo</span>
 				</span>
@@ -94,7 +94,7 @@ export function DirtyChangesBar({ diffs, onSave, onDiscard, isSaving }: DirtyCha
 				<div className="border-t border-warning/20 px-4 py-2 flex flex-col gap-1 max-h-40 overflow-y-auto">
 					{diffs.map((diff, i) => (
 						<p key={i} className="text-xs text-muted-foreground leading-relaxed">
-							<span className="font-medium text-foreground">·</span> {diff.humanReadable}
+							<span className="text-subheading text-foreground">·</span> {diff.humanReadable}
 						</p>
 					))}
 				</div>

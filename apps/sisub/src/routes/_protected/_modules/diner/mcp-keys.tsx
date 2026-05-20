@@ -55,7 +55,7 @@ function McpKeysPage() {
 			{/* Info card */}
 			<Card className="border-dashed bg-muted/30">
 				<CardHeader className="pb-2">
-					<CardTitle className="text-sm font-medium flex items-center gap-2">
+					<CardTitle className="text-subheading flex items-center gap-2">
 						<Terminal className="size-4 text-muted-foreground" />
 						Como usar
 					</CardTitle>
@@ -96,7 +96,7 @@ function McpKeysPage() {
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center py-12 text-center">
 						<KeyRound className="size-10 text-muted-foreground/40 mb-3" />
-						<p className="text-sm font-medium text-muted-foreground">Nenhuma chave cadastrada</p>
+						<p className="text-subheading text-muted-foreground">Nenhuma chave cadastrada</p>
 						<p className="text-xs text-muted-foreground/70 mt-1">Crie uma chave para usar o sisub-mcp com Claude ou Cursor.</p>
 						<Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="mt-4 gap-2">
 							<Plus className="size-4" />
@@ -167,7 +167,7 @@ function KeyItem({ apiKey }: KeyItemProps) {
 
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 flex-wrap">
-						<p className="text-sm font-semibold">{apiKey.label}</p>
+						<p className="text-subheading">{apiKey.label}</p>
 						<Badge variant={apiKey.is_active ? "default" : "secondary"} className="text-xs">
 							{apiKey.is_active ? "Ativa" : "Revogada"}
 						</Badge>
@@ -404,7 +404,7 @@ function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
 				<div className="space-y-4">
 					<Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
 						<CardContent className="py-3 px-4">
-							<p className="text-sm font-medium text-amber-800 dark:text-amber-200">⚠️ Salve esta chave agora — ela não será exibida novamente.</p>
+							<p className="text-subheading text-amber-800 dark:text-amber-200">⚠️ Salve esta chave agora — ela não será exibida novamente.</p>
 						</CardContent>
 					</Card>
 

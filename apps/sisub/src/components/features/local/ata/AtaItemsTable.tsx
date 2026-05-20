@@ -104,13 +104,13 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 											<TableCell className="text-xs max-w-48 truncate" title={item.catmat_item_descricao || undefined}>
 												{item.catmat_item_descricao || <span className="text-muted-foreground">—</span>}
 											</TableCell>
-											<TableCell className="font-medium">{item.ingredient_name}</TableCell>
+											<TableCell className="text-subheading">{item.ingredient_name}</TableCell>
 											<TableCell className="text-right tabular-nums">{NUM.format(item.total_quantity)}</TableCell>
 											<TableCell className="text-right text-muted-foreground text-xs">{item.measure_unit || "UN"}</TableCell>
 											<TableCell className="text-right tabular-nums text-sm">
 												{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
 											</TableCell>
-											<TableCell className="text-right tabular-nums text-sm font-medium">
+											<TableCell className="text-right tabular-nums text-subheading">
 												{item.unit_price !== null ? BRL.format(item.total_quantity * item.unit_price) : <span className="text-muted-foreground">—</span>}
 											</TableCell>
 										</TableRow>
@@ -126,7 +126,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 				<div className="flex justify-end">
 					<div className="rounded-md border bg-muted/50 px-6 py-3 text-right">
 						<p className="text-sm text-muted-foreground">Total Estimado da Ata</p>
-						<p className="text-xl font-bold tabular-nums">{BRL.format(grandTotal)}</p>
+						<p className="text-display tabular-nums">{BRL.format(grandTotal)}</p>
 					</div>
 				</div>
 			)}

@@ -413,8 +413,9 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	// --- COMMON STYLES ---
 	const cardClasses = "w-full max-w-2xl justify-self-center border shadow-2xl rounded-3xl overflow-hidden bg-card text-card-foreground"
 	const inputClasses = "bg-background border-input hover:bg-accent/5 focus:border-primary/50 focus:ring-primary/20 h-12 rounded-xl transition-all text-base"
-	const buttonClasses = "w-full rounded-full font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
-	const labelClasses = "text-muted-foreground font-medium ml-1 text-sm"
+	const buttonClasses =
+		"w-full rounded-full text-heading shadow-lg shadow-primary/20 hover:shadow-primary/40 h-12 text-base transition-all hover:-translate-y-0.5"
+	const labelClasses = "text-muted-foreground text-subheading ml-1 text-sm"
 	const iconClasses = "absolute left-4 top-4 size-4 text-muted-foreground group-hover:text-foreground transition-colors"
 
 	// Loading state during auth check
@@ -434,7 +435,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		return (
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">Nova Senha</CardTitle>
+					<CardTitle className="text-display">Nova Senha</CardTitle>
 					<CardDescription className="text-muted-foreground text-base">Defina sua nova senha segura.</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleResetPassword}>
@@ -486,7 +487,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		return (
 			<Card className={cardClasses}>
 				<CardHeader className="text-center space-y-3 pb-4 pt-8">
-					<CardTitle className="text-3xl font-bold tracking-tight">Recuperar Senha</CardTitle>
+					<CardTitle className="text-display">Recuperar Senha</CardTitle>
 					<CardDescription className="text-muted-foreground text-base">Digite seu email para receber um link de redefinição.</CardDescription>
 				</CardHeader>
 				<form onSubmit={handleForgotPassword}>
@@ -547,13 +548,13 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 				<TabsList className="grid w-full grid-cols-2 mb-8 bg-muted p-1.5 rounded-full h-14">
 					<TabsTrigger
 						value="login"
-						className="rounded-full h-full text-base font-medium data-active:bg-background data-active:text-foreground data-active:shadow-md transition-all duration-300"
+						className="rounded-full h-full text-base text-subheading data-active:bg-background data-active:text-foreground data-active:shadow-md transition-all duration-300"
 					>
 						Entrar
 					</TabsTrigger>
 					<TabsTrigger
 						value="register"
-						className="rounded-full h-full text-base font-medium data-active:bg-background data-active:text-foreground data-active:shadow-md transition-all duration-300"
+						className="rounded-full h-full text-base text-subheading data-active:bg-background data-active:text-foreground data-active:shadow-md transition-all duration-300"
 					>
 						Cadastrar
 					</TabsTrigger>
@@ -563,7 +564,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 				<TabsContent value="login" className="w-full mt-0">
 					<Card className={cardClasses}>
 						<CardHeader className="space-y-3 text-center pb-4 pt-8">
-							<CardTitle className="text-3xl font-bold tracking-tight">Bem-vindo de volta</CardTitle>
+							<CardTitle className="text-display">Bem-vindo de volta</CardTitle>
 							<CardDescription className="text-muted-foreground text-base">Acesso restrito a emails @fab.mil.br</CardDescription>
 						</CardHeader>
 
@@ -689,7 +690,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 				<TabsContent value="register" className="mt-0">
 					<Card className={cardClasses}>
 						<CardHeader className="text-center pb-4 pt-8 space-y-3">
-							<CardTitle className="text-3xl font-bold tracking-tight">Criar conta</CardTitle>
+							<CardTitle className="text-display">Criar conta</CardTitle>
 							<CardDescription className="text-muted-foreground text-base">Acesso restrito a emails @fab.mil.br</CardDescription>
 						</CardHeader>
 						<form onSubmit={handleRegister}>

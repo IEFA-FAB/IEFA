@@ -34,7 +34,7 @@ export function StatCard({
 				</div>
 				<div className="min-w-0">
 					<p className="text-xs text-muted-foreground truncate">{label}</p>
-					<p className={`text-2xl font-bold tabular-nums leading-none mt-0.5 ${valueColors[variant]}`}>{value}</p>
+					<p className={`text-display tabular-nums leading-none mt-0.5 ${valueColors[variant]}`}>{value}</p>
 					{sub && <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub}</p>}
 				</div>
 			</CardContent>

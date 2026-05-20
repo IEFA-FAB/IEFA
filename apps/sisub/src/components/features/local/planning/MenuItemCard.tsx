@@ -58,7 +58,7 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 			{/* Recipe Name Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
-					<p className="font-medium text-sm">{recipeName}</p>
+					<p className="text-subheading">{recipeName}</p>
 					{item.substitutions && (
 						<Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
 							Substituição Ativa
@@ -126,9 +126,9 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 
 			{/* Calculated Net Quantity */}
 			{netQuantity !== null && (
-				<div className="flex items-center gap-2 text-xs text-must-foreground pt-1 border-t">
+				<div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t">
 					<span>Para Compra:</span>
-					<span className="font-medium text-foreground">{netQuantity}g</span>
+					<span className="text-subheading text-foreground">{netQuantity}g</span>
 				</div>
 			)}
 		</div>

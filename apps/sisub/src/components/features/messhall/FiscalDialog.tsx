@@ -73,7 +73,7 @@ export default function FiscalDialog({ setDialog, dialog, confirmDialog, selecte
 					<div className="space-y-4">
 						{/* Está na previsão? (somente leitura) */}
 						<div className="space-y-2">
-							<div className="text-sm font-medium">Está na previsão?</div>
+							<div className="text-subheading">Está na previsão?</div>
 							<div className="flex gap-2">
 								<Button disabled variant={forecastIsYes ? "default" : "outline"} size="sm" aria-pressed={forecastIsYes}>
 									Sim
@@ -86,7 +86,7 @@ export default function FiscalDialog({ setDialog, dialog, confirmDialog, selecte
 
 						{/* Vai entrar? (decisão do fiscal) */}
 						<div className="space-y-2">
-							<div className="text-sm font-medium">Vai entrar?</div>
+							<div className="text-subheading">Vai entrar?</div>
 							<div className="flex gap-2">
 								<Button
 									variant={dialog.willEnter === "sim" ? "default" : "outline"}
