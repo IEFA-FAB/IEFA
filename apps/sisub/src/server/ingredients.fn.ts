@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { FolderWriteSchema, IngredientItemWriteSchema, IngredientWriteSchema } from "./ingredients.schemas"
 
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getSupabaseServerClient().from("nutrient").select("*").is("deleted_at", null).order("display_order", { ascending: true })
@@ -93,30 +94,6 @@ export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
 		return result ?? []
 	})
 
-const FolderWriteSchema = z.object({
-	description: z.string().nullable().optional(),
-	parent_id: z.string().nullable().optional(),
-})
-
-const IngredientWriteSchema = z.object({
-	description: z.string().nullable().optional(),
-	folder_id: z.string().nullable().optional(),
-	measure_unit: z.string().nullable().optional(),
-	correction_factor: z.number().nullable().optional(),
-	ceafa_id: z.string().nullable().optional(),
-	catmat_item_codigo: z.number().nullable().optional(),
-	catmat_item_descricao: z.string().nullable().optional(),
-})
-
-const IngredientItemWriteSchema = z.object({
-	ingredient_id: z.string().nullable().optional(),
-	description: z.string().nullable().optional(),
-	barcode: z.string().nullable().optional(),
-	purchase_measure_unit: z.string().nullable().optional(),
-	unit_content_quantity: z.number().nullable().optional(),
-	correction_factor: z.number().nullable().optional(),
-})
-
 export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getSupabaseServerClient().from("folder").select("*").is("deleted_at", null).order("created_at", { ascending: true })
 
@@ -195,12 +172,12 @@ export const createIngredientFn = createServerFn({ method: "POST" })
 			.select()
 			.single()
 
-		if (error) throw new Error(error.message)
+		if (error) throw new Error(`Falha ao criar insumo [${error.code}]: ${error.message}`)
 		return result
 	})
 
 export const updateIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), payload: IngredientWriteSchema }))
+	.inputValidator(z.object({ id: z.string().uuid(), payload: IngredientWriteSchema }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
@@ -210,7 +187,7 @@ export const updateIngredientFn = createServerFn({ method: "POST" })
 			.select()
 			.single()
 
-		if (error) throw new Error(error.message)
+		if (error) throw new Error(`Falha ao atualizar insumo [${error.code}]: ${error.message}`)
 		return result
 	})
 
@@ -247,12 +224,12 @@ export const createIngredientItemFn = createServerFn({ method: "POST" })
 			.select()
 			.single()
 
-		if (error) throw new Error(error.message)
+		if (error) throw new Error(`Falha ao criar item [${error.code}]: ${error.message}`)
 		return result
 	})
 
 export const updateIngredientItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string(), payload: IngredientItemWriteSchema }))
+	.inputValidator(z.object({ id: z.string().uuid(), payload: IngredientItemWriteSchema }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
@@ -262,7 +239,7 @@ export const updateIngredientItemFn = createServerFn({ method: "POST" })
 			.select()
 			.single()
 
-		if (error) throw new Error(error.message)
+		if (error) throw new Error(`Falha ao atualizar item [${error.code}]: ${error.message}`)
 		return result
 	})
 

@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form"
+import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Loader2 } from "lucide-react"
 import { useEffect } from "react"
@@ -13,8 +14,9 @@ import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 import { useUpdateNrOrdem } from "@/hooks/business/useUserNrOrdem"
-import { cn } from "@/lib/cn"
+import { queryKeys } from "@/lib/query-keys"
 import { toNameCase } from "@/lib/utils"
+import type { MilitaryDataRow } from "@/types/domain/admin"
 
 export const Route = createFileRoute("/_protected/_modules/diner/profile")({
 	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
@@ -28,33 +30,48 @@ const profileSchema = z.object({
 	nrOrdem: z.string().regex(/^\d*$/, "Apenas números são permitidos").max(20, "Máximo de 20 caracteres"),
 })
 
-function FieldRow({ label, value, mono = false }: { label: string; value: string | null | undefined; mono?: boolean }) {
+function DataField({ label, value, mono = false }: { label: string; value: string | null | undefined; mono?: boolean }) {
 	return (
-		<div className="flex flex-col gap-1">
-			<span className="text-xs text-muted-foreground">{label}</span>
-			<div className={cn("rounded-lg border bg-card px-3 py-2 text-sm", mono && "font-mono")}>{value && String(value).trim().length > 0 ? value : "—"}</div>
+		<div className="space-y-0.5">
+			<dt className="text-xs text-muted-foreground">{label}</dt>
+			<dd className={mono ? "text-sm font-mono" : "text-sm"}>{value && String(value).trim().length > 0 ? value : "—"}</dd>
 		</div>
+	)
+}
+
+function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataRow; effectiveNrOrdem: string }) {
+	return (
+		<dl className="space-y-4">
+			<div className="grid grid-cols-2 gap-x-6 gap-y-4">
+				<div className="col-span-2">
+					<DataField label="Nome" value={military.nmPessoa ? toNameCase(military.nmPessoa) : military.nmPessoa} />
+				</div>
+				<DataField label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
+				<DataField label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
+				<DataField label="CPF" value={military.nrCpf} mono />
+				<div className="grid grid-cols-2 gap-x-6 col-span-2">
+					<DataField label="Posto" value={military.sgPosto} />
+					<DataField label="OM" value={military.sgOrg} />
+				</div>
+			</div>
+			{military.dataAtualizacao && (
+				<p className="text-xs text-muted-foreground pt-3 border-t">Atualizado em {new Date(military.dataAtualizacao).toLocaleString("pt-BR")}</p>
+			)}
+		</dl>
 	)
 }
 
 function ProfilePage() {
 	const { user } = useAuth()
+	const queryClient = useQueryClient()
 
-	// Data Fetching
 	const { data: userData, isLoading: isLoadingUserData } = useUserData(user?.id)
-
-	// Derived state for military data fetch
 	const effectiveNrOrdem = userData?.nrOrdem ?? ""
-
-	const { data: military, isLoading: isLoadingMilitary, refetch: refetchMilitary } = useMilitaryData(effectiveNrOrdem)
-
-	// Mutation
+	const { data: military, isLoading: isLoadingMilitary } = useMilitaryData(effectiveNrOrdem)
 	const updateNrOrdem = useUpdateNrOrdem()
 
 	const form = useForm({
-		defaultValues: {
-			nrOrdem: "",
-		},
+		defaultValues: { nrOrdem: "" },
 		validators: {
 			onChange: ({ value }) => {
 				const result = profileSchema.safeParse(value)
@@ -68,14 +85,11 @@ function ProfilePage() {
 		},
 		onSubmit: async ({ value }) => {
 			if (!user) return
-			await updateNrOrdem.mutateAsync({
-				user,
-				nrOrdem: value.nrOrdem ?? "",
-			})
+			await updateNrOrdem.mutateAsync({ user, nrOrdem: value.nrOrdem ?? "" })
+			await queryClient.invalidateQueries({ queryKey: queryKeys.user.data(user.id) })
 		},
 	})
 
-	// Sync form with loaded data
 	useEffect(() => {
 		if (userData?.nrOrdem) {
 			form.setFieldValue("nrOrdem", userData.nrOrdem)
@@ -85,18 +99,22 @@ function ProfilePage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Perfil" />
+
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-				{/* Esquerda: Dados do Usuário */}
+				{/* Conta */}
 				<Card>
 					<CardHeader>
-						<CardTitle>Seus dados</CardTitle>
-						<CardDescription>O e-mail é gerenciado pela autenticação. Você pode informar seu nrOrdem.</CardDescription>
+						<CardTitle>Conta</CardTitle>
+						<CardDescription>Identificação e vínculo com o cadastro militar.</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
-						{/* Email (Read-only) */}
-						<FieldRow label="E-mail" value={user?.email ?? userData?.email ?? "Carregando..."} />
+					<CardContent className="space-y-5">
+						<div className="space-y-0.5">
+							<span className="text-xs text-muted-foreground">E-mail</span>
+							<p className="text-sm">{user?.email ?? userData?.email ?? "Carregando..."}</p>
+						</div>
 
-						{/* Form: Nr Ordem */}
+						<Separator />
+
 						<form
 							onSubmit={(e) => {
 								e.preventDefault()
@@ -121,13 +139,13 @@ function ProfilePage() {
 												pattern="[0-9]*"
 											/>
 											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: String(e) }))} />
-											<FieldDescription>Usado para vincular seus dados militares automaticamente.</FieldDescription>
+											<FieldDescription>Vincula sua conta ao cadastro militar automaticamente.</FieldDescription>
 										</Field>
 									)}
 								</form.Field>
 							</FieldGroup>
 
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-3">
 								<Button type="submit" disabled={updateNrOrdem.isPending || !!form.state.isSubmitting}>
 									{updateNrOrdem.isPending ? (
 										<>
@@ -139,9 +157,9 @@ function ProfilePage() {
 									)}
 								</Button>
 								{isLoadingUserData && (
-									<span className="text-muted-foreground text-sm flex items-center gap-2">
-										<Loader2 className="size-4 animate-spin" />
-										Carregando dados...
+									<span className="text-muted-foreground text-sm flex items-center gap-1.5">
+										<Loader2 className="size-3.5 animate-spin" />
+										Carregando...
 									</span>
 								)}
 							</div>
@@ -149,57 +167,37 @@ function ProfilePage() {
 					</CardContent>
 				</Card>
 
-				{/* Direita: Dados Militares */}
+				{/* Dados militares */}
 				<Card>
 					<CardHeader>
 						<CardTitle>Dados militares</CardTitle>
-						<CardDescription>{effectiveNrOrdem ? "Encontrados a partir do seu nrOrdem." : "Informe seu nrOrdem para localizar seus dados."}</CardDescription>
+						<CardDescription>
+							{effectiveNrOrdem ? "Encontrados a partir do Nr. de Ordem." : "Informe seu Nr. de Ordem para localizar seus dados."}
+						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
+					<CardContent>
 						{!effectiveNrOrdem ? (
-							<div className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">Nenhum nrOrdem informado.</div>
+							<div className="py-10 text-center">
+								<p className="text-sm text-muted-foreground">Nenhum Nr. de Ordem informado.</p>
+							</div>
 						) : isLoadingMilitary ? (
-							<div className="flex items-center justify-center py-8 text-muted-foreground">
-								<Loader2 className="size-6 animate-spin mr-2" />
-								Buscando dados...
+							<div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+								<Loader2 className="size-4 animate-spin" />
+								<span className="text-sm">Buscando dados...</span>
 							</div>
 						) : military ? (
-							<div className="space-y-3">
-								<FieldRow label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
-								<FieldRow label="CPF" value={military.nrCpf} mono />
-								<FieldRow label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
-								<FieldRow label="Nome" value={military.nmPessoa ? toNameCase(military.nmPessoa) : military.nmPessoa} />
-								<div className="grid grid-cols-2 gap-3">
-									<FieldRow label="Posto" value={military.sgPosto} />
-									<FieldRow label="OM" value={military.sgOrg} />
-								</div>
-								<FieldRow label="Atualizado em" value={military.dataAtualizacao ? new Date(military.dataAtualizacao).toLocaleString() : "—"} />
-
-								<div className="pt-2">
-									<Button variant="outline" size="sm" onClick={() => refetchMilitary()}>
-										Recarregar
-									</Button>
-								</div>
-							</div>
+							<MilitaryPanel military={military} effectiveNrOrdem={effectiveNrOrdem} />
 						) : (
-							<div className="text-sm text-muted-foreground py-4 text-center border rounded-lg border-dashed">
-								Nenhum registro militar encontrado para o nrOrdem <span className="font-mono text-foreground font-medium">{effectiveNrOrdem}</span>.
+							<div className="py-10 text-center space-y-1">
+								<p className="text-sm text-muted-foreground">
+									Nenhum registro encontrado para <span className="font-mono text-foreground">{effectiveNrOrdem}</span>.
+								</p>
+								<p className="text-xs text-muted-foreground">Verifique se o número está correto.</p>
 							</div>
 						)}
 					</CardContent>
 				</Card>
 			</div>
-			<Separator />
-			<Card className="bg-muted/50 border-none shadow-none">
-				<CardContent className="pt-6">
-					<h3 className="text-sm font-semibold mb-2">Dicas</h3>
-					<ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-						<li>O número de Ordem deve conter apenas dígitos.</li>
-						<li>Após salvar o nrOrdem, os dados militares são buscados automaticamente.</li>
-						<li>Se seus dados não aparecerem, verifique se o número está correto ou se o cadastro militar está atualizado.</li>
-					</ul>
-				</CardContent>
-			</Card>
 		</div>
 	)
 }

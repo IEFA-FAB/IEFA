@@ -24,6 +24,7 @@ import {
 	Users,
 	UtensilsCrossed,
 } from "lucide-react"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -126,37 +127,88 @@ export const Route = createFileRoute("/_public/")({
    MAIN COMPONENT
    ======================================================================== */
 
-// Hex equivalents of the OKLCH semantic tokens — shaders-react does not support OKLCH
+// Hex equivalents of OKLCH tokens — shaders-react does not accept OKLCH
 const NEURO_LIGHT = {
 	colorBack: "#ffffff",
-	colorMid: "#e8edf8",
-	colorFront: "#cfd9f2",
+	colorMid: "#dce6f7",
+	colorFront: "#b8ccec",
 } as const
 
 const NEURO_DARK = {
-	colorBack: "#080c14",
-	colorMid: "#0e1628",
-	colorFront: "#172038",
+	colorBack: "#06090f",
+	colorMid: "#0d1830",
+	colorFront: "#172545",
 } as const
+
+// Gradient mask: shader visible only on the right, fading before the text and at all edges
+const HERO_SHADER_MASK = [
+	"linear-gradient(to right, transparent 42%, black 65%, black 90%, transparent 100%)",
+	"linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)",
+].join(", ")
+
+// Static CSS gradient that matches the shader palette — renders before JS, zero cost
+// Acts as the "frame 0" until WebGL initialises and the shader fades in
+// Must fade to transparent on ALL edges to avoid visible bounding box
+const HERO_AMBIENT_LIGHT =
+	"linear-gradient(to right, transparent 55%, #dce6f755 72%, #b8ccec44 87%, transparent 100%), " +
+	"linear-gradient(to bottom, transparent 0%, #dce6f722 10%, #dce6f722 90%, transparent 100%)"
+const HERO_AMBIENT_DARK =
+	"linear-gradient(to right, transparent 55%, #0d183044 72%, #17254533 87%, transparent 100%), " +
+	"linear-gradient(to bottom, transparent 0%, #0d183022 10%, #0d183022 90%, transparent 100%)"
 
 function Home() {
 	const { theme } = useTheme()
 	const neuroColors = theme === "dark" ? NEURO_DARK : NEURO_LIGHT
 
+	// Shader starts static (speed=0 renders one frame, no rAF loop — faster init)
+	// After WebGL compiles shaders (~150ms), fade it in then start animating
+	const [shaderVisible, setShaderVisible] = useState(false)
+	const [shaderSpeed, setShaderSpeed] = useState(0)
+
+	useEffect(() => {
+		// 150ms: enough for WebGL shader compilation on most devices
+		const t1 = setTimeout(() => {
+			setShaderVisible(true)
+			const t2 = setTimeout(() => setShaderSpeed(0.08), 400)
+			return () => clearTimeout(t2)
+		}, 150)
+		return () => clearTimeout(t1)
+	}, [])
+
 	return (
 		<div className="w-full">
 			{/* Hero */}
-			<section className="relative min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
-				<NeuroNoise
-					{...neuroColors}
-					speed={0.12}
-					scale={1.5}
-					brightness={1.05}
-					contrast={1.2}
-					maxPixelCount={1920 * 1080}
-					minPixelRatio={1}
-					style={{ position: "absolute", inset: 0, opacity: 0.65 }}
-				/>
+			<section
+				className="relative min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in"
+				style={{ backgroundImage: theme === "dark" ? HERO_AMBIENT_DARK : HERO_AMBIENT_LIGHT }}
+			>
+				{/* Pixelated NeuroNoise — right side only, fades in after WebGL init */}
+				<div
+					aria-hidden
+					style={{
+						position: "absolute",
+						inset: 0,
+						pointerEvents: "none",
+						opacity: shaderVisible ? 0.8 : 0,
+						transition: "opacity 0.7s ease-out",
+						maskImage: HERO_SHADER_MASK,
+						WebkitMaskImage: HERO_SHADER_MASK,
+						maskComposite: "intersect",
+						WebkitMaskComposite: "destination-in",
+					}}
+				>
+					<NeuroNoise
+						{...neuroColors}
+						speed={shaderSpeed}
+						scale={0.55}
+						brightness={1.0}
+						contrast={2.6}
+						maxPixelCount={40000}
+						minPixelRatio={0.05}
+						style={{ position: "absolute", inset: 0 }}
+						className="hero-shader-canvas"
+					/>
+				</div>
 				<div className="relative flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
 					<p className="font-mono text-xs text-muted-foreground tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
 					<h1 className="text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold tracking-tight leading-[0.95] text-foreground mb-8 md:mb-10">

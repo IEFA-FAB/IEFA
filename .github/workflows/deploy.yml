@@ -26,10 +26,10 @@ on:
         description: 'Force deploy forms'
         type: boolean
         default: false
-      force_alpha:
-        description: 'Force deploy Projeto α'
-        type: boolean
-        default: false
+      # force_alpha:
+      #   description: 'Force deploy Projeto α'
+      #   type: boolean
+      #   default: false
       force_5s:
         description: 'Force deploy 5S'
         type: boolean
@@ -51,7 +51,7 @@ jobs:
       sisub: ${{ steps.final.outputs.sisub }}
       forms: ${{ steps.final.outputs.forms }}
       docs: ${{ steps.final.outputs.docs }}
-      alpha: ${{ steps.final.outputs.alpha }}
+      # alpha: ${{ steps.final.outputs.alpha }}
       5s: ${{ steps.final.outputs['5s'] }}
     steps:
       - uses: actions/checkout@v6
@@ -101,14 +101,14 @@ jobs:
               - '.github/workflows/deploy.yml'
               - 'package.json'
               - 'turbo.json'
-            alpha:
-              - 'apps/alpha/**'
-              - 'packages/alpha-client/**'
-              - 'Dockerfile'
-              - 'docker-bake.hcl'
-              - '.github/workflows/deploy.yml'
-              - 'package.json'
-              - 'turbo.json'
+            # alpha:
+            #   - 'apps/alpha/**'
+            #   - 'packages/alpha-client/**'
+            #   - 'Dockerfile'
+            #   - 'docker-bake.hcl'
+            #   - '.github/workflows/deploy.yml'
+            #   - 'package.json'
+            #   - 'turbo.json'
             5s:
               - 'apps/forms/**'
               - 'packages/database/**'
@@ -128,14 +128,14 @@ jobs:
           FORCE_SISUB: ${{ inputs.force_sisub }}
           FORCE_DOCS: ${{ inputs.force_docs }}
           FORCE_FORMS: ${{ inputs.force_forms }}
-          FORCE_ALPHA: ${{ inputs.force_alpha }}
+          # FORCE_ALPHA: ${{ inputs.force_alpha }}
           FORCE_5S: ${{ inputs.force_5s }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
           FILTER_FORMS: ${{ steps.filter.outputs.forms }}
           FILTER_DOCS: ${{ steps.filter.outputs.docs }}
-          FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
+          # FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
           FILTER_5S: ${{ steps.filter.outputs['5s'] }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
@@ -144,7 +144,7 @@ jobs:
             echo "sisub=$FORCE_SISUB"   >> $GITHUB_OUTPUT
             echo "forms=$FORCE_FORMS"   >> $GITHUB_OUTPUT
             echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
-            echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
+            # echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FORCE_5S"         >> $GITHUB_OUTPUT
           else
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
@@ -152,7 +152,7 @@ jobs:
             echo "sisub=$FILTER_SISUB"   >> $GITHUB_OUTPUT
             echo "forms=$FILTER_FORMS"   >> $GITHUB_OUTPUT
             echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
-            echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
+            # echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FILTER_5S"         >> $GITHUB_OUTPUT
           fi
 
@@ -578,128 +578,128 @@ jobs:
           flyctl deploy -c fly/forms.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
-  # Projeto α / apps/alpha  ── check → build → deploy
+  # Projeto α / apps/alpha  ── SUSPENSO
   # ============================================================
-  check-alpha:
-    needs: [changes]
-    if: needs.changes.outputs.alpha == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/alpha
-        env:
-          SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-          DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  # check-alpha:
+  #   needs: [changes]
+  #   if: needs.changes.outputs.alpha == 'true'
+  #   runs-on: blacksmith-4vcpu-ubuntu-2404
+  #   timeout-minutes: 15
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #     - uses: oven-sh/setup-bun@v2
+  #     - uses: actions/cache@v5
+  #       with:
+  #         path: ~/.bun/install/cache
+  #         key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+  #         restore-keys: ${{ runner.os }}-bun-
+  #     - name: Install dependencies
+  #       run: bun install --frozen-lockfile
+  #     - name: Lint · types · tests
+  #       run: bunx turbo run lint typecheck test --filter=./apps/alpha
+  #       env:
+  #         SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
+  #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
+  #         DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
+  #         NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
 
-  build-alpha:
-    needs: check-alpha
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
+  # build-alpha:
+  #   needs: check-alpha
+  #   runs-on: blacksmith-4vcpu-ubuntu-2404
+  #   timeout-minutes: 15
+  #   outputs:
+  #     tag: ${{ steps.meta.outputs.tag }}
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #     - uses: docker/setup-buildx-action@v4
+  #     - uses: superfly/flyctl-actions/setup-flyctl@v1
+  #
+  #     - name: Ensure Fly app exists
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  #       run: flyctl apps create iefa-ai || true
+  #
+  #     - name: Login to Fly Registry
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  #       run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
+  #
+  #     - name: Generate tag
+  #       id: meta
+  #       run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+  #
+  #     - name: Build and push
+  #       uses: docker/bake-action@v7
+  #       with:
+  #         files: ./docker-bake.hcl
+  #         targets: alpha
+  #         push: true
+  #         set: |
+  #           alpha.tags=registry.fly.io/iefa-ai:${{ steps.meta.outputs.tag }}
+  #           alpha.tags=registry.fly.io/iefa-ai:latest
 
-      - name: Ensure Fly app exists
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl apps create iefa-ai || true
-
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: alpha
-          push: true
-          set: |
-            alpha.tags=registry.fly.io/iefa-ai:${{ steps.meta.outputs.tag }}
-            alpha.tags=registry.fly.io/iefa-ai:latest
-
-  deploy-alpha:
-    needs: build-alpha
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-alpha-${{ github.ref_name }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Set Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
-          V_LLM_MODEL: ${{ vars.LLM_MODEL }}
-          V_EMB_MODEL: ${{ vars.EMB_MODEL }}
-          V_NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
-          S_SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-          S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-          S_DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
-          S_NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          S_LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-        run: |
-          flyctl --config fly/alpha.toml secrets set \
-            "SUPABASE_URL=$S_SUPABASE_URL" \
-            "SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
-            "DATABASE_URL=$S_DATABASE_URL" \
-            "NVIDIA_API_KEY=$S_NVIDIA_API_KEY" \
-            "NVIDIA_BASE_URL=$V_NVIDIA_BASE_URL" \
-            "LLM_MODEL=$V_LLM_MODEL" \
-            "EMB_MODEL=$V_EMB_MODEL" \
-            "NVIDIA_RERANK_MODEL=$V_NVIDIA_RERANK_MODEL" \
-            "LANGCHAIN_API_KEY=$S_LANGCHAIN_API_KEY" \
-            "LANGCHAIN_TRACING_V2=true" \
-            "LANGCHAIN_PROJECT=alpha-aci"
-
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-alpha.outputs.tag }}
-        run: flyctl deploy -c fly/alpha.toml --image "registry.fly.io/iefa-ai:$IMAGE_TAG" --wait-timeout 300
-
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.RAG_HEALTH_URL }}
-        run: |
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ AI health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ AI health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/alpha.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/alpha.toml --image "$PREV" --wait-timeout 300 || true
+  # deploy-alpha:
+  #   needs: build-alpha
+  #   runs-on: blacksmith-4vcpu-ubuntu-2404
+  #   timeout-minutes: 10
+  #   concurrency:
+  #     group: fly-deploy-alpha-${{ github.ref_name }}
+  #     cancel-in-progress: true
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #     - uses: superfly/flyctl-actions/setup-flyctl@v1
+  #
+  #     - name: Set Fly secrets
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  #         V_NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
+  #         V_LLM_MODEL: ${{ vars.LLM_MODEL }}
+  #         V_EMB_MODEL: ${{ vars.EMB_MODEL }}
+  #         V_NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
+  #         S_SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
+  #         S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
+  #         S_DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
+  #         S_NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  #         S_LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+  #       run: |
+  #         flyctl --config fly/alpha.toml secrets set \
+  #           "SUPABASE_URL=$S_SUPABASE_URL" \
+  #           "SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
+  #           "DATABASE_URL=$S_DATABASE_URL" \
+  #           "NVIDIA_API_KEY=$S_NVIDIA_API_KEY" \
+  #           "NVIDIA_BASE_URL=$V_NVIDIA_BASE_URL" \
+  #           "LLM_MODEL=$V_LLM_MODEL" \
+  #           "EMB_MODEL=$V_EMB_MODEL" \
+  #           "NVIDIA_RERANK_MODEL=$V_NVIDIA_RERANK_MODEL" \
+  #           "LANGCHAIN_API_KEY=$S_LANGCHAIN_API_KEY" \
+  #           "LANGCHAIN_TRACING_V2=true" \
+  #           "LANGCHAIN_PROJECT=alpha-aci"
+  #
+  #     - name: Deploy
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  #         IMAGE_TAG: ${{ needs.build-alpha.outputs.tag }}
+  #       run: flyctl deploy -c fly/alpha.toml --image "registry.fly.io/iefa-ai:$IMAGE_TAG" --wait-timeout 300
+  #
+  #     - name: Smoke test
+  #       env:
+  #         HEALTH_URL: ${{ vars.RAG_HEALTH_URL }}
+  #       run: |
+  #         for i in {1..10}; do
+  #           status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
+  #           if [[ "${status:0:1}" == "2" ]]; then echo "✅ AI health check passed"; exit 0; fi
+  #           echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
+  #         done
+  #         echo "❌ AI health check failed"; exit 1
+  #
+  #     - name: Rollback on failure
+  #       if: failure()
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  #       run: |
+  #         PREV=$(flyctl releases -c fly/alpha.toml --json | jq -r '.[1].ImageRef // empty')
+  #         if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
+  #         flyctl deploy -c fly/alpha.toml --image "$PREV" --wait-timeout 300 || true
 
   # ============================================================
   # DOCS  ── check → build → deploy

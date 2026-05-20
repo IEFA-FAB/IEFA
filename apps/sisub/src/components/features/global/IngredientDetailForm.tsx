@@ -95,14 +95,14 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 		onSubmit: async ({ value }) => {
 			const validation = productSchema.safeParse(value)
 			if (!validation.success) {
-				toast.error("Preencha os campos obrigatórios corretamente")
+				const first = validation.error.issues[0]
+				toast.error(first?.message ?? "Preencha os campos obrigatórios corretamente")
 				return
 			}
 
 			try {
-				await updateIngredient({ id: ingredient.id, payload: value })
+				await updateIngredient({ id: ingredient.id, payload: validation.data })
 
-				// Save nutrients
 				const nutrientsPayload = syncedNutrients.map((n) => ({
 					nutrient_id: n.id,
 					nutrient_value: nutrientValues[n.id] !== "" ? Number(nutrientValues[n.id]) : null,
@@ -111,8 +111,9 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 
 				await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 				toast.success("Insumo atualizado com sucesso!")
-			} catch {
-				toast.error("Erro ao atualizar insumo")
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err)
+				toast.error(msg || "Erro ao atualizar insumo")
 			}
 		},
 	})

@@ -297,6 +297,12 @@
   }
 }
 
+/* Hero shader canvas — forces pixelated upscaling for low-res WebGL render */
+.hero-shader-canvas canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }

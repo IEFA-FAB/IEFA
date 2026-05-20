@@ -11,6 +11,7 @@
         "check": "biome check",
         "typecheck": "tsgo --noEmit",
         "validate-env": "bun run src/lib/env.ts",
+        "test": "bun test src/**/*.test.ts",
         "test:e2e": "bunx playwright test",
         "test:e2e:ui": "bunx playwright test --ui"
     },

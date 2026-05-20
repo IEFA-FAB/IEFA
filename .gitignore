@@ -1,6 +1,10 @@
 # === TaskTrace (worklog pessoal) ===
 .tasktrace/
 
+# === Playwright (MCP screenshots e dados de sessão) ===
+.playwright-mcp/
+.playwright-screenshots/
+
 # === OS ===
 .DS_Store
 Thumbs.db
