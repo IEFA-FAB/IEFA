@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { createSisubReachabilityClient, createSisubServiceClient, describeSupabaseIntegration, getSupabaseTestEnv } from "@/test/supabase"
 import { IngredientItemWriteSchema, IngredientWriteSchema } from "./ingredients.schemas"
 

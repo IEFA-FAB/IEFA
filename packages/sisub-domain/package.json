@@ -11,6 +11,9 @@
     "./types": "./src/types/index.ts",
     "./utils": "./src/utils/index.ts"
   },
+  "scripts": {
+    "test": "bun test $(find src -name '*.test.ts' -print)"
+  },
   "dependencies": {
     "@iefa/pbac": "workspace:*",
     "@supabase/supabase-js": "^2.103.0",

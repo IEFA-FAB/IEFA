@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { RealtimeChannel } from "@supabase/supabase-js"
+import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import {
 	createSisubAnonClient,
 	createSisubReachabilityClient,

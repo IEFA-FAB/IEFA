@@ -4,8 +4,8 @@
  */
 
 import type { Database } from "@iefa/database"
+import { hasPermission } from "@iefa/pbac"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { hasPermission } from "@/auth/pbac"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
 // ── Tool context (passed to every tool handler) ─────────────────────────────

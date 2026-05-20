@@ -1,5 +1,3 @@
-import { getSupabaseServerClient } from "@/lib/supabase.server"
-
 /**
  * SQL safety layer for analytics queries.
  *
@@ -82,6 +80,8 @@ export function validateSql(sql: string): { valid: boolean; error?: string } {
 }
 
 export async function executeSql(sql: string): Promise<Record<string, unknown>[]> {
+	const { getSupabaseServerClient } = await import("@/lib/supabase.server")
+
 	// Inject LIMIT 500 if the query doesn't already have one
 	const trimmedSql = sql.trim().replace(/;$/, "")
 	const safeSql = /\bLIMIT\b/i.test(trimmedSql) ? trimmedSql : `${trimmedSql} LIMIT ${MAX_LIMIT}`

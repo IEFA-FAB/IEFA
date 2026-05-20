@@ -7,6 +7,7 @@ import type { Database } from "@iefa/database"
 import { envServer, getAnalyticsEnvServer } from "@/lib/env.server"
 import { classifyLLMError } from "@/lib/llm-errors"
 import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
+import { extractJsonFromSpec } from "@/lib/analytics-chart-spec"
 import { validateSql, executeSql } from "@/lib/analytics-sql"
 import type { ChartType, StreamEvent } from "@/types/domain/analytics-chat"
 
@@ -60,52 +61,6 @@ function normalizeChartRows(rows: Record<string, unknown>[]): Record<string, Cha
 
 function isChartType(value: string): value is ChartType {
 	return CHART_TYPES.includes(value as ChartType)
-}
-
-/**
- * Robustly extract a JSON object from the raw chart-spec block content.
- *
- * LLMs sometimes wrap the JSON with extra content:
- *   - Nested ```json fences
- *   - Explanatory text before/after the JSON
- *   - Trailing commas (stripped here)
- *
- * Returns the cleaned JSON string ready for `JSON.parse`.
- */
-function extractJsonFromSpec(raw: string): string {
-	let cleaned = raw.trim()
-
-	// Strip nested ```json / ``` markers some LLMs add inside chart-spec
-	cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim()
-
-	// Locate the outermost { … } boundaries
-	const firstBrace = cleaned.indexOf("{")
-	const lastBrace = cleaned.lastIndexOf("}")
-
-	if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-		throw new SyntaxError(
-			`Nenhum objeto JSON encontrado no bloco chart-spec. Início do conteúdo: "${raw.slice(0, 120)}"`
-		)
-	}
-
-	let json = cleaned.slice(firstBrace, lastBrace + 1)
-
-	// Strip trailing commas before } or ] (common LLM mistake, invalid JSON)
-	json = json.replace(/,\s*([\]}])/g, "$1")
-
-	// Escape raw control characters inside JSON string values.
-	// LLMs sometimes emit literal newlines/tabs inside strings which are
-	// invalid JSON and cause "Unterminated string" errors in JSON.parse.
-	json = json.replace(/"((?:[^"\\]|\\[\s\S])*)"/g, (_match, content: string) => {
-		const fixed = content
-			.replace(/\r\n/g, "\\n")
-			.replace(/\n/g, "\\n")
-			.replace(/\r/g, "\\r")
-			.replace(/\t/g, "\\t")
-		return `"${fixed}"`
-	})
-
-	return json
 }
 
 async function emitChartSpec(rawSpec: string, sendEvent: (data: StreamEvent) => void) {

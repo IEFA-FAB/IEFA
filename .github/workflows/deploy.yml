@@ -385,6 +385,7 @@ jobs:
         run: |
           bunx turbo run lint typecheck test:unit test:integration --filter=./apps/sisub
           bunx turbo run test --filter=./packages/pbac
+          bunx turbo run test --filter=./packages/sisub-domain
         env:
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}

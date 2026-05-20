@@ -18,9 +18,9 @@
 
 - [x] 3.1 [pbac] Adicionar testes unitários para `hasPermission()` cobrindo global, escopado, escopo errado, nível insuficiente e módulo errado
 - [x] 3.2 [pbac] Adicionar testes unitários para `resolveUserPermissions()` cobrindo deny strip e allow implícito de `diner`
-- [ ] 3.3 [sisub-domain] Adicionar testes para `requirePermission`, `requireKitchen`, `requireUnit` e `requireMessHall`
+- [x] 3.3 [sisub-domain] Adicionar testes para `requirePermission`, `requireKitchen`, `requireUnit` e `requireMessHall`
 - [ ] 3.4 [sisub] Criar matriz de testes de server functions sem sessão, sem permissão, escopo errado e escopo correto
-- [ ] 3.5 [sisub] Cobrir server functions críticas de `permissions.fn.ts`, `places.fn.ts`, `unit-settings.fn.ts` e `kitchen-settings.fn.ts`
+- [x] 3.5 [sisub] Cobrir server functions críticas de `permissions.fn.ts`, `places.fn.ts`, `unit-settings.fn.ts` e `kitchen-settings.fn.ts`
 - [ ] 3.6 [sisub] Cobrir rotas protegidas com E2E ou teste de `beforeLoad` para redirect `/auth` e `/hub`
 
 ## 4. Domain Layer e Planejamento
@@ -56,10 +56,10 @@
 
 ## 7. Analytics, IA e Realtime
 
-- [ ] 7.1 [sisub] Adicionar testes unitários para `validateSql()` cobrindo SELECT/CTE, DML/DDL, whitelist, múltiplas instruções, tamanho e LIMIT
-- [ ] 7.2 [sisub] Extrair helpers testáveis de chart-spec parsing/normalização se necessário, mantendo comportamento do endpoint
+- [x] 7.1 [sisub] Adicionar testes unitários para `validateSql()` cobrindo SELECT/CTE, DML/DDL, whitelist, múltiplas instruções, tamanho e LIMIT
+- [x] 7.2 [sisub] Extrair helpers testáveis de chart-spec parsing/normalização se necessário, mantendo comportamento do endpoint
 - [ ] 7.3 [sisub] Adicionar testes para chart-spec válido, JSON com vírgula final, fence variante e chave de eixo/série ausente
-- [ ] 7.4 [sisub] Adicionar testes para module-chat tools: validação de UUID/inteiro/data, erro sanitizado e permissão por módulo/escopo
+- [x] 7.4 [sisub] Adicionar testes para module-chat tools: validação de UUID/inteiro/data, erro sanitizado e permissão por módulo/escopo
 - [ ] 7.5 [sisub] Adicionar testes de endpoint para `/api/analytics/stream` sem sessão e payload inválido
 - [ ] 7.6 [sisub] Adicionar testes de endpoint para `/api/module-chat/stream` sem sessão, sem permissão e scopeId errado
 - [ ] 7.7 [sisub] Corrigir e manter testes realtime com tipagem Supabase válida e skip/fail explícito

@@ -1,5 +1,5 @@
-import { describe } from "bun:test"
 import { createClient } from "@supabase/supabase-js"
+import { describe } from "vitest"
 
 type SupabaseTestEnv = {
 	url: string

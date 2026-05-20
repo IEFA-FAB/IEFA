@@ -6,12 +6,20 @@
  * SCOPE: permissions can be scoped to mess_hall_id, kitchen_id, or unit_id (at most one per row).
  */
 
+import { requirePermission } from "@iefa/sisub-domain/guards"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
 const APP_MODULES = ["diner", "messhall", "unit", "kitchen", "kitchen-production", "global", "analytics", "local-analytics", "storage"] as const
+
+async function requireGlobalPermissionAdmin() {
+	const ctx = await requireAuth()
+	requirePermission(ctx, "global", 2)
+	return ctx
+}
 
 // ---------------------------------------------------------------------------
 // User-facing: permissões filtradas (sem deny, com implicit allow)
@@ -76,6 +84,7 @@ export type UserSearchResult = {
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ email: z.string().min(1) }))
 	.handler(async ({ data }): Promise<UserSearchResult[]> => {
+		await requireGlobalPermissionAdmin()
 		const { data: rows, error } = await getSupabaseServerClient()
 			.from("user_data")
 			.select("id, email, nrOrdem")
@@ -108,6 +117,7 @@ export type PermissionRow = {
 export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ userId: z.string().min(1) }))
 	.handler(async ({ data }): Promise<PermissionRow[]> => {
+		await requireGlobalPermissionAdmin()
 		const { data: rows, error } = await getSupabaseServerClient()
 			.from("user_permissions")
 			.select("id, module, level, mess_hall_id, kitchen_id, unit_id")
@@ -142,6 +152,7 @@ export const createUserPermissionFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		await requireGlobalPermissionAdmin()
 		const { error } = await getSupabaseServerClient()
 			.from("user_permissions")
 			.insert({
@@ -177,6 +188,7 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		await requireGlobalPermissionAdmin()
 		const { error } = await getSupabaseServerClient()
 			.from("user_permissions")
 			.update({
@@ -203,6 +215,7 @@ export const updateUserPermissionFn = createServerFn({ method: "POST" })
 export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ permissionId: z.string().min(1) }))
 	.handler(async ({ data }) => {
+		await requireGlobalPermissionAdmin()
 		const { error } = await getSupabaseServerClient().from("user_permissions").delete().eq("id", data.permissionId)
 
 		if (error) throw new Error(error.message)

@@ -12,8 +12,8 @@
         "typecheck": "tsgo --noEmit",
         "validate-env": "bun run src/lib/env.ts",
         "test": "bun run test:unit",
-        "test:unit": "SISUB_RUN_INTEGRATION=false bun test $(find src -name '*.test.ts' -print)",
-        "test:integration": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true bun test $(find src -name '*.test.ts' -print)",
+        "test:unit": "SISUB_RUN_INTEGRATION=false vitest run --config vitest.config.ts",
+        "test:integration": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts",
         "test:e2e": "bunx playwright test",
         "test:e2e:ci": "bunx playwright test --project=chromium e2e/tests/smoke.spec.ts e2e/tests/auth.spec.ts e2e/tests/navigation.spec.ts",
         "test:e2e:full": "ALL_BROWSERS=true bunx playwright test",
@@ -86,6 +86,7 @@
         "@vitejs/plugin-react": "^6.0.1",
         "babel-plugin-react-compiler": "^1.0.0",
         "typescript": "^6.0.2",
-        "vite": "^8.0.4"
+        "vite": "^8.0.4",
+        "vitest": "^4.1.7"
     }
 }

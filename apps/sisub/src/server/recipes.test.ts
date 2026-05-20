@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { CreateRecipeSchema, CreateRecipeVersionSchema, IngredientSchema } from "@iefa/sisub-domain"
+import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import { createSisubReachabilityClient, createSisubServiceClient, describeSupabaseIntegration, getSupabaseTestEnv } from "@/test/supabase"
 
 // UUIDs válidos (Zod v4 requer version bits [1-8] e variant bits [89ab])

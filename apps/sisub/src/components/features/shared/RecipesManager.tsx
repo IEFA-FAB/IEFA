@@ -107,29 +107,29 @@ export function RecipesManager() {
 						</div>
 					) : (
 						<div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-								{virtualizer.getVirtualItems().map((vRow) => {
-									const recipe = filteredRecipes[vRow.index]
-									return (
-										<div
-											key={vRow.key}
-											className="flex items-center justify-between px-4 border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer absolute"
-											style={{
-												top: 0,
-												left: 0,
+							{virtualizer.getVirtualItems().map((vRow) => {
+								const recipe = filteredRecipes[vRow.index]
+								return (
+									<div
+										key={vRow.key}
+										className="flex items-center justify-between px-4 border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer absolute"
+										style={{
+											top: 0,
+											left: 0,
 											width: "100%",
-												height: `${vRow.size}px`,
-												transform: `translateY(${vRow.start}px)`,
-											}}
-											onClick={() => navigateToRecipe(recipe.id)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === " ") {
-													e.preventDefault()
-													navigateToRecipe(recipe.id)
-												}
-											}}
-											role="button"
-											tabIndex={0}
-										>
+											height: `${vRow.size}px`,
+											transform: `translateY(${vRow.start}px)`,
+										}}
+										onClick={() => navigateToRecipe(recipe.id)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault()
+												navigateToRecipe(recipe.id)
+											}
+										}}
+										role="button"
+										tabIndex={0}
+									>
 										<div className="flex items-center gap-3 flex-1 min-w-0">
 											<div
 												className={`flex items-center justify-center size-7 rounded-[var(--radius)] border shrink-0 ${
@@ -151,7 +151,7 @@ export function RecipesManager() {
 											)}
 										</div>
 
-											<div className="flex items-center gap-3 shrink-0 ml-3">
+										<div className="flex items-center gap-3 shrink-0 ml-3">
 											{recipe.portion_yield != null && <span className="text-sm text-muted-foreground font-mono">{recipe.portion_yield} porções</span>}
 											{!recipe.kitchen_id && (
 												<Tooltip>
