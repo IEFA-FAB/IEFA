@@ -126,16 +126,17 @@ export const Route = createFileRoute("/_public/")({
    MAIN COMPONENT
    ======================================================================== */
 
+// Hex equivalents of the OKLCH semantic tokens — shaders-react does not support OKLCH
 const NEURO_LIGHT = {
-	colorFront: "oklch(0.96 0.008 245)",
-	colorMid: "oklch(0.93 0.012 245)",
-	colorBack: "oklch(1.0 0 0)",
+	colorBack: "#ffffff",
+	colorMid: "#e8edf8",
+	colorFront: "#cfd9f2",
 } as const
 
 const NEURO_DARK = {
-	colorFront: "oklch(0.10 0.008 245)",
-	colorMid: "oklch(0.06 0.012 245)",
-	colorBack: "oklch(0 0 0)",
+	colorBack: "#080c14",
+	colorMid: "#0e1628",
+	colorFront: "#172038",
 } as const
 
 function Home() {
@@ -150,12 +151,11 @@ function Home() {
 					{...neuroColors}
 					speed={0.12}
 					scale={1.5}
-					brightness={1.1}
-					contrast={1.0}
+					brightness={1.05}
+					contrast={1.2}
 					maxPixelCount={1920 * 1080}
 					minPixelRatio={1}
-					className="!absolute inset-0 opacity-40"
-					style={{ position: "absolute" }}
+					style={{ position: "absolute", inset: 0, opacity: 0.65 }}
 				/>
 				<div className="relative flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
 					<p className="font-mono text-xs text-muted-foreground tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
