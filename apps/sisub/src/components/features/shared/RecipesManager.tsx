@@ -1,7 +1,7 @@
-import { Link, useParams } from "@tanstack/react-router"
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ChefHat, GitFork, Globe, Search, TextSearch } from "lucide-react"
-import { useDeferredValue, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -16,18 +16,42 @@ export function RecipesManager() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = kitchenIdStr ?? null
 
-	const [search, setSearch] = useState("")
-	// useDeferredValue posterga a atualização do search para o React Query
-	// enquanto o usuário ainda digita, mantendo a UI responsiva e evitando
-	// disparar uma nova query a cada keystroke.
-	const deferredSearch = useDeferredValue(search)
-	const [origin, setOrigin] = useState<"all" | "global" | "local">("all")
+	const { search: urlSearch = "", type = "all" } = useSearch({ strict: false }) as {
+		search?: string
+		type?: "all" | "global" | "local"
+	}
+	const navigate = useNavigate()
+	const navigateRef = useRef(navigate)
+	navigateRef.current = navigate
+
+	// Local state drives the input display; URL is written after 400ms idle.
+	const [inputValue, setInputValue] = useState(urlSearch)
+	const isFirstRender = useRef(true)
+
+	useEffect(() => {
+		if (isFirstRender.current) {
+			isFirstRender.current = false
+			return
+		}
+		const timer = setTimeout(() => {
+			// biome-ignore lint/suspicious/noExplicitAny: shared component, navigate has no from context
+			navigateRef.current({ search: { search: inputValue || undefined, type: type === "all" ? undefined : type } as any, replace: true })
+		}, 400)
+		return () => clearTimeout(timer)
+	}, [inputValue, type])
+
 	const parentRef = useRef<HTMLDivElement>(null)
 
+	// Query uses the URL value (already debounced).
 	const { data: filteredRecipes = [], isLoading } = useRecipes({
-		search: deferredSearch || undefined,
-		origin,
+		search: urlSearch || undefined,
+		origin: type,
 	})
+
+	function setOrigin(value: "all" | "global" | "local") {
+		// biome-ignore lint/suspicious/noExplicitAny: shared component, navigate has no from context
+		navigate({ search: { search: urlSearch || undefined, type: value === "all" ? undefined : value } as any, replace: true })
+	}
 
 	const virtualizer = useVirtualizer({
 		count: filteredRecipes.length,
@@ -43,16 +67,16 @@ export function RecipesManager() {
 			<Card className="flex-col sm:flex-row items-stretch sm:items-center gap-4 p-5 overflow-visible">
 				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-					<Input placeholder="Buscar Preparação..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+					<Input placeholder="Buscar Preparação..." className="pl-10" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
 				</div>
 				<div className="flex gap-2">
-					<Button variant={origin === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
+					<Button variant={type === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
 						Todas
 					</Button>
-					<Button variant={origin === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
+					<Button variant={type === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
 						Globais (SDAB)
 					</Button>
-					<Button variant={origin === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
+					<Button variant={type === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
 						Locais
 					</Button>
 				</div>

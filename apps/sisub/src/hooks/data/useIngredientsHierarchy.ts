@@ -54,7 +54,7 @@ export function useIngredientsHierarchy(filterText = "") {
 	const itemCountByIngredientId = useMemo<Record<string, number>>(() => {
 		if (!tree) return {}
 		const counts: Record<string, number> = {}
-		for (const item of tree.ingredientItems) {
+		for (const item of tree.ingredientItems ?? []) {
 			if (item.ingredient_id) {
 				counts[item.ingredient_id] = (counts[item.ingredient_id] || 0) + 1
 			}
@@ -198,7 +198,7 @@ export function useIngredientsHierarchy(filterText = "") {
 		return {
 			totalFolders: tree.folders.length,
 			totalIngredients: tree.ingredients.length,
-			totalItems: tree.ingredientItems.length,
+			totalItems: (tree.ingredientItems ?? []).length,
 		}
 	}, [tree])
 

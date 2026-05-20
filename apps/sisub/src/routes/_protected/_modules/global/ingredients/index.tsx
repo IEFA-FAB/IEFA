@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { DownloadIcon } from "lucide-react"
+import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientsTreeManager } from "@/components/features/global/IngredientsTreeManager"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -12,7 +13,12 @@ import { ingredientsTreeQueryOptions } from "@/services/IngredientsService"
  * Rota: /global/ingredients
  * ACL: módulo "global" nível 1+ (GLOBAL-01)
  */
+const searchSchema = z.object({
+	search: z.string().optional(),
+})
+
 export const Route = createFileRoute("/_protected/_modules/global/ingredients/")({
+	validateSearch: searchSchema,
 	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
 	loader: ({ context }) => {
 		return context.queryClient.ensureQueryData(ingredientsTreeQueryOptions())

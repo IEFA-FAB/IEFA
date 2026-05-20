@@ -5,17 +5,13 @@ import { requirePermission } from "@/auth/pbac"
 import { RecipesManager } from "@/components/features/shared/RecipesManager"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
+import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
 
 const searchSchema = z.object({
 	search: z.string().optional(),
 	type: z.enum(["all", "global", "local"]).optional(),
 })
 
-/**
- * GLOBAL-02 — Catálogo de Preparações Globais (Padrão FAB)
- * URL: /global/recipes
- * Acesso: módulo "global" nível 1+
- */
 export const Route = createFileRoute("/_protected/_modules/global/recipes/")({
 	validateSearch: searchSchema,
 	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
@@ -26,6 +22,13 @@ export const Route = createFileRoute("/_protected/_modules/global/recipes/")({
 })
 
 function GlobalRecipesPage() {
+	useRealtimeSubscription({
+		table: "recipes",
+		queryKeyPrefix: ["recipes"],
+		message: "Preparação atualizada por outro usuário",
+		filter: "kitchen_id=is.null",
+	})
+
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Preparações Globais">

@@ -90,18 +90,26 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			const kitchenIdNew = isFork ? 1 : null
 			const baseRecipeId = isFork ? initialData?.id : undefined
 
+			const mappedIngredients = value.ingredients
+				.filter((i): i is typeof i & { ingredient_id: string; net_quantity: number } => i.ingredient_id !== null && i.net_quantity !== null)
+				.map((i) => ({
+					ingredient_id: i.ingredient_id,
+					net_quantity: i.net_quantity,
+					is_optional: i.is_optional,
+					priority_order: i.priority_order,
+				}))
+
 			if (mode === "create" || isFork) {
-				// Create recipe with ingredients handled separately
-				const { ingredients, ...recipeData } = value
+				const { ingredients: _ingredients, ...recipeData } = value
 
 				await createMutation.mutateAsync({
 					...recipeData,
 					kitchen_id: kitchenIdNew, // TODO: Use real kitchen ID
 					base_recipe_id: baseRecipeId,
+					ingredients: mappedIngredients,
 				})
 			} else if (mode === "edit" && initialData) {
-				// Versioning: Insert new entry with incremented version
-				const { ingredients, ...recipeData } = value
+				const { ingredients: _ingredients, ...recipeData } = value
 
 				await versionMutation.mutateAsync({
 					baseRecipeId: initialData.id,
@@ -109,6 +117,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					data: {
 						...recipeData,
 						kitchen_id: initialData.kitchen_id,
+						ingredients: mappedIngredients,
 					},
 				})
 			}

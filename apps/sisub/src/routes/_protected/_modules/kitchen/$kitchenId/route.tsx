@@ -1,5 +1,6 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Outlet, useParams } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
+import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
 import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { ScopeContext } from "@/types/domain/scope"
 
@@ -26,5 +27,29 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId")(
 })
 
 function KitchenLayout() {
+	const { kitchenId } = useParams({ from: "/_protected/_modules/kitchen/$kitchenId" })
+	const filter = `kitchen_id=eq.${kitchenId}`
+
+	useRealtimeSubscription({
+		table: "daily_menu",
+		queryKeyPrefix: ["planning"],
+		message: "Cardápio atualizado por outro usuário",
+		filter,
+	})
+
+	useRealtimeSubscription({
+		table: "recipes",
+		queryKeyPrefix: ["recipes"],
+		message: "Preparação atualizada por outro usuário",
+		filter,
+	})
+
+	useRealtimeSubscription({
+		table: "menu_items",
+		queryKeyPrefix: ["planning", "procurement"],
+		message: "Item do cardápio atualizado",
+		filter,
+	})
+
 	return <Outlet />
 }

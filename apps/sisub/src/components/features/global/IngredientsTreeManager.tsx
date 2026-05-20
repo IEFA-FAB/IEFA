@@ -1,7 +1,7 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { FolderPlus, Loader2, PackagePlus, Search } from "lucide-react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,14 +19,33 @@ import { IngredientsTreeNode } from "./IngredientsTreeNode"
 export function IngredientsTreeManager() {
 	"use no memo"
 	const navigate = useNavigate()
-	const [filterText, setFilterText] = useState("")
+	const navigateRef = useRef(navigate)
+	navigateRef.current = navigate
+
+	const { search: urlSearch = "" } = useSearch({ strict: false }) as { search?: string }
+	const [inputValue, setInputValue] = useState(urlSearch)
+	const isFirstRender = useRef(true)
+
+	useEffect(() => {
+		if (isFirstRender.current) {
+			isFirstRender.current = false
+			return
+		}
+		const timer = setTimeout(() => {
+			// biome-ignore lint/suspicious/noExplicitAny: shared component, navigate has no from context
+			navigateRef.current({ search: { search: inputValue || undefined } as any, replace: true })
+		}, 400)
+		return () => clearTimeout(timer)
+	}, [inputValue])
+
 	const [dialogState, setDialogState] = useState<IngredientDialogState>({
 		isOpen: false,
 		mode: "create",
 		type: "folder",
 	})
 
-	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(filterText)
+	// Hook consumes URL value (already debounced).
+	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(urlSearch)
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -76,8 +95,8 @@ export function IngredientsTreeManager() {
 					<Input
 						type="search"
 						placeholder="Buscar pastas ou insumos..."
-						value={filterText}
-						onChange={(e) => setFilterText(e.target.value)}
+						value={inputValue}
+						onChange={(e) => setInputValue(e.target.value)}
 						className="pl-10"
 						aria-label="Buscar na árvore de insumos"
 					/>
@@ -110,7 +129,7 @@ export function IngredientsTreeManager() {
 					{flatTree && flatTree.nodes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">Nenhum insumo encontrado</p>
-							{filterText && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>}
+							{urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>}
 						</div>
 					) : (
 						<div

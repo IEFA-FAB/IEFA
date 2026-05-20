@@ -61,7 +61,20 @@ export async function listRecipes(client: AnyClient, ctx: UserContext, input: Li
 
 	const { data, error } = await query
 	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+
+	// Deduplicate: keep only the latest version of each recipe family.
+	// Versioning inserts new rows (base_recipe_id → root). Group by root ID,
+	// return the entry with the highest version number.
+	const familyMap = new Map<string, (typeof data)[0]>()
+	for (const recipe of data ?? []) {
+		const rootId = recipe.base_recipe_id ?? recipe.id
+		const existing = familyMap.get(rootId)
+		if (!existing || recipe.version > existing.version) {
+			familyMap.set(rootId, recipe)
+		}
+	}
+
+	return Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 }
 
 export async function listRecipeVersions(client: AnyClient, ctx: UserContext, input: ListRecipeVersions) {

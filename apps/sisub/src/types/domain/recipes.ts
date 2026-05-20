@@ -17,6 +17,13 @@ export interface RecipeIngredientAlternativeWithIngredient extends RecipeIngredi
 	ingredient: Ingredient | null
 }
 
+export interface RecipeFormIngredient {
+	ingredient_id: string
+	net_quantity: number
+	is_optional: boolean
+	priority_order: number
+}
+
 // Form Data (Input)
 export interface RecipeFormData {
 	name: string
@@ -27,8 +34,7 @@ export interface RecipeFormData {
 	rational_id?: string | null
 	kitchen_id?: number | null
 	base_recipe_id?: string | null
-	// Ingredients are handled as separate entities in form state usually,
-	// but for submission payload they might be separate.
+	ingredients?: RecipeFormIngredient[]
 }
 
 export interface RecipeIngredientFormData {

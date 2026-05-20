@@ -8,7 +8,6 @@ import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
-import { RealtimeProvider } from "@/components/providers/RealtimeProvider"
 import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
@@ -84,9 +83,7 @@ function RootDocument() {
 					className={cn("fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out", isLoading ? "w-full opacity-100" : "w-0 opacity-0")}
 				/>
 				<ThemeProvider>
-					<RealtimeProvider>
-						<Outlet />
-					</RealtimeProvider>
+					<Outlet />
 					<Toaster position="bottom-center" richColors expand className="z-2147483647" />
 				</ThemeProvider>
 				<TanStackDevtools

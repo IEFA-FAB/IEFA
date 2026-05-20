@@ -140,21 +140,11 @@ const NEURO_DARK = {
 	colorFront: "#172545",
 } as const
 
-// Gradient mask: shader visible only on the right, fading before the text and at all edges
+// Gradient mask: shader visible only on the right, all 4 edges fade to transparent
 const HERO_SHADER_MASK = [
-	"linear-gradient(to right, transparent 42%, black 65%, black 90%, transparent 100%)",
-	"linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)",
+	"linear-gradient(to right, transparent 35%, black 60%, black 88%, transparent 100%)",
+	"linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
 ].join(", ")
-
-// Static CSS gradient that matches the shader palette — renders before JS, zero cost
-// Acts as the "frame 0" until WebGL initialises and the shader fades in
-// Must fade to transparent on ALL edges to avoid visible bounding box
-const HERO_AMBIENT_LIGHT =
-	"linear-gradient(to right, transparent 55%, #dce6f755 72%, #b8ccec44 87%, transparent 100%), " +
-	"linear-gradient(to bottom, transparent 0%, #dce6f722 10%, #dce6f722 90%, transparent 100%)"
-const HERO_AMBIENT_DARK =
-	"linear-gradient(to right, transparent 55%, #0d183044 72%, #17254533 87%, transparent 100%), " +
-	"linear-gradient(to bottom, transparent 0%, #0d183022 10%, #0d183022 90%, transparent 100%)"
 
 function Home() {
 	const { theme } = useTheme()
@@ -178,10 +168,7 @@ function Home() {
 	return (
 		<div className="w-full">
 			{/* Hero */}
-			<section
-				className="relative min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in"
-				style={{ backgroundImage: theme === "dark" ? HERO_AMBIENT_DARK : HERO_AMBIENT_LIGHT }}
-			>
+			<section className="relative min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
 				{/* Pixelated NeuroNoise — right side only, fades in after WebGL init */}
 				<div
 					aria-hidden

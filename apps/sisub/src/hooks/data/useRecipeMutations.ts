@@ -2,7 +2,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { queryKeys } from "@/lib/query-keys"
 import { createRecipeFn, createRecipeVersionFn } from "@/server/recipes.fn"
-import type { RecipeFormData } from "@/types/domain/recipes"
+import type { RecipeFormData, RecipeFormIngredient } from "@/types/domain/recipes"
+
+function mapIngredients(ingredients: RecipeFormIngredient[] | undefined) {
+	return ingredients?.map((ing) => ({
+		ingredientId: ing.ingredient_id,
+		netQuantity: ing.net_quantity,
+		isOptional: ing.is_optional,
+		priorityOrder: ing.priority_order,
+	}))
+}
 
 export function useCreateRecipe() {
 	const queryClient = useQueryClient()
@@ -18,6 +27,7 @@ export function useCreateRecipe() {
 					cookingFactor: data.cooking_factor ?? undefined,
 					rationalId: data.rational_id ?? undefined,
 					kitchenId: data.kitchen_id ?? null,
+					ingredients: mapIngredients(data.ingredients),
 				},
 			}),
 		onSuccess: () => {
@@ -46,6 +56,7 @@ export function useVersionRecipe() {
 					kitchenId: data.kitchen_id ?? null,
 					baseRecipeId,
 					version: newVersion,
+					ingredients: mapIngredients(data.ingredients),
 				},
 			}),
 		onSuccess: () => {
