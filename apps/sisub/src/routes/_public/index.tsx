@@ -1,4 +1,6 @@
 // Routing
+
+import { NeuroNoise } from "@paper-design/shaders-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 // Icons
 import type { LucideIcon } from "lucide-react"
@@ -28,6 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { InfoPanel } from "@/components/ui/info-panel"
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { SectionLabel } from "@/components/ui/section-label"
+import { useTheme } from "@/hooks/ui/useTheme"
 import type { Feature, Step } from "@/types/ui"
 
 /* ========================================================================
@@ -123,12 +126,38 @@ export const Route = createFileRoute("/_public/")({
    MAIN COMPONENT
    ======================================================================== */
 
+const NEURO_LIGHT = {
+	colorFront: "oklch(0.96 0.008 245)",
+	colorMid: "oklch(0.93 0.012 245)",
+	colorBack: "oklch(1.0 0 0)",
+} as const
+
+const NEURO_DARK = {
+	colorFront: "oklch(0.10 0.008 245)",
+	colorMid: "oklch(0.06 0.012 245)",
+	colorBack: "oklch(0 0 0)",
+} as const
+
 function Home() {
+	const { theme } = useTheme()
+	const neuroColors = theme === "dark" ? NEURO_DARK : NEURO_LIGHT
+
 	return (
 		<div className="w-full">
 			{/* Hero */}
-			<section className="min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
-				<div className="flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
+			<section className="relative min-h-[calc(100svh-5.5rem)] md:min-h-[calc(100svh-6rem)] flex flex-col justify-between pb-6 pt-2 animate-fade-slide-in">
+				<NeuroNoise
+					{...neuroColors}
+					speed={0.12}
+					scale={1.5}
+					brightness={1.1}
+					contrast={1.0}
+					maxPixelCount={1920 * 1080}
+					minPixelRatio={1}
+					className="!absolute inset-0 opacity-40"
+					style={{ position: "absolute" }}
+				/>
+				<div className="relative flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
 					<p className="font-mono text-xs text-muted-foreground tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
 					<h1 className="text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold tracking-tight leading-[0.95] text-foreground mb-8 md:mb-10">
 						Gestão

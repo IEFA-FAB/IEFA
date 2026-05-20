@@ -1,7 +1,7 @@
 /**
  * @module compras-sync.fn
  * Proxy to the iefa-api sync worker for Compras.gov.br data ingestion.
- * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://iefa-api.fly.dev). No Supabase.
+ * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://api.iefa.com.br, fallback: https://iefa-api.fly.dev). No Supabase.
  * AUTH: x-admin-secret header from ADMIN_SECRET env var.
  */
 
@@ -9,9 +9,16 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import type { SyncLog } from "@/types/domain/compras-sync"
 
-// Local dev: IEFA_API_BASE_URL=http://localhost:3000
-// Production: defaults to https://iefa-api.fly.dev
-const API_BASE = process.env.IEFA_API_BASE_URL ?? "https://iefa-api.fly.dev"
+const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
+
+async function fetchApi(path: string, init?: RequestInit): Promise<Response> {
+	try {
+		return await fetch(`${API_BASE}${path}`, init)
+	} catch {
+		const fallback = "https://iefa-api.fly.dev"
+		return fetch(`${fallback}${path}`, init)
+	}
+}
 
 function adminHeaders() {
 	return {
@@ -31,7 +38,7 @@ function adminHeaders() {
  * @throws {Error} "API retornou {status}" on any other non-2xx response.
  */
 export const triggerSyncFn = createServerFn({ method: "POST" }).handler(async () => {
-	const res = await fetch(`${API_BASE}/api/admin/compras/sync`, {
+	const res = await fetchApi("/api/admin/compras/sync", {
 		method: "POST",
 		headers: adminHeaders(),
 	})
@@ -55,7 +62,7 @@ export const triggerSyncFn = createServerFn({ method: "POST" }).handler(async ()
 export const getSyncStatusFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		const res = await fetch(`${API_BASE}/api/admin/compras/sync/${data.id}`, {
+		const res = await fetchApi(`/api/admin/compras/sync/${data.id}`, {
 			headers: adminHeaders(),
 		})
 		if (!res.ok) throw new Error(`API retornou ${res.status}`)
@@ -70,7 +77,7 @@ export const getSyncStatusFn = createServerFn({ method: "GET" })
 export const stopSyncFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		const res = await fetch(`${API_BASE}/api/admin/compras/sync/${data.id}/stop`, {
+		const res = await fetchApi(`/api/admin/compras/sync/${data.id}/stop`, {
 			method: "POST",
 			headers: adminHeaders(),
 		})
@@ -87,7 +94,7 @@ export const stopSyncFn = createServerFn({ method: "POST" })
  * @throws {Error} "API retornou {status}" on non-2xx/404 API response.
  */
 export const getLatestSyncFn = createServerFn({ method: "GET" }).handler(async () => {
-	const res = await fetch(`${API_BASE}/api/admin/compras/sync/latest`, {
+	const res = await fetchApi("/api/admin/compras/sync/latest", {
 		headers: adminHeaders(),
 	})
 	if (res.status === 404) return null
