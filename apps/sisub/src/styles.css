@@ -76,6 +76,7 @@
   --tracking-tight: -0.02em;
   --tracking-normal: 0em;
   --tracking-label: 0.05em;
+  --tracking-wide: 0.2em;
   --spacing: 0.25rem;
   /* Scrollbar tokens */
   --scrollbar-size: 6px;
@@ -275,76 +276,112 @@
 }
 
 
-@layer utilities {
-  /* ─── Hierarquia Tipográfica ─── */
-  /* 6 níveis semânticos. Vetores: tamanho + peso + tracking + cor (caption/hint). */
-  /* Nunca usar font-*/size/weight ad-hoc nos features — mapear a um nível abaixo.  */
+/* ─── Hierarquia Tipográfica ─── */
+@utility text-display {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.2;
+}
 
-  .text-display {
-    font-size: 1.375rem;
-    font-weight: 700;
-    letter-spacing: var(--tracking-tight);
-    line-height: 1.2;
-  }
+@utility text-heading {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.3;
+}
 
-  .text-heading {
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: var(--tracking-tight);
-    line-height: 1.3;
-  }
+@utility text-subheading {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
 
-  .text-body {
-    font-size: 0.875rem;
-    font-weight: 400;
-    letter-spacing: var(--tracking-normal);
-    line-height: 1.5;
-  }
+@utility text-body {
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
 
-  .text-subheading {
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: var(--tracking-normal);
-    line-height: 1.5;
-  }
+@utility text-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  line-height: 1.4;
+}
 
-  .text-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: var(--tracking-label);
-    text-transform: uppercase;
-    line-height: 1.4;
-  }
+@utility text-caption {
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
 
-  .text-caption {
-    font-size: 0.75rem;
-    font-weight: 400;
-    letter-spacing: var(--tracking-normal);
-    line-height: 1.5;
-  }
+@utility text-hint {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+}
 
-  .text-hint {
-    font-size: 0.6875rem;
-    font-weight: 400;
-    letter-spacing: var(--tracking-normal);
-    line-height: 1.5;
-  }
+/* ─── Landing / Brand Overrides ─── */
+@utility text-hero {
+  font-size: clamp(3rem, 9vw, 6.5rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: 0.95;
+}
 
-  .animate-scroll {
-    animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
-  }
+@utility text-section-title {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
+}
 
-  /* ─── Scrollbar visibility utilities ─── */
-  /* Oculta o scrollbar visualmente mas mantém a rolagem funcional */
-  .no-scrollbar,
-  .scrollbar-hide {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none;
-  }
-  .no-scrollbar::-webkit-scrollbar,
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
+@utility text-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+@utility text-step-number {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+}
+
+@utility text-lead {
+  font-size: clamp(0.875rem, 2vw, 1.125rem);
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.6;
+}
+
+@utility animate-scroll {
+  animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* pseudo-elements precisam ficar fora do @utility */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes scroll {

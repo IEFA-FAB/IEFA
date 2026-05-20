@@ -30,7 +30,7 @@ function PublicLayout() {
 			{/* ============================================================
 			    HEADER
 			    ============================================================ */}
-			<header className="border-b border-border/60 bg-background">
+			<header className="sticky top-0 z-40 border-b border-border/60 bg-background">
 				<Container className="h-14 flex items-center justify-between gap-4">
 					{/* Logo e Navegação */}
 					<div className="flex items-center gap-4">

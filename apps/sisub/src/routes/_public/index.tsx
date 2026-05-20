@@ -10,10 +10,9 @@ import {
 	Building2,
 	Calendar,
 	ChefHat,
+	ChevronDown,
 	ChevronRight,
-	ChevronsDown,
 	ClipboardCheck,
-	Clock,
 	FileText,
 	Flame,
 	Globe,
@@ -27,9 +26,8 @@ import {
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { InfoPanel } from "@/components/ui/info-panel"
-import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from "@/components/ui/item"
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useTheme } from "@/hooks/ui/useTheme"
 import type { Feature, Step } from "@/types/ui"
@@ -90,7 +88,7 @@ export const features: Feature[] = [
 	},
 	{
 		icon: BarChart3,
-		title: "Business Intelligence",
+		title: "Análises Gerenciais",
 		description: "Dashboards e KPIs sobre consumo, desperdício, demanda e eficiência operacional.",
 	},
 	{
@@ -204,13 +202,13 @@ function Home() {
 					/>
 				</div>
 				<div className="relative flex-1 flex flex-col justify-start md:justify-center max-w-3xl">
-					<p className="font-mono text-xs text-muted-foreground tracking-[0.2em] uppercase mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
-					<h1 className="text-6xl md:text-7xl lg:text-[6rem] xl:text-[7rem] font-bold tracking-tight leading-[0.95] text-foreground mb-8 md:mb-10">
+					<p className="font-mono text-eyebrow text-muted-foreground mb-6 md:mb-8">Sistema de Subsistência · Força Aérea Brasileira</p>
+					<h1 className="text-hero text-foreground mb-8 md:mb-10">
 						Gestão
 						<br />
 						<span className="text-primary">integrada.</span>
 					</h1>
-					<p className="text-muted-foreground text-base md:text-xl leading-relaxed mb-10 md:mb-12 max-w-sm md:max-w-md">
+					<p className="text-lead text-muted-foreground mb-10 md:mb-12 max-w-sm md:max-w-md">
 						Da previsão do comensal ao empenho de insumos — uma plataforma para toda a cadeia de subsistência da FAB.
 					</p>
 					<div className="flex flex-wrap items-center gap-4 md:gap-6">
@@ -224,15 +222,20 @@ function Home() {
 							}
 							size="lg"
 						/>
-						<span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+						<span className="inline-flex items-center gap-1.5 text-caption font-mono text-muted-foreground">
 							<ShieldCheck className="size-3.5" aria-hidden />
 							Login obrigatório
 						</span>
 					</div>
 				</div>
-				<div className="flex justify-center pb-2" aria-hidden>
-					<ChevronsDown className="size-5 text-muted-foreground/40 animate-bounce" />
-				</div>
+				<button
+					type="button"
+					className="flex justify-center pb-2 bg-transparent border-0 p-0 cursor-pointer"
+					onClick={() => document.getElementById("steps")?.scrollIntoView({ behavior: "smooth" })}
+					aria-label="Rolar para a cadeia operacional"
+				>
+					<ChevronDown className="size-5 text-muted-foreground/40 animate-bounce" aria-hidden />
+				</button>
 			</section>
 
 			{/* A cadeia operacional */}
@@ -243,15 +246,15 @@ function Home() {
 						const Icon = step.icon
 						return (
 							<div key={step.title} className="flex items-start gap-5 py-5 stagger-item">
-								<span className="font-mono text-3xl font-bold text-muted-foreground tabular-nums leading-none min-w-[2.5rem]">
+								<span aria-hidden className="font-mono text-step-number text-muted-foreground tabular-nums min-w-[2.5rem]">
 									{String(i + 1).padStart(2, "0")}
 								</span>
 								<div className="pt-0.5">
 									<div className="flex items-center gap-2 mb-1">
 										<Icon className="size-4 text-primary shrink-0" aria-hidden />
-										<h3 className="font-bold text-sm text-foreground">{step.title}</h3>
+										<h3 className="text-subheading text-foreground">{step.title}</h3>
 									</div>
-									<p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
+									<p className="text-body text-muted-foreground">{step.description}</p>
 								</div>
 							</div>
 						)
@@ -271,7 +274,7 @@ function Home() {
 									<Icon className="size-4 text-primary" aria-hidden />
 								</ItemMedia>
 								<ItemContent>
-									<ItemTitle className="font-semibold">{mod.label}</ItemTitle>
+									<ItemTitle>{mod.label}</ItemTitle>
 								</ItemContent>
 								<ItemActions>
 									<Badge variant="outline">{mod.role}</Badge>
@@ -285,24 +288,22 @@ function Home() {
 			{/* Funcionalidades */}
 			<section id="features" className="py-12 md:py-16 border-t border-border">
 				<SectionLabel index="03" label="Funcionalidades" />
-				<div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+				<ul className="mt-8 border border-border rounded-md overflow-hidden divide-y divide-border bg-card">
 					{features.map((feature) => {
 						const Icon = feature.icon
 						return (
-							<Card key={feature.title} variant="tile">
-								<CardHeader className="pb-0">
-									<div className="flex items-center gap-2">
-										<Icon className="size-4 text-primary shrink-0" aria-hidden />
-										<CardTitle className="text-sm font-bold">{feature.title}</CardTitle>
-									</div>
-								</CardHeader>
-								<CardContent>
-									<p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
-								</CardContent>
-							</Card>
+							<Item key={feature.title} variant="default">
+								<ItemMedia variant="icon">
+									<Icon className="size-4 text-primary" aria-hidden />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle>{feature.title}</ItemTitle>
+									<ItemDescription>{feature.description}</ItemDescription>
+								</ItemContent>
+							</Item>
 						)
 					})}
-				</div>
+				</ul>
 			</section>
 
 			{/* Tutorial + Changelog */}
@@ -334,7 +335,7 @@ function Home() {
 			<section id="cta" className="py-12 md:py-16 border-t border-border">
 				<SectionLabel index="05" label="Acesso" />
 				<div className="mt-8 flex flex-col md:flex-row md:items-end md:justify-between gap-8">
-					<h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-tight">
+					<h2 className="text-section-title text-foreground">
 						Pronto para
 						<br />
 						começar?
@@ -349,18 +350,17 @@ function Home() {
 								</Link>
 							}
 						/>
-						<div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
+						<div className="flex flex-wrap items-center gap-4 font-mono text-caption text-muted-foreground">
 							<span className="flex items-center gap-1.5">
-								<Users className="size-3.5" aria-hidden />
-								Multi-perfil
+								<Users className="size-3.5" aria-hidden />6 perfis de acesso
 							</span>
 							<span className="flex items-center gap-1.5">
-								<Clock className="size-3.5" aria-hidden />
-								24/7
+								<FileText className="size-3.5" aria-hidden />
+								Integrado ao ComprasGov
 							</span>
 							<span className="flex items-center gap-1.5">
-								<ShieldCheck className="size-3.5" aria-hidden />
-								Seguro
+								<Building2 className="size-3.5" aria-hidden />
+								Implantado no SDAB
 							</span>
 						</div>
 					</div>
