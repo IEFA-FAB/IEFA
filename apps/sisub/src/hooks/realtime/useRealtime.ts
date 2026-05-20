@@ -50,10 +50,8 @@ export function useRealtimeSubscription(options: {
 		const pgFilter: Record<string, string> = { event, schema: "sisub", table }
 		if (filter) pgFilter.filter = filter
 
-		const channel = supabase
-			.channel(channelName)
-			.on("postgres_changes", pgFilter as Parameters<typeof channel.on>[1], handleChange)
-			.subscribe()
+		const channel = supabase.channel(channelName)
+		channel.on("postgres_changes" as never, pgFilter as never, handleChange as never).subscribe()
 
 		return () => {
 			if (debounceRef.current) clearTimeout(debounceRef.current)

@@ -381,8 +381,10 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Lint · types · tests
-        run: bunx turbo run lint typecheck test --filter=./apps/sisub
+      - name: Lint · types · unit · integration tests
+        run: |
+          bunx turbo run lint typecheck test:unit test:integration --filter=./apps/sisub
+          bunx turbo run test --filter=./packages/pbac
         env:
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
@@ -419,8 +421,44 @@ jobs:
             sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
             sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
 
+  e2e-sisub:
+    needs: [changes, check-sisub]
+    if: needs.changes.outputs.sisub == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+        working-directory: apps/sisub
+      - name: Run SISUB critical E2E
+        run: bunx turbo run test:e2e:ci --filter=./apps/sisub
+        env:
+          CI: true
+          VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
+          VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.SISUB_E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.SISUB_E2E_TEST_USER_PASSWORD }}
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sisub-playwright-artifacts
+          path: |
+            apps/sisub/playwright-report/
+            apps/sisub/test-results/
+          if-no-files-found: ignore
+
   deploy-sisub:
-    needs: build-sisub
+    needs: [build-sisub, e2e-sisub]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     concurrency:

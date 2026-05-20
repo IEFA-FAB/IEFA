@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { CreateRecipeSchema, CreateRecipeVersionSchema, IngredientSchema } from "@iefa/sisub-domain"
-import { createClient } from "@supabase/supabase-js"
+import { createSisubReachabilityClient, createSisubServiceClient, describeSupabaseIntegration, getSupabaseTestEnv } from "@/test/supabase"
 
 // UUIDs válidos (Zod v4 requer version bits [1-8] e variant bits [89ab])
 const UUID_A = "550e8400-e29b-41d4-a716-446655440000"
-const UUID_B = "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
 
 // ============================================================================
 // Unit — schema validation (sem DB)
@@ -144,18 +143,12 @@ describe("CreateRecipeVersionSchema", () => {
 // Integração — requer VITE_SISUB_SUPABASE_URL + SISUB_SUPABASE_SECRET_KEY
 // ============================================================================
 
-const supabaseUrl = process.env.VITE_SISUB_SUPABASE_URL
-const serviceRoleKey = process.env.SISUB_SUPABASE_SECRET_KEY
-const hasEnv = !!supabaseUrl && !!serviceRoleKey
+const supabaseEnv = getSupabaseTestEnv()
 
 async function canReachSupabase() {
-	if (!hasEnv) return false
+	if (!supabaseEnv) return false
 	try {
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-			global: { fetch: ((input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch },
-		})
+		const supabase = createSisubReachabilityClient(supabaseEnv)
 		const { error } = await supabase.from("recipes").select("id").limit(1)
 		return !error
 	} catch {
@@ -163,19 +156,16 @@ async function canReachSupabase() {
 	}
 }
 
-describe("recipe CRUD (integração)", () => {
+describeSupabaseIntegration("recipe CRUD (integração)", () => {
 	let reachable = false
 	let testRecipeId: string | null = null
 	let testIngredientId: string | null = null
 
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
-		if (!reachable) return
+		if (!reachable || !supabaseEnv) return
 
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		const supabase = createSisubServiceClient(supabaseEnv)
 		const { data } = await supabase
 			.from("ingredient")
 			.insert({ description: "[TEST-RECIPE] Insumo para teste de receita", measure_unit: "KG" })
@@ -185,11 +175,8 @@ describe("recipe CRUD (integração)", () => {
 	})
 
 	afterAll(async () => {
-		if (!reachable) return
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 		if (testRecipeId) {
 			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", testRecipeId)
 		}
@@ -199,14 +186,8 @@ describe("recipe CRUD (integração)", () => {
 	})
 
 	test("cria receita global com ingrediente", async () => {
-		if (!reachable || !testIngredientId) {
-			console.log("SKIP: Supabase não alcançável")
-			return
-		}
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testIngredientId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 
 		const { data: recipe, error: recipeErr } = await supabase
 			.from("recipes")
@@ -236,14 +217,8 @@ describe("recipe CRUD (integração)", () => {
 	})
 
 	test("cria nova versão de receita existente", async () => {
-		if (!reachable || !testRecipeId) {
-			console.log("SKIP: sem receita de teste criada")
-			return
-		}
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testRecipeId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 
 		const { data, error } = await supabase
 			.from("recipes")
@@ -267,11 +242,8 @@ describe("recipe CRUD (integração)", () => {
 	})
 
 	test("busca receita por id retorna dados corretos", async () => {
-		if (!reachable || !testRecipeId) return
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testRecipeId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 
 		const { data, error } = await supabase.from("recipes").select("*, recipe_ingredients(*)").eq("id", testRecipeId).is("deleted_at", null).single()
 

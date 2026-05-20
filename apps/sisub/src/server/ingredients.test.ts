@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { createClient } from "@supabase/supabase-js"
+import { createSisubReachabilityClient, createSisubServiceClient, describeSupabaseIntegration, getSupabaseTestEnv } from "@/test/supabase"
 import { IngredientItemWriteSchema, IngredientWriteSchema } from "./ingredients.schemas"
 
 // ============================================================================
@@ -110,18 +110,12 @@ describe("IngredientItemWriteSchema", () => {
 // Integração — requer VITE_SISUB_SUPABASE_URL + SISUB_SUPABASE_SECRET_KEY
 // ============================================================================
 
-const supabaseUrl = process.env.VITE_SISUB_SUPABASE_URL
-const serviceRoleKey = process.env.SISUB_SUPABASE_SECRET_KEY
-const hasEnv = !!supabaseUrl && !!serviceRoleKey
+const supabaseEnv = getSupabaseTestEnv()
 
 async function canReachSupabase() {
-	if (!hasEnv) return false
+	if (!supabaseEnv) return false
 	try {
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-			global: { fetch: ((input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch },
-		})
+		const supabase = createSisubReachabilityClient(supabaseEnv)
 		const { error } = await supabase.from("ingredient").select("id").limit(1)
 		return !error
 	} catch {
@@ -129,7 +123,7 @@ async function canReachSupabase() {
 	}
 }
 
-describe("ingredient CRUD (integração)", () => {
+describeSupabaseIntegration("ingredient CRUD (integração)", () => {
 	let reachable = false
 	let testIngredientId: string | null = null
 
@@ -138,23 +132,14 @@ describe("ingredient CRUD (integração)", () => {
 	})
 
 	afterAll(async () => {
-		if (!reachable || !testIngredientId) return
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testIngredientId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 		await supabase.from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", testIngredientId)
 	})
 
 	test("cria insumo com payload válido", async () => {
-		if (!reachable) {
-			console.log("SKIP: Supabase não alcançável")
-			return
-		}
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 		const payload = {
 			description: "[TEST] Insumo de Teste Automatizado",
 			measure_unit: "KG",
@@ -168,14 +153,8 @@ describe("ingredient CRUD (integração)", () => {
 	})
 
 	test("atualiza insumo existente com campos válidos", async () => {
-		if (!reachable || !testIngredientId) {
-			console.log("SKIP: sem insumo de teste criado")
-			return
-		}
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testIngredientId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 		const update = {
 			description: "[TEST] Insumo Atualizado",
 			measure_unit: "LT",
@@ -190,21 +169,15 @@ describe("ingredient CRUD (integração)", () => {
 	})
 
 	test("atualiza insumo sem ceafa_id não quebra (null aceito)", async () => {
-		if (!reachable || !testIngredientId) return
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testIngredientId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 		const { error } = await supabase.from("ingredient").update({ ceafa_id: null }).eq("id", testIngredientId).select().single()
 		expect(error).toBeNull()
 	})
 
 	test("falha ao referenciar ceafa_id inexistente", async () => {
-		if (!reachable || !testIngredientId) return
-		const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		if (!reachable || !testIngredientId || !supabaseEnv) return
+		const supabase = createSisubServiceClient(supabaseEnv)
 		const { error } = await supabase
 			.from("ingredient")
 			.update({ ceafa_id: "00000000-dead-beef-0000-000000000000" })

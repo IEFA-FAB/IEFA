@@ -1,6 +1,6 @@
 // components/MessHallSelector.tsx (previously UnitSelector.tsx)
 
-import { AlertCircle, Check, MapPin } from "lucide-react"
+import { AlertCircle, MapPin } from "lucide-react"
 import { memo, useCallback, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
@@ -57,6 +57,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 
 			return {
 				trigger: cn(
+					"w-full",
 					size === "sm" && "text-sm",
 					size === "lg" && "text-lg",
 					hasDefault && "bg-accent/10",
@@ -86,13 +87,10 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 						key={mh.code}
 						value={mh.code}
 					>
-						<div className="flex items-center justify-between w-full">
-							<span>{mh.display_name ?? mh.code}</span>
-							{value === mh.code && <Check className="size-4 text-primary ml-2" />}
-						</div>
+						{mh.display_name ?? mh.code}
 					</SelectItem>
 				)),
-			[value, messHalls]
+			[messHalls]
 		)
 
 		// Badges/indicadores à direita do label
@@ -153,7 +151,7 @@ export const MessHallSelector = memo<MessHallSelectorProps>(
 						</SelectValue>
 					</SelectTrigger>
 
-					<SelectContent className="max-h-60">
+					<SelectContent className="max-h-60" alignItemWithTrigger={false}>
 						<div className="p-2 text-xs text-muted-foreground border-b border-border">Selecione o rancho responsável</div>
 						{selectItems}
 					</SelectContent>

@@ -224,7 +224,7 @@ function SelfCheckin() {
 	// ── Render ────────────────────────────────────────────────────────────────
 
 	return (
-		<div className="w-full max-w-sm mx-auto p-6 space-y-6">
+		<div className="w-full max-w-2xl mx-auto px-6 py-8 space-y-8">
 			<PageHeader
 				title="Check-in de Refeição"
 				description={
@@ -241,7 +241,7 @@ function SelfCheckin() {
 
 			{/* ── Fase 1: Seleção manual ── */}
 			{isSelectPhase && (
-				<div className="rounded-md border p-4 space-y-4">
+				<div className="space-y-6">
 					<p className="text-sm text-muted-foreground">O QR Code do rancho preenche automaticamente. Se não tiver o QR, selecione abaixo:</p>
 
 					<MessHallSelector value={selectorCode} onChange={(v) => dispatch({ type: "SET_SELECTOR_CODE", value: v })} showLabel showValidation />
@@ -254,51 +254,48 @@ function SelfCheckin() {
 
 			{/* ── Fase 2: Confirmação de entrada ── */}
 			{isConfirmPhase && (
-				<>
-					<div className="rounded-md border p-4 space-y-4">
-						{/* Previsão (read-only, informativo) */}
-						<div className="space-y-1">
-							<div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Está na previsão?</div>
-							<Badge variant={systemForecast ? "default" : "secondary"}>{systemForecast ? "Sim" : "Não"}</Badge>
-						</div>
+				<div className="space-y-6">
+					{/* Previsão (read-only, informativo) */}
+					<div className="flex items-center justify-between py-3 border-b border-border/60">
+						<span className="text-sm text-muted-foreground">Previsão do sistema</span>
+						<Badge variant={systemForecast ? "default" : "secondary"}>{systemForecast ? "Sim" : "Não"}</Badge>
+					</div>
 
-						{/* Vai entrar? (interativo) */}
-						<div className="space-y-2">
-							<div className="text-sm font-medium">Vai entrar?</div>
-							<div className="flex gap-2">
-								<Button
-									variant={willEnter === "sim" ? "default" : "outline"}
-									size="sm"
-									onClick={() => dispatch({ type: "SET_WILL_ENTER", value: "sim" })}
-									disabled={blocked}
-								>
-									Sim
-								</Button>
-								<Button
-									variant={willEnter === "nao" ? "default" : "outline"}
-									size="sm"
-									onClick={() => dispatch({ type: "SET_WILL_ENTER", value: "nao" })}
-									disabled={blocked}
-								>
-									Não
-								</Button>
-							</div>
+					{/* Vai entrar? (interativo) */}
+					<div className="space-y-3">
+						<p className="text-sm font-medium text-foreground">Vai entrar na refeição?</p>
+						<div className="flex gap-2">
+							<Button
+								variant={willEnter === "sim" ? "default" : "outline"}
+								size="sm"
+								onClick={() => dispatch({ type: "SET_WILL_ENTER", value: "sim" })}
+								disabled={blocked}
+							>
+								Sim
+							</Button>
+							<Button
+								variant={willEnter === "nao" ? "default" : "outline"}
+								size="sm"
+								onClick={() => dispatch({ type: "SET_WILL_ENTER", value: "nao" })}
+								disabled={blocked}
+							>
+								Não
+							</Button>
 						</div>
 					</div>
 
-					<div className="flex flex-col items-center gap-2">
-						<div className="flex gap-3">
-							<Button onClick={handleSubmit} disabled={!messHall || blocked}>
-								{submitting ? "Enviando..." : "Confirmar presença"}
-							</Button>
-							<Button variant="outline" onClick={() => navigate({ to: "/diner/forecast" })} disabled={blocked}>
-								Voltar
-							</Button>
-						</div>
-
-						{redirectCountdown !== null && <p className="text-xs text-muted-foreground">Redirecionando em {redirectCountdown}s...</p>}
+					{/* Ações */}
+					<div className="flex items-center gap-3 pt-2">
+						<Button className="flex-1" onClick={handleSubmit} disabled={!messHall || blocked}>
+							{submitting ? "Enviando..." : "Confirmar presença"}
+						</Button>
+						<Button variant="outline" onClick={() => navigate({ to: "/diner/forecast" })} disabled={blocked}>
+							Voltar
+						</Button>
 					</div>
-				</>
+
+					{redirectCountdown !== null && <p className="text-xs text-muted-foreground text-center">Redirecionando em {redirectCountdown}s...</p>}
+				</div>
 			)}
 		</div>
 	)

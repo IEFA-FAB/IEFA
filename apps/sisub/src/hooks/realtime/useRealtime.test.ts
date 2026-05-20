@@ -1,26 +1,20 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { createClient } from "@supabase/supabase-js"
+import type { RealtimeChannel } from "@supabase/supabase-js"
+import {
+	createSisubAnonClient,
+	createSisubReachabilityClient,
+	createSisubServiceClient,
+	describeSupabaseIntegration,
+	getSupabaseTestEnv,
+} from "@/test/supabase"
 
-const supabaseUrl = process.env.VITE_SISUB_SUPABASE_URL
-const serviceRoleKey = process.env.SISUB_SUPABASE_SECRET_KEY
-const anonKey = process.env.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
-const hasEnv = !!supabaseUrl && !!serviceRoleKey && !!anonKey
-
-function serviceClient(schema: "sisub" | "public" = "sisub") {
-	return createClient(supabaseUrl!, serviceRoleKey!, {
-		db: { schema },
-		auth: { persistSession: false },
-	})
-}
+const supabaseEnv = getSupabaseTestEnv({ requireAnonKey: true })
+type SisubServiceClient = ReturnType<typeof createSisubServiceClient>
 
 async function canReachSupabase() {
-	if (!hasEnv) return false
+	if (!supabaseEnv) return false
 	try {
-		const sb = createClient(supabaseUrl!, serviceRoleKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-			global: { fetch: ((input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch },
-		})
+		const sb = createSisubReachabilityClient(supabaseEnv)
 		const { error } = await sb.from("recipes").select("id").limit(1)
 		return !error
 	} catch {
@@ -28,7 +22,9 @@ async function canReachSupabase() {
 	}
 }
 
-async function createTestUser(adminClient: ReturnType<typeof createClient>) {
+async function createTestUser(adminClient: SisubServiceClient) {
+	if (!supabaseEnv?.anonKey) return null
+
 	const email = `realtime-test-${Date.now()}@test.local`
 	const password = `TestPass!${Date.now()}`
 
@@ -39,10 +35,7 @@ async function createTestUser(adminClient: ReturnType<typeof createClient>) {
 	})
 	if (error || !data.user) return null
 
-	const anonClient = createClient(supabaseUrl!, anonKey!, {
-		db: { schema: "sisub" },
-		auth: { persistSession: false },
-	})
+	const anonClient = createSisubAnonClient({ ...supabaseEnv, anonKey: supabaseEnv.anonKey })
 	const { data: session, error: signInErr } = await anonClient.auth.signInWithPassword({ email, password })
 	if (signInErr || !session.session) {
 		await adminClient.auth.admin.deleteUser(data.user.id)
@@ -52,7 +45,7 @@ async function createTestUser(adminClient: ReturnType<typeof createClient>) {
 	return { client: anonClient, userId: data.user.id }
 }
 
-function waitForSubscribed(channel: ReturnType<ReturnType<typeof createClient>["channel"]>, timeoutMs = 5000) {
+function waitForSubscribed(channel: RealtimeChannel, timeoutMs = 5000) {
 	return new Promise<void>((resolve, reject) => {
 		const t = setTimeout(() => reject(new Error("subscription timeout")), timeoutMs)
 		channel.subscribe((status) => {
@@ -68,17 +61,17 @@ function waitForSubscribed(channel: ReturnType<ReturnType<typeof createClient>["
 // RLS policies — authenticated SELECT access via real user session
 // ============================================================================
 
-describe("Realtime RLS policies", () => {
+describeSupabaseIntegration("Realtime RLS policies", () => {
 	let reachable = false
-	let adminClient: ReturnType<typeof createClient>
+	let adminClient: SisubServiceClient
 	let testUser: Awaited<ReturnType<typeof createTestUser>>
 
 	const REALTIME_TABLES = ["daily_menu", "menu_items", "recipes"] as const
 
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
-		if (!reachable) return
-		adminClient = serviceClient()
+		if (!reachable || !supabaseEnv) return
+		adminClient = createSisubServiceClient(supabaseEnv)
 		testUser = await createTestUser(adminClient)
 	})
 
@@ -89,10 +82,7 @@ describe("Realtime RLS policies", () => {
 
 	for (const table of REALTIME_TABLES) {
 		test(`authenticated client can SELECT from ${table}`, async () => {
-			if (!reachable || !testUser) {
-				console.log("SKIP: Supabase não alcançável ou teste de usuário falhou")
-				return
-			}
+			if (!reachable || !testUser) return
 
 			const { error } = await testUser.client.from(table).select("*").limit(1)
 			expect(error).toBeNull()
@@ -100,15 +90,9 @@ describe("Realtime RLS policies", () => {
 	}
 
 	test("anon client (no session) is blocked by RLS", async () => {
-		if (!reachable) {
-			console.log("SKIP: Supabase não alcançável")
-			return
-		}
+		if (!reachable || !supabaseEnv?.anonKey) return
 
-		const anonClient = createClient(supabaseUrl!, anonKey!, {
-			db: { schema: "sisub" },
-			auth: { persistSession: false },
-		})
+		const anonClient = createSisubAnonClient({ ...supabaseEnv, anonKey: supabaseEnv.anonKey })
 
 		const { data, error } = await anonClient.from("recipes").select("*").limit(1)
 
@@ -121,15 +105,15 @@ describe("Realtime RLS policies", () => {
 // Realtime event delivery — subscribe + mutate + verify event arrives
 // ============================================================================
 
-describe("Realtime event delivery", () => {
+describeSupabaseIntegration("Realtime event delivery", () => {
 	let reachable = false
-	let supabase: ReturnType<typeof createClient>
+	let supabase: SisubServiceClient
 	const cleanupIds: string[] = []
 
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
-		if (!reachable) return
-		supabase = serviceClient()
+		if (!reachable || !supabaseEnv) return
+		supabase = createSisubServiceClient(supabaseEnv)
 	})
 
 	afterAll(async () => {
@@ -140,10 +124,7 @@ describe("Realtime event delivery", () => {
 	})
 
 	test("receives event when recipe is inserted", async () => {
-		if (!reachable) {
-			console.log("SKIP: Supabase não alcançável")
-			return
-		}
+		if (!reachable) return
 
 		const events: unknown[] = []
 
@@ -169,10 +150,7 @@ describe("Realtime event delivery", () => {
 	}, 15_000)
 
 	test("filter delivers only matching kitchen_id events", async () => {
-		if (!reachable) {
-			console.log("SKIP: Supabase não alcançável")
-			return
-		}
+		if (!reachable) return
 
 		const KITCHEN_ID = 1
 		const matched: unknown[] = []

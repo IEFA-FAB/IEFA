@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "bun test $(find src -name '*.test.ts' -print)"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0"
   }
