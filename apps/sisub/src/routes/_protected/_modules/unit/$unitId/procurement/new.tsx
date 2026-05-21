@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, Download, Save } from "lucide-react"
+import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -22,7 +22,7 @@ import type { ProcurementNeed } from "@/services/ProcurementService"
 import type { AtaWizardState, KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
 
 const searchSchema = z.object({
-	step: z.coerce.number().min(1).max(3).optional().default(1),
+	step: z.coerce.number().min(1).max(4).optional().default(1),
 })
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/new")({
@@ -152,7 +152,10 @@ function NewAtaPage() {
 	const handleCalculate = () => {
 		const stateToCalc: AtaWizardState = { ...wizardState, kitchenSelections }
 		calculateNeeds(stateToCalc, {
-			onSuccess: (items) => setSavedItems(items as ProcurementNeed[]),
+			onSuccess: (items) => {
+				setSavedItems(items as ProcurementNeed[])
+				goToStep(4)
+			},
 		})
 	}
 
@@ -331,51 +334,82 @@ function NewAtaPage() {
 					)}
 
 					{/* Calcular */}
-					<div className="flex justify-center">
-						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
-							<Calculator className="size-5" aria-hidden="true" />
-							{isCalculating ? "Calculando..." : "Calcular Lista"}
-						</Button>
-					</div>
-
-					{/* Aviso pós-cálculo: resultado vazio */}
-					{!isCalculating && savedItems.length === 0 && calculatedItems !== undefined && (
-						<div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm" role="alert">
-							<AlertTriangle className="size-4 text-destructive mt-0.5 shrink-0" aria-hidden="true" />
-							<div>
-								<p className="text-heading text-destructive">Nenhum item calculado</p>
-								<p className="text-muted-foreground mt-0.5">
-									Verifique se as preparações dos cardápios selecionados têm previsão de comensais configurada. O indicador{" "}
-									<span className="text-subheading">X/Y com comensais</span> nos steps 1 e 2 mostra quais estão incompletas.
-								</p>
-							</div>
-						</div>
-					)}
-
-					{/* Tabela de itens */}
-					<AtaItemsTable data={displayItems} isLoading={isCalculating} />
-
-					{/* Ações finais */}
 					<div className="flex items-center justify-between pt-2">
 						<Button variant="outline" onClick={() => goToStep(2)} className="gap-2">
 							<ArrowLeft className="size-4" aria-hidden="true" />
 							Eventos
 						</Button>
-						<div className="flex items-center gap-3">
-							{displayItems.length > 0 && (
-								<Button variant="outline" onClick={handleExportCSV} className="gap-2">
-									<Download className="size-4" aria-hidden="true" />
-									Exportar CSV
-								</Button>
-							)}
-							<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isCreating} className="gap-2">
-								<Save className="size-4" aria-hidden="true" />
-								{isCreating ? "Salvando..." : "Salvar ata"}
-							</Button>
-						</div>
+						<Button size="lg" onClick={handleCalculate} disabled={!hasAnySelection || isCalculating} className="gap-2">
+							<Calculator className="size-5" aria-hidden="true" />
+							{isCalculating ? "Calculando..." : "Calcular Lista"}
+						</Button>
 					</div>
 				</div>
 			)}
+
+			{/* ── Step 4: Revisão dos Itens de Compra ────────────────────── */}
+			{currentStep === 4 &&
+				(() => {
+					const matchedCount = displayItems.filter((i) => i.purchase_item_id !== null).length
+					const unmatchedItems = displayItems.filter((i) => i.purchase_item_id === null)
+					return (
+						<div className="space-y-6">
+							{/* Resumo de mapeamento */}
+							<div className="flex items-center gap-3 flex-wrap">
+								<div className="flex items-center gap-2 text-sm">
+									<CheckCircle2 className="size-4 text-green-600 shrink-0" aria-hidden="true" />
+									<span>
+										<strong>{matchedCount}</strong> de <strong>{displayItems.length}</strong> itens vinculados a um item de compra
+									</span>
+								</div>
+								{unmatchedItems.length > 0 && (
+									<div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+										<AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+										<span>{unmatchedItems.length} sem vínculo — salvarão sem CATMAT/preço</span>
+									</div>
+								)}
+							</div>
+
+							{/* Aviso para itens sem vínculo */}
+							{unmatchedItems.length > 0 && (
+								<div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 px-4 py-3 text-sm space-y-1.5">
+									<p className="text-subheading text-amber-800 dark:text-amber-300">Insumos sem item de compra associado:</p>
+									<ul className="list-disc list-inside space-y-0.5 text-muted-foreground text-xs">
+										{unmatchedItems.map((i) => (
+											<li key={i.ingredient_id}>{i.ingredient_name}</li>
+										))}
+									</ul>
+									<p className="text-xs text-muted-foreground pt-1">
+										Para vincular, acesse a ficha do insumo e configure o item de compra padrão (is_default). Você pode salvar agora e vincular depois.
+									</p>
+								</div>
+							)}
+
+							{/* Tabela de itens */}
+							<AtaItemsTable data={displayItems} />
+
+							{/* Ações finais */}
+							<div className="flex items-center justify-between pt-2">
+								<Button variant="outline" onClick={() => goToStep(3)} className="gap-2">
+									<ArrowLeft className="size-4" aria-hidden="true" />
+									Resumo
+								</Button>
+								<div className="flex items-center gap-3">
+									{displayItems.length > 0 && (
+										<Button variant="outline" onClick={handleExportCSV} className="gap-2">
+											<Download className="size-4" aria-hidden="true" />
+											Exportar CSV
+										</Button>
+									)}
+									<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isCreating} className="gap-2">
+										<Save className="size-4" aria-hidden="true" />
+										{isCreating ? "Salvando..." : "Salvar ata"}
+									</Button>
+								</div>
+							</div>
+						</div>
+					)
+				})()}
 		</div>
 	)
 }

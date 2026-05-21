@@ -68,7 +68,11 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 	}
 
 	const hasPrices = data.some((item) => item.unit_price !== null)
-	const grandTotal = data.reduce((sum, item) => sum + (item.unit_price !== null ? item.total_quantity * item.unit_price : 0), 0)
+	const grandTotal = data.reduce((sum, item) => {
+		if (item.unit_price === null) return sum
+		const qty = item.purchase_quantity ?? item.total_quantity
+		return sum + qty * item.unit_price
+	}, 0)
 
 	return (
 		<div className="space-y-6">
@@ -88,33 +92,47 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 							<Table>
 								<TableHeader>
 									<TableRow>
-										<TableHead className="w-28">CATMAT</TableHead>
-										<TableHead>Descrição CATMAT</TableHead>
-										<TableHead>Produto</TableHead>
-										<TableHead className="text-right">Qtd</TableHead>
-										<TableHead className="text-right">Unid</TableHead>
+										<TableHead className="w-24">CATMAT</TableHead>
+										<TableHead>Item de Compra</TableHead>
+										<TableHead>Insumo (Cozinha)</TableHead>
+										<TableHead className="text-right">Qtd Cozinha</TableHead>
+										<TableHead className="text-right">Qtd Compra</TableHead>
 										<TableHead className="text-right">Preço Un.</TableHead>
 										<TableHead className="text-right">Total Est.</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
-									{items.map((item) => (
-										<TableRow key={item.ingredient_id}>
-											<TableCell className="font-mono text-xs text-muted-foreground">{formatCatmat(item.catmat_item_codigo)}</TableCell>
-											<TableCell className="text-xs max-w-48 truncate" title={item.catmat_item_descricao || undefined}>
-												{item.catmat_item_descricao || <span className="text-muted-foreground">—</span>}
-											</TableCell>
-											<TableCell className="text-subheading">{item.ingredient_name}</TableCell>
-											<TableCell className="text-right tabular-nums">{NUM.format(item.total_quantity)}</TableCell>
-											<TableCell className="text-right text-muted-foreground text-xs">{item.measure_unit || "UN"}</TableCell>
-											<TableCell className="text-right tabular-nums text-sm">
-												{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
-											</TableCell>
-											<TableCell className="text-right tabular-nums text-subheading">
-												{item.unit_price !== null ? BRL.format(item.total_quantity * item.unit_price) : <span className="text-muted-foreground">—</span>}
-											</TableCell>
-										</TableRow>
-									))}
+									{items.map((item) => {
+										const qty = item.purchase_quantity ?? item.total_quantity
+										const unit = item.purchase_measure_unit ?? item.measure_unit ?? "UN"
+										return (
+											<TableRow key={item.ingredient_id}>
+												<TableCell className="font-mono text-xs text-muted-foreground">{formatCatmat(item.catmat_item_codigo)}</TableCell>
+												<TableCell className="text-xs max-w-48 truncate" title={item.purchase_item_description ?? item.catmat_item_descricao ?? undefined}>
+													{item.purchase_item_description ?? item.catmat_item_descricao ?? <span className="text-muted-foreground">—</span>}
+												</TableCell>
+												<TableCell className="text-subheading">{item.ingredient_name}</TableCell>
+												<TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+													{NUM.format(item.total_quantity)} {item.measure_unit ?? ""}
+												</TableCell>
+												<TableCell className="text-right tabular-nums">
+													{item.purchase_quantity !== null ? (
+														<span>
+															{NUM.format(item.purchase_quantity)} <span className="text-xs text-muted-foreground">{unit}</span>
+														</span>
+													) : (
+														<span className="text-muted-foreground">—</span>
+													)}
+												</TableCell>
+												<TableCell className="text-right tabular-nums text-sm">
+													{item.unit_price !== null ? BRL.format(item.unit_price) : <span className="text-muted-foreground">—</span>}
+												</TableCell>
+												<TableCell className="text-right tabular-nums text-subheading">
+													{item.unit_price !== null ? BRL.format(qty * item.unit_price) : <span className="text-muted-foreground">—</span>}
+												</TableCell>
+											</TableRow>
+										)
+									})}
 								</TableBody>
 							</Table>
 						</div>

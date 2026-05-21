@@ -31,7 +31,7 @@ export const CreateRecipeSchema = z.object({
 	name: z.string().min(1),
 	preparationMethod: z.string().optional(),
 	portionYield: z.number().positive(),
-	preparationTimeMinutes: z.number().int().positive().optional(),
+	preparationTimeMinutes: z.number().int().nonnegative().optional(),
 	cookingFactor: z.number().positive().optional(),
 	rationalId: z.string().optional(),
 	kitchenId: KitchenIdSchema.nullable().optional(),

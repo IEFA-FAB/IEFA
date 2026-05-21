@@ -3346,6 +3346,7 @@ export type Database = {
 				Row: {
 					catmat_item_codigo: number | null
 					catmat_item_descricao: string | null
+					conversion_factor: number | null
 					folder_description: string | null
 					folder_id: string | null
 					id: string
@@ -3353,12 +3354,17 @@ export type Database = {
 					ingredient_name: string
 					list_id: string
 					measure_unit: string | null
+					purchase_item_description: string | null
+					purchase_item_id: string | null
+					purchase_measure_unit: string | null
+					purchase_quantity: number | null
 					total_quantity: number
 					unit_price: number | null
 				}
 				Insert: {
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
+					conversion_factor?: number | null
 					folder_description?: string | null
 					folder_id?: string | null
 					id?: string
@@ -3366,12 +3372,17 @@ export type Database = {
 					ingredient_name: string
 					list_id: string
 					measure_unit?: string | null
+					purchase_item_description?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					purchase_quantity?: number | null
 					total_quantity: number
 					unit_price?: number | null
 				}
 				Update: {
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
+					conversion_factor?: number | null
 					folder_description?: string | null
 					folder_id?: string | null
 					id?: string
@@ -3379,6 +3390,10 @@ export type Database = {
 					ingredient_name?: string
 					list_id?: string
 					measure_unit?: string | null
+					purchase_item_description?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					purchase_quantity?: number | null
 					total_quantity?: number
 					unit_price?: number | null
 				}
@@ -3403,6 +3418,13 @@ export type Database = {
 						isOneToOne: false
 						referencedRelation: "v_ingredient_kg_lt_items"
 						referencedColumns: ["product_id"]
+					},
+					{
+						foreignKeyName: "procurement_list_item_purchase_item_id_fkey"
+						columns: ["purchase_item_id"]
+						isOneToOne: false
+						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
 					},
 				]
 			}
@@ -3793,6 +3815,120 @@ export type Database = {
 					updated_at?: string | null
 				}
 				Relationships: []
+			}
+			purchase_item: {
+				Row: {
+					catmat_item_codigo: number | null
+					catmat_item_descricao: string | null
+					catmat_match_score: number | null
+					catmat_match_status: string | null
+					created_at: string
+					deleted_at: string | null
+					description: string
+					gpc_brick_code: string | null
+					gpc_class_code: string | null
+					gpc_family_code: string | null
+					gpc_segment_code: string | null
+					id: string
+					purchase_measure_unit: string | null
+					unit_price: number | null
+					updated_at: string
+				}
+				Insert: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					description: string
+					gpc_brick_code?: string | null
+					gpc_class_code?: string | null
+					gpc_family_code?: string | null
+					gpc_segment_code?: string | null
+					id?: string
+					purchase_measure_unit?: string | null
+					unit_price?: number | null
+					updated_at?: string
+				}
+				Update: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string
+					gpc_brick_code?: string | null
+					gpc_class_code?: string | null
+					gpc_family_code?: string | null
+					gpc_segment_code?: string | null
+					id?: string
+					purchase_measure_unit?: string | null
+					unit_price?: number | null
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "purchase_item_catmat_item_codigo_fkey"
+						columns: ["catmat_item_codigo"]
+						isOneToOne: false
+						referencedRelation: "compras_material_item"
+						referencedColumns: ["codigo_item"]
+					},
+				]
+			}
+			purchase_item_ingredient: {
+				Row: {
+					conversion_factor: number
+					conversion_notes: string | null
+					created_at: string
+					id: string
+					ingredient_id: string
+					is_default: boolean
+					purchase_item_id: string
+				}
+				Insert: {
+					conversion_factor?: number
+					conversion_notes?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id: string
+					is_default?: boolean
+					purchase_item_id: string
+				}
+				Update: {
+					conversion_factor?: number
+					conversion_notes?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id?: string
+					is_default?: boolean
+					purchase_item_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "purchase_item_ingredient_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "purchase_item_ingredient_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+					{
+						foreignKeyName: "purchase_item_ingredient_purchase_item_id_fkey"
+						columns: ["purchase_item_id"]
+						isOneToOne: false
+						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 			recipe_ingredient_alternatives: {
 				Row: {

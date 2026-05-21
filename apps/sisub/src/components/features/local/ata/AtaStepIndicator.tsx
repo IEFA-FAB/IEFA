@@ -1,7 +1,7 @@
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type AtaStep = 1 | 2 | 3
+export type AtaStep = 1 | 2 | 3 | 4
 
 interface StepDef {
 	number: AtaStep
@@ -12,6 +12,7 @@ const STEPS: StepDef[] = [
 	{ number: 1, label: "Cardápios Semanais" },
 	{ number: 2, label: "Eventos" },
 	{ number: 3, label: "Resumo" },
+	{ number: 4, label: "Itens" },
 ]
 
 interface AtaStepIndicatorProps {

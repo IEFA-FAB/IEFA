@@ -11,8 +11,6 @@ export const IngredientWriteSchema = z.object({
 	measure_unit: z.string().nullable().optional(),
 	correction_factor: z.number().nullable().optional(),
 	ceafa_id: z.string().uuid("ceafa_id deve ser UUID válido").nullable().optional(),
-	catmat_item_codigo: z.number().int().positive().nullable().optional(),
-	catmat_item_descricao: z.string().nullable().optional(),
 })
 
 export const IngredientItemWriteSchema = z.object({

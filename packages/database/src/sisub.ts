@@ -161,3 +161,11 @@ export type ProcurementArpItemUpdate = TablesUpdate<"procurement_arp_item">
 export type Empenho = Tables<"empenho">
 export type EmpenhoInsert = TablesInsert<"empenho">
 export type EmpenhoUpdate = TablesUpdate<"empenho">
+
+export type PurchaseItem = Tables<"purchase_item">
+export type PurchaseItemInsert = TablesInsert<"purchase_item">
+export type PurchaseItemUpdate = TablesUpdate<"purchase_item">
+
+export type PurchaseItemIngredient = Tables<"purchase_item_ingredient">
+export type PurchaseItemIngredientInsert = TablesInsert<"purchase_item_ingredient">
+export type PurchaseItemIngredientUpdate = TablesUpdate<"purchase_item_ingredient">

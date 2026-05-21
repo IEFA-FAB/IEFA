@@ -76,7 +76,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			name: initialData?.name || "",
 			preparation_method: initialData?.preparation_method || "",
 			portion_yield: initialData?.portion_yield || 1,
-			preparation_time_minutes: initialData?.preparation_time_minutes || 0,
+			preparation_time_minutes: initialData?.preparation_time_minutes ?? 0,
 			cooking_factor: initialData?.cooking_factor || 1.0,
 			ingredients:
 				initialData?.ingredients?.map((ing) => ({
@@ -240,7 +240,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<FieldContent>
 											<Input
 												type="number"
-												value={field.state.value || 0}
+												min={0}
+												value={field.state.value ?? 0}
 												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 												onChange={(e) => field.handleChange(Number(e.target.value))}
 											/>

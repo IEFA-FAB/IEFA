@@ -62,7 +62,7 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 
 		const uniqueTemplateIds = [...new Set(allSelections.map((s) => s.templateId))]
 
-		// Buscar templates com items → recipe → ingredients → ingredient (+ catmat, unit_price)
+		// Buscar templates com items → recipe → ingredients → ingredient (cozinha pura, sem catmat)
 		const { data: templates, error: templatesError } = await supabase
 			.from("menu_template")
 			.select(
@@ -84,9 +84,6 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
                 description,
                 measure_unit,
                 folder_id,
-                catmat_item_codigo,
-                catmat_item_descricao,
-                unit_price,
                 folder:folder_id (
                   id,
                   description
@@ -112,9 +109,6 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 				description: string | null
 				measure_unit: string | null
 				folder_id: string | null
-				catmat_item_codigo: number | null
-				catmat_item_descricao: string | null
-				unit_price: number | null
 				folder?: { id: string; description: string | null } | null
 			}
 			total_quantity: number
@@ -157,9 +151,47 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 			}
 		}
 
+		// Passo de tradução: ingredient → purchase_item (via is_default link)
+		const ingredientIds = Array.from(needsMap.keys())
+		type PurchaseItemLink = {
+			purchase_item_id: string
+			purchase_item_description: string
+			purchase_measure_unit: string | null
+			catmat_item_codigo: number | null
+			catmat_item_descricao: string | null
+			unit_price: number | null
+			conversion_factor: number
+		}
+		const ingredientToPurchaseItem = new Map<string, PurchaseItemLink>()
+
+		if (ingredientIds.length > 0) {
+			const { data: piLinks } = await supabase
+				.from("purchase_item_ingredient")
+				.select(
+					"ingredient_id, conversion_factor, purchase_item:purchase_item_id(id, description, purchase_measure_unit, catmat_item_codigo, catmat_item_descricao, unit_price, deleted_at)"
+				)
+				.in("ingredient_id", ingredientIds)
+				.eq("is_default", true)
+
+			for (const link of piLinks || []) {
+				const piRaw = Array.isArray(link.purchase_item) ? link.purchase_item[0] : link.purchase_item
+				if (!piRaw || piRaw.deleted_at) continue
+				ingredientToPurchaseItem.set(link.ingredient_id, {
+					purchase_item_id: piRaw.id,
+					purchase_item_description: piRaw.description,
+					purchase_measure_unit: piRaw.purchase_measure_unit,
+					catmat_item_codigo: piRaw.catmat_item_codigo,
+					catmat_item_descricao: piRaw.catmat_item_descricao,
+					unit_price: piRaw.unit_price,
+					conversion_factor: Number(link.conversion_factor),
+				})
+			}
+		}
+
 		// Converter para array final
 		const needs: ProcurementNeed[] = Array.from(needsMap.entries()).map(([ingredientId, d]) => {
-			const unitPrice = d.ingredient.unit_price ?? null
+			const pi = ingredientToPurchaseItem.get(ingredientId)
+			const purchaseQuantity = pi ? Number((d.total_quantity / pi.conversion_factor).toFixed(4)) : null
 			return {
 				folder_id: d.ingredient.folder_id,
 				folder_description: d.ingredient.folder?.description || null,
@@ -167,9 +199,14 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 				ingredient_name: d.ingredient.description || "",
 				measure_unit: d.ingredient.measure_unit,
 				total_quantity: Number(d.total_quantity.toFixed(4)),
-				catmat_item_codigo: d.ingredient.catmat_item_codigo,
-				catmat_item_descricao: d.ingredient.catmat_item_descricao,
-				unit_price: unitPrice,
+				purchase_item_id: pi?.purchase_item_id ?? null,
+				purchase_item_description: pi?.purchase_item_description ?? null,
+				purchase_measure_unit: pi?.purchase_measure_unit ?? null,
+				purchase_quantity: purchaseQuantity,
+				conversion_factor: pi?.conversion_factor ?? null,
+				catmat_item_codigo: pi?.catmat_item_codigo ?? null,
+				catmat_item_descricao: pi?.catmat_item_descricao ?? null,
+				unit_price: pi?.unit_price ?? null,
 			}
 		})
 
@@ -205,13 +242,19 @@ export const createAtaFn = createServerFn({ method: "POST" })
 			items: z.array(
 				z.object({
 					ingredient_id: z.string().optional().nullable(),
-					catmat_item_codigo: z.number().optional().nullable(),
-					catmat_item_descricao: z.string().optional().nullable(),
 					ingredient_name: z.string(),
 					folder_id: z.string().optional().nullable(),
 					folder_description: z.string().optional().nullable(),
 					measure_unit: z.string().optional().nullable(),
 					total_quantity: z.number(),
+					// Purchase domain
+					purchase_item_id: z.string().optional().nullable(),
+					purchase_item_description: z.string().optional().nullable(),
+					purchase_measure_unit: z.string().optional().nullable(),
+					purchase_quantity: z.number().optional().nullable(),
+					conversion_factor: z.number().optional().nullable(),
+					catmat_item_codigo: z.number().optional().nullable(),
+					catmat_item_descricao: z.string().optional().nullable(),
 					unit_price: z.number().optional().nullable(),
 				})
 			),
@@ -264,13 +307,19 @@ export const createAtaFn = createServerFn({ method: "POST" })
 			const itemRows = items.map((item) => ({
 				list_id: ata.id,
 				ingredient_id: item.ingredient_id || null,
-				catmat_item_codigo: item.catmat_item_codigo || null,
-				catmat_item_descricao: item.catmat_item_descricao || null,
 				ingredient_name: item.ingredient_name,
 				folder_id: item.folder_id || null,
 				folder_description: item.folder_description || null,
 				measure_unit: item.measure_unit || null,
 				total_quantity: item.total_quantity,
+				// Purchase domain snapshots
+				purchase_item_id: item.purchase_item_id || null,
+				purchase_item_description: item.purchase_item_description || null,
+				purchase_measure_unit: item.purchase_measure_unit || null,
+				purchase_quantity: item.purchase_quantity || null,
+				conversion_factor: item.conversion_factor || null,
+				catmat_item_codigo: item.catmat_item_codigo || null,
+				catmat_item_descricao: item.catmat_item_descricao || null,
 				unit_price: item.unit_price || null,
 			}))
 			const { error: itemsError } = await supabase.from("procurement_list_item").insert(itemRows)
