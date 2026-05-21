@@ -18,8 +18,6 @@ describe("IngredientWriteSchema", () => {
 			measure_unit: "KG",
 			correction_factor: 1.12,
 			ceafa_id: UUID_B,
-			catmat_item_codigo: 327430,
-			catmat_item_descricao: "ARROZ, TIPO 1",
 		})
 		expect(result.success).toBe(true)
 	})
@@ -34,7 +32,6 @@ describe("IngredientWriteSchema", () => {
 			description: "Macarrão",
 			folder_id: null,
 			ceafa_id: null,
-			catmat_item_codigo: null,
 		})
 		expect(result.success).toBe(true)
 		if (result.success) {
@@ -75,11 +72,6 @@ describe("IngredientWriteSchema", () => {
 		if (!result.success) {
 			expect(result.error.issues[0]?.path).toContain("folder_id")
 		}
-	})
-
-	test("rejeita catmat_item_codigo negativo", () => {
-		const result = IngredientWriteSchema.safeParse({ catmat_item_codigo: -1 })
-		expect(result.success).toBe(false)
 	})
 })
 
@@ -160,7 +152,6 @@ describeSupabaseIntegration("ingredient CRUD (integração)", () => {
 			measure_unit: "LT",
 			correction_factor: 1.05,
 			ceafa_id: null,
-			catmat_item_codigo: null,
 		}
 		const { data, error } = await supabase.from("ingredient").update(update).eq("id", testIngredientId).select().single()
 		expect(error).toBeNull()

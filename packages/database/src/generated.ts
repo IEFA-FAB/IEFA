@@ -2200,10 +2200,6 @@ export type Database = {
 			}
 			ingredient: {
 				Row: {
-					catmat_item_codigo: number | null
-					catmat_item_descricao: string | null
-					catmat_match_score: number | null
-					catmat_match_status: string | null
 					ceafa_id: string | null
 					correction_factor: number | null
 					created_at: string
@@ -2214,13 +2210,8 @@ export type Database = {
 					id: string
 					legacy_id: number | null
 					measure_unit: string | null
-					unit_price: number | null
 				}
 				Insert: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					catmat_match_score?: number | null
-					catmat_match_status?: string | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -2231,13 +2222,8 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
-					unit_price?: number | null
 				}
 				Update: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					catmat_match_score?: number | null
-					catmat_match_status?: string | null
 					ceafa_id?: string | null
 					correction_factor?: number | null
 					created_at?: string
@@ -2248,16 +2234,8 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
-					unit_price?: number | null
 				}
 				Relationships: [
-					{
-						foreignKeyName: "product_catmat_item_codigo_fkey"
-						columns: ["catmat_item_codigo"]
-						isOneToOne: false
-						referencedRelation: "compras_material_item"
-						referencedColumns: ["codigo_item"]
-					},
 					{
 						foreignKeyName: "product_ceafa_id_fkey"
 						columns: ["ceafa_id"]
