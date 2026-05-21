@@ -22,7 +22,7 @@ export function useIngredientsHierarchy(filterText = "") {
 	useEffect(() => {
 		if (tree && !initializedRef.current) {
 			initializedRef.current = true
-			const rootFolders = tree.folders.filter((f) => !f.parent_id).map((f) => f.id)
+			const rootFolders = (tree.folders ?? []).filter((f) => !f.parent_id).map((f) => f.id)
 			setExpandedIds(new Set(rootFolders))
 		}
 	}, [tree])
@@ -67,12 +67,15 @@ export function useIngredientsHierarchy(filterText = "") {
 	const flatTree = useMemo<FlatIngredientTree | null>(() => {
 		if (!tree) return null
 
+		const folders = tree.folders ?? []
+		const ingredients = tree.ingredients ?? []
+
 		const filter = filterText.toLowerCase().trim()
 		const isFiltering = !!filter
 
 		// Lookup de pastas por ID para traversal de ancestrais
-		const folderById: Record<string, (typeof tree.folders)[0]> = {}
-		tree.folders.forEach((f) => {
+		const folderById: Record<string, (typeof folders)[0]> = {}
+		folders.forEach((f) => {
 			folderById[f.id] = f
 		})
 
@@ -90,7 +93,7 @@ export function useIngredientsHierarchy(filterText = "") {
 				}
 			}
 
-			tree.ingredients.forEach((ingredient) => {
+			ingredients.forEach((ingredient) => {
 				const description = ingredient.description || "Sem descrição"
 				if (description.toLowerCase().includes(filter)) {
 					includedIds.add(ingredient.id)
@@ -98,7 +101,7 @@ export function useIngredientsHierarchy(filterText = "") {
 				}
 			})
 
-			tree.folders.forEach((folder) => {
+			folders.forEach((folder) => {
 				const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
 				if (description.toLowerCase().includes(filter)) {
 					includedIds.add(folder.id)
@@ -111,7 +114,7 @@ export function useIngredientsHierarchy(filterText = "") {
 		const byParentId: Record<string, IngredientTreeNode[]> = {}
 
 		// 1. Criar todos os nós
-		tree.folders.forEach((folder) => {
+		folders.forEach((folder) => {
 			if (isFiltering && !includedIds.has(folder.id)) return
 
 			const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
@@ -136,7 +139,7 @@ export function useIngredientsHierarchy(filterText = "") {
 			byParentId[parentKey].push(node)
 		})
 
-		tree.ingredients.forEach((ingredient) => {
+		ingredients.forEach((ingredient) => {
 			if (isFiltering && !includedIds.has(ingredient.id)) return
 
 			const description = ingredient.description || "Sem descrição"
@@ -196,8 +199,8 @@ export function useIngredientsHierarchy(filterText = "") {
 		if (!tree) return null
 
 		return {
-			totalFolders: tree.folders.length,
-			totalIngredients: tree.ingredients.length,
+			totalFolders: (tree.folders ?? []).length,
+			totalIngredients: (tree.ingredients ?? []).length,
 			totalItems: (tree.ingredientItems ?? []).length,
 		}
 	}, [tree])

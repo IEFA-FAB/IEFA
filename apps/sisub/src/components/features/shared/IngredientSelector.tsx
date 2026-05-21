@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Loader2, Search, X } from "lucide-react"
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
@@ -18,11 +18,12 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 	const [filterText, setFilterText] = useState("")
 	const { flatTree, error } = useIngredientsHierarchy(filterText)
 
-	// Virtualization
-	const parentRef = useRef<HTMLDivElement>(null)
+	// Virtualization — callback ref triggers re-render so virtualizer
+	// subscribes to the real element instead of stale null from useRef
+	const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
 	const rowVirtualizer = useVirtualizer({
 		count: flatTree?.nodes.length || 0,
-		getScrollElement: () => parentRef.current,
+		getScrollElement: () => scrollEl,
 		estimateSize: () => 48,
 		overscan: 10,
 		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
@@ -71,7 +72,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 					) : error ? (
 						<div className="text-destructive text-center p-4">Erro ao carregar insumos</div>
 					) : (
-						<div ref={parentRef} className="h-full overflow-auto border rounded-md bg-card">
+						<div ref={setScrollEl} className="h-full overflow-auto border rounded-md bg-card">
 							<div
 								style={{
 									height: `${rowVirtualizer.getTotalSize()}px`,

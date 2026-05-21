@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useCreateFolder, useFolders, useUpdateFolder } from "@/services/IngredientsService"
+import { useCreateFolder, useIngredientsTree, useUpdateFolder } from "@/services/IngredientsService"
 
 // Schema de validação
 const folderSchema = z.object({
@@ -25,7 +25,8 @@ interface FolderFormProps {
 
 export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 	const queryClient = useQueryClient()
-	const { folders } = useFolders()
+	const { tree } = useIngredientsTree()
+	const folders = tree?.folders
 	const { createFolder, isCreating } = useCreateFolder()
 	const { updateFolder, isUpdating } = useUpdateFolder()
 
@@ -104,7 +105,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 											<SelectValue placeholder="Nenhuma (Raiz)">
 												{field.state.value && field.state.value !== "__NONE__"
 													? (folders?.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
-													: undefined}
+													: "Nenhuma (Raiz)"}
 											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>

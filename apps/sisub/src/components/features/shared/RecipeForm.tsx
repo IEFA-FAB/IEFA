@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import { Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Circle, CircleCheck, Loader2, Plus, Save, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -9,10 +9,12 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field"
+import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
 import { Textarea } from "@/components/ui/textarea"
+import { Toggle } from "@/components/ui/toggle"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
 import { cn } from "@/lib/cn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
@@ -32,7 +34,7 @@ const recipeSchema = z.object({
 	preparation_method: z.string().default(""),
 	portion_yield: z.number().min(1, "Rendimento deve ser pelo menos 1"),
 	preparation_time_minutes: z.number().default(0),
-	cooking_factor: z.number().default(1.0),
+	cooking_factor: z.number().min(0.01, "FC mínimo é 0,01").max(20, "FC máximo é 20").default(1.0),
 	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 })
 
@@ -59,6 +61,14 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const versionMutation = useVersionRecipe()
 
 	const [selectorOpen, setSelectorOpen] = useState(false)
+
+	const handleBack = () => {
+		if (kitchenId) {
+			navigate({ to: "/kitchen/$kitchenId/recipes", params: { kitchenId } })
+		} else {
+			navigate({ to: "/global/recipes" })
+		}
+	}
 
 	// Form setup
 	const form = useForm({
@@ -131,6 +141,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 		},
 	})
 
+	const isPending = createMutation.isPending || versionMutation.isPending
+
 	// Dynamic Header Content
 	const pageTitle = mode === "create" ? "Nova Preparação" : mode === "edit" ? `Editando: ${initialData?.name}` : `Personalizando: ${initialData?.name}`
 
@@ -142,7 +154,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				title={pageTitle}
 				badge={pageBadge}
 				description={mode === "edit" ? "Uma nova versão será criada automaticamente." : undefined}
-				onBack={() => window.history.back()}
+				onBack={handleBack}
 			/>
 
 			<form
@@ -185,7 +197,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										<FieldContent>
 											<Textarea
 												id="prep"
-												className={cn("min-h-30", field.state.meta.errors.length > 0 && "border-destructive")}
+												className={cn("min-h-30 bg-background", field.state.meta.errors.length > 0 && "border-destructive")}
 												value={field.state.value || ""}
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
@@ -240,15 +252,22 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							<form.Field name="cooking_factor">
 								{(field) => (
 									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel>Fator de Cocção (FC)</FieldLabel>
+										<FieldLabel>
+											<Tooltip>
+												<TooltipTrigger render={<span className="cursor-help" />}>Fator de Cocção (FC)</TooltipTrigger>
+												<TooltipContent>1,0 = sem perda de massa. Maior = ingrediente perde peso no cozimento. Ex.: frango cru→cozido ≈ 1,33</TooltipContent>
+											</Tooltip>
+										</FieldLabel>
 										<FieldContent>
 											<Input
 												type="number"
 												step="0.01"
+												placeholder="1,0"
 												value={field.state.value || 1}
 												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
 												onChange={(e) => field.handleChange(Number(e.target.value))}
 											/>
+											<FieldDescription>Faixa normal: 0,5 – 2,0</FieldDescription>
 											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
 									</Field>
@@ -272,60 +291,70 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							{(field) => (
 								<div className="space-y-4">
 									{field.state.value.length === 0 ? (
-										<div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">Nenhum ingrediente adicionado.</div>
+										<div className="text-center text-muted-foreground py-8 border-2 border-dashed">Nenhum ingrediente adicionado.</div>
 									) : (
-										field.state.value.map((ingredient: IngredientFormItem, index: number) => (
-											<div key={ingredient.ingredient_id || index} className="grid grid-cols-12 gap-4 items-end p-3 border rounded-md bg-muted/20">
-												<div className="col-span-5">
-													<Label className="text-xs">Insumo</Label>
-													<Input value={ingredient.ingredient_name} disabled className="bg-muted" />
-												</div>
-												<div className="col-span-3">
-													<Label className="text-xs">Qtd. Líquida ({ingredient.measure_unit})</Label>
-													<Input
-														type="number"
-														step="0.001"
-														value={ingredient.net_quantity ?? 0}
-														onChange={(e) => {
-															const newList = [...field.state.value]
-															newList[index].net_quantity = Number(e.target.value)
-															field.handleChange(newList)
-														}}
-													/>
-												</div>
-												<div className="col-span-3 flex items-center gap-2 pb-2">
-													<div className="flex items-center space-x-2">
-														<span className="text-xs text-muted-foreground">Opcional?</span>
-														<Input
-															type="checkbox"
-															className="size-4"
-															checked={ingredient.is_optional}
-															onChange={(e) => {
-																const newList = [...field.state.value]
-																newList[index].is_optional = e.target.checked
-																field.handleChange(newList)
-															}}
-														/>
+										<ItemGroup>
+											{field.state.value.map((ingredient: IngredientFormItem, index: number) => (
+												<Item key={ingredient.ingredient_id || index} variant="outline">
+													<ItemContent>
+														<ItemTitle className="text-base">{ingredient.ingredient_name}</ItemTitle>
+													</ItemContent>
+													<div className="flex flex-col gap-1 w-32">
+														<FieldLabel htmlFor={`qty-${ingredient.ingredient_id ?? index}`}>Qtd. Líquida</FieldLabel>
+														<div className="flex items-center gap-1.5">
+															<span className="text-xs text-muted-foreground font-medium shrink-0">{ingredient.measure_unit}</span>
+															<Input
+																id={`qty-${ingredient.ingredient_id ?? index}`}
+																type="number"
+																step="0.001"
+																value={ingredient.net_quantity ?? 0}
+																onChange={(e) => {
+																	const newList = [...field.state.value]
+																	newList[index].net_quantity = Number(e.target.value)
+																	field.handleChange(newList)
+																}}
+															/>
+														</div>
 													</div>
-												</div>
-												<div className="col-span-1">
-													<Button
-														type="button"
-														variant="ghost"
-														size="icon"
-														className="text-destructive hover:bg-destructive/10"
-														onClick={() => {
-															const newList = field.state.value.filter((_: IngredientFormItem, i: number) => i !== index)
+													<Toggle
+														variant="outline"
+														size="sm"
+														pressed={ingredient.is_optional}
+														onPressedChange={(pressed) => {
+															const newList = [...field.state.value]
+															newList[index].is_optional = pressed
 															field.handleChange(newList)
 														}}
 													>
-														<Trash2 className="size-4" />
-													</Button>
-												</div>
-											</div>
-										))
+														{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+														Opcional
+													</Toggle>
+													<ItemActions>
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															className="text-destructive hover:bg-destructive/10"
+															onClick={() => {
+																const snapshot = [...field.state.value]
+																const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
+																field.handleChange(newList)
+																toast("Ingrediente removido.", {
+																	action: {
+																		label: "Desfazer",
+																		onClick: () => field.handleChange(snapshot),
+																	},
+																})
+															}}
+														>
+															<Trash2 className="size-4" />
+														</Button>
+													</ItemActions>
+												</Item>
+											))}
+										</ItemGroup>
 									)}
-									{field.state.meta.errors && <p className="text-destructive text-sm">{field.state.meta.errors.join()}</p>}
+									{field.state.meta.errors && <FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />}
 								</div>
 							)}
 						</form.Field>
@@ -333,32 +362,33 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				</Card>
 
 				<div className="flex justify-end gap-4">
-					<Button type="button" variant="outline" onClick={() => window.history.back()}>
+					<Button type="button" variant="outline" onClick={handleBack}>
 						Cancelar
 					</Button>
-					<Button type="submit" disabled={createMutation.isPending || versionMutation.isPending}>
-						{(createMutation.isPending || versionMutation.isPending) && <Loader2 className="size-4 mr-2 animate-spin" />}
-						<Save className="size-4 mr-2" />
+					<Button type="submit" disabled={isPending}>
+						{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
 						Salvar Preparação
 					</Button>
 				</div>
 			</form>
 
 			{/* Ingredient Selector Modal */}
-			<IngredientSelector
-				isOpen={selectorOpen}
-				onClose={() => setSelectorOpen(false)}
-				onSelect={(ingredient) => {
-					form.pushFieldValue("ingredients", {
-						ingredient_id: ingredient.id,
-						ingredient_name: ingredient.description ?? "",
-						measure_unit: ingredient.measure_unit ?? "UN",
-						net_quantity: 0,
-						is_optional: false,
-						priority_order: form.getFieldValue("ingredients").length + 1,
-					})
-				}}
-			/>
+			{selectorOpen && (
+				<IngredientSelector
+					isOpen={selectorOpen}
+					onClose={() => setSelectorOpen(false)}
+					onSelect={(ingredient) => {
+						form.pushFieldValue("ingredients", {
+							ingredient_id: ingredient.id,
+							ingredient_name: ingredient.description ?? "",
+							measure_unit: ingredient.measure_unit ?? "UN",
+							net_quantity: 0,
+							is_optional: false,
+							priority_order: form.getFieldValue("ingredients").length + 1,
+						})
+					}}
+				/>
+			)}
 		</div>
 	)
 }

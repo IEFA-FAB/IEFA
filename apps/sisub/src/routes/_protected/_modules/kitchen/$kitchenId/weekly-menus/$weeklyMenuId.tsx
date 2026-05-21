@@ -182,8 +182,8 @@ function DayMealSection({
 									/>
 								</TooltipTrigger>
 								<TooltipContent side="top">
-									<p className="text-caption text-foreground">Comensais desta preparação</p>
-									<p className="text-xs text-muted-foreground mt-0.5">
+									<p className="text-caption">Comensais desta preparação</p>
+									<p className="text-xs opacity-70 mt-0.5">
 										{recipe.headcountOverride ? `${recipe.headcountOverride} pessoas previstas` : "Informe o nº de comensais"}
 									</p>
 								</TooltipContent>
