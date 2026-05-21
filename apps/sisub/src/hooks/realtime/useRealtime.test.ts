@@ -113,11 +113,23 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
-		if (!reachable) return
-		// Wait for Realtime tenant to stabilize after the previous suite's auth cleanup
-		// (deleteUser triggers a tenant reinitialization that takes ~2s)
-		await new Promise((r) => setTimeout(r, 3000))
-	})
+		if (!reachable || !supabaseEnv) return
+		// Poll until the Realtime tenant is ready. deleteUser in the previous suite's
+		// afterAll triggers a tenant reinitialization whose duration is variable and
+		// can exceed a fixed sleep — probe until a subscription completes instead.
+		const sb = createSisubServiceClient(supabaseEnv)
+		for (let i = 0; i < 8; i++) {
+			const probe = sb.channel(`rt-probe-${Date.now()}`)
+			try {
+				await waitForSubscribed(probe, 3000)
+				await sb.removeChannel(probe)
+				return
+			} catch {
+				await sb.removeChannel(probe)
+				if (i < 7) await new Promise((r) => setTimeout(r, 1500))
+			}
+		}
+	}, 35_000)
 
 	test("receives event when recipe is inserted", async () => {
 		if (!reachable || !supabaseEnv) return
