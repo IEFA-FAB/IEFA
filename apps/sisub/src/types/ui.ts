@@ -30,3 +30,9 @@ export type Feature = {
 	description: string
 	icon: LucideIcon
 }
+
+export type Module = {
+	icon: LucideIcon
+	label: string
+	role: string
+}

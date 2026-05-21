@@ -3,7 +3,6 @@
 import { NeuroNoise } from "@paper-design/shaders-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 // Icons
-import type { LucideIcon } from "lucide-react"
 import {
 	BarChart3,
 	BookOpen,
@@ -30,7 +29,7 @@ import { InfoPanel } from "@/components/ui/info-panel"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { SectionLabel } from "@/components/ui/section-label"
 import { useTheme } from "@/hooks/ui/useTheme"
-import type { Feature, Step } from "@/types/ui"
+import type { Feature, Module, Step } from "@/types/ui"
 
 /* ========================================================================
    DATA
@@ -45,20 +44,15 @@ export const steps: Step[] = [
 	{
 		icon: UtensilsCrossed,
 		title: "Produzir e Servir",
-		description: "Cozinhas executam com foco no que cada cozinheiro precisa fazer agora. Refeitórios controlam o fluxo de entrada e a presença dos comensais.",
+		description: "Cozinhas distribuem as preparações do dia por cozinheiro e turno. Refeitórios controlam o acesso e registram a presença dos comensais.",
 	},
 	{
 		icon: BarChart3,
 		title: "Governar e Analisar",
-		description: "Administração padroniza insumos e mantém o organograma. Analytics fecha o ciclo com inteligência operacional sobre toda a cadeia.",
+		description:
+			"Administração centraliza o catálogo de insumos e a estrutura de unidades. Os indicadores fecham o ciclo com visibilidade sobre toda a cadeia.",
 	},
 ]
-
-type Module = {
-	icon: LucideIcon
-	label: string
-	role: string
-}
 
 export const modules: Module[] = [
 	{ icon: UtensilsCrossed, label: "Comensal", role: "Militar" },
@@ -71,20 +65,22 @@ export const modules: Module[] = [
 ]
 
 export const features: Feature[] = [
+	// Heroes — os dois diferenciais institucionais do SISUB
 	{
 		icon: ClipboardCheck,
 		title: "Planejamento Nutricional",
-		description: "Cardápios com controle de nutrientes, templates semanais e calendário mensal de produção.",
-	},
-	{
-		icon: QrCode,
-		title: "Controle de Presença",
-		description: "Acesso ao refeitório por QR code com registro automático de presenças e auditoria.",
+		description: "Cardápios com controle de nutrientes, modelos semanais e calendário mensal de produção.",
 	},
 	{
 		icon: FileText,
 		title: "Integração ComprasGov",
 		description: "Geração de listas de necessidades e pedidos de empenho sincronizados com o sistema federal.",
+	},
+	// Secundários
+	{
+		icon: QrCode,
+		title: "Controle de Presença",
+		description: "Acesso ao refeitório por QR code com registro automático de presenças e auditoria.",
 	},
 	{
 		icon: BarChart3,
@@ -93,8 +89,8 @@ export const features: Feature[] = [
 	},
 	{
 		icon: Users,
-		title: "Multi-perfil e PBAC",
-		description: "Controle de acesso por módulo e entidade: cada ator opera apenas no seu escopo.",
+		title: "Multi-perfil e Acesso por Escopo",
+		description: "Controle de acesso por módulo e entidade: cada perfil opera apenas no seu escopo.",
 	},
 	{
 		icon: Settings,
@@ -111,7 +107,7 @@ export const Route = createFileRoute("/_public/")({
 	head: () => {
 		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
 		const title = "SISUB - Sistema de Subsistência"
-		const description = "Plataforma integrada de gestão de subsistência da Força Aérea Brasileira — do planejamento nutricional ao empenho de insumos."
+		const description = "Plataforma integrada de gestão de subsistência da Força Aérea Brasileira: do planejamento nutricional ao empenho de insumos."
 		return {
 			meta: [
 				{ title },
@@ -209,14 +205,14 @@ function Home() {
 						<span className="text-primary">integrada.</span>
 					</h1>
 					<p className="text-lead text-muted-foreground mb-10 md:mb-12 max-w-sm md:max-w-md">
-						Da previsão do comensal ao empenho de insumos — uma plataforma para toda a cadeia de subsistência da FAB.
+						Do planejamento de refeições ao empenho de insumos: uma plataforma para toda a cadeia de subsistência da FAB.
 					</p>
 					<div className="flex flex-wrap items-center gap-4 md:gap-6">
 						<Button
 							nativeButton={false}
 							render={
 								<Link to="/auth" className="flex items-center gap-2">
-									Acessar Sistema
+									Entrar
 									<ChevronRight className="size-4" />
 								</Link>
 							}
@@ -224,17 +220,17 @@ function Home() {
 						/>
 						<span className="inline-flex items-center gap-1.5 text-caption font-mono text-muted-foreground">
 							<ShieldCheck className="size-3.5" aria-hidden />
-							Login obrigatório
+							Acesso restrito
 						</span>
 					</div>
 				</div>
 				<button
 					type="button"
-					className="flex justify-center pb-2 bg-transparent border-0 p-0 cursor-pointer"
+					className="flex justify-center pb-2 bg-transparent border-0 p-0 cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
 					onClick={() => document.getElementById("steps")?.scrollIntoView({ behavior: "smooth" })}
 					aria-label="Rolar para a cadeia operacional"
 				>
-					<ChevronDown className="size-5 text-muted-foreground/40 animate-bounce" aria-hidden />
+					<ChevronDown className="size-5 text-muted-foreground opacity-40 animate-bounce" aria-hidden />
 				</button>
 			</section>
 
@@ -288,8 +284,26 @@ function Home() {
 			{/* Funcionalidades */}
 			<section id="features" className="py-12 md:py-16 border-t border-border">
 				<SectionLabel index="03" label="Funcionalidades" />
-				<ul className="mt-8 border border-border rounded-md overflow-hidden divide-y divide-border bg-card">
-					{features.map((feature) => {
+
+				{/* 2 hero features — diferenciais institucionais */}
+				<div className="mt-8 grid sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border border border-border rounded-md overflow-hidden bg-card">
+					{features.slice(0, 2).map((feature) => {
+						const Icon = feature.icon
+						return (
+							<div key={feature.title} className="flex flex-col gap-3 p-5">
+								<Icon className="size-5 text-primary" aria-hidden />
+								<div>
+									<p className="text-subheading text-foreground">{feature.title}</p>
+									<p className="text-body text-muted-foreground mt-1">{feature.description}</p>
+								</div>
+							</div>
+						)
+					})}
+				</div>
+
+				{/* 4 secondary features */}
+				<ul className="mt-3 border border-border rounded-md overflow-hidden divide-y divide-border bg-card">
+					{features.slice(2).map((feature) => {
 						const Icon = feature.icon
 						return (
 							<Item key={feature.title} variant="default">
@@ -314,17 +328,17 @@ function Home() {
 						icon={BookOpen}
 						label="Tutorial"
 						title="Guia do SISUB"
-						description="Entenda cada módulo, seu perfil de acesso e como operar o sistema no dia a dia."
+						description="Entenda seu papel no sistema e como operar cada módulo no dia a dia."
 						tags={["comensal", "fiscal", "nutricionista", "gestor"]}
 						to="/tutorial"
 						cta="Ver Tutorial"
 					/>
 					<InfoPanel
 						icon={FileText}
-						label="Novidades"
-						title="Changelog"
-						description="Acompanhe as melhorias, correções e novas funcionalidades em tempo real."
-						tags={["feat", "fix", "docs", "perf"]}
+						label="Changelog"
+						title="Novidades e Correções"
+						description="Acompanhe melhorias, correções e novas funcionalidades a cada versão lançada."
+						tags={["funcionalidade", "correção", "melhoria", "desempenho"]}
 						to="/changelog"
 						cta="Ver Changelog"
 					/>
@@ -345,7 +359,7 @@ function Home() {
 							nativeButton={false}
 							render={
 								<Link to="/auth" className="flex items-center gap-2">
-									Fazer Login
+									Entrar
 									<ChevronRight className="size-4" />
 								</Link>
 							}
