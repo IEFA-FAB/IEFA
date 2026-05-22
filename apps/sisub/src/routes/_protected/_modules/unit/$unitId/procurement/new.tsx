@@ -149,7 +149,12 @@ function NewAtaPage() {
 	const { mutate: createAta, isPending: isCreating } = useCreateAta()
 	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
-	const displayItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
+	const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({})
+	const rawItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
+	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
+		...item,
+		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id] : item.unit_price,
+	}))
 
 	const handleCalculate = () => {
 		const stateToCalc: AtaWizardState = { ...wizardState, kitchenSelections }
@@ -421,6 +426,10 @@ function NewAtaPage() {
 					}}
 					catmatCode={priceResearchItem.catmat_item_codigo}
 					catmatDescription={priceResearchItem.catmat_item_descricao}
+					onApplyPrice={(price) => {
+						setPriceOverrides((prev) => ({ ...prev, [priceResearchItem.ingredient_id]: price }))
+						setPriceResearchItem(null)
+					}}
 				/>
 			)}
 		</div>

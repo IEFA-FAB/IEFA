@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ArrowDown, ArrowUp, ArrowUpDown, Info, ListFilter, RefreshCw, TrendingUp } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -46,11 +46,50 @@ function formatDate(value: string | null | undefined): string {
 	return value.substring(0, 10)
 }
 
-function mediana(values: number[]): number | null {
-	if (values.length === 0) return null
+function calcMediana(values: number[]): number {
 	const sorted = [...values].sort((a, b) => a - b)
 	const mid = Math.floor(sorted.length / 2)
 	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+function removeOutliersIQR(values: number[]): { valid: number[]; outlierCount: number } {
+	if (values.length < 4) return { valid: values, outlierCount: 0 }
+	const sorted = [...values].sort((a, b) => a - b)
+	const n = sorted.length
+	const q1 = sorted[Math.floor(n * 0.25)]
+	const q3 = sorted[Math.floor(n * 0.75)]
+	const iqr = q3 - q1
+	if (iqr === 0) return { valid: values, outlierCount: 0 }
+	const lower = q1 - 1.5 * iqr
+	const upper = q3 + 1.5 * iqr
+	const valid = values.filter((v) => v >= lower && v <= upper)
+	return { valid, outlierCount: values.length - valid.length }
+}
+
+interface PriceStats {
+	mean: number
+	median: number
+	stdDev: number
+	cv: number
+	min: number
+	max: number
+}
+
+function computeStats(prices: number[]): PriceStats | null {
+	if (prices.length === 0) return null
+	const n = prices.length
+	const mean = prices.reduce((s, v) => s + v, 0) / n
+	const median = calcMediana(prices)
+	const variance = prices.reduce((s, v) => s + (v - mean) ** 2, 0) / n
+	const stdDev = Math.sqrt(variance)
+	const cv = mean > 0 ? (stdDev / mean) * 100 : 0
+	return { mean, median, stdDev, cv, min: Math.min(...prices), max: Math.max(...prices) }
+}
+
+function getRecommendation(cv: number): { text: string; colorClass: string } {
+	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-emerald-600 dark:text-emerald-400" }
+	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-amber-600 dark:text-amber-400" }
+	return { text: "Alta variabilidade — mediana recomendada (IN SEGES 65/2021 Art. 5º).", colorClass: "text-orange-600 dark:text-orange-400" }
 }
 
 const multiSelectFilter: FilterFn<ComprasMaterialPriceResult> = (row, columnId, filterValue: string[]) => {
@@ -207,15 +246,16 @@ interface PriceResearchModalProps {
 	onOpenChange: (open: boolean) => void
 	catmatCode: number
 	catmatDescription?: string | null
+	onApplyPrice?: (price: number) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription }: PriceResearchModalProps) {
+export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, onApplyPrice }: PriceResearchModalProps) {
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-	const tableContainerRef = useRef<HTMLDivElement>(null)
+	const [tableContainer, setTableContainer] = useState<HTMLDivElement | null>(null)
 	const queryClient = useQueryClient()
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset table state when item changes
@@ -256,7 +296,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 
 	// ── Columns ───────────────────────────────────────────────────────────────
 
-	const columns = useMemo<ColumnDef<ComprasMaterialPriceResult>[]>(
+	const baseColumns = useMemo<ColumnDef<ComprasMaterialPriceResult>[]>(
 		() => [
 			{
 				id: "select",
@@ -353,16 +393,41 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 				cell: ({ row }) => <div className="max-w-32 truncate text-xs text-muted-foreground">{row.original.marca || "—"}</div>,
 				filterFn: multiSelectFilter,
 			},
-			{
-				id: "details",
-				cell: ({ row }) => <ContractHoverCard row={row.original} />,
-				enableSorting: false,
-				enableColumnFilter: false,
-				size: 32,
-			},
 		],
 		[]
 	)
+
+	const columns = useMemo<ColumnDef<ComprasMaterialPriceResult>[]>(() => {
+		const detailsCol: ColumnDef<ComprasMaterialPriceResult> = {
+			id: "details",
+			cell: ({ row }) => <ContractHoverCard row={row.original} />,
+			enableSorting: false,
+			enableColumnFilter: false,
+			size: 32,
+		}
+		if (!onApplyPrice) return [...baseColumns, detailsCol]
+		const applyCol: ColumnDef<ComprasMaterialPriceResult> = {
+			id: "apply",
+			cell: ({ row }) =>
+				row.original.precoUnitario !== null ? (
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary"
+						onClick={() => {
+							onApplyPrice(row.original.precoUnitario as number)
+							onOpenChange(false)
+						}}
+					>
+						Usar
+					</Button>
+				) : null,
+			enableSorting: false,
+			enableColumnFilter: false,
+			size: 56,
+		}
+		return [...baseColumns, applyCol, detailsCol]
+	}, [baseColumns, onApplyPrice, onOpenChange])
 
 	// ── Table instance ────────────────────────────────────────────────────────
 
@@ -389,7 +454,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 
 	const virtualizer = useVirtualizer({
 		count: rows.length,
-		getScrollElement: () => tableContainerRef.current,
+		getScrollElement: () => tableContainer,
 		estimateSize: () => 44,
 		overscan: 15,
 	})
@@ -404,12 +469,27 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	const selectedRows = table.getSelectedRowModel().rows
 	const filteredRows = table.getFilteredRowModel().rows
 
-	const statsRows = selectedRows.length > 0 ? selectedRows : filteredRows
-	const statsPrices = statsRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
-	const statsLabel = selectedRows.length > 0 ? `${selectedRows.length} selecionados` : `${filteredRows.length} resultados`
-	const statsMin = statsPrices.length > 0 ? Math.min(...statsPrices) : null
-	const statsMax = statsPrices.length > 0 ? Math.max(...statsPrices) : null
-	const statsMediana = mediana(statsPrices)
+	// Full analysis: IQR on all filtered rows — used when nothing is selected
+	const fullAnalysis = useMemo(() => {
+		const prices = filteredRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
+		if (prices.length === 0) return null
+		const { valid, outlierCount } = removeOutliersIQR(prices)
+		const stats = computeStats(valid)
+		if (!stats) return null
+		const uniqueSources = new Set(filteredRows.map((r) => r.original.codigoUasg).filter(Boolean)).size
+		return { stats, outlierCount, rawCount: prices.length, validCount: valid.length, uniqueSources }
+	}, [filteredRows])
+
+	// Active analysis: selected rows (no IQR — user chose those explicitly) OR full analysis
+	const activeAnalysis = useMemo(() => {
+		if (selectedRows.length === 0) return fullAnalysis ? { ...fullAnalysis, fromSelection: false } : null
+		const prices = selectedRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
+		if (prices.length === 0) return fullAnalysis ? { ...fullAnalysis, fromSelection: false } : null
+		const stats = computeStats(prices)
+		if (!stats) return null
+		const uniqueSources = new Set(selectedRows.map((r) => r.original.codigoUasg).filter(Boolean)).size
+		return { stats, outlierCount: 0, rawCount: prices.length, validCount: prices.length, uniqueSources, fromSelection: true }
+	}, [selectedRows, fullAnalysis])
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -453,25 +533,79 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 				</div>
 
 				{/* ── Stats ── */}
-				{statsMin !== null && (
-					<div className="grid grid-cols-3 gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-						<div className="text-center">
-							<p className="text-xs text-muted-foreground">Mínimo ({statsLabel})</p>
-							<p className="text-sm font-semibold tabular-nums">{BRL.format(statsMin)}</p>
+				{activeAnalysis && (
+					<div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
+						{/* Sample info header */}
+						<p className="text-[11px] text-muted-foreground">
+							{activeAnalysis.fromSelection ? "Seleção manual" : "Todos os resultados"}
+							{" · "}
+							<span className="font-medium text-foreground">{activeAnalysis.validCount}</span> amostras válidas
+							{activeAnalysis.outlierCount > 0 && (
+								<>
+									{" "}
+									· <span className="text-amber-600 dark:text-amber-400">{activeAnalysis.outlierCount} outlier(s) removido(s) (IQR)</span>
+								</>
+							)}
+							{" · "}
+							{activeAnalysis.uniqueSources} UASG(s)
+						</p>
+
+						{/* 4-column grid: Média | Mediana | Mínimo | Máximo */}
+						<div className="grid grid-cols-4 gap-3">
+							<div className="text-center">
+								<p className="text-xs text-muted-foreground">Média</p>
+								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.mean)}</p>
+								{onApplyPrice && (
+									<button
+										type="button"
+										className="mt-0.5 text-[11px] text-primary hover:underline"
+										onClick={() => {
+											onApplyPrice(activeAnalysis.stats.mean)
+											onOpenChange(false)
+										}}
+									>
+										Usar
+									</button>
+								)}
+							</div>
+							<div className="border-l text-center">
+								<p className="text-xs text-muted-foreground">Mediana</p>
+								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.median)}</p>
+								{onApplyPrice && (
+									<button
+										type="button"
+										className="mt-0.5 text-[11px] text-primary hover:underline"
+										onClick={() => {
+											onApplyPrice(activeAnalysis.stats.median)
+											onOpenChange(false)
+										}}
+									>
+										Usar
+									</button>
+								)}
+							</div>
+							<div className="border-l text-center">
+								<p className="text-xs text-muted-foreground">Mínimo</p>
+								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.min)}</p>
+							</div>
+							<div className="border-l text-center">
+								<p className="text-xs text-muted-foreground">Máximo</p>
+								<p className="text-sm font-semibold tabular-nums">{BRL.format(activeAnalysis.stats.max)}</p>
+							</div>
 						</div>
-						<div className="border-x text-center">
-							<p className="text-xs text-muted-foreground">Mediana ({statsLabel})</p>
-							<p className="text-sm font-semibold tabular-nums">{statsMediana !== null ? BRL.format(statsMediana) : "—"}</p>
-						</div>
-						<div className="text-center">
-							<p className="text-xs text-muted-foreground">Máximo ({statsLabel})</p>
-							<p className="text-sm font-semibold tabular-nums">{BRL.format(statsMax as number)}</p>
+
+						{/* Recommendation footer */}
+						<div className="flex items-center gap-2 text-[11px] text-muted-foreground border-t pt-2">
+							<span>
+								σ {BRL.format(activeAnalysis.stats.stdDev)} · CV {activeAnalysis.stats.cv.toFixed(1)}%
+							</span>
+							<span className={`ml-1 ${getRecommendation(activeAnalysis.stats.cv).colorClass}`}>{getRecommendation(activeAnalysis.stats.cv).text}</span>
 						</div>
 					</div>
 				)}
 
 				{/* ── Table ── */}
-				<div ref={tableContainerRef} className="flex-1 overflow-y-auto min-h-0 rounded-md border">
+				<div ref={setTableContainer} className="flex-1 overflow-y-auto min-h-0 rounded-md border">
 					{isLoading ? (
 						<div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
 							<Spinner className="size-4" />
