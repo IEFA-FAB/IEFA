@@ -1,3 +1,4 @@
+import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save } from "lucide-react"
@@ -8,6 +9,7 @@ import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
 import { type AtaStep, AtaStepIndicator } from "@/components/features/local/ata/AtaStepIndicator"
 import { DraftImportBadge } from "@/components/features/local/ata/DraftImportBadge"
 import { KitchenTemplateSection } from "@/components/features/local/ata/KitchenTemplateSection"
+import { PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,7 +20,6 @@ import { useCalculateAtaNeeds, useCreateAta } from "@/hooks/data/useAta"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
-import type { ProcurementNeed } from "@/services/ProcurementService"
 import type { AtaWizardState, KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
 
 const searchSchema = z.object({
@@ -147,6 +148,7 @@ function NewAtaPage() {
 	const { mutate: calculateNeeds, data: calculatedItems, isPending: isCalculating } = useCalculateAtaNeeds()
 	const { mutate: createAta, isPending: isCreating } = useCreateAta()
 	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
+	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 	const displayItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
 
 	const handleCalculate = () => {
@@ -386,7 +388,7 @@ function NewAtaPage() {
 							)}
 
 							{/* Tabela de itens */}
-							<AtaItemsTable data={displayItems} />
+							<AtaItemsTable data={displayItems} onPesquisarPreco={(item) => setPriceResearchItem(item)} />
 
 							{/* Ações finais */}
 							<div className="flex items-center justify-between pt-2">
@@ -410,6 +412,17 @@ function NewAtaPage() {
 						</div>
 					)
 				})()}
+
+			{priceResearchItem?.catmat_item_codigo && (
+				<PriceResearchModal
+					open={priceResearchItem !== null}
+					onOpenChange={(open) => {
+						if (!open) setPriceResearchItem(null)
+					}}
+					catmatCode={priceResearchItem.catmat_item_codigo}
+					catmatDescription={priceResearchItem.catmat_item_descricao}
+				/>
+			)}
 		</div>
 	)
 }

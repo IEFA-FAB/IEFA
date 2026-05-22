@@ -1,18 +1,20 @@
 // Dashboard Helper Functions
 
 import type {
+	AggregatedPresenceRecord,
 	DailyMealStat,
 	DashboardMetrics,
 	DashboardPresenceRecord,
 	ForecastRecord,
+	MealKey,
 	MealTypeStat,
 	MessHallAPI,
 	MessHallStats,
+	PersonDetail,
 	UserDataAPI,
 	UserMealDetail,
 	UserMilitaryDataAPI,
-} from "@/types/domain/dashboard"
-import type { MealKey } from "@/types/domain/meal"
+} from "@iefa/sisub-domain/types"
 
 const MEAL_KEYS: MealKey[] = ["cafe", "almoco", "janta", "ceia"]
 
@@ -159,12 +161,12 @@ export function calculatePercentage(part: number, total: number): number {
  * Aggregates presence data by day/meal/mess_hall with drill-down lists
  */
 export function aggregatePresenceData(
-	forecasts: import("@/types/domain/dashboard").ForecastRecord[],
-	presences: import("@/types/domain/dashboard").DashboardPresenceRecord[],
-	userData: import("@/types/domain/dashboard").UserDataAPI[],
-	militaryData: import("@/types/domain/dashboard").UserMilitaryDataAPI[],
-	messHalls: import("@/types/domain/dashboard").MessHallAPI[]
-): import("@/types/domain/dashboard").AggregatedPresenceRecord[] {
+	forecasts: ForecastRecord[],
+	presences: DashboardPresenceRecord[],
+	userData: UserDataAPI[],
+	militaryData: UserMilitaryDataAPI[],
+	messHalls: MessHallAPI[]
+): AggregatedPresenceRecord[] {
 	// Create a map for quick lookups
 	const userMap = new Map(userData.map((u) => [u.id, u]))
 	const militaryMap = new Map(militaryData.map((m) => [m.nrOrdem, m]))
@@ -215,7 +217,7 @@ export function aggregatePresenceData(
 	}
 
 	// Build aggregated records
-	const records: import("@/types/domain/dashboard").AggregatedPresenceRecord[] = []
+	const records: AggregatedPresenceRecord[] = []
 
 	for (const [, group] of groups) {
 		const messHall = messHallMap.get(group.mess_hall_id)
@@ -227,7 +229,7 @@ export function aggregatePresenceData(
 		const attendance_rate = calculatePercentage(presence_count, forecast_count)
 
 		// Build drill-down lists
-		const getPersonDetail = (userId: string): import("@/types/domain/dashboard").PersonDetail => {
+		const getPersonDetail = (userId: string): PersonDetail => {
 			const user = userMap.get(userId)
 			const military = user?.nrOrdem ? militaryMap.get(user.nrOrdem) : undefined
 			return {

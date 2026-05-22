@@ -1,3 +1,31 @@
+export {
+	fetchForecasts,
+	fetchMessHalls,
+	fetchPresences,
+	fetchUnits,
+	fetchUserData,
+	fetchUserMilitaryData,
+} from "./dashboard.ts"
+export {
+	createFolder,
+	createIngredient,
+	createIngredientItem,
+	deleteFolder,
+	deleteIngredient,
+	deleteIngredientItem,
+	fetchIngredient,
+	listCatmatItems,
+	listCeafa,
+	listFolders,
+	listIngredientItems,
+	listIngredientNutrients,
+	listIngredients,
+	listNutrients,
+	setIngredientNutrients,
+	updateFolder,
+	updateIngredient,
+	updateIngredientItem,
+} from "./ingredients.ts"
 export { listKitchens, listUnitKitchens } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
@@ -12,6 +40,7 @@ export {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "./planning.ts"
+export { fetchProcurementNeeds } from "./procurement.ts"
 export { createRecipe, createRecipeVersion, fetchRecipe, listRecipes, listRecipeVersions } from "./recipes.ts"
 export {
 	applyTemplate,

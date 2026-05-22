@@ -1,4 +1,5 @@
 import type { ProcurementListItem } from "@iefa/database/sisub"
+import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { Archive, ArrowLeft, Download, Link2, Send } from "lucide-react"
@@ -7,6 +8,7 @@ import { requirePermission } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
 import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
+import { PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,7 +18,6 @@ import { Spinner } from "@/components/ui/spinner"
 import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
-import type { ProcurementNeed } from "@/services/ProcurementService"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
 	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
@@ -63,6 +64,7 @@ function AtaDetailPage() {
 	const { unitId: unitIdStr, ataId } = useParams({ strict: false })
 	const unitId = Number(unitIdStr)
 	const [arpModalOpen, setArpModalOpen] = useState(false)
+	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
@@ -221,7 +223,7 @@ function AtaDetailPage() {
 			)}
 
 			{/* Itens da Ata */}
-			<AtaItemsTable data={needs} />
+			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} />
 
 			{/* ─── ARP & Empenhos ──────────────────────────────────────────── */}
 			<div className="space-y-3">
@@ -269,6 +271,17 @@ function AtaDetailPage() {
 
 			{/* Modal de busca de ARP */}
 			{ataId && <ArpSearchModal open={arpModalOpen} onOpenChange={setArpModalOpen} ataId={ataId} unitId={unitId} defaultUasg={unitSettings?.uasg} />}
+
+			{priceResearchItem?.catmat_item_codigo && (
+				<PriceResearchModal
+					open={priceResearchItem !== null}
+					onOpenChange={(open) => {
+						if (!open) setPriceResearchItem(null)
+					}}
+					catmatCode={priceResearchItem.catmat_item_codigo}
+					catmatDescription={priceResearchItem.catmat_item_descricao}
+				/>
+			)}
 		</div>
 	)
 }

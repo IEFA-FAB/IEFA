@@ -1,3 +1,4 @@
+import type { AggregatedPresenceRecord, DashboardPresenceRecord, ForecastRecord, PersonDetail } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle, Check, CheckCircle, ChevronDown, ChevronRight, Copy, TrendingDown, TrendingUp, Users, X } from "lucide-react"
 import { useState } from "react"
@@ -11,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/cn"
 import { aggregatePresenceData, parseLocalDate } from "@/lib/dashboard"
 import { messHallsQueryOptions, userDataQueryOptions, userMilitaryDataQueryOptions } from "@/services/DashboardService"
-import type { AggregatedPresenceRecord, DashboardPresenceRecord, ForecastRecord, PersonDetail } from "@/types/domain/dashboard"
 
 interface PresenceTableProps {
 	forecasts: ForecastRecord[]

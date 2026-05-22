@@ -148,7 +148,7 @@ export function useCeafa(search?: string) {
 
 export function useCreateFolder() {
 	const mutation = useMutation({
-		mutationFn: (payload: FolderInsert) => createFolderFn({ data: { payload: payload as Record<string, unknown> } }),
+		mutationFn: (payload: FolderInsert) => createFolderFn({ data: { description: payload.description, parentId: payload.parent_id ?? undefined } }),
 	})
 	return {
 		createFolder: mutation.mutateAsync,
@@ -159,7 +159,8 @@ export function useCreateFolder() {
 
 export function useUpdateFolder() {
 	const mutation = useMutation({
-		mutationFn: ({ id, payload }: { id: string; payload: FolderUpdate }) => updateFolderFn({ data: { id, payload: payload as Record<string, unknown> } }),
+		mutationFn: ({ id, payload }: { id: string; payload: FolderUpdate }) =>
+			updateFolderFn({ data: { id, description: payload.description, parentId: payload.parent_id ?? undefined } }),
 	})
 	return {
 		updateFolder: mutation.mutateAsync,
@@ -181,7 +182,16 @@ export function useDeleteFolder() {
 
 export function useCreateIngredient() {
 	const mutation = useMutation({
-		mutationFn: (payload: IngredientInsert) => createIngredientFn({ data: { payload: payload as Record<string, unknown> } }),
+		mutationFn: (payload: IngredientInsert) =>
+			createIngredientFn({
+				data: {
+					description: payload.description ?? "",
+					folderId: payload.folder_id ?? undefined,
+					measureUnit: payload.measure_unit ?? undefined,
+					correctionFactor: payload.correction_factor ?? undefined,
+					ceafaId: payload.ceafa_id ?? undefined,
+				},
+			}),
 	})
 	return {
 		createIngredient: mutation.mutateAsync,
@@ -193,7 +203,16 @@ export function useCreateIngredient() {
 export function useUpdateIngredient() {
 	const mutation = useMutation({
 		mutationFn: ({ id, payload }: { id: string; payload: IngredientUpdate }) =>
-			updateIngredientFn({ data: { id, payload: payload as Record<string, unknown> } }),
+			updateIngredientFn({
+				data: {
+					id,
+					description: payload.description ?? "",
+					folderId: payload.folder_id ?? undefined,
+					measureUnit: payload.measure_unit ?? undefined,
+					correctionFactor: payload.correction_factor ?? undefined,
+					ceafaId: payload.ceafa_id ?? undefined,
+				},
+			}),
 	})
 	return {
 		updateIngredient: mutation.mutateAsync,
@@ -215,7 +234,17 @@ export function useDeleteIngredient() {
 
 export function useCreateIngredientItem() {
 	const mutation = useMutation({
-		mutationFn: (payload: IngredientItemInsert) => createIngredientItemFn({ data: { payload: payload as Record<string, unknown> } }),
+		mutationFn: (payload: IngredientItemInsert) =>
+			createIngredientItemFn({
+				data: {
+					ingredientId: payload.ingredient_id ?? undefined,
+					description: payload.description ?? undefined,
+					barcode: payload.barcode ?? undefined,
+					purchaseMeasureUnit: payload.purchase_measure_unit ?? undefined,
+					unitContentQuantity: payload.unit_content_quantity ?? undefined,
+					correctionFactor: payload.correction_factor ?? undefined,
+				},
+			}),
 	})
 	return {
 		createIngredientItem: mutation.mutateAsync,
@@ -227,7 +256,17 @@ export function useCreateIngredientItem() {
 export function useUpdateIngredientItem() {
 	const mutation = useMutation({
 		mutationFn: ({ id, payload }: { id: string; payload: IngredientItemUpdate }) =>
-			updateIngredientItemFn({ data: { id, payload: payload as Record<string, unknown> } }),
+			updateIngredientItemFn({
+				data: {
+					id,
+					ingredientId: payload.ingredient_id ?? undefined,
+					description: payload.description ?? undefined,
+					barcode: payload.barcode ?? undefined,
+					purchaseMeasureUnit: payload.purchase_measure_unit ?? undefined,
+					unitContentQuantity: payload.unit_content_quantity ?? undefined,
+					correctionFactor: payload.correction_factor ?? undefined,
+				},
+			}),
 	})
 	return {
 		updateIngredientItem: mutation.mutateAsync,
@@ -250,7 +289,12 @@ export function useDeleteIngredientItem() {
 export function useSetIngredientNutrients() {
 	const mutation = useMutation({
 		mutationFn: ({ ingredientId, nutrients }: { ingredientId: string; nutrients: { nutrient_id: string; nutrient_value: number | null }[] }) =>
-			setIngredientNutrientsFn({ data: { ingredientId, nutrients } }),
+			setIngredientNutrientsFn({
+				data: {
+					ingredientId,
+					nutrients: nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.nutrient_value })),
+				},
+			}),
 	})
 	return {
 		setIngredientNutrients: mutation.mutateAsync,

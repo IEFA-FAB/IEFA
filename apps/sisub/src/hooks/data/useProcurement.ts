@@ -1,5 +1,6 @@
+import type { ProcurementParams } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
-import { type ProcurementParams, procurementNeedsQueryOptions } from "@/services/ProcurementService"
+import { procurementNeedsQueryOptions } from "@/services/ProcurementService"
 
 /**
  * Hook para buscar necessidades de compra

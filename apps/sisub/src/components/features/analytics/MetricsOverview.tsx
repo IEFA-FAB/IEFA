@@ -1,7 +1,7 @@
+import type { DashboardMetrics } from "@iefa/sisub-domain/types"
 import { Coffee, Moon, Users, Utensils } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/cn"
-import type { DashboardMetrics } from "@/types/domain/dashboard"
 
 const MEAL_ICONS = {
 	cafe: Coffee,

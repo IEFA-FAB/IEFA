@@ -1,3 +1,4 @@
+import type { MessHallStats } from "@iefa/sisub-domain/types"
 import { Building2, ChevronDown, ChevronRight, Maximize2, Minimize2, Minus, TrendingDown, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -6,7 +7,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import { calculatePercentage } from "@/lib/dashboard"
-import type { MessHallStats } from "@/types/domain/dashboard"
 
 interface MessHallBreakdownProps {
 	data: MessHallStats[]

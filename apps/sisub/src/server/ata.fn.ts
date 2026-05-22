@@ -6,11 +6,11 @@
  */
 
 import type { ProcurementList } from "@iefa/database/sisub"
+import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
-import type { ProcurementNeed } from "@/services/ProcurementService"
 import type { AtaKitchenWithDetails, AtaWithDetails } from "@/types/domain/ata"
 
 // ─── Input Schemas ────────────────────────────────────────────────────────────

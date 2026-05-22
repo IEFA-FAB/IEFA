@@ -105,6 +105,7 @@ export const queryKeys = {
 
 	compras: {
 		uasg: (codigoUasg: string | null | undefined) => ["compras", "uasg", codigoUasg] as const,
+		priceResearch: (catmatCode: number | null, pagina: number, estado: string | null) => ["compras", "price-research", catmatCode, pagina, estado] as const,
 	},
 
 	unitDashboard: (unitId: number | null) => ["unit_dashboard", unitId] as const,

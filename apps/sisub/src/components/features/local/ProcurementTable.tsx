@@ -1,7 +1,7 @@
+import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { Package } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { ProcurementNeed } from "@/services/ProcurementService"
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 

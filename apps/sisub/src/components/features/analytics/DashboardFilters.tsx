@@ -1,10 +1,10 @@
+import type { MessHallAPI } from "@iefa/sisub-domain/types"
 import { Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { MessHallAPI } from "@/types/domain/dashboard"
 
 interface DashboardFiltersProps {
 	dateRange: { start: string; end: string }

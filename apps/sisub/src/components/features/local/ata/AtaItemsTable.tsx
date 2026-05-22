@@ -1,11 +1,13 @@
-import { Package } from "lucide-react"
+import type { ProcurementNeed } from "@iefa/sisub-domain/types"
+import { MoreHorizontal, Package, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { ProcurementNeed } from "@/services/ProcurementService"
 
 interface AtaItemsTableProps {
 	data: ProcurementNeed[]
 	isLoading?: boolean
+	onPesquisarPreco?: (item: ProcurementNeed) => void
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -17,7 +19,7 @@ function formatCatmat(code: number | null): string {
 	return String(code)
 }
 
-export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
+export function AtaItemsTable({ data, isLoading, onPesquisarPreco }: AtaItemsTableProps) {
 	const groupedData = data.reduce(
 		(acc, item) => {
 			const category = item.folder_description || "Sem categoria"
@@ -99,6 +101,7 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 										<TableHead className="text-right">Qtd Compra</TableHead>
 										<TableHead className="text-right">Preço Un.</TableHead>
 										<TableHead className="text-right">Total Est.</TableHead>
+										{onPesquisarPreco && <TableHead className="w-10" />}
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -130,6 +133,24 @@ export function AtaItemsTable({ data, isLoading }: AtaItemsTableProps) {
 												<TableCell className="text-right tabular-nums text-subheading">
 													{item.unit_price !== null ? BRL.format(qty * item.unit_price) : <span className="text-muted-foreground">—</span>}
 												</TableCell>
+												{onPesquisarPreco && (
+													<TableCell className="w-10 p-1">
+														{item.catmat_item_codigo && (
+															<DropdownMenu>
+																<DropdownMenuTrigger className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+																	<MoreHorizontal className="size-4" aria-hidden="true" />
+																	<span className="sr-only">Ações</span>
+																</DropdownMenuTrigger>
+																<DropdownMenuContent align="end">
+																	<DropdownMenuItem onClick={() => onPesquisarPreco(item)}>
+																		<TrendingUp />
+																		Pesquisar preço
+																	</DropdownMenuItem>
+																</DropdownMenuContent>
+															</DropdownMenu>
+														)}
+													</TableCell>
+												)}
 											</TableRow>
 										)
 									})}

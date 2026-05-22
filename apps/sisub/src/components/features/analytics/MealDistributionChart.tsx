@@ -1,7 +1,7 @@
+import type { DailyMealStat } from "@iefa/sisub-domain/types"
 import { BarChart3 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { parseLocalDate } from "@/lib/dashboard"
-import type { DailyMealStat } from "@/types/domain/dashboard"
 
 interface MealDistributionChartProps {
 	data: DailyMealStat[]
