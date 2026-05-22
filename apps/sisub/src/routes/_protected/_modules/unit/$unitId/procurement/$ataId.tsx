@@ -57,6 +57,7 @@ function ataItemToNeed(item: ProcurementListItem): ProcurementNeed {
 		catmat_item_codigo: item.catmat_item_codigo,
 		catmat_item_descricao: item.catmat_item_descricao,
 		unit_price: item.unit_price !== null ? Number(item.unit_price) : null,
+		ata_item_id: item.id,
 	}
 }
 
@@ -280,6 +281,8 @@ function AtaDetailPage() {
 					}}
 					catmatCode={priceResearchItem.catmat_item_codigo}
 					catmatDescription={priceResearchItem.catmat_item_descricao}
+					ataId={ataId}
+					ataItemId={priceResearchItem.ata_item_id ?? undefined}
 				/>
 			)}
 		</div>

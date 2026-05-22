@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	type Column,
 	type ColumnDef,
@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
-import { searchMaterialPricesFn } from "@/server/price-research.fn"
+import { savePrecoAuditFn, searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPricePage, ComprasMaterialPriceResult } from "@/types/domain/price-research"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -241,17 +241,26 @@ function SortableHeader({ column, title, align }: { column: Column<ComprasMateri
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+export interface PriceResearchAuditIds {
+	researchId: string
+	researchItemId: string
+}
+
 interface PriceResearchModalProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	catmatCode: number
 	catmatDescription?: string | null
-	onApplyPrice?: (price: number) => void
+	/** UUID da ATA já existente (opcional — permite link imediato do audit record) */
+	ataId?: string
+	/** UUID do item da ATA já existente (opcional — permite link imediato) */
+	ataItemId?: string
+	onApplyPrice?: (price: number, auditIds: PriceResearchAuditIds | null) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, onApplyPrice }: PriceResearchModalProps) {
+export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescription, ataId, ataItemId, onApplyPrice }: PriceResearchModalProps) {
 	const [sorting, setSorting] = useState<SortingState>([])
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -415,7 +424,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 						variant="ghost"
 						className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary"
 						onClick={() => {
-							onApplyPrice(row.original.precoUnitario as number)
+							onApplyPrice(row.original.precoUnitario as number, null)
 							onOpenChange(false)
 						}}
 					>
@@ -491,6 +500,71 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 		return { stats, outlierCount: 0, rawCount: prices.length, validCount: prices.length, uniqueSources, fromSelection: true }
 	}, [selectedRows, fullAnalysis])
 
+	// ── Audit save ────────────────────────────────────────────────────────────
+
+	const [isSavingMethod, setIsSavingMethod] = useState<"mean" | "median" | null>(null)
+
+	const { mutateAsync: saveAudit } = useMutation({
+		mutationFn: savePrecoAuditFn,
+	})
+
+	async function handleUsePrice(price: number, method: "mean" | "median") {
+		if (!onApplyPrice || !activeAnalysis) return
+		setIsSavingMethod(method)
+		let auditIds: PriceResearchAuditIds | null = null
+		try {
+			// Compute valid / outlier split for the audit record
+			let validSamples: ComprasMaterialPriceResult[]
+			let outlierSamples: ComprasMaterialPriceResult[]
+			if (activeAnalysis.fromSelection) {
+				validSamples = selectedRows.map((r) => r.original)
+				outlierSamples = []
+			} else {
+				const prices = filteredRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
+				if (prices.length >= 4) {
+					const sorted = [...prices].sort((a, b) => a - b)
+					const n = sorted.length
+					const q1 = sorted[Math.floor(n * 0.25)]
+					const q3 = sorted[Math.floor(n * 0.75)]
+					const iqr = q3 - q1
+					const lower = q1 - 1.5 * iqr
+					const upper = q3 + 1.5 * iqr
+					validSamples = filteredRows
+						.filter((r) => r.original.precoUnitario === null || (r.original.precoUnitario >= lower && r.original.precoUnitario <= upper))
+						.map((r) => r.original)
+					outlierSamples = filteredRows
+						.filter((r) => r.original.precoUnitario !== null && (r.original.precoUnitario < lower || r.original.precoUnitario > upper))
+						.map((r) => r.original)
+				} else {
+					validSamples = filteredRows.map((r) => r.original)
+					outlierSamples = []
+				}
+			}
+			const result = await saveAudit({
+				data: {
+					catmatCodigo: catmatCode,
+					catmatDescricao: catmatDescription ?? null,
+					method,
+					referencePrice: price,
+					stats: { ...activeAnalysis.stats, uniqueSources: activeAnalysis.uniqueSources },
+					rawCount: activeAnalysis.rawCount,
+					validCount: activeAnalysis.validCount,
+					outlierCount: activeAnalysis.outlierCount,
+					validSamples,
+					outlierSamples,
+					ataId: ataId ?? undefined,
+					ataItemId: ataItemId ?? undefined,
+				},
+			})
+			auditIds = result
+		} catch {
+			// Audit save failing is non-fatal — price is still applied
+		}
+		onApplyPrice(price, auditIds)
+		onOpenChange(false)
+		setIsSavingMethod(null)
+	}
+
 	// ── Handlers ──────────────────────────────────────────────────────────────
 
 	function handleRefresh() {
@@ -558,13 +632,11 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 								{onApplyPrice && (
 									<button
 										type="button"
-										className="mt-0.5 text-[11px] text-primary hover:underline"
-										onClick={() => {
-											onApplyPrice(activeAnalysis.stats.mean)
-											onOpenChange(false)
-										}}
+										disabled={isSavingMethod !== null}
+										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
+										onClick={() => handleUsePrice(activeAnalysis.stats.mean, "mean")}
 									>
-										Usar
+										{isSavingMethod === "mean" ? "Salvando…" : "Usar"}
 									</button>
 								)}
 							</div>
@@ -574,13 +646,11 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 								{onApplyPrice && (
 									<button
 										type="button"
-										className="mt-0.5 text-[11px] text-primary hover:underline"
-										onClick={() => {
-											onApplyPrice(activeAnalysis.stats.median)
-											onOpenChange(false)
-										}}
+										disabled={isSavingMethod !== null}
+										className="mt-0.5 text-[11px] text-primary hover:underline disabled:opacity-50"
+										onClick={() => handleUsePrice(activeAnalysis.stats.median, "median")}
 									>
-										Usar
+										{isSavingMethod === "median" ? "Salvando…" : "Usar"}
 									</button>
 								)}
 							</div>

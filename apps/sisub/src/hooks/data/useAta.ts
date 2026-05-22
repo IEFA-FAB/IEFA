@@ -40,7 +40,17 @@ export function useCalculateAtaNeeds() {
 export function useCreateAta() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ unitId, wizardState, items }: { unitId: number; wizardState: AtaWizardState; items: Awaited<ReturnType<typeof calculateAtaNeedsFn>> }) =>
+		mutationFn: ({
+			unitId,
+			wizardState,
+			items,
+			researchLinks,
+		}: {
+			unitId: number
+			wizardState: AtaWizardState
+			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
+			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
+		}) =>
 			createAtaFn({
 				data: {
 					unitId,
@@ -48,6 +58,7 @@ export function useCreateAta() {
 					notes: wizardState.notes || undefined,
 					kitchenSelections: wizardState.kitchenSelections,
 					items,
+					researchLinks,
 				},
 			}),
 		onSuccess: (data) => {

@@ -258,6 +258,15 @@ export const createAtaFn = createServerFn({ method: "POST" })
 					unit_price: z.number().optional().nullable(),
 				})
 			),
+			researchLinks: z
+				.array(
+					z.object({
+						ingredientId: z.string(),
+						researchId: z.string().uuid(),
+						researchItemId: z.string().uuid(),
+					})
+				)
+				.optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<ProcurementList> => {
@@ -322,8 +331,22 @@ export const createAtaFn = createServerFn({ method: "POST" })
 				catmat_item_descricao: item.catmat_item_descricao || null,
 				unit_price: item.unit_price || null,
 			}))
-			const { error: itemsError } = await supabase.from("procurement_list_item").insert(itemRows)
+			const { data: insertedItems, error: itemsError } = await supabase.from("procurement_list_item").insert(itemRows).select("id, ingredient_id")
 			if (itemsError) throw new Error(`Erro ao salvar itens: ${itemsError.message}`)
+
+			// 4. Linkar registros de auditoria de pesquisa de preços (se houver)
+			if (data.researchLinks?.length && insertedItems?.length) {
+				await Promise.all(
+					data.researchLinks.map(async (link) => {
+						const ataItem = insertedItems.find((i) => i.ingredient_id === link.ingredientId)
+						if (!ataItem) return
+						await Promise.all([
+							supabase.schema("sisub").from("procurement_pesquisa_preco_item").update({ ata_item_id: ataItem.id }).eq("id", link.researchItemId),
+							supabase.schema("sisub").from("procurement_pesquisa_preco").update({ ata_id: ata.id }).eq("id", link.researchId),
+						])
+					})
+				)
+			}
 		}
 
 		return ata

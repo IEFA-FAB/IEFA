@@ -149,11 +149,11 @@ function NewAtaPage() {
 	const { mutate: createAta, isPending: isCreating } = useCreateAta()
 	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
-	const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>({})
+	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
 	const rawItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
 	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
 		...item,
-		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id] : item.unit_price,
+		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
 	}))
 
 	const handleCalculate = () => {
@@ -168,8 +168,15 @@ function NewAtaPage() {
 
 	const handleSave = () => {
 		const stateToSave: AtaWizardState = { ...wizardState, kitchenSelections }
+		const researchLinks = Object.entries(priceOverrides)
+			.filter(([, v]) => v.researchId && v.researchItemId)
+			.map(([ingredientId, v]) => ({
+				ingredientId,
+				researchId: v.researchId as string,
+				researchItemId: v.researchItemId as string,
+			}))
 		createAta(
-			{ unitId, wizardState: stateToSave, items: displayItems },
+			{ unitId, wizardState: stateToSave, items: displayItems, researchLinks },
 			{
 				onSuccess: (ata) => {
 					navigate({
@@ -426,8 +433,15 @@ function NewAtaPage() {
 					}}
 					catmatCode={priceResearchItem.catmat_item_codigo}
 					catmatDescription={priceResearchItem.catmat_item_descricao}
-					onApplyPrice={(price) => {
-						setPriceOverrides((prev) => ({ ...prev, [priceResearchItem.ingredient_id]: price }))
+					onApplyPrice={(price, auditIds) => {
+						setPriceOverrides((prev) => ({
+							...prev,
+							[priceResearchItem.ingredient_id]: {
+								price,
+								researchId: auditIds?.researchId ?? null,
+								researchItemId: auditIds?.researchItemId ?? null,
+							},
+						}))
 						setPriceResearchItem(null)
 					}}
 				/>

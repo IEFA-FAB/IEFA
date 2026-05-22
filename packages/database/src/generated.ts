@@ -3480,7 +3480,7 @@ export type Database = {
 			}
 			procurement_pesquisa_preco: {
 				Row: {
-					ata_id: string
+					ata_id: string | null
 					created_at: string
 					filter_estado: string | null
 					filter_municipio_code: number | null
@@ -3489,13 +3489,13 @@ export type Database = {
 					items_with_price: number
 					items_without_catmat: number
 					non_compliant_items: number
-					period_months: number
+					period_months: number | null
 					reference_method: string
-					similarity_threshold: number
+					similarity_threshold: number | null
 					total_items: number
 				}
 				Insert: {
-					ata_id: string
+					ata_id?: string | null
 					created_at?: string
 					filter_estado?: string | null
 					filter_municipio_code?: number | null
@@ -3504,13 +3504,13 @@ export type Database = {
 					items_with_price?: number
 					items_without_catmat?: number
 					non_compliant_items?: number
-					period_months?: number
+					period_months?: number | null
 					reference_method?: string
-					similarity_threshold: number
+					similarity_threshold?: number | null
 					total_items?: number
 				}
 				Update: {
-					ata_id?: string
+					ata_id?: string | null
 					created_at?: string
 					filter_estado?: string | null
 					filter_municipio_code?: number | null
@@ -3519,9 +3519,9 @@ export type Database = {
 					items_with_price?: number
 					items_without_catmat?: number
 					non_compliant_items?: number
-					period_months?: number
+					period_months?: number | null
 					reference_method?: string
-					similarity_threshold?: number
+					similarity_threshold?: number | null
 					total_items?: number
 				}
 				Relationships: [
