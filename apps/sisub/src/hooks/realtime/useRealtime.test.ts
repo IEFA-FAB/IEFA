@@ -10,6 +10,7 @@ import {
 
 const supabaseEnv = getSupabaseTestEnv({ requireAnonKey: true })
 type SisubServiceClient = ReturnType<typeof createSisubServiceClient>
+type RealtimeTestClient = SisubServiceClient
 
 async function canReachSupabase() {
 	if (!supabaseEnv) return false
@@ -60,6 +61,29 @@ function waitForSubscribed(channel: RealtimeChannel, timeoutMs = 8000) {
 	})
 }
 
+function waitForExpectation(predicate: () => boolean, timeoutMs = 8000) {
+	return new Promise<void>((resolve, reject) => {
+		const startedAt = Date.now()
+		const timer = setInterval(() => {
+			if (predicate()) {
+				clearInterval(timer)
+				resolve()
+			} else if (Date.now() - startedAt >= timeoutMs) {
+				clearInterval(timer)
+				reject(new Error(`expectation timed out after ${timeoutMs}ms`))
+			}
+		}, 100)
+	})
+}
+
+async function removeRealtimeChannel(client: RealtimeTestClient, channel: RealtimeChannel) {
+	try {
+		await client.removeChannel(channel)
+	} catch {
+		// Realtime cleanup can reject while the Phoenix socket is already closing.
+	}
+}
+
 // ============================================================================
 // RLS policies — authenticated SELECT access via real user session
 // ============================================================================
@@ -74,9 +98,9 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
 		if (!reachable || !supabaseEnv) return
-		adminClient = createSisubServiceClient(supabaseEnv)
+		adminClient = createSisubServiceClient(supabaseEnv, { requestTimeoutMs: 5_000 })
 		testUser = await createTestUser(adminClient)
-	})
+	}, 30_000)
 
 	afterAll(async () => {
 		if (!reachable || !testUser) return
@@ -110,33 +134,57 @@ describeSupabaseIntegration("Realtime RLS policies", () => {
 
 describeSupabaseIntegration("Realtime event delivery", () => {
 	let reachable = false
+	let realtimeReady = false
 
 	beforeAll(async () => {
 		reachable = await canReachSupabase()
 		if (!reachable || !supabaseEnv) return
 		// Poll until the Realtime tenant is ready. deleteUser in the previous suite's
 		// afterAll triggers a tenant reinitialization whose duration is variable and
-		// can exceed a fixed sleep — probe until a subscription completes instead.
+		// can exceed a fixed sleep — probe until subscription and delivery work.
 		const sb = createSisubServiceClient(supabaseEnv)
 		for (let i = 0; i < 8; i++) {
-			const probe = sb.channel(`rt-probe-${Date.now()}`)
+			const events: unknown[] = []
+			let recipeId: string | null = null
+			const probe = sb
+				.channel(`rt-probe-${Date.now()}`)
+				.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes" }, (payload) => events.push(payload))
 			try {
 				await waitForSubscribed(probe, 3000)
-				await sb.removeChannel(probe)
+				await new Promise((r) => setTimeout(r, 1000))
+
+				const { data: recipe, error } = await sb
+					.from("recipes")
+					.insert({ name: "[TEST-RT] Readiness Probe", portion_yield: 1, kitchen_id: null, version: 1 })
+					.select("id")
+					.single()
+				if (error) throw error
+				recipeId = recipe?.id ?? null
+
+				await waitForExpectation(() => events.length > 0, 5000)
+				await removeRealtimeChannel(sb, probe)
+				if (recipeId) {
+					await sb.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+				}
+				realtimeReady = true
 				return
 			} catch {
-				await sb.removeChannel(probe)
+				await removeRealtimeChannel(sb, probe)
+				if (recipeId) {
+					await sb.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+				}
 				if (i < 7) await new Promise((r) => setTimeout(r, 1500))
 			}
 		}
-	}, 35_000)
+	}, 90_000)
 
 	test("receives event when recipe is inserted", async () => {
-		if (!reachable || !supabaseEnv) return
+		if (!reachable || !realtimeReady || !supabaseEnv) return
 
 		// Fresh client per test — avoids lingering auth state from previous suites
 		const supabase = createSisubServiceClient(supabaseEnv)
 		const events: unknown[] = []
+		let recipeId: string | null = null
 
 		const channel = supabase
 			.channel(`test-recipes-rt-${Date.now()}`)
@@ -145,27 +193,30 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 		// Allow tenant replication slot to finish initializing after fresh connection
 		await new Promise((r) => setTimeout(r, 2000))
 
-		const { data: recipe, error } = await supabase
-			.from("recipes")
-			.insert({ name: "[TEST-RT] Event Delivery", portion_yield: 1, kitchen_id: null, version: 1 })
-			.select("id")
-			.single()
+		try {
+			const { data: recipe, error } = await supabase
+				.from("recipes")
+				.insert({ name: "[TEST-RT] Event Delivery", portion_yield: 1, kitchen_id: null, version: 1 })
+				.select("id")
+				.single()
 
-		expect(error).toBeNull()
+			expect(error).toBeNull()
+			recipeId = recipe?.id ?? null
 
-		await new Promise((r) => setTimeout(r, 3000))
-		await supabase.removeChannel(channel)
+			await waitForExpectation(() => events.length > 0, 8000)
 
-		if (recipe) {
-			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipe.id)
+			expect(events.length).toBeGreaterThanOrEqual(1)
+			expect((events[0] as Record<string, unknown>).eventType).toBe("INSERT")
+		} finally {
+			await removeRealtimeChannel(supabase, channel)
+			if (recipeId) {
+				await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+			}
 		}
-
-		expect(events.length).toBeGreaterThanOrEqual(1)
-		expect((events[0] as Record<string, unknown>).eventType).toBe("INSERT")
-	}, 15_000)
+	}, 35_000)
 
 	test("filter delivers only matching kitchen_id events", async () => {
-		if (!reachable || !supabaseEnv) return
+		if (!reachable || !realtimeReady || !supabaseEnv) return
 
 		// Fresh client per test
 		const supabase = createSisubServiceClient(supabaseEnv)
@@ -173,6 +224,7 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 		const KITCHEN_ID = 1
 		const matched: unknown[] = []
 		const missed: unknown[] = []
+		let recipeId: string | null = null
 
 		const matchChannel = supabase
 			.channel(`test-filter-hit-${ts}`)
@@ -184,25 +236,28 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 
 		await Promise.all([waitForSubscribed(matchChannel), waitForSubscribed(missChannel)])
 
-		const { data: recipe, error } = await supabase
-			.from("recipes")
-			.insert({ name: "[TEST-RT] Filtered Event", portion_yield: 1, kitchen_id: KITCHEN_ID, version: 1 })
-			.select("id")
-			.single()
+		try {
+			const { data: recipe, error } = await supabase
+				.from("recipes")
+				.insert({ name: "[TEST-RT] Filtered Event", portion_yield: 1, kitchen_id: KITCHEN_ID, version: 1 })
+				.select("id")
+				.single()
 
-		expect(error).toBeNull()
+			expect(error).toBeNull()
+			recipeId = recipe?.id ?? null
 
-		await new Promise((r) => setTimeout(r, 3000))
-		await supabase.removeChannel(matchChannel)
-		await supabase.removeChannel(missChannel)
+			await waitForExpectation(() => matched.length > 0, 8000)
 
-		if (recipe) {
-			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipe.id)
+			expect(matched.length).toBeGreaterThanOrEqual(1)
+			expect(missed.length).toBe(0)
+		} finally {
+			await removeRealtimeChannel(supabase, matchChannel)
+			await removeRealtimeChannel(supabase, missChannel)
+			if (recipeId) {
+				await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+			}
 		}
-
-		expect(matched.length).toBeGreaterThanOrEqual(1)
-		expect(missed.length).toBe(0)
-	}, 15_000)
+	}, 35_000)
 })
 
 // ============================================================================

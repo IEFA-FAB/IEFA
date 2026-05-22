@@ -193,7 +193,7 @@ describeSupabaseIntegration("purchase_item CRUD (integração)", () => {
 			.select("id")
 			.single()
 		testIngredientId = data?.id ?? null
-	})
+	}, 30_000)
 
 	afterAll(async () => {
 		if (!reachable || !supabaseEnv) return
