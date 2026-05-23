@@ -221,6 +221,266 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 		return needs
 	})
 
+// ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
+
+export const createAtaDraftFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ unitId: z.number() }))
+	.handler(async ({ data }): Promise<{ id: string }> => {
+		await requireAuth()
+		const supabase = getSupabaseServerClient()
+		const { data: ata, error } = await supabase
+			.from("procurement_list")
+			.insert({ unit_id: data.unitId, title: "Sem nome", status: "draft", wizard_step: 1 })
+			.select("id")
+			.single()
+		if (error) throw new Error(`Erro ao criar rascunho: ${error.message}`)
+		return { id: ata.id }
+	})
+
+// ─── Atualizar metadados e seleções do rascunho ───────────────────────────────
+
+export const updateAtaDraftFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			draftId: z.string().uuid(),
+			title: z.string().optional(),
+			notes: z.string().optional(),
+			wizardStep: z.number().min(1).max(4).optional(),
+			kitchenSelections: z.array(KitchenSelectionSchema).optional(),
+		})
+	)
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const supabase = getSupabaseServerClient()
+
+		const updateData = {
+			updated_at: new Date().toISOString(),
+			...(data.title !== undefined && { title: data.title }),
+			...(data.notes !== undefined && { notes: data.notes || null }),
+			...(data.wizardStep !== undefined && { wizard_step: data.wizardStep }),
+		}
+
+		const { error: updateError } = await supabase.from("procurement_list").update(updateData).eq("id", data.draftId)
+		if (updateError) throw new Error(`Erro ao atualizar rascunho: ${updateError.message}`)
+
+		if (data.kitchenSelections !== undefined) {
+			await supabase.from("procurement_list_kitchen").delete().eq("list_id", data.draftId)
+
+			await Promise.all(
+				data.kitchenSelections.map(async (ks) => {
+					const allSels = [...ks.templateSelections, ...ks.eventSelections]
+					if (allSels.length === 0) return
+
+					const { data: ataKitchen, error: kitchenError } = await supabase
+						.from("procurement_list_kitchen")
+						.insert({ list_id: data.draftId, kitchen_id: ks.kitchenId, delivery_notes: ks.deliveryNotes || null })
+						.select()
+						.single()
+					if (kitchenError) throw new Error(`Erro ao salvar cozinha: ${kitchenError.message}`)
+
+					const selRows = allSels.map((s) => ({
+						list_kitchen_id: ataKitchen.id,
+						template_id: s.templateId,
+						repetitions: s.repetitions,
+					}))
+					const { error: selError } = await supabase.from("procurement_list_selection").insert(selRows)
+					if (selError) throw new Error(`Erro ao salvar seleções: ${selError.message}`)
+				})
+			)
+		}
+	})
+
+// ─── Salvar itens calculados no rascunho (substitui todos) ───────────────────
+
+const DraftItemSchema = z.object({
+	ata_item_id: z.string().uuid().optional().nullable(), // presente em itens já persistidos
+	ingredient_id: z.string().optional().nullable(),
+	ingredient_name: z.string(),
+	folder_id: z.string().optional().nullable(),
+	folder_description: z.string().optional().nullable(),
+	measure_unit: z.string().optional().nullable(),
+	total_quantity: z.number(),
+	purchase_item_id: z.string().optional().nullable(),
+	purchase_item_description: z.string().optional().nullable(),
+	purchase_measure_unit: z.string().optional().nullable(),
+	purchase_quantity: z.number().optional().nullable(),
+	conversion_factor: z.number().optional().nullable(),
+	catmat_item_codigo: z.number().optional().nullable(),
+	catmat_item_descricao: z.string().optional().nullable(),
+	unit_price: z.number().optional().nullable(),
+})
+
+function buildItemPayload(item: z.infer<typeof DraftItemSchema>, draftId: string) {
+	return {
+		list_id: draftId,
+		ingredient_id: item.ingredient_id || null,
+		ingredient_name: item.ingredient_name,
+		folder_id: item.folder_id || null,
+		folder_description: item.folder_description || null,
+		measure_unit: item.measure_unit || null,
+		total_quantity: item.total_quantity,
+		purchase_item_id: item.purchase_item_id || null,
+		purchase_item_description: item.purchase_item_description || null,
+		purchase_measure_unit: item.purchase_measure_unit || null,
+		purchase_quantity: item.purchase_quantity || null,
+		conversion_factor: item.conversion_factor || null,
+		catmat_item_codigo: item.catmat_item_codigo || null,
+		catmat_item_descricao: item.catmat_item_descricao || null,
+		unit_price: item.unit_price || null,
+	}
+}
+
+export const saveAtaDraftItemsFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			draftId: z.string().uuid(),
+			items: z.array(DraftItemSchema),
+			researchLinks: z
+				.array(
+					z.object({
+						ingredientId: z.string(),
+						researchId: z.string().uuid(),
+						researchItemId: z.string().uuid(),
+					})
+				)
+				.optional(),
+		})
+	)
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const supabase = getSupabaseServerClient()
+
+		// Separar itens existentes (têm ata_item_id) dos novos
+		const existing = data.items.filter((i) => i.ata_item_id)
+		const toInsert = data.items.filter((i) => !i.ata_item_id)
+		const keepIds = new Set(existing.map((i) => i.ata_item_id as string))
+
+		// Deletar itens que não estão mais na lista
+		const { data: currentItems } = await supabase.from("procurement_list_item").select("id").eq("list_id", data.draftId)
+		const toDelete = (currentItems || []).filter((row) => !keepIds.has(row.id)).map((row) => row.id)
+		if (toDelete.length > 0) {
+			await supabase.from("procurement_list_item").delete().in("id", toDelete)
+		}
+
+		// Atualizar itens existentes (preserva IDs, logo preserva pesquisa_preco_item.ata_item_id)
+		await Promise.all(
+			existing.map((item) =>
+				supabase
+					.from("procurement_list_item")
+					.update(buildItemPayload(item, data.draftId))
+					.eq("id", item.ata_item_id as string)
+			)
+		)
+
+		// Inserir itens novos
+		const insertedItemsById = new Map<string, string>() // ingredient_id → new item id
+		if (toInsert.length > 0) {
+			const { data: insertedItems, error: itemsError } = await supabase
+				.from("procurement_list_item")
+				.insert(toInsert.map((item) => buildItemPayload(item, data.draftId)))
+				.select("id, ingredient_id")
+			if (itemsError) throw new Error(`Erro ao salvar itens: ${itemsError.message}`)
+			for (const row of insertedItems || []) {
+				if (row.ingredient_id) insertedItemsById.set(row.ingredient_id, row.id)
+			}
+		}
+
+		// Linkar pesquisas de preço para itens novos (itens existentes já mantêm o link)
+		if (data.researchLinks?.length && insertedItemsById.size > 0) {
+			await Promise.all(
+				data.researchLinks.map(async (link) => {
+					const newItemId = insertedItemsById.get(link.ingredientId)
+					if (!newItemId) return
+					await Promise.all([
+						supabase.schema("sisub").from("procurement_pesquisa_preco_item").update({ ata_item_id: newItemId }).eq("id", link.researchItemId),
+						supabase.schema("sisub").from("procurement_pesquisa_preco").update({ ata_id: data.draftId }).eq("id", link.researchId),
+					])
+				})
+			)
+		}
+
+		await supabase.from("procurement_list").update({ wizard_step: 4, updated_at: new Date().toISOString() }).eq("id", data.draftId)
+	})
+
+// ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
+
+export const finalizeAtaDraftFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			draftId: z.string().uuid(),
+			title: z.string().min(1),
+			notes: z.string().optional(),
+			items: z.array(DraftItemSchema),
+			researchLinks: z
+				.array(
+					z.object({
+						ingredientId: z.string(),
+						researchId: z.string().uuid(),
+						researchItemId: z.string().uuid(),
+					})
+				)
+				.optional(),
+		})
+	)
+	.handler(async ({ data }): Promise<ProcurementList> => {
+		await requireAuth()
+		const supabase = getSupabaseServerClient()
+
+		// Mesma lógica do saveAtaDraftItemsFn: atualizar existentes, inserir novos, deletar removidos
+		const existing = data.items.filter((i) => i.ata_item_id)
+		const toInsert = data.items.filter((i) => !i.ata_item_id)
+		const keepIds = new Set(existing.map((i) => i.ata_item_id as string))
+
+		const { data: currentItems } = await supabase.from("procurement_list_item").select("id").eq("list_id", data.draftId)
+		const toDelete = (currentItems || []).filter((row) => !keepIds.has(row.id)).map((row) => row.id)
+		if (toDelete.length > 0) {
+			await supabase.from("procurement_list_item").delete().in("id", toDelete)
+		}
+
+		await Promise.all(
+			existing.map((item) =>
+				supabase
+					.from("procurement_list_item")
+					.update(buildItemPayload(item, data.draftId))
+					.eq("id", item.ata_item_id as string)
+			)
+		)
+
+		const insertedItemsById = new Map<string, string>()
+		if (toInsert.length > 0) {
+			const { data: insertedItems, error: itemsError } = await supabase
+				.from("procurement_list_item")
+				.insert(toInsert.map((item) => buildItemPayload(item, data.draftId)))
+				.select("id, ingredient_id")
+			if (itemsError) throw new Error(`Erro ao salvar itens: ${itemsError.message}`)
+			for (const row of insertedItems || []) {
+				if (row.ingredient_id) insertedItemsById.set(row.ingredient_id, row.id)
+			}
+		}
+
+		if (data.researchLinks?.length && insertedItemsById.size > 0) {
+			await Promise.all(
+				data.researchLinks.map(async (link) => {
+					const newItemId = insertedItemsById.get(link.ingredientId)
+					if (!newItemId) return
+					await Promise.all([
+						supabase.schema("sisub").from("procurement_pesquisa_preco_item").update({ ata_item_id: newItemId }).eq("id", link.researchItemId),
+						supabase.schema("sisub").from("procurement_pesquisa_preco").update({ ata_id: data.draftId }).eq("id", link.researchId),
+					])
+				})
+			)
+		}
+
+		const { data: ata, error } = await supabase
+			.from("procurement_list")
+			.update({ title: data.title, notes: data.notes || null, wizard_step: null, updated_at: new Date().toISOString() })
+			.eq("id", data.draftId)
+			.select()
+			.single()
+		if (error) throw new Error(`Erro ao finalizar ata: ${error.message}`)
+		return ata
+	})
+
 // ─── Criar ATA (persiste tudo) ────────────────────────────────────────────────
 
 /**

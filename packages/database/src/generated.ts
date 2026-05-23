@@ -3289,6 +3289,7 @@ export type Database = {
 					title: string
 					unit_id: number
 					updated_at: string | null
+					wizard_step: number | null
 				}
 				Insert: {
 					created_at?: string
@@ -3299,6 +3300,7 @@ export type Database = {
 					title: string
 					unit_id: number
 					updated_at?: string | null
+					wizard_step?: number | null
 				}
 				Update: {
 					created_at?: string
@@ -3309,6 +3311,7 @@ export type Database = {
 					title?: string
 					unit_id?: number
 					updated_at?: string | null
+					wizard_step?: number | null
 				}
 				Relationships: [
 					{

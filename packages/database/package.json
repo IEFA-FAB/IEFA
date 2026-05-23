@@ -12,6 +12,7 @@
     "./forms": "./src/forms.ts"
   },
   "scripts": {
+    "generate": "bun run db:types",
     "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
     "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub,iefa,journal,forms > ./src/generated.ts",
     "db:push": "bunx supabase db push",

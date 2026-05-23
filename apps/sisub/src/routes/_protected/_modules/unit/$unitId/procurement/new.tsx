@@ -2,7 +2,7 @@ import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
@@ -16,14 +16,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useCalculateAtaNeeds, useCreateAta } from "@/hooks/data/useAta"
+import { useCalculateAtaNeeds, useCreateAtaDraft, useFinalizeAtaDraft, useSaveAtaDraftItems, useUpdateAtaDraft } from "@/hooks/data/useAta"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
+import { fetchAtaDetailsFn } from "@/server/ata.fn"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
 import type { AtaWizardState, KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
 
 const searchSchema = z.object({
 	step: z.coerce.number().min(1).max(4).optional().default(1),
+	draft: z.string().uuid().optional(),
 })
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/new")({
@@ -43,6 +45,15 @@ function useUnitKitchens(unitId: number | null) {
 		queryFn: () => fetchUnitKitchensFn({ data: { unitId: unitId as number } }),
 		enabled: unitId !== null,
 		staleTime: 10 * 60 * 1000,
+	})
+}
+
+function useAtaDraft(draftId: string | null) {
+	return useQuery({
+		queryKey: ["ata_draft", draftId],
+		queryFn: () => fetchAtaDetailsFn({ data: { ataId: draftId as string } }),
+		enabled: draftId !== null,
+		staleTime: 0,
 	})
 }
 
@@ -92,17 +103,118 @@ function NewAtaPage() {
 	const { unitId: unitIdStr } = useParams({ strict: false })
 	const unitId = Number(unitIdStr)
 	const navigate = useNavigate()
-	const { step } = useSearch({ from: "/_protected/_modules/unit/$unitId/procurement/new" })
+	const { step, draft: draftId } = useSearch({ from: "/_protected/_modules/unit/$unitId/procurement/new" })
 	const currentStep = ((step as number) || 1) as AtaStep
 
 	const { data: kitchens, isLoading: isLoadingKitchens } = useUnitKitchens(unitId)
+	const { data: existingDraft, isLoading: isLoadingDraft } = useAtaDraft(draftId ?? null)
 
-	// Estado do wizard
+	const { mutate: createDraft, isPending: isCreatingDraft } = useCreateAtaDraft()
+	const { mutate: updateDraft } = useUpdateAtaDraft()
+	const { mutate: saveDraftItems } = useSaveAtaDraftItems()
+	const { mutate: finalizeDraft, isPending: isFinalizing } = useFinalizeAtaDraft()
+
+	const draftCreatedRef = useRef(false)
+	const draftRestoredRef = useRef(false)
+
 	const [wizardState, setWizardState] = useState<AtaWizardState>({
 		title: "",
 		notes: "",
 		kitchenSelections: [],
 	})
+
+	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
+	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
+	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
+
+	// Criar draft se ainda não existe
+	useEffect(() => {
+		if (draftId || draftCreatedRef.current || isLoadingKitchens) return
+		draftCreatedRef.current = true
+		createDraft(unitId, {
+			onSuccess: ({ id }) => {
+				navigate({
+					to: "/unit/$unitId/procurement/new",
+					params: { unitId: unitIdStr as string },
+					search: { step: 1, draft: id },
+					replace: true,
+				})
+			},
+		})
+	}, [draftId, isLoadingKitchens, unitId, unitIdStr, navigate, createDraft])
+
+	// Restaurar estado do wizard a partir do draft existente
+	useEffect(() => {
+		if (!existingDraft || draftRestoredRef.current) return
+		draftRestoredRef.current = true
+
+		setWizardState({
+			title: existingDraft.title === "Sem nome" ? "" : existingDraft.title,
+			notes: existingDraft.notes || "",
+			kitchenSelections: [],
+		})
+
+		if (existingDraft.kitchens?.length) {
+			const restored: KitchenSelectionState[] = existingDraft.kitchens.map((k) => {
+				const kWithDetails = k as typeof k & { kitchen?: { display_name?: string | null } }
+				return {
+					kitchenId: k.kitchen_id,
+					kitchenName: kWithDetails.kitchen?.display_name || `Cozinha ${k.kitchen_id}`,
+					deliveryNotes: k.delivery_notes || "",
+					templateSelections: k.selections
+						.filter((s) => {
+							const sw = s as typeof s & { template?: { template_type?: string } }
+							return sw.template?.template_type === "weekly" || !sw.template?.template_type
+						})
+						.map((s) => {
+							const sw = s as typeof s & { template?: { name?: string | null } }
+							return { templateId: s.template_id, templateName: sw.template?.name || "", repetitions: s.repetitions }
+						}),
+					eventSelections: k.selections
+						.filter((s) => {
+							const sw = s as typeof s & { template?: { template_type?: string } }
+							return sw.template?.template_type === "event"
+						})
+						.map((s) => {
+							const sw = s as typeof s & { template?: { name?: string | null } }
+							return { templateId: s.template_id, templateName: sw.template?.name || "", repetitions: s.repetitions }
+						}),
+				}
+			})
+			setWizardState((prev) => ({ ...prev, kitchenSelections: restored }))
+		}
+
+		if (existingDraft.items?.length) {
+			const restoredItems: ProcurementNeed[] = existingDraft.items.map((item) => ({
+				folder_id: item.folder_id,
+				folder_description: item.folder_description,
+				ingredient_id: item.ingredient_id || "",
+				ingredient_name: item.ingredient_name,
+				measure_unit: item.measure_unit,
+				total_quantity: Number(item.total_quantity),
+				purchase_item_id: item.purchase_item_id,
+				purchase_item_description: item.purchase_item_description,
+				purchase_measure_unit: item.purchase_measure_unit,
+				purchase_quantity: item.purchase_quantity ? Number(item.purchase_quantity) : null,
+				conversion_factor: item.conversion_factor ? Number(item.conversion_factor) : null,
+				catmat_item_codigo: item.catmat_item_codigo,
+				catmat_item_descricao: item.catmat_item_descricao,
+				unit_price: item.unit_price ? Number(item.unit_price) : null,
+				ata_item_id: item.id,
+			}))
+			setSavedItems(restoredItems)
+		}
+
+		const restoredStep = existingDraft.wizard_step
+		if (restoredStep && restoredStep !== currentStep) {
+			navigate({
+				to: "/unit/$unitId/procurement/new",
+				params: { unitId: unitIdStr as string },
+				search: { step: restoredStep, draft: existingDraft.id },
+				replace: true,
+			})
+		}
+	}, [existingDraft, currentStep, unitIdStr, navigate])
 
 	// Merge de kitchenSelections com cozinhas carregadas
 	const kitchenSelections: KitchenSelectionState[] =
@@ -146,28 +258,45 @@ function NewAtaPage() {
 	}
 
 	const { mutate: calculateNeeds, data: calculatedItems, isPending: isCalculating } = useCalculateAtaNeeds()
-	const { mutate: createAta, isPending: isCreating } = useCreateAta()
-	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
-	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
-	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
 	const rawItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
 	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
 		...item,
 		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
 	}))
 
+	const goToStep = (s: number, saveCurrent = false) => {
+		if (saveCurrent && draftId) {
+			updateDraft({
+				draftId,
+				kitchenSelections,
+				wizardStep: s,
+				title: wizardState.title || undefined,
+				notes: wizardState.notes || undefined,
+			})
+		}
+		navigate({
+			to: "/unit/$unitId/procurement/new",
+			params: { unitId: unitIdStr as string },
+			search: { step: s, draft: draftId },
+		})
+	}
+
 	const handleCalculate = () => {
 		const stateToCalc: AtaWizardState = { ...wizardState, kitchenSelections }
 		calculateNeeds(stateToCalc, {
 			onSuccess: (items) => {
-				setSavedItems(items as ProcurementNeed[])
+				const needs = items as ProcurementNeed[]
+				setSavedItems(needs)
+				if (draftId) {
+					saveDraftItems({ draftId, items: needs })
+				}
 				goToStep(4)
 			},
 		})
 	}
 
 	const handleSave = () => {
-		const stateToSave: AtaWizardState = { ...wizardState, kitchenSelections }
+		if (!draftId) return
 		const researchLinks = Object.entries(priceOverrides)
 			.filter(([, v]) => v.researchId && v.researchItemId)
 			.map(([ingredientId, v]) => ({
@@ -175,8 +304,8 @@ function NewAtaPage() {
 				researchId: v.researchId as string,
 				researchItemId: v.researchItemId as string,
 			}))
-		createAta(
-			{ unitId, wizardState: stateToSave, items: displayItems, researchLinks },
+		finalizeDraft(
+			{ draftId, title: wizardState.title, notes: wizardState.notes || undefined, items: displayItems, researchLinks },
 			{
 				onSuccess: (ata) => {
 					navigate({
@@ -208,17 +337,9 @@ function NewAtaPage() {
 		link.click()
 	}
 
-	const goToStep = (s: number) => {
-		navigate({
-			to: "/unit/$unitId/procurement/new",
-			params: { unitId: unitIdStr as string },
-			search: { step: s },
-		})
-	}
-
 	const hasAnySelection = kitchenSelections.some((ks) => ks.templateSelections.length > 0 || ks.eventSelections.length > 0)
 
-	if (isLoadingKitchens) {
+	if (isLoadingKitchens || (draftId && isLoadingDraft) || isCreatingDraft) {
 		return (
 			<div className="space-y-6">
 				<div className="h-16 animate-pulse rounded bg-muted" aria-hidden="true" />
@@ -252,7 +373,7 @@ function NewAtaPage() {
 						</div>
 					)}
 					<div className="flex justify-end pt-2">
-						<Button onClick={() => goToStep(2)} className="gap-2">
+						<Button onClick={() => goToStep(2, true)} className="gap-2">
 							Próximo: Eventos
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
@@ -276,11 +397,11 @@ function NewAtaPage() {
 						</div>
 					)}
 					<div className="flex justify-between pt-2">
-						<Button variant="outline" onClick={() => goToStep(1)} className="gap-2">
+						<Button variant="outline" onClick={() => goToStep(1, true)} className="gap-2">
 							<ArrowLeft className="size-4" aria-hidden="true" />
 							Cardápios
 						</Button>
-						<Button onClick={() => goToStep(3)} className="gap-2">
+						<Button onClick={() => goToStep(3, true)} className="gap-2">
 							Próximo: Resumo
 							<ArrowRight className="size-4" aria-hidden="true" />
 						</Button>
@@ -415,9 +536,9 @@ function NewAtaPage() {
 											Exportar CSV
 										</Button>
 									)}
-									<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isCreating} className="gap-2">
+									<Button onClick={handleSave} disabled={!wizardState.title.trim() || displayItems.length === 0 || isFinalizing} className="gap-2">
 										<Save className="size-4" aria-hidden="true" />
-										{isCreating ? "Salvando..." : "Salvar ata"}
+										{isFinalizing ? "Salvando..." : "Salvar ata"}
 									</Button>
 								</div>
 							</div>
@@ -434,15 +555,31 @@ function NewAtaPage() {
 					catmatCode={priceResearchItem.catmat_item_codigo}
 					catmatDescription={priceResearchItem.catmat_item_descricao}
 					onApplyPrice={(price, auditIds) => {
-						setPriceOverrides((prev) => ({
-							...prev,
+						const newOverrides = {
+							...priceOverrides,
 							[priceResearchItem.ingredient_id]: {
 								price,
 								researchId: auditIds?.researchId ?? null,
 								researchItemId: auditIds?.researchItemId ?? null,
 							},
-						}))
+						}
+						setPriceOverrides(newOverrides)
 						setPriceResearchItem(null)
+
+						if (draftId) {
+							const updatedItems = rawItems.map((item) => ({
+								...item,
+								unit_price: item.ingredient_id in newOverrides ? newOverrides[item.ingredient_id].price : item.unit_price,
+							}))
+							const researchLinks = Object.entries(newOverrides)
+								.filter(([, v]) => v.researchId && v.researchItemId)
+								.map(([ingredientId, v]) => ({
+									ingredientId,
+									researchId: v.researchId as string,
+									researchItemId: v.researchItemId as string,
+								}))
+							saveDraftItems({ draftId, items: updatedItems, researchLinks })
+						}
 					}}
 				/>
 			)}

@@ -2,7 +2,18 @@ import type { ProcurementList } from "@iefa/database/sisub"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { queryKeys } from "@/lib/query-keys"
-import { calculateAtaNeedsFn, createAtaFn, deleteAtaFn, fetchAtaDetailsFn, fetchAtaListFn, updateAtaStatusFn } from "@/server/ata.fn"
+import {
+	calculateAtaNeedsFn,
+	createAtaDraftFn,
+	createAtaFn,
+	deleteAtaFn,
+	fetchAtaDetailsFn,
+	fetchAtaListFn,
+	finalizeAtaDraftFn,
+	saveAtaDraftItemsFn,
+	updateAtaDraftFn,
+	updateAtaStatusFn,
+} from "@/server/ata.fn"
 import type { AtaWithDetails, AtaWizardState } from "@/types/domain/ata"
 
 // ─── Query Hooks ──────────────────────────────────────────────────────────────
@@ -95,5 +106,53 @@ export function useDeleteAta() {
 			toast.success("Ata removida.")
 		},
 		onError: (error) => toast.error(`Erro ao remover ata: ${error.message}`),
+	})
+}
+
+export function useCreateAtaDraft() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (unitId: number) => createAtaDraftFn({ data: { unitId } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.listAll() })
+		},
+		onError: (error) => toast.error(`Erro ao criar rascunho: ${error.message}`),
+	})
+}
+
+export function useUpdateAtaDraft() {
+	return useMutation({
+		mutationFn: (params: { draftId: string; title?: string; notes?: string; wizardStep?: number; kitchenSelections?: AtaWizardState["kitchenSelections"] }) =>
+			updateAtaDraftFn({ data: params }),
+		onError: (error) => toast.error(`Erro ao salvar rascunho: ${error.message}`),
+	})
+}
+
+export function useSaveAtaDraftItems() {
+	return useMutation({
+		mutationFn: (params: {
+			draftId: string
+			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
+			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
+		}) => saveAtaDraftItemsFn({ data: params }),
+		onError: (error) => toast.error(`Erro ao salvar itens: ${error.message}`),
+	})
+}
+
+export function useFinalizeAtaDraft() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (params: {
+			draftId: string
+			title: string
+			notes?: string
+			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
+			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
+		}) => finalizeAtaDraftFn({ data: params }),
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.listAll() })
+			toast.success(`Ata "${data?.title}" salva com sucesso!`)
+		},
+		onError: (error) => toast.error(`Erro ao finalizar ata: ${error.message}`),
 	})
 }

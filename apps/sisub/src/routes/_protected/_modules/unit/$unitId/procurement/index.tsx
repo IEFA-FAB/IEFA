@@ -27,6 +27,10 @@ const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline" | "des
 	archived: "outline",
 }
 
+function isWizardInProgress(ata: { wizard_step: number | null }) {
+	return ata.wizard_step !== null
+}
+
 function ProcurementIndexPage() {
 	const { unitId: unitIdStr } = useParams({ strict: false })
 	const unitId = Number(unitIdStr)
@@ -94,7 +98,13 @@ function ProcurementIndexPage() {
 										</CardTitle>
 										{ata.notes && <CardDescription className="mt-1 line-clamp-2">{ata.notes}</CardDescription>}
 									</div>
-									<Badge variant={STATUS_VARIANTS[ata.status] || "secondary"}>{STATUS_LABELS[ata.status] || ata.status}</Badge>
+									{isWizardInProgress(ata) ? (
+										<Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+											Preenchendo (passo {ata.wizard_step}/4)
+										</Badge>
+									) : (
+										<Badge variant={STATUS_VARIANTS[ata.status] || "secondary"}>{STATUS_LABELS[ata.status] || ata.status}</Badge>
+									)}
 								</div>
 							</CardHeader>
 							<CardContent className="pb-3">
@@ -103,16 +113,32 @@ function ProcurementIndexPage() {
 										Criada em {new Date(ata.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
 									</p>
 									<div className="flex items-center gap-2">
-										<Button
-											size="sm"
-											variant="outline"
-											nativeButton={false}
-											render={
-												<Link to="/unit/$unitId/procurement/$ataId" params={{ unitId: unitIdStr as string, ataId: ata.id }}>
-													Ver ata
-												</Link>
-											}
-										/>
+										{isWizardInProgress(ata) ? (
+											<Button
+												size="sm"
+												nativeButton={false}
+												render={
+													<Link
+														to="/unit/$unitId/procurement/new"
+														params={{ unitId: unitIdStr as string }}
+														search={{ step: ata.wizard_step ?? 1, draft: ata.id }}
+													>
+														Continuar
+													</Link>
+												}
+											/>
+										) : (
+											<Button
+												size="sm"
+												variant="outline"
+												nativeButton={false}
+												render={
+													<Link to="/unit/$unitId/procurement/$ataId" params={{ unitId: unitIdStr as string, ataId: ata.id }}>
+														Ver ata
+													</Link>
+												}
+											/>
+										)}
 										<Button
 											size="sm"
 											variant="ghost"

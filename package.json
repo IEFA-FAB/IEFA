@@ -31,6 +31,7 @@
     "clean:cache": "rm -rf .turbo node_modules/.cache",
     "knip": "knip",
     "upgrade": "bun update --latest",
+    "gen-all-types": "turbo run generate",
     "commit": "bun run format:check && bunx turbo run lint typecheck && cz",
     "prepare": "husky",
     "quicksave": "git add . && git commit -m \"chore(root): wip unstable\""

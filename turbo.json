@@ -83,6 +83,10 @@
         "E2E_TEST_USER_PASSWORD"
       ]
     },
+    "generate": {
+      "cache": false,
+      "outputs": ["src/types.gen.ts", "src/generated.ts"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
