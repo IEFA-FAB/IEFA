@@ -2,7 +2,7 @@ import type { ProcurementListItem } from "@iefa/database/sisub"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
-import { Archive, ArrowLeft, Download, Link2, Send } from "lucide-react"
+import { Archive, ArrowLeft, Download, Link2, Send, Sparkles } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
@@ -16,7 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { useArpForAta } from "@/hooks/data/useArp"
-import { useAtaDetails, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { useAtaDetails, useUpdateAtaItemPrices, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
@@ -69,6 +70,7 @@ function AtaDetailPage() {
 
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
+	const { mutate: updateItemPrices } = useUpdateAtaItemPrices()
 	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
 
 	// UASG da unidade para pré-preencher o modal de busca
@@ -98,6 +100,22 @@ function AtaDetailPage() {
 		link.href = URL.createObjectURL(blob)
 		link.download = `ata-${ata.title}-${ata.created_at.split("T")[0]}.csv`
 		link.click()
+	}
+
+	const ataNeeds = ata?.items.map(ataItemToNeed) ?? []
+	const { start: runBulkResearch, progress: bulkProgress, eligibleCount: bulkEligibleCount } = useBulkPriceResearch(ataNeeds, ataId)
+
+	const handleBulkResearch = async () => {
+		if (!ataId) return
+		const results = await runBulkResearch()
+		if (results.length === 0) return
+		updateItemPrices({
+			ataId,
+			updates: results.filter((r) => r.ataItemId).map((r) => ({ ataItemId: r.ataItemId as string, price: r.price })),
+			researchLinks: results
+				.filter((r) => r.ataItemId && r.auditIds)
+				.map((r) => ({ ataItemId: r.ataItemId as string, researchId: r.auditIds?.researchId as string, researchItemId: r.auditIds?.researchItemId as string })),
+		})
 	}
 
 	if (isLoading) {
@@ -221,6 +239,31 @@ function AtaDetailPage() {
 						</div>
 					</CardContent>
 				</Card>
+			)}
+
+			{/* Pesquisa automática de preços */}
+			{bulkEligibleCount > 0 && (
+				<div className="flex items-center gap-3 flex-wrap">
+					<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning} className="gap-2">
+						{bulkProgress.isRunning ? (
+							<>
+								<Spinner className="size-4" aria-hidden="true" />
+								{bulkProgress.done}/{bulkProgress.total} itens...
+							</>
+						) : (
+							<>
+								<Sparkles className="size-4" aria-hidden="true" />
+								Pesquisar preços automaticamente ({bulkEligibleCount})
+							</>
+						)}
+					</Button>
+					{!bulkProgress.isRunning && bulkProgress.total > 0 && (
+						<span className="text-xs text-muted-foreground">
+							{bulkProgress.done - bulkProgress.errors} preços aplicados
+							{bulkProgress.errors > 0 && ` · ${bulkProgress.errors} sem resultado`}
+						</span>
+					)}
+				</div>
 			)}
 
 			{/* Itens da Ata */}

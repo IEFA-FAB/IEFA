@@ -1,7 +1,7 @@
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save } from "lucide-react"
+import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save, Sparkles } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -15,8 +15,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { useCalculateAtaNeeds, useCreateAtaDraft, useFinalizeAtaDraft, useSaveAtaDraftItems, useUpdateAtaDraft } from "@/hooks/data/useAta"
+import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import { fetchAtaDetailsFn } from "@/server/ata.fn"
@@ -259,6 +261,32 @@ function NewAtaPage() {
 
 	const { mutate: calculateNeeds, data: calculatedItems, isPending: isCalculating } = useCalculateAtaNeeds()
 	const rawItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
+
+	const { start: runBulkResearch, progress: bulkProgress, eligibleCount: bulkEligibleCount } = useBulkPriceResearch(rawItems, draftId ?? undefined)
+
+	const handleBulkResearch = async () => {
+		const results = await runBulkResearch()
+		if (results.length === 0) return
+		const newOverrides: Record<string, { price: number; researchId: string | null; researchItemId: string | null }> = { ...priceOverrides }
+		for (const r of results) {
+			newOverrides[r.ingredientId] = {
+				price: r.price,
+				researchId: r.auditIds?.researchId ?? null,
+				researchItemId: r.auditIds?.researchItemId ?? null,
+			}
+		}
+		setPriceOverrides(newOverrides)
+		if (draftId) {
+			const updatedItems = rawItems.map((item) => ({
+				...item,
+				unit_price: item.ingredient_id in newOverrides ? newOverrides[item.ingredient_id].price : item.unit_price,
+			}))
+			const researchLinks = Object.entries(newOverrides)
+				.filter(([, v]) => v.researchId && v.researchItemId)
+				.map(([ingredientId, v]) => ({ ingredientId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
+			saveDraftItems({ draftId, items: updatedItems, researchLinks })
+		}
+	}
 	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
 		...item,
 		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
@@ -517,6 +545,31 @@ function NewAtaPage() {
 									<p className="text-xs text-muted-foreground pt-1">
 										Para vincular, acesse a ficha do insumo e configure o item de compra padrão (is_default). Você pode salvar agora e vincular depois.
 									</p>
+								</div>
+							)}
+
+							{/* Pesquisa automática de preços */}
+							{bulkEligibleCount > 0 && (
+								<div className="flex items-center gap-3 flex-wrap">
+									<Button variant="outline" onClick={handleBulkResearch} disabled={bulkProgress.isRunning} className="gap-2">
+										{bulkProgress.isRunning ? (
+											<>
+												<Spinner className="size-4" aria-hidden="true" />
+												{bulkProgress.done}/{bulkProgress.total} itens...
+											</>
+										) : (
+											<>
+												<Sparkles className="size-4" aria-hidden="true" />
+												Pesquisar preços automaticamente ({bulkEligibleCount})
+											</>
+										)}
+									</Button>
+									{!bulkProgress.isRunning && bulkProgress.total > 0 && (
+										<span className="text-xs text-muted-foreground">
+											{bulkProgress.done - bulkProgress.errors} preços aplicados
+											{bulkProgress.errors > 0 && ` · ${bulkProgress.errors} sem resultado`}
+										</span>
+									)}
 								</div>
 							)}
 

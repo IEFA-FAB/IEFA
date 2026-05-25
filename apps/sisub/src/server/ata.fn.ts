@@ -702,6 +702,45 @@ export const updateAtaStatusFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(`Erro ao atualizar status: ${error.message}`)
 	})
 
+// ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
+
+export const updateAtaItemPricesFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			ataId: z.string().uuid(),
+			updates: z.array(
+				z.object({
+					ataItemId: z.string().uuid(),
+					price: z.number().positive(),
+				})
+			),
+			researchLinks: z
+				.array(
+					z.object({
+						ataItemId: z.string().uuid(),
+						researchId: z.string().uuid(),
+						researchItemId: z.string().uuid(),
+					})
+				)
+				.optional(),
+		})
+	)
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const supabase = getSupabaseServerClient()
+
+		await Promise.all(data.updates.map((u) => supabase.from("procurement_list_item").update({ unit_price: u.price }).eq("id", u.ataItemId)))
+
+		if (data.researchLinks?.length) {
+			await Promise.all(
+				data.researchLinks.flatMap((link) => [
+					supabase.schema("sisub").from("procurement_pesquisa_preco_item").update({ ata_item_id: link.ataItemId }).eq("id", link.researchItemId),
+					supabase.schema("sisub").from("procurement_pesquisa_preco").update({ ata_id: data.ataId }).eq("id", link.researchId),
+				])
+			)
+		}
+	})
+
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────
 
 /**

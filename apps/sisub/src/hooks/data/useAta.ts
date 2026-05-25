@@ -12,6 +12,7 @@ import {
 	finalizeAtaDraftFn,
 	saveAtaDraftItemsFn,
 	updateAtaDraftFn,
+	updateAtaItemPricesFn,
 	updateAtaStatusFn,
 } from "@/server/ata.fn"
 import type { AtaWithDetails, AtaWizardState } from "@/types/domain/ata"
@@ -136,6 +137,22 @@ export function useSaveAtaDraftItems() {
 			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
 		}) => saveAtaDraftItemsFn({ data: params }),
 		onError: (error) => toast.error(`Erro ao salvar itens: ${error.message}`),
+	})
+}
+
+export function useUpdateAtaItemPrices() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (params: {
+			ataId: string
+			updates: Array<{ ataItemId: string; price: number }>
+			researchLinks?: Array<{ ataItemId: string; researchId: string; researchItemId: string }>
+		}) => updateAtaItemPricesFn({ data: params }),
+		onSuccess: (_, variables) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(variables.ataId) })
+			toast.success("Preços atualizados com sucesso!")
+		},
+		onError: (error) => toast.error(`Erro ao atualizar preços: ${error.message}`),
 	})
 }
 
