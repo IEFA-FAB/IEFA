@@ -1,9 +1,10 @@
 import type { ProcurementListItem } from "@iefa/database/sisub"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
-import { Archive, ArrowLeft, Download, Link2, Send, Sparkles } from "lucide-react"
+import { Archive, ArrowLeft, Download, Link2, Search, Send } from "lucide-react"
 import { useState } from "react"
+import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
 import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
@@ -16,8 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { useArpForAta } from "@/hooks/data/useArp"
-import { useAtaDetails, useUpdateAtaItemPrices, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { useAtaDetails, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
+import { queryKeys } from "@/lib/query-keys"
+import { updateAtaItemPricesFn } from "@/server/ata.fn"
 import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
@@ -68,9 +71,9 @@ function AtaDetailPage() {
 	const [arpModalOpen, setArpModalOpen] = useState(false)
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 
+	const queryClient = useQueryClient()
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
-	const { mutate: updateItemPrices } = useUpdateAtaItemPrices()
 	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
 
 	// UASG da unidade para pré-preencher o modal de busca
@@ -103,19 +106,31 @@ function AtaDetailPage() {
 	}
 
 	const ataNeeds = ata?.items.map(ataItemToNeed) ?? []
-	const { start: runBulkResearch, progress: bulkProgress, eligibleCount: bulkEligibleCount } = useBulkPriceResearch(ataNeeds, ataId)
+	const {
+		start: runBulkResearch,
+		progress: bulkProgress,
+		eligibleCount: bulkEligibleCount,
+	} = useBulkPriceResearch(ataNeeds, ataId, async (result) => {
+		if (!result.ataItemId || !ataId) return
+		await updateAtaItemPricesFn({
+			data: {
+				ataId,
+				updates: [{ ataItemId: result.ataItemId as string, price: result.price }],
+				researchLinks: result.auditIds
+					? [{ ataItemId: result.ataItemId as string, researchId: result.auditIds.researchId, researchItemId: result.auditIds.researchItemId }]
+					: undefined,
+			},
+		})
+	})
 
 	const handleBulkResearch = async () => {
 		if (!ataId) return
 		const results = await runBulkResearch()
 		if (results.length === 0) return
-		updateItemPrices({
-			ataId,
-			updates: results.filter((r) => r.ataItemId).map((r) => ({ ataItemId: r.ataItemId as string, price: r.price })),
-			researchLinks: results
-				.filter((r) => r.ataItemId && r.auditIds)
-				.map((r) => ({ ataItemId: r.ataItemId as string, researchId: r.auditIds?.researchId as string, researchItemId: r.auditIds?.researchItemId as string })),
-		})
+		queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(ataId) })
+		toast.success(
+			`${results.length} preço${results.length !== 1 ? "s" : ""} pesquisado${results.length !== 1 ? "s" : ""} e aplicado${results.length !== 1 ? "s" : ""}.`
+		)
 	}
 
 	if (isLoading) {
@@ -252,7 +267,7 @@ function AtaDetailPage() {
 							</>
 						) : (
 							<>
-								<Sparkles className="size-4" aria-hidden="true" />
+								<Search className="size-4" aria-hidden="true" />
 								Pesquisar preços automaticamente ({bulkEligibleCount})
 							</>
 						)}

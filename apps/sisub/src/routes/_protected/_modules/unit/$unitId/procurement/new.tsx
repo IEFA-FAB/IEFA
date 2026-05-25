@@ -1,7 +1,7 @@
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save, Sparkles } from "lucide-react"
+import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save, Search } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -262,30 +262,41 @@ function NewAtaPage() {
 	const { mutate: calculateNeeds, data: calculatedItems, isPending: isCalculating } = useCalculateAtaNeeds()
 	const rawItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
 
-	const { start: runBulkResearch, progress: bulkProgress, eligibleCount: bulkEligibleCount } = useBulkPriceResearch(rawItems, draftId ?? undefined)
+	const {
+		start: runBulkResearch,
+		progress: bulkProgress,
+		eligibleCount: bulkEligibleCount,
+	} = useBulkPriceResearch(rawItems, draftId ?? undefined, (result) => {
+		setPriceOverrides((prev) => ({
+			...prev,
+			[result.ingredientId]: {
+				price: result.price,
+				researchId: result.auditIds?.researchId ?? null,
+				researchItemId: result.auditIds?.researchItemId ?? null,
+			},
+		}))
+	})
 
 	const handleBulkResearch = async () => {
 		const results = await runBulkResearch()
-		if (results.length === 0) return
-		const newOverrides: Record<string, { price: number; researchId: string | null; researchItemId: string | null }> = { ...priceOverrides }
+		if (results.length === 0 || !draftId) return
+		// Compute merged overrides from results (can't read stale priceOverrides state here)
+		const mergedOverrides = { ...priceOverrides }
 		for (const r of results) {
-			newOverrides[r.ingredientId] = {
+			mergedOverrides[r.ingredientId] = {
 				price: r.price,
 				researchId: r.auditIds?.researchId ?? null,
 				researchItemId: r.auditIds?.researchItemId ?? null,
 			}
 		}
-		setPriceOverrides(newOverrides)
-		if (draftId) {
-			const updatedItems = rawItems.map((item) => ({
-				...item,
-				unit_price: item.ingredient_id in newOverrides ? newOverrides[item.ingredient_id].price : item.unit_price,
-			}))
-			const researchLinks = Object.entries(newOverrides)
-				.filter(([, v]) => v.researchId && v.researchItemId)
-				.map(([ingredientId, v]) => ({ ingredientId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
-			saveDraftItems({ draftId, items: updatedItems, researchLinks })
-		}
+		const updatedItems = rawItems.map((item) => ({
+			...item,
+			unit_price: item.ingredient_id in mergedOverrides ? mergedOverrides[item.ingredient_id].price : item.unit_price,
+		}))
+		const researchLinks = Object.entries(mergedOverrides)
+			.filter(([, v]) => v.researchId && v.researchItemId)
+			.map(([ingredientId, v]) => ({ ingredientId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
+		saveDraftItems({ draftId, items: updatedItems, researchLinks })
 	}
 	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
 		...item,
@@ -559,7 +570,7 @@ function NewAtaPage() {
 											</>
 										) : (
 											<>
-												<Sparkles className="size-4" aria-hidden="true" />
+												<Search className="size-4" aria-hidden="true" />
 												Pesquisar preços automaticamente ({bulkEligibleCount})
 											</>
 										)}
