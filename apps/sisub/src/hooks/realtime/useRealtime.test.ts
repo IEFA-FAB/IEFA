@@ -164,14 +164,14 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 				await waitForExpectation(() => events.length > 0, 5000)
 				await removeRealtimeChannel(sb, probe)
 				if (recipeId) {
-					await sb.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+					await sb.from("recipes").delete().eq("id", recipeId)
 				}
 				realtimeReady = true
 				return
 			} catch {
 				await removeRealtimeChannel(sb, probe)
 				if (recipeId) {
-					await sb.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+					await sb.from("recipes").delete().eq("id", recipeId)
 				}
 				if (i < 7) await new Promise((r) => setTimeout(r, 1500))
 			}
@@ -210,7 +210,7 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 		} finally {
 			await removeRealtimeChannel(supabase, channel)
 			if (recipeId) {
-				await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+				await supabase.from("recipes").delete().eq("id", recipeId)
 			}
 		}
 	}, 35_000)
@@ -254,7 +254,7 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 			await removeRealtimeChannel(supabase, matchChannel)
 			await removeRealtimeChannel(supabase, missChannel)
 			if (recipeId) {
-				await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", recipeId)
+				await supabase.from("recipes").delete().eq("id", recipeId)
 			}
 		}
 	}, 35_000)

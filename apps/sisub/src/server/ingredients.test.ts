@@ -126,7 +126,7 @@ describeSupabaseIntegration("ingredient CRUD (integração)", () => {
 	afterAll(async () => {
 		if (!reachable || !testIngredientId || !supabaseEnv) return
 		const supabase = createSisubServiceClient(supabaseEnv)
-		await supabase.from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", testIngredientId)
+		await supabase.from("ingredient").delete().eq("id", testIngredientId)
 	})
 
 	test("cria insumo com payload válido", async () => {

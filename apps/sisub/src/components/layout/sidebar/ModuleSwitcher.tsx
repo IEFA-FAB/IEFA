@@ -17,6 +17,13 @@ const MODULE_LOGO_CLASSES: Record<GroupColor, string> = {
 	governance: "bg-governance/15 text-governance",
 }
 
+const MODULE_HOVER_CLASSES: Record<GroupColor, string> = {
+	success: "focus:!bg-success/10 focus:!text-success focus:**:!text-success",
+	primary: "focus:!bg-primary/10 focus:!text-primary focus:**:!text-primary",
+	warning: "focus:!bg-warning/10 focus:!text-warning focus:**:!text-warning",
+	governance: "focus:!bg-governance/10 focus:!text-governance focus:**:!text-governance",
+}
+
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform)
 
 function altLabel(index: number) {
@@ -113,7 +120,11 @@ export function ModuleSwitcher({
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="text-muted-foreground text-label">Módulos</DropdownMenuLabel>
 							{modules.map((module, i) => (
-								<DropdownMenuItem key={module.name} onClick={() => handleChange(module)} className="cursor-pointer gap-2 p-2">
+								<DropdownMenuItem
+									key={module.name}
+									onClick={() => handleChange(module)}
+									className={cn("cursor-pointer gap-2 p-2", MODULE_HOVER_CLASSES[module.color])}
+								>
 									<div className={cn("flex size-6 items-center justify-center rounded-md", MODULE_LOGO_CLASSES[module.color])}>
 										<module.logo className="size-3.5" />
 									</div>

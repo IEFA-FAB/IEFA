@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useParams } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect, useParams } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
 import { fetchKitchensFn } from "@/server/kitchens.fn"
@@ -16,9 +16,11 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId")(
 		})
 
 		const kitchen = kitchens.find((k) => k.id === kitchenId)
+		if (!kitchen) throw redirect({ to: "/kitchen", replace: true })
+
 		const scopeContext: ScopeContext = {
 			id: kitchenId,
-			name: kitchen?.unit?.display_name ?? kitchen?.unit?.code ?? `Cozinha ${kitchenId}`,
+			name: kitchen.unit?.display_name ?? kitchen.unit?.code ?? `Cozinha ${kitchenId}`,
 		}
 
 		return { scopeContext }

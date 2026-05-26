@@ -11,12 +11,14 @@ export function AppSidebar({
 	activeModuleId,
 	onModuleChange,
 	isLoading = false,
+	scopeLocked = false,
 	...props
 }: React.ComponentProps<typeof Sidebar> & {
 	modules?: ModuleDef[]
 	activeModuleId?: ModuleId | null
 	onModuleChange?: (moduleId: ModuleId) => void
 	isLoading?: boolean
+	scopeLocked?: boolean
 }) {
 	if (isLoading) {
 		return (
@@ -54,16 +56,17 @@ export function AppSidebar({
 		color: m.color,
 	}))
 
-	const navMain = activeModule
-		? [
-				{
-					title: activeModule.name,
-					icon: activeModule.icon,
-					isActive: true,
-					items: activeModule.items,
-				},
-			]
-		: []
+	const navMain =
+		activeModule && !scopeLocked
+			? [
+					{
+						title: activeModule.name,
+						icon: activeModule.icon,
+						isActive: true,
+						items: activeModule.items,
+					},
+				]
+			: []
 
 	const handleModuleChange = (module: Module) => {
 		const mod = availableModules.find((m) => m.name === module.name)

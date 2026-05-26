@@ -202,10 +202,10 @@ describeSupabaseIntegration("purchase_item CRUD (integração)", () => {
 			await supabase.from("purchase_item_ingredient").delete().eq("id", testJunctionId)
 		}
 		if (testPurchaseItemId) {
-			await supabase.from("purchase_item").update({ deleted_at: new Date().toISOString() }).eq("id", testPurchaseItemId)
+			await supabase.from("purchase_item").delete().eq("id", testPurchaseItemId)
 		}
 		if (testIngredientId) {
-			await supabase.from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", testIngredientId)
+			await supabase.from("ingredient").delete().eq("id", testIngredientId)
 		}
 	})
 

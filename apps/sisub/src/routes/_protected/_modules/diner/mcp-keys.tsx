@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCreateMcpKey, useDeleteMcpKey, useMcpKeys, useRevokeMcpKey } from "@/hooks/data/useMcpKeys"
 import type { McpApiKey } from "@/server/mcp-keys.fn"
 
@@ -181,68 +182,82 @@ function KeyItem({ apiKey }: KeyItemProps) {
 				<div className="flex items-center gap-1 shrink-0">
 					{/* Revogar — só para chaves ativas */}
 					{apiKey.is_active && (
+						<Tooltip>
+							<AlertDialog>
+								<AlertDialogTrigger
+									render={
+										<TooltipTrigger
+											render={
+												<Button
+													variant="ghost"
+													size="icon"
+													className="size-8 text-muted-foreground hover:text-foreground"
+													aria-label="Revogar chave"
+													disabled={isRevoking}
+												/>
+											}
+										/>
+									}
+								>
+									{isRevoking ? <Loader2 className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
+								</AlertDialogTrigger>
+								<TooltipContent>Revogar chave</TooltipContent>
+								<AlertDialogContent>
+									<AlertDialogHeader>
+										<AlertDialogTitle>Revogar chave?</AlertDialogTitle>
+										<AlertDialogDescription>
+											A chave <strong>"{apiKey.label}"</strong> será desativada imediatamente. Clientes usando essa chave perderão acesso ao sisub-mcp.
+										</AlertDialogDescription>
+									</AlertDialogHeader>
+									<AlertDialogFooter>
+										<AlertDialogCancel>Cancelar</AlertDialogCancel>
+										<AlertDialogAction onClick={() => revokeMutation.mutate(apiKey.id)}>Revogar</AlertDialogAction>
+									</AlertDialogFooter>
+								</AlertDialogContent>
+							</AlertDialog>
+						</Tooltip>
+					)}
+
+					{/* Remover */}
+					<Tooltip>
 						<AlertDialog>
 							<AlertDialogTrigger
 								render={
-									<Button
-										variant="ghost"
-										size="icon"
-										className="size-8 text-muted-foreground hover:text-foreground"
-										aria-label="Revogar chave"
-										disabled={isRevoking}
+									<TooltipTrigger
+										render={
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-8 text-destructive hover:text-destructive"
+												aria-label="Remover chave"
+												disabled={isDeleting}
+											/>
+										}
 									/>
 								}
 							>
-								{isRevoking ? <Loader2 className="size-4 animate-spin" /> : <ShieldOff className="size-4" />}
+								{isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
 							</AlertDialogTrigger>
+							<TooltipContent>Remover chave</TooltipContent>
 							<AlertDialogContent>
 								<AlertDialogHeader>
-									<AlertDialogTitle>Revogar chave?</AlertDialogTitle>
+									<AlertDialogTitle>Remover chave?</AlertDialogTitle>
 									<AlertDialogDescription>
-										A chave <strong>"{apiKey.label}"</strong> será desativada imediatamente. Clientes usando essa chave perderão acesso ao sisub-mcp.
+										A chave <strong>"{apiKey.label}"</strong> será removida permanentemente. Esta ação não pode ser desfeita.
 									</AlertDialogDescription>
 								</AlertDialogHeader>
 								<AlertDialogFooter>
 									<AlertDialogCancel>Cancelar</AlertDialogCancel>
-									<AlertDialogAction onClick={() => revokeMutation.mutate(apiKey.id)}>Revogar</AlertDialogAction>
+									<AlertDialogAction
+										onClick={() => deleteMutation.mutate(apiKey.id)}
+										className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+									>
+										Remover
+									</AlertDialogAction>
 								</AlertDialogFooter>
 							</AlertDialogContent>
 						</AlertDialog>
-					)}
-
-					{/* Remover */}
-					<AlertDialog>
-						<AlertDialogTrigger
-							render={
-								<Button
-									variant="ghost"
-									size="icon"
-									className="size-8 text-destructive hover:text-destructive"
-									aria-label="Remover chave"
-									disabled={isDeleting}
-								/>
-							}
-						>
-							{isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-						</AlertDialogTrigger>
-						<AlertDialogContent>
-							<AlertDialogHeader>
-								<AlertDialogTitle>Remover chave?</AlertDialogTitle>
-								<AlertDialogDescription>
-									A chave <strong>"{apiKey.label}"</strong> será removida permanentemente. Esta ação não pode ser desfeita.
-								</AlertDialogDescription>
-							</AlertDialogHeader>
-							<AlertDialogFooter>
-								<AlertDialogCancel>Cancelar</AlertDialogCancel>
-								<AlertDialogAction
-									onClick={() => deleteMutation.mutate(apiKey.id)}
-									className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-								>
-									Remover
-								</AlertDialogAction>
-							</AlertDialogFooter>
-						</AlertDialogContent>
-					</AlertDialog>
+					</Tooltip>
 				</div>
 			</CardContent>
 		</Card>

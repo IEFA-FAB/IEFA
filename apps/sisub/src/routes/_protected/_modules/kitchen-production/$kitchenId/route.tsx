@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { ScopeContext } from "@/types/domain/scope"
@@ -15,9 +15,11 @@ export const Route = createFileRoute("/_protected/_modules/kitchen-production/$k
 		})
 
 		const kitchen = kitchens.find((k) => k.id === kitchenId)
+		if (!kitchen) throw redirect({ to: "/kitchen-production", replace: true })
+
 		const scopeContext: ScopeContext = {
 			id: kitchenId,
-			name: kitchen?.unit?.display_name ?? kitchen?.unit?.code ?? `Cozinha ${kitchenId}`,
+			name: kitchen.unit?.display_name ?? kitchen.unit?.code ?? `Cozinha ${kitchenId}`,
 		}
 
 		return { scopeContext }

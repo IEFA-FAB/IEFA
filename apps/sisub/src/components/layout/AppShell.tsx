@@ -132,7 +132,11 @@ export function AppShell() {
 	// Aplica URLs dinâmicas na sidebar quando dentro de um escopo
 	// Ex: /messhall/presence → /messhall/3/presence
 	const scopedModules = availableModules.map((mod) => {
-		if (!scopeContext || mod.id !== effectiveModuleId) return mod
+		if (mod.id !== effectiveModuleId) return mod
+		// Módulo com escopo mas sem escopo selecionado → oculta itens para evitar
+		// navegação para rotas inválidas (URLs base sem $scopeId não existem no router)
+		if (mod.hubUrl && !scopeContext) return { ...mod, items: [] }
+		if (!scopeContext) return mod
 		const prefix = `/${mod.id}/`
 		const newPrefix = `/${mod.id}/${scopeContext.id}/`
 		return {
@@ -143,6 +147,10 @@ export function AppShell() {
 			})),
 		}
 	})
+
+	// Módulo com hubUrl mas sem escopo selecionado → tela de seleção de escopo
+	const effectiveModule = availableModules.find((m) => m.id === effectiveModuleId)
+	const isOnScopeHub = !!effectiveModule?.hubUrl && !scopeContext
 
 	const showSidebar = (availableModules.length > 0 || levelLoading) && !levelError
 	const showInitialLoading = levelLoading && availableModules.length === 0
@@ -197,13 +205,14 @@ export function AppShell() {
 				activeModuleId={effectiveModuleId}
 				onModuleChange={handleModuleChange}
 				isLoading={levelLoading}
+				scopeLocked={isOnScopeHub}
 				collapsible={showSidebar ? "icon" : "offExamples"}
 			/>
 
 			<SidebarInset className="bg-transparent h-full overflow-hidden w-full flex flex-col">
 				<header className="sticky top-0 z-40 flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
 					<div className="flex items-center gap-3">
-						<SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
+						{!isOnScopeHub && <SidebarTrigger className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />}
 						<Separator orientation="vertical" className="mx-2 h-6 bg-border data-[orientation=vertical]:self-center" />
 						{isMobile ? (
 							// Mobile: ← pai  /  página atual

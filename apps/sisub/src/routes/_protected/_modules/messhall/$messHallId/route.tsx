@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
 import { fetchMessHallsFn } from "@/server/mess-halls.fn"
 import type { ScopeContext } from "@/types/domain/scope"
@@ -16,9 +16,11 @@ export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId"
 		})
 
 		const messHall = messHalls.find((mh) => mh.id === messHallId)
+		if (!messHall) throw redirect({ to: "/messhall", replace: true })
+
 		const scopeContext: ScopeContext = {
 			id: messHallId,
-			name: messHall?.display_name ?? messHall?.code ?? String(messHallId),
+			name: messHall.display_name ?? messHall.code ?? String(messHallId),
 		}
 
 		return { scopeContext }

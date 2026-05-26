@@ -178,10 +178,11 @@ describeSupabaseIntegration("recipe CRUD (integração)", () => {
 		if (!reachable || !supabaseEnv) return
 		const supabase = createSisubServiceClient(supabaseEnv)
 		if (testRecipeId) {
-			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", testRecipeId)
+			await supabase.from("recipe_ingredients").delete().eq("recipe_id", testRecipeId)
+			await supabase.from("recipes").delete().eq("id", testRecipeId)
 		}
 		if (testIngredientId) {
-			await supabase.from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", testIngredientId)
+			await supabase.from("ingredient").delete().eq("id", testIngredientId)
 		}
 	})
 
@@ -237,7 +238,7 @@ describeSupabaseIntegration("recipe CRUD (integração)", () => {
 		expect(data?.base_recipe_id).toBe(testRecipeId)
 
 		if (data) {
-			await supabase.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
+			await supabase.from("recipes").delete().eq("id", data.id)
 		}
 	})
 
