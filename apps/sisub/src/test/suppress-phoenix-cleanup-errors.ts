@@ -6,6 +6,7 @@
 //
 // Fix: before entering teardown, if conn exists but conn.close is not a function,
 // null conn out so teardown takes its early-return path cleanly.
+// @ts-expect-error — @supabase/phoenix is a transitive dep without a direct package.json entry
 import { Socket } from "@supabase/phoenix"
 
 const origTeardown = Socket.prototype.teardown as (callback: (() => void) | undefined, code?: number, reason?: string) => void

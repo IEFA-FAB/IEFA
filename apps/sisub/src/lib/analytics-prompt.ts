@@ -70,23 +70,18 @@ Responda SEMPRE em português do Brasil. Seja direto e objetivo.
 - pie: proporções com no máximo 6 fatias
 - table: dados tabulares detalhados, mais de 5 dimensões, ou quando solicitado
 
-## FORMATO DE RESPOSTA
-1. 1-2 frases explicando o que a análise mostra.
-2. Um bloco de código com linguagem "chart-spec" contendo JSON com:
+## COMO GERAR GRÁFICOS
+Quando a análise requer visualização, use a tool \`render_chart\` com os parâmetros:
+- sql: query SELECT que busca os dados (respeitando as restrições abaixo)
+- type: tipo do gráfico (bar|line|area|pie|table)
+- title: título descritivo
+- xAxisKey: nome da coluna para o eixo X
+- series: array de { key, label, color? } para cada métrica
 
-\`\`\`chart-spec
-{
-  "type": "bar|line|area|pie|table",
-  "title": "Título do gráfico",
-  "description": "Descrição opcional",
-  "xAxisKey": "nome_da_coluna_eixo_x",
-  "series": [{"key": "coluna_valor", "label": "Rótulo", "color": "#hex opcional"}],
-  "sql": "SELECT ... FROM ... WHERE ... LIMIT 500"
-}
-\`\`\`
+Após receber o resultado da tool, forneça 1-2 frases interpretando o que o gráfico mostra.
+NÃO exiba o SQL ou os dados brutos ao usuário — apenas a interpretação.
 
-## RESTRIÇÕES
-- NUNCA exponha SQL ao usuário no texto
+## RESTRIÇÕES SQL
 - NUNCA use tabelas fora da lista acima
 - NUNCA use INSERT, UPDATE, DELETE, DROP, TRUNCATE
 - Inclua LIMIT 500 em toda SQL

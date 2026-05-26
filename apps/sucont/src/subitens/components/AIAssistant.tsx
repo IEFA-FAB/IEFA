@@ -1,65 +1,27 @@
-import { GoogleGenAI } from "@google/genai"
+import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { type ClassValue, clsx } from "clsx"
 import { Bot, Loader2, MessageSquare, Send, User, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { twMerge } from "tailwind-merge"
-import { UG_INFO } from "#/subitens/constants"
 
 function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))
 }
-
-const ai = new GoogleGenAI({ apiKey: (import.meta.env.VITE_GEMINI_API_KEY ?? "") as string })
 
 interface AIAssistantProps {
 	// biome-ignore lint/suspicious/noExplicitAny: context carries arbitrary data shape
 	dataContext: any
 }
 
-interface Message {
-	id: string
-	role: "user" | "assistant"
-	content: string
-}
-
 export function AIAssistant({ dataContext }: AIAssistantProps) {
 	const [isOpen, setIsOpen] = useState(false)
-	const [messages, setMessages] = useState<Message[]>([
-		{
-			id: "welcome",
-			role: "assistant",
-			content:
-				'Olá! Sou o Assistente de Análise do Analista SUCONT. Posso ajudar a interpretar os dados contábeis, identificar padrões ou responder perguntas como "Qual ODS tem mais inconsistências?". Como posso ajudar hoje?',
-		},
-	])
 	const [input, setInput] = useState("")
-	const [isLoading, setIsLoading] = useState(false)
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 
-	const scrollToBottom = useCallback(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-	}, [])
-
-	useEffect(() => {
-		scrollToBottom()
-	}, [scrollToBottom])
-
-	const handleSend = async () => {
-		if (!input.trim() || isLoading) return
-
-		const userMessage: Message = {
-			id: Date.now().toString(),
-			role: "user",
-			content: input.trim(),
-		}
-
-		setMessages((prev) => [...prev, userMessage])
-		setInput("")
-		setIsLoading(true)
-
-		try {
-			const contextSummary = JSON.stringify({
+	const contextSummary = useMemo(
+		() =>
+			JSON.stringify({
 				totalInconsistencias: dataContext.totalInconsistencias,
 				totalVolume: dataContext.totalVolume,
 				odsList: dataContext.odsList,
@@ -74,57 +36,51 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 				conferentes: dataContext.conferentesList?.slice(0, 5),
 				pareto: dataContext.paretoSummary,
 				niveisCriticos: dataContext.criticalLevels,
-			})
+			}),
+		[dataContext]
+	)
 
-			const prompt = `Você é o Oráculo SUCONT, um assistente técnico e estratégico especializado em Contabilidade Pública Federal para o Comando da Aeronáutica (COMAER). Sua missão é apoiar a Seção de Acompanhamento Contábil (SUCONT-3.1) na análise de dados, governança financeira e suporte às unidades gestoras.
+	const connection = useMemo(
+		() => fetchServerSentEvents("/api/chat/stream"),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[]
+	)
 
-🚨 HIERARQUIA E DESTAQUES CRÍTICOS (SETORIAL E STN)
-Sempre considere o peso normativo superior destas unidades:
-- SETORIAL CONTÁBIL DO COMAER (SEFA): 120002 (DIREF - SEFA), 120701 (DIREF/SUCONT - SEFA), 120702 (DIREF/SUCONV - SEFA), 121002 (DIREF - FAer - SEFA).
-- ÓRGÃO CENTRAL DE CONTABILIDADE (STN): 120999 (MAER - DIF. CAMBIAL - SEFA) – Exclusiva para lançamentos da Secretaria do Tesouro Nacional.
-
-BASE DE DADOS: UNIDADES GESTORAS (UG) POR ODS E ÓRGÃO SUPERIOR
-Sempre utilize esta lista para identificar a sigla, o órgão superior e o ODS corretos:
-${JSON.stringify(UG_INFO, null, 2)}
-
-DIRETRIZES DE RESPOSTA E ANÁLISE:
-1. Ao citar uma UG, identifique-a no formato: "UG [Código] ([Nome Reduzido]), subordinada ao [Órgão Superior] / [ODS]".
-2. MAPA DE RISCO: Quando solicitado um panorama ou mapa de risco, apresente a distribuição por ODS, Órgão Superior e UG, incluindo saldo e % do total.
-3. NÍVEIS CRÍTICOS: Identifique automaticamente o ODS, Órgão Superior e UGs mais críticos (por quantidade e por saldo).
-4. ANÁLISE DE PARETO: Aplique a regra 80/20 para identificar a concentração de inconsistências.
-5. PRIORIZAÇÃO: Sugira prioridades de atuação considerando volume financeiro, recorrência RAC e impacto patrimonial.
-6. RIGOR TÉCNICO: Respostas devem ser estritamente profissionais, analíticas e orientadas ao rigor do PCASP (Manual de Contabilidade Aplicada ao Setor Público).
-7. Se o usuário questionar sobre inconsistências contábeis, verifique sempre se a solução sugerida respeita as normas da DIREF.
-
-Sua tarefa é responder perguntas do usuário com base nos seguintes dados agregados (em formato JSON):
-${contextSummary}
-
-Responda de forma clara, objetiva e profissional. Se a pergunta não puder ser respondida com os dados fornecidos, informe educadamente.
-Pergunta do usuário: ${userMessage.content}`
-
-			const response = await ai.models.generateContent({
-				model: "gemini-2.0-flash",
-				contents: prompt,
-			})
-
-			const assistantMessage: Message = {
-				id: (Date.now() + 1).toString(),
+	const { messages, sendMessage, isLoading, status, stop } = useChat({
+		connection,
+		forwardedProps: { contextSummary },
+		initialMessages: [
+			{
+				id: "welcome",
 				role: "assistant",
-				content: response.text ?? "Desculpe, não consegui gerar uma resposta.",
-			}
+				content:
+					'Olá! Sou o Assistente de Análise do Analista SUCONT. Posso ajudar a interpretar os dados contábeis, identificar padrões ou responder perguntas como "Qual ODS tem mais inconsistências?". Como posso ajudar hoje?',
+				parts: [
+					{
+						type: "text",
+						text: 'Olá! Sou o Assistente de Análise do Analista SUCONT. Posso ajudar a interpretar os dados contábeis, identificar padrões ou responder perguntas como "Qual ODS tem mais inconsistências?". Como posso ajudar hoje?',
+					},
+				],
+			},
+		],
+	})
 
-			setMessages((prev) => [...prev, assistantMessage])
-		} catch (_error) {
-			const errorMessage: Message = {
-				id: (Date.now() + 1).toString(),
-				role: "assistant",
-				content: "Ocorreu um erro ao processar sua solicitação. Verifique se a variável VITE_GEMINI_API_KEY está configurada no .env.local e tente novamente.",
-			}
-			setMessages((prev) => [...prev, errorMessage])
-		} finally {
-			setIsLoading(false)
-		}
-	}
+	const scrollToBottom = useCallback(() => {
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+	}, [])
+
+	useEffect(() => {
+		scrollToBottom()
+	}, [scrollToBottom])
+
+	const handleSend = useCallback(async () => {
+		if (!input.trim() || isLoading) return
+		const text = input.trim()
+		setInput("")
+		await sendMessage(text)
+	}, [input, isLoading, sendMessage])
+
+	const isStreaming = status === "streaming"
 
 	return (
 		<>
@@ -170,29 +126,32 @@ Pergunta do usuário: ${userMessage.content}`
 
 						{/* Messages */}
 						<div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
-							{messages.map((msg) => (
-								<div key={msg.id} className={cn("flex gap-3 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto")}>
-									<div
-										className={cn(
-											"w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-											msg.role === "user" ? "bg-fab-sky text-fab-blue" : "bg-fab-gold text-white"
-										)}
-									>
-										{msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
+							{messages.map((msg) => {
+								const text = msg.parts?.find((p) => p.type === "text")?.text ?? msg.content ?? ""
+								return (
+									<div key={msg.id} className={cn("flex gap-3 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto")}>
+										<div
+											className={cn(
+												"w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+												msg.role === "user" ? "bg-fab-sky text-fab-blue" : "bg-fab-gold text-white"
+											)}
+										>
+											{msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
+										</div>
+										<div
+											className={cn(
+												"p-3 rounded-2xl text-sm leading-relaxed",
+												msg.role === "user"
+													? "bg-fab-blue text-white rounded-tr-sm"
+													: "bg-white border border-fab-blue/10 text-fab-blue/80 rounded-tl-sm shadow-sm"
+											)}
+										>
+											{text}
+										</div>
 									</div>
-									<div
-										className={cn(
-											"p-3 rounded-2xl text-sm leading-relaxed",
-											msg.role === "user"
-												? "bg-fab-blue text-white rounded-tr-sm"
-												: "bg-white border border-fab-blue/10 text-fab-blue/80 rounded-tl-sm shadow-sm"
-										)}
-									>
-										{msg.content}
-									</div>
-								</div>
-							))}
-							{isLoading && (
+								)
+							})}
+							{isStreaming && (
 								<div className="flex gap-3 max-w-[85%] mr-auto">
 									<div className="w-8 h-8 rounded-full bg-fab-gold text-white flex items-center justify-center shrink-0">
 										<Bot size={14} />
@@ -218,12 +177,12 @@ Pergunta do usuário: ${userMessage.content}`
 									className="flex-1 bg-transparent text-sm text-fab-blue focus:outline-none"
 								/>
 								<button
-									onClick={handleSend}
-									disabled={!input.trim() || isLoading}
+									onClick={isStreaming ? stop : handleSend}
+									disabled={!isStreaming && (!input.trim() || isLoading)}
 									type="button"
 									className="w-10 h-10 rounded-full bg-fab-blue text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:bg-fab-light-blue"
 								>
-									<Send size={16} className="ml-1" />
+									{isStreaming ? <X size={16} /> : <Send size={16} className="ml-1" />}
 								</button>
 							</div>
 						</div>

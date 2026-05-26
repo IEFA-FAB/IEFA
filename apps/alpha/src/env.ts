@@ -7,6 +7,8 @@ const schema = z.object({
 	NVIDIA_API_KEY: z.string().min(1),
 	NVIDIA_BASE_URL: z.string().url().default("https://integrate.api.nvidia.com/v1"),
 	LLM_MODEL: z.string().default("openai/gpt-oss-120b"),
+	ALPHA_AI_PROVIDER: z.enum(["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama"]).default("nvidia"),
+	ALPHA_AI_MODEL: z.string().default("openai/gpt-oss-120b"),
 	EMB_MODEL: z.string().default("baai/bge-m3"),
 	EMB_QUERY_PREFIX: z.string().default("Represent this sentence for searching relevant passages:"),
 	EMB_BATCH_SIZE: z.coerce.number().default(128),

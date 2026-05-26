@@ -12,6 +12,7 @@ import {
 	finalizeAtaDraftFn,
 	saveAtaDraftItemsFn,
 	updateAtaDraftFn,
+	updateAtaItemDescriptionFn,
 	updateAtaItemPricesFn,
 	updateAtaStatusFn,
 } from "@/server/ata.fn"
@@ -153,6 +154,18 @@ export function useUpdateAtaItemPrices() {
 			toast.success("Preços atualizados com sucesso!")
 		},
 		onError: (error) => toast.error(`Erro ao atualizar preços: ${error.message}`),
+	})
+}
+
+export function useUpdateAtaItemDescription() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: (params: { ataId: string; ataItemId: string; description: string }) =>
+			updateAtaItemDescriptionFn({ data: { ataItemId: params.ataItemId, description: params.description || null } }),
+		onSuccess: (_, variables) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(variables.ataId) })
+		},
+		onError: (error) => toast.error(`Erro ao atualizar descrição: ${error.message}`),
 	})
 }
 

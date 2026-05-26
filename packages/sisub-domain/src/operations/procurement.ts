@@ -154,6 +154,7 @@ export async function fetchProcurementNeeds(client: AnyClient, ctx: UserContext,
 		catmat_item_codigo: null,
 		catmat_item_descricao: null,
 		unit_price: null,
+		item_description: null,
 	}))
 
 	needs.sort((a, b) => {

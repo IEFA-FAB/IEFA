@@ -1,20 +1,43 @@
+import type { UIMessage } from "@tanstack/ai-client"
+import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useCreateModuleChatSession, useModuleChatMessages, useSaveModuleChatMessage } from "@/hooks/data/useModuleChatHistory"
-import { useModuleChatStream } from "@/lib/module-chat/stream"
-import type { ChatModule, ModuleChatMessage, ModuleStreamEvent, StreamMeta, ToolCall } from "@/types/domain/module-chat"
+import type { ChatModule, ModuleChatMessage, ToolCall } from "@/types/domain/module-chat"
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function generateId() {
-	return Math.random().toString(36).slice(2, 10)
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function titleFromMessage(msg: string) {
 	const trimmed = msg.replace(/\s+/g, " ").trim()
 	return trimmed.length > 60 ? `${trimmed.slice(0, 57)}…` : trimmed
 }
 
-// ── Types ───────────────────────────────────────────────────────────────────
+function extractText(parts: UIMessage["parts"]): string {
+	return parts
+		.filter((p): p is { type: "text"; content: string } => p.type === "text")
+		.map((p) => p.content)
+		.join("")
+}
+
+function extractToolCalls(parts: UIMessage["parts"]): ToolCall[] {
+	return parts
+		.filter((p) => p.type === "tool-call")
+		.map((p) => {
+			// biome-ignore lint/suspicious/noExplicitAny: UIMessage part union requires cast to access tool-call fields
+			const tc = p as any
+			const hasOutput = tc.output !== undefined && tc.output !== null
+			const hasError = hasOutput && typeof tc.output === "object" && "error" in tc.output
+			return {
+				id: tc.id as string,
+				name: tc.name as string,
+				arguments: tc.arguments as string,
+				status: (hasOutput ? (hasError ? "error" : "done") : "calling") as ToolCall["status"],
+				result: hasOutput ? (hasError ? undefined : tc.output) : undefined,
+				isError: hasError,
+			} satisfies ToolCall
+		})
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface UseModuleChatSessionOptions {
 	sessionId: string | undefined
@@ -31,28 +54,17 @@ export interface UseModuleChatSessionReturn {
 	handleAbort: () => void
 }
 
-// ── Hook ────────────────────────────────────────────────────────────────────
+// ── Connection ────────────────────────────────────────────────────────────────
 
-/**
- * Manages the full module chat session lifecycle:
- * - message state (in-memory + DB sync)
- * - session creation on first message
- * - streaming coordination (SSE)
- * - tool call accumulation
- * - persistence with exponential-backoff retry
- */
+const MODULE_STREAM_URL = "/api/module-chat/stream"
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
 export function useModuleChatSession({ sessionId, module, scopeId, onSessionCreated }: UseModuleChatSessionOptions): UseModuleChatSessionReturn {
-	const [messages, setMessages] = useState<ModuleChatMessage[]>([])
-
-	const messagesRef = useRef<ModuleChatMessage[]>([])
-	const pendingAssistantId = useRef<string | null>(null)
+	// Refs for session management
 	const sessionIdRef = useRef<string | undefined>(sessionId)
 	const sessionPromiseRef = useRef<Promise<string> | null>(null)
-	const pendingMetaRef = useRef<StreamMeta | null>(null)
 
-	useEffect(() => {
-		messagesRef.current = messages
-	}, [messages])
 	useEffect(() => {
 		sessionIdRef.current = sessionId
 	}, [sessionId])
@@ -63,178 +75,161 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	const createSession = useCreateModuleChatSession(module, scopeId)
 	const saveMessage = useSaveModuleChatMessage(module, scopeId)
 
-	// Sync persisted messages from DB into state
+	const saveMessageRef = useRef(saveMessage)
+	const createSessionRef = useRef(createSession)
+	const onSessionCreatedRef = useRef(onSessionCreated)
+	useEffect(() => {
+		saveMessageRef.current = saveMessage
+	})
+	useEffect(() => {
+		createSessionRef.current = createSession
+	})
+	useEffect(() => {
+		onSessionCreatedRef.current = onSessionCreated
+	})
+
+	// ── Tool calls map (display data from DB load + completed streams) ─────────
+
+	const [toolCallsMap, setToolCallsMap] = useState<Map<string, ToolCall[]>>(new Map())
+	const toolCallsMapRef = useRef(toolCallsMap)
+	useEffect(() => {
+		toolCallsMapRef.current = toolCallsMap
+	}, [toolCallsMap])
+
+	// ── onFinish ──────────────────────────────────────────────────────────────
+
+	const onFinish = useCallback((msg: UIMessage) => {
+		if (msg.role !== "assistant") return
+		const content = extractText(msg.parts)
+		const toolCalls = extractToolCalls(msg.parts)
+
+		if (toolCalls.length > 0) {
+			setToolCallsMap((prev) => new Map(prev).set(msg.id, toolCalls))
+		}
+
+		void sessionPromiseRef.current
+			?.then(async (sid) => {
+				const doSave = async (attempt = 0): Promise<void> => {
+					try {
+						await saveMessageRef.current.mutateAsync({
+							sessionId: sid,
+							role: "assistant",
+							content,
+							toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+						})
+					} catch {
+						if (attempt < 3) {
+							await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
+							return doSave(attempt + 1)
+						}
+					}
+				}
+				await doSave()
+			})
+			.catch((_err: unknown) => {})
+	}, [])
+
+	// ── useChat ───────────────────────────────────────────────────────────────
+
+	// module/scopeId go in body → forwarded as forwardedProps on the server
+	const connection = fetchServerSentEvents(MODULE_STREAM_URL)
+	const {
+		messages: uiMessages,
+		sendMessage,
+		stop,
+		isLoading,
+		setMessages,
+	} = useChat({
+		connection,
+		body: { module, scopeId },
+		onFinish,
+	})
+
+	const uiMessagesRef = useRef<UIMessage[]>([])
+	uiMessagesRef.current = uiMessages
+
+	// ── DB sync effect ────────────────────────────────────────────────────────
+
 	useEffect(() => {
 		if (!sessionId) {
 			setMessages([])
+			setToolCallsMap(new Map())
 			return
 		}
 		if (!loadedMessages) return
-		if (pendingAssistantId.current) return
-		if (messagesRef.current.length > 0 && messagesRef.current.length > loadedMessages.length) return
+		if (isLoading) return
+		const prev = uiMessagesRef.current
+		if (prev.length > 0 && prev.length > loadedMessages.length) return
 
-		const mapped: ModuleChatMessage[] = loadedMessages.map((m) => ({
-			id: m.id,
-			role: m.role as "user" | "assistant" | "tool",
-			content: m.content,
-			toolCalls: m.tool_calls ? (m.tool_calls as unknown as ToolCall[]) : undefined,
-			toolCallId: m.tool_call_id ?? undefined,
-			toolName: m.tool_name ?? undefined,
-			toolResult: m.tool_result ?? undefined,
-			error: m.error ?? undefined,
-			createdAt: new Date(m.created_at),
-		}))
+		const newMessages: UIMessage[] = loadedMessages
+			.filter((m) => m.role === "user" || m.role === "assistant")
+			.map((m) => ({
+				id: m.id,
+				role: m.role as "user" | "assistant",
+				parts: [{ type: "text" as const, content: m.content }],
+				createdAt: new Date(m.created_at),
+			}))
 
-		setMessages(mapped)
-	}, [sessionId, loadedMessages])
+		setMessages(newMessages)
 
-	// ── Streaming ─────────────────────────────────────────────────────────────
+		// Restore tool calls from DB
+		const dbToolCalls = new Map<string, ToolCall[]>()
+		for (const m of loadedMessages) {
+			if (m.tool_calls) {
+				dbToolCalls.set(m.id, m.tool_calls as unknown as ToolCall[])
+			}
+		}
+		setToolCallsMap(dbToolCalls)
+	}, [sessionId, loadedMessages, isLoading, setMessages])
 
-	const { submit, abort, isStreaming } = useModuleChatStream(
-		useCallback(
-			(event: ModuleStreamEvent) => {
-				const id = pendingAssistantId.current
-				if (!id) return
+	// ── Derived messages ──────────────────────────────────────────────────────
 
-				setMessages((prev) => {
-					const idx = prev.findIndex((m) => m.id === id)
-					if (idx === -1) return prev
-					const msg = { ...prev[idx] }
+	const lastAssistantIdx = uiMessages.reduce((last, m, i) => (m.role === "assistant" ? i : last), -1)
 
-					if (event.type === "text_delta") {
-						msg.content = (msg.content ?? "") + event.delta
-					} else if (event.type === "tool_call_start") {
-						const tc: ToolCall = { id: event.id, name: event.name, arguments: "", status: "calling" }
-						msg.toolCalls = [...(msg.toolCalls ?? []), tc]
-					} else if (event.type === "tool_call_done") {
-						msg.toolCalls = (msg.toolCalls ?? []).map((tc) =>
-							tc.id === event.id ? { ...tc, arguments: JSON.stringify(event.arguments), status: "calling" as const } : tc
-						)
-					} else if (event.type === "tool_result") {
-						msg.toolCalls = (msg.toolCalls ?? []).map((tc) =>
-							tc.id === event.id ? { ...tc, status: event.isError ? ("error" as const) : ("done" as const), result: event.result, isError: event.isError } : tc
-						)
-					} else if (event.type === "done") {
-						msg.isStreaming = false
-						pendingMetaRef.current = event.meta ?? null
-					} else if (event.type === "error") {
-						msg.error = event.message
-						msg.isStreaming = false
-						pendingMetaRef.current = event.meta ?? null
-					}
-
-					const updated = [...prev]
-					updated[idx] = msg
-					messagesRef.current = updated
-					return updated
-				})
-
-				// Persist on completion
-				if (event.type === "done" || event.type === "error") {
-					pendingAssistantId.current = null
-
-					const latest = messagesRef.current.find((m) => m.id === id)
-					if (!latest || !sessionPromiseRef.current) return
-
-					// Capture meta before the async closure (ref may be overwritten)
-					const meta = pendingMetaRef.current
-					pendingMetaRef.current = null
-
-					void sessionPromiseRef.current
-						.then(async (sid) => {
-							const doSave = async (attempt = 0): Promise<void> => {
-								try {
-									await saveMessage.mutateAsync({
-										sessionId: sid,
-										role: "assistant",
-										content: latest.content,
-										toolCalls: latest.toolCalls,
-										error: latest.error,
-										model: meta?.model,
-										latencyMs: meta?.latency_ms,
-										inputTokens: meta?.input_tokens,
-										outputTokens: meta?.output_tokens,
-									})
-								} catch (_err) {
-									if (attempt < 3) {
-										await new Promise<void>((r) => setTimeout(r, 1000 * 2 ** attempt))
-										return doSave(attempt + 1)
-									}
-								}
-							}
-							await doSave()
-						})
-						.catch((_err: unknown) => {})
-				}
-			},
-			[saveMessage]
-		),
-		{ module, scopeId }
-	)
+	const messages: ModuleChatMessage[] = uiMessages
+		.filter((m) => m.role === "user" || m.role === "assistant")
+		.map((m, i) => {
+			const streamingToolCalls = extractToolCalls(m.parts)
+			const storedToolCalls = toolCallsMapRef.current.get(m.id)
+			return {
+				id: m.id,
+				role: m.role as "user" | "assistant",
+				content: extractText(m.parts),
+				toolCalls: streamingToolCalls.length > 0 ? streamingToolCalls : storedToolCalls,
+				isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
+				createdAt: m.createdAt ?? new Date(),
+			}
+		})
 
 	// ── Action handlers ───────────────────────────────────────────────────────
 
 	const handleAbort = useCallback(() => {
-		abort()
-		const id = pendingAssistantId.current
-		if (!id) return
-		pendingAssistantId.current = null
-		setMessages((prev) =>
-			prev.map((m) =>
-				m.id === id
-					? {
-							...m,
-							isStreaming: false,
-							error: m.content || m.error ? m.error : "Geração interrompida.",
-						}
-					: m
-			)
-		)
-	}, [abort])
+		stop()
+	}, [stop])
 
 	const handleSubmit = useCallback(
 		(message: string) => {
-			const history = messagesRef.current.filter((e) => !e.isStreaming)
-
-			const userMsg: ModuleChatMessage = {
-				id: generateId(),
-				role: "user",
-				content: message,
-				createdAt: new Date(),
-			}
-			const assistantId = generateId()
-			pendingAssistantId.current = assistantId
-			const assistantMsg: ModuleChatMessage = {
-				id: assistantId,
-				role: "assistant",
-				content: "",
-				isStreaming: true,
-				createdAt: new Date(),
-			}
-			setMessages((prev) => [...prev, userMsg, assistantMsg])
-
-			void submit(message, history)
-
 			const sid = sessionIdRef.current
 			if (sid) {
 				sessionPromiseRef.current = Promise.resolve(sid)
-				saveMessage.mutate({ sessionId: sid, role: "user", content: message })
+				saveMessageRef.current.mutate({ sessionId: sid, role: "user", content: message })
 			} else {
-				const p = createSession.mutateAsync(titleFromMessage(message)).then((newSession) => {
+				const p = createSessionRef.current.mutateAsync(titleFromMessage(message)).then((newSession) => {
 					sessionIdRef.current = newSession.id
-					onSessionCreated(newSession.id)
-					saveMessage.mutate({ sessionId: newSession.id, role: "user", content: message })
+					onSessionCreatedRef.current(newSession.id)
+					saveMessageRef.current.mutate({ sessionId: newSession.id, role: "user", content: message })
 					return newSession.id
 				})
 				sessionPromiseRef.current = p
 			}
+			void sendMessage(message)
 		},
-		[submit, createSession, saveMessage, onSessionCreated]
+		[sendMessage]
 	)
 
 	return {
 		messages,
-		isStreaming,
+		isStreaming: isLoading,
 		loadingMessages,
 		handleSubmit,
 		handleAbort,

@@ -1,0 +1,42 @@
+{
+  "name": "@iefa/ai-provider",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./groq": "./src/providers/groq.ts",
+    "./nvidia": "./src/providers/nvidia.ts",
+    "./openrouter": "./src/providers/openrouter.ts",
+    "./gemini": "./src/providers/gemini.ts",
+    "./anthropic": "./src/providers/anthropic.ts",
+    "./ollama": "./src/providers/ollama.ts",
+    "./langchain-compat": "./src/langchain-compat.ts"
+  },
+  "dependencies": {
+    "@langchain/openai": "^1.2.8",
+    "@tanstack/ai": "latest",
+    "@tanstack/ai-anthropic": "latest",
+    "@tanstack/ai-gemini": "latest",
+    "@tanstack/ai-groq": "latest",
+    "@tanstack/ai-ollama": "latest",
+    "@tanstack/ai-openai": "latest"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20260410.1",
+    "typescript": "^6.0.2"
+  }
+}

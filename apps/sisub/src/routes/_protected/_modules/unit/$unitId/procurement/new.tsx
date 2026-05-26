@@ -128,6 +128,7 @@ function NewAtaPage() {
 	const [savedItems, setSavedItems] = useState<ProcurementNeed[]>([])
 	const [priceResearchItem, setPriceResearchItem] = useState<ProcurementNeed | null>(null)
 	const [priceOverrides, setPriceOverrides] = useState<Record<string, { price: number; researchId: string | null; researchItemId: string | null }>>({})
+	const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
 
 	// Criar draft se ainda não existe
 	useEffect(() => {
@@ -202,6 +203,7 @@ function NewAtaPage() {
 				catmat_item_codigo: item.catmat_item_codigo,
 				catmat_item_descricao: item.catmat_item_descricao,
 				unit_price: item.unit_price ? Number(item.unit_price) : null,
+				item_description: item.item_description || null,
 				ata_item_id: item.id,
 			}))
 			setSavedItems(restoredItems)
@@ -260,7 +262,11 @@ function NewAtaPage() {
 	}
 
 	const { mutate: calculateNeeds, data: calculatedItems, isPending: isCalculating } = useCalculateAtaNeeds()
-	const rawItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
+	const baseItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
+	const rawItems: ProcurementNeed[] = baseItems.map((item) => ({
+		...item,
+		item_description: item.ingredient_id in descriptionOverrides ? (descriptionOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
+	}))
 
 	const {
 		start: runBulkResearch,
@@ -298,6 +304,21 @@ function NewAtaPage() {
 			.map(([ingredientId, v]) => ({ ingredientId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
 		saveDraftItems({ draftId, items: updatedItems, researchLinks })
 	}
+	const handleDescriptionChange = (ingredientId: string, _ataItemId: string | null | undefined, description: string) => {
+		const nextOverrides = { ...descriptionOverrides, [ingredientId]: description }
+		setDescriptionOverrides(nextOverrides)
+		if (!draftId) return
+		const researchLinks = Object.entries(priceOverrides)
+			.filter(([, v]) => v.researchId && v.researchItemId)
+			.map(([ingId, v]) => ({ ingredientId: ingId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
+		const updatedItems = baseItems.map((item) => ({
+			...item,
+			item_description: item.ingredient_id in nextOverrides ? (nextOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
+			unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
+		}))
+		saveDraftItems({ draftId, items: updatedItems, researchLinks })
+	}
+
 	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
 		...item,
 		unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
@@ -357,11 +378,12 @@ function NewAtaPage() {
 	}
 
 	const handleExportCSV = () => {
-		const headers = ["Categoria", "CATMAT", "Descrição CATMAT", "Produto", "Quantidade", "Unidade", "Preço Un.", "Total Est."]
+		const headers = ["Categoria", "CATMAT", "Descrição CATMAT", "Descrição Adicional", "Produto", "Quantidade", "Unidade", "Preço Un.", "Total Est."]
 		const rows = displayItems.map((item) => [
 			item.folder_description || "Sem categoria",
 			item.catmat_item_codigo?.toString() || "",
 			item.catmat_item_descricao || "",
+			item.item_description || "",
 			item.ingredient_name,
 			item.total_quantity.toFixed(4),
 			item.measure_unit || "UN",
@@ -585,7 +607,7 @@ function NewAtaPage() {
 							)}
 
 							{/* Tabela de itens */}
-							<AtaItemsTable data={displayItems} onPesquisarPreco={(item) => setPriceResearchItem(item)} />
+							<AtaItemsTable data={displayItems} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
 
 							{/* Ações finais */}
 							<div className="flex items-center justify-between pt-2">

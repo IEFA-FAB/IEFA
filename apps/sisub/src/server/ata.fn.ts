@@ -207,6 +207,7 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 				catmat_item_codigo: pi?.catmat_item_codigo ?? null,
 				catmat_item_descricao: pi?.catmat_item_descricao ?? null,
 				unit_price: pi?.unit_price ?? null,
+				item_description: null,
 			}
 		})
 
@@ -308,6 +309,7 @@ const DraftItemSchema = z.object({
 	catmat_item_codigo: z.number().optional().nullable(),
 	catmat_item_descricao: z.string().optional().nullable(),
 	unit_price: z.number().optional().nullable(),
+	item_description: z.string().optional().nullable(),
 })
 
 function buildItemPayload(item: z.infer<typeof DraftItemSchema>, draftId: string) {
@@ -327,6 +329,7 @@ function buildItemPayload(item: z.infer<typeof DraftItemSchema>, draftId: string
 		catmat_item_codigo: item.catmat_item_codigo || null,
 		catmat_item_descricao: item.catmat_item_descricao || null,
 		unit_price: item.unit_price || null,
+		item_description: item.item_description || null,
 	}
 }
 
@@ -516,6 +519,7 @@ export const createAtaFn = createServerFn({ method: "POST" })
 					catmat_item_codigo: z.number().optional().nullable(),
 					catmat_item_descricao: z.string().optional().nullable(),
 					unit_price: z.number().optional().nullable(),
+					item_description: z.string().optional().nullable(),
 				})
 			),
 			researchLinks: z
@@ -590,6 +594,7 @@ export const createAtaFn = createServerFn({ method: "POST" })
 				catmat_item_codigo: item.catmat_item_codigo || null,
 				catmat_item_descricao: item.catmat_item_descricao || null,
 				unit_price: item.unit_price || null,
+				item_description: item.item_description || null,
 			}))
 			const { data: insertedItems, error: itemsError } = await supabase.from("procurement_list_item").insert(itemRows).select("id, ingredient_id")
 			if (itemsError) throw new Error(`Erro ao salvar itens: ${itemsError.message}`)
@@ -739,6 +744,24 @@ export const updateAtaItemPricesFn = createServerFn({ method: "POST" })
 				])
 			)
 		}
+	})
+
+// ─── Atualizar descrição de um item de ATA ───────────────────────────────────
+
+export const updateAtaItemDescriptionFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			ataItemId: z.string().uuid(),
+			description: z.string().nullable(),
+		})
+	)
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const { error } = await getSupabaseServerClient()
+			.from("procurement_list_item")
+			.update({ item_description: data.description || null })
+			.eq("id", data.ataItemId)
+		if (error) throw new Error(`Erro ao atualizar descrição: ${error.message}`)
 	})
 
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────

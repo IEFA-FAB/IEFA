@@ -3333,6 +3333,7 @@ export type Database = {
 					id: string
 					ingredient_id: string | null
 					ingredient_name: string
+					item_description: string | null
 					list_id: string
 					measure_unit: string | null
 					purchase_item_description: string | null
@@ -3351,6 +3352,7 @@ export type Database = {
 					id?: string
 					ingredient_id?: string | null
 					ingredient_name: string
+					item_description?: string | null
 					list_id: string
 					measure_unit?: string | null
 					purchase_item_description?: string | null
@@ -3369,6 +3371,7 @@ export type Database = {
 					id?: string
 					ingredient_id?: string | null
 					ingredient_name?: string
+					item_description?: string | null
 					list_id?: string
 					measure_unit?: string | null
 					purchase_item_description?: string | null

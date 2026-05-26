@@ -1,5 +1,6 @@
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
-import { MoreHorizontal, Package, TrendingUp } from "lucide-react"
+import { MoreHorizontal, Package, Pencil, TrendingUp } from "lucide-react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -8,6 +9,7 @@ interface AtaItemsTableProps {
 	data: ProcurementNeed[]
 	isLoading?: boolean
 	onPesquisarPreco?: (item: ProcurementNeed) => void
+	onUpdateDescription?: (ingredientId: string, ataItemId: string | null | undefined, description: string) => void
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -15,11 +17,23 @@ const NUM = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFr
 
 function formatCatmat(code: number | null): string {
 	if (!code) return "—"
-	// Formato padrão CATMAT: grupo.classe.pdm.item (mascarado como string)
 	return String(code)
 }
 
-export function AtaItemsTable({ data, isLoading, onPesquisarPreco }: AtaItemsTableProps) {
+export function AtaItemsTable({ data, isLoading, onPesquisarPreco, onUpdateDescription }: AtaItemsTableProps) {
+	const [editingId, setEditingId] = useState<string | null>(null)
+	const [editingValue, setEditingValue] = useState("")
+
+	const startEditing = (item: ProcurementNeed) => {
+		setEditingId(item.ingredient_id)
+		setEditingValue(item.item_description ?? "")
+	}
+
+	const commitEditing = (item: ProcurementNeed) => {
+		onUpdateDescription?.(item.ingredient_id, item.ata_item_id, editingValue)
+		setEditingId(null)
+	}
+
 	const groupedData = data.reduce(
 		(acc, item) => {
 			const category = item.folder_description || "Sem categoria"
@@ -108,11 +122,52 @@ export function AtaItemsTable({ data, isLoading, onPesquisarPreco }: AtaItemsTab
 									{items.map((item) => {
 										const qty = item.purchase_quantity ?? item.total_quantity
 										const unit = item.purchase_measure_unit ?? item.measure_unit ?? "UN"
+										const isEditing = onUpdateDescription && editingId === item.ingredient_id
 										return (
 											<TableRow key={item.ingredient_id}>
 												<TableCell className="font-mono text-xs text-muted-foreground">{formatCatmat(item.catmat_item_codigo)}</TableCell>
-												<TableCell className="text-xs max-w-48 truncate" title={item.purchase_item_description ?? item.catmat_item_descricao ?? undefined}>
-													{item.purchase_item_description ?? item.catmat_item_descricao ?? <span className="text-muted-foreground">—</span>}
+												<TableCell className="max-w-52">
+													<div className="space-y-0.5">
+														<p className="text-xs truncate" title={item.purchase_item_description ?? item.catmat_item_descricao ?? undefined}>
+															{item.purchase_item_description ?? item.catmat_item_descricao ?? <span className="text-muted-foreground">—</span>}
+														</p>
+														{onUpdateDescription && (
+															<div className="min-h-4">
+																{isEditing ? (
+																	<input
+																		// biome-ignore lint/a11y/noAutofocus: foco intencional na edição inline
+																		autoFocus
+																		className="text-xs w-full border-b border-primary outline-none bg-transparent text-foreground placeholder:text-muted-foreground/50"
+																		value={editingValue}
+																		placeholder="Descrição adicional..."
+																		onChange={(e) => setEditingValue(e.target.value)}
+																		onBlur={() => commitEditing(item)}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter") commitEditing(item)
+																			if (e.key === "Escape") setEditingId(null)
+																		}}
+																	/>
+																) : item.item_description ? (
+																	<button
+																		type="button"
+																		onClick={() => startEditing(item)}
+																		className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground text-left group"
+																	>
+																		<Pencil className="size-2.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+																		<span className="truncate">{item.item_description}</span>
+																	</button>
+																) : (
+																	<button
+																		type="button"
+																		onClick={() => startEditing(item)}
+																		className="text-xs text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+																	>
+																		+ descrição
+																	</button>
+																)}
+															</div>
+														)}
+													</div>
 												</TableCell>
 												<TableCell className="text-subheading">{item.ingredient_name}</TableCell>
 												<TableCell className="text-right tabular-nums text-xs text-muted-foreground">

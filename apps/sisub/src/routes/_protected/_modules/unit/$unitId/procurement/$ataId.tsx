@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import { useArpForAta } from "@/hooks/data/useArp"
-import { useAtaDetails, useUpdateAtaStatus } from "@/hooks/data/useAta"
+import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { queryKeys } from "@/lib/query-keys"
 import { updateAtaItemPricesFn } from "@/server/ata.fn"
@@ -61,6 +61,7 @@ function ataItemToNeed(item: ProcurementListItem): ProcurementNeed {
 		catmat_item_codigo: item.catmat_item_codigo,
 		catmat_item_descricao: item.catmat_item_descricao,
 		unit_price: item.unit_price !== null ? Number(item.unit_price) : null,
+		item_description: item.item_description ?? null,
 		ata_item_id: item.id,
 	}
 }
@@ -74,6 +75,7 @@ function AtaDetailPage() {
 	const queryClient = useQueryClient()
 	const { data: ata, isLoading } = useAtaDetails(ataId || null)
 	const { mutate: updateStatus, isPending: isUpdating } = useUpdateAtaStatus()
+	const { mutate: updateItemDescription } = useUpdateAtaItemDescription()
 	const { data: arp, isLoading: isArpLoading } = useArpForAta(ataId || null)
 
 	// UASG da unidade para pré-preencher o modal de busca
@@ -84,13 +86,19 @@ function AtaDetailPage() {
 		staleTime: 10 * 60 * 1000,
 	})
 
+	const handleDescriptionChange = (_ingredientId: string, ataItemId: string | null | undefined, description: string) => {
+		if (!ataItemId || !ataId) return
+		updateItemDescription({ ataId, ataItemId, description })
+	}
+
 	const handleExportCSV = () => {
 		if (!ata) return
-		const headers = ["Categoria", "CATMAT", "Descrição CATMAT", "Produto", "Quantidade", "Unidade", "Preço Un.", "Total Est."]
+		const headers = ["Categoria", "CATMAT", "Descrição CATMAT", "Descrição Adicional", "Produto", "Quantidade", "Unidade", "Preço Un.", "Total Est."]
 		const rows = ata.items.map((item) => [
 			item.folder_description || "Sem categoria",
 			item.catmat_item_codigo || "",
 			item.catmat_item_descricao || "",
+			item.item_description || "",
 			item.ingredient_name,
 			Number(item.total_quantity).toFixed(4),
 			item.measure_unit || "UN",
@@ -282,7 +290,7 @@ function AtaDetailPage() {
 			)}
 
 			{/* Itens da Ata */}
-			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} />
+			<AtaItemsTable data={needs} onPesquisarPreco={(item) => setPriceResearchItem(item)} onUpdateDescription={handleDescriptionChange} />
 
 			{/* ─── ARP & Empenhos ──────────────────────────────────────────── */}
 			<div className="space-y-3">

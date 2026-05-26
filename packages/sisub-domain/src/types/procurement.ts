@@ -13,6 +13,7 @@ export interface ProcurementNeed {
 	catmat_item_codigo: number | null
 	catmat_item_descricao: string | null
 	unit_price: number | null
+	item_description: string | null
 	/** UUID do item salvo na ATA (disponível apenas em ATAs já persistidas) */
 	ata_item_id?: string | null
 }

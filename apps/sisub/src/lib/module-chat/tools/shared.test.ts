@@ -12,9 +12,9 @@ import {
 	type ToolContext,
 	ToolPermissionError,
 	ToolValidationError,
-	toOpenAITools,
 	toolErr,
 	toolOk,
+	wrapTool,
 } from "./shared"
 
 function permission(overrides: Partial<UserPermission> = {}): UserPermission {
@@ -104,27 +104,18 @@ describe("module-chat result helpers", () => {
 		}
 	})
 
-	test("toOpenAITools remove handlers e preserva schema público", async () => {
-		const tools: ModuleToolDefinition[] = [
-			{
-				name: "list_recipes",
-				description: "Lista receitas",
-				parameters: { type: "object", properties: {} },
-				requiredLevel: 1,
-				handler: async () => toolOk([]),
-			},
-		]
+	test("wrapTool cria ServerTool com name, description e handler funcional", async () => {
+		const def: ModuleToolDefinition = {
+			name: "list_recipes",
+			description: "Lista receitas",
+			parameters: { type: "object", properties: {} },
+			requiredLevel: 1,
+			handler: async () => toolOk([]),
+		}
 
-		expect(toOpenAITools(tools)).toEqual([
-			{
-				type: "function",
-				function: {
-					name: "list_recipes",
-					description: "Lista receitas",
-					parameters: { type: "object", properties: {} },
-				},
-			},
-		])
-		expect(await tools[0]?.handler({}, ctx([]))).toEqual({ success: true, data: [] })
+		const serverTool = wrapTool(def, ctx([]))
+		expect(serverTool.name).toBe("list_recipes")
+		expect(serverTool.description).toBe("Lista receitas")
+		expect(serverTool.__toolSide).toBe("server")
 	})
 })

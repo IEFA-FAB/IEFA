@@ -1,11 +1,13 @@
 /**
  * Shared utilities for module chat tools.
- * Provides ToolContext, permission helpers, and OpenAI function-calling format helpers.
+ * Provides ToolContext, permission helpers, and TanStack AI tool wrapping.
  */
 
 import type { Database } from "@iefa/database"
 import { hasPermission } from "@iefa/pbac"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { ServerTool } from "@tanstack/ai"
+import { toolDefinition } from "@tanstack/ai"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
 // ── Tool context (passed to every tool handler) ─────────────────────────────
@@ -162,18 +164,19 @@ export function untypedFrom(ctx: ToolContext, table: string): any {
 }
 
 /**
- * Convert ModuleToolDefinition[] to OpenAI tools format.
+ * Wraps a ModuleToolDefinition as a TanStack AI ServerTool.
+ * The ToolContext is injected via closure so each request gets its own auth/supabase.
  */
-export function toOpenAITools(tools: ModuleToolDefinition[]): Array<{
-	type: "function"
-	function: { name: string; description: string; parameters: Record<string, unknown> }
-}> {
-	return tools.map((t) => ({
-		type: "function" as const,
-		function: {
-			name: t.name,
-			description: t.description,
-			parameters: t.parameters,
-		},
-	}))
+export function wrapTool(def: ModuleToolDefinition, ctx: ToolContext): ServerTool {
+	return toolDefinition({
+		name: def.name,
+		description: def.description,
+		// Pass the JSON schema directly — TanStack AI v0.22+ accepts plain JSONSchema
+		// biome-ignore lint/suspicious/noExplicitAny: plain JSONSchema accepted at runtime but not yet reflected in SchemaInput types
+		inputSchema: def.parameters as any,
+	}).server(async (args) => {
+		const result = await def.handler(args as Record<string, unknown>, ctx)
+		if (!result.success) throw new Error(result.error ?? "Ferramenta falhou")
+		return result.data
+	})
 }
