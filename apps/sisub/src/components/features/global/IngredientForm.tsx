@@ -112,19 +112,13 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 							{(field) => (
 								<Field>
 									<FieldLabel htmlFor={field.name}>Pasta (Categoria)</FieldLabel>
-									<Select
-										value={field.state.value || "__SELECT__"}
-										onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? null : value)}
-									>
+									<Select value={field.state.value ?? null} onValueChange={(value) => field.handleChange(value)}>
 										<SelectTrigger>
 											<SelectValue placeholder="Selecione uma pasta">
-												{field.state.value && field.state.value !== "__SELECT__"
-													? (folders?.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
-													: undefined}
+												{field.state.value ? (folders?.find((f) => f.id === field.state.value)?.description ?? "Sem Nome") : undefined}
 											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="__SELECT__">Selecione uma pasta</SelectItem>
 											{folders?.map((f) => (
 												<SelectItem key={f.id} value={f.id}>
 													{f.description || "Sem Nome"}
@@ -142,17 +136,13 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 							{(field) => (
 								<Field>
 									<FieldLabel htmlFor={field.name}>Unidade de Medida</FieldLabel>
-									<Select
-										value={field.state.value || "__SELECT__"}
-										onValueChange={(value) => field.handleChange(value === "__SELECT__" || value === null ? "" : value)}
-									>
+									<Select value={field.state.value || null} onValueChange={(value) => field.handleChange(value ?? "")}>
 										<SelectTrigger>
 											<SelectValue placeholder="Selecione">
-												{field.state.value && field.state.value !== "__SELECT__" ? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value) : undefined}
+												{field.state.value ? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value) : undefined}
 											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="__SELECT__">Selecione</SelectItem>
 											<SelectItem value="UN">UN (Unidade)</SelectItem>
 											<SelectItem value="KG">KG (Quilograma)</SelectItem>
 											<SelectItem value="LT">LT (Litro)</SelectItem>

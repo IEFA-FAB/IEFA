@@ -2,7 +2,7 @@ import type { ComponentType } from "react"
 
 // ── Module identifiers ──────────────────────────────────────────────────────
 
-export const CHAT_MODULES = ["global", "kitchen", "unit"] as const
+export const CHAT_MODULES = ["global", "kitchen", "unit", "local-analytics"] as const
 export type ChatModule = (typeof CHAT_MODULES)[number]
 
 // ── Session ─────────────────────────────────────────────────────────────────

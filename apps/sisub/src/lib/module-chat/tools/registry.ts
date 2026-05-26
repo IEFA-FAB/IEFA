@@ -6,9 +6,11 @@ import type { ServerTool } from "@tanstack/ai"
 import type { ChatModule } from "@/types/domain/module-chat"
 import { GLOBAL_SYSTEM_PROMPT } from "../prompts/global"
 import { KITCHEN_SYSTEM_PROMPT } from "../prompts/kitchen"
+import { LOCAL_ANALYTICS_SYSTEM_PROMPT } from "../prompts/local-analytics"
 import { UNIT_SYSTEM_PROMPT } from "../prompts/unit"
 import { globalTools } from "./global"
 import { kitchenTools } from "./kitchen"
+import { localAnalyticsTools } from "./local-analytics"
 import type { ModuleToolDefinition, ToolContext } from "./shared"
 import { wrapTool } from "./shared"
 import { unitTools } from "./unit"
@@ -22,12 +24,14 @@ const MODULE_TOOLS: Record<ChatModule, ModuleToolDefinition[]> = {
 	global: globalTools,
 	kitchen: kitchenTools,
 	unit: unitTools,
+	"local-analytics": localAnalyticsTools,
 }
 
 const MODULE_PROMPTS: Record<ChatModule, string> = {
 	global: GLOBAL_SYSTEM_PROMPT,
 	kitchen: KITCHEN_SYSTEM_PROMPT,
 	unit: UNIT_SYSTEM_PROMPT,
+	"local-analytics": LOCAL_ANALYTICS_SYSTEM_PROMPT,
 }
 
 function scopedSystemPrompt(module: ChatModule, basePrompt: string, toolCtx: ToolContext): string {
@@ -47,6 +51,15 @@ function scopedSystemPrompt(module: ChatModule, basePrompt: string, toolCtx: Too
 - Esta conversa está dentro da cozinha de ID ${toolCtx.scopeId}.
 - Para ferramentas de cozinha, use sempre a cozinha atual da rota.
 - Não peça, não invente e não mencione outro ID de cozinha como se tivesse sido informado pelo usuário.`
+	}
+
+	if (module === "local-analytics" && toolCtx.scopeId != null) {
+		return `${basePrompt}
+
+## Escopo obrigatório da rota
+- Esta conversa está dentro da unidade de ID ${toolCtx.scopeId}.
+- Para todas as ferramentas, use sempre a unidade atual da rota.
+- Não peça, não invente e não mencione outro ID de unidade como se tivesse sido informado pelo usuário.`
 	}
 
 	return basePrompt

@@ -153,6 +153,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Dashboard", url: "/local-analytics/dashboard", icon: LayoutDashboard },
 			{ title: "Indicadores", url: "/local-analytics/indicators", icon: BarChart3 },
+			{ title: "Assistente IA", url: "/local-analytics/chat", icon: MessageSquare },
 		],
 	},
 ]

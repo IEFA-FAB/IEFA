@@ -95,7 +95,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 					<form.Field name="active">
 						{(field) => (
 							<Field>
-								<FieldLabel htmlFor={field.name}>Ativação</FieldLabel>
+								<FieldLabel htmlFor={field.name}>Exibir pergunta</FieldLabel>
 								<FieldDescription>Define se a pergunta é exibida para usuários que ainda não responderam.</FieldDescription>
 								<div className="flex items-center gap-3 pt-1">
 									<Switch id={field.name} checked={field.state.value} onCheckedChange={field.handleChange} disabled={isSaving || form.state.isSubmitting} />
@@ -117,7 +117,7 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 									onChange={(e) => field.handleChange(e.target.value)}
 									disabled={isSaving || form.state.isSubmitting}
 									rows={3}
-									className="resize-y bg-input"
+									className="resize-y bg-background"
 								/>
 								<div className="flex items-start justify-between">
 									{field.state.meta.errors.length > 0 && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
@@ -129,11 +129,12 @@ function EvaluationForm({ initialData, onSubmit, isSaving }: EvaluationFormProps
 				</FieldGroup>
 			</CardContent>
 
-			<CardFooter className="flex items-center justify-end gap-2 bg-muted/20 px-6 py-4">
+			<CardFooter className="flex items-center gap-2 bg-muted/40 px-6 py-4">
 				<form.Subscribe selector={(state) => [state.isDirty, state.canSubmit, state.isSubmitting]}>
 					{([isDirty, canSubmit, isSubmitting]) => (
 						<>
-							<Button type="button" variant="ghost" onClick={() => form.reset()} disabled={!isDirty || isSaving || isSubmitting}>
+							{isDirty && <p className="text-muted-foreground text-xs mr-auto">Alterações afetam todos os usuários com pergunta pendente.</p>}
+							<Button type="button" variant="ghost" onClick={() => form.reset()} disabled={!isDirty || isSaving || isSubmitting} className="ml-auto">
 								Reverter
 							</Button>
 							<Button type="submit" disabled={!canSubmit || isSaving || isSubmitting}>

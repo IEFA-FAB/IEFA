@@ -63,6 +63,7 @@ import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './route
 import { Route as ProtectedModulesUnitUnitIdChatRouteImport } from './routes/_protected/_modules/unit/$unitId/chat'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdIndicatorsRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/indicators'
 import { Route as ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/dashboard'
+import { Route as ProtectedModulesLocalAnalyticsUnitIdChatRouteImport } from './routes/_protected/_modules/local-analytics/$unitId/chat'
 import { Route as ProtectedModulesKitchenKitchenIdSettingsRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/settings'
 import { Route as ProtectedModulesKitchenKitchenIdQrCodeRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/qr-code'
 import { Route as ProtectedModulesKitchenKitchenIdPlanningRouteImport } from './routes/_protected/_modules/kitchen/$kitchenId/planning'
@@ -401,6 +402,12 @@ const ProtectedModulesLocalAnalyticsUnitIdDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => ProtectedModulesLocalAnalyticsUnitIdRouteRoute,
   } as any)
+const ProtectedModulesLocalAnalyticsUnitIdChatRoute =
+  ProtectedModulesLocalAnalyticsUnitIdChatRouteImport.update({
+    id: '/chat',
+    path: '/chat',
+    getParentRoute: () => ProtectedModulesLocalAnalyticsUnitIdRouteRoute,
+  } as any)
 const ProtectedModulesKitchenKitchenIdSettingsRoute =
   ProtectedModulesKitchenKitchenIdSettingsRouteImport.update({
     id: '/settings',
@@ -620,6 +627,7 @@ export interface FileRoutesByFullPath {
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
+  '/local-analytics/$unitId/chat': typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
@@ -695,6 +703,7 @@ export interface FileRoutesByTo {
   '/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
+  '/local-analytics/$unitId/chat': typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   '/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
@@ -778,6 +787,7 @@ export interface FileRoutesById {
   '/_protected/_modules/kitchen/$kitchenId/planning': typeof ProtectedModulesKitchenKitchenIdPlanningRoute
   '/_protected/_modules/kitchen/$kitchenId/qr-code': typeof ProtectedModulesKitchenKitchenIdQrCodeRoute
   '/_protected/_modules/kitchen/$kitchenId/settings': typeof ProtectedModulesKitchenKitchenIdSettingsRoute
+  '/_protected/_modules/local-analytics/$unitId/chat': typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   '/_protected/_modules/local-analytics/$unitId/dashboard': typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   '/_protected/_modules/local-analytics/$unitId/indicators': typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
   '/_protected/_modules/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
@@ -861,6 +871,7 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
+    | '/local-analytics/$unitId/chat'
     | '/local-analytics/$unitId/dashboard'
     | '/local-analytics/$unitId/indicators'
     | '/unit/$unitId/chat'
@@ -936,6 +947,7 @@ export interface FileRouteTypes {
     | '/kitchen/$kitchenId/planning'
     | '/kitchen/$kitchenId/qr-code'
     | '/kitchen/$kitchenId/settings'
+    | '/local-analytics/$unitId/chat'
     | '/local-analytics/$unitId/dashboard'
     | '/local-analytics/$unitId/indicators'
     | '/unit/$unitId/chat'
@@ -1018,6 +1030,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/kitchen/$kitchenId/planning'
     | '/_protected/_modules/kitchen/$kitchenId/qr-code'
     | '/_protected/_modules/kitchen/$kitchenId/settings'
+    | '/_protected/_modules/local-analytics/$unitId/chat'
     | '/_protected/_modules/local-analytics/$unitId/dashboard'
     | '/_protected/_modules/local-analytics/$unitId/indicators'
     | '/_protected/_modules/unit/$unitId/chat'
@@ -1440,6 +1453,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRouteImport
       parentRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRoute
     }
+    '/_protected/_modules/local-analytics/$unitId/chat': {
+      id: '/_protected/_modules/local-analytics/$unitId/chat'
+      path: '/chat'
+      fullPath: '/local-analytics/$unitId/chat'
+      preLoaderRoute: typeof ProtectedModulesLocalAnalyticsUnitIdChatRouteImport
+      parentRoute: typeof ProtectedModulesLocalAnalyticsUnitIdRouteRoute
+    }
     '/_protected/_modules/kitchen/$kitchenId/settings': {
       id: '/_protected/_modules/kitchen/$kitchenId/settings'
       path: '/settings'
@@ -1757,12 +1777,15 @@ const ProtectedModulesKitchenKitchenIdRouteRouteWithChildren =
   )
 
 interface ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren {
+  ProtectedModulesLocalAnalyticsUnitIdChatRoute: typeof ProtectedModulesLocalAnalyticsUnitIdChatRoute
   ProtectedModulesLocalAnalyticsUnitIdDashboardRoute: typeof ProtectedModulesLocalAnalyticsUnitIdDashboardRoute
   ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute: typeof ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute
 }
 
 const ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren: ProtectedModulesLocalAnalyticsUnitIdRouteRouteChildren =
   {
+    ProtectedModulesLocalAnalyticsUnitIdChatRoute:
+      ProtectedModulesLocalAnalyticsUnitIdChatRoute,
     ProtectedModulesLocalAnalyticsUnitIdDashboardRoute:
       ProtectedModulesLocalAnalyticsUnitIdDashboardRoute,
     ProtectedModulesLocalAnalyticsUnitIdIndicatorsRoute:

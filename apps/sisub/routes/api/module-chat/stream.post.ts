@@ -27,7 +27,7 @@ import { type ToolContext, getMaxLevel } from "@/lib/module-chat/tools/shared"
 import type { ChatModule } from "@/types/domain/module-chat"
 import type { AppModule, PermissionScope, UserPermission } from "@/types/domain/permissions"
 
-const CHAT_MODULES: ChatModule[] = ["global", "kitchen", "unit"]
+const CHAT_MODULES: ChatModule[] = ["global", "kitchen", "unit", "local-analytics"]
 
 const otel = otelMiddleware({
 	tracer: trace.getTracer("sisub-module-chat"),
@@ -107,7 +107,7 @@ export default defineHandler(async (event: H3Event) => {
 	const scope: PermissionScope | undefined =
 		module === "kitchen" && scopeId != null
 			? { type: "kitchen", id: scopeId }
-			: module === "unit" && scopeId != null
+			: (module === "unit" || module === "local-analytics") && scopeId != null
 				? { type: "unit", id: scopeId }
 				: undefined
 
