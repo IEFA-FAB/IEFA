@@ -5,7 +5,7 @@ import { env } from "../env.ts"
 const baseConfig = {
 	provider: env.ALPHA_AI_PROVIDER,
 	model: env.ALPHA_AI_MODEL,
-	apiKey: env.NVIDIA_API_KEY,
+	apiKey: env.ALPHA_AI_API_KEY ?? env.NVIDIA_API_KEY,
 	baseUrl: env.NVIDIA_BASE_URL,
 } as const
 

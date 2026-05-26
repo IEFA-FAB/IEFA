@@ -100,6 +100,15 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 							</pre>
 						</div>
 					)}
+
+					{toolCall.error && (
+						<div>
+							<p className="text-label text-destructive/80 mb-1">Erro</p>
+							<pre className="overflow-auto rounded border border-destructive/20 bg-destructive/10 p-2 text-[11px] text-destructive font-mono leading-relaxed max-h-[200px] whitespace-pre-wrap">
+								{toolCall.error}
+							</pre>
+						</div>
+					)}
 				</div>
 			)}
 		</div>

@@ -159,20 +159,42 @@ export const getChatMessagesFn = createServerFn({ method: "GET" })
  */
 export const saveChatMessageFn = createServerFn({ method: "POST" })
 	.inputValidator(
-		z.object({
-			sessionId: z.string().uuid(),
-			role: z.enum(["user", "assistant"]),
-			content: z.string(),
-			chart: z.any().optional(),
-			chartTypeOverride: z.enum(CHART_TYPES).optional(),
-			error: z.string().optional(),
-			// Observability fields
-			model: z.string().optional(),
-			latencyMs: z.number().int().nonnegative().optional(),
-			langsmithRunId: z.string().optional(),
-			inputTokens: z.number().int().nonnegative().optional(),
-			outputTokens: z.number().int().nonnegative().optional(),
-		})
+		z
+			.object({
+				sessionId: z.string().uuid(),
+				role: z.enum(["user", "assistant"]),
+				content: z.string(),
+				chart: z.any().optional(),
+				chartTypeOverride: z.enum(CHART_TYPES).optional(),
+				error: z.string().optional(),
+				// Observability fields
+				model: z.string().optional(),
+				latencyMs: z.number().int().nonnegative().optional(),
+				langsmithRunId: z.string().optional(),
+				inputTokens: z.number().int().nonnegative().optional(),
+				outputTokens: z.number().int().nonnegative().optional(),
+			})
+			.superRefine((data, ctx) => {
+				const hasContent = data.content.trim().length > 0
+				const hasChart = data.chart != null
+				const hasError = Boolean(data.error?.trim())
+
+				if (data.role === "user" && !hasContent) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["content"],
+						message: "Mensagem do usuário não pode ser vazia",
+					})
+				}
+
+				if (data.role === "assistant" && !hasContent && !hasChart && !hasError) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["content"],
+						message: "Mensagem do assistente precisa ter conteúdo, gráfico ou erro",
+					})
+				}
+			})
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()

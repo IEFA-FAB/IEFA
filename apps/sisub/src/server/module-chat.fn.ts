@@ -152,22 +152,59 @@ export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
  */
 export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
 	.inputValidator(
-		z.object({
-			sessionId: z.string().uuid(),
-			role: z.enum(["user", "assistant", "tool"]),
-			content: z.string(),
-			toolCalls: z.any().optional(),
-			toolCallId: z.string().optional(),
-			toolName: z.string().optional(),
-			toolResult: z.any().optional(),
-			error: z.string().optional(),
-			// Observability fields
-			model: z.string().optional(),
-			latencyMs: z.number().int().nonnegative().optional(),
-			langsmithRunId: z.string().optional(),
-			inputTokens: z.number().int().nonnegative().optional(),
-			outputTokens: z.number().int().nonnegative().optional(),
-		})
+		z
+			.object({
+				sessionId: z.string().uuid(),
+				role: z.enum(["user", "assistant", "tool"]),
+				content: z.string(),
+				toolCalls: z.any().optional(),
+				toolCallId: z.string().optional(),
+				toolName: z.string().optional(),
+				toolResult: z.any().optional(),
+				error: z.string().optional(),
+				// Observability fields
+				model: z.string().optional(),
+				latencyMs: z.number().int().nonnegative().optional(),
+				langsmithRunId: z.string().optional(),
+				inputTokens: z.number().int().nonnegative().optional(),
+				outputTokens: z.number().int().nonnegative().optional(),
+			})
+			.superRefine((data, ctx) => {
+				const hasContent = data.content.trim().length > 0
+				const hasError = Boolean(data.error?.trim())
+				const hasToolResult = data.toolResult != null
+				const hasTerminalToolCall =
+					Array.isArray(data.toolCalls) &&
+					data.toolCalls.some((tc: unknown) => {
+						if (!tc || typeof tc !== "object") return false
+						const status = (tc as { status?: unknown }).status
+						return status === "done" || status === "error"
+					})
+
+				if (data.role === "user" && !hasContent) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["content"],
+						message: "Mensagem do usuário não pode ser vazia",
+					})
+				}
+
+				if (data.role === "assistant" && !hasContent && !hasTerminalToolCall && !hasError) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["content"],
+						message: "Mensagem do assistente precisa ter conteúdo, ferramenta concluída ou erro",
+					})
+				}
+
+				if (data.role === "tool" && !hasContent && !hasToolResult && !hasError) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ["content"],
+						message: "Mensagem de ferramenta precisa ter conteúdo, resultado ou erro",
+					})
+				}
+			})
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()

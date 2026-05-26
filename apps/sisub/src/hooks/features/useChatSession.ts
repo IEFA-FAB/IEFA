@@ -27,6 +27,10 @@ function extractChart(parts: UIMessage["parts"]): ChartSpec | undefined {
 	return out as ChartSpec
 }
 
+function hasMessagePayload(content: string, chart?: ChartSpec, error?: string): boolean {
+	return content.trim().length > 0 || chart !== undefined || Boolean(error?.trim())
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface UseChatSessionOptions {
@@ -104,6 +108,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 		if (msg.role !== "assistant") return
 		const content = extractText(msg.parts)
 		const chart = extractChart(msg.parts)
+		if (!hasMessagePayload(content, chart)) return
 
 		// Store chart so the DB sync effect can retrieve it by message ID
 		if (chart) {
@@ -232,6 +237,7 @@ export function useChatSession({ sessionId, onSessionCreated }: UseChatSessionOp
 			isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
 			createdAt: m.createdAt ?? new Date(),
 		}))
+		.filter((m) => m.role === "user" || m.isStreaming || hasMessagePayload(m.content, m.chart))
 
 	// ── Action handlers ───────────────────────────────────────────────────────
 

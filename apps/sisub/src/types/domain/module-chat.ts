@@ -25,6 +25,7 @@ export interface ToolCall {
 	arguments: string
 	status: "calling" | "done" | "error"
 	result?: unknown
+	error?: string
 	isError?: boolean
 }
 

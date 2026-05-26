@@ -390,6 +390,12 @@ jobs:
           VITE_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           VITE_SISUB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
           SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
+          ANALYTICS_AI_PROVIDER: ${{ vars.ANALYTICS_AI_PROVIDER }}
+          ANALYTICS_AI_MODEL: ${{ vars.ANALYTICS_AI_MODEL }}
+          ANALYTICS_AI_API_KEY: ${{ secrets.ANALYTICS_AI_API_KEY }}
+          MODULE_CHAT_AI_PROVIDER: ${{ vars.MODULE_CHAT_AI_PROVIDER }}
+          MODULE_CHAT_AI_MODEL: ${{ vars.MODULE_CHAT_AI_MODEL }}
+          MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
 
   build-sisub:
     needs: check-sisub
@@ -473,18 +479,28 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           V_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          V_ANALYTICS_LLM_MODEL: ${{ vars.ANALYTICS_LLM_MODEL }}
           V_IEFA_API_BASE_URL: ${{ vars.IEFA_API_BASE_URL }}
+          V_ANALYTICS_AI_PROVIDER: ${{ vars.ANALYTICS_AI_PROVIDER }}
+          V_ANALYTICS_AI_MODEL: ${{ vars.ANALYTICS_AI_MODEL }}
+          V_MODULE_CHAT_AI_PROVIDER: ${{ vars.MODULE_CHAT_AI_PROVIDER }}
+          V_MODULE_CHAT_AI_MODEL: ${{ vars.MODULE_CHAT_AI_MODEL }}
           S_SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
           S_ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
           S_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          S_ANALYTICS_AI_API_KEY: ${{ secrets.ANALYTICS_AI_API_KEY }}
+          S_MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
         run: |
           flyctl --config fly/sisub.toml secrets set \
             "VITE_SISUB_SUPABASE_URL=$V_SISUB_SUPABASE_URL" \
             "SISUB_SUPABASE_SECRET_KEY=$S_SISUB_SUPABASE_SECRET_KEY" \
             "ADMIN_SECRET=$S_ADMIN_SECRET" \
             "OPENROUTER_API_KEY=$S_OPENROUTER_API_KEY" \
-            "ANALYTICS_LLM_MODEL=$V_ANALYTICS_LLM_MODEL" \
+            "ANALYTICS_AI_PROVIDER=$V_ANALYTICS_AI_PROVIDER" \
+            "ANALYTICS_AI_MODEL=$V_ANALYTICS_AI_MODEL" \
+            "ANALYTICS_AI_API_KEY=$S_ANALYTICS_AI_API_KEY" \
+            "MODULE_CHAT_AI_PROVIDER=$V_MODULE_CHAT_AI_PROVIDER" \
+            "MODULE_CHAT_AI_MODEL=$V_MODULE_CHAT_AI_MODEL" \
+            "MODULE_CHAT_AI_API_KEY=$S_MODULE_CHAT_AI_API_KEY" \
             "IEFA_API_BASE_URL=$V_IEFA_API_BASE_URL"
 
       - name: Deploy
@@ -641,6 +657,9 @@ jobs:
   #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
   #         DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
   #         NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  #         ALPHA_AI_PROVIDER: ${{ vars.ALPHA_AI_PROVIDER }}
+  #         ALPHA_AI_MODEL: ${{ vars.ALPHA_AI_MODEL }}
+  #         ALPHA_AI_API_KEY: ${{ secrets.ALPHA_AI_API_KEY }}
 
   # build-alpha:
   #   needs: check-alpha
@@ -693,12 +712,15 @@ jobs:
   #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
   #         V_NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
   #         V_LLM_MODEL: ${{ vars.LLM_MODEL }}
+  #         V_ALPHA_AI_PROVIDER: ${{ vars.ALPHA_AI_PROVIDER }}
+  #         V_ALPHA_AI_MODEL: ${{ vars.ALPHA_AI_MODEL }}
   #         V_EMB_MODEL: ${{ vars.EMB_MODEL }}
   #         V_NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
   #         S_SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
   #         S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
   #         S_DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
   #         S_NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  #         S_ALPHA_AI_API_KEY: ${{ secrets.ALPHA_AI_API_KEY }}
   #         S_LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
   #       run: |
   #         flyctl --config fly/alpha.toml secrets set \
@@ -708,6 +730,9 @@ jobs:
   #           "NVIDIA_API_KEY=$S_NVIDIA_API_KEY" \
   #           "NVIDIA_BASE_URL=$V_NVIDIA_BASE_URL" \
   #           "LLM_MODEL=$V_LLM_MODEL" \
+  #           "ALPHA_AI_PROVIDER=$V_ALPHA_AI_PROVIDER" \
+  #           "ALPHA_AI_MODEL=$V_ALPHA_AI_MODEL" \
+  #           "ALPHA_AI_API_KEY=$S_ALPHA_AI_API_KEY" \
   #           "EMB_MODEL=$V_EMB_MODEL" \
   #           "NVIDIA_RERANK_MODEL=$V_NVIDIA_RERANK_MODEL" \
   #           "LANGCHAIN_API_KEY=$S_LANGCHAIN_API_KEY" \

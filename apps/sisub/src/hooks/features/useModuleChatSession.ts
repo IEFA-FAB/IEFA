@@ -1,6 +1,6 @@
 import type { UIMessage } from "@tanstack/ai-client"
 import { fetchServerSentEvents, useChat } from "@tanstack/ai-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useCreateModuleChatSession, useModuleChatMessages, useSaveModuleChatMessage } from "@/hooks/data/useModuleChatHistory"
 import type { ChatModule, ModuleChatMessage, ToolCall } from "@/types/domain/module-chat"
 
@@ -26,15 +26,25 @@ function extractToolCalls(parts: UIMessage["parts"]): ToolCall[] {
 			const tc = p as any
 			const hasOutput = tc.output !== undefined && tc.output !== null
 			const hasError = hasOutput && typeof tc.output === "object" && "error" in tc.output
+			const error = hasError ? String(tc.output.error ?? "Erro desconhecido") : undefined
 			return {
 				id: tc.id as string,
 				name: tc.name as string,
 				arguments: tc.arguments as string,
 				status: (hasOutput ? (hasError ? "error" : "done") : "calling") as ToolCall["status"],
 				result: hasOutput ? (hasError ? undefined : tc.output) : undefined,
+				error,
 				isError: hasError,
 			} satisfies ToolCall
 		})
+}
+
+function hasTerminalToolCall(toolCalls: ToolCall[]): boolean {
+	return toolCalls.some((tc) => tc.status === "done" || tc.status === "error")
+}
+
+function hasMessagePayload(content: string, toolCalls: ToolCall[]): boolean {
+	return content.trim().length > 0 || hasTerminalToolCall(toolCalls)
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -57,6 +67,7 @@ export interface UseModuleChatSessionReturn {
 // ── Connection ────────────────────────────────────────────────────────────────
 
 const MODULE_STREAM_URL = "/api/module-chat/stream"
+const MODULE_CONNECTION = fetchServerSentEvents(MODULE_STREAM_URL)
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
@@ -102,6 +113,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		if (msg.role !== "assistant") return
 		const content = extractText(msg.parts)
 		const toolCalls = extractToolCalls(msg.parts)
+		if (!hasMessagePayload(content, toolCalls)) return
 
 		if (toolCalls.length > 0) {
 			setToolCallsMap((prev) => new Map(prev).set(msg.id, toolCalls))
@@ -132,7 +144,7 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 	// ── useChat ───────────────────────────────────────────────────────────────
 
 	// module/scopeId go in body → forwarded as forwardedProps on the server
-	const connection = fetchServerSentEvents(MODULE_STREAM_URL)
+	const body = useMemo(() => ({ module, scopeId }), [module, scopeId])
 	const {
 		messages: uiMessages,
 		sendMessage,
@@ -140,8 +152,8 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 		isLoading,
 		setMessages,
 	} = useChat({
-		connection,
-		body: { module, scopeId },
+		connection: MODULE_CONNECTION,
+		body,
 		onFinish,
 	})
 
@@ -199,6 +211,11 @@ export function useModuleChatSession({ sessionId, module, scopeId, onSessionCrea
 				isStreaming: isLoading && i === lastAssistantIdx && m.role === "assistant",
 				createdAt: m.createdAt ?? new Date(),
 			}
+		})
+		.filter((m) => {
+			if (m.role === "user") return true
+			if (m.isStreaming) return true
+			return hasMessagePayload(m.content, m.toolCalls ?? [])
 		})
 
 	// ── Action handlers ───────────────────────────────────────────────────────

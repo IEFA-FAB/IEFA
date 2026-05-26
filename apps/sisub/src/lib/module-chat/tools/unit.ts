@@ -6,20 +6,45 @@
 import type { ModuleToolDefinition } from "./shared"
 import { requireUnitPermission, requireUuid, safeInt, sanitizeDbError, toolErr, toolOk, untypedFrom } from "./shared"
 
+const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
+const COMPRAS_TIMEOUT_MS = 30_000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
+
+function requireCurrentUnitId(ctx: Parameters<ModuleToolDefinition["handler"]>[1]): number {
+	const unitId = safeInt(ctx.scopeId, "scopeId")
+	requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
+	return unitId
+}
+
+async function fetchComprasJson(url: string): Promise<unknown> {
+	const res = await fetch(url, {
+		signal: AbortSignal.timeout(COMPRAS_TIMEOUT_MS),
+		headers: { accept: "application/json" },
+	})
+	if (!res.ok) {
+		const body = await res.text().catch(() => "")
+		throw new Error(`HTTP ${res.status} ao consultar Compras.gov.br\nURL: ${url}\nResposta: ${body || res.statusText}`)
+	}
+	return res.json()
+}
+
+function toIsoDate(date: Date): string {
+	return date.toISOString().slice(0, 10)
+}
+
+function arpVigenciaWindow(): { min: string; max: string } {
+	const max = new Date()
+	const min = new Date(max.getTime() - 365 * ONE_DAY_MS)
+	return { min: toIsoDate(min), max: toIsoDate(max) }
+}
+
 const listAtas: ModuleToolDefinition = {
 	name: "list_atas",
-	description: "Lista ATAs de licitação da unidade com status e contagens.",
-	parameters: {
-		type: "object",
-		properties: {
-			unitId: { type: "number", description: "ID da unidade" },
-		},
-		required: ["unitId"],
-	},
+	description: "Lista ATAs de licitação da unidade atual da rota. Não recebe ID de unidade; o escopo vem do contexto autenticado.",
+	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
-	async handler(args, ctx) {
-		const unitId = safeInt(args.unitId, "unitId")
-		requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
+	async handler(_args, ctx) {
+		const unitId = requireCurrentUnitId(ctx)
 
 		const { data, error } = await untypedFrom(ctx, "procurement_list").select("*").eq("unit_id", unitId).order("created_at", { ascending: false })
 
@@ -88,18 +113,11 @@ const updateAtaStatus: ModuleToolDefinition = {
 
 const getUnitDashboard: ModuleToolDefinition = {
 	name: "get_unit_dashboard",
-	description: "Retorna dados do dashboard da unidade: ATAs publicadas, itens com saldo baixo, status ARP.",
-	parameters: {
-		type: "object",
-		properties: {
-			unitId: { type: "number", description: "ID da unidade" },
-		},
-		required: ["unitId"],
-	},
+	description: "Retorna dados do dashboard da unidade atual da rota: ATAs publicadas, itens com saldo baixo, status ARP.",
+	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
-	async handler(args, ctx) {
-		const unitId = safeInt(args.unitId, "unitId")
-		requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
+	async handler(_args, ctx) {
+		const unitId = requireCurrentUnitId(ctx)
 
 		// Published ATAs count
 		const { count: ataCount } = await untypedFrom(ctx, "procurement_list")
@@ -124,18 +142,11 @@ const getUnitDashboard: ModuleToolDefinition = {
 
 const getUnitSettings: ModuleToolDefinition = {
 	name: "get_unit_settings",
-	description: "Retorna configurações da unidade: endereço, código UASG.",
-	parameters: {
-		type: "object",
-		properties: {
-			unitId: { type: "number", description: "ID da unidade" },
-		},
-		required: ["unitId"],
-	},
+	description: "Retorna configurações da unidade atual da rota: endereço, código UASG.",
+	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
-	async handler(args, ctx) {
-		const unitId = safeInt(args.unitId, "unitId")
-		requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
+	async handler(_args, ctx) {
+		const unitId = requireCurrentUnitId(ctx)
 
 		const { data, error } = await untypedFrom(ctx, "units").select("*").eq("id", unitId).single()
 		if (error) return toolErr(sanitizeDbError(error, "get_unit_settings"))
@@ -145,27 +156,33 @@ const getUnitSettings: ModuleToolDefinition = {
 
 const searchArp: ModuleToolDefinition = {
 	name: "search_arp",
-	description: "Busca Atas de Registro de Preço (ARP) no Compras.gov.br pela UASG da unidade.",
-	parameters: {
-		type: "object",
-		properties: {
-			unitId: { type: "number", description: "ID da unidade" },
-		},
-		required: ["unitId"],
-	},
+	description: "Busca Atas de Registro de Preço (ARP) pela UASG da unidade atual da rota.",
+	parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
 	requiredLevel: 1,
-	async handler(args, ctx) {
-		const unitId = safeInt(args.unitId, "unitId")
-		requireUnitPermission(ctx, 1, { type: "unit", id: unitId })
+	async handler(_args, ctx) {
+		const unitId = requireCurrentUnitId(ctx)
 
-		// Get unit UASG code
-		const { data: unit } = await untypedFrom(ctx, "units").select("uasg_code").eq("id", unitId).single()
-		if (!unit?.uasg_code) return toolErr("Unidade sem código UASG configurado")
+		const { data: unit, error } = await untypedFrom(ctx, "units").select("uasg").eq("id", unitId).single()
+		if (error) return toolErr(sanitizeDbError(error, "search_arp:get_unit_uasg"))
 
-		// Search local ARP records
-		const { data, error } = await untypedFrom(ctx, "arp").select("*").eq("uasg_code", unit.uasg_code).order("created_at", { ascending: false })
-		if (error) return toolErr(sanitizeDbError(error, "search_arp"))
-		return toolOk(data ?? [])
+		const uasg = String(unit?.uasg ?? "").trim()
+		if (!uasg) return toolErr("Unidade sem código UASG configurado")
+
+		const vigencia = arpVigenciaWindow()
+		const params = new URLSearchParams({
+			pagina: "1",
+			tamanhoPagina: "20",
+			codigoUnidadeGerenciadora: uasg,
+			dataVigenciaInicialMin: vigencia.min,
+			dataVigenciaInicialMax: vigencia.max,
+		})
+
+		try {
+			const data = await fetchComprasJson(`${COMPRAS_BASE}/modulo-arp/1_consultarARP?${params}`)
+			return toolOk({ uasg, ...(data && typeof data === "object" ? data : { resultado: [] }) })
+		} catch (err) {
+			return toolErr(err instanceof Error ? err.message : "Erro ao consultar Compras.gov.br")
+		}
 	},
 }
 
