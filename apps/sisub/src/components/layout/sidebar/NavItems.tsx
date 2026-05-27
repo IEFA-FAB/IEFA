@@ -114,7 +114,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		icon: FlameKindling,
 		color: "primary",
 		hubUrl: "/kitchen-production",
-		items: [{ title: "Painel", url: "/kitchen-production/dashboard", icon: LayoutDashboard }],
+		items: [{ title: "Painel", url: "/kitchen-production/", icon: LayoutDashboard }],
 	},
 	{
 		id: "global",

@@ -1,8 +1,9 @@
-import type { Recipe } from "@iefa/database/sisub"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { CheckCircle2, Circle, GitFork, Loader2, Plus, Save, Users, X } from "lucide-react"
-import { useEffect, useReducer } from "react"
+import { Check, CheckCircle2, Circle, GitFork, Loader2, Save } from "lucide-react"
+import { useEffect, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import type { MealTypeInfo, RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
+import { MealTypeSection } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -42,9 +43,6 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-type MealType = { id: string; name: string | null }
-type RecipeWithHeadcount = Recipe & { headcountOverride: number | null }
-
 function DayOverviewCard({
 	day,
 	mealTypes,
@@ -53,7 +51,7 @@ function DayOverviewCard({
 	onNavigate,
 }: {
 	day: (typeof WEEKDAYS)[number]
-	mealTypes: MealType[]
+	mealTypes: MealTypeInfo[]
 	items: TemplateItemDraft[]
 	recipeMap: Map<string, string>
 	onNavigate: () => void
@@ -124,103 +122,6 @@ function DayOverviewCard({
 	)
 }
 
-function DayMealSection({
-	mealType,
-	recipes,
-	onOpenSelector,
-	onRemoveRecipe,
-	onItemHeadcountChange,
-}: {
-	mealType: MealType
-	recipes: RecipeWithHeadcount[]
-	onOpenSelector: () => void
-	onRemoveRecipe: (recipeId: string) => void
-	/** Atualiza o headcount de uma preparação específica. */
-	onItemHeadcountChange: (recipeId: string, value: number | null) => void
-}) {
-	const hasRecipes = recipes.length > 0
-
-	return (
-		<Card className="overflow-hidden p-0 gap-0">
-			<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-				<div className="flex items-center gap-2">
-					<span className="text-subheading">{mealType.name}</span>
-					{hasRecipes && (
-						<Badge variant="secondary" className="text-xs">
-							{recipes.length}
-						</Badge>
-					)}
-				</div>
-
-				<Button type="button" size="sm" variant="ghost" onClick={onOpenSelector} className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
-					<Plus className="size-3.5" />
-					Adicionar
-				</Button>
-			</div>
-
-			{hasRecipes ? (
-				<div className="p-3 space-y-1.5">
-					{recipes.map((recipe) => (
-						<div key={recipe.id} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
-							<div className="flex-1 min-w-0">
-								<p className="text-sm truncate">{recipe.name}</p>
-								{recipe.rational_id && <p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>}
-							</div>
-
-							{/* Comensais por preparação */}
-							<Tooltip>
-								<TooltipTrigger className="flex items-center gap-1 shrink-0 cursor-default" onClick={(e) => e.stopPropagation()}>
-									<Users className="size-3 text-muted-foreground" />
-									<Input
-										type="number"
-										min="1"
-										className="h-6 w-16 text-xs"
-										value={recipe.headcountOverride ?? ""}
-										placeholder="pax"
-										onChange={(e) => onItemHeadcountChange(recipe.id, e.target.value ? parseInt(e.target.value, 10) : null)}
-										onClick={(e) => e.stopPropagation()}
-									/>
-								</TooltipTrigger>
-								<TooltipContent side="top">
-									<p className="text-caption">Comensais desta preparação</p>
-									<p className="text-xs opacity-70 mt-0.5">
-										{recipe.headcountOverride ? `${recipe.headcountOverride} pessoas previstas` : "Informe o nº de comensais"}
-									</p>
-								</TooltipContent>
-							</Tooltip>
-
-							<Tooltip>
-								<TooltipTrigger
-									render={
-										<Button
-											type="button"
-											size="icon"
-											variant="ghost"
-											className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-											onClick={() => onRemoveRecipe(recipe.id)}
-										>
-											<X className="size-3.5" />
-										</Button>
-									}
-								></TooltipTrigger>
-								<TooltipContent>Remover</TooltipContent>
-							</Tooltip>
-						</div>
-					))}
-				</div>
-			) : (
-				<div className="px-4 py-6 text-center">
-					<p className="text-xs text-muted-foreground mb-2">Nenhuma receita atribuída</p>
-					<Button type="button" size="sm" variant="outline" onClick={onOpenSelector} className="text-xs">
-						<Plus className="size-3.5 mr-1" />
-						Adicionar Preparações
-					</Button>
-				</div>
-			)}
-		</Card>
-	)
-}
-
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 type WeeklyMenuEditorState = {
@@ -284,9 +185,14 @@ function WeeklyMenuEditorPage() {
 	const { data: mealTypes } = useMealTypes(kitchenId)
 	const { data: allRecipes } = useRecipes()
 	const { mutate: updateTemplate, isPending: isSaving } = useUpdateTemplate()
+	const { mutate: autoSave } = useUpdateTemplate({ silent: true })
 
 	const [editorState, dispatch] = useReducer(weeklyMenuEditorReducer, initialWeeklyMenuEditorState)
 	const { name, description, items, initialized, activeTab, selectorOpen, selectedCell } = editorState
+
+	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	const prevInitializedRef = useRef(false)
+	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	useEffect(() => {
 		if (!template || initialized) return
@@ -303,6 +209,39 @@ function WeeklyMenuEditorPage() {
 		})
 		dispatch({ type: "SET_INITIALIZED" })
 	}, [template, initialized])
+
+	useEffect(() => {
+		if (!initialized) return
+		if (!prevInitializedRef.current) {
+			prevInitializedRef.current = true
+			return
+		}
+		if (!name.trim()) return
+		setSaveStatus("idle")
+		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+		autoSaveTimerRef.current = setTimeout(() => {
+			setSaveStatus("saving")
+			autoSave(
+				{
+					id: weeklyMenuId as string,
+					updates: { name: name.trim(), description: description.trim() || null },
+					items: items.map((i) => ({
+						day_of_week: i.day_of_week,
+						meal_type_id: i.meal_type_id,
+						recipe_id: i.recipe_id,
+						headcount_override: i.headcount_override,
+					})),
+				},
+				{
+					onSuccess: () => setSaveStatus("saved"),
+					onError: () => setSaveStatus("idle"),
+				}
+			)
+		}, 1500)
+		return () => {
+			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+		}
+	}, [name, description, items, initialized, autoSave, weeklyMenuId])
 
 	/** Retorna as preparações de uma célula (dia + tipo de refeição) com seus headcounts individuais. */
 	const getCellItems = (dayOfWeek: number, mealTypeId: string): RecipeWithHeadcount[] => {
@@ -355,6 +294,7 @@ function WeeklyMenuEditorPage() {
 
 	const handleSave = () => {
 		if (!name.trim()) return
+		if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		updateTemplate(
 			{
 				id: weeklyMenuId as string,
@@ -422,6 +362,18 @@ function WeeklyMenuEditorPage() {
 					}
 				>
 					<div className="flex items-center gap-2">
+						{saveStatus === "saving" && (
+							<span className="flex items-center gap-1 text-xs text-muted-foreground">
+								<Loader2 className="size-3 animate-spin" />
+								Salvando...
+							</span>
+						)}
+						{saveStatus === "saved" && (
+							<span className="flex items-center gap-1 text-xs text-muted-foreground">
+								<Check className="size-3 text-success" />
+								Salvo
+							</span>
+						)}
 						<Button
 							nativeButton={false}
 							type="button"
@@ -549,13 +501,14 @@ function WeeklyMenuEditorPage() {
 
 								{mealTypes && mealTypes.length > 0 ? (
 									mealTypes.map((mealType) => (
-										<DayMealSection
+										<MealTypeSection
 											key={mealType.id}
 											mealType={mealType}
 											recipes={getCellItems(day.num, mealType.id)}
 											onOpenSelector={() => handleOpenSelector(day.num, mealType.id)}
 											onRemoveRecipe={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
 											onItemHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}
+											emptyLabel="Nenhuma receita atribuída"
 										/>
 									))
 								) : (

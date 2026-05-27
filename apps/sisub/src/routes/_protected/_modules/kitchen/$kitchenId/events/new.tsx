@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { CalendarRange, Loader2, Plus } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -30,8 +30,31 @@ function NewEventPage() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = Number(kitchenIdStr)
 
+	const storageKey = `events-new-draft-${kitchenId}`
+	const storageLoadedRef = useRef(false)
+
 	const [name, setName] = useState("")
 	const [description, setDescription] = useState("")
+
+	useEffect(() => {
+		if (storageLoadedRef.current || !kitchenId) return
+		storageLoadedRef.current = true
+		try {
+			const stored = sessionStorage.getItem(storageKey)
+			if (stored) {
+				const parsed = JSON.parse(stored) as { name?: string; description?: string }
+				if (parsed.name) setName(parsed.name)
+				if (parsed.description) setDescription(parsed.description)
+			}
+		} catch {}
+	}, [kitchenId, storageKey])
+
+	useEffect(() => {
+		if (!storageLoadedRef.current) return
+		try {
+			sessionStorage.setItem(storageKey, JSON.stringify({ name, description }))
+		} catch {}
+	}, [name, description, storageKey])
 
 	const { mutate: createEvent, isPending } = useMutation({
 		mutationFn: () => {
@@ -47,6 +70,9 @@ function NewEventPage() {
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			try {
+				sessionStorage.removeItem(storageKey)
+			} catch {}
 			toast.success(`Evento "${data.name}" criado!`)
 			navigate({
 				to: "/kitchen/$kitchenId/events/$eventId",

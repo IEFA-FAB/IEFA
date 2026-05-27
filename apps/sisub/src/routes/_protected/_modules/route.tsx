@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { createIsomorphicFn } from "@tanstack/react-start"
 import { AppShell } from "@/components/layout/AppShell"
+import { ModuleNotFound } from "@/components/layout/errors/ModuleNotFound"
 import { SidebarProvider } from "@/components/ui/sidebar"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/_protected/_modules")({
 		return { sidebarOpen }
 	},
 	component: ModulesLayout,
+	notFoundComponent: ModuleNotFound,
 })
 
 function ModulesLayout() {

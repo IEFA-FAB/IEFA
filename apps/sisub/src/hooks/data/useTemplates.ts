@@ -96,7 +96,7 @@ export function useCreateTemplate() {
 	})
 }
 
-export function useUpdateTemplate() {
+export function useUpdateTemplate(options?: { silent?: boolean }) {
 	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: ({ id, updates, items }: { id: string; updates: MenuTemplateUpdate; items?: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
@@ -118,9 +118,11 @@ export function useUpdateTemplate() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.templates.detail(data?.id ?? null) })
 			queryClient.invalidateQueries({ queryKey: queryKeys.templates.items(data?.id ?? null) })
-			toast.success(`Template "${data?.name}" atualizado!`)
+			if (!options?.silent) toast.success(`Template "${data?.name}" atualizado!`)
 		},
-		onError: (error) => toast.error(`Erro ao atualizar template: ${error.message}`),
+		onError: (error) => {
+			if (!options?.silent) toast.error(`Erro ao atualizar template: ${error.message}`)
+		},
 	})
 }
 

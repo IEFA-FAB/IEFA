@@ -1,37 +1,31 @@
 name: CI/CD
-# force-redeploy: 2026-04-23
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
       force_api:
-        description: 'Force deploy API'
+        description: "Force deploy API"
         type: boolean
         default: false
       force_portal:
-        description: 'Force deploy portal'
+        description: "Force deploy portal"
         type: boolean
         default: false
       force_sisub:
-        description: 'Force deploy sisub'
+        description: "Force deploy sisub"
         type: boolean
         default: false
       force_docs:
-        description: 'Force deploy docs'
+        description: "Force deploy docs"
         type: boolean
         default: false
       force_forms:
-        description: 'Force deploy forms'
+        description: "Force deploy forms"
         type: boolean
         default: false
-      # force_alpha:
-      #   description: 'Force deploy Projeto α'
-      #   type: boolean
-      #   default: false
       force_5s:
-        description: 'Force deploy 5S'
+        description: "Force deploy 5S"
         type: boolean
         default: false
 

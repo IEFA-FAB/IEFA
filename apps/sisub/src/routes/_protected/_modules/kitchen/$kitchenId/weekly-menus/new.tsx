@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
 import { GitFork, Loader2, Plus } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
@@ -45,6 +45,29 @@ function NewWeeklyMenuPage() {
 
 	const isFork = !!forkFrom
 
+	const storageKey = `weekly-menus-new-draft-${kitchenId}`
+	const storageLoadedRef = useRef(false)
+
+	useEffect(() => {
+		if (isFork || storageLoadedRef.current || !kitchenId) return
+		storageLoadedRef.current = true
+		try {
+			const stored = sessionStorage.getItem(storageKey)
+			if (stored) {
+				const parsed = JSON.parse(stored) as { name?: string; description?: string }
+				if (parsed.name) setName(parsed.name)
+				if (parsed.description) setDescription(parsed.description)
+			}
+		} catch {}
+	}, [kitchenId, isFork, storageKey])
+
+	useEffect(() => {
+		if (isFork || !storageLoadedRef.current) return
+		try {
+			sessionStorage.setItem(storageKey, JSON.stringify({ name, description }))
+		} catch {}
+	}, [name, description, isFork, storageKey])
+
 	// Mutation: criar template local (do zero)
 	const { mutate: createBlank, isPending: isCreating } = useMutation({
 		mutationFn: () => {
@@ -60,6 +83,9 @@ function NewWeeklyMenuPage() {
 		},
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["menu_templates"] })
+			try {
+				sessionStorage.removeItem(storageKey)
+			} catch {}
 			toast.success(`Cardápio semanal "${data.name}" criado!`)
 			navigate({
 				to: "/kitchen/$kitchenId/weekly-menus/$weeklyMenuId",
