@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect, useParams } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
+import { ModuleNotFound } from "@/components/layout/errors/ModuleNotFound"
 import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
 import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { ScopeContext } from "@/types/domain/scope"
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId")(
 		return { scopeContext }
 	},
 	component: KitchenLayout,
+	notFoundComponent: ModuleNotFound,
 })
 
 function KitchenLayout() {

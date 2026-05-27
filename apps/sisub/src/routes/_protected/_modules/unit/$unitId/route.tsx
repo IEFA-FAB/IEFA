@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
+import { ModuleNotFound } from "@/components/layout/errors/ModuleNotFound"
 import { fetchUnitsFn } from "@/server/mess-halls.fn"
 import type { ScopeContext } from "@/types/domain/scope"
 
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_protected/_modules/unit/$unitId")({
 		return { scopeContext }
 	},
 	component: UnitLayout,
+	notFoundComponent: ModuleNotFound,
 })
 
 function UnitLayout() {

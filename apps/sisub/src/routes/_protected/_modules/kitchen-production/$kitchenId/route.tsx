@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
+import { ModuleNotFound } from "@/components/layout/errors/ModuleNotFound"
 import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { ScopeContext } from "@/types/domain/scope"
 
@@ -25,4 +26,5 @@ export const Route = createFileRoute("/_protected/_modules/kitchen-production/$k
 		return { scopeContext }
 	},
 	component: () => <Outlet />,
+	notFoundComponent: ModuleNotFound,
 })

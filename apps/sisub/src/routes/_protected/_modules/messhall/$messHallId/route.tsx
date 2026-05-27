@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { requirePermission } from "@/auth/pbac"
+import { ModuleNotFound } from "@/components/layout/errors/ModuleNotFound"
 import { fetchMessHallsFn } from "@/server/mess-halls.fn"
 import type { ScopeContext } from "@/types/domain/scope"
 
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId"
 		return { scopeContext }
 	},
 	component: MessHallLayout,
+	notFoundComponent: ModuleNotFound,
 })
 
 function MessHallLayout() {
