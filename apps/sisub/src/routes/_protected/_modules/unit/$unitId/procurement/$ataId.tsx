@@ -1,9 +1,8 @@
-import type { ProcurementListItem } from "@iefa/database/sisub"
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
 import { Archive, ArrowLeft, Download, Link2, Search, Send } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
@@ -19,6 +18,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { useArpForAta } from "@/hooks/data/useArp"
 import { useAtaDetails, useUpdateAtaItemDescription, useUpdateAtaStatus } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
+import { ataItemToNeed } from "@/lib/ata-utils"
 import { queryKeys } from "@/lib/query-keys"
 import { updateAtaItemPricesFn } from "@/server/ata.fn"
 import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
@@ -44,27 +44,6 @@ const STATUS_VARIANTS: Record<string, "secondary" | "default" | "outline"> = {
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-
-function ataItemToNeed(item: ProcurementListItem): ProcurementNeed {
-	return {
-		folder_id: item.folder_id,
-		folder_description: item.folder_description,
-		ingredient_id: item.ingredient_id || item.id,
-		ingredient_name: item.ingredient_name,
-		measure_unit: item.measure_unit,
-		total_quantity: Number(item.total_quantity),
-		purchase_item_id: item.purchase_item_id ?? null,
-		purchase_item_description: item.purchase_item_description ?? null,
-		purchase_measure_unit: item.purchase_measure_unit ?? null,
-		purchase_quantity: item.purchase_quantity !== null && item.purchase_quantity !== undefined ? Number(item.purchase_quantity) : null,
-		conversion_factor: item.conversion_factor !== null && item.conversion_factor !== undefined ? Number(item.conversion_factor) : null,
-		catmat_item_codigo: item.catmat_item_codigo,
-		catmat_item_descricao: item.catmat_item_descricao,
-		unit_price: item.unit_price !== null ? Number(item.unit_price) : null,
-		item_description: item.item_description ?? null,
-		ata_item_id: item.id,
-	}
-}
 
 function AtaDetailPage() {
 	const { unitId: unitIdStr, ataId } = useParams({ strict: false })
@@ -113,12 +92,12 @@ function AtaDetailPage() {
 		link.click()
 	}
 
-	const ataNeeds = ata?.items.map(ataItemToNeed) ?? []
+	const needs = useMemo(() => ata?.items.map(ataItemToNeed) ?? [], [ata?.items])
 	const {
 		start: runBulkResearch,
 		progress: bulkProgress,
 		eligibleCount: bulkEligibleCount,
-	} = useBulkPriceResearch(ataNeeds, ataId, async (result) => {
+	} = useBulkPriceResearch(needs, ataId, async (result) => {
 		if (!result.ataItemId || !ataId) return
 		await updateAtaItemPricesFn({
 			data: {
@@ -169,7 +148,6 @@ function AtaDetailPage() {
 		)
 	}
 
-	const needs = ata.items.map(ataItemToNeed)
 	const hasPrices = ata.items.some((item) => item.unit_price !== null)
 	const grandTotal = ata.items.reduce((sum, item) => sum + (item.unit_price !== null ? Number(item.total_quantity) * Number(item.unit_price) : 0), 0)
 

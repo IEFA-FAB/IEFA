@@ -324,11 +324,11 @@ function buildItemPayload(item: z.infer<typeof DraftItemSchema>, draftId: string
 		purchase_item_id: item.purchase_item_id || null,
 		purchase_item_description: item.purchase_item_description || null,
 		purchase_measure_unit: item.purchase_measure_unit || null,
-		purchase_quantity: item.purchase_quantity || null,
-		conversion_factor: item.conversion_factor || null,
-		catmat_item_codigo: item.catmat_item_codigo || null,
+		purchase_quantity: item.purchase_quantity ?? null,
+		conversion_factor: item.conversion_factor ?? null,
+		catmat_item_codigo: item.catmat_item_codigo ?? null,
 		catmat_item_descricao: item.catmat_item_descricao || null,
-		unit_price: item.unit_price || null,
+		unit_price: item.unit_price ?? null,
 		item_description: item.item_description || null,
 	}
 }
@@ -403,6 +403,13 @@ export const saveAtaDraftItemsFn = createServerFn({ method: "POST" })
 		}
 
 		await supabase.from("procurement_list").update({ wizard_step: 4, updated_at: new Date().toISOString() }).eq("id", data.draftId)
+
+		// Retornar mapeamento ingredient_id → ata_item_id para o cliente atualizar estado local
+		const savedIds: Array<{ ingredientId: string; ataItemId: string }> = [
+			...existing.map((item) => ({ ingredientId: item.ingredient_id ?? "", ataItemId: item.ata_item_id as string })),
+			...Array.from(insertedItemsById.entries()).map(([ingredientId, ataItemId]) => ({ ingredientId, ataItemId })),
+		]
+		return { savedIds }
 	})
 
 // ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────

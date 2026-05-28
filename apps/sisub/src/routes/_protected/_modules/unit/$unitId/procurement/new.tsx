@@ -2,7 +2,7 @@ import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { AlertTriangle, ArrowLeft, ArrowRight, Calculator, CheckCircle2, Download, Save, Search } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
@@ -17,11 +17,11 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { useCalculateAtaNeeds, useCreateAtaDraft, useFinalizeAtaDraft, useSaveAtaDraftItems, useUpdateAtaDraft } from "@/hooks/data/useAta"
+import { useAtaDraft, useCalculateAtaNeeds, useCreateAtaDraft, useFinalizeAtaDraft, useSaveAtaDraftItems, useUpdateAtaDraft } from "@/hooks/data/useAta"
 import { useBulkPriceResearch } from "@/hooks/data/useBulkPriceResearch"
 import { usePendingDraft } from "@/hooks/data/useKitchenDraft"
 import { useMenuTemplates } from "@/hooks/data/useTemplates"
-import { fetchAtaDetailsFn } from "@/server/ata.fn"
+import { ataItemToNeed } from "@/lib/ata-utils"
 import { fetchUnitKitchensFn } from "@/server/unit-kitchens.fn"
 import type { AtaWizardState, KitchenSelectionState, TemplateSelection } from "@/types/domain/ata"
 
@@ -47,15 +47,6 @@ function useUnitKitchens(unitId: number | null) {
 		queryFn: () => fetchUnitKitchensFn({ data: { unitId: unitId as number } }),
 		enabled: unitId !== null,
 		staleTime: 10 * 60 * 1000,
-	})
-}
-
-function useAtaDraft(draftId: string | null) {
-	return useQuery({
-		queryKey: ["ata_draft", draftId],
-		queryFn: () => fetchAtaDetailsFn({ data: { ataId: draftId as string } }),
-		enabled: draftId !== null,
-		staleTime: 0,
 	})
 }
 
@@ -113,11 +104,15 @@ function NewAtaPage() {
 
 	const { mutate: createDraft, isPending: isCreatingDraft } = useCreateAtaDraft()
 	const { mutate: updateDraft } = useUpdateAtaDraft()
-	const { mutate: saveDraftItems } = useSaveAtaDraftItems()
+	const { mutate: saveDraftItems, mutateAsync: saveDraftItemsAsync } = useSaveAtaDraftItems()
 	const { mutate: finalizeDraft, isPending: isFinalizing } = useFinalizeAtaDraft()
+	const { mutateAsync: calculateNeedsAsync, isPending: isCalculating } = useCalculateAtaNeeds()
 
 	const draftCreatedRef = useRef(false)
 	const draftRestoredRef = useRef(false)
+	const descriptionSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+	useEffect(() => () => clearTimeout(descriptionSaveTimerRef.current), [])
 
 	const [wizardState, setWizardState] = useState<AtaWizardState>({
 		title: "",
@@ -146,7 +141,7 @@ function NewAtaPage() {
 		})
 	}, [draftId, isLoadingKitchens, unitId, unitIdStr, navigate, createDraft])
 
-	// Restaurar estado do wizard a partir do draft existente
+	// Restaurar estado do wizard a partir do draft existente (one-time)
 	useEffect(() => {
 		if (!existingDraft || draftRestoredRef.current) return
 		draftRestoredRef.current = true
@@ -187,28 +182,6 @@ function NewAtaPage() {
 			setWizardState((prev) => ({ ...prev, kitchenSelections: restored }))
 		}
 
-		if (existingDraft.items?.length) {
-			const restoredItems: ProcurementNeed[] = existingDraft.items.map((item) => ({
-				folder_id: item.folder_id,
-				folder_description: item.folder_description,
-				ingredient_id: item.ingredient_id || "",
-				ingredient_name: item.ingredient_name,
-				measure_unit: item.measure_unit,
-				total_quantity: Number(item.total_quantity),
-				purchase_item_id: item.purchase_item_id,
-				purchase_item_description: item.purchase_item_description,
-				purchase_measure_unit: item.purchase_measure_unit,
-				purchase_quantity: item.purchase_quantity ? Number(item.purchase_quantity) : null,
-				conversion_factor: item.conversion_factor ? Number(item.conversion_factor) : null,
-				catmat_item_codigo: item.catmat_item_codigo,
-				catmat_item_descricao: item.catmat_item_descricao,
-				unit_price: item.unit_price ? Number(item.unit_price) : null,
-				item_description: item.item_description || null,
-				ata_item_id: item.id,
-			}))
-			setSavedItems(restoredItems)
-		}
-
 		const restoredStep = existingDraft.wizard_step
 		if (restoredStep && restoredStep !== currentStep) {
 			navigate({
@@ -219,6 +192,14 @@ function NewAtaPage() {
 			})
 		}
 	}, [existingDraft, currentStep, unitIdStr, navigate])
+
+	// Sincronizar savedItems com o banco sempre que existingDraft.items mudar — garante que
+	// preços pesquisados persistem quando dados do cache ficam obsoletos entre sessões.
+	// TanStack Query usa structural sharing, então esse efeito só roda quando os dados realmente mudam.
+	useEffect(() => {
+		if (!existingDraft?.items?.length) return
+		setSavedItems(existingDraft.items.map(ataItemToNeed))
+	}, [existingDraft?.items])
 
 	// Merge de kitchenSelections com cozinhas carregadas
 	const kitchenSelections: KitchenSelectionState[] =
@@ -261,12 +242,14 @@ function NewAtaPage() {
 		})
 	}
 
-	const { mutate: calculateNeeds, data: calculatedItems, isPending: isCalculating } = useCalculateAtaNeeds()
-	const baseItems: ProcurementNeed[] = (calculatedItems as ProcurementNeed[] | undefined) || savedItems
-	const rawItems: ProcurementNeed[] = baseItems.map((item) => ({
-		...item,
-		item_description: item.ingredient_id in descriptionOverrides ? (descriptionOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
-	}))
+	const rawItems: ProcurementNeed[] = useMemo(
+		() =>
+			savedItems.map((item) => ({
+				...item,
+				item_description: item.ingredient_id in descriptionOverrides ? (descriptionOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
+			})),
+		[savedItems, descriptionOverrides]
+	)
 
 	const {
 		start: runBulkResearch,
@@ -308,15 +291,19 @@ function NewAtaPage() {
 		const nextOverrides = { ...descriptionOverrides, [ingredientId]: description }
 		setDescriptionOverrides(nextOverrides)
 		if (!draftId) return
-		const researchLinks = Object.entries(priceOverrides)
-			.filter(([, v]) => v.researchId && v.researchItemId)
-			.map(([ingId, v]) => ({ ingredientId: ingId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
-		const updatedItems = baseItems.map((item) => ({
-			...item,
-			item_description: item.ingredient_id in nextOverrides ? (nextOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
-			unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
-		}))
-		saveDraftItems({ draftId, items: updatedItems, researchLinks })
+		// Debounce: evita mutação por keystroke — captura closure dos valores atuais na última chamada
+		clearTimeout(descriptionSaveTimerRef.current)
+		descriptionSaveTimerRef.current = setTimeout(() => {
+			const researchLinks = Object.entries(priceOverrides)
+				.filter(([, v]) => v.researchId && v.researchItemId)
+				.map(([ingId, v]) => ({ ingredientId: ingId, researchId: v.researchId as string, researchItemId: v.researchItemId as string }))
+			const updatedItems = savedItems.map((item) => ({
+				...item,
+				item_description: item.ingredient_id in nextOverrides ? (nextOverrides[item.ingredient_id] ?? null) : (item.item_description ?? null),
+				unit_price: item.ingredient_id in priceOverrides ? priceOverrides[item.ingredient_id].price : item.unit_price,
+			}))
+			saveDraftItems({ draftId: draftId as string, items: updatedItems, researchLinks })
+		}, 800)
 	}
 
 	const displayItems: ProcurementNeed[] = rawItems.map((item) => ({
@@ -341,18 +328,26 @@ function NewAtaPage() {
 		})
 	}
 
-	const handleCalculate = () => {
+	const handleCalculate = async () => {
 		const stateToCalc: AtaWizardState = { ...wizardState, kitchenSelections }
-		calculateNeeds(stateToCalc, {
-			onSuccess: (items) => {
-				const needs = items as ProcurementNeed[]
-				setSavedItems(needs)
-				if (draftId) {
-					saveDraftItems({ draftId, items: needs })
-				}
-				goToStep(4)
-			},
-		})
+		let needs: ProcurementNeed[]
+		try {
+			needs = (await calculateNeedsAsync(stateToCalc)) as ProcurementNeed[]
+		} catch {
+			return // error toast handled by useCalculateAtaNeeds
+		}
+		if (draftId) {
+			try {
+				const result = await saveDraftItemsAsync({ draftId, items: needs })
+				const idMap = new Map(result.savedIds.map((s) => [s.ingredientId, s.ataItemId]))
+				setSavedItems(needs.map((item) => ({ ...item, ata_item_id: idMap.get(item.ingredient_id) ?? null })))
+			} catch {
+				setSavedItems(needs) // fallback: proceed without ata_item_id
+			}
+		} else {
+			setSavedItems(needs)
+		}
+		goToStep(4)
 	}
 
 	const handleSave = () => {

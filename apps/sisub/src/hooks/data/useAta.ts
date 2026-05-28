@@ -20,6 +20,15 @@ import type { AtaWithDetails, AtaWizardState } from "@/types/domain/ata"
 
 // ─── Query Hooks ──────────────────────────────────────────────────────────────
 
+export function useAtaDraft(draftId: string | null) {
+	return useQuery({
+		queryKey: queryKeys.ata.draft(draftId),
+		queryFn: () => fetchAtaDetailsFn({ data: { ataId: draftId as string } }) as Promise<AtaWithDetails | null>,
+		enabled: draftId !== null,
+		staleTime: 0,
+	})
+}
+
 export function useAtaList(unitId: number | null) {
 	return useQuery({
 		queryKey: queryKeys.ata.list(unitId),
@@ -131,12 +140,19 @@ export function useUpdateAtaDraft() {
 }
 
 export function useSaveAtaDraftItems() {
+	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: (params: {
 			draftId: string
 			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
 			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
-		}) => saveAtaDraftItemsFn({ data: params }),
+		}) =>
+			saveAtaDraftItemsFn({ data: params }) as Promise<{
+				savedIds: Array<{ ingredientId: string; ataItemId: string }>
+			}>,
+		onSuccess: (_, variables) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.draft(variables.draftId) })
+		},
 		onError: (error) => toast.error(`Erro ao salvar itens: ${error.message}`),
 	})
 }
@@ -179,8 +195,9 @@ export function useFinalizeAtaDraft() {
 			items: Awaited<ReturnType<typeof calculateAtaNeedsFn>>
 			researchLinks?: Array<{ ingredientId: string; researchId: string; researchItemId: string }>
 		}) => finalizeAtaDraftFn({ data: params }),
-		onSuccess: (data) => {
+		onSuccess: (data, variables) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.listAll() })
+			queryClient.removeQueries({ queryKey: queryKeys.ata.draft(variables.draftId) })
 			toast.success(`Ata "${data?.title}" salva com sucesso!`)
 		},
 		onError: (error) => toast.error(`Erro ao finalizar ata: ${error.message}`),

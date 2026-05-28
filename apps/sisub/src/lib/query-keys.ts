@@ -98,6 +98,7 @@ export const queryKeys = {
 		listAll: () => ["procurement_list", "list"] as const,
 		list: (unitId: number | null) => ["procurement_list", "list", unitId] as const,
 		details: (ataId: string | null) => ["procurement_list", "details", ataId] as const,
+		draft: (draftId: string | null) => ["ata_draft", draftId] as const,
 		needs: (params: { startDate: string; endDate: string; kitchenId?: number; unitId?: number }) => ["procurement", "needs", params] as const,
 		arp: (ataId: string | null) => ["procurement_arp", "ata", ataId] as const,
 		empenhos: (arpItemId: string | null) => ["empenho", "item", arpItemId] as const,
