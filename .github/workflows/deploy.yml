@@ -58,6 +58,8 @@ jobs:
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
             portal:
@@ -66,6 +68,8 @@ jobs:
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
             sisub:
@@ -73,11 +77,14 @@ jobs:
               - 'packages/database/**'
               - 'packages/hono-client/**'
               - 'packages/alpha-client/**'
+              - 'packages/ai-provider/**'
               - 'packages/pbac/**'
               - 'packages/sisub-domain/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
             forms:
@@ -86,6 +93,8 @@ jobs:
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
             docs:
@@ -93,11 +102,14 @@ jobs:
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
             # alpha:
             #   - 'apps/alpha/**'
             #   - 'packages/alpha-client/**'
+            #   - 'packages/ai-provider/**'
             #   - 'Dockerfile'
             #   - 'docker-bake.hcl'
             #   - '.github/workflows/deploy.yml'
@@ -109,6 +121,8 @@ jobs:
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
 
@@ -151,6 +165,33 @@ jobs:
           fi
 
   # ============================================================
+  # WARM DEPS CACHE
+  # Builda o estágio `deps` uma vez e popula o scope `deps` do cache gha.
+  # Todos os build-<app> dependem deste job e leem esse cache → o `bun install`
+  # do monorepo não é refeito por app em cache frio.
+  # ============================================================
+  warm-deps:
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.api == 'true' ||
+      needs.changes.outputs.portal == 'true' ||
+      needs.changes.outputs.sisub == 'true' ||
+      needs.changes.outputs.forms == 'true' ||
+      needs.changes.outputs.docs == 'true' ||
+      needs.changes.outputs['5s'] == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - name: Warm deps cache
+        uses: docker/bake-action@v7
+        with:
+          files: ./docker-bake.hcl
+          targets: deps
+          push: false
+
+  # ============================================================
   # API ── check → build → deploy
   # ============================================================
   check-api:
@@ -178,46 +219,21 @@ jobs:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
 
   build-api:
-    needs: check-api
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
+    needs: [check-api, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      target: api
+      image_repo: registry.fly.io/iefa-api
+    secrets: inherit
 
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: api
-          push: true
-          set: |
-            api.tags=registry.fly.io/iefa-api:${{ steps.meta.outputs.tag }}
-            api.tags=registry.fly.io/iefa-api:latest
-
-  deploy-api:
-    needs: build-api
+  secrets-api:
+    needs: [check-api]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-api-${{ github.ref_name }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Set Fly secrets
+      - name: Stage Fly secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           V_API_PORT: ${{ vars.API_PORT }}
@@ -225,37 +241,22 @@ jobs:
           S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
           S_ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: |
-          flyctl --config fly/api.toml secrets set \
+          flyctl --config fly/api.toml secrets set --stage \
             "API_PORT=$V_API_PORT" \
             "API_SUPABASE_URL=$V_SUPABASE_URL" \
             "API_SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
             "ADMIN_SECRET=$S_ADMIN_SECRET"
 
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-api.outputs.tag }}
-        run: flyctl deploy -c fly/api.toml --image "registry.fly.io/iefa-api:$IMAGE_TAG" --wait-timeout 300
-
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.API_HEALTH_URL }}
-        run: |
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ API health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ API health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/api.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/api.toml --image "$PREV" --wait-timeout 300 || true
+  deploy-api:
+    needs: [build-api, secrets-api]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      image_repo: registry.fly.io/iefa-api
+      image_tag: ${{ needs.build-api.outputs.tag }}
+      fly_config: fly/api.toml
+      health_url: ${{ vars.API_HEALTH_URL }}
+      concurrency_suffix: api
+    secrets: inherit
 
   # ============================================================
   # PORTAL  ── check → build → deploy
@@ -284,85 +285,46 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-portal:
-    needs: check-portal
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
+    needs: [check-portal, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      target: portal
+      image_repo: registry.fly.io/iefa
+      bake_set: |
+        portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+        portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+    secrets: inherit
 
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: portal
-          push: true
-          set: |
-            portal.tags=registry.fly.io/iefa:${{ steps.meta.outputs.tag }}
-            portal.tags=registry.fly.io/iefa:latest
-            portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-            portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-
-  deploy-portal:
-    needs: build-portal
+  secrets-portal:
+    needs: [check-portal]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-portal-${{ github.ref_name }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Set Fly secrets
+      - name: Stage Fly secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
         run: |
-          flyctl secrets set --config fly/portal.toml \
+          flyctl secrets set --stage --config fly/portal.toml \
             "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
             "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
 
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-portal.outputs.tag }}
-        run: flyctl deploy -c fly/portal.toml --image "registry.fly.io/iefa:$IMAGE_TAG" --wait-timeout 300
-
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.IEFA_HEALTH_URL }}
-        run: |
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ portal health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ portal health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/portal.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/portal.toml --image "$PREV" --wait-timeout 300 || true
+  deploy-portal:
+    needs: [build-portal, secrets-portal]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      image_repo: registry.fly.io/iefa
+      image_tag: ${{ needs.build-portal.outputs.tag }}
+      fly_config: fly/portal.toml
+      health_url: ${{ vars.IEFA_HEALTH_URL }}
+      concurrency_suffix: portal
+    secrets: inherit
 
   # ============================================================
-  # SISUB  ── check → build → deploy
+  # SISUB  ── check → build → (e2e) → deploy
   # ============================================================
   check-sisub:
     needs: [changes]
@@ -398,35 +360,15 @@ jobs:
           MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
 
   build-sisub:
-    needs: check-sisub
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: sisub
-          push: true
-          set: |
-            sisub.tags=registry.fly.io/sisub:${{ steps.meta.outputs.tag }}
-            sisub.tags=registry.fly.io/sisub:latest
-            sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-            sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+    needs: [check-sisub, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      target: sisub
+      image_repo: registry.fly.io/sisub
+      bake_set: |
+        sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+        sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+    secrets: inherit
 
   e2e-sisub:
     needs: [changes, check-sisub]
@@ -466,18 +408,14 @@ jobs:
             apps/sisub/test-results/
           if-no-files-found: ignore
 
-  deploy-sisub:
-    needs: [build-sisub, e2e-sisub]
+  secrets-sisub:
+    needs: [check-sisub]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-sisub-${{ github.ref_name }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Set Fly secrets
+      - name: Stage Fly secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           V_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
@@ -492,7 +430,7 @@ jobs:
           S_ANALYTICS_AI_API_KEY: ${{ secrets.ANALYTICS_AI_API_KEY }}
           S_MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
         run: |
-          flyctl --config fly/sisub.toml secrets set \
+          flyctl --config fly/sisub.toml secrets set --stage \
             "VITE_SISUB_SUPABASE_URL=$V_SISUB_SUPABASE_URL" \
             "SISUB_SUPABASE_SECRET_KEY=$S_SISUB_SUPABASE_SECRET_KEY" \
             "ADMIN_SECRET=$S_ADMIN_SECRET" \
@@ -505,31 +443,16 @@ jobs:
             "MODULE_CHAT_AI_API_KEY=$S_MODULE_CHAT_AI_API_KEY" \
             "IEFA_API_BASE_URL=$V_IEFA_API_BASE_URL"
 
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-sisub.outputs.tag }}
-        run: flyctl deploy -c fly/sisub.toml --image "registry.fly.io/sisub:$IMAGE_TAG" --wait-timeout 300
-
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.SISUB_HEALTH_URL }}
-        run: |
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ SISUB health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ SISUB health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/sisub.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/sisub.toml --image "$PREV" --wait-timeout 300 || true
+  deploy-sisub:
+    needs: [build-sisub, e2e-sisub, secrets-sisub]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      image_repo: registry.fly.io/sisub
+      image_tag: ${{ needs.build-sisub.outputs.tag }}
+      fly_config: fly/sisub.toml
+      health_url: ${{ vars.SISUB_HEALTH_URL }}
+      concurrency_suffix: sisub
+    secrets: inherit
 
   # ============================================================
   # FORMS  ── check → build → deploy
@@ -558,216 +481,44 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-forms:
-    needs: check-forms
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
+    needs: [check-forms, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      target: forms
+      image_repo: registry.fly.io/iefa-forms
+      bake_set: |
+        forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+        forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        forms.args.VITE_APP_TENANT=forms
+    secrets: inherit
 
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: forms
-          push: true
-          set: |
-            forms.tags=registry.fly.io/iefa-forms:${{ steps.meta.outputs.tag }}
-            forms.tags=registry.fly.io/iefa-forms:latest
-            forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-            forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-            forms.args.VITE_APP_TENANT=forms
-
-  deploy-forms:
-    needs: build-forms
+  secrets-forms:
+    needs: [check-forms]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-forms-${{ github.ref_name }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Set Fly secrets
+      - name: Stage Fly secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
         run: |
-          flyctl secrets set --config fly/forms.toml \
+          flyctl secrets set --stage --config fly/forms.toml \
             "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
             "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
 
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-forms.outputs.tag }}
-        run: flyctl deploy -c fly/forms.toml --image "registry.fly.io/iefa-forms:$IMAGE_TAG" --wait-timeout 300
-
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.FORMS_HEALTH_URL }}
-        run: |
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ forms health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ forms health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/forms.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/forms.toml --image "$PREV" --wait-timeout 300 || true
-
-  # ============================================================
-  # Projeto α / apps/alpha  ── SUSPENSO
-  # ============================================================
-  # check-alpha:
-  #   needs: [changes]
-  #   if: needs.changes.outputs.alpha == 'true'
-  #   runs-on: blacksmith-4vcpu-ubuntu-2404
-  #   timeout-minutes: 15
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: oven-sh/setup-bun@v2
-  #     - uses: actions/cache@v5
-  #       with:
-  #         path: ~/.bun/install/cache
-  #         key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-  #         restore-keys: ${{ runner.os }}-bun-
-  #     - name: Install dependencies
-  #       run: bun install --frozen-lockfile
-  #     - name: Lint · types · tests
-  #       run: bunx turbo run lint typecheck test --filter=./apps/alpha
-  #       env:
-  #         SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-  #         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-  #         DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
-  #         NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-  #         ALPHA_AI_PROVIDER: ${{ vars.ALPHA_AI_PROVIDER }}
-  #         ALPHA_AI_MODEL: ${{ vars.ALPHA_AI_MODEL }}
-  #         ALPHA_AI_API_KEY: ${{ secrets.ALPHA_AI_API_KEY }}
-
-  # build-alpha:
-  #   needs: check-alpha
-  #   runs-on: blacksmith-4vcpu-ubuntu-2404
-  #   timeout-minutes: 15
-  #   outputs:
-  #     tag: ${{ steps.meta.outputs.tag }}
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: docker/setup-buildx-action@v4
-  #     - uses: superfly/flyctl-actions/setup-flyctl@v1
-  #
-  #     - name: Ensure Fly app exists
-  #       env:
-  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  #       run: flyctl apps create iefa-ai || true
-  #
-  #     - name: Login to Fly Registry
-  #       env:
-  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  #       run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-  #
-  #     - name: Generate tag
-  #       id: meta
-  #       run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-  #
-  #     - name: Build and push
-  #       uses: docker/bake-action@v7
-  #       with:
-  #         files: ./docker-bake.hcl
-  #         targets: alpha
-  #         push: true
-  #         set: |
-  #           alpha.tags=registry.fly.io/iefa-ai:${{ steps.meta.outputs.tag }}
-  #           alpha.tags=registry.fly.io/iefa-ai:latest
-
-  # deploy-alpha:
-  #   needs: build-alpha
-  #   runs-on: blacksmith-4vcpu-ubuntu-2404
-  #   timeout-minutes: 10
-  #   concurrency:
-  #     group: fly-deploy-alpha-${{ github.ref_name }}
-  #     cancel-in-progress: true
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: superfly/flyctl-actions/setup-flyctl@v1
-  #
-  #     - name: Set Fly secrets
-  #       env:
-  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  #         V_NVIDIA_BASE_URL: ${{ vars.NVIDIA_BASE_URL }}
-  #         V_LLM_MODEL: ${{ vars.LLM_MODEL }}
-  #         V_ALPHA_AI_PROVIDER: ${{ vars.ALPHA_AI_PROVIDER }}
-  #         V_ALPHA_AI_MODEL: ${{ vars.ALPHA_AI_MODEL }}
-  #         V_EMB_MODEL: ${{ vars.EMB_MODEL }}
-  #         V_NVIDIA_RERANK_MODEL: ${{ vars.NVIDIA_RERANK_MODEL }}
-  #         S_SUPABASE_URL: ${{ secrets.RAG_SUPABASE_URL }}
-  #         S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_SUPABASE_SERVICE_ROLE_KEY }}
-  #         S_DATABASE_URL: ${{ secrets.RAG_DATABASE_URL }}
-  #         S_NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-  #         S_ALPHA_AI_API_KEY: ${{ secrets.ALPHA_AI_API_KEY }}
-  #         S_LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-  #       run: |
-  #         flyctl --config fly/alpha.toml secrets set \
-  #           "SUPABASE_URL=$S_SUPABASE_URL" \
-  #           "SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
-  #           "DATABASE_URL=$S_DATABASE_URL" \
-  #           "NVIDIA_API_KEY=$S_NVIDIA_API_KEY" \
-  #           "NVIDIA_BASE_URL=$V_NVIDIA_BASE_URL" \
-  #           "LLM_MODEL=$V_LLM_MODEL" \
-  #           "ALPHA_AI_PROVIDER=$V_ALPHA_AI_PROVIDER" \
-  #           "ALPHA_AI_MODEL=$V_ALPHA_AI_MODEL" \
-  #           "ALPHA_AI_API_KEY=$S_ALPHA_AI_API_KEY" \
-  #           "EMB_MODEL=$V_EMB_MODEL" \
-  #           "NVIDIA_RERANK_MODEL=$V_NVIDIA_RERANK_MODEL" \
-  #           "LANGCHAIN_API_KEY=$S_LANGCHAIN_API_KEY" \
-  #           "LANGCHAIN_TRACING_V2=true" \
-  #           "LANGCHAIN_PROJECT=alpha-aci"
-  #
-  #     - name: Deploy
-  #       env:
-  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  #         IMAGE_TAG: ${{ needs.build-alpha.outputs.tag }}
-  #       run: flyctl deploy -c fly/alpha.toml --image "registry.fly.io/iefa-ai:$IMAGE_TAG" --wait-timeout 300
-  #
-  #     - name: Smoke test
-  #       env:
-  #         HEALTH_URL: ${{ vars.RAG_HEALTH_URL }}
-  #       run: |
-  #         for i in {1..10}; do
-  #           status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-  #           if [[ "${status:0:1}" == "2" ]]; then echo "✅ AI health check passed"; exit 0; fi
-  #           echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-  #         done
-  #         echo "❌ AI health check failed"; exit 1
-  #
-  #     - name: Rollback on failure
-  #       if: failure()
-  #       env:
-  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  #       run: |
-  #         PREV=$(flyctl releases -c fly/alpha.toml --json | jq -r '.[1].ImageRef // empty')
-  #         if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-  #         flyctl deploy -c fly/alpha.toml --image "$PREV" --wait-timeout 300 || true
+  deploy-forms:
+    needs: [build-forms, secrets-forms]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      image_repo: registry.fly.io/iefa-forms
+      image_tag: ${{ needs.build-forms.outputs.tag }}
+      fly_config: fly/forms.toml
+      health_url: ${{ vars.FORMS_HEALTH_URL }}
+      concurrency_suffix: forms
+    secrets: inherit
 
   # ============================================================
   # DOCS  ── check → build → deploy
@@ -793,70 +544,23 @@ jobs:
         run: bunx turbo run lint typecheck --filter=./apps/docs
 
   build-docs:
-    needs: check-docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: docs
-          push: true
-          set: |
-            docs.tags=registry.fly.io/iefa-docs:${{ steps.meta.outputs.tag }}
-            docs.tags=registry.fly.io/iefa-docs:latest
+    needs: [check-docs, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      target: docs
+      image_repo: registry.fly.io/iefa-docs
+    secrets: inherit
 
   deploy-docs:
-    needs: build-docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-docs-${{ github.ref_name }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-docs.outputs.tag }}
-        run: flyctl deploy -c fly/docs.toml --image "registry.fly.io/iefa-docs:$IMAGE_TAG" --wait-timeout 300
-
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.DOCS_HEALTH_URL }}
-        run: |
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ DOCS health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ DOCS health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/docs.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/docs.toml --image "$PREV" --wait-timeout 300 || true
+    needs: [build-docs]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      image_repo: registry.fly.io/iefa-docs
+      image_tag: ${{ needs.build-docs.outputs.tag }}
+      fly_config: fly/docs.toml
+      health_url: ${{ vars.DOCS_HEALTH_URL }}
+      concurrency_suffix: docs
+    secrets: inherit
 
   # ============================================================
   # 5S (apps/forms)  ── check → build → deploy
@@ -885,90 +589,58 @@ jobs:
           VITE_IEFA_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
 
   build-5s:
-    needs: check-5s
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 15
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
+    needs: [check-5s, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      target: 5s
+      image_repo: registry.fly.io/iefa-5s
+      ensure_app: iefa-5s
+      bake_set: |
+        5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+        5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        5s.args.VITE_APP_TENANT=cinco-s
+    secrets: inherit
 
-      - name: Ensure Fly app exists
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl apps create iefa-5s || true
-
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
-
-      - name: Generate tag
-        id: meta
-        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
-
-      - name: Build and push
-        uses: docker/bake-action@v7
-        with:
-          files: ./docker-bake.hcl
-          targets: 5s
-          push: true
-          set: |
-            5s.tags=registry.fly.io/iefa-5s:${{ steps.meta.outputs.tag }}
-            5s.tags=registry.fly.io/iefa-5s:latest
-            5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-            5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
-            5s.args.VITE_APP_TENANT=cinco-s
-
-  deploy-5s:
-    needs: build-5s
+  secrets-5s:
+    needs: [check-5s]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
-    concurrency:
-      group: fly-deploy-5s-${{ github.ref_name }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Set Fly secrets
+      - name: Stage Fly secrets
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
           S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
         run: |
-          flyctl secrets set --config fly/5s.toml \
+          flyctl secrets set --stage --config fly/5s.toml \
             "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
             "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
 
-      - name: Deploy
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ needs.build-5s.outputs.tag }}
-        run: flyctl deploy -c fly/5s.toml --image "registry.fly.io/iefa-5s:$IMAGE_TAG" --wait-timeout 300
+  deploy-5s:
+    needs: [build-5s, secrets-5s]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      image_repo: registry.fly.io/iefa-5s
+      image_tag: ${{ needs.build-5s.outputs.tag }}
+      fly_config: fly/5s.toml
+      health_url: ${{ vars.FORMS_5S_HEALTH_URL }}
+      concurrency_suffix: 5s
+    secrets: inherit
 
-      - name: Smoke test
-        env:
-          HEALTH_URL: ${{ vars.FORMS_5S_HEALTH_URL }}
-        run: |
-          if [[ -z "$HEALTH_URL" ]]; then echo "⚠️ FORMS_5S_HEALTH_URL not set, skipping smoke test"; exit 0; fi
-          for i in {1..10}; do
-            status="$(curl -fsSL --ipv4 --max-redirs 5 --connect-timeout 5 --max-time 10 -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)"
-            if [[ "${status:0:1}" == "2" ]]; then echo "✅ 5S health check passed"; exit 0; fi
-            echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
-          done
-          echo "❌ 5S health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c fly/5s.toml --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c fly/5s.toml --image "$PREV" --wait-timeout 300 || true
+  # ============================================================
+  # Projeto α / apps/alpha  ── SUSPENSO
+  # Para reativar: descomentar os blocos `alpha` em changes/paths-filter acima e
+  # adicionar callers usando os reusables _app-build.yml / _app-deploy.yml:
+  #   build-alpha:  target=alpha, image_repo=registry.fly.io/iefa-ai, ensure_app=iefa-ai
+  #   deploy-alpha: fly_config=fly/alpha.toml, health_url=${{ vars.RAG_HEALTH_URL }}, concurrency_suffix=alpha
+  # Secrets staged (job secrets-alpha): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+  #   DATABASE_URL, NVIDIA_API_KEY, NVIDIA_BASE_URL, LLM_MODEL, ALPHA_AI_PROVIDER,
+  #   ALPHA_AI_MODEL, ALPHA_AI_API_KEY, EMB_MODEL, NVIDIA_RERANK_MODEL,
+  #   LANGCHAIN_API_KEY, LANGCHAIN_TRACING_V2=true, LANGCHAIN_PROJECT=alpha-aci
+  # Fontes (vars/secrets): RAG_SUPABASE_URL, RAG_SUPABASE_SERVICE_ROLE_KEY,
+  #   RAG_DATABASE_URL, NVIDIA_API_KEY, ALPHA_AI_API_KEY, LANGCHAIN_API_KEY.
 
   # ============================================================
   # TODO: SISUB-MCP  ── check → build → deploy
@@ -977,7 +649,3 @@ jobs:
   # Paths filter: 'apps/sisub-mcp/**' + 'packages/database/**'
   # Runtime secrets: VITE_SISUB_SUPABASE_URL, SISUB_SUPABASE_SECRET_KEY,
   #                  SISUB_SUPABASE_ANON_KEY, MCP_PORT, MCP_TRANSPORT
-
-  # ============================================================
-  # SISUB E2E  ── removido (usar Playwright localmente)
-  # ============================================================

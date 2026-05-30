@@ -367,12 +367,12 @@
       "version": "0.0.1",
       "dependencies": {
         "@langchain/openai": "^1.2.8",
-        "@tanstack/ai": "latest",
-        "@tanstack/ai-anthropic": "latest",
-        "@tanstack/ai-gemini": "latest",
-        "@tanstack/ai-groq": "latest",
-        "@tanstack/ai-ollama": "latest",
-        "@tanstack/ai-openai": "latest",
+        "@tanstack/ai": "^0.23.0",
+        "@tanstack/ai-anthropic": "^0.11.2",
+        "@tanstack/ai-gemini": "^0.12.1",
+        "@tanstack/ai-groq": "^0.2.8",
+        "@tanstack/ai-ollama": "^0.6.23",
+        "@tanstack/ai-openai": "^0.10.4",
       },
       "devDependencies": {
         "@types/bun": "latest",

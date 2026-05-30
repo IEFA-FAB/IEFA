@@ -19,11 +19,22 @@ target "base" {
   context = "."
 }
 
+# Estágio `deps` compartilhado: instala dependências do monorepo uma vez.
+# Buildado isoladamente (job warm-deps) para popular o scope `deps` do cache gha.
+# Todos os targets de app leem desse scope → o `bun install` não é refeito por app
+# em cache frio.
+target "deps" {
+  inherits = ["base"]
+  target = "deps"
+  cache-from = ["type=gha,scope=deps"]
+  cache-to = ["type=gha,scope=deps,mode=max"]
+}
+
 target "api" {
   inherits = ["base"]
   target = "api"
   tags = ["${REGISTRY}/iefa-api:${TAG}"]
-  cache-from = ["type=gha,scope=api"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=api"]
   cache-to = ["type=gha,scope=api,mode=max"]
 }
 
@@ -31,7 +42,7 @@ target "portal" {
   inherits = ["base"]
   target = "portal"
   tags = ["${REGISTRY}/portal:${TAG}"]
-  cache-from = ["type=gha,scope=portal"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=portal"]
   cache-to = ["type=gha,scope=portal,mode=max"]
   args = {
     VITE_IEFA_SUPABASE_URL = ""
@@ -43,7 +54,7 @@ target "sisub" {
   inherits = ["base"]
   target = "sisub"
   tags = ["${REGISTRY}/sisub:${TAG}"]
-  cache-from = ["type=gha,scope=sisub"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=sisub"]
   cache-to = ["type=gha,scope=sisub,mode=max"]
   args = {
     VITE_SISUB_SUPABASE_URL = ""
@@ -55,7 +66,7 @@ target "forms" {
   inherits = ["base"]
   target = "forms"
   tags = ["${REGISTRY}/iefa-forms:${TAG}"]
-  cache-from = ["type=gha,scope=forms"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=forms"]
   cache-to = ["type=gha,scope=forms,mode=max"]
   args = {
     VITE_IEFA_SUPABASE_URL = ""
@@ -68,7 +79,7 @@ target "docs" {
   inherits = ["base"]
   target   = "docs"
   tags     = ["${REGISTRY}/iefa-docs:${TAG}"]
-  cache-from = ["type=gha,scope=docs"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=docs"]
   cache-to = ["type=gha,scope=docs,mode=max"]
 }
 
@@ -76,7 +87,7 @@ target "alpha" {
   inherits = ["base"]
   target   = "alpha"
   tags     = ["${REGISTRY}/iefa-ai:${TAG}"]
-  cache-from = ["type=gha,scope=alpha"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=alpha"]
   cache-to = ["type=gha,scope=alpha,mode=max"]
 }
 
@@ -84,7 +95,7 @@ target "5s" {
   inherits = ["base"]
   target = "forms"
   tags = ["${REGISTRY}/iefa-5s:${TAG}"]
-  cache-from = ["type=gha,scope=5s"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=5s"]
   cache-to = ["type=gha,scope=5s,mode=max"]
   args = {
     VITE_IEFA_SUPABASE_URL = ""

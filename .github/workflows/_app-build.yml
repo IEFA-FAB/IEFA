@@ -1,0 +1,72 @@
+# Reusable: build + push de um app via docker-bake → Fly registry.
+# Usado por deploy.yml (um caller por app). Concentra o bloco idêntico de
+# login → tag → bake que antes era duplicado em cada build-<app>.
+name: app-build
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: "Target do docker-bake.hcl (ex: sisub)"
+        required: true
+        type: string
+      image_repo:
+        description: "Repositório da imagem sem tag (ex: registry.fly.io/sisub)"
+        required: true
+        type: string
+      ensure_app:
+        description: "Se preenchido, roda `flyctl apps create <nome> || true` antes do build"
+        required: false
+        type: string
+        default: ""
+      bake_set:
+        description: "Linhas extras de `set` do bake (build args), uma por linha"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      tag:
+        description: "Tag única gerada para a imagem"
+        value: ${{ jobs.build.outputs.tag }}
+    secrets:
+      FLY_API_TOKEN:
+        required: true
+
+jobs:
+  build:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
+        if: inputs.ensure_app != ''
+
+      - name: Ensure Fly app exists
+        if: inputs.ensure_app != ''
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl apps create "${{ inputs.ensure_app }}" || true
+
+      - name: Login to Fly Registry
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
+
+      - name: Generate tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::7}-${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/bake-action@v7
+        with:
+          files: ./docker-bake.hcl
+          targets: ${{ inputs.target }}
+          push: true
+          set: |
+            ${{ inputs.target }}.tags=${{ inputs.image_repo }}:${{ steps.meta.outputs.tag }}
+            ${{ inputs.target }}.tags=${{ inputs.image_repo }}:latest
+            ${{ inputs.bake_set }}

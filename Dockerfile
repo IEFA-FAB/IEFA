@@ -1,7 +1,7 @@
 # =============================================================================
 # BASE - Alpine com Bun
 # =============================================================================
-FROM oven/bun:1.3.14-alpine AS base
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -9,19 +9,25 @@ WORKDIR /app
 # DEPS - Instala dependências uma vez para todo o monorepo
 # =============================================================================
 FROM base AS deps
+# Todos os workspaces declarados no bun.lock precisam estar presentes para
+# `--frozen-lockfile` validar a árvore sem regenerar o lockfile.
 COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/portal/package.json ./apps/portal/
 COPY apps/sisub/package.json ./apps/sisub/
+COPY apps/sisub-mcp/package.json ./apps/sisub-mcp/
 COPY apps/docs/package.json ./apps/docs/
 COPY apps/forms/package.json ./apps/forms/
 COPY apps/alpha/package.json ./apps/alpha/
+COPY apps/sucont/package.json ./apps/sucont/
 COPY packages/database/package.json ./packages/database/
 COPY packages/hono-client/package.json ./packages/hono-client/
 COPY packages/alpha-client/package.json ./packages/alpha-client/
+COPY packages/ai-provider/package.json ./packages/ai-provider/
+COPY packages/compras-api/package.json ./packages/compras-api/
 COPY packages/pbac/package.json ./packages/pbac/
 COPY packages/sisub-domain/package.json ./packages/sisub-domain/
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # =============================================================================
 # API
@@ -34,7 +40,7 @@ RUN test -f apps/api/dist/index.js || \
 
 FROM base AS api
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
+# Bundle gerado por `bun build --target bun` é self-contained (deps inlined) — não precisa de node_modules
 COPY --from=api-build /app/apps/api/dist ./apps/api/dist
 COPY --from=api-build /app/apps/api/public ./apps/api/public
 USER bun
@@ -64,7 +70,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/portal/.output/server/index.mjs 
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine AS portal
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS portal
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=portal-build /app/apps/portal/.output ./.output
@@ -81,6 +87,7 @@ ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
 COPY packages/database ./packages/database
 COPY packages/hono-client ./packages/hono-client
 COPY packages/alpha-client ./packages/alpha-client
+COPY packages/ai-provider ./packages/ai-provider
 COPY packages/pbac ./packages/pbac
 COPY packages/sisub-domain ./packages/sisub-domain
 COPY apps/sisub ./apps/sisub
@@ -105,7 +112,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/sisub/.output/server/index.mjs \
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine AS sisub
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
@@ -137,7 +144,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/forms/.output/server/index.mjs \
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine AS forms
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS forms
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=forms-build /app/apps/forms/.output ./.output
@@ -150,6 +157,7 @@ CMD ["bun", ".output/server/index.mjs"]
 # =============================================================================
 FROM deps AS alpha-build
 COPY packages/alpha-client ./packages/alpha-client
+COPY packages/ai-provider ./packages/ai-provider
 COPY apps/alpha ./apps/alpha
 RUN test -f apps/alpha/src/index.ts || \
     (echo "❌ Alpha entrypoint missing" && exit 1)
