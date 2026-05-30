@@ -3,10 +3,12 @@ import { ArrowLeft } from "lucide-react"
 import { useCallback, useMemo } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { ComingSoon } from "@/components/features/feature-gate/ComingSoon"
 import { ModuleChatInterface } from "@/components/features/module-chat/ModuleChatInterface"
 import { MobileModuleChatList, ModuleChatSidebar } from "@/components/features/module-chat/ModuleChatSidebar"
 import { Button } from "@/components/ui/button"
 import { getGlobalChatConfig } from "@/lib/module-chat/prompts/global"
+import { getCapabilitiesFn } from "@/server/capabilities.fn"
 
 const chatSearchSchema = z.object({
 	session: z.uuid().optional(),
@@ -15,6 +17,7 @@ const chatSearchSchema = z.object({
 export const Route = createFileRoute("/_protected/_modules/global/chat")({
 	validateSearch: chatSearchSchema,
 	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
+	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Global" }],
 	}),
@@ -22,6 +25,7 @@ export const Route = createFileRoute("/_protected/_modules/global/chat")({
 })
 
 function GlobalChatPage() {
+	const { capabilities } = Route.useLoaderData()
 	const { session: sessionId } = Route.useSearch()
 	const navigate = useNavigate()
 
@@ -48,6 +52,15 @@ function GlobalChatPage() {
 	const handleBack = useCallback(() => {
 		void navigate({ to: "/global/chat", search: {} })
 	}, [navigate])
+
+	if (!capabilities.moduleChat) {
+		return (
+			<ComingSoon
+				title="Assistente IA · Em breve"
+				description="O assistente de IA ainda não está disponível neste ambiente. Estamos finalizando a configuração — volte em breve."
+			/>
+		)
+	}
 
 	return (
 		<div className="-mx-3 sm:-mx-6 -my-6 md:-my-8 flex h-[calc(100dvh-3.5rem)]">

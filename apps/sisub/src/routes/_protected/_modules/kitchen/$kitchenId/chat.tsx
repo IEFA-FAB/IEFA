@@ -3,10 +3,12 @@ import { ArrowLeft } from "lucide-react"
 import { useCallback, useMemo } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { ComingSoon } from "@/components/features/feature-gate/ComingSoon"
 import { ModuleChatInterface } from "@/components/features/module-chat/ModuleChatInterface"
 import { MobileModuleChatList, ModuleChatSidebar } from "@/components/features/module-chat/ModuleChatSidebar"
 import { Button } from "@/components/ui/button"
 import { getKitchenChatConfig } from "@/lib/module-chat/prompts/kitchen"
+import { getCapabilitiesFn } from "@/server/capabilities.fn"
 
 const chatSearchSchema = z.object({
 	session: z.uuid().optional(),
@@ -15,6 +17,7 @@ const chatSearchSchema = z.object({
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/chat")({
 	validateSearch: chatSearchSchema,
 	beforeLoad: ({ context, params }) => requirePermission(context, "kitchen", 1, { type: "kitchen", id: Number(params.kitchenId) }),
+	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Cozinha" }],
 	}),
@@ -22,6 +25,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/ch
 })
 
 function KitchenChatPage() {
+	const { capabilities } = Route.useLoaderData()
 	const { kitchenId: kitchenIdStr } = Route.useParams()
 	const kitchenId = Number(kitchenIdStr)
 	const { session: sessionId } = Route.useSearch()
@@ -50,6 +54,15 @@ function KitchenChatPage() {
 	const handleBack = useCallback(() => {
 		void navigate({ to: "/kitchen/$kitchenId/chat", params: { kitchenId: kitchenIdStr }, search: {} })
 	}, [navigate, kitchenIdStr])
+
+	if (!capabilities.moduleChat) {
+		return (
+			<ComingSoon
+				title="Assistente IA · Em breve"
+				description="O assistente de IA ainda não está disponível neste ambiente. Estamos finalizando a configuração — volte em breve."
+			/>
+		)
+	}
 
 	return (
 		<div className="-mx-3 sm:-mx-6 -my-6 md:-my-8 flex h-[calc(100dvh-3.5rem)]">

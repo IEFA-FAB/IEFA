@@ -8,12 +8,6 @@ const serverEnvSchema = z.object({
 	SISUB_SUPABASE_SECRET_KEY: z.string().min(1),
 })
 
-const analyticsEnvSchema = z.object({
-	OPENROUTER_API_KEY: z.string().min(1),
-	ANALYTICS_LLM_MODEL: z.string().default("google/gemini-2.0-flash-001"),
-	ANALYTICS_LLM_MODEL_FALLBACK: z.string().optional(),
-})
-
 const parsed = serverEnvSchema.safeParse({
 	VITE_SISUB_SUPABASE_URL: process.env.VITE_SISUB_SUPABASE_URL,
 	SISUB_SUPABASE_SECRET_KEY: process.env.SISUB_SUPABASE_SECRET_KEY,
@@ -26,17 +20,6 @@ if (!parsed.success) {
 
 export const envServer = parsed.data
 
-export function getAnalyticsEnvServer() {
-	const parsed = analyticsEnvSchema.safeParse({
-		OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-		ANALYTICS_LLM_MODEL: process.env.ANALYTICS_LLM_MODEL,
-		ANALYTICS_LLM_MODEL_FALLBACK: process.env.ANALYTICS_LLM_MODEL_FALLBACK,
-	})
-
-	if (!parsed.success) {
-		const missing = parsed.error.issues.map((i) => i.path.join(".")).join(", ")
-		throw new Error(`Missing or invalid environment variables: ${missing}`)
-	}
-
-	return parsed.data
-}
+// Secrets de IA (MODULE_CHAT_AI_* / ANALYTICS_AI_*) são intencionalmente NÃO
+// validados aqui — são fluxos não-essenciais. Sua ausência não quebra o boot;
+// a detecção fica em capabilities.server.ts e as telas mostram "Em breve".

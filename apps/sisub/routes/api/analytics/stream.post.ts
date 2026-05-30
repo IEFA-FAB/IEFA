@@ -6,6 +6,7 @@ import { trace, metrics } from "@opentelemetry/api"
 import { createAdapterFromEnv } from "@iefa/ai-provider"
 import { createServerClient } from "@supabase/ssr"
 import type { Database } from "@iefa/database"
+import { getServerCapabilities } from "@/lib/capabilities.server"
 import { envServer } from "@/lib/env.server"
 import { ANALYTICS_SYSTEM_PROMPT } from "@/lib/analytics-prompt"
 import { renderChartTool } from "@/lib/render-chart-tool"
@@ -32,6 +33,12 @@ function getAuthClientFromEvent(event: H3Event) {
 }
 
 export default defineHandler(async (event: H3Event) => {
+	// Capability gate — sem secrets ANALYTICS_AI_* o assistente fica "Em breve"
+	// na UI e o endpoint responde 503, sem quebrar o deploy.
+	if (!getServerCapabilities().analyticsChat) {
+		throw createError({ statusCode: 503, message: "Assistente IA indisponível — não configurado neste ambiente" })
+	}
+
 	const authClient = getAuthClientFromEvent(event)
 	const {
 		data: { user },

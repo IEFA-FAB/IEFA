@@ -21,6 +21,7 @@ import type { Database } from "@iefa/database"
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { hasPermission } from "@/auth/pbac"
+import { getServerCapabilities } from "@/lib/capabilities.server"
 import { envServer } from "@/lib/env.server"
 import { getModuleConfig } from "@/lib/module-chat/tools/registry"
 import { type ToolContext, getMaxLevel } from "@/lib/module-chat/tools/shared"
@@ -69,6 +70,12 @@ async function loadUserPermissions(supabase: ReturnType<typeof getDataClient>, u
 // ── Handler ─────────────────────────────────────────────────────────────────
 
 export default defineHandler(async (event: H3Event) => {
+	// 0. Capability gate — fluxo não-essencial: sem secrets de IA o recurso fica
+	// "Em breve" na UI e o endpoint responde 503 (em vez de quebrar o deploy).
+	if (!getServerCapabilities().moduleChat) {
+		throw createError({ statusCode: 503, message: "Assistente IA indisponível — não configurado neste ambiente" })
+	}
+
 	// 1. Auth
 	const authClient = getAuthClientFromEvent(event)
 	const {

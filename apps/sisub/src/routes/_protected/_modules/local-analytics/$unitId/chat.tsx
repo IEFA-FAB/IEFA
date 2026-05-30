@@ -3,10 +3,12 @@ import { ArrowLeft } from "lucide-react"
 import { useCallback, useMemo } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
+import { ComingSoon } from "@/components/features/feature-gate/ComingSoon"
 import { ModuleChatInterface } from "@/components/features/module-chat/ModuleChatInterface"
 import { MobileModuleChatList, ModuleChatSidebar } from "@/components/features/module-chat/ModuleChatSidebar"
 import { Button } from "@/components/ui/button"
 import { getLocalAnalyticsChatConfig } from "@/lib/module-chat/prompts/local-analytics"
+import { getCapabilitiesFn } from "@/server/capabilities.fn"
 
 const chatSearchSchema = z.object({
 	session: z.uuid().optional(),
@@ -15,6 +17,7 @@ const chatSearchSchema = z.object({
 export const Route = createFileRoute("/_protected/_modules/local-analytics/$unitId/chat")({
 	validateSearch: chatSearchSchema,
 	beforeLoad: ({ context, params }) => requirePermission(context, "local-analytics", 1, { type: "unit", id: Number(params.unitId) }),
+	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Análises da Unidade" }],
 	}),
@@ -22,6 +25,7 @@ export const Route = createFileRoute("/_protected/_modules/local-analytics/$unit
 })
 
 function LocalAnalyticsChatPage() {
+	const { capabilities } = Route.useLoaderData()
 	const { unitId: unitIdStr } = Route.useParams()
 	const unitId = Number(unitIdStr)
 	const { session: sessionId } = Route.useSearch()
@@ -50,6 +54,15 @@ function LocalAnalyticsChatPage() {
 	const handleBack = useCallback(() => {
 		void navigate({ to: "/local-analytics/$unitId/chat", params: { unitId: unitIdStr }, search: {} })
 	}, [navigate, unitIdStr])
+
+	if (!capabilities.moduleChat) {
+		return (
+			<ComingSoon
+				title="Assistente IA · Em breve"
+				description="O assistente de IA ainda não está disponível neste ambiente. Estamos finalizando a configuração — volte em breve."
+			/>
+		)
+	}
 
 	return (
 		<div className="-mx-3 sm:-mx-6 -my-6 md:-my-8 flex h-[calc(100dvh-3.5rem)]">

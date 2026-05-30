@@ -6,7 +6,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
-export default defineConfig(() => ({
+export default defineConfig(async () => ({
 	resolve: {
 		tsconfigPaths: true,
 	},
@@ -40,7 +40,7 @@ export default defineConfig(() => ({
 		}),
 
 		react(),
-		babel({ presets: [reactCompilerPreset()] }),
+		(await babel({ presets: [reactCompilerPreset()] })) as unknown as import("vite").Plugin,
 	],
 	server: {
 		port: 3000,
@@ -81,7 +81,7 @@ export default defineConfig(() => ({
 				// Nome fixo (sem hash) para o CSS principal — previne mismatch de hash entre
 				// o build SSR e o build client: Tailwind gera output diferente em cada pass.
 				// Cache-busting feito server-side via Cache-Control: no-cache em /assets/styles.css.
-				assetFileNames: (asset) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
+				assetFileNames: (asset: { names: string[] }) => (asset.names?.includes("styles.css") ? "assets/styles.css" : "assets/[name]-[hash][extname]"),
 			},
 		},
 	},

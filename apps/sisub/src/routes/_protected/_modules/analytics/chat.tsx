@@ -5,7 +5,9 @@ import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { ChatInterface } from "@/components/features/analytics-chat/ChatInterface"
 import { ChatSidebar, MobileChatList } from "@/components/features/analytics-chat/ChatSidebar"
+import { ComingSoon } from "@/components/features/feature-gate/ComingSoon"
 import { Button } from "@/components/ui/button"
+import { getCapabilitiesFn } from "@/server/capabilities.fn"
 
 const chatSearchSchema = z.object({
 	session: z.uuid().optional(),
@@ -14,6 +16,7 @@ const chatSearchSchema = z.object({
 export const Route = createFileRoute("/_protected/_modules/analytics/chat")({
 	validateSearch: chatSearchSchema,
 	beforeLoad: ({ context }) => requirePermission(context, "analytics", 1),
+	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Analytics" }],
 	}),
@@ -21,6 +24,7 @@ export const Route = createFileRoute("/_protected/_modules/analytics/chat")({
 })
 
 function ChatPage() {
+	const { capabilities } = Route.useLoaderData()
 	const { session: sessionId } = Route.useSearch()
 	const navigate = useNavigate()
 
@@ -45,6 +49,15 @@ function ChatPage() {
 	const handleBack = useCallback(() => {
 		void navigate({ to: "/analytics/chat", search: {} })
 	}, [navigate])
+
+	if (!capabilities.analyticsChat) {
+		return (
+			<ComingSoon
+				title="Assistente IA · Em breve"
+				description="O assistente de IA de Analytics ainda não está disponível neste ambiente. Estamos finalizando a configuração — volte em breve."
+			/>
+		)
+	}
 
 	return (
 		/*
