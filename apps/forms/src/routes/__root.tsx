@@ -116,18 +116,16 @@ function RootDocument() {
 					</HotkeysProvider>
 				</TenantProvider>
 				<AuthSync />
-				{import.meta.env.DEV && (
-					<TanStackDevtools
-						config={{ position: "bottom-right" }}
-						plugins={[
-							{
-								name: "Tanstack Router",
-								render: <TanStackRouterDevtoolsPanel />,
-							},
-							TanStackQueryDevtools,
-						]}
-					/>
-				)}
+				<TanStackDevtools
+					config={{ position: "bottom-right" }}
+					plugins={[
+						{
+							name: "Tanstack Router",
+							render: <TanStackRouterDevtoolsPanel />,
+						},
+						TanStackQueryDevtools,
+					]}
+				/>
 				<Scripts />
 			</body>
 		</html>
