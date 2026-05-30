@@ -21,7 +21,7 @@ function extractText(parts: UIMessage["parts"]): string {
 function extractChart(parts: UIMessage["parts"]): ChartSpec | undefined {
 	// biome-ignore lint/suspicious/noExplicitAny: UIMessage part union requires cast to access tool-call name
 	const part = parts.find((p) => p.type === "tool-call" && (p as any).name === "render_chart")
-	if (!part || part.type !== "tool-call") return undefined
+	if (part?.type !== "tool-call") return undefined
 	const out = part.output
 	if (!out || typeof out !== "object" || "error" in out) return undefined
 	return out as ChartSpec

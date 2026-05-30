@@ -15,7 +15,7 @@ export const Route = createFileRoute("/journal/editorial")({
 
 		const profile = await context.queryClient.ensureQueryData(userProfileQueryOptions(auth.user.id))
 
-		if (!profile || profile.role !== "editor") {
+		if (profile?.role !== "editor") {
 			throw redirect({
 				to: "/journal",
 			})

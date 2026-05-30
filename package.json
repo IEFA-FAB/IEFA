@@ -1,7 +1,7 @@
 {
   "name": "iefa",
   "private": true,
-  "packageManager": "bun@1.3.10",
+  "packageManager": "bun@1.3.14",
   "overrides": {
     "react": "^19.2",
     "react-dom": "^19.2",
@@ -43,13 +43,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
-    "@commitlint/cli": "^21.0.1",
-    "@commitlint/config-conventional": "^21.0.1",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "commitizen": "^4.3.1",
     "cz-git": "^1.13.1",
     "husky": "^9.1.7",
     "knip": "^6.14.2",
-    "turbo": "^2.9.15",
+    "turbo": "^2.9.16",
     "vite-tsconfig-paths": "^6.1.1"
   },
   "workspaces": [
@@ -58,8 +58,8 @@
   ],
   "dependencies": {
     "@tanstack/cli": "^0.68.0",
-    "greptile": "^2.4.0",
-    "react-doctor": "^0.1.6",
+    "greptile": "^3.0.5",
+    "react-doctor": "^0.2.14",
     "root": "tanstack/cli"
   }
 }

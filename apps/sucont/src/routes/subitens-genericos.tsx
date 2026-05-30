@@ -310,14 +310,14 @@ function SubitensGenericos() {
 
 	const getDeadlineText = (ug: string) => {
 		const config = ugConfigs[ug]
-		if (!config || config.messageType !== "com_prazo" || !config.deadlineDate) return ""
+		if (config?.messageType !== "com_prazo" || !config.deadlineDate) return ""
 		const [year, month, day] = config.deadlineDate.split("-")
 		return `${day}/${month}/${year}`
 	}
 
 	const getRacDeadlineText = (racId: string) => {
 		const config = racConfigs[racId]
-		if (!config || config.messageType !== "com_prazo" || !config.deadlineDate) return ""
+		if (config?.messageType !== "com_prazo" || !config.deadlineDate) return ""
 		const [year, month, day] = config.deadlineDate.split("-")
 		return `${day}/${month}/${year}`
 	}
