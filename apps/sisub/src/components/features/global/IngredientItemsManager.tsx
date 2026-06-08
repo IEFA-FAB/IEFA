@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { Boxes, ChevronDown, Edit, PackagePlus, Tag, Trash2 } from "lucide-react"
+import { Boxes, Edit, Link2, PackagePlus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -14,9 +14,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { cn } from "@/lib/utils"
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { type IngredientItemWithPurchase, useDeleteIngredientItem, useIngredientItems } from "@/services/IngredientsService"
 import { IngredientItemForm } from "./IngredientItemForm"
 
@@ -30,6 +28,16 @@ interface DialogState {
 	item?: IngredientItemWithPurchase
 }
 
+/** Resumo físico em linha única (embalagem + GTIN), omitindo campos ausentes. */
+function stockSummary(item: IngredientItemWithPurchase): string {
+	const parts: string[] = []
+	if (item.unit_content_quantity != null && item.purchase_measure_unit) parts.push(`${item.unit_content_quantity} ${item.purchase_measure_unit}`)
+	else if (item.purchase_measure_unit) parts.push(item.purchase_measure_unit)
+	if (item.barcode) parts.push(`GTIN ${item.barcode}`)
+	if (item.correction_factor != null && Number(item.correction_factor) !== 1) parts.push(`fc ${item.correction_factor}`)
+	return parts.join(" · ")
+}
+
 /**
  * Gerenciador de itens de produto (ingredient_item) de um insumo.
  * Item de produto = item de estoque/GS1 (GTIN), vinculado a 1 item de compra (CATMAT).
@@ -39,21 +47,8 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 	const { ingredientItems } = useIngredientItems(ingredientId)
 	const { deleteIngredientItem, isDeleting } = useDeleteIngredientItem()
 
-	const [dialogState, setDialogState] = useState<DialogState>({
-		isOpen: false,
-		mode: "create",
-	})
+	const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, mode: "create" })
 	const [deleteTarget, setDeleteTarget] = useState<IngredientItemWithPurchase | null>(null)
-	const [openItems, setOpenItems] = useState<Set<string>>(new Set())
-
-	const toggleItem = (id: string) => {
-		setOpenItems((prev) => {
-			const next = new Set(prev)
-			if (next.has(id)) next.delete(id)
-			else next.add(id)
-			return next
-		})
-	}
 
 	const handleDeleteConfirm = async () => {
 		if (!deleteTarget) return
@@ -75,137 +70,87 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 	const isEmpty = !ingredientItems || ingredientItems.length === 0
 
 	return (
-		<div className="space-y-4">
+		<section className="space-y-3">
 			{/* Header da seção */}
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-2">
-					<Boxes className="size-5 text-success" />
-					<h2 className="text-heading">Itens de Produto</h2>
-					{ingredientItems && <Badge variant="success">{ingredientItems.length}</Badge>}
+			<div className="flex items-start justify-between gap-4">
+				<div className="space-y-1">
+					<div className="flex items-center gap-2">
+						<Boxes className="size-5 text-muted-foreground" />
+						<h2 className="text-heading">Itens de Produto</h2>
+						{ingredientItems && <Badge variant="secondary">{ingredientItems.length}</Badge>}
+					</div>
+					<p className="text-caption text-muted-foreground">Produtos físicos em estoque (GTIN), cada um vinculado a um item de compra.</p>
 				</div>
-				<Button size="sm" onClick={openCreate} className="gap-2">
+				<Button size="sm" onClick={openCreate} className="gap-2 shrink-0">
 					<PackagePlus className="size-4" />
 					Novo Item
 				</Button>
 			</div>
 
 			{/* Lista de itens */}
-			<Card>
-				{isEmpty ? (
-					<div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
-						<Boxes className="size-10 opacity-30" />
-						<p className="font-sans">Nenhum item de produto cadastrado</p>
-						<Button variant="outline" size="sm" onClick={openCreate}>
-							<PackagePlus className="size-4 mr-2" />
-							Adicionar primeiro item
-						</Button>
-					</div>
-				) : (
-					<div className="divide-y divide-border/50">
-						{ingredientItems?.map((item) => (
-							<Collapsible key={item.id} open={openItems.has(item.id)} onOpenChange={() => toggleItem(item.id)}>
-								<div className="group flex items-center px-4 py-3 hover:bg-muted/50 transition-colors gap-2">
-									<CollapsibleTrigger className="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-[var(--radius)]">
-										<div className="flex items-center justify-center size-8 rounded-[var(--radius)] bg-success/10 border border-success/20 shrink-0">
-											<Boxes className="size-4 text-success" />
-										</div>
-										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-1.5">
-												<p className="text-subheading truncate">{item.description}</p>
-												<ChevronDown className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")} />
-											</div>
-											<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-												{item.purchase_item?.catmat_item_codigo != null && (
-													<Badge variant="outline">
-														<Tag className="size-3 mr-1" />
-														<span className="font-mono">CATMAT {item.purchase_item.catmat_item_codigo}</span>
-													</Badge>
-												)}
-												{item.barcode && (
-													<Badge variant="outline">
-														<span className="font-mono">#{item.barcode}</span>
-													</Badge>
-												)}
-												{item.purchase_measure_unit && (
-													<Badge variant="outline">
-														<span className="font-mono">
-															{item.unit_content_quantity} {item.purchase_measure_unit}
-														</span>
-													</Badge>
-												)}
-												{item.correction_factor && Number(item.correction_factor) !== 1 && (
-													<Badge variant="outline">
-														<span className="font-mono">fc {item.correction_factor}</span>
-													</Badge>
-												)}
-											</div>
-										</div>
-									</CollapsibleTrigger>
-
-									<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
-										<Button variant="ghost" size="icon-sm" onClick={() => openEdit(item)} disabled={isDeleting} aria-label={`Editar ${item.description}`}>
-											<Edit className="size-3.5" />
-										</Button>
-										<Button
-											variant="destructive"
-											size="icon-sm"
-											onClick={() => setDeleteTarget(item)}
-											disabled={isDeleting}
-											aria-label={`Excluir ${item.description}`}
-										>
-											<Trash2 className="size-3.5" />
-										</Button>
-									</div>
-								</div>
-
-								<CollapsibleContent>
-									<div className="px-4 pb-4 ml-11 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-										{item.purchase_item && (
-											<div className="flex flex-col gap-0.5 col-span-2">
-												<span className="text-xs text-muted-foreground">Item de compra vinculado</span>
+			{isEmpty ? (
+				<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-12 text-muted-foreground">
+					<Boxes className="size-10 opacity-30" />
+					<p className="text-body">Nenhum item de produto cadastrado</p>
+					<Button variant="outline" size="sm" onClick={openCreate}>
+						<PackagePlus className="size-4 mr-2" />
+						Adicionar primeiro item
+					</Button>
+				</div>
+			) : (
+				<ItemGroup>
+					{ingredientItems?.map((item) => {
+						const summary = stockSummary(item)
+						const linked = item.purchase_item
+						return (
+							<Item key={item.id} variant="outline">
+								<ItemMedia variant="icon">
+									<Boxes className="text-muted-foreground" />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle>{item.description}</ItemTitle>
+									<ItemDescription className="space-y-0.5">
+										<span className="flex items-center gap-1.5">
+											<Link2 className="size-3 shrink-0" />
+											{linked ? (
 												<span>
-													{item.purchase_item.description}
-													{item.purchase_item.catmat_item_codigo != null && (
-														<span className="ml-1 font-mono text-muted-foreground">(CATMAT {item.purchase_item.catmat_item_codigo})</span>
-													)}
+													Compra: <span className="text-foreground">{linked.description}</span>
+													{linked.catmat_item_codigo != null && <span className="ml-1 font-mono">CATMAT {linked.catmat_item_codigo}</span>}
 												</span>
-											</div>
-										)}
-										{item.barcode && (
-											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Código de barras (GTIN)</span>
-												<span className="font-mono">{item.barcode}</span>
-											</div>
-										)}
-										{item.purchase_measure_unit && (
-											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Unidade de compra</span>
-												<span className="font-mono">{item.purchase_measure_unit}</span>
-											</div>
-										)}
-										{item.unit_content_quantity != null && (
-											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Qtd por unidade</span>
-												<span className="font-mono">{item.unit_content_quantity}</span>
-											</div>
-										)}
-										{item.correction_factor != null && (
-											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Fator de correção</span>
-												<span className="font-mono">{item.correction_factor}</span>
-											</div>
-										)}
-										<div className="flex flex-col gap-0.5 col-span-2">
-											<span className="text-xs text-muted-foreground">ID</span>
-											<span className="font-mono text-xs text-muted-foreground">{item.id}</span>
-										</div>
-									</div>
-								</CollapsibleContent>
-							</Collapsible>
-						))}
-					</div>
-				)}
-			</Card>
+											) : (
+												<span>Sem item de compra vinculado</span>
+											)}
+										</span>
+										{summary && <span className="block font-mono">{summary}</span>}
+									</ItemDescription>
+								</ItemContent>
+								<ItemActions>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										onClick={() => openEdit(item)}
+										disabled={isDeleting}
+										aria-label={`Editar ${item.description}`}
+										className="text-muted-foreground"
+									>
+										<Edit className="size-3.5" />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										onClick={() => setDeleteTarget(item)}
+										disabled={isDeleting}
+										aria-label={`Excluir ${item.description}`}
+										className="text-muted-foreground hover:text-destructive"
+									>
+										<Trash2 className="size-3.5" />
+									</Button>
+								</ItemActions>
+							</Item>
+						)
+					})}
+				</ItemGroup>
+			)}
 
 			{/* Dialog de criação/edição */}
 			<IngredientItemForm
@@ -233,6 +178,6 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</div>
+		</section>
 	)
 }

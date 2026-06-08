@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -113,22 +113,24 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const folder = folders.find((f) => f.id === ingredient.folder_id)
 
 	return (
-		<div className="space-y-6 pb-20">
+		<div className="space-y-6">
 			<PageHeader title={ingredient.description ?? "Insumo"} description={folder?.description ?? undefined} onBack={() => window.history.back()} />
 
-			<form
-				onSubmit={(e) => {
-					e.preventDefault()
-					e.stopPropagation()
-					form.handleSubmit()
-				}}
-				className="space-y-6 max-w-5xl mx-auto"
-			>
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-					{/* Informações Básicas */}
-					<Card className="md:col-span-2">
+			<div className="max-w-5xl mx-auto space-y-8 pb-24">
+				{/* Escopo do form: identificação + informação nutricional (salvos juntos pela barra inferior) */}
+				<form
+					id="ingredient-form"
+					onSubmit={(e) => {
+						e.preventDefault()
+						e.stopPropagation()
+						form.handleSubmit()
+					}}
+					className="space-y-6"
+				>
+					{/* Identificação — dados que definem o insumo genérico */}
+					<Card>
 						<CardHeader>
-							<CardTitle>Informações Básicas</CardTitle>
+							<CardTitle>Identificação</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-4">
 							<form.Field name="description">
@@ -152,36 +154,95 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 								)}
 							</form.Field>
 
-							<form.Field name="folder_id">
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<form.Field name="folder_id">
+									{(field) => (
+										<Field>
+											<FieldLabel>Pasta (Categoria)</FieldLabel>
+											<FieldContent>
+												<Select
+													value={field.state.value ?? "__NONE__"}
+													onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? (null as unknown as string) : v)}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="Selecione uma pasta">
+															{field.state.value && field.state.value !== "__NONE__"
+																? (folders.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
+																: undefined}
+														</SelectValue>
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="__NONE__">Sem pasta</SelectItem>
+														{folders.map((f) => (
+															<SelectItem key={f.id} value={f.id}>
+																{f.description ?? "Sem Nome"}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</FieldContent>
+										</Field>
+									)}
+								</form.Field>
+
+								<form.Field name="measure_unit">
+									{(field) => (
+										<Field>
+											<FieldLabel>Unidade de Medida</FieldLabel>
+											<FieldContent>
+												<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
+													<SelectTrigger>
+														<SelectValue placeholder="Selecione">
+															{field.state.value && field.state.value !== "__NONE__"
+																? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value)
+																: undefined}
+														</SelectValue>
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="__NONE__">Selecione</SelectItem>
+														<SelectItem value="UN">UN (Unidade)</SelectItem>
+														<SelectItem value="KG">KG (Quilograma)</SelectItem>
+														<SelectItem value="LT">LT (Litro)</SelectItem>
+														<SelectItem value="G">G (Grama)</SelectItem>
+														<SelectItem value="ML">ML (Mililitro)</SelectItem>
+													</SelectContent>
+												</Select>
+											</FieldContent>
+										</Field>
+									)}
+								</form.Field>
+							</div>
+
+							<form.Field name="correction_factor">
 								{(field) => (
 									<Field>
-										<FieldLabel>Pasta (Categoria)</FieldLabel>
+										<FieldLabel>Fator de Correção (FC)</FieldLabel>
 										<FieldContent>
-											<Select
-												value={field.state.value ?? "__NONE__"}
-												onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? (null as unknown as string) : v)}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="Selecione uma pasta">
-														{field.state.value && field.state.value !== "__NONE__"
-															? (folders.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
-															: undefined}
-													</SelectValue>
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="__NONE__">Sem pasta</SelectItem>
-													{folders.map((f) => (
-														<SelectItem key={f.id} value={f.id}>
-															{f.description ?? "Sem Nome"}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
+											<Input
+												type="number"
+												step="0.0001"
+												value={field.state.value ?? ""}
+												onChange={(e) => field.handleChange(Number(e.target.value))}
+												placeholder="1.0000"
+												className="sm:max-w-40"
+											/>
+											<FieldDescription>Fator do insumo genérico (padrão: 1.0). Itens de compra e produto possuem seus próprios fatores.</FieldDescription>
 										</FieldContent>
 									</Field>
 								)}
 							</form.Field>
+						</CardContent>
+					</Card>
 
+					{/* Informação Nutricional — CEAFA (alimento de referência) + tabela por 100 g */}
+					<Card>
+						<CardHeader>
+							<CardTitle>Informação Nutricional</CardTitle>
+							<CardDescription>
+								Valores por 100 g do insumo. O %VD é calculado sobre os valores diários de referência. Deixe em branco para não informar.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-5">
 							<form.Field name="ceafa_id">
 								{(field) => (
 									<Field>
@@ -245,88 +306,40 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 													</Command>
 												</PopoverContent>
 											</Popover>
+											<FieldDescription>Alimento de referência da base CEAFA usado para validar e comparar os valores nutricionais.</FieldDescription>
 										</FieldContent>
 									</Field>
 								)}
 							</form.Field>
+
+							<NutrientsTable nutrients={syncedNutrients} values={nutrientValues} onChange={setNutrientValues} />
 						</CardContent>
 					</Card>
+				</form>
 
-					{/* Métricas */}
-					<Card>
-						<CardHeader>
-							<CardTitle>Métricas</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<form.Field name="measure_unit">
-								{(field) => (
-									<Field>
-										<FieldLabel>Unidade de Medida</FieldLabel>
-										<FieldContent>
-											<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
-												<SelectTrigger>
-													<SelectValue placeholder="Selecione">
-														{field.state.value && field.state.value !== "__NONE__" ? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value) : undefined}
-													</SelectValue>
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="__NONE__">Selecione</SelectItem>
-													<SelectItem value="UN">UN (Unidade)</SelectItem>
-													<SelectItem value="KG">KG (Quilograma)</SelectItem>
-													<SelectItem value="LT">LT (Litro)</SelectItem>
-													<SelectItem value="G">G (Grama)</SelectItem>
-													<SelectItem value="ML">ML (Mililitro)</SelectItem>
-												</SelectContent>
-											</Select>
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
-
-							<form.Field name="correction_factor">
-								{(field) => (
-									<Field>
-										<FieldLabel>Fator de Correção (FC)</FieldLabel>
-										<FieldContent>
-											<Input
-												type="number"
-												step="0.0001"
-												value={field.state.value ?? ""}
-												onChange={(e) => field.handleChange(Number(e.target.value))}
-												placeholder="1.0000"
-											/>
-											<FieldDescription>Fator nutricional/desperdício (padrão: 1.0)</FieldDescription>
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
-						</CardContent>
-					</Card>
-				</div>
-
-				{/* Nutrientes */}
-				<NutrientsCard nutrients={syncedNutrients} values={nutrientValues} onChange={setNutrientValues} />
-
-				<div className="flex justify-end gap-4">
-					<Button type="button" variant="outline" onClick={() => window.history.back()}>
-						Cancelar
-					</Button>
-					<Button type="submit" disabled={isPending}>
-						{isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
-						<Save className="size-4 mr-2" />
-						Salvar Insumo
-					</Button>
-				</div>
-			</form>
-
-			{/* Itens de Compra (purchase_item + CATMAT) */}
-			<div className="max-w-5xl mx-auto">
+				{/* Itens de Compra (purchase_item + CATMAT) — persistidos separadamente */}
 				<PurchaseItemsManager ingredientId={ingredient.id} />
+
+				{/* Itens de Produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) — persistidos separadamente */}
+				<IngredientItemsManager ingredientId={ingredient.id} />
 			</div>
 
-			{/* Itens de Produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) */}
-			<div className="max-w-5xl mx-auto">
-				<IngredientItemsManager ingredientId={ingredient.id} />
+			{/* Barra de ação do form — sempre acessível, escopo explícito */}
+			<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
+				<div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+					<p className="text-caption text-muted-foreground">
+						Salva identificação e informação nutricional. Itens de compra e produto são salvos separadamente.
+					</p>
+					<div className="flex justify-end gap-2">
+						<Button type="button" variant="outline" onClick={() => window.history.back()}>
+							Cancelar
+						</Button>
+						<Button type="submit" form="ingredient-form" disabled={isPending}>
+							{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+							Salvar Insumo
+						</Button>
+					</div>
+				</div>
 			</div>
 		</div>
 	)
@@ -336,7 +349,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 // Nutrients sub-component
 // ============================================================================
 
-interface NutrientsCardProps {
+interface NutrientsTableProps {
 	nutrients: Nutrient[]
 	values: Record<string, string>
 	onChange: Dispatch<SetStateAction<Record<string, string>>>
@@ -354,8 +367,10 @@ function formatNumber(n: number): string {
 	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
 }
 
-function NutrientsCard({ nutrients, values, onChange }: NutrientsCardProps) {
-	if (nutrients.length === 0) return null
+function NutrientsTable({ nutrients, values, onChange }: NutrientsTableProps) {
+	if (nutrients.length === 0) {
+		return <p className="text-caption text-muted-foreground">Nenhum nutriente configurado no sistema.</p>
+	}
 
 	// Ordena como num rótulo nutricional brasileiro: valor energético primeiro, depois display_order.
 	const ordered = [...nutrients].sort((a, b) => {
@@ -364,36 +379,25 @@ function NutrientsCard({ nutrients, values, onChange }: NutrientsCardProps) {
 	})
 
 	return (
-		<Card className="max-w-5xl mx-auto">
-			<CardHeader>
-				<CardTitle>Informação Nutricional</CardTitle>
-				<p className="text-sm text-muted-foreground">
-					Valores por <span className="font-medium text-foreground">100 g</span> do insumo. O %VD é calculado automaticamente sobre os valores diários de
-					referência. Deixe em branco para não informar.
-				</p>
-			</CardHeader>
-			<CardContent>
-				<div className="overflow-hidden rounded-lg border border-border">
-					<table className="w-full text-sm">
-						<thead>
-							<tr className="border-b-2 border-foreground/80 bg-muted/40">
-								<th className="px-4 py-2 text-left font-semibold text-foreground">Nutrientes</th>
-								<th className="px-4 py-2 text-right font-semibold text-foreground w-44">Quantidade por 100 g</th>
-								<th className="px-4 py-2 text-right font-semibold text-foreground w-24">%VD*</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border">
-							{ordered.map((n) => (
-								<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} />
-							))}
-						</tbody>
-					</table>
-				</div>
-				<p className="mt-3 text-caption text-muted-foreground">
-					* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo.
-				</p>
-			</CardContent>
-		</Card>
+		<div>
+			<table className="w-full text-sm">
+				<thead>
+					<tr className="border-b-2 border-foreground/80 bg-muted/40">
+						<th className="px-4 py-2 text-left font-semibold text-foreground">Nutrientes</th>
+						<th className="px-4 py-2 text-right font-semibold text-foreground w-44">Quantidade por 100 g</th>
+						<th className="px-4 py-2 text-right font-semibold text-foreground w-24">%VD*</th>
+					</tr>
+				</thead>
+				<tbody className="divide-y divide-border">
+					{ordered.map((n) => (
+						<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} />
+					))}
+				</tbody>
+			</table>
+			<p className="mt-3 text-caption text-muted-foreground">
+				* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo.
+			</p>
+		</div>
 	)
 }
 
