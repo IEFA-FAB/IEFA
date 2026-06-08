@@ -380,20 +380,22 @@ function NutrientsTable({ nutrients, values, onChange }: NutrientsTableProps) {
 
 	return (
 		<div>
-			<table className="w-full text-sm">
-				<thead>
-					<tr className="border-b-2 border-foreground/80 bg-muted/40">
-						<th className="px-4 py-2 text-left font-semibold text-foreground">Nutrientes</th>
-						<th className="px-4 py-2 text-right font-semibold text-foreground w-44">Quantidade por 100 g</th>
-						<th className="px-4 py-2 text-right font-semibold text-foreground w-24">%VD*</th>
-					</tr>
-				</thead>
-				<tbody className="divide-y divide-border">
-					{ordered.map((n) => (
-						<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} />
-					))}
-				</tbody>
-			</table>
+			<div className="overflow-hidden rounded-lg">
+				<table className="w-full text-sm">
+					<thead>
+						<tr className="border-b-2 border-foreground/80 bg-muted/40">
+							<th className="px-4 py-2 text-left font-semibold text-foreground">Nutrientes</th>
+							<th className="px-4 py-2 text-right font-semibold text-foreground w-44">Quantidade por 100 g</th>
+							<th className="px-4 py-2 text-right font-semibold text-foreground w-24">%VD*</th>
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-border">
+						{ordered.map((n) => (
+							<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} />
+						))}
+					</tbody>
+				</table>
+			</div>
 			<p className="mt-3 text-caption text-muted-foreground">
 				* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo.
 			</p>
