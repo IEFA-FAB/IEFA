@@ -51,6 +51,7 @@ export const CreateIngredientItemSchema = z.object({
 	purchaseMeasureUnit: z.string().nullable().optional(),
 	unitContentQuantity: z.number().nullable().optional(),
 	correctionFactor: z.number().nullable().optional(),
+	purchaseItemId: UuidSchema.nullable().optional(),
 })
 export type CreateIngredientItem = z.infer<typeof CreateIngredientItemSchema>
 

@@ -110,11 +110,19 @@ export async function deleteIngredient(client: AnyClient, ctx: UserContext, inpu
 
 export async function listIngredientItems(client: AnyClient, ctx: UserContext, input: ListIngredientItems) {
 	requirePermission(ctx, "kitchen", 1)
-	let query = client.from("ingredient_item").select("*").is("deleted_at", null).order("description", { ascending: true })
+	// Traz o purchase_item vinculado (item de compra) para o item de produto herdar o CATMAT.
+	let query = client
+		.from("ingredient_item")
+		.select("*, purchase_item:purchase_item_id(id, description, catmat_item_codigo, catmat_item_descricao, purchase_measure_unit, unit_price)")
+		.is("deleted_at", null)
+		.order("description", { ascending: true })
 	if (input.ingredientId) query = query.eq("ingredient_id", input.ingredientId)
 	const { data, error } = await query
 	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
+	return (data ?? []).map((row) => ({
+		...row,
+		purchase_item: Array.isArray(row.purchase_item) ? (row.purchase_item[0] ?? null) : (row.purchase_item ?? null),
+	}))
 }
 
 export async function createIngredientItem(client: AnyClient, ctx: UserContext, input: CreateIngredientItem) {
@@ -128,6 +136,7 @@ export async function createIngredientItem(client: AnyClient, ctx: UserContext, 
 			purchase_measure_unit: input.purchaseMeasureUnit,
 			unit_content_quantity: input.unitContentQuantity,
 			correction_factor: input.correctionFactor,
+			purchase_item_id: input.purchaseItemId,
 		})
 		.select()
 		.single()
@@ -146,6 +155,7 @@ export async function updateIngredientItem(client: AnyClient, ctx: UserContext, 
 			purchase_measure_unit: input.purchaseMeasureUnit,
 			unit_content_quantity: input.unitContentQuantity,
 			correction_factor: input.correctionFactor,
+			purchase_item_id: input.purchaseItemId,
 		})
 		.eq("id", input.id)
 		.select()

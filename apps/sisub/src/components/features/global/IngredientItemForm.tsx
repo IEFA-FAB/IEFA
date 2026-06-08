@@ -1,6 +1,7 @@
 import type { IngredientItem } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
+import { Tag } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useCreateIngredientItem, useIngredients, useUpdateIngredientItem } from "@/services/IngredientsService"
+import { useCreateIngredientItem, useIngredients, usePurchaseItems, useUpdateIngredientItem } from "@/services/IngredientsService"
 
 // Schema de validação
 const ingredientItemSchema = z.object({
@@ -18,6 +19,7 @@ const ingredientItemSchema = z.object({
 	purchase_measure_unit: z.string(),
 	unit_content_quantity: z.number().min(0),
 	correction_factor: z.number().min(0),
+	purchase_item_id: z.string().uuid().nullable(),
 })
 
 interface IngredientItemFormProps {
@@ -33,6 +35,8 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 	const { ingredients } = useIngredients()
 	const { createIngredientItem, isCreating } = useCreateIngredientItem()
 	const { updateIngredientItem, isUpdating } = useUpdateIngredientItem()
+	// Itens de compra disponíveis para vincular (escopados ao insumo da tela)
+	const { purchaseItems } = usePurchaseItems(defaultIngredientId ?? "")
 
 	const form = useForm({
 		defaultValues: {
@@ -42,6 +46,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 			purchase_measure_unit: ingredientItem?.purchase_measure_unit || "",
 			unit_content_quantity: ingredientItem?.unit_content_quantity ? Number(ingredientItem.unit_content_quantity) : 1.0,
 			correction_factor: ingredientItem?.correction_factor ? Number(ingredientItem.correction_factor) : 1.0,
+			purchase_item_id: ingredientItem?.purchase_item_id ?? null,
 		},
 		validators: {
 			onChange: ingredientItemSchema,
@@ -50,13 +55,13 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 			try {
 				if (mode === "create") {
 					await createIngredientItem(value)
-					toast.success("Item criado com sucesso!")
+					toast.success("Item de produto criado com sucesso!")
 				} else if (ingredientItem) {
 					await updateIngredientItem({
 						id: ingredientItem.id,
 						payload: value,
 					})
-					toast.success("Item atualizado com sucesso!")
+					toast.success("Item de produto atualizado com sucesso!")
 				}
 
 				await queryClient.invalidateQueries({
@@ -77,7 +82,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className="max-w-2xl">
 				<DialogHeader>
-					<DialogTitle>{mode === "create" ? "Novo Item de Compra" : "Editar Item"}</DialogTitle>
+					<DialogTitle>{mode === "create" ? "Novo Item de Produto" : "Editar Item de Produto"}</DialogTitle>
 				</DialogHeader>
 
 				<form
@@ -134,12 +139,52 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 							</form.Field>
 						)}
 
-						{/* Código de Barras */}
+						{/* Item de Compra vinculado (herda o CATMAT) */}
+						{defaultIngredientId && (
+							<form.Field name="purchase_item_id">
+								{(field) => {
+									const selected = purchaseItems?.find((pi) => pi.id === field.state.value)
+									return (
+										<Field>
+											<FieldLabel>Item de Compra (CATMAT)</FieldLabel>
+											<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? null : v)}>
+												<SelectTrigger>
+													<SelectValue placeholder="Vincular item de compra">{field.state.value && selected ? selected.description : undefined}</SelectValue>
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="__NONE__">Sem item de compra</SelectItem>
+													{purchaseItems?.map((pi) => (
+														<SelectItem key={pi.id} value={pi.id}>
+															{pi.description}
+															{pi.catmat_item_codigo != null ? ` — CATMAT ${pi.catmat_item_codigo}` : ""}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+											<FieldDescription>
+												{selected?.catmat_item_codigo != null ? (
+													<span className="inline-flex items-center gap-1">
+														<Tag className="size-3" />
+														CATMAT {selected.catmat_item_codigo}
+														{selected.catmat_item_descricao ? ` — ${selected.catmat_item_descricao}` : ""}
+													</span>
+												) : (
+													"O item de produto herda o CATMAT do item de compra vinculado"
+												)}
+											</FieldDescription>
+										</Field>
+									)
+								}}
+							</form.Field>
+						)}
+
+						{/* Código de Barras (GTIN / GS1) */}
 						<form.Field name="barcode">
 							{(field) => (
 								<Field>
-									<FieldLabel htmlFor={field.name}>Código de Barras</FieldLabel>
+									<FieldLabel htmlFor={field.name}>Código de Barras (GTIN)</FieldLabel>
 									<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: 7891234567890" />
+									<FieldDescription>Código GS1/GTIN do produto físico em estoque</FieldDescription>
 								</Field>
 							)}
 						</form.Field>
@@ -149,7 +194,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 							<form.Field name="purchase_measure_unit">
 								{(field) => (
 									<Field>
-										<FieldLabel htmlFor={field.name}>Unidade de Compra</FieldLabel>
+										<FieldLabel htmlFor={field.name}>Unidade de Embalagem</FieldLabel>
 										<Input id={field.name} value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="Ex: SACO, CAIXA" />
 										<FieldDescription>Embalagem do fornecedor</FieldDescription>
 									</Field>

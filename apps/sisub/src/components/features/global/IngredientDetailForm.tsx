@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/cn"
 import { ceafaQueryOptions, useIngredientNutrients, useNutrients, useSetIngredientNutrients, useUpdateIngredient } from "@/services/IngredientsService"
 import { IngredientItemsManager } from "./IngredientItemsManager"
+import { PurchaseItemsManager } from "./PurchaseItemsManager"
 
 const productSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
@@ -317,7 +318,12 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				</div>
 			</form>
 
-			{/* Itens de Compra */}
+			{/* Itens de Compra (purchase_item + CATMAT) */}
+			<div className="max-w-5xl mx-auto">
+				<PurchaseItemsManager ingredientId={ingredient.id} />
+			</div>
+
+			{/* Itens de Produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) */}
 			<div className="max-w-5xl mx-auto">
 				<IngredientItemsManager ingredientId={ingredient.id} />
 			</div>

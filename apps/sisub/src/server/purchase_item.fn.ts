@@ -27,6 +27,27 @@ export const fetchPurchaseItemsFn = createServerFn({ method: "GET" })
 		return result || []
 	})
 
+/**
+ * Lista os purchase_items correlacionados a um ingredient (via junção),
+ * achatando os dados do vínculo (link_id, conversion_factor, is_default).
+ */
+export const fetchIngredientPurchaseItemsFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ ingredientId: z.string().uuid() }))
+	.handler(async ({ data }) => {
+		const { data: result, error } = await getSupabaseServerClient()
+			.from("purchase_item_ingredient")
+			.select("id, conversion_factor, is_default, purchase_item:purchase_item_id!inner(*)")
+			.eq("ingredient_id", data.ingredientId)
+			.is("purchase_item.deleted_at", null)
+			.order("created_at", { ascending: true })
+
+		if (error) throw new Error(error.message)
+		return (result ?? []).map((row) => {
+			const pi = Array.isArray(row.purchase_item) ? row.purchase_item[0] : row.purchase_item
+			return { link_id: row.id, conversion_factor: row.conversion_factor, is_default: row.is_default, ...pi }
+		})
+	})
+
 export const fetchPurchaseItemFn = createServerFn({ method: "GET" })
 	.inputValidator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {

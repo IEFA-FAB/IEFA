@@ -2261,6 +2261,7 @@ export type Database = {
 					description: string | null
 					id: string
 					ingredient_id: string | null
+					purchase_item_id: string | null
 					purchase_measure_unit: string | null
 					unit_content_quantity: number | null
 				}
@@ -2272,6 +2273,7 @@ export type Database = {
 					description?: string | null
 					id?: string
 					ingredient_id?: string | null
+					purchase_item_id?: string | null
 					purchase_measure_unit?: string | null
 					unit_content_quantity?: number | null
 				}
@@ -2283,10 +2285,18 @@ export type Database = {
 					description?: string | null
 					id?: string
 					ingredient_id?: string | null
+					purchase_item_id?: string | null
 					purchase_measure_unit?: string | null
 					unit_content_quantity?: number | null
 				}
 				Relationships: [
+					{
+						foreignKeyName: "ingredient_item_purchase_item_id_fkey"
+						columns: ["purchase_item_id"]
+						isOneToOne: false
+						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
+					},
 					{
 						foreignKeyName: "product_item_product_id_fkey"
 						columns: ["ingredient_id"]

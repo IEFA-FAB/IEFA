@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { Boxes, ChevronDown, Edit, PackagePlus, Tag, Trash2 } from "lucide-react"
+import { ChevronDown, Edit, PackagePlus, ShoppingCart, Tag, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -17,33 +17,30 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
-import { type IngredientItemWithPurchase, useDeleteIngredientItem, useIngredientItems } from "@/services/IngredientsService"
-import { IngredientItemForm } from "./IngredientItemForm"
+import { type PurchaseItemWithLink, useDeletePurchaseItemLink, usePurchaseItems } from "@/services/IngredientsService"
+import { PurchaseItemForm } from "./PurchaseItemForm"
 
-interface IngredientItemsManagerProps {
+interface PurchaseItemsManagerProps {
 	ingredientId: string
 }
 
 interface DialogState {
 	isOpen: boolean
 	mode: "create" | "edit"
-	item?: IngredientItemWithPurchase
+	item?: PurchaseItemWithLink
 }
 
 /**
- * Gerenciador de itens de produto (ingredient_item) de um insumo.
- * Item de produto = item de estoque/GS1 (GTIN), vinculado a 1 item de compra (CATMAT).
+ * Gerenciador de itens de compra (purchase_item) correlacionados a um insumo.
+ * Modelo: catmat → purchase_item → ingredient (via purchase_item_ingredient).
  */
-export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerProps) {
+export function PurchaseItemsManager({ ingredientId }: PurchaseItemsManagerProps) {
 	const queryClient = useQueryClient()
-	const { ingredientItems } = useIngredientItems(ingredientId)
-	const { deleteIngredientItem, isDeleting } = useDeleteIngredientItem()
+	const { purchaseItems } = usePurchaseItems(ingredientId)
+	const { deletePurchaseItemLink, isDeleting } = useDeletePurchaseItemLink()
 
-	const [dialogState, setDialogState] = useState<DialogState>({
-		isOpen: false,
-		mode: "create",
-	})
-	const [deleteTarget, setDeleteTarget] = useState<IngredientItemWithPurchase | null>(null)
+	const [dialogState, setDialogState] = useState<DialogState>({ isOpen: false, mode: "create" })
+	const [deleteTarget, setDeleteTarget] = useState<PurchaseItemWithLink | null>(null)
 	const [openItems, setOpenItems] = useState<Set<string>>(new Set())
 
 	const toggleItem = (id: string) => {
@@ -58,30 +55,30 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 	const handleDeleteConfirm = async () => {
 		if (!deleteTarget) return
 		try {
-			await deleteIngredientItem(deleteTarget.id)
-			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
-			toast.success("Item de produto excluído com sucesso!")
+			await deletePurchaseItemLink(deleteTarget.link_id)
+			await queryClient.invalidateQueries({ queryKey: ["ingredients", "purchase-items", ingredientId] })
+			toast.success("Correlação removida com sucesso!")
 		} catch {
-			toast.error("Erro ao excluir item")
+			toast.error("Erro ao remover correlação")
 		} finally {
 			setDeleteTarget(null)
 		}
 	}
 
 	const openCreate = () => setDialogState({ isOpen: true, mode: "create" })
-	const openEdit = (item: IngredientItemWithPurchase) => setDialogState({ isOpen: true, mode: "edit", item })
+	const openEdit = (item: PurchaseItemWithLink) => setDialogState({ isOpen: true, mode: "edit", item })
 	const closeDialog = () => setDialogState({ isOpen: false, mode: "create" })
 
-	const isEmpty = !ingredientItems || ingredientItems.length === 0
+	const isEmpty = !purchaseItems || purchaseItems.length === 0
 
 	return (
 		<div className="space-y-4">
 			{/* Header da seção */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
-					<Boxes className="size-5 text-success" />
-					<h2 className="text-heading">Itens de Produto</h2>
-					{ingredientItems && <Badge variant="success">{ingredientItems.length}</Badge>}
+					<ShoppingCart className="size-5 text-success" />
+					<h2 className="text-heading">Itens de Compra</h2>
+					{purchaseItems && <Badge variant="success">{purchaseItems.length}</Badge>}
 				</div>
 				<Button size="sm" onClick={openCreate} className="gap-2">
 					<PackagePlus className="size-4" />
@@ -93,8 +90,8 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 			<Card>
 				{isEmpty ? (
 					<div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
-						<Boxes className="size-10 opacity-30" />
-						<p className="font-sans">Nenhum item de produto cadastrado</p>
+						<ShoppingCart className="size-10 opacity-30" />
+						<p className="font-sans">Nenhum item de compra cadastrado</p>
 						<Button variant="outline" size="sm" onClick={openCreate}>
 							<PackagePlus className="size-4 mr-2" />
 							Adicionar primeiro item
@@ -102,40 +99,40 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 					</div>
 				) : (
 					<div className="divide-y divide-border/50">
-						{ingredientItems?.map((item) => (
-							<Collapsible key={item.id} open={openItems.has(item.id)} onOpenChange={() => toggleItem(item.id)}>
+						{purchaseItems?.map((item) => (
+							<Collapsible key={item.link_id} open={openItems.has(item.link_id)} onOpenChange={() => toggleItem(item.link_id)}>
 								<div className="group flex items-center px-4 py-3 hover:bg-muted/50 transition-colors gap-2">
 									<CollapsibleTrigger className="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-[var(--radius)]">
 										<div className="flex items-center justify-center size-8 rounded-[var(--radius)] bg-success/10 border border-success/20 shrink-0">
-											<Boxes className="size-4 text-success" />
+											<ShoppingCart className="size-4 text-success" />
 										</div>
 										<div className="min-w-0 flex-1">
 											<div className="flex items-center gap-1.5">
 												<p className="text-subheading truncate">{item.description}</p>
-												<ChevronDown className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.id) && "rotate-180")} />
+												<ChevronDown
+													className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", openItems.has(item.link_id) && "rotate-180")}
+												/>
 											</div>
 											<div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-												{item.purchase_item?.catmat_item_codigo != null && (
+												{item.catmat_item_codigo != null && (
 													<Badge variant="outline">
 														<Tag className="size-3 mr-1" />
-														<span className="font-mono">CATMAT {item.purchase_item.catmat_item_codigo}</span>
-													</Badge>
-												)}
-												{item.barcode && (
-													<Badge variant="outline">
-														<span className="font-mono">#{item.barcode}</span>
+														<span className="font-mono">CATMAT {item.catmat_item_codigo}</span>
 													</Badge>
 												)}
 												{item.purchase_measure_unit && (
 													<Badge variant="outline">
-														<span className="font-mono">
-															{item.unit_content_quantity} {item.purchase_measure_unit}
-														</span>
+														<span className="font-mono">{item.purchase_measure_unit}</span>
 													</Badge>
 												)}
-												{item.correction_factor && Number(item.correction_factor) !== 1 && (
+												{item.unit_price != null && (
 													<Badge variant="outline">
-														<span className="font-mono">fc {item.correction_factor}</span>
+														<span className="font-mono">R$ {Number(item.unit_price).toFixed(2)}</span>
+													</Badge>
+												)}
+												{item.conversion_factor != null && Number(item.conversion_factor) !== 1 && (
+													<Badge variant="outline">
+														<span className="font-mono">fc {item.conversion_factor}</span>
 													</Badge>
 												)}
 											</div>
@@ -151,7 +148,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 											size="icon-sm"
 											onClick={() => setDeleteTarget(item)}
 											disabled={isDeleting}
-											aria-label={`Excluir ${item.description}`}
+											aria-label={`Remover ${item.description}`}
 										>
 											<Trash2 className="size-3.5" />
 										</Button>
@@ -160,21 +157,16 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 
 								<CollapsibleContent>
 									<div className="px-4 pb-4 ml-11 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-										{item.purchase_item && (
-											<div className="flex flex-col gap-0.5 col-span-2">
-												<span className="text-xs text-muted-foreground">Item de compra vinculado</span>
-												<span>
-													{item.purchase_item.description}
-													{item.purchase_item.catmat_item_codigo != null && (
-														<span className="ml-1 font-mono text-muted-foreground">(CATMAT {item.purchase_item.catmat_item_codigo})</span>
-													)}
-												</span>
+										{item.catmat_item_codigo != null && (
+											<div className="flex flex-col gap-0.5">
+												<span className="text-xs text-muted-foreground">Código CATMAT</span>
+												<span className="font-mono">{item.catmat_item_codigo}</span>
 											</div>
 										)}
-										{item.barcode && (
+										{item.catmat_item_descricao && (
 											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Código de barras (GTIN)</span>
-												<span className="font-mono">{item.barcode}</span>
+												<span className="text-xs text-muted-foreground">Descrição CATMAT</span>
+												<span>{item.catmat_item_descricao}</span>
 											</div>
 										)}
 										{item.purchase_measure_unit && (
@@ -183,16 +175,16 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 												<span className="font-mono">{item.purchase_measure_unit}</span>
 											</div>
 										)}
-										{item.unit_content_quantity != null && (
+										{item.unit_price != null && (
 											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Qtd por unidade</span>
-												<span className="font-mono">{item.unit_content_quantity}</span>
+												<span className="text-xs text-muted-foreground">Preço de referência</span>
+												<span className="font-mono">R$ {Number(item.unit_price).toFixed(4)}</span>
 											</div>
 										)}
-										{item.correction_factor != null && (
+										{item.conversion_factor != null && (
 											<div className="flex flex-col gap-0.5">
-												<span className="text-xs text-muted-foreground">Fator de correção</span>
-												<span className="font-mono">{item.correction_factor}</span>
+												<span className="text-xs text-muted-foreground">Fator de conversão</span>
+												<span className="font-mono">{item.conversion_factor}</span>
 											</div>
 										)}
 										<div className="flex flex-col gap-0.5 col-span-2">
@@ -208,27 +200,22 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 			</Card>
 
 			{/* Dialog de criação/edição */}
-			<IngredientItemForm
-				isOpen={dialogState.isOpen}
-				onClose={closeDialog}
-				mode={dialogState.mode}
-				ingredientItem={dialogState.item}
-				defaultIngredientId={ingredientId}
-			/>
+			<PurchaseItemForm isOpen={dialogState.isOpen} onClose={closeDialog} mode={dialogState.mode} purchaseItem={dialogState.item} ingredientId={ingredientId} />
 
-			{/* AlertDialog de confirmação de exclusão */}
+			{/* AlertDialog de confirmação de remoção */}
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
 				<AlertDialogContent size="sm">
 					<AlertDialogHeader>
-						<AlertDialogTitle>Excluir item</AlertDialogTitle>
+						<AlertDialogTitle>Remover correlação</AlertDialogTitle>
 						<AlertDialogDescription>
-							Tem certeza que deseja excluir <strong>{deleteTarget?.description}</strong>? Esta ação não pode ser desfeita.
+							Remover a correlação com <strong>{deleteTarget?.description}</strong> deste insumo? O item de compra é preservado (pode estar vinculado a outros
+							insumos).
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancelar</AlertDialogCancel>
 						<AlertDialogAction variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
-							{isDeleting ? "Excluindo..." : "Excluir"}
+							{isDeleting ? "Removendo..." : "Remover"}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

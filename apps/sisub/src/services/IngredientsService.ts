@@ -11,6 +11,7 @@ import type {
 	IngredientNutrient,
 	IngredientUpdate,
 	Nutrient,
+	PurchaseItem,
 } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery } from "@tanstack/react-query"
 import {
@@ -33,6 +34,31 @@ import {
 	updateIngredientFn,
 	updateIngredientItemFn,
 } from "@/server/ingredients.fn"
+import {
+	createPurchaseItemFn,
+	deletePurchaseItemIngredientFn,
+	fetchIngredientPurchaseItemsFn,
+	updatePurchaseItemFn,
+	upsertPurchaseItemIngredientFn,
+} from "@/server/purchase_item.fn"
+
+/** purchase_item correlacionado a um ingredient, com dados da junção. */
+export type PurchaseItemWithLink = PurchaseItem & {
+	link_id: string
+	conversion_factor: number
+	is_default: boolean
+}
+
+/** Resumo do purchase_item (item de compra) vinculado a um item de produto. */
+export type LinkedPurchaseItem = Pick<
+	PurchaseItem,
+	"id" | "description" | "catmat_item_codigo" | "catmat_item_descricao" | "purchase_measure_unit" | "unit_price"
+>
+
+/** ingredient_item (item de produto / estoque) com o item de compra vinculado. */
+export type IngredientItemWithPurchase = IngredientItem & {
+	purchase_item: LinkedPurchaseItem | null
+}
 
 export const foldersQueryOptions = () =>
 	queryOptions({
@@ -51,7 +77,7 @@ export const ingredientsQueryOptions = (folderId?: string) =>
 export const ingredientItemsQueryOptions = (ingredientId?: string) =>
 	queryOptions({
 		queryKey: ["ingredients", "items", ingredientId || "all"],
-		queryFn: () => fetchIngredientItemsFn({ data: { ingredientId } }) as Promise<IngredientItem[]>,
+		queryFn: () => fetchIngredientItemsFn({ data: { ingredientId } }) as Promise<IngredientItemWithPurchase[]>,
 		staleTime: 10 * 60 * 1000,
 	})
 
@@ -59,6 +85,13 @@ export const ingredientQueryOptions = (ingredientId: string) =>
 	queryOptions({
 		queryKey: ["ingredients", "ingredient", ingredientId],
 		queryFn: () => fetchIngredientFn({ data: { id: ingredientId } }) as Promise<Ingredient>,
+		staleTime: 10 * 60 * 1000,
+	})
+
+export const purchaseItemsQueryOptions = (ingredientId: string) =>
+	queryOptions({
+		queryKey: ["ingredients", "purchase-items", ingredientId],
+		queryFn: () => fetchIngredientPurchaseItemsFn({ data: { ingredientId } }) as Promise<PurchaseItemWithLink[]>,
 		staleTime: 10 * 60 * 1000,
 	})
 
@@ -243,6 +276,7 @@ export function useCreateIngredientItem() {
 					purchaseMeasureUnit: payload.purchase_measure_unit ?? undefined,
 					unitContentQuantity: payload.unit_content_quantity ?? undefined,
 					correctionFactor: payload.correction_factor ?? undefined,
+					purchaseItemId: payload.purchase_item_id ?? null,
 				},
 			}),
 	})
@@ -265,6 +299,7 @@ export function useUpdateIngredientItem() {
 					purchaseMeasureUnit: payload.purchase_measure_unit ?? undefined,
 					unitContentQuantity: payload.unit_content_quantity ?? undefined,
 					correctionFactor: payload.correction_factor ?? undefined,
+					purchaseItemId: payload.purchase_item_id ?? null,
 				},
 			}),
 	})
@@ -281,6 +316,125 @@ export function useDeleteIngredientItem() {
 	})
 	return {
 		deleteIngredientItem: mutation.mutateAsync,
+		isDeleting: mutation.isPending,
+		error: mutation.error,
+	}
+}
+
+// ── purchase_item (CATMAT) ────────────────────────────────────────────────────
+
+export function usePurchaseItems(ingredientId: string) {
+	const query = useQuery(purchaseItemsQueryOptions(ingredientId))
+	return { purchaseItems: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch }
+}
+
+// PurchaseItemWriteSchema exige catmat_item_codigo/unit_price positivos — sanitiza 0/inválidos para null.
+const positiveOrNull = (n?: number | null) => (n != null && n > 0 ? n : null)
+
+export interface CreatePurchaseItemPayload {
+	ingredientId: string
+	description: string
+	purchaseMeasureUnit?: string | null
+	catmatItemCodigo?: number | null
+	catmatItemDescricao?: string | null
+	unitPrice?: number | null
+	conversionFactor?: number | null
+}
+
+export function useCreatePurchaseItem() {
+	const mutation = useMutation({
+		// Cria o purchase_item e o vínculo com o ingredient (junção) em sequência.
+		mutationFn: async (p: CreatePurchaseItemPayload) => {
+			const codigo = positiveOrNull(p.catmatItemCodigo)
+			const pi = await createPurchaseItemFn({
+				data: {
+					payload: {
+						description: p.description,
+						purchase_measure_unit: p.purchaseMeasureUnit ?? null,
+						catmat_item_codigo: codigo,
+						catmat_item_descricao: p.catmatItemDescricao ?? null,
+						catmat_match_status: codigo != null ? "matched" : null,
+						unit_price: positiveOrNull(p.unitPrice),
+					},
+				},
+			})
+			await upsertPurchaseItemIngredientFn({
+				data: {
+					payload: {
+						purchase_item_id: pi.id,
+						ingredient_id: p.ingredientId,
+						conversion_factor: positiveOrNull(p.conversionFactor) ?? 1.0,
+						is_default: false,
+					},
+				},
+			})
+			return pi
+		},
+	})
+	return {
+		createPurchaseItem: mutation.mutateAsync,
+		isCreating: mutation.isPending,
+		error: mutation.error,
+	}
+}
+
+export interface UpdatePurchaseItemPayload {
+	id: string
+	ingredientId: string
+	description: string
+	purchaseMeasureUnit?: string | null
+	catmatItemCodigo?: number | null
+	catmatItemDescricao?: string | null
+	unitPrice?: number | null
+	conversionFactor?: number | null
+	isDefault?: boolean
+}
+
+export function useUpdatePurchaseItem() {
+	const mutation = useMutation({
+		mutationFn: async (p: UpdatePurchaseItemPayload) => {
+			const codigo = positiveOrNull(p.catmatItemCodigo)
+			const pi = await updatePurchaseItemFn({
+				data: {
+					id: p.id,
+					payload: {
+						description: p.description,
+						purchase_measure_unit: p.purchaseMeasureUnit ?? null,
+						catmat_item_codigo: codigo,
+						catmat_item_descricao: p.catmatItemDescricao ?? null,
+						catmat_match_status: codigo != null ? "matched" : "no_match",
+						unit_price: positiveOrNull(p.unitPrice),
+					},
+				},
+			})
+			// Atualiza o fator de conversão do vínculo (upsert por purchase_item_id+ingredient_id).
+			await upsertPurchaseItemIngredientFn({
+				data: {
+					payload: {
+						purchase_item_id: p.id,
+						ingredient_id: p.ingredientId,
+						conversion_factor: positiveOrNull(p.conversionFactor) ?? 1.0,
+						is_default: p.isDefault ?? false,
+					},
+				},
+			})
+			return pi
+		},
+	})
+	return {
+		updatePurchaseItem: mutation.mutateAsync,
+		isUpdating: mutation.isPending,
+		error: mutation.error,
+	}
+}
+
+export function useDeletePurchaseItemLink() {
+	const mutation = useMutation({
+		// Remove apenas o vínculo (junção); o purchase_item é preservado (pode ter outros vínculos).
+		mutationFn: (linkId: string) => deletePurchaseItemIngredientFn({ data: { id: linkId } }),
+	})
+	return {
+		deletePurchaseItemLink: mutation.mutateAsync,
 		isDeleting: mutation.isPending,
 		error: mutation.error,
 	}
