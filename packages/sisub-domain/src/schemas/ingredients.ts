@@ -1,8 +1,13 @@
 import { z } from "zod"
 import { UuidSchema } from "./common.ts"
 
-export const ListFoldersSchema = z.object({})
+export const ListFoldersSchema = z.object({
+	includeDeleted: z.boolean().optional(),
+})
 export type ListFolders = z.infer<typeof ListFoldersSchema>
+
+export const RestoreFolderSchema = z.object({ id: UuidSchema })
+export type RestoreFolder = z.infer<typeof RestoreFolderSchema>
 
 export const CreateFolderSchema = z.object({
 	description: z.string().nullable().optional(),
@@ -18,6 +23,7 @@ export type DeleteFolder = z.infer<typeof DeleteFolderSchema>
 
 export const ListIngredientsSchema = z.object({
 	folderId: UuidSchema.optional(),
+	includeDeleted: z.boolean().optional(),
 })
 export type ListIngredients = z.infer<typeof ListIngredientsSchema>
 
@@ -38,6 +44,9 @@ export type UpdateIngredient = z.infer<typeof UpdateIngredientSchema>
 
 export const DeleteIngredientSchema = z.object({ id: UuidSchema })
 export type DeleteIngredient = z.infer<typeof DeleteIngredientSchema>
+
+export const RestoreIngredientSchema = z.object({ id: UuidSchema })
+export type RestoreIngredient = z.infer<typeof RestoreIngredientSchema>
 
 export const ListIngredientItemsSchema = z.object({
 	ingredientId: UuidSchema.optional(),

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Package, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/cn"
-import { useDeleteFolder, useDeleteIngredient } from "@/services/IngredientsService"
+import { useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
 
 interface IngredientsTreeNodeProps {
@@ -43,10 +43,15 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 	const queryClient = useQueryClient()
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
 	const { deleteIngredient, isDeleting: isDeletingIngredient } = useDeleteIngredient()
+	const { restoreFolder, isRestoring: isRestoringFolder } = useRestoreFolder()
+	const { restoreIngredient, isRestoring: isRestoringIngredient } = useRestoreIngredient()
 
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
 	const isDeleting = isDeletingFolder || isDeletingIngredient
+	const isRestoring = isRestoringFolder || isRestoringIngredient
+	const isBusy = isDeleting || isRestoring
+	const isDeleted = !!(node.data as Folder | Ingredient).deleted_at
 
 	const Icon = node.type === "folder" ? FolderIcon : Package
 
@@ -81,6 +86,21 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 			toast.error("Erro ao excluir item")
 		} finally {
 			setIsDeleteDialogOpen(false)
+		}
+	}
+
+	const handleRestore = async () => {
+		try {
+			if (node.type === "folder") {
+				await restoreFolder(node.id)
+				toast.success("Pasta restaurada com sucesso!")
+			} else {
+				await restoreIngredient(node.id)
+				toast.success("Insumo restaurado com sucesso!")
+			}
+			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
+		} catch (_error) {
+			toast.error("Erro ao restaurar item")
 		}
 	}
 
@@ -166,7 +186,14 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 					</div>
 
 					{/* Label */}
-					<span className={cn("text-sm truncate", node.type === "folder" ? "text-subheading" : "font-normal")}>{node.label}</span>
+					<span
+						className={cn("text-sm truncate", node.type === "folder" ? "text-subheading" : "font-normal", isDeleted && "line-through text-muted-foreground")}
+					>
+						{node.label}
+					</span>
+
+					{/* Badge de item excluído */}
+					{isDeleted && <Badge variant="destructive">Excluído</Badge>}
 
 					{/* Badge de unidade de medida */}
 					{node.type === "ingredient" && "measure_unit" in node.data && <Badge variant="outline">{node.data.measure_unit}</Badge>}
@@ -181,35 +208,54 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 
 				{/* Ações — ocultas no modo de seleção em massa */}
 				<div className={cn("flex items-center gap-1", selectionMode && "hidden")}>
-					<Button
-						variant="ghost"
-						size="icon"
-						onClick={(e) => {
-							e.stopPropagation()
-							if (node.type === "ingredient" && onNavigate) {
-								onNavigate()
-							} else {
-								onEdit(node.type, node.data as Folder | Ingredient)
-							}
-						}}
-						disabled={isDeleting}
-						aria-label={`Editar ${node.label}`}
-					>
-						<Edit />
-					</Button>
+					{isDeleted ? (
+						<Button
+							variant="outline"
+							size="sm"
+							className="gap-1.5"
+							onClick={(e) => {
+								e.stopPropagation()
+								handleRestore()
+							}}
+							disabled={isBusy}
+							aria-label={`Restaurar ${node.label}`}
+						>
+							<RotateCcw className="size-4" />
+							Restaurar
+						</Button>
+					) : (
+						<>
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={(e) => {
+									e.stopPropagation()
+									if (node.type === "ingredient" && onNavigate) {
+										onNavigate()
+									} else {
+										onEdit(node.type, node.data as Folder | Ingredient)
+									}
+								}}
+								disabled={isBusy}
+								aria-label={`Editar ${node.label}`}
+							>
+								<Edit />
+							</Button>
 
-					<Button
-						variant="destructive"
-						size="icon"
-						onClick={(e) => {
-							e.stopPropagation()
-							setIsDeleteDialogOpen(true)
-						}}
-						disabled={isDeleting}
-						aria-label={`Excluir ${node.label}`}
-					>
-						<Trash2 />
-					</Button>
+							<Button
+								variant="destructive"
+								size="icon"
+								onClick={(e) => {
+									e.stopPropagation()
+									setIsDeleteDialogOpen(true)
+								}}
+								disabled={isBusy}
+								aria-label={`Excluir ${node.label}`}
+							>
+								<Trash2 />
+							</Button>
+						</>
+					)}
 				</div>
 			</div>
 

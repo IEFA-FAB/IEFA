@@ -29,6 +29,8 @@ import {
 	fetchIngredientNutrientsFn,
 	fetchIngredientsFn,
 	fetchNutrientsFn,
+	restoreFolderFn,
+	restoreIngredientFn,
 	setIngredientNutrientsFn,
 	updateFolderFn,
 	updateIngredientFn,
@@ -60,10 +62,10 @@ export type IngredientItemWithPurchase = IngredientItem & {
 	purchase_item: LinkedPurchaseItem | null
 }
 
-export const foldersQueryOptions = () =>
+export const foldersQueryOptions = (includeDeleted = false) =>
 	queryOptions({
-		queryKey: ["ingredients", "folders"],
-		queryFn: () => fetchFoldersFn() as Promise<Folder[]>,
+		queryKey: ["ingredients", "folders", includeDeleted ? "with-deleted" : "active"],
+		queryFn: () => fetchFoldersFn({ data: { includeDeleted } }) as Promise<Folder[]>,
 		staleTime: 10 * 60 * 1000,
 	})
 
@@ -95,13 +97,14 @@ export const purchaseItemsQueryOptions = (ingredientId: string) =>
 		staleTime: 10 * 60 * 1000,
 	})
 
-export const ingredientsTreeQueryOptions = () =>
+export const ingredientsTreeQueryOptions = (includeDeleted = false) =>
 	queryOptions({
-		queryKey: ["ingredients", "tree"],
+		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active"],
 		queryFn: async () => {
 			const [folders, ingredients, ingredientItems] = await Promise.all([
-				fetchFoldersFn() as Promise<Folder[]>,
-				fetchIngredientsFn({ data: {} }) as Promise<Ingredient[]>,
+				fetchFoldersFn({ data: { includeDeleted } }) as Promise<Folder[]>,
+				fetchIngredientsFn({ data: { includeDeleted } }) as Promise<Ingredient[]>,
+				// Itens de compra/produto sempre ativos: contagem de badges não deve inflar com excluídos.
 				fetchIngredientItemsFn({ data: {} }) as Promise<IngredientItem[]>,
 			])
 			return { folders, ingredients, ingredientItems }
@@ -159,8 +162,8 @@ export function useIngredient(ingredientId: string) {
 	return { ingredient: query.data, error: query.error, refetch: query.refetch }
 }
 
-export function useIngredientsTree() {
-	const query = useQuery(ingredientsTreeQueryOptions())
+export function useIngredientsTree(includeDeleted = false) {
+	const query = useQuery(ingredientsTreeQueryOptions(includeDeleted))
 	return { tree: query.data, error: query.error, refetch: query.refetch }
 }
 
@@ -261,6 +264,28 @@ export function useDeleteIngredient() {
 	return {
 		deleteIngredient: mutation.mutateAsync,
 		isDeleting: mutation.isPending,
+		error: mutation.error,
+	}
+}
+
+export function useRestoreFolder() {
+	const mutation = useMutation({
+		mutationFn: (id: string) => restoreFolderFn({ data: { id } }),
+	})
+	return {
+		restoreFolder: mutation.mutateAsync,
+		isRestoring: mutation.isPending,
+		error: mutation.error,
+	}
+}
+
+export function useRestoreIngredient() {
+	const mutation = useMutation({
+		mutationFn: (id: string) => restoreIngredientFn({ data: { id } }),
+	})
+	return {
+		restoreIngredient: mutation.mutateAsync,
+		isRestoring: mutation.isPending,
 		error: mutation.error,
 	}
 }

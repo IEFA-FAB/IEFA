@@ -21,6 +21,7 @@ import {
 	fetchIngredient,
 	ListCatmatSchema,
 	ListCeafaSchema,
+	ListFoldersSchema,
 	ListIngredientItemsSchema,
 	ListIngredientsSchema,
 	listCatmatItems,
@@ -30,6 +31,10 @@ import {
 	listIngredientNutrients,
 	listIngredients,
 	listNutrients,
+	RestoreFolderSchema,
+	RestoreIngredientSchema,
+	restoreFolder,
+	restoreIngredient,
 	SetIngredientNutrientsSchema,
 	setIngredientNutrients,
 	UpdateFolderSchema,
@@ -77,10 +82,12 @@ export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
 		return listCatmatItems(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
-export const fetchFoldersFn = createServerFn({ method: "GET" }).handler(async () => {
-	const ctx = await requireAuth()
-	return listFolders(getSupabaseServerClient(), ctx).catch(handleDomainError)
-})
+export const fetchFoldersFn = createServerFn({ method: "GET" })
+	.inputValidator(ListFoldersSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listFolders(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
 
 export const createFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateFolderSchema)
@@ -101,6 +108,13 @@ export const deleteFolderFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteFolder(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+export const restoreFolderFn = createServerFn({ method: "POST" })
+	.inputValidator(RestoreFolderSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return restoreFolder(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientFn = createServerFn({ method: "GET" })
@@ -136,6 +150,13 @@ export const deleteIngredientFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+export const restoreIngredientFn = createServerFn({ method: "POST" })
+	.inputValidator(RestoreIngredientSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return restoreIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientItemsFn = createServerFn({ method: "GET" })

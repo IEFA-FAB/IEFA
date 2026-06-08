@@ -21,6 +21,8 @@ export {
 	listIngredientNutrients,
 	listIngredients,
 	listNutrients,
+	restoreFolder,
+	restoreIngredient,
 	setIngredientNutrients,
 	updateFolder,
 	updateIngredient,

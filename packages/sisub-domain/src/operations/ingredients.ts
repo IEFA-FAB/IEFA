@@ -11,8 +11,11 @@ import type {
 	FetchIngredientNutrients,
 	ListCatmat,
 	ListCeafa,
+	ListFolders,
 	ListIngredientItems,
 	ListIngredients,
+	RestoreFolder,
+	RestoreIngredient,
 	SetIngredientNutrients,
 	UpdateFolder,
 	UpdateIngredient,
@@ -24,9 +27,11 @@ import { DomainError, NotFoundError } from "../types/errors.ts"
 // biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
 type AnyClient = SupabaseClient<any, any, any>
 
-export async function listFolders(client: AnyClient, ctx: UserContext) {
+export async function listFolders(client: AnyClient, ctx: UserContext, input?: ListFolders) {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client.from("folder").select("*").is("deleted_at", null).order("created_at", { ascending: true })
+	let query = client.from("folder").select("*").order("created_at", { ascending: true })
+	if (!input?.includeDeleted) query = query.is("deleted_at", null)
+	const { data, error } = await query
 	if (error) throw new DomainError("QUERY_FAILED", error.message)
 	return data ?? []
 }
@@ -51,9 +56,16 @@ export async function deleteFolder(client: AnyClient, ctx: UserContext, input: D
 	if (error) throw new DomainError("DELETE_FAILED", error.message)
 }
 
+export async function restoreFolder(client: AnyClient, ctx: UserContext, input: RestoreFolder) {
+	requirePermission(ctx, "kitchen", 1)
+	const { error } = await client.from("folder").update({ deleted_at: null }).eq("id", input.id)
+	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+}
+
 export async function listIngredients(client: AnyClient, ctx: UserContext, input: ListIngredients) {
 	requirePermission(ctx, "kitchen", 1)
-	let query = client.from("ingredient").select("*").is("deleted_at", null).order("description", { ascending: true })
+	let query = client.from("ingredient").select("*").order("description", { ascending: true })
+	if (!input.includeDeleted) query = query.is("deleted_at", null)
 	if (input.folderId) query = query.eq("folder_id", input.folderId)
 	const { data, error } = await query
 	if (error) throw new DomainError("QUERY_FAILED", error.message)
@@ -106,6 +118,12 @@ export async function deleteIngredient(client: AnyClient, ctx: UserContext, inpu
 	requirePermission(ctx, "kitchen", 1)
 	const { error } = await client.from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", input.id)
 	if (error) throw new DomainError("DELETE_FAILED", error.message)
+}
+
+export async function restoreIngredient(client: AnyClient, ctx: UserContext, input: RestoreIngredient) {
+	requirePermission(ctx, "kitchen", 1)
+	const { error } = await client.from("ingredient").update({ deleted_at: null }).eq("id", input.id)
+	if (error) throw new DomainError("RESTORE_FAILED", error.message)
 }
 
 export async function listIngredientItems(client: AnyClient, ctx: UserContext, input: ListIngredientItems) {

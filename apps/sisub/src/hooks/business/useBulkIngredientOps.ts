@@ -1,7 +1,7 @@
 import type { Folder, Ingredient } from "@iefa/database/sisub"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-import { deleteFolderFn, deleteIngredientFn, updateFolderFn, updateIngredientFn } from "@/server/ingredients.fn"
+import { deleteFolderFn, deleteIngredientFn, restoreFolderFn, restoreIngredientFn, updateFolderFn, updateIngredientFn } from "@/server/ingredients.fn"
 
 export type BulkNodeType = "folder" | "ingredient"
 
@@ -137,6 +137,10 @@ export function useBulkIngredientOps() {
 	const deleteNodes = (nodes: BulkSelectedNode[]) =>
 		runBatch(nodes, (node) => (node.type === "folder" ? deleteFolderFn({ data: { id: node.id } }) : deleteIngredientFn({ data: { id: node.id } })))
 
+	/** Restaura (deleted_at = null) nós selecionados. */
+	const restoreNodes = (nodes: BulkSelectedNode[]) =>
+		runBatch(nodes, (node) => (node.type === "folder" ? restoreFolderFn({ data: { id: node.id } }) : restoreIngredientFn({ data: { id: node.id } })))
+
 	return {
 		isRunning,
 		progress,
@@ -145,5 +149,6 @@ export function useBulkIngredientOps() {
 		setMeasureUnit,
 		setCorrectionFactor,
 		deleteNodes,
+		restoreNodes,
 	}
 }

@@ -1,10 +1,11 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { FolderPlus, Loader2, PackagePlus, Replace, Search, SquareCheckBig, X } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import type { Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
@@ -49,9 +50,11 @@ export function IngredientsTreeManager() {
 
 	// Edição em massa
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+	const [showDeleted, setShowDeleted] = useState(false)
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedNode>>(new Map())
 	const selectedNodes = useMemo(() => Array.from(selected.values()), [selected])
+	const showDeletedId = useId()
 
 	const handleSelectChange = (node: IngredientTreeNode, checked: boolean) => {
 		setSelected((prev) => {
@@ -73,7 +76,7 @@ export function IngredientsTreeManager() {
 	}
 
 	// Hook consumes URL value (already debounced).
-	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(urlSearch)
+	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(urlSearch, showDeleted)
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -140,6 +143,11 @@ export function IngredientsTreeManager() {
 						aria-label="Buscar na árvore de insumos"
 					/>
 				</div>
+
+				<label htmlFor={showDeletedId} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+					<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
+					Mostrar excluídos
+				</label>
 
 				<div className="flex flex-wrap gap-2">
 					{selectionMode ? (
@@ -279,7 +287,9 @@ export function IngredientsTreeManager() {
 			<BulkFindReplaceDialog isOpen={findReplaceOpen} onClose={() => setFindReplaceOpen(false)} />
 
 			{/* Barra de ações em massa */}
-			{selectionMode && selectedNodes.length > 0 && <BulkActionsBar selectedNodes={selectedNodes} onClear={clearSelection} onDone={clearSelection} />}
+			{selectionMode && selectedNodes.length > 0 && (
+				<BulkActionsBar selectedNodes={selectedNodes} showDeleted={showDeleted} onClear={clearSelection} onDone={clearSelection} />
+			)}
 		</div>
 	)
 }

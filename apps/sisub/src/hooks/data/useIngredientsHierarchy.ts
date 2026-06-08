@@ -8,9 +8,9 @@ import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingr
  *
  * Segue padrão: hooks/ orquestram múltiplos services e gerenciam estado de UI
  */
-export function useIngredientsHierarchy(filterText = "") {
+export function useIngredientsHierarchy(filterText = "", includeDeleted = false) {
 	// Busca dados via service
-	const { tree, error, refetch } = useIngredientsTree()
+	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
 
 	// Estado de expand/collapse
 	// Inicializa com todas as pastas de primeiro nível expandidas.

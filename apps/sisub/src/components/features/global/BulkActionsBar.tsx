@@ -1,4 +1,4 @@
-import { FolderInput, Loader2, Ruler, Scale, Trash2, X } from "lucide-react"
+import { FolderInput, Loader2, RotateCcw, Ruler, Scale, Trash2, X } from "lucide-react"
 import { useId, useMemo, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -32,15 +32,17 @@ const ROOT_VALUE = "__root__"
 
 interface BulkActionsBarProps {
 	selectedNodes: BulkSelectedNode[]
+	/** Quando true (visualizando excluídos), oferece a ação Restaurar. */
+	showDeleted?: boolean
 	onDone: () => void
 	onClear: () => void
 }
 
 type ActiveDialog = "move" | "unit" | "factor" | "delete" | null
 
-export function BulkActionsBar({ selectedNodes, onDone, onClear }: BulkActionsBarProps) {
+export function BulkActionsBar({ selectedNodes, showDeleted, onDone, onClear }: BulkActionsBarProps) {
 	const { folders } = useFolders()
-	const { moveToFolder, setMeasureUnit, setCorrectionFactor, deleteNodes, isRunning, progress } = useBulkIngredientOps()
+	const { moveToFolder, setMeasureUnit, setCorrectionFactor, deleteNodes, restoreNodes, isRunning, progress } = useBulkIngredientOps()
 
 	const [active, setActive] = useState<ActiveDialog>(null)
 	const [targetFolder, setTargetFolder] = useState<string | null>(null)
@@ -120,6 +122,11 @@ export function BulkActionsBar({ selectedNodes, onDone, onClear }: BulkActionsBa
 		afterApply(result, "excluídos")
 	}
 
+	const handleRestore = async () => {
+		const result = await restoreNodes(selectedNodes)
+		afterApply(result, "restaurados")
+	}
+
 	const resolveFolderLabel = (value: string | null) => {
 		if (value === ROOT_VALUE) return "Raiz (sem pasta)"
 		return moveTargets.find((f) => f.id === value)?.description || "Sem nome"
@@ -180,6 +187,12 @@ export function BulkActionsBar({ selectedNodes, onDone, onClear }: BulkActionsBa
 						<Scale className="size-4" />
 						Fator
 					</Button>
+					{showDeleted && (
+						<Button variant="ghost" size="sm" className="gap-1.5" disabled={selectedNodes.length === 0 || isRunning} onClick={handleRestore}>
+							{isRunning ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
+							Restaurar
+						</Button>
+					)}
 					<Button
 						variant="ghost"
 						size="sm"
