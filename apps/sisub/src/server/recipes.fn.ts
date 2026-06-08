@@ -11,12 +11,18 @@ import {
 	CreateRecipeVersionSchema,
 	createRecipe,
 	createRecipeVersion,
+	DeleteRecipeSchema,
+	deleteRecipe,
 	FetchRecipeSchema,
 	fetchRecipe,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
 	listRecipes,
 	listRecipeVersions,
+	RenameRecipeSchema,
+	RestoreRecipeSchema,
+	renameRecipe,
+	restoreRecipe,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
@@ -59,4 +65,25 @@ export const createRecipeVersionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createRecipeVersion(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+export const deleteRecipeFn = createServerFn({ method: "POST" })
+	.inputValidator(DeleteRecipeSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return deleteRecipe(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+export const restoreRecipeFn = createServerFn({ method: "POST" })
+	.inputValidator(RestoreRecipeSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return restoreRecipe(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+export const renameRecipeFn = createServerFn({ method: "POST" })
+	.inputValidator(RenameRecipeSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return renameRecipe(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})

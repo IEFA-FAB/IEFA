@@ -63,7 +63,7 @@ export const queryKeys = {
 
 	recipes: {
 		all: () => ["recipes"] as const,
-		list: (kitchenId?: number | null) => ["recipes", { kitchen_id: kitchenId ?? null }] as const,
+		list: (kitchenId?: number | null, includeDeleted?: boolean) => ["recipes", { kitchen_id: kitchenId ?? null, deleted: includeDeleted ?? false }] as const,
 		detail: (id: string | undefined) => ["recipe", id] as const,
 		versions: (recipeId: string | undefined) => ["recipe_versions", recipeId] as const,
 	},

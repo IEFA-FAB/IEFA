@@ -85,14 +85,27 @@ export {
 } from "./planning.ts"
 export type { FetchProcurementNeeds } from "./procurement.ts"
 export { FetchProcurementNeedsSchema } from "./procurement.ts"
-export type { CreateRecipe, CreateRecipeVersion, FetchRecipe, Ingredient, ListRecipes, ListRecipeVersions } from "./recipes.ts"
+export type {
+	CreateRecipe,
+	CreateRecipeVersion,
+	DeleteRecipe,
+	FetchRecipe,
+	Ingredient,
+	ListRecipes,
+	ListRecipeVersions,
+	RenameRecipe,
+	RestoreRecipe,
+} from "./recipes.ts"
 export {
 	CreateRecipeSchema,
 	CreateRecipeVersionSchema,
+	DeleteRecipeSchema,
 	FetchRecipeSchema,
 	IngredientSchema,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
+	RenameRecipeSchema,
+	RestoreRecipeSchema,
 } from "./recipes.ts"
 export type {
 	ApplyTemplate,

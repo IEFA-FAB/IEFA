@@ -4,10 +4,10 @@ import { queryKeys } from "@/lib/query-keys"
 import { fetchRecipesFn, fetchRecipeWithIngredientsFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
-export const recipesQueryOptions = (kitchenId?: number | null) =>
+export const recipesQueryOptions = (kitchenId?: number | null, includeDeleted?: boolean) =>
 	queryOptions({
-		queryKey: queryKeys.recipes.list(kitchenId),
-		queryFn: () => fetchRecipesFn({ data: { kitchenId } }),
+		queryKey: queryKeys.recipes.list(kitchenId, includeDeleted),
+		queryFn: () => fetchRecipesFn({ data: { kitchenId, includeDeleted } }),
 		staleTime: 5 * 60 * 1000,
 		gcTime: 5 * 60 * 1000,
 	})
@@ -17,8 +17,8 @@ export const recipesQueryOptions = (kitchenId?: number | null) =>
  * Filtragem (search, global/local) é feita client-side via useMemo
  * para evitar requests por keystroke e manter UX instantânea.
  */
-export function useRecipes(filters?: { kitchen_id?: number | null; search?: string; origin?: "all" | "global" | "local" }) {
-	const query = useQuery(recipesQueryOptions(filters?.kitchen_id))
+export function useRecipes(filters?: { kitchen_id?: number | null; search?: string; origin?: "all" | "global" | "local"; includeDeleted?: boolean }) {
+	const query = useQuery(recipesQueryOptions(filters?.kitchen_id, filters?.includeDeleted))
 
 	const data = useMemo(() => {
 		if (!query.data) return query.data

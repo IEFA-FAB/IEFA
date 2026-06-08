@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 
 interface PageHeaderProps {
-	title: string
+	title: ReactNode
 	description?: string
 	/** Badge inline ao lado do título (ex: versão, status) */
 	badge?: ReactNode

@@ -11,6 +11,8 @@ export const ListRecipesSchema = z.object({
 	kitchenId: KitchenIdSchema.nullable().optional(),
 	search: z.string().max(200).optional(),
 	globalOnly: z.boolean().optional(),
+	/** Quando true, inclui receitas com soft delete (deleted_at) na listagem. */
+	includeDeleted: z.boolean().optional(),
 })
 export type ListRecipes = z.infer<typeof ListRecipesSchema>
 
@@ -18,6 +20,16 @@ export const ListRecipeVersionsSchema = z.object({
 	recipeId: UuidSchema,
 })
 export type ListRecipeVersions = z.infer<typeof ListRecipeVersionsSchema>
+
+export const DeleteRecipeSchema = z.object({ id: UuidSchema })
+export type DeleteRecipe = z.infer<typeof DeleteRecipeSchema>
+
+export const RestoreRecipeSchema = z.object({ id: UuidSchema })
+export type RestoreRecipe = z.infer<typeof RestoreRecipeSchema>
+
+/** Renomeia uma receita in-place (usado por localizar e substituir em massa). */
+export const RenameRecipeSchema = z.object({ id: UuidSchema, name: z.string().min(1).max(200) })
+export type RenameRecipe = z.infer<typeof RenameRecipeSchema>
 
 export const IngredientSchema = z.object({
 	ingredientId: UuidSchema,

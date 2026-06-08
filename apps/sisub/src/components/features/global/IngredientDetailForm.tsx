@@ -1,7 +1,7 @@
 import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
-import { Check, ChevronsUpDown, Loader2, Save } from "lucide-react"
+import { Check, ChevronsUpDown, Loader2, Pencil, Save } from "lucide-react"
 import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
+import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -114,7 +114,33 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title={ingredient.description ?? "Insumo"} description={folder?.description ?? undefined} onBack={() => window.history.back()} />
+			<PageHeader
+				title={
+					<form.Field name="description">
+						{(field) => (
+							<span className="group/title inline-flex max-w-full items-center gap-1.5">
+								<input
+									aria-label="Nome do insumo"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									placeholder="Nome do insumo"
+									className={cn(
+										"text-heading leading-tight text-foreground bg-transparent",
+										"field-sizing-content min-w-[10ch] max-w-full",
+										"-mx-2 rounded-md px-2 py-0.5",
+										"outline-none transition-colors hover:bg-muted/60 focus:bg-muted/60",
+										"focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground/60"
+									)}
+								/>
+								<Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-within/title:opacity-100" />
+							</span>
+						)}
+					</form.Field>
+				}
+				description={folder?.description ?? undefined}
+				onBack={() => window.history.back()}
+			/>
 
 			<div className="max-w-5xl mx-auto space-y-8 pb-24">
 				{/* Escopo do form: identificação + informação nutricional (salvos juntos pela barra inferior) */}
@@ -127,34 +153,41 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					}}
 					className="space-y-6"
 				>
-					{/* Identificação — dados que definem o insumo genérico */}
+					{/* Classificação e medida — o nome do insumo é editado no título da página */}
 					<Card>
 						<CardHeader>
-							<CardTitle>Identificação</CardTitle>
+							<CardTitle>Classificação e medida</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-4">
-							<form.Field name="description">
-								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel htmlFor="description">
-											Descrição <span className="text-destructive">*</span>
-										</FieldLabel>
-										<FieldContent>
-											<Input
-												id="description"
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-												placeholder="Ex: Arroz Branco, Feijão Carioca"
-											/>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((e) => ({ message: String(e) }))} />
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
-
 							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<form.Field name="measure_unit">
+									{(field) => (
+										<Field>
+											<FieldLabel>Unidade de Medida</FieldLabel>
+											<FieldContent>
+												<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
+													<SelectTrigger>
+														<SelectValue placeholder="Selecione">
+															{field.state.value && field.state.value !== "__NONE__"
+																? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value)
+																: undefined}
+														</SelectValue>
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="__NONE__">Selecione</SelectItem>
+														<SelectItem value="UN">UN (Unidade)</SelectItem>
+														<SelectItem value="KG">KG (Quilograma)</SelectItem>
+														<SelectItem value="LT">LT (Litro)</SelectItem>
+														<SelectItem value="G">G (Grama)</SelectItem>
+														<SelectItem value="ML">ML (Mililitro)</SelectItem>
+													</SelectContent>
+												</Select>
+												<FieldDescription>Como o insumo é quantificado em receitas e planejamento.</FieldDescription>
+											</FieldContent>
+										</Field>
+									)}
+								</form.Field>
+
 								<form.Field name="folder_id">
 									{(field) => (
 										<Field>
@@ -184,50 +217,24 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 										</Field>
 									)}
 								</form.Field>
-
-								<form.Field name="measure_unit">
-									{(field) => (
-										<Field>
-											<FieldLabel>Unidade de Medida</FieldLabel>
-											<FieldContent>
-												<Select value={field.state.value ?? "__NONE__"} onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? "" : v)}>
-													<SelectTrigger>
-														<SelectValue placeholder="Selecione">
-															{field.state.value && field.state.value !== "__NONE__"
-																? (MEASURE_UNIT_LABELS[field.state.value] ?? field.state.value)
-																: undefined}
-														</SelectValue>
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="__NONE__">Selecione</SelectItem>
-														<SelectItem value="UN">UN (Unidade)</SelectItem>
-														<SelectItem value="KG">KG (Quilograma)</SelectItem>
-														<SelectItem value="LT">LT (Litro)</SelectItem>
-														<SelectItem value="G">G (Grama)</SelectItem>
-														<SelectItem value="ML">ML (Mililitro)</SelectItem>
-													</SelectContent>
-												</Select>
-											</FieldContent>
-										</Field>
-									)}
-								</form.Field>
 							</div>
 
 							<form.Field name="correction_factor">
 								{(field) => (
-									<Field>
-										<FieldLabel>Fator de Correção (FC)</FieldLabel>
+									<Field orientation="horizontal" className="border-t border-border/60 pt-4">
 										<FieldContent>
-											<Input
-												type="number"
-												step="0.0001"
-												value={field.state.value ?? ""}
-												onChange={(e) => field.handleChange(Number(e.target.value))}
-												placeholder="1.0000"
-												className="sm:max-w-40"
-											/>
-											<FieldDescription>Fator do insumo genérico (padrão: 1.0). Itens de compra e produto possuem seus próprios fatores.</FieldDescription>
+											<FieldLabel htmlFor="correction_factor">Fator de Correção (FC)</FieldLabel>
+											<FieldDescription>Parâmetro avançado do insumo genérico (padrão: 1.0). Itens de compra e produto têm fatores próprios.</FieldDescription>
 										</FieldContent>
+										<Input
+											id="correction_factor"
+											type="number"
+											step="0.0001"
+											value={field.state.value ?? ""}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
+											placeholder="1.0000"
+											className="w-28 shrink-0"
+										/>
 									</Field>
 								)}
 							</form.Field>

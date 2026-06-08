@@ -7,7 +7,16 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
-import type { CreateRecipe, CreateRecipeVersion, FetchRecipe, ListRecipes, ListRecipeVersions } from "../schemas/recipes.ts"
+import type {
+	CreateRecipe,
+	CreateRecipeVersion,
+	DeleteRecipe,
+	FetchRecipe,
+	ListRecipes,
+	ListRecipeVersions,
+	RenameRecipe,
+	RestoreRecipe,
+} from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 
@@ -47,7 +56,11 @@ export async function listRecipes(client: AnyClient, ctx: UserContext, input: Li
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	let query = client.from("recipes").select(RECIPE_WITH_INGREDIENTS).is("deleted_at", null).order("name")
+	let query = client.from("recipes").select(RECIPE_WITH_INGREDIENTS).order("name")
+
+	if (!input.includeDeleted) {
+		query = query.is("deleted_at", null)
+	}
 
 	if (input.kitchenId != null && !input.globalOnly) {
 		query = query.or(`kitchen_id.is.null,kitchen_id.eq.${input.kitchenId}`)
@@ -133,6 +146,43 @@ export async function createRecipe(client: AnyClient, ctx: UserContext, input: C
 	if (error) throw new DomainError("INSERT_FAILED", error.message)
 	await insertIngredients(client, recipe.id, input.ingredients)
 	return recipe
+}
+
+/**
+ * Autoriza mutação destrutiva sobre UMA receita conforme a posse:
+ * receita local → exige nível 2 NAQUELA cozinha; receita global → exige "global" nível 2.
+ * Evita IDOR: sem isso, qualquer usuário kitchen-2 apagaria receitas de outras cozinhas/globais.
+ */
+async function authorizeRecipeMutation(client: AnyClient, ctx: UserContext, recipeId: string): Promise<void> {
+	const { data: recipe, error } = await client.from("recipes").select("kitchen_id").eq("id", recipeId).single()
+	if (error || !recipe) throw new NotFoundError("recipe", recipeId)
+
+	if (recipe.kitchen_id == null) {
+		requirePermission(ctx, "global", 2)
+	} else {
+		requireKitchen(ctx, 2, recipe.kitchen_id)
+	}
+}
+
+/** Soft delete: marca deleted_at. A receita some das listagens (exceto includeDeleted). */
+export async function deleteRecipe(client: AnyClient, ctx: UserContext, input: DeleteRecipe) {
+	await authorizeRecipeMutation(client, ctx, input.id)
+	const { error } = await client.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", input.id)
+	if (error) throw new DomainError("DELETE_FAILED", error.message)
+}
+
+/** Restaura uma receita previamente excluída (deleted_at = null). */
+export async function restoreRecipe(client: AnyClient, ctx: UserContext, input: RestoreRecipe) {
+	await authorizeRecipeMutation(client, ctx, input.id)
+	const { error } = await client.from("recipes").update({ deleted_at: null }).eq("id", input.id)
+	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+}
+
+/** Renomeia uma receita in-place (não cria versão). Usado por localizar e substituir. */
+export async function renameRecipe(client: AnyClient, ctx: UserContext, input: RenameRecipe) {
+	await authorizeRecipeMutation(client, ctx, input.id)
+	const { error } = await client.from("recipes").update({ name: input.name }).eq("id", input.id)
+	if (error) throw new DomainError("UPDATE_FAILED", error.message)
 }
 
 export async function createRecipeVersion(client: AnyClient, ctx: UserContext, input: CreateRecipeVersion) {

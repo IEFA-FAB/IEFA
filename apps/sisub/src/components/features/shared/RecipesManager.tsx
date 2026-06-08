@@ -1,14 +1,19 @@
 // biome-ignore-all lint/a11y/useSemanticElements: virtualized recipe rows contain nested action links.
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ChefHat, GitFork, Globe, Search } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { ChefHat, GitFork, Globe, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipes } from "@/hooks/data/useRecipes"
+import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
+import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 
 const ROW_HEIGHT = 48
 
@@ -16,6 +21,7 @@ export function RecipesManager() {
 	"use no memo"
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = kitchenIdStr ?? null
+	const kitchenIdNum = kitchenIdStr ? Number(kitchenIdStr) : null
 
 	const { search: urlSearch = "", type = "all" } = useSearch({ strict: false }) as {
 		search?: string
@@ -42,10 +48,43 @@ export function RecipesManager() {
 
 	const parentRef = useRef<HTMLDivElement>(null)
 
+	// Seleção em massa
+	const [selectionMode, setSelectionMode] = useState(false)
+	const [showDeleted, setShowDeleted] = useState(false)
+	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+	const [selected, setSelected] = useState<Map<string, BulkSelectedRecipe>>(new Map())
+	const selectedRecipes = useMemo(() => Array.from(selected.values()), [selected])
+	const showDeletedId = useId()
+
 	const { data: filteredRecipes = [], isLoading } = useRecipes({
 		search: urlSearch || undefined,
 		origin: type,
+		includeDeleted: showDeleted,
 	})
+
+	const clearSelection = () => setSelected(new Map())
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false)
+		clearSelection()
+	}
+
+	const toggleSelect = (recipe: (typeof filteredRecipes)[number], checked: boolean) => {
+		setSelected((prev) => {
+			const next = new Map(prev)
+			if (checked) next.set(recipe.id, { id: recipe.id, name: recipe.name, kitchenId: recipe.kitchen_id, data: recipe })
+			else next.delete(recipe.id)
+			return next
+		})
+	}
+
+	const selectAllVisible = () => {
+		setSelected((prev) => {
+			const next = new Map(prev)
+			for (const r of filteredRecipes) next.set(r.id, { id: r.id, name: r.name, kitchenId: r.kitchen_id, data: r })
+			return next
+		})
+	}
 
 	const stats = useMemo(() => {
 		const total = filteredRecipes.length
@@ -82,16 +121,46 @@ export function RecipesManager() {
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 					<Input placeholder="Buscar Preparação..." className="pl-10" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
 				</div>
-				<div className="flex gap-2">
-					<Button variant={type === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
-						Todas
-					</Button>
-					<Button variant={type === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
-						Globais (SDAB)
-					</Button>
-					<Button variant={type === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
-						Locais
-					</Button>
+				<div className="flex flex-wrap items-center gap-2">
+					{selectionMode ? (
+						<>
+							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todas as visíveis">
+								Selecionar Visíveis
+							</Button>
+							<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
+								<X className="size-4 mr-2" />
+								Concluir Seleção
+							</Button>
+						</>
+					) : (
+						<>
+							<Button variant={type === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
+								Todas
+							</Button>
+							<Button variant={type === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
+								Globais (SDAB)
+							</Button>
+							<Button variant={type === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
+								Locais
+							</Button>
+
+							<label htmlFor={showDeletedId} className="flex items-center gap-2 text-sm cursor-pointer select-none ml-2">
+								<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
+								Mostrar excluídas
+							</label>
+
+							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
+								<Replace className="size-4 mr-2" />
+								<span className="hidden sm:inline">Localizar e Substituir</span>
+								<span className="sm:hidden">Substituir</span>
+							</Button>
+							<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
+								<SquareCheckBig className="size-4 mr-2" />
+								<span className="hidden sm:inline">Selecionar Itens</span>
+								<span className="sm:hidden">Selecionar</span>
+							</Button>
+						</>
+					)}
 				</div>
 			</Card>
 
@@ -109,10 +178,14 @@ export function RecipesManager() {
 						<div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
 							{virtualizer.getVirtualItems().map((vRow) => {
 								const recipe = filteredRecipes[vRow.index]
+								const isSelected = selected.has(recipe.id)
+								const isDeleted = !!recipe.deleted_at
 								return (
 									<div
 										key={vRow.key}
-										className="flex items-center justify-between px-4 border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer absolute"
+										className={`flex items-center justify-between px-4 border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer absolute ${
+											isSelected ? "bg-primary/5" : ""
+										}`}
 										style={{
 											top: 0,
 											left: 0,
@@ -120,17 +193,27 @@ export function RecipesManager() {
 											height: `${vRow.size}px`,
 											transform: `translateY(${vRow.start}px)`,
 										}}
-										onClick={() => navigateToRecipe(recipe.id)}
+										onClick={() => (selectionMode ? toggleSelect(recipe, !isSelected) : navigateToRecipe(recipe.id))}
 										onKeyDown={(e) => {
 											if (e.key === "Enter" || e.key === " ") {
 												e.preventDefault()
-												navigateToRecipe(recipe.id)
+												if (selectionMode) toggleSelect(recipe, !isSelected)
+												else navigateToRecipe(recipe.id)
 											}
 										}}
 										role="button"
 										tabIndex={0}
+										aria-pressed={selectionMode ? isSelected : undefined}
 									>
 										<div className="flex items-center gap-3 flex-1 min-w-0">
+											{selectionMode && (
+												<Checkbox
+													checked={isSelected}
+													onCheckedChange={(checked) => toggleSelect(recipe, checked === true)}
+													onClick={(e) => e.stopPropagation()}
+													aria-label={`Selecionar ${recipe.name}`}
+												/>
+											)}
 											<div
 												className={`flex items-center justify-center size-7 rounded-[var(--radius)] border shrink-0 ${
 													recipe.kitchen_id ? "bg-muted/50 border-border/30" : "bg-primary/10 border-primary/20"
@@ -138,7 +221,8 @@ export function RecipesManager() {
 											>
 												{recipe.kitchen_id ? <ChefHat className="size-3.5 text-muted-foreground" /> : <Globe className="size-3.5 text-primary" />}
 											</div>
-											<span className="text-subheading truncate">{recipe.name}</span>
+											<span className={`text-subheading truncate ${isDeleted ? "line-through text-muted-foreground" : ""}`}>{recipe.name}</span>
+											{isDeleted && <Badge variant="destructive">Excluída</Badge>}
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">
 													v{recipe.version}
@@ -153,7 +237,7 @@ export function RecipesManager() {
 
 										<div className="flex items-center gap-3 shrink-0 ml-3">
 											{recipe.portion_yield != null && <span className="text-sm text-muted-foreground font-mono">{recipe.portion_yield} porções</span>}
-											{!recipe.kitchen_id && (
+											{!selectionMode && !recipe.kitchen_id && (
 												<Tooltip>
 													<TooltipTrigger
 														render={
@@ -209,6 +293,20 @@ export function RecipesManager() {
 					)}
 				</CardFooter>
 			</Card>
+
+			{/* Localizar e substituir */}
+			<RecipesFindReplaceDialog isOpen={findReplaceOpen} onClose={() => setFindReplaceOpen(false)} kitchenId={kitchenIdNum} />
+
+			{/* Barra de ações em massa */}
+			{selectionMode && selectedRecipes.length > 0 && (
+				<RecipesBulkActionsBar
+					selectedRecipes={selectedRecipes}
+					kitchenId={kitchenIdNum}
+					showDeleted={showDeleted}
+					onClear={clearSelection}
+					onDone={clearSelection}
+				/>
+			)}
 		</div>
 	)
 }

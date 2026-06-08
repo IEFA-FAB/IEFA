@@ -43,7 +43,7 @@ export {
 	upsertDailyMenu,
 } from "./planning.ts"
 export { fetchProcurementNeeds } from "./procurement.ts"
-export { createRecipe, createRecipeVersion, fetchRecipe, listRecipes, listRecipeVersions } from "./recipes.ts"
+export { createRecipe, createRecipeVersion, deleteRecipe, fetchRecipe, listRecipes, listRecipeVersions, renameRecipe, restoreRecipe } from "./recipes.ts"
 export {
 	applyTemplate,
 	createBlankTemplate,
