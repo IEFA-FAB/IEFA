@@ -13,6 +13,7 @@ import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import { ceafaQueryOptions, useIngredientNutrients, useNutrients, useSetIngredientNutrients, useUpdateIngredient } from "@/services/IngredientsService"
 import { IngredientItemsManager } from "./IngredientItemsManager"
@@ -341,63 +342,118 @@ interface NutrientsCardProps {
 	onChange: Dispatch<SetStateAction<Record<string, string>>>
 }
 
+/** Extrai a unidade embutida no nome (ex.: "Carboidratos (g)" → label "Carboidratos", unit "g"). */
+function parseNutrientName(name: string): { label: string; unit: string | null } {
+	const match = name.match(/\s*\(([^)]+)\)\s*$/)
+	if (match && match.index != null) return { label: name.slice(0, match.index).trim(), unit: match[1] }
+	return { label: name, unit: null }
+}
+
+/** Formata número removendo casas decimais desnecessárias (300.00 → "300", 24.5 → "24,5"). */
+function formatNumber(n: number): string {
+	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+}
+
 function NutrientsCard({ nutrients, values, onChange }: NutrientsCardProps) {
 	if (nutrients.length === 0) return null
 
-	const energyNutrients = nutrients.filter((n) => n.is_energy_value)
-	const regularNutrients = nutrients.filter((n) => !n.is_energy_value)
+	// Ordena como num rótulo nutricional brasileiro: valor energético primeiro, depois display_order.
+	const ordered = [...nutrients].sort((a, b) => {
+		if (a.is_energy_value !== b.is_energy_value) return a.is_energy_value ? -1 : 1
+		return (a.display_order ?? 999) - (b.display_order ?? 999)
+	})
 
 	return (
 		<Card className="max-w-5xl mx-auto">
 			<CardHeader>
-				<CardTitle>Composição Nutricional</CardTitle>
-				<p className="text-sm text-muted-foreground">Valores por 100g do insumo. Deixe em branco para não informar.</p>
+				<CardTitle>Informação Nutricional</CardTitle>
+				<p className="text-sm text-muted-foreground">
+					Valores por <span className="font-medium text-foreground">100 g</span> do insumo. O %VD é calculado automaticamente sobre os valores diários de
+					referência. Deixe em branco para não informar.
+				</p>
 			</CardHeader>
-			<CardContent className="space-y-6">
-				{energyNutrients.length > 0 && (
-					<div>
-						<p className="text-label text-muted-foreground mb-3">Valores Energéticos</p>
-						<NutrientGrid nutrients={energyNutrients} values={values} onChange={onChange} />
-					</div>
-				)}
-				{regularNutrients.length > 0 && (
-					<div>
-						<p className="text-label text-muted-foreground mb-3">Nutrientes</p>
-						<NutrientGrid nutrients={regularNutrients} values={values} onChange={onChange} />
-					</div>
-				)}
+			<CardContent>
+				<div className="overflow-hidden rounded-lg border border-border">
+					<table className="w-full text-sm">
+						<thead>
+							<tr className="border-b-2 border-foreground/80 bg-muted/40">
+								<th className="px-4 py-2 text-left font-semibold text-foreground">Nutrientes</th>
+								<th className="px-4 py-2 text-right font-semibold text-foreground w-44">Quantidade por 100 g</th>
+								<th className="px-4 py-2 text-right font-semibold text-foreground w-24">%VD*</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-border">
+							{ordered.map((n) => (
+								<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} />
+							))}
+						</tbody>
+					</table>
+				</div>
+				<p className="mt-3 text-caption text-muted-foreground">
+					* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo.
+				</p>
 			</CardContent>
 		</Card>
 	)
 }
 
-interface NutrientGridProps {
-	nutrients: Nutrient[]
-	values: Record<string, string>
+interface NutrientRowProps {
+	nutrient: Nutrient
+	value: string
 	onChange: Dispatch<SetStateAction<Record<string, string>>>
 }
 
-function NutrientGrid({ nutrients, values, onChange }: NutrientGridProps) {
+function NutrientRow({ nutrient, value, onChange }: NutrientRowProps) {
+	const { label, unit } = parseNutrientName(nutrient.name)
+	const numeric = value !== "" ? Number(value) : null
+	const hasValue = numeric != null && !Number.isNaN(numeric)
+	const dailyValue = nutrient.daily_value ? Number(nutrient.daily_value) : null
+	const vd = hasValue && dailyValue && dailyValue > 0 ? (numeric / dailyValue) * 100 : null
+	const vdLabel = vd != null ? `${vd < 1 && vd > 0 ? vd.toFixed(1) : Math.round(vd)}%` : "—"
+
 	return (
-		<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-			{nutrients.map((n) => (
-				<div key={n.id} className="space-y-1">
-					<label htmlFor={`nutrient-${n.id}`} className="text-caption text-foreground">
-						{n.name}
-						{n.daily_value && <span className="text-muted-foreground ml-1">(VD: {n.daily_value})</span>}
-					</label>
+		<tr className={cn("transition-colors hover:bg-muted/30", nutrient.is_energy_value && "bg-muted/20")}>
+			<td className={cn("px-4 py-1.5 text-foreground", nutrient.is_energy_value && "font-semibold")}>{label}</td>
+			<td className="px-4 py-1.5">
+				<div className="flex items-center justify-end gap-1.5">
 					<Input
-						id={`nutrient-${n.id}`}
+						id={`nutrient-${nutrient.id}`}
 						type="number"
 						step="0.001"
 						min="0"
 						placeholder="—"
-						value={values[n.id] ?? ""}
-						onChange={(e) => onChange((prev) => ({ ...prev, [n.id]: e.target.value }))}
-						className="h-8 text-sm font-mono"
+						value={value}
+						onChange={(e) => onChange((prev) => ({ ...prev, [nutrient.id]: e.target.value }))}
+						className="h-8 w-24 text-right text-sm font-mono"
 					/>
+					{unit && <span className="w-8 text-left text-xs text-muted-foreground">{unit}</span>}
 				</div>
-			))}
-		</div>
+			</td>
+			<td className="px-4 py-1.5 text-right">
+				{vd != null && dailyValue ? (
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<span className="cursor-help font-medium tabular-nums text-foreground underline decoration-dotted decoration-muted-foreground/50 underline-offset-2">
+									{vdLabel}
+								</span>
+							}
+						/>
+						<TooltipContent>
+							<div className="space-y-0.5 text-left">
+								<p className="font-medium">
+									VD de referência: {formatNumber(dailyValue)} {unit ?? ""}
+								</p>
+								<p className="opacity-90">
+									{formatNumber(numeric ?? 0)} {unit ?? ""} ÷ {formatNumber(dailyValue)} {unit ?? ""} × 100 = {vdLabel}
+								</p>
+							</div>
+						</TooltipContent>
+					</Tooltip>
+				) : (
+					<span className="tabular-nums text-muted-foreground">{vdLabel}</span>
+				)}
+			</td>
+		</tr>
 	)
 }
