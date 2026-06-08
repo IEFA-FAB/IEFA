@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/cn"
 import { useDeleteFolder, useDeleteIngredient } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
@@ -26,13 +27,19 @@ interface IngredientsTreeNodeProps {
 	itemCount?: number
 	/** Callback de navegação para a página de detalhe do ingrediente */
 	onNavigate?: () => void
+	/** Modo de seleção em massa ativo: exibe checkbox e desativa ações por linha */
+	selectionMode?: boolean
+	/** Se este nó está selecionado (modo de seleção em massa) */
+	selected?: boolean
+	/** Alterna a seleção deste nó */
+	onSelectChange?: (checked: boolean) => void
 }
 
 /**
  * Nó individual da árvore de produtos
  * Renderização otimizada para virtualização
  */
-export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate }: IngredientsTreeNodeProps) {
+export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate, selectionMode, selected, onSelectChange }: IngredientsTreeNodeProps) {
 	const queryClient = useQueryClient()
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
 	const { deleteIngredient, isDeleting: isDeletingIngredient } = useDeleteIngredient()
@@ -80,22 +87,34 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 	return (
 		<>
 			<div
-				className={cn("relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50", isNavigable && "cursor-pointer")}
+				className={cn(
+					"relative flex items-center justify-between px-2 py-2 hover:bg-muted/50 border-b border-border/50",
+					(isNavigable || selectionMode) && "cursor-pointer",
+					selected && "bg-primary/5"
+				)}
 				style={{ paddingLeft: `${node.level * 24 + 8}px` }}
 				role="treeitem"
 				tabIndex={0}
 				aria-level={node.level + 1}
 				aria-expanded={node.hasChildren ? node.isExpanded : undefined}
-				onClick={isNavigable ? onNavigate : undefined}
+				aria-selected={selectionMode ? !!selected : undefined}
+				onClick={selectionMode ? () => onSelectChange?.(!selected) : isNavigable ? onNavigate : undefined}
 				onKeyDown={
-					isNavigable
+					selectionMode
 						? (e) => {
 								if (e.key === "Enter" || e.key === " ") {
 									e.preventDefault()
-									onNavigate?.()
+									onSelectChange?.(!selected)
 								}
 							}
-						: undefined
+						: isNavigable
+							? (e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault()
+										onNavigate?.()
+									}
+								}
+							: undefined
 				}
 			>
 				{/* Tree connector lines */}
@@ -114,6 +133,16 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 
 				{/* Conteúdo */}
 				<div className="flex items-center gap-2 flex-1 min-w-0">
+					{/* Checkbox de seleção em massa */}
+					{selectionMode && (
+						<Checkbox
+							checked={!!selected}
+							onCheckedChange={(checked) => onSelectChange?.(checked === true)}
+							onClick={(e) => e.stopPropagation()}
+							aria-label={`Selecionar ${node.label}`}
+						/>
+					)}
+
 					{/* Expand/Collapse — apenas para nós com filhos */}
 					{node.hasChildren ? (
 						<Button
@@ -150,8 +179,8 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 					)}
 				</div>
 
-				{/* Ações */}
-				<div className="flex items-center gap-1">
+				{/* Ações — ocultas no modo de seleção em massa */}
+				<div className={cn("flex items-center gap-1", selectionMode && "hidden")}>
 					<Button
 						variant="ghost"
 						size="icon"

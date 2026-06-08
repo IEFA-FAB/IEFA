@@ -1,12 +1,15 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { FolderPlus, Loader2, PackagePlus, Search } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { FolderPlus, Loader2, PackagePlus, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
-import type { Folder, Ingredient, IngredientDialogState } from "@/types/domain/ingredients"
+import type { Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
+import { BulkActionsBar } from "./BulkActionsBar"
+import { BulkFindReplaceDialog } from "./BulkFindReplaceDialog"
 import { FolderForm } from "./FolderForm"
 import { IngredientForm } from "./IngredientForm"
 import { IngredientsTreeNode } from "./IngredientsTreeNode"
@@ -44,6 +47,31 @@ export function IngredientsTreeManager() {
 		type: "folder",
 	})
 
+	// Edição em massa
+	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+	const [selectionMode, setSelectionMode] = useState(false)
+	const [selected, setSelected] = useState<Map<string, BulkSelectedNode>>(new Map())
+	const selectedNodes = useMemo(() => Array.from(selected.values()), [selected])
+
+	const handleSelectChange = (node: IngredientTreeNode, checked: boolean) => {
+		setSelected((prev) => {
+			const next = new Map(prev)
+			if (checked) {
+				next.set(node.id, { id: node.id, type: node.type as "folder" | "ingredient", label: node.label, data: node.data as Folder | Ingredient })
+			} else {
+				next.delete(node.id)
+			}
+			return next
+		})
+	}
+
+	const clearSelection = () => setSelected(new Map())
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false)
+		clearSelection()
+	}
+
 	// Hook consumes URL value (already debounced).
 	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(urlSearch)
 
@@ -64,6 +92,17 @@ export function IngredientsTreeManager() {
 
 	const handleCloseDialog = () => {
 		setDialogState({ isOpen: false, mode: "create", type: "folder" })
+	}
+
+	const selectAllVisible = () => {
+		if (!flatTree) return
+		setSelected((prev) => {
+			const next = new Map(prev)
+			for (const n of flatTree.nodes) {
+				next.set(n.id, { id: n.id, type: n.type as "folder" | "ingredient", label: n.label, data: n.data as Folder | Ingredient })
+			}
+			return next
+		})
 	}
 
 	if (!flatTree && !error) {
@@ -103,23 +142,54 @@ export function IngredientsTreeManager() {
 				</div>
 
 				<div className="flex flex-wrap gap-2">
-					<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
-						Expandir Tudo
-					</Button>
-					<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
-						Recolher Tudo
-					</Button>
+					{selectionMode ? (
+						<>
+							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
+								Selecionar Visíveis
+							</Button>
+							<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
+								<X className="size-4 mr-2" />
+								Concluir Seleção
+							</Button>
+						</>
+					) : (
+						<>
+							<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
+								Expandir Tudo
+							</Button>
+							<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
+								Recolher Tudo
+							</Button>
 
-					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("folder", "create")} aria-label="Nova pasta" className="flex-1 sm:flex-none">
-						<FolderPlus className="size-4 mr-2" />
-						<span className="hidden sm:inline">Nova Pasta</span>
-						<span className="sm:hidden">Pasta</span>
-					</Button>
-					<Button variant="outline" size="sm" onClick={() => handleOpenDialog("ingredient", "create")} aria-label="Novo insumo" className="flex-1 sm:flex-none">
-						<PackagePlus className="size-4 mr-2" />
-						<span className="hidden sm:inline">Novo Insumo</span>
-						<span className="sm:hidden">Insumo</span>
-					</Button>
+							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
+								<Replace className="size-4 mr-2" />
+								<span className="hidden sm:inline">Localizar e Substituir</span>
+								<span className="sm:hidden">Substituir</span>
+							</Button>
+							<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
+								<SquareCheckBig className="size-4 mr-2" />
+								<span className="hidden sm:inline">Selecionar Itens</span>
+								<span className="sm:hidden">Selecionar</span>
+							</Button>
+
+							<Button variant="outline" size="sm" onClick={() => handleOpenDialog("folder", "create")} aria-label="Nova pasta" className="flex-1 sm:flex-none">
+								<FolderPlus className="size-4 mr-2" />
+								<span className="hidden sm:inline">Nova Pasta</span>
+								<span className="sm:hidden">Pasta</span>
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => handleOpenDialog("ingredient", "create")}
+								aria-label="Novo insumo"
+								className="flex-1 sm:flex-none"
+							>
+								<PackagePlus className="size-4 mr-2" />
+								<span className="hidden sm:inline">Novo Insumo</span>
+								<span className="sm:hidden">Insumo</span>
+							</Button>
+						</>
+					)}
 				</div>
 			</Card>
 
@@ -159,6 +229,9 @@ export function IngredientsTreeManager() {
 											onEdit={(type, data) => handleOpenDialog(type as "folder" | "ingredient", "edit", data as Folder | Ingredient)}
 											onToggle={toggleExpand}
 											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
+											selectionMode={selectionMode}
+											selected={selected.has(node.id)}
+											onSelectChange={(checked) => handleSelectChange(node, checked)}
 											onNavigate={
 												node.type === "ingredient"
 													? () =>
@@ -201,6 +274,12 @@ export function IngredientsTreeManager() {
 			{dialogState.type === "ingredient" && dialogState.mode === "create" && (
 				<IngredientForm isOpen={dialogState.isOpen} onClose={handleCloseDialog} mode="create" defaultFolderId={dialogState.parentId ?? undefined} />
 			)}
+
+			{/* Localizar e substituir */}
+			<BulkFindReplaceDialog isOpen={findReplaceOpen} onClose={() => setFindReplaceOpen(false)} />
+
+			{/* Barra de ações em massa */}
+			{selectionMode && selectedNodes.length > 0 && <BulkActionsBar selectedNodes={selectedNodes} onClear={clearSelection} onDone={clearSelection} />}
 		</div>
 	)
 }
