@@ -12,6 +12,8 @@ import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipes } from "@/hooks/data/useRecipes"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import { useScrollRestoration } from "@/hooks/ui/useScrollRestoration"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
 import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 
@@ -50,7 +52,7 @@ export function RecipesManager() {
 
 	// Seleção em massa
 	const [selectionMode, setSelectionMode] = useState(false)
-	const [showDeleted, setShowDeleted] = useState(false)
+	const [showDeleted, setShowDeleted] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:showDeleted`, false)
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedRecipe>>(new Map())
 	const selectedRecipes = useMemo(() => Array.from(selected.values()), [selected])
@@ -112,6 +114,9 @@ export function RecipesManager() {
 		overscan: 10,
 		getItemKey: (index) => filteredRecipes[index]?.id ?? index,
 	})
+
+	// Restaura scroll/posição ao voltar de uma página de detalhe.
+	useScrollRestoration(`sisub:recipes:${kitchenIdStr ?? "global"}:scroll`, parentRef, !isLoading && filteredRecipes.length > 0)
 
 	return (
 		<div className="space-y-6">

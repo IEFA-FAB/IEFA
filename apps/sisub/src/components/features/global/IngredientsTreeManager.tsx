@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import { useScrollRestoration } from "@/hooks/ui/useScrollRestoration"
 import type { Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
 import { BulkActionsBar } from "./BulkActionsBar"
 import { BulkFindReplaceDialog } from "./BulkFindReplaceDialog"
@@ -52,7 +54,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 	// Edição em massa
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
-	const [showDeleted, setShowDeleted] = useState(false)
+	const [showDeleted, setShowDeleted] = usePersistentState("sisub:global-ingredients:showDeleted", false)
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedNode>>(new Map())
 	const selectedNodes = useMemo(() => Array.from(selected.values()), [selected])
@@ -78,7 +80,11 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	}
 
 	// Hook consumes URL value (already debounced).
-	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(urlSearch, showDeleted)
+	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(
+		urlSearch,
+		showDeleted,
+		"sisub:global-ingredients"
+	)
 
 	// Virtualização
 	const parentRef = useRef<HTMLDivElement>(null)
@@ -90,6 +96,9 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		// Chave estável por ID: evita reutilização errada de DOM ao filtrar/reordenar
 		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
 	})
+
+	// Restaura scroll/posição ao voltar de uma página de detalhe.
+	useScrollRestoration("sisub:global-ingredients:scroll", parentRef, !!flatTree && flatTree.nodes.length > 0)
 
 	const handleOpenDialog = (type: "folder" | "ingredient", mode: "create" | "edit" = "create", data?: Folder | Ingredient, parentId?: string | null) => {
 		setDialogState({ isOpen: true, mode, type, data, parentId })

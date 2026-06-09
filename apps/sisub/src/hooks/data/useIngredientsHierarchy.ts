@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingredients"
 
@@ -7,8 +8,12 @@ import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingr
  * Gerencia estado de filtro, árvore hierárquica e virtualização
  *
  * Segue padrão: hooks/ orquestram múltiplos services e gerenciam estado de UI
+ *
+ * @param persistKey quando informado, o estado de expand/collapse é persistido
+ *   em `sessionStorage` (preserva as pastas abertas ao navegar e voltar). Omitir
+ *   em usos efêmeros (ex: IngredientSelector) para manter o comportamento padrão.
  */
-export function useIngredientsHierarchy(filterText = "", includeDeleted = false) {
+export function useIngredientsHierarchy(filterText = "", includeDeleted = false, persistKey?: string) {
 	// Busca dados via service
 	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
 
@@ -16,16 +21,23 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false)
 	// Inicializa com todas as pastas de primeiro nível expandidas.
 	// Usa ref para garantir que a inicialização ocorra somente uma vez,
 	// mesmo que `tree` chegue de forma assíncrona (ex: IngredientSelector sem loader).
-	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+	const [expandedIds, setExpandedIds, expandMeta] = usePersistentState<Set<string>>(persistKey ? `${persistKey}:expanded` : null, new Set(), {
+		serialize: (s) => JSON.stringify([...s]),
+		deserialize: (raw) => new Set(JSON.parse(raw) as string[]),
+	})
 	const initializedRef = useRef(false)
 
 	useEffect(() => {
+		// Aguarda a hidratação do storage para saber se há um estado salvo.
+		if (!expandMeta.hydrated) return
 		if (tree && !initializedRef.current) {
 			initializedRef.current = true
+			// Havia estado salvo (inclui "tudo recolhido") → respeita, não reexpande.
+			if (expandMeta.hadStored) return
 			const rootFolders = (tree.folders ?? []).filter((f) => !f.parent_id).map((f) => f.id)
 			setExpandedIds(new Set(rootFolders))
 		}
-	}, [tree])
+	}, [tree, expandMeta.hydrated, expandMeta.hadStored, setExpandedIds])
 
 	// Funções de controle de expansão
 	const toggleExpand = (nodeId: string) => {
