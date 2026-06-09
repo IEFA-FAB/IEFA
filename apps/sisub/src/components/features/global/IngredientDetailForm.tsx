@@ -6,6 +6,16 @@ import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { PageHeader } from "@/components/layout/PageHeader"
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -71,6 +81,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	// Histórico de versões (estilo Google Docs)
 	const [historyOpen, setHistoryOpen] = useState(false)
 	const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
+	const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false)
 
 	// Load ceafa list reactively via query
 	const ceafaList = queryClient.getQueryData<Ceafa[]>(ceafaQueryOptions(ceafaSearch).queryKey) ?? []
@@ -155,10 +166,8 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 		})
 	}
 
-	const handleRestore = async () => {
+	const confirmRestore = async () => {
 		if (!selectedVersion) return
-		if (!window.confirm(`Restaurar o insumo para a versão v${selectedVersion.version_number}? O estado atual será substituído (e mantido no histórico).`))
-			return
 		try {
 			await restoreIngredientVersion({ ingredientId: ingredient.id, versionId: selectedVersion.id })
 			const snap = selectedVersion.snapshot.ingredient
@@ -171,8 +180,9 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 			})
 			setNutrientOverrides({})
 			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
-			setSelectedVersionId(null)
 			toast.success(`Insumo restaurado para a versão v${selectedVersion.version_number}`)
+			setRestoreConfirmOpen(false)
+			setSelectedVersionId(null)
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err)
 			toast.error(msg || "Erro ao restaurar versão")
@@ -274,7 +284,14 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 							<ArrowLeft className="size-4" />
 							Voltar ao atual
 						</Button>
-						<Button type="button" variant="outline" size="sm" onClick={handleRestore} disabled={isRestoring || selectedIndex === 0} className="gap-1.5">
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => setRestoreConfirmOpen(true)}
+							disabled={isRestoring || selectedIndex === 0}
+							className="gap-1.5"
+						>
 							{isRestoring ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
 							Restaurar esta versão
 						</Button>
@@ -508,6 +525,32 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					if (id) setHistoryOpen(false)
 				}}
 			/>
+
+			{/* Confirmação de restauração — dialog da aplicação (nunca window.confirm) */}
+			<AlertDialog open={restoreConfirmOpen} onOpenChange={(open) => !open && setRestoreConfirmOpen(false)}>
+				<AlertDialogContent size="sm">
+					<AlertDialogHeader>
+						<AlertDialogTitle>Restaurar versão</AlertDialogTitle>
+						<AlertDialogDescription>
+							{selectedVersion ? (
+								<>
+									Restaurar o insumo para a versão <strong>v{selectedVersion.version_number}</strong> de {formatVersionStamp(selectedVersion.created_at)}? O
+									estado atual será substituído — e mantido no histórico como uma nova versão.
+								</>
+							) : (
+								"Restaurar o insumo para a versão selecionada?"
+							)}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isRestoring}>Cancelar</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmRestore} disabled={isRestoring}>
+							{isRestoring ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RotateCcw className="size-4 mr-2" />}
+							Restaurar
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	)
 }
