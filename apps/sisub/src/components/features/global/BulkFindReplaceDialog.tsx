@@ -7,6 +7,8 @@ import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { type BulkSelectedNode, useBulkIngredientOps } from "@/hooks/business/useBulkIngredientOps"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import { buildSearchRegex } from "@/lib/text-search"
 import { useIngredientsTree } from "@/services/IngredientsService"
 
 interface BulkFindReplaceDialogProps {
@@ -21,18 +23,6 @@ interface ReplaceMatch {
 	count: number
 }
 
-/** Escapa o texto de busca (busca literal, não regex). */
-function buildRegex(find: string, caseSensitive: boolean, wholeWord: boolean): RegExp | null {
-	if (!find) return null
-	const esc = find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-	const pattern = wholeWord ? `\\b${esc}\\b` : esc
-	try {
-		return new RegExp(pattern, caseSensitive ? "g" : "gi")
-	} catch {
-		return null
-	}
-}
-
 const PREVIEW_LIMIT = 200
 
 export function BulkFindReplaceDialog({ isOpen, onClose }: BulkFindReplaceDialogProps) {
@@ -42,20 +32,22 @@ export function BulkFindReplaceDialog({ isOpen, onClose }: BulkFindReplaceDialog
 	const findId = useId()
 	const replaceId = useId()
 	const caseId = useId()
+	const accentId = useId()
 	const wordId = useId()
 	const foldersId = useId()
 	const ingredientsId = useId()
 
 	const [find, setFind] = useState("")
 	const [replace, setReplace] = useState("")
-	const [caseSensitive, setCaseSensitive] = useState(false)
+	const [caseSensitive, setCaseSensitive] = usePersistentState("sisub:ingredients:findReplace:caseSensitive", false)
+	const [accentSensitive, setAccentSensitive] = usePersistentState("sisub:ingredients:findReplace:accentSensitive", false)
 	const [wholeWord, setWholeWord] = useState(false)
 	const [includeFolders, setIncludeFolders] = useState(true)
 	const [includeIngredients, setIncludeIngredients] = useState(true)
 	const [applyingKey, setApplyingKey] = useState<string | null>(null)
 
 	const matches = useMemo<ReplaceMatch[]>(() => {
-		const re = buildRegex(find, caseSensitive, wholeWord)
+		const re = buildSearchRegex(find, { caseSensitive, accentSensitive }, wholeWord)
 		if (!re || !tree) return []
 
 		const out: ReplaceMatch[] = []
@@ -82,7 +74,7 @@ export function BulkFindReplaceDialog({ isOpen, onClose }: BulkFindReplaceDialog
 		}
 
 		return out
-	}, [find, replace, caseSensitive, wholeWord, includeFolders, includeIngredients, tree])
+	}, [find, replace, caseSensitive, accentSensitive, wholeWord, includeFolders, includeIngredients, tree])
 
 	const totalOccurrences = matches.reduce((sum, m) => sum + m.count, 0)
 
@@ -144,6 +136,10 @@ export function BulkFindReplaceDialog({ isOpen, onClose }: BulkFindReplaceDialog
 					<label htmlFor={caseId} className="flex items-center gap-2 cursor-pointer">
 						<Switch id={caseId} checked={caseSensitive} onCheckedChange={setCaseSensitive} size="sm" />
 						Diferenciar maiúsculas
+					</label>
+					<label htmlFor={accentId} className="flex items-center gap-2 cursor-pointer">
+						<Switch id={accentId} checked={accentSensitive} onCheckedChange={setAccentSensitive} size="sm" />
+						Diferenciar acentos
 					</label>
 					<label htmlFor={wordId} className="flex items-center gap-2 cursor-pointer">
 						<Switch id={wordId} checked={wholeWord} onCheckedChange={setWholeWord} size="sm" />

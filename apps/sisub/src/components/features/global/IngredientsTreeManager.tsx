@@ -54,6 +54,10 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		type: "folder",
 	})
 
+	// Sensibilidade da busca (persistida por aba). Default: insensível a ambos.
+	const [searchCaseSensitive, setSearchCaseSensitive] = usePersistentState("sisub:global-ingredients:search:caseSensitive", false)
+	const [searchAccentSensitive, setSearchAccentSensitive] = usePersistentState("sisub:global-ingredients:search:accentSensitive", false)
+
 	// Edição em massa
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
 	const [showDeleted, setShowDeleted] = usePersistentState("sisub:global-ingredients:showDeleted", false)
@@ -61,6 +65,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	const [selected, setSelected] = useState<Map<string, BulkSelectedNode>>(new Map())
 	const selectedNodes = useMemo(() => Array.from(selected.values()), [selected])
 	const showDeletedId = useId()
+	const searchCaseId = useId()
+	const searchAccentId = useId()
 
 	const handleSelectChange = (node: IngredientTreeNode, checked: boolean) => {
 		setSelected((prev) => {
@@ -85,7 +91,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	const { flatTree, stats, itemCountByIngredientId, lastReviewByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(
 		urlSearch,
 		showDeleted,
-		"sisub:global-ingredients"
+		"sisub:global-ingredients",
+		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive }
 	)
 
 	// Virtualização
@@ -163,10 +170,20 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 					/>
 				</div>
 
-				<label htmlFor={showDeletedId} className="flex items-center gap-2 text-sm cursor-pointer select-none">
-					<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
-					Mostrar excluídos
-				</label>
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+					<label htmlFor={searchCaseId} className="flex items-center gap-2 cursor-pointer select-none">
+						<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
+						Diferenciar maiúsculas
+					</label>
+					<label htmlFor={searchAccentId} className="flex items-center gap-2 cursor-pointer select-none">
+						<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
+						Diferenciar acentos
+					</label>
+					<label htmlFor={showDeletedId} className="flex items-center gap-2 cursor-pointer select-none">
+						<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
+						Mostrar excluídos
+					</label>
+				</div>
 
 				<div className="flex flex-wrap gap-2">
 					{selectionMode ? (

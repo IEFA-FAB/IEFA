@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import { normalizeForSearch, type SearchSensitivity } from "@/lib/text-search"
 import { useIngredientsTree } from "@/services/IngredientsService"
 import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingredients"
 
@@ -13,7 +14,13 @@ import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingr
  *   em `sessionStorage` (preserva as pastas abertas ao navegar e voltar). Omitir
  *   em usos efêmeros (ex: IngredientSelector) para manter o comportamento padrão.
  */
-export function useIngredientsHierarchy(filterText = "", includeDeleted = false, persistKey?: string) {
+export function useIngredientsHierarchy(
+	filterText = "",
+	includeDeleted = false,
+	persistKey?: string,
+	sensitivity: SearchSensitivity = { caseSensitive: false, accentSensitive: false }
+) {
+	const { caseSensitive, accentSensitive } = sensitivity
 	// Busca dados via service
 	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
 
@@ -92,7 +99,8 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false,
 		const folders = tree.folders ?? []
 		const ingredients = tree.ingredients ?? []
 
-		const filter = filterText.toLowerCase().trim()
+		const norm = (value: string) => normalizeForSearch(value, { caseSensitive, accentSensitive })
+		const filter = norm(filterText).trim()
 		const isFiltering = !!filter
 
 		// Lookup de pastas por ID para traversal de ancestrais
@@ -117,7 +125,7 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false,
 
 			ingredients.forEach((ingredient) => {
 				const description = ingredient.description || "Sem descrição"
-				if (description.toLowerCase().includes(filter)) {
+				if (norm(description).includes(filter)) {
 					includedIds.add(ingredient.id)
 					addWithAncestors(ingredient.folder_id)
 				}
@@ -125,7 +133,7 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false,
 
 			folders.forEach((folder) => {
 				const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
-				if (description.toLowerCase().includes(filter)) {
+				if (norm(description).includes(filter)) {
 					includedIds.add(folder.id)
 					addWithAncestors(folder.parent_id)
 				}
@@ -214,7 +222,7 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false,
 		traverse(null, 0)
 
 		return { nodes: visibleNodes, byId, byParentId }
-	}, [tree, filterText, expandedIds])
+	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive])
 
 	// Estatísticas
 	const stats = useMemo(() => {

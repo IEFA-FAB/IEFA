@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useBulkRecipeOps } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipes } from "@/hooks/data/useRecipes"
+import { usePersistentState } from "@/hooks/ui/usePersistentState"
+import { buildSearchRegex } from "@/lib/text-search"
 
 interface RecipesFindReplaceDialogProps {
 	isOpen: boolean
@@ -25,18 +27,6 @@ interface ReplaceMatch {
 	kitchenId: number | null
 }
 
-/** Escapa o texto de busca (busca literal, não regex). */
-function buildRegex(find: string, caseSensitive: boolean, wholeWord: boolean): RegExp | null {
-	if (!find) return null
-	const esc = find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-	const pattern = wholeWord ? `\\b${esc}\\b` : esc
-	try {
-		return new RegExp(pattern, caseSensitive ? "g" : "gi")
-	} catch {
-		return null
-	}
-}
-
 const PREVIEW_LIMIT = 200
 
 export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: RecipesFindReplaceDialogProps) {
@@ -47,20 +37,22 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 	const findId = useId()
 	const replaceId = useId()
 	const caseId = useId()
+	const accentId = useId()
 	const wordId = useId()
 	const globalId = useId()
 	const localId = useId()
 
 	const [find, setFind] = useState("")
 	const [replace, setReplace] = useState("")
-	const [caseSensitive, setCaseSensitive] = useState(false)
+	const [caseSensitive, setCaseSensitive] = usePersistentState("sisub:recipes:findReplace:caseSensitive", false)
+	const [accentSensitive, setAccentSensitive] = usePersistentState("sisub:recipes:findReplace:accentSensitive", false)
 	const [wholeWord, setWholeWord] = useState(false)
 	const [includeGlobal, setIncludeGlobal] = useState(true)
 	const [includeLocal, setIncludeLocal] = useState(true)
 	const [applyingId, setApplyingId] = useState<string | null>(null)
 
 	const matches = useMemo<ReplaceMatch[]>(() => {
-		const re = buildRegex(find, caseSensitive, wholeWord)
+		const re = buildSearchRegex(find, { caseSensitive, accentSensitive }, wholeWord)
 		if (!re) return []
 
 		const out: ReplaceMatch[] = []
@@ -77,7 +69,7 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 			out.push({ id: r.id, original, newName, count: occurrences, kitchenId: r.kitchen_id })
 		}
 		return out
-	}, [find, replace, caseSensitive, wholeWord, includeGlobal, includeLocal, recipes])
+	}, [find, replace, caseSensitive, accentSensitive, wholeWord, includeGlobal, includeLocal, recipes])
 
 	const totalOccurrences = matches.reduce((sum, m) => sum + m.count, 0)
 
@@ -138,6 +130,10 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 					<label htmlFor={caseId} className="flex items-center gap-2 cursor-pointer">
 						<Switch id={caseId} checked={caseSensitive} onCheckedChange={setCaseSensitive} size="sm" />
 						Diferenciar maiúsculas
+					</label>
+					<label htmlFor={accentId} className="flex items-center gap-2 cursor-pointer">
+						<Switch id={accentId} checked={accentSensitive} onCheckedChange={setAccentSensitive} size="sm" />
+						Diferenciar acentos
 					</label>
 					<label htmlFor={wordId} className="flex items-center gap-2 cursor-pointer">
 						<Switch id={wordId} checked={wholeWord} onCheckedChange={setWholeWord} size="sm" />

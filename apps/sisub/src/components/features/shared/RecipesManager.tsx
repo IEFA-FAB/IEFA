@@ -119,6 +119,10 @@ export function RecipesManager() {
 
 	const parentRef = useRef<HTMLDivElement>(null)
 
+	// Sensibilidade da busca (persistida por aba). Default: insensível a ambos.
+	const [searchCaseSensitive, setSearchCaseSensitive] = usePersistentState("sisub:recipes:search:caseSensitive", false)
+	const [searchAccentSensitive, setSearchAccentSensitive] = usePersistentState("sisub:recipes:search:accentSensitive", false)
+
 	// Seleção em massa
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [showDeleted, setShowDeleted] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:showDeleted`, false)
@@ -126,11 +130,15 @@ export function RecipesManager() {
 	const [selected, setSelected] = useState<Map<string, BulkSelectedRecipe>>(new Map())
 	const selectedRecipes = useMemo(() => Array.from(selected.values()), [selected])
 	const showDeletedId = useId()
+	const searchCaseId = useId()
+	const searchAccentId = useId()
 
 	const { data: filteredRecipes = [], isLoading } = useRecipes({
 		search: urlSearch || undefined,
 		origin: type,
 		includeDeleted: showDeleted,
+		caseSensitive: searchCaseSensitive,
+		accentSensitive: searchAccentSensitive,
 	})
 
 	const clearSelection = () => setSelected(new Map())
@@ -196,6 +204,16 @@ export function RecipesManager() {
 				<div className="relative flex-1 max-w-md">
 					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 					<Input placeholder="Buscar Preparação..." className="pl-10" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+				</div>
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+					<label htmlFor={searchCaseId} className="flex items-center gap-2 cursor-pointer select-none">
+						<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
+						Diferenciar maiúsculas
+					</label>
+					<label htmlFor={searchAccentId} className="flex items-center gap-2 cursor-pointer select-none">
+						<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
+						Diferenciar acentos
+					</label>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					{selectionMode ? (
