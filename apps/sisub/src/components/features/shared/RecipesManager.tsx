@@ -2,14 +2,16 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ChefHat, GitFork, Globe, Loader2, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { ChefHat, GitFork, Globe, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
@@ -200,22 +202,41 @@ export function RecipesManager() {
 	return (
 		<div className="space-y-6">
 			{/* Search & Filters */}
-			<Card className="flex-col sm:flex-row items-stretch sm:items-center gap-4 p-5 overflow-visible">
-				<div className="relative flex-1 max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-					<Input placeholder="Buscar Preparação..." className="pl-10" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+			<Card className="flex-col lg:flex-row lg:items-center gap-3 p-4 overflow-visible">
+				{/* Busca + opções de busca (esquerda, cresce até preencher) */}
+				<div className="flex items-center gap-2 flex-1 min-w-0">
+					<div className="relative flex-1 min-w-56">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+						<Input placeholder="Buscar Preparação..." className="pl-10" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+					</div>
+
+					<Popover>
+						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
+							<SlidersHorizontal className="size-4" />
+							<span className="hidden sm:inline">Opções</span>
+							{(searchCaseSensitive || searchAccentSensitive || showDeleted) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
+						</PopoverTrigger>
+						<PopoverContent align="start" className="w-64">
+							<div className="flex flex-col gap-3 text-sm">
+								<label htmlFor={searchCaseId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Diferenciar maiúsculas
+									<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
+								</label>
+								<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Diferenciar acentos
+									<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
+								</label>
+								<label htmlFor={showDeletedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Mostrar excluídas
+									<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
+								</label>
+							</div>
+						</PopoverContent>
+					</Popover>
 				</div>
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-					<label htmlFor={searchCaseId} className="flex items-center gap-2 cursor-pointer select-none">
-						<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
-						Diferenciar maiúsculas
-					</label>
-					<label htmlFor={searchAccentId} className="flex items-center gap-2 cursor-pointer select-none">
-						<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
-						Diferenciar acentos
-					</label>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
+
+				{/* Filtro de origem + ações (direita) */}
+				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
 					{selectionMode ? (
 						<>
 							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todas as visíveis">
@@ -228,20 +249,17 @@ export function RecipesManager() {
 						</>
 					) : (
 						<>
-							<Button variant={type === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
-								Todas
-							</Button>
-							<Button variant={type === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
-								Globais (SDAB)
-							</Button>
-							<Button variant={type === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
-								Locais
-							</Button>
-
-							<label htmlFor={showDeletedId} className="flex items-center gap-2 text-sm cursor-pointer select-none ml-2">
-								<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
-								Mostrar excluídas
-							</label>
+							<ButtonGroup>
+								<Button variant={type === "all" ? "secondary" : "ghost"} onClick={() => setOrigin("all")} size="sm">
+									Todas
+								</Button>
+								<Button variant={type === "global" ? "secondary" : "ghost"} onClick={() => setOrigin("global")} size="sm">
+									Globais (SDAB)
+								</Button>
+								<Button variant={type === "local" ? "secondary" : "ghost"} onClick={() => setOrigin("local")} size="sm">
+									Locais
+								</Button>
+							</ButtonGroup>
 
 							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
 								<Replace className="size-4 mr-2" />
