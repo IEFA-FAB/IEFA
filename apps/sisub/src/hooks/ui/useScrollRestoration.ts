@@ -47,6 +47,7 @@ export function usePersistScrollOffset(
 	/** `true` quando o container já está montado (dados carregados). Reanexa o listener ao montar. */
 	ready: boolean
 ): void {
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `ready` é sinal de re-trigger — ao virar true o container monta e o listener precisa reanexar
 	useEffect(() => {
 		if (key == null) return
 		const el = ref.current

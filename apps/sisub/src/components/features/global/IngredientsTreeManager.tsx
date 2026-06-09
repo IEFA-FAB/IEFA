@@ -113,6 +113,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	}
 
 	// Expõe a ação "criar insumo" para o PageHeader da rota (botão primário no topo)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: handleOpenDialog só envolve setDialogState (estável); handle deve ser criado uma vez
 	useImperativeHandle(ref, () => ({ openCreateIngredient: () => handleOpenDialog("ingredient", "create") }), [])
 
 	const selectAllVisible = () => {
