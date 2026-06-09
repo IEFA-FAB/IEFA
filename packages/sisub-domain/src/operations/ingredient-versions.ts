@@ -260,11 +260,13 @@ export async function restoreIngredientVersion(
 		.is("deleted_at", null)
 	if (nutDelErr) throw new DomainError("UPDATE_FAILED", nutDelErr.message)
 
-	const nutInsert = snap.nutrients
+	// Upsert (não insert): product_nutrient_unique (ingredient_id, nutrient_id) ignora deleted_at,
+	// então as linhas recém soft-deletadas ainda ocupam o slot. Atualizamos no conflito (deleted_at = null).
+	const nutUpsert = snap.nutrients
 		.filter((n) => n.value != null && !Number.isNaN(n.value))
-		.map((n) => ({ ingredient_id: input.ingredientId, nutrient_id: n.nutrient_id, nutrient_value: n.value }))
-	if (nutInsert.length > 0) {
-		const { error: nutInsErr } = await client.from("ingredient_nutrient").insert(nutInsert)
+		.map((n) => ({ ingredient_id: input.ingredientId, nutrient_id: n.nutrient_id, nutrient_value: n.value, deleted_at: null }))
+	if (nutUpsert.length > 0) {
+		const { error: nutInsErr } = await client.from("ingredient_nutrient").upsert(nutUpsert, { onConflict: "ingredient_id,nutrient_id" })
 		if (nutInsErr) throw new DomainError("INSERT_FAILED", nutInsErr.message)
 	}
 

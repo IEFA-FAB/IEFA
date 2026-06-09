@@ -205,6 +205,7 @@ export async function listIngredientNutrients(client: AnyClient, ctx: UserContex
 export async function setIngredientNutrients(client: AnyClient, ctx: UserContext, input: SetIngredientNutrients) {
 	requirePermission(ctx, "kitchen", 1)
 
+	// Soft-delete os nutrientes atuais. O upsert abaixo revive (deleted_at = null) os que voltam.
 	const { error: delError } = await client
 		.from("ingredient_nutrient")
 		.update({ deleted_at: new Date().toISOString() })
@@ -212,13 +213,16 @@ export async function setIngredientNutrients(client: AnyClient, ctx: UserContext
 		.is("deleted_at", null)
 	if (delError) throw new DomainError("UPDATE_FAILED", delError.message)
 
-	const toInsert = input.nutrients
+	// Upsert (não insert): o índice único product_nutrient_unique (ingredient_id, nutrient_id) NÃO
+	// considera deleted_at, então uma linha soft-deletada ainda ocupa o slot. Reinserir o mesmo par
+	// violaria o unique — por isso atualizamos a linha existente no conflito, restaurando deleted_at = null.
+	const toUpsert = input.nutrients
 		.filter((n) => n.nutrientValue != null)
-		.map((n) => ({ ingredient_id: input.ingredientId, nutrient_id: n.nutrientId, nutrient_value: n.nutrientValue }))
+		.map((n) => ({ ingredient_id: input.ingredientId, nutrient_id: n.nutrientId, nutrient_value: n.nutrientValue, deleted_at: null }))
 
-	if (toInsert.length > 0) {
-		const { error: insError } = await client.from("ingredient_nutrient").insert(toInsert)
-		if (insError) throw new DomainError("INSERT_FAILED", insError.message)
+	if (toUpsert.length > 0) {
+		const { error: upError } = await client.from("ingredient_nutrient").upsert(toUpsert, { onConflict: "ingredient_id,nutrient_id" })
+		if (upError) throw new DomainError("INSERT_FAILED", upError.message)
 	}
 }
 
