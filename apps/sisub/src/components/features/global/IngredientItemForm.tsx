@@ -109,7 +109,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 										placeholder="Ex: Arroz Marca X Saco 5kg"
 										aria-invalid={!!field.state.meta.errors.length}
 									/>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 								</Field>
 							)}
 						</form.Field>
@@ -136,7 +136,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 												))}
 											</SelectContent>
 										</Select>
-										<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+										<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 									</Field>
 								)}
 							</form.Field>

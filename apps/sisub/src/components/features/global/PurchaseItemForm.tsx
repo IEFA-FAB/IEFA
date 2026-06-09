@@ -136,7 +136,7 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 										placeholder="Ex: Arroz tipo 1, polido, longo fino"
 										aria-invalid={!!field.state.meta.errors.length}
 									/>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 								</Field>
 							)}
 						</form.Field>

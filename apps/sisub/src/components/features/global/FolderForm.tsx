@@ -90,7 +90,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 										placeholder="Ex: CARNES, LATICÍNIOS, HORTIFRUTI"
 										aria-invalid={!!field.state.meta.errors.length}
 									/>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 								</Field>
 							)}
 						</form.Field>
@@ -119,7 +119,7 @@ export function FolderForm({ isOpen, onClose, mode, folder }: FolderFormProps) {
 												))}
 										</SelectContent>
 									</Select>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 								</Field>
 							)}
 						</form.Field>

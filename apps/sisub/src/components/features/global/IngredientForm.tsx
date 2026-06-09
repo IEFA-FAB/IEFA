@@ -102,7 +102,7 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 										placeholder="Ex: Arroz Branco, Feijão Carioca"
 										aria-invalid={!!field.state.meta.errors.length}
 									/>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 								</Field>
 							)}
 						</form.Field>
@@ -126,7 +126,7 @@ export function IngredientForm({ isOpen, onClose, mode, ingredient, defaultFolde
 											))}
 										</SelectContent>
 									</Select>
-									<FieldError errors={field.state.meta.errors.map((e) => ({ message: String(e) }))} />
+									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 								</Field>
 							)}
 						</form.Field>

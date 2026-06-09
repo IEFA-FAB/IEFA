@@ -62,6 +62,7 @@ export function AppSidebar({
 					{
 						title: activeModule.name,
 						icon: activeModule.icon,
+						color: activeModule.color,
 						isActive: true,
 						items: activeModule.items,
 					},

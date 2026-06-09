@@ -145,8 +145,12 @@ export function PurchaseItemsManager({ ingredientId, onChanged }: PurchaseItemsM
 				</ItemGroup>
 			)}
 
-			{/* Dialog de criação/edição */}
+			{/* Dialog de criação/edição
+			    key por item força remount → reinicializa o estado `catmat` (useState fora do form,
+			    que não tem reset reativo de defaultValues como o useForm). Sem isso o CATMAT vaza
+			    entre edições e pode apagar/sobrescrever o catmat do item ao salvar. */}
 			<PurchaseItemForm
+				key={dialogState.mode === "edit" ? dialogState.item?.id : "create"}
 				isOpen={dialogState.isOpen}
 				onClose={closeDialog}
 				mode={dialogState.mode}

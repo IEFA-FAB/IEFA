@@ -138,7 +138,7 @@ function ProfilePage() {
 												inputMode="numeric"
 												pattern="[0-9]*"
 											/>
-											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: String(e) }))} />
+											<FieldError errors={field.state.meta.errors?.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
 											<FieldDescription>Vincula sua conta ao cadastro militar automaticamente.</FieldDescription>
 										</Field>
 									)}
