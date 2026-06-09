@@ -10,6 +10,11 @@ function mapIngredients(ingredients: RecipeFormIngredient[] | undefined) {
 		netQuantity: ing.net_quantity,
 		isOptional: ing.is_optional,
 		priorityOrder: ing.priority_order,
+		alternatives: ing.alternatives?.map((alt) => ({
+			ingredientId: alt.ingredient_id,
+			netQuantity: alt.net_quantity,
+			priorityOrder: alt.priority_order,
+		})),
 	}))
 }
 

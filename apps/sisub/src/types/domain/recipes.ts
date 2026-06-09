@@ -17,11 +17,18 @@ export interface RecipeIngredientAlternativeWithIngredient extends RecipeIngredi
 	ingredient: Ingredient | null
 }
 
+export interface RecipeFormIngredientAlternative {
+	ingredient_id: string
+	net_quantity: number
+	priority_order: number
+}
+
 export interface RecipeFormIngredient {
 	ingredient_id: string
 	net_quantity: number
 	is_optional: boolean
 	priority_order: number
+	alternatives?: RecipeFormIngredientAlternative[]
 }
 
 // Form Data (Input)

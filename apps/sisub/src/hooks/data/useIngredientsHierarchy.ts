@@ -5,6 +5,20 @@ import { useIngredientsTree } from "@/services/IngredientsService"
 import type { FlatIngredientTree, IngredientTreeNode } from "@/types/domain/ingredients"
 
 /**
+ * Categorias de "busca rápida": grandes grupos de pastas que podem ser ocultados
+ * para limpar a árvore. Identificadas pela descrição da pasta raiz do grupo
+ * (a base não possui flag — o agrupamento é por pasta). Ocultar uma categoria
+ * remove a pasta raiz e toda a sua subárvore (subpastas + insumos).
+ */
+export const QUICK_FILTER_CATEGORIES = [
+	{ key: "preparacoes", label: "Preparações", match: (d: string) => /^prepara[çc][õo]es/i.test(d) },
+	{ key: "pratos-prontos", label: "Pratos Prontos", match: (d: string) => /^pratos?\s+prontos?/i.test(d) },
+	{ key: "lanches-prontos", label: "Lanches Prontos", match: (d: string) => /^lanches?\s+prontos?/i.test(d) },
+] as const
+
+export type QuickFilterKey = (typeof QUICK_FILTER_CATEGORIES)[number]["key"]
+
+/**
  * Hook avançado que orquestra os dados de ingredientes
  * Gerencia estado de filtro, árvore hierárquica e virtualização
  *
@@ -18,9 +32,12 @@ export function useIngredientsHierarchy(
 	filterText = "",
 	includeDeleted = false,
 	persistKey?: string,
-	sensitivity: SearchSensitivity = { caseSensitive: false, accentSensitive: false }
+	sensitivity: SearchSensitivity = { caseSensitive: false, accentSensitive: false },
+	hiddenCategoryKeys: readonly string[] = []
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
+	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
+	const hiddenKey = useMemo(() => [...hiddenCategoryKeys].sort().join(","), [hiddenCategoryKeys])
 	// Busca dados via service
 	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
 
@@ -109,6 +126,26 @@ export function useIngredientsHierarchy(
 			folderById[f.id] = f
 		})
 
+		// Categorias ocultas (busca rápida): coleta a pasta raiz que casa a descrição
+		// e toda a sua subárvore. Nós dentro desse conjunto são removidos da árvore.
+		const excludedFolderIds = new Set<string>()
+		if (hiddenKey) {
+			const matchers = QUICK_FILTER_CATEGORIES.filter((c) => hiddenKey.split(",").includes(c.key))
+			const childFolderIdsByParent: Record<string, string[]> = {}
+			folders.forEach((f) => {
+				;(childFolderIdsByParent[f.parent_id || "root"] ??= []).push(f.id)
+			})
+			const stack = folders.filter((f) => matchers.some((m) => m.match(f.description || ""))).map((f) => f.id)
+			while (stack.length > 0) {
+				const id = stack.pop()
+				if (!id || excludedFolderIds.has(id)) continue
+				excludedFolderIds.add(id)
+				for (const childId of childFolderIdsByParent[id] ?? []) stack.push(childId)
+			}
+		}
+		const isFolderExcluded = (id: string) => excludedFolderIds.has(id)
+		const isIngredientExcluded = (folderId: string | null) => !!folderId && excludedFolderIds.has(folderId)
+
 		// Ao filtrar: pré-computar quais IDs devem aparecer
 		// Regra: nó que bate + todos os seus ancestrais
 		const includedIds = new Set<string>()
@@ -154,6 +191,7 @@ export function useIngredientsHierarchy(
 			}
 
 			ingredients.forEach((ingredient) => {
+				if (isIngredientExcluded(ingredient.folder_id)) return
 				const description = ingredient.description || "Sem descrição"
 				if (norm(description).includes(filter)) {
 					includedIds.add(ingredient.id)
@@ -162,6 +200,7 @@ export function useIngredientsHierarchy(
 			})
 
 			folders.forEach((folder) => {
+				if (isFolderExcluded(folder.id)) return
 				const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
 				if (norm(description).includes(filter)) {
 					includedIds.add(folder.id)
@@ -176,6 +215,7 @@ export function useIngredientsHierarchy(
 
 		// 1. Criar todos os nós
 		folders.forEach((folder) => {
+			if (isFolderExcluded(folder.id)) return
 			if (isFiltering && !includedIds.has(folder.id)) return
 
 			const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
@@ -201,6 +241,7 @@ export function useIngredientsHierarchy(
 		})
 
 		ingredients.forEach((ingredient) => {
+			if (isIngredientExcluded(ingredient.folder_id)) return
 			if (isFiltering && !includedIds.has(ingredient.id)) return
 
 			const description = ingredient.description || "Sem descrição"
@@ -253,7 +294,7 @@ export function useIngredientsHierarchy(
 		traverse(null, 0)
 
 		return { nodes: visibleNodes, byId, byParentId }
-	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive])
+	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey])
 
 	// Estatísticas
 	const stats = useMemo(() => {

@@ -8,8 +8,9 @@ import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
-import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
+import { QUICK_FILTER_CATEGORIES, useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import type { Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
@@ -27,6 +28,20 @@ import { IngredientsTreeNode } from "./IngredientsTreeNode"
 export type IngredientsTreeManagerHandle = { openCreateIngredient: () => void; openCreateFolder: () => void }
 
 const INGREDIENTS_SCROLL_KEY = "sisub:global-ingredients:scroll"
+
+/**
+ * Chips de busca rápida (toggle group, multi-seleção). Modelo "marcado = visível":
+ * um chip marcado significa que aquela categoria aparece na árvore.
+ * - Categorias (Preparações, Pratos/Lanches Prontos): marcadas por padrão; desmarcar oculta a subárvore.
+ * - "Excluídos": desmarcado por padrão; marcar mostra os insumos soft-deleted.
+ */
+const QUICK_FILTER_CHIPS: { key: string; label: string }[] = [
+	...QUICK_FILTER_CATEGORIES.map((c) => ({ key: c.key, label: c.label })),
+	{ key: "excluidos", label: "Excluídos" },
+]
+const QUICK_CATEGORY_KEYS = QUICK_FILTER_CATEGORIES.map((c) => c.key)
+// Categorias visíveis por padrão; "excluidos" começa fora (deleted ocultos).
+const DEFAULT_QUICK_FILTERS: string[] = [...QUICK_CATEGORY_KEYS]
 
 export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
 	"use no memo"
@@ -62,11 +77,14 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 	// Edição em massa
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
-	const [showDeleted, setShowDeleted] = usePersistentState("sisub:global-ingredients:showDeleted", false)
+	// Busca rápida (toggle group multi-seleção). Persistida por aba.
+	const [quickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
+	const showDeleted = quickFilters.includes("excluidos")
+	// Categorias desmarcadas → ocultar suas subárvores na hierarquia.
+	const hiddenCategoryKeys = useMemo(() => QUICK_CATEGORY_KEYS.filter((k) => !quickFilters.includes(k)), [quickFilters])
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedNode>>(new Map())
 	const selectedNodes = useMemo(() => Array.from(selected.values()), [selected])
-	const showDeletedId = useId()
 	const searchCaseId = useId()
 	const searchAccentId = useId()
 
@@ -94,7 +112,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		urlSearch,
 		showDeleted,
 		"sisub:global-ingredients",
-		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive }
+		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
+		hiddenCategoryKeys
 	)
 
 	// Virtualização
@@ -166,81 +185,99 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	return (
 		<div className="space-y-6">
 			{/* Toolbar */}
-			<Card className="flex-col lg:flex-row lg:items-center gap-3 p-4 overflow-visible">
-				{/* Busca + opções de busca (esquerda, cresce até preencher) */}
-				<div className="flex items-center gap-2 flex-1 min-w-0">
-					<div className="relative flex-1 min-w-56">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-						<Input
-							type="search"
-							placeholder="Buscar pastas ou insumos..."
-							value={inputValue}
-							onChange={(e) => setInputValue(e.target.value)}
-							className="pl-10"
-							aria-label="Buscar na árvore de insumos"
-						/>
+			<Card className="gap-3 p-4 overflow-visible">
+				<div className="flex flex-col lg:flex-row lg:items-center gap-3">
+					{/* Busca + opções de busca (esquerda, cresce até preencher) */}
+					<div className="flex items-center gap-2 flex-1 min-w-0">
+						<div className="relative flex-1 min-w-56">
+							<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+							<Input
+								type="search"
+								placeholder="Buscar pastas ou insumos..."
+								value={inputValue}
+								onChange={(e) => setInputValue(e.target.value)}
+								className="pl-10"
+								aria-label="Buscar na árvore de insumos"
+							/>
+						</div>
+
+						<Popover>
+							<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
+								<SlidersHorizontal className="size-4" />
+								<span className="hidden sm:inline">Opções</span>
+								{(searchCaseSensitive || searchAccentSensitive) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
+							</PopoverTrigger>
+							<PopoverContent align="start" className="w-64">
+								<div className="flex flex-col gap-3 text-sm">
+									<label htmlFor={searchCaseId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+										Diferenciar maiúsculas
+										<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
+									</label>
+									<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+										Diferenciar acentos
+										<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
+									</label>
+								</div>
+							</PopoverContent>
+						</Popover>
 					</div>
 
-					<Popover>
-						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
-							<SlidersHorizontal className="size-4" />
-							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive || showDeleted) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
-						</PopoverTrigger>
-						<PopoverContent align="start" className="w-64">
-							<div className="flex flex-col gap-3 text-sm">
-								<label htmlFor={searchCaseId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Diferenciar maiúsculas
-									<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
-								</label>
-								<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Diferenciar acentos
-									<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
-								</label>
-								<label htmlFor={showDeletedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
-									Mostrar excluídos
-									<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
-								</label>
-							</div>
-						</PopoverContent>
-					</Popover>
+					{/* Ações (direita) */}
+					<div className="flex flex-wrap items-center gap-2 lg:justify-end">
+						{selectionMode ? (
+							<>
+								<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
+									Selecionar Visíveis
+								</Button>
+								<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
+									<X className="size-4 mr-2" />
+									Concluir Seleção
+								</Button>
+							</>
+						) : (
+							<>
+								<ButtonGroup>
+									<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
+										Expandir Tudo
+									</Button>
+									<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
+										Recolher Tudo
+									</Button>
+								</ButtonGroup>
+
+								<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
+									<Replace className="size-4 mr-2" />
+									<span className="hidden sm:inline">Localizar e Substituir</span>
+									<span className="sm:hidden">Substituir</span>
+								</Button>
+								<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
+									<SquareCheckBig className="size-4 mr-2" />
+									<span className="hidden sm:inline">Selecionar Itens</span>
+									<span className="sm:hidden">Selecionar</span>
+								</Button>
+							</>
+						)}
+					</div>
 				</div>
 
-				{/* Ações (direita) */}
-				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
-					{selectionMode ? (
-						<>
-							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
-								Selecionar Visíveis
-							</Button>
-							<Button variant="outline" size="sm" onClick={exitSelectionMode} aria-label="Sair do modo de seleção">
-								<X className="size-4 mr-2" />
-								Concluir Seleção
-							</Button>
-						</>
-					) : (
-						<>
-							<ButtonGroup>
-								<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
-									Expandir Tudo
-								</Button>
-								<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
-									Recolher Tudo
-								</Button>
-							</ButtonGroup>
-
-							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
-								<Replace className="size-4 mr-2" />
-								<span className="hidden sm:inline">Localizar e Substituir</span>
-								<span className="sm:hidden">Substituir</span>
-							</Button>
-							<Button variant="outline" size="sm" onClick={() => setSelectionMode(true)} aria-label="Selecionar itens">
-								<SquareCheckBig className="size-4 mr-2" />
-								<span className="hidden sm:inline">Selecionar Itens</span>
-								<span className="sm:hidden">Selecionar</span>
-							</Button>
-						</>
-					)}
+				{/* Busca rápida — chips (toggle group). Marcado = categoria visível na árvore. */}
+				<div className="flex items-center gap-2 flex-wrap border-t border-border/60 pt-3">
+					<span className="text-xs font-medium text-muted-foreground select-none mr-1">Mostrar</span>
+					<ToggleGroup
+						value={quickFilters}
+						onValueChange={(value) => setQuickFilters(value)}
+						multiple
+						variant="outline"
+						size="sm"
+						spacing={1}
+						aria-label="Filtros rápidos de busca"
+					>
+						{QUICK_FILTER_CHIPS.map((chip) => (
+							<ToggleGroupItem key={chip.key} value={chip.key} aria-label={chip.label}>
+								{chip.label}
+							</ToggleGroupItem>
+						))}
+					</ToggleGroup>
 				</div>
 			</Card>
 

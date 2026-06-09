@@ -31,11 +31,20 @@ export type RestoreRecipe = z.infer<typeof RestoreRecipeSchema>
 export const RenameRecipeSchema = z.object({ id: UuidSchema, name: z.string().min(1).max(200) })
 export type RenameRecipe = z.infer<typeof RenameRecipeSchema>
 
+export const IngredientAlternativeSchema = z.object({
+	ingredientId: UuidSchema,
+	netQuantity: z.number().positive(),
+	priorityOrder: z.number().int().nonnegative(),
+})
+export type IngredientAlternative = z.infer<typeof IngredientAlternativeSchema>
+
 export const IngredientSchema = z.object({
 	ingredientId: UuidSchema,
 	netQuantity: z.number().positive(),
 	isOptional: z.boolean(),
 	priorityOrder: z.number().int().nonnegative(),
+	/** Insumos que podem substituir este na preparação (recipe_ingredient_alternatives). */
+	alternatives: z.array(IngredientAlternativeSchema).optional(),
 })
 export type Ingredient = z.infer<typeof IngredientSchema>
 

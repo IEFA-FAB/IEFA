@@ -117,8 +117,23 @@ async function insertIngredients(client: AnyClient, recipeId: string, ingredient
 		is_optional: ing.isOptional,
 		priority_order: ing.priorityOrder,
 	}))
-	const { error } = await client.from("recipe_ingredients").insert(rows)
-	if (error) throw new DomainError("INSERT_INGREDIENTS_FAILED", error.message)
+	// .select() devolve as linhas na ordem de inserção (INSERT ... RETURNING multi-row),
+	// permitindo ligar cada alternativa ao recipe_ingredient recém-criado.
+	const { data: inserted, error } = await client.from("recipe_ingredients").insert(rows).select("id")
+	if (error || !inserted) throw new DomainError("INSERT_INGREDIENTS_FAILED", error?.message ?? "no rows returned")
+
+	const altRows = inserted.flatMap((row: { id: string }, i: number) =>
+		(ingredients[i].alternatives ?? []).map((alt) => ({
+			recipe_ingredient_id: row.id,
+			ingredient_id: alt.ingredientId,
+			net_quantity: alt.netQuantity,
+			priority_order: alt.priorityOrder,
+		}))
+	)
+	if (altRows.length) {
+		const { error: altError } = await client.from("recipe_ingredient_alternatives").insert(altRows)
+		if (altError) throw new DomainError("INSERT_ALTERNATIVES_FAILED", altError.message)
+	}
 }
 
 export async function createRecipe(client: AnyClient, ctx: UserContext, input: CreateRecipe) {
