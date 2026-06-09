@@ -57,6 +57,7 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 	const [wholeWord, setWholeWord] = useState(false)
 	const [includeGlobal, setIncludeGlobal] = useState(true)
 	const [includeLocal, setIncludeLocal] = useState(true)
+	const [applyingId, setApplyingId] = useState<string | null>(null)
 
 	const matches = useMemo<ReplaceMatch[]>(() => {
 		const re = buildRegex(find, caseSensitive, wholeWord)
@@ -88,7 +89,20 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 		} else {
 			toast.success(`${result.done} ${result.done === 1 ? "preparação atualizada" : "preparações atualizadas"}`)
 		}
-		handleClose()
+	}
+
+	const handleApplyOne = async (m: ReplaceMatch) => {
+		setApplyingId(m.id)
+		try {
+			const result = await replaceNames([{ id: m.id, newName: m.newName }])
+			if (result.failed > 0) {
+				toast.warning("Falha ao substituir")
+			} else {
+				toast.success("Preparação atualizada")
+			}
+		} finally {
+			setApplyingId(null)
+		}
 	}
 
 	const handleClose = () => {
@@ -155,10 +169,16 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 					</div>
 					<div className="max-h-72 overflow-auto divide-y divide-border/50">
 						{matches.slice(0, PREVIEW_LIMIT).map((m) => (
-							<div key={m.id} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
-								<span className="text-[10px] uppercase tracking-wide text-muted-foreground">{m.kitchenId == null ? "Global" : "Local"}</span>
-								<span className="text-muted-foreground line-through">{m.original}</span>
-								<span className="text-foreground">{m.newName}</span>
+							<div key={m.id} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
+								<div className="flex min-w-0 flex-col gap-0.5">
+									<span className="text-[10px] uppercase tracking-wide text-muted-foreground">{m.kitchenId == null ? "Global" : "Local"}</span>
+									<span className="text-muted-foreground line-through">{m.original}</span>
+									<span className="text-foreground">{m.newName}</span>
+								</div>
+								<Button type="button" variant="ghost" size="sm" className="shrink-0 gap-1.5" disabled={isRunning} onClick={() => handleApplyOne(m)}>
+									{applyingId === m.id ? <Loader2 className="size-3.5 animate-spin" /> : <Replace className="size-3.5" />}
+									Substituir
+								</Button>
 							</div>
 						))}
 						{matches.length > PREVIEW_LIMIT && (
@@ -169,11 +189,11 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 
 				<DialogFooter>
 					<Button type="button" variant="outline" onClick={handleClose} disabled={isRunning}>
-						Cancelar
+						Fechar
 					</Button>
 					<Button type="button" onClick={handleApply} disabled={isRunning || matches.length === 0} className="gap-2">
 						{isRunning && <Loader2 className="size-4 animate-spin" />}
-						Substituir {matches.length > 0 ? `(${matches.length})` : ""}
+						Substituir todos {matches.length > 0 ? `(${matches.length})` : ""}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
