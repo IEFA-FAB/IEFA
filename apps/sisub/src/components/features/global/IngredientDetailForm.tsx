@@ -77,6 +77,25 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 
 	const [ceafaOpen, setCeafaOpen] = useState(false)
 	const [ceafaSearch, setCeafaSearch] = useState("")
+	const [folderOpen, setFolderOpen] = useState(false)
+
+	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — usado para
+	// exibir a estrutura e permitir busca por qualquer parte do caminho no combobox.
+	const folderOptions = useMemo(() => {
+		const byId = new Map(folders.map((f) => [f.id, f]))
+		const pathOf = (f: Folder): string => {
+			const parts: string[] = []
+			let cur: Folder | undefined = f
+			const seen = new Set<string>()
+			while (cur && !seen.has(cur.id)) {
+				seen.add(cur.id)
+				parts.unshift(cur.description ?? "Sem Nome")
+				cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+			}
+			return parts.join(" / ")
+		}
+		return folders.map((f) => ({ id: f.id, name: f.description ?? "Sem Nome", path: pathOf(f) })).sort((a, b) => a.path.localeCompare(b.path, "pt-BR"))
+	}, [folders])
 
 	// Histórico de versões (estilo Google Docs)
 	const [historyOpen, setHistoryOpen] = useState(false)
@@ -350,33 +369,65 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 										</form.Field>
 
 										<form.Field name="folder_id">
-											{(field) => (
-												<Field>
-													<FieldLabel>Pasta (Categoria)</FieldLabel>
-													<FieldContent>
-														<Select
-															value={field.state.value ?? "__NONE__"}
-															onValueChange={(v) => field.handleChange(v === "__NONE__" || v == null ? (null as unknown as string) : v)}
-														>
-															<SelectTrigger>
-																<SelectValue placeholder="Selecione uma pasta">
-																	{field.state.value && field.state.value !== "__NONE__"
-																		? (folders.find((f) => f.id === field.state.value)?.description ?? "Sem Nome")
-																		: undefined}
-																</SelectValue>
-															</SelectTrigger>
-															<SelectContent>
-																<SelectItem value="__NONE__">Sem pasta</SelectItem>
-																{folders.map((f) => (
-																	<SelectItem key={f.id} value={f.id}>
-																		{f.description ?? "Sem Nome"}
-																	</SelectItem>
-																))}
-															</SelectContent>
-														</Select>
-													</FieldContent>
-												</Field>
-											)}
+											{(field) => {
+												const selected = field.state.value ? folderOptions.find((f) => f.id === field.state.value) : null
+												return (
+													<Field>
+														<FieldLabel>Pasta (Categoria)</FieldLabel>
+														<FieldContent>
+															<Popover open={folderOpen} onOpenChange={setFolderOpen}>
+																<PopoverTrigger
+																	type="button"
+																	role="combobox"
+																	aria-expanded={folderOpen}
+																	aria-controls="folder-combobox-popup"
+																	className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between font-normal")}
+																>
+																	<span className="truncate">{selected ? selected.path : "Selecione uma pasta..."}</span>
+																	<ChevronsUpDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
+																</PopoverTrigger>
+																<PopoverContent id="folder-combobox-popup" className="w-[400px] p-0" align="start">
+																	<Command>
+																		<CommandInput placeholder="Pesquisar pasta..." />
+																		<CommandList>
+																			<CommandEmpty>Nenhuma pasta encontrada.</CommandEmpty>
+																			<CommandGroup>
+																				<CommandItem
+																					value="__NONE__ sem pasta"
+																					onSelect={() => {
+																						field.handleChange(null as unknown as string)
+																						setFolderOpen(false)
+																					}}
+																				>
+																					<Check className={cn("mr-2 size-4", field.state.value ? "opacity-0" : "opacity-100")} />
+																					<span className="text-muted-foreground italic">Sem pasta</span>
+																				</CommandItem>
+																				{folderOptions.map((f) => {
+																					const isSelected = field.state.value === f.id
+																					return (
+																						<CommandItem
+																							key={f.id}
+																							value={`${f.path} ${f.id}`}
+																							onSelect={() => {
+																								field.handleChange(f.id)
+																								setFolderOpen(false)
+																							}}
+																							className={cn(isSelected && "font-medium text-accent-foreground")}
+																						>
+																							<Check className={cn("mr-2 size-4 shrink-0 text-accent-foreground", isSelected ? "opacity-100" : "opacity-0")} />
+																							<span className="truncate">{f.path}</span>
+																						</CommandItem>
+																					)
+																				})}
+																			</CommandGroup>
+																		</CommandList>
+																	</Command>
+																</PopoverContent>
+															</Popover>
+														</FieldContent>
+													</Field>
+												)
+											}}
 										</form.Field>
 									</div>
 
@@ -465,8 +516,11 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 																					field.handleChange(ceafa.id)
 																					setCeafaOpen(false)
 																				}}
+																				className={cn(field.state.value === ceafa.id && "font-medium text-accent-foreground")}
 																			>
-																				<Check className={cn("mr-2 size-4", field.state.value === ceafa.id ? "opacity-100" : "opacity-0")} />
+																				<Check
+																					className={cn("mr-2 size-4 text-accent-foreground", field.state.value === ceafa.id ? "opacity-100" : "opacity-0")}
+																				/>
 																				<span className="truncate">{ceafa.description}</span>
 																				<span className="ml-auto text-xs text-muted-foreground shrink-0">{ceafa.quantity}g</span>
 																			</CommandItem>
