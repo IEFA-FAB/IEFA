@@ -84,6 +84,30 @@ export const SetIngredientNutrientsSchema = z.object({
 })
 export type SetIngredientNutrients = z.infer<typeof SetIngredientNutrientsSchema>
 
+// ── Versionamento (histórico de alterações do insumo) ────────────────────────
+
+/** Identidade do autor da alteração, resolvida na camada server (auth). */
+export const VersionActorSchema = z.object({
+	id: UuidSchema.nullable().optional(),
+	name: z.string().nullable().optional(),
+})
+export type VersionActor = z.infer<typeof VersionActorSchema>
+
+export const RecordIngredientVersionSchema = z.object({
+	ingredientId: UuidSchema,
+	changeSummary: z.string().nullable().optional(),
+})
+export type RecordIngredientVersion = z.infer<typeof RecordIngredientVersionSchema>
+
+export const ListIngredientVersionsSchema = z.object({ ingredientId: UuidSchema })
+export type ListIngredientVersions = z.infer<typeof ListIngredientVersionsSchema>
+
+export const RestoreIngredientVersionSchema = z.object({
+	ingredientId: UuidSchema,
+	versionId: UuidSchema,
+})
+export type RestoreIngredientVersion = z.infer<typeof RestoreIngredientVersionSchema>
+
 export const ListCeafaSchema = z.object({ search: z.string().optional() })
 export type ListCeafa = z.infer<typeof ListCeafaSchema>
 

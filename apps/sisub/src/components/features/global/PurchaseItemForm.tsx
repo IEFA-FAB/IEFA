@@ -23,9 +23,11 @@ interface PurchaseItemFormProps {
 	mode: "create" | "edit"
 	purchaseItem?: PurchaseItemWithLink
 	ingredientId: string
+	/** Registra uma versão do insumo após salvar. */
+	onChanged?: () => void
 }
 
-export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredientId }: PurchaseItemFormProps) {
+export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredientId, onChanged }: PurchaseItemFormProps) {
 	const queryClient = useQueryClient()
 	const { createPurchaseItem, isCreating } = useCreatePurchaseItem()
 	const { updatePurchaseItem, isUpdating } = useUpdatePurchaseItem()
@@ -73,6 +75,7 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 				}
 
 				await queryClient.invalidateQueries({ queryKey: ["ingredients", "purchase-items", ingredientId] })
+				onChanged?.()
 				onClose()
 				form.reset()
 			} catch {

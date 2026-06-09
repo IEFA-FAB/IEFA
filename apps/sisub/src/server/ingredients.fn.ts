@@ -24,17 +24,23 @@ import {
 	ListFoldersSchema,
 	ListIngredientItemsSchema,
 	ListIngredientsSchema,
+	ListIngredientVersionsSchema,
 	listCatmatItems,
 	listCeafa,
 	listFolders,
 	listIngredientItems,
 	listIngredientNutrients,
 	listIngredients,
+	listIngredientVersions,
 	listNutrients,
+	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
 	RestoreIngredientSchema,
+	RestoreIngredientVersionSchema,
+	recordIngredientVersion,
 	restoreFolder,
 	restoreIngredient,
+	restoreIngredientVersion,
 	SetIngredientNutrientsSchema,
 	setIngredientNutrients,
 	UpdateFolderSchema,
@@ -45,9 +51,21 @@ import {
 	updateIngredientItem,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+
+/** Resolve a identidade legível do autor da alteração a partir da sessão. */
+async function resolveActor(): Promise<{ id: string | null; name: string | null }> {
+	const {
+		data: { user },
+	} = await getSupabaseAuthClient().auth.getUser()
+	if (!user) return { id: null, name: null }
+	const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+	const name = (meta.full_name as string) ?? (meta.name as string) ?? (meta.display_name as string) ?? user.email ?? null
+	return { id: user.id, name }
+}
 
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
@@ -185,4 +203,49 @@ export const deleteIngredientItemFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteIngredientItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+// ── Versionamento (histórico de alterações do insumo) ─────────────────────────
+
+/**
+ * Salva identificação + nutrientes do insumo e registra UMA versão do agregado.
+ * Coalesce as duas escritas (metadata + nutrientes) num único snapshot.
+ */
+const SaveIngredientDetailsSchema = UpdateIngredientSchema.extend({
+	nutrients: z.array(z.object({ nutrientId: z.string().uuid(), nutrientValue: z.number().nullable() })),
+})
+
+export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
+	.inputValidator(SaveIngredientDetailsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		const client = getSupabaseServerClient()
+		const { nutrients, ...ingredient } = data
+		await updateIngredient(client, ctx, ingredient).catch(handleDomainError)
+		await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
+		const actor = await resolveActor()
+		return recordIngredientVersion(client, ctx, { ingredientId: data.id }, actor).catch(handleDomainError)
+	})
+
+export const recordIngredientVersionFn = createServerFn({ method: "POST" })
+	.inputValidator(RecordIngredientVersionSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		const actor = await resolveActor()
+		return recordIngredientVersion(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
+	})
+
+export const fetchIngredientVersionsFn = createServerFn({ method: "GET" })
+	.inputValidator(ListIngredientVersionsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listIngredientVersions(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+	})
+
+export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
+	.inputValidator(RestoreIngredientVersionSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		const actor = await resolveActor()
+		return restoreIngredientVersion(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
 	})

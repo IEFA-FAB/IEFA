@@ -28,9 +28,11 @@ interface IngredientItemFormProps {
 	mode: "create" | "edit"
 	ingredientItem?: IngredientItem
 	defaultIngredientId?: string
+	/** Registra uma versão do insumo após salvar. */
+	onChanged?: () => void
 }
 
-export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defaultIngredientId }: IngredientItemFormProps) {
+export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defaultIngredientId, onChanged }: IngredientItemFormProps) {
 	const queryClient = useQueryClient()
 	const { ingredients } = useIngredients()
 	const { createIngredientItem, isCreating } = useCreateIngredientItem()
@@ -67,6 +69,7 @@ export function IngredientItemForm({ isOpen, onClose, mode, ingredientItem, defa
 				await queryClient.invalidateQueries({
 					queryKey: ["ingredients"],
 				})
+				onChanged?.()
 
 				onClose()
 				form.reset()

@@ -21,12 +21,16 @@ export type {
 	ListFolders,
 	ListIngredientItems,
 	ListIngredients,
+	ListIngredientVersions,
+	RecordIngredientVersion,
 	RestoreFolder,
 	RestoreIngredient,
+	RestoreIngredientVersion,
 	SetIngredientNutrients,
 	UpdateFolder,
 	UpdateIngredient,
 	UpdateIngredientItem,
+	VersionActor,
 } from "./ingredients.ts"
 export {
 	CreateFolderSchema,
@@ -42,12 +46,16 @@ export {
 	ListFoldersSchema,
 	ListIngredientItemsSchema,
 	ListIngredientsSchema,
+	ListIngredientVersionsSchema,
+	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
 	RestoreIngredientSchema,
+	RestoreIngredientVersionSchema,
 	SetIngredientNutrientsSchema,
 	UpdateFolderSchema,
 	UpdateIngredientItemSchema,
 	UpdateIngredientSchema,
+	VersionActorSchema,
 } from "./ingredients.ts"
 export type { ListKitchens, ListUnitKitchens } from "./kitchens.ts"
 export { ListKitchensSchema, ListUnitKitchensSchema } from "./kitchens.ts"

@@ -20,6 +20,8 @@ import { IngredientItemForm } from "./IngredientItemForm"
 
 interface IngredientItemsManagerProps {
 	ingredientId: string
+	/** Chamado após qualquer alteração (criar/editar/remover) para registrar uma versão do insumo. */
+	onChanged?: () => void
 }
 
 interface DialogState {
@@ -42,7 +44,7 @@ function stockSummary(item: IngredientItemWithPurchase): string {
  * Gerenciador de itens de produto (ingredient_item) de um insumo.
  * Item de produto = item de estoque/GS1 (GTIN), vinculado a 1 item de compra (CATMAT).
  */
-export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerProps) {
+export function IngredientItemsManager({ ingredientId, onChanged }: IngredientItemsManagerProps) {
 	const queryClient = useQueryClient()
 	const { ingredientItems } = useIngredientItems(ingredientId)
 	const { deleteIngredientItem, isDeleting } = useDeleteIngredientItem()
@@ -55,6 +57,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 		try {
 			await deleteIngredientItem(deleteTarget.id)
 			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
+			onChanged?.()
 			toast.success("Item de produto excluído com sucesso!")
 		} catch {
 			toast.error("Erro ao excluir item")
@@ -159,6 +162,7 @@ export function IngredientItemsManager({ ingredientId }: IngredientItemsManagerP
 				mode={dialogState.mode}
 				ingredientItem={dialogState.item}
 				defaultIngredientId={ingredientId}
+				onChanged={onChanged}
 			/>
 
 			{/* AlertDialog de confirmação de exclusão */}

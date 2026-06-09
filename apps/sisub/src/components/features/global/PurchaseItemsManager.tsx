@@ -20,6 +20,8 @@ import { PurchaseItemForm } from "./PurchaseItemForm"
 
 interface PurchaseItemsManagerProps {
 	ingredientId: string
+	/** Chamado após qualquer alteração (criar/editar/remover) para registrar uma versão do insumo. */
+	onChanged?: () => void
 }
 
 interface DialogState {
@@ -41,7 +43,7 @@ function purchaseSummary(item: PurchaseItemWithLink): string {
  * Gerenciador de itens de compra (purchase_item) correlacionados a um insumo.
  * Modelo: catmat → purchase_item → ingredient (via purchase_item_ingredient).
  */
-export function PurchaseItemsManager({ ingredientId }: PurchaseItemsManagerProps) {
+export function PurchaseItemsManager({ ingredientId, onChanged }: PurchaseItemsManagerProps) {
 	const queryClient = useQueryClient()
 	const { purchaseItems } = usePurchaseItems(ingredientId)
 	const { deletePurchaseItemLink, isDeleting } = useDeletePurchaseItemLink()
@@ -54,6 +56,7 @@ export function PurchaseItemsManager({ ingredientId }: PurchaseItemsManagerProps
 		try {
 			await deletePurchaseItemLink(deleteTarget.link_id)
 			await queryClient.invalidateQueries({ queryKey: ["ingredients", "purchase-items", ingredientId] })
+			onChanged?.()
 			toast.success("Correlação removida com sucesso!")
 		} catch {
 			toast.error("Erro ao remover correlação")
@@ -143,7 +146,14 @@ export function PurchaseItemsManager({ ingredientId }: PurchaseItemsManagerProps
 			)}
 
 			{/* Dialog de criação/edição */}
-			<PurchaseItemForm isOpen={dialogState.isOpen} onClose={closeDialog} mode={dialogState.mode} purchaseItem={dialogState.item} ingredientId={ingredientId} />
+			<PurchaseItemForm
+				isOpen={dialogState.isOpen}
+				onClose={closeDialog}
+				mode={dialogState.mode}
+				purchaseItem={dialogState.item}
+				ingredientId={ingredientId}
+				onChanged={onChanged}
+			/>
 
 			{/* AlertDialog de confirmação de remoção */}
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

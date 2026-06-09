@@ -7,6 +7,14 @@ export {
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
 export {
+	buildIngredientSnapshot,
+	type IngredientSnapshot,
+	type IngredientVersionRow,
+	listIngredientVersions,
+	recordIngredientVersion,
+	restoreIngredientVersion,
+} from "./ingredient-versions.ts"
+export {
 	createFolder,
 	createIngredient,
 	createIngredientItem,

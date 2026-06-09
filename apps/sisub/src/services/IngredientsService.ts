@@ -13,7 +13,7 @@ import type {
 	Nutrient,
 	PurchaseItem,
 } from "@iefa/database/sisub"
-import { queryOptions, useMutation, useQuery } from "@tanstack/react-query"
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	createFolderFn,
 	createIngredientFn,
@@ -28,9 +28,13 @@ import {
 	fetchIngredientItemsFn,
 	fetchIngredientNutrientsFn,
 	fetchIngredientsFn,
+	fetchIngredientVersionsFn,
 	fetchNutrientsFn,
+	recordIngredientVersionFn,
 	restoreFolderFn,
 	restoreIngredientFn,
+	restoreIngredientVersionFn,
+	saveIngredientDetailsFn,
 	setIngredientNutrientsFn,
 	updateFolderFn,
 	updateIngredientFn,
@@ -43,6 +47,7 @@ import {
 	updatePurchaseItemFn,
 	upsertPurchaseItemIngredientFn,
 } from "@/server/purchase_item.fn"
+import type { IngredientVersion } from "@/types/domain/ingredient-versions"
 
 /** purchase_item correlacionado a um ingredient, com dados da junção. */
 export type PurchaseItemWithLink = PurchaseItem & {
@@ -125,6 +130,13 @@ export const ingredientNutrientsQueryOptions = (ingredientId: string) =>
 		queryKey: ["ingredients", "ingredient-nutrients", ingredientId],
 		queryFn: () => fetchIngredientNutrientsFn({ data: { ingredientId } }) as Promise<(IngredientNutrient & { nutrient: Nutrient })[]>,
 		staleTime: 5 * 60 * 1000,
+	})
+
+export const ingredientVersionsQueryOptions = (ingredientId: string) =>
+	queryOptions({
+		queryKey: ["ingredients", "versions", ingredientId],
+		queryFn: () => fetchIngredientVersionsFn({ data: { ingredientId } }) as Promise<IngredientVersion[]>,
+		staleTime: 60 * 1000,
 	})
 
 export const ceafaQueryOptions = (search?: string) =>
@@ -480,4 +492,63 @@ export function useSetIngredientNutrients() {
 		isSaving: mutation.isPending,
 		error: mutation.error,
 	}
+}
+
+// ── Versionamento (histórico de alterações) ───────────────────────────────────
+
+export function useIngredientVersions(ingredientId: string) {
+	const query = useQuery(ingredientVersionsQueryOptions(ingredientId))
+	return { versions: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch }
+}
+
+export interface SaveIngredientDetailsPayload {
+	id: string
+	description: string
+	folderId?: string | null
+	measureUnit?: string | null
+	correctionFactor?: number | null
+	ceafaId?: string | null
+	nutrients: { nutrient_id: string; nutrient_value: number | null }[]
+}
+
+/** Salva identificação + nutrientes e registra UMA versão do insumo. */
+export function useSaveIngredientDetails() {
+	const mutation = useMutation({
+		mutationFn: (p: SaveIngredientDetailsPayload) =>
+			saveIngredientDetailsFn({
+				data: {
+					id: p.id,
+					description: p.description,
+					folderId: p.folderId ?? undefined,
+					measureUnit: p.measureUnit ?? undefined,
+					correctionFactor: p.correctionFactor ?? undefined,
+					ceafaId: p.ceafaId ?? undefined,
+					nutrients: p.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.nutrient_value })),
+				},
+			}),
+	})
+	return { saveIngredientDetails: mutation.mutateAsync, isSaving: mutation.isPending, error: mutation.error }
+}
+
+/** Registra uma versão do insumo após mudanças feitas por fluxos separados (itens de compra/produto). */
+export function useRecordIngredientVersion() {
+	const queryClient = useQueryClient()
+	const mutation = useMutation({
+		mutationFn: (ingredientId: string) => recordIngredientVersionFn({ data: { ingredientId } }),
+		onSuccess: (_res, ingredientId) => {
+			queryClient.invalidateQueries({ queryKey: ["ingredients", "versions", ingredientId] })
+		},
+	})
+	return { recordIngredientVersion: mutation.mutateAsync, isRecording: mutation.isPending }
+}
+
+export function useRestoreIngredientVersion() {
+	const queryClient = useQueryClient()
+	const mutation = useMutation({
+		mutationFn: ({ ingredientId, versionId }: { ingredientId: string; versionId: string }) => restoreIngredientVersionFn({ data: { ingredientId, versionId } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["ingredients"] })
+		},
+	})
+	return { restoreIngredientVersion: mutation.mutateAsync, isRestoring: mutation.isPending }
 }
