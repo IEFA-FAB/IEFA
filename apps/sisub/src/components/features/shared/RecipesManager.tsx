@@ -1,23 +1,91 @@
 // biome-ignore-all lint/a11y/useSemanticElements: virtualized recipe rows contain nested action links.
+import type { Recipe } from "@iefa/database/sisub"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ChefHat, GitFork, Globe, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { ChefHat, GitFork, Globe, Loader2, Replace, Search, SquareCheckBig, X } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
+import { useRecipe } from "@/hooks/data/useRecipe"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
+import type { RecipeWithIngredients } from "@/types/domain/recipes"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
 import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 
 const ROW_HEIGHT = 48
+
+function formatQty(n: number): string {
+	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+}
+
+/** Conteúdo do hovercard de uma preparação: prévia dos ingredientes principais (montado só ao abrir → fetch sob demanda) */
+function RecipeHoverContent({ recipe }: { recipe: Recipe }) {
+	const isGlobal = !recipe.kitchen_id
+	const { data, isLoading } = useRecipe(recipe.id)
+	const detail = data as RecipeWithIngredients | undefined
+
+	// Ingredientes ordenados por prioridade; obrigatórios primeiro.
+	const ingredients = (detail?.ingredients ?? [])
+		.filter((ri) => !ri.deleted_at)
+		.sort((a, b) => Number(a.is_optional ?? false) - Number(b.is_optional ?? false) || (a.priority_order ?? 999) - (b.priority_order ?? 999))
+
+	const preview = ingredients.slice(0, 7)
+	const extra = ingredients.length - preview.length
+
+	return (
+		<>
+			<div className="flex items-start gap-2">
+				<div
+					className={`flex size-7 shrink-0 items-center justify-center rounded-[var(--radius)] border ${
+						isGlobal ? "border-primary/20 bg-primary/10" : "border-border/30 bg-muted/50"
+					}`}
+				>
+					{isGlobal ? <Globe className="size-3.5 text-primary" /> : <ChefHat className="size-3.5 text-muted-foreground" />}
+				</div>
+				<div className="min-w-0">
+					<p className="text-sm font-semibold leading-tight">{recipe.name}</p>
+					<p className="text-xs text-muted-foreground">Ingredientes{recipe.portion_yield != null ? ` · ${recipe.portion_yield} porções` : ""}</p>
+				</div>
+			</div>
+
+			{isLoading ? (
+				<div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+					<Loader2 className="size-3.5 animate-spin" />
+					Carregando ingredientes…
+				</div>
+			) : preview.length === 0 ? (
+				<p className="py-1 text-xs text-muted-foreground">Sem ingredientes cadastrados.</p>
+			) : (
+				<div className="flex flex-col gap-1 text-xs">
+					{preview.map((ri) => (
+						<div key={ri.id} className="flex items-baseline justify-between gap-3">
+							<span className="truncate text-muted-foreground">
+								{ri.ingredient?.description ?? "Ingrediente"}
+								{ri.is_optional && <span className="text-[10px] uppercase tracking-wide"> · opc</span>}
+							</span>
+							{ri.net_quantity != null && (
+								<span className="shrink-0 font-mono tabular-nums">
+									{formatQty(ri.net_quantity)}
+									{ri.ingredient?.measure_unit ? ` ${ri.ingredient.measure_unit}` : ""}
+								</span>
+							)}
+						</div>
+					))}
+					{extra > 0 && <p className="pt-0.5 text-[11px] text-muted-foreground">+{extra} outros ingredientes</p>}
+				</div>
+			)}
+		</>
+	)
+}
 
 export function RecipesManager() {
 	"use no memo"
@@ -229,7 +297,18 @@ export function RecipesManager() {
 											>
 												{recipe.kitchen_id ? <ChefHat className="size-3.5 text-muted-foreground" /> : <Globe className="size-3.5 text-primary" />}
 											</div>
-											<span className={`text-subheading truncate ${isDeleted ? "line-through text-muted-foreground" : ""}`}>{recipe.name}</span>
+											<HoverCard>
+												<HoverCardTrigger
+													render={
+														<span className={`text-subheading truncate cursor-default ${isDeleted ? "line-through text-muted-foreground" : ""}`}>
+															{recipe.name}
+														</span>
+													}
+												/>
+												<HoverCardContent side="right" align="start">
+													<RecipeHoverContent recipe={recipe} />
+												</HoverCardContent>
+											</HoverCard>
 											{isDeleted && <Badge variant="destructive">Excluída</Badge>}
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">

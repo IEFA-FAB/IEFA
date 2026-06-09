@@ -1,5 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Package, RotateCcw, Trash2 } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -15,8 +15,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { cn } from "@/lib/cn"
-import { useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
+import { ingredientNutrientsQueryOptions, useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
 
 interface IngredientsTreeNodeProps {
@@ -33,6 +34,73 @@ interface IngredientsTreeNodeProps {
 	selected?: boolean
 	/** Alterna a seleção deste nó */
 	onSelectChange?: (checked: boolean) => void
+}
+
+/** Separa "Carboidratos (g)" → { label: "Carboidratos", unit: "g" } */
+function parseNutrientName(name: string): { label: string; unit: string | null } {
+	const match = name.match(/\s*\(([^)]+)\)\s*$/)
+	if (match && match.index != null) return { label: name.slice(0, match.index).trim(), unit: match[1] }
+	return { label: name, unit: null }
+}
+
+function formatNutrientValue(n: number): string {
+	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+}
+
+/** Conteúdo do hovercard de um insumo: prévia da tabela nutricional (montado só ao abrir → fetch sob demanda) */
+function IngredientHoverContent({ ingredient }: { ingredient: Ingredient }) {
+	const { data, isLoading } = useQuery(ingredientNutrientsQueryOptions(ingredient.id))
+
+	// Ordena como rótulo nutricional BR: valor energético primeiro, depois display_order.
+	// Só nutrientes com valor preenchido — o resto não agrega ao preview.
+	const rows = (data ?? [])
+		.filter((n) => n.nutrient_value != null && n.nutrient && !n.nutrient.deleted_at)
+		.sort((a, b) => {
+			if (a.nutrient.is_energy_value !== b.nutrient.is_energy_value) return a.nutrient.is_energy_value ? -1 : 1
+			return (a.nutrient.display_order ?? 999) - (b.nutrient.display_order ?? 999)
+		})
+
+	const preview = rows.slice(0, 7)
+	const extra = rows.length - preview.length
+
+	return (
+		<>
+			<div className="flex items-start gap-2">
+				<div className="flex size-7 shrink-0 items-center justify-center rounded-[var(--radius)] border border-primary/20 bg-primary/10">
+					<Package className="size-3.5 text-primary" />
+				</div>
+				<div className="min-w-0">
+					<p className="text-sm font-semibold leading-tight">{ingredient.description || "Sem descrição"}</p>
+					<p className="text-xs text-muted-foreground">Informação nutricional</p>
+				</div>
+			</div>
+
+			{isLoading ? (
+				<div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+					<Loader2 className="size-3.5 animate-spin" />
+					Carregando nutrientes…
+				</div>
+			) : preview.length === 0 ? (
+				<p className="py-1 text-xs text-muted-foreground">Sem dados nutricionais cadastrados.</p>
+			) : (
+				<div className="flex flex-col gap-1 text-xs">
+					{preview.map((n) => {
+						const { label, unit } = parseNutrientName(n.nutrient.name)
+						return (
+							<div key={n.id} className={cn("flex items-baseline justify-between gap-3", n.nutrient.is_energy_value && "font-semibold")}>
+								<span className={cn("truncate", n.nutrient.is_energy_value ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+								<span className="shrink-0 font-mono tabular-nums">
+									{formatNutrientValue(n.nutrient_value as number)}
+									{unit ? ` ${unit}` : ""}
+								</span>
+							</div>
+						)
+					})}
+					{extra > 0 && <p className="pt-0.5 text-[11px] text-muted-foreground">+{extra} outros nutrientes</p>}
+				</div>
+			)}
+		</>
+	)
 }
 
 /**
@@ -185,12 +253,21 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 						<Icon className={cn("size-3.5", style.iconColor)} />
 					</div>
 
-					{/* Label */}
-					<span
-						className={cn("text-sm truncate", node.type === "folder" ? "text-subheading" : "font-normal", isDeleted && "line-through text-muted-foreground")}
-					>
-						{node.label}
-					</span>
+					{/* Label — insumos exibem hovercard com dados básicos ao passar o mouse */}
+					{node.type === "ingredient" ? (
+						<HoverCard>
+							<HoverCardTrigger
+								render={
+									<span className={cn("text-sm truncate font-normal cursor-default", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>
+								}
+							/>
+							<HoverCardContent side="right" align="start">
+								<IngredientHoverContent ingredient={node.data as Ingredient} />
+							</HoverCardContent>
+						</HoverCard>
+					) : (
+						<span className={cn("text-sm truncate text-subheading", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>
+					)}
 
 					{/* Badge de item excluído */}
 					{isDeleted && <Badge variant="destructive">Excluído</Badge>}
