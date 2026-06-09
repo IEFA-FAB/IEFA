@@ -1,9 +1,10 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { DownloadIcon } from "lucide-react"
+import { DownloadIcon, PackagePlus } from "lucide-react"
+import { useRef } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
-import { IngredientsTreeManager } from "@/components/features/global/IngredientsTreeManager"
+import { IngredientsTreeManager, type IngredientsTreeManagerHandle } from "@/components/features/global/IngredientsTreeManager"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { useExportIngredientsCSV } from "@/hooks/business/useExportIngredientsCSV"
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/")
 
 function IngredientsPage() {
 	const { exportCSV } = useExportIngredientsCSV()
+	const managerRef = useRef<IngredientsTreeManagerHandle>(null)
 
 	// Ensure data é carregado (suspense query via loader)
 	useSuspenseQuery(ingredientsTreeQueryOptions())
@@ -48,8 +50,12 @@ function IngredientsPage() {
 					<DownloadIcon className="size-4" />
 					Exportar CSV
 				</Button>
+				<Button size="sm" onClick={() => managerRef.current?.openCreateIngredient()} className="gap-2">
+					<PackagePlus className="size-4" />
+					Novo Insumo
+				</Button>
 			</PageHeader>
-			<IngredientsTreeManager />
+			<IngredientsTreeManager ref={managerRef} />
 		</div>
 	)
 }

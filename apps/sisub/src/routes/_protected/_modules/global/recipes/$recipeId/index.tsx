@@ -23,13 +23,13 @@ function GlobalRecipeEditPage() {
 
 	if (isLoading) {
 		return (
-			<div className="space-y-6 pb-20">
-				<Skeleton className="h-16 w-full" />
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-					<Skeleton className="md:col-span-2 h-72" />
-					<Skeleton className="h-72" />
+			<div className="space-y-6">
+				<Skeleton className="h-12 w-full" />
+				<div className="max-w-5xl mx-auto space-y-8">
+					<Skeleton className="h-44 w-full" />
+					<Skeleton className="h-60 w-full" />
+					<Skeleton className="h-48 w-full" />
 				</div>
-				<Skeleton className="max-w-5xl mx-auto h-48" />
 			</div>
 		)
 	}

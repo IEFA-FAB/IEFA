@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import { Circle, CircleCheck, Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Circle, CircleCheck, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
 import { cn } from "@/lib/cn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
@@ -143,169 +142,165 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 	const isPending = createMutation.isPending || versionMutation.isPending
 
-	// Dynamic Header Content
-	const pageTitle = mode === "create" ? "Nova Preparação" : mode === "edit" ? `Editando: ${initialData?.name}` : `Personalizando: ${initialData?.name}`
+	// Contexto do modo — distinto do nome (editado no título da página)
+	const modeBadge =
+		mode === "edit" && initialData?.version != null ? (
+			<Badge variant="outline">v{initialData.version}</Badge>
+		) : mode === "fork" ? (
+			<Badge variant="secondary">Personalização</Badge>
+		) : undefined
 
-	const pageBadge = mode === "edit" && initialData?.version != null ? <Badge variant="outline">v{initialData.version}</Badge> : undefined
+	const saveCaption =
+		mode === "edit"
+			? "Salvar gera automaticamente uma nova versão desta preparação."
+			: mode === "fork"
+				? "Salvar gera uma nova preparação personalizada a partir desta."
+				: "Salvar cria a preparação."
 
 	return (
-		<div className="space-y-6 pb-20">
+		<div className="space-y-6">
 			<PageHeader
-				title={pageTitle}
-				badge={pageBadge}
-				description={mode === "edit" ? "Uma nova versão será criada automaticamente." : undefined}
+				title={
+					<form.Field name="name">
+						{(field) => (
+							<span className="group/title inline-flex max-w-full items-center gap-1.5">
+								<input
+									aria-label="Nome da preparação"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(e) => field.handleChange(e.target.value)}
+									placeholder="Nome da preparação"
+									className={cn(
+										"text-heading leading-tight text-foreground bg-transparent",
+										"field-sizing-content min-w-[10ch] max-w-full",
+										"-mx-2 rounded-md px-2 py-0.5",
+										"outline-none transition-colors hover:bg-muted/60 focus:bg-muted/60",
+										"focus-visible:ring-[3px] focus-visible:ring-ring/50 placeholder:text-muted-foreground/60"
+									)}
+								/>
+								<Pencil className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-within/title:opacity-100" />
+							</span>
+						)}
+					</form.Field>
+				}
+				badge={modeBadge}
 				onBack={handleBack}
 			/>
 
-			<form
-				onSubmit={(e) => {
-					e.preventDefault()
-					e.stopPropagation()
-					form.handleSubmit()
-				}}
-				className="space-y-8 max-w-5xl mx-auto"
-			>
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-					{/* Main Info */}
-					<Card className="md:col-span-2">
-						<CardHeader>
-							<CardTitle>Informações Básicas</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<form.Field name="name">
-								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel htmlFor="name">Nome da Preparação</FieldLabel>
-										<FieldContent>
-											<Input
-												id="name"
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-											/>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
-
-							<form.Field name="preparation_method">
-								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel htmlFor="prep">Modo de Preparo</FieldLabel>
-										<FieldContent>
-											<Textarea
-												id="prep"
-												className={cn("min-h-30 bg-background", field.state.meta.errors.length > 0 && "border-destructive")}
-												value={field.state.value || ""}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-											/>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
-						</CardContent>
-					</Card>
-
-					{/* Metrics */}
+			<div className="max-w-5xl mx-auto space-y-8 pb-24">
+				<form
+					id="recipe-form"
+					onSubmit={(e) => {
+						e.preventDefault()
+						e.stopPropagation()
+						form.handleSubmit()
+					}}
+					className="space-y-6"
+				>
+					{/* Rendimento e cocção — parâmetros que dimensionam a preparação */}
 					<Card>
 						<CardHeader>
-							<CardTitle>Métricas</CardTitle>
+							<CardTitle>Rendimento e cocção</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-4">
-							<form.Field name="portion_yield">
-								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel>Rendimento (Porções)</FieldLabel>
-										<FieldContent>
-											<Input
-												type="number"
-												min={1}
-												value={field.state.value}
-												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-												onChange={(e) => field.handleChange(Number(e.target.value))}
-											/>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
-							<form.Field name="preparation_time_minutes">
-								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel>Tempo de Preparo (min)</FieldLabel>
-										<FieldContent>
-											<Input
-												type="number"
-												min={0}
-												value={field.state.value ?? 0}
-												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-												onChange={(e) => field.handleChange(Number(e.target.value))}
-											/>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<form.Field name="portion_yield">
+									{(field) => (
+										<Field data-invalid={field.state.meta.errors.length > 0}>
+											<FieldLabel htmlFor="portion_yield">Rendimento (Porções)</FieldLabel>
+											<FieldContent>
+												<Input
+													id="portion_yield"
+													type="number"
+													min={1}
+													value={field.state.value}
+													className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+													onChange={(e) => field.handleChange(Number(e.target.value))}
+												/>
+												<FieldDescription>Base para custo e escala das quantidades.</FieldDescription>
+												<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
+											</FieldContent>
+										</Field>
+									)}
+								</form.Field>
+
+								<form.Field name="preparation_time_minutes">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor="preparation_time_minutes">Tempo de Preparo (min)</FieldLabel>
+											<FieldContent>
+												<Input
+													id="preparation_time_minutes"
+													type="number"
+													min={0}
+													value={field.state.value ?? 0}
+													onChange={(e) => field.handleChange(Number(e.target.value))}
+												/>
+											</FieldContent>
+										</Field>
+									)}
+								</form.Field>
+							</div>
+
 							<form.Field name="cooking_factor">
 								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldLabel>
-											<Tooltip>
-												<TooltipTrigger render={<span className="cursor-help" />}>Fator de Cocção (FC)</TooltipTrigger>
-												<TooltipContent>1,0 = sem perda de massa. Maior = ingrediente perde peso no cozimento. Ex.: frango cru→cozido ≈ 1,33</TooltipContent>
-											</Tooltip>
-										</FieldLabel>
+									<Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0} className="border-t border-border/60 pt-4">
 										<FieldContent>
-											<Input
-												type="number"
-												step="0.01"
-												placeholder="1,0"
-												value={field.state.value || 1}
-												className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-												onChange={(e) => field.handleChange(Number(e.target.value))}
-											/>
-											<FieldDescription>Faixa normal: 0,5 – 2,0</FieldDescription>
+											<FieldLabel htmlFor="cooking_factor">Fator de Cocção (FC)</FieldLabel>
+											<FieldDescription>
+												Parâmetro avançado: 1,0 = sem perda de massa; acima disso o alimento perde peso ao cozinhar (ex.: frango ≈ 1,33). Faixa usual: 0,5–2,0.
+											</FieldDescription>
 											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
 										</FieldContent>
+										<Input
+											id="cooking_factor"
+											type="number"
+											step="0.01"
+											placeholder="1,0"
+											value={field.state.value || 1}
+											className={cn("w-28 shrink-0", field.state.meta.errors.length > 0 && "border-destructive")}
+											onChange={(e) => field.handleChange(Number(e.target.value))}
+										/>
 									</Field>
 								)}
 							</form.Field>
 						</CardContent>
 					</Card>
-				</div>
 
-				{/* Ingredients */}
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between">
-						<CardTitle>Ingredientes</CardTitle>
-						<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
-							<Plus className="size-4 mr-2" />
-							Adicionar
-						</Button>
-					</CardHeader>
-					<CardContent>
-						<form.Field name="ingredients">
-							{(field) => (
-								<div className="space-y-4">
+					{/* Ingredientes — núcleo da preparação */}
+					<form.Field name="ingredients">
+						{(field) => (
+							<Card>
+								<CardHeader className="flex flex-row items-center justify-between">
+									<div className="flex items-center gap-2">
+										<CardTitle>Ingredientes</CardTitle>
+										{field.state.value.length > 0 && <Badge variant="secondary">{field.state.value.length}</Badge>}
+									</div>
+									<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
+										<Plus className="size-4 mr-2" />
+										Adicionar
+									</Button>
+								</CardHeader>
+								<CardContent className="space-y-3">
 									{field.state.value.length === 0 ? (
-										<div className="text-center text-muted-foreground py-8 border-2 border-dashed">Nenhum ingrediente adicionado.</div>
+										<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-10 text-muted-foreground">
+											<p className="text-body">Nenhum ingrediente adicionado</p>
+											<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
+												<Plus className="size-4 mr-2" />
+												Adicionar ingrediente
+											</Button>
+										</div>
 									) : (
 										<ItemGroup>
 											{field.state.value.map((ingredient: IngredientFormItem, index: number) => (
 												<Item key={ingredient.ingredient_id || index} variant="outline">
 													<ItemContent>
-														<ItemTitle className="text-base">{ingredient.ingredient_name}</ItemTitle>
+														<ItemTitle>{ingredient.ingredient_name}</ItemTitle>
 													</ItemContent>
-													<div className="flex flex-col gap-1 w-32">
-														<FieldLabel htmlFor={`qty-${ingredient.ingredient_id ?? index}`}>Qtd. Líquida</FieldLabel>
+													<ItemActions className="gap-2">
 														<div className="flex items-center gap-1.5">
-															<span className="text-xs text-muted-foreground font-medium shrink-0">{ingredient.measure_unit}</span>
 															<Input
-																id={`qty-${ingredient.ingredient_id ?? index}`}
+																aria-label={`Quantidade líquida de ${ingredient.ingredient_name}`}
 																type="number"
 																step="0.001"
 																value={ingredient.net_quantity ?? 0}
@@ -314,28 +309,29 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 																	newList[index].net_quantity = Number(e.target.value)
 																	field.handleChange(newList)
 																}}
+																className="w-24 text-right"
 															/>
+															<span className="text-caption text-muted-foreground w-8 shrink-0">{ingredient.measure_unit}</span>
 														</div>
-													</div>
-													<Toggle
-														variant="outline"
-														size="sm"
-														pressed={ingredient.is_optional}
-														onPressedChange={(pressed) => {
-															const newList = [...field.state.value]
-															newList[index].is_optional = pressed
-															field.handleChange(newList)
-														}}
-													>
-														{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
-														Opcional
-													</Toggle>
-													<ItemActions>
+														<Toggle
+															variant="outline"
+															size="sm"
+															pressed={ingredient.is_optional}
+															onPressedChange={(pressed) => {
+																const newList = [...field.state.value]
+																newList[index].is_optional = pressed
+																field.handleChange(newList)
+															}}
+														>
+															{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+															Opcional
+														</Toggle>
 														<Button
 															type="button"
 															variant="ghost"
-															size="icon"
-															className="text-destructive hover:bg-destructive/10"
+															size="icon-sm"
+															className="text-muted-foreground hover:text-destructive"
+															aria-label={`Remover ${ingredient.ingredient_name}`}
 															onClick={() => {
 																const snapshot = [...field.state.value]
 																const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
@@ -348,7 +344,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 																})
 															}}
 														>
-															<Trash2 className="size-4" />
+															<Trash2 className="size-3.5" />
 														</Button>
 													</ItemActions>
 												</Item>
@@ -356,22 +352,55 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 										</ItemGroup>
 									)}
 									{field.state.meta.errors && <FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />}
-								</div>
-							)}
-						</form.Field>
-					</CardContent>
-				</Card>
+								</CardContent>
+							</Card>
+						)}
+					</form.Field>
 
-				<div className="flex justify-end gap-4">
-					<Button type="button" variant="outline" onClick={handleBack}>
-						Cancelar
-					</Button>
-					<Button type="submit" disabled={isPending}>
-						{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
-						Salvar Preparação
-					</Button>
+					{/* Modo de preparo — instruções */}
+					<Card>
+						<CardHeader>
+							<CardTitle>Modo de preparo</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<form.Field name="preparation_method">
+								{(field) => (
+									<Field data-invalid={field.state.meta.errors.length > 0}>
+										<FieldContent>
+											<Textarea
+												id="prep"
+												aria-label="Modo de preparo"
+												className={cn("min-h-40 bg-background", field.state.meta.errors.length > 0 && "border-destructive")}
+												placeholder="Descreva o passo a passo da preparação..."
+												value={field.state.value || ""}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+											/>
+											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
+										</FieldContent>
+									</Field>
+								)}
+							</form.Field>
+						</CardContent>
+					</Card>
+				</form>
+			</div>
+
+			{/* Barra de ação do form — sempre acessível, efeito do salvamento explícito */}
+			<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
+				<div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+					<p className="text-caption text-muted-foreground">{saveCaption}</p>
+					<div className="flex justify-end gap-2">
+						<Button type="button" variant="outline" onClick={handleBack}>
+							Cancelar
+						</Button>
+						<Button type="submit" form="recipe-form" disabled={isPending}>
+							{isPending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
+							Salvar Preparação
+						</Button>
+					</div>
 				</div>
-			</form>
+			</div>
 
 			{/* Ingredient Selector Modal */}
 			{selectorOpen && (

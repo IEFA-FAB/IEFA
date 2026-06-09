@@ -1,7 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { FolderPlus, Loader2, PackagePlus, Replace, Search, SquareCheckBig, X } from "lucide-react"
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { FolderPlus, Loader2, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,9 @@ import { IngredientsTreeNode } from "./IngredientsTreeNode"
  * Responsabilidade: Pastas + Produtos (hierarquia e CRUD)
  * Itens de compra vivem em /global/ingredients/$ingredientId
  */
-export function IngredientsTreeManager() {
+export type IngredientsTreeManagerHandle = { openCreateIngredient: () => void }
+
+export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
 	"use no memo"
 	const navigate = useNavigate()
 	const navigateRef = useRef(navigate)
@@ -96,6 +98,9 @@ export function IngredientsTreeManager() {
 	const handleCloseDialog = () => {
 		setDialogState({ isOpen: false, mode: "create", type: "folder" })
 	}
+
+	// Expõe a ação "criar insumo" para o PageHeader da rota (botão primário no topo)
+	useImperativeHandle(ref, () => ({ openCreateIngredient: () => handleOpenDialog("ingredient", "create") }), [])
 
 	const selectAllVisible = () => {
 		if (!flatTree) return
@@ -184,17 +189,6 @@ export function IngredientsTreeManager() {
 								<FolderPlus className="size-4 mr-2" />
 								<span className="hidden sm:inline">Nova Pasta</span>
 								<span className="sm:hidden">Pasta</span>
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => handleOpenDialog("ingredient", "create")}
-								aria-label="Novo insumo"
-								className="flex-1 sm:flex-none"
-							>
-								<PackagePlus className="size-4 mr-2" />
-								<span className="hidden sm:inline">Novo Insumo</span>
-								<span className="sm:hidden">Insumo</span>
 							</Button>
 						</>
 					)}
