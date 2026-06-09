@@ -1,7 +1,7 @@
 import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
 import { useForm } from "@tanstack/react-form"
-import { useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, Check, ChevronsUpDown, History, Loader2, Pencil, RotateCcw, Save } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { ArrowLeft, CalendarCheck, Check, ChevronsUpDown, CircleCheck, History, Loader2, Pencil, RotateCcw, Save } from "lucide-react"
 import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -18,9 +18,11 @@ import { cn } from "@/lib/cn"
 import { computeIngredientDiff } from "@/lib/ingredient-diff"
 import {
 	ceafaQueryOptions,
+	ingredientLastReviewQueryOptions,
 	useIngredientNutrients,
 	useIngredientVersions,
 	useNutrients,
+	useRecordIngredientReview,
 	useRecordIngredientVersion,
 	useRestoreIngredientVersion,
 	useSaveIngredientDetails,
@@ -55,8 +57,10 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const queryClient = useQueryClient()
 	const { saveIngredientDetails, isSaving } = useSaveIngredientDetails()
 	const { recordIngredientVersion } = useRecordIngredientVersion()
+	const { recordIngredientReview, isReviewing } = useRecordIngredientReview()
 	const { restoreIngredientVersion, isRestoring } = useRestoreIngredientVersion()
 	const { versions, isLoading: versionsLoading } = useIngredientVersions(ingredient.id)
+	const { data: lastReview } = useQuery(ingredientLastReviewQueryOptions(ingredient.id))
 
 	const { nutrients } = useNutrients()
 	const { ingredientNutrients } = useIngredientNutrients(ingredient.id)
@@ -178,6 +182,17 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const formatVersionStamp = (dateStr: string) =>
 		new Date(dateStr).toLocaleString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
 
+	// Registra um evento de revisão (conferência) — confirma que o insumo foi conferido.
+	const handleReview = async () => {
+		try {
+			await recordIngredientReview(ingredient.id)
+			toast.success("Revisão registrada")
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err)
+			toast.error(msg || "Erro ao registrar revisão")
+		}
+	}
+
 	return (
 		<div className="space-y-6">
 			<PageHeader
@@ -216,7 +231,33 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					Histórico
 					{versionList.length > 0 && <span className="text-xs text-muted-foreground">({versionList.length})</span>}
 				</Button>
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing} className="gap-1.5">
+								{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
+								Revisado
+							</Button>
+						}
+					/>
+					<TooltipContent>Registrar conferência deste insumo (revisão pelos nutricionistas)</TooltipContent>
+				</Tooltip>
 			</PageHeader>
+
+			{/* Status de revisão (conferência pelos nutricionistas) */}
+			{!isPreviewing && (
+				<div className="flex items-center gap-2 text-sm text-muted-foreground">
+					<CalendarCheck className="size-4 shrink-0" />
+					{lastReview ? (
+						<span>
+							Última revisão em <strong className="font-medium text-foreground">{formatVersionStamp(lastReview.reviewed_at)}</strong>
+							{lastReview.reviewed_by_name ? ` por ${lastReview.reviewed_by_name}` : ""}
+						</span>
+					) : (
+						<span>Este insumo ainda não foi revisado.</span>
+					)}
+				</div>
+			)}
 
 			{/* Banner de preview de versão histórica */}
 			{isPreviewing && selectedVersion && (

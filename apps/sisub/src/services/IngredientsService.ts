@@ -13,6 +13,7 @@ import type {
 	Nutrient,
 	PurchaseItem,
 } from "@iefa/database/sisub"
+import type { IngredientLastReview } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	createFolderFn,
@@ -26,10 +27,12 @@ import {
 	fetchFoldersFn,
 	fetchIngredientFn,
 	fetchIngredientItemsFn,
+	fetchIngredientLastReviewsFn,
 	fetchIngredientNutrientsFn,
 	fetchIngredientsFn,
 	fetchIngredientVersionsFn,
 	fetchNutrientsFn,
+	recordIngredientReviewFn,
 	recordIngredientVersionFn,
 	restoreFolderFn,
 	restoreIngredientFn,
@@ -106,13 +109,15 @@ export const ingredientsTreeQueryOptions = (includeDeleted = false) =>
 	queryOptions({
 		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active"],
 		queryFn: async () => {
-			const [folders, ingredients, ingredientItems] = await Promise.all([
+			const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
 				fetchFoldersFn({ data: { includeDeleted } }) as Promise<Folder[]>,
 				fetchIngredientsFn({ data: { includeDeleted } }) as Promise<Ingredient[]>,
 				// Itens de compra/produto sempre ativos: contagem de badges não deve inflar com excluídos.
 				fetchIngredientItemsFn({ data: {} }) as Promise<IngredientItem[]>,
+				// Última revisão por insumo (data exibida na árvore para acompanhar a conferência).
+				fetchIngredientLastReviewsFn({ data: {} }) as Promise<IngredientLastReview[]>,
 			])
-			return { folders, ingredients, ingredientItems }
+			return { folders, ingredients, ingredientItems, lastReviews }
 		},
 		staleTime: 10 * 60 * 1000,
 		gcTime: 10 * 60 * 1000,
@@ -136,6 +141,16 @@ export const ingredientVersionsQueryOptions = (ingredientId: string) =>
 	queryOptions({
 		queryKey: ["ingredients", "versions", ingredientId],
 		queryFn: () => fetchIngredientVersionsFn({ data: { ingredientId } }) as Promise<IngredientVersion[]>,
+		staleTime: 60 * 1000,
+	})
+
+export const ingredientLastReviewQueryOptions = (ingredientId: string) =>
+	queryOptions({
+		queryKey: ["ingredients", "last-review", ingredientId],
+		queryFn: async () => {
+			const rows = (await fetchIngredientLastReviewsFn({ data: { ingredientId } })) as IngredientLastReview[]
+			return rows[0] ?? null
+		},
 		staleTime: 60 * 1000,
 	})
 
@@ -551,4 +566,18 @@ export function useRestoreIngredientVersion() {
 		},
 	})
 	return { restoreIngredientVersion: mutation.mutateAsync, isRestoring: mutation.isPending }
+}
+
+/** Registra um evento de revisão (conferência) do insumo pelos nutricionistas. */
+export function useRecordIngredientReview() {
+	const queryClient = useQueryClient()
+	const mutation = useMutation({
+		mutationFn: (ingredientId: string) => recordIngredientReviewFn({ data: { ingredientId } }),
+		onSuccess: (_res, ingredientId) => {
+			queryClient.invalidateQueries({ queryKey: ["ingredients", "last-review", ingredientId] })
+			// Atualiza a data exibida na árvore de insumos.
+			queryClient.invalidateQueries({ queryKey: ["ingredients", "tree"] })
+		},
+	})
+	return { recordIngredientReview: mutation.mutateAsync, isReviewing: mutation.isPending }
 }

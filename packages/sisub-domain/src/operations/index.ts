@@ -7,6 +7,12 @@ export {
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
 export {
+	type IngredientLastReview,
+	type IngredientReviewRow,
+	listIngredientLastReviews,
+	recordIngredientReview,
+} from "./ingredient-reviews.ts"
+export {
 	buildIngredientSnapshot,
 	type IngredientSnapshot,
 	type IngredientVersionRow,

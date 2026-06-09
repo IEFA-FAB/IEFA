@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
+import { CalendarCheck, ChevronDown, ChevronRight, Edit, Folder as FolderIcon, Loader2, Package, RotateCcw, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -26,6 +26,8 @@ interface IngredientsTreeNodeProps {
 	onToggle: (nodeId: string) => void
 	/** Quantidade de itens de compra vinculados (apenas para nós do tipo "ingredient") */
 	itemCount?: number
+	/** Data ISO da última revisão (conferência) do insumo — undefined p/ pastas, null p/ insumo nunca revisado */
+	lastReviewedAt?: string | null
 	/** Callback de navegação para a página de detalhe do ingrediente */
 	onNavigate?: () => void
 	/** Modo de seleção em massa ativo: exibe checkbox e desativa ações por linha */
@@ -107,7 +109,22 @@ function IngredientHoverContent({ ingredient }: { ingredient: Ingredient }) {
  * Nó individual da árvore de produtos
  * Renderização otimizada para virtualização
  */
-export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavigate, selectionMode, selected, onSelectChange }: IngredientsTreeNodeProps) {
+/** Formata a data ISO da revisão como "09/06/2026" (curto, pt-BR). */
+function formatReviewDate(iso: string): string {
+	return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
+
+export function IngredientsTreeNode({
+	node,
+	onEdit,
+	onToggle,
+	itemCount,
+	lastReviewedAt,
+	onNavigate,
+	selectionMode,
+	selected,
+	onSelectChange,
+}: IngredientsTreeNodeProps) {
 	const queryClient = useQueryClient()
 	const { deleteFolder, isDeleting: isDeletingFolder } = useDeleteFolder()
 	const { deleteIngredient, isDeleting: isDeletingIngredient } = useDeleteIngredient()
@@ -281,6 +298,21 @@ export function IngredientsTreeNode({ node, onEdit, onToggle, itemCount, onNavig
 							{itemCount} {itemCount === 1 ? "item" : "itens"}
 						</Badge>
 					)}
+
+					{/* Status de revisão (conferência pelos nutricionistas) */}
+					{node.type === "ingredient" &&
+						!isDeleted &&
+						lastReviewedAt !== undefined &&
+						(lastReviewedAt ? (
+							<Badge variant="outline" className="gap-1 text-muted-foreground" title={`Última revisão em ${formatReviewDate(lastReviewedAt)}`}>
+								<CalendarCheck className="size-3" />
+								Revisado {formatReviewDate(lastReviewedAt)}
+							</Badge>
+						) : (
+							<Badge variant="warning" title="Insumo ainda não revisado">
+								Não revisado
+							</Badge>
+						))}
 				</div>
 
 				{/* Ações — ocultas no modo de seleção em massa */}

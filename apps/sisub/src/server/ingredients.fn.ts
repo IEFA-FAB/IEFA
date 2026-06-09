@@ -23,20 +23,24 @@ import {
 	ListCeafaSchema,
 	ListFoldersSchema,
 	ListIngredientItemsSchema,
+	ListIngredientLastReviewsSchema,
 	ListIngredientsSchema,
 	ListIngredientVersionsSchema,
 	listCatmatItems,
 	listCeafa,
 	listFolders,
 	listIngredientItems,
+	listIngredientLastReviews,
 	listIngredientNutrients,
 	listIngredients,
 	listIngredientVersions,
 	listNutrients,
+	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
 	RestoreIngredientSchema,
 	RestoreIngredientVersionSchema,
+	recordIngredientReview,
 	recordIngredientVersion,
 	restoreFolder,
 	restoreIngredient,
@@ -248,4 +252,21 @@ export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
 		const ctx = await requireAuth()
 		const actor = await resolveActor()
 		return restoreIngredientVersion(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
+	})
+
+// ── Revisão (conferência do insumo pelos nutricionistas) ──────────────────────
+
+export const recordIngredientReviewFn = createServerFn({ method: "POST" })
+	.inputValidator(RecordIngredientReviewSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		const actor = await resolveActor()
+		return recordIngredientReview(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
+	})
+
+export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
+	.inputValidator(ListIngredientLastReviewsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listIngredientLastReviews(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})

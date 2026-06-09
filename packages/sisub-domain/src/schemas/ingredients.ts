@@ -108,6 +108,20 @@ export const RestoreIngredientVersionSchema = z.object({
 })
 export type RestoreIngredientVersion = z.infer<typeof RestoreIngredientVersionSchema>
 
+// ── Revisão de insumos (conferência pelos nutricionistas) ────────────────────
+
+export const RecordIngredientReviewSchema = z.object({
+	ingredientId: UuidSchema,
+	note: z.string().nullable().optional(),
+})
+export type RecordIngredientReview = z.infer<typeof RecordIngredientReviewSchema>
+
+/** Última revisão por insumo. Sem ingredientId → todas (árvore); com → 1 insumo (detalhe). */
+export const ListIngredientLastReviewsSchema = z.object({
+	ingredientId: UuidSchema.optional(),
+})
+export type ListIngredientLastReviews = z.infer<typeof ListIngredientLastReviewsSchema>
+
 export const ListCeafaSchema = z.object({ search: z.string().optional() })
 export type ListCeafa = z.infer<typeof ListCeafaSchema>
 

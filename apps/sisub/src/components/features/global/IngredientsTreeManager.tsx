@@ -82,7 +82,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	}
 
 	// Hook consumes URL value (already debounced).
-	const { flatTree, stats, itemCountByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(
+	const { flatTree, stats, itemCountByIngredientId, lastReviewByIngredientId, error, refetch, toggleExpand, expandAll, collapseAll } = useIngredientsHierarchy(
 		urlSearch,
 		showDeleted,
 		"sisub:global-ingredients"
@@ -245,6 +245,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 											onEdit={(type, data) => handleOpenDialog(type as "folder" | "ingredient", "edit", data as Folder | Ingredient)}
 											onToggle={toggleExpand}
 											itemCount={node.type === "ingredient" ? (itemCountByIngredientId[node.id] ?? 0) : undefined}
+											lastReviewedAt={node.type === "ingredient" ? (lastReviewByIngredientId[node.id] ?? null) : undefined}
 											selectionMode={selectionMode}
 											selected={selected.has(node.id)}
 											onSelectChange={(checked) => handleSelectChange(node, checked)}

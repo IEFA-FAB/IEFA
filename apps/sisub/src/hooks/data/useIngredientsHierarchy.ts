@@ -74,6 +74,16 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false,
 		return counts
 	}, [tree])
 
+	// Data da última revisão por ingrediente (ISO) — exibida na árvore para acompanhar a conferência.
+	const lastReviewByIngredientId = useMemo<Record<string, string>>(() => {
+		if (!tree) return {}
+		const map: Record<string, string> = {}
+		for (const r of tree.lastReviews ?? []) {
+			if (r.ingredient_id) map[r.ingredient_id] = r.reviewed_at
+		}
+		return map
+	}, [tree])
+
 	// Constrói estrutura flat da árvore para virtualização
 	// Agora com suporte a expand/collapse
 	const flatTree = useMemo<FlatIngredientTree | null>(() => {
@@ -222,6 +232,7 @@ export function useIngredientsHierarchy(filterText = "", includeDeleted = false,
 		flatTree,
 		stats,
 		itemCountByIngredientId,
+		lastReviewByIngredientId,
 
 		// Estados (componente decide skeleton)
 		error,
