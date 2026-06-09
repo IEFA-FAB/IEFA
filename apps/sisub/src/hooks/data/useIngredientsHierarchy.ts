@@ -133,7 +133,9 @@ export function useIngredientsHierarchy(
 			const matchers = QUICK_FILTER_CATEGORIES.filter((c) => hiddenKey.split(",").includes(c.key))
 			const childFolderIdsByParent: Record<string, string[]> = {}
 			folders.forEach((f) => {
-				;(childFolderIdsByParent[f.parent_id || "root"] ??= []).push(f.id)
+				const key = f.parent_id || "root"
+				if (!childFolderIdsByParent[key]) childFolderIdsByParent[key] = []
+				childFolderIdsByParent[key].push(f.id)
 			})
 			const stack = folders.filter((f) => matchers.some((m) => m.match(f.description || ""))).map((f) => f.id)
 			while (stack.length > 0) {
@@ -155,12 +157,14 @@ export function useIngredientsHierarchy(
 			const childFoldersByParent: Record<string, string[]> = {}
 			folders.forEach((f) => {
 				const key = f.parent_id || "root"
-				;(childFoldersByParent[key] ??= []).push(f.id)
+				if (!childFoldersByParent[key]) childFoldersByParent[key] = []
+				childFoldersByParent[key].push(f.id)
 			})
 			const ingredientsByFolder: Record<string, string[]> = {}
 			ingredients.forEach((i) => {
 				const key = i.folder_id || "root"
-				;(ingredientsByFolder[key] ??= []).push(i.id)
+				if (!ingredientsByFolder[key]) ingredientsByFolder[key] = []
+				ingredientsByFolder[key].push(i.id)
 			})
 
 			const addWithAncestors = (startFolderId: string | null) => {
