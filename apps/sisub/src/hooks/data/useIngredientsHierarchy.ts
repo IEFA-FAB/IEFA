@@ -114,12 +114,42 @@ export function useIngredientsHierarchy(
 		const includedIds = new Set<string>()
 
 		if (isFiltering) {
+			// Índices filho→pai para traversal descendente (subpastas e insumos por pasta)
+			const childFoldersByParent: Record<string, string[]> = {}
+			folders.forEach((f) => {
+				const key = f.parent_id || "root"
+				;(childFoldersByParent[key] ??= []).push(f.id)
+			})
+			const ingredientsByFolder: Record<string, string[]> = {}
+			ingredients.forEach((i) => {
+				const key = i.folder_id || "root"
+				;(ingredientsByFolder[key] ??= []).push(i.id)
+			})
+
 			const addWithAncestors = (startFolderId: string | null) => {
 				let id = startFolderId
 				while (id) {
 					if (includedIds.has(id)) break // ancestral já adicionado, parar
 					includedIds.add(id)
 					id = folderById[id]?.parent_id ?? null
+				}
+			}
+
+			// Quando uma pasta casa o filtro, inclui TODO o seu conteúdo
+			// (subpastas + insumos, recursivamente). Sem isso a pasta apareceria vazia.
+			const addDescendants = (folderId: string) => {
+				const stack = [folderId]
+				while (stack.length > 0) {
+					const fid = stack.pop()
+					if (!fid) continue
+					for (const childFolderId of childFoldersByParent[fid] ?? []) {
+						if (includedIds.has(childFolderId)) continue
+						includedIds.add(childFolderId)
+						stack.push(childFolderId)
+					}
+					for (const ingredientId of ingredientsByFolder[fid] ?? []) {
+						includedIds.add(ingredientId)
+					}
 				}
 			}
 
@@ -136,6 +166,7 @@ export function useIngredientsHierarchy(
 				if (norm(description).includes(filter)) {
 					includedIds.add(folder.id)
 					addWithAncestors(folder.parent_id)
+					addDescendants(folder.id)
 				}
 			})
 		}
