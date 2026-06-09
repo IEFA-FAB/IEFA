@@ -1,12 +1,13 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { DownloadIcon, PackagePlus } from "lucide-react"
+import { DownloadIcon, FolderPlus, PackagePlus } from "lucide-react"
 import { useRef } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientsTreeManager, type IngredientsTreeManagerHandle } from "@/components/features/global/IngredientsTreeManager"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { useExportIngredientsCSV } from "@/hooks/business/useExportIngredientsCSV"
 import { ingredientsTreeQueryOptions } from "@/services/IngredientsService"
 
@@ -48,12 +49,19 @@ function IngredientsPage() {
 			<PageHeader title="Gestão de Insumos">
 				<Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
 					<DownloadIcon className="size-4" />
-					Exportar CSV
+					<span className="hidden sm:inline">Exportar CSV</span>
+					<span className="sm:hidden">CSV</span>
 				</Button>
-				<Button size="sm" onClick={() => managerRef.current?.openCreateIngredient()} className="gap-2">
-					<PackagePlus className="size-4" />
-					Novo Insumo
-				</Button>
+				<ButtonGroup>
+					<Button variant="outline" size="sm" onClick={() => managerRef.current?.openCreateFolder()} className="gap-2">
+						<FolderPlus className="size-4" />
+						Nova Pasta
+					</Button>
+					<Button size="sm" onClick={() => managerRef.current?.openCreateIngredient()} className="gap-2">
+						<PackagePlus className="size-4" />
+						Novo Insumo
+					</Button>
+				</ButtonGroup>
 			</PageHeader>
 			<IngredientsTreeManager ref={managerRef} />
 		</div>

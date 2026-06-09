@@ -1,10 +1,12 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { FolderPlus, Loader2, Replace, Search, SquareCheckBig, X } from "lucide-react"
+import { Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
 import { type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
@@ -22,7 +24,7 @@ import { IngredientsTreeNode } from "./IngredientsTreeNode"
  * Responsabilidade: Pastas + Produtos (hierarquia e CRUD)
  * Itens de compra vivem em /global/ingredients/$ingredientId
  */
-export type IngredientsTreeManagerHandle = { openCreateIngredient: () => void }
+export type IngredientsTreeManagerHandle = { openCreateIngredient: () => void; openCreateFolder: () => void }
 
 const INGREDIENTS_SCROLL_KEY = "sisub:global-ingredients:scroll"
 
@@ -121,7 +123,14 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 	// Expõe a ação "criar insumo" para o PageHeader da rota (botão primário no topo)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: handleOpenDialog só envolve setDialogState (estável); handle deve ser criado uma vez
-	useImperativeHandle(ref, () => ({ openCreateIngredient: () => handleOpenDialog("ingredient", "create") }), [])
+	useImperativeHandle(
+		ref,
+		() => ({
+			openCreateIngredient: () => handleOpenDialog("ingredient", "create"),
+			openCreateFolder: () => handleOpenDialog("folder", "create"),
+		}),
+		[]
+	)
 
 	const selectAllVisible = () => {
 		if (!flatTree) return
@@ -157,35 +166,48 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	return (
 		<div className="space-y-6">
 			{/* Toolbar */}
-			<Card className="flex-col sm:flex-row items-stretch sm:items-center gap-4 p-5 overflow-visible">
-				<div className="relative flex-1 max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-					<Input
-						type="search"
-						placeholder="Buscar pastas ou insumos..."
-						value={inputValue}
-						onChange={(e) => setInputValue(e.target.value)}
-						className="pl-10"
-						aria-label="Buscar na árvore de insumos"
-					/>
+			<Card className="flex-col lg:flex-row lg:items-center gap-3 p-4 overflow-visible">
+				{/* Busca + opções de busca (esquerda, cresce até preencher) */}
+				<div className="flex items-center gap-2 flex-1 min-w-0">
+					<div className="relative flex-1 min-w-56">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+						<Input
+							type="search"
+							placeholder="Buscar pastas ou insumos..."
+							value={inputValue}
+							onChange={(e) => setInputValue(e.target.value)}
+							className="pl-10"
+							aria-label="Buscar na árvore de insumos"
+						/>
+					</div>
+
+					<Popover>
+						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
+							<SlidersHorizontal className="size-4" />
+							<span className="hidden sm:inline">Opções</span>
+							{(searchCaseSensitive || searchAccentSensitive || showDeleted) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
+						</PopoverTrigger>
+						<PopoverContent align="start" className="w-64">
+							<div className="flex flex-col gap-3 text-sm">
+								<label htmlFor={searchCaseId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Diferenciar maiúsculas
+									<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
+								</label>
+								<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Diferenciar acentos
+									<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
+								</label>
+								<label htmlFor={showDeletedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Mostrar excluídos
+									<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
+								</label>
+							</div>
+						</PopoverContent>
+					</Popover>
 				</div>
 
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-					<label htmlFor={searchCaseId} className="flex items-center gap-2 cursor-pointer select-none">
-						<Switch id={searchCaseId} checked={searchCaseSensitive} onCheckedChange={setSearchCaseSensitive} size="sm" />
-						Diferenciar maiúsculas
-					</label>
-					<label htmlFor={searchAccentId} className="flex items-center gap-2 cursor-pointer select-none">
-						<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
-						Diferenciar acentos
-					</label>
-					<label htmlFor={showDeletedId} className="flex items-center gap-2 cursor-pointer select-none">
-						<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
-						Mostrar excluídos
-					</label>
-				</div>
-
-				<div className="flex flex-wrap gap-2">
+				{/* Ações (direita) */}
+				<div className="flex flex-wrap items-center gap-2 lg:justify-end">
 					{selectionMode ? (
 						<>
 							<Button variant="outline" size="sm" onClick={selectAllVisible} aria-label="Selecionar todos os visíveis">
@@ -198,12 +220,14 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 						</>
 					) : (
 						<>
-							<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
-								Expandir Tudo
-							</Button>
-							<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
-								Recolher Tudo
-							</Button>
+							<ButtonGroup>
+								<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
+									Expandir Tudo
+								</Button>
+								<Button variant="outline" size="sm" onClick={collapseAll} aria-label="Recolher tudo">
+									Recolher Tudo
+								</Button>
+							</ButtonGroup>
 
 							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
 								<Replace className="size-4 mr-2" />
@@ -214,12 +238,6 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 								<SquareCheckBig className="size-4 mr-2" />
 								<span className="hidden sm:inline">Selecionar Itens</span>
 								<span className="sm:hidden">Selecionar</span>
-							</Button>
-
-							<Button variant="outline" size="sm" onClick={() => handleOpenDialog("folder", "create")} aria-label="Nova pasta" className="flex-1 sm:flex-none">
-								<FolderPlus className="size-4 mr-2" />
-								<span className="hidden sm:inline">Nova Pasta</span>
-								<span className="sm:hidden">Pasta</span>
 							</Button>
 						</>
 					)}
