@@ -1,9 +1,16 @@
-import { type RefObject, useEffect, useRef } from "react"
+import { type RefObject, useEffect } from "react"
 
 /**
- * Persiste e restaura a posição de scroll vertical de um container rolável em
- * `sessionStorage`. Pensado para listas virtualizadas: a restauração é aplicada
- * ao longo de alguns frames para esperar o virtualizer medir a altura total.
+ * Restauração de scroll para listas virtualizadas (TanStack Virtual).
+ *
+ * A restauração NÃO é feita setando `scrollTop` na mão (sofre com clamping
+ * enquanto o virtualizer ainda não mediu a altura total). Em vez disso:
+ *
+ * - **Restaurar**: passe `getStoredScrollOffset(key)` em `initialOffset` do
+ *   `useVirtualizer`. Ao montar o scroll element, o virtualizer posiciona o DOM
+ *   no offset salvo — já integrado à medição.
+ * - **Salvar**: `usePersistScrollOffset(key, ref, ready)` escuta o scroll do
+ *   container e grava o offset exato em `sessionStorage` (throttle via rAF).
  */
 
 const memoryFallback = new Map<string, number>()
@@ -25,40 +32,21 @@ function writeScroll(key: string, value: number): void {
 	}
 }
 
-export function useScrollRestoration(
+/** Lê o offset salvo (síncrono). Use em `initialOffset` do `useVirtualizer`. SSR-safe (retorna 0). */
+export function getStoredScrollOffset(key: string | null): number {
+	if (key == null) return 0
+	const value = readScroll(key)
+	return value != null && !Number.isNaN(value) && value > 0 ? value : 0
+}
+
+/** Persiste o offset de scroll vertical do container enquanto ele existir. */
+export function usePersistScrollOffset(
 	/** Chave do storage. `null` desativa. */
 	key: string | null,
 	ref: RefObject<HTMLElement | null>,
-	/** `true` quando o conteúdo já tem altura (dados carregados) — necessário para restaurar. */
+	/** `true` quando o container já está montado (dados carregados). Reanexa o listener ao montar. */
 	ready: boolean
 ): void {
-	const restoredRef = useRef(false)
-
-	// Restaura uma única vez, quando o conteúdo estiver pronto.
-	useEffect(() => {
-		if (key == null || !ready || restoredRef.current) return
-		const el = ref.current
-		if (!el) return
-		restoredRef.current = true
-		const saved = readScroll(key)
-		if (saved == null || Number.isNaN(saved) || saved <= 0) return
-
-		let cancelled = false
-		let raf = 0
-		// Reaplica por alguns frames: o virtualizer pode medir a altura tardiamente.
-		const apply = (attempt: number) => {
-			if (cancelled) return
-			if (ref.current) ref.current.scrollTop = saved
-			if (attempt < 2) raf = requestAnimationFrame(() => apply(attempt + 1))
-		}
-		raf = requestAnimationFrame(() => apply(0))
-		return () => {
-			cancelled = true
-			cancelAnimationFrame(raf)
-		}
-	}, [key, ready, ref])
-
-	// Salva a posição (throttle via rAF) enquanto o container existir.
 	useEffect(() => {
 		if (key == null) return
 		const el = ref.current

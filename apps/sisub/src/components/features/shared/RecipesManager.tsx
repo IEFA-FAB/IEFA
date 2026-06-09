@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
-import { useScrollRestoration } from "@/hooks/ui/useScrollRestoration"
+import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import { RecipesBulkActionsBar } from "./RecipesBulkActionsBar"
 import { RecipesFindReplaceDialog } from "./RecipesFindReplaceDialog"
 
@@ -24,6 +24,7 @@ export function RecipesManager() {
 	const { kitchenId: kitchenIdStr } = useParams({ strict: false })
 	const kitchenId = kitchenIdStr ?? null
 	const kitchenIdNum = kitchenIdStr ? Number(kitchenIdStr) : null
+	const scrollKey = `sisub:recipes:${kitchenIdStr ?? "global"}:scroll`
 
 	const { search: urlSearch = "", type = "all" } = useSearch({ strict: false }) as {
 		search?: string
@@ -113,10 +114,12 @@ export function RecipesManager() {
 		estimateSize: () => ROW_HEIGHT,
 		overscan: 10,
 		getItemKey: (index) => filteredRecipes[index]?.id ?? index,
+		// Restaura o offset salvo ao remontar (ex: voltar de uma página de detalhe).
+		initialOffset: () => getStoredScrollOffset(scrollKey),
 	})
 
-	// Restaura scroll/posição ao voltar de uma página de detalhe.
-	useScrollRestoration(`sisub:recipes:${kitchenIdStr ?? "global"}:scroll`, parentRef, !isLoading && filteredRecipes.length > 0)
+	// Persiste o offset de scroll continuamente.
+	usePersistScrollOffset(scrollKey, parentRef, !isLoading && filteredRecipes.length > 0)
 
 	return (
 		<div className="space-y-6">

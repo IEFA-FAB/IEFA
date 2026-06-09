@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import type { BulkSelectedNode } from "@/hooks/business/useBulkIngredientOps"
 import { useIngredientsHierarchy } from "@/hooks/data/useIngredientsHierarchy"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
-import { useScrollRestoration } from "@/hooks/ui/useScrollRestoration"
+import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import type { Folder, Ingredient, IngredientDialogState, IngredientTreeNode } from "@/types/domain/ingredients"
 import { BulkActionsBar } from "./BulkActionsBar"
 import { BulkFindReplaceDialog } from "./BulkFindReplaceDialog"
@@ -23,6 +23,8 @@ import { IngredientsTreeNode } from "./IngredientsTreeNode"
  * Itens de compra vivem em /global/ingredients/$ingredientId
  */
 export type IngredientsTreeManagerHandle = { openCreateIngredient: () => void }
+
+const INGREDIENTS_SCROLL_KEY = "sisub:global-ingredients:scroll"
 
 export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManagerHandle> }) {
 	"use no memo"
@@ -95,10 +97,12 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		overscan: 10,
 		// Chave estável por ID: evita reutilização errada de DOM ao filtrar/reordenar
 		getItemKey: (index) => flatTree?.nodes[index]?.id ?? index,
+		// Restaura o offset salvo ao remontar (ex: voltar de uma página de detalhe).
+		initialOffset: () => getStoredScrollOffset(INGREDIENTS_SCROLL_KEY),
 	})
 
-	// Restaura scroll/posição ao voltar de uma página de detalhe.
-	useScrollRestoration("sisub:global-ingredients:scroll", parentRef, !!flatTree && flatTree.nodes.length > 0)
+	// Persiste o offset de scroll continuamente.
+	usePersistScrollOffset(INGREDIENTS_SCROLL_KEY, parentRef, !!flatTree && flatTree.nodes.length > 0)
 
 	const handleOpenDialog = (type: "folder" | "ingredient", mode: "create" | "edit" = "create", data?: Folder | Ingredient, parentId?: string | null) => {
 		setDialogState({ isOpen: true, mode, type, data, parentId })
