@@ -2,7 +2,7 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ArrowDownAZ, ArrowDownZA, ChefHat, GitFork, Globe, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
+import { ArrowDownAZ, ArrowDownZA, CalendarCheck, ChefHat, GitFork, Globe, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipe } from "@/hooks/data/useRecipe"
-import { useRecipes } from "@/hooks/data/useRecipes"
+import { useRecipeMenuUsage, useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
@@ -146,6 +146,9 @@ export function RecipesManager() {
 		accentSensitive: searchAccentSensitive,
 		sortDirection,
 	})
+
+	// Preparações usadas em planos semanais → revisão prioritária pelas nutricionistas.
+	const { usedIds: menuUsageIds } = useRecipeMenuUsage()
 
 	const clearSelection = () => setSelected(new Map())
 
@@ -360,6 +363,19 @@ export function RecipesManager() {
 												</HoverCardContent>
 											</HoverCard>
 											{isDeleted && <Badge variant="destructive">Excluída</Badge>}
+											{menuUsageIds.has(recipe.id) && (
+												<Tooltip>
+													<TooltipTrigger
+														render={
+															<Badge variant="accent" className="shrink-0">
+																<CalendarCheck />
+																<span className="hidden sm:inline">Plano semanal</span>
+															</Badge>
+														}
+													/>
+													<TooltipContent>Usada em plano semanal — priorize a revisão</TooltipContent>
+												</Tooltip>
+											)}
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">
 													v{recipe.version}

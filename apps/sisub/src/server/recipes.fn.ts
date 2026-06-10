@@ -17,6 +17,7 @@ import {
 	fetchRecipe,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
+	listRecipeMenuUsage,
 	listRecipes,
 	listRecipeVersions,
 	RenameRecipeSchema,
@@ -45,6 +46,12 @@ export const fetchRecipeFn = createServerFn({ method: "GET" })
 
 // Alias kept for backward compat
 export const fetchRecipeWithIngredientsFn = fetchRecipeFn
+
+// IDs das preparações usadas em algum plano semanal (menu_template weekly não excluído).
+export const fetchRecipeMenuUsageFn = createServerFn({ method: "GET" }).handler(async () => {
+	const ctx = await requireAuth()
+	return listRecipeMenuUsage(getSupabaseServerClient(), ctx).catch(handleDomainError)
+})
 
 export const fetchRecipeVersionsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListRecipeVersionsSchema)

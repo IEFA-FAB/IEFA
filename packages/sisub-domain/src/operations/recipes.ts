@@ -90,6 +90,33 @@ export async function listRecipes(client: AnyClient, ctx: UserContext, input: Li
 	return Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 }
 
+/**
+ * Retorna os IDs das preparações usadas em pelo menos um plano semanal (menu_template
+ * com template_type "weekly" e não excluído). Usado para sinalizar, na listagem de
+ * preparações, quais merecem revisão prioritária por estarem em cardápios semanais.
+ *
+ * Sem escopo de cozinha: uma preparação global pode ser usada em um plano semanal de
+ * qualquer cozinha. O RLS já limita o que o usuário pode enxergar.
+ */
+export async function listRecipeMenuUsage(client: AnyClient, ctx: UserContext): Promise<string[]> {
+	requirePermission(ctx, "kitchen", 1)
+
+	const { data, error } = await client
+		.from("menu_template_items")
+		.select("recipe_id, menu_template!inner(template_type, deleted_at)")
+		.eq("menu_template.template_type", "weekly")
+		.is("menu_template.deleted_at", null)
+		.not("recipe_id", "is", null)
+
+	if (error) throw new DomainError("FETCH_FAILED", error.message)
+
+	const ids = new Set<string>()
+	for (const row of (data ?? []) as { recipe_id: string | null }[]) {
+		if (row.recipe_id) ids.add(row.recipe_id)
+	}
+	return Array.from(ids)
+}
+
 export async function listRecipeVersions(client: AnyClient, ctx: UserContext, input: ListRecipeVersions) {
 	requirePermission(ctx, "kitchen", 1)
 

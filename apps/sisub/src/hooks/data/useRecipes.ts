@@ -2,7 +2,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { queryKeys } from "@/lib/query-keys"
 import { normalizeForSearch } from "@/lib/text-search"
-import { fetchRecipesFn, fetchRecipeWithIngredientsFn } from "@/server/recipes.fn"
+import { fetchRecipeMenuUsageFn, fetchRecipesFn, fetchRecipeWithIngredientsFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 export const recipesQueryOptions = (kitchenId?: number | null, includeDeleted?: boolean) =>
@@ -55,6 +55,23 @@ export function useRecipes(filters?: {
 	}, [query.data, filters?.search, filters?.origin, caseSensitive, accentSensitive, sortDirection])
 
 	return { ...query, data }
+}
+
+/**
+ * Conjunto de IDs de preparações usadas em algum plano semanal (menu_template weekly).
+ * Usado para destacar, na listagem, as preparações que merecem revisão prioritária.
+ */
+export function useRecipeMenuUsage() {
+	const query = useQuery({
+		queryKey: queryKeys.recipes.menuUsage(),
+		queryFn: () => fetchRecipeMenuUsageFn(),
+		staleTime: 5 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
+	})
+
+	const usedIds = useMemo(() => new Set(query.data ?? []), [query.data])
+
+	return { ...query, usedIds }
 }
 
 /**
