@@ -2,7 +2,7 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ChefHat, GitFork, Globe, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
+import { ArrowDownAZ, ArrowDownZA, ChefHat, GitFork, Globe, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -125,6 +125,9 @@ export function RecipesManager() {
 	const [searchCaseSensitive, setSearchCaseSensitive] = usePersistentState("sisub:recipes:search:caseSensitive", false)
 	const [searchAccentSensitive, setSearchAccentSensitive] = usePersistentState("sisub:recipes:search:accentSensitive", false)
 
+	// Ordenação alfabética (A-Z / Z-A). Persistida por aba.
+	const [sortDirection, setSortDirection] = usePersistentState<"asc" | "desc">("sisub:recipes:sort", "asc")
+
 	// Seleção em massa
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [showDeleted, setShowDeleted] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:showDeleted`, false)
@@ -141,6 +144,7 @@ export function RecipesManager() {
 		includeDeleted: showDeleted,
 		caseSensitive: searchCaseSensitive,
 		accentSensitive: searchAccentSensitive,
+		sortDirection,
 	})
 
 	const clearSelection = () => setSelected(new Map())
@@ -260,6 +264,16 @@ export function RecipesManager() {
 									Locais
 								</Button>
 							</ButtonGroup>
+
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+								aria-label={sortDirection === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}
+							>
+								{sortDirection === "asc" ? <ArrowDownAZ className="size-4 mr-2" /> : <ArrowDownZA className="size-4 mr-2" />}
+								<span className="hidden sm:inline">{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+							</Button>
 
 							<Button variant="outline" size="sm" onClick={() => setFindReplaceOpen(true)} aria-label="Localizar e substituir">
 								<Replace className="size-4 mr-2" />

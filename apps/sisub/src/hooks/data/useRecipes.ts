@@ -26,11 +26,14 @@ export function useRecipes(filters?: {
 	/** Default: insensível a maiúsculas e acentos. */
 	caseSensitive?: boolean
 	accentSensitive?: boolean
+	/** Ordenação alfabética por nome. Default: "asc" (A-Z). */
+	sortDirection?: "asc" | "desc"
 }) {
 	const query = useQuery(recipesQueryOptions(filters?.kitchen_id, filters?.includeDeleted))
 
 	const caseSensitive = filters?.caseSensitive ?? false
 	const accentSensitive = filters?.accentSensitive ?? false
+	const sortDirection = filters?.sortDirection ?? "asc"
 
 	const data = useMemo(() => {
 		if (!query.data) return query.data
@@ -39,13 +42,17 @@ export function useRecipes(filters?: {
 		const search = filters?.search ? normalizeForSearch(filters.search, sensitivity).trim() : undefined
 		const origin = filters?.origin ?? "all"
 
-		return query.data.filter((r) => {
+		const filtered = query.data.filter((r) => {
 			if (search && !normalizeForSearch(r.name, sensitivity).includes(search)) return false
 			if (origin === "global" && r.kitchen_id !== null) return false
 			if (origin === "local" && r.kitchen_id === null) return false
 			return true
 		})
-	}, [query.data, filters?.search, filters?.origin, caseSensitive, accentSensitive])
+
+		const collator = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true })
+		const dir = sortDirection === "desc" ? -1 : 1
+		return [...filtered].sort((a, b) => dir * collator.compare(a.name, b.name))
+	}, [query.data, filters?.search, filters?.origin, caseSensitive, accentSensitive, sortDirection])
 
 	return { ...query, data }
 }

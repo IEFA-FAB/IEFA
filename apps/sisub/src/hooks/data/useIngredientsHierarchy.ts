@@ -33,7 +33,8 @@ export function useIngredientsHierarchy(
 	includeDeleted = false,
 	persistKey?: string,
 	sensitivity: SearchSensitivity = { caseSensitive: false, accentSensitive: false },
-	hiddenCategoryKeys: readonly string[] = []
+	hiddenCategoryKeys: readonly string[] = [],
+	sortDirection: "asc" | "desc" = "asc"
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
@@ -214,6 +215,15 @@ export function useIngredientsHierarchy(
 			})
 		}
 
+		// Ordenação alfabética dos filhos de cada nó (pastas primeiro, depois insumos),
+		// respeitando a hierarquia: cada grupo `byParentId` é ordenado independentemente.
+		const collator = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true })
+		const dir = sortDirection === "desc" ? -1 : 1
+		const compareNodes = (a: IngredientTreeNode, b: IngredientTreeNode) => {
+			if (a.type !== b.type) return a.type === "folder" ? -1 : 1
+			return dir * collator.compare(a.label, b.label)
+		}
+
 		const byId: Record<string, IngredientTreeNode> = {}
 		const byParentId: Record<string, IngredientTreeNode[]> = {}
 
@@ -277,6 +287,11 @@ export function useIngredientsHierarchy(
 		// Evita o antigo calculateLevel recursivo que era O(N × profundidade).
 		const visibleNodes: IngredientTreeNode[] = []
 
+		// Ordena os filhos de cada nó antes do traversal (pastas A-Z/Z-A, depois insumos A-Z/Z-A).
+		for (const key of Object.keys(byParentId)) {
+			byParentId[key].sort(compareNodes)
+		}
+
 		const traverse = (parentId: string | null, level: number) => {
 			const children = byParentId[parentId || "root"] || []
 
@@ -298,7 +313,7 @@ export function useIngredientsHierarchy(
 		traverse(null, 0)
 
 		return { nodes: visibleNodes, byId, byParentId }
-	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey])
+	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey, sortDirection])
 
 	// Estatísticas
 	const stats = useMemo(() => {

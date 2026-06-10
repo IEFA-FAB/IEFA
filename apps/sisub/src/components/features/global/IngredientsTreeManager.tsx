@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
+import { ArrowDownAZ, ArrowDownZA, Loader2, Replace, Search, SlidersHorizontal, SquareCheckBig, X } from "lucide-react"
 import { type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -77,6 +77,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 
 	// Edição em massa
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+	// Ordenação alfabética (A-Z / Z-A). Persistida por aba.
+	const [sortDirection, setSortDirection] = usePersistentState<"asc" | "desc">("sisub:global-ingredients:sort", "asc")
 	// Busca rápida (toggle group multi-seleção). Persistida por aba.
 	const [quickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
 	const showDeleted = quickFilters.includes("excluidos")
@@ -113,7 +115,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		showDeleted,
 		"sisub:global-ingredients",
 		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
-		hiddenCategoryKeys
+		hiddenCategoryKeys,
+		sortDirection
 	)
 
 	// Contagem do que está efetivamente visível (após busca + chips). `byId` contém
@@ -249,6 +252,15 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 						</>
 					) : (
 						<>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+								aria-label={sortDirection === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}
+							>
+								{sortDirection === "asc" ? <ArrowDownAZ className="size-4 mr-2" /> : <ArrowDownZA className="size-4 mr-2" />}
+								<span className="hidden sm:inline">{sortDirection === "asc" ? "A-Z" : "Z-A"}</span>
+							</Button>
 							<ButtonGroup>
 								<Button variant="outline" size="sm" onClick={expandAll} aria-label="Expandir tudo">
 									Expandir Tudo
