@@ -30,6 +30,10 @@ interface ReplaceMatch {
 const PREVIEW_LIMIT = 200
 
 export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: RecipesFindReplaceDialogProps) {
+	// Escopo cozinha: só alcança receitas DAQUELA cozinha (nunca globais nem de outras cozinhas).
+	// Espelha a autorização do servidor (renameRecipe → requireKitchen), evitando substituições que falhariam.
+	const isKitchenScope = kitchenId != null
+
 	// Candidatas: todas as receitas do escopo, sem excluídas. Dedupe controlado pela query.
 	const { data: recipes = [] } = useRecipes({ kitchen_id: kitchenId, includeDeleted: false })
 	const { replaceNames, isRunning } = useBulkRecipeOps()
@@ -57,6 +61,9 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 
 		const out: ReplaceMatch[] = []
 		for (const r of recipes) {
+			// No escopo cozinha, ignora tudo que não seja desta cozinha (globais e outras cozinhas).
+			if (isKitchenScope && r.kitchen_id !== kitchenId) continue
+
 			const isGlobal = r.kitchen_id == null
 			if (isGlobal && !includeGlobal) continue
 			if (!isGlobal && !includeLocal) continue
@@ -69,7 +76,7 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 			out.push({ id: r.id, original, newName, count: occurrences, kitchenId: r.kitchen_id })
 		}
 		return out
-	}, [find, replace, caseSensitive, accentSensitive, wholeWord, includeGlobal, includeLocal, recipes])
+	}, [find, replace, caseSensitive, accentSensitive, wholeWord, includeGlobal, includeLocal, recipes, isKitchenScope, kitchenId])
 
 	const totalOccurrences = matches.reduce((sum, m) => sum + m.count, 0)
 
@@ -139,14 +146,19 @@ export function RecipesFindReplaceDialog({ isOpen, onClose, kitchenId }: Recipes
 						<Switch id={wordId} checked={wholeWord} onCheckedChange={setWholeWord} size="sm" />
 						Palavra inteira
 					</label>
-					<label htmlFor={globalId} className="flex items-center gap-2 cursor-pointer">
-						<Switch id={globalId} checked={includeGlobal} onCheckedChange={setIncludeGlobal} size="sm" />
-						Globais
-					</label>
-					<label htmlFor={localId} className="flex items-center gap-2 cursor-pointer">
-						<Switch id={localId} checked={includeLocal} onCheckedChange={setIncludeLocal} size="sm" />
-						Locais
-					</label>
+					{/* Filtro de origem só faz sentido no catálogo global; no escopo cozinha só há receitas locais desta cozinha. */}
+					{!isKitchenScope && (
+						<>
+							<label htmlFor={globalId} className="flex items-center gap-2 cursor-pointer">
+								<Switch id={globalId} checked={includeGlobal} onCheckedChange={setIncludeGlobal} size="sm" />
+								Globais
+							</label>
+							<label htmlFor={localId} className="flex items-center gap-2 cursor-pointer">
+								<Switch id={localId} checked={includeLocal} onCheckedChange={setIncludeLocal} size="sm" />
+								Locais
+							</label>
+						</>
+					)}
 				</div>
 
 				{/* Resumo + Preview */}
