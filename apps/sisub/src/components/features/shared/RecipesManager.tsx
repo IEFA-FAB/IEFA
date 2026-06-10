@@ -132,13 +132,16 @@ export function RecipesManager() {
 	const [selectionMode, setSelectionMode] = useState(false)
 	const [showDeleted, setShowDeleted] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:showDeleted`, false)
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+	// Filtro: mostrar apenas preparações usadas em algum plano semanal.
+	const [onlyWeeklyMenu, setOnlyWeeklyMenu] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:onlyWeeklyMenu`, false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedRecipe>>(new Map())
 	const selectedRecipes = useMemo(() => Array.from(selected.values()), [selected])
 	const showDeletedId = useId()
 	const searchCaseId = useId()
 	const searchAccentId = useId()
+	const onlyWeeklyMenuId = useId()
 
-	const { data: filteredRecipes = [], isLoading } = useRecipes({
+	const { data: allRecipes = [], isLoading } = useRecipes({
 		search: urlSearch || undefined,
 		origin: type,
 		includeDeleted: showDeleted,
@@ -149,6 +152,11 @@ export function RecipesManager() {
 
 	// Preparações usadas em planos semanais → revisão prioritária pelas nutricionistas.
 	const { usedIds: menuUsageIds } = useRecipeMenuUsage()
+
+	const filteredRecipes = useMemo(
+		() => (onlyWeeklyMenu ? allRecipes.filter((r) => menuUsageIds.has(r.id)) : allRecipes),
+		[allRecipes, onlyWeeklyMenu, menuUsageIds]
+	)
 
 	const clearSelection = () => setSelected(new Map())
 
@@ -221,7 +229,9 @@ export function RecipesManager() {
 						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
 							<SlidersHorizontal className="size-4" />
 							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive || showDeleted) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
+							{(searchCaseSensitive || searchAccentSensitive || showDeleted || onlyWeeklyMenu) && (
+								<span className="size-1.5 rounded-full bg-primary" aria-hidden />
+							)}
 						</PopoverTrigger>
 						<PopoverContent align="start" className="w-64">
 							<div className="flex flex-col gap-3 text-sm">
@@ -236,6 +246,10 @@ export function RecipesManager() {
 								<label htmlFor={showDeletedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
 									Mostrar excluídas
 									<Switch id={showDeletedId} checked={showDeleted} onCheckedChange={setShowDeleted} size="sm" />
+								</label>
+								<label htmlFor={onlyWeeklyMenuId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Apenas em plano semanal
+									<Switch id={onlyWeeklyMenuId} checked={onlyWeeklyMenu} onCheckedChange={setOnlyWeeklyMenu} size="sm" />
 								</label>
 							</div>
 						</PopoverContent>
@@ -301,7 +315,11 @@ export function RecipesManager() {
 					) : filteredRecipes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">Nenhuma preparação encontrada</p>
-							{urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>}
+							{onlyWeeklyMenu ? (
+								<p className="text-sm mt-2">Nenhuma preparação em plano semanal — ajuste o filtro em Opções</p>
+							) : (
+								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
+							)}
 						</div>
 					) : (
 						<div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
