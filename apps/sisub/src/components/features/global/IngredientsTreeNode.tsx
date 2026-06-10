@@ -140,20 +140,17 @@ export function IngredientsTreeNode({
 
 	const Icon = node.type === "folder" ? FolderIcon : Package
 
-	const typeStyles = {
-		folder: {
-			iconBg: "bg-warning/10 dark:bg-warning/20",
-			iconColor: "text-warning",
-			border: "border-warning/20",
-		},
-		ingredient: {
-			iconBg: "bg-primary/10 dark:bg-primary/20",
-			iconColor: "text-primary",
-			border: "border-primary/20",
-		},
-	}
+	// Cor por nível via tokens semânticos (STYLE_CONTRACT §4.1 — zero cores hardcoded):
+	// nível 1 → governance (roxo) · nível 2 → success (verde) · nível 3+ → warning (amarelo)
+	const FOLDER_LEVEL_STYLES = [
+		{ iconBg: "bg-governance/10 dark:bg-governance/20", iconColor: "text-governance", border: "border-governance/20" },
+		{ iconBg: "bg-success/10 dark:bg-success/20", iconColor: "text-success", border: "border-success/20" },
+		{ iconBg: "bg-warning/10 dark:bg-warning/20", iconColor: "text-warning", border: "border-warning/20" },
+	]
 
-	const style = typeStyles[node.type as "folder" | "ingredient"]
+	const INGREDIENT_STYLE = { iconBg: "bg-primary/10 dark:bg-primary/20", iconColor: "text-primary", border: "border-primary/20" }
+
+	const style = node.type === "folder" ? (FOLDER_LEVEL_STYLES[Math.min(node.level, 2)] ?? FOLDER_LEVEL_STYLES[2]) : INGREDIENT_STYLE
 	const isNavigable = node.type === "ingredient" && !!onNavigate
 
 	const handleDeleteConfirm = async () => {
@@ -283,7 +280,18 @@ export function IngredientsTreeNode({
 							</HoverCardContent>
 						</HoverCard>
 					) : (
-						<span className={cn("text-sm truncate text-subheading", isDeleted && "line-through text-muted-foreground")}>{node.label}</span>
+						<span
+							className={cn(
+								"text-sm truncate leading-normal",
+								// Hierarquia tipo documento de texto por nível (0-indexed → nível doc = level + 1)
+								node.level === 0 && "font-bold uppercase tracking-wide",
+								node.level === 1 && "font-medium uppercase",
+								node.level >= 2 && "font-bold",
+								isDeleted && "line-through text-muted-foreground"
+							)}
+						>
+							{node.label}
+						</span>
 					)}
 
 					{/* Badge de item excluído */}
