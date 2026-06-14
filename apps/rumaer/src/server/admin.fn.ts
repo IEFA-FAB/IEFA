@@ -4,7 +4,7 @@
  * Toda mutação exige usuário autenticado (requireAuth) — além do guard de rota /admin.
  */
 
-import type { Piece, Uniform, UniformVariant } from "@iefa/database/rumaer"
+import type { Piece, PieceItem, Uniform, UniformVariant } from "@iefa/database/rumaer"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getRumaerAuthClient, getRumaerServerClient } from "@/lib/supabase.server"
@@ -133,6 +133,37 @@ export const deletePieceFn = createServerFn({ method: "POST" })
 		return { ok: true }
 	})
 
+// ------------------------------------------------------------- piece_item ----
+export const upsertPieceItemFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			id: z.string().uuid().optional(),
+			piece_id: z.string().uuid(),
+			nome: z.string().min(1),
+			tamanho: z.string().nullable().optional(),
+			cor: z.string().nullable().optional(),
+			posto: z.string().nullable().optional(),
+			quadro: z.string().nullable().optional(),
+			especialidade: z.string().nullable().optional(),
+			genero: GENERO.nullable().optional(),
+		})
+	)
+	.handler(async ({ data }): Promise<PieceItem> => {
+		await requireAuth()
+		const { data: row, error } = await getRumaerServerClient().from("piece_item").upsert(data).select("*").single()
+		if (error) throw new Error(error.message)
+		return row
+	})
+
+export const deletePieceItemFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ id: z.string().uuid() }))
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const { error } = await getRumaerServerClient().from("piece_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
+		if (error) throw new Error(error.message)
+		return { ok: true }
+	})
+
 // --------------------------------------------------------- variant pieces ----
 export const setVariantPiecesFn = createServerFn({ method: "POST" })
 	.inputValidator(
@@ -141,6 +172,7 @@ export const setVariantPiecesFn = createServerFn({ method: "POST" })
 			pieces: z.array(
 				z.object({
 					piece_id: z.string().uuid(),
+					piece_item_id: z.string().uuid().nullable().optional(),
 					obrigatoriedade: OBRIGATORIEDADE,
 					observacao: z.string().nullable().optional(),
 					restricao_posto: z.array(z.string()).nullable().optional(),

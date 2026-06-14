@@ -50,7 +50,7 @@ export const getUniformFn = createServerFn({ method: "GET" })
 				categories:uniform_category(*),
 				variants:uniform_variant(
 					*,
-					pieces:uniform_variant_piece(*, piece:piece(*))
+					pieces:uniform_variant_piece(*, piece:piece(*), piece_item:piece_item(*))
 				)`
 			)
 			.eq("id", data.id)

@@ -7,29 +7,6 @@ export const Route = createFileRoute("/_public/")({
 	component: LandingPage,
 })
 
-/** Figura estilizada do oficial — placeholder visual até a foto real do uniforme. */
-function OfficerFigure() {
-	return (
-		<svg viewBox="0 0 120 300" fill="currentColor" aria-hidden="true" className="h-auto w-28 drop-shadow-[0_14px_20px_oklch(0_0_0/0.35)]">
-			<ellipse cx="60" cy="22" rx="25" ry="8" />
-			<rect x="35" y="20" width="50" height="7" rx="2" />
-			<circle cx="60" cy="44" r="12" />
-			<path d="M41 60 L79 60 L90 110 L85 218 L35 218 L30 110 Z" />
-			<rect x="56" y="62" width="8" height="156" className="fill-navy" />
-			<circle cx="50" cy="84" r="2.3" className="fill-gold" />
-			<circle cx="70" cy="84" r="2.3" className="fill-gold" />
-			<circle cx="50" cy="104" r="2.3" className="fill-gold" />
-			<circle cx="70" cy="104" r="2.3" className="fill-gold" />
-			<circle cx="50" cy="124" r="2.3" className="fill-gold" />
-			<circle cx="70" cy="124" r="2.3" className="fill-gold" />
-			<rect x="38" y="220" width="20" height="66" rx="3" />
-			<rect x="62" y="220" width="20" height="66" rx="3" />
-			<rect x="36" y="286" width="23" height="9" rx="2" />
-			<rect x="61" y="286" width="23" height="9" rx="2" />
-		</svg>
-	)
-}
-
 const TASKS = [
 	{
 		title: "Composição peça a peça",
@@ -159,10 +136,14 @@ function LandingPage() {
 					</div>
 				</div>
 
-				{/* Figura */}
-				<div className="relative hidden items-end justify-center border-l border-white/10 px-5 pt-7 text-[oklch(0.80_0.05_264)] md:flex">
-					<span className="text-label absolute inset-x-0 top-6 text-center text-[10.5px] text-primary-foreground/70">Uniforme histórico · Oficial</span>
-					<OfficerFigure />
+				{/* Foto do uniforme histórico (asset estático em public/) */}
+				<div className="relative hidden items-end justify-center border-l border-white/10 px-5 pt-7 md:flex">
+					<span className="text-label absolute inset-x-0 top-6 z-10 text-center text-[10.5px] text-primary-foreground/70">Uniforme histórico</span>
+					<img
+						src="/uniforme-historico.png"
+						alt="Uniforme histórico da Força Aérea Brasileira — túnica azul-ferrete com quepe branco e espadim"
+						className="h-auto max-h-[380px] w-auto self-end object-contain drop-shadow-[0_14px_24px_oklch(0_0_0/0.4)]"
+					/>
 				</div>
 			</section>
 

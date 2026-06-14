@@ -1,4 +1,4 @@
-import type { CategoriaMilitar, Piece, UniformVariantWithPieces } from "@iefa/database/rumaer"
+import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantWithPieces } from "@iefa/database/rumaer"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, Plus, Trash2, Upload } from "lucide-react"
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase"
-import { piecesQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
+import { pieceItemsQueryOptions, piecesQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
 import {
 	CATEGORIA_LABELS,
 	CIRCULO_LABELS,
@@ -31,7 +31,11 @@ const EQ_CIVIL = ["esporte", "esporte_fino", "passeio", "passeio_completo", "gal
 
 export const Route = createFileRoute("/admin/uniformes/$uniformId")({
 	loader: async ({ context, params }) => {
-		await Promise.all([context.queryClient.ensureQueryData(uniformQueryOptions(params.uniformId)), context.queryClient.ensureQueryData(piecesQueryOptions())])
+		await Promise.all([
+			context.queryClient.ensureQueryData(uniformQueryOptions(params.uniformId)),
+			context.queryClient.ensureQueryData(piecesQueryOptions()),
+			context.queryClient.ensureQueryData(pieceItemsQueryOptions()),
+		])
 	},
 	component: UniformEditor,
 })
@@ -40,6 +44,7 @@ function UniformEditor() {
 	const { uniformId } = Route.useParams()
 	const { data: uniform } = useSuspenseQuery(uniformQueryOptions(uniformId))
 	const { data: pieces } = useSuspenseQuery(piecesQueryOptions())
+	const { data: pieceItems } = useSuspenseQuery(pieceItemsQueryOptions())
 	const queryClient = useQueryClient()
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["rumaer"] })
 
@@ -199,7 +204,7 @@ function UniformEditor() {
 			</section>
 
 			{/* Variantes */}
-			<VariantsSection uniformId={uniformId} variants={uniform.variants} pieces={pieces} onChanged={invalidate} />
+			<VariantsSection uniformId={uniformId} variants={uniform.variants} pieces={pieces} pieceItems={pieceItems} onChanged={invalidate} />
 
 			{/* Barra de save sticky */}
 			<div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur z-40">
@@ -228,11 +233,13 @@ function VariantsSection({
 	uniformId,
 	variants,
 	pieces,
+	pieceItems,
 	onChanged,
 }: {
 	uniformId: string
 	variants: UniformVariantWithPieces[]
 	pieces: Piece[]
+	pieceItems: PieceItemWithPiece[]
 	onChanged: () => Promise<unknown>
 }) {
 	const [circulo, setCirculo] = useState<(typeof CIRCULOS)[number] | null>(null)
@@ -300,19 +307,34 @@ function VariantsSection({
 
 			<div className="flex flex-col gap-4">
 				{variants.map((v) => (
-					<VariantCard key={v.id} variant={v} pieces={pieces} onChanged={onChanged} />
+					<VariantCard key={v.id} variant={v} pieces={pieces} pieceItems={pieceItems} onChanged={onChanged} />
 				))}
 			</div>
 		</section>
 	)
 }
 
-function VariantCard({ variant, pieces, onChanged }: { variant: UniformVariantWithPieces; pieces: Piece[]; onChanged: () => Promise<unknown> }) {
+function VariantCard({
+	variant,
+	pieces,
+	pieceItems,
+	onChanged,
+}: {
+	variant: UniformVariantWithPieces
+	pieces: Piece[]
+	pieceItems: PieceItemWithPiece[]
+	onChanged: () => Promise<unknown>
+}) {
 	const fileRef = useRef<HTMLInputElement>(null)
 	const fileInputId = useId()
 	const [uploading, setUploading] = useState(false)
 	const [rows, setRows] = useState(() =>
-		variant.pieces.map((p) => ({ piece_id: p.piece_id, obrigatoriedade: p.obrigatoriedade, observacao: p.observacao ?? "" }))
+		variant.pieces.map((p) => ({
+			piece_id: p.piece_id,
+			piece_item_id: p.piece_item_id ?? null,
+			obrigatoriedade: p.obrigatoriedade,
+			observacao: p.observacao ?? "",
+		}))
 	)
 
 	const label = `${CIRCULO_LABELS[variant.circulo]} · ${GENERO_LABELS[variant.genero]}${variant.sub_variacao ? ` · ${variant.sub_variacao}` : ""}`
@@ -333,7 +355,13 @@ function VariantCard({ variant, pieces, onChanged }: { variant: UniformVariantWi
 					variantId: variant.id,
 					pieces: rows
 						.filter((r) => r.piece_id)
-						.map((r, i) => ({ piece_id: r.piece_id, obrigatoriedade: r.obrigatoriedade, observacao: r.observacao || null, ordem: i })),
+						.map((r, i) => ({
+							piece_id: r.piece_id,
+							piece_item_id: r.piece_item_id,
+							obrigatoriedade: r.obrigatoriedade,
+							observacao: r.observacao || null,
+							ordem: i,
+						})),
 				},
 			}),
 		onSuccess: async () => {
@@ -395,51 +423,76 @@ function VariantCard({ variant, pieces, onChanged }: { variant: UniformVariantWi
 			{/* Composição */}
 			<div className="flex flex-col gap-2">
 				<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Composição</span>
-				{rows.map((r, i) => (
-					<div key={i} className="flex flex-col sm:flex-row gap-2 sm:items-center">
-						<Select value={r.piece_id || null} onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, piece_id: v ?? "" } : x)))}>
-							<SelectTrigger className="flex-1">
-								<SelectValue placeholder="Peça…">{r.piece_id ? (pieces.find((p) => p.id === r.piece_id)?.nome ?? r.piece_id) : undefined}</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{pieces.map((p) => (
-									<SelectItem key={p.id} value={p.id}>
-										{p.nome} · {TIPO_PECA_LABELS[p.tipo]}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						<Select
-							value={r.obrigatoriedade}
-							onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, obrigatoriedade: v as typeof x.obrigatoriedade } : x)))}
-						>
-							<SelectTrigger className="min-w-40">
-								<SelectValue>{OBRIGATORIEDADE_LABELS[r.obrigatoriedade]}</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{OBRIGATORIEDADE_ORDER.map((o) => (
-									<SelectItem key={o} value={o}>
-										{OBRIGATORIEDADE_LABELS[o]}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						<Input
-							value={r.observacao}
-							onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, observacao: e.target.value } : x)))}
-							placeholder="observação"
-							className="flex-1"
-						/>
-						<Button variant="ghost" size="sm" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
-							<Trash2 className="size-4" />
-						</Button>
-					</div>
-				))}
+				{rows.map((r, i) => {
+					const itemsForPiece = r.piece_id ? pieceItems.filter((it) => it.piece_id === r.piece_id) : []
+					const selectedItem = pieceItems.find((it) => it.id === r.piece_item_id)
+					return (
+						<div key={i} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+							<Select
+								value={r.piece_id || null}
+								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, piece_id: v ?? "", piece_item_id: null } : x)))}
+							>
+								<SelectTrigger className="flex-1">
+									<SelectValue placeholder="Peça…">{r.piece_id ? (pieces.find((p) => p.id === r.piece_id)?.nome ?? r.piece_id) : undefined}</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									{pieces.map((p) => (
+										<SelectItem key={p.id} value={p.id}>
+											{p.nome} · {TIPO_PECA_LABELS[p.tipo]}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Select
+								value={r.piece_item_id}
+								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, piece_item_id: v } : x)))}
+								disabled={!r.piece_id || itemsForPiece.length === 0}
+							>
+								<SelectTrigger className="flex-1">
+									<SelectValue placeholder={r.piece_id && itemsForPiece.length === 0 ? "sem item concreto" : "item concreto (opcional)"}>
+										{selectedItem ? selectedItem.nome : undefined}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									{itemsForPiece.map((it) => (
+										<SelectItem key={it.id} value={it.id}>
+											{it.nome}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Select
+								value={r.obrigatoriedade}
+								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, obrigatoriedade: v as typeof x.obrigatoriedade } : x)))}
+							>
+								<SelectTrigger className="min-w-40">
+									<SelectValue>{OBRIGATORIEDADE_LABELS[r.obrigatoriedade]}</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									{OBRIGATORIEDADE_ORDER.map((o) => (
+										<SelectItem key={o} value={o}>
+											{OBRIGATORIEDADE_LABELS[o]}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Input
+								value={r.observacao}
+								onChange={(e) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, observacao: e.target.value } : x)))}
+								placeholder="observação"
+								className="flex-1"
+							/>
+							<Button variant="ghost" size="sm" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
+								<Trash2 className="size-4" />
+							</Button>
+						</div>
+					)
+				})}
 				<div className="flex gap-2">
 					<Button
 						variant="outline"
 						size="sm"
-						onClick={() => setRows((rs) => [...rs, { piece_id: "", obrigatoriedade: "obrigatorio", observacao: "" }])}
+						onClick={() => setRows((rs) => [...rs, { piece_id: "", piece_item_id: null, obrigatoriedade: "obrigatorio", observacao: "" }])}
 						disabled={pieces.length === 0}
 					>
 						<Plus className="size-4" />

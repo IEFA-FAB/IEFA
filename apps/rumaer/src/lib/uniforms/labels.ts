@@ -74,3 +74,23 @@ export function uniformTitle(u: { numero: number | null; letra: string | null; n
 	if (u.numero != null) return `${u.numero}º Uniforme${u.letra ? ` ${u.letra}` : ""}`
 	return u.nome
 }
+
+/** Atributos preenchidos de um item de venda, como chips "rótulo: valor". */
+export function pieceItemAttrs(item: {
+	tamanho: string | null
+	cor: string | null
+	posto: string | null
+	quadro: string | null
+	especialidade: string | null
+	genero: Genero | null
+}): { label: string; value: string }[] {
+	const attrs: { label: string; value: string | null }[] = [
+		{ label: "Tam.", value: item.tamanho },
+		{ label: "Cor", value: item.cor },
+		{ label: "Posto", value: item.posto },
+		{ label: "Quadro", value: item.quadro },
+		{ label: "Espec.", value: item.especialidade },
+		{ label: "Gênero", value: item.genero ? GENERO_LABELS[item.genero] : null },
+	]
+	return attrs.filter((a): a is { label: string; value: string } => !!a.value)
+}

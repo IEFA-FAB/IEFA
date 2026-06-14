@@ -45,7 +45,10 @@ function AdminDashboard() {
 					<h1 className="font-serif text-3xl font-bold tracking-tight">Administração</h1>
 					<p className="text-sm text-muted-foreground">Cadastro de uniformes, variantes, composições e peças.</p>
 				</div>
-				<Button nativeButton={false} render={<Link to="/admin/pecas">Catálogo de peças</Link>} variant="outline" />
+				<div className="flex gap-2">
+					<Button nativeButton={false} render={<Link to="/admin/pecas">Catálogo de peças</Link>} variant="outline" />
+					<Button nativeButton={false} render={<Link to="/admin/itens">Itens de venda</Link>} variant="outline" />
+				</div>
 			</header>
 
 			<section className="flex flex-col gap-3 border border-border p-4">

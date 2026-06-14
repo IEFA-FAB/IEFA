@@ -4,6 +4,7 @@
 
 import { queryOptions } from "@tanstack/react-query"
 import { getMyMilitaryProfileFn } from "@/server/military.fn"
+import { listPieceItemsFn } from "@/server/pieceItems.fn"
 import { listPiecesFn } from "@/server/pieces.fn"
 import { getSignedImageUrlFn } from "@/server/storage.fn"
 import { getUniformFn, listUniformsFn, type UniformListItem } from "@/server/uniforms.fn"
@@ -31,6 +32,13 @@ export const piecesQueryOptions = () =>
 	queryOptions({
 		queryKey: ["rumaer", "pieces"],
 		queryFn: () => listPiecesFn(),
+		staleTime: 1000 * 60 * 10,
+	})
+
+export const pieceItemsQueryOptions = (pieceId?: string) =>
+	queryOptions({
+		queryKey: ["rumaer", "piece-items", pieceId ?? null],
+		queryFn: () => listPieceItemsFn({ data: { pieceId } }),
 		staleTime: 1000 * 60 * 10,
 	})
 

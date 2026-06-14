@@ -1332,6 +1332,59 @@ export type Database = {
 	}
 	rumaer: {
 		Tables: {
+			piece_item: {
+				Row: {
+					cor: string | null
+					created_at: string
+					deleted_at: string | null
+					especialidade: string | null
+					genero: Database["rumaer"]["Enums"]["genero"] | null
+					id: string
+					nome: string
+					piece_id: string
+					posto: string | null
+					quadro: string | null
+					tamanho: string | null
+					updated_at: string
+				}
+				Insert: {
+					cor?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					especialidade?: string | null
+					genero?: Database["rumaer"]["Enums"]["genero"] | null
+					id?: string
+					nome: string
+					piece_id: string
+					posto?: string | null
+					quadro?: string | null
+					tamanho?: string | null
+					updated_at?: string
+				}
+				Update: {
+					cor?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					especialidade?: string | null
+					genero?: Database["rumaer"]["Enums"]["genero"] | null
+					id?: string
+					nome?: string
+					piece_id?: string
+					posto?: string | null
+					quadro?: string | null
+					tamanho?: string | null
+					updated_at?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "piece_item_piece_id_fkey"
+						columns: ["piece_id"]
+						isOneToOne: false
+						referencedRelation: "piece"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			piece: {
 				Row: {
 					created_at: string
@@ -1492,6 +1545,7 @@ export type Database = {
 			uniform_variant_piece: {
 				Row: {
 					id: string
+					piece_item_id: string | null
 					obrigatoriedade: Database["rumaer"]["Enums"]["obrigatoriedade"]
 					observacao: string | null
 					ordem: number
@@ -1503,6 +1557,7 @@ export type Database = {
 				Insert: {
 					id?: string
 					obrigatoriedade: Database["rumaer"]["Enums"]["obrigatoriedade"]
+					piece_item_id?: string | null
 					observacao?: string | null
 					ordem?: number
 					piece_id: string
@@ -1513,6 +1568,7 @@ export type Database = {
 				Update: {
 					id?: string
 					obrigatoriedade?: Database["rumaer"]["Enums"]["obrigatoriedade"]
+					piece_item_id?: string | null
 					observacao?: string | null
 					ordem?: number
 					piece_id?: string
@@ -1521,6 +1577,13 @@ export type Database = {
 					variant_id?: string
 				}
 				Relationships: [
+					{
+						foreignKeyName: "uniform_variant_piece_piece_item_id_fkey"
+						columns: ["piece_item_id"]
+						isOneToOne: false
+						referencedRelation: "piece_item"
+						referencedColumns: ["id"]
+					},
 					{
 						foreignKeyName: "uniform_variant_piece_piece_id_fkey"
 						columns: ["piece_id"]
