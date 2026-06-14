@@ -18,6 +18,7 @@
     "sisub-mcp:dev": "bun --cwd ./apps/sisub-mcp dev",
     "sisub-mcp:start": "bun --cwd ./apps/sisub-mcp start",
     "portal:dev": "bun --cwd ./apps/portal dev",
+    "rumaer:dev": "bun --cwd ./apps/rumaer dev",
     "api:dev": "bun --cwd ./apps/api dev",
     "forms:dev": "bun --cwd ./apps/forms dev",
     "5s:dev": "VITE_APP_TENANT=cinco-s bun --cwd ./apps/forms dev -- --port 3002",

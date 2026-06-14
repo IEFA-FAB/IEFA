@@ -1330,6 +1330,233 @@ export type Database = {
 			[_ in never]: never
 		}
 	}
+	rumaer: {
+		Tables: {
+			piece: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					descricao_md: string | null
+					id: string
+					nome: string
+					slug: string
+					tipo: Database["rumaer"]["Enums"]["tipo_peca"]
+					updated_at: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					descricao_md?: string | null
+					id?: string
+					nome: string
+					slug: string
+					tipo: Database["rumaer"]["Enums"]["tipo_peca"]
+					updated_at?: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					descricao_md?: string | null
+					id?: string
+					nome?: string
+					slug?: string
+					tipo?: Database["rumaer"]["Enums"]["tipo_peca"]
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			uniform: {
+				Row: {
+					art_referencia: string | null
+					created_at: string
+					deleted_at: string | null
+					descricao_md: string | null
+					eq_civil: Database["rumaer"]["Enums"]["equivalencia_civil"] | null
+					eq_eb: string | null
+					eq_mb: string | null
+					grupo: Database["rumaer"]["Enums"]["grupo_uniforme"]
+					id: string
+					letra: string | null
+					nome: string
+					numero: number | null
+					ordem: number
+					subgrupo: string | null
+					traje: string | null
+					updated_at: string
+				}
+				Insert: {
+					art_referencia?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					descricao_md?: string | null
+					eq_civil?: Database["rumaer"]["Enums"]["equivalencia_civil"] | null
+					eq_eb?: string | null
+					eq_mb?: string | null
+					grupo: Database["rumaer"]["Enums"]["grupo_uniforme"]
+					id?: string
+					letra?: string | null
+					nome: string
+					numero?: number | null
+					ordem?: number
+					subgrupo?: string | null
+					traje?: string | null
+					updated_at?: string
+				}
+				Update: {
+					art_referencia?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					descricao_md?: string | null
+					eq_civil?: Database["rumaer"]["Enums"]["equivalencia_civil"] | null
+					eq_eb?: string | null
+					eq_mb?: string | null
+					grupo?: Database["rumaer"]["Enums"]["grupo_uniforme"]
+					id?: string
+					letra?: string | null
+					nome?: string
+					numero?: number | null
+					ordem?: number
+					subgrupo?: string | null
+					traje?: string | null
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			uniform_category: {
+				Row: {
+					categoria: Database["rumaer"]["Enums"]["categoria_militar"]
+					id: string
+					uniform_id: string
+				}
+				Insert: {
+					categoria: Database["rumaer"]["Enums"]["categoria_militar"]
+					id?: string
+					uniform_id: string
+				}
+				Update: {
+					categoria?: Database["rumaer"]["Enums"]["categoria_militar"]
+					id?: string
+					uniform_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "uniform_category_uniform_id_fkey"
+						columns: ["uniform_id"]
+						isOneToOne: false
+						referencedRelation: "uniform"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			uniform_variant: {
+				Row: {
+					circulo: Database["rumaer"]["Enums"]["circulo_hierarquico"]
+					descricao_md: string | null
+					genero: Database["rumaer"]["Enums"]["genero"]
+					id: string
+					image_path: string | null
+					ordem: number
+					sub_variacao: string | null
+					uniform_id: string
+				}
+				Insert: {
+					circulo: Database["rumaer"]["Enums"]["circulo_hierarquico"]
+					descricao_md?: string | null
+					genero: Database["rumaer"]["Enums"]["genero"]
+					id?: string
+					image_path?: string | null
+					ordem?: number
+					sub_variacao?: string | null
+					uniform_id: string
+				}
+				Update: {
+					circulo?: Database["rumaer"]["Enums"]["circulo_hierarquico"]
+					descricao_md?: string | null
+					genero?: Database["rumaer"]["Enums"]["genero"]
+					id?: string
+					image_path?: string | null
+					ordem?: number
+					sub_variacao?: string | null
+					uniform_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "uniform_variant_uniform_id_fkey"
+						columns: ["uniform_id"]
+						isOneToOne: false
+						referencedRelation: "uniform"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			uniform_variant_piece: {
+				Row: {
+					id: string
+					obrigatoriedade: Database["rumaer"]["Enums"]["obrigatoriedade"]
+					observacao: string | null
+					ordem: number
+					piece_id: string
+					restricao_posto: string[] | null
+					restricao_quadro: string[] | null
+					variant_id: string
+				}
+				Insert: {
+					id?: string
+					obrigatoriedade: Database["rumaer"]["Enums"]["obrigatoriedade"]
+					observacao?: string | null
+					ordem?: number
+					piece_id: string
+					restricao_posto?: string[] | null
+					restricao_quadro?: string[] | null
+					variant_id: string
+				}
+				Update: {
+					id?: string
+					obrigatoriedade?: Database["rumaer"]["Enums"]["obrigatoriedade"]
+					observacao?: string | null
+					ordem?: number
+					piece_id?: string
+					restricao_posto?: string[] | null
+					restricao_quadro?: string[] | null
+					variant_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "uniform_variant_piece_piece_id_fkey"
+						columns: ["piece_id"]
+						isOneToOne: false
+						referencedRelation: "piece"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "uniform_variant_piece_variant_id_fkey"
+						columns: ["variant_id"]
+						isOneToOne: false
+						referencedRelation: "uniform_variant"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+		}
+		Views: {
+			[_ in never]: never
+		}
+		Functions: {
+			[_ in never]: never
+		}
+		Enums: {
+			categoria_militar: "oficiais" | "cadetes" | "suboficiais" | "sargentos" | "alunos_formacao" | "pracas"
+			circulo_hierarquico: "oficiais" | "sargentos" | "suboficiais" | "cadetes" | "alunos"
+			equivalencia_civil: "esporte" | "esporte_fino" | "passeio" | "passeio_completo" | "gala"
+			genero: "masculino" | "feminino" | "unissex"
+			grupo_uniforme: "historicos" | "representacao" | "servicos" | "educacao_fisica" | "desfile"
+			obrigatoriedade: "obrigatorio" | "eventual" | "facultativo"
+			tipo_peca: "cabeca" | "torso" | "pernas" | "calcado" | "acessorio" | "insignia" | "distintivo" | "identificacao" | "arma"
+		}
+		CompositeTypes: {
+			[_ in never]: never
+		}
+	}
 	sisub: {
 		Tables: {
 			analytics_chat_message: {
@@ -2355,6 +2582,96 @@ export type Database = {
 					},
 					{
 						foreignKeyName: "product_nutrient_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_review: {
+				Row: {
+					id: string
+					ingredient_id: string
+					note: string | null
+					reviewed_at: string
+					reviewed_by: string | null
+					reviewed_by_name: string | null
+				}
+				Insert: {
+					id?: string
+					ingredient_id: string
+					note?: string | null
+					reviewed_at?: string
+					reviewed_by?: string | null
+					reviewed_by_name?: string | null
+				}
+				Update: {
+					id?: string
+					ingredient_id?: string
+					note?: string | null
+					reviewed_at?: string
+					reviewed_by?: string | null
+					reviewed_by_name?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_version: {
+				Row: {
+					change_summary: string | null
+					changed_by: string | null
+					changed_by_name: string | null
+					created_at: string
+					id: string
+					ingredient_id: string
+					snapshot: Json
+					version_number: number
+				}
+				Insert: {
+					change_summary?: string | null
+					changed_by?: string | null
+					changed_by_name?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id: string
+					snapshot: Json
+					version_number: number
+				}
+				Update: {
+					change_summary?: string | null
+					changed_by?: string | null
+					changed_by_name?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id?: string
+					snapshot?: Json
+					version_number?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_version_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_version_ingredient_id_fkey"
 						columns: ["ingredient_id"]
 						isOneToOne: false
 						referencedRelation: "v_ingredient_kg_lt_items"
@@ -4272,6 +4589,30 @@ export type Database = {
 			}
 		}
 		Views: {
+			ingredient_last_review: {
+				Row: {
+					ingredient_id: string | null
+					reviewed_at: string | null
+					reviewed_by: string | null
+					reviewed_by_name: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
 			v_ingredient_kg_lt_items: {
 				Row: {
 					base_unit: string | null
@@ -4482,6 +4823,17 @@ export const Constants = {
 	},
 	journal: {
 		Enums: {},
+	},
+	rumaer: {
+		Enums: {
+			categoria_militar: ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"],
+			circulo_hierarquico: ["oficiais", "sargentos", "suboficiais", "cadetes", "alunos"],
+			equivalencia_civil: ["esporte", "esporte_fino", "passeio", "passeio_completo", "gala"],
+			genero: ["masculino", "feminino", "unissex"],
+			grupo_uniforme: ["historicos", "representacao", "servicos", "educacao_fisica", "desfile"],
+			obrigatoriedade: ["obrigatorio", "eventual", "facultativo"],
+			tipo_peca: ["cabeca", "torso", "pernas", "calcado", "acessorio", "insignia", "distintivo", "identificacao", "arma"],
+		},
 	},
 	sisub: {
 		Enums: {

@@ -9,18 +9,22 @@
     "./sisub": "./src/sisub.ts",
     "./portal": "./src/portal.ts",
     "./journal": "./src/journal.ts",
-    "./forms": "./src/forms.ts"
+    "./forms": "./src/forms.ts",
+    "./rumaer": "./src/rumaer.ts"
   },
   "scripts": {
     "generate": "bun run db:types",
     "db:link": "bunx supabase link --project-ref jgigqdpdjgnnuwajtayh",
-    "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub,iefa,journal,forms > ./src/generated.ts",
+    "db:types": "bunx supabase gen types typescript --project-id jgigqdpdjgnnuwajtayh --schema sisub,iefa,journal,forms,rumaer > ./src/generated.ts",
     "db:push": "bunx supabase db push",
-    "db:pull": "bunx supabase db pull --schema sisub,iefa,journal,forms",
-    "db:diff": "bunx supabase db diff --schema sisub,iefa,journal,forms",
+    "db:pull": "bunx supabase db pull --schema sisub,iefa,journal,forms,rumaer",
+    "db:diff": "bunx supabase db diff --schema sisub,iefa,journal,forms,rumaer",
     "db:reset": "bunx supabase db reset",
     "db:migrations": "bunx supabase migration list",
     "db:repair:applied": "bunx supabase migration repair --status applied",
     "db:repair:reverted": "bunx supabase migration repair --status reverted"
+  },
+  "devDependencies": {
+    "supabase": "2.106.0"
   }
 }

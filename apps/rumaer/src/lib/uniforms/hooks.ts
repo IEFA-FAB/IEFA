@@ -1,0 +1,50 @@
+/**
+ * Query options para dados de uniformes (loaders + componentes).
+ */
+
+import { queryOptions } from "@tanstack/react-query"
+import { getMyMilitaryProfileFn } from "@/server/military.fn"
+import { listPiecesFn } from "@/server/pieces.fn"
+import { getSignedImageUrlFn } from "@/server/storage.fn"
+import { getUniformFn, listUniformsFn, type UniformListItem } from "@/server/uniforms.fn"
+
+export type UniformFilters = {
+	grupo?: UniformListItem["grupo"]
+	categoria?: "oficiais" | "cadetes" | "suboficiais" | "sargentos" | "alunos_formacao" | "pracas"
+}
+
+export const uniformsQueryOptions = (filters: UniformFilters = {}) =>
+	queryOptions({
+		queryKey: ["rumaer", "uniforms", filters],
+		queryFn: () => listUniformsFn({ data: filters }),
+		staleTime: 1000 * 60 * 5,
+	})
+
+export const uniformQueryOptions = (id: string) =>
+	queryOptions({
+		queryKey: ["rumaer", "uniform", id],
+		queryFn: () => getUniformFn({ data: { id } }),
+		staleTime: 1000 * 60 * 5,
+	})
+
+export const piecesQueryOptions = () =>
+	queryOptions({
+		queryKey: ["rumaer", "pieces"],
+		queryFn: () => listPiecesFn(),
+		staleTime: 1000 * 60 * 10,
+	})
+
+export const militaryProfileQueryOptions = () =>
+	queryOptions({
+		queryKey: ["rumaer", "military-profile"],
+		queryFn: () => getMyMilitaryProfileFn(),
+		staleTime: 1000 * 60 * 5,
+	})
+
+export const signedImageQueryOptions = (imagePath: string | null | undefined) =>
+	queryOptions({
+		queryKey: ["rumaer", "signed-image", imagePath],
+		queryFn: () => (imagePath ? getSignedImageUrlFn({ data: { imagePath } }) : Promise.resolve(null)),
+		enabled: !!imagePath,
+		staleTime: 1000 * 60 * 50, // < 1h (validade do signed URL)
+	})
