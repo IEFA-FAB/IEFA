@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUMAER — Heritage Premium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:      oklch(0.33 0.09 264);
+    --navy-deep: oklch(0.27 0.08 264);
+    --gold:      oklch(0.66 0.09 80);
+    --creme:     oklch(0.965 0.012 92);    /* warm paper */
+    --creme-2:   oklch(0.945 0.014 92);
+    --ink:       oklch(0.30 0.02 264);
+    --muted:     oklch(0.46 0.02 80);
+    --hair:      oklch(0.66 0.09 80 / 0.30);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Lora,Georgia,serif;background:var(--creme);color:var(--ink);line-height:1.7}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 32px}
+  .serif{font-family:"Cormorant Garamond",serif}
+  .kicker{font-family:Lora;font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold)}
+
+  header.bar{border-bottom:1px solid var(--hair)}
+  .bar .wrap{height:74px;display:flex;align-items:center;justify-content:space-between}
+  .brand{font-family:"Cormorant Garamond";font-weight:700;font-size:26px;letter-spacing:.16em;color:var(--navy)}
+  nav.top{display:flex;gap:34px}
+  nav.top a{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-decoration:none}
+  nav.top a:hover{color:var(--navy)}
+
+  /* hero: asymmetric — editorial text + uniform plate */
+  .hero .wrap{display:grid;grid-template-columns:1.25fr .75fr;gap:64px;align-items:center;padding:80px 32px 72px}
+  .hero .docref{font-family:Lora;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-bottom:22px;display:flex;align-items:center;gap:14px}
+  .hero .docref::after{content:"";flex:1;height:1px;background:var(--hair)}
+  h1.display{font-family:"Cormorant Garamond";font-weight:600;font-size:clamp(3rem,6.5vw,5.4rem);line-height:1.02;color:var(--navy);letter-spacing:.005em}
+  h1.display em{font-style:italic;color:var(--gold)}
+  .lede{margin-top:26px;max-width:46ch;font-size:18px;color:var(--muted);line-height:1.75}
+  .cta{display:inline-flex;align-items:center;gap:12px;margin-top:34px;border:1px solid var(--navy);color:var(--navy);
+    font-family:Lora;font-size:14px;letter-spacing:.12em;text-transform:uppercase;padding:14px 30px;text-decoration:none;
+    transition:background .35s,color .35s}
+  .cta:hover{background:var(--navy);color:var(--creme)}
+
+  /* uniform plate */
+  .plate{position:relative;background:var(--creme-2);border:1px solid var(--hair);padding:34px 24px 22px;text-align:center}
+  .plate::before{content:"";position:absolute;inset:9px;border:1px solid var(--hair)}
+  .plate svg{position:relative;width:150px;height:auto;color:var(--navy)}
+  .plate .cap{position:relative;margin-top:18px;font-family:"Cormorant Garamond";font-size:19px;color:var(--navy);letter-spacing:.04em}
+  .plate .sub{position:relative;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-top:2px}
+
+  .div-rule{border:0;border-top:1px solid var(--hair);max-width:1140px;margin:0 auto}
+
+  /* groups: catalog plates with roman numerals */
+  section.groups{padding:74px 0 96px}
+  .sec-head{text-align:center;margin-bottom:50px}
+  .sec-head h2{font-family:"Cormorant Garamond";font-weight:600;font-size:40px;color:var(--navy)}
+  .sec-head .kicker{display:block;margin-bottom:10px}
+  .cat{display:grid;grid-template-columns:90px 1fr auto;gap:34px;align-items:baseline;padding:30px 0;border-bottom:1px solid var(--hair);text-decoration:none;color:inherit;transition:padding .35s}
+  .cat:hover{padding-left:14px}
+  .cat .rn{font-family:"Cormorant Garamond";font-style:italic;font-size:34px;color:var(--gold);line-height:1}
+  .cat h3{font-family:"Cormorant Garamond";font-weight:600;font-size:30px;color:var(--navy);line-height:1.1}
+  .cat p{font-size:16px;color:var(--muted);margin-top:4px}
+  .cat .more{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+  .cat:hover .more{color:var(--gold)}
+
+  footer{background:var(--navy);color:oklch(0.86 0.03 264)}
+  footer .wrap{padding:40px 32px;text-align:center}
+  footer .brand-f{font-family:"Cormorant Garamond";font-size:22px;letter-spacing:.2em;color:#fff}
+  footer p{font-size:13px;margin-top:8px;letter-spacing:.04em;opacity:.85}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">RUMAER</div>
+    <nav class="top"><a href="#">Uniformes</a><a href="#">Administração</a></nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="docref">RCA 35-2/2023 · Força Aérea Brasileira</div>
+      <h1 class="display">Os uniformes da <em>Aeronáutica</em></h1>
+      <p class="lede">Uma leitura interativa do regulamento: a quem cada uniforme serve, sua composição peça a peça, variantes por círculo hierárquico e gênero, e as equivalências com Marinha, Exército e trajes civis.</p>
+      <a class="cta" href="#">Ver todos os uniformes →</a>
+    </div>
+    <figure class="plate">
+      <svg viewBox="0 0 120 300" fill="currentColor" aria-hidden="true">
+        <ellipse cx="60" cy="22" rx="26" ry="9"/><rect x="34" y="20" width="52" height="7"/>
+        <circle cx="60" cy="44" r="13"/>
+        <path d="M40 60 L80 60 L92 110 L86 220 L34 220 L28 110 Z"/>
+        <rect x="56" y="62" width="8" height="158" fill="oklch(0.965 0.012 92)"/>
+        <circle cx="50" cy="84" r="2.4" fill="oklch(0.66 0.09 80)"/><circle cx="70" cy="84" r="2.4" fill="oklch(0.66 0.09 80)"/>
+        <circle cx="50" cy="104" r="2.4" fill="oklch(0.66 0.09 80)"/><circle cx="70" cy="104" r="2.4" fill="oklch(0.66 0.09 80)"/>
+        <circle cx="50" cy="124" r="2.4" fill="oklch(0.66 0.09 80)"/><circle cx="70" cy="124" r="2.4" fill="oklch(0.66 0.09 80)"/>
+        <rect x="38" y="222" width="20" height="68"/><rect x="62" y="222" width="20" height="68"/>
+        <rect x="36" y="288" width="24" height="9"/><rect x="60" y="288" width="24" height="9"/>
+      </svg>
+      <div class="cap">Uniforme histórico de gala</div>
+      <div class="sub">Oficial</div>
+    </figure>
+  </div>
+</section>
+
+<hr class="div-rule" />
+
+<section class="groups">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Título II · Composição e uso</span>
+      <h2>Grupos de uniformes</h2>
+    </div>
+    <a class="cat" href="#"><span class="rn">I</span><span><h3>Representação</h3><p>Gala, passeio e situações de representação.</p></span><span class="more">Explorar →</span></a>
+    <a class="cat" href="#"><span class="rn">II</span><span><h3>Serviços</h3><p>Uniformes de serviço administrativo e operacional.</p></span><span class="more">Explorar →</span></a>
+    <a class="cat" href="#"><span class="rn">III</span><span><h3>Educação Física</h3><p>Agasalho, camiseta e tênis para EF.</p></span><span class="more">Explorar →</span></a>
+    <a class="cat" href="#"><span class="rn">IV</span><span><h3>Desfile</h3><p>Composições específicas para desfiles e formaturas.</p></span><span class="more">Explorar →</span></a>
+    <a class="cat" href="#"><span class="rn">V</span><span><h3>Históricos</h3><p>Uniformes de tradição e cerimônias históricas.</p></span><span class="more">Explorar →</span></a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand-f">RUMAER</div>
+    <p>SEFA · Comando da Aeronáutica · Ministério da Defesa · © 2026 IEFA · Desenvolvido por Ten Nanni</p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUMAER · Comparação de Estilos</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--navy:oklch(0.34 0.10 264);--gold:oklch(0.72 0.10 82);--bar:oklch(0.22 0.04 264)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;background:var(--bar)}
+  .tabs{display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--bar);color:#fff;flex-wrap:wrap}
+  .tabs .label{font-weight:700;letter-spacing:.14em;font-size:13px;margin-right:14px;color:#fff}
+  .tabs .label b{color:var(--gold)}
+  .tab{background:transparent;border:1px solid oklch(1 0 0 / .2);color:oklch(1 0 0 / .8);
+    font:inherit;font-size:13px;font-weight:500;padding:8px 16px;cursor:pointer;border-radius:0;transition:all .2s}
+  .tab .n{color:var(--gold);font-weight:700;margin-right:7px}
+  .tab:hover{border-color:oklch(1 0 0 / .5);color:#fff}
+  .tab.active{background:#fff;color:var(--navy);border-color:#fff}
+  .tab.active .n{color:var(--gold)}
+  .hint{margin-left:auto;font-size:11.5px;color:oklch(1 0 0 / .55)}
+  iframe{flex:1;width:100%;border:0;background:#fff}
+</style>
+</head>
+<body>
+  <div class="tabs">
+    <span class="label">RU<b>MAER</b> · estilos</span>
+    <button class="tab active" data-src="01-institucional-editorial.html"><span class="n">1</span>Institucional Editorial</button>
+    <button class="tab" data-src="02-aeroespacial-moderno.html"><span class="n">2</span>Aeroespacial Moderno</button>
+    <button class="tab" data-src="03-heritage-premium.html"><span class="n">3</span>Heritage Premium</button>
+    <span class="hint">teclas 1 / 2 / 3 para alternar</span>
+  </div>
+  <iframe id="view" src="01-institucional-editorial.html" title="preview"></iframe>
+  <script>
+    const tabs=[...document.querySelectorAll('.tab')],view=document.getElementById('view');
+    function go(i){tabs.forEach((t,k)=>t.classList.toggle('active',k===i));view.src=tabs[i].dataset.src;}
+    tabs.forEach((t,i)=>t.addEventListener('click',()=>go(i)));
+    addEventListener('keydown',e=>{if(['1','2','3'].includes(e.key))go(+e.key-1);});
+  </script>
+</body>
+</html>

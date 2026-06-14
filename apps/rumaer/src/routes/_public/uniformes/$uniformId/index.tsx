@@ -1,7 +1,7 @@
 import type { UniformVariantWithPieces } from "@iefa/database/rumaer"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, notFound } from "@tanstack/react-router"
-import { ArrowLeft } from "iconoir-react"
+import { ArrowLeft } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"

@@ -1,4 +1,4 @@
-import { HalfMoon, SunLight } from "iconoir-react"
+import { Moon, Sun } from "lucide-react"
 import { useRef } from "react"
 import { flushSync } from "react-dom"
 import { cn } from "../lib/utils"
@@ -58,10 +58,10 @@ export const AnimatedThemeToggler = ({ className, duration = 400, toggle, ...pro
 			{...props}
 		>
 			<div className="relative h-5 w-5">
-				<SunLight
+				<Sun
 					className={"absolute inset-0 h-full w-full transition-all duration-300 rotate-0 scale-100 opacity-100 dark:rotate-90 dark:scale-0 dark:opacity-0"}
 				/>
-				<HalfMoon
+				<Moon
 					className={"absolute inset-0 h-full w-full transition-all duration-300 dark:rotate-0 -rotate-90 scale-0 opacity-0 dark:scale-100 dark:opacity-100"}
 				/>
 			</div>

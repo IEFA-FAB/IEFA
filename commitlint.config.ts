@@ -3,6 +3,7 @@ import { defineConfig } from "cz-git";
 const validScopes = [
 	// apps
 	"portal",
+	"rumaer",
 	"sisub",
 	"sisub-mcp",
 	"alpha",

@@ -1,7 +1,7 @@
 import type { TipoPeca } from "@iefa/database/rumaer"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, Plus, Trash } from "iconoir-react"
+import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -109,7 +109,7 @@ function PiecesAdmin() {
 								<span className="font-mono text-xs text-muted-foreground">{p.slug}</span>
 							</div>
 							<Button variant="ghost" size="sm" onClick={() => remove.mutate(p.id)} disabled={remove.isPending}>
-								<Trash className="size-4" />
+								<Trash2 className="size-4" />
 							</Button>
 						</li>
 					))}

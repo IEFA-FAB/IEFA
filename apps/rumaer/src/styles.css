@@ -7,171 +7,156 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   PORTAL IEFA — PALE BRUTALISM
-   Estética: bordas duras, contornos finos, paleta acromática,
-   tracking negativo em display, zero arredondamento.
-   Referências: adidas.com, greptile.com, Vercel Geist, Linear
+   RUMAER — INSTITUCIONAL AERONÁUTICO
+   Azul-aeronáutica (RCA 35-2/2023) + dourado discreto.
+   Cantos suaves, sombras macias, neutros tintados de navy.
+   Linguagem de componentes alinhada ao sisub (Manrope).
    ============================================================ */
 
-/* ---- GRAY RAMP (base absoluta) ---- */
+/* ---- MARCA ---- */
 :root {
-  --gray-50:   oklch(0.9900 0 0);
-  --gray-100:  oklch(0.9671 0 0);
-  --gray-150:  oklch(0.9400 0 0);
-  --gray-200:  oklch(0.9127 0 0);
-  --gray-300:  oklch(0.8546 0 0);
-  --gray-400:  oklch(0.6988 0 0);
-  --gray-500:  oklch(0.5600 0 0);
-  --gray-600:  oklch(0.4401 0 0);
-  --gray-700:  oklch(0.3549 0 0);
-  --gray-800:  oklch(0.2447 0 0);
-  --gray-900:  oklch(0.1770 0 0);
-  --gray-950:  oklch(0.1000 0 0);
+  --navy:       oklch(0.33 0.095 264);
+  --navy-2:     oklch(0.39 0.100 264);   /* gradiente / hover de painel */
+  --navy-deep:  oklch(0.27 0.085 264);
+  --gold:       oklch(0.78 0.095 86);
+  --gold-2:     oklch(0.70 0.100 82);
+  --gold-foreground: oklch(0.27 0.085 264);
 }
 
 /* ---- LIGHT MODE ---- */
 :root {
-  /* Canvas: off-white levemente quente — papel, não néon */
-  --background:            oklch(0.9875 0.003 98);
-  --foreground:            oklch(0.1000 0 0);
+  --background:            oklch(1 0 0);
+  --foreground:            oklch(0.22 0.022 264);
 
-  /* Card: branco puro sobre o canvas levemente cru */
-  --card:                  oklch(1.0000 0 0);
-  --card-foreground:       oklch(0.1000 0 0);
+  --card:                  oklch(0.985 0.003 250);
+  --card-foreground:       oklch(0.22 0.022 264);
 
-  /* Popover */
-  --popover:               oklch(1.0000 0 0);
-  --popover-foreground:    oklch(0.1000 0 0);
+  --popover:               oklch(1 0 0);
+  --popover-foreground:    oklch(0.22 0.022 264);
 
-  /* Primary: preto absoluto + foreground branco */
-  --primary:               oklch(0.1000 0 0);
-  --primary-foreground:    oklch(1.0000 0 0);
+  /* Primary = azul-aeronáutica */
+  --primary:               var(--navy);
+  --primary-foreground:    oklch(1 0 0);
 
-  /* Secondary: cinza pálido */
-  --secondary:             var(--gray-100);
-  --secondary-foreground:  oklch(0.1000 0 0);
+  --secondary:             oklch(0.955 0.006 264);
+  --secondary-foreground:  var(--navy);
 
-  /* Muted */
-  --muted:                 var(--gray-100);
-  --muted-foreground:      var(--gray-500);
+  --muted:                 oklch(0.962 0.005 264);
+  --muted-foreground:      oklch(0.50 0.018 264);
 
-  /* Accent: cinza-200 — hover sutil, sem cor */
-  --accent:                var(--gray-200);
-  --accent-foreground:     oklch(0.1000 0 0);
+  --accent:                oklch(0.948 0.012 264);
+  --accent-foreground:     var(--navy);
 
-  /* Destructive */
-  --destructive:           oklch(0.5771 0.2450 27.33);
-  --destructive-foreground: oklch(1.0000 0 0);
+  --destructive:           oklch(0.5771 0.245 27.33);
+  --destructive-foreground: oklch(1 0 0);
 
-  /* Border + Input: cinza-300 — visível mas refinado */
-  --border:                var(--gray-300);
-  --input:                 var(--gray-300);
+  /* Status — alinhados ao sisub */
+  --success:               oklch(0.6907 0.1554 160.35);
+  --success-foreground:    oklch(1 0 0);
+  --warning:               oklch(0.7500 0.1400 82.53);
+  --warning-foreground:    oklch(0.2000 0 0);
+  --governance:            oklch(0.6200 0.1550 290.00);
+  --governance-foreground: oklch(1 0 0);
 
-  /* Ring: preto — foco explícito, brutal */
-  --ring:                  oklch(0.1000 0 0);
+  --border:                oklch(0.905 0.008 264);
+  --input:                 oklch(0.928 0.006 264);
+  --ring:                  var(--navy);
 
-  /* Charts: escala acromática */
-  --chart-1:               oklch(0.1000 0 0);
-  --chart-2:               var(--gray-700);
-  --chart-3:               var(--gray-500);
-  --chart-4:               var(--gray-400);
-  --chart-5:               var(--gray-300);
+  /* Charts: navy → dourado */
+  --chart-1:               var(--navy);
+  --chart-2:               oklch(0.46 0.10 264);
+  --chart-3:               oklch(0.60 0.09 250);
+  --chart-4:               var(--gold-2);
+  --chart-5:               oklch(0.72 0.05 264);
 
   /* Sidebar */
-  --sidebar:               var(--gray-100);
-  --sidebar-foreground:    oklch(0.1000 0 0);
-  --sidebar-primary:       oklch(0.1000 0 0);
-  --sidebar-primary-foreground: oklch(1.0000 0 0);
-  --sidebar-accent:        var(--gray-200);
-  --sidebar-accent-foreground: oklch(0.1000 0 0);
-  --sidebar-border:        var(--gray-300);
-  --sidebar-ring:          oklch(0.1000 0 0);
+  --sidebar:               oklch(0.985 0.003 250);
+  --sidebar-foreground:    oklch(0.22 0.022 264);
+  --sidebar-primary:       var(--navy);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent:        oklch(0.948 0.012 264);
+  --sidebar-accent-foreground: var(--navy);
+  --sidebar-border:        oklch(0.905 0.008 264);
+  --sidebar-ring:          var(--navy);
 
   /* Tipografia */
-  --font-sans:  'IBM Plex Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans:  'Manrope', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Lora', Georgia, serif;
-  --font-mono:  'IBM Plex Mono', 'Geist Mono', Menlo, monospace;
+  --font-mono:  ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* Tracking */
-  --tracking-tighter: -0.04em;
+  --tracking-tighter: -0.03em;
   --tracking-tight:   -0.02em;
-  --tracking-normal:  -0.01em;
-  --tracking-label:    0.06em;   /* usado em tags/labels uppercase */
+  --tracking-normal:  -0.011em;
+  --tracking-label:    0.05em;
 
-  /* ── RAIO ZERO — coração do brutalismo pálido ── */
-  --radius: 0rem;
+  /* Raio — cantos suaves (base sisub) */
+  --radius: 0.625rem;
 
-  /* Bordas */
-  --border-width-thin:   1px;
-  --border-width-base:   1px;
-  --border-width-bold:   2px;
-  --border-width-brutal: 3px;
-
-  /* Sombras: planas e estruturais — zero blur */
-  --shadow-none: none;
-  --shadow-xs:   0 1px 2px 0 oklch(0 0 0 / 0.04);
-  --shadow-sm:   0 1px 3px 0 oklch(0 0 0 / 0.06);
-  --shadow-md:   none;
-  --shadow-lg:   none;
-  --shadow-xl:   none;
-  --shadow-2xl:  none;
-  --shadow-2xs:  none;
-
-  /* Sombras brutalistas (offset duro, sem blur) */
-  --shadow-hard-sm:  3px 3px 0 0 oklch(0.1000 0 0);
-  --shadow-hard-md:  4px 4px 0 0 oklch(0.1000 0 0);
-  --shadow-hard-lg:  6px 6px 0 0 oklch(0.1000 0 0);
+  /* Sombras macias tintadas de navy */
+  --shadow-2xs: 0 1px 2px 0 oklch(0.27 0.085 264 / 0.05);
+  --shadow-xs:  0 1px 3px 0 oklch(0.27 0.085 264 / 0.07);
+  --shadow-sm:  0 1px 3px 0 oklch(0.27 0.085 264 / 0.09), 0 1px 2px -1px oklch(0.27 0.085 264 / 0.06);
+  --shadow:     0 2px 6px -1px oklch(0.27 0.085 264 / 0.10), 0 1px 2px -1px oklch(0.27 0.085 264 / 0.06);
+  --shadow-md:  0 6px 18px -6px oklch(0.27 0.085 264 / 0.16), 0 2px 6px -2px oklch(0.27 0.085 264 / 0.08);
+  --shadow-lg:  0 12px 28px -8px oklch(0.27 0.085 264 / 0.20), 0 4px 10px -4px oklch(0.27 0.085 264 / 0.10);
+  --shadow-xl:  0 20px 40px -12px oklch(0.27 0.085 264 / 0.26);
+  --shadow-2xl: 0 30px 60px -24px oklch(0.27 0.085 264 / 0.45);
 }
 
 /* ---- DARK MODE ---- */
 .dark {
-  --background:            oklch(0.1000 0 0);
-  --foreground:            oklch(0.9671 0 0);
+  --background:            oklch(0.17 0.022 264);
+  --foreground:            oklch(0.95 0.006 264);
 
-  --card:                  oklch(0.1500 0 0);
-  --card-foreground:       oklch(0.9671 0 0);
+  --card:                  oklch(0.215 0.026 264);
+  --card-foreground:       oklch(0.95 0.006 264);
 
-  --popover:               oklch(0.1000 0 0);
-  --popover-foreground:    oklch(0.9671 0 0);
+  --popover:               oklch(0.215 0.026 264);
+  --popover-foreground:    oklch(0.95 0.006 264);
 
-  --primary:               oklch(0.9671 0 0);
-  --primary-foreground:    oklch(0.1000 0 0);
+  --primary:               oklch(0.74 0.095 256);
+  --primary-foreground:    oklch(0.17 0.022 264);
 
-  --secondary:             var(--gray-800);
-  --secondary-foreground:  oklch(0.9671 0 0);
+  --secondary:             oklch(0.27 0.030 264);
+  --secondary-foreground:  oklch(0.95 0.006 264);
 
-  --muted:                 var(--gray-900);
-  --muted-foreground:      var(--gray-400);
+  --muted:                 oklch(0.25 0.026 264);
+  --muted-foreground:      oklch(0.70 0.020 264);
 
-  --accent:                var(--gray-800);
-  --accent-foreground:     oklch(0.9671 0 0);
+  --accent:                oklch(0.30 0.040 264);
+  --accent-foreground:     oklch(0.95 0.006 264);
 
-  --destructive:           oklch(0.5771 0.2450 27.33);
-  --destructive-foreground: oklch(1.0000 0 0);
+  --destructive:           oklch(0.62 0.238 25.77);
+  --destructive-foreground: oklch(1 0 0);
 
-  --border:                var(--gray-800);
-  --input:                 var(--gray-800);
+  --success:               oklch(0.6907 0.1554 160.35);
+  --success-foreground:    oklch(1 0 0);
+  --warning:               oklch(0.7500 0.1400 82.53);
+  --warning-foreground:    oklch(0.2000 0 0);
+  --governance:            oklch(0.6200 0.1550 290.00);
+  --governance-foreground: oklch(1 0 0);
 
-  --ring:                  oklch(0.9671 0 0);
+  --border:                oklch(0.31 0.028 264);
+  --input:                 oklch(0.33 0.030 264);
+  --ring:                  oklch(0.74 0.095 256);
 
-  --chart-1:               oklch(0.9671 0 0);
-  --chart-2:               var(--gray-400);
-  --chart-3:               var(--gray-500);
-  --chart-4:               var(--gray-600);
-  --chart-5:               var(--gray-700);
+  --chart-1:               oklch(0.74 0.095 256);
+  --chart-2:               oklch(0.62 0.090 250);
+  --chart-3:               oklch(0.55 0.085 260);
+  --chart-4:               var(--gold);
+  --chart-5:               oklch(0.50 0.060 264);
 
-  --sidebar:               oklch(0.1500 0 0);
-  --sidebar-foreground:    oklch(0.9671 0 0);
-  --sidebar-primary:       oklch(0.9671 0 0);
-  --sidebar-primary-foreground: oklch(0.1000 0 0);
-  --sidebar-accent:        var(--gray-800);
-  --sidebar-accent-foreground: oklch(0.9671 0 0);
-  --sidebar-border:        var(--gray-800);
-  --sidebar-ring:          oklch(0.9671 0 0);
+  --sidebar:               oklch(0.215 0.026 264);
+  --sidebar-foreground:    oklch(0.95 0.006 264);
+  --sidebar-primary:       oklch(0.74 0.095 256);
+  --sidebar-primary-foreground: oklch(0.17 0.022 264);
+  --sidebar-accent:        oklch(0.30 0.040 264);
+  --sidebar-accent-foreground: oklch(0.95 0.006 264);
+  --sidebar-border:        oklch(0.31 0.028 264);
+  --sidebar-ring:          oklch(0.74 0.095 256);
 
-  --shadow-hard-sm:  3px 3px 0 0 oklch(0.9671 0 0);
-  --shadow-hard-md:  4px 4px 0 0 oklch(0.9671 0 0);
-  --shadow-hard-lg:  6px 6px 0 0 oklch(0.9671 0 0);
+  --gold-foreground:       oklch(0.17 0.022 264);
 }
 
 /* ---- MAPEAMENTO @THEME (Tailwind v4) ---- */
@@ -192,6 +177,12 @@
   --color-accent-foreground:         var(--accent-foreground);
   --color-destructive:               var(--destructive);
   --color-destructive-foreground:    var(--destructive-foreground);
+  --color-success:                   var(--success);
+  --color-success-foreground:        var(--success-foreground);
+  --color-warning:                   var(--warning);
+  --color-warning-foreground:        var(--warning-foreground);
+  --color-governance:                var(--governance);
+  --color-governance-foreground:     var(--governance-foreground);
   --color-border:                    var(--border);
   --color-input:                     var(--input);
   --color-ring:                      var(--ring);
@@ -209,21 +200,29 @@
   --color-sidebar-border:            var(--sidebar-border);
   --color-sidebar-ring:              var(--sidebar-ring);
 
+  /* Marca exposta ao Tailwind (bg-navy, text-gold, etc.) */
+  --color-navy:            var(--navy);
+  --color-navy-2:          var(--navy-2);
+  --color-navy-deep:       var(--navy-deep);
+  --color-gold:            var(--gold);
+  --color-gold-2:          var(--gold-2);
+  --color-gold-foreground: var(--gold-foreground);
+
   --font-sans:  var(--font-sans);
   --font-mono:  var(--font-mono);
   --font-serif: var(--font-serif);
 
-  /* Radius derivado — tudo parte do zero */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: var(--radius);
-  --radius-xl: 0px;
+  /* Radius derivado (escala sisub) */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
 
   /* Sombras expostas ao Tailwind */
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs:  var(--shadow-xs);
   --shadow-sm:  var(--shadow-sm);
-  --shadow:     var(--shadow-none);
+  --shadow:     var(--shadow);
   --shadow-md:  var(--shadow-md);
   --shadow-lg:  var(--shadow-lg);
   --shadow-xl:  var(--shadow-xl);
@@ -241,6 +240,7 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -249,134 +249,68 @@
     letter-spacing: var(--tracking-normal);
   }
 
-  /* Headings: tracking negativo — traço mais importante do brutalismo pálido */
   h1, h2, h3, h4, h5, h6 {
     letter-spacing: var(--tracking-tight);
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.15;
   }
 
-  h1 { letter-spacing: var(--tracking-tighter); }
+  h1 { letter-spacing: var(--tracking-tighter); font-weight: 800; }
 
-  /* Links: sublinhado sutil, sem decoração em nav */
   a:not([class]) {
     text-underline-offset: 3px;
     text-decoration-thickness: 1px;
   }
 
-  /* Focus: anel preto explícito — sem sombras difusas */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
-  /* Scrollbar discreta */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: var(--gray-300);
-    border-radius: 0;
+    background: oklch(0.33 0.095 264 / 0.25);
+    border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-500);
+    background: oklch(0.33 0.095 264 / 0.45);
   }
 }
 
-/* ---- UTILITÁRIOS BRUTALISTAS ---- */
+/* ---- UTILITÁRIOS ---- */
 @layer utilities {
-  /* Tipografia: escala de display com tracking negativo */
-
-  /* Hero: título principal de página — máximo visual */
-  .text-hero {
-    font-size: clamp(3.75rem, 11vw, 8rem);
-    font-weight: 700;
-    letter-spacing: -0.05em;
-    line-height: 1.0;
-  }
-
+  /* Display tipográfico */
   .text-display {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    font-weight: 700;
+    font-size: clamp(2.2rem, 4.6vw, 3.4rem);
+    font-weight: 800;
     letter-spacing: var(--tracking-tighter);
     line-height: 1.05;
   }
 
   .text-headline {
-    font-size: clamp(1.75rem, 4vw, 2.5rem);
-    font-weight: 600;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 700;
     letter-spacing: var(--tracking-tight);
     line-height: 1.15;
   }
 
-  /* Label/tag: uppercase com tracking largo */
+  /* Label/eyebrow uppercase com tracking */
   .text-label {
-    font-size: 0.6875rem;     /* 11px */
-    font-weight: 500;
+    font-size: 0.6875rem;
+    font-weight: 700;
     letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
-  /* Delimitador horizontal como separador de seção (estilo greptile) */
+  /* Separador horizontal de seção */
   .section-rule {
     border: none;
     border-top: 1px solid var(--border);
     margin: 0;
   }
 
-  /* Frame de página com bordas laterais (estilo greptile) */
-  .page-frame {
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-  }
-
-  /* Sombra hard offset — modificador brutalista */
-  .shadow-hard-sm {
-    box-shadow: var(--shadow-hard-sm);
-  }
-  .shadow-hard-md {
-    box-shadow: var(--shadow-hard-md);
-  }
-  .shadow-hard-lg {
-    box-shadow: var(--shadow-hard-lg);
-  }
-
-  /* Variante hover brutalista: sombra some, elemento translada */
-  .brutal-hover {
-    transition: box-shadow 100ms ease, transform 100ms ease;
-  }
-  .brutal-hover:hover {
-    transform: translate(4px, 4px);
-    box-shadow: none !important;
-  }
-
-  /* Borda de ênfase — 2px preta para elementos ativos/destacados */
-  .border-hard {
-    border: 2px solid oklch(0.1000 0 0);
-  }
-  .dark .border-hard {
-    border-color: oklch(0.9671 0 0);
-  }
-
-  /* Badge / tag estilo Pole B */
-  .tag {
-    display: inline-flex;
-    align-items: center;
-    background: var(--gray-100);
-    color: var(--gray-600);
-    border: 1px solid var(--gray-300);
-    padding: 0.1875rem 0.5rem;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: var(--tracking-label);
-    text-transform: uppercase;
-  }
-  .dark .tag {
-    background: var(--gray-800);
-    color: var(--gray-400);
-    border-color: var(--gray-700);
-  }
-
-  /* Contêiner com largura máxima estendida */
+  /* Contêiner estendido */
   .container-wide {
     width: 100%;
     max-width: 1500px;
@@ -386,7 +320,6 @@
     padding-right: 1.5rem;
   }
 
-  /* Animação de rolagem (marquee, etc.) */
   .animate-scroll {
     animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
   }
@@ -394,9 +327,7 @@
 
 /* ---- KEYFRAMES ---- */
 @keyframes scroll {
-  to {
-    transform: translate(calc(-50% - 0.5rem));
-  }
+  to { transform: translate(calc(-50% - 0.5rem)); }
 }
 
 @keyframes shimmer {
@@ -404,7 +335,6 @@
   100% { transform: translateX(100%); }
 }
 
-/* Desabilita animações de transição de view */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;

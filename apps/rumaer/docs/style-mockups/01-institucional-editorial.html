@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUMAER — Institucional Editorial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:        oklch(0.34 0.10 264);   /* azul-aeronáutica RCA */
+    --navy-deep:   oklch(0.27 0.09 264);
+    --navy-soft:   oklch(0.46 0.10 264);
+    --gold:        oklch(0.74 0.10 84);
+    --gold-deep:   oklch(0.66 0.10 80);
+    --paper:       oklch(0.992 0.002 250);
+    --ink:         oklch(0.24 0.02 264);
+    --muted:       oklch(0.50 0.02 264);
+    --hair:        oklch(0.88 0.01 264);
+    --line-light:  oklch(0.74 0.06 264 / 0.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-font-smoothing:antialiased}
+  body{font-family:Inter,system-ui,sans-serif;background:var(--paper);color:var(--ink);line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  /* ---- top bar ---- */
+  header.bar{position:sticky;top:0;z-index:10;background:var(--navy);color:#fff}
+  .bar .wrap{height:60px;display:flex;align-items:center;justify-content:space-between}
+  .brand{font-family:Archivo;font-weight:800;letter-spacing:.14em;font-size:18px}
+  .brand b{color:var(--gold)}
+  nav.top{display:flex;gap:28px;font-size:13px;letter-spacing:.04em}
+  nav.top a{color:#fff;opacity:.8;text-decoration:none;text-transform:uppercase;font-weight:500}
+  nav.top a:hover{opacity:1;color:var(--gold)}
+
+  /* ---- hero (navy block, like the RCA cover) ---- */
+  .hero{position:relative;background:var(--navy);color:#fff;overflow:hidden}
+  .hero::before{ /* ghosted wing watermark */
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(120% 90% at 80% 10%, oklch(0.46 0.12 264) 0%, transparent 55%);
+    opacity:.7;
+  }
+  .wing{position:absolute;right:-40px;top:30px;width:520px;opacity:.10;color:#fff}
+  .hero .wrap{position:relative;padding:88px 24px 96px;max-width:1180px}
+  .docref{display:inline-flex;align-items:center;gap:12px;font-family:Archivo;font-weight:600;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  .docref::before{content:"";width:34px;height:2px;background:var(--gold)}
+  .kicker{margin-top:30px;font-size:13px;letter-spacing:.26em;text-transform:uppercase;color:oklch(0.86 0.04 264);font-weight:600}
+  h1.display{
+    font-family:Archivo;font-weight:900;text-transform:uppercase;letter-spacing:-.01em;
+    font-size:clamp(2.6rem,6.2vw,5rem);line-height:.96;margin-top:14px;max-width:14ch;
+  }
+  .rule-gold{width:84px;height:3px;background:var(--gold);margin:30px 0 26px}
+  .lede{max-width:60ch;font-size:17px;line-height:1.65;color:oklch(0.90 0.02 264)}
+  .cta{display:inline-flex;align-items:center;gap:10px;margin-top:34px;background:var(--gold);color:var(--navy-deep);
+    font-family:Archivo;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:14px;
+    padding:15px 26px;text-decoration:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),background .25s}
+  .cta:hover{background:#fff;transform:translateX(4px)}
+
+  /* ---- groups: editorial numbered list (no cards) ---- */
+  section.groups{padding:84px 0 96px}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid var(--navy);padding-bottom:14px;margin-bottom:8px}
+  .sec-head h2{font-family:Archivo;font-weight:800;text-transform:uppercase;letter-spacing:.02em;font-size:15px;color:var(--navy)}
+  .sec-head span{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  ul.list{list-style:none}
+  ul.list li a{display:grid;grid-template-columns:64px 1fr auto;gap:28px;align-items:center;
+    padding:30px 8px;border-bottom:1px solid var(--hair);text-decoration:none;color:inherit;transition:padding .3s,background .3s}
+  ul.list li a:hover{background:oklch(0.34 0.10 264 / 0.035);padding-left:20px}
+  .idx{font-family:Archivo;font-weight:800;font-size:30px;color:var(--gold-deep);line-height:1}
+  .g-title{font-family:Archivo;font-weight:700;font-size:23px;color:var(--navy);letter-spacing:-.01em}
+  .g-desc{font-size:15px;color:var(--muted);margin-top:3px}
+  .g-arrow{color:var(--navy);font-size:22px;transition:transform .3s}
+  ul.list li a:hover .g-arrow{transform:translateX(6px);color:var(--gold-deep)}
+
+  footer{background:var(--navy-deep);color:oklch(0.82 0.03 264);font-size:13px}
+  footer .wrap{padding:34px 24px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  footer b{color:#fff}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">RU<b>MAER</b></div>
+    <nav class="top"><a href="#">Uniformes</a><a href="#">Administração</a></nav>
+  </div>
+</header>
+
+<section class="hero">
+  <svg class="wing" viewBox="0 0 200 120" aria-hidden="true" fill="currentColor">
+    <path d="M100 60 L20 40 Q60 56 100 56 Q140 56 180 40 Z"/>
+    <path d="M100 64 L40 78 Q70 68 100 68 Q130 68 160 78 Z"/>
+    <circle cx="100" cy="60" r="9"/>
+  </svg>
+  <div class="wrap">
+    <span class="docref">RCA 35-2/2023</span>
+    <p class="kicker">Força Aérea Brasileira</p>
+    <h1 class="display">Regulamento de Uniformes da Aeronáutica</h1>
+    <div class="rule-gold"></div>
+    <p class="lede">Navegue os uniformes da FAB de forma interativa: para quem cada um serve, a composição peça a peça com sua obrigatoriedade, variantes por círculo hierárquico e gênero, e as equivalências com Marinha, Exército e trajes civis.</p>
+    <a class="cta" href="#">Ver todos os uniformes →</a>
+  </div>
+</section>
+
+<section class="groups">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Grupos de uniformes</h2>
+      <span>Título II · Composição e uso</span>
+    </div>
+    <ul class="list">
+      <li><a href="#"><span class="idx">01</span><span><span class="g-title">Representação</span><div class="g-desc">Gala, passeio e situações de representação.</div></span><span class="g-arrow">→</span></a></li>
+      <li><a href="#"><span class="idx">02</span><span><span class="g-title">Serviços</span><div class="g-desc">Uniformes de serviço administrativo e operacional.</div></span><span class="g-arrow">→</span></a></li>
+      <li><a href="#"><span class="idx">03</span><span><span class="g-title">Educação Física</span><div class="g-desc">Agasalho, camiseta e tênis para EF.</div></span><span class="g-arrow">→</span></a></li>
+      <li><a href="#"><span class="idx">04</span><span><span class="g-title">Desfile</span><div class="g-desc">Composições específicas para desfiles e formaturas.</div></span><span class="g-arrow">→</span></a></li>
+      <li><a href="#"><span class="idx">05</span><span><span class="g-title">Históricos</span><div class="g-desc">Uniformes de tradição e cerimônias históricas.</div></span><span class="g-arrow">→</span></a></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>RUMAER · SEFA · Comando da Aeronáutica · Ministério da Defesa</span>
+    <span>© 2026 IEFA · <b>Desenvolvido por Ten Nanni</b></span>
+  </div>
+</footer>
+
+</body>
+</html>

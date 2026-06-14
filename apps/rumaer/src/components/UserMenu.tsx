@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { LogOut, Settings } from "iconoir-react"
+import { LogOut, Settings } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { militaryProfileQueryOptions } from "@/lib/uniforms/hooks"
 import { Button } from "./ui/button"

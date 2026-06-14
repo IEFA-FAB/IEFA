@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUMAER — Aeroespacial Moderno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:       oklch(0.36 0.10 264);
+    --navy-deep:  oklch(0.28 0.09 264);
+    --gold:       oklch(0.72 0.11 82);
+    --canvas:     oklch(0.985 0.004 250);  /* cool technical white */
+    --ink:        oklch(0.26 0.03 264);
+    --muted:      oklch(0.52 0.02 264);
+    --grid:       oklch(0.36 0.10 264 / 0.07);
+    --hair:       oklch(0.36 0.10 264 / 0.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);line-height:1.5;
+    background:
+      linear-gradient(var(--grid) 1px,transparent 1px) 0 0/100% 32px,
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/32px 100%,
+      var(--canvas);
+  }
+  .mono{font-family:"Space Mono",monospace}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+  header.bar{position:sticky;top:0;z-index:10;background:oklch(0.985 0.004 250 / 0.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--hair)}
+  .bar .wrap{height:58px;display:flex;align-items:center;justify-content:space-between}
+  .brand{font-family:"Space Grotesk";font-weight:700;letter-spacing:.04em;font-size:18px;color:var(--navy);display:flex;align-items:center;gap:9px}
+  .brand .tick{width:9px;height:9px;background:var(--gold);transform:rotate(45deg)}
+  nav.top{display:flex;gap:8px}
+  nav.top a{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.02em;color:var(--muted);text-decoration:none;padding:6px 12px;border:1px solid transparent}
+  nav.top a:hover{color:var(--navy);border-color:var(--hair)}
+
+  /* hero: blueprint with reticle corners + annotations */
+  .hero{position:relative;padding:78px 0 90px}
+  .hero .wrap{position:relative}
+  .frame{position:relative;border:1px solid var(--hair);padding:54px 48px 58px}
+  .frame::before,.frame::after,.cnr{position:absolute;width:14px;height:14px;border:2px solid var(--gold)}
+  .frame::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+  .frame::after{top:-1px;right:-1px;border-left:0;border-bottom:0}
+  .cnr.bl{bottom:-1px;left:-1px;border-right:0;border-top:0}
+  .cnr.br{bottom:-1px;right:-1px;border-left:0;border-top:0}
+  .meta-row{display:flex;gap:26px;flex-wrap:wrap;font-family:"Space Mono",monospace;font-size:11.5px;letter-spacing:.04em;color:var(--muted);margin-bottom:26px}
+  .meta-row b{color:var(--navy)}
+  .meta-row .gold{color:var(--gold)}
+  h1.display{font-family:"Space Grotesk";font-weight:700;font-size:clamp(2.4rem,5.6vw,4.4rem);line-height:1.0;letter-spacing:-.025em;color:var(--navy);max-width:16ch}
+  .crosshair{display:inline-block;color:var(--gold);font-weight:700}
+  .lede{margin-top:24px;max-width:58ch;font-size:16px;color:var(--muted);line-height:1.65}
+  .actions{margin-top:30px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .cta{display:inline-flex;align-items:center;gap:10px;background:var(--navy);color:#fff;font-family:"Space Grotesk";font-weight:600;
+    font-size:14px;padding:14px 24px;text-decoration:none;transition:background .2s,box-shadow .2s}
+  .cta:hover{background:var(--navy-deep);box-shadow:0 0 0 3px oklch(0.72 0.11 82 / .4)}
+  .ctamono{font-family:"Space Mono",monospace;font-size:12px;color:var(--muted)}
+
+  /* groups: modular data grid */
+  section.groups{padding:10px 0 92px}
+  .sec-head{display:flex;align-items:center;gap:14px;margin:0 0 22px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .sec-head::before{content:"";width:7px;height:7px;background:var(--gold)}
+  .sec-head .ln{flex:1;height:1px;background:var(--hair)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px}
+  .mod{position:relative;background:oklch(1 0 0 / .55);border:1px solid var(--hair);padding:22px 20px 20px;text-decoration:none;color:inherit;transition:border-color .25s,transform .25s,background .25s}
+  .mod:hover{border-color:var(--navy);transform:translateY(-3px);background:#fff}
+  .mod .code{font-family:"Space Mono",monospace;font-size:11px;color:var(--gold);letter-spacing:.06em}
+  .mod h3{font-family:"Space Grotesk";font-weight:600;font-size:21px;color:var(--navy);margin:18px 0 6px;letter-spacing:-.01em}
+  .mod p{font-size:13.5px;color:var(--muted);line-height:1.5}
+  .mod .foot{margin-top:18px;display:flex;justify-content:space-between;align-items:center;font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);border-top:1px solid var(--hair);padding-top:12px}
+  .mod:hover .foot .arr{color:var(--navy)}
+
+  footer{border-top:1px solid var(--hair)}
+  footer .wrap{padding:26px 28px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:"Space Mono",monospace;font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand"><span class="tick"></span>RUMAER</div>
+    <nav class="top"><a href="#">UNIFORMES</a><a href="#">ADMIN</a></nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="frame">
+      <span class="cnr bl"></span><span class="cnr br"></span>
+      <div class="meta-row">
+        <span><b>DOC</b> · RCA 35-2/2023</span>
+        <span><b>ORG</b> · FORÇA AÉREA BRASILEIRA</span>
+        <span class="gold">● SISTEMA INTERATIVO</span>
+      </div>
+      <h1 class="display"><span class="crosshair">+</span> Regulamento de Uniformes da Aeronáutica</h1>
+      <p class="lede">Navegue os uniformes da FAB de forma interativa: para quem cada um serve, composição peça a peça com obrigatoriedade, variantes por círculo hierárquico e gênero, e equivalências com Marinha, Exército e trajes civis.</p>
+      <div class="actions">
+        <a class="cta" href="#">Ver todos os uniformes →</a>
+        <span class="ctamono">[ 05 GRUPOS · COMPOSIÇÃO COMPLETA ]</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="groups">
+  <div class="wrap">
+    <div class="sec-head">GRUPOS DE UNIFORMES<span class="ln"></span>TÍTULO II</div>
+    <div class="grid">
+      <a class="mod" href="#"><span class="code">GRP-01</span><h3>Representação</h3><p>Gala, passeio e situações de representação.</p><div class="foot"><span>REPRESENTACAO</span><span class="arr">→</span></div></a>
+      <a class="mod" href="#"><span class="code">GRP-02</span><h3>Serviços</h3><p>Uniformes de serviço administrativo e operacional.</p><div class="foot"><span>SERVICOS</span><span class="arr">→</span></div></a>
+      <a class="mod" href="#"><span class="code">GRP-03</span><h3>Educação Física</h3><p>Agasalho, camiseta e tênis para EF.</p><div class="foot"><span>EDUCACAO_FISICA</span><span class="arr">→</span></div></a>
+      <a class="mod" href="#"><span class="code">GRP-04</span><h3>Desfile</h3><p>Composições específicas para desfiles e formaturas.</p><div class="foot"><span>DESFILE</span><span class="arr">→</span></div></a>
+      <a class="mod" href="#"><span class="code">GRP-05</span><h3>Históricos</h3><p>Uniformes de tradição e cerimônias históricas.</p><div class="foot"><span>HISTORICOS</span><span class="arr">→</span></div></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>RUMAER · SEFA · COMANDO DA AERONÁUTICA</span>
+    <span>© 2026 IEFA · TEN NANNI</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { EditPencil, Plus } from "iconoir-react"
+import { Pencil, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -93,7 +93,7 @@ function AdminDashboard() {
 								size="sm"
 								render={
 									<Link to="/admin/uniformes/$uniformId" params={{ uniformId: u.id }}>
-										<EditPencil className="size-4" />
+										<Pencil className="size-4" />
 										Editar
 									</Link>
 								}

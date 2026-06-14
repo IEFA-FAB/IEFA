@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUMAER — Institucional Refinado (estilo sisub)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:        oklch(0.33 0.095 264);
+    --navy-2:      oklch(0.39 0.10 264);
+    --navy-deep:   oklch(0.27 0.085 264);
+    --gold:        oklch(0.78 0.095 86);
+    --gold-2:      oklch(0.70 0.10 82);
+
+    --background:  oklch(1 0 0);
+    --foreground:  oklch(0.22 0.022 264);
+    --muted-fg:    oklch(0.50 0.018 264);
+    --hair:        oklch(0.33 0.095 264 / 0.12);
+    --hair-soft:   oklch(0.33 0.095 264 / 0.07);
+    --tint:        oklch(0.33 0.095 264 / 0.04);
+
+    --radius:    0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1.25rem;
+
+    --sh-hero: 0 30px 60px -24px oklch(0.27 0.085 264 / .45);
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+  body{font-family:Manrope,system-ui,sans-serif;background:var(--background);color:var(--foreground);
+    line-height:1.55;letter-spacing:-0.011em}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  a{text-decoration:none;color:inherit}
+
+  /* ---------- top bar ---------- */
+  header.bar{position:sticky;top:0;z-index:20;background:oklch(1 0 0 / .82);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--hair-soft)}
+  .bar .wrap{height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.02em;color:var(--navy)}
+  .brand .mk{width:26px;height:26px;border-radius:8px;background:var(--navy);display:grid;place-items:center;color:var(--gold)}
+  .brand .mk svg{width:16px;height:16px}
+  .nav{display:flex;align-items:center;gap:4px}
+  .nav a{font-size:14px;font-weight:500;color:var(--muted-fg);padding:8px 14px;border-radius:var(--radius);transition:.2s var(--ease)}
+  .nav a:hover{color:var(--navy);background:var(--tint)}
+  .nav a.solid{background:var(--navy);color:#fff;font-weight:600}
+  .nav a.solid:hover{background:var(--navy-deep)}
+
+  /* ---------- hero (rounded navy panel, search-first) ---------- */
+  .hero{padding:36px 0 8px}
+  .panel{position:relative;overflow:hidden;border-radius:var(--radius-xl);background:var(--navy);color:#fff;
+    box-shadow:var(--sh-hero);display:grid;grid-template-columns:1.45fr .55fr}
+  .panel::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(135% 120% at 92% -15%, var(--navy-2) 0%, transparent 60%);opacity:.95}
+  .panel .body{position:relative;padding:56px 20px 56px 52px}
+  .eyebrow{display:inline-flex;align-items:center;gap:11px;font-size:12px;font-weight:700;
+    letter-spacing:.17em;text-transform:uppercase;color:var(--gold)}
+  .eyebrow::before{content:"";width:24px;height:2px;border-radius:2px;background:var(--gold)}
+  .eyebrow .ref{color:oklch(0.84 0.03 264);font-weight:600;letter-spacing:.05em}
+  h1{margin-top:20px;font-size:clamp(2.2rem,4.6vw,3.4rem);font-weight:800;line-height:1.05;
+    letter-spacing:-0.03em;max-width:16ch}
+  h1 .accent{color:var(--gold)}
+  .lede{margin-top:18px;max-width:50ch;font-size:16px;line-height:1.6;color:oklch(0.90 0.018 264);font-weight:400}
+
+  /* search */
+  .search{margin-top:30px;max-width:560px;display:flex;align-items:center;gap:8px;background:#fff;
+    border-radius:14px;padding:7px 7px 7px 16px;box-shadow:0 10px 30px -12px oklch(0.27 0.085 264 / .5)}
+  .search svg.lupa{width:20px;height:20px;color:var(--muted-fg);flex:none}
+  .search input{flex:1;border:0;outline:0;font:inherit;font-size:15.5px;color:var(--foreground);background:transparent;padding:8px 4px}
+  .search input::placeholder{color:var(--muted-fg)}
+  .search button{flex:none;display:inline-flex;align-items:center;gap:8px;border:0;cursor:pointer;font:inherit;
+    font-weight:700;font-size:14px;color:#fff;background:var(--navy);padding:11px 18px;border-radius:9px;transition:.2s var(--ease)}
+  .search button:hover{background:var(--navy-deep)}
+
+  .shortcuts{margin-top:18px;display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;font-size:13.5px}
+  .shortcuts .lbl{color:oklch(0.74 0.03 264);font-weight:600}
+  .shortcuts a{color:oklch(0.92 0.015 264);font-weight:500;padding-bottom:2px;border-bottom:1.5px solid transparent;transition:.2s var(--ease)}
+  .shortcuts a:hover{color:#fff;border-color:var(--gold)}
+
+  /* figure */
+  .plate{position:relative;display:flex;align-items:flex-end;justify-content:center;padding:28px 20px 0;
+    border-left:1px solid oklch(1 0 0 / .10)}
+  .plate .label{position:absolute;top:26px;left:0;right:0;text-align:center;font-size:10.5px;font-weight:600;
+    letter-spacing:.18em;text-transform:uppercase;color:oklch(0.80 0.03 264)}
+  .plate svg{width:120px;height:auto;color:oklch(0.80 0.05 264);filter:drop-shadow(0 14px 20px oklch(0 0 0 /.35))}
+
+  /* ---------- tasks (hairline list, no cards) ---------- */
+  section.tasks{padding:54px 0 20px}
+  .tasks .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:6px}
+  .tasks h2{font-size:24px;font-weight:800;letter-spacing:-0.025em;color:var(--navy);margin-bottom:8px}
+  .list{margin-top:14px;border-top:1px solid var(--hair-soft)}
+  .row{display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;padding:26px 12px;
+    border-bottom:1px solid var(--hair-soft);transition:.28s var(--ease)}
+  .row:hover{background:var(--tint);padding-left:22px;padding-right:6px}
+  .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;color:var(--navy);
+    background:oklch(0.33 0.095 264 / .06);transition:.28s var(--ease)}
+  .row:hover .ic{background:var(--navy);color:var(--gold)}
+  .ic svg{width:23px;height:23px;stroke-width:1.8}
+  .r-title{font-size:19px;font-weight:700;letter-spacing:-0.01em;color:var(--foreground)}
+  .r-desc{font-size:14.5px;color:var(--muted-fg);margin-top:3px;max-width:62ch}
+  .r-arrow{color:var(--muted-fg);transition:.28s var(--ease)}
+  .row:hover .r-arrow{color:var(--gold-2);transform:translateX(4px)}
+  .r-arrow svg{width:22px;height:22px}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:56px;border-top:1px solid var(--hair-soft)}
+  footer .wrap{padding:30px 24px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    font-size:13px;color:var(--muted-fg)}
+  footer b{color:var(--navy);font-weight:700}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="brand">
+      <span class="mk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 11 L3 8 Q8 10.5 12 10.5 Q16 10.5 21 8 Z"/><path d="M12 12.5 L6 15 Q9 13 12 13 Q15 13 18 15 Z"/><circle cx="12" cy="11.5" r="2"/></svg></span>
+      RUMAER
+    </span>
+    <nav class="nav">
+      <a href="#">Uniformes</a>
+      <a href="#">Dúvidas</a>
+      <a href="#" class="solid">Entrar</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="panel">
+      <div class="body">
+        <span class="eyebrow">Força Aérea Brasileira<span class="ref">RCA 35-2/2023</span></span>
+        <h1>Encontre e monte o seu <span class="accent">uniforme</span></h1>
+        <p class="lede">Busque o uniforme certo, veja a composição peça a peça e saiba exatamente como montá-lo, conforme o seu círculo hierárquico.</p>
+
+        <form class="search" onsubmit="return false">
+          <svg class="lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" placeholder="Busque por uniforme, ocasião ou peça…" aria-label="Buscar uniforme" />
+          <button type="submit">Buscar</button>
+        </form>
+
+        <div class="shortcuts">
+          <span class="lbl">Ir direto para</span>
+          <a href="#">Representação</a>
+          <a href="#">Serviços</a>
+          <a href="#">Educação Física</a>
+          <a href="#">Desfile</a>
+          <a href="#">Históricos</a>
+        </div>
+      </div>
+
+      <div class="plate">
+        <span class="label">Uniforme histórico · Oficial</span>
+        <svg viewBox="0 0 120 300" fill="currentColor" aria-hidden="true">
+          <ellipse cx="60" cy="22" rx="25" ry="8"/><rect x="35" y="20" width="50" height="7" rx="2"/>
+          <circle cx="60" cy="44" r="12"/>
+          <path d="M41 60 L79 60 L90 110 L85 218 L35 218 L30 110 Z"/>
+          <rect x="56" y="62" width="8" height="156" fill="var(--navy)"/>
+          <circle cx="50" cy="84" r="2.3" fill="var(--gold)"/><circle cx="70" cy="84" r="2.3" fill="var(--gold)"/>
+          <circle cx="50" cy="104" r="2.3" fill="var(--gold)"/><circle cx="70" cy="104" r="2.3" fill="var(--gold)"/>
+          <circle cx="50" cy="124" r="2.3" fill="var(--gold)"/><circle cx="70" cy="124" r="2.3" fill="var(--gold)"/>
+          <rect x="38" y="220" width="20" height="66" rx="3"/><rect x="62" y="220" width="20" height="66" rx="3"/>
+          <rect x="36" y="286" width="23" height="9" rx="2"/><rect x="61" y="286" width="23" height="9" rx="2"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tasks">
+  <div class="wrap">
+    <p class="kicker">Para começar</p>
+    <h2>O que você precisa resolver</h2>
+
+    <div class="list">
+      <a class="row" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 6.5h0M7 16.5h6"/></svg></span>
+        <span><div class="r-title">Composição peça a peça</div><div class="r-desc">Cada peça do uniforme com sua obrigatoriedade, e as variantes por círculo hierárquico e gênero.</div></span>
+        <span class="r-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <a class="row" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 3 4 2v11H6V9l4-2-1-3Z"/><path d="M9 13l2 2 4-4"/></svg></span>
+        <span><div class="r-title">Monte o seu uniforme</div><div class="r-desc">Guia passo a passo a partir do seu posto e círculo, mostrando o que vestir e como portar cada item.</div></span>
+        <span class="r-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+
+      <a class="row" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.8.3-1.4 1-1.4 1.9"/><path d="M12 17h0"/></svg></span>
+        <span><div class="r-title">Tire suas dúvidas</div><div class="r-desc">Regras de uso, equivalências civis e interforças, e as perguntas mais frequentes, respondidas.</div></span>
+        <span class="r-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>RUMAER · SEFA · Comando da Aeronáutica · Ministério da Defesa</span>
+    <span>© 2026 IEFA · <b>Desenvolvido por Ten Nanni</b></span>
+  </div>
+</footer>
+
+</body>
+</html>

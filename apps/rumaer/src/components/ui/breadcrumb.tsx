@@ -3,7 +3,7 @@
 
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { MoreHoriz, NavArrowRight } from "iconoir-react"
+import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
 import type * as React from "react"
 import { cn } from "../../lib/utils"
 
@@ -26,7 +26,7 @@ function BreadcrumbLink({ className, render, ...props }: useRender.ComponentProp
 		defaultTagName: "a",
 		props: mergeProps<"a">(
 			{
-				className: cn("hover:text-foreground transition-colors cursor-pointer", className),
+				className: cn("hover:text-foreground transition-colors", className),
 			},
 			props
 		),
@@ -53,7 +53,7 @@ function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
 function BreadcrumbSeparator({ children, className, ...props }: React.ComponentProps<"li">) {
 	return (
 		<li data-slot="breadcrumb-separator" role="presentation" aria-hidden="true" className={cn("[&>svg]:size-3.5", className)} {...props}>
-			{children ?? <NavArrowRight />}
+			{children ?? <ChevronRightIcon />}
 		</li>
 	)
 }
@@ -67,7 +67,7 @@ function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<"span"
 			className={cn("size-5 [&>svg]:size-4 flex items-center justify-center", className)}
 			{...props}
 		>
-			<MoreHoriz />
+			<MoreHorizontalIcon />
 			<span className="sr-only">More</span>
 		</span>
 	)

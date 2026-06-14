@@ -1,24 +1,17 @@
-/* Lora Variable */
+/* Manrope Variable — fonte primária (UI + display), alinhada ao sisub */
 @font-face {
-	font-family: "Lora";
-	src: url("/fonts/Lora-Variable.ttf") format("truetype");
-	font-weight: 400 700;
+	font-family: "Manrope";
+	src: url("/fonts/Manrope-Variable.ttf") format("truetype");
+	font-weight: 200 800;
 	font-style: normal;
 	font-display: swap;
 }
+
+/* Lora Variable — reservada para uso editorial pontual */
 @font-face {
 	font-family: "Lora";
 	src: url("/fonts/Lora-Variable.ttf") format("truetype");
 	font-weight: 400 700;
-	font-style: italic;
-	font-display: swap;
-}
-
-/* IBM Plex Sans Variable */
-@font-face {
-	font-family: "IBM Plex Sans";
-	src: url("/fonts/IBMPlexSans-Variable.ttf") format("truetype");
-	font-weight: 100 700;
 	font-style: normal;
 	font-display: swap;
 }

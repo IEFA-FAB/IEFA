@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle, Eye, EyeClosed, Lock, Mail, Refresh, User, WarningCircle } from "iconoir-react"
+import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Lock, Mail, RefreshCw, User } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { Button } from "@/components/ui/button"
@@ -76,7 +76,7 @@ function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.R
 function FieldError({ children }: { children: React.ReactNode }) {
 	return (
 		<p className="flex items-center gap-1 text-xs text-destructive mt-1" role="alert">
-			<WarningCircle className="h-3 w-3 shrink-0" aria-hidden />
+			<CircleAlert className="h-3 w-3 shrink-0" aria-hidden />
 			{children}
 		</p>
 	)
@@ -85,7 +85,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 function ErrorBanner({ message }: { message: string }) {
 	return (
 		<div className="border-l-2 border-destructive bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
-			<WarningCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+			<CircleAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
 			{message}
 		</div>
 	)
@@ -326,7 +326,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	if (isLoading) {
 		return (
 			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
-				<Refresh className="h-4 w-4 animate-spin text-muted-foreground" />
+				<RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
 				<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
 			</div>
 		)
@@ -371,7 +371,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 						</div>
 						<div className="px-8 pb-8 pt-2 border-t border-border">
 							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
-								{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+								{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 								Atualizar Senha
 							</Button>
 						</div>
@@ -424,7 +424,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 						<div className="px-8 pb-8 pt-2 border-t border-border">
 							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
-								{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+								{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 								Enviar Link
 							</Button>
 						</div>
@@ -520,7 +520,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 											className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
 											aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
 										>
-											{showPassword ? <EyeClosed className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+											{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 										</Button>
 									</div>
 									{passwordError && <FieldError>{passwordError}</FieldError>}
@@ -548,7 +548,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 										`Bloqueado (${retryAfter}s)`
 									) : (
 										<>
-											{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+											{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 											{isSubmitting ? "Entrando..." : "Entrar"}
 										</>
 									)}
@@ -644,7 +644,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 
 							<div className="px-8 pb-8 border-t border-border pt-5">
 								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || !!registerEmailError}>
-									{isSubmitting && <Refresh className="mr-2 h-4 w-4 animate-spin" />}
+									{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
 									{isSubmitting ? "Criando..." : "Criar conta"}
 								</Button>
 							</div>

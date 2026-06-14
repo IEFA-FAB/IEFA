@@ -1,7 +1,7 @@
 "use client"
 
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
-import { Xmark } from "iconoir-react"
+import { XIcon } from "lucide-react"
 import type * as React from "react"
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
@@ -10,8 +10,8 @@ function Sheet({ ...props }: SheetPrimitive.Root.Props) {
 	return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
-function SheetTrigger({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
-	return <SheetPrimitive.Trigger data-slot="sheet-trigger" className={cn("cursor-pointer", className)} {...props} />
+function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
+	return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
 }
 
 function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
@@ -60,7 +60,7 @@ function SheetContent({
 				{children}
 				{showCloseButton && (
 					<SheetPrimitive.Close data-slot="sheet-close" render={<Button variant="ghost" className="absolute top-3 right-3" size="icon-sm" />}>
-						<Xmark />
+						<XIcon />
 						<span className="sr-only">Close</span>
 					</SheetPrimitive.Close>
 				)}

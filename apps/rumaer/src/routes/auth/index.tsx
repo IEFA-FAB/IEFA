@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
-import { Refresh } from "iconoir-react"
+import { RefreshCw } from "lucide-react"
 import { z } from "zod"
 import { AuthScreen } from "@/auth/view/AuthScreen"
 import { useAuth } from "@/hooks/useAuth"
@@ -59,7 +59,7 @@ function AuthPage() {
 	if (isLoading) {
 		return (
 			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
-				<Refresh className="h-4 w-4 animate-spin text-muted-foreground" />
+				<RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
 				<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
 			</div>
 		)

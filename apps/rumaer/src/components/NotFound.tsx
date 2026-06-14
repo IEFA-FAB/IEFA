@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowLeft, Home } from "iconoir-react"
+import { ArrowLeft, House } from "lucide-react"
 import { Button } from "./ui/button"
 
 export function NotFound({ children }: { children?: React.ReactNode }) {
@@ -28,7 +28,7 @@ export function NotFound({ children }: { children?: React.ReactNode }) {
 						Voltar
 					</Button>
 					<Button nativeButton={false} render={<Link to="/" />}>
-						<Home />
+						<House />
 						Ir para o Início
 					</Button>
 				</div>

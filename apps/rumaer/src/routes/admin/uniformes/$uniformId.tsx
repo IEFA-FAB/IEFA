@@ -1,7 +1,7 @@
 import type { CategoriaMilitar, Piece, UniformVariantWithPieces } from "@iefa/database/rumaer"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, Plus, Trash, Upload } from "iconoir-react"
+import { ArrowLeft, Plus, Trash2, Upload } from "lucide-react"
 import { useId, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -369,7 +369,7 @@ function VariantCard({ variant, pieces, onChanged }: { variant: UniformVariantWi
 					{variant.image_path ? <Badge variant="secondary">com imagem</Badge> : <Badge variant="outline">sem imagem</Badge>}
 				</div>
 				<Button variant="ghost" size="sm" onClick={() => del.mutate()} disabled={del.isPending}>
-					<Trash className="size-4" />
+					<Trash2 className="size-4" />
 				</Button>
 			</div>
 
@@ -431,7 +431,7 @@ function VariantCard({ variant, pieces, onChanged }: { variant: UniformVariantWi
 							className="flex-1"
 						/>
 						<Button variant="ghost" size="sm" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>
-							<Trash className="size-4" />
+							<Trash2 className="size-4" />
 						</Button>
 					</div>
 				))}

@@ -64,8 +64,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				{ rel: "icon", type: "image/svg+xml", sizes: "any", href: "/favicon.svg" },
 				{ rel: "manifest", href: "/manifest.json" },
 				{ rel: "icon", href: "/favicon.svg" },
-				{ rel: "preload", href: "/fonts/Lora-Variable.ttf", as: "font", type: "font/ttf", crossOrigin: "anonymous" },
-				{ rel: "preload", href: "/fonts/IBMPlexSans-Variable.ttf", as: "font", type: "font/ttf", crossOrigin: "anonymous" },
+				{ rel: "preload", href: "/fonts/Manrope-Variable.ttf", as: "font", type: "font/ttf", crossOrigin: "anonymous" },
 			],
 		}
 	},
@@ -115,8 +114,7 @@ function RootDocument() {
 			<head>
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
-				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
-				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/Manrope-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
 				<HeadContent />
 				<ThemeScript />
 			</head>
