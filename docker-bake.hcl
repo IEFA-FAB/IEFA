@@ -7,7 +7,7 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["api", "portal", "sisub", "forms", "docs", "alpha", "5s"]
+  targets = ["api", "portal", "rumaer", "sisub", "forms", "docs", "alpha", "5s"]
 }
 
 group "apps" {
@@ -47,6 +47,18 @@ target "portal" {
   args = {
     VITE_IEFA_SUPABASE_URL = ""
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = ""
+  }
+}
+
+target "rumaer" {
+  inherits = ["base"]
+  target = "rumaer"
+  tags = ["${REGISTRY}/iefa-rumaer:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=rumaer"]
+  cache-to = ["type=gha,scope=rumaer,mode=max"]
+  args = {
+    VITE_RUMAER_SUPABASE_URL = ""
+    VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY = ""
   }
 }
 

@@ -14,6 +14,7 @@ FROM base AS deps
 COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/portal/package.json ./apps/portal/
+COPY apps/rumaer/package.json ./apps/rumaer/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/sisub-mcp/package.json ./apps/sisub-mcp/
 COPY apps/docs/package.json ./apps/docs/
@@ -74,6 +75,37 @@ FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b4
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=portal-build /app/apps/portal/.output ./.output
+USER bun
+EXPOSE 3000
+CMD ["bun", ".output/server/index.mjs"]
+
+# =============================================================================
+# RUMAER
+# =============================================================================
+FROM deps AS rumaer-build
+ARG VITE_RUMAER_SUPABASE_URL
+ARG VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
+COPY packages/database ./packages/database
+COPY apps/rumaer ./apps/rumaer
+RUN rm -rf apps/rumaer/.vite apps/rumaer/.tanstack apps/rumaer/node_modules/.vite
+RUN bun --filter='@iefa/rumaer' run build
+RUN test -f apps/rumaer/.output/server/index.mjs || \
+    (echo "❌ Build failed: output missing" && exit 1)
+
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/rumaer/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/rumaer/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
+
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS rumaer
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=rumaer-build /app/apps/rumaer/.output ./.output
 USER bun
 EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]

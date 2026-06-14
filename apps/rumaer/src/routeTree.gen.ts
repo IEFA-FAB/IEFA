@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as HealthRouteImport } from './routes/health'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
@@ -20,6 +21,11 @@ import { Route as PublicUniformesIndexRouteImport } from './routes/_public/unifo
 import { Route as AdminUniformesUniformIdRouteImport } from './routes/admin/uniformes/$uniformId'
 import { Route as PublicUniformesUniformIdIndexRouteImport } from './routes/_public/uniformes/$uniformId/index'
 
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
+  '/health': typeof HealthRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/admin/uniformes/$uniformId': typeof AdminUniformesUniformIdRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/uniformes/$uniformId/': typeof PublicUniformesUniformIdIndexRoute
 }
 export interface FileRoutesByTo {
+  '/health': typeof HealthRoute
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/_public': typeof PublicRouteRouteWithChildren
   '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
+  '/health': typeof HealthRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/health'
     | '/admin/'
     | '/auth/'
     | '/admin/uniformes/$uniformId'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/uniformes/$uniformId/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/health'
     | '/'
     | '/admin'
     | '/auth'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/_public'
     | '/admin'
     | '/auth'
+    | '/health'
     | '/_public/'
     | '/admin/'
     | '/auth/'
@@ -143,10 +155,18 @@ export interface RootRouteChildren {
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  HealthRoute: typeof HealthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -268,6 +288,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicRouteRoute: PublicRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  HealthRoute: HealthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
