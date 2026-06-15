@@ -21,6 +21,37 @@ export const getSignedImageUrlFn = createServerFn({ method: "GET" })
 		return result.signedUrl
 	})
 
+/**
+ * URLs assinadas de todas as imagens de um uniforme (base das variantes + looks),
+ * deduplicadas, ordenadas e assinadas em lote — 1 round-trip para o slideshow de preview.
+ */
+export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
+	.inputValidator(z.object({ id: z.string().uuid() }))
+	.handler(async ({ data }): Promise<string[]> => {
+		const supabase = getRumaerServerClient()
+
+		const { data: variants, error } = await supabase
+			.from("uniform_variant")
+			.select("image_path, ordem, images:uniform_variant_image(image_path, ordem)")
+			.eq("uniform_id", data.id)
+			.order("ordem", { ascending: true })
+		if (error) throw new Error(error.message)
+
+		const paths: string[] = []
+		for (const v of variants ?? []) {
+			if (v.image_path) paths.push(v.image_path)
+			for (const img of [...(v.images ?? [])].sort((a, b) => a.ordem - b.ordem)) {
+				if (img.image_path) paths.push(img.image_path)
+			}
+		}
+		const unique = [...new Set(paths)]
+		if (unique.length === 0) return []
+
+		const { data: signed, error: signError } = await supabase.storage.from(BUCKET).createSignedUrls(unique, 3600)
+		if (signError) throw new Error(signError.message)
+		return (signed ?? []).map((s) => s.signedUrl).filter((url): url is string => !!url)
+	})
+
 export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ filePath: z.string().min(1) }))
 	.handler(async ({ data }) => {

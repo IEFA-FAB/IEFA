@@ -6,7 +6,7 @@ import { queryOptions } from "@tanstack/react-query"
 import { getMyMilitaryProfileFn } from "@/server/military.fn"
 import { listPieceItemsFn } from "@/server/pieceItems.fn"
 import { listPiecesFn } from "@/server/pieces.fn"
-import { getSignedImageUrlFn } from "@/server/storage.fn"
+import { getSignedImageUrlFn, getUniformPreviewImagesFn } from "@/server/storage.fn"
 import { getUniformFn, listUniformsFn, type UniformListItem } from "@/server/uniforms.fn"
 
 export type UniformFilters = {
@@ -47,6 +47,13 @@ export const militaryProfileQueryOptions = () =>
 		queryKey: ["rumaer", "military-profile"],
 		queryFn: () => getMyMilitaryProfileFn(),
 		staleTime: 1000 * 60 * 5,
+	})
+
+export const uniformPreviewImagesQueryOptions = (id: string) =>
+	queryOptions({
+		queryKey: ["rumaer", "uniform-preview-images", id],
+		queryFn: () => getUniformPreviewImagesFn({ data: { id } }),
+		staleTime: 1000 * 60 * 50, // < 1h (validade do signed URL)
 	})
 
 export const signedImageQueryOptions = (imagePath: string | null | undefined) =>
