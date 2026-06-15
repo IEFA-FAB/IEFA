@@ -58,7 +58,7 @@ function AuthPage() {
 
 	if (isLoading) {
 		return (
-			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
+			<div className="border border-border rounded-lg bg-card px-8 py-10 flex items-center gap-3">
 				<RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
 				<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
 			</div>

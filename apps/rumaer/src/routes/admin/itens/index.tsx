@@ -101,7 +101,7 @@ function PieceItemsAdmin() {
 				</p>
 			</header>
 
-			<section className="flex flex-col gap-3 border border-border p-4">
+			<section className="flex flex-col gap-3 border border-border rounded-lg p-4">
 				<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Novo item</h2>
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -169,7 +169,7 @@ function PieceItemsAdmin() {
 					<p className="text-sm text-muted-foreground">Nenhum item cadastrado ainda.</p>
 				) : (
 					grouped.map(({ piece, items: groupItems }) => (
-						<div key={piece.id} className="flex flex-col gap-2 border border-border p-4">
+						<div key={piece.id} className="flex flex-col gap-2 border border-border rounded-lg p-4">
 							<div className="flex items-center gap-2">
 								<Badge variant="outline">{TIPO_PECA_LABELS[piece.tipo]}</Badge>
 								<span className="text-sm font-semibold">{piece.nome}</span>

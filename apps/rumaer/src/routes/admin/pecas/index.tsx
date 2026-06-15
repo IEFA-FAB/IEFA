@@ -69,7 +69,7 @@ function PiecesAdmin() {
 				<p className="text-sm text-muted-foreground">Peças, insígnias, distintivos e identificações usados nas composições.</p>
 			</header>
 
-			<section className="flex flex-col gap-3 border border-border p-4">
+			<section className="flex flex-col gap-3 border border-border rounded-lg p-4">
 				<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Nova peça</h2>
 				<div className="flex flex-col sm:flex-row gap-3 sm:items-end">
 					<div className="flex flex-col gap-1.5 flex-1">
@@ -100,7 +100,7 @@ function PiecesAdmin() {
 
 			<section className="flex flex-col gap-2">
 				<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{pieces.length} peça(s)</h2>
-				<ul className="flex flex-col divide-y divide-border border border-border">
+				<ul className="flex flex-col divide-y divide-border border border-border rounded-md overflow-hidden">
 					{pieces.map((p) => (
 						<li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
 							<div className="flex items-center gap-3">

@@ -203,7 +203,7 @@ function UniformEditor() {
 									const next = active ? [...activeCategories].filter((x) => x !== c) : [...activeCategories, c]
 									toggleCategory.mutate(next as CategoriaMilitar[])
 								}}
-								className={`border px-2.5 py-1 text-xs font-medium uppercase tracking-wide transition-colors ${active ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
+								className={`border rounded-md px-2.5 py-1 text-xs font-medium uppercase tracking-wide transition-colors ${active ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
 							>
 								{CATEGORIA_LABELS[c]}
 							</button>
@@ -292,7 +292,7 @@ function VariantsSection({
 		<section className="flex flex-col gap-4">
 			<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variantes ({variants.length})</h2>
 
-			<div className="flex flex-col sm:flex-row gap-3 sm:items-end border border-border p-4">
+			<div className="flex flex-col sm:flex-row gap-3 sm:items-end border border-border rounded-lg p-4">
 				<Field label="Círculo">
 					<Select value={circulo ?? null} onValueChange={(v) => setCirculo(v as (typeof CIRCULOS)[number])}>
 						<SelectTrigger className="min-w-40">
@@ -423,7 +423,7 @@ function VariantCard({
 	}
 
 	return (
-		<div className="border border-border p-4 flex flex-col gap-4">
+		<div className="border border-border rounded-lg p-4 flex flex-col gap-4">
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-semibold">{label}</span>

@@ -77,7 +77,7 @@ function DetailPage() {
 			<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-8">
 				{/* Coluna esquerda: imagem + seletor de variante */}
 				<div className="flex flex-col gap-4">
-					<div className="aspect-[3/4] border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+					<div className="aspect-[3/4] border border-border rounded-lg bg-muted/30 flex items-center justify-center overflow-hidden">
 						{imageUrl ? (
 							<img
 								src={imageUrl}
@@ -144,7 +144,7 @@ function DetailPage() {
 								return (
 									<div key={nivel} className="flex flex-col gap-1.5">
 										<h3 className="text-sm font-semibold">{OBRIGATORIEDADE_LABELS[nivel]}</h3>
-										<ul className="flex flex-col divide-y divide-border border border-border">
+										<ul className="flex flex-col divide-y divide-border border border-border rounded-md overflow-hidden">
 											{itens.map((p) => (
 												<li key={p.id} className="flex items-start justify-between gap-3 px-3 py-2">
 													<div className="flex flex-col gap-0.5">
