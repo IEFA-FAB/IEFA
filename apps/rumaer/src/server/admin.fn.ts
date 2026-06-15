@@ -19,7 +19,7 @@ async function requireAuth() {
 
 const GRUPO = z.enum(["historicos", "representacao", "servicos", "educacao_fisica", "desfile"])
 const CATEGORIA = z.enum(["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"])
-const CIRCULO = z.enum(["oficiais", "sargentos", "suboficiais", "cadetes", "alunos"])
+const CIRCULO = z.enum(["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos"])
 const GENERO = z.enum(["masculino", "feminino", "unissex"])
 const OBRIGATORIEDADE = z.enum(["obrigatorio", "eventual", "facultativo"])
 const EQ_CIVIL = z.enum(["esporte", "esporte_fino", "passeio", "passeio_completo", "gala"])

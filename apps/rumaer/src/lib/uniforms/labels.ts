@@ -28,6 +28,7 @@ export const CATEGORIA_LABELS: Record<CategoriaMilitar, string> = {
 }
 
 export const CIRCULO_LABELS: Record<CirculoHierarquico, string> = {
+	oficiais_generais: "Oficiais-Generais",
 	oficiais: "Oficiais",
 	sargentos: "Sargentos",
 	suboficiais: "Suboficiais",

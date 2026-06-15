@@ -1654,7 +1654,7 @@ export type Database = {
 		}
 		Enums: {
 			categoria_militar: "oficiais" | "cadetes" | "suboficiais" | "sargentos" | "alunos_formacao" | "pracas"
-			circulo_hierarquico: "oficiais" | "sargentos" | "suboficiais" | "cadetes" | "alunos"
+			circulo_hierarquico: "oficiais_generais" | "oficiais" | "sargentos" | "suboficiais" | "cadetes" | "alunos"
 			equivalencia_civil: "esporte" | "esporte_fino" | "passeio" | "passeio_completo" | "gala"
 			genero: "masculino" | "feminino" | "unissex"
 			grupo_uniforme: "historicos" | "representacao" | "servicos" | "educacao_fisica" | "desfile"
@@ -4935,7 +4935,7 @@ export const Constants = {
 	rumaer: {
 		Enums: {
 			categoria_militar: ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"],
-			circulo_hierarquico: ["oficiais", "sargentos", "suboficiais", "cadetes", "alunos"],
+			circulo_hierarquico: ["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos"],
 			equivalencia_civil: ["esporte", "esporte_fino", "passeio", "passeio_completo", "gala"],
 			genero: ["masculino", "feminino", "unissex"],
 			grupo_uniforme: ["historicos", "representacao", "servicos", "educacao_fisica", "desfile"],

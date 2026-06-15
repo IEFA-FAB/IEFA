@@ -226,7 +226,7 @@ function UniformEditor() {
 				</Field>
 			</section>
 
-			<Field label="Descrição (markdown)">
+			<Field label="Descrição">
 				<Textarea value={form.descricao_md} onChange={(e) => setField("descricao_md", e.target.value)} rows={4} />
 			</Field>
 
