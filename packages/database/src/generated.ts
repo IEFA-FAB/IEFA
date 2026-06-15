@@ -1332,6 +1332,39 @@ export type Database = {
 	}
 	rumaer: {
 		Tables: {
+			piece: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					descricao_md: string | null
+					id: string
+					nome: string
+					slug: string
+					tipo: Database["rumaer"]["Enums"]["tipo_peca"] | null
+					updated_at: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					descricao_md?: string | null
+					id?: string
+					nome: string
+					slug: string
+					tipo?: Database["rumaer"]["Enums"]["tipo_peca"] | null
+					updated_at?: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					descricao_md?: string | null
+					id?: string
+					nome?: string
+					slug?: string
+					tipo?: Database["rumaer"]["Enums"]["tipo_peca"] | null
+					updated_at?: string
+				}
+				Relationships: []
+			}
 			piece_item: {
 				Row: {
 					cor: string | null
@@ -1384,39 +1417,6 @@ export type Database = {
 						referencedColumns: ["id"]
 					},
 				]
-			}
-			piece: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					descricao_md: string | null
-					id: string
-					nome: string
-					slug: string
-					tipo: Database["rumaer"]["Enums"]["tipo_peca"] | null
-					updated_at: string
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					descricao_md?: string | null
-					id?: string
-					nome: string
-					slug: string
-					tipo?: Database["rumaer"]["Enums"]["tipo_peca"] | null
-					updated_at?: string
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					descricao_md?: string | null
-					id?: string
-					nome?: string
-					slug?: string
-					tipo?: Database["rumaer"]["Enums"]["tipo_peca"] | null
-					updated_at?: string
-				}
-				Relationships: []
 			}
 			uniform: {
 				Row: {
@@ -1542,14 +1542,59 @@ export type Database = {
 					},
 				]
 			}
+			uniform_variant_image: {
+				Row: {
+					created_at: string
+					id: string
+					image_path: string
+					legenda: string | null
+					ordem: number
+					piece_id: string
+					variant_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					image_path: string
+					legenda?: string | null
+					ordem?: number
+					piece_id: string
+					variant_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					image_path?: string
+					legenda?: string | null
+					ordem?: number
+					piece_id?: string
+					variant_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "uniform_variant_image_piece_id_fkey"
+						columns: ["piece_id"]
+						isOneToOne: false
+						referencedRelation: "piece"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "uniform_variant_image_variant_id_fkey"
+						columns: ["variant_id"]
+						isOneToOne: false
+						referencedRelation: "uniform_variant"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			uniform_variant_piece: {
 				Row: {
 					id: string
-					piece_item_id: string | null
 					obrigatoriedade: Database["rumaer"]["Enums"]["obrigatoriedade"]
 					observacao: string | null
 					ordem: number
 					piece_id: string
+					piece_item_id: string | null
 					restricao_posto: string[] | null
 					restricao_quadro: string[] | null
 					variant_id: string
@@ -1557,10 +1602,10 @@ export type Database = {
 				Insert: {
 					id?: string
 					obrigatoriedade: Database["rumaer"]["Enums"]["obrigatoriedade"]
-					piece_item_id?: string | null
 					observacao?: string | null
 					ordem?: number
 					piece_id: string
+					piece_item_id?: string | null
 					restricao_posto?: string[] | null
 					restricao_quadro?: string[] | null
 					variant_id: string
@@ -1568,27 +1613,27 @@ export type Database = {
 				Update: {
 					id?: string
 					obrigatoriedade?: Database["rumaer"]["Enums"]["obrigatoriedade"]
-					piece_item_id?: string | null
 					observacao?: string | null
 					ordem?: number
 					piece_id?: string
+					piece_item_id?: string | null
 					restricao_posto?: string[] | null
 					restricao_quadro?: string[] | null
 					variant_id?: string
 				}
 				Relationships: [
 					{
-						foreignKeyName: "uniform_variant_piece_piece_item_id_fkey"
-						columns: ["piece_item_id"]
-						isOneToOne: false
-						referencedRelation: "piece_item"
-						referencedColumns: ["id"]
-					},
-					{
 						foreignKeyName: "uniform_variant_piece_piece_id_fkey"
 						columns: ["piece_id"]
 						isOneToOne: false
 						referencedRelation: "piece"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "uniform_variant_piece_piece_item_id_fkey"
+						columns: ["piece_item_id"]
+						isOneToOne: false
+						referencedRelation: "piece_item"
 						referencedColumns: ["id"]
 					},
 					{

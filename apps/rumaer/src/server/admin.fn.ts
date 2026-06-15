@@ -4,7 +4,7 @@
  * Toda mutação exige usuário autenticado (requireAuth) — além do guard de rota /admin.
  */
 
-import type { Piece, PieceItem, Uniform, UniformVariant } from "@iefa/database/rumaer"
+import type { Piece, PieceItem, Uniform, UniformVariant, UniformVariantImage } from "@iefa/database/rumaer"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getRumaerAuthClient, getRumaerServerClient } from "@/lib/supabase.server"
@@ -278,4 +278,35 @@ export const addPieceToVariantsFn = createServerFn({ method: "POST" })
 		const { error } = await supabase.from("uniform_variant_piece").insert(rows)
 		if (error) throw new Error(error.message)
 		return { ok: true, count: rows.length }
+	})
+
+// --------------------------------------------------- variant alt images ----
+// Imagem alternativa de uma variante atrelada a uma peça facultativa/eventual.
+export const upsertVariantImageFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		z.object({
+			variant_id: z.string().uuid(),
+			piece_id: z.string().uuid(),
+			image_path: z.string().min(1),
+			legenda: z.string().nullable().optional(),
+		})
+	)
+	.handler(async ({ data }): Promise<UniformVariantImage> => {
+		await requireAuth()
+		const { data: row, error } = await getRumaerServerClient()
+			.from("uniform_variant_image")
+			.upsert(data, { onConflict: "variant_id,piece_id" })
+			.select("*")
+			.single()
+		if (error) throw new Error(error.message)
+		return row
+	})
+
+export const deleteVariantImageFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ id: z.string().uuid() }))
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const { error } = await getRumaerServerClient().from("uniform_variant_image").delete().eq("id", data.id)
+		if (error) throw new Error(error.message)
+		return { ok: true }
 	})

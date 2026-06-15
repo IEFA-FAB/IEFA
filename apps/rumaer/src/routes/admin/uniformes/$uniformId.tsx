@@ -1,4 +1,4 @@
-import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantWithPieces } from "@iefa/database/rumaer"
+import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantImage, UniformVariantWithPieces, VariantPieceWithPiece } from "@iefa/database/rumaer"
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, Check, Loader2, Plus, Trash2, Upload } from "lucide-react"
@@ -26,10 +26,12 @@ import {
 	addPieceToVariantsFn,
 	deleteUniformFn,
 	deleteVariantFn,
+	deleteVariantImageFn,
 	setUniformCategoriesFn,
 	setVariantPiecesFn,
 	upsertUniformFn,
 	upsertVariantFn,
+	upsertVariantImageFn,
 } from "@/server/admin.fn"
 import { getSignedUploadUrlFn } from "@/server/storage.fn"
 
@@ -563,7 +565,20 @@ function VariantCard({
 
 	const label = `${CIRCULO_LABELS[variant.circulo]} · ${GENERO_LABELS[variant.genero]}${variant.sub_variacao ? ` · ${variant.sub_variacao}` : ""}`
 
-	const { data: imageUrl } = useQuery(signedImageQueryOptions(variant.image_path))
+	// Preview com itens facultativos/eventuais toggláveis (espelha a página pública).
+	// lookPieceId ativo → mostra a imagem daquela peça; fallback = imagem base (uniforme sem o item).
+	const [lookPieceId, setLookPieceId] = useState<string | null>(null)
+	const optionalPieces = [
+		...new Map(variant.pieces.filter((p) => p.obrigatoriedade === "facultativo" || p.obrigatoriedade === "eventual").map((p) => [p.piece_id, p])).values(),
+	]
+	const activeLook = lookPieceId ? variant.images.find((img) => img.piece_id === lookPieceId) : undefined
+	const { data: imageUrl } = useQuery(signedImageQueryOptions(activeLook?.image_path ?? variant.image_path))
+
+	// Resolve o nome da peça: catálogo OU o join da composição (cobre peças soft-deletadas que saíram do catálogo).
+	const pieceName = (id: string) => pieces.find((p) => p.id === id)?.nome ?? variant.pieces.find((vp) => vp.piece_id === id)?.piece.nome ?? id
+	// Opções do dropdown = catálogo + peças da composição ausentes do catálogo (ex.: removidas), para o valor atual ter item correspondente.
+	const orphanPieces = [...new Map(variant.pieces.filter((vp) => !pieces.some((p) => p.id === vp.piece_id)).map((vp) => [vp.piece_id, vp.piece])).values()]
+	const pieceOptions = [...pieces, ...orphanPieces]
 
 	const del = useMutation({
 		mutationFn: () => deleteVariantFn({ data: { id: variant.id } }),
@@ -625,7 +640,7 @@ function VariantCard({
 
 	return (
 		<div className="border border-border rounded-lg p-4 flex flex-col gap-4">
-			{variant.image_path && (
+			{(activeLook?.image_path ?? variant.image_path) && (
 				<div className="flex items-center justify-center border border-border rounded-md bg-muted/30 overflow-hidden">
 					{imageUrl ? (
 						<img src={imageUrl} alt={label} className="max-h-64 w-auto object-contain" />
@@ -637,6 +652,40 @@ function VariantCard({
 					)}
 				</div>
 			)}
+
+			{/* Itens facultativos/eventuais — toggláveis para pré-visualizar o look */}
+			{optionalPieces.length > 0 && (
+				<div className="flex flex-col gap-2">
+					{(["facultativo", "eventual"] as const).map((nivel) => {
+						const itens = optionalPieces.filter((p) => p.obrigatoriedade === nivel)
+						if (itens.length === 0) return null
+						return (
+							<div key={nivel} className="flex flex-col gap-1.5">
+								<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{OBRIGATORIEDADE_LABELS[nivel]}</span>
+								<div className="flex flex-wrap gap-2">
+									{itens.map((p) => {
+										const on = lookPieceId === p.piece_id
+										const hasImg = variant.images.some((img) => img.piece_id === p.piece_id)
+										return (
+											<button
+												key={p.piece_id}
+												type="button"
+												onClick={() => setLookPieceId(on ? null : p.piece_id)}
+												className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
+												title={hasImg ? "Tem imagem própria" : "Sem imagem — usa a imagem base"}
+											>
+												{p.piece.nome}
+												{!hasImg && <span className={`ml-1 ${on ? "text-background/70" : "text-muted-foreground/60"}`}>(base)</span>}
+											</button>
+										)
+									})}
+								</div>
+							</div>
+						)
+					})}
+				</div>
+			)}
+
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-semibold">{label}</span>
@@ -679,13 +728,14 @@ function VariantCard({
 								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, piece_id: v ?? "", piece_item_id: null } : x)))}
 							>
 								<SelectTrigger className="flex-1">
-									<SelectValue placeholder="Peça…">{r.piece_id ? (pieces.find((p) => p.id === r.piece_id)?.nome ?? r.piece_id) : undefined}</SelectValue>
+									<SelectValue placeholder="Peça…">{r.piece_id ? pieceName(r.piece_id) : undefined}</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
-									{pieces.map((p) => (
+									{pieceOptions.map((p) => (
 										<SelectItem key={p.id} value={p.id}>
 											{p.nome}
 											{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
+											{p.deleted_at ? " · (removida)" : ""}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -748,6 +798,109 @@ function VariantCard({
 					<SaveStatus pending={saveComposition.isPending} error={saveComposition.isError} />
 				</div>
 			</div>
+
+			{/* Imagens alternativas — por peça facultativa/eventual da composição */}
+			<VariantAltImages variant={variant} onChanged={onChanged} />
+		</div>
+	)
+}
+
+// Imagens alternativas: uma por peça facultativa/eventual salva na composição.
+function VariantAltImages({ variant, onChanged }: { variant: UniformVariantWithPieces; onChanged: () => Promise<unknown> }) {
+	// peças facultativas/eventuais salvas no servidor (dedup por piece_id)
+	const optionalPieces = [
+		...new Map(variant.pieces.filter((p) => p.obrigatoriedade === "facultativo" || p.obrigatoriedade === "eventual").map((p) => [p.piece_id, p])).values(),
+	]
+
+	if (optionalPieces.length === 0) return null
+
+	return (
+		<div className="flex flex-col gap-2 border-t border-border pt-4">
+			<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Imagens alternativas (por peça facultativa/eventual)</span>
+			<p className="text-xs text-muted-foreground">Quando esta peça é usada, a página pública mostra a imagem correspondente.</p>
+			<div className="flex flex-col gap-2">
+				{optionalPieces.map((p) => (
+					<AltImageRow key={p.piece_id} variant={variant} piece={p} image={variant.images.find((img) => img.piece_id === p.piece_id)} onChanged={onChanged} />
+				))}
+			</div>
+		</div>
+	)
+}
+
+function AltImageRow({
+	variant,
+	piece,
+	image,
+	onChanged,
+}: {
+	variant: UniformVariantWithPieces
+	piece: VariantPieceWithPiece
+	image: UniformVariantImage | undefined
+	onChanged: () => Promise<unknown>
+}) {
+	const fileRef = useRef<HTMLInputElement>(null)
+	const [uploading, setUploading] = useState(false)
+	const { data: imageUrl } = useQuery(signedImageQueryOptions(image?.image_path))
+
+	const del = useMutation({
+		mutationFn: () => deleteVariantImageFn({ data: { id: image?.id ?? "" } }),
+		onSuccess: async () => {
+			toast.success("Imagem removida")
+			await onChanged()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+	})
+
+	async function handleUpload(file: File) {
+		setUploading(true)
+		try {
+			const ext = file.name.split(".").pop() ?? "png"
+			const filePath = `${variant.uniform_id}/${variant.id}__${piece.piece_id}.${ext}`
+			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
+			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
+			if (error) throw new Error(error.message)
+			await upsertVariantImageFn({ data: { variant_id: variant.id, piece_id: piece.piece_id, image_path: path, legenda: piece.piece.nome } })
+			toast.success("Imagem enviada")
+			await onChanged()
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Falha no upload")
+		} finally {
+			setUploading(false)
+		}
+	}
+
+	return (
+		<div className="flex items-center gap-3 border border-border rounded-md p-2">
+			<div className="flex items-center justify-center size-16 shrink-0 border border-border rounded bg-muted/30 overflow-hidden">
+				{image && imageUrl ? (
+					<img src={imageUrl} alt={piece.piece.nome} className="size-full object-contain" />
+				) : (
+					<span className="text-[10px] text-muted-foreground text-center px-1">{image ? "…" : "sem img"}</span>
+				)}
+			</div>
+			<div className="flex flex-col gap-0.5 flex-1 min-w-0">
+				<span className="text-sm font-medium truncate">{piece.piece.nome}</span>
+				<span className="text-xs text-muted-foreground">{OBRIGATORIEDADE_LABELS[piece.obrigatoriedade]}</span>
+			</div>
+			<input
+				ref={fileRef}
+				type="file"
+				accept="image/*"
+				className="hidden"
+				onChange={(e) => {
+					const f = e.target.files?.[0]
+					if (f) handleUpload(f)
+				}}
+			/>
+			<Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+				<Upload className="size-4" />
+				{uploading ? "Enviando…" : image ? "Trocar" : "Enviar"}
+			</Button>
+			{image && (
+				<Button variant="ghost" size="sm" onClick={() => del.mutate()} disabled={del.isPending}>
+					<Trash2 className="size-4" />
+				</Button>
+			)}
 		</div>
 	)
 }

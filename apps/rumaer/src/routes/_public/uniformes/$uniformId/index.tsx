@@ -54,7 +54,11 @@ function DetailPage() {
 		[variants, circulo, genero, sub]
 	)
 
-	const { data: imageUrl } = useQuery(signedImageQueryOptions(selected?.image_path))
+	// "look" = imagem alternativa atrelada a uma peça facultativa/eventual (null = imagem base)
+	const [lookPieceId, setLookPieceId] = useState<string | null>(null)
+	const looks = selected?.images ?? []
+	const activeLook = lookPieceId ? looks.find((l) => l.piece_id === lookPieceId) : undefined
+	const { data: imageUrl } = useQuery(signedImageQueryOptions(activeLook?.image_path ?? selected?.image_path))
 
 	if (!uniform) return null
 
@@ -86,10 +90,35 @@ function DetailPage() {
 							/>
 						) : (
 							<span className="text-sm text-muted-foreground px-6 text-center">
-								{selected?.image_path ? "Carregando imagem…" : "Sem ilustração cadastrada"}
+								{(activeLook?.image_path ?? selected?.image_path) ? "Carregando imagem…" : "Sem ilustração cadastrada"}
 							</span>
 						)}
 					</div>
+
+					{looks.length > 0 && (
+						<div className="flex flex-col gap-1.5">
+							<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Configuração</span>
+							<div className="flex flex-wrap gap-2">
+								<button
+									type="button"
+									onClick={() => setLookPieceId(null)}
+									className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${lookPieceId === null ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
+								>
+									Padrão
+								</button>
+								{looks.map((l) => (
+									<button
+										key={l.id}
+										type="button"
+										onClick={() => setLookPieceId(l.piece_id)}
+										className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${lookPieceId === l.piece_id ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
+									>
+										{l.legenda ?? "Variação"}
+									</button>
+								))}
+							</div>
+						</div>
+					)}
 
 					<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 						<VariantControl label="Círculo" value={circulo} onChange={setCirculo} options={circulos} render={(c) => CIRCULO_LABELS[c]} />

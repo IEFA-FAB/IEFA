@@ -41,10 +41,14 @@ export type UniformVariantPiece = Tables<"uniform_variant_piece">
 export type UniformVariantPieceInsert = TablesInsert<"uniform_variant_piece">
 export type UniformVariantPieceUpdate = TablesUpdate<"uniform_variant_piece">
 
+export type UniformVariantImage = Tables<"uniform_variant_image">
+export type UniformVariantImageInsert = TablesInsert<"uniform_variant_image">
+export type UniformVariantImageUpdate = TablesUpdate<"uniform_variant_image">
+
 // ---- Composed view types (joins resolvidos nas server fns) ----
 export type PieceItemWithPiece = PieceItem & { piece: Piece }
 export type VariantPieceWithPiece = UniformVariantPiece & { piece: Piece; piece_item: PieceItem | null }
-export type UniformVariantWithPieces = UniformVariant & { pieces: VariantPieceWithPiece[] }
+export type UniformVariantWithPieces = UniformVariant & { pieces: VariantPieceWithPiece[]; images: UniformVariantImage[] }
 export type UniformDetail = Uniform & {
 	categories: UniformCategory[]
 	variants: UniformVariantWithPieces[]

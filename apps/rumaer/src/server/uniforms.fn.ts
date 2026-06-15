@@ -50,7 +50,8 @@ export const getUniformFn = createServerFn({ method: "GET" })
 				categories:uniform_category(*),
 				variants:uniform_variant(
 					*,
-					pieces:uniform_variant_piece(*, piece:piece(*), piece_item:piece_item(*))
+					pieces:uniform_variant_piece(*, piece:piece(*), piece_item:piece_item(*)),
+					images:uniform_variant_image(*)
 				)`
 			)
 			.eq("id", data.id)
@@ -65,6 +66,7 @@ export const getUniformFn = createServerFn({ method: "GET" })
 		detail.variants = [...detail.variants].sort((a, b) => a.ordem - b.ordem)
 		for (const v of detail.variants) {
 			v.pieces = [...v.pieces].sort((a, b) => a.ordem - b.ordem)
+			v.images = [...v.images].sort((a, b) => a.ordem - b.ordem)
 		}
 		return detail
 	})
