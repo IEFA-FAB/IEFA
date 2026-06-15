@@ -157,9 +157,11 @@ function DetailPage() {
 															</span>
 														)}
 													</div>
-													<Badge variant="outline" className="shrink-0">
-														{TIPO_PECA_LABELS[p.piece.tipo]}
-													</Badge>
+													{p.piece.tipo && (
+														<Badge variant="outline" className="shrink-0">
+															{TIPO_PECA_LABELS[p.piece.tipo]}
+														</Badge>
+													)}
 												</li>
 											))}
 										</ul>

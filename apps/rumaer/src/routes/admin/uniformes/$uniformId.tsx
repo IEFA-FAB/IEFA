@@ -1,6 +1,6 @@
 import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantWithPieces } from "@iefa/database/rumaer"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, Check, Loader2, Plus, Trash2, Upload } from "lucide-react"
 import { useId, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase"
-import { pieceItemsQueryOptions, piecesQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
+import { pieceItemsQueryOptions, piecesQueryOptions, signedImageQueryOptions, uniformQueryOptions } from "@/lib/uniforms/hooks"
 import {
 	CATEGORIA_LABELS,
 	CIRCULO_LABELS,
@@ -22,7 +22,15 @@ import {
 	TIPO_PECA_LABELS,
 } from "@/lib/uniforms/labels"
 import { useDebouncedEffect } from "@/lib/use-debounced-effect"
-import { deleteVariantFn, setUniformCategoriesFn, setVariantPiecesFn, upsertUniformFn, upsertVariantFn } from "@/server/admin.fn"
+import {
+	addPieceToVariantsFn,
+	deleteUniformFn,
+	deleteVariantFn,
+	setUniformCategoriesFn,
+	setVariantPiecesFn,
+	upsertUniformFn,
+	upsertVariantFn,
+} from "@/server/admin.fn"
 import { getSignedUploadUrlFn } from "@/server/storage.fn"
 
 const CATEGORIAS = Object.keys(CATEGORIA_LABELS) as CategoriaMilitar[]
@@ -43,11 +51,23 @@ export const Route = createFileRoute("/admin/uniformes/$uniformId")({
 
 function UniformEditor() {
 	const { uniformId } = Route.useParams()
+	const router = useRouter()
 	const { data: uniform } = useSuspenseQuery(uniformQueryOptions(uniformId))
 	const { data: pieces } = useSuspenseQuery(piecesQueryOptions())
 	const { data: pieceItems } = useSuspenseQuery(pieceItemsQueryOptions())
 	const queryClient = useQueryClient()
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["rumaer"] })
+
+	const [confirmDelete, setConfirmDelete] = useState(false)
+	const remove = useMutation({
+		mutationFn: () => deleteUniformFn({ data: { id: uniformId } }),
+		onSuccess: async () => {
+			toast.success("Uniforme excluído")
+			await queryClient.invalidateQueries({ queryKey: ["rumaer", "uniforms"] })
+			router.navigate({ to: "/admin" })
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao excluir"),
+	})
 
 	// loader garante não-null
 	const [form, setForm] = useState(() => ({
@@ -116,16 +136,35 @@ function UniformEditor() {
 			</Link>
 
 			{/* Header — nome como título editável */}
-			<header className="flex flex-col gap-2">
-				<input
-					value={form.nome}
-					onChange={(e) => setField("nome", e.target.value)}
-					placeholder="Nome do uniforme"
-					className="font-serif text-3xl sm:text-4xl font-bold tracking-tight bg-transparent outline-none border-b border-transparent focus:border-border"
-				/>
-				<Link to="/uniformes/$uniformId" params={{ uniformId }} className="text-sm text-muted-foreground hover:text-foreground w-fit">
-					Ver página pública →
-				</Link>
+			<header className="flex items-start justify-between gap-4">
+				<div className="flex flex-col gap-2 flex-1 min-w-0">
+					<input
+						value={form.nome}
+						onChange={(e) => setField("nome", e.target.value)}
+						placeholder="Nome do uniforme"
+						className="font-serif text-3xl sm:text-4xl font-bold tracking-tight bg-transparent outline-none border-b border-transparent focus:border-border"
+					/>
+					<Link to="/uniformes/$uniformId" params={{ uniformId }} className="text-sm text-muted-foreground hover:text-foreground w-fit">
+						Ver página pública →
+					</Link>
+				</div>
+				{confirmDelete ? (
+					<div className="flex items-center gap-2 shrink-0">
+						<span className="text-xs text-muted-foreground hidden sm:inline">Excluir uniforme?</span>
+						<Button variant="destructive" size="sm" onClick={() => remove.mutate()} disabled={remove.isPending}>
+							<Trash2 className="size-4" />
+							Confirmar
+						</Button>
+						<Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)} disabled={remove.isPending}>
+							Cancelar
+						</Button>
+					</div>
+				) : (
+					<Button variant="outline" size="sm" className="shrink-0 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+						<Trash2 className="size-4" />
+						Excluir
+					</Button>
+				)}
 			</header>
 
 			{/* Campos principais */}
@@ -330,12 +369,172 @@ function VariantsSection({
 				</Button>
 			</div>
 
+			{variants.length > 0 && <BulkAddPiece variants={variants} pieces={pieces} pieceItems={pieceItems} onChanged={onChanged} />}
+
 			<div className="flex flex-col gap-4">
 				{variants.map((v) => (
-					<VariantCard key={v.id} variant={v} pieces={pieces} pieceItems={pieceItems} onChanged={onChanged} />
+					// key inclui assinatura das peças → remonta com dados frescos quando a composição muda no servidor (ex.: lote)
+					<VariantCard key={`${v.id}:${v.pieces.map((p) => p.piece_id).join(",")}`} variant={v} pieces={pieces} pieceItems={pieceItems} onChanged={onChanged} />
 				))}
 			</div>
 		</section>
+	)
+}
+
+function variantLabel(v: UniformVariantWithPieces) {
+	return `${CIRCULO_LABELS[v.circulo]} · ${GENERO_LABELS[v.genero]}${v.sub_variacao ? ` · ${v.sub_variacao}` : ""}`
+}
+
+// ---------------------------------------------------------- bulk add piece ----
+function BulkAddPiece({
+	variants,
+	pieces,
+	pieceItems,
+	onChanged,
+}: {
+	variants: UniformVariantWithPieces[]
+	pieces: Piece[]
+	pieceItems: PieceItemWithPiece[]
+	onChanged: () => Promise<unknown>
+}) {
+	const [pieceId, setPieceId] = useState<string | null>(null)
+	const [pieceItemId, setPieceItemId] = useState<string | null>(null)
+	const [obrigatoriedade, setObrigatoriedade] = useState<(typeof OBRIGATORIEDADE_ORDER)[number]>("obrigatorio")
+	const [observacao, setObservacao] = useState("")
+	const [selected, setSelected] = useState<Set<string>>(() => new Set(variants.map((v) => v.id)))
+
+	const itemsForPiece = pieceId ? pieceItems.filter((it) => it.piece_id === pieceId) : []
+	const selectedItem = pieceItems.find((it) => it.id === pieceItemId)
+	const allSelected = selected.size === variants.length
+
+	const add = useMutation({
+		mutationFn: () => {
+			if (!pieceId) throw new Error("Selecione a peça")
+			const variantIds = variants.filter((v) => selected.has(v.id)).map((v) => v.id)
+			if (variantIds.length === 0) throw new Error("Selecione ao menos uma variante")
+			return addPieceToVariantsFn({
+				data: {
+					variantIds,
+					piece_id: pieceId,
+					piece_item_id: pieceItemId,
+					obrigatoriedade,
+					observacao: observacao || null,
+				},
+			})
+		},
+		onSuccess: async (res) => {
+			toast.success(`Peça adicionada a ${res.count} variante(s)`)
+			setPieceId(null)
+			setPieceItemId(null)
+			setObservacao("")
+			await onChanged()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+	})
+
+	return (
+		<div className="flex flex-col gap-3 border border-dashed border-border rounded-lg p-4">
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Adicionar peça em lote</span>
+				<span className="text-xs text-muted-foreground">
+					{selected.size} de {variants.length} variante(s)
+				</span>
+			</div>
+
+			<div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+				<Field label="Peça">
+					<Select
+						value={pieceId}
+						onValueChange={(v) => {
+							setPieceId(v)
+							setPieceItemId(null)
+						}}
+					>
+						<SelectTrigger className="min-w-44">
+							<SelectValue placeholder="Selecione…">{pieceId ? (pieces.find((p) => p.id === pieceId)?.nome ?? pieceId) : undefined}</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{pieces.map((p) => (
+								<SelectItem key={p.id} value={p.id}>
+									{p.nome}
+									{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</Field>
+				<Field label="Item concreto">
+					<Select value={pieceItemId} onValueChange={setPieceItemId} disabled={!pieceId || itemsForPiece.length === 0}>
+						<SelectTrigger className="min-w-40">
+							<SelectValue placeholder={pieceId && itemsForPiece.length === 0 ? "sem item concreto" : "opcional"}>
+								{selectedItem ? selectedItem.nome : undefined}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{itemsForPiece.map((it) => (
+								<SelectItem key={it.id} value={it.id}>
+									{it.nome}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</Field>
+				<Field label="Obrigatoriedade">
+					<Select value={obrigatoriedade} onValueChange={(v) => setObrigatoriedade(v as typeof obrigatoriedade)}>
+						<SelectTrigger className="min-w-40">
+							<SelectValue>{OBRIGATORIEDADE_LABELS[obrigatoriedade]}</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{OBRIGATORIEDADE_ORDER.map((o) => (
+								<SelectItem key={o} value={o}>
+									{OBRIGATORIEDADE_LABELS[o]}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</Field>
+				<Field label="Observação">
+					<Input value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="opcional" />
+				</Field>
+			</div>
+
+			<div className="flex flex-col gap-2">
+				<button
+					type="button"
+					onClick={() => setSelected(allSelected ? new Set() : new Set(variants.map((v) => v.id)))}
+					className="text-xs font-medium text-muted-foreground hover:text-foreground w-fit"
+				>
+					{allSelected ? "Desmarcar todas" : "Marcar todas"}
+				</button>
+				<div className="flex flex-wrap gap-2">
+					{variants.map((v) => {
+						const on = selected.has(v.id)
+						return (
+							<button
+								key={v.id}
+								type="button"
+								onClick={() =>
+									setSelected((s) => {
+										const next = new Set(s)
+										if (next.has(v.id)) next.delete(v.id)
+										else next.add(v.id)
+										return next
+									})
+								}
+								className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
+							>
+								{variantLabel(v)}
+							</button>
+						)
+					})}
+				</div>
+			</div>
+
+			<Button className="w-fit" onClick={() => add.mutate()} disabled={!pieceId || selected.size === 0 || add.isPending}>
+				<Plus className="size-4" />
+				Adicionar a {selected.size} variante(s)
+			</Button>
+		</div>
 	)
 }
 
@@ -363,6 +562,8 @@ function VariantCard({
 	)
 
 	const label = `${CIRCULO_LABELS[variant.circulo]} · ${GENERO_LABELS[variant.genero]}${variant.sub_variacao ? ` · ${variant.sub_variacao}` : ""}`
+
+	const { data: imageUrl } = useQuery(signedImageQueryOptions(variant.image_path))
 
 	const del = useMutation({
 		mutationFn: () => deleteVariantFn({ data: { id: variant.id } }),
@@ -424,6 +625,18 @@ function VariantCard({
 
 	return (
 		<div className="border border-border rounded-lg p-4 flex flex-col gap-4">
+			{variant.image_path && (
+				<div className="flex items-center justify-center border border-border rounded-md bg-muted/30 overflow-hidden">
+					{imageUrl ? (
+						<img src={imageUrl} alt={label} className="max-h-64 w-auto object-contain" />
+					) : (
+						<div className="flex items-center gap-2 text-xs text-muted-foreground py-10">
+							<Loader2 className="size-3.5 animate-spin" />
+							Carregando imagem…
+						</div>
+					)}
+				</div>
+			)}
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-semibold">{label}</span>
@@ -471,7 +684,8 @@ function VariantCard({
 								<SelectContent>
 									{pieces.map((p) => (
 										<SelectItem key={p.id} value={p.id}>
-											{p.nome} · {TIPO_PECA_LABELS[p.tipo]}
+											{p.nome}
+											{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
 										</SelectItem>
 									))}
 								</SelectContent>

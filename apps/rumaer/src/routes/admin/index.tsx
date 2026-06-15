@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { Pencil, Plus } from "lucide-react"
+import { Copy, Pencil, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { uniformsQueryOptions } from "@/lib/uniforms/hooks"
 import { GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
-import { upsertUniformFn } from "@/server/admin.fn"
+import { cloneUniformFn, upsertUniformFn } from "@/server/admin.fn"
 
 export const Route = createFileRoute("/admin/")({
 	loader: ({ context }) => context.queryClient.ensureQueryData(uniformsQueryOptions({})),
@@ -36,6 +36,16 @@ function AdminDashboard() {
 			router.navigate({ to: "/admin/uniformes/$uniformId", params: { uniformId: row.id } })
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao criar"),
+	})
+
+	const clone = useMutation({
+		mutationFn: (id: string) => cloneUniformFn({ data: { id } }),
+		onSuccess: async (row) => {
+			toast.success("Uniforme clonado")
+			await queryClient.invalidateQueries({ queryKey: ["rumaer", "uniforms"] })
+			router.navigate({ to: "/admin/uniformes/$uniformId", params: { uniformId: row.id } })
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao clonar"),
 	})
 
 	return (
@@ -90,17 +100,23 @@ function AdminDashboard() {
 								<span className="text-sm font-medium">{uniformTitle(u)}</span>
 								<span className="text-xs text-muted-foreground">{u.traje}</span>
 							</div>
-							<Button
-								nativeButton={false}
-								variant="ghost"
-								size="sm"
-								render={
-									<Link to="/admin/uniformes/$uniformId" params={{ uniformId: u.id }}>
-										<Pencil className="size-4" />
-										Editar
-									</Link>
-								}
-							/>
+							<div className="flex items-center gap-1">
+								<Button variant="ghost" size="sm" onClick={() => clone.mutate(u.id)} disabled={clone.isPending} title="Clonar uniforme">
+									<Copy className="size-4" />
+									Clonar
+								</Button>
+								<Button
+									nativeButton={false}
+									variant="ghost"
+									size="sm"
+									render={
+										<Link to="/admin/uniformes/$uniformId" params={{ uniformId: u.id }}>
+											<Pencil className="size-4" />
+											Editar
+										</Link>
+									}
+								/>
+							</div>
 						</li>
 					))}
 				</ul>

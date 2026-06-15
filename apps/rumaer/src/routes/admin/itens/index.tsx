@@ -113,7 +113,8 @@ function PieceItemsAdmin() {
 							<SelectContent>
 								{pieces.map((p) => (
 									<SelectItem key={p.id} value={p.id}>
-										{p.nome} · {TIPO_PECA_LABELS[p.tipo]}
+										{p.nome}
+										{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -171,7 +172,7 @@ function PieceItemsAdmin() {
 					grouped.map(({ piece, items: groupItems }) => (
 						<div key={piece.id} className="flex flex-col gap-2 border border-border rounded-lg p-4">
 							<div className="flex items-center gap-2">
-								<Badge variant="outline">{TIPO_PECA_LABELS[piece.tipo]}</Badge>
+								<Badge variant="outline">{piece.tipo ? TIPO_PECA_LABELS[piece.tipo] : "Sem tipo"}</Badge>
 								<span className="text-sm font-semibold">{piece.nome}</span>
 								<span className="text-xs text-muted-foreground">{groupItems.length} item(ns)</span>
 							</div>
