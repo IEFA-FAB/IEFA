@@ -1,7 +1,7 @@
 import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantWithPieces } from "@iefa/database/rumaer"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeft, Plus, Trash2, Upload } from "lucide-react"
+import { ArrowLeft, Check, Loader2, Plus, Trash2, Upload } from "lucide-react"
 import { useId, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +21,7 @@ import {
 	OBRIGATORIEDADE_ORDER,
 	TIPO_PECA_LABELS,
 } from "@/lib/uniforms/labels"
+import { useDebouncedEffect } from "@/lib/use-debounced-effect"
 import { deleteVariantFn, setUniformCategoriesFn, setVariantPiecesFn, upsertUniformFn, upsertVariantFn } from "@/server/admin.fn"
 import { getSignedUploadUrlFn } from "@/server/storage.fn"
 
@@ -84,11 +85,19 @@ function UniformEditor() {
 				},
 			}),
 		onSuccess: async () => {
-			toast.success("Uniforme salvo")
 			await invalidate()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
 	})
+
+	// Auto-save: dispara 800ms após parar de editar (ignora mount). Não salva sem nome.
+	useDebouncedEffect(
+		() => {
+			if (form.nome.trim()) save.mutate()
+		},
+		[form],
+		800
+	)
 
 	const activeCategories = new Set((uniform?.categories ?? []).map((c) => c.categoria))
 	const toggleCategory = useMutation({
@@ -206,13 +215,11 @@ function UniformEditor() {
 			{/* Variantes */}
 			<VariantsSection uniformId={uniformId} variants={uniform.variants} pieces={pieces} pieceItems={pieceItems} onChanged={invalidate} />
 
-			{/* Barra de save sticky */}
+			{/* Barra de status sticky — tudo salva automaticamente */}
 			<div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur z-40">
-				<div className="w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px] h-16 flex items-center justify-end gap-3">
-					<span className="text-xs text-muted-foreground mr-auto">Categorias e variantes salvam automaticamente. Campos principais exigem salvar.</span>
-					<Button onClick={() => save.mutate()} disabled={save.isPending || !form.nome.trim()}>
-						Salvar uniforme
-					</Button>
+				<div className="w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1280px] 2xl:max-w-[1400px] h-16 flex items-center justify-between gap-3">
+					<span className="text-xs text-muted-foreground">Todas as alterações salvam automaticamente.</span>
+					<SaveStatus pending={save.isPending} error={save.isError} blocked={!form.nome.trim()} blockedLabel="Informe um nome para salvar" />
 				</div>
 			</div>
 		</div>
@@ -225,6 +232,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 			<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
 			{children}
 		</div>
+	)
+}
+
+function SaveStatus({ pending, error, blocked, blockedLabel }: { pending: boolean; error: boolean; blocked?: boolean; blockedLabel?: string }) {
+	if (blocked) return <span className="text-xs font-medium text-amber-600 dark:text-amber-500">{blockedLabel ?? "Não salvo"}</span>
+	if (error) return <span className="text-xs font-medium text-destructive">Erro ao salvar</span>
+	if (pending)
+		return (
+			<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+				<Loader2 className="size-3.5 animate-spin" />
+				Salvando…
+			</span>
+		)
+	return (
+		<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+			<Check className="size-3.5 text-emerald-600 dark:text-emerald-500" />
+			Salvo
+		</span>
 	)
 }
 
@@ -365,11 +390,19 @@ function VariantCard({
 				},
 			}),
 		onSuccess: async () => {
-			toast.success("Composição salva")
 			await onChanged()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
 	})
+
+	// Auto-save da composição: 800ms após a última edição das linhas (ignora mount).
+	useDebouncedEffect(
+		() => {
+			saveComposition.mutate()
+		},
+		[rows],
+		800
+	)
 
 	async function handleUpload(file: File) {
 		setUploading(true)
@@ -488,7 +521,7 @@ function VariantCard({
 						</div>
 					)
 				})}
-				<div className="flex gap-2">
+				<div className="flex items-center gap-3">
 					<Button
 						variant="outline"
 						size="sm"
@@ -498,9 +531,7 @@ function VariantCard({
 						<Plus className="size-4" />
 						Peça
 					</Button>
-					<Button size="sm" onClick={() => saveComposition.mutate()} disabled={saveComposition.isPending}>
-						Salvar composição
-					</Button>
+					<SaveStatus pending={saveComposition.isPending} error={saveComposition.isError} />
 				</div>
 			</div>
 		</div>

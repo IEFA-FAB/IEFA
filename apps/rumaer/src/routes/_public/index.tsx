@@ -171,18 +171,18 @@ function LandingPage() {
 
 				{/* Indicador de rolagem — sinaliza que há mais conteúdo abaixo */}
 				<a
-					href="#caminhos"
-					aria-label="Ver os caminhos abaixo"
+					href="#continue"
+					aria-label="Ver os continue abaixo"
 					className="group absolute bottom-5 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 rounded-full px-3 py-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 				>
-					<span className="text-label text-[10px]">Caminhos</span>
+					<span className="text-label text-[10px]">Continue</span>
 					<ChevronDown className="size-4 animate-nudge text-gold-2 motion-reduce:animate-none" aria-hidden="true" />
 				</a>
 			</section>
 
-			{/* CAMINHOS — banda navy full-bleed; única zona drenada, encosta no rodapé */}
+			{/* continue — banda navy full-bleed; única zona drenada, encosta no rodapé */}
 			<section
-				id="caminhos"
+				id="continue"
 				className="relative left-1/2 -mb-8 w-screen -translate-x-1/2 scroll-mt-15 overflow-hidden bg-primary text-primary-foreground md:-mb-10"
 				style={{ backgroundImage: "radial-gradient(120% 130% at 92% -10%, var(--navy-2) 0%, transparent 55%)" }}
 			>
