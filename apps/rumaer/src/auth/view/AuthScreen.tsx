@@ -4,7 +4,6 @@ import { useLoginRateLimiter } from "@/auth/rate-limiter"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
@@ -62,20 +61,48 @@ export interface AuthScreenProps {
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
-const LABEL = "text-[11px] font-medium uppercase text-muted-foreground"
-const LABEL_TRACKING = { letterSpacing: "0.06em" } as const
-
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+// Cabeçalho de marca centralizado — logo + eyebrow + título (estilo "Log in to · craftwork")
+function BrandHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
 	return (
-		<Label htmlFor={htmlFor} className={LABEL} style={LABEL_TRACKING}>
-			{children}
-		</Label>
+		<div className="mb-8 flex flex-col items-center text-center">
+			<img src="/favicon.svg" alt="RUMAER" className="mb-6 h-9 w-auto" />
+			{eyebrow && <p className="text-sm text-muted-foreground">{eyebrow}</p>}
+			<h1 className="text-2xl font-extrabold tracking-tight text-foreground">{title}</h1>
+			{subtitle && <p className="mt-2 max-w-[34ch] text-sm leading-relaxed text-muted-foreground">{subtitle}</p>}
+		</div>
+	)
+}
+
+// Input com ícone à esquerda — label apenas para leitores de tela (visual minimalista)
+function IconField({
+	id,
+	icon: Icon,
+	label,
+	invalid,
+	children,
+}: {
+	id: string
+	icon: React.ComponentType<{ className?: string }>
+	label: string
+	invalid?: boolean
+	children: (cls: string) => React.ReactNode
+}) {
+	return (
+		<div className="space-y-1.5">
+			<Label htmlFor={id} className="sr-only">
+				{label}
+			</Label>
+			<div className="relative">
+				<Icon className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+				{children(cn("h-11 rounded-xl bg-muted/40 pl-10", invalid && "border-destructive focus-visible:border-destructive"))}
+			</div>
+		</div>
 	)
 }
 
 function FieldError({ children }: { children: React.ReactNode }) {
 	return (
-		<p className="flex items-center gap-1 text-xs text-destructive mt-1" role="alert">
+		<p className="mt-1.5 flex items-center gap-1 text-xs text-destructive" role="alert">
 			<CircleAlert className="h-3 w-3 shrink-0" aria-hidden />
 			{children}
 		</p>
@@ -84,8 +111,8 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="border-l-2 border-destructive bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
-			<CircleAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+		<div className="flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+			<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			{message}
 		</div>
 	)
@@ -93,8 +120,8 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessBanner({ message }: { message: string }) {
 	return (
-		<div className="border-l-2 border-foreground bg-foreground/5 px-3 py-2.5 text-sm text-foreground flex items-start gap-2">
-			<CheckCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+		<div className="flex items-start gap-2 rounded-xl border border-success/25 bg-success/10 px-3.5 py-2.5 text-sm text-success-foreground">
+			<CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
 			{message}
 		</div>
 	)
@@ -109,7 +136,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	// Prioridade: token_hash → reset | ?view=forgot → forgot | default → auth tabs
 	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
 
-	const [activeTab, setActiveTab] = useState<string>(searchParams.tab || "login")
+	const [activeTab, setActiveTab] = useState<"login" | "register">(searchParams.tab || "login")
 
 	useEffect(() => {
 		if (searchParams.tab) setActiveTab(searchParams.tab)
@@ -160,9 +187,11 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	const goToForgot = () => onViewChange?.("forgot")
 	const goToAuth = () => onViewChange?.(null)
 
-	const handleTabChange = (value: string) => {
+	const switchTab = (value: "login" | "register") => {
 		setActiveTab(value)
-		if (onTabChange) onTabChange(value as "login" | "register")
+		setError("")
+		setSuccessMessage("")
+		onTabChange?.(value)
 	}
 
 	// ── Handlers de formulário ────────────────────────────────────────────────
@@ -261,7 +290,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		try {
 			await actions.signUp(norm, registerData.password, registerData.name)
 			setSuccessMessage("Conta criada! Verifique seu email.")
-			handleTabChange("login")
+			switchTab("login")
 			setLoginEmail(norm)
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Erro ao criar conta.")
@@ -325,7 +354,7 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	// ── Loading ───────────────────────────────────────────────────────────────
 	if (isLoading) {
 		return (
-			<div className="border border-border bg-card px-8 py-10 flex items-center gap-3">
+			<div className="flex items-center justify-center gap-3 py-10">
 				<RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
 				<span className="text-sm text-muted-foreground">Verificando autenticação...</span>
 			</div>
@@ -336,47 +365,41 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	if (currentView === "reset") {
 		return (
 			<div className="w-full">
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+				<BrandHeader title="Nova senha" subtitle="Defina uma nova senha segura para sua conta." />
+
+				<form onSubmit={handleResetPassword} className="space-y-4">
+					{error && <ErrorBanner message={error} />}
+
+					<IconField id="reset-password" icon={Lock} label="Nova senha">
+						{(cls) => (
+							<Input
+								id="reset-password"
+								type="password"
+								className={cls}
+								value={newPassword}
+								onChange={(e) => setNewPassword(e.target.value)}
+								required
+								minLength={8}
+								placeholder="Mínimo 8 caracteres"
+								autoComplete="new-password"
+							/>
+						)}
+					</IconField>
+
+					<Button type="submit" className="h-11 w-full rounded-xl text-sm" disabled={isSubmitting}>
+						{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+						Atualizar senha
+					</Button>
+				</form>
+
+				<button
+					type="button"
+					onClick={goToAuth}
+					className="mx-auto mt-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+				>
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Voltar ao login
-				</Button>
-
-				<div className="border border-border bg-card">
-					<div className="px-8 pt-8 pb-6 border-b border-border">
-						<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-							Nova Senha
-						</h2>
-						<p className="text-sm text-muted-foreground mt-1">Defina uma nova senha segura.</p>
-					</div>
-
-					<form onSubmit={handleResetPassword}>
-						<div className="px-8 py-6 space-y-5">
-							{error && <ErrorBanner message={error} />}
-							<div className="space-y-2">
-								<FieldLabel>Nova Senha</FieldLabel>
-								<div className="relative">
-									<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-									<Input
-										type="password"
-										className="h-11 pl-9"
-										value={newPassword}
-										onChange={(e) => setNewPassword(e.target.value)}
-										required
-										minLength={8}
-										placeholder="Mínimo 8 caracteres"
-										autoComplete="new-password"
-									/>
-								</div>
-							</div>
-						</div>
-						<div className="px-8 pb-8 pt-2 border-t border-border">
-							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
-								{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-								Atualizar Senha
-							</Button>
-						</div>
-					</form>
-				</div>
+				</button>
 			</div>
 		)
 	}
@@ -385,273 +408,226 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	if (currentView === "forgot") {
 		return (
 			<div className="w-full">
-				{/* goToAuth remove ?view=forgot — back button do browser também funciona */}
-				<Button type="button" variant="ghost" size="sm" onClick={goToAuth} className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground px-2">
+				<BrandHeader title="Recuperar senha" subtitle="Enviaremos um link de redefinição para o seu email institucional." />
+
+				<form onSubmit={handleForgotPassword} className="space-y-4">
+					{error && <ErrorBanner message={error} />}
+					{successMessage && <SuccessBanner message={successMessage} />}
+
+					<IconField id="forgot-email" icon={Mail} label="Email institucional">
+						{(cls) => (
+							<Input
+								id="forgot-email"
+								type="email"
+								placeholder="seu.nome@fab.mil.br"
+								className={cls}
+								value={forgotEmail}
+								onChange={(e) => setForgotEmail(e.target.value)}
+								required
+								autoComplete="email"
+							/>
+						)}
+					</IconField>
+
+					<Button type="submit" className="h-11 w-full rounded-xl text-sm" disabled={isSubmitting}>
+						{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+						Enviar link
+					</Button>
+				</form>
+
+				<button
+					type="button"
+					onClick={goToAuth}
+					className="mx-auto mt-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+				>
 					<ArrowLeft className="h-3.5 w-3.5" />
 					Voltar ao login
-				</Button>
-
-				<div className="border border-border bg-card">
-					<div className="px-8 pt-8 pb-6 border-b border-border">
-						<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-							Recuperar Senha
-						</h2>
-						<p className="text-sm text-muted-foreground mt-1">Enviaremos um link de redefinição para seu email.</p>
-					</div>
-
-					<form onSubmit={handleForgotPassword}>
-						<div className="px-8 py-6 space-y-5">
-							{error && <ErrorBanner message={error} />}
-							{successMessage && <SuccessBanner message={successMessage} />}
-
-							<div className="space-y-2">
-								<FieldLabel htmlFor="forgot-email">Email Institucional</FieldLabel>
-								<div className="relative">
-									<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-									<Input
-										id="forgot-email"
-										type="email"
-										placeholder="seu.nome@fab.mil.br"
-										className="h-11 pl-9"
-										value={forgotEmail}
-										onChange={(e) => setForgotEmail(e.target.value)}
-										required
-										autoComplete="email"
-									/>
-								</div>
-							</div>
-						</div>
-
-						<div className="px-8 pb-8 pt-2 border-t border-border">
-							<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting}>
-								{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-								Enviar Link
-							</Button>
-						</div>
-					</form>
-				</div>
+				</button>
 			</div>
 		)
 	}
 
-	// ── Auth: Login + Register tabs ───────────────────────────────────────────
+	// ── Auth: Login + Register (toggle por link) ──────────────────────────────
+	const isRegister = activeTab === "register"
+
 	return (
 		<div className="w-full">
-			<Tabs value={activeTab} onValueChange={handleTabChange} className="w-full gap-0">
-				<TabsList variant="line" className="w-full flex h-11 border border-border bg-transparent p-0 rounded-none gap-0">
-					<TabsTrigger value="login" className="flex-1 rounded-none h-full text-sm font-medium border-0">
-						Entrar
-					</TabsTrigger>
-					<TabsTrigger value="register" className="flex-1 rounded-none h-full text-sm font-medium border-0 border-l border-border">
-						Cadastrar
-					</TabsTrigger>
-				</TabsList>
+			<BrandHeader eyebrow={isRegister ? "Crie sua conta no" : "Entre no"} title="RUMAER" />
 
-				{/* ── LOGIN ── */}
-				<TabsContent value="login" className="mt-0">
-					<div className="border border-t-0 border-border bg-card">
-						<div className="px-8 pt-7 pb-5">
-							<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-								Bem-vindo de volta
-							</h2>
-							<p className="text-sm text-muted-foreground mt-1">Acesso restrito a emails @fab.mil.br</p>
-						</div>
+			{isRegister ? (
+				// ── REGISTER ──
+				<form onSubmit={handleRegister} className="space-y-3.5">
+					{error && <ErrorBanner message={error} />}
 
-						<form onSubmit={handleLogin}>
-							<div className="px-8 pb-6 space-y-5">
-								{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
-								{error && !isLocked && <ErrorBanner message={error} />}
-								{successMessage && <SuccessBanner message={successMessage} />}
+					<IconField id="register-name" icon={User} label="Nome completo">
+						{(cls) => (
+							<Input
+								id="register-name"
+								placeholder="Seu nome completo"
+								className={cls}
+								value={registerData.name}
+								onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+								required
+								autoComplete="name"
+								disabled={isSubmitting}
+							/>
+						)}
+					</IconField>
 
-								{/* Email */}
-								<div className="space-y-2">
-									<FieldLabel htmlFor="login-email">Email Institucional</FieldLabel>
-									<div className="relative">
-										<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											id="login-email"
-											type="email"
-											placeholder="seu.nome@fab.mil.br"
-											className={cn("h-11 pl-9", emailError && "border-destructive focus-visible:border-destructive")}
-											value={loginEmail}
-											onChange={handleLoginEmailChange}
-											required
-											autoComplete="username"
-											disabled={isSubmitting}
-										/>
-									</div>
-									{emailError && <FieldError>{emailError}</FieldError>}
-								</div>
+					<div>
+						<IconField id="register-email" icon={Mail} label="Email institucional" invalid={!!registerEmailError}>
+							{(cls) => (
+								<Input
+									id="register-email"
+									type="email"
+									placeholder="seu.nome@fab.mil.br"
+									className={cls}
+									value={registerData.email}
+									onChange={handleRegisterEmailChange}
+									required
+									autoComplete="email"
+									disabled={isSubmitting}
+								/>
+							)}
+						</IconField>
+						{registerEmailError && <FieldError>{registerEmailError}</FieldError>}
+					</div>
 
-								{/* Password */}
-								<div className="space-y-2">
-									<div className="flex items-center justify-between">
-										<FieldLabel htmlFor="login-password">Senha</FieldLabel>
-										{/* goToForgot → push ?view=forgot na URL */}
-										<Button
-											type="button"
-											variant="link"
-											size="sm"
-											onClick={goToForgot}
-											className="h-auto p-0 text-[11px] text-muted-foreground hover:text-foreground"
-											style={LABEL_TRACKING}
-										>
-											Esqueceu a senha?
-										</Button>
-									</div>
-									<div className="relative">
-										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											id="login-password"
-											type={showPassword ? "text" : "password"}
-											placeholder="••••••••"
-											className={cn("h-11 pl-9 pr-10", passwordError && "border-destructive focus-visible:border-destructive")}
-											value={loginPassword}
-											onChange={handleLoginPasswordChange}
-											required
-											autoComplete="current-password"
-											disabled={isSubmitting}
-										/>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-xs"
-											onClick={() => setShowPassword(!showPassword)}
-											className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-											aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-										>
-											{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-										</Button>
-									</div>
-									{passwordError && <FieldError>{passwordError}</FieldError>}
-								</div>
+					<IconField id="register-password" icon={Lock} label="Senha">
+						{(cls) => (
+							<Input
+								id="register-password"
+								type="password"
+								placeholder="Mínimo 8 caracteres"
+								className={cls}
+								value={registerData.password}
+								onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+								required
+								minLength={8}
+								autoComplete="new-password"
+								disabled={isSubmitting}
+							/>
+						)}
+					</IconField>
 
-								{/* Remember me */}
-								<div className="flex items-center gap-2">
-									<input
-										id="remember"
-										type="checkbox"
-										checked={rememberMe}
-										onChange={handleRememberMeChange}
-										className="h-3.5 w-3.5 border border-border accent-foreground cursor-pointer"
+					<IconField id="register-confirm" icon={Lock} label="Confirmar senha">
+						{(cls) => (
+							<Input
+								id="register-confirm"
+								type="password"
+								placeholder="Repita a senha"
+								className={cls}
+								value={registerData.confirm}
+								onChange={(e) => setRegisterData({ ...registerData, confirm: e.target.value })}
+								required
+								autoComplete="new-password"
+								disabled={isSubmitting}
+							/>
+						)}
+					</IconField>
+
+					<Button type="submit" className="mt-1 h-11 w-full rounded-xl text-sm" disabled={isSubmitting || !!registerEmailError}>
+						{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+						{isSubmitting ? "Criando..." : "Criar conta"}
+					</Button>
+				</form>
+			) : (
+				// ── LOGIN ──
+				<form onSubmit={handleLogin} className="space-y-3.5">
+					{isLocked && <ErrorBanner message={`Muitas tentativas. Tente novamente em ${retryAfter}s.`} />}
+					{error && !isLocked && <ErrorBanner message={error} />}
+					{successMessage && <SuccessBanner message={successMessage} />}
+
+					<div>
+						<IconField id="login-email" icon={Mail} label="Email institucional" invalid={!!emailError}>
+							{(cls) => (
+								<Input
+									id="login-email"
+									type="email"
+									placeholder="seu.nome@fab.mil.br"
+									className={cls}
+									value={loginEmail}
+									onChange={handleLoginEmailChange}
+									required
+									autoComplete="username"
+									disabled={isSubmitting}
+								/>
+							)}
+						</IconField>
+						{emailError && <FieldError>{emailError}</FieldError>}
+					</div>
+
+					<div>
+						<IconField id="login-password" icon={Lock} label="Senha" invalid={!!passwordError}>
+							{(cls) => (
+								<div className="relative">
+									<Input
+										id="login-password"
+										type={showPassword ? "text" : "password"}
+										placeholder="Sua senha"
+										className={cn(cls, "pr-10")}
+										value={loginPassword}
+										onChange={handleLoginPasswordChange}
+										required
+										autoComplete="current-password"
 										disabled={isSubmitting}
 									/>
-									<label htmlFor="remember" className={cn(LABEL, "cursor-pointer")} style={LABEL_TRACKING}>
-										Lembrar email
-									</label>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-xs"
+										onClick={() => setShowPassword(!showPassword)}
+										className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+										aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+									>
+										{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+									</Button>
 								</div>
-							</div>
-
-							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
-									{isLocked ? (
-										`Bloqueado (${retryAfter}s)`
-									) : (
-										<>
-											{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-											{isSubmitting ? "Entrando..." : "Entrar"}
-										</>
-									)}
-								</Button>
-							</div>
-						</form>
+							)}
+						</IconField>
+						{passwordError && <FieldError>{passwordError}</FieldError>}
 					</div>
-				</TabsContent>
 
-				{/* ── REGISTER ── */}
-				<TabsContent value="register" className="mt-0">
-					<div className="border border-t-0 border-border bg-card">
-						<div className="px-8 pt-7 pb-5">
-							<h2 className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-								Criar conta
-							</h2>
-							<p className="text-sm text-muted-foreground mt-1">Acesso restrito a emails @fab.mil.br</p>
-						</div>
-
-						<form onSubmit={handleRegister}>
-							<div className="px-8 pb-6 space-y-5">
-								{error && <ErrorBanner message={error} />}
-
-								<div className="space-y-2">
-									<FieldLabel>Nome</FieldLabel>
-									<div className="relative">
-										<User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											placeholder="Seu nome completo"
-											className="h-11 pl-9"
-											value={registerData.name}
-											onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
-											required
-											autoComplete="name"
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<FieldLabel>Email Institucional</FieldLabel>
-									<div className="relative">
-										<Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											type="email"
-											placeholder="seu.nome@fab.mil.br"
-											className={cn("h-11 pl-9", registerEmailError && "border-destructive focus-visible:border-destructive")}
-											value={registerData.email}
-											onChange={handleRegisterEmailChange}
-											required
-											autoComplete="email"
-											disabled={isSubmitting}
-										/>
-									</div>
-									{registerEmailError && <FieldError>{registerEmailError}</FieldError>}
-								</div>
-
-								<div className="space-y-2">
-									<FieldLabel>Senha</FieldLabel>
-									<div className="relative">
-										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											type="password"
-											placeholder="Mínimo 8 caracteres"
-											className="h-11 pl-9"
-											value={registerData.password}
-											onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-											required
-											minLength={8}
-											autoComplete="new-password"
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<FieldLabel>Confirmar Senha</FieldLabel>
-									<div className="relative">
-										<Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
-										<Input
-											type="password"
-											placeholder="Repita a senha"
-											className="h-11 pl-9"
-											value={registerData.confirm}
-											onChange={(e) => setRegisterData({ ...registerData, confirm: e.target.value })}
-											required
-											autoComplete="new-password"
-											disabled={isSubmitting}
-										/>
-									</div>
-								</div>
-							</div>
-
-							<div className="px-8 pb-8 border-t border-border pt-5">
-								<Button type="submit" className="w-full h-11 text-sm" disabled={isSubmitting || !!registerEmailError}>
-									{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-									{isSubmitting ? "Criando..." : "Criar conta"}
-								</Button>
-							</div>
-						</form>
+					<div className="flex items-center justify-between pt-0.5">
+						<label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+							<input
+								type="checkbox"
+								checked={rememberMe}
+								onChange={handleRememberMeChange}
+								className="h-3.5 w-3.5 cursor-pointer rounded border border-border accent-primary"
+								disabled={isSubmitting}
+							/>
+							Lembrar email
+						</label>
+						<button type="button" onClick={goToForgot} className="text-sm font-medium text-primary transition-colors hover:text-navy-deep">
+							Esqueceu a senha?
+						</button>
 					</div>
-				</TabsContent>
-			</Tabs>
+
+					<Button type="submit" className="mt-1 h-11 w-full rounded-xl text-sm" disabled={isSubmitting || isLocked || !!emailError || !!passwordError}>
+						{isLocked ? (
+							`Bloqueado (${retryAfter}s)`
+						) : (
+							<>
+								{isSubmitting && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+								{isSubmitting ? "Entrando..." : "Entrar"}
+							</>
+						)}
+					</Button>
+				</form>
+			)}
+
+			{/* ── Toggle login/cadastro ── */}
+			<p className="mt-6 text-center text-sm text-muted-foreground">
+				{isRegister ? "Já tem uma conta? " : "Não tem uma conta? "}
+				<button
+					type="button"
+					onClick={() => switchTab(isRegister ? "login" : "register")}
+					className="font-semibold text-foreground underline-offset-4 hover:underline"
+				>
+					{isRegister ? "Entrar" : "Cadastre-se"}
+				</button>
+			</p>
 		</div>
 	)
 }

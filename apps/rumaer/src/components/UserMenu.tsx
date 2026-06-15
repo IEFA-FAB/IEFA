@@ -4,7 +4,7 @@ import { LogOut, Settings } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { militaryProfileQueryOptions } from "@/lib/uniforms/hooks"
 import { Button } from "./ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "./ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
 function getInitials(nameOrEmail?: string) {
 	if (!nameOrEmail) return "US"
@@ -53,24 +53,29 @@ export function UserMenu() {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
-					<Button variant="ghost" size="sm" className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground gap-2 px-2">
-						{/* Iniciais em mono — único identificador visual */}
-						<span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{initials}</span>
+					<Button variant="ghost" size="sm" className="gap-2 pl-1.5 pr-2.5 data-[state=open]:bg-accent data-[state=open]:text-foreground">
+						{/* Avatar com iniciais — navy + dourado, alinhado à marca */}
+						<span className="grid size-6 shrink-0 place-items-center rounded-lg bg-primary text-[11px] font-bold text-gold" aria-hidden="true">
+							{initials}
+						</span>
 						{/* Primeiro nome — oculto em mobile */}
-						<span className="hidden sm:block text-[11px] font-medium uppercase tracking-[0.06em]">{firstName}</span>
+						<span className="hidden text-sm font-medium sm:block">{firstName}</span>
 					</Button>
 				}
 			/>
 
-			<DropdownMenuContent className="ring-0 border border-foreground min-w-56 shadow-[3px_3px_0_0_var(--foreground)]" side="bottom" align="end" sideOffset={6}>
-				<DropdownMenuGroup>
-					<DropdownMenuLabel className="p-0 font-normal">
-						<div className="flex flex-col gap-1 px-2 py-2.5 border-b border-border">
-							<span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground leading-none">{displayName}</span>
-							<span className="font-mono text-[11px] leading-none text-muted-foreground">{email}</span>
-						</div>
-					</DropdownMenuLabel>
-				</DropdownMenuGroup>
+			<DropdownMenuContent className="min-w-56" side="bottom" align="end" sideOffset={6}>
+				<div className="flex items-center gap-2.5 px-2 py-2.5">
+					<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-xs font-bold text-gold" aria-hidden="true">
+						{initials}
+					</span>
+					<div className="flex min-w-0 flex-col">
+						<span className="truncate text-sm font-semibold text-foreground">{displayName}</span>
+						<span className="truncate text-xs text-muted-foreground">{email}</span>
+					</div>
+				</div>
+
+				<DropdownMenuSeparator />
 
 				<DropdownMenuItem render={<Link to="/admin">Administração</Link>}>
 					<Settings />
@@ -79,7 +84,7 @@ export function UserMenu() {
 
 				<DropdownMenuItem
 					variant="destructive"
-					onSelect={async () => {
+					onClick={async () => {
 						await signOut()
 					}}
 				>

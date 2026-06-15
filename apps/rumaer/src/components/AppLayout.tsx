@@ -18,19 +18,6 @@ const NAV_LINKS = [
 
 const container = "w-full mx-auto px-4 sm:px-6 md:px-8 lg:max-w-[1100px] xl:max-w-[1180px]"
 
-/** Marca: quepe estilizado em navy com asa dourada. */
-function BrandMark() {
-	return (
-		<span className="grid size-7 place-items-center rounded-lg bg-primary text-gold" aria-hidden="true">
-			<svg viewBox="0 0 24 24" fill="currentColor" className="size-4" aria-hidden="true">
-				<path d="M12 11 L3 8 Q8 10.5 12 10.5 Q16 10.5 21 8 Z" />
-				<path d="M12 12.5 L6 15 Q9 13 12 13 Q15 13 18 15 Z" />
-				<circle cx="12" cy="11.5" r="2" />
-			</svg>
-		</span>
-	)
-}
-
 interface AppLayoutProps {
 	children: ReactNode
 }
@@ -43,7 +30,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 		"rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&.active]:text-foreground"
 
 	return (
-		<div className="relative isolate flex min-h-svh flex-col bg-background text-foreground supports-[height:100dvh]:min-h-dvh">
+		<div className="relative isolate flex min-h-svh flex-col overflow-x-clip bg-background text-foreground supports-[height:100dvh]:min-h-dvh">
 			<a
 				href="#conteudo"
 				className="sr-only rounded-md focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100 focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
@@ -59,7 +46,6 @@ export function AppLayout({ children }: AppLayoutProps) {
 							className="flex items-center gap-2.5 rounded-md px-1 font-extrabold tracking-tight text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 							aria-label="Página inicial — RUMAER"
 						>
-							<BrandMark />
 							<span className="text-lg">RUMAER</span>
 						</Link>
 
@@ -114,10 +100,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 			<footer className="border-t border-border/70 bg-card">
 				<div className={`${container} grid grid-cols-1 gap-8 py-10 sm:grid-cols-3`}>
 					<div className="flex flex-col gap-3">
-						<span className="flex items-center gap-2 font-extrabold text-primary">
-							<BrandMark />
-							RUMAER
-						</span>
+						<span className="font-extrabold text-primary">RUMAER</span>
 						<p className="text-xs leading-relaxed text-muted-foreground">Regulamento de Uniformes da Aeronáutica — versão interativa.</p>
 						<p className="text-xs text-muted-foreground">SEFA · Comando da Aeronáutica · Ministério da Defesa</p>
 					</div>

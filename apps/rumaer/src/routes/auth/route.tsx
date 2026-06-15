@@ -17,64 +17,45 @@ export const Route = createFileRoute("/auth")({
 
 function AuthLayout() {
 	return (
-		<div className="min-h-screen flex flex-col md:flex-row bg-background">
-			{/* ===== LEFT PANEL — BRAND (desktop only) ===== */}
-			<div className="hidden md:flex md:w-[460px] lg:w-[520px] shrink-0 flex-col justify-between border-r border-border p-12 bg-foreground text-background">
-				<Link to="/" className="inline-block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-background/50">
-					<img src="/favicon.svg" alt="RUMAER" className="h-9 w-auto invert" />
-				</Link>
-
-				<div className="space-y-7">
-					<p className="text-background/40 font-medium uppercase" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
-						Força Aérea Brasileira · RUMAER
-					</p>
-
-					<h1
-						className="font-serif text-background leading-[1.04]"
-						style={{
-							fontSize: "clamp(2.75rem, 4vw, 3.75rem)",
-							fontWeight: 700,
-							letterSpacing: "-0.04em",
-						}}
-					>
-						Regulamento
-						<br />
-						de Uniformes
-						<br />
-						da Aeronáutica
-					</h1>
-
-					<p className="text-sm text-background/50 leading-relaxed max-w-[270px]">
-						O login é opcional — navegue todo o regulamento sem conta. Entre para acessar a área administrativa e seu perfil militar.
-					</p>
-				</div>
-
-				<div className="space-y-4">
-					<div className="border-t border-background/15" />
-					<p className="text-background/30 font-medium uppercase" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
-						Acesso administrativo — @fab.mil.br
-					</p>
-				</div>
-			</div>
-
-			{/* ===== MOBILE HEADER ===== */}
-			<div className="md:hidden border-b border-border bg-foreground text-background px-6 py-4 flex items-center gap-3">
-				<Link to="/" className="inline-block">
-					<img src="/favicon.svg" alt="RUMAER" className="h-7 w-auto invert" />
-				</Link>
-				<div>
-					<p className="text-sm font-semibold text-background leading-tight">RUMAER</p>
-					<p className="text-background/45 font-medium uppercase" style={{ fontSize: "10px", letterSpacing: "0.08em" }}>
-						Força Aérea Brasileira
-					</p>
-				</div>
-			</div>
-
-			{/* ===== RIGHT PANEL — FORM ===== */}
-			<div className="flex-1 flex items-center justify-center p-6 md:p-12 lg:p-16">
-				<div className="w-full max-w-[420px]">
+		<div className="grid min-h-screen w-full bg-background md:grid-cols-2">
+			{/* ===== LEFT — FORM ===== */}
+			<div className="flex items-center justify-center px-6 py-12 sm:px-10 lg:px-16">
+				<div className="w-full max-w-[380px]">
 					<Outlet />
 				</div>
+			</div>
+
+			{/* ===== RIGHT — IMAGE PANEL (desktop only) ===== */}
+			<div className="relative hidden overflow-hidden bg-primary md:block">
+				<img
+					src="/login-background.jpg"
+					alt="Sargento da Força Aérea Brasileira em uniforme de gala, com luvas brancas e espadim, ao lado da bandeira nacional"
+					className="absolute inset-0 h-full w-full object-cover"
+				/>
+
+				{/* gradiente navy para profundidade e leitura da legenda */}
+				<div
+					className="absolute inset-0"
+					style={{ backgroundImage: "linear-gradient(160deg, oklch(0.27 0.085 264 / 0.10) 0%, transparent 40%, oklch(0.20 0.07 264 / 0.55) 100%)" }}
+					aria-hidden
+				/>
+
+				{/* legenda — pílula inferior esquerda (estilo referência) */}
+				<div className="absolute bottom-5 left-5 z-10 flex items-center gap-2.5 rounded-full bg-background/10 px-3.5 py-2 text-primary-foreground backdrop-blur-md">
+					<span className="size-2.5 rounded-full bg-gold" aria-hidden />
+					<span className="text-xs">
+						<span className="font-semibold">RUMAER</span>
+						<span className="text-primary-foreground/70"> · RCA 35-2/2023</span>
+					</span>
+				</div>
+
+				{/* link de volta ao regulamento — canto superior direito */}
+				<Link
+					to="/"
+					className="text-label absolute top-5 right-5 z-10 rounded-full bg-background/10 px-3.5 py-2 text-primary-foreground/90 backdrop-blur-md transition-colors hover:bg-background/20 hover:text-primary-foreground"
+				>
+					Ver regulamento
+				</Link>
 			</div>
 		</div>
 	)
