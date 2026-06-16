@@ -34,6 +34,7 @@ function PiecesAdmin() {
 
 	const [nome, setNome] = useState("")
 	const [tipo, setTipo] = useState<TipoPeca | null>(null)
+	const [codigo, setCodigo] = useState("")
 
 	const [editingId, setEditingId] = useState<string | null>(null)
 	const [editNome, setEditNome] = useState("")
@@ -41,19 +42,20 @@ function PiecesAdmin() {
 	const invalidate = () => queryClient.invalidateQueries({ queryKey: ["rumaer", "pieces"] })
 
 	const create = useMutation({
-		mutationFn: () => upsertPieceFn({ data: { nome: nome.trim(), slug: slugify(nome), tipo } }),
+		mutationFn: () => upsertPieceFn({ data: { nome: nome.trim(), slug: slugify(nome), tipo, codigo: codigo.trim() || null } }),
 		onSuccess: async () => {
 			toast.success("Peça criada")
 			setNome("")
 			setTipo(null)
+			setCodigo("")
 			await invalidate()
 		},
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
 	})
 
 	const rename = useMutation({
-		mutationFn: (vars: { id: string; slug: string; tipo: TipoPeca | null; nome: string }) =>
-			upsertPieceFn({ data: { id: vars.id, nome: vars.nome.trim(), slug: vars.slug, tipo: vars.tipo } }),
+		mutationFn: (vars: { id: string; slug: string; tipo: TipoPeca | null; nome: string; codigo: string | null }) =>
+			upsertPieceFn({ data: { id: vars.id, nome: vars.nome.trim(), slug: vars.slug, tipo: vars.tipo, codigo: vars.codigo } }),
 		onSuccess: async () => {
 			toast.success("Peça atualizada")
 			setEditingId(null)
@@ -91,6 +93,10 @@ function PiecesAdmin() {
 						<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nome</span>
 						<Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Quepe" />
 					</div>
+					<div className="flex flex-col gap-1.5 sm:w-40">
+						<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Código (opcional)</span>
+						<Input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="FAB-V-001" className="font-mono" />
+					</div>
 					<div className="flex flex-col gap-1.5 min-w-48">
 						<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tipo (opcional)</span>
 						<Select value={tipo ?? null} onValueChange={(v) => setTipo(v as TipoPeca)}>
@@ -119,13 +125,18 @@ function PiecesAdmin() {
 					{pieces.map((p) => (
 						<li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
 							<div className="flex items-center gap-3 flex-1 min-w-0">
+								{p.codigo ? (
+									<Badge variant="secondary" className="font-mono">
+										{p.codigo}
+									</Badge>
+								) : null}
 								{p.tipo ? <Badge variant="outline">{TIPO_PECA_LABELS[p.tipo]}</Badge> : <Badge variant="outline">Sem tipo</Badge>}
 								{editingId === p.id ? (
 									<Input
 										value={editNome}
 										onChange={(e) => setEditNome(e.target.value)}
 										onKeyDown={(e) => {
-											if (e.key === "Enter" && editNome.trim()) rename.mutate({ id: p.id, slug: p.slug, tipo: p.tipo, nome: editNome })
+											if (e.key === "Enter" && editNome.trim()) rename.mutate({ id: p.id, slug: p.slug, tipo: p.tipo, nome: editNome, codigo: p.codigo })
 											if (e.key === "Escape") setEditingId(null)
 										}}
 										autoFocus
@@ -141,7 +152,7 @@ function PiecesAdmin() {
 									<Button
 										variant="ghost"
 										size="sm"
-										onClick={() => rename.mutate({ id: p.id, slug: p.slug, tipo: p.tipo, nome: editNome })}
+										onClick={() => rename.mutate({ id: p.id, slug: p.slug, tipo: p.tipo, nome: editNome, codigo: p.codigo })}
 										disabled={!editNome.trim() || rename.isPending}
 									>
 										<Check className="size-4" />

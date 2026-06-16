@@ -1,9 +1,10 @@
 import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantImage, UniformVariantWithPieces, VariantPieceWithPiece } from "@iefa/database/rumaer"
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, Check, Loader2, Plus, Trash2, Upload } from "lucide-react"
+import { ArrowLeft, Check, Layers, Loader2, Plus, Trash2, Upload } from "lucide-react"
 import { useId, useRef, useState } from "react"
 import { toast } from "sonner"
+import { BulkAddPieceDialog } from "@/components/admin/bulk-add-piece-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +24,6 @@ import {
 } from "@/lib/uniforms/labels"
 import { useDebouncedEffect } from "@/lib/use-debounced-effect"
 import {
-	addPieceToVariantsFn,
 	deleteUniformFn,
 	deleteVariantFn,
 	deleteVariantImageFn,
@@ -331,7 +331,24 @@ function VariantsSection({
 
 	return (
 		<section className="flex flex-col gap-4">
-			<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variantes ({variants.length})</h2>
+			<div className="flex items-center justify-between gap-3">
+				<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variantes ({variants.length})</h2>
+				{variants.length > 0 && (
+					<BulkAddPieceDialog
+						trigger={
+							<Button variant="outline" size="sm">
+								<Layers className="size-4" />
+								Adicionar peça em lote
+							</Button>
+						}
+						targets={variants.map((v) => ({ id: v.id, label: variantLabel(v) }))}
+						pieces={pieces}
+						pieceItems={pieceItems}
+						onChanged={onChanged}
+						description="Anexa a peça à composição das variantes marcadas deste uniforme."
+					/>
+				)}
+			</div>
 
 			<div className="flex flex-col sm:flex-row gap-3 sm:items-end border border-border rounded-lg p-4">
 				<Field label="Círculo">
@@ -371,8 +388,6 @@ function VariantsSection({
 				</Button>
 			</div>
 
-			{variants.length > 0 && <BulkAddPiece variants={variants} pieces={pieces} pieceItems={pieceItems} onChanged={onChanged} />}
-
 			<div className="flex flex-col gap-4">
 				{variants.map((v) => (
 					// key inclui assinatura das peças → remonta com dados frescos quando a composição muda no servidor (ex.: lote)
@@ -385,159 +400,6 @@ function VariantsSection({
 
 function variantLabel(v: UniformVariantWithPieces) {
 	return `${CIRCULO_LABELS[v.circulo]} · ${GENERO_LABELS[v.genero]}${v.sub_variacao ? ` · ${v.sub_variacao}` : ""}`
-}
-
-// ---------------------------------------------------------- bulk add piece ----
-function BulkAddPiece({
-	variants,
-	pieces,
-	pieceItems,
-	onChanged,
-}: {
-	variants: UniformVariantWithPieces[]
-	pieces: Piece[]
-	pieceItems: PieceItemWithPiece[]
-	onChanged: () => Promise<unknown>
-}) {
-	const [pieceId, setPieceId] = useState<string | null>(null)
-	const [pieceItemId, setPieceItemId] = useState<string | null>(null)
-	const [obrigatoriedade, setObrigatoriedade] = useState<(typeof OBRIGATORIEDADE_ORDER)[number]>("obrigatorio")
-	const [observacao, setObservacao] = useState("")
-	const [selected, setSelected] = useState<Set<string>>(() => new Set(variants.map((v) => v.id)))
-
-	const itemsForPiece = pieceId ? pieceItems.filter((it) => it.piece_id === pieceId) : []
-	const selectedItem = pieceItems.find((it) => it.id === pieceItemId)
-	const allSelected = selected.size === variants.length
-
-	const add = useMutation({
-		mutationFn: () => {
-			if (!pieceId) throw new Error("Selecione a peça")
-			const variantIds = variants.filter((v) => selected.has(v.id)).map((v) => v.id)
-			if (variantIds.length === 0) throw new Error("Selecione ao menos uma variante")
-			return addPieceToVariantsFn({
-				data: {
-					variantIds,
-					piece_id: pieceId,
-					piece_item_id: pieceItemId,
-					obrigatoriedade,
-					observacao: observacao || null,
-				},
-			})
-		},
-		onSuccess: async (res) => {
-			toast.success(`Peça adicionada a ${res.count} variante(s)`)
-			setPieceId(null)
-			setPieceItemId(null)
-			setObservacao("")
-			await onChanged()
-		},
-		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
-	})
-
-	return (
-		<div className="flex flex-col gap-3 border border-dashed border-border rounded-lg p-4">
-			<div className="flex items-center justify-between gap-3">
-				<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Adicionar peça em lote</span>
-				<span className="text-xs text-muted-foreground">
-					{selected.size} de {variants.length} variante(s)
-				</span>
-			</div>
-
-			<div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-				<Field label="Peça">
-					<Select
-						value={pieceId}
-						onValueChange={(v) => {
-							setPieceId(v)
-							setPieceItemId(null)
-						}}
-					>
-						<SelectTrigger className="min-w-44">
-							<SelectValue placeholder="Selecione…">{pieceId ? (pieces.find((p) => p.id === pieceId)?.nome ?? pieceId) : undefined}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{pieces.map((p) => (
-								<SelectItem key={p.id} value={p.id}>
-									{p.nome}
-									{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</Field>
-				<Field label="Item concreto">
-					<Select value={pieceItemId} onValueChange={setPieceItemId} disabled={!pieceId || itemsForPiece.length === 0}>
-						<SelectTrigger className="min-w-40">
-							<SelectValue placeholder={pieceId && itemsForPiece.length === 0 ? "sem item concreto" : "opcional"}>
-								{selectedItem ? selectedItem.nome : undefined}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{itemsForPiece.map((it) => (
-								<SelectItem key={it.id} value={it.id}>
-									{it.nome}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</Field>
-				<Field label="Obrigatoriedade">
-					<Select value={obrigatoriedade} onValueChange={(v) => setObrigatoriedade(v as typeof obrigatoriedade)}>
-						<SelectTrigger className="min-w-40">
-							<SelectValue>{OBRIGATORIEDADE_LABELS[obrigatoriedade]}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{OBRIGATORIEDADE_ORDER.map((o) => (
-								<SelectItem key={o} value={o}>
-									{OBRIGATORIEDADE_LABELS[o]}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</Field>
-				<Field label="Observação">
-					<Input value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="opcional" />
-				</Field>
-			</div>
-
-			<div className="flex flex-col gap-2">
-				<button
-					type="button"
-					onClick={() => setSelected(allSelected ? new Set() : new Set(variants.map((v) => v.id)))}
-					className="text-xs font-medium text-muted-foreground hover:text-foreground w-fit"
-				>
-					{allSelected ? "Desmarcar todas" : "Marcar todas"}
-				</button>
-				<div className="flex flex-wrap gap-2">
-					{variants.map((v) => {
-						const on = selected.has(v.id)
-						return (
-							<button
-								key={v.id}
-								type="button"
-								onClick={() =>
-									setSelected((s) => {
-										const next = new Set(s)
-										if (next.has(v.id)) next.delete(v.id)
-										else next.add(v.id)
-										return next
-									})
-								}
-								className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
-							>
-								{variantLabel(v)}
-							</button>
-						)
-					})}
-				</div>
-			</div>
-
-			<Button className="w-fit" onClick={() => add.mutate()} disabled={!pieceId || selected.size === 0 || add.isPending}>
-				<Plus className="size-4" />
-				Adicionar a {selected.size} variante(s)
-			</Button>
-		</div>
-	)
 }
 
 function VariantCard({

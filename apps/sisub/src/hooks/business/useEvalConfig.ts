@@ -12,7 +12,7 @@ export const evalConfigQueryOptions = queryOptions({
 export function useEvalConfig() {
 	const queryClient = useQueryClient()
 
-	const query = useSuspenseQuery(evalConfigQueryOptions)
+	const { data, isFetching } = useSuspenseQuery(evalConfigQueryOptions)
 
 	const mutation = useMutation({
 		mutationFn: (cfg: EvalConfig) => upsertEvalConfigFn({ data: cfg }),
@@ -22,9 +22,9 @@ export function useEvalConfig() {
 	})
 
 	return {
-		config: query.data,
+		config: data,
 		isLoading: false, // Suspense handles loading
-		isFetching: query.isFetching,
+		isFetching,
 		isSaving: mutation.isPending,
 		saveError: mutation.error,
 		saveSuccess: mutation.isSuccess,

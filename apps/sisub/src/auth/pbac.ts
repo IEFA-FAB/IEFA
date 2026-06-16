@@ -65,7 +65,8 @@ export function requirePermission(context: PBACContext, module: AppModule, minLe
 	const permissions = context.queryClient.getQueryData<UserPermission[]>(userPermissionsQueryOptions(userId).queryKey) ?? []
 
 	if (!hasPermission(permissions, module, minLevel, scope)) {
-		throw redirect({ to: "/hub", replace: true })
+		// Sinaliza ao /hub qual módulo foi negado para exibir feedback (em vez de bounce mudo).
+		throw redirect({ to: "/hub", replace: true, search: { denied: module } })
 	}
 }
 

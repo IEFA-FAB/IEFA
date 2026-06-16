@@ -1,0 +1,19 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "rules": {
+    "react-doctor/query-mutation-missing-invalidation": "off"
+  },
+  "ignore": {
+    "rules": ["react-hooks-js/todo", "react-hooks-js/set-state-in-effect", "react-hooks-js/refs"],
+    "overrides": [
+      {
+        "files": ["src/hooks/ui/usePersistentState.ts", "src/hooks/features/useChatSession.ts", "src/hooks/features/useModuleChatSession.ts"],
+        "rules": ["react-doctor/no-adjust-state-on-prop-change"]
+      },
+      {
+        "files": ["src/hooks/data/useRecipes.ts"],
+        "rules": ["react-doctor/query-destructure-result"]
+      }
+    ]
+  }
+}

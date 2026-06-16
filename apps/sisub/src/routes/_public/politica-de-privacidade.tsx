@@ -3,6 +3,7 @@ import { LegalDocumentPage } from "@/components/ui/legal-markdown"
 import { fetchLegalDocumentFn } from "@/server/legal.fn"
 
 export const Route = createFileRoute("/_public/politica-de-privacidade")({
+	loader: () => fetchLegalDocumentFn({ data: { docType: "privacy_policy", locale: "pt-BR" } }),
 	head: () => {
 		const baseUrl = import.meta.env.VITE_PUBLIC_URL ?? ""
 		const title = "Política de Privacidade — SISUB"
@@ -20,7 +21,6 @@ export const Route = createFileRoute("/_public/politica-de-privacidade")({
 			],
 		}
 	},
-	loader: () => fetchLegalDocumentFn({ data: { docType: "privacy_policy", locale: "pt-BR" } }),
 	component: PoliticaDePrivacidade,
 })
 

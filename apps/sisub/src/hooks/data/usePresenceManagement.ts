@@ -1,7 +1,7 @@
 // hooks/usePresenceManagement.ts
 
 import type { PostgrestError } from "@supabase/supabase-js"
-import { type UseMutationResult, type UseQueryResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { type UseMutationResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { toast } from "sonner"
 import { queryKeys } from "@/lib/query-keys"
@@ -71,7 +71,11 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	// ============================================================================
 	// QUERY: Fetch Presences & Forecasts
 	// ============================================================================
-	const presencesQuery: UseQueryResult<QueryResult, PostgrestError> = useQuery<QueryResult, PostgrestError>({
+	const {
+		data: presencesData,
+		isLoading: presencesLoading,
+		isFetching: presencesFetching,
+	} = useQuery<QueryResult, PostgrestError>({
 		queryKey: queryKeys.presences.list(filters.date, filters.meal, filters.messHallId),
 		queryFn: async (): Promise<QueryResult> => {
 			const presences = await fetchPresencesFn({
@@ -175,9 +179,9 @@ export function usePresenceManagement(filters: FiscalFilters): UsePresenceManage
 	)
 
 	return {
-		presences: presencesQuery.data?.presences ?? [],
-		forecastMap: presencesQuery.data?.forecastMap ?? {},
-		isLoading: presencesQuery.isLoading || presencesQuery.isFetching,
+		presences: presencesData?.presences ?? [],
+		forecastMap: presencesData?.forecastMap ?? {},
+		isLoading: presencesLoading || presencesFetching,
 		isConfirming: confirmPresenceMutation.isPending,
 		isRemoving: removePresenceMutation.isPending,
 		confirmPresence,

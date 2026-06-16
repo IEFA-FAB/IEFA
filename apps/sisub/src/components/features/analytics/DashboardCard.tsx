@@ -25,13 +25,13 @@ export default function DashboardCard({ unitId: _unitId }: { unitId: number }) {
 	})
 	const [selectedMessHall, setSelectedMessHall] = useState<string>("all")
 
-	const messHallsQuery = useQuery(messHallsQueryOptions(undefined))
-	const filteredMessHalls = messHallsQuery.data ?? []
+	const { data: messHallsData, isLoading: messHallsLoading } = useQuery(messHallsQueryOptions(undefined))
+	const filteredMessHalls = messHallsData ?? []
 
 	// Fetch forecasts and presences
 	const messHallIdParam = selectedMessHall === "all" ? undefined : Number(selectedMessHall)
 
-	const forecastsQuery = useQuery(
+	const { data: forecastsData, isLoading: forecastsLoading } = useQuery(
 		dashboardForecastsQueryOptions({
 			mess_hall_id: messHallIdParam,
 			startDate: dateRange.start,
@@ -39,7 +39,7 @@ export default function DashboardCard({ unitId: _unitId }: { unitId: number }) {
 		})
 	)
 
-	const presencesQuery = useQuery(
+	const { data: presencesData, isLoading: presencesLoading } = useQuery(
 		dashboardPresencesQueryOptions({
 			mess_hall_id: messHallIdParam,
 			startDate: dateRange.start,
@@ -48,10 +48,10 @@ export default function DashboardCard({ unitId: _unitId }: { unitId: number }) {
 	)
 
 	// Consolidate loading state
-	const isLoading = messHallsQuery.isLoading || forecastsQuery.isLoading || presencesQuery.isLoading
+	const isLoading = messHallsLoading || forecastsLoading || presencesLoading
 
 	// Aggregate metrics (only when data is available)
-	const metrics = aggregateDashboardMetrics(forecastsQuery.data ?? [], presencesQuery.data ?? [], filteredMessHalls, dateRange)
+	const metrics = aggregateDashboardMetrics(forecastsData ?? [], presencesData ?? [], filteredMessHalls, dateRange)
 
 	return (
 		<Card>
@@ -100,7 +100,7 @@ export default function DashboardCard({ unitId: _unitId }: { unitId: number }) {
 							</TabsContent>
 
 							<TabsContent value="presence" className="mt-6">
-								<PresenceTable forecasts={forecastsQuery.data ?? []} presences={presencesQuery.data ?? []} />
+								<PresenceTable forecasts={forecastsData ?? []} presences={presencesData ?? []} />
 							</TabsContent>
 						</Tabs>
 					</>

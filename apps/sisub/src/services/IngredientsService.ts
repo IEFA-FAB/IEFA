@@ -170,43 +170,43 @@ export const catmatQueryOptions = (search: string) =>
 	})
 
 export function useFolders() {
-	const query = useQuery(foldersQueryOptions())
-	return { folders: query.data, error: query.error, refetch: query.refetch }
+	const { data, error, refetch } = useQuery(foldersQueryOptions())
+	return { folders: data, error, refetch }
 }
 
 export function useIngredients(folderId?: string) {
-	const query = useQuery(ingredientsQueryOptions(folderId))
-	return { ingredients: query.data, error: query.error, refetch: query.refetch }
+	const { data, error, refetch } = useQuery(ingredientsQueryOptions(folderId))
+	return { ingredients: data, error, refetch }
 }
 
 export function useIngredientItems(ingredientId?: string) {
-	const query = useQuery(ingredientItemsQueryOptions(ingredientId))
-	return { ingredientItems: query.data, error: query.error, refetch: query.refetch }
+	const { data, error, refetch } = useQuery(ingredientItemsQueryOptions(ingredientId))
+	return { ingredientItems: data, error, refetch }
 }
 
 export function useIngredient(ingredientId: string) {
-	const query = useQuery(ingredientQueryOptions(ingredientId))
-	return { ingredient: query.data, error: query.error, refetch: query.refetch }
+	const { data, error, refetch } = useQuery(ingredientQueryOptions(ingredientId))
+	return { ingredient: data, error, refetch }
 }
 
 export function useIngredientsTree(includeDeleted = false) {
-	const query = useQuery(ingredientsTreeQueryOptions(includeDeleted))
-	return { tree: query.data, error: query.error, refetch: query.refetch }
+	const { data, error, refetch } = useQuery(ingredientsTreeQueryOptions(includeDeleted))
+	return { tree: data, error, refetch }
 }
 
 export function useNutrients() {
-	const query = useQuery(nutrientsQueryOptions())
-	return { nutrients: query.data, isLoading: query.isLoading, error: query.error }
+	const { data, isLoading, error } = useQuery(nutrientsQueryOptions())
+	return { nutrients: data, isLoading, error }
 }
 
 export function useIngredientNutrients(ingredientId: string) {
-	const query = useQuery(ingredientNutrientsQueryOptions(ingredientId))
-	return { ingredientNutrients: query.data, isLoading: query.isLoading, error: query.error }
+	const { data, isLoading, error } = useQuery(ingredientNutrientsQueryOptions(ingredientId))
+	return { ingredientNutrients: data, isLoading, error }
 }
 
 export function useCeafa(search?: string) {
-	const query = useQuery(ceafaQueryOptions(search))
-	return { ceafaList: query.data, isLoading: query.isLoading }
+	const { data, isLoading } = useQuery(ceafaQueryOptions(search))
+	return { ceafaList: data, isLoading }
 }
 
 export function useCreateFolder() {
@@ -376,8 +376,8 @@ export function useDeleteIngredientItem() {
 // ── purchase_item (CATMAT) ────────────────────────────────────────────────────
 
 export function usePurchaseItems(ingredientId: string) {
-	const query = useQuery(purchaseItemsQueryOptions(ingredientId))
-	return { purchaseItems: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch }
+	const { data, isLoading, error, refetch } = useQuery(purchaseItemsQueryOptions(ingredientId))
+	return { purchaseItems: data, isLoading, error, refetch }
 }
 
 // PurchaseItemWriteSchema exige catmat_item_codigo/unit_price positivos — sanitiza 0/inválidos para null.
@@ -512,8 +512,8 @@ export function useSetIngredientNutrients() {
 // ── Versionamento (histórico de alterações) ───────────────────────────────────
 
 export function useIngredientVersions(ingredientId: string) {
-	const query = useQuery(ingredientVersionsQueryOptions(ingredientId))
-	return { versions: query.data, isLoading: query.isLoading, error: query.error, refetch: query.refetch }
+	const { data, isLoading, error, refetch } = useQuery(ingredientVersionsQueryOptions(ingredientId))
+	return { versions: data, isLoading, error, refetch }
 }
 
 export interface SaveIngredientDetailsPayload {

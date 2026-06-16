@@ -1,18 +1,26 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { Copy, Pencil, Plus } from "lucide-react"
-import { useState } from "react"
+import { Copy, Layers, Pencil, Plus } from "lucide-react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
+import { BulkAddPieceDialog, type BulkTarget } from "@/components/admin/bulk-add-piece-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { uniformsQueryOptions } from "@/lib/uniforms/hooks"
-import { GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
+import { allVariantsQueryOptions, pieceItemsQueryOptions, piecesQueryOptions, uniformsQueryOptions } from "@/lib/uniforms/hooks"
+import { CIRCULO_LABELS, GENERO_LABELS, GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
 import { cloneUniformFn, upsertUniformFn } from "@/server/admin.fn"
 
 export const Route = createFileRoute("/admin/")({
-	loader: ({ context }) => context.queryClient.ensureQueryData(uniformsQueryOptions({})),
+	loader: async ({ context }) => {
+		await Promise.all([
+			context.queryClient.ensureQueryData(uniformsQueryOptions({})),
+			context.queryClient.ensureQueryData(allVariantsQueryOptions()),
+			context.queryClient.ensureQueryData(piecesQueryOptions()),
+			context.queryClient.ensureQueryData(pieceItemsQueryOptions()),
+		])
+	},
 	component: AdminDashboard,
 })
 
@@ -20,8 +28,22 @@ type Grupo = (typeof GRUPO_ORDER)[number]
 
 function AdminDashboard() {
 	const { data: uniforms } = useSuspenseQuery(uniformsQueryOptions({}))
+	const { data: allVariants } = useSuspenseQuery(allVariantsQueryOptions())
+	const { data: pieces } = useSuspenseQuery(piecesQueryOptions())
+	const { data: pieceItems } = useSuspenseQuery(pieceItemsQueryOptions())
 	const queryClient = useQueryClient()
 	const router = useRouter()
+
+	// Alvos do modal global: todas as variantes, agrupadas pelo título do uniforme.
+	const bulkTargets = useMemo<BulkTarget[]>(
+		() =>
+			allVariants.map((v) => ({
+				id: v.id,
+				label: `${CIRCULO_LABELS[v.circulo]} · ${GENERO_LABELS[v.genero]}${v.sub_variacao ? ` · ${v.sub_variacao}` : ""}`,
+				group: uniformTitle(v.uniform),
+			})),
+		[allVariants]
+	)
 
 	const [nome, setNome] = useState("")
 	const [grupo, setGrupo] = useState<Grupo | null>(null)
@@ -56,6 +78,21 @@ function AdminDashboard() {
 					<p className="text-sm text-muted-foreground">Cadastro de uniformes, variantes, composições e peças.</p>
 				</div>
 				<div className="flex gap-2">
+					{bulkTargets.length > 0 && (
+						<BulkAddPieceDialog
+							trigger={
+								<Button variant="outline">
+									<Layers className="size-4" />
+									Adicionar peça em lote
+								</Button>
+							}
+							targets={bulkTargets}
+							pieces={pieces}
+							pieceItems={pieceItems}
+							onChanged={() => queryClient.invalidateQueries({ queryKey: ["rumaer"] })}
+							description="Anexa a peça à composição das variantes marcadas, em qualquer uniforme."
+						/>
+					)}
 					<Button nativeButton={false} render={<Link to="/admin/pecas">Catálogo de peças</Link>} variant="outline" />
 					<Button nativeButton={false} render={<Link to="/admin/itens">Itens de venda</Link>} variant="outline" />
 				</div>

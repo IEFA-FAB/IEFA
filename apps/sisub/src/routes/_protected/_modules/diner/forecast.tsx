@@ -2,7 +2,7 @@
 
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
-import { type JSX, lazy, Suspense, useState } from "react"
+import { lazy, Suspense, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { BulkMealSelector } from "@/components/features/diner/BulkMealSelector"
 import { DayCardSkeleton } from "@/components/features/diner/DayCardSkeleton"
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
    Componente principal
    ============================ */
 
-function Forecast(): JSX.Element {
+function Forecast() {
 	"use no memo"
 	const {
 		success,

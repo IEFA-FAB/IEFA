@@ -3,10 +3,10 @@ import { LegalDocumentPage } from "@/components/ui/legal-markdown"
 import { fetchLegalDocumentFn } from "@/server/legal.fn"
 
 export const Route = createFileRoute("/_public/termos-de-uso")({
+	loader: () => fetchLegalDocumentFn({ data: { docType: "terms_of_use", locale: "pt-BR" } }),
 	head: () => ({
 		meta: [{ title: "Termos de Uso — SISUB" }, { name: "description", content: "Termos de uso do SISUB — condições de acesso e uso da plataforma." }],
 	}),
-	loader: () => fetchLegalDocumentFn({ data: { docType: "terms_of_use", locale: "pt-BR" } }),
 	component: TermosDeUso,
 })
 

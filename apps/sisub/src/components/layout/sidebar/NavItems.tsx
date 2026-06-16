@@ -48,7 +48,12 @@ export type ModuleDef = {
 	 * O TeamSwitcher e o Hub page usam essa URL ao invés de items[0].url.
 	 */
 	hubUrl?: string
-	items: { title: string; url: string; icon: LucideIcon }[]
+	/**
+	 * `minLevel` — nível PBAC mínimo exigido pela rota do item (default: 1).
+	 * Usado para esconder do menu/hub os itens que o usuário não pode abrir,
+	 * evitando o "bounce mudo" para o /hub ao clicar num item de nível superior.
+	 */
+	items: { title: string; url: string; icon: LucideIcon; minLevel?: number }[]
 }
 
 /** Catálogo completo de módulos e suas páginas. */
@@ -103,7 +108,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar },
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
 			{ title: "Suprimentos", url: "/kitchen/suprimentos", icon: ShoppingCart },
-			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode },
+			{ title: "QR Check-in", url: "/kitchen/qr-code", icon: QrCode, minLevel: 2 },
 			{ title: "Assistente IA", url: "/kitchen/chat", icon: MessageSquare },
 			{ title: "Configurações", url: "/kitchen/settings", icon: Settings },
 		],
@@ -125,11 +130,11 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Insumos", url: "/global/ingredients", icon: Wheat },
 			{ title: "Preparações", url: "/global/recipes", icon: UtensilsCrossed },
 			{ title: "Planos Semanais", url: "/global/weekly-plans", icon: CalendarDays },
-			{ title: "Locais", url: "/global/places-manager", icon: MapPin },
-			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck },
-			{ title: "Avaliação", url: "/global/evaluation", icon: Star },
-			{ title: "Sync Compras", url: "/global/compras-sync", icon: RefreshCw },
-			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList },
+			{ title: "Locais", url: "/global/places-manager", icon: MapPin, minLevel: 2 },
+			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck, minLevel: 2 },
+			{ title: "Avaliação", url: "/global/evaluation", icon: Star, minLevel: 2 },
+			{ title: "Sync Compras", url: "/global/compras-sync", icon: RefreshCw, minLevel: 2 },
+			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2 },
 
 			{ title: "Assistente IA", url: "/global/chat", icon: MessageSquare },
 		],
@@ -140,7 +145,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		icon: BarChart3,
 		color: "governance",
 		items: [
-			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3 },
+			{ title: "Visão Global", url: "/analytics/global", icon: BarChart3, minLevel: 2 },
 			{ title: "Assistente IA", url: "/analytics/chat", icon: MessageSquare },
 		],
 	},
@@ -158,9 +163,23 @@ export const ALL_MODULES: ModuleDef[] = [
 	},
 ]
 
-/** Retorna apenas os módulos acessíveis para o conjunto de permissões PBAC do usuário. */
+/**
+ * Retorna os módulos acessíveis para o conjunto de permissões PBAC do usuário,
+ * já com os itens filtrados pelo nível mínimo de cada um.
+ *
+ * Filtra em duas camadas:
+ *   1. Itens — esconde os que exigem nível acima do que o usuário possui no módulo
+ *      (ex: `global:1` não vê "Permissões", que exige `global:2`).
+ *   2. Módulos — mantém só os que têm permissão de leitura e ao menos um item visível
+ *      (ou um hub de escopo).
+ *
+ * Sem isso, o menu mostraria itens que apenas redirecionam de volta ao /hub ao clicar.
+ */
 export function getModulesForPermissions(permissions: UserPermission[]): ModuleDef[] {
-	return ALL_MODULES.filter((m) => hasPermission(permissions, m.id))
+	return ALL_MODULES.map((m) => ({
+		...m,
+		items: m.items.filter((it) => hasPermission(permissions, m.id, it.minLevel ?? 1)),
+	})).filter((m) => hasPermission(permissions, m.id) && (m.items.length > 0 || !!m.hubUrl))
 }
 
 export function getModuleFromPath(pathname: string): ModuleId | null {

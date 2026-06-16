@@ -3,6 +3,7 @@ import { userPermissionsQueryOptions } from "@/auth/pbac"
 import { OnboardingDialogs } from "@/components/providers/OnboardingDialogs"
 import { cn } from "@/lib/cn"
 import { syncUserEmailFn } from "@/server/user.fn"
+import type { UserPermission } from "@/types/domain/permissions"
 
 export const Route = createFileRoute("/_protected")({
 	beforeLoad: async ({ context, location }) => {
@@ -16,7 +17,16 @@ export const Route = createFileRoute("/_protected")({
 		// Pré-carrega permissões no cache do React Query.
 		// Garante que requirePermission() funcione sincronamente em qualquer rota filha.
 		await Promise.all([
-			context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)),
+			// Falha na busca de permissões NÃO pode derrubar todo o _protected (tela branca).
+			// Fallback: semeia o cache com o implicit allow (Comensal) para o app seguir
+			// utilizável e a sidebar/hub renderizarem ao menos o módulo básico.
+			context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)).catch((err) => {
+				// biome-ignore lint/suspicious/noConsole: intentional — surface permission load failure
+				console.error("Falha ao carregar permissões; aplicando fallback Comensal:", err)
+				context.queryClient.setQueryData<UserPermission[]>(userPermissionsQueryOptions(id).queryKey, [
+					{ module: "diner", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null },
+				])
+			}),
 			// Non-critical upsert — failure (e.g. HMR module cache miss in dev) must
 			// not crash beforeLoad and block navigation.
 			// biome-ignore lint/suspicious/noConsole: intentional — non-critical error logging

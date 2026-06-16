@@ -1,8 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowUpRight } from "lucide-react"
+import { useEffect } from "react"
+import { toast } from "sonner"
+import { z } from "zod"
 import { usePBAC } from "@/auth/pbac"
 import { AnimatedThemeToggler } from "@/components/layout/AnimatedThemeToggler"
-import { type GroupColor, getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
+import { ALL_MODULES, type GroupColor, getModulesForPermissions, type ModuleDef, type ModuleId } from "@/components/layout/sidebar/NavItems"
 import { UserProfileRow } from "@/components/layout/sidebar/NavUser"
 import { Card, CardContent } from "@/components/ui/card"
 import { Container } from "@/components/ui/container"
@@ -16,6 +19,10 @@ import { cn } from "@/lib/cn"
 import { toNameCase } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/hub")({
+	validateSearch: z.object({
+		// Módulo cujo acesso foi negado — preenchido por requirePermission ao redirecionar.
+		denied: z.string().optional(),
+	}),
 	component: HubPage,
 })
 
@@ -138,6 +145,20 @@ function HubPage() {
 	const { permissions, isLoading } = usePBAC()
 	const { data: userData } = useUserData(user?.id)
 	const { data: military } = useMilitaryData(userData?.nrOrdem ?? null)
+	const { denied } = Route.useSearch()
+	const navigate = useNavigate()
+
+	// Feedback quando o usuário é redirecionado para cá por falta de permissão.
+	useEffect(() => {
+		if (!denied) return
+		const moduleName = ALL_MODULES.find((m) => m.id === denied)?.name ?? denied
+		toast.error("Acesso negado", {
+			id: "access-denied",
+			description: `Você não tem permissão para acessar ${moduleName}.`,
+		})
+		// Limpa o search para o toast não reaparecer ao recarregar/navegar de volta.
+		navigate({ to: "/hub", replace: true, search: {} })
+	}, [denied, navigate])
 
 	const modules = getModulesForPermissions(permissions)
 

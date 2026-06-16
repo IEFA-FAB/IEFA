@@ -21,12 +21,12 @@ import { procurementNeedsQueryOptions } from "@/services/ProcurementService"
  * ```
  */
 export function useProcurement(params: ProcurementParams) {
-	const query = useQuery(procurementNeedsQueryOptions(params))
+	const { data, error, refetch, isLoading } = useQuery(procurementNeedsQueryOptions(params))
 
 	return {
-		needs: query.data ?? [],
-		error: query.error,
-		refetch: query.refetch,
-		isLoading: query.isLoading,
+		needs: data ?? [],
+		error,
+		refetch,
+		isLoading,
 	}
 }

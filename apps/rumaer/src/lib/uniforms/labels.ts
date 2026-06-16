@@ -34,6 +34,7 @@ export const CIRCULO_LABELS: Record<CirculoHierarquico, string> = {
 	suboficiais: "Suboficiais",
 	cadetes: "Cadetes",
 	alunos: "Alunos",
+	pracas: "Praças",
 }
 
 export const GENERO_LABELS: Record<Genero, string> = {

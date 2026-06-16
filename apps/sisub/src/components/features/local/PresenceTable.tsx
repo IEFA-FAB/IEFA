@@ -94,17 +94,17 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 	const allUserIds = Array.from(new Set([...forecastUserIds, ...presenceUserIds]))
 
 	// ✅ PARALELIZAÇÃO: userData e messHalls executam simultaneamente
-	const userDataQuery = useQuery(userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined))
-	const messHallsQuery = useQuery(messHallsQueryOptions(undefined))
+	const { data: userData, isLoading: userDataLoading } = useQuery(userDataQueryOptions(allUserIds.length > 0 ? allUserIds : undefined))
+	const { data: messHallsData, isLoading: messHallsLoading } = useQuery(messHallsQueryOptions(undefined))
 
 	// ❌ Esta query REALMENTE depende de userData - mantém sequencial
-	const nrOrdemList = userDataQuery.data?.filter((u) => u.nrOrdem !== null).map((u) => u.nrOrdem as string) ?? []
+	const nrOrdemList = userData?.filter((u) => u.nrOrdem !== null).map((u) => u.nrOrdem as string) ?? []
 
-	const militaryDataQuery = useQuery(userMilitaryDataQueryOptions(nrOrdemList.length > 0 ? nrOrdemList : undefined))
+	const { data: militaryData, isLoading: militaryLoading } = useQuery(userMilitaryDataQueryOptions(nrOrdemList.length > 0 ? nrOrdemList : undefined))
 
 	// Consolidate loading states
-	const isLoading = userDataQuery.isLoading || messHallsQuery.isLoading
-	const isLoadingMilitary = militaryDataQuery.isLoading
+	const isLoading = userDataLoading || messHallsLoading
+	const isLoadingMilitary = militaryLoading
 
 	// Show skeleton during initial load
 	if (isLoading || isLoadingMilitary) {
@@ -112,7 +112,7 @@ export default function PresenceTable({ forecasts, presences }: PresenceTablePro
 	}
 
 	// Aggregate data when all queries are complete
-	const aggregatedData = aggregatePresenceData(forecasts, presences, userDataQuery.data ?? [], militaryDataQuery.data ?? [], messHallsQuery.data ?? [])
+	const aggregatedData = aggregatePresenceData(forecasts, presences, userData ?? [], militaryData ?? [], messHallsData ?? [])
 
 	const toggleOpen = (id: string) => {
 		setOpenIds((prev) => {

@@ -3,6 +3,7 @@
  */
 
 import { queryOptions } from "@tanstack/react-query"
+import { listAllVariantsFn } from "@/server/admin.fn"
 import { getMyMilitaryProfileFn } from "@/server/military.fn"
 import { listPieceItemsFn } from "@/server/pieceItems.fn"
 import { listPiecesFn } from "@/server/pieces.fn"
@@ -25,6 +26,13 @@ export const uniformQueryOptions = (id: string) =>
 	queryOptions({
 		queryKey: ["rumaer", "uniform", id],
 		queryFn: () => getUniformFn({ data: { id } }),
+		staleTime: 1000 * 60 * 5,
+	})
+
+export const allVariantsQueryOptions = () =>
+	queryOptions({
+		queryKey: ["rumaer", "all-variants"],
+		queryFn: () => listAllVariantsFn(),
 		staleTime: 1000 * 60 * 5,
 	})
 

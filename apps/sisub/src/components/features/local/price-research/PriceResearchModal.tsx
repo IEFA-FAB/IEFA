@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { ArrowDown, ArrowUp, ArrowUpDown, Info, ListFilter, RefreshCw, TrendingUp } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -267,12 +267,15 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 	const [tableContainer, setTableContainer] = useState<HTMLDivElement | null>(null)
 	const queryClient = useQueryClient()
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset table state when item changes
-	useEffect(() => {
+	// Reseta o estado da tabela quando o item muda — ajustado durante o render
+	// (com comparação do valor anterior) para não exibir a seleção/filtro antigos por um frame.
+	const [prevCatmatCode, setPrevCatmatCode] = useState(catmatCode)
+	if (catmatCode !== prevCatmatCode) {
+		setPrevCatmatCode(catmatCode)
 		setRowSelection({})
 		setColumnFilters([])
 		setSorting([])
-	}, [catmatCode])
+	}
 
 	// ── Data fetching (all pages) ─────────────────────────────────────────────
 

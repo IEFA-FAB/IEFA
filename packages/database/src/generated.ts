@@ -1334,6 +1334,7 @@ export type Database = {
 		Tables: {
 			piece: {
 				Row: {
+					codigo: string | null
 					created_at: string
 					deleted_at: string | null
 					descricao_md: string | null
@@ -1344,6 +1345,7 @@ export type Database = {
 					updated_at: string
 				}
 				Insert: {
+					codigo?: string | null
 					created_at?: string
 					deleted_at?: string | null
 					descricao_md?: string | null
@@ -1354,6 +1356,7 @@ export type Database = {
 					updated_at?: string
 				}
 				Update: {
+					codigo?: string | null
 					created_at?: string
 					deleted_at?: string | null
 					descricao_md?: string | null
@@ -1654,7 +1657,7 @@ export type Database = {
 		}
 		Enums: {
 			categoria_militar: "oficiais" | "cadetes" | "suboficiais" | "sargentos" | "alunos_formacao" | "pracas"
-			circulo_hierarquico: "oficiais_generais" | "oficiais" | "sargentos" | "suboficiais" | "cadetes" | "alunos"
+			circulo_hierarquico: "oficiais_generais" | "oficiais" | "sargentos" | "suboficiais" | "cadetes" | "alunos" | "pracas"
 			equivalencia_civil: "esporte" | "esporte_fino" | "passeio" | "passeio_completo" | "gala"
 			genero: "masculino" | "feminino" | "unissex"
 			grupo_uniforme: "historicos" | "representacao" | "servicos" | "educacao_fisica" | "desfile"
@@ -4935,7 +4938,7 @@ export const Constants = {
 	rumaer: {
 		Enums: {
 			categoria_militar: ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"],
-			circulo_hierarquico: ["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos"],
+			circulo_hierarquico: ["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos", "pracas"],
 			equivalencia_civil: ["esporte", "esporte_fino", "passeio", "passeio_completo", "gala"],
 			genero: ["masculino", "feminino", "unissex"],
 			grupo_uniforme: ["historicos", "representacao", "servicos", "educacao_fisica", "desfile"],

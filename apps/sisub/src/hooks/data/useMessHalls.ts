@@ -43,7 +43,12 @@ import type { MessHall, Unit } from "@/types/domain/meal"
  */
 export const useMessHalls = () => {
 	// Units
-	const unitsQuery = useQuery<readonly Unit[], Error>({
+	const {
+		data: unitsData,
+		isPending: unitsPending,
+		isFetching: unitsFetching,
+		error: unitsError,
+	} = useQuery<readonly Unit[], Error>({
 		queryKey: queryKeys.sisub.units(),
 		refetchOnWindowFocus: false,
 		staleTime: 600_000, // 10 minutes
@@ -52,7 +57,12 @@ export const useMessHalls = () => {
 	})
 
 	// Mess Halls
-	const messHallsQuery = useQuery<readonly MessHall[], Error>({
+	const {
+		data: messHallsData,
+		isPending: messHallsPending,
+		isFetching: messHallsFetching,
+		error: messHallsError,
+	} = useQuery<readonly MessHall[], Error>({
 		queryKey: queryKeys.sisub.messHalls(),
 		refetchOnWindowFocus: false,
 		staleTime: 600_000, // 10 minutes
@@ -61,19 +71,19 @@ export const useMessHalls = () => {
 	})
 
 	return {
-		units: unitsQuery.data ?? [],
-		messHalls: messHallsQuery.data ?? [],
+		units: unitsData ?? [],
+		messHalls: messHallsData ?? [],
 		// Quick derived structures
 		messHallsByUnitId:
-			(messHallsQuery.data ?? []).reduce<Record<number, MessHall[]>>((acc, mh) => {
+			(messHallsData ?? []).reduce<Record<number, MessHall[]>>((acc, mh) => {
 				if (!acc[mh.unit_id]) {
 					acc[mh.unit_id] = []
 				}
 				acc[mh.unit_id].push(mh)
 				return acc
 			}, {}) ?? {},
-		isLoading: unitsQuery.isPending || messHallsQuery.isPending,
-		isRefetching: unitsQuery.isFetching || messHallsQuery.isFetching,
-		error: unitsQuery.error?.message || messHallsQuery.error?.message || null,
+		isLoading: unitsPending || messHallsPending,
+		isRefetching: unitsFetching || messHallsFetching,
+		error: unitsError?.message || messHallsError?.message || null,
 	}
 }

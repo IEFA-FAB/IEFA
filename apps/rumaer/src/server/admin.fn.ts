@@ -19,7 +19,7 @@ async function requireAuth() {
 
 const GRUPO = z.enum(["historicos", "representacao", "servicos", "educacao_fisica", "desfile"])
 const CATEGORIA = z.enum(["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"])
-const CIRCULO = z.enum(["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos"])
+const CIRCULO = z.enum(["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos", "pracas"])
 const GENERO = z.enum(["masculino", "feminino", "unissex"])
 const OBRIGATORIEDADE = z.enum(["obrigatorio", "eventual", "facultativo"])
 const EQ_CIVIL = z.enum(["esporte", "esporte_fino", "passeio", "passeio_completo", "gala"])
@@ -165,6 +165,7 @@ export const upsertPieceFn = createServerFn({ method: "POST" })
 			nome: z.string().min(1),
 			slug: z.string().min(1),
 			tipo: TIPO_PECA.nullable().optional(),
+			codigo: z.string().nullable().optional(),
 			descricao_md: z.string().nullable().optional(),
 		})
 	)
@@ -279,6 +280,34 @@ export const addPieceToVariantsFn = createServerFn({ method: "POST" })
 		if (error) throw new Error(error.message)
 		return { ok: true, count: rows.length }
 	})
+
+// Lista TODAS as variantes de todos os uniformes (não-deletados), com o contexto
+// do uniforme — para o modal de "adicionar peça em lote" global no dashboard.
+export type AllVariantsItem = {
+	id: string
+	uniform_id: string
+	circulo: UniformVariant["circulo"]
+	genero: UniformVariant["genero"]
+	sub_variacao: string | null
+	uniform: { numero: number | null; letra: string | null; nome: string; grupo: Uniform["grupo"]; ordem: number }
+}
+
+export const listAllVariantsFn = createServerFn({ method: "GET" }).handler(async (): Promise<AllVariantsItem[]> => {
+	await requireAuth()
+	const { data, error } = await getRumaerServerClient()
+		.from("uniform_variant")
+		.select("id, uniform_id, circulo, genero, sub_variacao, uniform:uniform!inner(numero, letra, nome, grupo, ordem, deleted_at)")
+		.is("uniform.deleted_at", null)
+		.order("ordem", { ascending: true })
+
+	if (error) throw new Error(error.message)
+	const rows = (data ?? []) as unknown as (AllVariantsItem & { uniform: AllVariantsItem["uniform"] & { deleted_at: string | null } })[]
+	// Ordena por (ordem do uniforme, depois pela ordem da variante já aplicada acima é por uniform.ordem;
+	// agrupamento no cliente usa uniform_id) — ordena estável por uniforme.
+	return rows
+		.map(({ uniform: { deleted_at: _d, ...uniform }, ...rest }) => ({ ...rest, uniform }))
+		.sort((a, b) => a.uniform.ordem - b.uniform.ordem || a.uniform_id.localeCompare(b.uniform_id))
+})
 
 // --------------------------------------------------- variant alt images ----
 // Imagem alternativa de uma variante atrelada a uma peça facultativa/eventual.
