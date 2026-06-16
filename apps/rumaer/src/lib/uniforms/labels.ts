@@ -71,6 +71,20 @@ export const TIPO_PECA_LABELS: Record<TipoPeca, string> = {
 	arma: "Arma",
 }
 
+/**
+ * Nome de peça para exibição: apenas a primeira letra maiúscula (sentence case).
+ * O catálogo guarda os nomes como vêm da especificação FAB (maioria minúscula,
+ * alguns em CAIXA ALTA). Esta normalização é só visual — o dado no banco não muda.
+ * Acrônimos (tokens ≥2 letras todas maiúsculas, ex.: INCAER, EDA, REPOUSAR) são
+ * preservados, exceto quando o nome inteiro está em caixa alta.
+ */
+export function formatPieceName(nome: string): string {
+	if (!nome) return nome
+	const allCaps = nome === nome.toLocaleUpperCase("pt-BR") && /\p{Lu}/u.test(nome)
+	const lowered = allCaps ? nome.toLocaleLowerCase("pt-BR") : nome.replace(/\S+/g, (w) => (/^\p{Lu}{2,}$/u.test(w) ? w : w.toLocaleLowerCase("pt-BR")))
+	return lowered.replace(/\p{L}/u, (c) => c.toLocaleUpperCase("pt-BR"))
+}
+
 /** Rótulo curto do uniforme: "5º Uniforme A" / nome para históricos. */
 export function uniformTitle(u: { numero: number | null; letra: string | null; nome: string }): string {
 	if (u.numero != null) return `${u.numero}º Uniforme${u.letra ? ` ${u.letra}` : ""}`

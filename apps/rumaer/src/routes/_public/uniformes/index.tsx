@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowRight, ImageOff, Search } from "lucide-react"
+import { ArrowDown, ArrowRight, ArrowUp, ImageOff, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { Badge } from "@/components/ui/badge"
@@ -9,16 +9,31 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { uniformPreviewImagesQueryOptions, uniformsQueryOptions } from "@/lib/uniforms/hooks"
-import { CATEGORIA_LABELS, GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
+import { CATEGORIA_LABELS, EQ_CIVIL_LABELS, GRUPO_LABELS, GRUPO_ORDER, uniformTitle } from "@/lib/uniforms/labels"
 import { cn } from "@/lib/utils"
+import type { UniformListItem } from "@/server/uniforms.fn"
 
 const GRUPOS = ["historicos", "representacao", "servicos", "educacao_fisica", "desfile"] as const
 const CATEGORIAS = ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"] as const
+
+const SORT_OPTIONS = [
+	{ value: "ordem", label: "Ordem padrão" },
+	{ value: "numero", label: "Número do uniforme" },
+	{ value: "art", label: "Art. de referência" },
+	{ value: "nome", label: "Nome (A–Z)" },
+	{ value: "grupo", label: "Grupo" },
+] as const
+
+type SortKey = (typeof SORT_OPTIONS)[number]["value"]
+
+const SORT_LABELS = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>
 
 const searchSchema = z.object({
 	grupo: z.enum(GRUPOS).optional(),
 	categoria: z.enum(CATEGORIAS).optional(),
 	q: z.string().optional(),
+	sort: z.enum(["ordem", "numero", "art", "nome", "grupo"]).optional(),
+	dir: z.enum(["asc", "desc"]).optional(),
 })
 
 export const Route = createFileRoute("/_public/uniformes/")({
@@ -28,6 +43,55 @@ export const Route = createFileRoute("/_public/uniformes/")({
 	component: BrowsePage,
 })
 
+/** Texto pesquisável de um uniforme — todos os campos relevantes em minúsculas. */
+function uniformHaystack(u: UniformListItem): string {
+	return [
+		uniformTitle(u),
+		u.nome,
+		u.traje ?? "",
+		u.subgrupo ?? "",
+		u.art_referencia ?? "",
+		u.eq_eb ?? "",
+		u.eq_mb ?? "",
+		u.eq_civil ? EQ_CIVIL_LABELS[u.eq_civil] : "",
+		GRUPO_LABELS[u.grupo],
+		...u.categories.map((c) => CATEGORIA_LABELS[c.categoria]),
+	]
+		.join(" ")
+		.toLowerCase()
+}
+
+/** Comparador estável entre uniformes para a chave de ordenação (sempre ascendente; direção aplicada depois). */
+function compareUniforms(a: UniformListItem, b: UniformListItem, sort: SortKey): number {
+	switch (sort) {
+		case "numero": {
+			if (a.numero == null && b.numero == null) return a.nome.localeCompare(b.nome, "pt-BR")
+			if (a.numero == null) return 1
+			if (b.numero == null) return -1
+			if (a.numero !== b.numero) return a.numero - b.numero
+			return (a.letra ?? "").localeCompare(b.letra ?? "", "pt-BR")
+		}
+		case "art": {
+			const aArt = a.art_referencia ?? ""
+			const bArt = b.art_referencia ?? ""
+			if (!aArt && !bArt) return a.ordem - b.ordem
+			if (!aArt) return 1
+			if (!bArt) return -1
+			return aArt.localeCompare(bArt, "pt-BR", { numeric: true })
+		}
+		case "nome":
+			return uniformTitle(a).localeCompare(uniformTitle(b), "pt-BR")
+		case "grupo": {
+			const ga = GRUPO_ORDER.indexOf(a.grupo)
+			const gb = GRUPO_ORDER.indexOf(b.grupo)
+			if (ga !== gb) return ga - gb
+			return a.ordem - b.ordem
+		}
+		default:
+			return a.ordem - b.ordem
+	}
+}
+
 function BrowsePage() {
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
@@ -36,16 +100,14 @@ function BrowsePage() {
 	const grupoValue = search.grupo ?? "all"
 	const categoriaValue = search.categoria ?? "all"
 	const q = search.q ?? ""
+	const sort: SortKey = search.sort ?? "ordem"
+	const dir = search.dir ?? "asc"
 
 	const term = q.trim().toLowerCase()
-	const filtered = term
-		? uniforms.filter((u) => {
-				const haystack = [uniformTitle(u), u.nome, u.traje ?? "", GRUPO_LABELS[u.grupo], ...u.categories.map((c) => CATEGORIA_LABELS[c.categoria])]
-					.join(" ")
-					.toLowerCase()
-				return haystack.includes(term)
-			})
-		: uniforms
+	const matched = term ? uniforms.filter((u) => uniformHaystack(u).includes(term)) : uniforms
+
+	const filtered = [...matched].sort((a, b) => compareUniforms(a, b, sort))
+	if (dir === "desc") filtered.reverse()
 
 	return (
 		<div className="flex flex-col gap-8">
@@ -66,7 +128,7 @@ function BrowsePage() {
 							type="text"
 							value={q}
 							onChange={(e) => navigate({ search: (p) => ({ ...p, q: e.target.value || undefined }) })}
-							placeholder="Uniforme, ocasião ou peça…"
+							placeholder="Nº, art. de referência, traje, equivalência…"
 							aria-label="Buscar uniforme"
 							className="min-w-0 flex-1 bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
 						/>
@@ -111,6 +173,34 @@ function BrowsePage() {
 							))}
 						</SelectContent>
 					</Select>
+				</div>
+
+				{/* Ordenação */}
+				<div className="flex flex-col gap-1.5">
+					<span className="text-label text-muted-foreground">Ordenar por</span>
+					<div className="flex items-stretch gap-2">
+						<Select value={sort} onValueChange={(v) => navigate({ search: (p) => ({ ...p, sort: v === "ordem" ? undefined : (v as SortKey) }) })}>
+							<SelectTrigger className="min-w-48">
+								<SelectValue>{SORT_LABELS[sort]}</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{SORT_OPTIONS.map((o) => (
+									<SelectItem key={o.value} value={o.value}>
+										{o.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<button
+							type="button"
+							onClick={() => navigate({ search: (p) => ({ ...p, dir: dir === "asc" ? "desc" : undefined }) })}
+							aria-label={dir === "asc" ? "Ordem crescente — alternar para decrescente" : "Ordem decrescente — alternar para crescente"}
+							title={dir === "asc" ? "Crescente" : "Decrescente"}
+							className="flex shrink-0 items-center justify-center rounded-lg border border-input bg-card px-3 text-muted-foreground shadow-xs transition-colors hover:border-primary/40 hover:text-foreground focus-visible:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+						>
+							{dir === "asc" ? <ArrowUp className="size-4" aria-hidden="true" /> : <ArrowDown className="size-4" aria-hidden="true" />}
+						</button>
+					</div>
 				</div>
 			</div>
 

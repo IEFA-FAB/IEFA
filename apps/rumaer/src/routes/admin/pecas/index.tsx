@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { piecesQueryOptions } from "@/lib/uniforms/hooks"
-import { TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
+import { formatPieceName, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
 import { deletePieceFn, upsertPieceFn } from "@/server/admin.fn"
 
 const TIPOS = Object.keys(TIPO_PECA_LABELS) as TipoPeca[]
@@ -143,7 +143,7 @@ function PiecesAdmin() {
 										className="h-8 max-w-xs"
 									/>
 								) : (
-									<span className="text-sm font-medium">{p.nome}</span>
+									<span className="text-sm font-medium">{formatPieceName(p.nome)}</span>
 								)}
 								<span className="font-mono text-xs text-muted-foreground truncate">{p.slug}</span>
 							</div>

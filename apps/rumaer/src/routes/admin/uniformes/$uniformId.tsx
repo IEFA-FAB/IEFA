@@ -2,11 +2,12 @@ import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantImage, 
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, Check, Layers, Loader2, Plus, Trash2, Upload } from "lucide-react"
-import { useId, useRef, useState } from "react"
+import { useId, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { BulkAddPieceDialog } from "@/components/admin/bulk-add-piece-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Combobox } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,6 +16,7 @@ import { pieceItemsQueryOptions, piecesQueryOptions, signedImageQueryOptions, un
 import {
 	CATEGORIA_LABELS,
 	CIRCULO_LABELS,
+	formatPieceName,
 	GENERO_LABELS,
 	GRUPO_LABELS,
 	GRUPO_ORDER,
@@ -436,11 +438,17 @@ function VariantCard({
 	const activeLook = lookPieceId ? variant.images.find((img) => img.piece_id === lookPieceId) : undefined
 	const { data: imageUrl } = useQuery(signedImageQueryOptions(activeLook?.image_path ?? variant.image_path))
 
-	// Resolve o nome da peça: catálogo OU o join da composição (cobre peças soft-deletadas que saíram do catálogo).
-	const pieceName = (id: string) => pieces.find((p) => p.id === id)?.nome ?? variant.pieces.find((vp) => vp.piece_id === id)?.piece.nome ?? id
 	// Opções do dropdown = catálogo + peças da composição ausentes do catálogo (ex.: removidas), para o valor atual ter item correspondente.
-	const orphanPieces = [...new Map(variant.pieces.filter((vp) => !pieces.some((p) => p.id === vp.piece_id)).map((vp) => [vp.piece_id, vp.piece])).values()]
-	const pieceOptions = [...pieces, ...orphanPieces]
+	// Ordenadas alfabeticamente; label inclui tipo e marcação "(removida)" — tudo pesquisável no combobox.
+	const pieceComboItems = useMemo(() => {
+		const orphanPieces = [...new Map(variant.pieces.filter((vp) => !pieces.some((p) => p.id === vp.piece_id)).map((vp) => [vp.piece_id, vp.piece])).values()]
+		return [...pieces, ...orphanPieces]
+			.map((p) => ({
+				value: p.id,
+				label: `${formatPieceName(p.nome)}${p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}${p.deleted_at ? " · (removida)" : ""}`,
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"))
+	}, [pieces, variant.pieces])
 
 	const del = useMutation({
 		mutationFn: () => deleteVariantFn({ data: { id: variant.id } }),
@@ -536,7 +544,7 @@ function VariantCard({
 												className={`border rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"}`}
 												title={hasImg ? "Tem imagem própria" : "Sem imagem — usa a imagem base"}
 											>
-												{p.piece.nome}
+												{formatPieceName(p.piece.nome)}
 												{!hasImg && <span className={`ml-1 ${on ? "text-background/70" : "text-muted-foreground/60"}`}>(base)</span>}
 											</button>
 										)
@@ -581,45 +589,28 @@ function VariantCard({
 			<div className="flex flex-col gap-2">
 				<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Composição</span>
 				{rows.map((r, i) => {
-					const itemsForPiece = r.piece_id ? pieceItems.filter((it) => it.piece_id === r.piece_id) : []
-					const selectedItem = pieceItems.find((it) => it.id === r.piece_item_id)
+					const itemOptions = (r.piece_id ? pieceItems.filter((it) => it.piece_id === r.piece_id) : [])
+						.map((it) => ({ value: it.id, label: it.nome }))
+						.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"))
 					return (
 						<div key={i} className="flex flex-col sm:flex-row gap-2 sm:items-center">
-							<Select
+							<Combobox
+								className="flex-1"
+								items={pieceComboItems}
 								value={r.piece_id || null}
 								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, piece_id: v ?? "", piece_item_id: null } : x)))}
-							>
-								<SelectTrigger className="flex-1">
-									<SelectValue placeholder="Peça…">{r.piece_id ? pieceName(r.piece_id) : undefined}</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{pieceOptions.map((p) => (
-										<SelectItem key={p.id} value={p.id}>
-											{p.nome}
-											{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
-											{p.deleted_at ? " · (removida)" : ""}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-							<Select
+								placeholder="Buscar peça…"
+								emptyText="Nenhuma peça encontrada."
+							/>
+							<Combobox
+								className="flex-1"
+								items={itemOptions}
 								value={r.piece_item_id}
 								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, piece_item_id: v } : x)))}
-								disabled={!r.piece_id || itemsForPiece.length === 0}
-							>
-								<SelectTrigger className="flex-1">
-									<SelectValue placeholder={r.piece_id && itemsForPiece.length === 0 ? "sem item concreto" : "item concreto (opcional)"}>
-										{selectedItem ? selectedItem.nome : undefined}
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{itemsForPiece.map((it) => (
-										<SelectItem key={it.id} value={it.id}>
-											{it.nome}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+								disabled={!r.piece_id || itemOptions.length === 0}
+								placeholder={r.piece_id && itemOptions.length === 0 ? "sem item concreto" : "item concreto (opcional)"}
+								emptyText="Nenhum item encontrado."
+							/>
 							<Select
 								value={r.obrigatoriedade}
 								onValueChange={(v) => setRows((rs) => rs.map((x, j) => (j === i ? { ...x, obrigatoriedade: v as typeof x.obrigatoriedade } : x)))}
@@ -741,7 +732,7 @@ function AltImageRow({
 				)}
 			</div>
 			<div className="flex flex-col gap-0.5 flex-1 min-w-0">
-				<span className="text-sm font-medium truncate">{piece.piece.nome}</span>
+				<span className="text-sm font-medium truncate">{formatPieceName(piece.piece.nome)}</span>
 				<span className="text-xs text-muted-foreground">{OBRIGATORIEDADE_LABELS[piece.obrigatoriedade]}</span>
 			</div>
 			<input

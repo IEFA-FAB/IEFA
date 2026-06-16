@@ -11,6 +11,7 @@ import {
 	CATEGORIA_LABELS,
 	CIRCULO_LABELS,
 	EQ_CIVIL_LABELS,
+	formatPieceName,
 	GENERO_LABELS,
 	GRUPO_LABELS,
 	OBRIGATORIEDADE_LABELS,
@@ -177,7 +178,7 @@ function DetailPage() {
 											{itens.map((p) => (
 												<li key={p.id} className="flex items-start justify-between gap-3 px-3 py-2">
 													<div className="flex flex-col gap-0.5">
-														<span className="text-sm">{p.piece.nome}</span>
+														<span className="text-sm">{formatPieceName(p.piece.nome)}</span>
 														{p.piece_item && <span className="text-xs font-medium text-foreground">{p.piece_item.nome}</span>}
 														{p.observacao && <span className="text-xs text-muted-foreground">{p.observacao}</span>}
 														{(p.restricao_posto?.length || p.restricao_quadro?.length) && (

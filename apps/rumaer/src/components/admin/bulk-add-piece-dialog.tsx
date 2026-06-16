@@ -4,10 +4,11 @@ import { Plus } from "lucide-react"
 import { type ReactElement, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Combobox } from "@/components/ui/combobox"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { OBRIGATORIEDADE_LABELS, OBRIGATORIEDADE_ORDER, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
+import { formatPieceName, OBRIGATORIEDADE_LABELS, OBRIGATORIEDADE_ORDER, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
 import { addPieceToVariantsFn } from "@/server/admin.fn"
 
 /** Alvo selecionável: uma variante de uniforme. `group` opcional agrupa por uniforme. */
@@ -87,8 +88,23 @@ function BulkAddPieceForm({
 	}, [targets])
 
 	const itemsForPiece = pieceId ? pieceItems.filter((it) => it.piece_id === pieceId) : []
-	const selectedItem = pieceItems.find((it) => it.id === pieceItemId)
 	const allSelected = selected.size === targets.length
+
+	// Opções ordenadas alfabeticamente; label inclui código/tipo para serem pesquisáveis.
+	const pieceOptions = useMemo(
+		() =>
+			[...pieces]
+				.sort((a, b) => formatPieceName(a.nome).localeCompare(formatPieceName(b.nome), "pt-BR"))
+				.map((p) => ({
+					value: p.id,
+					label: `${p.codigo ? `${p.codigo} · ` : ""}${formatPieceName(p.nome)}${p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}`,
+				})),
+		[pieces]
+	)
+	const itemOptions = useMemo(
+		() => [...itemsForPiece].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((it) => ({ value: it.id, label: it.nome })),
+		[itemsForPiece]
+	)
 
 	// Agrupa por `group` preservando a ordem de chegada; sem groups → grupo único.
 	const groups = useMemo(() => {
@@ -141,42 +157,26 @@ function BulkAddPieceForm({
 		<div className="flex flex-col gap-4">
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 				<FormField label="Peça">
-					<Select
+					<Combobox
+						items={pieceOptions}
 						value={pieceId}
 						onValueChange={(v) => {
 							setPieceId(v)
 							setPieceItemId(null)
 						}}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder="Selecione…">{pieceId ? (pieces.find((p) => p.id === pieceId)?.nome ?? pieceId) : undefined}</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{pieces.map((p) => (
-								<SelectItem key={p.id} value={p.id}>
-									{p.codigo ? `${p.codigo} · ` : ""}
-									{p.nome}
-									{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+						placeholder="Buscar peça…"
+						emptyText="Nenhuma peça encontrada."
+					/>
 				</FormField>
 				<FormField label="Item concreto">
-					<Select value={pieceItemId} onValueChange={setPieceItemId} disabled={!pieceId || itemsForPiece.length === 0}>
-						<SelectTrigger>
-							<SelectValue placeholder={pieceId && itemsForPiece.length === 0 ? "sem item concreto" : "opcional"}>
-								{selectedItem ? selectedItem.nome : undefined}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							{itemsForPiece.map((it) => (
-								<SelectItem key={it.id} value={it.id}>
-									{it.nome}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<Combobox
+						items={itemOptions}
+						value={pieceItemId}
+						onValueChange={setPieceItemId}
+						disabled={!pieceId || itemOptions.length === 0}
+						placeholder={pieceId && itemOptions.length === 0 ? "sem item concreto" : "opcional — buscar item…"}
+						emptyText="Nenhum item encontrado."
+					/>
 				</FormField>
 				<FormField label="Obrigatoriedade">
 					<Select value={obrigatoriedade} onValueChange={(v) => setObrigatoriedade(v as typeof obrigatoriedade)}>

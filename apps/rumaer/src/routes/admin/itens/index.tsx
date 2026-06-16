@@ -6,10 +6,11 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Combobox } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { pieceItemsQueryOptions, piecesQueryOptions } from "@/lib/uniforms/hooks"
-import { GENERO_LABELS, pieceItemAttrs, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
+import { formatPieceName, GENERO_LABELS, pieceItemAttrs, TIPO_PECA_LABELS } from "@/lib/uniforms/labels"
 import { deletePieceItemFn, upsertPieceItemFn } from "@/server/admin.fn"
 
 const GENEROS = Object.keys(GENERO_LABELS) as Genero[]
@@ -84,7 +85,14 @@ function PieceItemsAdmin() {
 		return [...map.values()].sort((a, b) => a.piece.nome.localeCompare(b.piece.nome))
 	}, [items])
 
-	const selectedPiece = pieces.find((p) => p.id === form.piece_id)
+	// Opções de peça ordenadas alfabeticamente; label inclui tipo (pesquisável no combobox).
+	const pieceComboItems = useMemo(
+		() =>
+			[...pieces]
+				.map((p) => ({ value: p.id, label: `${formatPieceName(p.nome)}${p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}` }))
+				.sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+		[pieces]
+	)
 
 	return (
 		<div className="flex flex-col gap-8">
@@ -106,19 +114,13 @@ function PieceItemsAdmin() {
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 					<LabeledField label="Peça (item do uniforme)">
-						<Select value={form.piece_id} onValueChange={(v) => setField("piece_id", v)}>
-							<SelectTrigger>
-								<SelectValue placeholder="Selecione a peça…">{selectedPiece ? selectedPiece.nome : undefined}</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{pieces.map((p) => (
-									<SelectItem key={p.id} value={p.id}>
-										{p.nome}
-										{p.tipo ? ` · ${TIPO_PECA_LABELS[p.tipo]}` : ""}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						<Combobox
+							items={pieceComboItems}
+							value={form.piece_id}
+							onValueChange={(v) => setField("piece_id", v)}
+							placeholder="Buscar peça…"
+							emptyText="Nenhuma peça encontrada."
+						/>
 					</LabeledField>
 					<LabeledField label="Nome do item">
 						<Input value={form.nome} onChange={(e) => setField("nome", e.target.value)} placeholder="Ex.: Platina de Capitão Intendente" />
@@ -173,7 +175,7 @@ function PieceItemsAdmin() {
 						<div key={piece.id} className="flex flex-col gap-2 border border-border rounded-lg p-4">
 							<div className="flex items-center gap-2">
 								<Badge variant="outline">{piece.tipo ? TIPO_PECA_LABELS[piece.tipo] : "Sem tipo"}</Badge>
-								<span className="text-sm font-semibold">{piece.nome}</span>
+								<span className="text-sm font-semibold">{formatPieceName(piece.nome)}</span>
 								<span className="text-xs text-muted-foreground">{groupItems.length} item(ns)</span>
 							</div>
 							<ul className="flex flex-col divide-y divide-border">
