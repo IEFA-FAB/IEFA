@@ -3,6 +3,8 @@ import { ArrowLeft, FloppyDisk, SendDiagonal } from "iconoir-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { useSaveReviewDraft, useSubmitReview } from "@/lib/journal/hooks"
+import type { Review } from "@/lib/journal/types"
 
 export const Route = createFileRoute("/journal/review/$assignmentId")({
 	component: ReviewSubmission,
@@ -28,10 +30,12 @@ interface ReviewFormData {
 }
 
 function ReviewSubmission() {
-	Route.useParams()
+	const { assignmentId } = Route.useParams()
 	const navigate = useNavigate()
-	const [isSaving, setIsSaving] = useState(false)
-	const [isSubmitting, setIsSubmitting] = useState(false)
+	const saveDraftMutation = useSaveReviewDraft()
+	const submitMutation = useSubmitReview()
+	const isSaving = saveDraftMutation.isPending
+	const isSubmitting = submitMutation.isPending
 
 	const [formData, setFormData] = useState<ReviewFormData>({
 		score_originality: 0,
@@ -60,13 +64,19 @@ function ReviewSubmission() {
 		setFormData((prev) => ({ ...prev, [field]: value }))
 	}
 
+	// Mapeia o estado do form para as colunas de `reviews`. `recommendation` vazio é omitido (só obrigatório no submit).
+	const toReviewData = (): Partial<Review> => {
+		const { recommendation, ...rest } = formData
+		return { ...rest, ...(recommendation ? { recommendation } : {}) }
+	}
+
 	const handleSaveDraft = async () => {
-		setIsSaving(true)
-		// TODO: Call saveReviewDraft mutation
-		setTimeout(() => {
-			setIsSaving(false)
+		try {
+			await saveDraftMutation.mutateAsync({ assignmentId, reviewData: toReviewData() })
 			alert("Rascunho salvo com sucesso!")
-		}, 500)
+		} catch (err) {
+			alert(err instanceof Error ? err.message : "Não foi possível salvar o rascunho.")
+		}
 	}
 
 	const handleSubmit = async () => {
@@ -90,11 +100,12 @@ function ReviewSubmission() {
 
 		if (!confirmed) return
 
-		setIsSubmitting(true)
-		// TODO: Call submitReview mutation
-		setTimeout(() => {
+		try {
+			await submitMutation.mutateAsync({ assignmentId, reviewData: toReviewData() })
 			navigate({ to: "/journal/review" })
-		}, 1000)
+		} catch (err) {
+			alert(err instanceof Error ? err.message : "Não foi possível submeter a revisão.")
+		}
 	}
 
 	return (

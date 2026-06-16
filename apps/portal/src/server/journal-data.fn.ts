@@ -390,22 +390,34 @@ export const updateReviewFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+// Grava a review do assignment (update se já existir, insert caso contrário).
+// reviews.assignment_id não é UNIQUE, então upsert por PK duplicaria linhas — daí o select-then-write.
+async function writeReview(assignmentId: string, fields: Record<string, unknown>) {
+	const db = getJournalServerClient()
+	const { data: existing } = await db.from("reviews").select("id").eq("assignment_id", assignmentId).maybeSingle()
+	const query = existing ? db.from("reviews").update(fields).eq("id", existing.id) : db.from("reviews").insert({ assignment_id: assignmentId, ...fields })
+	const { data: review, error } = await query.select().single()
+	if (error) throw new Error(error.message)
+	return review
+}
+
 export const submitReviewFn = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
 	.handler(async ({ data }) => {
-		const db = getJournalServerClient()
-		const { data: review, error: reviewError } = await db
-			.from("reviews")
-			.upsert({ assignment_id: data.assignmentId, ...data.reviewData, submitted_at: new Date().toISOString() })
-			.select()
-			.single()
-		if (reviewError) throw new Error(reviewError.message)
-		const { error: assignmentError } = await db
+		const review = await writeReview(data.assignmentId, { ...data.reviewData, is_draft: false, submitted_at: new Date().toISOString() })
+		const { error: assignmentError } = await getJournalServerClient()
 			.from("review_assignments")
 			.update({ status: "completed", completed_at: new Date().toISOString() })
 			.eq("id", data.assignmentId)
 		if (assignmentError) throw new Error(assignmentError.message)
 		return review
+	})
+
+// Salva rascunho (is_draft) sem completar o assignment — pode ser chamado várias vezes.
+export const saveReviewDraftFn = createServerFn({ method: "POST" })
+	.inputValidator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
+	.handler(async ({ data }) => {
+		return writeReview(data.assignmentId, { ...data.reviewData, is_draft: true })
 	})
 
 // ─── Notifications ────────────────────────────────────────────────────────────

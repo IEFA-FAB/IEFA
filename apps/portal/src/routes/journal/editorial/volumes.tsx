@@ -118,22 +118,9 @@ function VolumeManagement() {
 							</div>
 
 							<div className="flex gap-2">
-								<Button
-									// TODO: Implementar rota de detalhes do volume (/journal/editorial/volumes/$volumeId)
-									// render={
-									// 	<Link
-									// 		to="/journal/editorial/volumes/$volumeId"
-									// 		params={{ volumeId: volume.id }}
-									// 	>
-									// 		Ver Artigos
-									// 	</Link>
-									// }
-									size="sm"
-									variant="outline"
-									className="flex-1"
-									disabled
-									title="Em breve"
-								>
+								{/* "Ver artigos" depende do data layer de volumes (server fn agregando articles por volume/issue
+								    + rota /journal/editorial/volumes/$volumeId). Enquanto não existir, o botão fica desabilitado. */}
+								<Button size="sm" variant="outline" className="flex-1" disabled title="Em breve">
 									Ver Artigos
 								</Button>
 								<Button size="sm" variant="ghost" onClick={() => setEditingVolume(volume.id)}>

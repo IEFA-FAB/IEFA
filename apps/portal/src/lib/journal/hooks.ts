@@ -3,11 +3,13 @@
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
+	acceptReviewInvitation,
 	createArticle,
 	createArticleAuthors,
 	createArticleVersion,
 	createReview,
 	createUserProfile,
+	declineReviewInvitation,
 	deleteArticle,
 	getArticle,
 	getArticleAuthors,
@@ -19,11 +21,14 @@ import {
 	getPublishedArticle,
 	getPublishedArticles,
 	getReview,
+	getReviewAssignmentByToken,
 	getReviewAssignments,
 	getUserActiveDraft,
 	getUserNotifications,
 	getUserProfile,
 	markNotificationAsRead,
+	saveReviewDraft,
+	submitReview,
 	updateArticle,
 	updateReview,
 	updateUserProfile,
@@ -102,6 +107,13 @@ export const reviewQueryOptions = (assignmentId: string) =>
 	queryOptions({
 		queryKey: ["journal", "review", assignmentId],
 		queryFn: () => getReview(assignmentId),
+		staleTime: 1000 * 60, // 1 minute
+	})
+
+export const reviewAssignmentByTokenQueryOptions = (token: string) =>
+	queryOptions({
+		queryKey: ["journal", "review-assignment-by-token", token],
+		queryFn: () => getReviewAssignmentByToken(token),
 		staleTime: 1000 * 60, // 1 minute
 	})
 
@@ -264,6 +276,52 @@ export function useUpdateReview() {
 		mutationFn: ({ reviewId, updates }: { reviewId: string; updates: Partial<Review> }) => updateReview(reviewId, updates),
 		onSuccess: (data) => {
 			queryClient.setQueryData(["journal", "review", data.assignment_id], data)
+		},
+	})
+}
+
+export function useSubmitReview() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ assignmentId, reviewData }: { assignmentId: string; reviewData: Partial<Review> }) => submitReview(assignmentId, reviewData),
+		onSuccess: (_data, { assignmentId }) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "review", assignmentId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignments"] })
+		},
+	})
+}
+
+export function useSaveReviewDraft() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ assignmentId, reviewData }: { assignmentId: string; reviewData: Partial<Review> }) => saveReviewDraft(assignmentId, reviewData),
+		onSuccess: (_data, { assignmentId }) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "review", assignmentId] })
+		},
+	})
+}
+
+export function useAcceptReviewInvitation() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: (token: string) => acceptReviewInvitation(token),
+		onSuccess: (_data, token) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignment-by-token", token] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignments"] })
+		},
+	})
+}
+
+export function useDeclineReviewInvitation() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ token, reason }: { token: string; reason?: string }) => declineReviewInvitation(token, reason),
+		onSuccess: (_data, { token }) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignment-by-token", token] })
 		},
 	})
 }

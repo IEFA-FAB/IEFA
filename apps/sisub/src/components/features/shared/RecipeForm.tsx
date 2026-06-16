@@ -124,7 +124,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				return
 			}
 			const isFork = mode === "fork"
-			const kitchenIdNew = isFork ? 1 : null
+			// Fork é sempre local a uma cozinha (rota /kitchen/$kitchenId/...); kitchenId vem da URL como string.
+			const kitchenIdNew = isFork && kitchenId ? Number(kitchenId) : null
 			const baseRecipeId = isFork ? initialData?.id : undefined
 
 			const mappedIngredients = value.ingredients
@@ -148,7 +149,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 
 				await createMutation.mutateAsync({
 					...recipeData,
-					kitchen_id: kitchenIdNew, // TODO: Use real kitchen ID
+					kitchen_id: kitchenIdNew,
 					base_recipe_id: baseRecipeId,
 					ingredients: mappedIngredients,
 				})

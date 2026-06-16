@@ -34,6 +34,7 @@ import {
 	getUserNotificationsFn,
 	getUserProfileFn,
 	markNotificationAsReadFn,
+	saveReviewDraftFn,
 	submitReviewFn,
 	updateArticleAuthorFn,
 	updateArticleFn,
@@ -208,6 +209,10 @@ export async function updateReview(reviewId: string, updates: Partial<Review>): 
 
 export async function submitReview(assignmentId: string, reviewData: Partial<Review>) {
 	return submitReviewFn({ data: { assignmentId, reviewData: reviewData as Record<string, unknown> } })
+}
+
+export async function saveReviewDraft(assignmentId: string, reviewData: Partial<Review>) {
+	return saveReviewDraftFn({ data: { assignmentId, reviewData: reviewData as Record<string, unknown> } })
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

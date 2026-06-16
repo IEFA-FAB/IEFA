@@ -6,7 +6,10 @@
  *   auth.users.id  ==  sisub.user_data.id  ->  user_data.nrOrdem
  *   user_data.nrOrdem  ==  sisub.user_military_data.nrOrdem  ->  sgPosto / nmPessoa / nmGuerra
  *
- * quadro / especialidade ainda não existem na origem — retornados como null (TODO).
+ * quadro / especialidade: não há fonte. Nenhuma tabela mapeia nrOrdem -> quadro/especialidade
+ * (sisub.user_military_data não tem essas colunas; rumaer.piece_item as usa só como atributo de
+ * catálogo de uniformes, sem vínculo com o militar). Permanecem null até existir essa origem
+ * (ex.: nova coluna em user_military_data ou tabela de perfil militar).
  */
 
 import { createServerFn } from "@tanstack/react-start"
@@ -42,7 +45,7 @@ export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(
 		sgPosto: mil.sgPosto ?? null,
 		nmPessoa: mil.nmPessoa ?? null,
 		nmGuerra: mil.nmGuerra ?? null,
-		quadro: null, // TODO: origem ainda não disponível
-		especialidade: null, // TODO: origem ainda não disponível
+		quadro: null, // sem origem no banco (ver doc do módulo)
+		especialidade: null, // sem origem no banco (ver doc do módulo)
 	}
 })

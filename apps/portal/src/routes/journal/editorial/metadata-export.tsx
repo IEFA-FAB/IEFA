@@ -1,6 +1,9 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Download, Globe, Page, SendDiagonal } from "iconoir-react"
 import { Button } from "@/components/ui/button"
+import { journalSettingsQueryOptions, publishedArticlesQueryOptions } from "@/lib/journal/hooks"
+import { crossrefXml, downloadXml, dublinCoreXml, jatsXml } from "@/lib/journal/metadata-xml"
 
 export const Route = createFileRoute("/journal/editorial/metadata-export")({
 	staticData: {
@@ -13,27 +16,31 @@ export const Route = createFileRoute("/journal/editorial/metadata-export")({
 			order: 130,
 		},
 	},
+	loader: async ({ context }) => {
+		await Promise.all([
+			context.queryClient.ensureQueryData(publishedArticlesQueryOptions()),
+			context.queryClient.ensureQueryData(journalSettingsQueryOptions()),
+		])
+	},
 	component: MetadataExport,
 })
 
 function MetadataExport() {
-	// Placeholder - will use publishedArticlesQueryOptions
-	// biome-ignore lint/suspicious/noExplicitAny: Placeholder data
-	const publishedArticles: any[] = []
+	const { data: publishedArticles } = useSuspenseQuery(publishedArticlesQueryOptions())
+	const { data: settings } = useSuspenseQuery(journalSettingsQueryOptions())
+
+	const hasArticles = publishedArticles.length > 0
 
 	const handleExportCrossref = () => {
-		// TODO: Generate and download Crossref XML
-		alert("Exportando metadados para Crossref...")
+		downloadXml("crossref-deposit.xml", crossrefXml(publishedArticles, settings))
 	}
 
 	const handleExportJATS = () => {
-		// TODO: Generate and download JATS XML
-		alert("Exportando metadados em formato JATS...")
+		downloadXml("jats-articles.xml", jatsXml(publishedArticles, settings))
 	}
 
 	const handleExportDublinCore = () => {
-		// TODO: Generate and download Dublin Core XML
-		alert("Exportando metadados em formato Dublin Core...")
+		downloadXml("dublin-core.xml", dublinCoreXml(publishedArticles))
 	}
 
 	return (
@@ -57,7 +64,7 @@ function MetadataExport() {
 							Formato para registro de DOIs no sistema Crossref. Inclui todos os metadados necessários para indexação.
 						</p>
 					</div>
-					<Button className="w-full" onClick={handleExportCrossref}>
+					<Button className="w-full" onClick={handleExportCrossref} disabled={!hasArticles}>
 						<Download className="size-4 mr-2" />
 						Exportar Crossref
 					</Button>
@@ -72,7 +79,7 @@ function MetadataExport() {
 						<h3 className="font-semibold text-lg mb-2">JATS XML</h3>
 						<p className="text-sm text-muted-foreground mb-4">Journal Article Tag Suite - padrão para arquivamento e intercâmbio de artigos científicos.</p>
 					</div>
-					<Button className="w-full" onClick={handleExportJATS}>
+					<Button className="w-full" onClick={handleExportJATS} disabled={!hasArticles}>
 						<Download className="size-4 mr-2" />
 						Exportar JATS
 					</Button>
@@ -89,7 +96,7 @@ function MetadataExport() {
 							Padrão de metadados para repositórios e sistemas de busca. Formato simples e amplamente adotado.
 						</p>
 					</div>
-					<Button className="w-full" onClick={handleExportDublinCore}>
+					<Button className="w-full" onClick={handleExportDublinCore} disabled={!hasArticles}>
 						<Download className="size-4 mr-2" />
 						Exportar Dublin Core
 					</Button>
@@ -110,17 +117,22 @@ function MetadataExport() {
 						</div>
 					</div>
 
-					{publishedArticles.length > 0 ? (
+					{hasArticles ? (
 						<div className="divide-y">
 							{publishedArticles.map((article) => (
 								<div key={article.id} className="p-4 grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 text-sm items-center">
 									<span className="font-medium line-clamp-1">{article.title_pt}</span>
 									<span className="text-muted-foreground">
-										Vol. {article.volume}, Nº {article.issue}
+										Vol. {article.volume ?? "—"}, Nº {article.issue ?? "—"}
 									</span>
-									<span className="font-mono text-xs">{article.doi}</span>
+									<span className="font-mono text-xs">{article.doi ?? "—"}</span>
 									<span className="text-muted-foreground">{new Date(article.published_at).toLocaleDateString("pt-BR")}</span>
-									<Button size="sm" variant="outline">
+									<Button
+										size="sm"
+										variant="outline"
+										title="Baixar Crossref deste artigo"
+										onClick={() => downloadXml(`crossref-${article.submission_number}.xml`, crossrefXml([article], settings))}
+									>
 										<Download className="size-4" />
 									</Button>
 								</div>
