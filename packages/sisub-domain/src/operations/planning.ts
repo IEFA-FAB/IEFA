@@ -73,21 +73,49 @@ export async function fetchDayDetails(client: AnyClient, ctx: UserContext, input
 export async function upsertDailyMenu(client: AnyClient, ctx: UserContext, input: UpsertDailyMenu) {
 	requireKitchen(ctx, 2, input.kitchenId)
 
+	// "Cria se não existir, senão mantém" (idempotente). NÃO usamos ON CONFLICT do
+	// PostgREST: a unicidade do trio (data, refeição, cozinha) é garantida por um índice
+	// PARCIAL (where deleted_at is null) que o PostgREST não consegue inferir. Fazemos
+	// select-then-insert ciente de soft-delete; o índice é a trava contra corrida.
+	const { data: existing, error: selError } = await client
+		.from("daily_menu")
+		.select()
+		.eq("kitchen_id", input.kitchenId)
+		.eq("service_date", input.serviceDate)
+		.eq("meal_type_id", input.mealTypeId)
+		.is("deleted_at", null)
+		.maybeSingle()
+
+	if (selError) throw new DomainError("UPSERT_FAILED", selError.message)
+	if (existing) return [existing]
+
 	const { data, error } = await client
 		.from("daily_menu")
-		.upsert(
-			{
-				kitchen_id: input.kitchenId,
-				service_date: input.serviceDate,
-				meal_type_id: input.mealTypeId,
-				status: "PLANNED",
-				...(input.forecastedHeadcount != null && { forecasted_headcount: input.forecastedHeadcount }),
-			},
-			{ onConflict: "service_date,meal_type_id,kitchen_id", ignoreDuplicates: true }
-		)
+		.insert({
+			kitchen_id: input.kitchenId,
+			service_date: input.serviceDate,
+			meal_type_id: input.mealTypeId,
+			status: "PLANNED",
+			...(input.forecastedHeadcount != null && { forecasted_headcount: input.forecastedHeadcount }),
+		})
 		.select()
 
-	if (error) throw new DomainError("UPSERT_FAILED", error.message)
+	if (error) {
+		// Corrida: outra requisição criou o mesmo trio entre o select e o insert.
+		// O índice daily_menu_active_unique rejeita (23505) — tratamos como "já existe".
+		if ((error as { code?: string }).code === "23505") {
+			const { data: raced } = await client
+				.from("daily_menu")
+				.select()
+				.eq("kitchen_id", input.kitchenId)
+				.eq("service_date", input.serviceDate)
+				.eq("meal_type_id", input.mealTypeId)
+				.is("deleted_at", null)
+				.maybeSingle()
+			if (raced) return [raced]
+		}
+		throw new DomainError("UPSERT_FAILED", error.message)
+	}
 	return data
 }
 
