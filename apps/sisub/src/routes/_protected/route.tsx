@@ -28,9 +28,14 @@ export const Route = createFileRoute("/_protected")({
 				])
 			}),
 			// Non-critical upsert — failure (e.g. HMR module cache miss in dev) must
-			// not crash beforeLoad and block navigation.
-			// biome-ignore lint/suspicious/noConsole: intentional — non-critical error logging
-			syncUserEmailFn({ data: { userId: id, email: email ?? "" } }).catch(console.error),
+			// not crash beforeLoad and block navigation. A colisão de email já é
+			// reconciliada na operation (reclaim do registro órfão); o que chega aqui
+			// é genuinamente irrecuperável, então logamos uma mensagem clara em vez
+			// de propagar o erro cru do Postgres.
+			syncUserEmailFn({ data: { userId: id, email: email ?? "" } }).catch((err) => {
+				// biome-ignore lint/suspicious/noConsole: intentional — non-critical sync failure
+				console.warn("Não foi possível sincronizar o perfil do usuário (não bloqueante):", err instanceof Error ? err.message : err)
+			}),
 		])
 	},
 	component: ProtectedLayout,
