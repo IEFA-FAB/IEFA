@@ -3,6 +3,8 @@
  * Fiscal presence tracking: read presences + forecasts, insert/delete presence records.
  * CLIENT: getSupabaseServerClient (service role). Schema: sisub (explicit .schema("sisub")) on all functions.
  * VIEWS/TABLES: v_meal_presences_with_user (view), meal_forecasts, meal_presences.
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

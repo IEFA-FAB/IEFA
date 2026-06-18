@@ -4,6 +4,8 @@
  * CLIENT: getSupabaseServerClient (service role).
  * TABLES: daily_menu, menu_items (read).
  * Output shape: DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }.
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

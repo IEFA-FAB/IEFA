@@ -3,6 +3,8 @@
  * Meal forecast management for individual diners (will_eat intent per date+meal).
  * CLIENT: getSupabaseServerClient (service role). Schema: sisub (explicit .schema("sisub")) on all functions.
  * TABLES: meal_forecasts, user_data (schema sisub).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

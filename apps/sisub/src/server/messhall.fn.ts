@@ -3,6 +3,8 @@
  * Mess hall lookup, diner forecast queries and extra-presence (other_presences) tracking.
  * CLIENT: getSupabaseServerClient (service role). Schema: sisub (explicit .schema("sisub")) on all functions.
  * TABLES/VIEWS: mess_halls, meal_forecasts, other_presences, v_user_identity (view).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

@@ -1,6 +1,8 @@
 /**
  * @module ingredients.fn
  * Thin wrappers delegating to @iefa/sisub-domain operations.
+ * @domain core
+ * @migration done
  */
 
 import {

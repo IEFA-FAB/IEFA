@@ -2,6 +2,8 @@
  * @module auth.fn
  * Server-side session validation via Supabase Auth.
  * CLIENT: getSupabaseAuthClient (JWT validation — NOT service role). Validates token with Supabase Auth server, not localStorage.
+ * @domain external
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

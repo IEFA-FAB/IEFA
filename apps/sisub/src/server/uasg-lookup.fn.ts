@@ -2,6 +2,8 @@
  * @module uasg-lookup.fn
  * UASG (Unidade Administrativa de Serviços Gerais) lookup from Compras.gov.br. Read-only, no local persistence.
  * CLIENT: external fetch only — no Supabase. External: dadosabertos.compras.gov.br (10 s timeout, no retry).
+ * @domain external
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

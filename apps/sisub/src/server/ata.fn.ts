@@ -3,6 +3,8 @@
  * Procurement list lifecycle: needs calculation, creation, status transitions, soft-delete.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: procurement_list, procurement_list_kitchen, procurement_list_selection, procurement_list_item.
+ * @domain core
+ * @migration pending
  */
 
 import type { ProcurementList } from "@iefa/database/sisub"

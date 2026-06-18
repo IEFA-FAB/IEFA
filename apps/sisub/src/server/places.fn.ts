@@ -3,6 +3,8 @@
  * Organisational hierarchy CRUD: units, kitchens and mess halls graph management.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: units, kitchen, mess_halls.
+ * @domain core
+ * @migration pending
  */
 
 import type { KitchenUpdate, MessHallUpdate } from "@iefa/database/sisub"

@@ -5,6 +5,8 @@
  *
  * applyTemplateFn: accepts targetDates[] for backward compat with frontend.
  *   Internally converts to startDate/endDate for domain operation.
+ * @domain core
+ * @migration done
  */
 
 import {

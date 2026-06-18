@@ -4,6 +4,8 @@
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: kitchen_ata_draft, kitchen_ata_draft_selection.
  * Status: "pending" (editable by kitchen) → "sent" (submitted, awaiting management action).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

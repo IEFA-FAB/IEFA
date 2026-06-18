@@ -3,6 +3,8 @@
  * Unit settings CRUD — UASG code and address fields.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLE: units (uasg + address_* fields).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

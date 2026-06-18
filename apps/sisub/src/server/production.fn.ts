@@ -4,6 +4,8 @@
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: daily_menu, menu_items, production_task.
  * State machine: PENDING → IN_PROGRESS (sets started_at) → DONE (sets completed_at) → PENDING (clears both timestamps).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

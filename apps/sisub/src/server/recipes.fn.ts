@@ -4,6 +4,8 @@
  * Auth enforced via requireAuth() — all endpoints now require authentication.
  *
  * Bug fix: fetchRecipeFn now filters deleted_at IS NULL (via domain operation).
+ * @domain core
+ * @migration done
  */
 
 import {

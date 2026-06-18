@@ -3,6 +3,8 @@
  * Reference data: all units and mess halls. Read-only, no input validation.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: units, mess_halls.
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

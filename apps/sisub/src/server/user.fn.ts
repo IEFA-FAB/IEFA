@@ -3,6 +3,8 @@
  * User profile and military data sync in the sisub schema.
  * CLIENT: getSupabaseServerClient (service role) — all functions. Uses explicit .schema("sisub") on user_data.
  * TABLES: user_data (schema sisub), user_military_data.
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

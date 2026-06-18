@@ -3,6 +3,8 @@
  * Super-admin evaluation feature toggle and user opinion collection.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: super_admin_controller (key="evaluation"), opinions.
+ * @domain app
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

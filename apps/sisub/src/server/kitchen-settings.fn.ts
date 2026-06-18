@@ -3,6 +3,8 @@
  * Kitchen address settings CRUD.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLE: kitchen (address_* fields + unit relation).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

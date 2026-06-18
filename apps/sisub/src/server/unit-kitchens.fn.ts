@@ -3,6 +3,8 @@
  * Reference list of kitchens belonging to a unit. Read-only.
  * CLIENT: getSupabaseServerClient (service role).
  * TABLE: kitchen.
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

@@ -3,6 +3,8 @@
  * CRUD for purchase_item + purchase_item_ingredient junction.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLES: purchase_item, purchase_item_ingredient.
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

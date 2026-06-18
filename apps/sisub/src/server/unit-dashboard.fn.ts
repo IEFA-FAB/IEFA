@@ -3,6 +3,8 @@
  * Unit procurement health dashboard: published ATAs + ARP items at ≥80% consumption with upcoming-menu annotation.
  * CLIENT: getSupabaseServerClient (service role).
  * TABLES: procurement_list, procurement_arp, procurement_arp_item, procurement_list_item, kitchen, daily_menu, menu_items (all reads).
+ * @domain core
+ * @migration pending
  */
 
 import { createServerFn } from "@tanstack/react-start"

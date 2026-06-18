@@ -4,6 +4,8 @@
  * LEVELS: 0=deny (explicit block), 1=read, 2=write. Deny entries are stripped from fetchUserPermissionsFn output.
  * MODULES: diner | messhall | unit | kitchen | kitchen-production | global | analytics | local-analytics | storage.
  * SCOPE: permissions can be scoped to mess_hall_id, kitchen_id, or unit_id (at most one per row).
+ * @domain core
+ * @migration pending
  */
 
 import { requirePermission } from "@iefa/sisub-domain/guards"

@@ -3,6 +3,8 @@
  * Policy rule CRUD and AI review prompt generation for product and recipe quality control.
  * CLIENT: getSupabaseServerClient (service role) — all functions.
  * TABLE: policy_rule (soft-delete via deleted_at). Targets: "product" | "recipe".
+ * @domain app
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

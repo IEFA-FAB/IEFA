@@ -2,6 +2,8 @@
  * @module planning.fn
  * Thin wrappers delegating to @iefa/sisub-domain operations.
  * Auth enforced via requireAuth() — all endpoints now require authentication.
+ * @domain core
+ * @migration done
  */
 
 import {
