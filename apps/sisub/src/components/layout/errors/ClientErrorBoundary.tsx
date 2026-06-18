@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
+import { reportError } from "@/lib/observability/report-error"
 
 interface Props {
 	children: ReactNode
@@ -20,7 +21,9 @@ export class ClientErrorBoundary extends Component<Props, State> {
 		return { error }
 	}
 
-	componentDidCatch(_error: Error, _info: ErrorInfo) {}
+	componentDidCatch(error: Error, info: ErrorInfo) {
+		reportError(error, { source: "client-boundary", componentStack: info.componentStack })
+	}
 
 	handleReload = () => {
 		window.location.reload()

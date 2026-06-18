@@ -2,6 +2,7 @@ import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
 import { type AuthState, authActions, authQueryOptions } from "@/auth/service"
+import { reportError } from "@/lib/observability/report-error"
 import supabase from "@/lib/supabase"
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider"
 import { routeTree } from "./routeTree.gen"
@@ -24,6 +25,11 @@ export const getRouter = () => {
 			...rqContext,
 			auth: initialAuthData,
 			authActions: authActions,
+		},
+		// Sink central das quebras de rota/render do TanStack — cobre tudo que
+		// cai no errorComponent (loaders, render, hidratação de match).
+		defaultOnCatch: (error, errorInfo) => {
+			reportError(error, { source: "router", ...errorInfo })
 		},
 		defaultPreload: "intent",
 		scrollRestoration: true,

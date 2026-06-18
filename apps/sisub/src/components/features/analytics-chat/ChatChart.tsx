@@ -2,6 +2,7 @@ import { Download } from "lucide-react"
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useCallback, useRef } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { reportError } from "@/lib/observability/report-error"
 import type { ChartSpec, ChartType } from "@/types/domain/analytics-chat"
 
 // ── Error Boundary ──────────────────────────────────────────────────────────
@@ -17,7 +18,9 @@ class ChartErrorBoundary extends Component<{ children: ReactNode }, ChartErrorBo
 		return { error }
 	}
 
-	componentDidCatch(_error: Error, _info: ErrorInfo) {}
+	componentDidCatch(error: Error, _info: ErrorInfo) {
+		reportError(error, { source: "chart-boundary" })
+	}
 
 	render() {
 		if (this.state.error) {
