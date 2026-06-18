@@ -6,6 +6,7 @@ export {
 	fetchUserData,
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
+export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	type IngredientLastReview,
 	type IngredientReviewRow,
@@ -59,6 +60,7 @@ export {
 } from "./places.ts"
 export {
 	addMenuItem,
+	fetchDailyMenuContent,
 	fetchDailyMenus,
 	fetchDayDetails,
 	getTrashItems,
@@ -69,7 +71,9 @@ export {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "./planning.ts"
+export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export { fetchProcurementNeeds } from "./procurement.ts"
+export { ensureProductionTasks, fetchProductionBoard, updateProductionTaskStatus } from "./production.ts"
 export {
 	createRecipe,
 	createRecipeVersion,

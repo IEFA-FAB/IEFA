@@ -1,15 +1,16 @@
 /**
  * @module daily-menu-content.fn
  * Aggregates daily menu content (dishes + ingredients) across multiple kitchens for a date range.
- * CLIENT: getSupabaseServerClient (service role).
- * TABLES: daily_menu, menu_items (read).
+ * Thin wrapper over @iefa/sisub-domain (operations/planning.fetchDailyMenuContent).
  * Output shape: DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }.
  * @domain core
- * @migration pending
+ * @migration done
  */
 
+import { FetchDailyMenuContentSchema, fetchDailyMenuContent } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
+import { requireAuth } from "@/lib/auth.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export interface DishIngredient {
@@ -30,96 +31,9 @@ export interface DayMenuContent {
 	}
 }
 
-interface RecipeSnapshot {
-	name: string
-	ingredients?: Array<{
-		ingredient_name: string
-		quantity: number
-		measure_unit: string
-	}>
-}
-
-const mapMealTypeNameToKey = (name: string): string | null => {
-	const lower = name.toLowerCase()
-	if (lower.includes("café")) return "cafe"
-	if (lower.includes("almoço")) return "almoco"
-	if (lower.includes("jantar")) return "janta"
-	if (lower.includes("ceia")) return "ceia"
-	return null
-}
-
-/**
- * Returns a nested map of dishes per date per meal key for the given kitchens and date range.
- *
- * @remarks
- * meal_type.name → mealKey via mapMealTypeNameToKey: "café"→"cafe", "almoço"→"almoco", "jantar"→"janta", "ceia"→"ceia". Unmapped names are silently skipped.
- * Dish name resolution: prefers recipe JSON snapshot name, falls back to recipe_origin.name, then "Prato sem nome".
- * Ingredient data sourced from recipe JSON snapshot only — recipe_origin has no ingredient join here.
- *
- * @throws {Error} on Supabase query failure.
- */
 export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
-	.inputValidator(
-		z.object({
-			kitchenIds: z.array(z.number()),
-			startDate: z.string(),
-			endDate: z.string(),
-		})
-	)
+	.inputValidator(FetchDailyMenuContentSchema)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("daily_menu")
-			.select(
-				`
-        service_date,
-        kitchen_id,
-        meal_type:meal_type_id(name),
-        menu_items:menu_items(
-          id,
-          recipe,
-          recipe_origin:recipe_origin_id(name)
-        )
-      `
-			)
-			.in("kitchen_id", data.kitchenIds)
-			.gte("service_date", data.startDate)
-			.lte("service_date", data.endDate)
-
-		if (error) throw new Error(error.message)
-
-		const content: DayMenuContent = {}
-
-		result?.forEach((menu) => {
-			const date = menu.service_date
-			if (!date) return
-
-			const mealName = menu.meal_type?.name
-			if (!mealName) return
-
-			const mealKey = mapMealTypeNameToKey(mealName)
-			if (!mealKey) return
-
-			if (!content[date]) content[date] = {}
-			if (!content[date][mealKey]) content[date][mealKey] = []
-
-			menu.menu_items.forEach((item) => {
-				let dishName = "Prato sem nome"
-				let ingredients: DishIngredient[] = []
-
-				if (item.recipe) {
-					const snapshot = item.recipe as unknown as RecipeSnapshot
-					dishName = snapshot?.name || dishName
-					if (snapshot.ingredients) {
-						ingredients = snapshot.ingredients
-					}
-				} else if (item.recipe_origin) {
-					dishName = item.recipe_origin.name || dishName
-				}
-
-				const dish: DishDetails = { id: item.id, name: dishName, ingredients }
-				content[date][mealKey].push(dish)
-			})
-		})
-
-		return content
+		const ctx = await requireAuth()
+		return (await fetchDailyMenuContent(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as DayMenuContent
 	})
