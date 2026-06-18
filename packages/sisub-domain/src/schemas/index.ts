@@ -61,8 +61,50 @@ export {
 	UpdateIngredientSchema,
 	VersionActorSchema,
 } from "./ingredients.ts"
-export type { ListKitchens, ListUnitKitchens } from "./kitchens.ts"
-export { ListKitchensSchema, ListUnitKitchensSchema } from "./kitchens.ts"
+export type {
+	FetchKitchenSettings,
+	KitchenSettingsInput,
+	ListKitchens,
+	ListUnitKitchens,
+	UpdateKitchenSettings,
+} from "./kitchens.ts"
+export {
+	FetchKitchenSettingsSchema,
+	KitchenSettingsSchema,
+	ListKitchensSchema,
+	ListUnitKitchensSchema,
+	UpdateKitchenSettingsSchema,
+} from "./kitchens.ts"
+export type {
+	DeleteForecast,
+	DeletePresence,
+	EnsureProductionTasks,
+	FetchDailyMenuContent,
+	FetchProductionBoard,
+	GetUserDefaultMessHall,
+	InsertPresence,
+	ListForecastMap,
+	ListMealForecasts,
+	ListPresences,
+	PersistDefaultMessHall,
+	UpdateProductionTaskStatus,
+	UpsertForecast,
+} from "./meal-ops.ts"
+export {
+	DeleteForecastSchema,
+	DeletePresenceSchema,
+	EnsureProductionTasksSchema,
+	FetchDailyMenuContentSchema,
+	FetchProductionBoardSchema,
+	GetUserDefaultMessHallSchema,
+	InsertPresenceSchema,
+	ListForecastMapSchema,
+	ListMealForecastsSchema,
+	ListPresencesSchema,
+	PersistDefaultMessHallSchema,
+	UpdateProductionTaskStatusSchema,
+	UpsertForecastSchema,
+} from "./meal-ops.ts"
 export type { CreateMealType, DeleteMealType, FetchMealTypes, RestoreMealType, UpdateMealType } from "./meal-types.ts"
 export {
 	CreateMealTypeSchema,
@@ -71,6 +113,43 @@ export {
 	RestoreMealTypeSchema,
 	UpdateMealTypeSchema,
 } from "./meal-types.ts"
+export type {
+	CreateUserPermission,
+	DeleteUserPermission,
+	FetchUserPermissions,
+	FetchUserPermissionsAdmin,
+	SearchUsersByEmail,
+	UpdateUserPermission,
+} from "./permissions.ts"
+export {
+	APP_MODULES,
+	CreateUserPermissionSchema,
+	DeleteUserPermissionSchema,
+	FetchUserPermissionsAdminSchema,
+	FetchUserPermissionsSchema,
+	SearchUsersByEmailSchema,
+	UpdateUserPermissionSchema,
+} from "./permissions.ts"
+export type {
+	AddOtherPresence,
+	ApplyPlacesDiff,
+	FetchMessHallByCode,
+	FetchOtherPresencesCount,
+	FetchUserMealForecast,
+	PlacesDiffItem,
+	ResolveDisplayName,
+	UpdateEntityInput,
+} from "./places.ts"
+export {
+	AddOtherPresenceSchema,
+	ApplyPlacesDiffSchema,
+	FetchMessHallByCodeSchema,
+	FetchOtherPresencesCountSchema,
+	FetchUserMealForecastSchema,
+	PlacesDiffItemSchema,
+	ResolveDisplayNameSchema,
+	UpdatePlacesEntitySchema,
+} from "./places.ts"
 export type {
 	AddMenuItem,
 	DailyMenuFetch,
@@ -95,8 +174,80 @@ export {
 	UpdateSubstitutionsSchema,
 	UpsertDailyMenuSchema,
 } from "./planning.ts"
-export type { FetchProcurementNeeds } from "./procurement.ts"
-export { FetchProcurementNeedsSchema } from "./procurement.ts"
+export type {
+	CalculateAtaNeeds,
+	CreateAta,
+	CreateAtaDraft,
+	CreateKitchenDraft,
+	CreatePurchaseItem,
+	DeleteAta,
+	DeleteKitchenDraft,
+	DeletePurchaseItem,
+	DeletePurchaseItemIngredient,
+	DraftItem,
+	FetchAtaDetails,
+	FetchAtaList,
+	FetchIngredientPurchaseItems,
+	FetchKitchenDrafts,
+	FetchPendingDraft,
+	FetchProcurementNeeds,
+	FetchPurchaseItem,
+	FetchPurchaseItemIngredients,
+	FetchPurchaseItems,
+	FetchUnitDashboard,
+	FinalizeAtaDraft,
+	KitchenSelectionInput,
+	PurchaseItemIngredientWrite,
+	PurchaseItemWrite,
+	SaveAtaDraftItems,
+	SendKitchenDraft,
+	SetDefaultPurchaseItemIngredient,
+	TemplateSelectionInput,
+	UpdateAtaDraft,
+	UpdateAtaItemDescription,
+	UpdateAtaItemPrices,
+	UpdateAtaStatus,
+	UpdateKitchenDraft,
+	UpdatePurchaseItem,
+	UpsertPurchaseItemIngredient,
+} from "./procurement.ts"
+export {
+	CalculateAtaNeedsSchema,
+	CreateAtaDraftSchema,
+	CreateAtaSchema,
+	CreateKitchenDraftSchema,
+	CreatePurchaseItemSchema,
+	DeleteAtaSchema,
+	DeleteKitchenDraftSchema,
+	DeletePurchaseItemIngredientSchema,
+	DeletePurchaseItemSchema,
+	DraftItemSchema,
+	FetchAtaDetailsSchema,
+	FetchAtaListSchema,
+	FetchIngredientPurchaseItemsSchema,
+	FetchKitchenDraftsSchema,
+	FetchPendingDraftSchema,
+	FetchProcurementNeedsSchema,
+	FetchPurchaseItemIngredientsSchema,
+	FetchPurchaseItemSchema,
+	FetchPurchaseItemsSchema,
+	FetchUnitDashboardSchema,
+	FinalizeAtaDraftSchema,
+	KitchenSelectionSchema,
+	PurchaseItemIngredientWriteSchema,
+	PurchaseItemWriteSchema,
+	SaveAtaDraftItemsSchema,
+	SendKitchenDraftSchema,
+	SetDefaultPurchaseItemIngredientSchema,
+	TemplateSelectionSchema,
+	UpdateAtaDraftSchema,
+	UpdateAtaItemDescriptionSchema,
+	UpdateAtaItemPricesSchema,
+	UpdateAtaStatusSchema,
+	UpdateKitchenDraftSchema,
+	UpdatePurchaseItemSchema,
+	UpsertPurchaseItemIngredientSchema,
+} from "./procurement.ts"
 export type {
 	CreateRecipe,
 	CreateRecipeVersion,
@@ -143,3 +294,7 @@ export {
 	TemplateItemSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"
+export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from "./units.ts"
+export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"
+export type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "./user.ts"
+export { FetchMilitaryDataSchema, FetchUserDataSchema, FetchUserNrOrdemSchema, SyncUserEmailSchema, SyncUserNrOrdemSchema } from "./user.ts"

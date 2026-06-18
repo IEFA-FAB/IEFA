@@ -1,6 +1,8 @@
 /**
  * @module procurement.fn
  * Thin wrapper delegating to @iefa/sisub-domain operations.
+ * @domain core
+ * @migration done
  */
 
 import { FetchProcurementNeedsSchema, fetchProcurementNeeds } from "@iefa/sisub-domain"

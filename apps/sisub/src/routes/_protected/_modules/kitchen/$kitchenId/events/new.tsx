@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { createBlankTemplateFn } from "@/server/menu-template-create.fn"
+import { createBlankTemplateFn } from "@/server/templates.fn"
 
 /**
  * KITCHEN — Novo Evento
@@ -62,7 +62,7 @@ function NewEventPage() {
 			return createBlankTemplateFn({
 				data: {
 					name: name.trim(),
-					description: description.trim() || null,
+					description: description.trim() || undefined,
 					kitchenId,
 					templateType: "event",
 				},

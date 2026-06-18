@@ -4,6 +4,8 @@
  * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getSupabaseServerClient (service role, DB reads/writes).
  * TABLES: module_chat_session, module_chat_message.
  * Auth: all functions call requireUserId() — throws "Não autenticado" if JWT is invalid or missing.
+ * @domain app
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

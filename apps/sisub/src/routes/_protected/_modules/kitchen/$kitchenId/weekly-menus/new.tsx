@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useTemplate } from "@/hooks/data/useTemplates"
-import { createBlankTemplateFn, forkTemplateFn } from "@/server/menu-template-create.fn"
+import { createBlankTemplateFn, forkTemplateFn } from "@/server/templates.fn"
 
 /**
  * KITCHEN — Novo Cardápio Semanal
@@ -75,7 +75,7 @@ function NewWeeklyMenuPage() {
 			return createBlankTemplateFn({
 				data: {
 					name: name.trim(),
-					description: description.trim() || null,
+					description: description.trim() || undefined,
 					kitchenId,
 					templateType: "weekly",
 				},
@@ -101,11 +101,10 @@ function NewWeeklyMenuPage() {
 			if (!kitchenId || !forkFrom || !name.trim()) throw new Error("Dados incompletos")
 			return forkTemplateFn({
 				data: {
-					name: name.trim(),
-					description: description.trim() || null,
-					kitchenId,
-					baseTemplateId: forkFrom,
-					templateType: "weekly",
+					sourceTemplateId: forkFrom,
+					targetKitchenId: kitchenId,
+					newName: name.trim(),
+					description: description.trim() || undefined,
 				},
 			})
 		},

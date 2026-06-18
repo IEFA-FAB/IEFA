@@ -3,6 +3,8 @@
  * Paginated reader for published changelog entries.
  * CLIENT: getSupabaseServerClient (service role).
  * TABLE: changelog (published=true rows only).
+ * @domain external
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

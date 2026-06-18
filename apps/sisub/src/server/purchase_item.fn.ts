@@ -1,151 +1,111 @@
 /**
  * @module purchase_item.fn
  * CRUD for purchase_item + purchase_item_ingredient junction.
- * CLIENT: getSupabaseServerClient (service role) — all functions.
- * TABLES: purchase_item, purchase_item_ingredient.
+ * Thin wrappers delegating to @iefa/sisub-domain operations.
+ * Auth enforced via requireAuth() — all endpoints now require authentication.
+ * @domain core
+ * @migration done
  */
 
+import {
+	CreatePurchaseItemSchema,
+	createPurchaseItem,
+	DeletePurchaseItemIngredientSchema,
+	DeletePurchaseItemSchema,
+	deletePurchaseItem,
+	deletePurchaseItemIngredient,
+	FetchIngredientPurchaseItemsSchema,
+	FetchPurchaseItemIngredientsSchema,
+	FetchPurchaseItemSchema,
+	FetchPurchaseItemsSchema,
+	fetchIngredientPurchaseItems,
+	fetchPurchaseItem,
+	fetchPurchaseItemIngredients,
+	fetchPurchaseItems,
+	SetDefaultPurchaseItemIngredientSchema,
+	setDefaultPurchaseItemIngredient,
+	UpdatePurchaseItemSchema,
+	UpsertPurchaseItemIngredientSchema,
+	updatePurchaseItem,
+	upsertPurchaseItemIngredient,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
-import { PurchaseItemIngredientWriteSchema, PurchaseItemWriteSchema } from "./purchase_item.schemas"
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
 export const fetchPurchaseItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ search: z.string().optional() }))
+	.inputValidator(FetchPurchaseItemsSchema)
 	.handler(async ({ data }) => {
-		let query = getSupabaseServerClient().from("purchase_item").select("*").is("deleted_at", null).order("description", { ascending: true }).limit(100)
-
-		if (data.search?.trim()) {
-			query = query.ilike("description", `%${data.search.trim()}%`)
-		}
-
-		const { data: result, error } = await query
-		if (error) throw new Error(error.message)
-		return result || []
+		const ctx = await requireAuth()
+		return fetchPurchaseItems(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
-/**
- * Lista os purchase_items correlacionados a um ingredient (via junção),
- * achatando os dados do vínculo (link_id, conversion_factor, is_default).
- */
 export const fetchIngredientPurchaseItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ ingredientId: z.string().uuid() }))
+	.inputValidator(FetchIngredientPurchaseItemsSchema)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("purchase_item_ingredient")
-			.select("id, conversion_factor, is_default, purchase_item:purchase_item_id!inner(*)")
-			.eq("ingredient_id", data.ingredientId)
-			.is("purchase_item.deleted_at", null)
-			.order("created_at", { ascending: true })
-
-		if (error) throw new Error(error.message)
-		return (result ?? []).map((row) => {
-			const pi = Array.isArray(row.purchase_item) ? row.purchase_item[0] : row.purchase_item
-			return { link_id: row.id, conversion_factor: row.conversion_factor, is_default: row.is_default, ...pi }
-		})
+		const ctx = await requireAuth()
+		return fetchIngredientPurchaseItems(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchPurchaseItemFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.inputValidator(FetchPurchaseItemSchema)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("purchase_item")
-			.select(
-				"*, purchase_item_ingredient(id, ingredient_id, conversion_factor, conversion_notes, is_default, ingredient:ingredient_id(id, description, measure_unit))"
-			)
-			.eq("id", data.id)
-			.is("deleted_at", null)
-			.single()
-
-		if (error) throw new Error(error.message)
-		return result
+		const ctx = await requireAuth()
+		return fetchPurchaseItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export const createPurchaseItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ payload: PurchaseItemWriteSchema }))
+	.inputValidator(CreatePurchaseItemSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const { data: result, error } = await getSupabaseServerClient().from("purchase_item").insert(data.payload).select().single()
-
-		if (error) throw new Error(`Falha ao criar item de compra [${error.code}]: ${error.message}`)
-		return result
+		const ctx = await requireAuth()
+		return createPurchaseItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const updatePurchaseItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid(), payload: PurchaseItemWriteSchema }))
+	.inputValidator(UpdatePurchaseItemSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("purchase_item")
-			.update({ ...data.payload, updated_at: new Date().toISOString() })
-			.eq("id", data.id)
-			.select()
-			.single()
-
-		if (error) throw new Error(`Falha ao atualizar item de compra [${error.code}]: ${error.message}`)
-		return result
+		const ctx = await requireAuth()
+		return updatePurchaseItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const deletePurchaseItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.inputValidator(DeletePurchaseItemSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const { error } = await getSupabaseServerClient().from("purchase_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
-
-		if (error) throw new Error(error.message)
+		const ctx = await requireAuth()
+		return deletePurchaseItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 // ─── Junction: purchase_item_ingredient ──────────────────────────────────────
 
 export const fetchPurchaseItemIngredientsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ purchaseItemId: z.string().uuid() }))
+	.inputValidator(FetchPurchaseItemIngredientsSchema)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("purchase_item_ingredient")
-			.select("*, ingredient:ingredient_id(id, description, measure_unit)")
-			.eq("purchase_item_id", data.purchaseItemId)
-
-		if (error) throw new Error(error.message)
-		return result || []
+		const ctx = await requireAuth()
+		return fetchPurchaseItemIngredients(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const upsertPurchaseItemIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ payload: PurchaseItemIngredientWriteSchema }))
+	.inputValidator(UpsertPurchaseItemIngredientSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const { data: result, error } = await getSupabaseServerClient()
-			.from("purchase_item_ingredient")
-			.upsert(data.payload, { onConflict: "purchase_item_id,ingredient_id" })
-			.select()
-			.single()
-
-		if (error) throw new Error(`Falha ao vincular ingrediente [${error.code}]: ${error.message}`)
-		return result
+		const ctx = await requireAuth()
+		return upsertPurchaseItemIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const deletePurchaseItemIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.inputValidator(DeletePurchaseItemIngredientSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const { error } = await getSupabaseServerClient().from("purchase_item_ingredient").delete().eq("id", data.id)
-
-		if (error) throw new Error(error.message)
+		const ctx = await requireAuth()
+		return deletePurchaseItemIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
 export const setDefaultPurchaseItemIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid(), purchaseItemId: z.string().uuid() }))
+	.inputValidator(SetDefaultPurchaseItemIngredientSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const supabase = getSupabaseServerClient()
-
-		// Clear existing defaults for this purchase_item, then set the new one
-		await supabase.from("purchase_item_ingredient").update({ is_default: false }).eq("purchase_item_id", data.purchaseItemId)
-		const { error } = await supabase.from("purchase_item_ingredient").update({ is_default: true }).eq("id", data.id)
-
-		if (error) throw new Error(error.message)
+		const ctx = await requireAuth()
+		return setDefaultPurchaseItemIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})

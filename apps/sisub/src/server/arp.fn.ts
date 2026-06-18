@@ -3,6 +3,8 @@
  * Integration with Compras.gov.br ARP (Ata de Registro de Preços) API + local empenho management.
  * CLIENT: getSupabaseServerClient (service role). External: dadosabertos.compras.gov.br (30 s timeout, 3 retries, exponential backoff).
  * TABLES: procurement_arp, procurement_arp_item, empenho.
+ * @domain external
+ * @migration n-a
  */
 
 import type { Empenho } from "@iefa/database/sisub"

@@ -1,3 +1,10 @@
+/**
+ * @module legal.fn
+ * Reader for published legal documents (terms, privacy, etc.) from the iefa schema by doc_type/version/locale.
+ * @domain external
+ * @migration n-a
+ */
+
 import type { Database } from "@iefa/database"
 import { createClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"

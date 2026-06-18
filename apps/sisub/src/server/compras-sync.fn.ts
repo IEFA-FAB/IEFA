@@ -3,6 +3,8 @@
  * Proxy to the iefa-api sync worker for Compras.gov.br data ingestion.
  * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://api.iefa.com.br, fallback: https://iefa-api.fly.dev). No Supabase.
  * AUTH: x-admin-secret header from ADMIN_SECRET env var.
+ * @domain external
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

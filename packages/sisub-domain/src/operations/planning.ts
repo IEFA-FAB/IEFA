@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
+import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
 import type {
 	AddMenuItem,
 	DailyMenuFetch,
@@ -216,4 +217,84 @@ export async function getTrashItems(client: AnyClient, ctx: UserContext, input: 
 
 	if (error) throw new DomainError("FETCH_FAILED", error.message)
 	return data ?? []
+}
+
+// ─── Aggregated daily menu content (diner-facing) ───────────────────────────
+
+type DishIngredient = { ingredient_name: string; quantity: number; measure_unit: string }
+type DishDetails = { id: string; name: string; ingredients: DishIngredient[] }
+type DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }
+type RecipeSnapshot = { name?: string; ingredients?: DishIngredient[] }
+
+function mapMealTypeNameToKey(name: string): string | null {
+	const lower = name.toLowerCase()
+	if (lower.includes("café")) return "cafe"
+	if (lower.includes("almoço")) return "almoco"
+	if (lower.includes("jantar")) return "janta"
+	if (lower.includes("ceia")) return "ceia"
+	return null
+}
+
+/**
+ * Returns a nested map of dishes per date per meal key for the given kitchens and
+ * date range. Dish name prefers the recipe JSON snapshot, falling back to
+ * recipe_origin.name then "Prato sem nome"; ingredients come from the snapshot only.
+ *
+ * Auth posture preserved: authenticated entrypoint with no module-level guard.
+ */
+export async function fetchDailyMenuContent(client: AnyClient, _ctx: UserContext, input: FetchDailyMenuContent): Promise<DayMenuContent> {
+	const { data, error } = await client
+		.from("daily_menu")
+		.select(
+			`
+        service_date,
+        kitchen_id,
+        meal_type:meal_type_id(name),
+        menu_items:menu_items(
+          id,
+          recipe,
+          recipe_origin:recipe_origin_id(name)
+        )
+      `
+		)
+		.in("kitchen_id", input.kitchenIds)
+		.gte("service_date", input.startDate)
+		.lte("service_date", input.endDate)
+
+	if (error) throw new DomainError("FETCH_FAILED", error.message)
+
+	const content: DayMenuContent = {}
+
+	for (const menu of data ?? []) {
+		const date = menu.service_date
+		if (!date) continue
+
+		const mealType = Array.isArray(menu.meal_type) ? menu.meal_type[0] : menu.meal_type
+		const mealName = mealType?.name
+		if (!mealName) continue
+
+		const mealKey = mapMealTypeNameToKey(mealName)
+		if (!mealKey) continue
+
+		if (!content[date]) content[date] = {}
+		if (!content[date][mealKey]) content[date][mealKey] = []
+
+		for (const item of menu.menu_items ?? []) {
+			let dishName = "Prato sem nome"
+			let ingredients: DishIngredient[] = []
+
+			if (item.recipe) {
+				const snapshot = item.recipe as RecipeSnapshot
+				dishName = snapshot?.name || dishName
+				if (snapshot.ingredients) ingredients = snapshot.ingredients
+			} else {
+				const recipeOrigin = Array.isArray(item.recipe_origin) ? item.recipe_origin[0] : item.recipe_origin
+				if (recipeOrigin) dishName = recipeOrigin.name || dishName
+			}
+
+			content[date][mealKey].push({ id: item.id, name: dishName, ingredients })
+		}
+	}
+
+	return content
 }

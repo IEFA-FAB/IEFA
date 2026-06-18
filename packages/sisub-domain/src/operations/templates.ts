@@ -229,6 +229,7 @@ export async function forkTemplate(client: AnyClient, ctx: UserContext, input: F
 		.from("menu_template")
 		.insert({
 			name: input.newName ?? sourceData.name,
+			description: input.description ?? null,
 			kitchen_id: targetKitchenId,
 			base_template_id: input.sourceTemplateId,
 			template_type: sourceData.template_type ?? "weekly",

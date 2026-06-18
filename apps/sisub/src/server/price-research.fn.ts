@@ -1,3 +1,10 @@
+/**
+ * @module price-research.fn
+ * Price research against Compras.gov.br material price data with retry/backoff fetch and Supabase persistence.
+ * @domain external
+ * @migration n-a
+ */
+
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"

@@ -7,6 +7,8 @@
  * Formato da chave: smcp_ + 64 hex chars (32 random bytes)
  * Hash armazenado: SHA-256 (Web Crypto API)
  * Prefix exibido: primeiros 12 chars (smcp_ + 7 hex chars)
+ * @domain app
+ * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"

@@ -1,4 +1,18 @@
 export {
+	calculateAtaNeeds,
+	createAta,
+	createAtaDraft,
+	deleteAta,
+	fetchAtaDetails,
+	fetchAtaList,
+	finalizeAtaDraft,
+	saveAtaDraftItems,
+	updateAtaDraft,
+	updateAtaItemDescription,
+	updateAtaItemPrices,
+	updateAtaStatus,
+} from "./ata.ts"
+export {
 	fetchForecasts,
 	fetchMessHalls,
 	fetchPresences,
@@ -6,6 +20,7 @@ export {
 	fetchUserData,
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
+export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	type IngredientLastReview,
 	type IngredientReviewRow,
@@ -42,10 +57,40 @@ export {
 	updateIngredient,
 	updateIngredientItem,
 } from "./ingredients.ts"
-export { listKitchens, listUnitKitchens } from "./kitchens.ts"
+export {
+	createKitchenDraft,
+	deleteKitchenDraft,
+	fetchKitchenDrafts,
+	fetchPendingDraft,
+	sendKitchenDraft,
+	updateKitchenDraft,
+} from "./kitchen-draft.ts"
+export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	createUserPermission,
+	deleteUserPermission,
+	fetchUserPermissionsAdmin,
+	listEffectiveUserPermissions,
+	searchUsersByEmail,
+	updateUserPermission,
+} from "./permissions.ts"
+export {
+	addOtherPresence,
+	applyPlacesDiff,
+	fetchMessHallByCode,
+	fetchMessHallIdByCode,
+	fetchOtherPresencesCount,
+	fetchPlacesGraph,
+	fetchUserMealForecast,
+	listAllMessHalls,
+	listUnits,
+	resolveDisplayName,
+	updatePlacesEntity,
+} from "./places.ts"
+export {
 	addMenuItem,
+	fetchDailyMenuContent,
 	fetchDailyMenus,
 	fetchDayDetails,
 	getTrashItems,
@@ -56,7 +101,21 @@ export {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "./planning.ts"
-export { fetchProcurementNeeds } from "./procurement.ts"
+export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
+export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
+export { ensureProductionTasks, fetchProductionBoard, updateProductionTaskStatus } from "./production.ts"
+export {
+	createPurchaseItem,
+	deletePurchaseItem,
+	deletePurchaseItemIngredient,
+	fetchIngredientPurchaseItems,
+	fetchPurchaseItem,
+	fetchPurchaseItemIngredients,
+	fetchPurchaseItems,
+	setDefaultPurchaseItemIngredient,
+	updatePurchaseItem,
+	upsertPurchaseItemIngredient,
+} from "./purchase-item.ts"
 export {
 	createRecipe,
 	createRecipeVersion,
@@ -81,3 +140,5 @@ export {
 	restoreTemplate,
 	updateTemplate,
 } from "./templates.ts"
+export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
+export { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"

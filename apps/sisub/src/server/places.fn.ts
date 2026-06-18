@@ -1,163 +1,42 @@
 /**
  * @module places.fn
  * Organisational hierarchy CRUD: units, kitchens and mess halls graph management.
- * CLIENT: getSupabaseServerClient (service role) — all functions.
- * TABLES: units, kitchen, mess_halls.
+ * Thin wrappers over @iefa/sisub-domain (operations/places).
+ * @domain core
+ * @migration done
  */
 
-import type { KitchenUpdate, MessHallUpdate } from "@iefa/database/sisub"
+import {
+	ApplyPlacesDiffSchema,
+	applyPlacesDiff,
+	fetchPlacesGraph,
+	type UpdateEntityInput,
+	UpdatePlacesEntitySchema,
+	updatePlacesEntity,
+} from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { PlacesGraphData } from "@/types/domain/places"
 
-// ─── Fetch ────────────────────────────────────────────────────────────────────
+export type { UpdateEntityInput }
 
-/**
- * Fetches all units, kitchens and mess halls in parallel for the org hierarchy graph view.
- *
- * @throws {Error} on any of the three Supabase queries failing.
- */
 export const fetchPlacesGraphFn = createServerFn({ method: "GET" }).handler(async () => {
-	const client = getSupabaseServerClient()
-
-	const [unitsRes, kitchensRes, messHallsRes] = await Promise.all([
-		client.from("units").select("*").order("display_name"),
-		client.from("kitchen").select("*").order("display_name"),
-		client.from("mess_halls").select("*").order("display_name"),
-	])
-
-	if (unitsRes.error) throw new Error(unitsRes.error.message)
-	if (kitchensRes.error) throw new Error(kitchensRes.error.message)
-	if (messHallsRes.error) throw new Error(messHallsRes.error.message)
-
-	return {
-		units: unitsRes.data ?? [],
-		kitchens: kitchensRes.data ?? [],
-		messHalls: messHallsRes.data ?? [],
-	} satisfies PlacesGraphData
+	const ctx = await requireAuth()
+	return (await fetchPlacesGraph(getSupabaseServerClient(), ctx).catch(handleDomainError)) as unknown as PlacesGraphData
 })
 
-// ─── Update entity attributes ─────────────────────────────────────────────────
-
-/**
- * Updates display attributes of a unit, kitchen or mess_hall using a discriminated-union input.
- *
- * @remarks
- * SIDE EFFECTS: updates one row in units, kitchen or mess_halls depending on entityType.
- *
- * @throws {Error} on Supabase update failure.
- */
-
-const updateEntitySchema = z.discriminatedUnion("entityType", [
-	z.object({
-		entityType: z.literal("unit"),
-		id: z.number(),
-		display_name: z.string().min(1, "Nome é obrigatório"),
-		code: z.string().min(1, "Código é obrigatório"),
-		type: z.enum(["consumption", "purchase"]).nullable(),
-	}),
-	z.object({
-		entityType: z.literal("kitchen"),
-		id: z.number(),
-		display_name: z.string().min(1, "Nome é obrigatório"),
-		type: z.enum(["consumption", "production"]).nullable(),
-	}),
-	z.object({
-		entityType: z.literal("mess_hall"),
-		id: z.number(),
-		display_name: z.string().min(1, "Nome é obrigatório"),
-		code: z.string().min(1, "Código é obrigatório"),
-	}),
-])
-
-export type UpdateEntityInput = z.infer<typeof updateEntitySchema>
-
 export const updatePlacesEntityFn = createServerFn({ method: "POST" })
-	.inputValidator(updateEntitySchema)
+	.inputValidator(UpdatePlacesEntitySchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const client = getSupabaseServerClient()
-
-		if (data.entityType === "unit") {
-			const { error } = await client.from("units").update({ display_name: data.display_name, code: data.code, type: data.type }).eq("id", data.id)
-			if (error) throw new Error(error.message)
-		} else if (data.entityType === "kitchen") {
-			const { error } = await client.from("kitchen").update({ display_name: data.display_name, type: data.type }).eq("id", data.id)
-			if (error) throw new Error(error.message)
-		} else {
-			const { error } = await client.from("mess_halls").update({ display_name: data.display_name, code: data.code }).eq("id", data.id)
-			if (error) throw new Error(error.message)
-		}
-
-		return { ok: true }
+		const ctx = await requireAuth()
+		return updatePlacesEntity(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
 
-// ─── Apply relation diffs (batch) ─────────────────────────────────────────────
-
-/**
- * Applies a batch of FK column updates across kitchen and mess_halls tables sequentially.
- *
- * @remarks
- * SIDE EFFECTS: updates one row per diff entry — sequential (not parallel), stops on first failure.
- * Supported columns: kitchen.{unit_id, purchase_unit_id, kitchen_id}, mess_halls.{unit_id, kitchen_id}.
- *
- * @throws {Error} "Falha ao atualizar {table} (id {n}): ..." on first failing update.
- */
-
-const diffItemSchema = z.discriminatedUnion("table", [
-	z.object({
-		table: z.literal("kitchen"),
-		recordId: z.number(),
-		column: z.enum(["unit_id", "purchase_unit_id", "kitchen_id"]),
-		newValue: z.number(),
-	}),
-	z.object({
-		table: z.literal("mess_halls"),
-		recordId: z.number(),
-		column: z.enum(["unit_id", "kitchen_id"]),
-		newValue: z.number(),
-	}),
-])
-
-function buildKitchenUpdate(column: "unit_id" | "purchase_unit_id" | "kitchen_id", newValue: number): KitchenUpdate {
-	switch (column) {
-		case "unit_id":
-			return { unit_id: newValue }
-		case "purchase_unit_id":
-			return { purchase_unit_id: newValue }
-		case "kitchen_id":
-			return { kitchen_id: newValue }
-	}
-}
-
-function buildMessHallUpdate(column: "unit_id" | "kitchen_id", newValue: number): MessHallUpdate {
-	switch (column) {
-		case "unit_id":
-			return { unit_id: newValue }
-		case "kitchen_id":
-			return { kitchen_id: newValue }
-	}
-}
-
 export const applyPlacesDiffFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ diffs: z.array(diffItemSchema) }))
+	.inputValidator(ApplyPlacesDiffSchema)
 	.handler(async ({ data }) => {
-		await requireAuth()
-		const client = getSupabaseServerClient()
-
-		await Promise.all(
-			data.diffs.map(async (diff) => {
-				const { error } =
-					diff.table === "kitchen"
-						? await client.from("kitchen").update(buildKitchenUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
-						: await client.from("mess_halls").update(buildMessHallUpdate(diff.column, diff.newValue)).eq("id", diff.recordId)
-				if (error) {
-					throw new Error(`Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${error.message}`)
-				}
-			})
-		)
-
-		return { ok: true, count: data.diffs.length }
+		const ctx = await requireAuth()
+		return applyPlacesDiff(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
 	})
