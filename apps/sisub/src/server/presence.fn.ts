@@ -22,18 +22,18 @@ import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 
+// Reads stay unauthenticated to match the original server-fn posture.
+// Mutations below require auth.
 export const fetchPresencesFn = createServerFn({ method: "GET" })
 	.inputValidator(ListPresencesSchema)
 	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return (await listPresences(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
+		return (await listPresences(getSupabaseServerClient(), data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
 	})
 
 export const fetchForecastsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListForecastMapSchema)
 	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		return (await listForecastMap(getSupabaseServerClient(), ctx, data)) as ForecastMap
+		return (await listForecastMap(getSupabaseServerClient(), data)) as ForecastMap
 	})
 
 export const insertPresenceFn = createServerFn({ method: "POST" })

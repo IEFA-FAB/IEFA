@@ -1,8 +1,10 @@
 /**
  * Fiscal presence operations: read presences + forecasts, insert/delete presence.
  *
- * Auth posture preserved from the original server functions: authenticated
- * entrypoints with no module-level PBAC guard. Schema: sisub.
+ * Auth posture preserved from the original server functions, with no
+ * module-level PBAC guard: the reads (listPresences, listForecastMap) are
+ * unauthenticated like the originals; the mutations require authentication.
+ * Schema: sisub.
  *
  * insertPresence intentionally throws a code-bearing Error (not a DomainError)
  * so callers can detect PG unique violations (code "23505"); its server fn must
@@ -27,7 +29,7 @@ type PresenceRowWithUser = {
 	display_name: string | null
 }
 
-export async function listPresences(client: AnyClient, _ctx: UserContext, input: ListPresences) {
+export async function listPresences(client: AnyClient, input: ListPresences) {
 	const { data, error } = await client
 		.schema("sisub")
 		.from("v_meal_presences_with_user")
@@ -53,7 +55,7 @@ export async function listPresences(client: AnyClient, _ctx: UserContext, input:
 	}))
 }
 
-export async function listForecastMap(client: AnyClient, _ctx: UserContext, input: ListForecastMap): Promise<Record<string, boolean>> {
+export async function listForecastMap(client: AnyClient, input: ListForecastMap): Promise<Record<string, boolean>> {
 	if (input.userIds.length === 0) return {}
 
 	const { data, error } = await client

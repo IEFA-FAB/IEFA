@@ -1,10 +1,10 @@
 /**
  * Diner meal-forecast operations (will_eat intent per date+meal).
  *
- * Auth posture preserved from the original server functions: authenticated
- * entrypoints (caller runs requireAuth/requireUserId) with no module-level
- * PBAC guard. Mutations act on the caller's own identity (ctx.userId); reads
- * accept an explicit userId. Schema: sisub (explicit .schema("sisub")).
+ * Auth posture preserved from the original server functions, with no
+ * module-level PBAC guard. Mutations are authenticated and act on the caller's
+ * own identity (ctx.userId); reads are unauthenticated (matching the original)
+ * and take an explicit userId. Schema: sisub (explicit .schema("sisub")).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -15,7 +15,7 @@ import { DomainError } from "../types/errors.ts"
 // biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
 type AnyClient = SupabaseClient<any, any, any>
 
-export async function listMealForecasts(client: AnyClient, _ctx: UserContext, input: ListMealForecasts) {
+export async function listMealForecasts(client: AnyClient, input: ListMealForecasts) {
 	const { data, error } = await client
 		.schema("sisub")
 		.from("meal_forecasts")
@@ -28,7 +28,7 @@ export async function listMealForecasts(client: AnyClient, _ctx: UserContext, in
 	return data ?? []
 }
 
-export async function getUserDefaultMessHall(client: AnyClient, _ctx: UserContext, input: GetUserDefaultMessHall) {
+export async function getUserDefaultMessHall(client: AnyClient, input: GetUserDefaultMessHall) {
 	const { data, error } = await client.schema("sisub").from("user_data").select("default_mess_hall_id").eq("id", input.userId).maybeSingle()
 	if (error) throw new DomainError("FETCH_FAILED", error.message)
 	return data ?? null
