@@ -10,7 +10,8 @@
     "./portal": "./src/portal.ts",
     "./journal": "./src/journal.ts",
     "./forms": "./src/forms.ts",
-    "./rumaer": "./src/rumaer.ts"
+    "./rumaer": "./src/rumaer.ts",
+    "./drizzle/sisub": "./drizzle/sisub.ts"
   },
   "scripts": {
     "generate": "bun run db:types",
@@ -22,9 +23,15 @@
     "db:reset": "bunx supabase db reset",
     "db:migrations": "bunx supabase migration list",
     "db:repair:applied": "bunx supabase migration repair --status applied",
-    "db:repair:reverted": "bunx supabase migration repair --status reverted"
+    "db:repair:reverted": "bunx supabase migration repair --status reverted",
+    "db:drizzle:pull": "bunx drizzle-kit pull && bun run scripts/patch-drizzle-pull.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.6",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.5",
     "supabase": "2.106.0"
   }
 }
