@@ -71,6 +71,10 @@ target "sisub" {
   args = {
     VITE_SISUB_SUPABASE_URL = ""
     VITE_SISUB_SUPABASE_PUBLISHABLE_KEY = ""
+    VITE_FARO_COLLECTOR_URL = ""
+    VITE_FARO_APP_NAME = ""
+    VITE_FARO_ENVIRONMENT = ""
+    FARO_SOURCEMAP_API_KEY = ""
   }
 }
 

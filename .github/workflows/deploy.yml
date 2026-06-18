@@ -455,9 +455,17 @@ jobs:
     with:
       target: sisub
       image_repo: registry.fly.io/sisub
+      # Observability camada 1 (Faro frontend) + camada 3 (sourcemaps) entram como
+      # build args — VITE_* são baked no bundle do cliente; FARO_SOURCEMAP_API_KEY é
+      # consumido só pelo vite.config.ts no build. Vars vazias → no-op (não quebram).
+      # Camada 2 (OTel backend) é runtime, vai no job secrets-sisub.
       bake_set: |
         sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
         sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        sisub.args.VITE_FARO_COLLECTOR_URL=${{ vars.VITE_FARO_COLLECTOR_URL }}
+        sisub.args.VITE_FARO_APP_NAME=${{ vars.VITE_FARO_APP_NAME }}
+        sisub.args.VITE_FARO_ENVIRONMENT=${{ vars.VITE_FARO_ENVIRONMENT }}
+        sisub.args.FARO_SOURCEMAP_API_KEY=${{ secrets.FARO_SOURCEMAP_API_KEY }}
     secrets: inherit
 
   # E2E SISUB temporarily disabled.
@@ -524,6 +532,12 @@ jobs:
           S_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           S_ANALYTICS_AI_API_KEY: ${{ secrets.ANALYTICS_AI_API_KEY }}
           S_MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
+          # Observability camada 2 (OTel backend) — runtime. DESLIGADA por enquanto.
+          # Para ligar: definir os secrets/var no GitHub, descomentar as 3 linhas do
+          # env abaixo e as 3 linhas correspondentes no `flyctl secrets set`.
+          # S_OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          # S_OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+          # V_OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
         run: |
           flyctl --config fly/sisub.toml secrets set --stage \
             "VITE_SISUB_SUPABASE_URL=$V_SISUB_SUPABASE_URL" \
@@ -537,6 +551,10 @@ jobs:
             "MODULE_CHAT_AI_MODEL=$V_MODULE_CHAT_AI_MODEL" \
             "MODULE_CHAT_AI_API_KEY=$S_MODULE_CHAT_AI_API_KEY" \
             "IEFA_API_BASE_URL=$V_IEFA_API_BASE_URL"
+            # Camada 2 (OTel) — descomentar junto com o env acima:
+            # "OTEL_EXPORTER_OTLP_ENDPOINT=$S_OTEL_EXPORTER_OTLP_ENDPOINT" \
+            # "OTEL_EXPORTER_OTLP_HEADERS=$S_OTEL_EXPORTER_OTLP_HEADERS" \
+            # "OTEL_SERVICE_NAME=$V_OTEL_SERVICE_NAME"
 
   deploy-sisub:
     needs: [build-sisub, secrets-sisub]

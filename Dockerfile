@@ -116,6 +116,16 @@ CMD ["bun", ".output/server/index.mjs"]
 FROM deps AS sisub-build
 ARG VITE_SISUB_SUPABASE_URL
 ARG VITE_SISUB_SUPABASE_PUBLISHABLE_KEY
+# Observability — Faro frontend (baked no bundle do cliente em build-time).
+# Vazio → faro.client.ts vira no-op silencioso. Não persistem na imagem runtime
+# (estágio `sisub` abaixo é um FROM separado, não herda estes ARG).
+ARG VITE_FARO_COLLECTOR_URL
+ARG VITE_FARO_APP_NAME
+ARG VITE_FARO_ENVIRONMENT
+# Faro sourcemap upload — secret, consumido SÓ pelo vite.config.ts durante o build
+# (loadEnv lê este ARG como env). Vazio → build não gera/envia maps. Não vai pra
+# imagem runtime nem pro bundle do cliente.
+ARG FARO_SOURCEMAP_API_KEY
 COPY packages/database ./packages/database
 COPY packages/hono-client ./packages/hono-client
 COPY packages/alpha-client ./packages/alpha-client
