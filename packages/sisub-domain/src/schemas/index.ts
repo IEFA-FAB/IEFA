@@ -61,8 +61,20 @@ export {
 	UpdateIngredientSchema,
 	VersionActorSchema,
 } from "./ingredients.ts"
-export type { ListKitchens, ListUnitKitchens } from "./kitchens.ts"
-export { ListKitchensSchema, ListUnitKitchensSchema } from "./kitchens.ts"
+export type {
+	FetchKitchenSettings,
+	KitchenSettingsInput,
+	ListKitchens,
+	ListUnitKitchens,
+	UpdateKitchenSettings,
+} from "./kitchens.ts"
+export {
+	FetchKitchenSettingsSchema,
+	KitchenSettingsSchema,
+	ListKitchensSchema,
+	ListUnitKitchensSchema,
+	UpdateKitchenSettingsSchema,
+} from "./kitchens.ts"
 export type { CreateMealType, DeleteMealType, FetchMealTypes, RestoreMealType, UpdateMealType } from "./meal-types.ts"
 export {
 	CreateMealTypeSchema,
@@ -71,6 +83,26 @@ export {
 	RestoreMealTypeSchema,
 	UpdateMealTypeSchema,
 } from "./meal-types.ts"
+export type {
+	AddOtherPresence,
+	ApplyPlacesDiff,
+	FetchMessHallByCode,
+	FetchOtherPresencesCount,
+	FetchUserMealForecast,
+	PlacesDiffItem,
+	ResolveDisplayName,
+	UpdateEntityInput,
+} from "./places.ts"
+export {
+	AddOtherPresenceSchema,
+	ApplyPlacesDiffSchema,
+	FetchMessHallByCodeSchema,
+	FetchOtherPresencesCountSchema,
+	FetchUserMealForecastSchema,
+	PlacesDiffItemSchema,
+	ResolveDisplayNameSchema,
+	UpdatePlacesEntitySchema,
+} from "./places.ts"
 export type {
 	AddMenuItem,
 	DailyMenuFetch,
@@ -143,3 +175,5 @@ export {
 	TemplateItemSchema,
 	UpdateTemplateSchema,
 } from "./templates.ts"
+export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from "./units.ts"
+export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"

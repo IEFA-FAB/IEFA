@@ -42,8 +42,21 @@ export {
 	updateIngredient,
 	updateIngredientItem,
 } from "./ingredients.ts"
-export { listKitchens, listUnitKitchens } from "./kitchens.ts"
+export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
+export {
+	addOtherPresence,
+	applyPlacesDiff,
+	fetchMessHallByCode,
+	fetchMessHallIdByCode,
+	fetchOtherPresencesCount,
+	fetchPlacesGraph,
+	fetchUserMealForecast,
+	listAllMessHalls,
+	listUnits,
+	resolveDisplayName,
+	updatePlacesEntity,
+} from "./places.ts"
 export {
 	addMenuItem,
 	fetchDailyMenus,
@@ -81,3 +94,4 @@ export {
 	restoreTemplate,
 	updateTemplate,
 } from "./templates.ts"
+export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
