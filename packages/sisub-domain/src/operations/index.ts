@@ -68,6 +68,14 @@ export {
 export { fetchKitchenSettings, listKitchens, listUnitKitchens, updateKitchenSettings } from "./kitchens.ts"
 export { createMealType, deleteMealType, fetchMealTypes, restoreMealType, updateMealType } from "./meal-types.ts"
 export {
+	createUserPermission,
+	deleteUserPermission,
+	fetchUserPermissionsAdmin,
+	listEffectiveUserPermissions,
+	searchUsersByEmail,
+	updateUserPermission,
+} from "./permissions.ts"
+export {
 	addOtherPresence,
 	applyPlacesDiff,
 	fetchMessHallByCode,
@@ -133,3 +141,4 @@ export {
 	updateTemplate,
 } from "./templates.ts"
 export { fetchUnitSettings, updateUnitSettings } from "./units.ts"
+export { fetchMilitaryData, fetchSisubUserData, fetchUserNrOrdem, syncUserEmail, syncUserNrOrdem } from "./user.ts"

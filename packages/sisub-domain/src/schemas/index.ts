@@ -114,6 +114,23 @@ export {
 	UpdateMealTypeSchema,
 } from "./meal-types.ts"
 export type {
+	CreateUserPermission,
+	DeleteUserPermission,
+	FetchUserPermissions,
+	FetchUserPermissionsAdmin,
+	SearchUsersByEmail,
+	UpdateUserPermission,
+} from "./permissions.ts"
+export {
+	APP_MODULES,
+	CreateUserPermissionSchema,
+	DeleteUserPermissionSchema,
+	FetchUserPermissionsAdminSchema,
+	FetchUserPermissionsSchema,
+	SearchUsersByEmailSchema,
+	UpdateUserPermissionSchema,
+} from "./permissions.ts"
+export type {
 	AddOtherPresence,
 	ApplyPlacesDiff,
 	FetchMessHallByCode,
@@ -279,3 +296,5 @@ export {
 } from "./templates.ts"
 export type { FetchUnitSettings, UnitSettingsInput, UpdateUnitSettings } from "./units.ts"
 export { FetchUnitSettingsSchema, UnitSettingsSchema, UpdateUnitSettingsSchema } from "./units.ts"
+export type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "./user.ts"
+export { FetchMilitaryDataSchema, FetchUserDataSchema, FetchUserNrOrdemSchema, SyncUserEmailSchema, SyncUserNrOrdemSchema } from "./user.ts"
