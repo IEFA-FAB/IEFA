@@ -31,6 +31,9 @@ on:
     secrets:
       FLY_API_TOKEN:
         required: true
+      FARO_SOURCEMAP_API_KEY:
+        description: "Faro sourcemap upload key — injetado como build arg <target>.args.FARO_SOURCEMAP_API_KEY quando presente"
+        required: false
 
 jobs:
   build:
@@ -70,3 +73,4 @@ jobs:
             ${{ inputs.target }}.tags=${{ inputs.image_repo }}:${{ steps.meta.outputs.tag }}
             ${{ inputs.target }}.tags=${{ inputs.image_repo }}:latest
             ${{ inputs.bake_set }}
+            ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.target, secrets.FARO_SOURCEMAP_API_KEY) || '' }}

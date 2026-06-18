@@ -456,8 +456,9 @@ jobs:
       target: sisub
       image_repo: registry.fly.io/sisub
       # Observability camada 1 (Faro frontend) + camada 3 (sourcemaps) entram como
-      # build args — VITE_* são baked no bundle do cliente; FARO_SOURCEMAP_API_KEY é
-      # consumido só pelo vite.config.ts no build. Vars vazias → no-op (não quebram).
+      # build args — VITE_* são baked no bundle do cliente. Vars vazias → no-op.
+      # FARO_SOURCEMAP_API_KEY é secret: o _app-build.yml o injeta como
+      # <target>.args.FARO_SOURCEMAP_API_KEY (secrets não são válidos em `with:`).
       # Camada 2 (OTel backend) é runtime, vai no job secrets-sisub.
       bake_set: |
         sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
@@ -465,7 +466,6 @@ jobs:
         sisub.args.VITE_FARO_COLLECTOR_URL=${{ vars.VITE_FARO_COLLECTOR_URL }}
         sisub.args.VITE_FARO_APP_NAME=${{ vars.VITE_FARO_APP_NAME }}
         sisub.args.VITE_FARO_ENVIRONMENT=${{ vars.VITE_FARO_ENVIRONMENT }}
-        sisub.args.FARO_SOURCEMAP_API_KEY=${{ secrets.FARO_SOURCEMAP_API_KEY }}
     secrets: inherit
 
   # E2E SISUB temporarily disabled.
