@@ -104,6 +104,7 @@ function NewWeeklyMenuPage() {
 					sourceTemplateId: forkFrom,
 					targetKitchenId: kitchenId,
 					newName: name.trim(),
+					description: description.trim() || undefined,
 				},
 			})
 		},

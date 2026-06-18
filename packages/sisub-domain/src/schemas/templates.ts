@@ -40,6 +40,7 @@ export const ForkTemplateSchema = z.object({
 	sourceTemplateId: UuidSchema,
 	targetKitchenId: KitchenIdSchema.optional(),
 	newName: z.string().min(1).optional(),
+	description: z.string().optional(),
 })
 export type ForkTemplate = z.infer<typeof ForkTemplateSchema>
 
