@@ -15,8 +15,8 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export type { KitchenSettingsInput }
 
@@ -39,12 +39,12 @@ export const fetchKitchenSettingsFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchKitchenSettingsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return (await fetchKitchenSettings(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as KitchenSettingsResult
+		return (await fetchKitchenSettings(getDb(), ctx, data).catch(handleDomainError)) as unknown as KitchenSettingsResult
 	})
 
 export const updateKitchenSettingsFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateKitchenSettingsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateKitchenSettings(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return updateKitchenSettings(getDb(), ctx, data).catch(handleDomainError)
 	})

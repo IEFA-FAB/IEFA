@@ -1,60 +1,105 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+/**
+ * Kitchen operations — listagem, vínculo a unidades e address settings. Drizzle query layer.
+ *
+ * Auth: `listKitchens`/`listUnitKitchens` exigem kitchen nível 1. Os *settings* preservam a
+ * postura original (entrypoint autenticado sem guard PBAC de módulo; `ctx` por uniformidade).
+ */
+
+import { kitchenInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import type { Tables } from "@iefa/database/sisub"
+import { asc, eq } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+// kitchen tem DUAS relations p/ units (unit_id e purchase_unit_id) — a do contrato é unit_id.
+const KITCHEN_RELATIONS: Record<string, string> = { unitsInSisub_unitId: "unit" }
 
-export async function listKitchens(client: AnyClient, ctx: UserContext) {
+type UnitRef = { id: number; display_name: string | null; code: string }
+type KitchenWithUnit = Tables<"kitchen"> & { unit: UnitRef | null }
+type KitchenSettings = Pick<
+	Tables<"kitchen">,
+	| "id"
+	| "display_name"
+	| "type"
+	| "address_logradouro"
+	| "address_numero"
+	| "address_complemento"
+	| "address_bairro"
+	| "address_municipio"
+	| "address_uf"
+	| "address_cep"
+> & { unit: { id: number; code: string; display_name: string | null } | null }
+
+export async function listKitchens(db: SisubDb, ctx: UserContext): Promise<KitchenWithUnit[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const { data, error } = await client.from("kitchen").select(`*, unit:units!kitchen_unit_id_fkey(id, display_name, code)`).order("id")
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.kitchenInSisub.findMany({
+			with: { unitsInSisub_unitId: { columns: { id: true, displayName: true, code: true } } },
+			orderBy: (kitchen, { asc }) => [asc(kitchen.id)],
+		})
+	)
+	return rows.map((r) => toWire<KitchenWithUnit>(r, KITCHEN_RELATIONS))
 }
 
-export async function listUnitKitchens(client: AnyClient, ctx: UserContext, input: ListUnitKitchens) {
+export async function listUnitKitchens(db: SisubDb, ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const { data, error } = await client.from("kitchen").select("id, display_name").eq("unit_id", input.unitId).order("display_name")
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: kitchenInSisub.id, display_name: kitchenInSisub.displayName })
+			.from(kitchenInSisub)
+			.where(eq(kitchenInSisub.unitId, input.unitId))
+			.orderBy(asc(kitchenInSisub.displayName))
+	)
+	return rows
 }
 
 // ─── Kitchen address settings ───────────────────────────────────────────────
-// Auth posture preserved from the original server functions: authenticated
-// entrypoints with no module-level PBAC guard. `ctx` accepted for uniformity.
 
-export async function fetchKitchenSettings(client: AnyClient, _ctx: UserContext, input: FetchKitchenSettings) {
-	const { data, error } = await client
-		.from("kitchen")
-		.select(
-			`id, display_name, type,
-			 address_logradouro, address_numero, address_complemento,
-			 address_bairro, address_municipio, address_uf, address_cep,
-			 unit:units!kitchen_unit_id_fkey(id, code, display_name)`
-		)
-		.eq("id", input.kitchenId)
-		.single()
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data
+export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input: FetchKitchenSettings): Promise<KitchenSettings> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.kitchenInSisub.findFirst({
+			columns: {
+				id: true,
+				displayName: true,
+				type: true,
+				addressLogradouro: true,
+				addressNumero: true,
+				addressComplemento: true,
+				addressBairro: true,
+				addressMunicipio: true,
+				addressUf: true,
+				addressCep: true,
+			},
+			with: { unitsInSisub_unitId: { columns: { id: true, code: true, displayName: true } } },
+			where: eq(kitchenInSisub.id, input.kitchenId),
+		})
+	)
+	if (!row) throw new DomainError("FETCH_FAILED", `kitchen ${input.kitchenId} not found`)
+	return toWire<KitchenSettings>(row, KITCHEN_RELATIONS)
 }
 
-export async function updateKitchenSettings(client: AnyClient, _ctx: UserContext, input: UpdateKitchenSettings) {
-	const { error } = await client
-		.from("kitchen")
-		.update({
-			address_logradouro: input.settings.address_logradouro,
-			address_numero: input.settings.address_numero,
-			address_complemento: input.settings.address_complemento,
-			address_bairro: input.settings.address_bairro,
-			address_municipio: input.settings.address_municipio,
-			address_uf: input.settings.address_uf,
-			address_cep: input.settings.address_cep,
-		})
-		.eq("id", input.kitchenId)
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
+export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, input: UpdateKitchenSettings) {
+	const updated = await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(kitchenInSisub)
+			.set({
+				addressLogradouro: input.settings.address_logradouro,
+				addressNumero: input.settings.address_numero,
+				addressComplemento: input.settings.address_complemento,
+				addressBairro: input.settings.address_bairro,
+				addressMunicipio: input.settings.address_municipio,
+				addressUf: input.settings.address_uf,
+				addressCep: input.settings.address_cep,
+			})
+			.where(eq(kitchenInSisub.id, input.kitchenId))
+			.returning({ id: kitchenInSisub.id })
+	)
+	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
+	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`)
 	return { ok: true as const }
 }

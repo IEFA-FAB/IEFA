@@ -8,8 +8,8 @@
 import { ListUnitKitchensSchema, listUnitKitchens } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export type UnitKitchen = {
 	id: number
@@ -20,5 +20,5 @@ export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
 	.inputValidator(ListUnitKitchensSchema)
 	.handler(async ({ data }): Promise<UnitKitchen[]> => {
 		const ctx = await requireAuth()
-		return (await listUnitKitchens(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as UnitKitchen[]
+		return (await listUnitKitchens(getDb(), ctx, data).catch(handleDomainError)) as unknown as UnitKitchen[]
 	})

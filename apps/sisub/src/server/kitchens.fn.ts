@@ -10,8 +10,8 @@ import type { Tables } from "@iefa/database/sisub"
 import { ListUnitKitchensSchema, listKitchens, listUnitKitchens } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 /** Kitchen row with the joined unit (id + display_name + code). */
 export type KitchenWithUnit = Tables<"kitchen"> & {
@@ -20,12 +20,12 @@ export type KitchenWithUnit = Tables<"kitchen"> & {
 
 export const fetchKitchensFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
-	return (await listKitchens(getSupabaseServerClient(), ctx).catch(handleDomainError)) as unknown as KitchenWithUnit[]
+	return (await listKitchens(getDb(), ctx).catch(handleDomainError)) as unknown as KitchenWithUnit[]
 })
 
 export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
 	.inputValidator(ListUnitKitchensSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listUnitKitchens(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listUnitKitchens(getDb(), ctx, data).catch(handleDomainError)
 	})
