@@ -1,5 +1,5 @@
 /**
- * Permission resolution + admin CRUD for the sisub RBAC system.
+ * Permission resolution + admin CRUD for the sisub RBAC system. Drizzle query layer.
  *
  * LEVELS: 0=deny (explicit block), 1=read, 2=write.
  * MODULES: diner | messhall | unit | kitchen | kitchen-production | global |
@@ -9,16 +9,18 @@
  *   - listEffectiveUserPermissions is UNAUTHENTICATED (foundational lookup used
  *     while bootstrapping a session) — no ctx, no guard.
  *   - the admin operations require global level 2 (was requireGlobalPermissionAdmin).
+ *
+ * Aliases explícitos no lugar de toWire: `searchUsersByEmail` projeta `user_data.nrOrdem`
+ * (coluna camelCase no DB) — camel→snake corromperia a chave do contrato.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
+import { type SisubDb, userDataInSisub, userPermissionsInSisub } from "@iefa/database/drizzle/sisub"
+import { asc, eq, ilike } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+import { runQuery } from "../utils/index.ts"
 
 type EffectivePermission = {
 	module: string
@@ -32,12 +34,19 @@ type EffectivePermission = {
  * Effective permission set for a user: strips deny entries (level=0) and injects
  * an implicit "diner" allow when no explicit diner rule exists. NOT raw DB rows.
  */
-export async function listEffectiveUserPermissions(client: AnyClient, input: FetchUserPermissions): Promise<EffectivePermission[]> {
-	const { data: rows, error } = await client.from("user_permissions").select("module, level, mess_hall_id, kitchen_id, unit_id").eq("user_id", input.userId)
-
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-
-	const permissions: EffectivePermission[] = (rows ?? []) as unknown as EffectivePermission[]
+export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUserPermissions): Promise<EffectivePermission[]> {
+	const permissions = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				module: userPermissionsInSisub.module,
+				level: userPermissionsInSisub.level,
+				mess_hall_id: userPermissionsInSisub.messHallId,
+				kitchen_id: userPermissionsInSisub.kitchenId,
+				unit_id: userPermissionsInSisub.unitId,
+			})
+			.from(userPermissionsInSisub)
+			.where(eq(userPermissionsInSisub.userId, input.userId))
+	)
 
 	// Implicit Allow: every valid user is a diner (module "diner") unless there
 	// is an explicit deny entry (level 0).
@@ -51,56 +60,74 @@ export async function listEffectiveUserPermissions(client: AnyClient, input: Fet
 	return permissions.filter((p) => p.level > 0)
 }
 
-export async function searchUsersByEmail(client: AnyClient, ctx: UserContext, input: SearchUsersByEmail) {
+export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: SearchUsersByEmail) {
 	requirePermission(ctx, "global", 2)
-	const { data, error } = await client.from("user_data").select("id, email, nrOrdem").ilike("email", `%${input.email}%`).order("email").limit(10)
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	return runQuery("FETCH_FAILED", () =>
+		db
+			.select({ id: userDataInSisub.id, email: userDataInSisub.email, nrOrdem: userDataInSisub.nrOrdem })
+			.from(userDataInSisub)
+			.where(ilike(userDataInSisub.email, `%${input.email}%`))
+			.orderBy(asc(userDataInSisub.email))
+			.limit(10)
+	)
 }
 
-export async function fetchUserPermissionsAdmin(client: AnyClient, ctx: UserContext, input: FetchUserPermissions) {
+export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, input: FetchUserPermissions) {
 	requirePermission(ctx, "global", 2)
-	const { data, error } = await client
-		.from("user_permissions")
-		.select("id, module, level, mess_hall_id, kitchen_id, unit_id")
-		.eq("user_id", input.userId)
-		.order("module")
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	return runQuery("FETCH_FAILED", () =>
+		db
+			.select({
+				id: userPermissionsInSisub.id,
+				module: userPermissionsInSisub.module,
+				level: userPermissionsInSisub.level,
+				mess_hall_id: userPermissionsInSisub.messHallId,
+				kitchen_id: userPermissionsInSisub.kitchenId,
+				unit_id: userPermissionsInSisub.unitId,
+			})
+			.from(userPermissionsInSisub)
+			.where(eq(userPermissionsInSisub.userId, input.userId))
+			.orderBy(asc(userPermissionsInSisub.module))
+	)
 }
 
-export async function createUserPermission(client: AnyClient, ctx: UserContext, input: CreateUserPermission) {
+export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission) {
 	requirePermission(ctx, "global", 2)
-	const { error } = await client.from("user_permissions").insert({
-		user_id: input.userId,
-		module: input.module,
-		level: input.level,
-		mess_hall_id: input.mess_hall_id ?? null,
-		kitchen_id: input.kitchen_id ?? null,
-		unit_id: input.unit_id ?? null,
-	})
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return { success: true as const }
-}
-
-export async function updateUserPermission(client: AnyClient, ctx: UserContext, input: UpdateUserPermission) {
-	requirePermission(ctx, "global", 2)
-	const { error } = await client
-		.from("user_permissions")
-		.update({
+	await runQuery("INSERT_FAILED", () =>
+		db.insert(userPermissionsInSisub).values({
+			userId: input.userId,
+			module: input.module,
 			level: input.level,
-			mess_hall_id: input.mess_hall_id ?? null,
-			kitchen_id: input.kitchen_id ?? null,
-			unit_id: input.unit_id ?? null,
+			messHallId: input.mess_hall_id ?? null,
+			kitchenId: input.kitchen_id ?? null,
+			unitId: input.unit_id ?? null,
 		})
-		.eq("id", input.permissionId)
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
+	)
 	return { success: true as const }
 }
 
-export async function deleteUserPermission(client: AnyClient, ctx: UserContext, input: { permissionId: string }) {
+export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission) {
 	requirePermission(ctx, "global", 2)
-	const { error } = await client.from("user_permissions").delete().eq("id", input.permissionId)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
+	const updated = await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(userPermissionsInSisub)
+			.set({
+				level: input.level,
+				messHallId: input.mess_hall_id ?? null,
+				kitchenId: input.kitchen_id ?? null,
+				unitId: input.unit_id ?? null,
+			})
+			.where(eq(userPermissionsInSisub.id, input.permissionId))
+			.returning({ id: userPermissionsInSisub.id })
+	)
+	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
+	return { success: true as const }
+}
+
+export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
+	requirePermission(ctx, "global", 2)
+	const deleted = await runQuery("DELETE_FAILED", () =>
+		db.delete(userPermissionsInSisub).where(eq(userPermissionsInSisub.id, input.permissionId)).returning({ id: userPermissionsInSisub.id })
+	)
+	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`)
 	return { success: true as const }
 }

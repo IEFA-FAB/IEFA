@@ -25,8 +25,8 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
 
 export type UserSearchResult = {
@@ -51,40 +51,40 @@ export type PermissionRow = {
 export const fetchUserPermissionsFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchUserPermissionsSchema)
 	.handler(async ({ data }): Promise<UserPermission[]> => {
-		return (await listEffectiveUserPermissions(getSupabaseServerClient(), data).catch(handleDomainError)) as unknown as UserPermission[]
+		return (await listEffectiveUserPermissions(getDb(), data).catch(handleDomainError)) as unknown as UserPermission[]
 	})
 
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.inputValidator(SearchUsersByEmailSchema)
 	.handler(async ({ data }): Promise<UserSearchResult[]> => {
 		const ctx = await requireAuth()
-		return (await searchUsersByEmail(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as UserSearchResult[]
+		return (await searchUsersByEmail(getDb(), ctx, data).catch(handleDomainError)) as unknown as UserSearchResult[]
 	})
 
 export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchUserPermissionsAdminSchema)
 	.handler(async ({ data }): Promise<PermissionRow[]> => {
 		const ctx = await requireAuth()
-		return (await fetchUserPermissionsAdmin(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as PermissionRow[]
+		return (await fetchUserPermissionsAdmin(getDb(), ctx, data).catch(handleDomainError)) as unknown as PermissionRow[]
 	})
 
 export const createUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createUserPermission(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return createUserPermission(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateUserPermission(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return updateUserPermission(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteUserPermissionFn = createServerFn({ method: "POST" })
 	.inputValidator(DeleteUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteUserPermission(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return deleteUserPermission(getDb(), ctx, data).catch(handleDomainError)
 	})
