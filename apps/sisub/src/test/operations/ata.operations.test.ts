@@ -126,8 +126,9 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		const detailsAfterStatus = await fetchAtaDetails(client, ctx, { ataId: ata.id })
 		expect(detailsAfterStatus?.status).toBe("published")
 
-		const itemId = detailsAfterStatus?.items[0].id
-		await updateAtaItemDescription(client, ctx, { ataItemId: itemId, description: "marca X" })
+		const item = detailsAfterStatus?.items[0]
+		if (!item) throw new Error("esperava um item na ATA após createAta")
+		await updateAtaItemDescription(client, ctx, { ataItemId: item.id, description: "marca X" })
 		const reloaded = await fetchAtaDetails(client, ctx, { ataId: ata.id })
 		expect(reloaded?.items[0].item_description).toBe("marca X")
 	})

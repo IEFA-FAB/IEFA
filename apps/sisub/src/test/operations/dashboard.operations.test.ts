@@ -54,19 +54,25 @@ test("fetchPresences monta /api/wherewhowhen e filtra datas", async () => {
 	expect(result.map((r) => r.user_id)).toEqual(["b"])
 })
 
-test("fetchMessHalls/fetchUnits/fetchUserData/fetchUserMilitaryData montam URL + params", async () => {
+test("fetchMessHalls monta URL com unit_id", async () => {
 	const mh = mockFetchOnce([])
 	await fetchMessHalls(BASE, 3)
 	expect(new URL(mh.mock.calls[0][0] as string).searchParams.get("unit_id")).toBe("3")
+})
 
+test("fetchUnits monta /api/units", async () => {
 	const units = mockFetchOnce([])
 	await fetchUnits(BASE)
 	expect(new URL(units.mock.calls[0][0] as string).pathname).toBe("/api/units")
+})
 
+test("fetchUserData monta id como CSV", async () => {
 	const ud = mockFetchOnce([])
 	await fetchUserData(BASE, ["id1", "id2"])
 	expect(new URL(ud.mock.calls[0][0] as string).searchParams.get("id")).toBe("id1,id2")
+})
 
+test("fetchUserMilitaryData monta nrOrdem como CSV", async () => {
 	const umd = mockFetchOnce([])
 	await fetchUserMilitaryData(BASE, ["100", "200"])
 	expect(new URL(umd.mock.calls[0][0] as string).searchParams.get("nrOrdem")).toBe("100,200")

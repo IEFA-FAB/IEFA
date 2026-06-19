@@ -58,7 +58,8 @@ describeSupabaseIntegration("production operations (regressão)", () => {
 		const r1 = await ensureProductionTasks(client, ctx, { kitchenId, date })
 		expect(r1.created).toBe(1)
 		// idempotente: 2ª chamada não duplica (upsert ignoreDuplicates por menu_item_id)
-		await ensureProductionTasks(client, ctx, { kitchenId, date })
+		const r2 = await ensureProductionTasks(client, ctx, { kitchenId, date })
+		expect(r2.created).toBe(0)
 
 		const board = await fetchProductionBoard(client, ctx, { kitchenId, date })
 		expect(board).toHaveLength(1)

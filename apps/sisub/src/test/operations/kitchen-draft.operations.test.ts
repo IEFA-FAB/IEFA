@@ -118,6 +118,7 @@ describeSupabaseIntegration("kitchen-draft operations (regressão)", () => {
 		if (!reachable || !seeder) return
 		const { kitchenId } = await setupDraftDeps()
 		const draft = await createKitchenDraft(client, ctx, { kitchenId, title: uid("[TEST] D "), notes: undefined, selections: [] })
+		seeder.track("kitchen_ata_draft", draft.id) // cleanup-safe se deleteKitchenDraft falhar (delete de row já removida é no-op)
 
 		await deleteKitchenDraft(client, ctx, { draftId: draft.id })
 		const drafts = await fetchKitchenDrafts(client, ctx, { kitchenId })
