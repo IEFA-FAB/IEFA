@@ -1,12 +1,45 @@
-import { readFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { existsSync, readFileSync } from "node:fs"
+import { dirname, join, parse } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 
 const serverDir = dirname(fileURLToPath(import.meta.url))
 
+/**
+ * Walk up from `serverDir` until the monorepo root (the dir holding `turbo.json`)
+ * so cross-package paths survive any change in nesting depth. Falls back to a
+ * thrown error with a clear message instead of a later opaque ENOENT.
+ */
+function findMonorepoRoot(): string {
+	let dir = serverDir
+	while (true) {
+		if (existsSync(join(dir, "turbo.json"))) return dir
+		const parent = dirname(dir)
+		if (parent === dir || dir === parse(dir).root) {
+			throw new Error(`monorepo root (turbo.json) not found walking up from ${serverDir}`)
+		}
+		dir = parent
+	}
+}
+
+const monorepoRoot = findMonorepoRoot()
+
 function readServerFile(fileName: string) {
 	return readFileSync(join(serverDir, fileName), "utf8")
+}
+
+/**
+ * Resolve a file inside a workspace package from the monorepo root. Asserts the
+ * file exists first so a moved/renamed source produces a readable failure
+ * ("contract target missing") rather than a raw ENOENT — keeping the contract
+ * enforceable regardless of layout changes.
+ */
+function readPackageFile(packageRelativePath: string) {
+	const path = join(monorepoRoot, packageRelativePath)
+	if (!existsSync(path)) {
+		throw new Error(`security contract target missing: ${packageRelativePath} (resolved to ${path})`)
+	}
+	return readFileSync(path, "utf8")
 }
 
 describe("server function security contracts", () => {
@@ -15,7 +48,7 @@ describe("server function security contracts", () => {
 	//   - the @iefa/sisub-domain operation enforces global level 2
 	test("permission admin functions require auth and forward ctx to a global-write-guarded domain op", () => {
 		const source = readServerFile("permissions.fn.ts")
-		const domainSource = readFileSync(join(serverDir, "../../../../packages/sisub-domain/src/operations/permissions.ts"), "utf8")
+		const domainSource = readPackageFile("packages/sisub-domain/src/operations/permissions.ts")
 
 		expect(source).toContain("requireAuth")
 
