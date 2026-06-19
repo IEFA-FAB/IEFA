@@ -119,11 +119,12 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 	}
 	if (input.search) conditions.push(ilike(recipesInSisub.name, `%${input.search}%`))
 
+	// Sem orderBy no SQL: o sort pt-BR em JS (após o dedup) determina a ordem final;
+	// ordenar no Postgres seria um passo sem efeito observável.
 	const rows = await run("FETCH_FAILED", () =>
 		db.query.recipesInSisub.findMany({
 			where: and(...conditions),
 			with: WITH_INGREDIENTS,
-			orderBy: (recipe, { asc }) => [asc(recipe.name)],
 		})
 	)
 
@@ -148,7 +149,8 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
  * preparações, quais merecem revisão prioritária por estarem em cardápios semanais.
  *
  * Sem escopo de cozinha: uma preparação global pode ser usada em um plano semanal de
- * qualquer cozinha. O RLS já limita o que o usuário pode enxergar.
+ * qualquer cozinha. Autorização garantida por `requirePermission` — com Drizzle
+ * (conexão direta pelo role do projeto) não há RLS; a autorização é só na aplicação.
  */
 export async function listRecipeMenuUsage(db: SisubDb, ctx: UserContext): Promise<string[]> {
 	requirePermission(ctx, "kitchen", 1)
