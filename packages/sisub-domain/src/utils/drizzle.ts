@@ -40,6 +40,22 @@ export function toWire<T>(value: unknown, relationKeys: Record<string, string> =
 	return value as T
 }
 
+function snakeToCamel(key: string): string {
+	return key.replace(/_([a-z0-9])/g, (_m, c) => c.toUpperCase())
+}
+
+/**
+ * Inverso (raso) de `toWire` para payloads de WRITE: converte um objeto com chaves snake_case
+ * (contrato/zod, ex.: `PurchaseItemWriteSchema`) em camelCase — as props do schema Drizzle, que
+ * `.values()`/`.set()` exigem. Use só com tabelas cujas colunas são snake no DB (a maioria);
+ * tabelas com colunas camelCase no DB (user_data.nrOrdem) não devem passar por aqui.
+ */
+export function toColumns<T = Record<string, unknown>>(payload: Record<string, unknown>): T {
+	const out: Record<string, unknown> = {}
+	for (const [k, v] of Object.entries(payload)) out[snakeToCamel(k)] = v
+	return out as T
+}
+
 /**
  * Executa uma query Drizzle convertendo erro inesperado do Postgres em `DomainError(code)`,
  * preservando `DomainError` e subclasses (NotFound/Permission) — mantém os códigos de erro
