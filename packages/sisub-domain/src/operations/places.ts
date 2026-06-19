@@ -30,7 +30,7 @@ import type {
 } from "../schemas/places.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, toColumns, toWire } from "../utils/index.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 
 type Unit = Tables<"units">
 type Kitchen = Tables<"kitchen">
@@ -97,17 +97,27 @@ export async function updatePlacesEntity(db: SisubDb, _ctx: UserContext, input: 
 	return { ok: true as const }
 }
 
+// Mapeia a coluna (snake, validada pelo Zod) → prop camelCase do Drizzle. `satisfies` garante,
+// em compile-time, que cada destino é uma coluna real da tabela (sem o silent-drop do cast genérico).
+const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId", kitchen_id: "kitchenId" } satisfies Record<
+	string,
+	keyof typeof kitchenInSisub.$inferInsert
+>
+const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInSisub.$inferInsert>
+
 export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: ApplyPlacesDiff) {
 	await Promise.all(
 		input.diffs.map(async (diff) => {
-			const set = toColumns<Record<string, number>>({ [diff.column]: diff.newValue })
 			try {
 				if (diff.table === "kitchen") {
-					await db.update(kitchenInSisub).set(set).where(eq(kitchenInSisub.id, diff.recordId))
+					await db
+						.update(kitchenInSisub)
+						.set({ [KITCHEN_DIFF_KEY[diff.column]]: diff.newValue })
+						.where(eq(kitchenInSisub.id, diff.recordId))
 				} else {
 					await db
 						.update(messHallsInSisub)
-						.set(set)
+						.set({ [MESS_HALL_DIFF_KEY[diff.column]]: diff.newValue })
 						.where(eq(messHallsInSisub.id, BigInt(diff.recordId)))
 				}
 			} catch (e) {
