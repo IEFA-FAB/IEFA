@@ -16,7 +16,6 @@ export const profilesAdminInSisub = sisub.table("profiles_admin", {
 	email: text().primaryKey().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-	// TODO: failed to parse database type 'userLevels'
 	role: userLevels("role"),
 	om: text(),
 }, (table) => [

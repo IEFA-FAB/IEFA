@@ -19,8 +19,7 @@ export default defineConfig({
 		// biome-ignore lint/style/noNonNullAssertion: pull fails loudly if unset
 		url: process.env.SISUB_DATABASE_URL!,
 	},
-	// Keep generated tables in TS files we re-export; do not emit SQL migrations.
-	migrations: {
-		prefix: "timestamp",
-	},
+	// No `migrations` block: this workflow is `drizzle-kit pull` only — DDL/migrations
+	// stay with the Supabase CLI, so `drizzle-kit generate` (which `migrations.*`
+	// configures) is never run.
 })

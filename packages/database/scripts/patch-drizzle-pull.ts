@@ -11,10 +11,15 @@
  *     1. Drop unused `pgTable` import (everything uses `sisub.table`) → TS6133.
  *     2. Inject `usersInAuth` (auth.users) stub + `userLevels` public enum, which
  *        the introspection references but never declares (schemaFilter = sisub).
- *     3. `role: unknown("role")` (unparsed `public.userLevels`) → `userLevels("role")`.
+ *        Enum values are read from the live DB (`pg_enum`) so they never drift —
+ *        a new label (e.g. 'moderator') flows through on the next pull.
+ *     3. `role: unknown("role")` (unparsed `public.userLevels`) → `userLevels("role")`,
+ *        and strip the stale `// TODO: failed to parse database type 'userLevels'`
+ *        comment drizzle-kit emits above it.
  *     4. Cross-schema FK refs `[users.id]` → `[usersInAuth.id]`.
  *     5. View option `{"securityInvoker":"on"}` (string) → `{ securityInvoker: true }`.
- *     6. Empty-string default mis-escaped as `.default(')` → `.default("")`.
+ *     6. Empty-string default mis-escaped as `.default(')` → `.default("")` (both the
+ *        `.notNull()` and the nullable variant).
  *   relations.ts
  *     7. Drop duplicate relation properties (redundant duplicate FK constraints in
  *        the DB emit identical relation keys → TS1117 "duplicate property").
@@ -22,12 +27,39 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import postgres from "postgres"
 
 const drizzleDir = join(dirname(fileURLToPath(import.meta.url)), "..", "drizzle")
 const schemaPath = join(drizzleDir, "schema.ts")
 const relationsPath = join(drizzleDir, "relations.ts")
 
-function patchSchema(src: string): string {
+/**
+ * Read the live `public.userLevels` enum labels. The pull leaves the column as
+ * `unknown("role")` (schemaFilter = sisub excludes the public enum), so we resolve
+ * the values from the DB instead of hardcoding them — keeping the injected enum in
+ * lockstep with the schema. Same `SISUB_DATABASE_URL` the pull just used.
+ */
+async function fetchUserLevels(): Promise<string[]> {
+	const url = process.env.SISUB_DATABASE_URL
+	if (!url) throw new Error("SISUB_DATABASE_URL unset — required to resolve public.userLevels enum")
+	const sql = postgres(url, { max: 1 })
+	try {
+		const rows = await sql<{ value: string }[]>`
+			select e.enumlabel as value
+			from pg_enum e
+			join pg_type t on t.oid = e.enumtypid
+			join pg_namespace n on n.oid = t.typnamespace
+			where t.typname = 'userLevels' and n.nspname = 'public'
+			order by e.enumsortorder
+		`
+		if (rows.length === 0) throw new Error("public.userLevels enum not found — patcher cannot inject it")
+		return rows.map((r) => r.value)
+	} finally {
+		await sql.end()
+	}
+}
+
+async function patchSchema(src: string): Promise<string> {
 	let out = src
 
 	// 1. unused pgTable import
@@ -36,12 +68,14 @@ function patchSchema(src: string): string {
 	// 2. inject auth.users stub + public userLevels enum right after the sisub schema decl.
 	const anchor = 'export const sisub = pgSchema("sisub");'
 	if (out.includes(anchor) && !out.includes("export const usersInAuth")) {
+		const levels = await fetchUserLevels()
+		const literals = levels.map((v) => `'${v}'`).join(", ")
 		out = out.replace(
 			anchor,
 			`${anchor}\n` +
 				`// Patched (patch-drizzle-pull.ts): cross-schema/custom-type refs the pull leaves dangling.\n` +
 				`export const usersInAuth = pgSchema("auth").table("users", { id: uuid().primaryKey().notNull() });\n` +
-				`export const userLevels = pgEnum("userLevels", ['user', 'admin', 'superadmin']);`,
+				`export const userLevels = pgEnum("userLevels", [${literals}]);`,
 		)
 	}
 	// ensure pgEnum is imported (used by the injected enum)
@@ -51,7 +85,8 @@ function patchSchema(src: string): string {
 		)
 	}
 
-	// 3. unparsed custom enum column
+	// 3. unparsed custom enum column + its now-inaccurate TODO comment
+	out = out.replace(/[ \t]*\/\/ TODO: failed to parse database type 'userLevels'\n/g, "")
 	out = out.replace(/\bunknown\("role"\)/g, 'userLevels("role")')
 
 	// 4. cross-schema FK target
@@ -60,8 +95,8 @@ function patchSchema(src: string): string {
 	// 5. view securityInvoker string → boolean
 	out = out.replace(/\{"securityInvoker":"on"\}/g, "{ securityInvoker: true }")
 
-	// 6. empty-string default mis-escape
-	out = out.replace(/\.default\('\)\.notNull\(\)/g, '.default("").notNull()')
+	// 6. empty-string default mis-escape (both `.notNull()` and nullable variants)
+	out = out.replace(/\.default\('\)/g, '.default("")')
 
 	return out
 }
@@ -110,7 +145,7 @@ function patchRelations(src: string): string {
 }
 
 const schema = readFileSync(schemaPath, "utf8")
-const patchedSchema = patchSchema(schema)
+const patchedSchema = await patchSchema(schema)
 if (patchedSchema !== schema) writeFileSync(schemaPath, patchedSchema)
 
 const relations = readFileSync(relationsPath, "utf8")
