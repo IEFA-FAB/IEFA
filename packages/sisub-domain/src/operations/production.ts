@@ -7,7 +7,7 @@
  * completed_at) -> PENDING (clears both timestamps).
  */
 
-import { dailyMenuInSisub, productionTaskInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInSisub, menuItemsInSisub, productionTaskInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, eq, isNull } from "drizzle-orm"
 import type { EnsureProductionTasks, FetchProductionBoard, UpdateProductionTaskStatus } from "../schemas/meal-ops.ts"
@@ -41,7 +41,9 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
 			with: {
 				mealTypeInSisub: { columns: { id: true, name: true, sortOrder: true } },
 				menuItemsInSisubs: {
-					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true, recipe: true, deletedAt: true },
+					// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
+					where: isNull(menuItemsInSisub.deletedAt),
+					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true },
 					with: {
 						recipesInSisub: {
 							columns: { id: true, name: true, portionYield: true, preparationMethod: true, preparationTimeMinutes: true, kitchenId: true },
@@ -78,8 +80,7 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
 		const mealType = menu.mealTypeInSisub ? toWire<Record<string, unknown>>(menu.mealTypeInSisub) : null
 
 		for (const menuItem of menu.menuItemsInSisubs ?? []) {
-			if (menuItem.deletedAt) continue
-
+			// Soft-deleted já filtrados no SQL (where acima).
 			// Skip items without a task yet — created later by ensureProductionTasks.
 			const taskRaw = menuItem.productionTaskInSisubs[0]
 			if (!taskRaw) continue
@@ -112,7 +113,7 @@ export async function ensureProductionTasks(db: SisubDb, _ctx: UserContext, inpu
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
 		db.query.dailyMenuInSisub.findMany({
 			columns: { id: true },
-			with: { menuItemsInSisubs: { columns: { id: true } } },
+			with: { menuItemsInSisubs: { where: isNull(menuItemsInSisub.deletedAt), columns: { id: true } } },
 			where: and(eq(dailyMenuInSisub.kitchenId, input.kitchenId), eq(dailyMenuInSisub.serviceDate, input.date), isNull(dailyMenuInSisub.deletedAt)),
 		})
 	)
