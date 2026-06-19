@@ -20,25 +20,25 @@ import {
 	syncUserNrOrdem,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export const fetchUserDataFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchUserDataSchema)
-	.handler(async ({ data }) => fetchSisubUserData(getSupabaseServerClient(), data).catch(handleDomainError))
+	.handler(async ({ data }) => fetchSisubUserData(getDb(), data).catch(handleDomainError))
 
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchMilitaryDataSchema)
-	.handler(async ({ data }) => fetchMilitaryData(getSupabaseServerClient(), data).catch(handleDomainError))
+	.handler(async ({ data }) => fetchMilitaryData(getDb(), data).catch(handleDomainError))
 
 export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchUserNrOrdemSchema)
-	.handler(async ({ data }) => fetchUserNrOrdem(getSupabaseServerClient(), data).catch(handleDomainError))
+	.handler(async ({ data }) => fetchUserNrOrdem(getDb(), data).catch(handleDomainError))
 
 export const syncUserNrOrdemFn = createServerFn({ method: "POST" })
 	.inputValidator(SyncUserNrOrdemSchema)
-	.handler(async ({ data }) => syncUserNrOrdem(getSupabaseServerClient(), data).catch(handleDomainError))
+	.handler(async ({ data }) => syncUserNrOrdem(getDb(), data).catch(handleDomainError))
 
 export const syncUserEmailFn = createServerFn({ method: "POST" })
 	.inputValidator(SyncUserEmailSchema)
-	.handler(async ({ data }) => syncUserEmail(getSupabaseServerClient(), data).catch(handleDomainError))
+	.handler(async ({ data }) => syncUserEmail(getDb(), data).catch(handleDomainError))
