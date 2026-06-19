@@ -17,27 +17,27 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProductionItem, ProductionTask } from "@/types/domain/production"
 
 export const fetchProductionBoardFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchProductionBoardSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return (await fetchProductionBoard(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as ProductionItem[]
+		return (await fetchProductionBoard(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProductionItem[]
 	})
 
 export const ensureProductionTasksFn = createServerFn({ method: "POST" })
 	.inputValidator(EnsureProductionTasksSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return ensureProductionTasks(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return ensureProductionTasks(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateProductionTaskStatusFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateProductionTaskStatusSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return (await updateProductionTaskStatus(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as ProductionTask
+		return (await updateProductionTaskStatus(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProductionTask
 	})
