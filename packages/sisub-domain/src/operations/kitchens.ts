@@ -84,7 +84,7 @@ export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input
 }
 
 export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, input: UpdateKitchenSettings) {
-	await runQuery("UPDATE_FAILED", () =>
+	const updated = await runQuery("UPDATE_FAILED", () =>
 		db
 			.update(kitchenInSisub)
 			.set({
@@ -97,6 +97,9 @@ export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, inpu
 				addressCep: input.settings.address_cep,
 			})
 			.where(eq(kitchenInSisub.id, input.kitchenId))
+			.returning({ id: kitchenInSisub.id })
 	)
+	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
+	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`)
 	return { ok: true as const }
 }

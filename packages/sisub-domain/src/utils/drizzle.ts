@@ -20,6 +20,12 @@ function camelToSnake(key: string): string {
  *   - `bigint` → `number`: colunas `bigserial`/`bigint` mode "bigint" voltam como BigInt no
  *     Drizzle, mas o contrato (e os tipos Supabase) é `number` — e BigInt quebraria o JSON.stringify
  *     da server fn. IDs do sisub cabem com folga no range seguro.
+ *
+ * `relationKeys` é aplicado em TODOS os níveis da recursão (intencional: relations aninhadas
+ * como `ingredientInSisub` vivem dentro de objetos filhos, ex. um `recipe_ingredient`). Efeito
+ * colateral: uma regra de rename dispara em qualquer profundidade onde a chave colida. Os nomes
+ * gerados pelo pull (`unitsInSisub_unitId`, `recipeIngredientsInSisubs`, …) não colidem com
+ * colunas hoje; batches futuros com mapas mais ricos devem conferir contra seus schemas aninhados.
  */
 export function toWire<T>(value: unknown, relationKeys: Record<string, string> = {}): T {
 	if (typeof value === "bigint") return Number(value) as T

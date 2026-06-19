@@ -54,7 +54,7 @@ export async function fetchUnitSettings(db: SisubDb, _ctx: UserContext, input: F
 }
 
 export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: UpdateUnitSettings) {
-	await runQuery("UPDATE_FAILED", () =>
+	const updated = await runQuery("UPDATE_FAILED", () =>
 		db
 			.update(unitsInSisub)
 			.set({
@@ -68,6 +68,9 @@ export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: 
 				addressCep: input.settings.address_cep,
 			})
 			.where(eq(unitsInSisub.id, BigInt(input.unitId)))
+			.returning({ id: unitsInSisub.id })
 	)
+	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
+	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `unit ${input.unitId} not found`)
 	return { ok: true as const }
 }
