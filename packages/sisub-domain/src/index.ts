@@ -22,4 +22,4 @@ export type { AppModule, PermissionScope, ProcurementNeed, ProcurementParams, Us
 export { DomainError, NotFoundError, PermissionDeniedError, ValidationError } from "./types/index.ts"
 export type { JsonSchemaObject } from "./utils/index.ts"
 // Utils
-export { restore, softDelete, toJsonSchema } from "./utils/index.ts"
+export { toJsonSchema } from "./utils/index.ts"
