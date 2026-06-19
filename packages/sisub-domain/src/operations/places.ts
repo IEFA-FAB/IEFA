@@ -1,13 +1,24 @@
 /**
- * Org-hierarchy + mess-hall operations.
+ * Org-hierarchy + mess-hall operations. Drizzle query layer.
  *
- * Auth posture preserved from the original server functions: these are
- * authenticated entrypoints (the caller runs requireAuth()) but carry no
- * module-level PBAC guard — they read/write global reference data and
- * diner-facing presence rows. `ctx` is accepted for signature uniformity.
+ * Auth posture preserved: authenticated entrypoints (caller runs requireAuth())
+ * with no module-level PBAC guard. `ctx` accepted for signature uniformity.
+ *
+ * `units`/`mess_halls` têm PK bigserial → o id volta BigInt no Drizzle; `toWire`
+ * coage para number (contrato), e updates por id usam `BigInt(input.id)`.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
+import {
+	kitchenInSisub,
+	mealForecastsInSisub,
+	messHallsInSisub,
+	otherPresencesInSisub,
+	type SisubDb,
+	unitsInSisub,
+	vUserIdentityInSisub,
+} from "@iefa/database/drizzle/sisub"
+import type { Tables } from "@iefa/database/sisub"
+import { and, asc, count, eq } from "drizzle-orm"
 import type {
 	AddOtherPresence,
 	ApplyPlacesDiff,
@@ -19,72 +30,99 @@ import type {
 } from "../schemas/places.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+type Unit = Tables<"units">
+type Kitchen = Tables<"kitchen">
+type MessHall = Tables<"mess_halls">
 
 // ─── Reference reads ────────────────────────────────────────────────────────
 
-export async function listUnits(client: AnyClient, _ctx: UserContext) {
-	const { data, error } = await client.from("units").select("id, code, display_name").order("display_name", { ascending: true })
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return (data ?? []).map((row: { id: number; code: string | null; display_name: string | null }) => ({
-		id: row.id,
-		code: row.code,
-		display_name: row.display_name,
-		type: null,
-	}))
+export async function listUnits(db: SisubDb, _ctx: UserContext): Promise<Array<{ id: number; code: string | null; display_name: string | null; type: null }>> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.unitsInSisub.findMany({ columns: { id: true, code: true, displayName: true }, orderBy: (u, { asc }) => [asc(u.displayName)] })
+	)
+	return rows.map((r) => {
+		const w = toWire<{ id: number; code: string | null; display_name: string | null }>(r)
+		return { id: w.id, code: w.code, display_name: w.display_name, type: null }
+	})
 }
 
-export async function listAllMessHalls(client: AnyClient, _ctx: UserContext) {
-	const { data, error } = await client.from("mess_halls").select("id, unit_id, code, display_name, kitchen_id").order("display_name", { ascending: true })
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+export async function listAllMessHalls(
+	db: SisubDb,
+	_ctx: UserContext
+): Promise<Array<Pick<MessHall, "id" | "unit_id" | "code" | "display_name" | "kitchen_id">>> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.messHallsInSisub.findMany({
+			columns: { id: true, unitId: true, code: true, displayName: true, kitchenId: true },
+			orderBy: (m, { asc }) => [asc(m.displayName)],
+		})
+	)
+	return rows.map((r) => toWire(r))
 }
 
-export async function fetchPlacesGraph(client: AnyClient, _ctx: UserContext) {
-	const [unitsRes, kitchensRes, messHallsRes] = await Promise.all([
-		client.from("units").select("*").order("display_name"),
-		client.from("kitchen").select("*").order("display_name"),
-		client.from("mess_halls").select("*").order("display_name"),
-	])
-
-	if (unitsRes.error) throw new DomainError("FETCH_FAILED", unitsRes.error.message)
-	if (kitchensRes.error) throw new DomainError("FETCH_FAILED", kitchensRes.error.message)
-	if (messHallsRes.error) throw new DomainError("FETCH_FAILED", messHallsRes.error.message)
-
+export async function fetchPlacesGraph(db: SisubDb, _ctx: UserContext): Promise<{ units: Unit[]; kitchens: Kitchen[]; messHalls: MessHall[] }> {
+	const [units, kitchens, messHalls] = await runQuery("FETCH_FAILED", () =>
+		Promise.all([
+			db.select().from(unitsInSisub).orderBy(asc(unitsInSisub.displayName)),
+			db.select().from(kitchenInSisub).orderBy(asc(kitchenInSisub.displayName)),
+			db.select().from(messHallsInSisub).orderBy(asc(messHallsInSisub.displayName)),
+		])
+	)
 	return {
-		units: unitsRes.data ?? [],
-		kitchens: kitchensRes.data ?? [],
-		messHalls: messHallsRes.data ?? [],
+		units: units.map((r) => toWire<Unit>(r)),
+		kitchens: kitchens.map((r) => toWire<Kitchen>(r)),
+		messHalls: messHalls.map((r) => toWire<MessHall>(r)),
 	}
 }
 
 // ─── Org-graph mutations ────────────────────────────────────────────────────
 
-export async function updatePlacesEntity(client: AnyClient, _ctx: UserContext, input: UpdateEntityInput) {
-	if (input.entityType === "unit") {
-		const { error } = await client.from("units").update({ display_name: input.display_name, code: input.code, type: input.type }).eq("id", input.id)
-		if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	} else if (input.entityType === "kitchen") {
-		const { error } = await client.from("kitchen").update({ display_name: input.display_name, type: input.type }).eq("id", input.id)
-		if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	} else {
-		const { error } = await client.from("mess_halls").update({ display_name: input.display_name, code: input.code }).eq("id", input.id)
-		if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	}
+export async function updatePlacesEntity(db: SisubDb, _ctx: UserContext, input: UpdateEntityInput) {
+	await runQuery("UPDATE_FAILED", () => {
+		if (input.entityType === "unit") {
+			return db
+				.update(unitsInSisub)
+				.set({ displayName: input.display_name, code: input.code, type: input.type })
+				.where(eq(unitsInSisub.id, BigInt(input.id)))
+		}
+		if (input.entityType === "kitchen") {
+			return db.update(kitchenInSisub).set({ displayName: input.display_name, type: input.type }).where(eq(kitchenInSisub.id, input.id))
+		}
+		return db
+			.update(messHallsInSisub)
+			.set({ displayName: input.display_name, code: input.code })
+			.where(eq(messHallsInSisub.id, BigInt(input.id)))
+	})
 	return { ok: true as const }
 }
 
-export async function applyPlacesDiff(client: AnyClient, _ctx: UserContext, input: ApplyPlacesDiff) {
+// Mapeia a coluna (snake, validada pelo Zod) → prop camelCase do Drizzle. `satisfies` garante,
+// em compile-time, que cada destino é uma coluna real da tabela (sem o silent-drop do cast genérico).
+const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId", kitchen_id: "kitchenId" } satisfies Record<
+	string,
+	keyof typeof kitchenInSisub.$inferInsert
+>
+const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInSisub.$inferInsert>
+
+export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: ApplyPlacesDiff) {
 	await Promise.all(
 		input.diffs.map(async (diff) => {
-			const update = { [diff.column]: diff.newValue }
-			const { error } =
-				diff.table === "kitchen"
-					? await client.from("kitchen").update(update).eq("id", diff.recordId)
-					: await client.from("mess_halls").update(update).eq("id", diff.recordId)
-			if (error) throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${error.message}`)
+			try {
+				if (diff.table === "kitchen") {
+					await db
+						.update(kitchenInSisub)
+						.set({ [KITCHEN_DIFF_KEY[diff.column]]: diff.newValue })
+						.where(eq(kitchenInSisub.id, diff.recordId))
+				} else {
+					await db
+						.update(messHallsInSisub)
+						.set({ [MESS_HALL_DIFF_KEY[diff.column]]: diff.newValue })
+						.where(eq(messHallsInSisub.id, BigInt(diff.recordId)))
+				}
+			} catch (e) {
+				throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${e instanceof Error ? e.message : String(e)}`)
+			}
 		})
 	)
 	return { ok: true as const, count: input.diffs.length }
@@ -92,57 +130,68 @@ export async function applyPlacesDiff(client: AnyClient, _ctx: UserContext, inpu
 
 // ─── Mess-hall lookups + diner presence ─────────────────────────────────────
 
-export async function fetchMessHallByCode(client: AnyClient, _ctx: UserContext, input: FetchMessHallByCode) {
-	const { data, error } = await client.schema("sisub").from("mess_halls").select("id, unit_id, code, display_name").eq("code", input.code).maybeSingle()
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data
+export async function fetchMessHallByCode(
+	db: SisubDb,
+	_ctx: UserContext,
+	input: FetchMessHallByCode
+): Promise<Pick<MessHall, "id" | "unit_id" | "code" | "display_name"> | null> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.messHallsInSisub.findFirst({ columns: { id: true, unitId: true, code: true, displayName: true }, where: eq(messHallsInSisub.code, input.code) })
+	)
+	return row ? toWire(row) : null
 }
 
-export async function fetchMessHallIdByCode(client: AnyClient, _ctx: UserContext, input: FetchMessHallByCode): Promise<number | null> {
+export async function fetchMessHallIdByCode(db: SisubDb, _ctx: UserContext, input: FetchMessHallByCode): Promise<number | null> {
 	if (!input.code) return null
-	const { data, error } = await client.schema("sisub").from("mess_halls").select("id").eq("code", input.code).maybeSingle()
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data?.id ?? null
+	const row = await runQuery("FETCH_FAILED", () => db.query.messHallsInSisub.findFirst({ columns: { id: true }, where: eq(messHallsInSisub.code, input.code) }))
+	return row ? Number(row.id) : null
 }
 
-export async function fetchUserMealForecast(client: AnyClient, _ctx: UserContext, input: FetchUserMealForecast) {
-	const { data, error } = await client
-		.schema("sisub")
-		.from("meal_forecasts")
-		.select("will_eat")
-		.eq("user_id", input.userId)
-		.eq("date", input.date)
-		.eq("meal", input.meal)
-		.eq("mess_hall_id", input.messHallId)
-		.maybeSingle()
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data
+export async function fetchUserMealForecast(db: SisubDb, _ctx: UserContext, input: FetchUserMealForecast): Promise<{ will_eat: boolean | null } | null> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ will_eat: mealForecastsInSisub.willEat })
+			.from(mealForecastsInSisub)
+			.where(
+				and(
+					eq(mealForecastsInSisub.userId, input.userId),
+					eq(mealForecastsInSisub.date, input.date),
+					eq(mealForecastsInSisub.meal, input.meal),
+					eq(mealForecastsInSisub.messHallId, input.messHallId)
+				)
+			)
+			.limit(1)
+	)
+	return rows[0] ?? null
 }
 
-export async function fetchOtherPresencesCount(client: AnyClient, _ctx: UserContext, input: FetchOtherPresencesCount): Promise<number> {
-	const { count, error } = await client
-		.schema("sisub")
-		.from("other_presences")
-		.select("*", { count: "exact", head: true })
-		.eq("date", input.date)
-		.eq("meal", input.meal)
-		.eq("mess_hall_id", input.messHallId)
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return count ?? 0
+export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, input: FetchOtherPresencesCount): Promise<number> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ value: count() })
+			.from(otherPresencesInSisub)
+			.where(
+				and(eq(otherPresencesInSisub.date, input.date), eq(otherPresencesInSisub.meal, input.meal), eq(otherPresencesInSisub.messHallId, input.messHallId))
+			)
+	)
+	return rows[0]?.value ?? 0
 }
 
-export async function addOtherPresence(client: AnyClient, _ctx: UserContext, input: AddOtherPresence) {
-	const { error } = await client.schema("sisub").from("other_presences").insert({
-		admin_id: input.adminId,
-		date: input.date,
-		meal: input.meal,
-		mess_hall_id: input.messHallId,
-	})
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
+export async function addOtherPresence(db: SisubDb, _ctx: UserContext, input: AddOtherPresence) {
+	await runQuery("INSERT_FAILED", () =>
+		db.insert(otherPresencesInSisub).values({ adminId: input.adminId, date: input.date, meal: input.meal, messHallId: input.messHallId })
+	)
 }
 
-export async function resolveDisplayName(client: AnyClient, _ctx: UserContext, input: ResolveDisplayName): Promise<string | null> {
-	const { data, error } = await client.schema("sisub").from("v_user_identity").select("display_name").eq("id", input.userId).single()
-	if (error || !data?.display_name) return null
-	return data.display_name
+export async function resolveDisplayName(db: SisubDb, _ctx: UserContext, input: ResolveDisplayName): Promise<string | null> {
+	try {
+		const rows = await db
+			.select({ display_name: vUserIdentityInSisub.displayName })
+			.from(vUserIdentityInSisub)
+			.where(eq(vUserIdentityInSisub.id, input.userId))
+			.limit(1)
+		return rows[0]?.display_name ?? null
+	} catch {
+		return null
+	}
 }
