@@ -389,10 +389,12 @@ export async function applyTemplate(
 	// Valida template: não excluído, cozinha confere (lança se inacessível).
 	await validateTemplateAccess(db, input.templateId, input.kitchenId)
 
-	// Itens do template + receita de origem (para copiar o snapshot json em menu_items).
+	// Itens do template + receita de origem COM ingredientes — o snapshot json em menu_items
+	// precisa do mesmo shape que addMenuItem grava (snake_case aninhado com `ingredients`),
+	// senão o diner vê listas de ingredientes vazias e chaves camelCase.
 	const templateItems = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateItemsInSisub.findMany({
-			with: { recipesInSisub: true },
+			with: { recipesInSisub: { with: { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } } } },
 			where: eq(menuTemplateItemsInSisub.menuTemplateId, input.templateId),
 		})
 	)
@@ -426,7 +428,11 @@ export async function applyTemplate(
 			const menuId = crypto.randomUUID()
 			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED" })
 			for (const item of items) {
-				newMenuItems.push({ dailyMenuId: menuId, recipeOriginId: item.recipeId ?? "", recipe: item.recipesInSisub })
+				// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
+				const recipeSnapshot = item.recipesInSisub
+					? toWire<Record<string, unknown>>(item.recipesInSisub, { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" })
+					: {}
+				newMenuItems.push({ dailyMenuId: menuId, recipeOriginId: item.recipeId ?? "", recipe: recipeSnapshot })
 			}
 		}
 	}

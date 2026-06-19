@@ -51,10 +51,6 @@ const DAILY_MENU_RELATIONS: Record<string, string> = {
 	menuItemsInSisubs: "menu_items",
 	recipesInSisub: "recipe_origin",
 }
-const TRASH_RELATIONS: Record<string, string> = {
-	recipesInSisub: "recipe_origin",
-	dailyMenuInSisub: "daily_menu",
-}
 
 // Relational `with` para daily_menu + meal_type + menu_items ativos (+ recipe_origin).
 const WITH_MENU_ITEMS = {
@@ -234,17 +230,23 @@ export async function updateSubstitutions(db: SisubDb, ctx: UserContext, input: 
 export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTrashItems): Promise<TrashMenuItem[]> {
 	requireKitchen(ctx, 1, input.kitchenId)
 
+	// daily_menu!inner + filtro por kitchen_id no SQL (join), não em JS — não varre o lixo de
+	// outras cozinhas. Itens órfãos (daily_menu hard-deletado) ficam de fora pelo inner join.
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.menuItemsInSisub.findMany({
-			where: isNotNull(menuItemsInSisub.deletedAt),
-			with: { recipesInSisub: true, dailyMenuInSisub: true },
-			orderBy: [desc(menuItemsInSisub.deletedAt)],
-		})
+		db
+			.select({ item: menuItemsInSisub, recipe_origin: recipesInSisub, daily_menu: dailyMenuInSisub })
+			.from(menuItemsInSisub)
+			.innerJoin(dailyMenuInSisub, eq(menuItemsInSisub.dailyMenuId, dailyMenuInSisub.id))
+			.leftJoin(recipesInSisub, eq(menuItemsInSisub.recipeOriginId, recipesInSisub.id))
+			.where(and(isNotNull(menuItemsInSisub.deletedAt), eq(dailyMenuInSisub.kitchenId, input.kitchenId)))
+			.orderBy(desc(menuItemsInSisub.deletedAt))
 	)
 
-	// daily_menu!inner + filtro por kitchen_id: o Drizzle relational `with` é left-join, então
-	// filtramos a cozinha em JS (descarta itens sem daily_menu / de outra cozinha).
-	return rows.filter((row) => row.dailyMenuInSisub?.kitchenId === input.kitchenId).map((row) => toWire<TrashMenuItem>(row, TRASH_RELATIONS))
+	return rows.map((r) => ({
+		...toWire<MenuItem>(r.item),
+		recipe_origin: r.recipe_origin ? toWire<Recipe>(r.recipe_origin) : null,
+		daily_menu: toWire<DailyMenu>(r.daily_menu),
+	}))
 }
 
 // ─── Aggregated daily menu content (diner-facing) ───────────────────────────
@@ -277,6 +279,8 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 			with: {
 				mealTypeInSisub: { columns: { name: true } },
 				menuItemsInSisubs: {
+					// Não devolver itens soft-deleted ao diner (paridade com as demais queries do arquivo).
+					where: isNull(menuItemsInSisub.deletedAt),
 					columns: { id: true, recipe: true },
 					with: { recipesInSisub: { columns: { name: true } } },
 				},
@@ -284,7 +288,9 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 			where: and(
 				inArray(dailyMenuInSisub.kitchenId, input.kitchenIds),
 				gte(dailyMenuInSisub.serviceDate, input.startDate),
-				lte(dailyMenuInSisub.serviceDate, input.endDate)
+				lte(dailyMenuInSisub.serviceDate, input.endDate),
+				// Não vazar daily_menu soft-deleted (ex.: apagado por applyTemplate) ao diner.
+				isNull(dailyMenuInSisub.deletedAt)
 			),
 		})
 	)
