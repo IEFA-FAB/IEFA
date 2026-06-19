@@ -117,6 +117,28 @@ export interface Seeder {
 	seedTemplate(opts?: { kitchenId?: number | null; templateType?: "weekly" | "event"; deleted?: boolean }): Promise<string>
 	seedTemplateItem(opts: { templateId: string; mealTypeId: string; recipeId: string; dayOfWeek: number; headcountOverride?: number }): Promise<string>
 
+	// ── Identidade (auth.users) e tabelas user-scoped ──────────────────────────
+	/** Cria um usuário auth descartável (service-role). Cleanup via auth.admin.deleteUser. */
+	seedAuthUser(opts?: { email?: string }): Promise<string>
+	seedMessHall(opts?: { unitId?: number; kitchenId?: number | null; code?: string }): Promise<{ id: number; unitId: number; code: string }>
+	seedUserData(opts: { id: string; email?: string; nrOrdem?: string; defaultMessHallId?: number | null }): Promise<string>
+	seedUserMilitaryData(opts?: { nrOrdem?: string; nrCpf?: string; nmGuerra?: string; sgPosto?: string }): Promise<string>
+	seedMealForecast(opts: { userId: string; messHallId: number; date?: string; meal?: string; willEat?: boolean }): Promise<void>
+	seedMealPresence(opts: { userId: string; messHallId: number; date?: string; meal?: string }): Promise<string>
+	seedOtherPresence(opts: { adminId: string; messHallId: number; date?: string; meal?: string }): Promise<void>
+	seedUserPermission(opts: {
+		userId: string
+		module?: string
+		level?: number
+		messHallId?: number | null
+		kitchenId?: number | null
+		unitId?: number | null
+	}): Promise<string>
+
+	// ── Compras (purchase_item) ────────────────────────────────────────────────
+	seedPurchaseItem(opts?: { description?: string; deleted?: boolean }): Promise<string>
+	seedPurchaseItemIngredient(opts: { purchaseItemId: string; ingredientId: string; isDefault?: boolean; conversionFactor?: number }): Promise<string>
+
 	/** Remove todos os daily_menu (e seus menu_items) de uma cozinha — usado após applyTemplate. */
 	purgeKitchenMenus(kitchenId: number): Promise<void>
 
@@ -281,6 +303,125 @@ export function makeSeeder(client: AnyClient): Seeder {
 				meal_type_id: opts.mealTypeId,
 				recipe_id: opts.recipeId,
 				...(opts.headcountOverride != null && { headcount_override: opts.headcountOverride }),
+			})) as string
+		},
+
+		async seedAuthUser(opts) {
+			const email = opts?.email ?? `${uid("test-")}@example.invalid`.toLowerCase()
+			const { data, error } = await client.auth.admin.createUser({ email, email_confirm: true })
+			if (error || !data.user) throw new Error(`seed auth user failed: ${error?.message ?? "no user"}`)
+			const id = data.user.id
+			// auth.users é deletado por último (LIFO): as linhas user-scoped o referenciam.
+			cleanups.push(async () => {
+				const { error: delErr } = await client.auth.admin.deleteUser(id)
+				if (delErr) throw new Error(`delete auth user ${id}: ${delErr.message}`)
+			})
+			return id
+		},
+
+		async seedMessHall(opts) {
+			const unitId = opts?.unitId ?? (await seeder.seedUnit())
+			const code = opts?.code ?? uid("[TEST]MH")
+			const id = (await insertReturningId("mess_halls", {
+				unit_id: unitId,
+				code,
+				display_name: uid("[TEST] Rancho "),
+				kitchen_id: opts?.kitchenId ?? null,
+			})) as number
+			return { id, unitId, code }
+		},
+
+		async seedUserData(opts) {
+			const { error } = await client
+				.schema("sisub")
+				.from("user_data")
+				.insert({
+					id: opts.id,
+					email: opts.email ?? `${uid("ud-")}@example.invalid`.toLowerCase(),
+					...(opts.nrOrdem !== undefined && { nrOrdem: opts.nrOrdem }),
+					...(opts.defaultMessHallId !== undefined && { default_mess_hall_id: opts.defaultMessHallId }),
+				})
+			if (error) throw new Error(`seed user_data failed: ${error.message}`)
+			track("user_data", opts.id)
+			return opts.id
+		},
+
+		async seedUserMilitaryData(opts) {
+			const nrOrdem = opts?.nrOrdem ?? uid("NO")
+			const { error } = await client.from("user_military_data").insert({
+				nrOrdem,
+				nrCpf: opts?.nrCpf ?? uid("CPF"),
+				nmGuerra: opts?.nmGuerra ?? uid("[TEST] Guerra "),
+				sgPosto: opts?.sgPosto ?? "SO",
+			})
+			if (error) throw new Error(`seed user_military_data failed: ${error.message}`)
+			trackWhere("user_military_data", "nrOrdem", nrOrdem)
+			return nrOrdem
+		},
+
+		async seedMealForecast(opts) {
+			const { error } = await client
+				.schema("sisub")
+				.from("meal_forecasts")
+				.insert({
+					user_id: opts.userId,
+					mess_hall_id: opts.messHallId,
+					date: opts.date ?? futureDate(seq),
+					meal: opts.meal ?? "almoco",
+					will_eat: opts.willEat ?? true,
+				})
+			if (error) throw new Error(`seed meal_forecasts failed: ${error.message}`)
+			trackWhere("meal_forecasts", "user_id", opts.userId)
+		},
+
+		async seedMealPresence(opts) {
+			const id = (await insertReturningId("meal_presences", {
+				user_id: opts.userId,
+				mess_hall_id: opts.messHallId,
+				date: opts.date ?? futureDate(seq),
+				meal: opts.meal ?? "almoco",
+			})) as string
+			return id
+		},
+
+		async seedOtherPresence(opts) {
+			const { error } = await client
+				.schema("sisub")
+				.from("other_presences")
+				.insert({
+					admin_id: opts.adminId,
+					mess_hall_id: opts.messHallId,
+					date: opts.date ?? futureDate(seq),
+					meal: opts.meal ?? "almoco",
+				})
+			if (error) throw new Error(`seed other_presences failed: ${error.message}`)
+			trackWhere("other_presences", "admin_id", opts.adminId)
+		},
+
+		async seedUserPermission(opts) {
+			return (await insertReturningId("user_permissions", {
+				user_id: opts.userId,
+				module: opts.module ?? "kitchen",
+				level: opts.level ?? 2,
+				mess_hall_id: opts.messHallId ?? null,
+				kitchen_id: opts.kitchenId ?? null,
+				unit_id: opts.unitId ?? null,
+			})) as string
+		},
+
+		async seedPurchaseItem(opts) {
+			return (await insertReturningId("purchase_item", {
+				description: opts?.description ?? uid("[TEST] Compra "),
+				...(opts?.deleted ? { deleted_at: new Date().toISOString() } : {}),
+			})) as string
+		},
+
+		async seedPurchaseItemIngredient(opts) {
+			return (await insertReturningId("purchase_item_ingredient", {
+				purchase_item_id: opts.purchaseItemId,
+				ingredient_id: opts.ingredientId,
+				is_default: opts.isDefault ?? false,
+				conversion_factor: opts.conversionFactor ?? 1,
 			})) as string
 		},
 
