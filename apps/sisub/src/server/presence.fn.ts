@@ -18,8 +18,8 @@ import {
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 
 // Reads stay unauthenticated to match the original server-fn posture.
@@ -27,13 +27,13 @@ import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 export const fetchPresencesFn = createServerFn({ method: "GET" })
 	.inputValidator(ListPresencesSchema)
 	.handler(async ({ data }) => {
-		return (await listPresences(getSupabaseServerClient(), data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
+		return (await listPresences(getDb(), data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
 	})
 
 export const fetchForecastsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListForecastMapSchema)
 	.handler(async ({ data }) => {
-		return (await listForecastMap(getSupabaseServerClient(), data)) as ForecastMap
+		return (await listForecastMap(getDb(), data)) as ForecastMap
 	})
 
 export const insertPresenceFn = createServerFn({ method: "POST" })
@@ -42,12 +42,12 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 		const ctx = await requireAuth()
 		// No handleDomainError: insertPresence throws a code-bearing Error so callers
 		// can detect PG unique violations (code "23505"). Propagate it unchanged.
-		return insertPresence(getSupabaseServerClient(), ctx, data)
+		return insertPresence(getDb(), ctx, data)
 	})
 
 export const deletePresenceFn = createServerFn({ method: "POST" })
 	.inputValidator(DeletePresenceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deletePresence(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return deletePresence(getDb(), ctx, data).catch(handleDomainError)
 	})
