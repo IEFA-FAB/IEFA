@@ -59,12 +59,15 @@ export async function upsertForecast(db: SisubDb, ctx: UserContext, input: Upser
 			})
 	} catch {
 		// Fallback: delete + insert — cobre casos de borda que o onConflict não resolve.
-		await runQuery("UPSERT_FAILED", async () => {
-			await db
-				.delete(mealForecastsInSisub)
-				.where(and(eq(mealForecastsInSisub.userId, ctx.userId), eq(mealForecastsInSisub.date, input.date), eq(mealForecastsInSisub.meal, input.meal)))
-			await db.insert(mealForecastsInSisub).values(row)
-		})
+		// Em transação: se o insert falhar, o delete reverte (senão a linha sumiria de vez).
+		await runQuery("UPSERT_FAILED", () =>
+			db.transaction(async (tx) => {
+				await tx
+					.delete(mealForecastsInSisub)
+					.where(and(eq(mealForecastsInSisub.userId, ctx.userId), eq(mealForecastsInSisub.date, input.date), eq(mealForecastsInSisub.meal, input.meal)))
+				await tx.insert(mealForecastsInSisub).values(row)
+			})
+		)
 	}
 }
 
