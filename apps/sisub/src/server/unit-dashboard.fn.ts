@@ -10,8 +10,8 @@
 import { FetchUnitDashboardSchema, fetchUnitDashboard } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ProcurementList } from "@/types/domain/ata"
 
 // ─── Tipos de saída ───────────────────────────────────────────────────────────
@@ -59,5 +59,5 @@ export const fetchUnitDashboardFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchUnitDashboardSchema)
 	.handler(async ({ data }): Promise<UnitDashboardData> => {
 		const ctx = await requireAuth()
-		return (await fetchUnitDashboard(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as UnitDashboardData
+		return (await fetchUnitDashboard(getDb(), ctx, data).catch(handleDomainError)) as unknown as UnitDashboardData
 	})

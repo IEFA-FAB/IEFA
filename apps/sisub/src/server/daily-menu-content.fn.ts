@@ -10,8 +10,8 @@
 import { FetchDailyMenuContentSchema, fetchDailyMenuContent } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 
 export interface DishIngredient {
 	ingredient_name: string
@@ -35,5 +35,5 @@ export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchDailyMenuContentSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return (await fetchDailyMenuContent(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as DayMenuContent
+		return (await fetchDailyMenuContent(getDb(), ctx, data).catch(handleDomainError)) as unknown as DayMenuContent
 	})

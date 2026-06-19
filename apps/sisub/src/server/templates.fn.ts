@@ -33,8 +33,8 @@ import {
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
 export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
@@ -42,70 +42,70 @@ export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		// listTemplates returns Record<string,unknown>[] — cast for TanStack Start serialization check
-		return (await listTemplates(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as TemplateWithItemCounts[]
+		return (await listTemplates(getDb(), ctx, data).catch(handleDomainError)) as unknown as TemplateWithItemCounts[]
 	})
 
 export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
 	.inputValidator(ListTemplatesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return (await listDeletedTemplates(getSupabaseServerClient(), ctx, data).catch(handleDomainError)) as unknown as TemplateWithItemCounts[]
+		return (await listDeletedTemplates(getDb(), ctx, data).catch(handleDomainError)) as unknown as TemplateWithItemCounts[]
 	})
 
 export const fetchTemplateFn = createServerFn({ method: "GET" })
 	.inputValidator(GetTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return getTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return getTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchTemplateItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(GetTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return getTemplateItems(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return getTemplateItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return createTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createBlankTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateBlankTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createBlankTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return createBlankTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const forkTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(ForkTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return forkTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return forkTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return updateTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(DeleteTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return deleteTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(RestoreTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return restoreTemplate(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return restoreTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // applyTemplateFn: accepts targetDates[] for backward compat with frontend.
@@ -122,7 +122,7 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const sorted = [...data.targetDates].sort()
-		return applyTemplate(getSupabaseServerClient(), ctx, {
+		return applyTemplate(getDb(), ctx, {
 			templateId: data.templateId,
 			kitchenId: data.kitchenId,
 			startDate: sorted[0],

@@ -1,12 +1,19 @@
 /**
- * Template operations — canonical implementation.
+ * Template operations — Drizzle query layer (migração PostgREST→Drizzle).
+ *
+ * Contrato de retorno PRESERVADO (snake_case aninhado) via `toWire()`; o Drizzle
+ * devolve colunas camelCase e relations com nomes gerados pelo `drizzle-kit pull`.
  *
  * Bug fix vs sisub:
  *   - applyTemplate: full rollback (restore previously deleted menus ON ERROR)
- *     was missing in sisub — only sisub-mcp had correct rollback.
+ *     was missing in sisub — only sisub-mcp had correct rollback. Aqui a
+ *     materialização inteira roda numa transação Drizzle: qualquer falha parcial
+ *     desfaz tudo (soft-delete dos menus existentes incluso).
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
+import { dailyMenuInSisub, menuItemsInSisub, menuTemplateInSisub, menuTemplateItemsInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import type { MealType, MenuTemplate, MenuTemplateItem, Recipe } from "@iefa/database/sisub"
+import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
 import type {
@@ -23,193 +30,218 @@ import type {
 } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+// ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
-const TEMPLATE_ITEMS_FULL = `
-  *,
-  meal_type:meal_type_id(*),
-  recipe_origin:recipe_id(*)
-` as const
+type TemplateItemFull = MenuTemplateItem & { meal_type: MealType | null; recipe_origin: Recipe | null }
+// Linha completa do template (o consumidor MenuTemplateWithItems espera todas as colunas, não um subset).
+type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[] }
+type TemplateWithCounts = MenuTemplate & {
+	item_count: number
+	recipe_count: number
+	headcount_filled: number
+	avg_headcount_weekday: number | null
+}
 
-type TemplateListRow = {
-	items?: { headcount_override: number | null; day_of_week: number | null }[]
-} & Record<string, unknown>
+/**
+ * Relations da query relacional do Drizzle (nomes gerados pelo pull) → chaves do contrato.
+ * Aplicado em todos os níveis por `toWire`.
+ */
+const TEMPLATE_RELATIONS: Record<string, string> = {
+	menuTemplateItemsInSisubs: "items",
+	mealTypeInSisub: "meal_type",
+	recipesInSisub: "recipe_origin",
+}
 
-function mapTemplateWithCounts(t: TemplateListRow): Record<string, unknown> {
-	const items = (t.items as { headcount_override: number | null; day_of_week: number | null }[]) || []
+// Itens completos (com meal_type + recipe_origin aninhados) — para getTemplate/getTemplateItems.
+const WITH_ITEMS_FULL = {
+	menuTemplateItemsInSisubs: { with: { mealTypeInSisub: true, recipesInSisub: true } },
+} as const
+
+// ── List helpers ──
+
+type CountRow = MenuTemplate & { items?: { headcountOverride: number | null; dayOfWeek: number | null }[] }
+
+function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
+	const items = t.items ?? []
 	const item_count = items.length
-	const headcount_filled = items.filter((i) => i.headcount_override !== null).length
-	const weekdayItems = items.filter((i) => i.day_of_week !== null && i.day_of_week >= 1 && i.day_of_week <= 4 && i.headcount_override !== null)
+	const headcount_filled = items.filter((i) => i.headcountOverride !== null).length
+	const weekdayItems = items.filter((i) => i.dayOfWeek !== null && i.dayOfWeek >= 1 && i.dayOfWeek <= 4 && i.headcountOverride !== null)
 	const avg_headcount_weekday =
-		weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcount_override ?? 0), 0) / weekdayItems.length) : null
-	return { ...t, item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday }
+		weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) / weekdayItems.length) : null
+	const { items: _items, ...meta } = t
+	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday }
 }
 
-export async function listTemplates(client: AnyClient, ctx: UserContext, input: ListTemplates) {
+function templateScopeCondition(kitchenId: number | null | undefined) {
+	if (kitchenId != null) return or(isNull(menuTemplateInSisub.kitchenId), eq(menuTemplateInSisub.kitchenId, kitchenId))
+	return isNull(menuTemplateInSisub.kitchenId)
+}
+
+export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTemplates): Promise<TemplateWithCounts[]> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	let query = client.from("menu_template").select(`*, items:menu_template_items(headcount_override, day_of_week)`).is("deleted_at", null).order("name")
-
-	if (input.kitchenId != null) {
-		query = query.or(`kitchen_id.is.null,kitchen_id.eq.${input.kitchenId}`)
-	} else {
-		query = query.is("kitchen_id", null)
-	}
-
-	const { data, error } = await query
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return (data ?? []).map(mapTemplateWithCounts)
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInSisub.findMany({
+			with: { menuTemplateItemsInSisubs: { columns: { headcountOverride: true, dayOfWeek: true } } },
+			where: and(isNull(menuTemplateInSisub.deletedAt), templateScopeCondition(input.kitchenId)),
+			orderBy: (t) => [asc(t.name)],
+		})
+	)
+	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow))
 }
 
-export async function listDeletedTemplates(client: AnyClient, ctx: UserContext, input: ListTemplates) {
+export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input: ListTemplates): Promise<TemplateWithCounts[]> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	let query = client
-		.from("menu_template")
-		.select(`*, items:menu_template_items(headcount_override, day_of_week)`)
-		.not("deleted_at", "is", null)
-		.order("deleted_at", { ascending: false })
-
-	if (input.kitchenId != null) {
-		query = query.or(`kitchen_id.is.null,kitchen_id.eq.${input.kitchenId}`)
-	} else {
-		query = query.is("kitchen_id", null)
-	}
-
-	const { data, error } = await query
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return (data ?? []).map(mapTemplateWithCounts)
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInSisub.findMany({
+			with: { menuTemplateItemsInSisubs: { columns: { headcountOverride: true, dayOfWeek: true } } },
+			where: and(isNotNull(menuTemplateInSisub.deletedAt), templateScopeCondition(input.kitchenId)),
+			orderBy: (t, { desc }) => [desc(t.deletedAt)],
+		})
+	)
+	return rows.map((r) => mapTemplateWithCounts(r as unknown as CountRow))
 }
 
-export async function getTemplate(client: AnyClient, ctx: UserContext, input: GetTemplate) {
-	const { data, error } = await client
-		.from("menu_template")
-		.select(`id, kitchen_id, name, deleted_at, items:menu_template_items(${TEMPLATE_ITEMS_FULL})`)
-		.eq("id", input.templateId)
-		.single()
+export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateWithItemsFull> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInSisub.findFirst({
+			// Todas as colunas do template (contrato MenuTemplateWithItems = MenuTemplate completo).
+			with: WITH_ITEMS_FULL,
+			where: eq(menuTemplateInSisub.id, input.templateId),
+		})
+	)
 
-	if (error || !data) throw new NotFoundError("menu_template", input.templateId)
-	if (data.deleted_at !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.templateId} is deleted`)
+	if (!row) throw new NotFoundError("menu_template", input.templateId)
+	if (row.deletedAt !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.templateId} is deleted`)
 
-	if (data.kitchen_id !== null) {
-		requireKitchen(ctx, 1, data.kitchen_id)
+	if (row.kitchenId !== null) {
+		requireKitchen(ctx, 1, row.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	const { items: rawItems, ...templateMeta } = data
-	const items = (rawItems ?? []).sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? 0) - (b.meal_type_id ?? 0))
-	return { ...templateMeta, items }
+	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
+	const items = [...wire.items].sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? "").localeCompare(b.meal_type_id ?? ""))
+	return { ...wire, items }
 }
 
-export async function getTemplateItems(client: AnyClient, ctx: UserContext, input: GetTemplate) {
-	const { data, error } = await client
-		.from("menu_template")
-		.select(`id, kitchen_id, deleted_at, items:menu_template_items(${TEMPLATE_ITEMS_FULL})`)
-		.eq("id", input.templateId)
-		.single()
+export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateItemFull[]> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInSisub.findFirst({
+			columns: { id: true, kitchenId: true, deletedAt: true },
+			with: WITH_ITEMS_FULL,
+			where: eq(menuTemplateInSisub.id, input.templateId),
+		})
+	)
 
-	if (error || !data) throw new NotFoundError("menu_template", input.templateId)
-	if (data.deleted_at !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.templateId} is deleted`)
+	if (!row) throw new NotFoundError("menu_template", input.templateId)
+	if (row.deletedAt !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.templateId} is deleted`)
 
-	if (data.kitchen_id !== null) {
-		requireKitchen(ctx, 1, data.kitchen_id)
+	if (row.kitchenId !== null) {
+		requireKitchen(ctx, 1, row.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	return (data.items ?? []).sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? 0) - (b.meal_type_id ?? 0))
+	const items = toWire<TemplateItemFull[]>(row.menuTemplateItemsInSisubs, TEMPLATE_RELATIONS)
+	return items.sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? "").localeCompare(b.meal_type_id ?? ""))
 }
 
-function buildTemplateItemRows(templateId: string, items: TemplateItem[]) {
+function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInSisub.$inferInsert)[] {
 	return items.map((item) => ({
-		menu_template_id: templateId,
-		day_of_week: item.dayOfWeek,
-		meal_type_id: item.mealTypeId,
-		recipe_id: item.recipeId,
-		...(item.headcountOverride != null && { headcount_override: item.headcountOverride }),
+		menuTemplateId: templateId,
+		dayOfWeek: item.dayOfWeek,
+		mealTypeId: item.mealTypeId,
+		recipeId: item.recipeId,
+		...(item.headcountOverride != null && { headcountOverride: item.headcountOverride }),
 	}))
 }
 
-export async function createTemplate(client: AnyClient, ctx: UserContext, input: CreateTemplate) {
+export async function createTemplate(db: SisubDb, ctx: UserContext, input: CreateTemplate): Promise<MenuTemplate> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 2, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 2)
 	}
-
-	const { data: newTemplate, error: templateError } = await client
-		.from("menu_template")
-		.insert({
-			name: input.name,
-			description: input.description ?? null,
-			kitchen_id: input.kitchenId ?? null,
-			template_type: input.templateType,
-		})
-		.select()
-		.single()
-
-	if (templateError) throw new DomainError("INSERT_FAILED", templateError.message)
 
 	const items = input.items ?? []
-	if (items.length > 0) {
-		const rows = buildTemplateItemRows(newTemplate.id, items)
-		const { error: itemsError } = await client.from("menu_template_items").insert(rows)
-		if (itemsError) {
-			// Rollback: hard-delete the template
-			await client.from("menu_template").delete().eq("id", newTemplate.id)
-			throw new DomainError("INSERT_ITEMS_FAILED", itemsError.message)
-		}
-	}
 
-	return newTemplate
+	const created = await db.transaction(async (tx) => {
+		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
+			tx
+				.insert(menuTemplateInSisub)
+				.values({
+					name: input.name,
+					description: input.description ?? null,
+					kitchenId: input.kitchenId ?? null,
+					templateType: input.templateType,
+				})
+				.returning()
+		)
+		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
+
+		if (items.length > 0) {
+			await runQuery("INSERT_ITEMS_FAILED", () =>
+				tx
+					.insert(menuTemplateItemsInSisub)
+					.values(buildTemplateItemRows(newTemplate.id, items))
+					.then(() => undefined)
+			)
+		}
+		return newTemplate
+	})
+
+	return toWire<MenuTemplate>(created)
 }
 
-export async function createBlankTemplate(client: AnyClient, ctx: UserContext, input: CreateBlankTemplate) {
+export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: CreateBlankTemplate): Promise<MenuTemplate> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 2, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const { data, error } = await client
-		.from("menu_template")
-		.insert({
-			name: input.name,
-			description: input.description ?? null,
-			kitchen_id: input.kitchenId ?? null,
-			template_type: input.templateType,
-		})
-		.select()
-		.single()
-
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return data
+	const [created] = await runQuery("INSERT_FAILED", () =>
+		db
+			.insert(menuTemplateInSisub)
+			.values({
+				name: input.name,
+				description: input.description ?? null,
+				kitchenId: input.kitchenId ?? null,
+				templateType: input.templateType,
+			})
+			.returning()
+	)
+	if (!created) throw new DomainError("INSERT_FAILED", "no row returned")
+	return toWire<MenuTemplate>(created)
 }
 
-export async function forkTemplate(client: AnyClient, ctx: UserContext, input: ForkTemplate) {
-	// Single query: fetch source template + items together
-	const { data: sourceData, error: sourceFetchError } = await client
-		.from("menu_template")
-		.select("id, kitchen_id, name, deleted_at, template_type, items:menu_template_items(day_of_week, meal_type_id, recipe_id)")
-		.eq("id", input.sourceTemplateId)
-		.single()
+export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTemplate): Promise<MenuTemplate> {
+	// Fonte: template + itens juntos (uma query relacional).
+	const source = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInSisub.findFirst({
+			columns: { id: true, kitchenId: true, name: true, deletedAt: true, templateType: true },
+			with: { menuTemplateItemsInSisubs: { columns: { dayOfWeek: true, mealTypeId: true, recipeId: true } } },
+			where: eq(menuTemplateInSisub.id, input.sourceTemplateId),
+		})
+	)
 
-	if (sourceFetchError || !sourceData) throw new NotFoundError("menu_template", input.sourceTemplateId)
-	if (sourceData.deleted_at !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.sourceTemplateId} is deleted`)
+	if (!source) throw new NotFoundError("menu_template", input.sourceTemplateId)
+	if (source.deletedAt !== null) throw new DomainError("TEMPLATE_DELETED", `Template ${input.sourceTemplateId} is deleted`)
 
-	if (sourceData.kitchen_id !== null) {
-		requireKitchen(ctx, 1, sourceData.kitchen_id)
+	if (source.kitchenId !== null) {
+		requireKitchen(ctx, 1, source.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
@@ -222,43 +254,45 @@ export async function forkTemplate(client: AnyClient, ctx: UserContext, input: F
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const sourceItems: Array<{ day_of_week: number | null; meal_type_id: string; recipe_id: string }> = sourceData.items ?? []
+	const sourceItems = source.menuTemplateItemsInSisubs
 
-	// Create fork
-	const { data: newTemplate, error: templateError } = await client
-		.from("menu_template")
-		.insert({
-			name: input.newName ?? sourceData.name,
-			description: input.description ?? null,
-			kitchen_id: targetKitchenId,
-			base_template_id: input.sourceTemplateId,
-			template_type: sourceData.template_type ?? "weekly",
-		})
-		.select()
-		.single()
+	const created = await db.transaction(async (tx) => {
+		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
+			tx
+				.insert(menuTemplateInSisub)
+				.values({
+					name: input.newName ?? source.name,
+					description: input.description ?? null,
+					kitchenId: targetKitchenId,
+					baseTemplateId: input.sourceTemplateId,
+					templateType: source.templateType ?? "weekly",
+				})
+				.returning()
+		)
+		if (!newTemplate) throw new DomainError("INSERT_FAILED", "no row returned")
 
-	if (templateError) throw new DomainError("INSERT_FAILED", templateError.message)
-
-	if (sourceItems && sourceItems.length > 0) {
-		const forkedItems = sourceItems.map((item) => ({
-			menu_template_id: newTemplate.id,
-			day_of_week: item.day_of_week,
-			meal_type_id: item.meal_type_id,
-			recipe_id: item.recipe_id,
-		}))
-
-		const { error: insertError } = await client.from("menu_template_items").insert(forkedItems)
-		if (insertError) {
-			await client.from("menu_template").delete().eq("id", newTemplate.id)
-			throw new DomainError("INSERT_ITEMS_FAILED", insertError.message)
+		if (sourceItems.length > 0) {
+			const forkedItems = sourceItems.map((item) => ({
+				menuTemplateId: newTemplate.id,
+				dayOfWeek: item.dayOfWeek,
+				mealTypeId: item.mealTypeId,
+				recipeId: item.recipeId,
+			}))
+			await runQuery("INSERT_ITEMS_FAILED", () =>
+				tx
+					.insert(menuTemplateItemsInSisub)
+					.values(forkedItems)
+					.then(() => undefined)
+			)
 		}
-	}
+		return newTemplate
+	})
 
-	return newTemplate
+	return toWire<MenuTemplate>(created)
 }
 
-export async function updateTemplate(client: AnyClient, ctx: UserContext, input: UpdateTemplate) {
-	const template = await validateTemplateAccess(client, input.templateId, null)
+export async function updateTemplate(db: SisubDb, ctx: UserContext, input: UpdateTemplate): Promise<MenuTemplate> {
+	const template = await validateTemplateAccess(db, input.templateId, null)
 
 	if (template.kitchen_id !== null) {
 		requireKitchen(ctx, 2, template.kitchen_id)
@@ -266,43 +300,43 @@ export async function updateTemplate(client: AnyClient, ctx: UserContext, input:
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const updates: Record<string, unknown> = {}
+	const updates: Partial<typeof menuTemplateInSisub.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
 	if (input.description != null) updates.description = input.description
-	if (input.templateType != null) updates.template_type = input.templateType
+	if (input.templateType != null) updates.templateType = input.templateType
 
-	const { data: result, error: updateError } = await client.from("menu_template").update(updates).eq("id", input.templateId).select().single()
+	const result = await db.transaction(async (tx) => {
+		const [updated] = await runQuery("UPDATE_FAILED", () =>
+			tx.update(menuTemplateInSisub).set(updates).where(eq(menuTemplateInSisub.id, input.templateId)).returning()
+		)
+		if (!updated) throw new DomainError("UPDATE_FAILED", "no row returned")
 
-	if (updateError) throw new DomainError("UPDATE_FAILED", updateError.message)
-
-	// Destructive item replacement if items provided
-	if (input.items !== undefined) {
-		// Backup existing items so they can be restored if the subsequent insert fails
-		const { data: prevItems } = await client
-			.from("menu_template_items")
-			.select("day_of_week, meal_type_id, recipe_id, headcount_override")
-			.eq("menu_template_id", input.templateId)
-
-		const { error: deleteError } = await client.from("menu_template_items").delete().eq("menu_template_id", input.templateId)
-		if (deleteError) throw new DomainError("DELETE_ITEMS_FAILED", deleteError.message)
-
-		if (input.items.length > 0) {
-			const rows = buildTemplateItemRows(input.templateId, input.items)
-			const { error: insertError } = await client.from("menu_template_items").insert(rows)
-			if (insertError) {
-				if (prevItems?.length) {
-					await client.from("menu_template_items").insert(prevItems.map((i) => ({ menu_template_id: input.templateId, ...i })))
-				}
-				throw new DomainError("INSERT_ITEMS_FAILED", insertError.message)
+		// Substituição destrutiva dos itens, se fornecidos (delete-all + re-insert na transação).
+		const newItems = input.items
+		if (newItems !== undefined) {
+			await runQuery("DELETE_ITEMS_FAILED", () =>
+				tx
+					.delete(menuTemplateItemsInSisub)
+					.where(eq(menuTemplateItemsInSisub.menuTemplateId, input.templateId))
+					.then(() => undefined)
+			)
+			if (newItems.length > 0) {
+				await runQuery("INSERT_ITEMS_FAILED", () =>
+					tx
+						.insert(menuTemplateItemsInSisub)
+						.values(buildTemplateItemRows(input.templateId, newItems))
+						.then(() => undefined)
+				)
 			}
 		}
-	}
+		return updated
+	})
 
-	return result
+	return toWire<MenuTemplate>(result)
 }
 
-export async function deleteTemplate(client: AnyClient, ctx: UserContext, input: DeleteTemplate) {
-	const template = await validateTemplateAccess(client, input.templateId, null)
+export async function deleteTemplate(db: SisubDb, ctx: UserContext, input: DeleteTemplate): Promise<void> {
+	const template = await validateTemplateAccess(db, input.templateId, null)
 
 	if (template.kitchen_id !== null) {
 		requireKitchen(ctx, 2, template.kitchen_id)
@@ -310,45 +344,60 @@ export async function deleteTemplate(client: AnyClient, ctx: UserContext, input:
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const { error } = await client.from("menu_template").update({ deleted_at: new Date().toISOString() }).eq("id", input.templateId)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
+	await runQuery("DELETE_FAILED", () =>
+		db
+			.update(menuTemplateInSisub)
+			.set({ deletedAt: new Date().toISOString() })
+			.where(eq(menuTemplateInSisub.id, input.templateId))
+			.then(() => undefined)
+	)
 }
 
-export async function restoreTemplate(client: AnyClient, ctx: UserContext, input: RestoreTemplate) {
-	const { data, error: fetchError } = await client.from("menu_template").select("id, kitchen_id, deleted_at").eq("id", input.templateId).single()
+export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: RestoreTemplate): Promise<void> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateInSisub.findFirst({
+			columns: { id: true, kitchenId: true, deletedAt: true },
+			where: eq(menuTemplateInSisub.id, input.templateId),
+		})
+	)
 
-	if (fetchError || !data) throw new NotFoundError("menu_template", input.templateId)
-	if (!data.deleted_at) throw new DomainError("NOT_DELETED", "Template is not deleted")
+	if (!row) throw new NotFoundError("menu_template", input.templateId)
+	if (!row.deletedAt) throw new DomainError("NOT_DELETED", "Template is not deleted")
 
-	if (data.kitchen_id !== null) {
-		requireKitchen(ctx, 2, data.kitchen_id)
+	if (row.kitchenId !== null) {
+		requireKitchen(ctx, 2, row.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const { error } = await client.from("menu_template").update({ deleted_at: null }).eq("id", input.templateId)
-	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+	await runQuery("RESTORE_FAILED", () =>
+		db
+			.update(menuTemplateInSisub)
+			.set({ deletedAt: null })
+			.where(eq(menuTemplateInSisub.id, input.templateId))
+			.then(() => undefined)
+	)
 }
 
 export async function applyTemplate(
-	client: AnyClient,
+	db: SisubDb,
 	ctx: UserContext,
 	input: ApplyTemplate
 ): Promise<{ menusCreated: number; itemsCreated: number; datesProcessed: string[] }> {
 	requireKitchen(ctx, 2, input.kitchenId)
 
-	// Validate template: not deleted, kitchen matches (throws if not accessible)
-	await validateTemplateAccess(client, input.templateId, input.kitchenId)
+	// Valida template: não excluído, cozinha confere (lança se inacessível).
+	await validateTemplateAccess(db, input.templateId, input.kitchenId)
 
-	// Fetch template items
-	const { data: templateItems, error: fetchError } = await client
-		.from("menu_template_items")
-		.select("*, recipe_origin:recipe_id(*)")
-		.eq("menu_template_id", input.templateId)
+	// Itens do template + receita de origem (para copiar o snapshot json em menu_items).
+	const templateItems = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateItemsInSisub.findMany({
+			with: { recipesInSisub: true },
+			where: eq(menuTemplateItemsInSisub.menuTemplateId, input.templateId),
+		})
+	)
 
-	if (fetchError || !templateItems) throw new DomainError("FETCH_FAILED", fetchError?.message ?? "Failed to fetch template items")
-
-	// Compute date range
+	// Intervalo de datas (YYYY-MM-DD).
 	const targetDates: string[] = []
 	const start = new Date(input.startDate)
 	const end = new Date(input.endDate)
@@ -356,26 +405,9 @@ export async function applyTemplate(
 		targetDates.push(d.toISOString().slice(0, 10))
 	}
 
-	// Soft-delete existing menus (save IDs for rollback)
-	const { data: deletedMenus, error: deleteError } = await client
-		.from("daily_menu")
-		.update({ deleted_at: new Date().toISOString() })
-		.in("service_date", targetDates)
-		.eq("kitchen_id", input.kitchenId)
-		.select("id")
-
-	if (deleteError) throw new DomainError("DELETE_FAILED", deleteError.message)
-
-	async function rollback(): Promise<void> {
-		if (!deletedMenus?.length) return
-		const ids = deletedMenus.map((m: { id: string }) => m.id)
-		const { error } = await client.from("daily_menu").update({ deleted_at: null }).in("id", ids)
-		if (error) throw new DomainError("ROLLBACK_FAILED", `Failed to restore ${ids.length} menus: ${error.message}`)
-	}
-
-	// Build new menus and items
-	const newMenus: Array<{ id: string; service_date: string; meal_type_id: string; kitchen_id: number; status: string }> = []
-	const newMenuItems: Array<{ daily_menu_id: string; recipe_origin_id: string; recipe: unknown }> = []
+	// Constrói menus + itens novos.
+	const newMenus: (typeof dailyMenuInSisub.$inferInsert)[] = []
+	const newMenuItems: (typeof menuItemsInSisub.$inferInsert)[] = []
 
 	for (const dateStr of targetDates) {
 		const jsDay = new Date(dateStr).getDay()
@@ -383,8 +415,8 @@ export async function applyTemplate(
 		const templateDay = ((dateDayOfWeek - input.startDayOfWeek + 7) % 7) + 1
 
 		const itemsByMealType: Record<string, typeof templateItems> = {}
-		for (const item of templateItems.filter((i: { day_of_week: number | null }) => i.day_of_week === templateDay)) {
-			const key = item.meal_type_id ?? "__null__"
+		for (const item of templateItems.filter((i) => i.dayOfWeek === templateDay)) {
+			const key = item.mealTypeId ?? "__null__"
 			if (!itemsByMealType[key]) itemsByMealType[key] = []
 			itemsByMealType[key].push(item)
 		}
@@ -392,38 +424,42 @@ export async function applyTemplate(
 		for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
 			if (mealTypeId === "__null__") continue
 			const menuId = crypto.randomUUID()
-			newMenus.push({ id: menuId, service_date: dateStr, meal_type_id: mealTypeId, kitchen_id: input.kitchenId, status: "PLANNED" })
+			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED" })
 			for (const item of items) {
-				newMenuItems.push({ daily_menu_id: menuId, recipe_origin_id: item.recipe_id ?? "", recipe: item.recipe_origin })
+				newMenuItems.push({ dailyMenuId: menuId, recipeOriginId: item.recipeId ?? "", recipe: item.recipesInSisub })
 			}
 		}
 	}
 
-	// Insert menus (with rollback)
-	if (newMenus.length > 0) {
-		const { error: menuInsertError } = await client.from("daily_menu").insert(newMenus)
-		if (menuInsertError) {
-			await rollback()
-			throw new DomainError("INSERT_FAILED", menuInsertError.message)
-		}
-	}
+	// Tudo numa transação: soft-delete dos menus existentes + insert dos novos.
+	// Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
+	await db.transaction(async (tx) => {
+		await runQuery("DELETE_FAILED", () =>
+			tx
+				.update(dailyMenuInSisub)
+				.set({ deletedAt: new Date().toISOString() })
+				.where(and(inArray(dailyMenuInSisub.serviceDate, targetDates), eq(dailyMenuInSisub.kitchenId, input.kitchenId)))
+				.then(() => undefined)
+		)
 
-	// Insert items (with double rollback — BUG FIX: restore previously deleted menus)
-	if (newMenuItems.length > 0) {
-		const { error: itemInsertError } = await client.from("menu_items").insert(newMenuItems)
-		if (itemInsertError) {
-			const { error: cleanupError } = await client
-				.from("daily_menu")
-				.delete()
-				.in(
-					"id",
-					newMenus.map((m) => m.id)
-				)
-			if (cleanupError) throw new DomainError("ROLLBACK_FAILED", `Failed to clean up inserted menus: ${cleanupError.message}`)
-			await rollback()
-			throw new DomainError("INSERT_ITEMS_FAILED", itemInsertError.message)
+		if (newMenus.length > 0) {
+			await runQuery("INSERT_FAILED", () =>
+				tx
+					.insert(dailyMenuInSisub)
+					.values(newMenus)
+					.then(() => undefined)
+			)
 		}
-	}
+
+		if (newMenuItems.length > 0) {
+			await runQuery("INSERT_ITEMS_FAILED", () =>
+				tx
+					.insert(menuItemsInSisub)
+					.values(newMenuItems)
+					.then(() => undefined)
+			)
+		}
+	})
 
 	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, datesProcessed: targetDates }
 }

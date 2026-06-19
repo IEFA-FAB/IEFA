@@ -4,10 +4,11 @@
  * Foco: cálculo net_quantity × (planned/portionYield), shape de ProcurementNeed e folder.
  */
 
+import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { fetchProcurementNeeds } from "@iefa/sisub-domain"
-import { afterEach, beforeAll, beforeEach, expect, test } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration } from "@/test/operations-fixtures"
-import { describeSupabaseIntegration } from "@/test/supabase"
+import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
 
 const ctx = fullAccessCtx()
 
@@ -15,11 +16,19 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 	let reachable = false
 	let client: AnyClient
 	let seeder: Seeder | null = null
+	let db: SisubDb | null = null
+	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
 		const s = await setupIntegration("daily_menu")
 		reachable = s.reachable
 		if (s.client) client = s.client
+		const url = getSisubDatabaseUrl()
+		if (reachable && url) {
+			const t = createSisubTestDb(url)
+			db = t.db
+			closeDb = t.close
+		}
 	}, 30_000)
 
 	beforeEach(() => {
@@ -30,8 +39,12 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 		await seeder?.cleanup()
 	}, 60_000)
 
+	afterAll(async () => {
+		await closeDb?.()
+	})
+
 	test("fetchProcurementNeeds agrega quantidade = net_quantity × (planned/portionYield)", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { id: kitchenId } = await seeder.seedKitchen()
 		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
 
@@ -43,7 +56,7 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 		const { id: dailyMenuId } = await seeder.seedDailyMenu({ kitchenId, mealTypeId, serviceDate: date })
 		await seeder.seedMenuItem({ dailyMenuId, recipeId, plannedPortionQuantity: 200, excludedFromProcurement: 0 })
 
-		const needs = await fetchProcurementNeeds(client, ctx, { startDate: date, endDate: date, kitchenId })
+		const needs = await fetchProcurementNeeds(db, ctx, { startDate: date, endDate: date, kitchenId })
 		const need = needs.find((n) => n.ingredient_id === ingredientId)
 
 		expect(need).toBeDefined()
@@ -53,9 +66,9 @@ describeSupabaseIntegration("procurement operations (regressão)", () => {
 	})
 
 	test("fetchProcurementNeeds retorna [] quando não há cardápio no intervalo", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { id: kitchenId } = await seeder.seedKitchen()
-		const needs = await fetchProcurementNeeds(client, ctx, { startDate: "2099-12-01", endDate: "2099-12-02", kitchenId })
+		const needs = await fetchProcurementNeeds(db, ctx, { startDate: "2099-12-01", endDate: "2099-12-02", kitchenId })
 		expect(needs).toEqual([])
 	})
 })
