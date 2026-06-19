@@ -1,0 +1,4 @@
+# drizzle-kit pull byproducts — Supabase CLI owns DDL/migrations.
+# Keep only schema.ts + relations.ts + sisub.ts (query-layer source of truth).
+*.sql
+meta/

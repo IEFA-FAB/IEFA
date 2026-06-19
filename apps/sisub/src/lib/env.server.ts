@@ -6,11 +6,18 @@ import { z } from "zod"
 const serverEnvSchema = z.object({
 	VITE_SISUB_SUPABASE_URL: z.string().url(),
 	SISUB_SUPABASE_SECRET_KEY: z.string().min(1),
+	// Conexão Postgres direta (Drizzle) — transaction pooler (porta 6543). Usada por
+	// getDb() para o query layer do domínio. Auth/RLS seguem no client Supabase REST.
+	// Opcional por ora: nenhum consumidor chama getDb() ainda (rollout incremental).
+	// getDb() valida a presença em call-time. Tornar required quando os *.fn.ts
+	// migrarem (Fase 3) e o secret estiver provisionado no deploy.
+	SISUB_DATABASE_URL: z.string().url().optional(),
 })
 
 const parsed = serverEnvSchema.safeParse({
 	VITE_SISUB_SUPABASE_URL: process.env.VITE_SISUB_SUPABASE_URL,
 	SISUB_SUPABASE_SECRET_KEY: process.env.SISUB_SUPABASE_SECRET_KEY,
+	SISUB_DATABASE_URL: process.env.SISUB_DATABASE_URL,
 })
 
 if (!parsed.success) {
