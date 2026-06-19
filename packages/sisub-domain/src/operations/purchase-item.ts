@@ -48,7 +48,9 @@ async function piOp<T>(code: string, prefix: string, op: () => Promise<T>): Prom
 	} catch (e) {
 		if (e instanceof DomainError) throw e
 		const pg = e as { code?: string; message?: string }
-		throw new DomainError(code, `${prefix} [${pg.code}]: ${pg.message ?? String(e)}`)
+		// Erros não-PG (timeout, conexão recusada) não têm `.code` → omite o `[...]` em vez de `[undefined]`.
+		const codeSeg = pg.code ? ` [${pg.code}]` : ""
+		throw new DomainError(code, `${prefix}${codeSeg}: ${pg.message ?? String(e)}`)
 	}
 }
 
@@ -171,7 +173,13 @@ export async function setDefaultPurchaseItemIngredient(db: SisubDb, _ctx: UserCo
 	await runQuery("UPDATE_FAILED", () =>
 		db.transaction(async (tx) => {
 			await tx.update(purchaseItemIngredientInSisub).set({ isDefault: false }).where(eq(purchaseItemIngredientInSisub.purchaseItemId, input.purchaseItemId))
-			await tx.update(purchaseItemIngredientInSisub).set({ isDefault: true }).where(eq(purchaseItemIngredientInSisub.id, input.id))
+			const marked = await tx
+				.update(purchaseItemIngredientInSisub)
+				.set({ isDefault: true })
+				.where(eq(purchaseItemIngredientInSisub.id, input.id))
+				.returning({ id: purchaseItemIngredientInSisub.id })
+			// id inexistente → 2º update afeta 0 linhas; lançar reverte o clear-all (senão ficaria sem default).
+			if (marked.length === 0) throw new DomainError("UPDATE_FAILED", `purchase_item_ingredient ${input.id} not found`)
 		})
 	)
 }
