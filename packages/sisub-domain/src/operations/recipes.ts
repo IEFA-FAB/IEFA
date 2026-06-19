@@ -1,11 +1,25 @@
 /**
- * Recipe operations — canonical implementation.
+ * Recipe operations — Drizzle query layer (Fase 1 — piloto da migração PostgREST→Drizzle).
  *
- * Bug fix vs sisub:
- *   - fetchRecipe: filters deleted_at IS NULL (was missing in sisub — returned trashed recipes)
+ * Primeira operation migrada: troca o cliente PostgREST (`client: AnyClient`) pelo handle
+ * Drizzle (`db: SisubDb`). O contrato de retorno é PRESERVADO (snake_case aninhado) via
+ * `toWire()` — o Drizzle devolve colunas em camelCase, mas todo o app + os tipos
+ * `Tables<"recipes">` consomem snake_case. Mudar o shape rippla pro frontend inteiro.
+ *
+ * Bug fix vs sisub original:
+ *   - fetchRecipe: filtra deleted_at IS NULL (faltava no sisub — devolvia receitas no lixo).
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
+import {
+	menuTemplateInSisub,
+	menuTemplateItemsInSisub,
+	recipeIngredientAlternativesInSisub,
+	recipeIngredientsInSisub,
+	recipesInSisub,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
+import type { Ingredient, Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
+import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
@@ -20,74 +34,112 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+// ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
-const RECIPE_WITH_INGREDIENTS = `
-  *,
-  ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))
-` as const
+type RecipeIngredientWire = RecipeIngredient & {
+	ingredient: Ingredient | null
+	alternatives?: (RecipeIngredientAlternative & { ingredient: Ingredient | null })[]
+}
+type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 
-const RECIPE_WITH_ALTERNATIVES = `
-  *,
-  ingredients:recipe_ingredients(
-    *,
-    ingredient:ingredient_id(*),
-    alternatives:recipe_ingredient_alternatives(*, ingredient:ingredient_id(*))
-  )
-` as const
-
-export async function fetchRecipe(client: AnyClient, ctx: UserContext, input: FetchRecipe) {
-	requirePermission(ctx, "kitchen", 1)
-
-	const select = input.includeAlternatives ? RECIPE_WITH_ALTERNATIVES : RECIPE_WITH_INGREDIENTS
-
-	// BUG FIX: filter deleted_at IS NULL — sisub was missing this
-	const { data, error } = await client.from("recipes").select(select).eq("id", input.recipeId).is("deleted_at", null).single()
-
-	if (error || !data) throw new NotFoundError("recipe", input.recipeId)
-	return data
+/**
+ * Relations da query relacional do Drizzle nomeadas de forma "feia" pelo `drizzle-kit pull`
+ * (`recipeIngredientsInSisubs`, `ingredientInSisub`, …). `toWire()` as renomeia para as
+ * chaves do contrato e converte o restante das colunas camelCase → snake_case.
+ */
+const RELATION_KEYS: Record<string, string> = {
+	recipeIngredientsInSisubs: "ingredients",
+	recipeIngredientAlternativesInSisubs: "alternatives",
+	ingredientInSisub: "ingredient",
 }
 
-export async function listRecipes(client: AnyClient, ctx: UserContext, input: ListRecipes) {
+function toSnakeKey(key: string): string {
+	return RELATION_KEYS[key] ?? key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+}
+
+/** Mapeia recursivamente o resultado do Drizzle para o shape snake_case do contrato. */
+function toWire<T>(value: unknown): T {
+	if (Array.isArray(value)) return value.map((v) => toWire(v)) as T
+	if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+		const out: Record<string, unknown> = {}
+		for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+			out[toSnakeKey(k)] = toWire(v)
+		}
+		return out as T
+	}
+	return value as T
+}
+
+/** Converte erros inesperados do Postgres em DomainError; preserva DomainError/NotFound/Permission. */
+async function run<T>(code: string, op: () => Promise<T>): Promise<T> {
+	try {
+		return await op()
+	} catch (e) {
+		if (e instanceof DomainError) throw e
+		throw new DomainError(code, e instanceof Error ? e.message : String(e))
+	}
+}
+
+// Relational `with` — nível ingredientes (e, opcionalmente, alternativas aninhadas).
+const WITH_INGREDIENTS = { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } } as const
+const WITH_ALTERNATIVES = {
+	recipeIngredientsInSisubs: {
+		with: { ingredientInSisub: true, recipeIngredientAlternativesInSisubs: { with: { ingredientInSisub: true } } },
+	},
+} as const
+
+export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
+	requirePermission(ctx, "kitchen", 1)
+
+	// BUG FIX: filtra deleted_at IS NULL — sisub não filtrava.
+	const where = and(eq(recipesInSisub.id, input.recipeId), isNull(recipesInSisub.deletedAt))
+	const row = await run("FETCH_FAILED", () =>
+		input.includeAlternatives
+			? db.query.recipesInSisub.findFirst({ where, with: WITH_ALTERNATIVES })
+			: db.query.recipesInSisub.findFirst({ where, with: WITH_INGREDIENTS })
+	)
+
+	if (!row) throw new NotFoundError("recipe", input.recipeId)
+	return toWire<RecipeWithIngredients>(row)
+}
+
+export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListRecipes): Promise<RecipeWithIngredients[]> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 1, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	let query = client.from("recipes").select(RECIPE_WITH_INGREDIENTS).order("name")
-
-	if (!input.includeDeleted) {
-		query = query.is("deleted_at", null)
-	}
-
+	const conditions: (SQL | undefined)[] = []
+	if (!input.includeDeleted) conditions.push(isNull(recipesInSisub.deletedAt))
 	if (input.kitchenId != null && !input.globalOnly) {
-		query = query.or(`kitchen_id.is.null,kitchen_id.eq.${input.kitchenId}`)
+		conditions.push(or(isNull(recipesInSisub.kitchenId), eq(recipesInSisub.kitchenId, input.kitchenId)))
 	} else {
-		query = query.is("kitchen_id", null)
+		conditions.push(isNull(recipesInSisub.kitchenId))
 	}
+	if (input.search) conditions.push(ilike(recipesInSisub.name, `%${input.search}%`))
 
-	if (input.search) {
-		query = query.ilike("name", `%${input.search}%`)
-	}
+	const rows = await run("FETCH_FAILED", () =>
+		db.query.recipesInSisub.findMany({
+			where: and(...conditions),
+			with: WITH_INGREDIENTS,
+			orderBy: (recipe, { asc }) => [asc(recipe.name)],
+		})
+	)
 
-	const { data, error } = await query
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-
-	// Deduplicate: keep only the latest version of each recipe family.
-	// Versioning inserts new rows (base_recipe_id → root). Group by root ID,
-	// return the entry with the highest version number.
-	const familyMap = new Map<string, (typeof data)[0]>()
-	for (const recipe of data ?? []) {
-		const rootId = recipe.base_recipe_id ?? recipe.id
+	// Dedup por família: mantém só a maior versão de cada família (versões inserem novas
+	// linhas com base_recipe_id → raiz). Opera sobre as linhas Drizzle (camelCase) e
+	// só converte para o contrato no final.
+	const familyMap = new Map<string, (typeof rows)[number]>()
+	for (const recipe of rows) {
+		const rootId = recipe.baseRecipeId ?? recipe.id
 		const existing = familyMap.get(rootId)
-		if (!existing || recipe.version > existing.version) {
-			familyMap.set(rootId, recipe)
-		}
+		if (!existing || recipe.version > existing.version) familyMap.set(rootId, recipe)
 	}
 
-	return Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+	return Array.from(familyMap.values())
+		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+		.map((r) => toWire<RecipeWithIngredients>(r))
 }
 
 /**
@@ -98,96 +150,104 @@ export async function listRecipes(client: AnyClient, ctx: UserContext, input: Li
  * Sem escopo de cozinha: uma preparação global pode ser usada em um plano semanal de
  * qualquer cozinha. O RLS já limita o que o usuário pode enxergar.
  */
-export async function listRecipeMenuUsage(client: AnyClient, ctx: UserContext): Promise<string[]> {
+export async function listRecipeMenuUsage(db: SisubDb, ctx: UserContext): Promise<string[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const { data, error } = await client
-		.from("menu_template_items")
-		.select("recipe_id, menu_template!inner(template_type, deleted_at)")
-		.eq("menu_template.template_type", "weekly")
-		.is("menu_template.deleted_at", null)
-		.not("recipe_id", "is", null)
-
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
+	const rows = await run("FETCH_FAILED", () =>
+		db
+			.select({ recipeId: menuTemplateItemsInSisub.recipeId })
+			.from(menuTemplateItemsInSisub)
+			.innerJoin(menuTemplateInSisub, eq(menuTemplateItemsInSisub.menuTemplateId, menuTemplateInSisub.id))
+			.where(and(eq(menuTemplateInSisub.templateType, "weekly"), isNull(menuTemplateInSisub.deletedAt), isNotNull(menuTemplateItemsInSisub.recipeId)))
+	)
 
 	const ids = new Set<string>()
-	for (const row of (data ?? []) as { recipe_id: string | null }[]) {
-		if (row.recipe_id) ids.add(row.recipe_id)
+	for (const row of rows) {
+		if (row.recipeId) ids.add(row.recipeId)
 	}
 	return Array.from(ids)
 }
 
-export async function listRecipeVersions(client: AnyClient, ctx: UserContext, input: ListRecipeVersions) {
+export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: ListRecipeVersions): Promise<RecipeWithIngredients[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const { data: recipe, error: recipeError } = await client.from("recipes").select("id, base_recipe_id").eq("id", input.recipeId).single()
-	if (recipeError || !recipe) throw new NotFoundError("recipe", input.recipeId)
+	const root = await run("FETCH_FAILED", () =>
+		db.query.recipesInSisub.findFirst({ columns: { id: true, baseRecipeId: true }, where: eq(recipesInSisub.id, input.recipeId) })
+	)
+	if (!root) throw new NotFoundError("recipe", input.recipeId)
 
-	const rootId = recipe.base_recipe_id ?? recipe.id
+	const rootId = root.baseRecipeId ?? root.id
 
-	const { data, error } = await client
-		.from("recipes")
-		.select(RECIPE_WITH_INGREDIENTS)
-		.or(`id.eq.${rootId},base_recipe_id.eq.${rootId}`)
-		.order("version", { ascending: true })
+	const rows = await run("FETCH_FAILED", () =>
+		db.query.recipesInSisub.findMany({
+			where: or(eq(recipesInSisub.id, rootId), eq(recipesInSisub.baseRecipeId, rootId)),
+			with: WITH_INGREDIENTS,
+			orderBy: (recipe, { asc }) => [asc(recipe.version)],
+		})
+	)
 
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	return rows.map((r) => toWire<RecipeWithIngredients>(r))
 }
 
-async function insertIngredients(client: AnyClient, recipeId: string, ingredients: CreateRecipe["ingredients"]) {
+async function insertIngredients(db: SisubDb, recipeId: string, ingredients: CreateRecipe["ingredients"]) {
 	if (!ingredients?.length) return
-	const rows = ingredients.map((ing) => ({
-		recipe_id: recipeId,
-		ingredient_id: ing.ingredientId,
-		net_quantity: ing.netQuantity,
-		is_optional: ing.isOptional,
-		priority_order: ing.priorityOrder,
-	}))
-	// .select() devolve as linhas na ordem de inserção (INSERT ... RETURNING multi-row),
-	// permitindo ligar cada alternativa ao recipe_ingredient recém-criado.
-	const { data: inserted, error } = await client.from("recipe_ingredients").insert(rows).select("id")
-	if (error || !inserted) throw new DomainError("INSERT_INGREDIENTS_FAILED", error?.message ?? "no rows returned")
 
-	const altRows = inserted.flatMap((row: { id: string }, i: number) =>
+	const rows = ingredients.map((ing) => ({
+		recipeId,
+		ingredientId: ing.ingredientId,
+		netQuantity: String(ing.netQuantity),
+		isOptional: ing.isOptional,
+		priorityOrder: ing.priorityOrder,
+	}))
+	// INSERT ... RETURNING devolve as linhas na ordem de inserção, permitindo ligar cada
+	// alternativa ao recipe_ingredient recém-criado pelo índice.
+	const inserted = await run("INSERT_INGREDIENTS_FAILED", () => db.insert(recipeIngredientsInSisub).values(rows).returning({ id: recipeIngredientsInSisub.id }))
+	if (inserted.length !== rows.length) throw new DomainError("INSERT_INGREDIENTS_FAILED", "row count mismatch")
+
+	const altRows = inserted.flatMap((row, i) =>
 		(ingredients[i].alternatives ?? []).map((alt) => ({
-			recipe_ingredient_id: row.id,
-			ingredient_id: alt.ingredientId,
-			net_quantity: alt.netQuantity,
-			priority_order: alt.priorityOrder,
+			recipeIngredientId: row.id,
+			ingredientId: alt.ingredientId,
+			netQuantity: String(alt.netQuantity),
+			priorityOrder: alt.priorityOrder,
 		}))
 	)
 	if (altRows.length) {
-		const { error: altError } = await client.from("recipe_ingredient_alternatives").insert(altRows)
-		if (altError) throw new DomainError("INSERT_ALTERNATIVES_FAILED", altError.message)
+		await run("INSERT_ALTERNATIVES_FAILED", () =>
+			db
+				.insert(recipeIngredientAlternativesInSisub)
+				.values(altRows)
+				.then(() => undefined)
+		)
 	}
 }
 
-export async function createRecipe(client: AnyClient, ctx: UserContext, input: CreateRecipe) {
+export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateRecipe): Promise<Recipe> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 2, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const { data: recipe, error } = await client
-		.from("recipes")
-		.insert({
-			name: input.name,
-			preparation_method: input.preparationMethod ?? null,
-			portion_yield: input.portionYield,
-			preparation_time_minutes: input.preparationTimeMinutes ?? null,
-			cooking_factor: input.cookingFactor ?? null,
-			rational_id: input.rationalId ?? null,
-			kitchen_id: input.kitchenId ?? null,
-			version: 1,
-		})
-		.select()
-		.single()
+	const [recipe] = await run("INSERT_FAILED", () =>
+		db
+			.insert(recipesInSisub)
+			.values({
+				name: input.name,
+				preparationMethod: input.preparationMethod ?? null,
+				portionYield: String(input.portionYield),
+				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
+				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
+				rationalId: input.rationalId ?? null,
+				kitchenId: input.kitchenId ?? null,
+				version: 1,
+			})
+			.returning()
+	)
+	if (!recipe) throw new DomainError("INSERT_FAILED", "no row returned")
 
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	await insertIngredients(client, recipe.id, input.ingredients)
-	return recipe
+	await insertIngredients(db, recipe.id, input.ingredients)
+	return toWire<Recipe>(recipe)
 }
 
 /**
@@ -195,62 +255,78 @@ export async function createRecipe(client: AnyClient, ctx: UserContext, input: C
  * receita local → exige nível 2 NAQUELA cozinha; receita global → exige "global" nível 2.
  * Evita IDOR: sem isso, qualquer usuário kitchen-2 apagaria receitas de outras cozinhas/globais.
  */
-async function authorizeRecipeMutation(client: AnyClient, ctx: UserContext, recipeId: string): Promise<void> {
-	const { data: recipe, error } = await client.from("recipes").select("kitchen_id").eq("id", recipeId).single()
-	if (error || !recipe) throw new NotFoundError("recipe", recipeId)
+async function authorizeRecipeMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
+	const recipe = await run("FETCH_FAILED", () => db.query.recipesInSisub.findFirst({ columns: { kitchenId: true }, where: eq(recipesInSisub.id, recipeId) }))
+	if (!recipe) throw new NotFoundError("recipe", recipeId)
 
-	if (recipe.kitchen_id == null) {
+	if (recipe.kitchenId == null) {
 		requirePermission(ctx, "global", 2)
 	} else {
-		requireKitchen(ctx, 2, recipe.kitchen_id)
+		requireKitchen(ctx, 2, recipe.kitchenId)
 	}
 }
 
 /** Soft delete: marca deleted_at. A receita some das listagens (exceto includeDeleted). */
-export async function deleteRecipe(client: AnyClient, ctx: UserContext, input: DeleteRecipe) {
-	await authorizeRecipeMutation(client, ctx, input.id)
-	const { error } = await client.from("recipes").update({ deleted_at: new Date().toISOString() }).eq("id", input.id)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
+export async function deleteRecipe(db: SisubDb, ctx: UserContext, input: DeleteRecipe): Promise<void> {
+	await authorizeRecipeMutation(db, ctx, input.id)
+	await run("DELETE_FAILED", () =>
+		db
+			.update(recipesInSisub)
+			.set({ deletedAt: new Date().toISOString() })
+			.where(eq(recipesInSisub.id, input.id))
+			.then(() => undefined)
+	)
 }
 
 /** Restaura uma receita previamente excluída (deleted_at = null). */
-export async function restoreRecipe(client: AnyClient, ctx: UserContext, input: RestoreRecipe) {
-	await authorizeRecipeMutation(client, ctx, input.id)
-	const { error } = await client.from("recipes").update({ deleted_at: null }).eq("id", input.id)
-	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+export async function restoreRecipe(db: SisubDb, ctx: UserContext, input: RestoreRecipe): Promise<void> {
+	await authorizeRecipeMutation(db, ctx, input.id)
+	await run("RESTORE_FAILED", () =>
+		db
+			.update(recipesInSisub)
+			.set({ deletedAt: null })
+			.where(eq(recipesInSisub.id, input.id))
+			.then(() => undefined)
+	)
 }
 
 /** Renomeia uma receita in-place (não cria versão). Usado por localizar e substituir. */
-export async function renameRecipe(client: AnyClient, ctx: UserContext, input: RenameRecipe) {
-	await authorizeRecipeMutation(client, ctx, input.id)
-	const { error } = await client.from("recipes").update({ name: input.name }).eq("id", input.id)
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
+export async function renameRecipe(db: SisubDb, ctx: UserContext, input: RenameRecipe): Promise<void> {
+	await authorizeRecipeMutation(db, ctx, input.id)
+	await run("UPDATE_FAILED", () =>
+		db
+			.update(recipesInSisub)
+			.set({ name: input.name })
+			.where(eq(recipesInSisub.id, input.id))
+			.then(() => undefined)
+	)
 }
 
-export async function createRecipeVersion(client: AnyClient, ctx: UserContext, input: CreateRecipeVersion) {
+export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: CreateRecipeVersion): Promise<Recipe> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 2, input.kitchenId)
 	} else {
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const { data: recipe, error } = await client
-		.from("recipes")
-		.insert({
-			name: input.name,
-			preparation_method: input.preparationMethod ?? null,
-			portion_yield: input.portionYield,
-			preparation_time_minutes: input.preparationTimeMinutes ?? null,
-			cooking_factor: input.cookingFactor ?? null,
-			rational_id: input.rationalId ?? null,
-			kitchen_id: input.kitchenId ?? null,
-			base_recipe_id: input.baseRecipeId,
-			version: input.version,
-		})
-		.select()
-		.single()
+	const [recipe] = await run("INSERT_FAILED", () =>
+		db
+			.insert(recipesInSisub)
+			.values({
+				name: input.name,
+				preparationMethod: input.preparationMethod ?? null,
+				portionYield: String(input.portionYield),
+				preparationTimeMinutes: input.preparationTimeMinutes ?? null,
+				cookingFactor: input.cookingFactor != null ? String(input.cookingFactor) : null,
+				rationalId: input.rationalId ?? null,
+				kitchenId: input.kitchenId ?? null,
+				baseRecipeId: input.baseRecipeId,
+				version: input.version,
+			})
+			.returning()
+	)
+	if (!recipe) throw new DomainError("INSERT_FAILED", "no row returned")
 
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	await insertIngredients(client, recipe.id, input.ingredients)
-	return recipe
+	await insertIngredients(db, recipe.id, input.ingredients)
+	return toWire<Recipe>(recipe)
 }
