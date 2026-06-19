@@ -62,11 +62,14 @@ export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUser
 
 export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: SearchUsersByEmail) {
 	requirePermission(ctx, "global", 2)
+	// Escapa metacaracteres LIKE (\ % _) p/ que o termo seja tratado como literal — senão
+	// "user_admin" casaria "useradmin"/"user1admin" (_ = curinga de 1 char no LIKE).
+	const term = input.email.replace(/[\\%_]/g, "\\$&")
 	return runQuery("FETCH_FAILED", () =>
 		db
 			.select({ id: userDataInSisub.id, email: userDataInSisub.email, nrOrdem: userDataInSisub.nrOrdem })
 			.from(userDataInSisub)
-			.where(ilike(userDataInSisub.email, `%${input.email}%`))
+			.where(ilike(userDataInSisub.email, `%${term}%`))
 			.orderBy(asc(userDataInSisub.email))
 			.limit(10)
 	)
