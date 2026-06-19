@@ -10,24 +10,36 @@ function readServerFile(fileName: string) {
 }
 
 describe("server function security contracts", () => {
-	test("permission admin functions require auth and global write permission", () => {
+	// Since the Onda 4 migration the admin guard lives in two layers:
+	//   - the server fn authenticates (requireAuth) and forwards the ctx
+	//   - the @iefa/sisub-domain operation enforces global level 2
+	test("permission admin functions require auth and forward ctx to a global-write-guarded domain op", () => {
 		const source = readServerFile("permissions.fn.ts")
+		const domainSource = readFileSync(join(serverDir, "../../../../packages/sisub-domain/src/operations/permissions.ts"), "utf8")
 
 		expect(source).toContain("requireAuth")
-		expect(source).toContain('requirePermission(ctx, "global", 2)')
 
-		for (const fnName of [
-			"searchUsersByEmailFn",
-			"fetchUserPermissionsAdminFn",
-			"createUserPermissionFn",
-			"updateUserPermissionFn",
-			"deleteUserPermissionFn",
+		for (const { fn, op } of [
+			{ fn: "searchUsersByEmailFn", op: "searchUsersByEmail" },
+			{ fn: "fetchUserPermissionsAdminFn", op: "fetchUserPermissionsAdmin" },
+			{ fn: "createUserPermissionFn", op: "createUserPermission" },
+			{ fn: "updateUserPermissionFn", op: "updateUserPermission" },
+			{ fn: "deleteUserPermissionFn", op: "deleteUserPermission" },
 		]) {
-			const fnStart = source.indexOf(`export const ${fnName}`)
+			const fnStart = source.indexOf(`export const ${fn}`)
 			expect(fnStart).toBeGreaterThan(-1)
 			const nextExport = source.indexOf("export const ", fnStart + 1)
 			const fnSource = source.slice(fnStart, nextExport === -1 ? undefined : nextExport)
-			expect(fnSource).toContain("requireGlobalPermissionAdmin()")
+			// authenticate, then forward the resolved ctx into the domain op
+			expect(fnSource).toContain("const ctx = await requireAuth()")
+			expect(fnSource).toContain(`${op}(getSupabaseServerClient(), ctx,`)
+
+			// the domain op enforces global level-2 (write) before touching the DB
+			const opStart = domainSource.indexOf(`export async function ${op}(`)
+			expect(opStart).toBeGreaterThan(-1)
+			const nextOp = domainSource.indexOf("export async function ", opStart + 1)
+			const opSource = domainSource.slice(opStart, nextOp === -1 ? undefined : nextOp)
+			expect(opSource).toContain('requirePermission(ctx, "global", 2)')
 		}
 	})
 
