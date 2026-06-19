@@ -59,8 +59,9 @@ import {
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
+import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
-import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+import { getSupabaseAuthClient } from "@/lib/supabase.server"
 
 /** Resolve a identidade legível do autor da alteração a partir da sessão. */
 async function resolveActor(): Promise<{ id: string | null; name: string | null }> {
@@ -75,140 +76,140 @@ async function resolveActor(): Promise<{ id: string | null; name: string | null 
 
 export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const ctx = await requireAuth()
-	return listNutrients(getSupabaseServerClient(), ctx).catch(handleDomainError)
+	return listNutrients(getDb(), ctx).catch(handleDomainError)
 })
 
 export const fetchIngredientNutrientsFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchIngredientNutrientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listIngredientNutrients(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const setIngredientNutrientsFn = createServerFn({ method: "POST" })
 	.inputValidator(SetIngredientNutrientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return setIngredientNutrients(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return setIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchCeafaFn = createServerFn({ method: "GET" })
 	.inputValidator(ListCeafaSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listCeafa(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listCeafa(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListCatmatSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listCatmatItems(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listCatmatItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchFoldersFn = createServerFn({ method: "GET" })
 	.inputValidator(ListFoldersSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listFolders(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listFolders(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createFolder(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return createFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateFolder(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return updateFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(DeleteFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteFolder(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return deleteFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreFolderFn = createServerFn({ method: "POST" })
 	.inputValidator(RestoreFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return restoreFolder(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return restoreFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientFn = createServerFn({ method: "GET" })
 	.inputValidator(FetchIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return fetchIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return fetchIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListIngredientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listIngredients(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listIngredients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return createIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return updateIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(DeleteIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return deleteIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreIngredientFn = createServerFn({ method: "POST" })
 	.inputValidator(RestoreIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return restoreIngredient(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return restoreIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientItemsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListIngredientItemsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listIngredientItems(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listIngredientItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createIngredientItemFn = createServerFn({ method: "POST" })
 	.inputValidator(CreateIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return createIngredientItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return createIngredientItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateIngredientItemFn = createServerFn({ method: "POST" })
 	.inputValidator(UpdateIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return updateIngredientItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return updateIngredientItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteIngredientItemFn = createServerFn({ method: "POST" })
 	.inputValidator(DeleteIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return deleteIngredientItem(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return deleteIngredientItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 // ── Versionamento (histórico de alterações do insumo) ─────────────────────────
@@ -225,7 +226,7 @@ export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
 	.inputValidator(SaveIngredientDetailsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		const client = getSupabaseServerClient()
+		const client = getDb()
 		const { nutrients, ...ingredient } = data
 		await updateIngredient(client, ctx, ingredient).catch(handleDomainError)
 		await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
@@ -238,14 +239,14 @@ export const recordIngredientVersionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const actor = await resolveActor()
-		return recordIngredientVersion(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
+		return recordIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
 export const fetchIngredientVersionsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListIngredientVersionsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listIngredientVersions(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listIngredientVersions(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
@@ -253,7 +254,7 @@ export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const actor = await resolveActor()
-		return restoreIngredientVersion(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
+		return restoreIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
 // ── Revisão (conferência do insumo pelos nutricionistas) ──────────────────────
@@ -263,12 +264,12 @@ export const recordIngredientReviewFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const actor = await resolveActor()
-		return recordIngredientReview(getSupabaseServerClient(), ctx, data, actor).catch(handleDomainError)
+		return recordIngredientReview(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
 export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
 	.inputValidator(ListIngredientLastReviewsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		return listIngredientLastReviews(getSupabaseServerClient(), ctx, data).catch(handleDomainError)
+		return listIngredientLastReviews(getDb(), ctx, data).catch(handleDomainError)
 	})

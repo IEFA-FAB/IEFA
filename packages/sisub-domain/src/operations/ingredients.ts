@@ -1,4 +1,24 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+/**
+ * Ingredient operations: folders, ingredients, ingredient_items, nutrients, CEAFA, CATMAT.
+ * Drizzle query layer (migração PostgREST→Drizzle).
+ *
+ * Contrato de retorno PRESERVADO em snake_case via `toWire()` — o Drizzle devolve camelCase.
+ * Soft-delete inline (`deletedAt`); filtro de soft-deleted em SQL com `isNull`.
+ * Nenhuma coluna camelCase no DB nestas tabelas → `toWire`/`toColumns` são seguros.
+ */
+
+import {
+	ceafaInSisub,
+	comprasMaterialItemInSisub,
+	folderInSisub,
+	ingredientInSisub,
+	ingredientItemInSisub,
+	ingredientNutrientInSisub,
+	nutrientInSisub,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
+import type { Tables } from "@iefa/database/sisub"
+import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateFolder,
@@ -23,238 +43,306 @@ import type {
 } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+type Folder = Tables<"folder">
+type Ingredient = Tables<"ingredient">
+type IngredientItem = Tables<"ingredient_item">
+type Nutrient = Tables<"nutrient">
+type IngredientNutrient = Tables<"ingredient_nutrient">
+type Ceafa = Tables<"ceafa">
 
-export async function listFolders(client: AnyClient, ctx: UserContext, input?: ListFolders) {
+// Projeção achatada do purchase_item vinculado (item de compra herda o CATMAT).
+type PurchaseItemRef = Pick<
+	Tables<"purchase_item">,
+	"id" | "description" | "catmat_item_codigo" | "catmat_item_descricao" | "purchase_measure_unit" | "unit_price"
+>
+type IngredientItemWire = IngredientItem & { purchase_item: PurchaseItemRef | null }
+type NutrientRef = Nutrient
+type IngredientNutrientWire = IngredientNutrient & { nutrient: NutrientRef | null }
+type CatmatItem = Pick<Tables<"compras_material_item">, "codigo_item" | "descricao_item" | "item_sustentavel">
+
+const ITEM_PURCHASE_RELATIONS: Record<string, string> = { purchaseItemInSisub: "purchase_item" }
+const NUTRIENT_RELATIONS: Record<string, string> = { nutrientInSisub: "nutrient" }
+const PURCHASE_ITEM_COLS = {
+	columns: {
+		id: true,
+		description: true,
+		catmatItemCodigo: true,
+		catmatItemDescricao: true,
+		purchaseMeasureUnit: true,
+		unitPrice: true,
+	},
+} as const
+
+// ─── Folders ──────────────────────────────────────────────────────────────────
+
+export async function listFolders(db: SisubDb, ctx: UserContext, input?: ListFolders): Promise<Folder[]> {
 	requirePermission(ctx, "kitchen", 1)
-	let query = client.from("folder").select("*").order("created_at", { ascending: true })
-	if (!input?.includeDeleted) query = query.is("deleted_at", null)
-	const { data, error } = await query
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
+	const where = input?.includeDeleted ? undefined : isNull(folderInSisub.deletedAt)
+	const rows = await runQuery("QUERY_FAILED", () => db.select().from(folderInSisub).where(where).orderBy(asc(folderInSisub.createdAt)))
+	return rows.map((r) => toWire<Folder>(r))
 }
 
-export async function createFolder(client: AnyClient, ctx: UserContext, input: CreateFolder) {
+export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateFolder): Promise<Folder> {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client.from("folder").insert({ description: input.description, parent_id: input.parentId }).select().single()
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return data
+	const [row] = await runQuery("INSERT_FAILED", () => db.insert(folderInSisub).values({ description: input.description, parentId: input.parentId }).returning())
+	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
+	return toWire<Folder>(row)
 }
 
-export async function updateFolder(client: AnyClient, ctx: UserContext, input: UpdateFolder) {
+export async function updateFolder(db: SisubDb, ctx: UserContext, input: UpdateFolder): Promise<Folder> {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client.from("folder").update({ description: input.description, parent_id: input.parentId }).eq("id", input.id).select().single()
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	return data
+	const [row] = await runQuery("UPDATE_FAILED", () =>
+		db.update(folderInSisub).set({ description: input.description, parentId: input.parentId }).where(eq(folderInSisub.id, input.id)).returning()
+	)
+	if (!row) throw new DomainError("UPDATE_FAILED", `folder ${input.id} not found`)
+	return toWire<Folder>(row)
 }
 
-export async function deleteFolder(client: AnyClient, ctx: UserContext, input: DeleteFolder) {
+export async function deleteFolder(db: SisubDb, ctx: UserContext, input: DeleteFolder): Promise<void> {
 	requirePermission(ctx, "kitchen", 1)
-	const { error } = await client.from("folder").update({ deleted_at: new Date().toISOString() }).eq("id", input.id)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
+	const deleted = await runQuery("DELETE_FAILED", () =>
+		db.update(folderInSisub).set({ deletedAt: new Date().toISOString() }).where(eq(folderInSisub.id, input.id)).returning({ id: folderInSisub.id })
+	)
+	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `folder ${input.id} not found`)
 }
 
-export async function restoreFolder(client: AnyClient, ctx: UserContext, input: RestoreFolder) {
+export async function restoreFolder(db: SisubDb, ctx: UserContext, input: RestoreFolder): Promise<void> {
 	requirePermission(ctx, "kitchen", 1)
-	const { error } = await client.from("folder").update({ deleted_at: null }).eq("id", input.id)
-	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+	const restored = await runQuery("RESTORE_FAILED", () =>
+		db.update(folderInSisub).set({ deletedAt: null }).where(eq(folderInSisub.id, input.id)).returning({ id: folderInSisub.id })
+	)
+	if (restored.length === 0) throw new DomainError("RESTORE_FAILED", `folder ${input.id} not found`)
 }
 
-export async function listIngredients(client: AnyClient, ctx: UserContext, input: ListIngredients) {
+// ─── Ingredients ────────────────────────────────────────────────────────────
+
+export async function listIngredients(db: SisubDb, ctx: UserContext, input: ListIngredients): Promise<Ingredient[]> {
 	requirePermission(ctx, "kitchen", 1)
-	let query = client.from("ingredient").select("*").order("description", { ascending: true })
-	if (!input.includeDeleted) query = query.is("deleted_at", null)
-	if (input.folderId) query = query.eq("folder_id", input.folderId)
-	const { data, error } = await query
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
+	const conditions = []
+	if (!input.includeDeleted) conditions.push(isNull(ingredientInSisub.deletedAt))
+	if (input.folderId) conditions.push(eq(ingredientInSisub.folderId, input.folderId))
+	const where = conditions.length > 0 ? and(...conditions) : undefined
+	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ingredientInSisub).where(where).orderBy(asc(ingredientInSisub.description)))
+	return rows.map((r) => toWire<Ingredient>(r))
 }
 
-export async function fetchIngredient(client: AnyClient, ctx: UserContext, input: FetchIngredient) {
+export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: FetchIngredient): Promise<Ingredient> {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client.from("ingredient").select("*").eq("id", input.id).is("deleted_at", null).single()
-	if (error || !data) throw new NotFoundError("ingredient", input.id)
-	return data
+	const row = await runQuery("QUERY_FAILED", () =>
+		db.query.ingredientInSisub.findFirst({ where: and(eq(ingredientInSisub.id, input.id), isNull(ingredientInSisub.deletedAt)) })
+	)
+	if (!row) throw new NotFoundError("ingredient", input.id)
+	return toWire<Ingredient>(row)
 }
 
-export async function createIngredient(client: AnyClient, ctx: UserContext, input: CreateIngredient) {
+export async function createIngredient(db: SisubDb, ctx: UserContext, input: CreateIngredient): Promise<Ingredient> {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client
-		.from("ingredient")
-		.insert({
-			description: input.description,
-			folder_id: input.folderId,
-			measure_unit: input.measureUnit,
-			correction_factor: input.correctionFactor,
-			ceafa_id: input.ceafaId,
-		})
-		.select()
-		.single()
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return data
+	const [row] = await runQuery("INSERT_FAILED", () =>
+		db
+			.insert(ingredientInSisub)
+			.values({
+				description: input.description,
+				folderId: input.folderId,
+				measureUnit: input.measureUnit,
+				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				ceafaId: input.ceafaId,
+			})
+			.returning()
+	)
+	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
+	return toWire<Ingredient>(row)
 }
 
-export async function updateIngredient(client: AnyClient, ctx: UserContext, input: UpdateIngredient) {
+export async function updateIngredient(db: SisubDb, ctx: UserContext, input: UpdateIngredient): Promise<Ingredient> {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client
-		.from("ingredient")
-		.update({
-			description: input.description,
-			folder_id: input.folderId,
-			measure_unit: input.measureUnit,
-			correction_factor: input.correctionFactor,
-			ceafa_id: input.ceafaId,
-		})
-		.eq("id", input.id)
-		.select()
-		.single()
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	return data
+	const [row] = await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(ingredientInSisub)
+			.set({
+				description: input.description,
+				folderId: input.folderId,
+				measureUnit: input.measureUnit,
+				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				ceafaId: input.ceafaId,
+			})
+			.where(eq(ingredientInSisub.id, input.id))
+			.returning()
+	)
+	if (!row) throw new DomainError("UPDATE_FAILED", `ingredient ${input.id} not found`)
+	return toWire<Ingredient>(row)
 }
 
-export async function deleteIngredient(client: AnyClient, ctx: UserContext, input: DeleteIngredient) {
+export async function deleteIngredient(db: SisubDb, ctx: UserContext, input: DeleteIngredient): Promise<void> {
 	requirePermission(ctx, "kitchen", 1)
-	const { error } = await client.from("ingredient").update({ deleted_at: new Date().toISOString() }).eq("id", input.id)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
+	const deleted = await runQuery("DELETE_FAILED", () =>
+		db.update(ingredientInSisub).set({ deletedAt: new Date().toISOString() }).where(eq(ingredientInSisub.id, input.id)).returning({ id: ingredientInSisub.id })
+	)
+	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `ingredient ${input.id} not found`)
 }
 
-export async function restoreIngredient(client: AnyClient, ctx: UserContext, input: RestoreIngredient) {
+export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: RestoreIngredient): Promise<void> {
 	requirePermission(ctx, "kitchen", 1)
-	const { error } = await client.from("ingredient").update({ deleted_at: null }).eq("id", input.id)
-	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+	const restored = await runQuery("RESTORE_FAILED", () =>
+		db.update(ingredientInSisub).set({ deletedAt: null }).where(eq(ingredientInSisub.id, input.id)).returning({ id: ingredientInSisub.id })
+	)
+	if (restored.length === 0) throw new DomainError("RESTORE_FAILED", `ingredient ${input.id} not found`)
 }
 
-export async function listIngredientItems(client: AnyClient, ctx: UserContext, input: ListIngredientItems) {
+// ─── Ingredient items (itens de produto) ─────────────────────────────────────
+
+export async function listIngredientItems(db: SisubDb, ctx: UserContext, input: ListIngredientItems): Promise<IngredientItemWire[]> {
 	requirePermission(ctx, "kitchen", 1)
 	// Traz o purchase_item vinculado (item de compra) para o item de produto herdar o CATMAT.
-	let query = client
-		.from("ingredient_item")
-		.select("*, purchase_item:purchase_item_id(id, description, catmat_item_codigo, catmat_item_descricao, purchase_measure_unit, unit_price)")
-		.is("deleted_at", null)
-		.order("description", { ascending: true })
-	if (input.ingredientId) query = query.eq("ingredient_id", input.ingredientId)
-	const { data, error } = await query
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return (data ?? []).map((row) => ({
-		...row,
-		purchase_item: Array.isArray(row.purchase_item) ? (row.purchase_item[0] ?? null) : (row.purchase_item ?? null),
-	}))
-}
-
-export async function createIngredientItem(client: AnyClient, ctx: UserContext, input: CreateIngredientItem) {
-	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client
-		.from("ingredient_item")
-		.insert({
-			ingredient_id: input.ingredientId,
-			description: input.description,
-			barcode: input.barcode,
-			purchase_measure_unit: input.purchaseMeasureUnit,
-			unit_content_quantity: input.unitContentQuantity,
-			correction_factor: input.correctionFactor,
-			purchase_item_id: input.purchaseItemId,
+	const conditions = [isNull(ingredientItemInSisub.deletedAt)]
+	if (input.ingredientId) conditions.push(eq(ingredientItemInSisub.ingredientId, input.ingredientId))
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db.query.ingredientItemInSisub.findMany({
+			with: { purchaseItemInSisub: PURCHASE_ITEM_COLS },
+			where: and(...conditions),
+			orderBy: (i, { asc }) => [asc(i.description)],
 		})
-		.select()
-		.single()
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return data
+	)
+	return rows.map((r) => toWire<IngredientItemWire>(r, ITEM_PURCHASE_RELATIONS))
 }
 
-export async function updateIngredientItem(client: AnyClient, ctx: UserContext, input: UpdateIngredientItem) {
+export async function createIngredientItem(db: SisubDb, ctx: UserContext, input: CreateIngredientItem): Promise<IngredientItem> {
 	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client
-		.from("ingredient_item")
-		.update({
-			ingredient_id: input.ingredientId,
-			description: input.description,
-			barcode: input.barcode,
-			purchase_measure_unit: input.purchaseMeasureUnit,
-			unit_content_quantity: input.unitContentQuantity,
-			correction_factor: input.correctionFactor,
-			purchase_item_id: input.purchaseItemId,
+	const [row] = await runQuery("INSERT_FAILED", () =>
+		db
+			.insert(ingredientItemInSisub)
+			.values({
+				ingredientId: input.ingredientId,
+				description: input.description,
+				barcode: input.barcode,
+				purchaseMeasureUnit: input.purchaseMeasureUnit,
+				unitContentQuantity: input.unitContentQuantity != null ? String(input.unitContentQuantity) : null,
+				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				purchaseItemId: input.purchaseItemId,
+			})
+			.returning()
+	)
+	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
+	return toWire<IngredientItem>(row)
+}
+
+export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input: UpdateIngredientItem): Promise<IngredientItem> {
+	requirePermission(ctx, "kitchen", 1)
+	const [row] = await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(ingredientItemInSisub)
+			.set({
+				ingredientId: input.ingredientId,
+				description: input.description,
+				barcode: input.barcode,
+				purchaseMeasureUnit: input.purchaseMeasureUnit,
+				unitContentQuantity: input.unitContentQuantity != null ? String(input.unitContentQuantity) : null,
+				correctionFactor: input.correctionFactor != null ? String(input.correctionFactor) : null,
+				purchaseItemId: input.purchaseItemId,
+			})
+			.where(eq(ingredientItemInSisub.id, input.id))
+			.returning()
+	)
+	if (!row) throw new DomainError("UPDATE_FAILED", `ingredient_item ${input.id} not found`)
+	return toWire<IngredientItem>(row)
+}
+
+export async function deleteIngredientItem(db: SisubDb, ctx: UserContext, input: DeleteIngredientItem): Promise<void> {
+	requirePermission(ctx, "kitchen", 1)
+	const deleted = await runQuery("DELETE_FAILED", () =>
+		db
+			.update(ingredientItemInSisub)
+			.set({ deletedAt: new Date().toISOString() })
+			.where(eq(ingredientItemInSisub.id, input.id))
+			.returning({ id: ingredientItemInSisub.id })
+	)
+	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `ingredient_item ${input.id} not found`)
+}
+
+// ─── Nutrients ────────────────────────────────────────────────────────────────
+
+export async function listNutrients(db: SisubDb, ctx: UserContext): Promise<Nutrient[]> {
+	requirePermission(ctx, "kitchen", 1)
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db.select().from(nutrientInSisub).where(isNull(nutrientInSisub.deletedAt)).orderBy(asc(nutrientInSisub.displayOrder))
+	)
+	return rows.map((r) => toWire<Nutrient>(r))
+}
+
+export async function listIngredientNutrients(db: SisubDb, ctx: UserContext, input: FetchIngredientNutrients): Promise<IngredientNutrientWire[]> {
+	requirePermission(ctx, "kitchen", 1)
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db.query.ingredientNutrientInSisub.findMany({
+			with: { nutrientInSisub: true },
+			where: and(eq(ingredientNutrientInSisub.ingredientId, input.ingredientId), isNull(ingredientNutrientInSisub.deletedAt)),
 		})
-		.eq("id", input.id)
-		.select()
-		.single()
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	return data
+	)
+	return rows.map((r) => toWire<IngredientNutrientWire>(r, NUTRIENT_RELATIONS))
 }
 
-export async function deleteIngredientItem(client: AnyClient, ctx: UserContext, input: DeleteIngredientItem) {
-	requirePermission(ctx, "kitchen", 1)
-	const { error } = await client.from("ingredient_item").update({ deleted_at: new Date().toISOString() }).eq("id", input.id)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
-}
-
-export async function listNutrients(client: AnyClient, ctx: UserContext) {
-	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client.from("nutrient").select("*").is("deleted_at", null).order("display_order", { ascending: true })
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
-}
-
-export async function listIngredientNutrients(client: AnyClient, ctx: UserContext, input: FetchIngredientNutrients) {
-	requirePermission(ctx, "kitchen", 1)
-	const { data, error } = await client.from("ingredient_nutrient").select("*, nutrient(*)").eq("ingredient_id", input.ingredientId).is("deleted_at", null)
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
-}
-
-export async function setIngredientNutrients(client: AnyClient, ctx: UserContext, input: SetIngredientNutrients) {
+export async function setIngredientNutrients(db: SisubDb, ctx: UserContext, input: SetIngredientNutrients): Promise<void> {
 	requirePermission(ctx, "kitchen", 1)
 
-	// Soft-delete os nutrientes atuais. O upsert abaixo revive (deleted_at = null) os que voltam.
-	const { error: delError } = await client
-		.from("ingredient_nutrient")
-		.update({ deleted_at: new Date().toISOString() })
-		.eq("ingredient_id", input.ingredientId)
-		.is("deleted_at", null)
-	if (delError) throw new DomainError("UPDATE_FAILED", delError.message)
-
-	// Upsert (não insert): o índice único product_nutrient_unique (ingredient_id, nutrient_id) NÃO
-	// considera deleted_at, então uma linha soft-deletada ainda ocupa o slot. Reinserir o mesmo par
-	// violaria o unique — por isso atualizamos a linha existente no conflito, restaurando deleted_at = null.
 	const toUpsert = input.nutrients
 		.filter((n) => n.nutrientValue != null)
-		.map((n) => ({ ingredient_id: input.ingredientId, nutrient_id: n.nutrientId, nutrient_value: n.nutrientValue, deleted_at: null }))
+		.map((n) => ({ ingredientId: input.ingredientId, nutrientId: n.nutrientId, nutrientValue: String(n.nutrientValue), deletedAt: null }))
 
-	if (toUpsert.length > 0) {
-		const { error: upError } = await client.from("ingredient_nutrient").upsert(toUpsert, { onConflict: "ingredient_id,nutrient_id" })
-		if (upError) throw new DomainError("INSERT_FAILED", upError.message)
-	}
+	await runQuery("UPDATE_FAILED", () =>
+		db.transaction(async (tx) => {
+			// Soft-delete os nutrientes atuais. O upsert abaixo revive (deleted_at = null) os que voltam.
+			await tx
+				.update(ingredientNutrientInSisub)
+				.set({ deletedAt: new Date().toISOString() })
+				.where(and(eq(ingredientNutrientInSisub.ingredientId, input.ingredientId), isNull(ingredientNutrientInSisub.deletedAt)))
+
+			// Upsert (não insert): o índice único product_nutrient_unique (ingredient_id, nutrient_id) NÃO
+			// considera deleted_at, então uma linha soft-deletada ainda ocupa o slot. Reinserir o mesmo par
+			// violaria o unique — por isso atualizamos a linha existente no conflito, restaurando deleted_at = null.
+			if (toUpsert.length > 0) {
+				await tx
+					.insert(ingredientNutrientInSisub)
+					.values(toUpsert)
+					.onConflictDoUpdate({
+						target: [ingredientNutrientInSisub.ingredientId, ingredientNutrientInSisub.nutrientId],
+						set: { nutrientValue: sql`excluded.nutrient_value`, deletedAt: null },
+					})
+			}
+		})
+	)
 }
 
-export async function listCeafa(client: AnyClient, ctx: UserContext, input: ListCeafa) {
+// ─── CEAFA + CATMAT lookups ──────────────────────────────────────────────────
+
+export async function listCeafa(db: SisubDb, ctx: UserContext, input: ListCeafa): Promise<Ceafa[]> {
 	requirePermission(ctx, "kitchen", 1)
-	let query = client.from("ceafa").select("*").order("description", { ascending: true }).limit(50)
-	if (input.search?.trim()) query = query.ilike("description", `%${input.search.trim()}%`)
-	const { data, error } = await query
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
+	const search = input.search?.trim()
+	const where = search ? ilike(ceafaInSisub.description, `%${search.replace(/[\\%_]/g, "\\$&")}%`) : undefined
+	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ceafaInSisub).where(where).orderBy(asc(ceafaInSisub.description)).limit(50))
+	return rows.map((r) => toWire<Ceafa>(r))
 }
 
-export async function listCatmatItems(client: AnyClient, ctx: UserContext, input: ListCatmat) {
+export async function listCatmatItems(db: SisubDb, ctx: UserContext, input: ListCatmat): Promise<CatmatItem[]> {
 	requirePermission(ctx, "kitchen", 1)
 	const term = input.search.trim()
 	if (term.length < 2) return []
 
 	const isNumericCode = /^\d+$/.test(term)
-	let query = client
-		.from("compras_material_item")
-		.select("codigo_item, descricao_item, item_sustentavel")
-		.eq("status_item", true)
-		.limit(40)
-		.order("descricao_item", { ascending: true })
+	const where = isNumericCode
+		? and(eq(comprasMaterialItemInSisub.statusItem, true), eq(comprasMaterialItemInSisub.codigoItem, Number.parseInt(term, 10)))
+		: and(eq(comprasMaterialItemInSisub.statusItem, true), ilike(comprasMaterialItemInSisub.descricaoItem, `%${term.replace(/[\\%_]/g, "\\$&")}%`))
 
-	if (isNumericCode) {
-		query = query.eq("codigo_item", Number.parseInt(term, 10))
-	} else {
-		query = query.ilike("descricao_item", `%${term}%`)
-	}
-
-	const { data, error } = await query
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return data ?? []
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({
+				codigo_item: comprasMaterialItemInSisub.codigoItem,
+				descricao_item: comprasMaterialItemInSisub.descricaoItem,
+				item_sustentavel: comprasMaterialItemInSisub.itemSustentavel,
+			})
+			.from(comprasMaterialItemInSisub)
+			.where(where)
+			.orderBy(asc(comprasMaterialItemInSisub.descricaoItem))
+			.limit(40)
+	)
+	return rows
 }

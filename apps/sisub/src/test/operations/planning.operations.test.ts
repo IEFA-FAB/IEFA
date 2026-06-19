@@ -4,6 +4,7 @@
  * em memória, escopo por cozinha (resolveKitchenFrom*), lixeira e substituições.
  */
 
+import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import {
 	addMenuItem,
 	fetchDailyMenus,
@@ -16,9 +17,9 @@ import {
 	updateSubstitutions,
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
-import { afterEach, beforeAll, beforeEach, expect, test } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration } from "@/test/operations-fixtures"
-import { describeSupabaseIntegration } from "@/test/supabase"
+import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
 
 const ctx = fullAccessCtx()
 
@@ -26,11 +27,20 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 	let reachable = false
 	let client: AnyClient
 	let seeder: Seeder | null = null
+	// Ops já migradas para Drizzle recebem `db` (pooler); o seeder/cleanup seguem no client Supabase.
+	let db: SisubDb | null = null
+	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
 		const s = await setupIntegration("daily_menu")
 		reachable = s.reachable
 		if (s.client) client = s.client
+		const url = getSisubDatabaseUrl()
+		if (reachable && url) {
+			const t = createSisubTestDb(url)
+			db = t.db
+			closeDb = t.close
+		}
 	}, 30_000)
 
 	beforeEach(() => {
@@ -40,6 +50,10 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 	afterEach(async () => {
 		await seeder?.cleanup()
 	}, 60_000)
+
+	afterAll(async () => {
+		await closeDb?.()
+	})
 
 	/** Semeia cozinha + tipo de refeição + receita global + 1 daily_menu. */
 	async function scenario() {
@@ -57,12 +71,12 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 	// índice unique parcial garante 1 cardápio ativo por (data, refeição, cozinha) e a
 	// operation faz select-then-insert idempotente.
 	test("upsertDailyMenu cria o cardápio e é idempotente no mesmo trio", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { id: kitchenId } = await seeder.seedKitchen()
 		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
 		const mealTypeId = await seeder.seedMealType({ kitchenId })
 
-		const created = await upsertDailyMenu(client, ctx, { kitchenId, serviceDate: "2099-03-01", mealTypeId, forecastedHeadcount: 50 })
+		const created = await upsertDailyMenu(db, ctx, { kitchenId, serviceDate: "2099-03-01", mealTypeId, forecastedHeadcount: 50 })
 		expect(Array.isArray(created)).toBe(true)
 		expect(created).toHaveLength(1)
 		expect(created[0].kitchen_id).toBe(kitchenId)
@@ -70,72 +84,72 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 		expect(created[0].status).toBe("PLANNED")
 
 		// Idempotente: segundo upsert do mesmo trio devolve o existente, sem duplicar.
-		const again = await upsertDailyMenu(client, ctx, { kitchenId, serviceDate: "2099-03-01", mealTypeId })
+		const again = await upsertDailyMenu(db, ctx, { kitchenId, serviceDate: "2099-03-01", mealTypeId })
 		expect(again).toHaveLength(1)
 		expect(again[0].id).toBe(created[0].id)
 	})
 
 	test("addMenuItem grava snapshot da receita e fetchDailyMenus retorna itens ativos", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { kitchenId, recipeId, dailyMenuId, serviceDate } = await scenario()
 
-		const inserted = await addMenuItem(client, ctx, { dailyMenuId, recipeId, plannedPortionQuantity: 120 })
+		const inserted = await addMenuItem(db, ctx, { dailyMenuId, recipeId, plannedPortionQuantity: 120 })
 		expect(Array.isArray(inserted)).toBe(true)
 		expect(inserted[0].recipe_origin_id).toBe(recipeId)
 		expect(inserted[0].recipe).toBeTruthy() // snapshot da receita gravado
 
-		const menus = await fetchDailyMenus(client, ctx, { kitchenId, startDate: serviceDate, endDate: serviceDate })
+		const menus = await fetchDailyMenus(db, ctx, { kitchenId, startDate: serviceDate, endDate: serviceDate })
 		const menu = menus.find((m) => m.id === dailyMenuId)
 		expect(menu).toBeDefined()
 		expect(menu?.menu_items.some((it: { id: string }) => it.id === inserted[0].id)).toBe(true)
 	})
 
 	test("updateMenuItem altera planned_portion_quantity (write→read)", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { recipeId, dailyMenuId } = await scenario()
-		const inserted = await addMenuItem(client, ctx, { dailyMenuId, recipeId, plannedPortionQuantity: 100 })
+		const inserted = await addMenuItem(db, ctx, { dailyMenuId, recipeId, plannedPortionQuantity: 100 })
 		const menuItemId = inserted[0].id
 
-		const updated = await updateMenuItem(client, ctx, { menuItemId, plannedPortionQuantity: 250 })
+		const updated = await updateMenuItem(db, ctx, { menuItemId, plannedPortionQuantity: 250 })
 		expect(Number(updated[0].planned_portion_quantity)).toBe(250)
 	})
 
 	test("removeMenuItem (soft) sai do fetch e aparece em getTrashItems; restoreMenuItem reverte", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { kitchenId, recipeId, dailyMenuId, serviceDate } = await scenario()
-		const inserted = await addMenuItem(client, ctx, { dailyMenuId, recipeId })
+		const inserted = await addMenuItem(db, ctx, { dailyMenuId, recipeId })
 		const menuItemId = inserted[0].id
 
-		await removeMenuItem(client, ctx, { menuItemId })
-		const menus = await fetchDayDetails(client, ctx, { kitchenId, date: serviceDate })
+		await removeMenuItem(db, ctx, { menuItemId })
+		const menus = await fetchDayDetails(db, ctx, { kitchenId, date: serviceDate })
 		const activeIds = menus.flatMap((m) => m.menu_items.map((it: { id: string }) => it.id))
 		expect(activeIds).not.toContain(menuItemId)
 
-		const trash = await getTrashItems(client, ctx, { kitchenId })
+		const trash = await getTrashItems(db, ctx, { kitchenId })
 		expect(trash.map((t) => t.id)).toContain(menuItemId)
 
-		await restoreMenuItem(client, ctx, { menuItemId })
-		const menusAfter = await fetchDayDetails(client, ctx, { kitchenId, date: serviceDate })
+		await restoreMenuItem(db, ctx, { menuItemId })
+		const menusAfter = await fetchDayDetails(db, ctx, { kitchenId, date: serviceDate })
 		const activeAfter = menusAfter.flatMap((m) => m.menu_items.map((it: { id: string }) => it.id))
 		expect(activeAfter).toContain(menuItemId)
 	})
 
 	test("updateHeadcount grava forecasted_headcount no daily_menu", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { dailyMenuId } = await scenario()
 
-		const updated = await updateHeadcount(client, ctx, { dailyMenuId, forecastedHeadcount: 321 })
+		const updated = await updateHeadcount(db, ctx, { dailyMenuId, forecastedHeadcount: 321 })
 		expect(updated[0].forecasted_headcount).toBe(321)
 	})
 
 	test("updateSubstitutions persiste o mapa de substituições", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const { recipeId, dailyMenuId } = await scenario()
-		const inserted = await addMenuItem(client, ctx, { dailyMenuId, recipeId })
+		const inserted = await addMenuItem(db, ctx, { dailyMenuId, recipeId })
 		const menuItemId = inserted[0].id
 
 		const substitutions = { arroz: { type: "swap", rationale: "[TEST] motivo", updated_at: "2099-01-01T00:00:00Z" } }
-		await updateSubstitutions(client, ctx, { menuItemId, substitutions })
+		await updateSubstitutions(db, ctx, { menuItemId, substitutions })
 
 		const { data } = await client.from("menu_items").select("substitutions").eq("id", menuItemId).single()
 		expect(data?.substitutions).toMatchObject(substitutions)

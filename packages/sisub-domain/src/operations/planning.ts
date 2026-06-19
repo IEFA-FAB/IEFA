@@ -1,12 +1,16 @@
 /**
- * Planning operations — canonical implementation.
+ * Planning operations — Drizzle query layer (migração PostgREST→Drizzle).
  *
- * Bug fixes vs sisub divergence:
+ * O contrato de retorno é PRESERVADO (snake_case aninhado) via `toWire()` — o Drizzle
+ * devolve colunas em camelCase. Bugfixes vs sisub divergence preservados:
  *   - addMenuItem validates recipe kitchen_id (was missing in sisub)
- *   - fetchDailyMenus filters menu_items in DB query (not in memory)
+ *   - fetchDailyMenus filters menu_items in DB query (not in memory) — agora no SQL via
+ *     `where: isNull(...)` dentro do `with` aninhado.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
+import { dailyMenuInSisub, menuItemsInSisub, recipesInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import type { Tables } from "@iefa/database/sisub"
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenu, resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type { FetchDailyMenuContent } from "../schemas/meal-ops.ts"
@@ -24,199 +28,225 @@ import type {
 } from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
+import { runQuery, toWire } from "../utils/index.ts"
 
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client
-type AnyClient = SupabaseClient<any, any, any>
+// ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
-const DAILY_MENU_WITH_ITEMS = `
-  *,
-  meal_type:meal_type_id(*),
-  menu_items:menu_items(*, recipe_origin:recipe_origin_id(*))
-` as const
+type DailyMenu = Tables<"daily_menu">
+type MenuItem = Tables<"menu_items">
+type MealType = Tables<"meal_type">
+type Recipe = Tables<"recipes">
 
-export async function fetchDailyMenus(client: AnyClient, ctx: UserContext, input: DailyMenuFetch) {
-	requireKitchen(ctx, 1, input.kitchenId)
+type MenuItemWithOrigin = MenuItem & { recipe_origin: Recipe | null }
+type DailyMenuWithItems = DailyMenu & { meal_type: MealType | null; menu_items: MenuItemWithOrigin[] }
+// daily_menu é garantido não-nulo: a query era `daily_menu!inner(*)` e filtramos por kitchen_id.
+type TrashMenuItem = MenuItem & { recipe_origin: Recipe | null; daily_menu: DailyMenu }
 
-	const { data, error } = await client
-		.from("daily_menu")
-		.select(DAILY_MENU_WITH_ITEMS)
-		.eq("kitchen_id", input.kitchenId)
-		.gte("service_date", input.startDate)
-		.lte("service_date", input.endDate)
-		.is("deleted_at", null)
-		.order("service_date")
-		.order("meal_type_id")
-
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return (data ?? []).map((menu) => ({
-		...menu,
-		menu_items: (menu.menu_items ?? []).filter((item: { deleted_at: string | null }) => !item.deleted_at),
-	}))
+/**
+ * Relations da query relacional do Drizzle nomeadas de forma "feia" pelo `drizzle-kit pull`.
+ * Passadas a `toWire()` para renomear às chaves do contrato (o resto vira snake_case).
+ */
+const DAILY_MENU_RELATIONS: Record<string, string> = {
+	mealTypeInSisub: "meal_type",
+	menuItemsInSisubs: "menu_items",
+	recipesInSisub: "recipe_origin",
 }
 
-export async function fetchDayDetails(client: AnyClient, ctx: UserContext, input: DayDetailsFetch) {
+// Relational `with` para daily_menu + meal_type + menu_items ativos (+ recipe_origin).
+const WITH_MENU_ITEMS = {
+	mealTypeInSisub: true,
+	menuItemsInSisubs: {
+		// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
+		where: isNull(menuItemsInSisub.deletedAt),
+		with: { recipesInSisub: true },
+	},
+} as const
+
+export async function fetchDailyMenus(db: SisubDb, ctx: UserContext, input: DailyMenuFetch): Promise<DailyMenuWithItems[]> {
 	requireKitchen(ctx, 1, input.kitchenId)
 
-	const { data, error } = await client
-		.from("daily_menu")
-		.select(DAILY_MENU_WITH_ITEMS)
-		.eq("kitchen_id", input.kitchenId)
-		.eq("service_date", input.date)
-		.is("deleted_at", null)
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.dailyMenuInSisub.findMany({
+			where: and(
+				eq(dailyMenuInSisub.kitchenId, input.kitchenId),
+				gte(dailyMenuInSisub.serviceDate, input.startDate),
+				lte(dailyMenuInSisub.serviceDate, input.endDate),
+				isNull(dailyMenuInSisub.deletedAt)
+			),
+			with: WITH_MENU_ITEMS,
+			orderBy: [asc(dailyMenuInSisub.serviceDate), asc(dailyMenuInSisub.mealTypeId)],
+		})
+	)
 
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return (data ?? []).map((menu) => ({
-		...menu,
-		menu_items: (menu.menu_items ?? []).filter((item: { deleted_at: string | null }) => !item.deleted_at),
-	}))
+	return rows.map((row) => toWire<DailyMenuWithItems>(row, DAILY_MENU_RELATIONS))
 }
 
-export async function upsertDailyMenu(client: AnyClient, ctx: UserContext, input: UpsertDailyMenu) {
+export async function fetchDayDetails(db: SisubDb, ctx: UserContext, input: DayDetailsFetch): Promise<DailyMenuWithItems[]> {
+	requireKitchen(ctx, 1, input.kitchenId)
+
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.dailyMenuInSisub.findMany({
+			where: and(eq(dailyMenuInSisub.kitchenId, input.kitchenId), eq(dailyMenuInSisub.serviceDate, input.date), isNull(dailyMenuInSisub.deletedAt)),
+			with: WITH_MENU_ITEMS,
+		})
+	)
+
+	return rows.map((row) => toWire<DailyMenuWithItems>(row, DAILY_MENU_RELATIONS))
+}
+
+export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: UpsertDailyMenu): Promise<DailyMenu[]> {
 	requireKitchen(ctx, 2, input.kitchenId)
 
-	// "Cria se não existir, senão mantém" (idempotente). NÃO usamos ON CONFLICT do
-	// PostgREST: a unicidade do trio (data, refeição, cozinha) é garantida por um índice
-	// PARCIAL (where deleted_at is null) que o PostgREST não consegue inferir. Fazemos
+	// "Cria se não existir, senão mantém" (idempotente). A unicidade do trio (data, refeição,
+	// cozinha) é garantida por um índice PARCIAL (where deleted_at is null). Fazemos
 	// select-then-insert ciente de soft-delete; o índice é a trava contra corrida.
-	const { data: existing, error: selError } = await client
-		.from("daily_menu")
-		.select()
-		.eq("kitchen_id", input.kitchenId)
-		.eq("service_date", input.serviceDate)
-		.eq("meal_type_id", input.mealTypeId)
-		.is("deleted_at", null)
-		.maybeSingle()
-
-	if (selError) throw new DomainError("UPSERT_FAILED", selError.message)
-	if (existing) return [existing]
-
-	const { data, error } = await client
-		.from("daily_menu")
-		.insert({
-			kitchen_id: input.kitchenId,
-			service_date: input.serviceDate,
-			meal_type_id: input.mealTypeId,
-			status: "PLANNED",
-			...(input.forecastedHeadcount != null && { forecasted_headcount: input.forecastedHeadcount }),
+	const existing = await runQuery("UPSERT_FAILED", () =>
+		db.query.dailyMenuInSisub.findFirst({
+			where: and(
+				eq(dailyMenuInSisub.kitchenId, input.kitchenId),
+				eq(dailyMenuInSisub.serviceDate, input.serviceDate),
+				eq(dailyMenuInSisub.mealTypeId, input.mealTypeId),
+				isNull(dailyMenuInSisub.deletedAt)
+			),
 		})
-		.select()
+	)
+	if (existing) return [toWire<DailyMenu>(existing)]
 
-	if (error) {
-		// Corrida: outra requisição criou o mesmo trio entre o select e o insert.
-		// O índice daily_menu_active_unique rejeita (23505) — tratamos como "já existe".
-		if ((error as { code?: string }).code === "23505") {
-			const { data: raced } = await client
-				.from("daily_menu")
-				.select()
-				.eq("kitchen_id", input.kitchenId)
-				.eq("service_date", input.serviceDate)
-				.eq("meal_type_id", input.mealTypeId)
-				.is("deleted_at", null)
-				.maybeSingle()
-			if (raced) return [raced]
-		}
-		throw new DomainError("UPSERT_FAILED", error.message)
-	}
-	return data
+	const inserted = await runQuery("UPSERT_FAILED", () =>
+		db
+			.insert(dailyMenuInSisub)
+			.values({
+				kitchenId: input.kitchenId,
+				serviceDate: input.serviceDate,
+				mealTypeId: input.mealTypeId,
+				status: "PLANNED",
+				...(input.forecastedHeadcount != null && { forecastedHeadcount: input.forecastedHeadcount }),
+			})
+			.returning()
+	)
+	if (inserted.length === 0) throw new DomainError("UPSERT_FAILED", "no row returned")
+	return inserted.map((row) => toWire<DailyMenu>(row))
 }
 
-export async function addMenuItem(client: AnyClient, ctx: UserContext, input: AddMenuItem) {
-	const kitchenId = await resolveKitchenFromMenu(client, input.dailyMenuId)
+export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuItem): Promise<MenuItem[]> {
+	const kitchenId = await resolveKitchenFromMenu(db, input.dailyMenuId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	// Fetch full recipe (includes kitchen_id) — replaces separate validateRecipeAccess call
-	const { data: recipe, error: recipeError } = await client
-		.from("recipes")
-		.select("*, ingredients:recipe_ingredients(*, ingredient:ingredient_id(*))")
-		.eq("id", input.recipeId)
-		.is("deleted_at", null)
-		.single()
+	// Fetch full recipe (includes kitchen_id) — replaces separate validateRecipeAccess call.
+	const recipe = await runQuery("FETCH_FAILED", () =>
+		db.query.recipesInSisub.findFirst({
+			where: and(eq(recipesInSisub.id, input.recipeId), isNull(recipesInSisub.deletedAt)),
+			with: { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } },
+		})
+	)
+	if (!recipe) throw new DomainError("RECIPE_NOT_FOUND", `Recipe ${input.recipeId} not found`)
 
-	if (recipeError || !recipe) throw new DomainError("RECIPE_NOT_FOUND", `Recipe ${input.recipeId} not found`)
-
-	if (recipe.kitchen_id !== null && recipe.kitchen_id !== kitchenId) {
+	if (recipe.kitchenId !== null && recipe.kitchenId !== kitchenId) {
 		throw new DomainError("RECIPE_ACCESS_DENIED", `Recipe ${input.recipeId} does not belong to kitchen ${kitchenId}`)
 	}
 
-	// Insert with recipe snapshot
-	const { data, error } = await client
-		.from("menu_items")
-		.insert({
-			daily_menu_id: input.dailyMenuId,
-			recipe_origin_id: input.recipeId,
-			recipe: recipe,
-			...(input.plannedPortionQuantity != null && { planned_portion_quantity: input.plannedPortionQuantity }),
-			...(input.excludedFromProcurement != null && { excluded_from_procurement: input.excludedFromProcurement }),
-		})
-		.select()
+	// Snapshot da receita gravado em JSON no contrato snake_case (idêntico ao PostgREST).
+	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" })
 
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return data
+	const inserted = await runQuery("INSERT_FAILED", () =>
+		db
+			.insert(menuItemsInSisub)
+			.values({
+				dailyMenuId: input.dailyMenuId,
+				recipeOriginId: input.recipeId,
+				recipe: recipeSnapshot,
+				...(input.plannedPortionQuantity != null && { plannedPortionQuantity: String(input.plannedPortionQuantity) }),
+				...(input.excludedFromProcurement != null && { excludedFromProcurement: String(input.excludedFromProcurement) }),
+			})
+			.returning()
+	)
+	if (inserted.length === 0) throw new DomainError("INSERT_FAILED", "no row returned")
+	return inserted.map((row) => toWire<MenuItem>(row))
 }
 
-export async function updateMenuItem(client: AnyClient, ctx: UserContext, input: UpdateMenuItem) {
-	const kitchenId = await resolveKitchenFromMenuItem(client, input.menuItemId)
+export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: UpdateMenuItem): Promise<MenuItem[]> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const updates: Record<string, unknown> = {}
-	if (input.plannedPortionQuantity != null) updates.planned_portion_quantity = input.plannedPortionQuantity
-	if (input.excludedFromProcurement != null) updates.excluded_from_procurement = input.excludedFromProcurement
+	const updates: { plannedPortionQuantity?: string; excludedFromProcurement?: string } = {}
+	if (input.plannedPortionQuantity != null) updates.plannedPortionQuantity = String(input.plannedPortionQuantity)
+	if (input.excludedFromProcurement != null) updates.excludedFromProcurement = String(input.excludedFromProcurement)
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
-	const { data, error } = await client.from("menu_items").update(updates).eq("id", input.menuItemId).select()
-
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	return data
+	const updated = await runQuery("UPDATE_FAILED", () => db.update(menuItemsInSisub).set(updates).where(eq(menuItemsInSisub.id, input.menuItemId)).returning())
+	return updated.map((row) => toWire<MenuItem>(row))
 }
 
-export async function removeMenuItem(client: AnyClient, ctx: UserContext, input: RemoveMenuItem) {
-	const kitchenId = await resolveKitchenFromMenuItem(client, input.menuItemId)
+export async function removeMenuItem(db: SisubDb, ctx: UserContext, input: RemoveMenuItem): Promise<void> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const { error } = await client.from("menu_items").update({ deleted_at: new Date().toISOString() }).eq("id", input.menuItemId)
-	if (error) throw new DomainError("DELETE_FAILED", error.message)
+	await runQuery("DELETE_FAILED", () =>
+		db
+			.update(menuItemsInSisub)
+			.set({ deletedAt: new Date().toISOString() })
+			.where(eq(menuItemsInSisub.id, input.menuItemId))
+			.then(() => undefined)
+	)
 }
 
-export async function restoreMenuItem(client: AnyClient, ctx: UserContext, input: RestoreMenuItem) {
-	const kitchenId = await resolveKitchenFromMenuItem(client, input.menuItemId)
+export async function restoreMenuItem(db: SisubDb, ctx: UserContext, input: RestoreMenuItem): Promise<void> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const { error } = await client.from("menu_items").update({ deleted_at: null }).eq("id", input.menuItemId)
-	if (error) throw new DomainError("RESTORE_FAILED", error.message)
+	await runQuery("RESTORE_FAILED", () =>
+		db
+			.update(menuItemsInSisub)
+			.set({ deletedAt: null })
+			.where(eq(menuItemsInSisub.id, input.menuItemId))
+			.then(() => undefined)
+	)
 }
 
-export async function updateHeadcount(client: AnyClient, ctx: UserContext, input: UpdateHeadcount) {
-	const kitchenId = await resolveKitchenFromMenu(client, input.dailyMenuId)
+export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: UpdateHeadcount): Promise<DailyMenu[]> {
+	const kitchenId = await resolveKitchenFromMenu(db, input.dailyMenuId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const { data, error } = await client.from("daily_menu").update({ forecasted_headcount: input.forecastedHeadcount }).eq("id", input.dailyMenuId).select()
-
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
-	return data
+	const updated = await runQuery("UPDATE_FAILED", () =>
+		db.update(dailyMenuInSisub).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInSisub.id, input.dailyMenuId)).returning()
+	)
+	return updated.map((row) => toWire<DailyMenu>(row))
 }
 
-export async function updateSubstitutions(client: AnyClient, ctx: UserContext, input: UpdateSubstitutions) {
-	const kitchenId = await resolveKitchenFromMenuItem(client, input.menuItemId)
+export async function updateSubstitutions(db: SisubDb, ctx: UserContext, input: UpdateSubstitutions): Promise<void> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const { error } = await client.from("menu_items").update({ substitutions: input.substitutions }).eq("id", input.menuItemId)
-
-	if (error) throw new DomainError("UPDATE_FAILED", error.message)
+	await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(menuItemsInSisub)
+			.set({ substitutions: input.substitutions })
+			.where(eq(menuItemsInSisub.id, input.menuItemId))
+			.then(() => undefined)
+	)
 }
 
-export async function getTrashItems(client: AnyClient, ctx: UserContext, input: GetTrashItems) {
+export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTrashItems): Promise<TrashMenuItem[]> {
 	requireKitchen(ctx, 1, input.kitchenId)
 
-	const { data, error } = await client
-		.from("menu_items")
-		.select("*, recipe_origin:recipe_origin_id(*), daily_menu!inner(*)")
-		.not("deleted_at", "is", null)
-		.eq("daily_menu.kitchen_id", input.kitchenId)
-		.order("deleted_at", { ascending: false })
+	// daily_menu!inner + filtro por kitchen_id no SQL (join), não em JS — não varre o lixo de
+	// outras cozinhas. Itens órfãos (daily_menu hard-deletado) ficam de fora pelo inner join.
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db
+			.select({ item: menuItemsInSisub, recipe_origin: recipesInSisub, daily_menu: dailyMenuInSisub })
+			.from(menuItemsInSisub)
+			.innerJoin(dailyMenuInSisub, eq(menuItemsInSisub.dailyMenuId, dailyMenuInSisub.id))
+			.leftJoin(recipesInSisub, eq(menuItemsInSisub.recipeOriginId, recipesInSisub.id))
+			.where(and(isNotNull(menuItemsInSisub.deletedAt), eq(dailyMenuInSisub.kitchenId, input.kitchenId)))
+			.orderBy(desc(menuItemsInSisub.deletedAt))
+	)
 
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
-	return data ?? []
+	return rows.map((r) => ({
+		...toWire<MenuItem>(r.item),
+		recipe_origin: r.recipe_origin ? toWire<Recipe>(r.recipe_origin) : null,
+		daily_menu: toWire<DailyMenu>(r.daily_menu),
+	}))
 }
 
 // ─── Aggregated daily menu content (diner-facing) ───────────────────────────
@@ -242,35 +272,36 @@ function mapMealTypeNameToKey(name: string): string | null {
  *
  * Auth posture preserved: authenticated entrypoint with no module-level guard.
  */
-export async function fetchDailyMenuContent(client: AnyClient, _ctx: UserContext, input: FetchDailyMenuContent): Promise<DayMenuContent> {
-	const { data, error } = await client
-		.from("daily_menu")
-		.select(
-			`
-        service_date,
-        kitchen_id,
-        meal_type:meal_type_id(name),
-        menu_items:menu_items(
-          id,
-          recipe,
-          recipe_origin:recipe_origin_id(name)
-        )
-      `
-		)
-		.in("kitchen_id", input.kitchenIds)
-		.gte("service_date", input.startDate)
-		.lte("service_date", input.endDate)
-
-	if (error) throw new DomainError("FETCH_FAILED", error.message)
+export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, input: FetchDailyMenuContent): Promise<DayMenuContent> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.dailyMenuInSisub.findMany({
+			columns: { serviceDate: true, kitchenId: true },
+			with: {
+				mealTypeInSisub: { columns: { name: true } },
+				menuItemsInSisubs: {
+					// Não devolver itens soft-deleted ao diner (paridade com as demais queries do arquivo).
+					where: isNull(menuItemsInSisub.deletedAt),
+					columns: { id: true, recipe: true },
+					with: { recipesInSisub: { columns: { name: true } } },
+				},
+			},
+			where: and(
+				inArray(dailyMenuInSisub.kitchenId, input.kitchenIds),
+				gte(dailyMenuInSisub.serviceDate, input.startDate),
+				lte(dailyMenuInSisub.serviceDate, input.endDate),
+				// Não vazar daily_menu soft-deleted (ex.: apagado por applyTemplate) ao diner.
+				isNull(dailyMenuInSisub.deletedAt)
+			),
+		})
+	)
 
 	const content: DayMenuContent = {}
 
-	for (const menu of data ?? []) {
-		const date = menu.service_date
+	for (const menu of rows) {
+		const date = menu.serviceDate
 		if (!date) continue
 
-		const mealType = Array.isArray(menu.meal_type) ? menu.meal_type[0] : menu.meal_type
-		const mealName = mealType?.name
+		const mealName = menu.mealTypeInSisub?.name
 		if (!mealName) continue
 
 		const mealKey = mapMealTypeNameToKey(mealName)
@@ -279,7 +310,7 @@ export async function fetchDailyMenuContent(client: AnyClient, _ctx: UserContext
 		if (!content[date]) content[date] = {}
 		if (!content[date][mealKey]) content[date][mealKey] = []
 
-		for (const item of menu.menu_items ?? []) {
+		for (const item of menu.menuItemsInSisubs ?? []) {
 			let dishName = "Prato sem nome"
 			let ingredients: DishIngredient[] = []
 
@@ -287,9 +318,8 @@ export async function fetchDailyMenuContent(client: AnyClient, _ctx: UserContext
 				const snapshot = item.recipe as RecipeSnapshot
 				dishName = snapshot?.name || dishName
 				if (snapshot.ingredients) ingredients = snapshot.ingredients
-			} else {
-				const recipeOrigin = Array.isArray(item.recipe_origin) ? item.recipe_origin[0] : item.recipe_origin
-				if (recipeOrigin) dishName = recipeOrigin.name || dishName
+			} else if (item.recipesInSisub?.name) {
+				dishName = item.recipesInSisub.name || dishName
 			}
 
 			content[date][mealKey].push({ id: item.id, name: dishName, ingredients })

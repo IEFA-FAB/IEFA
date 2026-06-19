@@ -1,11 +1,17 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+/**
+ * Ingredient review operations: registro de conferência + leitura da última revisão.
+ * Drizzle query layer (migração PostgREST→Drizzle).
+ *
+ * `IngredientLastReview` projeta a view sisub.ingredient_last_review (DISTINCT ON por insumo).
+ */
+
+import { ingredientLastReviewInSisub, ingredientReviewInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { eq } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { ListIngredientLastReviews, RecordIngredientReview, VersionActor } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-
-// biome-ignore lint/suspicious/noExplicitAny: generic Supabase client (ingredient_review fora dos tipos gerados)
-type AnyClient = SupabaseClient<any, any, any>
+import { runQuery } from "../utils/index.ts"
 
 export interface IngredientReviewRow {
 	id: string
@@ -28,26 +34,29 @@ export interface IngredientLastReview {
  * Registra um evento de revisão (conferência) do insumo.
  * Cada chamada cria uma nova linha — o histórico de revisões é preservado.
  */
-export async function recordIngredientReview(
-	client: AnyClient,
-	ctx: UserContext,
-	input: RecordIngredientReview,
-	actor?: VersionActor
-): Promise<IngredientReviewRow> {
+export async function recordIngredientReview(db: SisubDb, ctx: UserContext, input: RecordIngredientReview, actor?: VersionActor): Promise<IngredientReviewRow> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const { data, error } = await client
-		.from("ingredient_review")
-		.insert({
-			ingredient_id: input.ingredientId,
-			reviewed_by: actor?.id ?? ctx.userId ?? null,
-			reviewed_by_name: actor?.name ?? null,
-			note: input.note ?? null,
-		})
-		.select()
-		.single()
-	if (error) throw new DomainError("INSERT_FAILED", error.message)
-	return data as IngredientReviewRow
+	const [row] = await runQuery("INSERT_FAILED", () =>
+		db
+			.insert(ingredientReviewInSisub)
+			.values({
+				ingredientId: input.ingredientId,
+				reviewedBy: actor?.id ?? ctx.userId ?? null,
+				reviewedByName: actor?.name ?? null,
+				note: input.note ?? null,
+			})
+			.returning()
+	)
+	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
+	return {
+		id: row.id,
+		ingredient_id: row.ingredientId,
+		reviewed_by: row.reviewedBy,
+		reviewed_by_name: row.reviewedByName,
+		note: row.note,
+		reviewed_at: row.reviewedAt,
+	}
 }
 
 /**
@@ -55,13 +64,21 @@ export async function recordIngredientReview(
  * Sem `ingredientId` → todos os insumos revisados (para a árvore de insumos).
  * Com `ingredientId` → apenas o insumo informado (para a tela de detalhe).
  */
-export async function listIngredientLastReviews(client: AnyClient, ctx: UserContext, input: ListIngredientLastReviews): Promise<IngredientLastReview[]> {
+export async function listIngredientLastReviews(db: SisubDb, ctx: UserContext, input: ListIngredientLastReviews): Promise<IngredientLastReview[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	let query = client.from("ingredient_last_review").select("ingredient_id, reviewed_at, reviewed_by, reviewed_by_name")
-	if (input.ingredientId) query = query.eq("ingredient_id", input.ingredientId)
-
-	const { data, error } = await query
-	if (error) throw new DomainError("QUERY_FAILED", error.message)
-	return (data ?? []) as IngredientLastReview[]
+	const where = input.ingredientId ? eq(ingredientLastReviewInSisub.ingredientId, input.ingredientId) : undefined
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({
+				ingredient_id: ingredientLastReviewInSisub.ingredientId,
+				reviewed_at: ingredientLastReviewInSisub.reviewedAt,
+				reviewed_by: ingredientLastReviewInSisub.reviewedBy,
+				reviewed_by_name: ingredientLastReviewInSisub.reviewedByName,
+			})
+			.from(ingredientLastReviewInSisub)
+			.where(where)
+	)
+	// A view garante ingredient_id/reviewed_at não-nulos (DISTINCT ON sobre linhas reais).
+	return rows as IngredientLastReview[]
 }
