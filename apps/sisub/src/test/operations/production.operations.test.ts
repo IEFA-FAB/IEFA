@@ -3,10 +3,11 @@
  * Congela: ensureProductionTasks idempotente, shape do board, máquina de estados de status.
  */
 
+import type { SisubDb } from "@iefa/database/drizzle/sisub"
 import { ensureProductionTasks, fetchProductionBoard, updateProductionTaskStatus } from "@iefa/sisub-domain"
-import { afterEach, beforeAll, beforeEach, expect, test } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { type AnyClient, fullAccessCtx, makeSeeder, type Seeder, setupIntegration } from "@/test/operations-fixtures"
-import { describeSupabaseIntegration } from "@/test/supabase"
+import { createSisubTestDb, describeSupabaseIntegration, getSisubDatabaseUrl } from "@/test/supabase"
 
 const ctx = fullAccessCtx()
 
@@ -14,11 +15,19 @@ describeSupabaseIntegration("production operations (regressão)", () => {
 	let reachable = false
 	let client: AnyClient
 	let seeder: Seeder | null = null
+	let db: SisubDb | null = null
+	let closeDb: (() => Promise<void>) | null = null
 
 	beforeAll(async () => {
 		const s = await setupIntegration("production_task")
 		reachable = s.reachable
 		if (s.client) client = s.client
+		const url = getSisubDatabaseUrl()
+		if (reachable && url) {
+			const t = createSisubTestDb(url)
+			db = t.db
+			closeDb = t.close
+		}
 	}, 30_000)
 
 	beforeEach(() => {
@@ -28,6 +37,10 @@ describeSupabaseIntegration("production operations (regressão)", () => {
 	afterEach(async () => {
 		await seeder?.cleanup()
 	}, 60_000)
+
+	afterAll(async () => {
+		await closeDb?.()
+	})
 
 	async function setupBoard(date: string) {
 		if (!seeder) throw new Error("no seeder")
@@ -42,26 +55,26 @@ describeSupabaseIntegration("production operations (regressão)", () => {
 	}
 
 	test("fetchProductionBoard vazio antes de ensureProductionTasks (só itens com task)", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const date = "2099-07-01"
 		const { kitchenId } = await setupBoard(date)
 
-		const before = await fetchProductionBoard(client, ctx, { kitchenId, date })
+		const before = await fetchProductionBoard(db, ctx, { kitchenId, date })
 		expect(before).toEqual([])
 	})
 
 	test("ensureProductionTasks cria tasks PENDING (idempotente) e o board reflete", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const date = "2099-07-02"
 		const { kitchenId } = await setupBoard(date)
 
-		const r1 = await ensureProductionTasks(client, ctx, { kitchenId, date })
+		const r1 = await ensureProductionTasks(db, ctx, { kitchenId, date })
 		expect(r1.created).toBe(1)
 		// idempotente: 2ª chamada não duplica (upsert ignoreDuplicates por menu_item_id)
-		const r2 = await ensureProductionTasks(client, ctx, { kitchenId, date })
+		const r2 = await ensureProductionTasks(db, ctx, { kitchenId, date })
 		expect(r2.created).toBe(0)
 
-		const board = await fetchProductionBoard(client, ctx, { kitchenId, date })
+		const board = await fetchProductionBoard(db, ctx, { kitchenId, date })
 		expect(board).toHaveLength(1)
 		const item = board[0] as { task: { status: string }; menuItem: unknown; mealType: unknown }
 		expect(item.task.status).toBe("PENDING")
@@ -70,23 +83,23 @@ describeSupabaseIntegration("production operations (regressão)", () => {
 	})
 
 	test("updateProductionTaskStatus gerencia timestamps por estado", async () => {
-		if (!reachable || !seeder) return
+		if (!reachable || !seeder || !db) return
 		const date = "2099-07-03"
 		const { kitchenId } = await setupBoard(date)
-		await ensureProductionTasks(client, ctx, { kitchenId, date })
-		const board = await fetchProductionBoard(client, ctx, { kitchenId, date })
+		await ensureProductionTasks(db, ctx, { kitchenId, date })
+		const board = await fetchProductionBoard(db, ctx, { kitchenId, date })
 		const taskId = (board[0] as { task: { id: string } }).task.id
 
-		const inProgress = await updateProductionTaskStatus(client, ctx, { taskId, status: "IN_PROGRESS" })
+		const inProgress = await updateProductionTaskStatus(db, ctx, { taskId, status: "IN_PROGRESS" })
 		expect(inProgress.status).toBe("IN_PROGRESS")
 		expect(inProgress.started_at).toBeTruthy()
 		expect(inProgress.completed_at).toBeNull()
 
-		const done = await updateProductionTaskStatus(client, ctx, { taskId, status: "DONE" })
+		const done = await updateProductionTaskStatus(db, ctx, { taskId, status: "DONE" })
 		expect(done.status).toBe("DONE")
 		expect(done.completed_at).toBeTruthy()
 
-		const reset = await updateProductionTaskStatus(client, ctx, { taskId, status: "PENDING" })
+		const reset = await updateProductionTaskStatus(db, ctx, { taskId, status: "PENDING" })
 		expect(reset.started_at).toBeNull()
 		expect(reset.completed_at).toBeNull()
 	})
