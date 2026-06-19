@@ -42,6 +42,11 @@ function readPackageFile(packageRelativePath: string) {
 	return readFileSync(path, "utf8")
 }
 
+// DB client handle a server fn forwards to a domain op. Pré-Drizzle era sempre
+// `getSupabaseServerClient()`; ops migradas (Fase 1+) usam `getDb()`. O contrato de
+// segurança independe de qual — basta que `requireAuth()` venha ANTES dele.
+const DB_CLIENT = "(?:getSupabaseServerClient|getDb)\\(\\)"
+
 describe("server function security contracts", () => {
 	// Since the Onda 4 migration the admin guard lives in two layers:
 	//   - the server fn authenticates (requireAuth) and forwards the ctx
@@ -65,7 +70,7 @@ describe("server function security contracts", () => {
 			const fnSource = source.slice(fnStart, nextExport === -1 ? undefined : nextExport)
 			// authenticate, then forward the resolved ctx into the domain op
 			expect(fnSource).toContain("const ctx = await requireAuth()")
-			expect(fnSource).toContain(`${op}(getSupabaseServerClient(), ctx,`)
+			expect(fnSource).toMatch(new RegExp(`${op}\\(${DB_CLIENT}, ctx,`))
 
 			// the domain op enforces global level-2 (write) before touching the DB
 			const opStart = domainSource.indexOf(`export async function ${op}(`)
@@ -80,13 +85,15 @@ describe("server function security contracts", () => {
 		for (const fileName of ["places.fn.ts", "unit-settings.fn.ts", "kitchen-settings.fn.ts"]) {
 			const source = readServerFile(fileName)
 			const postHandlers = source.match(
-				/createServerFn\(\{ method: "POST" \}\)[\s\S]*?\.handler\(async \(\{ data \}\) => \{[\s\S]*?getSupabaseServerClient\(\)/g
+				new RegExp(`createServerFn\\(\\{ method: "POST" \\}\\)[\\s\\S]*?\\.handler\\(async \\(\\{ data \\}\\) => \\{[\\s\\S]*?${DB_CLIENT}`, "g")
 			)
 
 			expect(postHandlers?.length ?? 0).toBeGreaterThan(0)
 			for (const handler of postHandlers ?? []) {
 				expect(handler).toContain("requireAuth()")
-				expect(handler.indexOf("requireAuth()")).toBeLessThan(handler.indexOf("getSupabaseServerClient()"))
+				// requireAuth() precede a obtenção do client de DB (seja getSupabaseServerClient ou getDb)
+				const clientIdx = handler.search(new RegExp(DB_CLIENT))
+				expect(handler.indexOf("requireAuth()")).toBeLessThan(clientIdx)
 			}
 		}
 	})
