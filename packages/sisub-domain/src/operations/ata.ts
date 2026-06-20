@@ -283,9 +283,13 @@ export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: Upda
 		if (input.notes !== undefined) updateData.notes = input.notes || null
 		if (input.wizardStep !== undefined) updateData.wizardStep = input.wizardStep
 
-		await runQuery("UPDATE_FAILED", () => tx.update(procurementListInSisub).set(updateData).where(eq(procurementListInSisub.id, input.draftId)), {
-			prefix: "Erro ao atualizar rascunho",
-		})
+		// Detecta draft inexistente (deletado mid-session) em vez de no-op silencioso — paridade com updateAtaStatus/deleteAta.
+		await mutateOrFail(
+			"UPDATE_FAILED",
+			`Erro ao atualizar rascunho: rascunho ${input.draftId} não encontrado`,
+			() => tx.update(procurementListInSisub).set(updateData).where(eq(procurementListInSisub.id, input.draftId)).returning({ id: procurementListInSisub.id }),
+			{ prefix: "Erro ao atualizar rascunho" }
+		)
 
 		if (input.kitchenSelections !== undefined) {
 			// Substituição destrutiva (delete-all + re-insert) das cozinhas → seleções cascateiam via FK.
