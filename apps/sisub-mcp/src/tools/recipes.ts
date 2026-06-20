@@ -15,7 +15,7 @@ import {
 	toJsonSchema,
 } from "@iefa/sisub-domain"
 import { resolveCredential } from "../auth.ts"
-import { getDataClient } from "../supabase.ts"
+import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
 import type { ToolDefinition } from "./shared.ts"
 import { toolResult } from "./shared.ts"
@@ -35,7 +35,7 @@ const getRecipe: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = FetchRecipeSchema.parse(args)
-			return toolResult(await fetchRecipe(getDataClient(), ctx, input))
+			return toolResult(await fetchRecipe(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -57,7 +57,7 @@ const listRecipeVersionsTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = ListRecipeVersionsSchema.parse(args)
-			return toolResult(await listRecipeVersions(getDataClient(), ctx, input))
+			return toolResult(await listRecipeVersions(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -79,7 +79,7 @@ const createRecipeTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = CreateRecipeSchema.parse(args)
-			return toolResult(await createRecipe(getDataClient(), ctx, input))
+			return toolResult(await createRecipe(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -100,7 +100,7 @@ const createRecipeVersionTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = CreateRecipeVersionSchema.parse(args)
-			return toolResult(await createRecipeVersion(getDataClient(), ctx, input))
+			return toolResult(await createRecipeVersion(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

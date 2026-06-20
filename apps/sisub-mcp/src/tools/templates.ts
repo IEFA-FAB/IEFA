@@ -27,7 +27,7 @@ import {
 	updateTemplate,
 } from "@iefa/sisub-domain"
 import { resolveCredential } from "../auth.ts"
-import { getDataClient } from "../supabase.ts"
+import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
 import type { ToolDefinition } from "./shared.ts"
 import { toolResult } from "./shared.ts"
@@ -47,7 +47,7 @@ const listMenuTemplates: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = ListTemplatesSchema.parse(args ?? {})
-			return toolResult(await listTemplates(getDataClient(), ctx, input))
+			return toolResult(await listTemplates(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -68,7 +68,7 @@ const listDeletedTemplatesTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = ListTemplatesSchema.parse(args ?? {})
-			return toolResult(await listDeletedTemplates(getDataClient(), ctx, input))
+			return toolResult(await listDeletedTemplates(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -90,7 +90,7 @@ const getTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = GetTemplateSchema.parse(args)
-			return toolResult(await getTemplate(getDataClient(), ctx, input))
+			return toolResult(await getTemplate(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -112,7 +112,7 @@ const getTemplateItemsTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = GetTemplateSchema.parse(args)
-			return toolResult(await getTemplateItems(getDataClient(), ctx, input))
+			return toolResult(await getTemplateItems(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -134,7 +134,7 @@ const createTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = CreateTemplateSchema.parse(args)
-			return toolResult(await createTemplate(getDataClient(), ctx, input))
+			return toolResult(await createTemplate(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -155,7 +155,7 @@ const createBlankTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = CreateBlankTemplateSchema.parse(args)
-			return toolResult(await createBlankTemplate(getDataClient(), ctx, input))
+			return toolResult(await createBlankTemplate(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -177,7 +177,7 @@ const forkTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = ForkTemplateSchema.parse(args)
-			return toolResult(await forkTemplate(getDataClient(), ctx, input))
+			return toolResult(await forkTemplate(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -199,7 +199,7 @@ const updateTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = UpdateTemplateSchema.parse(args)
-			return toolResult(await updateTemplate(getDataClient(), ctx, input))
+			return toolResult(await updateTemplate(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -220,7 +220,7 @@ const deleteTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DeleteTemplateSchema.parse(args)
-			await deleteTemplate(getDataClient(), ctx, input)
+			await deleteTemplate(getDb(), ctx, input)
 			return toolResult({ success: true, templateId: input.templateId, message: "Template removido (pode ser restaurado com restore_template)" })
 		} catch (e) {
 			return handleToolError(e)
@@ -242,7 +242,7 @@ const restoreTemplateTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = RestoreTemplateSchema.parse(args)
-			await restoreTemplate(getDataClient(), ctx, input)
+			await restoreTemplate(getDb(), ctx, input)
 			return toolResult({ success: true, templateId: input.templateId, message: "Template restaurado com sucesso" })
 		} catch (e) {
 			return handleToolError(e)
@@ -275,7 +275,7 @@ com startDate=2026-04-13 e endDate=2026-04-19 gera uma semana completa.`,
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = ApplyTemplateSchema.parse(args)
-			return toolResult(await applyTemplate(getDataClient(), ctx, input))
+			return toolResult(await applyTemplate(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

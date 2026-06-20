@@ -344,6 +344,8 @@
         "@iefa/sisub-domain": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.29.0",
         "@supabase/supabase-js": "^2.106.2",
+        "drizzle-orm": "^0.44.6",
+        "postgres": "^3.4.7",
         "zod": "^4.4.3",
       },
       "devDependencies": {

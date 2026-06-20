@@ -33,7 +33,7 @@ import type {
 } from "../schemas/recipes.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -206,7 +206,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const [recipe] = await runQuery("INSERT_FAILED", () =>
+	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(recipesInSisub)
 			.values({
@@ -221,7 +221,6 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 			})
 			.returning()
 	)
-	if (!recipe) throw new DomainError("INSERT_FAILED", "no row returned")
 
 	await insertIngredients(db, recipe.id, input.ingredients)
 	return toWire<Recipe>(recipe, RECIPE_RELATIONS)
@@ -288,7 +287,7 @@ export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: 
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const [recipe] = await runQuery("INSERT_FAILED", () =>
+	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(recipesInSisub)
 			.values({
@@ -304,7 +303,6 @@ export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: 
 			})
 			.returning()
 	)
-	if (!recipe) throw new DomainError("INSERT_FAILED", "no row returned")
 
 	await insertIngredients(db, recipe.id, input.ingredients)
 	return toWire<Recipe>(recipe, RECIPE_RELATIONS)

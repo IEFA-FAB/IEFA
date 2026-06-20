@@ -12,7 +12,7 @@ import { requireKitchen, requirePermission } from "../guards/require-permission.
 import type { CreateMealType, DeleteMealType, FetchMealTypes, RestoreMealType, UpdateMealType } from "../schemas/meal-types.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery } from "../utils/index.ts"
 
 type MealType = Tables<"meal_type">
 
@@ -56,13 +56,12 @@ export async function createMealType(db: SisubDb, ctx: UserContext, input: Creat
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const [row] = await runQuery("INSERT_FAILED", () =>
+	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(mealTypeInSisub)
 			.values({ name: input.name, sortOrder: input.sortOrder ?? null, kitchenId: input.kitchenId ?? null })
 			.returning(MEAL_TYPE_COLS)
 	)
-	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
 	return row
 }
 
@@ -76,31 +75,28 @@ export async function updateMealType(db: SisubDb, ctx: UserContext, input: Updat
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
-	const [row] = await runQuery("UPDATE_FAILED", () =>
+	const row = await insertOneOrFail("UPDATE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db.update(mealTypeInSisub).set(updates).where(eq(mealTypeInSisub.id, input.mealTypeId)).returning(MEAL_TYPE_COLS)
 	)
-	if (!row) throw new DomainError("UPDATE_FAILED", `meal_type ${input.mealTypeId} not found`)
 	return row
 }
 
 export async function deleteMealType(db: SisubDb, ctx: UserContext, input: DeleteMealType): Promise<void> {
 	requirePermission(ctx, "kitchen", 2)
 
-	const deleted = await runQuery("DELETE_FAILED", () =>
+	await mutateOrFail("DELETE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db
 			.update(mealTypeInSisub)
 			.set({ deletedAt: new Date().toISOString() })
 			.where(eq(mealTypeInSisub.id, input.mealTypeId))
 			.returning({ id: mealTypeInSisub.id })
 	)
-	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `meal_type ${input.mealTypeId} not found`)
 }
 
 export async function restoreMealType(db: SisubDb, ctx: UserContext, input: RestoreMealType): Promise<void> {
 	requirePermission(ctx, "kitchen", 2)
 
-	const restored = await runQuery("RESTORE_FAILED", () =>
+	await mutateOrFail("RESTORE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db.update(mealTypeInSisub).set({ deletedAt: null }).where(eq(mealTypeInSisub.id, input.mealTypeId)).returning({ id: mealTypeInSisub.id })
 	)
-	if (restored.length === 0) throw new DomainError("RESTORE_FAILED", `meal_type ${input.mealTypeId} not found`)
 }

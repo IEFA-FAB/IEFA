@@ -1,25 +1,27 @@
 {
-  "name": "@iefa/sisub-mcp",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "start": "bun run src/index.ts",
-    "typecheck": "tsgo --noEmit",
-    "lint": "biome check src/"
-  },
-  "dependencies": {
-    "@iefa/database": "workspace:*",
-    "@iefa/pbac": "workspace:*",
-    "@iefa/sisub-domain": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@supabase/supabase-js": "^2.106.2",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.14",
-    "@typescript/native-preview": "^7.0.0-dev.20260527.2",
-    "typescript": "^6.0.3"
-  }
+	"name": "@iefa/sisub-mcp",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun run --hot src/index.ts",
+		"start": "bun run src/index.ts",
+		"typecheck": "tsgo --noEmit",
+		"lint": "biome check src/"
+	},
+	"dependencies": {
+		"@iefa/database": "workspace:*",
+		"@iefa/pbac": "workspace:*",
+		"@iefa/sisub-domain": "workspace:*",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@supabase/supabase-js": "^2.106.2",
+		"drizzle-orm": "^0.44.6",
+		"postgres": "^3.4.7",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.3.14",
+		"@typescript/native-preview": "^7.0.0-dev.20260527.2",
+		"typescript": "^6.0.3"
+	}
 }

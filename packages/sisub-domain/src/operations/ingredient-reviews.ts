@@ -10,8 +10,7 @@ import { eq } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { ListIngredientLastReviews, RecordIngredientReview, VersionActor } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
-import { runQuery } from "../utils/index.ts"
+import { insertOneOrFail, runQuery } from "../utils/index.ts"
 
 export interface IngredientReviewRow {
 	id: string
@@ -37,7 +36,7 @@ export interface IngredientLastReview {
 export async function recordIngredientReview(db: SisubDb, ctx: UserContext, input: RecordIngredientReview, actor?: VersionActor): Promise<IngredientReviewRow> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const [row] = await runQuery("INSERT_FAILED", () =>
+	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(ingredientReviewInSisub)
 			.values({
@@ -48,7 +47,6 @@ export async function recordIngredientReview(db: SisubDb, ctx: UserContext, inpu
 			})
 			.returning()
 	)
-	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
 	return {
 		id: row.id,
 		ingredient_id: row.ingredientId,

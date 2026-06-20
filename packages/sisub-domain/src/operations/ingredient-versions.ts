@@ -16,12 +16,13 @@ import {
 	purchaseItemInSisub,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
-import { and, desc, eq, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, isNull } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { ListIngredientVersions, RecordIngredientVersion, RestoreIngredientVersion, VersionActor } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError, NotFoundError } from "../types/errors.ts"
-import { runQuery } from "../utils/index.ts"
+import { NotFoundError } from "../types/errors.ts"
+import { insertOneOrFail, runQuery } from "../utils/index.ts"
+import { replaceIngredientNutrients } from "./ingredients.ts"
 
 // ── Shape do snapshot (deve espelhar o backfill SQL em 20260609_ingredient_versioning.sql) ──
 
@@ -221,7 +222,7 @@ export async function recordIngredientVersion(
 
 	const nextVersion = (latest?.versionNumber ?? 0) + 1
 
-	const [row] = await runQuery("INSERT_FAILED", () =>
+	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(ingredientVersionInSisub)
 			.values({
@@ -234,7 +235,6 @@ export async function recordIngredientVersion(
 			})
 			.returning()
 	)
-	if (!row) throw new DomainError("INSERT_FAILED", "no row returned")
 	return toVersionRow(row)
 }
 
@@ -304,25 +304,11 @@ export async function restoreIngredientVersion(
 				.where(eq(ingredientInSisub.id, input.ingredientId))
 
 			// 2) Nutrientes — substituição total (soft-delete ativos, reinsere do snapshot)
-			await tx
-				.update(ingredientNutrientInSisub)
-				.set({ deletedAt: new Date().toISOString() })
-				.where(and(eq(ingredientNutrientInSisub.ingredientId, input.ingredientId), isNull(ingredientNutrientInSisub.deletedAt)))
-
-			// Upsert (não insert): product_nutrient_unique (ingredient_id, nutrient_id) ignora deleted_at,
-			// então as linhas recém soft-deletadas ainda ocupam o slot. Atualizamos no conflito (deleted_at = null).
-			const nutUpsert = snap.nutrients
-				.filter((n) => n.value != null && !Number.isNaN(n.value))
-				.map((n) => ({ ingredientId: input.ingredientId, nutrientId: n.nutrient_id, nutrientValue: String(n.value), deletedAt: null }))
-			if (nutUpsert.length > 0) {
-				await tx
-					.insert(ingredientNutrientInSisub)
-					.values(nutUpsert)
-					.onConflictDoUpdate({
-						target: [ingredientNutrientInSisub.ingredientId, ingredientNutrientInSisub.nutrientId],
-						set: { nutrientValue: sql`excluded.nutrient_value`, deletedAt: null },
-					})
-			}
+			await replaceIngredientNutrients(
+				tx,
+				input.ingredientId,
+				snap.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.value }))
+			)
 
 			// 3) Itens de produto (ingredient_item) — reconciliação por id
 			const snapItemIds = new Set(snap.product_items.map((i) => i.id))

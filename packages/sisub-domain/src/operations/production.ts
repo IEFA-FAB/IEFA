@@ -12,8 +12,7 @@ import type { Tables } from "@iefa/database/sisub"
 import { and, eq, isNull } from "drizzle-orm"
 import type { EnsureProductionTasks, FetchProductionBoard, UpdateProductionTaskStatus } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 
 const RECIPE_RELATIONS: Record<string, string> = { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" }
 
@@ -154,9 +153,8 @@ export async function updateProductionTaskStatus(db: SisubDb, _ctx: UserContext,
 		updates.completedAt = null
 	}
 
-	const [row] = await runQuery("UPDATE_FAILED", () =>
+	const row = await insertOneOrFail("UPDATE_FAILED", `production_task ${input.taskId} not found`, () =>
 		db.update(productionTaskInSisub).set(updates).where(eq(productionTaskInSisub.id, input.taskId)).returning()
 	)
-	if (!row) throw new DomainError("UPDATE_FAILED", `production_task ${input.taskId} not found`)
 	return toWire<ProductionTask>(row)
 }
