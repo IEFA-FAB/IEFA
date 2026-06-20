@@ -12,7 +12,7 @@ import { requirePermission } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 
 // kitchen tem DUAS relations p/ units (unit_id e purchase_unit_id) — a do contrato é unit_id.
 const KITCHEN_RELATIONS: Record<string, string> = { unitsInSisub_unitId: "unit" }
@@ -84,7 +84,8 @@ export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input
 }
 
 export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, input: UpdateKitchenSettings) {
-	const updated = await runQuery("UPDATE_FAILED", () =>
+	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
+	await mutateOrFail("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`, () =>
 		db
 			.update(kitchenInSisub)
 			.set({
@@ -99,7 +100,5 @@ export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, inpu
 			.where(eq(kitchenInSisub.id, input.kitchenId))
 			.returning({ id: kitchenInSisub.id })
 	)
-	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
-	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`)
 	return { ok: true as const }
 }

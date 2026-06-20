@@ -18,6 +18,18 @@ export type DateRange = z.infer<typeof DateRangeSchema>
 export const UuidSchema = z.string().uuid()
 export type Uuid = z.infer<typeof UuidSchema>
 
+/** Campos de endereço brasileiro compartilhados (cozinha + unidade). UF 2 letras, CEP máx. 9. */
+export const AddressFieldsSchema = z.object({
+	address_logradouro: z.string().nullable(),
+	address_numero: z.string().nullable(),
+	address_complemento: z.string().nullable(),
+	address_bairro: z.string().nullable(),
+	address_municipio: z.string().nullable(),
+	address_uf: z.string().max(2, "UF deve ter 2 letras").nullable(),
+	address_cep: z.string().max(9, "CEP inválido").nullable(),
+})
+export type AddressFields = z.infer<typeof AddressFieldsSchema>
+
 export const PaginationSchema = z.object({
 	page: z.number().int().optional(),
 	pageSize: z.number().int().optional(),

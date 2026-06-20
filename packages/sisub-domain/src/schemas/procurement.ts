@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { KitchenIdSchema } from "./common.ts"
+import { KitchenIdSchema, UuidSchema } from "./common.ts"
 
 export const FetchProcurementNeedsSchema = z.object({
 	startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "startDate must be YYYY-MM-DD"),
@@ -27,8 +27,8 @@ export const PurchaseItemWriteSchema = z.object({
 export type PurchaseItemWrite = z.infer<typeof PurchaseItemWriteSchema>
 
 export const PurchaseItemIngredientWriteSchema = z.object({
-	purchase_item_id: z.string().uuid(),
-	ingredient_id: z.string().uuid(),
+	purchase_item_id: UuidSchema,
+	ingredient_id: UuidSchema,
 	conversion_factor: z.number().positive().default(1.0),
 	conversion_notes: z.string().nullable().optional(),
 	is_default: z.boolean().default(false),
@@ -38,31 +38,31 @@ export type PurchaseItemIngredientWrite = z.infer<typeof PurchaseItemIngredientW
 export const FetchPurchaseItemsSchema = z.object({ search: z.string().optional() })
 export type FetchPurchaseItems = z.infer<typeof FetchPurchaseItemsSchema>
 
-export const FetchIngredientPurchaseItemsSchema = z.object({ ingredientId: z.string().uuid() })
+export const FetchIngredientPurchaseItemsSchema = z.object({ ingredientId: UuidSchema })
 export type FetchIngredientPurchaseItems = z.infer<typeof FetchIngredientPurchaseItemsSchema>
 
-export const FetchPurchaseItemSchema = z.object({ id: z.string().uuid() })
+export const FetchPurchaseItemSchema = z.object({ id: UuidSchema })
 export type FetchPurchaseItem = z.infer<typeof FetchPurchaseItemSchema>
 
 export const CreatePurchaseItemSchema = z.object({ payload: PurchaseItemWriteSchema })
 export type CreatePurchaseItem = z.infer<typeof CreatePurchaseItemSchema>
 
-export const UpdatePurchaseItemSchema = z.object({ id: z.string().uuid(), payload: PurchaseItemWriteSchema })
+export const UpdatePurchaseItemSchema = z.object({ id: UuidSchema, payload: PurchaseItemWriteSchema })
 export type UpdatePurchaseItem = z.infer<typeof UpdatePurchaseItemSchema>
 
-export const DeletePurchaseItemSchema = z.object({ id: z.string().uuid() })
+export const DeletePurchaseItemSchema = z.object({ id: UuidSchema })
 export type DeletePurchaseItem = z.infer<typeof DeletePurchaseItemSchema>
 
-export const FetchPurchaseItemIngredientsSchema = z.object({ purchaseItemId: z.string().uuid() })
+export const FetchPurchaseItemIngredientsSchema = z.object({ purchaseItemId: UuidSchema })
 export type FetchPurchaseItemIngredients = z.infer<typeof FetchPurchaseItemIngredientsSchema>
 
 export const UpsertPurchaseItemIngredientSchema = z.object({ payload: PurchaseItemIngredientWriteSchema })
 export type UpsertPurchaseItemIngredient = z.infer<typeof UpsertPurchaseItemIngredientSchema>
 
-export const DeletePurchaseItemIngredientSchema = z.object({ id: z.string().uuid() })
+export const DeletePurchaseItemIngredientSchema = z.object({ id: UuidSchema })
 export type DeletePurchaseItemIngredient = z.infer<typeof DeletePurchaseItemIngredientSchema>
 
-export const SetDefaultPurchaseItemIngredientSchema = z.object({ id: z.string().uuid(), purchaseItemId: z.string().uuid() })
+export const SetDefaultPurchaseItemIngredientSchema = z.object({ id: UuidSchema, purchaseItemId: UuidSchema })
 export type SetDefaultPurchaseItemIngredient = z.infer<typeof SetDefaultPurchaseItemIngredientSchema>
 
 // ─── Kitchen ATA draft (pending → sent lifecycle) ────────────────────────────
@@ -129,7 +129,7 @@ export const CreateAtaDraftSchema = z.object({ unitId: z.number() })
 export type CreateAtaDraft = z.infer<typeof CreateAtaDraftSchema>
 
 export const UpdateAtaDraftSchema = z.object({
-	draftId: z.string().uuid(),
+	draftId: UuidSchema,
 	title: z.string().optional(),
 	notes: z.string().optional(),
 	wizardStep: z.number().min(1).max(4).optional(),
@@ -138,7 +138,7 @@ export const UpdateAtaDraftSchema = z.object({
 export type UpdateAtaDraft = z.infer<typeof UpdateAtaDraftSchema>
 
 export const DraftItemSchema = z.object({
-	ata_item_id: z.string().uuid().optional().nullable(), // presente em itens já persistidos
+	ata_item_id: UuidSchema.optional().nullable(), // presente em itens já persistidos
 	ingredient_id: z.string().optional().nullable(),
 	ingredient_name: z.string(),
 	folder_id: z.string().optional().nullable(),
@@ -159,19 +159,19 @@ export type DraftItem = z.infer<typeof DraftItemSchema>
 
 const ResearchLinkSchema = z.object({
 	ingredientId: z.string(),
-	researchId: z.string().uuid(),
-	researchItemId: z.string().uuid(),
+	researchId: UuidSchema,
+	researchItemId: UuidSchema,
 })
 
 export const SaveAtaDraftItemsSchema = z.object({
-	draftId: z.string().uuid(),
+	draftId: UuidSchema,
 	items: z.array(DraftItemSchema),
 	researchLinks: z.array(ResearchLinkSchema).optional(),
 })
 export type SaveAtaDraftItems = z.infer<typeof SaveAtaDraftItemsSchema>
 
 export const FinalizeAtaDraftSchema = z.object({
-	draftId: z.string().uuid(),
+	draftId: UuidSchema,
 	title: z.string().min(1),
 	notes: z.string().optional(),
 	items: z.array(DraftItemSchema),
@@ -221,19 +221,19 @@ export const UpdateAtaStatusSchema = z.object({
 export type UpdateAtaStatus = z.infer<typeof UpdateAtaStatusSchema>
 
 export const UpdateAtaItemPricesSchema = z.object({
-	ataId: z.string().uuid(),
+	ataId: UuidSchema,
 	updates: z.array(
 		z.object({
-			ataItemId: z.string().uuid(),
+			ataItemId: UuidSchema,
 			price: z.number().positive(),
 		})
 	),
 	researchLinks: z
 		.array(
 			z.object({
-				ataItemId: z.string().uuid(),
-				researchId: z.string().uuid(),
-				researchItemId: z.string().uuid(),
+				ataItemId: UuidSchema,
+				researchId: UuidSchema,
+				researchItemId: UuidSchema,
 			})
 		)
 		.optional(),
@@ -241,7 +241,7 @@ export const UpdateAtaItemPricesSchema = z.object({
 export type UpdateAtaItemPrices = z.infer<typeof UpdateAtaItemPricesSchema>
 
 export const UpdateAtaItemDescriptionSchema = z.object({
-	ataItemId: z.string().uuid(),
+	ataItemId: UuidSchema,
 	description: z.string().nullable(),
 })
 export type UpdateAtaItemDescription = z.infer<typeof UpdateAtaItemDescriptionSchema>

@@ -22,7 +22,7 @@ import type {
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, toColumns, toWire } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../utils/index.ts"
 
 type PurchaseItem = Tables<"purchase_item">
 type PurchaseItemIngredient = Tables<"purchase_item_ingredient">
@@ -40,19 +40,6 @@ type PurchaseItemWithLink = PurchaseItem & { link_id: string; conversion_factor:
 
 const PI_INGREDIENT_RELATIONS: Record<string, string> = { purchaseItemIngredientInSisubs: "purchase_item_ingredient", ingredientInSisub: "ingredient" }
 const INGREDIENT_COLS = { columns: { id: true, description: true, measureUnit: true } } as const
-
-/** Erro com o prefixo verbatim + `[code]` do PG (postgres.js expõe `.code`) + mensagem do driver. */
-async function piOp<T>(code: string, prefix: string, op: () => Promise<T>): Promise<T> {
-	try {
-		return await op()
-	} catch (e) {
-		if (e instanceof DomainError) throw e
-		const pg = e as { code?: string; message?: string }
-		// Erros não-PG (timeout, conexão recusada) não têm `.code` → omite o `[...]` em vez de `[undefined]`.
-		const codeSeg = pg.code ? ` [${pg.code}]` : ""
-		throw new DomainError(code, `${prefix}${codeSeg}: ${pg.message ?? String(e)}`)
-	}
-}
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -108,31 +95,34 @@ export async function fetchPurchaseItem(db: SisubDb, _ctx: UserContext, input: F
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function createPurchaseItem(db: SisubDb, _ctx: UserContext, input: CreatePurchaseItem) {
-	const [row] = await piOp("INSERT_FAILED", "Falha ao criar item de compra", () =>
-		db.insert(purchaseItemInSisub).values(toColumns<PurchaseItemInsert>(input.payload)).returning()
+	const row = await insertOneOrFail(
+		"INSERT_FAILED",
+		"Falha ao criar item de compra: no row returned",
+		() => db.insert(purchaseItemInSisub).values(toColumns<PurchaseItemInsert>(input.payload)).returning(),
+		{ prefix: "Falha ao criar item de compra", includeCode: true }
 	)
-	if (!row) throw new DomainError("INSERT_FAILED", "Falha ao criar item de compra: no row returned")
 	return toWire<PurchaseItem>(row)
 }
 
 export async function updatePurchaseItem(db: SisubDb, _ctx: UserContext, input: UpdatePurchaseItem) {
 	const set = { ...toColumns<Partial<PurchaseItemInsert>>(input.payload), updatedAt: new Date().toISOString() }
-	const [row] = await piOp("UPDATE_FAILED", "Falha ao atualizar item de compra", () =>
-		db.update(purchaseItemInSisub).set(set).where(eq(purchaseItemInSisub.id, input.id)).returning()
+	const row = await insertOneOrFail(
+		"UPDATE_FAILED",
+		`Falha ao atualizar item de compra: ${input.id} não encontrado`,
+		() => db.update(purchaseItemInSisub).set(set).where(eq(purchaseItemInSisub.id, input.id)).returning(),
+		{ prefix: "Falha ao atualizar item de compra", includeCode: true }
 	)
-	if (!row) throw new DomainError("UPDATE_FAILED", `Falha ao atualizar item de compra: ${input.id} não encontrado`)
 	return toWire<PurchaseItem>(row)
 }
 
 export async function deletePurchaseItem(db: SisubDb, _ctx: UserContext, input: DeletePurchaseItem) {
-	const deleted = await runQuery("DELETE_FAILED", () =>
+	await mutateOrFail("DELETE_FAILED", `purchase_item ${input.id} not found`, () =>
 		db
 			.update(purchaseItemInSisub)
 			.set({ deletedAt: new Date().toISOString() })
 			.where(eq(purchaseItemInSisub.id, input.id))
 			.returning({ id: purchaseItemInSisub.id })
 	)
-	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `purchase_item ${input.id} not found`)
 }
 
 // ─── Junction: purchase_item_ingredient ──────────────────────────────────────
@@ -149,22 +139,24 @@ export async function fetchPurchaseItemIngredients(db: SisubDb, _ctx: UserContex
 
 export async function upsertPurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: UpsertPurchaseItemIngredient) {
 	const values = toColumns<PurchaseItemIngredientInsert>(input.payload)
-	const [row] = await piOp("INSERT_FAILED", "Falha ao vincular ingrediente", () =>
-		db
-			.insert(purchaseItemIngredientInSisub)
-			.values(values)
-			.onConflictDoUpdate({ target: [purchaseItemIngredientInSisub.purchaseItemId, purchaseItemIngredientInSisub.ingredientId], set: values })
-			.returning()
+	const row = await insertOneOrFail(
+		"INSERT_FAILED",
+		"Falha ao vincular ingrediente: no row returned",
+		() =>
+			db
+				.insert(purchaseItemIngredientInSisub)
+				.values(values)
+				.onConflictDoUpdate({ target: [purchaseItemIngredientInSisub.purchaseItemId, purchaseItemIngredientInSisub.ingredientId], set: values })
+				.returning(),
+		{ prefix: "Falha ao vincular ingrediente", includeCode: true }
 	)
-	if (!row) throw new DomainError("INSERT_FAILED", "Falha ao vincular ingrediente: no row returned")
 	return toWire<PurchaseItemIngredient>(row)
 }
 
 export async function deletePurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: DeletePurchaseItemIngredient) {
-	const deleted = await runQuery("DELETE_FAILED", () =>
+	await mutateOrFail("DELETE_FAILED", `purchase_item_ingredient ${input.id} not found`, () =>
 		db.delete(purchaseItemIngredientInSisub).where(eq(purchaseItemIngredientInSisub.id, input.id)).returning({ id: purchaseItemIngredientInSisub.id })
 	)
-	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `purchase_item_ingredient ${input.id} not found`)
 }
 
 export async function setDefaultPurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: SetDefaultPurchaseItemIngredient) {

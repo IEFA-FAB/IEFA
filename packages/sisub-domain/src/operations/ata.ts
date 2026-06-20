@@ -46,9 +46,8 @@ import type {
 	UpdateAtaStatus,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
-import { toWire } from "../utils/index.ts"
+import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 
 type ProcurementList = Tables<"procurement_list">
 type ProcurementListItem = Tables<"procurement_list_item">
@@ -65,16 +64,6 @@ const DETAILS_RELATIONS: Record<string, string> = {
 	procurementListSelectionInSisubs: "selections",
 	kitchenInSisub: "kitchen",
 	menuTemplateInSisub: "template",
-}
-
-/** Erro de domínio com o prefixo verbatim do original + mensagem do driver; preserva DomainError. */
-async function ataOp<T>(code: string, prefix: string, op: () => Promise<T>): Promise<T> {
-	try {
-		return await op()
-	} catch (e) {
-		if (e instanceof DomainError) throw e
-		throw new DomainError(code, `${prefix}: ${e instanceof Error ? e.message : String(e)}`)
-	}
 }
 
 // ─── Calcular necessidades (sem persistir) ────────────────────────────────────
@@ -100,22 +89,25 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	const uniqueTemplateIds = [...new Set(allSelections.map((s) => s.templateId))]
 
 	// Templates com items → recipe → ingredients → ingredient → folder (cozinha pura, sem catmat).
-	const templates = await ataOp("QUERY_FAILED", "Erro ao buscar templates", () =>
-		db.query.menuTemplateInSisub.findMany({
-			columns: { id: true, templateType: true },
-			with: {
-				menuTemplateItemsInSisubs: {
-					columns: { id: true, recipeId: true, headcountOverride: true },
-					with: {
-						recipesInSisub: {
-							columns: { id: true, portionYield: true },
-							with: {
-								recipeIngredientsInSisubs: {
-									columns: { ingredientId: true, netQuantity: true },
-									with: {
-										ingredientInSisub: {
-											columns: { id: true, description: true, measureUnit: true, folderId: true },
-											with: { folderInSisub: { columns: { id: true, description: true } } },
+	const templates = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db.query.menuTemplateInSisub.findMany({
+				columns: { id: true, templateType: true },
+				with: {
+					menuTemplateItemsInSisubs: {
+						columns: { id: true, recipeId: true, headcountOverride: true },
+						with: {
+							recipesInSisub: {
+								columns: { id: true, portionYield: true },
+								with: {
+									recipeIngredientsInSisubs: {
+										columns: { ingredientId: true, netQuantity: true },
+										with: {
+											ingredientInSisub: {
+												columns: { id: true, description: true, measureUnit: true, folderId: true },
+												with: { folderInSisub: { columns: { id: true, description: true } } },
+											},
 										},
 									},
 								},
@@ -123,9 +115,9 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 						},
 					},
 				},
-			},
-			where: inArray(menuTemplateInSisub.id, uniqueTemplateIds),
-		})
+				where: inArray(menuTemplateInSisub.id, uniqueTemplateIds),
+			}),
+		{ prefix: "Erro ao buscar templates" }
 	)
 
 	if (templates.length === 0) return []
@@ -196,24 +188,27 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	const ingredientToPurchaseItem = new Map<string, PurchaseItemLink>()
 
 	if (ingredientIds.length > 0) {
-		const piLinks = await ataOp("QUERY_FAILED", "Erro ao buscar itens de compra", () =>
-			db.query.purchaseItemIngredientInSisub.findMany({
-				columns: { ingredientId: true, conversionFactor: true },
-				with: {
-					purchaseItemInSisub: {
-						columns: {
-							id: true,
-							description: true,
-							purchaseMeasureUnit: true,
-							catmatItemCodigo: true,
-							catmatItemDescricao: true,
-							unitPrice: true,
-							deletedAt: true,
+		const piLinks = await runQuery(
+			"QUERY_FAILED",
+			() =>
+				db.query.purchaseItemIngredientInSisub.findMany({
+					columns: { ingredientId: true, conversionFactor: true },
+					with: {
+						purchaseItemInSisub: {
+							columns: {
+								id: true,
+								description: true,
+								purchaseMeasureUnit: true,
+								catmatItemCodigo: true,
+								catmatItemDescricao: true,
+								unitPrice: true,
+								deletedAt: true,
+							},
 						},
 					},
-				},
-				where: and(inArray(purchaseItemIngredientInSisub.ingredientId, ingredientIds), eq(purchaseItemIngredientInSisub.isDefault, true)),
-			})
+					where: and(inArray(purchaseItemIngredientInSisub.ingredientId, ingredientIds), eq(purchaseItemIngredientInSisub.isDefault, true)),
+				}),
+			{ prefix: "Erro ao buscar itens de compra" }
 		)
 
 		for (const link of piLinks) {
@@ -266,13 +261,16 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
 export async function createAtaDraft(db: SisubDb, _ctx: UserContext, input: CreateAtaDraft): Promise<{ id: string }> {
-	const [ata] = await ataOp("INSERT_FAILED", "Erro ao criar rascunho", () =>
-		db
-			.insert(procurementListInSisub)
-			.values({ unitId: input.unitId, title: "Sem nome", status: "draft", wizardStep: 1 })
-			.returning({ id: procurementListInSisub.id })
+	const ata = await insertOneOrFail(
+		"INSERT_FAILED",
+		"Erro ao criar rascunho: no row returned",
+		() =>
+			db
+				.insert(procurementListInSisub)
+				.values({ unitId: input.unitId, title: "Sem nome", status: "draft", wizardStep: 1 })
+				.returning({ id: procurementListInSisub.id }),
+		{ prefix: "Erro ao criar rascunho" }
 	)
-	if (!ata) throw new DomainError("INSERT_FAILED", "Erro ao criar rascunho: no row returned")
 	return { id: ata.id }
 }
 
@@ -285,9 +283,9 @@ export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: Upda
 		if (input.notes !== undefined) updateData.notes = input.notes || null
 		if (input.wizardStep !== undefined) updateData.wizardStep = input.wizardStep
 
-		await ataOp("UPDATE_FAILED", "Erro ao atualizar rascunho", () =>
-			tx.update(procurementListInSisub).set(updateData).where(eq(procurementListInSisub.id, input.draftId))
-		)
+		await runQuery("UPDATE_FAILED", () => tx.update(procurementListInSisub).set(updateData).where(eq(procurementListInSisub.id, input.draftId)), {
+			prefix: "Erro ao atualizar rascunho",
+		})
 
 		if (input.kitchenSelections !== undefined) {
 			// Substituição destrutiva (delete-all + re-insert) das cozinhas → seleções cascateiam via FK.
@@ -297,16 +295,19 @@ export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: Upda
 				const allSels = [...ks.templateSelections, ...ks.eventSelections]
 				if (allSels.length === 0) continue
 
-				const [ataKitchen] = await ataOp("INSERT_FAILED", "Erro ao salvar cozinha", () =>
-					tx
-						.insert(procurementListKitchenInSisub)
-						.values({ listId: input.draftId, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
-						.returning({ id: procurementListKitchenInSisub.id })
+				const ataKitchen = await insertOneOrFail(
+					"INSERT_FAILED",
+					"Erro ao salvar cozinha: no row returned",
+					() =>
+						tx
+							.insert(procurementListKitchenInSisub)
+							.values({ listId: input.draftId, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
+							.returning({ id: procurementListKitchenInSisub.id }),
+					{ prefix: "Erro ao salvar cozinha" }
 				)
-				if (!ataKitchen) throw new DomainError("INSERT_FAILED", "Erro ao salvar cozinha: no row returned")
 
 				const selRows = allSels.map((s) => ({ listKitchenId: ataKitchen.id, templateId: s.templateId, repetitions: s.repetitions }))
-				await ataOp("INSERT_FAILED", "Erro ao salvar seleções", () => tx.insert(procurementListSelectionInSisub).values(selRows))
+				await runQuery("INSERT_FAILED", () => tx.insert(procurementListSelectionInSisub).values(selRows), { prefix: "Erro ao salvar seleções" })
 			}
 		}
 	})
@@ -351,8 +352,10 @@ export async function saveAtaDraftItems(
 
 	await db.transaction(async (tx) => {
 		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
-		await ataOp("UPDATE_FAILED", "Erro ao atualizar rascunho", () =>
-			tx.update(procurementListInSisub).set({ wizardStep: 4, updatedAt: new Date().toISOString() }).where(eq(procurementListInSisub.id, input.draftId))
+		await runQuery(
+			"UPDATE_FAILED",
+			() => tx.update(procurementListInSisub).set({ wizardStep: 4, updatedAt: new Date().toISOString() }).where(eq(procurementListInSisub.id, input.draftId)),
+			{ prefix: "Erro ao atualizar rascunho" }
 		)
 	})
 
@@ -397,11 +400,14 @@ async function persistDraftItems(
 
 	// Inserir novos.
 	if (toInsert.length > 0) {
-		const insertedItems = await ataOp("INSERT_FAILED", "Erro ao salvar itens", () =>
-			tx
-				.insert(procurementListItemInSisub)
-				.values(toInsert.map((item) => buildItemPayload(item, draftId)))
-				.returning({ id: procurementListItemInSisub.id, ingredientId: procurementListItemInSisub.ingredientId })
+		const insertedItems = await runQuery(
+			"INSERT_FAILED",
+			() =>
+				tx
+					.insert(procurementListItemInSisub)
+					.values(toInsert.map((item) => buildItemPayload(item, draftId)))
+					.returning({ id: procurementListItemInSisub.id, ingredientId: procurementListItemInSisub.ingredientId }),
+			{ prefix: "Erro ao salvar itens" }
 		)
 		for (const row of insertedItems) {
 			if (row.ingredientId) insertedItemsById.set(row.ingredientId, row.id)
@@ -429,14 +435,17 @@ export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: Fi
 	const ata = await db.transaction(async (tx) => {
 		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
 
-		const [updated] = await ataOp("UPDATE_FAILED", "Erro ao finalizar ata", () =>
-			tx
-				.update(procurementListInSisub)
-				.set({ title: input.title, notes: input.notes || null, wizardStep: null, updatedAt: new Date().toISOString() })
-				.where(eq(procurementListInSisub.id, input.draftId))
-				.returning()
+		const updated = await insertOneOrFail(
+			"UPDATE_FAILED",
+			`Erro ao finalizar ata: ata ${input.draftId} não encontrada`,
+			() =>
+				tx
+					.update(procurementListInSisub)
+					.set({ title: input.title, notes: input.notes || null, wizardStep: null, updatedAt: new Date().toISOString() })
+					.where(eq(procurementListInSisub.id, input.draftId))
+					.returning(),
+			{ prefix: "Erro ao finalizar ata" }
 		)
-		if (!updated) throw new DomainError("UPDATE_FAILED", `Erro ao finalizar ata: ata ${input.draftId} não encontrada`)
 		return updated
 	})
 
@@ -456,56 +465,48 @@ export async function createAta(db: SisubDb, _ctx: UserContext, input: CreateAta
 
 	const ata = await db.transaction(async (tx) => {
 		// 1. Criar lista de compras.
-		const [created] = await ataOp("INSERT_FAILED", "Erro ao criar lista", () =>
-			tx
-				.insert(procurementListInSisub)
-				.values({ unitId, title, notes: notes || null, status: "draft" })
-				.returning()
+		const created = await insertOneOrFail(
+			"INSERT_FAILED",
+			"Erro ao criar lista: no row returned",
+			() =>
+				tx
+					.insert(procurementListInSisub)
+					.values({ unitId, title, notes: notes || null, status: "draft" })
+					.returning(),
+			{ prefix: "Erro ao criar lista" }
 		)
-		if (!created) throw new DomainError("INSERT_FAILED", "Erro ao criar lista: no row returned")
 
 		// 2. Para cada cozinha com seleções, criar procurement_list_kitchen + selections.
 		for (const ks of kitchenSelections) {
 			const allSels = [...ks.templateSelections, ...ks.eventSelections]
 			if (allSels.length === 0) continue
 
-			const [ataKitchen] = await ataOp("INSERT_FAILED", "Erro ao associar cozinha", () =>
-				tx
-					.insert(procurementListKitchenInSisub)
-					.values({ listId: created.id, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
-					.returning({ id: procurementListKitchenInSisub.id })
+			const ataKitchen = await insertOneOrFail(
+				"INSERT_FAILED",
+				"Erro ao associar cozinha: no row returned",
+				() =>
+					tx
+						.insert(procurementListKitchenInSisub)
+						.values({ listId: created.id, kitchenId: ks.kitchenId, deliveryNotes: ks.deliveryNotes || null })
+						.returning({ id: procurementListKitchenInSisub.id }),
+				{ prefix: "Erro ao associar cozinha" }
 			)
-			if (!ataKitchen) throw new DomainError("INSERT_FAILED", "Erro ao associar cozinha: no row returned")
 
 			const selectionRows = allSels.map((s) => ({ listKitchenId: ataKitchen.id, templateId: s.templateId, repetitions: s.repetitions }))
-			await ataOp("INSERT_FAILED", "Erro ao salvar seleções", () => tx.insert(procurementListSelectionInSisub).values(selectionRows))
+			await runQuery("INSERT_FAILED", () => tx.insert(procurementListSelectionInSisub).values(selectionRows), { prefix: "Erro ao salvar seleções" })
 		}
 
 		// 3. Inserir itens calculados.
 		if (items.length > 0) {
-			const itemRows: ItemInsert[] = items.map((item) => ({
-				listId: created.id,
-				ingredientId: item.ingredient_id || null,
-				ingredientName: item.ingredient_name,
-				folderId: item.folder_id || null,
-				folderDescription: item.folder_description || null,
-				measureUnit: item.measure_unit || null,
-				totalQuantity: String(item.total_quantity),
-				purchaseItemId: item.purchase_item_id || null,
-				purchaseItemDescription: item.purchase_item_description || null,
-				purchaseMeasureUnit: item.purchase_measure_unit || null,
-				purchaseQuantity: item.purchase_quantity == null ? null : String(item.purchase_quantity),
-				conversionFactor: item.conversion_factor == null ? null : String(item.conversion_factor),
-				catmatItemCodigo: item.catmat_item_codigo ?? null,
-				catmatItemDescricao: item.catmat_item_descricao || null,
-				unitPrice: item.unit_price == null ? null : String(item.unit_price),
-				itemDescription: item.item_description || null,
-			}))
-			const insertedItems = await ataOp("INSERT_FAILED", "Erro ao salvar itens", () =>
-				tx
-					.insert(procurementListItemInSisub)
-					.values(itemRows)
-					.returning({ id: procurementListItemInSisub.id, ingredientId: procurementListItemInSisub.ingredientId })
+			const itemRows: ItemInsert[] = items.map((item) => buildItemPayload(item, created.id))
+			const insertedItems = await runQuery(
+				"INSERT_FAILED",
+				() =>
+					tx
+						.insert(procurementListItemInSisub)
+						.values(itemRows)
+						.returning({ id: procurementListItemInSisub.id, ingredientId: procurementListItemInSisub.ingredientId }),
+				{ prefix: "Erro ao salvar itens" }
 			)
 
 			// 4. Linkar registros de auditoria de pesquisa de preços (se houver).
@@ -532,12 +533,15 @@ export async function createAta(db: SisubDb, _ctx: UserContext, input: CreateAta
 
 /** Lists all non-deleted ATAs for a unit, ordered by creation date descending. */
 export async function fetchAtaList(db: SisubDb, _ctx: UserContext, input: FetchAtaList): Promise<ProcurementList[]> {
-	const lists = await ataOp("QUERY_FAILED", "Erro ao buscar listas", () =>
-		db
-			.select()
-			.from(procurementListInSisub)
-			.where(and(eq(procurementListInSisub.unitId, input.unitId), isNull(procurementListInSisub.deletedAt)))
-			.orderBy(sql`${procurementListInSisub.createdAt} desc`)
+	const lists = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db
+				.select()
+				.from(procurementListInSisub)
+				.where(and(eq(procurementListInSisub.unitId, input.unitId), isNull(procurementListInSisub.deletedAt)))
+				.orderBy(sql`${procurementListInSisub.createdAt} desc`),
+		{ prefix: "Erro ao buscar listas" }
 	)
 	return lists.map((r) => toWire<ProcurementList>(r))
 }
@@ -550,27 +554,33 @@ export async function fetchAtaList(db: SisubDb, _ctx: UserContext, input: FetchA
  * Returns null only on missing ATA; kitchen/items failures still throw.
  */
 export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: FetchAtaDetails): Promise<AtaWithDetails | null> {
-	const ata = await ataOp("QUERY_FAILED", "Erro ao buscar ata", () =>
-		db.query.procurementListInSisub.findFirst({ where: eq(procurementListInSisub.id, input.ataId) })
-	)
+	const ata = await runQuery("QUERY_FAILED", () => db.query.procurementListInSisub.findFirst({ where: eq(procurementListInSisub.id, input.ataId) }), {
+		prefix: "Erro ao buscar ata",
+	})
 	if (!ata) return null
 
-	const kitchens = await ataOp("QUERY_FAILED", "Erro ao buscar cozinhas", () =>
-		db.query.procurementListKitchenInSisub.findMany({
-			with: {
-				kitchenInSisub: { columns: { id: true, displayName: true } },
-				procurementListSelectionInSisubs: { with: { menuTemplateInSisub: { columns: { name: true, templateType: true } } } },
-			},
-			where: eq(procurementListKitchenInSisub.listId, input.ataId),
-		})
+	const kitchens = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db.query.procurementListKitchenInSisub.findMany({
+				with: {
+					kitchenInSisub: { columns: { id: true, displayName: true } },
+					procurementListSelectionInSisubs: { with: { menuTemplateInSisub: { columns: { name: true, templateType: true } } } },
+				},
+				where: eq(procurementListKitchenInSisub.listId, input.ataId),
+			}),
+		{ prefix: "Erro ao buscar cozinhas" }
 	)
 
-	const items = await ataOp("QUERY_FAILED", "Erro ao buscar itens", () =>
-		db
-			.select()
-			.from(procurementListItemInSisub)
-			.where(eq(procurementListItemInSisub.listId, input.ataId))
-			.orderBy(sql`${procurementListItemInSisub.folderDescription} asc nulls last`, asc(procurementListItemInSisub.ingredientName))
+	const items = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db
+				.select()
+				.from(procurementListItemInSisub)
+				.where(eq(procurementListItemInSisub.listId, input.ataId))
+				.orderBy(sql`${procurementListItemInSisub.folderDescription} asc nulls last`, asc(procurementListItemInSisub.ingredientName)),
+		{ prefix: "Erro ao buscar itens" }
 	)
 
 	return {
@@ -584,14 +594,17 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 
 /** Transitions ATA status to "draft" | "published" | "archived" and stamps updated_at. */
 export async function updateAtaStatus(db: SisubDb, _ctx: UserContext, input: UpdateAtaStatus): Promise<void> {
-	const updated = await ataOp("UPDATE_FAILED", "Erro ao atualizar status", () =>
-		db
-			.update(procurementListInSisub)
-			.set({ status: input.status, updatedAt: new Date().toISOString() })
-			.where(eq(procurementListInSisub.id, input.ataId))
-			.returning({ id: procurementListInSisub.id })
+	await mutateOrFail(
+		"UPDATE_FAILED",
+		`Erro ao atualizar status: ata ${input.ataId} não encontrada`,
+		() =>
+			db
+				.update(procurementListInSisub)
+				.set({ status: input.status, updatedAt: new Date().toISOString() })
+				.where(eq(procurementListInSisub.id, input.ataId))
+				.returning({ id: procurementListInSisub.id }),
+		{ prefix: "Erro ao atualizar status" }
 	)
-	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `Erro ao atualizar status: ata ${input.ataId} não encontrada`)
 }
 
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
@@ -620,26 +633,32 @@ export async function updateAtaItemPrices(db: SisubDb, _ctx: UserContext, input:
 // ─── Atualizar descrição de um item de ATA ───────────────────────────────────
 
 export async function updateAtaItemDescription(db: SisubDb, _ctx: UserContext, input: UpdateAtaItemDescription): Promise<void> {
-	const updated = await ataOp("UPDATE_FAILED", "Erro ao atualizar descrição", () =>
-		db
-			.update(procurementListItemInSisub)
-			.set({ itemDescription: input.description || null })
-			.where(eq(procurementListItemInSisub.id, input.ataItemId))
-			.returning({ id: procurementListItemInSisub.id })
+	await mutateOrFail(
+		"UPDATE_FAILED",
+		`Erro ao atualizar descrição: item ${input.ataItemId} não encontrado`,
+		() =>
+			db
+				.update(procurementListItemInSisub)
+				.set({ itemDescription: input.description || null })
+				.where(eq(procurementListItemInSisub.id, input.ataItemId))
+				.returning({ id: procurementListItemInSisub.id }),
+		{ prefix: "Erro ao atualizar descrição" }
 	)
-	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `Erro ao atualizar descrição: item ${input.ataItemId} não encontrado`)
 }
 
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────
 
 /** Soft-deletes an ATA by setting deleted_at — kitchen associations and items remain intact. */
 export async function deleteAta(db: SisubDb, _ctx: UserContext, input: DeleteAta): Promise<void> {
-	const deleted = await ataOp("DELETE_FAILED", "Erro ao deletar lista", () =>
-		db
-			.update(procurementListInSisub)
-			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(procurementListInSisub.id, input.ataId))
-			.returning({ id: procurementListInSisub.id })
+	await mutateOrFail(
+		"DELETE_FAILED",
+		`Erro ao deletar lista: ata ${input.ataId} não encontrada`,
+		() =>
+			db
+				.update(procurementListInSisub)
+				.set({ deletedAt: new Date().toISOString() })
+				.where(eq(procurementListInSisub.id, input.ataId))
+				.returning({ id: procurementListInSisub.id }),
+		{ prefix: "Erro ao deletar lista" }
 	)
-	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `Erro ao deletar lista: ata ${input.ataId} não encontrada`)
 }

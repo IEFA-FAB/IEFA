@@ -28,7 +28,7 @@ import type {
 } from "../schemas/planning.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -112,7 +112,7 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 	)
 	if (existing) return [toWire<DailyMenu>(existing)]
 
-	const inserted = await runQuery("UPSERT_FAILED", () =>
+	const inserted = await mutateOrFail("UPSERT_FAILED", "no row returned", () =>
 		db
 			.insert(dailyMenuInSisub)
 			.values({
@@ -124,7 +124,6 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 			})
 			.returning()
 	)
-	if (inserted.length === 0) throw new DomainError("UPSERT_FAILED", "no row returned")
 	return inserted.map((row) => toWire<DailyMenu>(row))
 }
 
@@ -148,7 +147,7 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 	// Snapshot da receita gravado em JSON no contrato snake_case (idêntico ao PostgREST).
 	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" })
 
-	const inserted = await runQuery("INSERT_FAILED", () =>
+	const inserted = await mutateOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(menuItemsInSisub)
 			.values({
@@ -160,7 +159,6 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 			})
 			.returning()
 	)
-	if (inserted.length === 0) throw new DomainError("INSERT_FAILED", "no row returned")
 	return inserted.map((row) => toWire<MenuItem>(row))
 }
 

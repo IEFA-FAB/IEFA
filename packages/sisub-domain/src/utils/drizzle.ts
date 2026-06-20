@@ -56,16 +56,52 @@ export function toColumns<T = Record<string, unknown>>(payload: Record<string, u
 	return out as T
 }
 
+export interface RunQueryOptions {
+	/** Prefixo da mensagem de erro (ex.: "Erro ao buscar templates"). Sem prefixo, usa a mensagem crua do driver. */
+	prefix?: string
+	/** Inclui o `.code` do erro Postgres entre colchetes (ex.: "[23505]") — útil em violações de constraint. */
+	includeCode?: boolean
+}
+
 /**
  * Executa uma query Drizzle convertendo erro inesperado do Postgres em `DomainError(code)`,
  * preservando `DomainError` e subclasses (NotFound/Permission) — mantém os códigos de erro
  * que as operations expunham com o PostgREST. Guards (que lançam PermissionDenied) ficam FORA.
+ *
+ * `opts.prefix`/`opts.includeCode` substituem os wrappers locais `ataOp`/`piOp`/`draftOp` que
+ * cada arquivo definia: `{ prefix }` → `"<prefix>: <msg>"`; `{ prefix, includeCode }` → `"<prefix> [<pgcode>]: <msg>"`.
  */
-export async function runQuery<T>(code: string, op: () => Promise<T>): Promise<T> {
+export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: RunQueryOptions): Promise<T> {
 	try {
 		return await op()
 	} catch (e) {
 		if (e instanceof DomainError) throw e
-		throw new DomainError(code, e instanceof Error ? e.message : String(e))
+		const base = e instanceof Error ? e.message : String(e)
+		if (!opts?.prefix) throw new DomainError(code, base)
+		const pgCode = opts.includeCode ? (e as { code?: string }).code : undefined
+		const codeSeg = pgCode ? ` [${pgCode}]` : ""
+		throw new DomainError(code, `${opts.prefix}${codeSeg}: ${base}`)
 	}
+}
+
+/**
+ * Insert via `runQuery` que exige ≥1 linha retornada (`.returning(...)`), lançando `DomainError(code, msg)`
+ * quando nada volta. Retorna a primeira linha. Substitui o par `const [row] = ...; if (!row) throw`.
+ */
+export async function insertOneOrFail<T>(code: string, msg: string, op: () => Promise<T[]>, opts?: RunQueryOptions): Promise<T> {
+	const rows = await runQuery(code, op, opts)
+	const row = rows[0]
+	if (!row) throw new DomainError(code, msg)
+	return row
+}
+
+/**
+ * Mutação (update/delete) via `runQuery` que exige ≥1 linha afetada (`.returning(...)`), lançando
+ * `DomainError(code, msg)` quando o WHERE não casa (0 linhas → "não encontrado"). Retorna as linhas
+ * afetadas. Substitui o par `const r = ...; if (r.length === 0) throw`.
+ */
+export async function mutateOrFail<T>(code: string, msg: string, op: () => Promise<T[]>, opts?: RunQueryOptions): Promise<T[]> {
+	const rows = await runQuery(code, op, opts)
+	if (rows.length === 0) throw new DomainError(code, msg)
+	return rows
 }

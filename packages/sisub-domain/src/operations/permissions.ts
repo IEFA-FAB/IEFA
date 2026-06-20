@@ -19,8 +19,7 @@ import { asc, eq, ilike } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
 import type { UserContext } from "../types/context.ts"
-import { DomainError } from "../types/errors.ts"
-import { runQuery } from "../utils/index.ts"
+import { mutateOrFail, runQuery } from "../utils/index.ts"
 
 type EffectivePermission = {
 	module: string
@@ -110,7 +109,7 @@ export async function createUserPermission(db: SisubDb, ctx: UserContext, input:
 
 export async function updateUserPermission(db: SisubDb, ctx: UserContext, input: UpdateUserPermission) {
 	requirePermission(ctx, "global", 2)
-	const updated = await runQuery("UPDATE_FAILED", () =>
+	await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
 			.update(userPermissionsInSisub)
 			.set({
@@ -122,15 +121,13 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 			.where(eq(userPermissionsInSisub.id, input.permissionId))
 			.returning({ id: userPermissionsInSisub.id })
 	)
-	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `permission ${input.permissionId} not found`)
 	return { success: true as const }
 }
 
 export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
 	requirePermission(ctx, "global", 2)
-	const deleted = await runQuery("DELETE_FAILED", () =>
+	await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db.delete(userPermissionsInSisub).where(eq(userPermissionsInSisub.id, input.permissionId)).returning({ id: userPermissionsInSisub.id })
 	)
-	if (deleted.length === 0) throw new DomainError("DELETE_FAILED", `permission ${input.permissionId} not found`)
 	return { success: true as const }
 }

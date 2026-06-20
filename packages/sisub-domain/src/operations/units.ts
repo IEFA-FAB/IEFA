@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm"
 import type { FetchUnitSettings, UpdateUnitSettings } from "../schemas/units.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery, toWire } from "../utils/index.ts"
+import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 
 type UnitSettings = Pick<
 	Tables<"units">,
@@ -54,7 +54,8 @@ export async function fetchUnitSettings(db: SisubDb, _ctx: UserContext, input: F
 }
 
 export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: UpdateUnitSettings) {
-	const updated = await runQuery("UPDATE_FAILED", () =>
+	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
+	await mutateOrFail("UPDATE_FAILED", `unit ${input.unitId} not found`, () =>
 		db
 			.update(unitsInSisub)
 			.set({
@@ -70,7 +71,5 @@ export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: 
 			.where(eq(unitsInSisub.id, BigInt(input.unitId)))
 			.returning({ id: unitsInSisub.id })
 	)
-	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
-	if (updated.length === 0) throw new DomainError("UPDATE_FAILED", `unit ${input.unitId} not found`)
 	return { ok: true as const }
 }
