@@ -33,7 +33,7 @@ import {
 	upsertDailyMenu,
 } from "@iefa/sisub-domain"
 import { resolveCredential } from "../auth.ts"
-import { getDataClient } from "../supabase.ts"
+import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
 import type { ToolDefinition } from "./shared.ts"
 import { toolResult } from "./shared.ts"
@@ -51,7 +51,7 @@ const listKitchensTool: ToolDefinition = {
 	async handler(_args, credential) {
 		try {
 			const ctx = await resolveCredential(credential)
-			return toolResult(await listKitchens(getDataClient(), ctx))
+			return toolResult(await listKitchens(getDb(), ctx))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -73,7 +73,7 @@ const getMealTypes: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = FetchMealTypesSchema.parse(args ?? {})
-			return toolResult(await fetchMealTypes(getDataClient(), ctx, input))
+			return toolResult(await fetchMealTypes(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -95,7 +95,7 @@ const getPlanningCalendar: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DailyMenuFetchSchema.parse(args)
-			return toolResult(await fetchDailyMenus(getDataClient(), ctx, input))
+			return toolResult(await fetchDailyMenus(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -117,7 +117,7 @@ const getDayDetails: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DayDetailsFetchSchema.parse(args)
-			return toolResult(await fetchDayDetails(getDataClient(), ctx, input))
+			return toolResult(await fetchDayDetails(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -139,7 +139,7 @@ const listRecipesTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = ListRecipesSchema.parse(args ?? {})
-			return toolResult(await listRecipes(getDataClient(), ctx, input))
+			return toolResult(await listRecipes(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -161,7 +161,7 @@ const createDailyMenu: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = UpsertDailyMenuSchema.parse(args)
-			return toolResult(await upsertDailyMenu(getDataClient(), ctx, input))
+			return toolResult(await upsertDailyMenu(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -182,7 +182,7 @@ const updateMenuHeadcount: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = UpdateHeadcountSchema.parse(args)
-			return toolResult(await updateHeadcount(getDataClient(), ctx, input))
+			return toolResult(await updateHeadcount(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -204,7 +204,7 @@ const addMenuItemTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = AddMenuItemSchema.parse(args)
-			return toolResult(await addMenuItem(getDataClient(), ctx, input))
+			return toolResult(await addMenuItem(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -226,7 +226,7 @@ const removeMenuItemTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = RemoveMenuItemSchema.parse(args)
-			await removeMenuItem(getDataClient(), ctx, input)
+			await removeMenuItem(getDb(), ctx, input)
 			return toolResult({ success: true, menuItemId: input.menuItemId, message: "Item removido (pode ser restaurado com restore_menu_item)" })
 		} catch (e) {
 			return handleToolError(e)
@@ -248,7 +248,7 @@ const restoreMenuItemTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = RestoreMenuItemSchema.parse(args)
-			await restoreMenuItem(getDataClient(), ctx, input)
+			await restoreMenuItem(getDb(), ctx, input)
 			return toolResult({ success: true, menuItemId: input.menuItemId, message: "Item restaurado com sucesso" })
 		} catch (e) {
 			return handleToolError(e)
@@ -270,7 +270,7 @@ const updateMenuItemTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = UpdateMenuItemSchema.parse(args)
-			return toolResult(await updateMenuItem(getDataClient(), ctx, input))
+			return toolResult(await updateMenuItem(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -292,7 +292,7 @@ const updateSubstitutionsTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = UpdateSubstitutionsSchema.parse(args)
-			await updateSubstitutions(getDataClient(), ctx, input)
+			await updateSubstitutions(getDb(), ctx, input)
 			return toolResult({ success: true, menuItemId: input.menuItemId, message: "Substituições atualizadas com sucesso" })
 		} catch (e) {
 			return handleToolError(e)
@@ -315,7 +315,7 @@ const getTrashItemsTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = GetTrashItemsSchema.parse(args)
-			return toolResult(await getTrashItems(getDataClient(), ctx, input))
+			return toolResult(await getTrashItems(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}

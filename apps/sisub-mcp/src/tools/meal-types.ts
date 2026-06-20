@@ -18,7 +18,7 @@ import {
 	updateMealType,
 } from "@iefa/sisub-domain"
 import { resolveCredential } from "../auth.ts"
-import { getDataClient } from "../supabase.ts"
+import { getDb } from "../db.ts"
 import { handleToolError } from "../utils/error-handler.ts"
 import type { ToolDefinition } from "./shared.ts"
 import { toolResult } from "./shared.ts"
@@ -38,7 +38,7 @@ const createMealTypeTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = CreateMealTypeSchema.parse(args)
-			return toolResult(await createMealType(getDataClient(), ctx, input))
+			return toolResult(await createMealType(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -59,7 +59,7 @@ const updateMealTypeTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = UpdateMealTypeSchema.parse(args)
-			return toolResult(await updateMealType(getDataClient(), ctx, input))
+			return toolResult(await updateMealType(getDb(), ctx, input))
 		} catch (e) {
 			return handleToolError(e)
 		}
@@ -80,7 +80,7 @@ const deleteMealTypeTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = DeleteMealTypeSchema.parse(args)
-			await deleteMealType(getDataClient(), ctx, input)
+			await deleteMealType(getDb(), ctx, input)
 			return toolResult({ success: true, mealTypeId: input.mealTypeId, message: "Tipo de refeição removido (pode ser restaurado com restore_meal_type)" })
 		} catch (e) {
 			return handleToolError(e)
@@ -102,7 +102,7 @@ const restoreMealTypeTool: ToolDefinition = {
 		try {
 			const ctx = await resolveCredential(credential)
 			const input = RestoreMealTypeSchema.parse(args)
-			await restoreMealType(getDataClient(), ctx, input)
+			await restoreMealType(getDb(), ctx, input)
 			return toolResult({ success: true, mealTypeId: input.mealTypeId, message: "Tipo de refeição restaurado com sucesso" })
 		} catch (e) {
 			return handleToolError(e)
