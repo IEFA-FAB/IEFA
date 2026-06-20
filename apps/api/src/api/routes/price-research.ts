@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { createClient } from "@supabase/supabase-js"
 import { Hono } from "hono"
 import { env } from "../../env.ts"
@@ -51,33 +52,60 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 	try {
 		const { ataId, options, items, summary } = input
 
-		// ── 1. Cabeçalho da pesquisa ──────────────────────────────────────────
-		const { data: research, error: errResearch } = await supabase
-			.from("procurement_pesquisa_preco")
-			.insert({
-				ata_id: ataId,
-				reference_method: "median",
-				period_months: options.months ?? 12,
-				similarity_threshold: options.similarityThreshold ?? 0.4,
-				// Filtros: valores referenciam campos externos do Compras.gov.br
-				filter_estado: options.estado ?? null,
-				filter_uasg_code: options.codigoUasg ?? null,
-				filter_municipio_code: options.codigoMunicipio ?? null,
-				// Resumo interno
-				total_items: summary.total,
-				items_with_price: summary.withPrice,
-				items_without_catmat: summary.withoutCatmat,
-				non_compliant_items: summary.nonCompliant,
-			})
-			.select("id")
-			.single()
+		// ── 0. Chave de idempotência ──────────────────────────────────────────
+		// Mesma ATA + mesmos parâmetros + mesmo dia ⇒ não duplica a memória de
+		// cálculo. Dia incluído ⇒ re-pesquisa periódica cria histórico próprio.
+		const paramsHash = createHash("sha256")
+			.update(
+				JSON.stringify({
+					months: options.months ?? 12,
+					similarityThreshold: options.similarityThreshold ?? 0.4,
+					estado: options.estado ?? null,
+					codigoUasg: options.codigoUasg ?? null,
+					codigoMunicipio: options.codigoMunicipio ?? null,
+				})
+			)
+			.digest("hex")
+			.slice(0, 16)
+		const day = new Date().toISOString().slice(0, 10)
+		const idempotencyKey = `ata:v1:${ataId}:${paramsHash}:${day}`
 
-		if (errResearch || !research) {
-			console.error("[price-research] Falha ao persistir cabeçalho:", errResearch?.message)
+		// ── 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING) ─────────────────
+		const { data: inserted, error: errResearch } = await supabase
+			.from("procurement_pesquisa_preco")
+			.upsert(
+				{
+					ata_id: ataId,
+					reference_method: "median",
+					period_months: options.months ?? 12,
+					similarity_threshold: options.similarityThreshold ?? 0.4,
+					// Filtros: valores referenciam campos externos do Compras.gov.br
+					filter_estado: options.estado ?? null,
+					filter_uasg_code: options.codigoUasg ?? null,
+					filter_municipio_code: options.codigoMunicipio ?? null,
+					// Resumo interno
+					total_items: summary.total,
+					items_with_price: summary.withPrice,
+					items_without_catmat: summary.withoutCatmat,
+					non_compliant_items: summary.nonCompliant,
+					idempotency_key: idempotencyKey,
+				},
+				{ onConflict: "idempotency_key", ignoreDuplicates: true }
+			)
+			.select("id")
+
+		if (errResearch) {
+			console.error("[price-research] Falha ao persistir cabeçalho:", errResearch.message)
 			return null
 		}
 
-		const researchId = research.id
+		// Conflito: pesquisa idêntica já foi persistida hoje — devolve a existente.
+		if (!inserted || inserted.length === 0) {
+			const { data: existing } = await supabase.from("procurement_pesquisa_preco").select("id").eq("idempotency_key", idempotencyKey).single()
+			return existing?.id ?? null
+		}
+
+		const researchId = inserted[0].id
 
 		// ── 2. Resultado por item + amostras ──────────────────────────────────
 		for (const item of items) {
@@ -92,7 +120,7 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 					catmat_codigo: item.catmatCodigo ?? null,
 					catmat_descricao: item.catmatDescricao ?? null,
 					// Campo interno
-					ingredient_name: item.ingredientName,
+					product_name: item.ingredientName,
 					// Funil interno
 					total_raw: analysis?.counts.raw ?? 0,
 					total_after_date_filter: analysis?.counts.afterDateFilter ?? 0,
@@ -126,19 +154,37 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 
 			if (!analysis) continue
 
-			// Serializar TODAS as amostras (válidas + outliers + poluição)
-			const toInsert = [
-				...analysis.samples.map((a) => serializeAmostra(a, researchItem.id, "valid")),
-				...analysis.outliers.map((a) => serializeAmostra(a, researchItem.id, "outlier")),
-				...analysis.pollutionDiscards.map((a) => serializeAmostra(a, researchItem.id, "pollution")),
+			// TODAS as amostras (válidas + outliers + poluição), em ordem.
+			const classified = [
+				...analysis.samples.map((a) => ({ a, type: "valid" as const })),
+				...analysis.outliers.map((a) => ({ a, type: "outlier" as const })),
+				...analysis.pollutionDiscards.map((a) => ({ a, type: "pollution" as const })),
 			]
 
-			if (toInsert.length === 0) continue
+			if (classified.length === 0) continue
 
-			// Inserir em lotes de 500
+			// Upsert dos FATOS no catálogo deduplicado → ids alinhados à entrada.
+			const factRows = classified.map(({ a }) => factPayload(a))
+			const { data: amostraIds, error: errRpc } = await supabase.rpc("upsert_compras_amostras", { p_samples: factRows })
+
+			if (errRpc || !amostraIds || amostraIds.length !== classified.length) {
+				console.error(`[price-research] Falha no catálogo de amostras do item ${researchItem.id}:`, errRpc?.message ?? "contagem inesperada")
+				continue
+			}
+
+			// Ponte por-pesquisa (em lotes; ON CONFLICT DO NOTHING).
+			const bridge = classified.map(({ type, a }, i) => ({
+				research_item_id: researchItem.id,
+				amostra_id: amostraIds[i] as string,
+				sample_type: type,
+				similarity: a.similarity,
+			}))
+
 			const BATCH = 500
-			for (let i = 0; i < toInsert.length; i += BATCH) {
-				const { error: errAmostras } = await supabase.from("procurement_pesquisa_preco_amostra").insert(toInsert.slice(i, i + BATCH))
+			for (let i = 0; i < bridge.length; i += BATCH) {
+				const { error: errAmostras } = await supabase
+					.from("procurement_pesquisa_preco_amostra")
+					.upsert(bridge.slice(i, i + BATCH), { onConflict: "research_item_id,amostra_id", ignoreDuplicates: true })
 
 				if (errAmostras) {
 					console.error(`[price-research] Falha nas amostras do item ${researchItem.id} (lote ${i}):`, errAmostras.message)
@@ -154,14 +200,11 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 }
 
 /**
- * Converte uma AmostraPreco para inserção na tabela de amostras.
- * Campos externos (nomes do Compras.gov.br) e internos (inglês) ficam separados.
+ * Extrai os campos de FATO de uma AmostraPreco para o catálogo sisub.compras_amostra.
+ * Os atributos por-pesquisa (sample_type, similarity) ficam de fora — vão na ponte.
  */
-function serializeAmostra(a: AmostraPreco, researchItemId: string, sampleType: "valid" | "outlier" | "pollution") {
+function factPayload(a: AmostraPreco) {
 	return {
-		research_item_id: researchItemId,
-		// Campo interno
-		sample_type: sampleType,
 		// Campos externos (nomes originais do Compras.gov.br)
 		id_compra: a.idCompra,
 		id_item_compra: a.idItemCompra,
@@ -177,10 +220,9 @@ function serializeAmostra(a: AmostraPreco, researchItemId: string, sampleType: "
 		estado: a.estado ?? null,
 		esfera: a.esfera ?? null,
 		marca: a.marca ?? null,
-		// Campos internos
+		// Campos internos derivados
 		normalized_price: a.normalizedPrice,
 		reference_date: a.referenceDate ? a.referenceDate.substring(0, 10) : null,
-		similarity: a.similarity,
 	}
 }
 
@@ -405,6 +447,7 @@ export const priceResearchRoutes = new Hono()
 
 		if (errResearch || !research) return c.json({ error: "Pesquisa não encontrada" }, 404)
 
+		// Os fatos da amostra vivem em compras_amostra; a ponte traz a classificação.
 		const { data: items, error: errItems } = await supabase
 			.from("procurement_pesquisa_preco_item")
 			.select(`
@@ -412,23 +455,25 @@ export const priceResearchRoutes = new Hono()
       samples:procurement_pesquisa_preco_amostra (
         id,
         sample_type,
-        id_compra,
-        id_item_compra,
-        descricao_item,
-        preco_unitario,
-        normalized_price,
-        capacidade_unidade_fornecimento,
-        sigla_unidade_fornecimento,
-        sigla_unidade_medida,
-        quantidade,
-        codigo_uasg,
-        nome_uasg,
-        municipio,
-        estado,
-        esfera,
-        reference_date,
-        marca,
-        similarity
+        similarity,
+        amostra:compras_amostra (
+          id_compra,
+          id_item_compra,
+          descricao_item,
+          preco_unitario,
+          normalized_price,
+          capacidade_unidade_fornecimento,
+          sigla_unidade_fornecimento,
+          sigla_unidade_medida,
+          quantidade,
+          codigo_uasg,
+          nome_uasg,
+          municipio,
+          estado,
+          esfera,
+          reference_date,
+          marca
+        )
       )
     `)
 			.eq("research_id", researchId)
@@ -436,5 +481,14 @@ export const priceResearchRoutes = new Hono()
 
 		if (errItems) return c.json({ error: "Erro ao buscar itens da pesquisa" }, 500)
 
-		return c.json({ ...research, items: items ?? [] })
+		// Achata a observação de compra de volta na amostra → preserva o contrato
+		// JSON plano (id, sample_type, similarity + campos de fato).
+		// biome-ignore lint/suspicious/noExplicitAny: cliente Supabase sem tipos gerados
+		const flatItems = (items ?? []).map((it: any) => ({
+			...it,
+			// biome-ignore lint/suspicious/noExplicitAny: idem
+			samples: (it.samples ?? []).map(({ amostra, ...rest }: any) => ({ ...rest, ...(amostra ?? {}) })),
+		}))
+
+		return c.json({ ...research, items: flatItems })
 	})
