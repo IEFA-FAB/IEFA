@@ -7,7 +7,7 @@
 
 import { ingredientLastReviewInSisub, ingredientReviewInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
-import { requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { ListIngredientLastReviews, RecordIngredientReview, VersionActor } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
 import { insertOneOrFail, runQuery } from "../utils/index.ts"
@@ -34,7 +34,7 @@ export interface IngredientLastReview {
  * Cada chamada cria uma nova linha — o histórico de revisões é preservado.
  */
 export async function recordIngredientReview(db: SisubDb, ctx: UserContext, input: RecordIngredientReview, actor?: VersionActor): Promise<IngredientReviewRow> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
@@ -63,7 +63,7 @@ export async function recordIngredientReview(db: SisubDb, ctx: UserContext, inpu
  * Com `ingredientId` → apenas o insumo informado (para a tela de detalhe).
  */
 export async function listIngredientLastReviews(db: SisubDb, ctx: UserContext, input: ListIngredientLastReviews): Promise<IngredientLastReview[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 
 	const where = input.ingredientId ? eq(ingredientLastReviewInSisub.ingredientId, input.ingredientId) : undefined
 	const rows = await runQuery("QUERY_FAILED", () =>

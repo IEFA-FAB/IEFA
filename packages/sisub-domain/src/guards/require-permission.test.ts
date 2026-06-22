@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { UserContext, UserPermission } from "../types/context.ts"
 import { PermissionDeniedError } from "../types/errors.ts"
-import { requireKitchen, requireMessHall, requirePermission, requireUnit } from "./require-permission.ts"
+import { requireAnyPermission, requireKitchen, requireMessHall, requirePermission, requireUnit } from "./require-permission.ts"
 
 function ctx(permissions: UserPermission[]): UserContext {
 	return {
@@ -44,6 +44,29 @@ describe("requirePermission", () => {
 		const user = ctx([permission({ module: "kitchen", level: 2, kitchen_id: 1 })])
 
 		expect(() => requirePermission(user, "kitchen", 2, { type: "kitchen", id: 2 })).toThrow(PermissionDeniedError)
+	})
+})
+
+describe("requireAnyPermission", () => {
+	test("não lança quando o usuário tem qualquer um dos módulos", () => {
+		const globalOnly = ctx([permission({ module: "global", level: 1 })])
+		const kitchenOnly = ctx([permission({ module: "kitchen", level: 1 })])
+
+		expect(() => requireAnyPermission(globalOnly, ["kitchen", "global"], 1)).not.toThrow()
+		expect(() => requireAnyPermission(kitchenOnly, ["kitchen", "global"], 1)).not.toThrow()
+	})
+
+	test("lança PermissionDeniedError quando não tem nenhum dos módulos", () => {
+		const user = ctx([permission({ module: "diner", level: 2 })])
+
+		expect(() => requireAnyPermission(user, ["kitchen", "global"], 1)).toThrow(PermissionDeniedError)
+		expect(() => requireAnyPermission(user, ["kitchen", "global"], 1)).toThrow("Requires kitchen | global level 1")
+	})
+
+	test("respeita o nível mínimo entre os módulos aceitos", () => {
+		const user = ctx([permission({ module: "global", level: 1 })])
+
+		expect(() => requireAnyPermission(user, ["kitchen", "global"], 2)).toThrow(PermissionDeniedError)
 	})
 })
 
