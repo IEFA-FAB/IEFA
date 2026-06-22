@@ -47,14 +47,14 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function calcMediana(values: number[]): number {
-	const sorted = [...values].sort((a, b) => a - b)
+	const sorted = values.toSorted((a, b) => a - b)
 	const mid = Math.floor(sorted.length / 2)
 	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
 function removeOutliersIQR(values: number[]): { valid: number[]; outlierCount: number } {
 	if (values.length < 4) return { valid: values, outlierCount: 0 }
-	const sorted = [...values].sort((a, b) => a - b)
+	const sorted = values.toSorted((a, b) => a - b)
 	const n = sorted.length
 	const q1 = sorted[Math.floor(n * 0.25)]
 	const q3 = sorted[Math.floor(n * 0.75)]
@@ -525,7 +525,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 			} else {
 				const prices = filteredRows.map((r) => r.original.precoUnitario).filter((p): p is number => p !== null)
 				if (prices.length >= 4) {
-					const sorted = [...prices].sort((a, b) => a - b)
+					const sorted = prices.toSorted((a, b) => a - b)
 					const n = sorted.length
 					const q1 = sorted[Math.floor(n * 0.25)]
 					const q3 = sorted[Math.floor(n * 0.75)]

@@ -35,9 +35,10 @@ export function useRecipes(filters?: {
 	const accentSensitive = filters?.accentSensitive ?? false
 	const sortDirection = filters?.sortDirection ?? "asc"
 
-	const data = useMemo(() => {
-		if (!query.data) return query.data
-
+	let data: typeof query.data
+	if (!query.data) {
+		data = query.data
+	} else {
 		const sensitivity = { caseSensitive, accentSensitive }
 		const search = filters?.search ? normalizeForSearch(filters.search, sensitivity).trim() : undefined
 		const origin = filters?.origin ?? "all"
@@ -51,8 +52,8 @@ export function useRecipes(filters?: {
 
 		const collator = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true })
 		const dir = sortDirection === "desc" ? -1 : 1
-		return [...filtered].sort((a, b) => dir * collator.compare(a.name, b.name))
-	}, [query.data, filters?.search, filters?.origin, caseSensitive, accentSensitive, sortDirection])
+		data = filtered.toSorted((a, b) => dir * collator.compare(a.name, b.name))
+	}
 
 	return { ...query, data }
 }

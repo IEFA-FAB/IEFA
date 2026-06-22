@@ -21,7 +21,7 @@ export interface AutoSelectResult {
 }
 
 function calcMediana(values: number[]): number {
-	const sorted = [...values].sort((a, b) => a - b)
+	const sorted = values.toSorted((a, b) => a - b)
 	const mid = Math.floor(sorted.length / 2)
 	return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
@@ -63,7 +63,7 @@ export function autoSelectPrice(results: ComprasMaterialPriceResult[]): AutoSele
 		validPrices = prices
 		outlierCount = 0
 	} else {
-		const sorted = [...prices].sort((a, b) => a - b)
+		const sorted = prices.toSorted((a, b) => a - b)
 		const n = sorted.length
 		const q1 = sorted[Math.floor(n * 0.25)]
 		const q3 = sorted[Math.floor(n * 0.75)]
@@ -86,7 +86,7 @@ export function autoSelectPrice(results: ComprasMaterialPriceResult[]): AutoSele
 	const stats = computeStats(validPrices)
 	if (!stats) return null
 
-	const uniqueSources = new Set(results.map((r) => r.codigoUasg).filter(Boolean)).size
+	const uniqueSources = new Set(results.flatMap((r) => (r.codigoUasg ? [r.codigoUasg] : []))).size
 	const method: "mean" | "median" = stats.cv < 15 ? "mean" : "median"
 	const price = method === "mean" ? stats.mean : stats.median
 

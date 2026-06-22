@@ -42,13 +42,14 @@ function validateChartKeys(spec: ChartSpec): string | null {
 	const sampleRow = spec.data[0]
 	if (!sampleRow) return null
 	const availableKeys = Object.keys(sampleRow)
+	const availableKeysSet = new Set(availableKeys)
 
-	if (spec.type !== "pie" && !availableKeys.includes(spec.xAxisKey)) {
+	if (spec.type !== "pie" && !availableKeysSet.has(spec.xAxisKey)) {
 		return `Chave do eixo X "${spec.xAxisKey}" não encontrada nos dados. Colunas disponíveis: ${availableKeys.join(", ")}`
 	}
 
 	for (const s of spec.series) {
-		if (!availableKeys.includes(s.key)) {
+		if (!availableKeysSet.has(s.key)) {
 			return `Chave de série "${s.key}" não encontrada nos dados. Colunas disponíveis: ${availableKeys.join(", ")}`
 		}
 	}

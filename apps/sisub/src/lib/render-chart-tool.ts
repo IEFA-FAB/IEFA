@@ -50,11 +50,12 @@ export const renderChartTool = toolDefinition({
 
 	if (data.length > 0) {
 		const availableKeys = Object.keys(data[0] as Record<string, unknown>)
-		if (!availableKeys.includes(xAxisKey)) {
+		const availableKeysSet = new Set(availableKeys)
+		if (!availableKeysSet.has(xAxisKey)) {
 			throw new Error(`Chave do eixo X "${xAxisKey}" não existe nos resultados SQL. Colunas disponíveis: ${availableKeys.join(", ")}`)
 		}
 		for (const s of series) {
-			if (!availableKeys.includes(s.key)) {
+			if (!availableKeysSet.has(s.key)) {
 				throw new Error(`Chave de série "${s.key}" não existe nos resultados SQL. Colunas disponíveis: ${availableKeys.join(", ")}`)
 			}
 		}

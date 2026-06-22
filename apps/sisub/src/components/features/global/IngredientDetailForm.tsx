@@ -637,7 +637,7 @@ function NutrientsTable({ nutrients, values, onChange }: NutrientsTableProps) {
 	}
 
 	// Ordena como num rótulo nutricional brasileiro: valor energético primeiro, depois display_order.
-	const ordered = [...nutrients].sort((a, b) => {
+	const ordered = nutrients.toSorted((a, b) => {
 		if (a.is_energy_value !== b.is_energy_value) return a.is_energy_value ? -1 : 1
 		return (a.display_order ?? 999) - (b.display_order ?? 999)
 	})

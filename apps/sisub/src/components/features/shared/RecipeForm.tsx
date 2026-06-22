@@ -254,7 +254,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 													onChange={(e) => field.handleChange(Number(e.target.value))}
 												/>
 												<FieldDescription>Base para custo e escala das quantidades.</FieldDescription>
-												<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
+												<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
 											</FieldContent>
 										</Field>
 									)}
@@ -286,7 +286,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											<FieldDescription>
 												Parâmetro avançado: 1,0 = sem perda de massa; acima disso o alimento perde peso ao cozinhar (ex.: frango ≈ 1,33). Faixa usual: 0,5–2,0.
 											</FieldDescription>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
+											<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
 										</FieldContent>
 										<Input
 											id="cooking_factor"
@@ -434,7 +434,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											))}
 										</ItemGroup>
 									)}
-									{field.state.meta.errors && <FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />}
+									{field.state.meta.errors && <FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />}
 								</CardContent>
 							</Card>
 						)}
@@ -459,7 +459,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 											/>
-											<FieldError errors={field.state.meta.errors.filter(Boolean).map((err) => ({ message: String(err) }))} />
+											<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
 										</FieldContent>
 									</Field>
 								)}

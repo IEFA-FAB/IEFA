@@ -116,8 +116,8 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 										</TableRow>
 									</TableHeader>
 									<TableBody>
-										{[...recipe.ingredients]
-											.sort((a, b) => (a.priority_order ?? 0) - (b.priority_order ?? 0))
+										{recipe.ingredients
+											.toSorted((a, b) => (a.priority_order ?? 0) - (b.priority_order ?? 0))
 											.map((ingredient) => (
 												<TableRow key={ingredient.id} className={ingredient.is_optional ? "opacity-60" : undefined}>
 													<TableCell className="text-subheading">

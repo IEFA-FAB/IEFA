@@ -235,7 +235,7 @@ function EventEditorPage() {
 	const totalRecipes = items.length
 	const groupsWithContent = mealTypes?.filter((mt) => items.some((i) => i.meal_type_id === mt.id)).length ?? 0
 
-	const currentSelectorRecipeIds = selectedMealTypeId ? items.filter((i) => i.meal_type_id === selectedMealTypeId).map((i) => i.recipe_id) : []
+	const currentSelectorRecipeIds = selectedMealTypeId ? items.flatMap((i) => (i.meal_type_id === selectedMealTypeId ? [i.recipe_id] : [])) : []
 
 	// ── Render ─────────────────────────────────────────────────────────────────
 
