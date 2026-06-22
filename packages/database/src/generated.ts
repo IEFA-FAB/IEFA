@@ -1804,6 +1804,72 @@ export type Database = {
 				}
 				Relationships: []
 			}
+			compras_amostra: {
+				Row: {
+					capacidade_unidade_fornecimento: number | null
+					codigo_uasg: string | null
+					created_at: string
+					descricao_item: string | null
+					esfera: string | null
+					estado: string | null
+					fingerprint: string | null
+					id: string
+					id_compra: string
+					id_item_compra: number | null
+					marca: string | null
+					municipio: string | null
+					nome_uasg: string | null
+					normalized_price: number | null
+					preco_unitario: number | null
+					quantidade: number | null
+					reference_date: string | null
+					sigla_unidade_fornecimento: string | null
+					sigla_unidade_medida: string | null
+				}
+				Insert: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_uasg?: string | null
+					created_at?: string
+					descricao_item?: string | null
+					esfera?: string | null
+					estado?: string | null
+					fingerprint?: string | null
+					id?: string
+					id_compra: string
+					id_item_compra?: number | null
+					marca?: string | null
+					municipio?: string | null
+					nome_uasg?: string | null
+					normalized_price?: number | null
+					preco_unitario?: number | null
+					quantidade?: number | null
+					reference_date?: string | null
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+				}
+				Update: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_uasg?: string | null
+					created_at?: string
+					descricao_item?: string | null
+					esfera?: string | null
+					estado?: string | null
+					fingerprint?: string | null
+					id?: string
+					id_compra?: string
+					id_item_compra?: number | null
+					marca?: string | null
+					municipio?: string | null
+					nome_uasg?: string | null
+					normalized_price?: number | null
+					preco_unitario?: number | null
+					quantidade?: number | null
+					reference_date?: string | null
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+				}
+				Relationships: []
+			}
 			compras_material_caracteristica: {
 				Row: {
 					codigo_caracteristica: string
@@ -3981,72 +4047,6 @@ export type Database = {
 					},
 				]
 			}
-			compras_amostra: {
-				Row: {
-					capacidade_unidade_fornecimento: number | null
-					codigo_uasg: string | null
-					created_at: string
-					descricao_item: string | null
-					esfera: string | null
-					estado: string | null
-					fingerprint: string | null
-					id: string
-					id_compra: string
-					id_item_compra: number | null
-					marca: string | null
-					municipio: string | null
-					nome_uasg: string | null
-					normalized_price: number | null
-					preco_unitario: number | null
-					quantidade: number | null
-					reference_date: string | null
-					sigla_unidade_fornecimento: string | null
-					sigla_unidade_medida: string | null
-				}
-				Insert: {
-					capacidade_unidade_fornecimento?: number | null
-					codigo_uasg?: string | null
-					created_at?: string
-					descricao_item?: string | null
-					esfera?: string | null
-					estado?: string | null
-					fingerprint?: never
-					id?: string
-					id_compra: string
-					id_item_compra?: number | null
-					marca?: string | null
-					municipio?: string | null
-					nome_uasg?: string | null
-					normalized_price?: number | null
-					preco_unitario?: number | null
-					quantidade?: number | null
-					reference_date?: string | null
-					sigla_unidade_fornecimento?: string | null
-					sigla_unidade_medida?: string | null
-				}
-				Update: {
-					capacidade_unidade_fornecimento?: number | null
-					codigo_uasg?: string | null
-					created_at?: string
-					descricao_item?: string | null
-					esfera?: string | null
-					estado?: string | null
-					fingerprint?: never
-					id?: string
-					id_compra?: string
-					id_item_compra?: number | null
-					marca?: string | null
-					municipio?: string | null
-					nome_uasg?: string | null
-					normalized_price?: number | null
-					preco_unitario?: number | null
-					quantidade?: number | null
-					reference_date?: string | null
-					sigla_unidade_fornecimento?: string | null
-					sigla_unidade_medida?: string | null
-				}
-				Relationships: []
-			}
 			procurement_pesquisa_preco_amostra: {
 				Row: {
 					amostra_id: string
@@ -4820,6 +4820,27 @@ export type Database = {
 			catmat_word_similarity: {
 				Args: { p_query: string; p_text: string }
 				Returns: number
+			}
+			compras_amostra_fingerprint: {
+				Args: {
+					p_capacidade_unidade_fornecimento: number
+					p_codigo_uasg: string
+					p_descricao_item: string
+					p_esfera: string
+					p_estado: string
+					p_id_compra: string
+					p_id_item_compra: number
+					p_marca: string
+					p_municipio: string
+					p_nome_uasg: string
+					p_normalized_price: number
+					p_preco_unitario: number
+					p_quantidade: number
+					p_reference_date: string
+					p_sigla_unidade_fornecimento: string
+					p_sigla_unidade_medida: string
+				}
+				Returns: string
 			}
 			compras_sync_step_failure: {
 				Args: { p_sync_id: number }
