@@ -485,10 +485,8 @@ export const priceResearchRoutes = new Hono()
 
 		// Achata a observação de compra de volta na amostra → preserva o contrato
 		// JSON plano (id, sample_type, similarity + campos de fato).
-		// biome-ignore lint/suspicious/noExplicitAny: cliente Supabase sem tipos gerados
 		const flatItems = (items ?? []).map((it: any) => ({
 			...it,
-			// biome-ignore lint/suspicious/noExplicitAny: idem
 			samples: (it.samples ?? []).map(({ amostra, ...rest }: any) => ({ ...rest, ...(amostra ?? {}) })),
 		}))
 

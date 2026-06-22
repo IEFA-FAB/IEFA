@@ -19,18 +19,18 @@
     "dependencies": {
         "@hono/zod-openapi": "^1.4.0",
         "@hono/zod-validator": "^0.8.0",
-        "@scalar/hono-api-reference": "^0.10.19",
-        "@scalar/openapi-to-markdown": "^0.5.20",
-        "@supabase/supabase-js": "^2.106.2",
-        "hono": "^4.12.23",
+        "@scalar/hono-api-reference": "^0.11.4",
+        "@scalar/openapi-to-markdown": "^0.5.26",
+        "@supabase/supabase-js": "^2.108.2",
+        "hono": "^4.12.26",
         "zod": "^4.4.3"
     },
     "devDependencies": {
         "@types/bun": "^1.3.14",
-        "@typescript/native-preview": "^7.0.0-dev.20260527.2",
+        "@typescript/native-preview": "^7.0.0-dev.20260622.1",
         "bun-types": "^1.3.14",
         "tsup": "^8.5.1",
-        "tsx": "^4.22.3",
+        "tsx": "^4.22.4",
         "typescript": "^6.0.3"
     }
 }
