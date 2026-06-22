@@ -2,6 +2,7 @@
 
 // Guards
 export {
+	requireAnyPermission,
 	requireKitchen,
 	requireMessHall,
 	requirePermission,

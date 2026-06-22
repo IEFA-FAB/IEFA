@@ -19,6 +19,18 @@ export const QUICK_FILTER_CATEGORIES = [
 export type QuickFilterKey = (typeof QUICK_FILTER_CATEGORIES)[number]["key"]
 
 /**
+ * Normaliza um campo da árvore para array iterável. Um server fn pode resolver
+ * com um objeto não-array (ex: envelope de erro materializado pelo client em
+ * vez de rejeitar) — `?? []` só cobre null/undefined, então `for...of`/spread
+ * sobre esse objeto lançaria "object is not iterable". `asArray` garante array.
+ *
+ * O parâmetro é tipado como `readonly T[]` (o formato *esperado*, que preserva a
+ * inferência de `T` nos call sites) enquanto o `Array.isArray` defende, em runtime,
+ * contra qualquer outro formato inesperado — não só `null`/`undefined`.
+ */
+const asArray = <T>(value: readonly T[] | null | undefined): readonly T[] => (Array.isArray(value) ? value : [])
+
+/**
  * Hook avançado que orquestra os dados de ingredientes
  * Gerencia estado de filtro, árvore hierárquica e virtualização
  *
@@ -59,7 +71,7 @@ export function useIngredientsHierarchy(
 			initializedRef.current = true
 			// Havia estado salvo (inclui "tudo recolhido") → respeita, não reexpande.
 			if (expandMeta.hadStored) return
-			const rootFolders = (tree.folders ?? []).flatMap((f) => (f.parent_id ? [] : [f.id]))
+			const rootFolders = asArray(tree.folders).flatMap((f) => (f.parent_id ? [] : [f.id]))
 			setExpandedIds(new Set(rootFolders))
 		}
 	}, [tree, expandMeta.hydrated, expandMeta.hadStored, setExpandedIds])
@@ -80,7 +92,7 @@ export function useIngredientsHierarchy(
 	const expandAll = () => {
 		if (!tree) return
 		// Ingredients are leaf nodes (items live on detail page), only expand folders
-		setExpandedIds(new Set(tree.folders.map((f) => f.id)))
+		setExpandedIds(new Set(asArray(tree.folders).map((f) => f.id)))
 	}
 
 	const collapseAll = () => {
@@ -91,7 +103,7 @@ export function useIngredientsHierarchy(
 	const itemCountByIngredientId = useMemo<Record<string, number>>(() => {
 		if (!tree) return {}
 		const counts: Record<string, number> = {}
-		for (const item of tree.ingredientItems ?? []) {
+		for (const item of asArray(tree.ingredientItems)) {
 			if (item.ingredient_id) {
 				counts[item.ingredient_id] = (counts[item.ingredient_id] || 0) + 1
 			}
@@ -103,7 +115,7 @@ export function useIngredientsHierarchy(
 	const lastReviewByIngredientId = useMemo<Record<string, string>>(() => {
 		if (!tree) return {}
 		const map: Record<string, string> = {}
-		for (const r of tree.lastReviews ?? []) {
+		for (const r of asArray(tree.lastReviews)) {
 			if (r.ingredient_id) map[r.ingredient_id] = r.reviewed_at
 		}
 		return map
@@ -114,8 +126,8 @@ export function useIngredientsHierarchy(
 	const flatTree = useMemo<FlatIngredientTree | null>(() => {
 		if (!tree) return null
 
-		const folders = tree.folders ?? []
-		const ingredients = tree.ingredients ?? []
+		const folders = asArray(tree.folders)
+		const ingredients = asArray(tree.ingredients)
 
 		const norm = (value: string) => normalizeForSearch(value, { caseSensitive, accentSensitive })
 		const filter = norm(filterText).trim()
@@ -320,9 +332,9 @@ export function useIngredientsHierarchy(
 		if (!tree) return null
 
 		return {
-			totalFolders: (tree.folders ?? []).length,
-			totalIngredients: (tree.ingredients ?? []).length,
-			totalItems: (tree.ingredientItems ?? []).length,
+			totalFolders: asArray(tree.folders).length,
+			totalIngredients: asArray(tree.ingredients).length,
+			totalItems: asArray(tree.ingredientItems).length,
 		}
 	}, [tree])
 

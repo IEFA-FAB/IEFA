@@ -19,7 +19,7 @@ import {
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm"
-import { requirePermission } from "../guards/require-permission.ts"
+import { requireAnyPermission } from "../guards/require-permission.ts"
 import type {
 	CreateFolder,
 	CreateIngredient,
@@ -78,14 +78,14 @@ const PURCHASE_ITEM_COLS = {
 // ─── Folders ──────────────────────────────────────────────────────────────────
 
 export async function listFolders(db: SisubDb, ctx: UserContext, input?: ListFolders): Promise<Folder[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const where = input?.includeDeleted ? undefined : isNull(folderInSisub.deletedAt)
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(folderInSisub).where(where).orderBy(asc(folderInSisub.createdAt)))
 	return rows.map((r) => toWire<Folder>(r))
 }
 
 export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateFolder): Promise<Folder> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db.insert(folderInSisub).values({ description: input.description, parentId: input.parentId }).returning()
 	)
@@ -93,7 +93,7 @@ export async function createFolder(db: SisubDb, ctx: UserContext, input: CreateF
 }
 
 export async function updateFolder(db: SisubDb, ctx: UserContext, input: UpdateFolder): Promise<Folder> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await insertOneOrFail("UPDATE_FAILED", `folder ${input.id} not found`, () =>
 		db.update(folderInSisub).set({ description: input.description, parentId: input.parentId }).where(eq(folderInSisub.id, input.id)).returning()
 	)
@@ -101,14 +101,14 @@ export async function updateFolder(db: SisubDb, ctx: UserContext, input: UpdateF
 }
 
 export async function deleteFolder(db: SisubDb, ctx: UserContext, input: DeleteFolder): Promise<void> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await mutateOrFail("DELETE_FAILED", `folder ${input.id} not found`, () =>
 		db.update(folderInSisub).set({ deletedAt: new Date().toISOString() }).where(eq(folderInSisub.id, input.id)).returning({ id: folderInSisub.id })
 	)
 }
 
 export async function restoreFolder(db: SisubDb, ctx: UserContext, input: RestoreFolder): Promise<void> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await mutateOrFail("RESTORE_FAILED", `folder ${input.id} not found`, () =>
 		db.update(folderInSisub).set({ deletedAt: null }).where(eq(folderInSisub.id, input.id)).returning({ id: folderInSisub.id })
 	)
@@ -117,7 +117,7 @@ export async function restoreFolder(db: SisubDb, ctx: UserContext, input: Restor
 // ─── Ingredients ────────────────────────────────────────────────────────────
 
 export async function listIngredients(db: SisubDb, ctx: UserContext, input: ListIngredients): Promise<Ingredient[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const conditions = []
 	if (!input.includeDeleted) conditions.push(isNull(ingredientInSisub.deletedAt))
 	if (input.folderId) conditions.push(eq(ingredientInSisub.folderId, input.folderId))
@@ -127,7 +127,7 @@ export async function listIngredients(db: SisubDb, ctx: UserContext, input: List
 }
 
 export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: FetchIngredient): Promise<Ingredient> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await runQuery("QUERY_FAILED", () =>
 		db.query.ingredientInSisub.findFirst({ where: and(eq(ingredientInSisub.id, input.id), isNull(ingredientInSisub.deletedAt)) })
 	)
@@ -136,7 +136,7 @@ export async function fetchIngredient(db: SisubDb, ctx: UserContext, input: Fetc
 }
 
 export async function createIngredient(db: SisubDb, ctx: UserContext, input: CreateIngredient): Promise<Ingredient> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(ingredientInSisub)
@@ -153,7 +153,7 @@ export async function createIngredient(db: SisubDb, ctx: UserContext, input: Cre
 }
 
 export async function updateIngredient(db: SisubDb, ctx: UserContext, input: UpdateIngredient): Promise<Ingredient> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await insertOneOrFail("UPDATE_FAILED", `ingredient ${input.id} not found`, () =>
 		db
 			.update(ingredientInSisub)
@@ -171,14 +171,14 @@ export async function updateIngredient(db: SisubDb, ctx: UserContext, input: Upd
 }
 
 export async function deleteIngredient(db: SisubDb, ctx: UserContext, input: DeleteIngredient): Promise<void> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await mutateOrFail("DELETE_FAILED", `ingredient ${input.id} not found`, () =>
 		db.update(ingredientInSisub).set({ deletedAt: new Date().toISOString() }).where(eq(ingredientInSisub.id, input.id)).returning({ id: ingredientInSisub.id })
 	)
 }
 
 export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: RestoreIngredient): Promise<void> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await mutateOrFail("RESTORE_FAILED", `ingredient ${input.id} not found`, () =>
 		db.update(ingredientInSisub).set({ deletedAt: null }).where(eq(ingredientInSisub.id, input.id)).returning({ id: ingredientInSisub.id })
 	)
@@ -187,7 +187,7 @@ export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: Re
 // ─── Ingredient items (itens de produto) ─────────────────────────────────────
 
 export async function listIngredientItems(db: SisubDb, ctx: UserContext, input: ListIngredientItems): Promise<IngredientItemWire[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	// Traz o purchase_item vinculado (item de compra) para o item de produto herdar o CATMAT.
 	const conditions = [isNull(ingredientItemInSisub.deletedAt)]
 	if (input.ingredientId) conditions.push(eq(ingredientItemInSisub.ingredientId, input.ingredientId))
@@ -202,7 +202,7 @@ export async function listIngredientItems(db: SisubDb, ctx: UserContext, input: 
 }
 
 export async function createIngredientItem(db: SisubDb, ctx: UserContext, input: CreateIngredientItem): Promise<IngredientItem> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(ingredientItemInSisub)
@@ -221,7 +221,7 @@ export async function createIngredientItem(db: SisubDb, ctx: UserContext, input:
 }
 
 export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input: UpdateIngredientItem): Promise<IngredientItem> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const row = await insertOneOrFail("UPDATE_FAILED", `ingredient_item ${input.id} not found`, () =>
 		db
 			.update(ingredientItemInSisub)
@@ -241,7 +241,7 @@ export async function updateIngredientItem(db: SisubDb, ctx: UserContext, input:
 }
 
 export async function deleteIngredientItem(db: SisubDb, ctx: UserContext, input: DeleteIngredientItem): Promise<void> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await mutateOrFail("DELETE_FAILED", `ingredient_item ${input.id} not found`, () =>
 		db
 			.update(ingredientItemInSisub)
@@ -254,7 +254,7 @@ export async function deleteIngredientItem(db: SisubDb, ctx: UserContext, input:
 // ─── Nutrients ────────────────────────────────────────────────────────────────
 
 export async function listNutrients(db: SisubDb, ctx: UserContext): Promise<Nutrient[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const rows = await runQuery("QUERY_FAILED", () =>
 		db.select().from(nutrientInSisub).where(isNull(nutrientInSisub.deletedAt)).orderBy(asc(nutrientInSisub.displayOrder))
 	)
@@ -262,7 +262,7 @@ export async function listNutrients(db: SisubDb, ctx: UserContext): Promise<Nutr
 }
 
 export async function listIngredientNutrients(db: SisubDb, ctx: UserContext, input: FetchIngredientNutrients): Promise<IngredientNutrientWire[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const rows = await runQuery("QUERY_FAILED", () =>
 		db.query.ingredientNutrientInSisub.findMany({
 			with: { nutrientInSisub: true },
@@ -309,14 +309,14 @@ export async function replaceIngredientNutrients(
 }
 
 export async function setIngredientNutrients(db: SisubDb, ctx: UserContext, input: SetIngredientNutrients): Promise<void> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await runQuery("UPDATE_FAILED", () => db.transaction((tx) => replaceIngredientNutrients(tx, input.ingredientId, input.nutrients)))
 }
 
 // ─── CEAFA + CATMAT lookups ──────────────────────────────────────────────────
 
 export async function listCeafa(db: SisubDb, ctx: UserContext, input: ListCeafa): Promise<Ceafa[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const search = input.search?.trim()
 	const where = search ? ilike(ceafaInSisub.description, `%${search.replace(/[\\%_]/g, "\\$&")}%`) : undefined
 	const rows = await runQuery("QUERY_FAILED", () => db.select().from(ceafaInSisub).where(where).orderBy(asc(ceafaInSisub.description)).limit(50))
@@ -324,7 +324,7 @@ export async function listCeafa(db: SisubDb, ctx: UserContext, input: ListCeafa)
 }
 
 export async function listCatmatItems(db: SisubDb, ctx: UserContext, input: ListCatmat): Promise<CatmatItem[]> {
-	requirePermission(ctx, "kitchen", 1)
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	const term = input.search.trim()
 	if (term.length < 2) return []
 
