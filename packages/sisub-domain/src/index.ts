@@ -21,6 +21,13 @@ export * from "./operations/index.ts"
 export * from "./schemas/index.ts"
 export type { AppModule, PermissionScope, ProcurementNeed, ProcurementParams, UserContext, UserPermission } from "./types/index.ts"
 export { DomainError, NotFoundError, PermissionDeniedError, ValidationError } from "./types/index.ts"
-export type { JsonSchemaObject } from "./utils/index.ts"
+export type {
+	BalanceStatus,
+	DeclaredIngredient,
+	FlowGraphStep,
+	FlowValidationResult,
+	IngredientBalance,
+	JsonSchemaObject,
+} from "./utils/index.ts"
 // Utils
-export { toJsonSchema } from "./utils/index.ts"
+export { collectFinalOutputs, computeMaterialBalance, findFlowCycle, toJsonSchema, validateFlow } from "./utils/index.ts"
