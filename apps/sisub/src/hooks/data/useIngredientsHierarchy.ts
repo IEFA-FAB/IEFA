@@ -38,7 +38,7 @@ export function useIngredientsHierarchy(
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
-	const hiddenKey = useMemo(() => [...hiddenCategoryKeys].sort().join(","), [hiddenCategoryKeys])
+	const hiddenKey = useMemo(() => hiddenCategoryKeys.toSorted().join(","), [hiddenCategoryKeys])
 	// Busca dados via service
 	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
 
@@ -59,7 +59,7 @@ export function useIngredientsHierarchy(
 			initializedRef.current = true
 			// Havia estado salvo (inclui "tudo recolhido") → respeita, não reexpande.
 			if (expandMeta.hadStored) return
-			const rootFolders = (tree.folders ?? []).filter((f) => !f.parent_id).map((f) => f.id)
+			const rootFolders = (tree.folders ?? []).flatMap((f) => (f.parent_id ? [] : [f.id]))
 			setExpandedIds(new Set(rootFolders))
 		}
 	}, [tree, expandMeta.hydrated, expandMeta.hadStored, setExpandedIds])
@@ -138,7 +138,7 @@ export function useIngredientsHierarchy(
 				if (!childFolderIdsByParent[key]) childFolderIdsByParent[key] = []
 				childFolderIdsByParent[key].push(f.id)
 			})
-			const stack = folders.filter((f) => matchers.some((m) => m.match(f.description || ""))).map((f) => f.id)
+			const stack = folders.flatMap((f) => (matchers.some((m) => m.match(f.description || "")) ? [f.id] : []))
 			while (stack.length > 0) {
 				const id = stack.pop()
 				if (!id || excludedFolderIds.has(id)) continue

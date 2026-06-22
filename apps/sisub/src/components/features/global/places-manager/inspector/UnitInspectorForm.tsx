@@ -103,8 +103,10 @@ export function UnitInspectorForm({ unit }: UnitInspectorFormProps) {
 							</FieldContent>
 							<FieldError>
 								{field.state.meta.errors
-									.map((e) => (e == null ? "" : typeof e === "string" ? e : ((e as unknown as { message?: string })?.message ?? "")))
-									.filter(Boolean)
+									.flatMap((e) => {
+										const msg = e == null ? "" : typeof e === "string" ? e : ((e as unknown as { message?: string })?.message ?? "")
+										return msg ? [msg] : []
+									})
 									.join(", ")}
 							</FieldError>
 						</Field>

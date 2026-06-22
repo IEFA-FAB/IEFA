@@ -290,16 +290,15 @@ function Forecast() {
 				const dayMeals = selections[date]
 				if (!dayMeals) return
 
-				Object.entries(dayMeals)
-					.filter(([, isSelected]) => Boolean(isSelected))
-					.forEach(([meal, value]) => {
-						newPendingChanges.push({
-							date,
-							meal: meal as keyof DayMeals,
-							value: Boolean(value),
-							messHallId: String(messHallIdForDefault),
-						})
+				for (const [meal, value] of Object.entries(dayMeals)) {
+					if (!value) continue
+					newPendingChanges.push({
+						date,
+						meal: meal as keyof DayMeals,
+						value: Boolean(value),
+						messHallId: String(messHallIdForDefault),
 					})
+				}
 			})
 
 			if (newPendingChanges.length > 0) {

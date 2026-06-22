@@ -82,8 +82,10 @@ export function KitchenInspectorForm({ kitchen }: KitchenInspectorFormProps) {
 							</FieldContent>
 							<FieldError>
 								{field.state.meta.errors
-									.map((e) => (e == null ? "" : typeof e === "string" ? e : ((e as unknown as { message?: string })?.message ?? "")))
-									.filter(Boolean)
+									.flatMap((e) => {
+										const s = e == null ? "" : typeof e === "string" ? e : ((e as unknown as { message?: string })?.message ?? "")
+										return s ? [s] : []
+									})
 									.join(", ")}
 							</FieldError>
 						</Field>

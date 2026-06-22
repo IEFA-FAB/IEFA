@@ -121,7 +121,7 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 	.inputValidator(ApplyTemplateFnSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
-		const sorted = [...data.targetDates].sort()
+		const sorted = data.targetDates.toSorted()
 		return applyTemplate(getDb(), ctx, {
 			templateId: data.templateId,
 			kitchenId: data.kitchenId,
