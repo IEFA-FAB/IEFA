@@ -5,6 +5,8 @@
  * @migration n-a
  */
 
+import { createHash } from "node:crypto"
+import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
@@ -107,22 +109,58 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<{ researchId: string; researchItemId: string }> => {
 		const supabase = getSupabaseServerClient()
 
-		// 1. Cabeçalho da pesquisa
-		const { data: research, error: researchErr } = await supabase
+		// 0. Chave de idempotência — evita gravar a MESMA memória de cálculo duas
+		// vezes (re-clique em "Usar", re-execução do bulk). Escopo: item/CATMAT +
+		// método + dia + conjunto exato de amostras. Seleção diferente ⇒ chave
+		// diferente ⇒ novo registro (refino legítimo preservado). Dia incluído ⇒
+		// re-pesquisa periódica cria histórico (Lei 14.133/2021, Art. 23).
+		const sampleFingerprint = createHash("sha256")
+			.update(
+				[...data.validSamples.map((s) => `v:${s.idCompra}:${s.idItemCompra}`), ...data.outlierSamples.map((s) => `o:${s.idCompra}:${s.idItemCompra}`)]
+					.sort()
+					.join("|")
+			)
+			.digest("hex")
+			.slice(0, 16)
+		const scope = data.ataItemId ?? `catmat-${data.catmatCodigo}`
+		// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT
+		// cairiam em dias UTC distintos e gerariam registros duplicados.
+		const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
+		const idempotencyKey = `audit:v1:${scope}:${data.method}:${day}:${sampleFingerprint}`
+
+		// 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING via idempotency_key)
+		const { data: inserted, error: researchErr } = await supabase
 			.schema("sisub")
 			.from("procurement_pesquisa_preco")
-			.insert({
-				ata_id: data.ataId ?? null,
-				reference_method: data.method,
-				total_items: 1,
-				items_with_price: data.validCount > 0 ? 1 : 0,
-				items_without_catmat: 0,
-				non_compliant_items: 0,
-			})
+			.upsert(
+				{
+					ata_id: data.ataId ?? null,
+					reference_method: data.method,
+					total_items: 1,
+					items_with_price: data.validCount > 0 ? 1 : 0,
+					items_without_catmat: 0,
+					non_compliant_items: 0,
+					idempotency_key: idempotencyKey,
+				},
+				{ onConflict: "idempotency_key", ignoreDuplicates: true }
+			)
 			.select("id")
-			.single()
 		if (researchErr) throw new Error(`Erro ao salvar pesquisa: ${researchErr.message}`)
-		if (!research) throw new Error("Pesquisa não retornou id")
+
+		// Conflito: pesquisa idêntica já existe hoje — devolve a existente sem duplicar.
+		if (!inserted || inserted.length === 0) {
+			const { data: existing, error: existingErr } = await supabase
+				.schema("sisub")
+				.from("procurement_pesquisa_preco")
+				.select("id, procurement_pesquisa_preco_item(id)")
+				.eq("idempotency_key", idempotencyKey)
+				.single()
+			if (existingErr || !existing) throw new Error(`Erro ao recuperar pesquisa idempotente: ${existingErr?.message}`)
+			const existingItemId = existing.procurement_pesquisa_preco_item?.[0]?.id
+			if (!existingItemId) throw new Error("Pesquisa idempotente sem item associado")
+			return { researchId: existing.id, researchItemId: existingItemId }
+		}
+		const research = inserted[0]
 
 		// 2. Item da pesquisa (um por ingredient/catmat consultado)
 		const { data: researchItem, error: itemErr } = await supabase
@@ -157,38 +195,58 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			.single()
 		if (itemErr) throw new Error(`Erro ao salvar item da pesquisa: ${itemErr.message}`)
 
-		// 3. Amostras individuais
-		const toAmostra = (sample: (typeof data.validSamples)[number], type: "valid" | "outlier") => {
-			const cap = sample.capacidadeUnidadeFornecimento ?? 1
-			const preco = sample.precoUnitario ?? null
-			return {
-				research_item_id: researchItem.id,
-				sample_type: type,
-				id_compra: sample.idCompra,
-				id_item_compra: sample.idItemCompra,
-				descricao_item: sample.descricaoItem ?? null,
-				preco_unitario: preco,
-				capacidade_unidade_fornecimento: sample.capacidadeUnidadeFornecimento ?? null,
-				sigla_unidade_fornecimento: sample.siglaUnidadeFornecimento ?? null,
-				sigla_unidade_medida: sample.siglaUnidadeMedida ?? null,
-				quantidade: sample.quantidade ?? null,
-				codigo_uasg: sample.codigoUasg ?? null,
-				nome_uasg: sample.nomeUasg ?? null,
-				municipio: sample.municipio ?? null,
-				estado: sample.estado ?? null,
-				esfera: null,
-				marca: sample.marca ?? null,
-				normalized_price: preco !== null && cap > 0 ? preco / cap : preco,
-				reference_date: sample.dataResultado ?? sample.dataCompra ?? null,
-				similarity: null,
+		// 3. Amostras individuais — separa FATO (catálogo deduplicado) de
+		// PARTICIPAÇÃO (ponte por-pesquisa). Os fatos da compra pública vão para
+		// sisub.compras_amostra via RPC idempotente (dedup por fingerprint de
+		// conteúdo); aqui guardamos só a classificação.
+		const classified = [
+			...data.validSamples.map((s) => ({ sample: s, type: "valid" as const })),
+			...data.outlierSamples.map((s) => ({ sample: s, type: "outlier" as const })),
+		]
+
+		if (classified.length > 0) {
+			const factRows = classified.map(({ sample }) => {
+				const cap = sample.capacidadeUnidadeFornecimento ?? 1
+				const preco = sample.precoUnitario ?? null
+				return {
+					id_compra: sample.idCompra,
+					id_item_compra: sample.idItemCompra,
+					descricao_item: sample.descricaoItem ?? null,
+					preco_unitario: preco,
+					capacidade_unidade_fornecimento: sample.capacidadeUnidadeFornecimento ?? null,
+					sigla_unidade_fornecimento: sample.siglaUnidadeFornecimento ?? null,
+					sigla_unidade_medida: sample.siglaUnidadeMedida ?? null,
+					quantidade: sample.quantidade ?? null,
+					codigo_uasg: sample.codigoUasg ?? null,
+					nome_uasg: sample.nomeUasg ?? null,
+					municipio: sample.municipio ?? null,
+					estado: sample.estado ?? null,
+					esfera: null,
+					marca: sample.marca ?? null,
+					normalized_price: preco !== null && cap > 0 ? preco / cap : preco,
+					reference_date: sample.dataResultado ?? sample.dataCompra ?? null,
+				}
+			})
+
+			// Upsert no catálogo → ids alinhados à ordem de entrada.
+			const { data: amostraIds, error: rpcErr } = await supabase.schema("sisub").rpc("upsert_compras_amostras", { p_samples: factRows as unknown as Json })
+			if (rpcErr) throw new Error(`Erro ao salvar observações de compra: ${rpcErr.message}`)
+			if (!amostraIds || amostraIds.length !== classified.length) {
+				throw new Error("Catálogo de amostras retornou contagem inesperada")
 			}
-		}
 
-		const amostras = [...data.validSamples.map((s) => toAmostra(s, "valid")), ...data.outlierSamples.map((s) => toAmostra(s, "outlier"))]
+			const bridge = classified.map(({ type }, i) => ({
+				research_item_id: researchItem.id,
+				amostra_id: amostraIds[i],
+				sample_type: type,
+				similarity: null,
+			}))
 
-		if (amostras.length > 0) {
-			const { error: amostrasErr } = await supabase.schema("sisub").from("procurement_pesquisa_preco_amostra").insert(amostras)
-			if (amostrasErr) throw new Error(`Erro ao salvar amostras: ${amostrasErr.message}`)
+			const { error: bridgeErr } = await supabase
+				.schema("sisub")
+				.from("procurement_pesquisa_preco_amostra")
+				.upsert(bridge, { onConflict: "research_item_id,amostra_id", ignoreDuplicates: true })
+			if (bridgeErr) throw new Error(`Erro ao salvar amostras: ${bridgeErr.message}`)
 		}
 
 		return { researchId: research.id, researchItemId: researchItem.id }

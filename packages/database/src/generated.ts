@@ -3930,6 +3930,7 @@ export type Database = {
 					filter_municipio_code: number | null
 					filter_uasg_code: string | null
 					id: string
+					idempotency_key: string | null
 					items_with_price: number
 					items_without_catmat: number
 					non_compliant_items: number
@@ -3945,6 +3946,7 @@ export type Database = {
 					filter_municipio_code?: number | null
 					filter_uasg_code?: string | null
 					id?: string
+					idempotency_key?: string | null
 					items_with_price?: number
 					items_without_catmat?: number
 					non_compliant_items?: number
@@ -3960,6 +3962,7 @@ export type Database = {
 					filter_municipio_code?: number | null
 					filter_uasg_code?: string | null
 					id?: string
+					idempotency_key?: string | null
 					items_with_price?: number
 					items_without_catmat?: number
 					non_compliant_items?: number
@@ -3978,13 +3981,15 @@ export type Database = {
 					},
 				]
 			}
-			procurement_pesquisa_preco_amostra: {
+			compras_amostra: {
 				Row: {
 					capacidade_unidade_fornecimento: number | null
 					codigo_uasg: string | null
+					created_at: string
 					descricao_item: string | null
 					esfera: string | null
 					estado: string | null
+					fingerprint: string | null
 					id: string
 					id_compra: string
 					id_item_compra: number | null
@@ -3995,18 +4000,17 @@ export type Database = {
 					preco_unitario: number | null
 					quantidade: number | null
 					reference_date: string | null
-					research_item_id: string
-					sample_type: string
 					sigla_unidade_fornecimento: string | null
 					sigla_unidade_medida: string | null
-					similarity: number | null
 				}
 				Insert: {
 					capacidade_unidade_fornecimento?: number | null
 					codigo_uasg?: string | null
+					created_at?: string
 					descricao_item?: string | null
 					esfera?: string | null
 					estado?: string | null
+					fingerprint?: never
 					id?: string
 					id_compra: string
 					id_item_compra?: number | null
@@ -4017,18 +4021,17 @@ export type Database = {
 					preco_unitario?: number | null
 					quantidade?: number | null
 					reference_date?: string | null
-					research_item_id: string
-					sample_type: string
 					sigla_unidade_fornecimento?: string | null
 					sigla_unidade_medida?: string | null
-					similarity?: number | null
 				}
 				Update: {
 					capacidade_unidade_fornecimento?: number | null
 					codigo_uasg?: string | null
+					created_at?: string
 					descricao_item?: string | null
 					esfera?: string | null
 					estado?: string | null
+					fingerprint?: never
 					id?: string
 					id_compra?: string
 					id_item_compra?: number | null
@@ -4039,13 +4042,41 @@ export type Database = {
 					preco_unitario?: number | null
 					quantidade?: number | null
 					reference_date?: string | null
-					research_item_id?: string
-					sample_type?: string
 					sigla_unidade_fornecimento?: string | null
 					sigla_unidade_medida?: string | null
+				}
+				Relationships: []
+			}
+			procurement_pesquisa_preco_amostra: {
+				Row: {
+					amostra_id: string
+					id: string
+					research_item_id: string
+					sample_type: string
+					similarity: number | null
+				}
+				Insert: {
+					amostra_id: string
+					id?: string
+					research_item_id: string
+					sample_type: string
+					similarity?: number | null
+				}
+				Update: {
+					amostra_id?: string
+					id?: string
+					research_item_id?: string
+					sample_type?: string
 					similarity?: number | null
 				}
 				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
+						columns: ["amostra_id"]
+						isOneToOne: false
+						referencedRelation: "compras_amostra"
+						referencedColumns: ["id"]
+					},
 					{
 						foreignKeyName: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
 						columns: ["research_item_id"]
@@ -4802,6 +4833,7 @@ export type Database = {
 			normalize_catmat_match_text: { Args: { p_text: string }; Returns: string }
 			normalize_label_text: { Args: { p_text: string }; Returns: string }
 			normalize_recipe_name: { Args: { p_name: string }; Returns: string }
+			upsert_compras_amostras: { Args: { p_samples: Json }; Returns: string[] }
 		}
 		Enums: {
 			kitchen_type: "consumption" | "production"

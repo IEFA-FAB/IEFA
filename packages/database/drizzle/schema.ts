@@ -1122,10 +1122,12 @@ export const procurementPesquisaPrecoInSisub = sisub.table("procurement_pesquisa
 	itemsWithPrice: integer("items_with_price").default(0).notNull(),
 	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
 	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
+	idempotencyKey: text("idempotency_key"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("idx_pesquisa_preco_ata").using("btree", table.ataId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
 	index("idx_pesquisa_preco_pending").using("btree", table.ataId.asc().nullsLast().op("uuid_ops")).where(sql`(ata_id IS NULL)`),
+	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast().op("text_ops")).where(sql`(idempotency_key IS NOT NULL)`),
 	foreignKey({
 			columns: [table.ataId],
 			foreignColumns: [procurementListInSisub.id],
@@ -1201,10 +1203,10 @@ export const productionTaskInSisub = sisub.table("production_task", {
 	check("production_task_status_check", sql`status = ANY (ARRAY['PENDING'::text, 'IN_PROGRESS'::text, 'DONE'::text])`),
 ]);
 
-export const procurementPesquisaPrecoAmostraInSisub = sisub.table("procurement_pesquisa_preco_amostra", {
+// Catálogo imutável de observações de compra do Compras.gov.br, deduplicado por
+// fingerprint de conteúdo. Uma linha = uma compra pública observada numa pesquisa.
+export const comprasAmostraInSisub = sisub.table("compras_amostra", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
-	researchItemId: uuid("research_item_id").notNull(),
-	sampleType: text("sample_type").notNull(),
 	idCompra: text("id_compra").notNull(),
 	idItemCompra: integer("id_item_compra"),
 	descricaoItem: text("descricao_item"),
@@ -1221,14 +1223,36 @@ export const procurementPesquisaPrecoAmostraInSisub = sisub.table("procurement_p
 	marca: text(),
 	normalizedPrice: numeric("normalized_price", { precision: 12, scale:  4 }),
 	referenceDate: date("reference_date"),
+	// Coluna gerada (STORED) — identidade de conteúdo; ver migration.
+	fingerprint: text().generatedAlwaysAs(sql`sisub.compras_amostra_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast().op("text_ops")),
+	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("text_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
+]);
+
+// Ponte estreita: liga uma pesquisa às observações de compra (sisub.compras_amostra).
+// Os campos de fato (preço, UASG, datas…) vivem no catálogo deduplicado; aqui ficam
+// apenas os atributos POR-PESQUISA (classificação e similaridade vs CATMAT).
+export const procurementPesquisaPrecoAmostraInSisub = sisub.table("procurement_pesquisa_preco_amostra", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	researchItemId: uuid("research_item_id").notNull(),
+	amostraId: uuid("amostra_id").notNull(),
+	sampleType: text("sample_type").notNull(),
 	similarity: numeric({ precision: 4, scale:  3 }),
 }, (table) => [
 	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast().op("text_ops"), table.sampleType.asc().nullsLast().op("text_ops")),
+	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.amostraId.asc().nullsLast().op("uuid_ops")),
 	foreignKey({
 			columns: [table.researchItemId],
 			foreignColumns: [procurementPesquisaPrecoItemInSisub.id],
 			name: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
 		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.amostraId],
+			foreignColumns: [comprasAmostraInSisub.id],
+			name: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
+		}).onDelete("restrict"),
 	check("procurement_pesquisa_preco_amostra_sample_type_check", sql`sample_type = ANY (ARRAY['valid'::text, 'outlier'::text, 'pollution'::text])`),
 ]);
 
