@@ -56,7 +56,7 @@ export interface UnitDashboardData {
 // ─── Server Function ──────────────────────────────────────────────────────────
 
 export const fetchUnitDashboardFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchUnitDashboardSchema)
+	.validator(FetchUnitDashboardSchema)
 	.handler(async ({ data }): Promise<UnitDashboardData> => {
 		const ctx = await requireAuth()
 		return (await fetchUnitDashboard(getDb(), ctx, data).catch(handleDomainError)) as unknown as UnitDashboardData

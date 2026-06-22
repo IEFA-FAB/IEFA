@@ -29,7 +29,7 @@ export type LegalDocument = {
 }
 
 export const fetchLegalDocumentFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			docType: z.enum(["terms_of_use", "privacy_policy"]),
 			locale: z.string().default("pt-BR"),

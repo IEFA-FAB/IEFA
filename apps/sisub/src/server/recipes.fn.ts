@@ -33,14 +33,14 @@ import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
 export const fetchRecipesFn = createServerFn({ method: "GET" })
-	.inputValidator(ListRecipesSchema)
+	.validator(ListRecipesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listRecipes(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchRecipeFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchRecipeSchema)
+	.validator(FetchRecipeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchRecipe(getDb(), ctx, data).catch(handleDomainError)
@@ -56,42 +56,42 @@ export const fetchRecipeMenuUsageFn = createServerFn({ method: "GET" }).handler(
 })
 
 export const fetchRecipeVersionsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListRecipeVersionsSchema)
+	.validator(ListRecipeVersionsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listRecipeVersions(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createRecipeFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateRecipeSchema)
+	.validator(CreateRecipeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createRecipe(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createRecipeVersionFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateRecipeVersionSchema)
+	.validator(CreateRecipeVersionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createRecipeVersion(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteRecipeFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteRecipeSchema)
+	.validator(DeleteRecipeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteRecipe(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreRecipeFn = createServerFn({ method: "POST" })
-	.inputValidator(RestoreRecipeSchema)
+	.validator(RestoreRecipeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return restoreRecipe(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const renameRecipeFn = createServerFn({ method: "POST" })
-	.inputValidator(RenameRecipeSchema)
+	.validator(RenameRecipeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return renameRecipe(getDb(), ctx, data).catch(handleDomainError)

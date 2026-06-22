@@ -14,7 +14,7 @@ const looseRecord = z.record(z.string(), z.unknown())
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
 export const getUserProfileFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ userId: z.string() }))
+	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").select("*").eq("id", data.userId).maybeSingle()
 		if (error) throw new Error(error.message)
@@ -22,7 +22,7 @@ export const getUserProfileFn = createServerFn({ method: "GET" })
 	})
 
 export const createUserProfileFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").insert(data).select().single()
 		if (error) throw new Error(error.message)
@@ -30,7 +30,7 @@ export const createUserProfileFn = createServerFn({ method: "POST" })
 	})
 
 export const updateUserProfileFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ userId: z.string(), updates: looseRecord }))
+	.validator(z.object({ userId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").update(data.updates).eq("id", data.userId).select().single()
 		if (error) throw new Error(error.message)
@@ -38,7 +38,7 @@ export const updateUserProfileFn = createServerFn({ method: "POST" })
 	})
 
 export const upsertUserProfileFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").upsert(data).select().single()
 		if (error) throw new Error(error.message)
@@ -48,7 +48,7 @@ export const upsertUserProfileFn = createServerFn({ method: "POST" })
 // ─── Articles ─────────────────────────────────────────────────────────────────
 
 export const getArticlesFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			status: z.string().optional(),
 			submitter_id: z.string().optional(),
@@ -66,7 +66,7 @@ export const getArticlesFn = createServerFn({ method: "GET" })
 	})
 
 export const getArticleFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("articles").select("*").eq("id", data.articleId).single()
 		if (error) throw new Error(error.message)
@@ -74,7 +74,7 @@ export const getArticleFn = createServerFn({ method: "GET" })
 	})
 
 export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		// Usa cliente padrão (sem schema) para chamar RPC na schema pública
 		const { createClient } = await import("@supabase/supabase-js")
@@ -90,7 +90,7 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 	})
 
 export const getUserActiveDraftFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ userId: z.string() }))
+	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
 		const db = getJournalServerClient()
 		const { data: article, error } = await db
@@ -121,7 +121,7 @@ export const getUserActiveDraftFn = createServerFn({ method: "GET" })
 	})
 
 export const createArticleFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("articles").insert(data).select().single()
 		if (error) throw new Error(error.message)
@@ -129,7 +129,7 @@ export const createArticleFn = createServerFn({ method: "POST" })
 	})
 
 export const updateArticleFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ articleId: z.string(), updates: looseRecord }))
+	.validator(z.object({ articleId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("articles").update(data.updates).eq("id", data.articleId).select().single()
 		if (error) throw new Error(error.message)
@@ -137,7 +137,7 @@ export const updateArticleFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteArticleFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("articles")
@@ -150,7 +150,7 @@ export const deleteArticleFn = createServerFn({ method: "POST" })
 	})
 
 export const createSubmissionFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const db = getJournalServerClient()
 		const year = new Date().getFullYear()
@@ -168,7 +168,7 @@ export const createSubmissionFn = createServerFn({ method: "POST" })
 // ─── Article Authors ──────────────────────────────────────────────────────────
 
 export const getArticleAuthorsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_authors")
@@ -180,7 +180,7 @@ export const getArticleAuthorsFn = createServerFn({ method: "GET" })
 	})
 
 export const createArticleAuthorsFn = createServerFn({ method: "POST" })
-	.inputValidator(z.array(looseRecord))
+	.validator(z.array(looseRecord))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("article_authors").insert(data).select()
 		if (error) throw new Error(error.message)
@@ -188,7 +188,7 @@ export const createArticleAuthorsFn = createServerFn({ method: "POST" })
 	})
 
 export const updateArticleAuthorFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ authorId: z.string(), updates: looseRecord }))
+	.validator(z.object({ authorId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("article_authors").update(data.updates).eq("id", data.authorId).select().single()
 		if (error) throw new Error(error.message)
@@ -196,14 +196,14 @@ export const updateArticleAuthorFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteArticleAuthorFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ authorId: z.string() }))
+	.validator(z.object({ authorId: z.string() }))
 	.handler(async ({ data }) => {
 		const { error } = await getJournalServerClient().from("article_authors").delete().eq("id", data.authorId)
 		if (error) throw new Error(error.message)
 	})
 
 export const deleteArticleAuthorsByArticleIdFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { error } = await getJournalServerClient().from("article_authors").delete().eq("article_id", data.articleId)
 		if (error) throw new Error(error.message)
@@ -212,7 +212,7 @@ export const deleteArticleAuthorsByArticleIdFn = createServerFn({ method: "POST"
 // ─── Article Versions ─────────────────────────────────────────────────────────
 
 export const getArticleVersionsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_versions")
@@ -224,7 +224,7 @@ export const getArticleVersionsFn = createServerFn({ method: "GET" })
 	})
 
 export const createArticleVersionFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("article_versions").insert(data).select().single()
 		if (error) throw new Error(error.message)
@@ -232,7 +232,7 @@ export const createArticleVersionFn = createServerFn({ method: "POST" })
 	})
 
 export const getLatestArticleVersionFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_versions")
@@ -248,7 +248,7 @@ export const getLatestArticleVersionFn = createServerFn({ method: "GET" })
 // ─── Published Articles ───────────────────────────────────────────────────────
 
 export const getPublishedArticlesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ limit: z.number().optional(), offset: z.number().optional() }))
+	.validator(z.object({ limit: z.number().optional(), offset: z.number().optional() }))
 	.handler(async ({ data }) => {
 		let query = getJournalServerClient().from("published_articles").select("*")
 		if (data.limit) query = query.limit(data.limit)
@@ -259,7 +259,7 @@ export const getPublishedArticlesFn = createServerFn({ method: "GET" })
 	})
 
 export const getPublishedArticleFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("published_articles").select("*").eq("id", data.articleId).single()
 		if (error) throw new Error(error.message)
@@ -269,7 +269,7 @@ export const getPublishedArticleFn = createServerFn({ method: "GET" })
 // ─── Editorial Dashboard ──────────────────────────────────────────────────────
 
 export const getEditorialDashboardFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ status: z.string().optional(), limit: z.number().optional() }))
+	.validator(z.object({ status: z.string().optional(), limit: z.number().optional() }))
 	.handler(async ({ data }) => {
 		let query = getJournalServerClient().from("editorial_dashboard").select("*")
 		if (data.status) query = query.eq("status", data.status)
@@ -282,7 +282,7 @@ export const getEditorialDashboardFn = createServerFn({ method: "GET" })
 // ─── Review Assignments ───────────────────────────────────────────────────────
 
 export const getReviewAssignmentsFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			article_id: z.string().optional(),
 			reviewer_id: z.string().optional(),
@@ -300,7 +300,7 @@ export const getReviewAssignmentsFn = createServerFn({ method: "GET" })
 	})
 
 export const getReviewAssignmentByTokenFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ token: z.string() }))
+	.validator(z.object({ token: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("review_assignments").select("*").eq("invitation_token", data.token).single()
 		if (error) throw new Error(error.message)
@@ -308,7 +308,7 @@ export const getReviewAssignmentByTokenFn = createServerFn({ method: "GET" })
 	})
 
 export const createReviewAssignmentFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("review_assignments").insert(data).select().single()
 		if (error) throw new Error(error.message)
@@ -316,7 +316,7 @@ export const createReviewAssignmentFn = createServerFn({ method: "POST" })
 	})
 
 export const updateReviewAssignmentFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ assignmentId: z.string(), updates: looseRecord }))
+	.validator(z.object({ assignmentId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("review_assignments").update(data.updates).eq("id", data.assignmentId).select().single()
 		if (error) throw new Error(error.message)
@@ -324,7 +324,7 @@ export const updateReviewAssignmentFn = createServerFn({ method: "POST" })
 	})
 
 export const acceptReviewInvitationFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ token: z.string() }))
+	.validator(z.object({ token: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("review_assignments")
@@ -337,7 +337,7 @@ export const acceptReviewInvitationFn = createServerFn({ method: "POST" })
 	})
 
 export const declineReviewInvitationFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ token: z.string(), reason: z.string().optional() }))
+	.validator(z.object({ token: z.string(), reason: z.string().optional() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("review_assignments")
@@ -356,7 +356,7 @@ export const declineReviewInvitationFn = createServerFn({ method: "POST" })
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
 export const getReviewFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ assignmentId: z.string() }))
+	.validator(z.object({ assignmentId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("reviews").select("*").eq("assignment_id", data.assignmentId).single()
 		if (error) throw new Error(error.message)
@@ -364,7 +364,7 @@ export const getReviewFn = createServerFn({ method: "GET" })
 	})
 
 export const getArticleReviewsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("reviews")
@@ -375,7 +375,7 @@ export const getArticleReviewsFn = createServerFn({ method: "GET" })
 	})
 
 export const createReviewFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("reviews").insert(data).select().single()
 		if (error) throw new Error(error.message)
@@ -383,7 +383,7 @@ export const createReviewFn = createServerFn({ method: "POST" })
 	})
 
 export const updateReviewFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ reviewId: z.string(), updates: looseRecord }))
+	.validator(z.object({ reviewId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient().from("reviews").update(data.updates).eq("id", data.reviewId).select().single()
 		if (error) throw new Error(error.message)
@@ -402,7 +402,7 @@ async function writeReview(assignmentId: string, fields: Record<string, unknown>
 }
 
 export const submitReviewFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
+	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
 	.handler(async ({ data }) => {
 		const review = await writeReview(data.assignmentId, { ...data.reviewData, is_draft: false, submitted_at: new Date().toISOString() })
 		const { error: assignmentError } = await getJournalServerClient()
@@ -415,7 +415,7 @@ export const submitReviewFn = createServerFn({ method: "POST" })
 
 // Salva rascunho (is_draft) sem completar o assignment — pode ser chamado várias vezes.
 export const saveReviewDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
+	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
 	.handler(async ({ data }) => {
 		return writeReview(data.assignmentId, { ...data.reviewData, is_draft: true })
 	})
@@ -423,7 +423,7 @@ export const saveReviewDraftFn = createServerFn({ method: "POST" })
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export const getUserNotificationsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ userId: z.string(), unreadOnly: z.boolean().optional() }))
+	.validator(z.object({ userId: z.string(), unreadOnly: z.boolean().optional() }))
 	.handler(async ({ data }) => {
 		let query = getJournalServerClient().from("notifications").select("*").eq("user_id", data.userId)
 		if (data.unreadOnly) query = query.eq("read", false)
@@ -433,7 +433,7 @@ export const getUserNotificationsFn = createServerFn({ method: "GET" })
 	})
 
 export const markNotificationAsReadFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ notificationId: z.string() }))
+	.validator(z.object({ notificationId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getJournalServerClient()
 			.from("notifications")
@@ -454,7 +454,7 @@ export const getJournalSettingsFn = createServerFn({ method: "GET" }).handler(as
 })
 
 export const updateJournalSettingsFn = createServerFn({ method: "POST" })
-	.inputValidator(looseRecord)
+	.validator(looseRecord)
 	.handler(async ({ data }) => {
 		const db = getJournalServerClient()
 		const { data: settings, error: fetchError } = await db.from("journal_settings").select("id").limit(1).single()
@@ -467,7 +467,7 @@ export const updateJournalSettingsFn = createServerFn({ method: "POST" })
 // ─── Draft helpers (usados por submission.ts) ─────────────────────────────────
 
 export const loadDraftFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string() }))
+	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
 		const db = getJournalServerClient()
 		const { data: article, error: articleError } = await db.from("articles").select("*").eq("id", data.articleId).single()
@@ -482,7 +482,7 @@ export const loadDraftFn = createServerFn({ method: "GET" })
 	})
 
 export const canEditArticleFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string(), userId: z.string() }))
+	.validator(z.object({ articleId: z.string(), userId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: article } = await getJournalServerClient().from("articles").select("submitter_id, status").eq("id", data.articleId).single()
 		if (!article) return false
@@ -490,7 +490,7 @@ export const canEditArticleFn = createServerFn({ method: "GET" })
 	})
 
 export const createArticleEventFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			articleId: z.string(),
 			userId: z.string(),
@@ -513,7 +513,7 @@ export const createArticleEventFn = createServerFn({ method: "POST" })
 // ─── Permission checks (usados por auth.ts) ───────────────────────────────────
 
 export const canViewArticleFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ articleId: z.string(), userId: z.string().optional() }))
+	.validator(z.object({ articleId: z.string(), userId: z.string().optional() }))
 	.handler(async ({ data }) => {
 		const db = getJournalServerClient()
 		const { data: article } = await db.from("articles").select("status, submitter_id, deleted_at").eq("id", data.articleId).single()
@@ -532,7 +532,7 @@ export const canViewArticleFn = createServerFn({ method: "GET" })
 	})
 
 export const canSubmitReviewFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ assignmentId: z.string(), userId: z.string() }))
+	.validator(z.object({ assignmentId: z.string(), userId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id, status").eq("id", data.assignmentId).single()
 		if (!assignment) return false

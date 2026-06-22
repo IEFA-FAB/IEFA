@@ -73,7 +73,7 @@ export const listMcpKeysFn = createServerFn({ method: "GET" }).handler(async ():
  * @throws {Error} se o usuário não estiver autenticado ou houver falha no banco.
  */
 export const createMcpKeyFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ label: z.string().min(1).max(100) }))
+	.validator(z.object({ label: z.string().min(1).max(100) }))
 	.handler(async ({ data }): Promise<{ key: string; row: McpApiKey }> => {
 		const userId = await requireUserId()
 
@@ -112,7 +112,7 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
  * Operação escopada ao usuário autenticado — não revoga chaves de outros usuários.
  */
 export const revokeMcpKeyFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const db = getSupabaseServerClient()
@@ -132,7 +132,7 @@ export const revokeMcpKeyFn = createServerFn({ method: "POST" })
  * Operação escopada ao usuário autenticado.
  */
 export const deleteMcpKeyFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const db = getSupabaseServerClient()

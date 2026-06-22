@@ -22,21 +22,21 @@ import { handleDomainError } from "@/lib/domain-errors"
 import type { ProductionItem, ProductionTask } from "@/types/domain/production"
 
 export const fetchProductionBoardFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchProductionBoardSchema)
+	.validator(FetchProductionBoardSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return (await fetchProductionBoard(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProductionItem[]
 	})
 
 export const ensureProductionTasksFn = createServerFn({ method: "POST" })
-	.inputValidator(EnsureProductionTasksSchema)
+	.validator(EnsureProductionTasksSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return ensureProductionTasks(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateProductionTaskStatusFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateProductionTaskStatusSchema)
+	.validator(UpdateProductionTaskStatusSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return (await updateProductionTaskStatus(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProductionTask

@@ -24,7 +24,7 @@ export const fetchKitchensFn = createServerFn({ method: "GET" }).handler(async (
 })
 
 export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
-	.inputValidator(ListUnitKitchensSchema)
+	.validator(ListUnitKitchensSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listUnitKitchens(getDb(), ctx, data).catch(handleDomainError)

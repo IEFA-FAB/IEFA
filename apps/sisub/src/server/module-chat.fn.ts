@@ -25,7 +25,7 @@ type AnyFrom = any
  * Lists up to 50 chat sessions for the authenticated user, filtered by module and optional scope.
  */
 export const listModuleChatSessionsFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			module: z.enum(CHAT_MODULES),
 			scopeId: z.number().int().positive().optional(),
@@ -59,7 +59,7 @@ export const listModuleChatSessionsFn = createServerFn({ method: "GET" })
  * Creates a new chat session for the authenticated user in the given module + scope.
  */
 export const createModuleChatSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			title: z.string().min(1).max(200),
 			module: z.enum(CHAT_MODULES),
@@ -90,7 +90,7 @@ export const createModuleChatSessionFn = createServerFn({ method: "POST" })
  * Renames a chat session scoped to the authenticated user.
  */
 export const renameModuleChatSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
+	.validator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -108,7 +108,7 @@ export const renameModuleChatSessionFn = createServerFn({ method: "POST" })
  * Hard-deletes a chat session and its messages (cascade via FK).
  */
 export const deleteModuleChatSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -128,7 +128,7 @@ export const deleteModuleChatSessionFn = createServerFn({ method: "POST" })
  * Fetches all messages for a session, verifying ownership in a single round-trip.
  */
 export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -153,7 +153,7 @@ export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
  * Inserts a message into a session after verifying ownership.
  */
 export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z
 			.object({
 				sessionId: z.string().uuid(),

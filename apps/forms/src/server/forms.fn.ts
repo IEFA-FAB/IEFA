@@ -279,7 +279,7 @@ async function getQuestionnairesByIds(db: FormsDbClient, ids: string[], tags?: s
 // ── Questionnaire CRUD ───────────────────────────────────────────────────────
 
 export const getQuestionnairesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ tags: z.array(z.string()).optional() }))
+	.validator(z.object({ tags: z.array(z.string()).optional() }))
 	.handler(async ({ data: { tags } }) => {
 		const db = getFormsServerClient()
 		let query = db.from("questionnaire").select("*").order("created_at", { ascending: false })
@@ -292,7 +292,7 @@ export const getQuestionnairesFn = createServerFn({ method: "GET" })
 	})
 
 export const getQuestionnaireFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const {
 			data: { user },
@@ -323,7 +323,7 @@ export const getQuestionnaireFn = createServerFn({ method: "GET" })
 	})
 
 export const createQuestionnaireFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			title: z.string().min(1),
 			description: z.string().optional(),
@@ -352,7 +352,7 @@ export const createQuestionnaireFn = createServerFn({ method: "POST" })
 	})
 
 export const updateQuestionnaireFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid(),
 			title: z.string().min(1).optional(),
@@ -377,7 +377,7 @@ export const updateQuestionnaireFn = createServerFn({ method: "POST" })
 	})
 
 export const publishQuestionnaireFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const {
 			data: { user },
@@ -394,7 +394,7 @@ export const publishQuestionnaireFn = createServerFn({ method: "POST" })
 // ── Section CRUD ──────────────────────────────────────────────────────────────
 
 export const createSectionFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({ questionnaire_id: z.string().uuid(), title: z.string().min(1), description: z.string().optional(), sort_order: z.number().int().optional() })
 	)
 	.handler(async ({ data }) => {
@@ -411,7 +411,7 @@ export const createSectionFn = createServerFn({ method: "POST" })
 	})
 
 export const updateSectionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid(), title: z.string().min(1).optional(), description: z.string().optional() }))
+	.validator(z.object({ id: z.string().uuid(), title: z.string().min(1).optional(), description: z.string().optional() }))
 	.handler(async ({ data: { id, ...updates } }) => {
 		const {
 			data: { user },
@@ -427,7 +427,7 @@ export const updateSectionFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteSectionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const {
 			data: { user },
@@ -442,7 +442,7 @@ export const deleteSectionFn = createServerFn({ method: "POST" })
 	})
 
 export const reorderSectionsFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ items: z.array(z.object({ id: z.string().uuid(), sort_order: z.number().int() })) }))
+	.validator(z.object({ items: z.array(z.object({ id: z.string().uuid(), sort_order: z.number().int() })) }))
 	.handler(async ({ data: { items } }) => {
 		const {
 			data: { user },
@@ -465,7 +465,7 @@ export const reorderSectionsFn = createServerFn({ method: "POST" })
 // ── Question CRUD ─────────────────────────────────────────────────────────────
 
 export const createQuestionFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			section_id: z.string().uuid(),
 			text: z.string().min(1),
@@ -491,7 +491,7 @@ export const createQuestionFn = createServerFn({ method: "POST" })
 	})
 
 export const updateQuestionFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid(),
 			text: z.string().min(1).optional(),
@@ -516,7 +516,7 @@ export const updateQuestionFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteQuestionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const {
 			data: { user },
@@ -531,7 +531,7 @@ export const deleteQuestionFn = createServerFn({ method: "POST" })
 	})
 
 export const reorderQuestionsFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ items: z.array(z.object({ id: z.string().uuid(), sort_order: z.number().int() })) }))
+	.validator(z.object({ items: z.array(z.object({ id: z.string().uuid(), sort_order: z.number().int() })) }))
 	.handler(async ({ data: { items } }) => {
 		const {
 			data: { user },
@@ -554,7 +554,7 @@ export const reorderQuestionsFn = createServerFn({ method: "POST" })
 // ── Response Flow ─────────────────────────────────────────────────────────────
 
 export const getOmOptionsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({}))
+	.validator(z.object({}))
 	.handler(async () => {
 		const db = getFormsServerClient()
 		const { data, error } = await db.from("om_option").select("id, name").eq("active", true).order("sort_order", { ascending: true })
@@ -563,7 +563,7 @@ export const getOmOptionsFn = createServerFn({ method: "GET" })
 	})
 
 export const getMyResponseStateFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -584,7 +584,7 @@ export const getMyResponseStateFn = createServerFn({ method: "GET" })
 	})
 
 export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			questionnaire_id: z.string().uuid(),
 			evaluation_type: z.string(),
@@ -620,7 +620,7 @@ export const getOrCreateResponseSessionFn = createServerFn({ method: "POST" })
 	})
 
 export const saveAnswerFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			questionnaire_response_id: z.string().uuid(),
 			question_id: z.string().uuid(),
@@ -663,7 +663,7 @@ export const saveAnswerFn = createServerFn({ method: "POST" })
 	})
 
 export const submitResponseFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data: { id } }) => {
 		const {
 			data: { user },
@@ -717,7 +717,7 @@ export const submitResponseFn = createServerFn({ method: "POST" })
 	})
 
 export const getDraftResponseFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -737,7 +737,7 @@ export const getDraftResponseFn = createServerFn({ method: "GET" })
 	})
 
 export const getResponsesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -767,7 +767,7 @@ export const getResponsesFn = createServerFn({ method: "GET" })
 // ── Response Viewers ──────────────────────────────────────────────────────────
 
 export const getViewersFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -781,7 +781,7 @@ export const getViewersFn = createServerFn({ method: "GET" })
 	})
 
 export const addViewerFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			questionnaire_id: z.string().uuid(),
 			email: z.string().email(),
@@ -818,7 +818,7 @@ export const addViewerFn = createServerFn({ method: "POST" })
 	})
 
 export const updateViewerPolicyFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			questionnaire_id: z.string().uuid(),
 			viewer_id: z.string().uuid(),
@@ -851,7 +851,7 @@ export const updateViewerPolicyFn = createServerFn({ method: "POST" })
 	})
 
 export const removeViewerFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { id, questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -868,7 +868,7 @@ export const removeViewerFn = createServerFn({ method: "POST" })
 // ── Questionnaire Editors ────────────────────────────────────────────────────
 
 export const getEditorsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -885,7 +885,7 @@ export const getEditorsFn = createServerFn({ method: "GET" })
 	})
 
 export const addEditorFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ questionnaire_id: z.string().uuid(), email: z.string().email() }))
+	.validator(z.object({ questionnaire_id: z.string().uuid(), email: z.string().email() }))
 	.handler(async ({ data: { questionnaire_id, email } }) => {
 		const {
 			data: { user },
@@ -913,7 +913,7 @@ export const addEditorFn = createServerFn({ method: "POST" })
 	})
 
 export const removeEditorFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid(), questionnaire_id: z.string().uuid() }))
 	.handler(async ({ data: { id, questionnaire_id } }) => {
 		const {
 			data: { user },
@@ -930,7 +930,7 @@ export const removeEditorFn = createServerFn({ method: "POST" })
 // ── Response Versioning ─────────────────────────────────────────────────────
 
 export const reopenResponseFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ questionnaire_response_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_response_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_response_id } }) => {
 		const {
 			data: { user },
@@ -963,7 +963,7 @@ export const reopenResponseFn = createServerFn({ method: "POST" })
 	})
 
 export const getResponseVersionsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ questionnaire_response_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_response_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_response_id } }) => {
 		const {
 			data: { user },
@@ -1001,7 +1001,7 @@ export const getResponseVersionsFn = createServerFn({ method: "GET" })
 	})
 
 export const getResponseVersionFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ version_id: z.string().uuid() }))
+	.validator(z.object({ version_id: z.string().uuid() }))
 	.handler(async ({ data: { version_id } }) => {
 		const {
 			data: { user },
@@ -1036,7 +1036,7 @@ export const getResponseVersionFn = createServerFn({ method: "GET" })
 	})
 
 export const revertToVersionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ questionnaire_response_id: z.string().uuid(), version_id: z.string().uuid() }))
+	.validator(z.object({ questionnaire_response_id: z.string().uuid(), version_id: z.string().uuid() }))
 	.handler(async ({ data: { questionnaire_response_id, version_id } }) => {
 		const {
 			data: { user },
@@ -1077,7 +1077,7 @@ export const revertToVersionFn = createServerFn({ method: "POST" })
 	})
 
 export const getSharedWithMeFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({}))
+	.validator(z.object({}))
 	.handler(async () => {
 		const {
 			data: { user },
@@ -1095,7 +1095,7 @@ export const getSharedWithMeFn = createServerFn({ method: "GET" })
 	})
 
 export const getEditableSharedWithMeFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ tags: z.array(z.string()).optional() }))
+	.validator(z.object({ tags: z.array(z.string()).optional() }))
 	.handler(async ({ data: { tags } }) => {
 		const {
 			data: { user },

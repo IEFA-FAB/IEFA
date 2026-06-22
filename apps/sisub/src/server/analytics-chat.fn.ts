@@ -46,7 +46,7 @@ export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(asyn
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on insert failure.
  */
 export const createChatSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ title: z.string().min(1).max(200) }))
+	.validator(z.object({ title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -71,7 +71,7 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on update failure.
  */
 export const renameChatSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
+	.validator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -87,7 +87,7 @@ export const renameChatSessionFn = createServerFn({ method: "POST" })
  * @throws {Error} "Não autenticado" if not logged in; Supabase error on delete failure.
  */
 export const deleteChatSessionFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -121,7 +121,7 @@ type MessageRow = {
 }
 
 export const getChatMessagesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ sessionId: z.string().uuid() }))
+	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const supabase = getSupabaseServerClient()
@@ -160,7 +160,7 @@ export const getChatMessagesFn = createServerFn({ method: "GET" })
  * @throws {Error} "Sessão não encontrada" if session missing or not owned; Supabase error on insert failure.
  */
 export const saveChatMessageFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z
 			.object({
 				sessionId: z.string().uuid(),
@@ -245,7 +245,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
  * @throws {Error} "Mensagem não encontrada" or "Acesso negado" on ownership violation; Supabase error on update failure.
  */
 export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			messageId: z.string().uuid(),
 			chartTypeOverride: z.enum(CHART_TYPES),

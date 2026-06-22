@@ -24,21 +24,21 @@ import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
 export const fetchUserDataFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchUserDataSchema)
+	.validator(FetchUserDataSchema)
 	.handler(async ({ data }) => fetchSisubUserData(getDb(), data).catch(handleDomainError))
 
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchMilitaryDataSchema)
+	.validator(FetchMilitaryDataSchema)
 	.handler(async ({ data }) => fetchMilitaryData(getDb(), data).catch(handleDomainError))
 
 export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchUserNrOrdemSchema)
+	.validator(FetchUserNrOrdemSchema)
 	.handler(async ({ data }) => fetchUserNrOrdem(getDb(), data).catch(handleDomainError))
 
 export const syncUserNrOrdemFn = createServerFn({ method: "POST" })
-	.inputValidator(SyncUserNrOrdemSchema)
+	.validator(SyncUserNrOrdemSchema)
 	.handler(async ({ data }) => syncUserNrOrdem(getDb(), data).catch(handleDomainError))
 
 export const syncUserEmailFn = createServerFn({ method: "POST" })
-	.inputValidator(SyncUserEmailSchema)
+	.validator(SyncUserEmailSchema)
 	.handler(async ({ data }) => syncUserEmail(getDb(), data).catch(handleDomainError))

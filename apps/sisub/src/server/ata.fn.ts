@@ -44,7 +44,7 @@ import type { AtaWithDetails } from "@/types/domain/ata"
 // ─── Calcular necessidades (sem persistir) ────────────────────────────────────
 
 export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
-	.inputValidator(CalculateAtaNeedsSchema)
+	.validator(CalculateAtaNeedsSchema)
 	.handler(async ({ data }): Promise<ProcurementNeed[]> => {
 		const ctx = await requireAuth()
 		return calculateAtaNeeds(getDb(), ctx, data).catch(handleDomainError)
@@ -53,7 +53,7 @@ export const calculateAtaNeedsFn = createServerFn({ method: "POST" })
 // ─── Criar rascunho vazio (wizard step 1) ────────────────────────────────────
 
 export const createAtaDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateAtaDraftSchema)
+	.validator(CreateAtaDraftSchema)
 	.handler(async ({ data }): Promise<{ id: string }> => {
 		const ctx = await requireAuth()
 		return createAtaDraft(getDb(), ctx, data).catch(handleDomainError)
@@ -62,7 +62,7 @@ export const createAtaDraftFn = createServerFn({ method: "POST" })
 // ─── Atualizar metadados e seleções do rascunho ───────────────────────────────
 
 export const updateAtaDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateAtaDraftSchema)
+	.validator(UpdateAtaDraftSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateAtaDraft(getDb(), ctx, data).catch(handleDomainError)
@@ -71,7 +71,7 @@ export const updateAtaDraftFn = createServerFn({ method: "POST" })
 // ─── Salvar itens calculados no rascunho (substitui todos) ───────────────────
 
 export const saveAtaDraftItemsFn = createServerFn({ method: "POST" })
-	.inputValidator(SaveAtaDraftItemsSchema)
+	.validator(SaveAtaDraftItemsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return saveAtaDraftItems(getDb(), ctx, data).catch(handleDomainError)
@@ -80,7 +80,7 @@ export const saveAtaDraftItemsFn = createServerFn({ method: "POST" })
 // ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
 
 export const finalizeAtaDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(FinalizeAtaDraftSchema)
+	.validator(FinalizeAtaDraftSchema)
 	.handler(async ({ data }): Promise<ProcurementList> => {
 		const ctx = await requireAuth()
 		return (await finalizeAtaDraft(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProcurementList
@@ -89,7 +89,7 @@ export const finalizeAtaDraftFn = createServerFn({ method: "POST" })
 // ─── Criar ATA (persiste tudo) ────────────────────────────────────────────────
 
 export const createAtaFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateAtaSchema)
+	.validator(CreateAtaSchema)
 	.handler(async ({ data }): Promise<ProcurementList> => {
 		const ctx = await requireAuth()
 		return (await createAta(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProcurementList
@@ -98,7 +98,7 @@ export const createAtaFn = createServerFn({ method: "POST" })
 // ─── Listar ATAs da unidade ───────────────────────────────────────────────────
 
 export const fetchAtaListFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchAtaListSchema)
+	.validator(FetchAtaListSchema)
 	.handler(async ({ data }): Promise<ProcurementList[]> => {
 		const ctx = await requireAuth()
 		return (await fetchAtaList(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProcurementList[]
@@ -107,7 +107,7 @@ export const fetchAtaListFn = createServerFn({ method: "GET" })
 // ─── Buscar ATA com detalhes ──────────────────────────────────────────────────
 
 export const fetchAtaDetailsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchAtaDetailsSchema)
+	.validator(FetchAtaDetailsSchema)
 	.handler(async ({ data }): Promise<AtaWithDetails | null> => {
 		const ctx = await requireAuth()
 		return (await fetchAtaDetails(getDb(), ctx, data).catch(handleDomainError)) as unknown as AtaWithDetails | null
@@ -116,7 +116,7 @@ export const fetchAtaDetailsFn = createServerFn({ method: "GET" })
 // ─── Atualizar status da ATA ──────────────────────────────────────────────────
 
 export const updateAtaStatusFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateAtaStatusSchema)
+	.validator(UpdateAtaStatusSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateAtaStatus(getDb(), ctx, data).catch(handleDomainError)
@@ -125,7 +125,7 @@ export const updateAtaStatusFn = createServerFn({ method: "POST" })
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────
 
 export const updateAtaItemPricesFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateAtaItemPricesSchema)
+	.validator(UpdateAtaItemPricesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateAtaItemPrices(getDb(), ctx, data).catch(handleDomainError)
@@ -134,7 +134,7 @@ export const updateAtaItemPricesFn = createServerFn({ method: "POST" })
 // ─── Atualizar descrição de um item de ATA ───────────────────────────────────
 
 export const updateAtaItemDescriptionFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateAtaItemDescriptionSchema)
+	.validator(UpdateAtaItemDescriptionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateAtaItemDescription(getDb(), ctx, data).catch(handleDomainError)
@@ -143,7 +143,7 @@ export const updateAtaItemDescriptionFn = createServerFn({ method: "POST" })
 // ─── Deletar ATA (soft delete) ────────────────────────────────────────────────
 
 export const deleteAtaFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteAtaSchema)
+	.validator(DeleteAtaSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteAta(getDb(), ctx, data).catch(handleDomainError)

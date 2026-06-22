@@ -12,7 +12,7 @@ import { getRumaerServerClient } from "@/lib/supabase.server"
 const BUCKET = "rumaer-uniforms"
 
 export const getSignedImageUrlFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ imagePath: z.string().min(1), expiresIn: z.number().optional() }))
+	.validator(z.object({ imagePath: z.string().min(1), expiresIn: z.number().optional() }))
 	.handler(async ({ data }): Promise<string> => {
 		const { data: result, error } = await getRumaerServerClient()
 			.storage.from(BUCKET)
@@ -26,7 +26,7 @@ export const getSignedImageUrlFn = createServerFn({ method: "GET" })
  * deduplicadas, ordenadas e assinadas em lote — 1 round-trip para o slideshow de preview.
  */
 export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<string[]> => {
 		const supabase = getRumaerServerClient()
 
@@ -53,7 +53,7 @@ export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
 	})
 
 export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ filePath: z.string().min(1) }))
+	.validator(z.object({ filePath: z.string().min(1) }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getRumaerServerClient().storage.from(BUCKET).createSignedUploadUrl(data.filePath)
 		if (error) throw new Error(error.message)

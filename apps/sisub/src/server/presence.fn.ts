@@ -25,19 +25,19 @@ import type { FiscalPresenceRecord, ForecastMap } from "@/types/domain/presence"
 // Reads stay unauthenticated to match the original server-fn posture.
 // Mutations below require auth.
 export const fetchPresencesFn = createServerFn({ method: "GET" })
-	.inputValidator(ListPresencesSchema)
+	.validator(ListPresencesSchema)
 	.handler(async ({ data }) => {
 		return (await listPresences(getDb(), data).catch(handleDomainError)) as unknown as FiscalPresenceRecord[]
 	})
 
 export const fetchForecastsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListForecastMapSchema)
+	.validator(ListForecastMapSchema)
 	.handler(async ({ data }) => {
 		return (await listForecastMap(getDb(), data)) as ForecastMap
 	})
 
 export const insertPresenceFn = createServerFn({ method: "POST" })
-	.inputValidator(InsertPresenceSchema)
+	.validator(InsertPresenceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		// No handleDomainError: insertPresence throws a code-bearing Error so callers
@@ -46,7 +46,7 @@ export const insertPresenceFn = createServerFn({ method: "POST" })
 	})
 
 export const deletePresenceFn = createServerFn({ method: "POST" })
-	.inputValidator(DeletePresenceSchema)
+	.validator(DeletePresenceSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deletePresence(getDb(), ctx, data).catch(handleDomainError)

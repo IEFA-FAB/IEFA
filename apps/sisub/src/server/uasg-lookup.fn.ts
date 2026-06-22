@@ -53,7 +53,7 @@ const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
  * @throws {Error} "Compras.gov.br retornou {status}" on non-2xx response or AbortSignal timeout (10 s).
  */
 export const fetchUasgInfoFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ codigoUasg: z.string().length(6) }))
+	.validator(z.object({ codigoUasg: z.string().length(6) }))
 	.handler(async ({ data }) => {
 		const url = new URL(`${COMPRAS_BASE}/modulo-uasg/1_consultarUasg`)
 		url.searchParams.set("pagina", "1")

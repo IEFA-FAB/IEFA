@@ -16,7 +16,7 @@ function getStorageClient() {
 }
 
 export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ filePath: z.string().min(1) }))
+	.validator(z.object({ filePath: z.string().min(1) }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getStorageClient().storage.from("journal-submissions").createSignedUploadUrl(data.filePath)
 		if (error) throw new Error(error.message)
@@ -24,7 +24,7 @@ export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
 	})
 
 export const getSignedDownloadUrlFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ bucket: z.string(), path: z.string(), expiresIn: z.number().optional() }))
+	.validator(z.object({ bucket: z.string(), path: z.string(), expiresIn: z.number().optional() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getStorageClient()
 			.storage.from(data.bucket)

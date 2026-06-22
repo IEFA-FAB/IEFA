@@ -3,7 +3,7 @@ import { z } from "zod"
 import { getIefaAuthClient } from "@/lib/supabase.server"
 
 export const getServerSessionFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({}))
+	.validator(z.object({}))
 	.handler(async () => {
 		const supabase = getIefaAuthClient()
 		const [

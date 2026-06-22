@@ -31,7 +31,7 @@ import type { DraftWithSelections, KitchenAtaDraft } from "@/types/domain/ata"
 // ─── Listar rascunhos da cozinha ──────────────────────────────────────────────
 
 export const fetchKitchenDraftsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchKitchenDraftsSchema)
+	.validator(FetchKitchenDraftsSchema)
 	.handler(async ({ data }): Promise<DraftWithSelections[]> => {
 		const ctx = await requireAuth()
 		return (await fetchKitchenDrafts(getDb(), ctx, data).catch(handleDomainError)) as unknown as DraftWithSelections[]
@@ -40,7 +40,7 @@ export const fetchKitchenDraftsFn = createServerFn({ method: "GET" })
 // ─── Buscar rascunho enviado pendente para a cozinha ──────────────────────────
 
 export const fetchPendingDraftFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchPendingDraftSchema)
+	.validator(FetchPendingDraftSchema)
 	.handler(async ({ data }): Promise<DraftWithSelections | null> => {
 		const ctx = await requireAuth()
 		return (await fetchPendingDraft(getDb(), ctx, data).catch(handleDomainError)) as unknown as DraftWithSelections | null
@@ -49,7 +49,7 @@ export const fetchPendingDraftFn = createServerFn({ method: "GET" })
 // ─── Criar rascunho ───────────────────────────────────────────────────────────
 
 export const createKitchenDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateKitchenDraftSchema)
+	.validator(CreateKitchenDraftSchema)
 	.handler(async ({ data }): Promise<KitchenAtaDraft> => {
 		const ctx = await requireAuth()
 		return (await createKitchenDraft(getDb(), ctx, data).catch(handleDomainError)) as unknown as KitchenAtaDraft
@@ -58,7 +58,7 @@ export const createKitchenDraftFn = createServerFn({ method: "POST" })
 // ─── Atualizar rascunho ───────────────────────────────────────────────────────
 
 export const updateKitchenDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateKitchenDraftSchema)
+	.validator(UpdateKitchenDraftSchema)
 	.handler(async ({ data }): Promise<KitchenAtaDraft> => {
 		const ctx = await requireAuth()
 		return (await updateKitchenDraft(getDb(), ctx, data).catch(handleDomainError)) as unknown as KitchenAtaDraft
@@ -67,7 +67,7 @@ export const updateKitchenDraftFn = createServerFn({ method: "POST" })
 // ─── Enviar rascunho para a gestão ───────────────────────────────────────────
 
 export const sendKitchenDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(SendKitchenDraftSchema)
+	.validator(SendKitchenDraftSchema)
 	.handler(async ({ data }): Promise<void> => {
 		const ctx = await requireAuth()
 		await sendKitchenDraft(getDb(), ctx, data).catch(handleDomainError)
@@ -76,7 +76,7 @@ export const sendKitchenDraftFn = createServerFn({ method: "POST" })
 // ─── Deletar rascunho ─────────────────────────────────────────────────────────
 
 export const deleteKitchenDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteKitchenDraftSchema)
+	.validator(DeleteKitchenDraftSchema)
 	.handler(async ({ data }): Promise<void> => {
 		const ctx = await requireAuth()
 		await deleteKitchenDraft(getDb(), ctx, data).catch(handleDomainError)

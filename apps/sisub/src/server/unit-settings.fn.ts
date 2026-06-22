@@ -15,14 +15,14 @@ import { handleDomainError } from "@/lib/domain-errors"
 export type { UnitSettingsInput }
 
 export const fetchUnitSettingsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchUnitSettingsSchema)
+	.validator(FetchUnitSettingsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchUnitSettings(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateUnitSettingsFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateUnitSettingsSchema)
+	.validator(UpdateUnitSettingsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateUnitSettings(getDb(), ctx, data).catch(handleDomainError)
