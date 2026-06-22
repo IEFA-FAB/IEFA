@@ -51,12 +51,11 @@ export const getRouter = () => {
 	if (typeof window !== "undefined") {
 		supabase.auth.onAuthStateChange((event, session) => {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
-				rqContext.queryClient.setQueryData(authQueryOptions().queryKey, {
-					user: session.user,
-					session: session,
-					isAuthenticated: true,
-					isLoading: false,
-				})
+				// Authentic path: never trust session.user — it comes from the
+				// storage medium (cookies) and is not server-verified. Invalidate the
+				// auth query so it refetches getServerSessionFn() → supabase.auth.getUser(),
+				// which validates the token against the Supabase Auth server.
+				rqContext.queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
 				// When signing in from the auth page, navigate directly instead of
 				// invalidating. Invalidation triggers auth/route.tsx's beforeLoad which
 				// throws a redirect from the /auth/ index route — TanStack Router then

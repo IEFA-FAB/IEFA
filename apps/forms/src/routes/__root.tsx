@@ -66,12 +66,11 @@ function AuthSync() {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange(async (event, session) => {
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
-				queryClient.setQueryData(authQueryOptions().queryKey, {
-					user: session.user,
-					session,
-					isAuthenticated: true,
-					isLoading: false,
-				})
+				// Caminho autêntico: nunca confiar em session.user — vem do storage
+				// (cookies) e não é verificado pelo servidor. Invalida a auth query
+				// para refetch via getServerSessionFn() → supabase.auth.getUser(),
+				// que valida o token no servidor Supabase Auth.
+				queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
 				router.invalidate()
 			}
 			if (event === "SIGNED_OUT") {
