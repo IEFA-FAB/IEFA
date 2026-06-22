@@ -10,25 +10,25 @@
         "typecheck": "fumadocs-mdx && tsgo --noEmit"
     },
     "dependencies": {
-        "@tanstack/react-router": "^1.170.10",
-        "@tanstack/react-start": "^1.168.18",
-        "fumadocs-core": "^16.9.3",
-        "fumadocs-mdx": "^15.0.10",
-        "fumadocs-ui": "^16.9.3",
-        "react": "^19.2.6",
-        "react-dom": "^19.2.6",
+        "@tanstack/react-router": "^1.170.16",
+        "@tanstack/react-start": "^1.168.26",
+        "fumadocs-core": "^16.10.5",
+        "fumadocs-mdx": "^15.0.12",
+        "fumadocs-ui": "^16.10.5",
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
         "tslib": "^2.8.1"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.3.0",
-        "@types/mdx": "^2.0.13",
-        "@types/react": "^19.2.15",
+        "@tailwindcss/vite": "^4.3.1",
+        "@types/mdx": "^2.0.14",
+        "@types/react": "^19.2.17",
         "@types/react-dom": "^19.2.3",
-        "@typescript/native-preview": "^7.0.0-dev.20260527.2",
+        "@typescript/native-preview": "^7.0.0-dev.20260622.1",
         "@vitejs/plugin-react": "^6.0.2",
-        "nitro": "^3.0.260522-beta",
-        "tailwindcss": "^4.3.0",
+        "nitro": "^3.0.260610-beta",
+        "tailwindcss": "^4.3.1",
         "typescript": "^6.0.3",
-        "vite": "^8.0.14"
+        "vite": "^8.0.16"
     }
 }
