@@ -18,13 +18,16 @@ import { getSupabaseAuthClient } from "@/lib/supabase.server"
  */
 export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
 	const supabase = getSupabaseAuthClient()
-	// getUser() valida o token no servidor Supabase — não usa localStorage
-	const {
-		data: { user },
-	} = await supabase.auth.getUser()
-	const {
-		data: { session },
-	} = await supabase.auth.getSession()
+	// getUser() valida o token no servidor Supabase — não usa localStorage.
+	// getSession() é independente de getUser() → roda em paralelo.
+	const [
+		{
+			data: { user },
+		},
+		{
+			data: { session },
+		},
+	] = await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()])
 
 	return {
 		user: user ?? null,

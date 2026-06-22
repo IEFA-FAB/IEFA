@@ -237,8 +237,7 @@ export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
 export const recordIngredientVersionFn = createServerFn({ method: "POST" })
 	.inputValidator(RecordIngredientVersionSchema)
 	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		const actor = await resolveActor()
+		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
 		return recordIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
@@ -252,8 +251,7 @@ export const fetchIngredientVersionsFn = createServerFn({ method: "GET" })
 export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
 	.inputValidator(RestoreIngredientVersionSchema)
 	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		const actor = await resolveActor()
+		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
 		return restoreIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
@@ -262,8 +260,7 @@ export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
 export const recordIngredientReviewFn = createServerFn({ method: "POST" })
 	.inputValidator(RecordIngredientReviewSchema)
 	.handler(async ({ data }) => {
-		const ctx = await requireAuth()
-		const actor = await resolveActor()
+		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
 		return recordIngredientReview(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
