@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
+// CSS do React Flow (editor de fluxo de produção) — carregado só nas rotas que o usam.
+import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeForm } from "@/components/features/shared/RecipeForm"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -14,6 +16,7 @@ export const Route = createFileRoute("/_protected/_modules/global/recipes/$recip
 	component: GlobalRecipeEditPage,
 	head: () => ({
 		meta: [{ title: "Editar Preparação Global - SISUB" }],
+		links: [{ rel: "stylesheet", href: XyflowStyles }],
 	}),
 })
 
