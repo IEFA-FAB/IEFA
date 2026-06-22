@@ -4,6 +4,19 @@
     "react-doctor/query-mutation-missing-invalidation": "off"
   },
   "ignore": {
+    "files": [
+      ".output/**",
+      "**/.output/**",
+      "dist/**",
+      "**/dist/**",
+      "dist-ssr/**",
+      "build/**",
+      ".nitro/**",
+      ".vinxi/**",
+      ".tanstack/**",
+      "coverage/**",
+      "**/*.gen.ts"
+    ],
     "rules": ["react-hooks-js/todo", "react-hooks-js/set-state-in-effect", "react-hooks-js/refs"],
     "overrides": [
       {
