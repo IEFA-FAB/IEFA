@@ -52,6 +52,7 @@ type ResetPasswordRouteState = {
 
 type ResetPasswordRouteAction =
 	| { type: "SET_PAGE_STATE"; value: PageState }
+	| { type: "RESOLVE_FALLBACK"; hasSession: boolean }
 	| { type: "SET_NEW_PASSWORD"; value: string }
 	| { type: "SET_CONFIRM"; value: string }
 	| { type: "TOGGLE_SHOW_PASSWORD" }
@@ -73,6 +74,11 @@ function resetPasswordRouteReducer(state: ResetPasswordRouteState, action: Reset
 	switch (action.type) {
 		case "SET_PAGE_STATE":
 			return { ...state, pageState: action.value }
+		case "RESOLVE_FALLBACK":
+			// Só aplica o fallback se ainda estivermos verificando — evita
+			// sobrescrever um estado "form" já resolvido pelo onAuthStateChange.
+			if (state.pageState !== "verifying") return state
+			return { ...state, pageState: action.hasSession ? "form" : "invalid" }
 		case "SET_NEW_PASSWORD":
 			return { ...state, newPassword: action.value }
 		case "SET_CONFIRM":
@@ -104,8 +110,9 @@ function ResetPasswordPage() {
 	const passwordErr = newPassword ? getPasswordError(newPassword) : null
 	const confirmErr = confirm && confirm !== newPassword ? "As senhas não coincidem." : null
 
-	// Aguarda o evento de recuperação de senha do Supabase (via hash do link)
-	// biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount, pageState setter is stable
+	// Aguarda o evento de recuperação de senha do Supabase (via hash do link).
+	// Sem deps reativas: só usa supabase/dispatch (estáveis) e a decisão de
+	// estado mora no reducer (RESOLVE_FALLBACK).
 	useEffect(() => {
 		const {
 			data: { subscription },
@@ -115,14 +122,14 @@ function ResetPasswordPage() {
 			}
 		})
 
-		// Fallback: se a sessão já estiver ativa (link com token no hash já processado)
+		// Fallback: se a sessão já estiver ativa (link com token no hash já processado).
+		// A decisão de "ainda verificando?" vai no reducer para não ler pageState
+		// defasado (capturado no mount) e sobrescrever um "form" já resolvido.
 		const timer = setTimeout(async () => {
 			const {
 				data: { session },
 			} = await supabase.auth.getSession()
-			if (pageState === "verifying") {
-				dispatch({ type: "SET_PAGE_STATE", value: session ? "form" : "invalid" })
-			}
+			dispatch({ type: "RESOLVE_FALLBACK", hasSession: !!session })
 		}, 1500)
 
 		return () => {
