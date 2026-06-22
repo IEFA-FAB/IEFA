@@ -23,6 +23,10 @@ export type QuickFilterKey = (typeof QUICK_FILTER_CATEGORIES)[number]["key"]
  * com um objeto não-array (ex: envelope de erro materializado pelo client em
  * vez de rejeitar) — `?? []` só cobre null/undefined, então `for...of`/spread
  * sobre esse objeto lançaria "object is not iterable". `asArray` garante array.
+ *
+ * O parâmetro é tipado como `readonly T[]` (o formato *esperado*, que preserva a
+ * inferência de `T` nos call sites) enquanto o `Array.isArray` defende, em runtime,
+ * contra qualquer outro formato inesperado — não só `null`/`undefined`.
  */
 const asArray = <T>(value: readonly T[] | null | undefined): readonly T[] => (Array.isArray(value) ? value : [])
 
