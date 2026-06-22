@@ -19,7 +19,7 @@ import {
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Ingredient, Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
-import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
+import { and, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
@@ -53,26 +53,48 @@ const RECIPE_RELATIONS: Record<string, string> = {
 	ingredientInSisub: "ingredient",
 }
 
-// Relational `with` — nível ingredientes (e, opcionalmente, alternativas aninhadas).
+// Relational `with` — nível ingredientes (com o insumo de cada um).
 const WITH_INGREDIENTS = { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } } as const
-const WITH_ALTERNATIVES = {
-	recipeIngredientsInSisubs: {
-		with: { ingredientInSisub: true, recipeIngredientAlternativesInSisubs: { with: { ingredientInSisub: true } } },
-	},
-} as const
 
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
 	requirePermission(ctx, "kitchen", 1)
 
 	// BUG FIX: filtra deleted_at IS NULL — sisub não filtrava.
 	const where = and(eq(recipesInSisub.id, input.recipeId), isNull(recipesInSisub.deletedAt))
-	const row = await runQuery("FETCH_FAILED", () =>
-		input.includeAlternatives
-			? db.query.recipesInSisub.findFirst({ where, with: WITH_ALTERNATIVES })
-			: db.query.recipesInSisub.findFirst({ where, with: WITH_INGREDIENTS })
-	)
+	const row = await runQuery("FETCH_FAILED", () => db.query.recipesInSisub.findFirst({ where, with: WITH_INGREDIENTS }))
 
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
+
+	// Alternativas em query SEPARADA — NÃO aninhar no relational query acima.
+	// recipe → recipe_ingredients → alternatives → ingredient é fundo demais: o Drizzle
+	// concatena o caminho das relations no alias da tabela e o nome estoura o limite de
+	// 63 chars de identificador do Postgres (NAMEDATALEN), que trunca silenciosamente →
+	// aliases divergem/colidem e a query inteira quebra (detalhe da preparação nunca carrega).
+	// Buscamos as alternativas dos recipe_ingredients desta receita (profundidade 2, dentro
+	// do limite) e costuramos no shape que o toWire/contrato espera.
+	if (input.includeAlternatives) {
+		const ingredientRows = row.recipeIngredientsInSisubs ?? []
+		const riIds = ingredientRows.map((ri) => ri.id)
+		if (riIds.length > 0) {
+			const alts = await runQuery("FETCH_FAILED", () =>
+				db.query.recipeIngredientAlternativesInSisub.findMany({
+					where: inArray(recipeIngredientAlternativesInSisub.recipeIngredientId, riIds),
+					with: { ingredientInSisub: true },
+				})
+			)
+			const byRecipeIngredient = new Map<string, typeof alts>()
+			for (const alt of alts) {
+				if (!alt.recipeIngredientId) continue
+				const bucket = byRecipeIngredient.get(alt.recipeIngredientId)
+				if (bucket) bucket.push(alt)
+				else byRecipeIngredient.set(alt.recipeIngredientId, [alt])
+			}
+			for (const ri of ingredientRows) {
+				;(ri as typeof ri & { recipeIngredientAlternativesInSisubs: typeof alts }).recipeIngredientAlternativesInSisubs = byRecipeIngredient.get(ri.id) ?? []
+			}
+		}
+	}
+
 	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
 }
 

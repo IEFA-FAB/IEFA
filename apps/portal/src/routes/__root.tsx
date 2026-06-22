@@ -110,12 +110,11 @@ function AuthSync() {
 			// INITIAL_SESSION fires on page load/reload (Supabase v2.63+).
 			// SIGNED_IN fires only on actual new sign-ins.
 			if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session) {
-				queryClient.setQueryData(authQueryOptions().queryKey, {
-					user: session.user,
-					session,
-					isAuthenticated: true,
-					isLoading: false,
-				})
+				// Authentic path: never trust session.user — it comes from the
+				// storage medium (cookies) and is not server-verified. Invalidate the
+				// auth query so it refetches getServerSessionFn() → supabase.auth.getUser(),
+				// which validates the token against the Supabase Auth server.
+				queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
 				router.invalidate()
 			}
 			if (event === "SIGNED_OUT") {
