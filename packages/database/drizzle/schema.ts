@@ -1,4 +1,4 @@
-import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, bigint, numeric, integer, jsonb, boolean, bigserial, smallint, pgPolicy, json, check, date, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgEnum, pgSchema, index, foreignKey, unique, uuid, varchar, text, timestamp, bigint, numeric, integer, jsonb, boolean, bigserial, smallint, pgPolicy, json, uniqueIndex, date, check, doublePrecision } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const sisub = pgSchema("sisub");
@@ -179,6 +179,31 @@ export const menuItemsInSisub = sisub.table("menu_items", {
 			name: "menu_items_recipe_origin_id_fkey"
 		}),
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
+]);
+
+export const comprasAmostraInSisub = sisub.table("compras_amostra", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	idCompra: text("id_compra").notNull(),
+	idItemCompra: integer("id_item_compra"),
+	descricaoItem: text("descricao_item"),
+	precoUnitario: numeric("preco_unitario", { precision: 12, scale:  4 }),
+	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { precision: 12, scale:  4 }),
+	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
+	siglaUnidadeMedida: text("sigla_unidade_medida"),
+	quantidade: numeric({ precision: 14, scale:  4 }),
+	codigoUasg: text("codigo_uasg"),
+	nomeUasg: text("nome_uasg"),
+	municipio: text(),
+	estado: text(),
+	esfera: text(),
+	marca: text(),
+	normalizedPrice: numeric("normalized_price", { precision: 12, scale:  4 }),
+	referenceDate: date("reference_date"),
+	fingerprint: text().generatedAlwaysAs(sql`sisub.compras_amostra_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("int4_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
+	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast().op("text_ops")),
 ]);
 
 export const ingredientReviewInSisub = sisub.table("ingredient_review", {
@@ -1073,6 +1098,55 @@ export const procurementListItemInSisub = sisub.table("procurement_list_item", {
 		}),
 ]);
 
+export const procurementPesquisaPrecoAmostraInSisub = sisub.table("procurement_pesquisa_preco_amostra", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	researchItemId: uuid("research_item_id").notNull(),
+	sampleType: text("sample_type").notNull(),
+	similarity: numeric({ precision: 4, scale:  3 }),
+	amostraId: uuid("amostra_id").notNull(),
+}, (table) => [
+	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.sampleType.asc().nullsLast().op("text_ops")),
+	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.amostraId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.amostraId],
+			foreignColumns: [comprasAmostraInSisub.id],
+			name: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
+		}).onDelete("restrict"),
+	foreignKey({
+			columns: [table.researchItemId],
+			foreignColumns: [procurementPesquisaPrecoItemInSisub.id],
+			name: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_pesquisa_preco_amostra_sample_type_check", sql`sample_type = ANY (ARRAY['valid'::text, 'outlier'::text, 'pollution'::text])`),
+]);
+
+export const procurementPesquisaPrecoInSisub = sisub.table("procurement_pesquisa_preco", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	ataId: uuid("ata_id"),
+	referenceMethod: text("reference_method").default('median').notNull(),
+	periodMonths: smallint("period_months").default(12),
+	similarityThreshold: numeric("similarity_threshold", { precision: 4, scale:  3 }),
+	filterEstado: text("filter_estado"),
+	filterUasgCode: text("filter_uasg_code"),
+	filterMunicipioCode: integer("filter_municipio_code"),
+	totalItems: integer("total_items").default(0).notNull(),
+	itemsWithPrice: integer("items_with_price").default(0).notNull(),
+	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
+	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	idempotencyKey: text("idempotency_key"),
+}, (table) => [
+	index("idx_pesquisa_preco_ata").using("btree", table.ataId.asc().nullsLast().op("uuid_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	index("idx_pesquisa_preco_pending").using("btree", table.ataId.asc().nullsLast().op("uuid_ops")).where(sql`(ata_id IS NULL)`),
+	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast().op("text_ops")).where(sql`(idempotency_key IS NOT NULL)`),
+	foreignKey({
+			columns: [table.ataId],
+			foreignColumns: [procurementListInSisub.id],
+			name: "procurement_pesquisa_preco_ata_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_pesquisa_preco_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
+]);
+
 export const kitchenAtaDraftInSisub = sisub.table("kitchen_ata_draft", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	kitchenId: integer("kitchen_id").notNull(),
@@ -1107,33 +1181,6 @@ export const kitchenAtaDraftSelectionInSisub = sisub.table("kitchen_ata_draft_se
 			name: "kitchen_ata_draft_selection_template_id_fkey"
 		}),
 	check("kitchen_ata_draft_selection_repetitions_check", sql`repetitions > 0`),
-]);
-
-export const procurementPesquisaPrecoInSisub = sisub.table("procurement_pesquisa_preco", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	ataId: uuid("ata_id"),
-	referenceMethod: text("reference_method").default('median').notNull(),
-	periodMonths: smallint("period_months").default(12),
-	similarityThreshold: numeric("similarity_threshold", { precision: 4, scale:  3 }),
-	filterEstado: text("filter_estado"),
-	filterUasgCode: text("filter_uasg_code"),
-	filterMunicipioCode: integer("filter_municipio_code"),
-	totalItems: integer("total_items").default(0).notNull(),
-	itemsWithPrice: integer("items_with_price").default(0).notNull(),
-	itemsWithoutCatmat: integer("items_without_catmat").default(0).notNull(),
-	nonCompliantItems: integer("non_compliant_items").default(0).notNull(),
-	idempotencyKey: text("idempotency_key"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	index("idx_pesquisa_preco_ata").using("btree", table.ataId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
-	index("idx_pesquisa_preco_pending").using("btree", table.ataId.asc().nullsLast().op("uuid_ops")).where(sql`(ata_id IS NULL)`),
-	uniqueIndex("uq_pesquisa_preco_idempotency").using("btree", table.idempotencyKey.asc().nullsLast().op("text_ops")).where(sql`(idempotency_key IS NOT NULL)`),
-	foreignKey({
-			columns: [table.ataId],
-			foreignColumns: [procurementListInSisub.id],
-			name: "procurement_pesquisa_preco_ata_id_fkey"
-		}).onDelete("cascade"),
-	check("procurement_pesquisa_preco_reference_method_check", sql`reference_method = ANY (ARRAY['median'::text, 'mean'::text, 'lowest'::text])`),
 ]);
 
 export const procurementPesquisaPrecoItemInSisub = sisub.table("procurement_pesquisa_preco_item", {
@@ -1201,59 +1248,6 @@ export const productionTaskInSisub = sisub.table("production_task", {
 		}).onDelete("cascade"),
 	unique("production_task_menu_item_id_key").on(table.menuItemId),
 	check("production_task_status_check", sql`status = ANY (ARRAY['PENDING'::text, 'IN_PROGRESS'::text, 'DONE'::text])`),
-]);
-
-// Catálogo imutável de observações de compra do Compras.gov.br, deduplicado por
-// fingerprint de conteúdo. Uma linha = uma compra pública observada numa pesquisa.
-export const comprasAmostraInSisub = sisub.table("compras_amostra", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	idCompra: text("id_compra").notNull(),
-	idItemCompra: integer("id_item_compra"),
-	descricaoItem: text("descricao_item"),
-	precoUnitario: numeric("preco_unitario", { precision: 12, scale:  4 }),
-	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { precision: 12, scale:  4 }),
-	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
-	siglaUnidadeMedida: text("sigla_unidade_medida"),
-	quantidade: numeric({ precision: 14, scale:  4 }),
-	codigoUasg: text("codigo_uasg"),
-	nomeUasg: text("nome_uasg"),
-	municipio: text(),
-	estado: text(),
-	esfera: text(),
-	marca: text(),
-	normalizedPrice: numeric("normalized_price", { precision: 12, scale:  4 }),
-	referenceDate: date("reference_date"),
-	// Coluna gerada (STORED) — identidade de conteúdo; ver migration.
-	fingerprint: text().generatedAlwaysAs(sql`sisub.compras_amostra_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast().op("text_ops")),
-	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("text_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
-]);
-
-// Ponte estreita: liga uma pesquisa às observações de compra (sisub.compras_amostra).
-// Os campos de fato (preço, UASG, datas…) vivem no catálogo deduplicado; aqui ficam
-// apenas os atributos POR-PESQUISA (classificação e similaridade vs CATMAT).
-export const procurementPesquisaPrecoAmostraInSisub = sisub.table("procurement_pesquisa_preco_amostra", {
-	id: uuid().defaultRandom().primaryKey().notNull(),
-	researchItemId: uuid("research_item_id").notNull(),
-	amostraId: uuid("amostra_id").notNull(),
-	sampleType: text("sample_type").notNull(),
-	similarity: numeric({ precision: 4, scale:  3 }),
-}, (table) => [
-	index("idx_pesquisa_preco_amostra_item_type").using("btree", table.researchItemId.asc().nullsLast().op("text_ops"), table.sampleType.asc().nullsLast().op("text_ops")),
-	uniqueIndex("uq_amostra_research_item_amostra").using("btree", table.researchItemId.asc().nullsLast().op("uuid_ops"), table.amostraId.asc().nullsLast().op("uuid_ops")),
-	foreignKey({
-			columns: [table.researchItemId],
-			foreignColumns: [procurementPesquisaPrecoItemInSisub.id],
-			name: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
-		}).onDelete("cascade"),
-	foreignKey({
-			columns: [table.amostraId],
-			foreignColumns: [comprasAmostraInSisub.id],
-			name: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
-		}).onDelete("restrict"),
-	check("procurement_pesquisa_preco_amostra_sample_type_check", sql`sample_type = ANY (ARRAY['valid'::text, 'outlier'::text, 'pollution'::text])`),
 ]);
 
 export const policyRuleInSisub = sisub.table("policy_rule", {
@@ -1453,6 +1447,161 @@ export const moduleChatMessageInSisub = sisub.table("module_chat_message", {
 		}).onDelete("cascade"),
 	check("module_chat_message_has_payload", sql`(btrim(content) <> ''::text) OR (tool_calls IS NOT NULL) OR (tool_result IS NOT NULL) OR (error IS NOT NULL))) NOT VALID`),
 	check("module_chat_message_role_check", sql`role = ANY (ARRAY['user'::text, 'assistant'::text, 'tool'::text])`),
+]);
+
+export const stepTemplateInSisub = sisub.table("step_template", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	defaultDurationMinutes: integer("default_duration_minutes"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("step_template_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInSisub.id],
+			name: "step_template_kitchen_id_fkey"
+		}),
+]);
+
+export const utensilInSisub = sisub.table("utensil", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	name: text().notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	kitchenId: bigint("kitchen_id", { mode: "number" }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("utensil_name_active_uniq").using("btree", sql`lower(name)`, sql`COALESCE(kitchen_id, (0)::bigint)`).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.kitchenId],
+			foreignColumns: [kitchenInSisub.id],
+			name: "utensil_kitchen_id_fkey"
+		}),
+]);
+
+export const stepTemplateUtensilInSisub = sisub.table("step_template_utensil", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	stepTemplateId: uuid("step_template_id").notNull(),
+	utensilId: uuid("utensil_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("step_template_utensil_uniq").using("btree", table.stepTemplateId.asc().nullsLast().op("uuid_ops"), table.utensilId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.stepTemplateId],
+			foreignColumns: [stepTemplateInSisub.id],
+			name: "step_template_utensil_step_template_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.utensilId],
+			foreignColumns: [utensilInSisub.id],
+			name: "step_template_utensil_utensil_id_fkey"
+		}),
+]);
+
+export const recipeStepInSisub = sisub.table("recipe_step", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	recipeId: uuid("recipe_id").notNull(),
+	stepTemplateId: uuid("step_template_id"),
+	label: text(),
+	description: text(),
+	durationMinutes: integer("duration_minutes"),
+	canvasX: doublePrecision("canvas_x").default(0).notNull(),
+	canvasY: doublePrecision("canvas_y").default(0).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("recipe_step_recipe_idx").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipesInSisub.id],
+			name: "recipe_step_recipe_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.stepTemplateId],
+			foreignColumns: [stepTemplateInSisub.id],
+			name: "recipe_step_step_template_id_fkey"
+		}),
+]);
+
+export const recipeStepOutputInSisub = sisub.table("recipe_step_output", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	recipeStepId: uuid("recipe_step_id").notNull(),
+	recipeId: uuid("recipe_id").notNull(),
+	label: text(),
+	quantity: numeric(),
+	measureUnit: text("measure_unit"),
+	isFinal: boolean("is_final").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("recipe_step_output_final_uniq").using("btree", table.recipeId.asc().nullsLast().op("uuid_ops")).where(sql`(is_final AND (deleted_at IS NULL))`),
+	index("recipe_step_output_step_idx").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipesInSisub.id],
+			name: "recipe_step_output_recipe_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.recipeStepId],
+			foreignColumns: [recipeStepInSisub.id],
+			name: "recipe_step_output_recipe_step_id_fkey"
+		}),
+]);
+
+export const recipeStepInputInSisub = sisub.table("recipe_step_input", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	recipeStepId: uuid("recipe_step_id").notNull(),
+	recipeIngredientId: uuid("recipe_ingredient_id"),
+	sourceOutputId: uuid("source_output_id"),
+	quantity: numeric(),
+	measureUnit: text("measure_unit"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("recipe_step_input_ri_idx").using("btree", table.recipeIngredientId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_input_source_idx").using("btree", table.sourceOutputId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	index("recipe_step_input_step_idx").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.recipeIngredientId],
+			foreignColumns: [recipeIngredientsInSisub.id],
+			name: "recipe_step_input_recipe_ingredient_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.recipeStepId],
+			foreignColumns: [recipeStepInSisub.id],
+			name: "recipe_step_input_recipe_step_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.sourceOutputId],
+			foreignColumns: [recipeStepOutputInSisub.id],
+			name: "recipe_step_input_source_output_id_fkey"
+		}),
+	check("recipe_step_input_source_xor", sql`((recipe_ingredient_id IS NOT NULL) AND (source_output_id IS NULL)) OR ((recipe_ingredient_id IS NULL) AND (source_output_id IS NOT NULL))`),
+]);
+
+export const recipeStepUtensilInSisub = sisub.table("recipe_step_utensil", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	recipeStepId: uuid("recipe_step_id").notNull(),
+	utensilId: uuid("utensil_id").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	uniqueIndex("recipe_step_utensil_uniq").using("btree", table.recipeStepId.asc().nullsLast().op("uuid_ops"), table.utensilId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.recipeStepId],
+			foreignColumns: [recipeStepInSisub.id],
+			name: "recipe_step_utensil_recipe_step_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.utensilId],
+			foreignColumns: [utensilInSisub.id],
+			name: "recipe_step_utensil_utensil_id_fkey"
+		}),
 ]);
 export const ingredientLastReviewInSisub = sisub.view("ingredient_last_review", {	ingredientId: uuid("ingredient_id"),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),

@@ -4487,6 +4487,205 @@ export type Database = {
 					},
 				]
 			}
+			recipe_step: {
+				Row: {
+					canvas_x: number
+					canvas_y: number
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					duration_minutes: number | null
+					id: string
+					label: string | null
+					recipe_id: string
+					step_template_id: string | null
+				}
+				Insert: {
+					canvas_x?: number
+					canvas_y?: number
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					duration_minutes?: number | null
+					id?: string
+					label?: string | null
+					recipe_id: string
+					step_template_id?: string | null
+				}
+				Update: {
+					canvas_x?: number
+					canvas_y?: number
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					duration_minutes?: number | null
+					id?: string
+					label?: string | null
+					recipe_id?: string
+					step_template_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_step_template_id_fkey"
+						columns: ["step_template_id"]
+						isOneToOne: false
+						referencedRelation: "step_template"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step_input: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					measure_unit: string | null
+					quantity: number | null
+					recipe_ingredient_id: string | null
+					recipe_step_id: string
+					source_output_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_ingredient_id?: string | null
+					recipe_step_id: string
+					source_output_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_ingredient_id?: string | null
+					recipe_step_id?: string
+					source_output_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_input_recipe_ingredient_id_fkey"
+						columns: ["recipe_ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_ingredients"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_input_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_input_source_output_id_fkey"
+						columns: ["source_output_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step_output"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step_output: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					is_final: boolean
+					label: string | null
+					measure_unit: string | null
+					quantity: number | null
+					recipe_id: string
+					recipe_step_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_final?: boolean
+					label?: string | null
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_id: string
+					recipe_step_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_final?: boolean
+					label?: string | null
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_id?: string
+					recipe_step_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_output_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_output_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step_utensil: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					recipe_step_id: string
+					utensil_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					recipe_step_id: string
+					utensil_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					recipe_step_id?: string
+					utensil_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_utensil_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_utensil_utensil_id_fkey"
+						columns: ["utensil_id"]
+						isOneToOne: false
+						referencedRelation: "utensil"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			recipes: {
 				Row: {
 					base_recipe_id: string | null
@@ -4542,6 +4741,83 @@ export type Database = {
 						columns: ["kitchen_id"]
 						isOneToOne: false
 						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			step_template: {
+				Row: {
+					created_at: string
+					default_duration_minutes: number | null
+					deleted_at: string | null
+					description: string | null
+					id: string
+					kitchen_id: number | null
+					name: string
+				}
+				Insert: {
+					created_at?: string
+					default_duration_minutes?: number | null
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name: string
+				}
+				Update: {
+					created_at?: string
+					default_duration_minutes?: number | null
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "step_template_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			step_template_utensil: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					step_template_id: string
+					utensil_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					step_template_id: string
+					utensil_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					step_template_id?: string
+					utensil_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "step_template_utensil_step_template_id_fkey"
+						columns: ["step_template_id"]
+						isOneToOne: false
+						referencedRelation: "step_template"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "step_template_utensil_utensil_id_fkey"
+						columns: ["utensil_id"]
+						isOneToOne: false
+						referencedRelation: "utensil"
 						referencedColumns: ["id"]
 					},
 				]
@@ -4725,6 +5001,38 @@ export type Database = {
 						columns: ["unit_id"]
 						isOneToOne: false
 						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			utensil: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					kitchen_id: number | null
+					name: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "utensil_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
 						referencedColumns: ["id"]
 					},
 				]
