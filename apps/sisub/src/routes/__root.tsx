@@ -4,7 +4,6 @@ import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
-import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
@@ -92,11 +91,9 @@ function RootDocument() {
 		<html lang="pt-BR" suppressHydrationWarning>
 			<head>
 				<link rel="preload" href={AppStyles} as="style" />
-				<link rel="preload" href={XyflowStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
-				<link rel="stylesheet" href={XyflowStyles} />
-				<link rel="preload" href="/fonts/Manrope-Variable.ttf" as="font" crossOrigin="anonymous" />
-				<link rel="preload" href="/fonts/JetBrainsMono-Variable.ttf" as="font" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/Manrope-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/JetBrainsMono-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
 
 				<HeadContent />
 				<ThemeScript />

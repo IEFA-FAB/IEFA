@@ -47,7 +47,11 @@ export default defineConfig(async ({ mode, isSsrBuild }) => {
 				routeRules: {
 					"/**": { headers: { "cache-control": "no-cache" } },
 					"/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-					"/assets/styles.css": { headers: { "cache-control": "no-cache" } },
+					// styles.css tem nome fixo (sem hash) p/ evitar mismatch SSR↔client, então NÃO pode
+					// ser immutable (serviria CSS velho pra sempre após deploy). stale-while-revalidate:
+					// pinta do cache na hora (ganho de FCP) e revalida em background — um deploy de CSS
+					// se auto-corrige no próximo load, no máximo 1 paint stale. Mantém cssCodeSplit:false.
+					"/assets/styles.css": { headers: { "cache-control": "public, max-age=0, stale-while-revalidate=86400" } },
 					"/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
 				},
 			}),
