@@ -90,7 +90,7 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 				else byRecipeIngredient.set(alt.recipeIngredientId, [alt])
 			}
 			for (const ri of ingredientRows) {
-				;(ri as Record<string, unknown>).recipeIngredientAlternativesInSisubs = byRecipeIngredient.get(ri.id) ?? []
+				;(ri as typeof ri & { recipeIngredientAlternativesInSisubs: typeof alts }).recipeIngredientAlternativesInSisubs = byRecipeIngredient.get(ri.id) ?? []
 			}
 		}
 	}
