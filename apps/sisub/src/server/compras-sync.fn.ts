@@ -62,7 +62,7 @@ export const triggerSyncFn = createServerFn({ method: "POST" }).handler(async ()
  * @throws {Error} "API retornou {status}" on non-2xx API response.
  */
 export const getSyncStatusFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ id: z.number().int().positive() }))
+	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		const res = await fetchApi(`/api/admin/compras/sync/${data.id}`, {
 			headers: adminHeaders(),
@@ -77,7 +77,7 @@ export const getSyncStatusFn = createServerFn({ method: "GET" })
  * @throws {Error} "API retornou {status}" on any other non-2xx/409 response.
  */
 export const stopSyncFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.number().int().positive() }))
+	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
 		const res = await fetchApi(`/api/admin/compras/sync/${data.id}/stop`, {
 			method: "POST",

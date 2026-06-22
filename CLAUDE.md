@@ -21,7 +21,7 @@ Bun monorepo, Turborepo orchestration, Biome formatting/linting.
 
 ## Conventions
 
-- **Server functions (TanStack Start)**: `createServerFn` with `.inputValidator(z.object(...))` — NOT `.validator()`
+- **Server functions (TanStack Start)**: `createServerFn` with `.validator(z.object(...))` — NOT `.inputValidator()` (deprecated)
 - **Server fn files**: `src/server/*.fn.ts`
 - **Supabase server client**: `getSupabaseServerClient()` per-request inside `.handler()`, never singleton
 - **Imports**: `@/*` → `src/*`

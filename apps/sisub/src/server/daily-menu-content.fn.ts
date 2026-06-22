@@ -32,7 +32,7 @@ export interface DayMenuContent {
 }
 
 export const fetchDailyMenuContentFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchDailyMenuContentSchema)
+	.validator(FetchDailyMenuContentSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return (await fetchDailyMenuContent(getDb(), ctx, data).catch(handleDomainError)) as unknown as DayMenuContent

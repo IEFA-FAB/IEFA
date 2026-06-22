@@ -16,7 +16,7 @@ const CATEGORIAS = ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_f
 export type UniformListItem = Uniform & { categories: { categoria: CategoriaMilitar }[] }
 
 export const listUniformsFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			grupo: z.enum(GRUPOS).optional(),
 			categoria: z.enum(CATEGORIAS).optional(),
@@ -39,7 +39,7 @@ export const listUniformsFn = createServerFn({ method: "GET" })
 	})
 
 export const getUniformFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<UniformDetail | null> => {
 		const supabase = getRumaerServerClient()
 

@@ -23,7 +23,7 @@ import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
  * @throws {Error} on Supabase query failure.
  */
 export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ target: z.enum(["product", "recipe"]) }))
+	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<PolicyRule[]> => {
 		const { data: result, error } = await getSupabaseServerClient()
 			.from("policy_rule")
@@ -46,7 +46,7 @@ export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
  * @throws {Error} on Supabase insert failure.
  */
 export const createPolicyRuleFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			target: z.enum(["product", "recipe"]),
 			title: z.string().min(3, "Mínimo de 3 caracteres"),
@@ -80,7 +80,7 @@ export const createPolicyRuleFn = createServerFn({ method: "POST" })
  * @throws {Error} on Supabase update failure or not found.
  */
 export const updatePolicyRuleFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid(),
 			title: z.string().min(3).optional(),
@@ -113,7 +113,7 @@ export const updatePolicyRuleFn = createServerFn({ method: "POST" })
  * @throws {Error} on Supabase update failure.
  */
 export const deletePolicyRuleFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAuth()
 		const { error } = await getSupabaseServerClient()
@@ -142,7 +142,7 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
  * @throws {Error} on Supabase query failure.
  */
 export const generateReviewPromptFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ target: z.enum(["product", "recipe"]) }))
+	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<string> => {
 		const supabase = getSupabaseServerClient()
 		const target: PolicyTarget = data.target

@@ -28,14 +28,14 @@ export const fetchPlacesGraphFn = createServerFn({ method: "GET" }).handler(asyn
 })
 
 export const updatePlacesEntityFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdatePlacesEntitySchema)
+	.validator(UpdatePlacesEntitySchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updatePlacesEntity(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const applyPlacesDiffFn = createServerFn({ method: "POST" })
-	.inputValidator(ApplyPlacesDiffSchema)
+	.validator(ApplyPlacesDiffSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return applyPlacesDiff(getDb(), ctx, data).catch(handleDomainError)

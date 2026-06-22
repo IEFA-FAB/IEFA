@@ -44,7 +44,7 @@ const draftMetadataSchema = z.object({
  * Returns the articleId — use it to track state in the form.
  */
 export const saveDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		draftMetadataSchema.extend({
 			userId: z.string().uuid(),
 			articleId: z.string().uuid().optional(),
@@ -121,7 +121,7 @@ export const saveDraftFn = createServerFn({ method: "POST" })
  * Called immediately after each file upload in step 4 so paths are persisted.
  */
 export const saveVersionDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			articleId: z.string().uuid(),
 			userId: z.string().uuid(),
@@ -173,7 +173,7 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
  * Updates article status, replaces authors, and logs the submission event.
  */
 export const submitArticleFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			articleId: z.string().uuid(),
 			userId: z.string().uuid(),

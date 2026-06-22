@@ -27,7 +27,7 @@ const TIPO_PECA = z.enum(["cabeca", "torso", "pernas", "calcado", "acessorio", "
 
 // ---------------------------------------------------------------- uniform ----
 export const upsertUniformFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid().optional(),
 			numero: z.number().int().nullable().optional(),
@@ -53,7 +53,7 @@ export const upsertUniformFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteUniformFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getRumaerServerClient().from("uniform").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
@@ -62,7 +62,7 @@ export const deleteUniformFn = createServerFn({ method: "POST" })
 	})
 
 export const cloneUniformFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<Uniform> => {
 		await requireAuth()
 		const supabase = getRumaerServerClient()
@@ -113,7 +113,7 @@ export const cloneUniformFn = createServerFn({ method: "POST" })
 	})
 
 export const setUniformCategoriesFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ uniformId: z.string().uuid(), categorias: z.array(CATEGORIA) }))
+	.validator(z.object({ uniformId: z.string().uuid(), categorias: z.array(CATEGORIA) }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const supabase = getRumaerServerClient()
@@ -129,7 +129,7 @@ export const setUniformCategoriesFn = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- variant ----
 export const upsertVariantFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid().optional(),
 			uniform_id: z.string().uuid(),
@@ -149,7 +149,7 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteVariantFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getRumaerServerClient().from("uniform_variant").delete().eq("id", data.id)
@@ -159,7 +159,7 @@ export const deleteVariantFn = createServerFn({ method: "POST" })
 
 // ------------------------------------------------------------------ piece ----
 export const upsertPieceFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid().optional(),
 			nome: z.string().min(1),
@@ -177,7 +177,7 @@ export const upsertPieceFn = createServerFn({ method: "POST" })
 	})
 
 export const deletePieceFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getRumaerServerClient().from("piece").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
@@ -187,7 +187,7 @@ export const deletePieceFn = createServerFn({ method: "POST" })
 
 // ------------------------------------------------------------- piece_item ----
 export const upsertPieceItemFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string().uuid().optional(),
 			piece_id: z.string().uuid(),
@@ -208,7 +208,7 @@ export const upsertPieceItemFn = createServerFn({ method: "POST" })
 	})
 
 export const deletePieceItemFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getRumaerServerClient().from("piece_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
@@ -218,7 +218,7 @@ export const deletePieceItemFn = createServerFn({ method: "POST" })
 
 // --------------------------------------------------------- variant pieces ----
 export const setVariantPiecesFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			variantId: z.string().uuid(),
 			pieces: z.array(
@@ -249,7 +249,7 @@ export const setVariantPiecesFn = createServerFn({ method: "POST" })
 
 // Adiciona UMA peça a VÁRIAS variantes de uma vez (anexa ao fim da composição de cada).
 export const addPieceToVariantsFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			variantIds: z.array(z.string().uuid()).min(1),
 			piece_id: z.string().uuid(),
@@ -312,7 +312,7 @@ export const listAllVariantsFn = createServerFn({ method: "GET" }).handler(async
 // --------------------------------------------------- variant alt images ----
 // Imagem alternativa de uma variante atrelada a uma peça facultativa/eventual.
 export const upsertVariantImageFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			variant_id: z.string().uuid(),
 			piece_id: z.string().uuid(),
@@ -332,7 +332,7 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 	})
 
 export const deleteVariantImageFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ id: z.string().uuid() }))
+	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getRumaerServerClient().from("uniform_variant_image").delete().eq("id", data.id)

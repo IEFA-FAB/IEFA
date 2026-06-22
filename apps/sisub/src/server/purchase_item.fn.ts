@@ -37,21 +37,21 @@ import { handleDomainError } from "@/lib/domain-errors"
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
 export const fetchPurchaseItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchPurchaseItemsSchema)
+	.validator(FetchPurchaseItemsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchPurchaseItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientPurchaseItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchIngredientPurchaseItemsSchema)
+	.validator(FetchIngredientPurchaseItemsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchIngredientPurchaseItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchPurchaseItemFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchPurchaseItemSchema)
+	.validator(FetchPurchaseItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchPurchaseItem(getDb(), ctx, data).catch(handleDomainError)
@@ -60,21 +60,21 @@ export const fetchPurchaseItemFn = createServerFn({ method: "GET" })
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export const createPurchaseItemFn = createServerFn({ method: "POST" })
-	.inputValidator(CreatePurchaseItemSchema)
+	.validator(CreatePurchaseItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createPurchaseItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updatePurchaseItemFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdatePurchaseItemSchema)
+	.validator(UpdatePurchaseItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updatePurchaseItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deletePurchaseItemFn = createServerFn({ method: "POST" })
-	.inputValidator(DeletePurchaseItemSchema)
+	.validator(DeletePurchaseItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deletePurchaseItem(getDb(), ctx, data).catch(handleDomainError)
@@ -83,28 +83,28 @@ export const deletePurchaseItemFn = createServerFn({ method: "POST" })
 // ─── Junction: purchase_item_ingredient ──────────────────────────────────────
 
 export const fetchPurchaseItemIngredientsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchPurchaseItemIngredientsSchema)
+	.validator(FetchPurchaseItemIngredientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchPurchaseItemIngredients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const upsertPurchaseItemIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(UpsertPurchaseItemIngredientSchema)
+	.validator(UpsertPurchaseItemIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return upsertPurchaseItemIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deletePurchaseItemIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(DeletePurchaseItemIngredientSchema)
+	.validator(DeletePurchaseItemIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deletePurchaseItemIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const setDefaultPurchaseItemIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(SetDefaultPurchaseItemIngredientSchema)
+	.validator(SetDefaultPurchaseItemIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return setDefaultPurchaseItemIngredient(getDb(), ctx, data).catch(handleDomainError)

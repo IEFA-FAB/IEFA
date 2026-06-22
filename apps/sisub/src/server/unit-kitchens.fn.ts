@@ -17,7 +17,7 @@ export type UnitKitchen = {
 }
 
 export const fetchUnitKitchensFn = createServerFn({ method: "GET" })
-	.inputValidator(ListUnitKitchensSchema)
+	.validator(ListUnitKitchensSchema)
 	.handler(async ({ data }): Promise<UnitKitchen[]> => {
 		const ctx = await requireAuth()
 		return (await listUnitKitchens(getDb(), ctx, data).catch(handleDomainError)) as unknown as UnitKitchen[]

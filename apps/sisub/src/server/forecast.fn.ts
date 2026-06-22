@@ -26,29 +26,29 @@ import { handleDomainError } from "@/lib/domain-errors"
 // Reads stay unauthenticated to match the original server-fn posture (callers
 // gate on the diner's own user id). Mutations below require auth (ctx.userId).
 export const fetchMealForecastsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListMealForecastsSchema)
+	.validator(ListMealForecastsSchema)
 	.handler(async ({ data }) => listMealForecasts(getDb(), data).catch(handleDomainError))
 
 export const fetchUserDefaultMessHallFn = createServerFn({ method: "GET" })
-	.inputValidator(GetUserDefaultMessHallSchema)
+	.validator(GetUserDefaultMessHallSchema)
 	.handler(async ({ data }) => getUserDefaultMessHall(getDb(), data).catch(handleDomainError))
 
 export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
-	.inputValidator(PersistDefaultMessHallSchema)
+	.validator(PersistDefaultMessHallSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return persistDefaultMessHall(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const upsertForecastFn = createServerFn({ method: "POST" })
-	.inputValidator(UpsertForecastSchema)
+	.validator(UpsertForecastSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return upsertForecast(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteForecastFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteForecastSchema)
+	.validator(DeleteForecastSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteForecast(getDb(), ctx, data).catch(handleDomainError)

@@ -37,7 +37,7 @@ export type ChangelogPageResult = {
  * @throws {Error} on Supabase query failure.
  */
 export const fetchChangelogPageFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ page: z.number(), pageSize: z.number() }))
+	.validator(z.object({ page: z.number(), pageSize: z.number() }))
 	.handler(async ({ data }): Promise<ChangelogPageResult> => {
 		const from = data.page * data.pageSize
 		const to = from + data.pageSize // overfetch +1 to detect hasMore

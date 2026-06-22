@@ -49,41 +49,41 @@ export type PermissionRow = {
  * Unauthenticated by design — foundational lookup used while bootstrapping a session.
  */
 export const fetchUserPermissionsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchUserPermissionsSchema)
+	.validator(FetchUserPermissionsSchema)
 	.handler(async ({ data }): Promise<UserPermission[]> => {
 		return (await listEffectiveUserPermissions(getDb(), data).catch(handleDomainError)) as unknown as UserPermission[]
 	})
 
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })
-	.inputValidator(SearchUsersByEmailSchema)
+	.validator(SearchUsersByEmailSchema)
 	.handler(async ({ data }): Promise<UserSearchResult[]> => {
 		const ctx = await requireAuth()
 		return (await searchUsersByEmail(getDb(), ctx, data).catch(handleDomainError)) as unknown as UserSearchResult[]
 	})
 
 export const fetchUserPermissionsAdminFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchUserPermissionsAdminSchema)
+	.validator(FetchUserPermissionsAdminSchema)
 	.handler(async ({ data }): Promise<PermissionRow[]> => {
 		const ctx = await requireAuth()
 		return (await fetchUserPermissionsAdmin(getDb(), ctx, data).catch(handleDomainError)) as unknown as PermissionRow[]
 	})
 
 export const createUserPermissionFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateUserPermissionSchema)
+	.validator(CreateUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createUserPermission(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateUserPermissionFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateUserPermissionSchema)
+	.validator(UpdateUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateUserPermission(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteUserPermissionFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteUserPermissionSchema)
+	.validator(DeleteUserPermissionSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteUserPermission(getDb(), ctx, data).catch(handleDomainError)

@@ -24,35 +24,35 @@ import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
 export const fetchMealTypesFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchMealTypesSchema)
+	.validator(FetchMealTypesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchMealTypes(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createMealTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateMealTypeSchema)
+	.validator(CreateMealTypeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createMealType(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateMealTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateMealTypeSchema)
+	.validator(UpdateMealTypeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateMealType(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteMealTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteMealTypeSchema)
+	.validator(DeleteMealTypeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteMealType(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreMealTypeFn = createServerFn({ method: "POST" })
-	.inputValidator(RestoreMealTypeSchema)
+	.validator(RestoreMealTypeSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return restoreMealType(getDb(), ctx, data).catch(handleDomainError)

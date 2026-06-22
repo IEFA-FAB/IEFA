@@ -12,7 +12,7 @@ import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
 export const fetchProcurementNeedsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchProcurementNeedsSchema)
+	.validator(FetchProcurementNeedsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchProcurementNeeds(getDb(), ctx, data).catch(handleDomainError)

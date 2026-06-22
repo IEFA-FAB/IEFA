@@ -37,7 +37,7 @@ async function fetchCompras(url: string): Promise<Response> {
 }
 
 export const searchMaterialPricesFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			codigoItemCatalogo: z.number().int().positive(),
 			pagina: z.number().int().min(1).default(1),
@@ -81,7 +81,7 @@ const SampleSchema = z.object({
 // ─── Salvar memória de cálculo para auditoria (Lei 14.133/2021) ───────────────
 
 export const savePrecoAuditFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			catmatCodigo: z.number().int().positive(),
 			catmatDescricao: z.string().nullable().optional(),

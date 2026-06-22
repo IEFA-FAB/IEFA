@@ -38,7 +38,7 @@ import { handleDomainError } from "@/lib/domain-errors"
 import type { TemplateWithItemCounts } from "@/types/domain/planning"
 
 export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
-	.inputValidator(ListTemplatesSchema)
+	.validator(ListTemplatesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		// listTemplates returns Record<string,unknown>[] — cast for TanStack Start serialization check
@@ -46,63 +46,63 @@ export const fetchMenuTemplatesFn = createServerFn({ method: "GET" })
 	})
 
 export const fetchDeletedTemplatesFn = createServerFn({ method: "GET" })
-	.inputValidator(ListTemplatesSchema)
+	.validator(ListTemplatesSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return (await listDeletedTemplates(getDb(), ctx, data).catch(handleDomainError)) as unknown as TemplateWithItemCounts[]
 	})
 
 export const fetchTemplateFn = createServerFn({ method: "GET" })
-	.inputValidator(GetTemplateSchema)
+	.validator(GetTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return getTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchTemplateItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(GetTemplateSchema)
+	.validator(GetTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return getTemplateItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateTemplateSchema)
+	.validator(CreateTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createBlankTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateBlankTemplateSchema)
+	.validator(CreateBlankTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createBlankTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const forkTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(ForkTemplateSchema)
+	.validator(ForkTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return forkTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateTemplateSchema)
+	.validator(UpdateTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteTemplateSchema)
+	.validator(DeleteTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteTemplate(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(RestoreTemplateSchema)
+	.validator(RestoreTemplateSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return restoreTemplate(getDb(), ctx, data).catch(handleDomainError)
@@ -118,7 +118,7 @@ const ApplyTemplateFnSchema = z.object({
 })
 
 export const applyTemplateFn = createServerFn({ method: "POST" })
-	.inputValidator(ApplyTemplateFnSchema)
+	.validator(ApplyTemplateFnSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const sorted = data.targetDates.toSorted()

@@ -36,14 +36,14 @@ type KitchenSettingsResult = {
 }
 
 export const fetchKitchenSettingsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchKitchenSettingsSchema)
+	.validator(FetchKitchenSettingsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return (await fetchKitchenSettings(getDb(), ctx, data).catch(handleDomainError)) as unknown as KitchenSettingsResult
 	})
 
 export const updateKitchenSettingsFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateKitchenSettingsSchema)
+	.validator(UpdateKitchenSettingsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateKitchenSettings(getDb(), ctx, data).catch(handleDomainError)

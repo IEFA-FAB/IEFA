@@ -38,7 +38,7 @@ export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async
  * @throws {Error} on Supabase upsert failure.
  */
 export const upsertEvalConfigFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ active: z.boolean(), value: z.string() }))
+	.validator(z.object({ active: z.boolean(), value: z.string() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { data: result, error } = await getSupabaseServerClient()
@@ -65,7 +65,7 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
  * @throws {Error} on config or opinion query failure.
  */
 export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ userId: z.string() }))
+	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }): Promise<EvaluationResult> => {
 		const { data: config, error: configError } = await getSupabaseServerClient()
 			.from("super_admin_controller")
@@ -103,7 +103,7 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
  * @throws {Error} on Supabase insert failure.
  */
 export const submitEvaluationFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ value: z.number(), question: z.string() }))
+	.validator(z.object({ value: z.number(), question: z.string() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
 		const { error } = await getSupabaseServerClient()

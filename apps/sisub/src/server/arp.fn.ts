@@ -58,7 +58,7 @@ function parseBrDate(value: string | null | undefined): string | null {
  * @throws {Error} "HTTP {status}" after 3 failed attempts or on AbortSignal timeout (30 s per attempt).
  */
 export const searchArpFn = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			uasgGerenciadora: z.string().min(1),
 			numeroAta: z.string().optional(),
@@ -104,7 +104,7 @@ const ArpDataSchema = z.object({
 })
 
 export const importArpItemsFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			ataId: z.string().uuid(),
 			unitId: z.number().int().positive(),
@@ -206,7 +206,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
  * @throws {Error} if ARP not found locally, on HTTP failure (3 retries), or on any individual item update failure.
  */
 export const syncArpBalanceFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ arpId: z.string().uuid() }))
+	.validator(z.object({ arpId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const supabase = getSupabaseServerClient()
@@ -264,7 +264,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
  * Returns the ARP linked to an ATA with all its items ordered by numero_item, or null if none exists.
  */
 export const fetchArpForAtaFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ ataId: z.string().uuid() }))
+	.validator(z.object({ ataId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
 		const supabase = getSupabaseServerClient()
 
@@ -285,7 +285,7 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
  * @throws {Error} on Supabase query failure.
  */
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ arpItemId: z.string().uuid() }))
+	.validator(z.object({ arpItemId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<Empenho[]> => {
 		const { data: empenhos, error } = await getSupabaseServerClient()
 			.from("empenho")
@@ -308,7 +308,7 @@ export const fetchEmpenhosFn = createServerFn({ method: "GET" })
  * @throws {Error} "já cadastrado" on unique violation (PG code 23505); generic Supabase message otherwise.
  */
 export const createEmpenhoFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			unitId: z.number().int().positive(),
 			arpItemId: z.string().uuid(),
@@ -359,7 +359,7 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
  * @throws {Error} on Supabase update failure.
  */
 export const anularEmpenhoFn = createServerFn({ method: "POST" })
-	.inputValidator(z.object({ empenhoId: z.string().uuid() }))
+	.validator(z.object({ empenhoId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
 		const { error } = await getSupabaseServerClient().from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)

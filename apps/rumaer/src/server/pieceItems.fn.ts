@@ -11,7 +11,7 @@ import { z } from "zod"
 import { getRumaerServerClient } from "@/lib/supabase.server"
 
 export const listPieceItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ pieceId: z.string().uuid().optional() }))
+	.validator(z.object({ pieceId: z.string().uuid().optional() }))
 	.handler(async ({ data }): Promise<PieceItemWithPiece[]> => {
 		const supabase = getRumaerServerClient()
 		let query = supabase.from("piece_item").select("*, piece:piece(*)").is("deleted_at", null).order("nome", { ascending: true })

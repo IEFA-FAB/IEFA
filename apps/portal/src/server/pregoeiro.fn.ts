@@ -25,7 +25,7 @@ function getPortalClient() {
 // ─── Pregoeiro Preferences ────────────────────────────────────────────────────
 
 export const getPreferencesFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ userId: z.string() }))
+	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getDefaultClient().from("pregoeiro_preferences").select("*").eq("user_id", data.userId).maybeSingle()
 		if (error) throw new Error(error.message)
@@ -33,7 +33,7 @@ export const getPreferencesFn = createServerFn({ method: "GET" })
 	})
 
 export const insertPreferencesFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			userId: z.string(),
 			env: z.record(z.string(), z.unknown()),
@@ -46,7 +46,7 @@ export const insertPreferencesFn = createServerFn({ method: "POST" })
 	})
 
 export const upsertPreferencesFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			userId: z.string(),
 			env: z.record(z.string(), z.unknown()).optional(),
@@ -79,7 +79,7 @@ const FacilityPayloadSchema = z.object({
 })
 
 export const updateFacilityFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			id: z.string(),
 			ownerId: z.string(),
@@ -92,7 +92,7 @@ export const updateFacilityFn = createServerFn({ method: "POST" })
 	})
 
 export const insertFacilityFn = createServerFn({ method: "POST" })
-	.inputValidator(FacilityPayloadSchema)
+	.validator(FacilityPayloadSchema)
 	.handler(async ({ data }) => {
 		const { error } = await getPortalClient().from("facilities_pregoeiro").insert(data)
 		if (error) throw new Error(error.message)
@@ -101,7 +101,7 @@ export const insertFacilityFn = createServerFn({ method: "POST" })
 // ─── Apps (iefa schema) ───────────────────────────────────────────────────────
 
 export const getAppsFn = createServerFn({ method: "GET" })
-	.inputValidator(z.object({ limit: z.number().optional() }))
+	.validator(z.object({ limit: z.number().optional() }))
 	.handler(async ({ data }) => {
 		const { data: result, error } = await getPortalClient()
 			.from("apps")

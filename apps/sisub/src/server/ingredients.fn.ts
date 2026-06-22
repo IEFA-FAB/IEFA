@@ -80,133 +80,133 @@ export const fetchNutrientsFn = createServerFn({ method: "GET" }).handler(async 
 })
 
 export const fetchIngredientNutrientsFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchIngredientNutrientsSchema)
+	.validator(FetchIngredientNutrientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const setIngredientNutrientsFn = createServerFn({ method: "POST" })
-	.inputValidator(SetIngredientNutrientsSchema)
+	.validator(SetIngredientNutrientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return setIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchCeafaFn = createServerFn({ method: "GET" })
-	.inputValidator(ListCeafaSchema)
+	.validator(ListCeafaSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listCeafa(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListCatmatSchema)
+	.validator(ListCatmatSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listCatmatItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchFoldersFn = createServerFn({ method: "GET" })
-	.inputValidator(ListFoldersSchema)
+	.validator(ListFoldersSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listFolders(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createFolderFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateFolderSchema)
+	.validator(CreateFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateFolderFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateFolderSchema)
+	.validator(UpdateFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteFolderFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteFolderSchema)
+	.validator(DeleteFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreFolderFn = createServerFn({ method: "POST" })
-	.inputValidator(RestoreFolderSchema)
+	.validator(RestoreFolderSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return restoreFolder(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientFn = createServerFn({ method: "GET" })
-	.inputValidator(FetchIngredientSchema)
+	.validator(FetchIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return fetchIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListIngredientsSchema)
+	.validator(ListIngredientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listIngredients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateIngredientSchema)
+	.validator(CreateIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateIngredientSchema)
+	.validator(UpdateIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteIngredientSchema)
+	.validator(DeleteIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreIngredientFn = createServerFn({ method: "POST" })
-	.inputValidator(RestoreIngredientSchema)
+	.validator(RestoreIngredientSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return restoreIngredient(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchIngredientItemsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListIngredientItemsSchema)
+	.validator(ListIngredientItemsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listIngredientItems(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const createIngredientItemFn = createServerFn({ method: "POST" })
-	.inputValidator(CreateIngredientItemSchema)
+	.validator(CreateIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return createIngredientItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const updateIngredientItemFn = createServerFn({ method: "POST" })
-	.inputValidator(UpdateIngredientItemSchema)
+	.validator(UpdateIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return updateIngredientItem(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const deleteIngredientItemFn = createServerFn({ method: "POST" })
-	.inputValidator(DeleteIngredientItemSchema)
+	.validator(DeleteIngredientItemSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return deleteIngredientItem(getDb(), ctx, data).catch(handleDomainError)
@@ -223,7 +223,7 @@ const SaveIngredientDetailsSchema = UpdateIngredientSchema.extend({
 })
 
 export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
-	.inputValidator(SaveIngredientDetailsSchema)
+	.validator(SaveIngredientDetailsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const client = getDb()
@@ -235,21 +235,21 @@ export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
 	})
 
 export const recordIngredientVersionFn = createServerFn({ method: "POST" })
-	.inputValidator(RecordIngredientVersionSchema)
+	.validator(RecordIngredientVersionSchema)
 	.handler(async ({ data }) => {
 		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
 		return recordIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
 export const fetchIngredientVersionsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListIngredientVersionsSchema)
+	.validator(ListIngredientVersionsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listIngredientVersions(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
-	.inputValidator(RestoreIngredientVersionSchema)
+	.validator(RestoreIngredientVersionSchema)
 	.handler(async ({ data }) => {
 		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
 		return restoreIngredientVersion(getDb(), ctx, data, actor).catch(handleDomainError)
@@ -258,14 +258,14 @@ export const restoreIngredientVersionFn = createServerFn({ method: "POST" })
 // ── Revisão (conferência do insumo pelos nutricionistas) ──────────────────────
 
 export const recordIngredientReviewFn = createServerFn({ method: "POST" })
-	.inputValidator(RecordIngredientReviewSchema)
+	.validator(RecordIngredientReviewSchema)
 	.handler(async ({ data }) => {
 		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
 		return recordIngredientReview(getDb(), ctx, data, actor).catch(handleDomainError)
 	})
 
 export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
-	.inputValidator(ListIngredientLastReviewsSchema)
+	.validator(ListIngredientLastReviewsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listIngredientLastReviews(getDb(), ctx, data).catch(handleDomainError)
