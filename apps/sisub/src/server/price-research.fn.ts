@@ -123,7 +123,9 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			.digest("hex")
 			.slice(0, 16)
 		const scope = data.ataItemId ?? `catmat-${data.catmatCodigo}`
-		const day = new Date().toISOString().slice(0, 10)
+		// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT
+		// cairiam em dias UTC distintos e gerariam registros duplicados.
+		const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
 		const idempotencyKey = `audit:v1:${scope}:${data.method}:${day}:${sampleFingerprint}`
 
 		// 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING via idempotency_key)

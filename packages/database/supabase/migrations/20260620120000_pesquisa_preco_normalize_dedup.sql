@@ -256,7 +256,12 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION sisub.upsert_compras_amostras(jsonb) TO anon, authenticated, service_role;
+-- Segurança: a função é SECURITY DEFINER e ignora a RLS de compras_amostra.
+-- O Postgres concede EXECUTE a PUBLIC por padrão na criação — revogamos e
+-- liberamos apenas para service_role (único papel usado pelos escritores
+-- server-side), impedindo "catalog poisoning" via REST anônimo/autenticado.
+REVOKE ALL ON FUNCTION sisub.upsert_compras_amostras(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION sisub.upsert_compras_amostras(jsonb) TO service_role;
 
 -- Recarrega o cache do PostgREST (novo schema de tabela/coluna/função).
 NOTIFY pgrst, 'reload schema';

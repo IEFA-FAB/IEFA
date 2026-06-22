@@ -67,7 +67,9 @@ async function persistResearch(supabase: Supabase, input: PersistInput): Promise
 			)
 			.digest("hex")
 			.slice(0, 16)
-		const day = new Date().toISOString().slice(0, 10)
+		// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT
+		// cairiam em dias UTC distintos e gerariam registros duplicados.
+		const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
 		const idempotencyKey = `ata:v1:${ataId}:${paramsHash}:${day}`
 
 		// ── 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING) ─────────────────
