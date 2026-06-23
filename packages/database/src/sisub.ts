@@ -169,3 +169,33 @@ export type PurchaseItemUpdate = TablesUpdate<"purchase_item">
 export type PurchaseItemIngredient = Tables<"purchase_item_ingredient">
 export type PurchaseItemIngredientInsert = TablesInsert<"purchase_item_ingredient">
 export type PurchaseItemIngredientUpdate = TablesUpdate<"purchase_item_ingredient">
+
+// ── Recipe production flow (DAG estruturado do modo de preparo) ──
+
+export type StepTemplate = Tables<"step_template">
+export type StepTemplateInsert = TablesInsert<"step_template">
+export type StepTemplateUpdate = TablesUpdate<"step_template">
+
+export type Utensil = Tables<"utensil">
+export type UtensilInsert = TablesInsert<"utensil">
+export type UtensilUpdate = TablesUpdate<"utensil">
+
+export type StepTemplateUtensil = Tables<"step_template_utensil">
+export type StepTemplateUtensilInsert = TablesInsert<"step_template_utensil">
+export type StepTemplateUtensilUpdate = TablesUpdate<"step_template_utensil">
+
+export type RecipeStep = Tables<"recipe_step">
+export type RecipeStepInsert = TablesInsert<"recipe_step">
+export type RecipeStepUpdate = TablesUpdate<"recipe_step">
+
+export type RecipeStepOutput = Tables<"recipe_step_output">
+export type RecipeStepOutputInsert = TablesInsert<"recipe_step_output">
+export type RecipeStepOutputUpdate = TablesUpdate<"recipe_step_output">
+
+export type RecipeStepInput = Tables<"recipe_step_input">
+export type RecipeStepInputInsert = TablesInsert<"recipe_step_input">
+export type RecipeStepInputUpdate = TablesUpdate<"recipe_step_input">
+
+export type RecipeStepUtensil = Tables<"recipe_step_utensil">
+export type RecipeStepUtensilInsert = TablesInsert<"recipe_step_utensil">
+export type RecipeStepUtensilUpdate = TablesUpdate<"recipe_step_utensil">
