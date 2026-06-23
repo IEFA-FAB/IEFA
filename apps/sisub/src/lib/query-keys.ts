@@ -69,6 +69,14 @@ export const queryKeys = {
 		menuUsage: () => ["recipes", "menu-usage"] as const,
 	},
 
+	recipeFlow: {
+		detail: (recipeId: string | undefined) => ["recipe_flow", recipeId] as const,
+		stepTemplatesAll: () => ["step_templates"] as const,
+		stepTemplates: (kitchenId?: number | null, search?: string) => ["step_templates", kitchenId ?? null, search ?? ""] as const,
+		utensilsAll: () => ["utensils"] as const,
+		utensils: (kitchenId?: number | null, search?: string) => ["utensils", kitchenId ?? null, search ?? ""] as const,
+	},
+
 	presences: {
 		all: () => ["presences"] as const,
 		list: (date: string, meal: MealKey, messHallId: number) => ["presences", date, meal, messHallId] as const,

@@ -1,10 +1,11 @@
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import { Circle, CircleCheck, Loader2, Pencil, Plus, Replace, Save, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { IngredientSelector } from "@/components/features/shared/IngredientSelector"
+import { RecipeFlowEditor } from "@/components/features/shared/recipe-flow/RecipeFlowEditor"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,10 +13,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
 import { cn } from "@/lib/cn"
+import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Schema Validation
@@ -80,6 +83,23 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const [selectorOpen, setSelectorOpen] = useState(false)
 	// Índice do ingrediente que receberá a próxima substituição escolhida no selector (null = adicionando ingrediente principal)
 	const [altTargetIndex, setAltTargetIndex] = useState<number | null>(null)
+
+	// Editor de fluxo opera sobre a versão PERSISTIDA (initialData) — seus insumos têm
+	// recipe_ingredient_id, exigidos pelo balanço de materiais. Só habilitado em edição.
+	const flowEnabled = mode === "edit" && !!initialData?.id
+	const flowIngredients = useMemo<RecipeIngredientSource[]>(
+		() =>
+			(initialData?.ingredients ?? [])
+				.filter((i) => !!i.id)
+				.map((i) => ({
+					recipeIngredientId: i.id,
+					name: i.ingredient?.description ?? "Insumo",
+					measureUnit: i.ingredient?.measure_unit ?? "",
+					netQuantity: Number(i.net_quantity ?? 0),
+					isOptional: i.is_optional ?? false,
+				})),
+		[initialData?.ingredients]
+	)
 
 	const handleBack = () => {
 		if (kitchenId) {
@@ -440,30 +460,55 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						)}
 					</form.Field>
 
-					{/* Modo de preparo — instruções */}
+					{/* Modo de preparo — texto livre + fluxo de produção estruturado */}
 					<Card>
 						<CardHeader>
 							<CardTitle>Modo de preparo</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<form.Field name="preparation_method">
-								{(field) => (
-									<Field data-invalid={field.state.meta.errors.length > 0}>
-										<FieldContent>
-											<Textarea
-												id="prep"
-												aria-label="Modo de preparo"
-												className={cn("min-h-40 bg-background", field.state.meta.errors.length > 0 && "border-destructive")}
-												placeholder="Descreva o passo a passo da preparação..."
-												value={field.state.value || ""}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-											/>
-											<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
-										</FieldContent>
-									</Field>
-								)}
-							</form.Field>
+							<Tabs defaultValue="texto">
+								<TabsList>
+									<TabsTrigger value="texto">Texto</TabsTrigger>
+									<TabsTrigger value="fluxo">Fluxo de produção</TabsTrigger>
+								</TabsList>
+
+								<TabsContent value="texto" className="pt-4">
+									<form.Field name="preparation_method">
+										{(field) => (
+											<Field data-invalid={field.state.meta.errors.length > 0}>
+												<FieldContent>
+													<Textarea
+														id="prep"
+														aria-label="Modo de preparo"
+														className={cn("min-h-40 bg-background", field.state.meta.errors.length > 0 && "border-destructive")}
+														placeholder="Descreva o passo a passo da preparação..."
+														value={field.state.value || ""}
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+													/>
+													<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
+												</FieldContent>
+											</Field>
+										)}
+									</form.Field>
+								</TabsContent>
+
+								<TabsContent value="fluxo" className="pt-4">
+									{flowEnabled && initialData ? (
+										<>
+											<p className="text-caption text-muted-foreground pb-3">
+												O fluxo é salvo separadamente (botão "Salvar fluxo") na versão atual. Ao salvar a preparação, ele é copiado para a nova versão.
+											</p>
+											<RecipeFlowEditor recipeId={initialData.id} kitchenId={initialData.kitchen_id ?? null} ingredients={flowIngredients} />
+										</>
+									) : (
+										<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
+											<p className="text-body">O fluxo de produção fica disponível após salvar a preparação.</p>
+											<p className="text-caption">Salve a preparação e abra-a em edição para montar o fluxo.</p>
+										</div>
+									)}
+								</TabsContent>
+							</Tabs>
 						</CardContent>
 					</Card>
 				</form>

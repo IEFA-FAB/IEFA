@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
+// CSS do React Flow (editor de fluxo de produção) — carregado só nas rotas que o usam.
+import XyflowStyles from "@xyflow/react/dist/style.css?url"
 import { Loader2 } from "lucide-react"
 import { RecipeForm } from "@/components/features/shared/RecipeForm"
 import { useRecipe } from "@/hooks/data/useRecipe"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/recipes/$recipeId/")({
 	component: EditRecipePage,
+	head: () => ({
+		links: [{ rel: "stylesheet", href: XyflowStyles }],
+	}),
 })
 
 function EditRecipePage() {
