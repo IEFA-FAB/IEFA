@@ -63,5 +63,10 @@ export type CreateRecipe = z.infer<typeof CreateRecipeSchema>
 export const CreateRecipeVersionSchema = CreateRecipeSchema.extend({
 	baseRecipeId: UuidSchema,
 	version: z.number().int().positive(),
+	/**
+	 * Receita-fonte (versão sendo editada). Quando presente, o fluxo de produção
+	 * dessa versão é copiado para a nova (copy-forward), remapeando os insumos.
+	 */
+	sourceRecipeId: UuidSchema.optional(),
 })
 export type CreateRecipeVersion = z.infer<typeof CreateRecipeVersionSchema>

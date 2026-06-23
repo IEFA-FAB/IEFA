@@ -34,6 +34,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
+import { copyRecipeFlow } from "./recipe-flow.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
@@ -186,8 +187,11 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 	return rows.map((r) => toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS))
 }
 
-async function insertIngredients(db: SisubDb, recipeId: string, ingredients: CreateRecipe["ingredients"]) {
-	if (!ingredients?.length) return
+/** Linha de insumo recém-inserida — usada para mapear insumo antigo → novo no copy-forward do fluxo. */
+type InsertedIngredient = { id: string; ingredientId: string; priorityOrder: number | null }
+
+async function insertIngredients(db: SisubDb, recipeId: string, ingredients: CreateRecipe["ingredients"]): Promise<InsertedIngredient[]> {
+	if (!ingredients?.length) return []
 
 	const rows = ingredients.map((ing) => ({
 		recipeId,
@@ -199,7 +203,11 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	// INSERT ... RETURNING devolve as linhas na ordem de inserção, permitindo ligar cada
 	// alternativa ao recipe_ingredient recém-criado pelo índice.
 	const inserted = await runQuery("INSERT_INGREDIENTS_FAILED", () =>
-		db.insert(recipeIngredientsInSisub).values(rows).returning({ id: recipeIngredientsInSisub.id })
+		db.insert(recipeIngredientsInSisub).values(rows).returning({
+			id: recipeIngredientsInSisub.id,
+			ingredientId: recipeIngredientsInSisub.ingredientId,
+			priorityOrder: recipeIngredientsInSisub.priorityOrder,
+		})
 	)
 	if (inserted.length !== rows.length) throw new DomainError("INSERT_INGREDIENTS_FAILED", "row count mismatch")
 
@@ -219,6 +227,28 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 				.then(() => undefined)
 		)
 	}
+	return inserted.map((r) => ({ id: r.id, ingredientId: r.ingredientId ?? "", priorityOrder: r.priorityOrder }))
+}
+
+/**
+ * Mapeia recipe_ingredient_id da versão-fonte → da versão nova, casando por
+ * `ingredientId:priorityOrder`. Base do copy-forward do fluxo de produção.
+ */
+async function buildIngredientIdMap(db: SisubDb, sourceRecipeId: string, inserted: InsertedIngredient[]): Promise<Map<string, string>> {
+	const oldRows = await runQuery("FETCH_FAILED", () =>
+		db.query.recipeIngredientsInSisub.findMany({
+			columns: { id: true, ingredientId: true, priorityOrder: true },
+			where: and(eq(recipeIngredientsInSisub.recipeId, sourceRecipeId), isNull(recipeIngredientsInSisub.deletedAt)),
+		})
+	)
+	const key = (ingredientId: string | null, priorityOrder: number | null) => `${ingredientId ?? ""}:${priorityOrder ?? ""}`
+	const newByKey = new Map(inserted.map((r) => [key(r.ingredientId, r.priorityOrder), r.id]))
+	const map = new Map<string, string>()
+	for (const old of oldRows) {
+		const newId = newByKey.get(key(old.ingredientId, old.priorityOrder))
+		if (newId) map.set(old.id, newId)
+	}
+	return map
 }
 
 export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateRecipe): Promise<Recipe> {
@@ -326,6 +356,16 @@ export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: 
 			.returning()
 	)
 
-	await insertIngredients(db, recipe.id, input.ingredients)
+	const inserted = await insertIngredients(db, recipe.id, input.ingredients)
+
+	// Copy-forward do fluxo de produção: se a edição veio de uma versão com fluxo,
+	// copia o grafo para a nova versão remapeando os insumos. Não-atômico com o
+	// insert da versão (paridade com o comportamento atual); falha aqui não desfaz
+	// a versão já criada — o fluxo pode ser re-salvo manualmente.
+	if (input.sourceRecipeId) {
+		const riIdMap = await buildIngredientIdMap(db, input.sourceRecipeId, inserted)
+		await copyRecipeFlow(db, input.sourceRecipeId, recipe.id, riIdMap)
+	}
+
 	return toWire<Recipe>(recipe, RECIPE_RELATIONS)
 }
