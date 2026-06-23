@@ -63,7 +63,7 @@ export function useCreateStepTemplate() {
 			utensilIds?: string[]
 		}) => createStepTemplateFn({ data: { ...data, utensilIds: data.utensilIds ?? [] } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["step_templates"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipeFlow.stepTemplatesAll() })
 			toast.success("Etapa adicionada ao catálogo")
 		},
 		onError: (error) => toast.error(`Erro ao criar etapa: ${error.message}`),
@@ -75,7 +75,7 @@ export function useCreateUtensil() {
 	return useMutation({
 		mutationFn: (data: { name: string; kitchenId?: number | null }) => createUtensilFn({ data }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["utensils"] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipeFlow.utensilsAll() })
 			toast.success("Utensílio adicionado")
 		},
 		onError: (error) => toast.error(`Erro ao criar utensílio: ${error.message}`),

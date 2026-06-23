@@ -52,7 +52,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 		<div className="flex h-full flex-col">
 			<div className="flex items-center justify-between border-b border-border px-4 py-3">
 				<p className="text-subheading text-foreground">Etapa</p>
-				<Button variant="ghost" size="icon-sm" aria-label="Fechar painel" onClick={props.onClose}>
+				<Button type="button" variant="ghost" size="icon-sm" aria-label="Fechar painel" onClick={props.onClose}>
 					<X className="size-4" />
 				</Button>
 			</div>
@@ -101,7 +101,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<span className="text-label uppercase text-muted-foreground">Saídas</span>
-						<Button variant="ghost" size="sm" onClick={props.onAddOutput}>
+						<Button type="button" variant="ghost" size="sm" onClick={props.onAddOutput}>
 							<Plus className="size-3.5 mr-1" /> Saída
 						</Button>
 					</div>
@@ -118,6 +118,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 									onChange={(e) => props.onPatchOutput(o.clientId, { label: e.target.value })}
 								/>
 								<Button
+									type="button"
 									variant="ghost"
 									size="icon-sm"
 									aria-label="Remover saída"
@@ -168,6 +169,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 							/>
 							<span className="w-8 text-caption text-muted-foreground">{e.data?.measureUnit ?? ""}</span>
 							<Button
+								type="button"
 								variant="ghost"
 								size="icon-sm"
 								aria-label="Remover entrada"
@@ -193,6 +195,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 					<div className="flex items-center gap-1.5">
 						<Input value={newUtensil} placeholder="Novo utensílio" onChange={(e) => setNewUtensil(e.target.value)} />
 						<Button
+							type="button"
 							variant="outline"
 							size="sm"
 							disabled={!newUtensil.trim()}
@@ -210,7 +213,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
 						<span className="text-label uppercase text-muted-foreground">Catálogo de etapas</span>
-						<Button variant="ghost" size="sm" onClick={props.onSaveAsTemplate}>
+						<Button type="button" variant="ghost" size="sm" onClick={props.onSaveAsTemplate}>
 							<Save className="size-3.5 mr-1" /> Salvar
 						</Button>
 					</div>
@@ -226,7 +229,7 @@ export function StepSidePanel(props: StepSidePanelProps) {
 			</div>
 
 			<div className="border-t border-border px-4 py-3">
-				<Button variant="outline" size="sm" className="w-full text-destructive hover:text-destructive" onClick={props.onRemoveStep}>
+				<Button type="button" variant="outline" size="sm" className="w-full text-destructive hover:text-destructive" onClick={props.onRemoveStep}>
 					<Trash2 className="size-3.5 mr-2" /> Remover etapa
 				</Button>
 			</div>

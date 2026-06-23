@@ -222,6 +222,19 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 		)
 	}
 
+	// Erro no fetch: NÃO renderiza o canvas vazio — salvar a partir de um grafo vazio
+	// apagaria o fluxo persistido. Oferece retry.
+	if (flowQuery.isError) {
+		return (
+			<div className="flex h-64 flex-col items-center justify-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 text-center">
+				<p className="text-body text-destructive">Não foi possível carregar o fluxo de produção.</p>
+				<Button type="button" variant="outline" size="sm" onClick={() => flowQuery.refetch()}>
+					Tentar novamente
+				</Button>
+			</div>
+		)
+	}
+
 	return (
 		<div className="space-y-3">
 			<div className="flex flex-wrap items-center justify-between gap-2">
