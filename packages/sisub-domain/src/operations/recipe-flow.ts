@@ -265,21 +265,34 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 	)
 	if (srcSteps.length === 0) return
 
-	type SrcStep = (typeof srcSteps)[number] & {
-		outputs?: { id: string; label: string | null; quantity: string | null; measureUnit: string | null; isFinal: boolean }[]
-		inputs?: { recipeIngredientId: string | null; sourceOutputId: string | null; quantity: string | null; measureUnit: string | null }[]
-		utensils?: { utensilId: string }[]
+	// O resultado relacional do Drizzle traz as relations sob as chaves CRUAS do pull
+	// (recipeStepOutputInSisubs, …) — `toWire` (que as renomearia p/ outputs/inputs/
+	// utensils) NÃO é aplicado aqui, então acessamos as chaves cruas direto. O `with`
+	// é passado como `any` na query (callbacks tipados frouxamente), então tipamos o
+	// shape relacional manualmente.
+	type RawSrcStep = {
+		id: string
+		stepTemplateId: string | null
+		label: string | null
+		description: string | null
+		durationMinutes: number | null
+		canvasX: number
+		canvasY: number
+		recipeStepOutputInSisubs: { id: string; label: string | null; quantity: string | null; measureUnit: string | null; isFinal: boolean }[]
+		recipeStepInputInSisubs: { recipeIngredientId: string | null; sourceOutputId: string | null; quantity: string | null; measureUnit: string | null }[]
+		recipeStepUtensilInSisubs: { utensilId: string }[]
 	}
+	const steps = srcSteps as unknown as RawSrcStep[]
 
 	const stepIdMap = new Map<string, string>()
 	const outputIdMap = new Map<string, string>()
-	for (const s of srcSteps as SrcStep[]) {
+	for (const s of steps) {
 		stepIdMap.set(s.id, crypto.randomUUID())
-		for (const o of s.outputs ?? []) outputIdMap.set(o.id, crypto.randomUUID())
+		for (const o of s.recipeStepOutputInSisubs) outputIdMap.set(o.id, crypto.randomUUID())
 	}
 
 	await db.transaction(async (tx) => {
-		const stepRows = (srcSteps as SrcStep[]).map((s) => ({
+		const stepRows = steps.map((s) => ({
 			id: stepIdMap.get(s.id) as string,
 			recipeId: dstRecipeId,
 			stepTemplateId: s.stepTemplateId ?? null,
@@ -296,8 +309,8 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 				.then(() => undefined)
 		)
 
-		const outputRows = (srcSteps as SrcStep[]).flatMap((s) =>
-			(s.outputs ?? []).map((o) => ({
+		const outputRows = steps.flatMap((s) =>
+			s.recipeStepOutputInSisubs.map((o) => ({
 				id: outputIdMap.get(o.id) as string,
 				recipeStepId: stepIdMap.get(s.id) as string,
 				recipeId: dstRecipeId,
@@ -316,8 +329,8 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 			)
 		}
 
-		const inputRows = (srcSteps as SrcStep[]).flatMap((s) =>
-			(s.inputs ?? [])
+		const inputRows = steps.flatMap((s) =>
+			s.recipeStepInputInSisubs
 				.map((inp) => {
 					// insumo cru → remapeia pro recipe_ingredient da nova versão; descarta se sumiu.
 					const recipeIngredientId = inp.recipeIngredientId != null ? (riIdMap.get(inp.recipeIngredientId) ?? null) : null
@@ -342,9 +355,7 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 			)
 		}
 
-		const utensilRows = (srcSteps as SrcStep[]).flatMap((s) =>
-			(s.utensils ?? []).map((u) => ({ recipeStepId: stepIdMap.get(s.id) as string, utensilId: u.utensilId }))
-		)
+		const utensilRows = steps.flatMap((s) => s.recipeStepUtensilInSisubs.map((u) => ({ recipeStepId: stepIdMap.get(s.id) as string, utensilId: u.utensilId })))
 		if (utensilRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
