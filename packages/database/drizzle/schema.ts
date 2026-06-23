@@ -202,7 +202,7 @@ export const comprasAmostraInSisub = sisub.table("compras_amostra", {
 	fingerprint: text().generatedAlwaysAs(sql`sisub.compras_amostra_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("int4_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
+	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("text_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
 	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast().op("text_ops")),
 ]);
 
