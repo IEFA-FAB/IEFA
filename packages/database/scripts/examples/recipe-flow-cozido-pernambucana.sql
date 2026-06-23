@@ -34,17 +34,18 @@ begin
   update sisub.recipe_step_output set deleted_at = now() where recipe_id = rid and deleted_at is null;
   update sisub.recipe_step set deleted_at = now() where recipe_id = rid and deleted_at is null;
 
-  -- 2) utensílios (catálogo global) — cria se ausente
+  -- 2) utensílios (catálogo global) — upsert atômico. INSERT ... ON CONFLICT DO NOTHING
+  -- evita a corrida TOCTOU do SELECT-then-INSERT (sem target, pega o índice parcial-único).
+  insert into sisub.utensil(name) values ('Caldeirão') on conflict do nothing;
   select id into u_caldeirao from sisub.utensil where lower(name)=lower('Caldeirão') and kitchen_id is null and deleted_at is null limit 1;
-  if u_caldeirao is null then insert into sisub.utensil(name) values ('Caldeirão') returning id into u_caldeirao; end if;
+  insert into sisub.utensil(name) values ('Faca de chef') on conflict do nothing;
   select id into u_faca from sisub.utensil where lower(name)=lower('Faca de chef') and kitchen_id is null and deleted_at is null limit 1;
-  if u_faca is null then insert into sisub.utensil(name) values ('Faca de chef') returning id into u_faca; end if;
+  insert into sisub.utensil(name) values ('Tábua de corte') on conflict do nothing;
   select id into u_tabua from sisub.utensil where lower(name)=lower('Tábua de corte') and kitchen_id is null and deleted_at is null limit 1;
-  if u_tabua is null then insert into sisub.utensil(name) values ('Tábua de corte') returning id into u_tabua; end if;
+  insert into sisub.utensil(name) values ('Colher de pau') on conflict do nothing;
   select id into u_colher from sisub.utensil where lower(name)=lower('Colher de pau') and kitchen_id is null and deleted_at is null limit 1;
-  if u_colher is null then insert into sisub.utensil(name) values ('Colher de pau') returning id into u_colher; end if;
+  insert into sisub.utensil(name) values ('Panela de refogar') on conflict do nothing;
   select id into u_panela from sisub.utensil where lower(name)=lower('Panela de refogar') and kitchen_id is null and deleted_at is null limit 1;
-  if u_panela is null then insert into sisub.utensil(name) values ('Panela de refogar') returning id into u_panela; end if;
 
   -- 3) etapas
   insert into sisub.recipe_step(recipe_id,label,description,duration_minutes,canvas_x,canvas_y)
@@ -71,12 +72,20 @@ begin
     from sisub.recipe_ingredients ri join sisub.ingredient i on i.id = ri.ingredient_id
     where ri.recipe_id = rid and ri.deleted_at is null
   loop
-    tgt := case
-      when r.description ~* 'acém|carne|bacon|calabresa|linguiça|paio|charque' then s_carnes
-      when r.description ~* 'abóbora|batata|cenoura|chuchu|inhame|mandioca|aipim|macaxeira|maxixe|quiabo|couve|banana' then s_legumes
-      when r.description ~* 'alho|cebola|pimentão|tomate|colorau|colorífico|coentro|tempero|caldo de carne' then s_temperos
-      else s_molhos
-    end;
+    if r.description ~* 'acém|carne|bacon|calabresa|linguiça|paio|charque' then
+      tgt := s_carnes;
+    elsif r.description ~* 'abóbora|batata|cenoura|chuchu|inhame|mandioca|aipim|macaxeira|maxixe|quiabo|couve|banana' then
+      tgt := s_legumes;
+    elsif r.description ~* 'alho|cebola|pimentão|tomate|colorau|colorífico|coentro|tempero|caldo de carne' then
+      tgt := s_temperos;
+    elsif r.description ~* 'azeite|óleo|oleo|margarina|catchup|molho|vinagre|farinha|sal' then
+      tgt := s_molhos;
+    else
+      -- fallback p/ "Molhos e farinha", mas avisa: facilita pegar insumo mal-roteado
+      -- quando o seed roda contra uma receita com nomes ligeiramente diferentes.
+      tgt := s_molhos;
+      raise notice 'Insumo não categorizado, atribuído a "Molhos e farinha": %', r.description;
+    end if;
     insert into sisub.recipe_step_input(recipe_step_id,recipe_ingredient_id,quantity,measure_unit)
       values (tgt, r.id, r.net_quantity, r.measure_unit);
   end loop;
