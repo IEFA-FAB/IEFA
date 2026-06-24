@@ -2,9 +2,10 @@ import type { CategoriaMilitar, Piece, PieceItemWithPiece, UniformVariantImage, 
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { ArrowLeft, Check, Layers, Loader2, Plus, Trash2, Upload } from "lucide-react"
-import { useId, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { BulkAddPieceDialog } from "@/components/admin/bulk-add-piece-dialog"
+import { ImageDropzone, useImageDrop } from "@/components/admin/image-dropzone"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Combobox } from "@/components/ui/combobox"
@@ -26,6 +27,7 @@ import {
 } from "@/lib/uniforms/labels"
 import { useDebouncedEffect } from "@/lib/use-debounced-effect"
 import {
+	clearVariantImageFn,
 	deleteUniformFn,
 	deleteVariantFn,
 	deleteVariantImageFn,
@@ -415,8 +417,6 @@ function VariantCard({
 	pieceItems: PieceItemWithPiece[]
 	onChanged: () => Promise<unknown>
 }) {
-	const fileRef = useRef<HTMLInputElement>(null)
-	const fileInputId = useId()
 	const [uploading, setUploading] = useState(false)
 	const [rows, setRows] = useState(() =>
 		variant.pieces.map((p) => ({
@@ -459,6 +459,15 @@ function VariantCard({
 		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
 	})
 
+	const clearImage = useMutation({
+		mutationFn: () => clearVariantImageFn({ data: { id: variant.id } }),
+		onSuccess: async () => {
+			toast.success("Imagem removida")
+			await onChanged()
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+	})
+
 	const saveComposition = useMutation({
 		mutationFn: () =>
 			setVariantPiecesFn({
@@ -493,7 +502,7 @@ function VariantCard({
 	async function handleUpload(file: File) {
 		setUploading(true)
 		try {
-			const ext = file.name.split(".").pop() ?? "png"
+			const ext = file.name.split(".").pop() || "png"
 			const filePath = `${variant.uniform_id}/${variant.id}.${ext}`
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
@@ -561,29 +570,19 @@ function VariantCard({
 					<span className="text-sm font-semibold">{label}</span>
 					{variant.image_path ? <Badge variant="secondary">com imagem</Badge> : <Badge variant="outline">sem imagem</Badge>}
 				</div>
-				<Button variant="ghost" size="sm" onClick={() => del.mutate()} disabled={del.isPending}>
+				<Button variant="ghost" size="sm" title="Remover variante" onClick={() => del.mutate()} disabled={del.isPending}>
 					<Trash2 className="size-4" />
 				</Button>
 			</div>
 
-			{/* Upload de imagem */}
-			<div>
-				<input
-					id={fileInputId}
-					ref={fileRef}
-					type="file"
-					accept="image/*"
-					className="hidden"
-					onChange={(e) => {
-						const f = e.target.files?.[0]
-						if (f) handleUpload(f)
-					}}
-				/>
-				<Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-					<Upload className="size-4" />
-					{uploading ? "Enviando…" : variant.image_path ? "Trocar imagem" : "Enviar imagem"}
-				</Button>
-			</div>
+			{/* Upload da imagem base — arraste ou clique */}
+			<ImageDropzone
+				onFile={handleUpload}
+				uploading={uploading}
+				hasImage={!!variant.image_path}
+				onRemove={() => clearImage.mutate()}
+				removing={clearImage.isPending}
+			/>
 
 			{/* Composição */}
 			<div className="flex flex-col gap-2">
@@ -691,7 +690,6 @@ function AltImageRow({
 	image: UniformVariantImage | undefined
 	onChanged: () => Promise<unknown>
 }) {
-	const fileRef = useRef<HTMLInputElement>(null)
 	const [uploading, setUploading] = useState(false)
 	const { data: imageUrl } = useQuery(signedImageQueryOptions(image?.image_path))
 
@@ -707,7 +705,7 @@ function AltImageRow({
 	async function handleUpload(file: File) {
 		setUploading(true)
 		try {
-			const ext = file.name.split(".").pop() ?? "png"
+			const ext = file.name.split(".").pop() || "png"
 			const filePath = `${variant.uniform_id}/${variant.id}__${piece.piece_id}.${ext}`
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
@@ -722,8 +720,16 @@ function AltImageRow({
 		}
 	}
 
+	// Linha inteira é droppable (noClick: o clique abre via botão dedicado).
+	const { getRootProps, getInputProps, isDragActive, open } = useImageDrop({ onFile: handleUpload, disabled: uploading || del.isPending, noClick: true })
+
 	return (
-		<div className="flex items-center gap-3 border border-border rounded-md p-2">
+		<div
+			{...getRootProps({
+				className: `flex items-center gap-3 border rounded-md p-2 transition-colors ${isDragActive ? "border-foreground bg-muted" : "border-border"}`,
+			})}
+		>
+			<input {...getInputProps()} />
 			<div className="flex items-center justify-center size-16 shrink-0 border border-border rounded bg-muted/30 overflow-hidden">
 				{image && imageUrl ? (
 					<img src={imageUrl} alt={piece.piece.nome} className="size-full object-contain" />
@@ -733,19 +739,9 @@ function AltImageRow({
 			</div>
 			<div className="flex flex-col gap-0.5 flex-1 min-w-0">
 				<span className="text-sm font-medium truncate">{formatPieceName(piece.piece.nome)}</span>
-				<span className="text-xs text-muted-foreground">{OBRIGATORIEDADE_LABELS[piece.obrigatoriedade]}</span>
+				<span className="text-xs text-muted-foreground">{isDragActive ? "Solte para enviar" : OBRIGATORIEDADE_LABELS[piece.obrigatoriedade]}</span>
 			</div>
-			<input
-				ref={fileRef}
-				type="file"
-				accept="image/*"
-				className="hidden"
-				onChange={(e) => {
-					const f = e.target.files?.[0]
-					if (f) handleUpload(f)
-				}}
-			/>
-			<Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+			<Button variant="outline" size="sm" onClick={open} disabled={uploading || del.isPending}>
 				<Upload className="size-4" />
 				{uploading ? "Enviando…" : image ? "Trocar" : "Enviar"}
 			</Button>
