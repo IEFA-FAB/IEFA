@@ -33,7 +33,8 @@ export { hasPermission }
 export const userPermissionsQueryOptions = (userId: string) =>
 	queryOptions({
 		queryKey: ["userPermissions", userId],
-		queryFn: () => fetchUserPermissionsFn({ data: { userId } }),
+		// userId só compõe a chave de cache; o servidor resolve pela sessão (não confia no cliente).
+		queryFn: () => fetchUserPermissionsFn(),
 		staleTime: 1000 * 60 * 30, // 30 min — permissões mudam com baixa frequência
 		gcTime: 1000 * 60 * 60,
 		enabled: !!userId,
