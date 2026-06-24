@@ -97,6 +97,10 @@ function ModuleCard({ module, color }: { module: ModuleDef; color: GroupColor })
 					render={
 						<Link
 							to={firstUrl as Parameters<typeof Link>[0]["to"]}
+							// Sem preload: cada card dispararia a cadeia de beforeLoad async dos módulos
+							// (incl. syncUserEmailFn — escrita no DB) a cada hover, além de esbarrar numa
+							// corrida do router-core (getMatch undefined → "_nonReactive") em preloads concorrentes.
+							preload={false}
 							className="absolute inset-0 z-10 rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2"
 							aria-label={`Entrar no módulo ${module.name}`}
 						/>
