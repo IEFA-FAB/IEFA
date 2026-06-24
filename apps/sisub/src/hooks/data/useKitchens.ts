@@ -20,6 +20,10 @@ export function useUserKitchens() {
 		queryKey: queryKeys.user.kitchens(),
 		queryFn: (): Promise<KitchenWithUnit[]> => fetchKitchensFn(),
 		staleTime: 10 * 60 * 1000, // 10 minutes - kitchens rarely change
+		// Coage a um array: protege contra um payload inesperado da server fn (ex.: em dev,
+		// um erro de transform/HMR faz o Nitro devolver 200 + HTML, e o client RPC resolve com
+		// o objeto Response cru em vez do array — `kitchens.map` quebraria a rota inteira).
+		select: (data): KitchenWithUnit[] => (Array.isArray(data) ? data : []),
 	})
 }
 
