@@ -135,7 +135,7 @@ export async function hasLiveSync(supabase: SupabaseClient<any, any>): Promise<b
 
 export async function runComprasSync(opts: RunComprasSyncOptions): Promise<number> {
 	const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
-		db: { schema: "sisub" },
+		db: { schema: "compras_gov_integration" },
 		auth: { persistSession: false },
 	})
 
@@ -301,7 +301,7 @@ function scheduleNextRun() {
 
 export async function startComprasSyncWorker() {
 	const supabase = createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
-		db: { schema: "sisub" },
+		db: { schema: "compras_gov_integration" },
 		auth: { persistSession: false },
 	})
 

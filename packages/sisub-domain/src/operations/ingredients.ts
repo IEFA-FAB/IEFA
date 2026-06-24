@@ -7,9 +7,10 @@
  * Nenhuma coluna camelCase no DB nestas tabelas → `toWire`/`toColumns` são seguros.
  */
 
+import type { Tables as ComprasGovTables } from "@iefa/database/compras-gov"
 import {
 	ceafaInSisub,
-	comprasMaterialItemInSisub,
+	comprasMaterialItemInComprasGovIntegration,
 	folderInSisub,
 	ingredientInSisub,
 	ingredientItemInSisub,
@@ -60,7 +61,7 @@ type PurchaseItemRef = Pick<
 type IngredientItemWire = IngredientItem & { purchase_item: PurchaseItemRef | null }
 type NutrientRef = Nutrient
 type IngredientNutrientWire = IngredientNutrient & { nutrient: NutrientRef | null }
-type CatmatItem = Pick<Tables<"compras_material_item">, "codigo_item" | "descricao_item" | "item_sustentavel">
+type CatmatItem = Pick<ComprasGovTables<"compras_material_item">, "codigo_item" | "descricao_item" | "item_sustentavel">
 
 const ITEM_PURCHASE_RELATIONS: Record<string, string> = { purchaseItemInSisub: "purchase_item" }
 const NUTRIENT_RELATIONS: Record<string, string> = { nutrientInSisub: "nutrient" }
@@ -330,19 +331,22 @@ export async function listCatmatItems(db: SisubDb, ctx: UserContext, input: List
 
 	const isNumericCode = /^\d+$/.test(term)
 	const where = isNumericCode
-		? and(eq(comprasMaterialItemInSisub.statusItem, true), eq(comprasMaterialItemInSisub.codigoItem, Number.parseInt(term, 10)))
-		: and(eq(comprasMaterialItemInSisub.statusItem, true), ilike(comprasMaterialItemInSisub.descricaoItem, `%${term.replace(/[\\%_]/g, "\\$&")}%`))
+		? and(eq(comprasMaterialItemInComprasGovIntegration.statusItem, true), eq(comprasMaterialItemInComprasGovIntegration.codigoItem, Number.parseInt(term, 10)))
+		: and(
+				eq(comprasMaterialItemInComprasGovIntegration.statusItem, true),
+				ilike(comprasMaterialItemInComprasGovIntegration.descricaoItem, `%${term.replace(/[\\%_]/g, "\\$&")}%`)
+			)
 
 	const rows = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
-				codigo_item: comprasMaterialItemInSisub.codigoItem,
-				descricao_item: comprasMaterialItemInSisub.descricaoItem,
-				item_sustentavel: comprasMaterialItemInSisub.itemSustentavel,
+				codigo_item: comprasMaterialItemInComprasGovIntegration.codigoItem,
+				descricao_item: comprasMaterialItemInComprasGovIntegration.descricaoItem,
+				item_sustentavel: comprasMaterialItemInComprasGovIntegration.itemSustentavel,
 			})
-			.from(comprasMaterialItemInSisub)
+			.from(comprasMaterialItemInComprasGovIntegration)
 			.where(where)
-			.orderBy(asc(comprasMaterialItemInSisub.descricaoItem))
+			.orderBy(asc(comprasMaterialItemInComprasGovIntegration.descricaoItem))
 			.limit(40)
 	)
 	return rows
