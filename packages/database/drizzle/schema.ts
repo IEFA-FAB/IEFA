@@ -5,6 +5,7 @@ export const sisub = pgSchema("sisub");
 // Patched (patch-drizzle-pull.ts): cross-schema/custom-type refs the pull leaves dangling.
 export const usersInAuth = pgSchema("auth").table("users", { id: uuid().primaryKey().notNull() });
 export const userLevels = pgEnum("userLevels", ['user', 'admin', 'superadmin']);
+export const comprasGovIntegration = pgSchema("compras_gov_integration");
 export const kitchenTypeInSisub = sisub.enum("kitchen_type", ['consumption', 'production'])
 export const unitTypeInSisub = sisub.enum("unit_type", ['consumption', 'purchase'])
 
@@ -202,7 +203,7 @@ export const comprasAmostraInSisub = sisub.table("compras_amostra", {
 	fingerprint: text().generatedAlwaysAs(sql`sisub.compras_amostra_fingerprint(id_compra, id_item_compra, descricao_item, preco_unitario, capacidade_unidade_fornecimento, sigla_unidade_fornecimento, sigla_unidade_medida, quantidade, codigo_uasg, nome_uasg, municipio, estado, esfera, marca, normalized_price, reference_date)`),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("text_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
+	index("idx_compras_amostra_compra").using("btree", table.idCompra.asc().nullsLast().op("int4_ops"), table.idItemCompra.asc().nullsLast().op("int4_ops")),
 	uniqueIndex("uq_compras_amostra_fingerprint").using("btree", table.fingerprint.asc().nullsLast().op("text_ops")),
 ]);
 
@@ -599,7 +600,7 @@ export const userPermissionsInSisub = sisub.table("user_permissions", {
 	check("exclusive_scope", sql`num_nonnulls(mess_hall_id, kitchen_id, unit_id) <= 1`),
 ]);
 
-export const comprasMaterialGrupoInSisub = sisub.table("compras_material_grupo", {
+export const comprasMaterialGrupoInComprasGovIntegration = comprasGovIntegration.table("compras_material_grupo", {
 	codigoGrupo: integer("codigo_grupo").primaryKey().notNull(),
 	nomeGrupo: text("nome_grupo").notNull(),
 	statusGrupo: boolean("status_grupo").default(true).notNull(),
@@ -607,7 +608,7 @@ export const comprasMaterialGrupoInSisub = sisub.table("compras_material_grupo",
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
-export const comprasMaterialClasseInSisub = sisub.table("compras_material_classe", {
+export const comprasMaterialClasseInComprasGovIntegration = comprasGovIntegration.table("compras_material_classe", {
 	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
 	codigoGrupo: integer("codigo_grupo").notNull(),
 	nomeClasse: text("nome_classe").notNull(),
@@ -617,41 +618,9 @@ export const comprasMaterialClasseInSisub = sisub.table("compras_material_classe
 }, (table) => [
 	foreignKey({
 			columns: [table.codigoGrupo],
-			foreignColumns: [comprasMaterialGrupoInSisub.codigoGrupo],
+			foreignColumns: [comprasMaterialGrupoInComprasGovIntegration.codigoGrupo],
 			name: "compras_material_classe_codigo_grupo_fkey"
 		}),
-]);
-
-export const comprasMaterialPdmInSisub = sisub.table("compras_material_pdm", {
-	codigoPdm: integer("codigo_pdm").primaryKey().notNull(),
-	codigoClasse: integer("codigo_classe").notNull(),
-	nomePdm: text("nome_pdm").notNull(),
-	statusPdm: boolean("status_pdm").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.codigoClasse],
-			foreignColumns: [comprasMaterialClasseInSisub.codigoClasse],
-			name: "compras_material_pdm_codigo_classe_fkey"
-		}),
-]);
-
-export const comprasMaterialItemInSisub = sisub.table("compras_material_item", {
-	codigoItem: integer("codigo_item").primaryKey().notNull(),
-	codigoPdm: integer("codigo_pdm"),
-	descricaoItem: text("descricao_item").notNull(),
-	statusItem: boolean("status_item").default(true).notNull(),
-	itemSustentavel: boolean("item_sustentavel"),
-	codigoNcm: text("codigo_ncm"),
-	descricaoNcm: text("descricao_ncm"),
-	aplicaMargemPreferencia: boolean("aplica_margem_preferencia"),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	firstDeactivationDetectedAt: timestamp("first_deactivation_detected_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	index("idx_compras_material_item_descricao_trgm").using("gin", table.descricaoItem.asc().nullsLast().op("gin_trgm_ops")),
-	index("idx_compras_material_item_pdm").using("btree", table.codigoPdm.asc().nullsLast().op("int4_ops")),
 ]);
 
 export const migrationNutrientLookupInSisub = sisub.table("migration_nutrient_lookup", {
@@ -660,22 +629,6 @@ export const migrationNutrientLookupInSisub = sisub.table("migration_nutrient_lo
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
 	unique("migration_nutrient_lookup_new_nutrient_id_key").on(table.newNutrientId),
-]);
-
-export const comprasMaterialUnidadeFornecimentoInSisub = sisub.table("compras_material_unidade_fornecimento", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	codigoPdm: integer("codigo_pdm").notNull(),
-	numeroSequencialUnidadeFornecimento: integer("numero_sequencial_unidade_fornecimento"),
-	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
-	nomeUnidadeFornecimento: text("nome_unidade_fornecimento"),
-	descricaoUnidadeFornecimento: text("descricao_unidade_fornecimento"),
-	siglaUnidadeMedida: text("sigla_unidade_medida"),
-	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { precision: 12, scale:  4 }),
-	statusUnidadeFornecimentoPdm: boolean("status_unidade_fornecimento_pdm").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_material_unidade_forn_codigo_pdm_numero_sequencial__key").on(table.codigoPdm, table.numeroSequencialUnidadeFornecimento),
 ]);
 
 export const ceafaInSisub = sisub.table("ceafa", {
@@ -703,17 +656,6 @@ export const nutrientInSisub = sisub.table("nutrient", {
 	unique("nutrient_legacy_id_key").on(table.legacyId),
 ]);
 
-export const comprasMaterialNaturezaDespesaInSisub = sisub.table("compras_material_natureza_despesa", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	codigoPdm: integer("codigo_pdm").notNull(),
-	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
-	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
-	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
-]);
-
 export const mcpApiKeysInSisub = sisub.table("mcp_api_keys", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	userId: uuid("user_id").notNull(),
@@ -731,6 +673,17 @@ export const mcpApiKeysInSisub = sisub.table("mcp_api_keys", {
 			name: "mcp_api_keys_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("mcp_api_keys_key_hash_key").on(table.keyHash),
+]);
+
+export const comprasMaterialNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_material_natureza_despesa", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	codigoPdm: integer("codigo_pdm").notNull(),
+	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
+	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
+	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_material_natureza_des_codigo_pdm_codigo_natureza_de_key").on(table.codigoPdm, table.codigoNaturezaDespesa),
 ]);
 
 export const ingredientNutrientInSisub = sisub.table("ingredient_nutrient", {
@@ -754,7 +707,7 @@ export const ingredientNutrientInSisub = sisub.table("ingredient_nutrient", {
 	unique("product_nutrient_unique").on(table.ingredientId, table.nutrientId),
 ]);
 
-export const comprasMaterialCaracteristicaInSisub = sisub.table("compras_material_caracteristica", {
+export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIntegration.table("compras_material_caracteristica", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	codigoItem: integer("codigo_item").notNull(),
 	codigoCaracteristica: text("codigo_caracteristica").notNull(),
@@ -769,91 +722,6 @@ export const comprasMaterialCaracteristicaInSisub = sisub.table("compras_materia
 	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	unique("compras_material_caracteristi_codigo_item_codigo_caracteris_key").on(table.codigoItem, table.codigoCaracteristica, table.codigoValorCaracteristica),
-]);
-
-export const comprasServicoSecaoInSisub = sisub.table("compras_servico_secao", {
-	codigoSecao: integer("codigo_secao").primaryKey().notNull(),
-	nomeSecao: text("nome_secao").notNull(),
-	statusSecao: boolean("status_secao").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
-
-export const comprasServicoDivisaoInSisub = sisub.table("compras_servico_divisao", {
-	codigoDivisao: integer("codigo_divisao").primaryKey().notNull(),
-	codigoSecao: integer("codigo_secao").notNull(),
-	nomeDivisao: text("nome_divisao").notNull(),
-	statusDivisao: boolean("status_divisao").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.codigoSecao],
-			foreignColumns: [comprasServicoSecaoInSisub.codigoSecao],
-			name: "compras_servico_divisao_codigo_secao_fkey"
-		}),
-]);
-
-export const comprasServicoGrupoInSisub = sisub.table("compras_servico_grupo", {
-	codigoGrupo: integer("codigo_grupo").primaryKey().notNull(),
-	codigoDivisao: integer("codigo_divisao").notNull(),
-	nomeGrupo: text("nome_grupo").notNull(),
-	statusGrupo: boolean("status_grupo").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.codigoDivisao],
-			foreignColumns: [comprasServicoDivisaoInSisub.codigoDivisao],
-			name: "compras_servico_grupo_codigo_divisao_fkey"
-		}),
-]);
-
-export const comprasServicoClasseInSisub = sisub.table("compras_servico_classe", {
-	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
-	codigoGrupo: integer("codigo_grupo").notNull(),
-	nomeClasse: text("nome_classe").notNull(),
-	statusGrupo: boolean("status_grupo").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.codigoGrupo],
-			foreignColumns: [comprasServicoGrupoInSisub.codigoGrupo],
-			name: "compras_servico_classe_codigo_grupo_fkey"
-		}),
-]);
-
-export const comprasServicoSubclasseInSisub = sisub.table("compras_servico_subclasse", {
-	codigoSubclasse: integer("codigo_subclasse").primaryKey().notNull(),
-	codigoClasse: integer("codigo_classe").notNull(),
-	nomeSubclasse: text("nome_subclasse").notNull(),
-	statusSubclasse: boolean("status_subclasse").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
-
-export const comprasServicoItemInSisub = sisub.table("compras_servico_item", {
-	codigoServico: integer("codigo_servico").primaryKey().notNull(),
-	codigoSubclasse: integer("codigo_subclasse"),
-	nomeServico: text("nome_servico").notNull(),
-	codigoCpc: integer("codigo_cpc"),
-	exclusivoCentralCompras: boolean("exclusivo_central_compras"),
-	statusServico: boolean("status_servico").default(true).notNull(),
-	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	firstDeactivationDetectedAt: timestamp("first_deactivation_detected_at", { withTimezone: true, mode: 'string' }),
-});
-
-export const comprasServicoUnidadeMedidaInSisub = sisub.table("compras_servico_unidade_medida", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	codigoServico: integer("codigo_servico").notNull(),
-	siglaUnidadeMedida: text("sigla_unidade_medida").notNull(),
-	nomeUnidadeMedida: text("nome_unidade_medida"),
-	statusUnidadeMedida: boolean("status_unidade_medida").default(true).notNull(),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_servico_unidade_medid_codigo_servico_sigla_unidade__key").on(table.codigoServico, table.siglaUnidadeMedida),
 ]);
 
 export const purchaseItemInSisub = sisub.table("purchase_item", {
@@ -877,10 +745,91 @@ export const purchaseItemInSisub = sisub.table("purchase_item", {
 	index("purchase_item_description_trgm_idx").using("gin", table.description.asc().nullsLast().op("gin_trgm_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
 			columns: [table.catmatItemCodigo],
-			foreignColumns: [comprasMaterialItemInSisub.codigoItem],
+			foreignColumns: [comprasMaterialItemInComprasGovIntegration.codigoItem],
 			name: "purchase_item_catmat_item_codigo_fkey"
 		}).onDelete("set null"),
 	check("purchase_item_catmat_match_status_check", sql`catmat_match_status = ANY (ARRAY['pending'::text, 'matched'::text, 'review'::text, 'no_match'::text, 'skip'::text])`),
+]);
+
+export const comprasServicoGrupoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_grupo", {
+	codigoGrupo: integer("codigo_grupo").primaryKey().notNull(),
+	codigoDivisao: integer("codigo_divisao").notNull(),
+	nomeGrupo: text("nome_grupo").notNull(),
+	statusGrupo: boolean("status_grupo").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.codigoDivisao],
+			foreignColumns: [comprasServicoDivisaoInComprasGovIntegration.codigoDivisao],
+			name: "compras_servico_grupo_codigo_divisao_fkey"
+		}),
+]);
+
+export const comprasServicoClasseInComprasGovIntegration = comprasGovIntegration.table("compras_servico_classe", {
+	codigoClasse: integer("codigo_classe").primaryKey().notNull(),
+	codigoGrupo: integer("codigo_grupo").notNull(),
+	nomeClasse: text("nome_classe").notNull(),
+	statusGrupo: boolean("status_grupo").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.codigoGrupo],
+			foreignColumns: [comprasServicoGrupoInComprasGovIntegration.codigoGrupo],
+			name: "compras_servico_classe_codigo_grupo_fkey"
+		}),
+]);
+
+export const comprasServicoSubclasseInComprasGovIntegration = comprasGovIntegration.table("compras_servico_subclasse", {
+	codigoSubclasse: integer("codigo_subclasse").primaryKey().notNull(),
+	codigoClasse: integer("codigo_classe").notNull(),
+	nomeSubclasse: text("nome_subclasse").notNull(),
+	statusSubclasse: boolean("status_subclasse").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const comprasServicoItemInComprasGovIntegration = comprasGovIntegration.table("compras_servico_item", {
+	codigoServico: integer("codigo_servico").primaryKey().notNull(),
+	codigoSubclasse: integer("codigo_subclasse"),
+	nomeServico: text("nome_servico").notNull(),
+	codigoCpc: integer("codigo_cpc"),
+	exclusivoCentralCompras: boolean("exclusivo_central_compras"),
+	statusServico: boolean("status_servico").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	firstDeactivationDetectedAt: timestamp("first_deactivation_detected_at", { withTimezone: true, mode: 'string' }),
+});
+
+export const comprasServicoNaturezaDespesaInComprasGovIntegration = comprasGovIntegration.table("compras_servico_natureza_despesa", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	codigoServico: integer("codigo_servico").notNull(),
+	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
+	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
+	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_servico_natureza_desp_codigo_servico_codigo_naturez_key").on(table.codigoServico, table.codigoNaturezaDespesa),
+]);
+
+export const comprasSyncLogInComprasGovIntegration = comprasGovIntegration.table("compras_sync_log", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	triggeredBy: text("triggered_by").default('cron').notNull(),
+	status: text().default('running').notNull(),
+	totalSteps: integer("total_steps").default(15).notNull(),
+	completedSteps: integer("completed_steps").default(0).notNull(),
+	successfulSteps: integer("successful_steps").default(0).notNull(),
+	failedSteps: integer("failed_steps").default(0).notNull(),
+	totalUpserted: integer("total_upserted").default(0).notNull(),
+	totalDeactivated: integer("total_deactivated").default(0).notNull(),
+	errorMessage: text("error_message"),
+	heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: 'string' }),
+	stopRequested: boolean("stop_requested").default(false).notNull(),
+}, (table) => [
+	index("idx_compras_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
 ]);
 
 export const purchaseItemIngredientInSisub = sisub.table("purchase_item_ingredient", {
@@ -931,37 +880,7 @@ export const ingredientInSisub = sisub.table("ingredient", {
 		}),
 ]);
 
-export const comprasSyncLogInSisub = sisub.table("compras_sync_log", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
-	triggeredBy: text("triggered_by").default('cron').notNull(),
-	status: text().default('running').notNull(),
-	totalSteps: integer("total_steps").default(15).notNull(),
-	completedSteps: integer("completed_steps").default(0).notNull(),
-	successfulSteps: integer("successful_steps").default(0).notNull(),
-	failedSteps: integer("failed_steps").default(0).notNull(),
-	totalUpserted: integer("total_upserted").default(0).notNull(),
-	totalDeactivated: integer("total_deactivated").default(0).notNull(),
-	errorMessage: text("error_message"),
-	heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: 'string' }),
-	stopRequested: boolean("stop_requested").default(false).notNull(),
-}, (table) => [
-	index("idx_compras_sync_log_started_at").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
-]);
-
-export const comprasServicoNaturezaDespesaInSisub = sisub.table("compras_servico_natureza_despesa", {
-	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	codigoServico: integer("codigo_servico").notNull(),
-	codigoNaturezaDespesa: text("codigo_natureza_despesa").notNull(),
-	nomeNaturezaDespesa: text("nome_natureza_despesa").notNull(),
-	statusNaturezaDespesa: boolean("status_natureza_despesa").default(true).notNull(),
-	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	unique("compras_servico_natureza_desp_codigo_servico_codigo_naturez_key").on(table.codigoServico, table.codigoNaturezaDespesa),
-]);
-
-export const comprasSyncStepInSisub = sisub.table("compras_sync_step", {
+export const comprasSyncStepInComprasGovIntegration = comprasGovIntegration.table("compras_sync_step", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	syncId: bigint("sync_id", { mode: "number" }).notNull(),
@@ -977,7 +896,7 @@ export const comprasSyncStepInSisub = sisub.table("compras_sync_step", {
 }, (table) => [
 	foreignKey({
 			columns: [table.syncId],
-			foreignColumns: [comprasSyncLogInSisub.id],
+			foreignColumns: [comprasSyncLogInComprasGovIntegration.id],
 			name: "compras_sync_step_sync_id_fkey"
 		}).onDelete("cascade"),
 	unique("compras_sync_step_sync_id_step_name_key").on(table.syncId, table.stepName),
@@ -1602,6 +1521,88 @@ export const recipeStepUtensilInSisub = sisub.table("recipe_step_utensil", {
 			foreignColumns: [utensilInSisub.id],
 			name: "recipe_step_utensil_utensil_id_fkey"
 		}),
+]);
+
+export const comprasMaterialPdmInComprasGovIntegration = comprasGovIntegration.table("compras_material_pdm", {
+	codigoPdm: integer("codigo_pdm").primaryKey().notNull(),
+	codigoClasse: integer("codigo_classe").notNull(),
+	nomePdm: text("nome_pdm").notNull(),
+	statusPdm: boolean("status_pdm").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.codigoClasse],
+			foreignColumns: [comprasMaterialClasseInComprasGovIntegration.codigoClasse],
+			name: "compras_material_pdm_codigo_classe_fkey"
+		}),
+]);
+
+export const comprasMaterialItemInComprasGovIntegration = comprasGovIntegration.table("compras_material_item", {
+	codigoItem: integer("codigo_item").primaryKey().notNull(),
+	codigoPdm: integer("codigo_pdm"),
+	descricaoItem: text("descricao_item").notNull(),
+	statusItem: boolean("status_item").default(true).notNull(),
+	itemSustentavel: boolean("item_sustentavel"),
+	codigoNcm: text("codigo_ncm"),
+	descricaoNcm: text("descricao_ncm"),
+	aplicaMargemPreferencia: boolean("aplica_margem_preferencia"),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	firstDeactivationDetectedAt: timestamp("first_deactivation_detected_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("idx_compras_material_item_descricao_trgm").using("gin", table.descricaoItem.asc().nullsLast().op("gin_trgm_ops")),
+	index("idx_compras_material_item_pdm").using("btree", table.codigoPdm.asc().nullsLast().op("int4_ops")),
+]);
+
+export const comprasMaterialUnidadeFornecimentoInComprasGovIntegration = comprasGovIntegration.table("compras_material_unidade_fornecimento", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	codigoPdm: integer("codigo_pdm").notNull(),
+	numeroSequencialUnidadeFornecimento: integer("numero_sequencial_unidade_fornecimento"),
+	siglaUnidadeFornecimento: text("sigla_unidade_fornecimento"),
+	nomeUnidadeFornecimento: text("nome_unidade_fornecimento"),
+	descricaoUnidadeFornecimento: text("descricao_unidade_fornecimento"),
+	siglaUnidadeMedida: text("sigla_unidade_medida"),
+	capacidadeUnidadeFornecimento: numeric("capacidade_unidade_fornecimento", { precision: 12, scale:  4 }),
+	statusUnidadeFornecimentoPdm: boolean("status_unidade_fornecimento_pdm").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_material_unidade_forn_codigo_pdm_numero_sequencial__key").on(table.codigoPdm, table.numeroSequencialUnidadeFornecimento),
+]);
+
+export const comprasServicoSecaoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_secao", {
+	codigoSecao: integer("codigo_secao").primaryKey().notNull(),
+	nomeSecao: text("nome_secao").notNull(),
+	statusSecao: boolean("status_secao").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const comprasServicoDivisaoInComprasGovIntegration = comprasGovIntegration.table("compras_servico_divisao", {
+	codigoDivisao: integer("codigo_divisao").primaryKey().notNull(),
+	codigoSecao: integer("codigo_secao").notNull(),
+	nomeDivisao: text("nome_divisao").notNull(),
+	statusDivisao: boolean("status_divisao").default(true).notNull(),
+	dataHoraAtualizacao: timestamp("data_hora_atualizacao", { withTimezone: true, mode: 'string' }),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.codigoSecao],
+			foreignColumns: [comprasServicoSecaoInComprasGovIntegration.codigoSecao],
+			name: "compras_servico_divisao_codigo_secao_fkey"
+		}),
+]);
+
+export const comprasServicoUnidadeMedidaInComprasGovIntegration = comprasGovIntegration.table("compras_servico_unidade_medida", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	codigoServico: integer("codigo_servico").notNull(),
+	siglaUnidadeMedida: text("sigla_unidade_medida").notNull(),
+	nomeUnidadeMedida: text("nome_unidade_medida"),
+	statusUnidadeMedida: boolean("status_unidade_medida").default(true).notNull(),
+	syncedAt: timestamp("synced_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("compras_servico_unidade_medid_codigo_servico_sigla_unidade__key").on(table.codigoServico, table.siglaUnidadeMedida),
 ]);
 export const ingredientLastReviewInSisub = sisub.view("ingredient_last_review", {	ingredientId: uuid("ingredient_id"),
 	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),

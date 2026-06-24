@@ -21,7 +21,14 @@ type Supabase = ReturnType<typeof getSupabase>
  * Campos externos: `codigo_item`, `descricao_item` (nomes do Compras.gov.br).
  */
 async function buscarDescricaoCatmat(supabase: Supabase, catmatCode: number): Promise<string | null> {
-	const { data } = await supabase.from("compras_material_item").select("descricao_item").eq("codigo_item", catmatCode).single()
+	// compras_material_item foi movida para compras_gov_integration (split de schemas);
+	// o client default segue em sisub (compras_amostra + RPC upsert_compras_amostras ficam lá).
+	const { data } = await supabase
+		.schema("compras_gov_integration")
+		.from("compras_material_item")
+		.select("descricao_item")
+		.eq("codigo_item", catmatCode)
+		.single()
 	return data?.descricao_item ?? null
 }
 

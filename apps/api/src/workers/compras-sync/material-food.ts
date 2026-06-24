@@ -39,7 +39,7 @@ const SUPABASE_WRITE_RETRY_DELAYS_MS = [1_000, 3_000, 8_000]
 
 function getSupabase(): SupabaseClient<any, any> {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
-		db: { schema: "sisub" },
+		db: { schema: "compras_gov_integration" },
 		auth: { persistSession: false },
 	})
 }

@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { usersInAuth, profilesAdminInSisub, ingredientInSisub, ingredientVersionInSisub, kitchenInSisub, messHallsInSisub, unitsInSisub, recipeIngredientsInSisub, recipesInSisub, purchaseItemInSisub, ingredientItemInSisub, dailyMenuInSisub, menuItemsInSisub, ingredientReviewInSisub, mealForecastsInSisub, menuTemplateInSisub, userDataInSisub, opinionsInSisub, mealPresencesInSisub, otherPresencesInSisub, mealTypeInSisub, menuTemplateItemsInSisub, recipeIngredientAlternativesInSisub, userPermissionsInSisub, comprasMaterialGrupoInSisub, comprasMaterialClasseInSisub, comprasMaterialPdmInSisub, mcpApiKeysInSisub, nutrientInSisub, ingredientNutrientInSisub, comprasServicoSecaoInSisub, comprasServicoDivisaoInSisub, comprasServicoGrupoInSisub, comprasServicoClasseInSisub, comprasMaterialItemInSisub, purchaseItemIngredientInSisub, ceafaInSisub, folderInSisub, comprasSyncLogInSisub, comprasSyncStepInSisub, procurementListInSisub, procurementListKitchenInSisub, procurementListSelectionInSisub, procurementListItemInSisub, comprasAmostraInSisub, procurementPesquisaPrecoAmostraInSisub, procurementPesquisaPrecoItemInSisub, procurementPesquisaPrecoInSisub, kitchenAtaDraftInSisub, kitchenAtaDraftSelectionInSisub, productionTaskInSisub, procurementArpItemInSisub, empenhoInSisub, procurementArpInSisub, analyticsChatSessionInSisub, analyticsChatMessageInSisub, moduleChatSessionInSisub, moduleChatMessageInSisub, stepTemplateInSisub, utensilInSisub, stepTemplateUtensilInSisub, recipeStepInSisub, recipeStepOutputInSisub, recipeStepInputInSisub, recipeStepUtensilInSisub } from "./schema";
+import { usersInAuth, profilesAdminInSisub, ingredientInSisub, ingredientVersionInSisub, kitchenInSisub, messHallsInSisub, unitsInSisub, recipeIngredientsInSisub, recipesInSisub, purchaseItemInSisub, ingredientItemInSisub, dailyMenuInSisub, menuItemsInSisub, ingredientReviewInSisub, mealForecastsInSisub, menuTemplateInSisub, userDataInSisub, opinionsInSisub, mealPresencesInSisub, otherPresencesInSisub, mealTypeInSisub, menuTemplateItemsInSisub, recipeIngredientAlternativesInSisub, userPermissionsInSisub, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInSisub, nutrientInSisub, ingredientNutrientInSisub, comprasMaterialItemInComprasGovIntegration, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, purchaseItemIngredientInSisub, ceafaInSisub, folderInSisub, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInSisub, procurementListKitchenInSisub, procurementListSelectionInSisub, procurementListItemInSisub, comprasAmostraInSisub, procurementPesquisaPrecoAmostraInSisub, procurementPesquisaPrecoItemInSisub, procurementPesquisaPrecoInSisub, kitchenAtaDraftInSisub, kitchenAtaDraftSelectionInSisub, productionTaskInSisub, procurementArpItemInSisub, empenhoInSisub, procurementArpInSisub, analyticsChatSessionInSisub, analyticsChatMessageInSisub, moduleChatSessionInSisub, moduleChatMessageInSisub, stepTemplateInSisub, utensilInSisub, stepTemplateUtensilInSisub, recipeStepInSisub, recipeStepOutputInSisub, recipeStepInputInSisub, recipeStepUtensilInSisub, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration } from "./schema";
 
 export const profilesAdminInSisubRelations = relations(profilesAdminInSisub, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
@@ -151,9 +151,9 @@ export const ingredientItemInSisubRelations = relations(ingredientItemInSisub, (
 
 export const purchaseItemInSisubRelations = relations(purchaseItemInSisub, ({one, many}) => ({
 	ingredientItemInSisubs: many(ingredientItemInSisub),
-	comprasMaterialItemInSisub: one(comprasMaterialItemInSisub, {
+	comprasMaterialItemInComprasGovIntegration: one(comprasMaterialItemInComprasGovIntegration, {
 		fields: [purchaseItemInSisub.catmatItemCodigo],
-		references: [comprasMaterialItemInSisub.codigoItem]
+		references: [comprasMaterialItemInComprasGovIntegration.codigoItem]
 	}),
 	purchaseItemIngredientInSisubs: many(purchaseItemIngredientInSisub),
 	procurementListItemInSisubs: many(procurementListItemInSisub),
@@ -313,23 +313,16 @@ export const userPermissionsInSisubRelations = relations(userPermissionsInSisub,
 	}),
 }));
 
-export const comprasMaterialClasseInSisubRelations = relations(comprasMaterialClasseInSisub, ({one, many}) => ({
-	comprasMaterialGrupoInSisub: one(comprasMaterialGrupoInSisub, {
-		fields: [comprasMaterialClasseInSisub.codigoGrupo],
-		references: [comprasMaterialGrupoInSisub.codigoGrupo]
+export const comprasMaterialClasseInComprasGovIntegrationRelations = relations(comprasMaterialClasseInComprasGovIntegration, ({one, many}) => ({
+	comprasMaterialGrupoInComprasGovIntegration: one(comprasMaterialGrupoInComprasGovIntegration, {
+		fields: [comprasMaterialClasseInComprasGovIntegration.codigoGrupo],
+		references: [comprasMaterialGrupoInComprasGovIntegration.codigoGrupo]
 	}),
-	comprasMaterialPdmInSisubs: many(comprasMaterialPdmInSisub),
+	comprasMaterialPdmInComprasGovIntegrations: many(comprasMaterialPdmInComprasGovIntegration),
 }));
 
-export const comprasMaterialGrupoInSisubRelations = relations(comprasMaterialGrupoInSisub, ({many}) => ({
-	comprasMaterialClasseInSisubs: many(comprasMaterialClasseInSisub),
-}));
-
-export const comprasMaterialPdmInSisubRelations = relations(comprasMaterialPdmInSisub, ({one}) => ({
-	comprasMaterialClasseInSisub: one(comprasMaterialClasseInSisub, {
-		fields: [comprasMaterialPdmInSisub.codigoClasse],
-		references: [comprasMaterialClasseInSisub.codigoClasse]
-	}),
+export const comprasMaterialGrupoInComprasGovIntegrationRelations = relations(comprasMaterialGrupoInComprasGovIntegration, ({many}) => ({
+	comprasMaterialClasseInComprasGovIntegrations: many(comprasMaterialClasseInComprasGovIntegration),
 }));
 
 export const mcpApiKeysInSisubRelations = relations(mcpApiKeysInSisub, ({one}) => ({
@@ -354,35 +347,31 @@ export const nutrientInSisubRelations = relations(nutrientInSisub, ({many}) => (
 	ingredientNutrientInSisubs: many(ingredientNutrientInSisub),
 }));
 
-export const comprasServicoDivisaoInSisubRelations = relations(comprasServicoDivisaoInSisub, ({one, many}) => ({
-	comprasServicoSecaoInSisub: one(comprasServicoSecaoInSisub, {
-		fields: [comprasServicoDivisaoInSisub.codigoSecao],
-		references: [comprasServicoSecaoInSisub.codigoSecao]
-	}),
-	comprasServicoGrupoInSisubs: many(comprasServicoGrupoInSisub),
-}));
-
-export const comprasServicoSecaoInSisubRelations = relations(comprasServicoSecaoInSisub, ({many}) => ({
-	comprasServicoDivisaoInSisubs: many(comprasServicoDivisaoInSisub),
-}));
-
-export const comprasServicoGrupoInSisubRelations = relations(comprasServicoGrupoInSisub, ({one, many}) => ({
-	comprasServicoDivisaoInSisub: one(comprasServicoDivisaoInSisub, {
-		fields: [comprasServicoGrupoInSisub.codigoDivisao],
-		references: [comprasServicoDivisaoInSisub.codigoDivisao]
-	}),
-	comprasServicoClasseInSisubs: many(comprasServicoClasseInSisub),
-}));
-
-export const comprasServicoClasseInSisubRelations = relations(comprasServicoClasseInSisub, ({one}) => ({
-	comprasServicoGrupoInSisub: one(comprasServicoGrupoInSisub, {
-		fields: [comprasServicoClasseInSisub.codigoGrupo],
-		references: [comprasServicoGrupoInSisub.codigoGrupo]
-	}),
-}));
-
-export const comprasMaterialItemInSisubRelations = relations(comprasMaterialItemInSisub, ({many}) => ({
+export const comprasMaterialItemInComprasGovIntegrationRelations = relations(comprasMaterialItemInComprasGovIntegration, ({many}) => ({
 	purchaseItemInSisubs: many(purchaseItemInSisub),
+}));
+
+export const comprasServicoGrupoInComprasGovIntegrationRelations = relations(comprasServicoGrupoInComprasGovIntegration, ({one, many}) => ({
+	comprasServicoDivisaoInComprasGovIntegration: one(comprasServicoDivisaoInComprasGovIntegration, {
+		fields: [comprasServicoGrupoInComprasGovIntegration.codigoDivisao],
+		references: [comprasServicoDivisaoInComprasGovIntegration.codigoDivisao]
+	}),
+	comprasServicoClasseInComprasGovIntegrations: many(comprasServicoClasseInComprasGovIntegration),
+}));
+
+export const comprasServicoDivisaoInComprasGovIntegrationRelations = relations(comprasServicoDivisaoInComprasGovIntegration, ({one, many}) => ({
+	comprasServicoGrupoInComprasGovIntegrations: many(comprasServicoGrupoInComprasGovIntegration),
+	comprasServicoSecaoInComprasGovIntegration: one(comprasServicoSecaoInComprasGovIntegration, {
+		fields: [comprasServicoDivisaoInComprasGovIntegration.codigoSecao],
+		references: [comprasServicoSecaoInComprasGovIntegration.codigoSecao]
+	}),
+}));
+
+export const comprasServicoClasseInComprasGovIntegrationRelations = relations(comprasServicoClasseInComprasGovIntegration, ({one}) => ({
+	comprasServicoGrupoInComprasGovIntegration: one(comprasServicoGrupoInComprasGovIntegration, {
+		fields: [comprasServicoClasseInComprasGovIntegration.codigoGrupo],
+		references: [comprasServicoGrupoInComprasGovIntegration.codigoGrupo]
+	}),
 }));
 
 export const purchaseItemIngredientInSisubRelations = relations(purchaseItemIngredientInSisub, ({one}) => ({
@@ -404,15 +393,15 @@ export const folderInSisubRelations = relations(folderInSisub, ({many}) => ({
 	ingredientInSisubs: many(ingredientInSisub),
 }));
 
-export const comprasSyncStepInSisubRelations = relations(comprasSyncStepInSisub, ({one}) => ({
-	comprasSyncLogInSisub: one(comprasSyncLogInSisub, {
-		fields: [comprasSyncStepInSisub.syncId],
-		references: [comprasSyncLogInSisub.id]
+export const comprasSyncStepInComprasGovIntegrationRelations = relations(comprasSyncStepInComprasGovIntegration, ({one}) => ({
+	comprasSyncLogInComprasGovIntegration: one(comprasSyncLogInComprasGovIntegration, {
+		fields: [comprasSyncStepInComprasGovIntegration.syncId],
+		references: [comprasSyncLogInComprasGovIntegration.id]
 	}),
 }));
 
-export const comprasSyncLogInSisubRelations = relations(comprasSyncLogInSisub, ({many}) => ({
-	comprasSyncStepInSisubs: many(comprasSyncStepInSisub),
+export const comprasSyncLogInComprasGovIntegrationRelations = relations(comprasSyncLogInComprasGovIntegration, ({many}) => ({
+	comprasSyncStepInComprasGovIntegrations: many(comprasSyncStepInComprasGovIntegration),
 }));
 
 export const procurementListKitchenInSisubRelations = relations(procurementListKitchenInSisub, ({one, many}) => ({
@@ -679,4 +668,15 @@ export const recipeStepUtensilInSisubRelations = relations(recipeStepUtensilInSi
 		fields: [recipeStepUtensilInSisub.utensilId],
 		references: [utensilInSisub.id]
 	}),
+}));
+
+export const comprasMaterialPdmInComprasGovIntegrationRelations = relations(comprasMaterialPdmInComprasGovIntegration, ({one}) => ({
+	comprasMaterialClasseInComprasGovIntegration: one(comprasMaterialClasseInComprasGovIntegration, {
+		fields: [comprasMaterialPdmInComprasGovIntegration.codigoClasse],
+		references: [comprasMaterialClasseInComprasGovIntegration.codigoClasse]
+	}),
+}));
+
+export const comprasServicoSecaoInComprasGovIntegrationRelations = relations(comprasServicoSecaoInComprasGovIntegration, ({many}) => ({
+	comprasServicoDivisaoInComprasGovIntegrations: many(comprasServicoDivisaoInComprasGovIntegration),
 }));

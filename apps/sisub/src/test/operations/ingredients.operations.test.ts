@@ -196,9 +196,15 @@ describeSupabaseIntegration("ingredients operations (regressão)", () => {
 		if (!reachable || !seeder || !db) return
 		const descricao = uid("[TEST]CATMAT")
 		const codigo = 999_000_000 + (Number.parseInt(descricao.split("-")[1] ?? "1", 10) || 1)
-		const { error } = await client.from("compras_material_item").insert({ codigo_item: codigo, descricao_item: descricao, status_item: true })
+		// compras_material_item foi movida para o schema compras_gov_integration
+		// (split de schemas por domínio); seed/cleanup apontam para lá. A leitura
+		// de produção (listCatmatItems) cruza os schemas via Drizzle.
+		const comprasGov = client.schema("compras_gov_integration")
+		const { error } = await comprasGov.from("compras_material_item").insert({ codigo_item: codigo, descricao_item: descricao, status_item: true })
 		if (error) throw new Error(`seed compras_material_item failed: ${error.message}`)
-		seeder.trackWhere("compras_material_item", "codigo_item", codigo)
+		seeder.trackFn(async () => {
+			await comprasGov.from("compras_material_item").delete().eq("codigo_item", codigo)
+		})
 
 		const result = await listCatmatItems(db, ctx, { search: descricao })
 		expect(result.some((c) => c.codigo_item === codigo)).toBe(true)
