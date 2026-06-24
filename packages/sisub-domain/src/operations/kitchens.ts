@@ -1,14 +1,16 @@
 /**
  * Kitchen operations — listagem, vínculo a unidades e address settings. Drizzle query layer.
  *
- * Auth: `listKitchens`/`listUnitKitchens` exigem kitchen nível 1. Os *settings* preservam a
- * postura original (entrypoint autenticado sem guard PBAC de módulo; `ctx` por uniformidade).
+ * Auth: leituras de referência (`listKitchens`/`listUnitKitchens`) são apenas autenticadas —
+ * o catálogo de cozinhas/unidades é visível a qualquer usuário logado (ex.: o admin `global`
+ * monta o seletor de escopo de permissões sem ter `kitchen`). Mesma postura de `listUnits`/
+ * `listAllMessHalls`. Os *settings* idem (entrypoint autenticado sem guard PBAC; `ctx` por
+ * uniformidade).
  */
 
 import { kitchenInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { asc, eq } from "drizzle-orm"
-import { requirePermission } from "../guards/require-permission.ts"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError } from "../types/errors.ts"
@@ -33,9 +35,7 @@ type KitchenSettings = Pick<
 	| "address_cep"
 > & { unit: { id: number; code: string; display_name: string | null } | null }
 
-export async function listKitchens(db: SisubDb, ctx: UserContext): Promise<KitchenWithUnit[]> {
-	requirePermission(ctx, "kitchen", 1)
-
+export async function listKitchens(db: SisubDb, _ctx: UserContext): Promise<KitchenWithUnit[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.kitchenInSisub.findMany({
 			with: { unitsInSisub_unitId: { columns: { id: true, displayName: true, code: true } } },
@@ -45,9 +45,7 @@ export async function listKitchens(db: SisubDb, ctx: UserContext): Promise<Kitch
 	return rows.map((r) => toWire<KitchenWithUnit>(r, KITCHEN_RELATIONS))
 }
 
-export async function listUnitKitchens(db: SisubDb, ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
-	requirePermission(ctx, "kitchen", 1)
-
+export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ id: kitchenInSisub.id, display_name: kitchenInSisub.displayName })

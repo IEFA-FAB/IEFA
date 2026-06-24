@@ -2,6 +2,8 @@ import { createFileRoute, Outlet, redirect, useParams } from "@tanstack/react-ro
 import { requirePermission } from "@/auth/pbac"
 import { ModuleNotFound } from "@/components/layout/errors/ModuleNotFound"
 import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
+import { expectArray } from "@/lib/observability/expect-array"
+import type { KitchenWithUnit } from "@/server/kitchens.fn"
 import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { ScopeContext } from "@/types/domain/scope"
 
@@ -10,11 +12,14 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId")(
 		const kitchenId = Number(params.kitchenId)
 		requirePermission(context, "kitchen", 1, { type: "kitchen", id: kitchenId })
 
-		const kitchens = await context.queryClient.fetchQuery({
-			queryKey: ["user", "kitchens"],
-			queryFn: () => fetchKitchensFn(),
-			staleTime: 600_000,
-		})
+		const kitchens = expectArray<KitchenWithUnit>(
+			await context.queryClient.fetchQuery({
+				queryKey: ["user", "kitchens"],
+				queryFn: () => fetchKitchensFn(),
+				staleTime: 600_000,
+			}),
+			{ source: "fetchKitchensFn", route: "kitchen/$kitchenId" }
+		)
 
 		const kitchen = kitchens.find((k) => k.id === kitchenId)
 		if (!kitchen) throw redirect({ to: "/kitchen", replace: true })

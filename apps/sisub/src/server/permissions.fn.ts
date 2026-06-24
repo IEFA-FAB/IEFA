@@ -15,7 +15,6 @@ import {
 	DeleteUserPermissionSchema,
 	deleteUserPermission,
 	FetchUserPermissionsAdminSchema,
-	FetchUserPermissionsSchema,
 	fetchUserPermissionsAdmin,
 	listEffectiveUserPermissions,
 	SearchUsersByEmailSchema,
@@ -24,7 +23,7 @@ import {
 	updateUserPermission,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
+import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 import type { AppModule, UserPermission } from "@/types/domain/permissions"
@@ -45,14 +44,14 @@ export type PermissionRow = {
 }
 
 /**
- * Effective permission set (deny entries stripped, implicit "diner" allow injected).
- * Unauthenticated by design — foundational lookup used while bootstrapping a session.
+ * Effective permission set do PRÓPRIO usuário (deny entries removidos, allow implícito
+ * "diner" injetado). O `userId` vem da sessão (`requireUserId`), NUNCA do cliente — senão
+ * qualquer um leria as permissões de qualquer `userId` (IDOR / divulgação de autorização).
  */
-export const fetchUserPermissionsFn = createServerFn({ method: "GET" })
-	.validator(FetchUserPermissionsSchema)
-	.handler(async ({ data }): Promise<UserPermission[]> => {
-		return (await listEffectiveUserPermissions(getDb(), data).catch(handleDomainError)) as unknown as UserPermission[]
-	})
+export const fetchUserPermissionsFn = createServerFn({ method: "GET" }).handler(async (): Promise<UserPermission[]> => {
+	const userId = await requireUserId()
+	return (await listEffectiveUserPermissions(getDb(), { userId }).catch(handleDomainError)) as unknown as UserPermission[]
+})
 
 export const searchUsersByEmailFn = createServerFn({ method: "GET" })
 	.validator(SearchUsersByEmailSchema)

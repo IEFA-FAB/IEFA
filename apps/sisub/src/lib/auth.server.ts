@@ -6,13 +6,20 @@
 
 import { resolveUserPermissions } from "@iefa/pbac"
 import type { UserContext } from "@iefa/sisub-domain/types"
+import { setResponseStatus } from "@tanstack/react-start/server"
 import { getSupabaseAuthClient, getSupabaseServerClient } from "@/lib/supabase.server"
+
+/** Sinaliza 401 no HTTP antes de lançar — senão o erro sai como 500 (default do framework). */
+function unauthorized(): never {
+	setResponseStatus(401)
+	throw new Error("UNAUTHORIZED")
+}
 
 export async function requireUserId(): Promise<string> {
 	const {
 		data: { user },
 	} = await getSupabaseAuthClient().auth.getUser()
-	if (!user) throw new Error("UNAUTHORIZED")
+	if (!user) unauthorized()
 	return user.id
 }
 
@@ -30,7 +37,7 @@ export async function requireAuth(): Promise<UserContext> {
 	} = await authClient.auth.getUser()
 
 	if (error || !user) {
-		throw new Error("UNAUTHORIZED")
+		unauthorized()
 	}
 
 	const dataClient = getSupabaseServerClient()
