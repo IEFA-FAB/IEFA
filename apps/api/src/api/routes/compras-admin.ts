@@ -4,8 +4,10 @@ import { env } from "../../env.ts"
 import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
 function getSupabase() {
+	// compras_sync_log / compras_sync_step foram movidas para compras_gov_integration
+	// (split de schemas por domínio). Estas rotas admin só tocam essas duas tabelas.
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
-		db: { schema: "sisub" },
+		db: { schema: "compras_gov_integration" },
 		auth: { persistSession: false },
 	})
 }
