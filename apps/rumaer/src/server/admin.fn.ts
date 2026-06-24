@@ -153,9 +153,11 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }): Promise<UniformVariant> => {
 		await requireAuth()
 		const supabase = getRumaerServerClient()
-		// Ao trocar a imagem base: se o path mudou (ex.: outra extensão), o arquivo antigo vira órfão — remover.
+		// Sempre que o payload mexe na imagem base (troca p/ outro path OU limpa com null), o arquivo
+		// antigo vira órfão — remover. `undefined` = payload não toca na imagem (ex.: edita só círculo);
+		// nesse caso não buscamos nem removemos nada.
 		let oldPath: string | null = null
-		if (data.id && data.image_path) {
+		if (data.id && data.image_path !== undefined) {
 			const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
 			oldPath = existing?.image_path ?? null
 		}

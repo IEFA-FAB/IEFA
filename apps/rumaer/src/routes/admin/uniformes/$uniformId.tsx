@@ -502,7 +502,7 @@ function VariantCard({
 	async function handleUpload(file: File) {
 		setUploading(true)
 		try {
-			const ext = file.name.split(".").pop() ?? "png"
+			const ext = file.name.split(".").pop() || "png"
 			const filePath = `${variant.uniform_id}/${variant.id}.${ext}`
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
@@ -705,7 +705,7 @@ function AltImageRow({
 	async function handleUpload(file: File) {
 		setUploading(true)
 		try {
-			const ext = file.name.split(".").pop() ?? "png"
+			const ext = file.name.split(".").pop() || "png"
 			const filePath = `${variant.uniform_id}/${variant.id}__${piece.piece_id}.${ext}`
 			const { path, token } = await getSignedUploadUrlFn({ data: { filePath } })
 			const { error } = await supabase.storage.from("rumaer-uniforms").uploadToSignedUrl(path, token, file, { upsert: true })
@@ -721,7 +721,7 @@ function AltImageRow({
 	}
 
 	// Linha inteira é droppable (noClick: o clique abre via botão dedicado).
-	const { getRootProps, getInputProps, isDragActive, open } = useImageDrop({ onFile: handleUpload, disabled: uploading, noClick: true })
+	const { getRootProps, getInputProps, isDragActive, open } = useImageDrop({ onFile: handleUpload, disabled: uploading || del.isPending, noClick: true })
 
 	return (
 		<div
@@ -741,7 +741,7 @@ function AltImageRow({
 				<span className="text-sm font-medium truncate">{formatPieceName(piece.piece.nome)}</span>
 				<span className="text-xs text-muted-foreground">{isDragActive ? "Solte para enviar" : OBRIGATORIEDADE_LABELS[piece.obrigatoriedade]}</span>
 			</div>
-			<Button variant="outline" size="sm" onClick={open} disabled={uploading}>
+			<Button variant="outline" size="sm" onClick={open} disabled={uploading || del.isPending}>
 				<Upload className="size-4" />
 				{uploading ? "Enviando…" : image ? "Trocar" : "Enviar"}
 			</Button>
