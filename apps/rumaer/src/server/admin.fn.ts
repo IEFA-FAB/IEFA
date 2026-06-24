@@ -17,6 +17,15 @@ async function requireAuth() {
 	return user
 }
 
+const BUCKET = "rumaer-uniforms"
+
+/** Remove objetos do storage em melhor-esforço — órfão eventual não deve derrubar a operação no DB. */
+async function removeStorageObjects(paths: (string | null | undefined)[]) {
+	const valid = paths.filter((p): p is string => !!p)
+	if (valid.length === 0) return
+	await getRumaerServerClient().storage.from(BUCKET).remove(valid)
+}
+
 const GRUPO = z.enum(["historicos", "representacao", "servicos", "educacao_fisica", "desfile"])
 const CATEGORIA = z.enum(["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"])
 const CIRCULO = z.enum(["oficiais_generais", "oficiais", "sargentos", "suboficiais", "cadetes", "alunos", "pracas"])
@@ -143,8 +152,16 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<UniformVariant> => {
 		await requireAuth()
-		const { data: row, error } = await getRumaerServerClient().from("uniform_variant").upsert(data).select("*").single()
+		const supabase = getRumaerServerClient()
+		// Ao trocar a imagem base: se o path mudou (ex.: outra extensão), o arquivo antigo vira órfão — remover.
+		let oldPath: string | null = null
+		if (data.id && data.image_path) {
+			const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
+			oldPath = existing?.image_path ?? null
+		}
+		const { data: row, error } = await supabase.from("uniform_variant").upsert(data).select("*").single()
 		if (error) throw new Error(error.message)
+		if (oldPath && oldPath !== data.image_path) await removeStorageObjects([oldPath])
 		return row
 	})
 
@@ -152,8 +169,29 @@ export const deleteVariantFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
-		const { error } = await getRumaerServerClient().from("uniform_variant").delete().eq("id", data.id)
+		const supabase = getRumaerServerClient()
+		// Coleta os paths (imagem base + alternativas) antes de deletar a variante para limpar o storage.
+		const { data: variant } = await supabase
+			.from("uniform_variant")
+			.select("image_path, images:uniform_variant_image(image_path)")
+			.eq("id", data.id)
+			.maybeSingle()
+		const { error } = await supabase.from("uniform_variant").delete().eq("id", data.id)
 		if (error) throw new Error(error.message)
+		await removeStorageObjects([variant?.image_path, ...(variant?.images ?? []).map((img) => img.image_path)])
+		return { ok: true }
+	})
+
+/** Limpa apenas a imagem base da variante (path → null + remove do storage), sem apagar a variante. */
+export const clearVariantImageFn = createServerFn({ method: "POST" })
+	.validator(z.object({ id: z.string().uuid() }))
+	.handler(async ({ data }) => {
+		await requireAuth()
+		const supabase = getRumaerServerClient()
+		const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
+		const { error } = await supabase.from("uniform_variant").update({ image_path: null }).eq("id", data.id)
+		if (error) throw new Error(error.message)
+		await removeStorageObjects([existing?.image_path])
 		return { ok: true }
 	})
 
@@ -322,12 +360,17 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<UniformVariantImage> => {
 		await requireAuth()
-		const { data: row, error } = await getRumaerServerClient()
+		const supabase = getRumaerServerClient()
+		// Ao trocar a imagem alternativa: remove o arquivo antigo se o path mudou (órfão).
+		const { data: existing } = await supabase
 			.from("uniform_variant_image")
-			.upsert(data, { onConflict: "variant_id,piece_id" })
-			.select("*")
-			.single()
+			.select("image_path")
+			.eq("variant_id", data.variant_id)
+			.eq("piece_id", data.piece_id)
+			.maybeSingle()
+		const { data: row, error } = await supabase.from("uniform_variant_image").upsert(data, { onConflict: "variant_id,piece_id" }).select("*").single()
 		if (error) throw new Error(error.message)
+		if (existing?.image_path && existing.image_path !== data.image_path) await removeStorageObjects([existing.image_path])
 		return row
 	})
 
@@ -335,7 +378,10 @@ export const deleteVariantImageFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
-		const { error } = await getRumaerServerClient().from("uniform_variant_image").delete().eq("id", data.id)
+		const supabase = getRumaerServerClient()
+		const { data: existing } = await supabase.from("uniform_variant_image").select("image_path").eq("id", data.id).maybeSingle()
+		const { error } = await supabase.from("uniform_variant_image").delete().eq("id", data.id)
 		if (error) throw new Error(error.message)
+		await removeStorageObjects([existing?.image_path])
 		return { ok: true }
 	})
