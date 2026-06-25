@@ -6,6 +6,8 @@ type OrderRule = { column: string; ascending?: boolean | null }
 
 export type ApiConfig = {
 	table: string
+	/** Schema do domínio onde a tabela vive após o split de `sisub` (core, kitchen, ...). */
+	schema: string
 	select: string
 	dateColumn?: string
 	dateColumnType?: "timestamp" | "date"
@@ -60,6 +62,7 @@ function dayBounds(dateStr: string) {
 export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any) => Promise<Response>] {
 	const {
 		table,
+		schema,
 		select,
 		dateColumn,
 		dateColumnType = "timestamp",
@@ -95,7 +98,7 @@ export function createApiHandler(config: ApiConfig): [MiddlewareHandler, (c: any
 			const limit = Math.min(Math.max(1, toInt(sp.get("limit"), defaultLimit)), maxLimit)
 
 			// Inicia query
-			let query = supabase.from(table).select(select).limit(limit)
+			let query = supabase.schema(schema).from(table).select(select).limit(limit)
 
 			// Filtros mapeados
 			for (const [param, column] of Object.entries(mapParams)) {

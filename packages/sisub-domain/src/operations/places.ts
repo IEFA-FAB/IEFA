@@ -9,13 +9,13 @@
  */
 
 import {
-	kitchenInSisub,
-	mealForecastsInSisub,
-	messHallsInSisub,
-	otherPresencesInSisub,
+	kitchenInCore,
+	mealForecastsInKitchen,
+	messHallsInCore,
+	otherPresencesInKitchen,
 	type SisubDb,
-	unitsInSisub,
-	vUserIdentityInSisub,
+	unitsInCore,
+	vUserIdentityInCore,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, count, eq } from "drizzle-orm"
@@ -40,7 +40,7 @@ type MessHall = Tables<"mess_halls">
 
 export async function listUnits(db: SisubDb, _ctx: UserContext): Promise<Array<{ id: number; code: string | null; display_name: string | null; type: null }>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.unitsInSisub.findMany({ columns: { id: true, code: true, displayName: true }, orderBy: (u, { asc }) => [asc(u.displayName)] })
+		db.query.unitsInCore.findMany({ columns: { id: true, code: true, displayName: true }, orderBy: (u, { asc }) => [asc(u.displayName)] })
 	)
 	return rows.map((r) => {
 		const w = toWire<{ id: number; code: string | null; display_name: string | null }>(r)
@@ -53,7 +53,7 @@ export async function listAllMessHalls(
 	_ctx: UserContext
 ): Promise<Array<Pick<MessHall, "id" | "unit_id" | "code" | "display_name" | "kitchen_id">>> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.messHallsInSisub.findMany({
+		db.query.messHallsInCore.findMany({
 			columns: { id: true, unitId: true, code: true, displayName: true, kitchenId: true },
 			orderBy: (m, { asc }) => [asc(m.displayName)],
 		})
@@ -64,9 +64,9 @@ export async function listAllMessHalls(
 export async function fetchPlacesGraph(db: SisubDb, _ctx: UserContext): Promise<{ units: Unit[]; kitchens: Kitchen[]; messHalls: MessHall[] }> {
 	const [units, kitchens, messHalls] = await runQuery("FETCH_FAILED", () =>
 		Promise.all([
-			db.select().from(unitsInSisub).orderBy(asc(unitsInSisub.displayName)),
-			db.select().from(kitchenInSisub).orderBy(asc(kitchenInSisub.displayName)),
-			db.select().from(messHallsInSisub).orderBy(asc(messHallsInSisub.displayName)),
+			db.select().from(unitsInCore).orderBy(asc(unitsInCore.displayName)),
+			db.select().from(kitchenInCore).orderBy(asc(kitchenInCore.displayName)),
+			db.select().from(messHallsInCore).orderBy(asc(messHallsInCore.displayName)),
 		])
 	)
 	return {
@@ -82,17 +82,17 @@ export async function updatePlacesEntity(db: SisubDb, _ctx: UserContext, input: 
 	await runQuery("UPDATE_FAILED", () => {
 		if (input.entityType === "unit") {
 			return db
-				.update(unitsInSisub)
+				.update(unitsInCore)
 				.set({ displayName: input.display_name, code: input.code, type: input.type })
-				.where(eq(unitsInSisub.id, BigInt(input.id)))
+				.where(eq(unitsInCore.id, BigInt(input.id)))
 		}
 		if (input.entityType === "kitchen") {
-			return db.update(kitchenInSisub).set({ displayName: input.display_name, type: input.type }).where(eq(kitchenInSisub.id, input.id))
+			return db.update(kitchenInCore).set({ displayName: input.display_name, type: input.type }).where(eq(kitchenInCore.id, input.id))
 		}
 		return db
-			.update(messHallsInSisub)
+			.update(messHallsInCore)
 			.set({ displayName: input.display_name, code: input.code })
-			.where(eq(messHallsInSisub.id, BigInt(input.id)))
+			.where(eq(messHallsInCore.id, BigInt(input.id)))
 	})
 	return { ok: true as const }
 }
@@ -101,9 +101,9 @@ export async function updatePlacesEntity(db: SisubDb, _ctx: UserContext, input: 
 // em compile-time, que cada destino é uma coluna real da tabela (sem o silent-drop do cast genérico).
 const KITCHEN_DIFF_KEY = { unit_id: "unitId", purchase_unit_id: "purchaseUnitId", kitchen_id: "kitchenId" } satisfies Record<
 	string,
-	keyof typeof kitchenInSisub.$inferInsert
+	keyof typeof kitchenInCore.$inferInsert
 >
-const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInSisub.$inferInsert>
+const MESS_HALL_DIFF_KEY = { unit_id: "unitId", kitchen_id: "kitchenId" } satisfies Record<string, keyof typeof messHallsInCore.$inferInsert>
 
 export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: ApplyPlacesDiff) {
 	await Promise.all(
@@ -111,14 +111,14 @@ export async function applyPlacesDiff(db: SisubDb, _ctx: UserContext, input: App
 			try {
 				if (diff.table === "kitchen") {
 					await db
-						.update(kitchenInSisub)
+						.update(kitchenInCore)
 						.set({ [KITCHEN_DIFF_KEY[diff.column]]: diff.newValue })
-						.where(eq(kitchenInSisub.id, diff.recordId))
+						.where(eq(kitchenInCore.id, diff.recordId))
 				} else {
 					await db
-						.update(messHallsInSisub)
+						.update(messHallsInCore)
 						.set({ [MESS_HALL_DIFF_KEY[diff.column]]: diff.newValue })
-						.where(eq(messHallsInSisub.id, BigInt(diff.recordId)))
+						.where(eq(messHallsInCore.id, BigInt(diff.recordId)))
 				}
 			} catch (e) {
 				throw new DomainError("UPDATE_FAILED", `Falha ao atualizar ${diff.table} (id ${diff.recordId}): ${e instanceof Error ? e.message : String(e)}`)
@@ -136,28 +136,28 @@ export async function fetchMessHallByCode(
 	input: FetchMessHallByCode
 ): Promise<Pick<MessHall, "id" | "unit_id" | "code" | "display_name"> | null> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.messHallsInSisub.findFirst({ columns: { id: true, unitId: true, code: true, displayName: true }, where: eq(messHallsInSisub.code, input.code) })
+		db.query.messHallsInCore.findFirst({ columns: { id: true, unitId: true, code: true, displayName: true }, where: eq(messHallsInCore.code, input.code) })
 	)
 	return row ? toWire(row) : null
 }
 
 export async function fetchMessHallIdByCode(db: SisubDb, _ctx: UserContext, input: FetchMessHallByCode): Promise<number | null> {
 	if (!input.code) return null
-	const row = await runQuery("FETCH_FAILED", () => db.query.messHallsInSisub.findFirst({ columns: { id: true }, where: eq(messHallsInSisub.code, input.code) }))
+	const row = await runQuery("FETCH_FAILED", () => db.query.messHallsInCore.findFirst({ columns: { id: true }, where: eq(messHallsInCore.code, input.code) }))
 	return row ? Number(row.id) : null
 }
 
 export async function fetchUserMealForecast(db: SisubDb, _ctx: UserContext, input: FetchUserMealForecast): Promise<{ will_eat: boolean | null } | null> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ will_eat: mealForecastsInSisub.willEat })
-			.from(mealForecastsInSisub)
+			.select({ will_eat: mealForecastsInKitchen.willEat })
+			.from(mealForecastsInKitchen)
 			.where(
 				and(
-					eq(mealForecastsInSisub.userId, input.userId),
-					eq(mealForecastsInSisub.date, input.date),
-					eq(mealForecastsInSisub.meal, input.meal),
-					eq(mealForecastsInSisub.messHallId, input.messHallId)
+					eq(mealForecastsInKitchen.userId, input.userId),
+					eq(mealForecastsInKitchen.date, input.date),
+					eq(mealForecastsInKitchen.meal, input.meal),
+					eq(mealForecastsInKitchen.messHallId, input.messHallId)
 				)
 			)
 			.limit(1)
@@ -169,9 +169,13 @@ export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, i
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({ value: count() })
-			.from(otherPresencesInSisub)
+			.from(otherPresencesInKitchen)
 			.where(
-				and(eq(otherPresencesInSisub.date, input.date), eq(otherPresencesInSisub.meal, input.meal), eq(otherPresencesInSisub.messHallId, input.messHallId))
+				and(
+					eq(otherPresencesInKitchen.date, input.date),
+					eq(otherPresencesInKitchen.meal, input.meal),
+					eq(otherPresencesInKitchen.messHallId, input.messHallId)
+				)
 			)
 	)
 	return rows[0]?.value ?? 0
@@ -179,16 +183,16 @@ export async function fetchOtherPresencesCount(db: SisubDb, _ctx: UserContext, i
 
 export async function addOtherPresence(db: SisubDb, _ctx: UserContext, input: AddOtherPresence) {
 	await runQuery("INSERT_FAILED", () =>
-		db.insert(otherPresencesInSisub).values({ adminId: input.adminId, date: input.date, meal: input.meal, messHallId: input.messHallId })
+		db.insert(otherPresencesInKitchen).values({ adminId: input.adminId, date: input.date, meal: input.meal, messHallId: input.messHallId })
 	)
 }
 
 export async function resolveDisplayName(db: SisubDb, _ctx: UserContext, input: ResolveDisplayName): Promise<string | null> {
 	try {
 		const rows = await db
-			.select({ display_name: vUserIdentityInSisub.displayName })
-			.from(vUserIdentityInSisub)
-			.where(eq(vUserIdentityInSisub.id, input.userId))
+			.select({ display_name: vUserIdentityInCore.displayName })
+			.from(vUserIdentityInCore)
+			.where(eq(vUserIdentityInCore.id, input.userId))
 			.limit(1)
 		return rows[0]?.display_name ?? null
 	} catch {

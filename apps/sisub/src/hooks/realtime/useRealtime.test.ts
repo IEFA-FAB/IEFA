@@ -148,7 +148,7 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 			let recipeId: string | null = null
 			const probe = sb
 				.channel(`rt-probe-${Date.now()}`)
-				.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes" }, (payload) => events.push(payload))
+				.on("postgres_changes", { event: "INSERT", schema: "kitchen", table: "recipes" }, (payload) => events.push(payload))
 			try {
 				await waitForSubscribed(probe, 3000)
 				await new Promise((r) => setTimeout(r, 1000))
@@ -188,7 +188,7 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 
 		const channel = supabase
 			.channel(`test-recipes-rt-${Date.now()}`)
-			.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes" }, (payload) => events.push(payload))
+			.on("postgres_changes", { event: "INSERT", schema: "kitchen", table: "recipes" }, (payload) => events.push(payload))
 		await waitForSubscribed(channel)
 		// Allow tenant replication slot to finish initializing after fresh connection
 		await new Promise((r) => setTimeout(r, 2000))
@@ -228,11 +228,13 @@ describeSupabaseIntegration("Realtime event delivery", () => {
 
 		const matchChannel = supabase
 			.channel(`test-filter-hit-${ts}`)
-			.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes", filter: `kitchen_id=eq.${KITCHEN_ID}` }, (payload) => matched.push(payload))
+			.on("postgres_changes", { event: "INSERT", schema: "kitchen", table: "recipes", filter: `kitchen_id=eq.${KITCHEN_ID}` }, (payload) =>
+				matched.push(payload)
+			)
 
 		const missChannel = supabase
 			.channel(`test-filter-miss-${ts}`)
-			.on("postgres_changes", { event: "INSERT", schema: "sisub", table: "recipes", filter: "kitchen_id=eq.999999" }, (payload) => missed.push(payload))
+			.on("postgres_changes", { event: "INSERT", schema: "kitchen", table: "recipes", filter: "kitchen_id=eq.999999" }, (payload) => missed.push(payload))
 
 		await Promise.all([waitForSubscribed(matchChannel), waitForSubscribed(missChannel)])
 

@@ -1,7 +1,7 @@
 /**
  * @module evaluation.fn
  * Super-admin evaluation feature toggle and user opinion collection.
- * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * CLIENT: getCoreClient (service role) — all functions.
  * TABLES: super_admin_controller (key="evaluation"), opinions.
  * @domain app
  * @migration n-a
@@ -10,7 +10,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth, requireUserId } from "@/lib/auth.server"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getCoreClient } from "@/lib/supabase.server"
 import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
 
 /**
@@ -19,7 +19,7 @@ import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
  * @throws {Error} on Supabase query failure.
  */
 export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async () => {
-	const { data, error } = await getSupabaseServerClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
+	const { data, error } = await getCoreClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
 
 	if (error) throw new Error(error.message)
 
@@ -41,7 +41,7 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 	.validator(z.object({ active: z.boolean(), value: z.string() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
-		const { data: result, error } = await getSupabaseServerClient()
+		const { data: result, error } = await getCoreClient()
 			.from("super_admin_controller")
 			.upsert({ key: "evaluation", active: data.active, value: data.value }, { onConflict: "key" })
 			.select("key, active, value")
@@ -67,7 +67,7 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
 export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }): Promise<EvaluationResult> => {
-		const { data: config, error: configError } = await getSupabaseServerClient()
+		const { data: config, error: configError } = await getCoreClient()
 			.from("super_admin_controller")
 			.select("key, active, value")
 			.eq("key", "evaluation")
@@ -82,7 +82,7 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
 			return { shouldAsk: false, question: question || null }
 		}
 
-		const { data: opinion, error: opinionError } = await getSupabaseServerClient()
+		const { data: opinion, error: opinionError } = await getCoreClient()
 			.from("opinions")
 			.select("id")
 			.eq("question", question)
@@ -106,7 +106,7 @@ export const submitEvaluationFn = createServerFn({ method: "POST" })
 	.validator(z.object({ value: z.number(), question: z.string() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const { error } = await getSupabaseServerClient()
+		const { error } = await getCoreClient()
 			.from("opinions")
 			.insert([{ value: data.value, question: data.question, userId }])
 

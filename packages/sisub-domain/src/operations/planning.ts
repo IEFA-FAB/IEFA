@@ -8,7 +8,7 @@
  *     `where: isNull(...)` dentro do `with` aninhado.
  */
 
-import { dailyMenuInSisub, menuItemsInSisub, recipesInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm"
 import { requireKitchen } from "../guards/require-permission.ts"
@@ -47,18 +47,18 @@ type TrashMenuItem = MenuItem & { recipe_origin: Recipe | null; daily_menu: Dail
  * Passadas a `toWire()` para renomear às chaves do contrato (o resto vira snake_case).
  */
 const DAILY_MENU_RELATIONS: Record<string, string> = {
-	mealTypeInSisub: "meal_type",
-	menuItemsInSisubs: "menu_items",
-	recipesInSisub: "recipe_origin",
+	mealTypeInKitchen: "meal_type",
+	menuItemsInKitchens: "menu_items",
+	recipesInKitchen: "recipe_origin",
 }
 
 // Relational `with` para daily_menu + meal_type + menu_items ativos (+ recipe_origin).
 const WITH_MENU_ITEMS = {
-	mealTypeInSisub: true,
-	menuItemsInSisubs: {
+	mealTypeInKitchen: true,
+	menuItemsInKitchens: {
 		// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
-		where: isNull(menuItemsInSisub.deletedAt),
-		with: { recipesInSisub: true },
+		where: isNull(menuItemsInKitchen.deletedAt),
+		with: { recipesInKitchen: true },
 	},
 } as const
 
@@ -66,15 +66,15 @@ export async function fetchDailyMenus(db: SisubDb, ctx: UserContext, input: Dail
 	requireKitchen(ctx, 1, input.kitchenId)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.dailyMenuInSisub.findMany({
+		db.query.dailyMenuInKitchen.findMany({
 			where: and(
-				eq(dailyMenuInSisub.kitchenId, input.kitchenId),
-				gte(dailyMenuInSisub.serviceDate, input.startDate),
-				lte(dailyMenuInSisub.serviceDate, input.endDate),
-				isNull(dailyMenuInSisub.deletedAt)
+				eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+				gte(dailyMenuInKitchen.serviceDate, input.startDate),
+				lte(dailyMenuInKitchen.serviceDate, input.endDate),
+				isNull(dailyMenuInKitchen.deletedAt)
 			),
 			with: WITH_MENU_ITEMS,
-			orderBy: [asc(dailyMenuInSisub.serviceDate), asc(dailyMenuInSisub.mealTypeId)],
+			orderBy: [asc(dailyMenuInKitchen.serviceDate), asc(dailyMenuInKitchen.mealTypeId)],
 		})
 	)
 
@@ -85,8 +85,8 @@ export async function fetchDayDetails(db: SisubDb, ctx: UserContext, input: DayD
 	requireKitchen(ctx, 1, input.kitchenId)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.dailyMenuInSisub.findMany({
-			where: and(eq(dailyMenuInSisub.kitchenId, input.kitchenId), eq(dailyMenuInSisub.serviceDate, input.date), isNull(dailyMenuInSisub.deletedAt)),
+		db.query.dailyMenuInKitchen.findMany({
+			where: and(eq(dailyMenuInKitchen.kitchenId, input.kitchenId), eq(dailyMenuInKitchen.serviceDate, input.date), isNull(dailyMenuInKitchen.deletedAt)),
 			with: WITH_MENU_ITEMS,
 		})
 	)
@@ -101,12 +101,12 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 	// cozinha) é garantida por um índice PARCIAL (where deleted_at is null). Fazemos
 	// select-then-insert ciente de soft-delete; o índice é a trava contra corrida.
 	const existing = await runQuery("UPSERT_FAILED", () =>
-		db.query.dailyMenuInSisub.findFirst({
+		db.query.dailyMenuInKitchen.findFirst({
 			where: and(
-				eq(dailyMenuInSisub.kitchenId, input.kitchenId),
-				eq(dailyMenuInSisub.serviceDate, input.serviceDate),
-				eq(dailyMenuInSisub.mealTypeId, input.mealTypeId),
-				isNull(dailyMenuInSisub.deletedAt)
+				eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+				eq(dailyMenuInKitchen.serviceDate, input.serviceDate),
+				eq(dailyMenuInKitchen.mealTypeId, input.mealTypeId),
+				isNull(dailyMenuInKitchen.deletedAt)
 			),
 		})
 	)
@@ -114,7 +114,7 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 
 	const inserted = await mutateOrFail("UPSERT_FAILED", "no row returned", () =>
 		db
-			.insert(dailyMenuInSisub)
+			.insert(dailyMenuInKitchen)
 			.values({
 				kitchenId: input.kitchenId,
 				serviceDate: input.serviceDate,
@@ -133,9 +133,9 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 
 	// Fetch full recipe (includes kitchen_id) — replaces separate validateRecipeAccess call.
 	const recipe = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInSisub.findFirst({
-			where: and(eq(recipesInSisub.id, input.recipeId), isNull(recipesInSisub.deletedAt)),
-			with: { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } },
+		db.query.recipesInKitchen.findFirst({
+			where: and(eq(recipesInKitchen.id, input.recipeId), isNull(recipesInKitchen.deletedAt)),
+			with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } },
 		})
 	)
 	if (!recipe) throw new DomainError("RECIPE_NOT_FOUND", `Recipe ${input.recipeId} not found`)
@@ -145,11 +145,11 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 	}
 
 	// Snapshot da receita gravado em JSON no contrato snake_case (idêntico ao PostgREST).
-	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" })
+	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 
 	const inserted = await mutateOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(menuItemsInSisub)
+			.insert(menuItemsInKitchen)
 			.values({
 				dailyMenuId: input.dailyMenuId,
 				recipeOriginId: input.recipeId,
@@ -172,7 +172,9 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
-	const updated = await runQuery("UPDATE_FAILED", () => db.update(menuItemsInSisub).set(updates).where(eq(menuItemsInSisub.id, input.menuItemId)).returning())
+	const updated = await runQuery("UPDATE_FAILED", () =>
+		db.update(menuItemsInKitchen).set(updates).where(eq(menuItemsInKitchen.id, input.menuItemId)).returning()
+	)
 	return updated.map((row) => toWire<MenuItem>(row))
 }
 
@@ -182,9 +184,9 @@ export async function removeMenuItem(db: SisubDb, ctx: UserContext, input: Remov
 
 	await runQuery("DELETE_FAILED", () =>
 		db
-			.update(menuItemsInSisub)
+			.update(menuItemsInKitchen)
 			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(menuItemsInSisub.id, input.menuItemId))
+			.where(eq(menuItemsInKitchen.id, input.menuItemId))
 			.then(() => undefined)
 	)
 }
@@ -195,9 +197,9 @@ export async function restoreMenuItem(db: SisubDb, ctx: UserContext, input: Rest
 
 	await runQuery("RESTORE_FAILED", () =>
 		db
-			.update(menuItemsInSisub)
+			.update(menuItemsInKitchen)
 			.set({ deletedAt: null })
-			.where(eq(menuItemsInSisub.id, input.menuItemId))
+			.where(eq(menuItemsInKitchen.id, input.menuItemId))
 			.then(() => undefined)
 	)
 }
@@ -207,7 +209,7 @@ export async function updateHeadcount(db: SisubDb, ctx: UserContext, input: Upda
 	requireKitchen(ctx, 2, kitchenId)
 
 	const updated = await runQuery("UPDATE_FAILED", () =>
-		db.update(dailyMenuInSisub).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInSisub.id, input.dailyMenuId)).returning()
+		db.update(dailyMenuInKitchen).set({ forecastedHeadcount: input.forecastedHeadcount }).where(eq(dailyMenuInKitchen.id, input.dailyMenuId)).returning()
 	)
 	return updated.map((row) => toWire<DailyMenu>(row))
 }
@@ -218,9 +220,9 @@ export async function updateSubstitutions(db: SisubDb, ctx: UserContext, input: 
 
 	await runQuery("UPDATE_FAILED", () =>
 		db
-			.update(menuItemsInSisub)
+			.update(menuItemsInKitchen)
 			.set({ substitutions: input.substitutions })
-			.where(eq(menuItemsInSisub.id, input.menuItemId))
+			.where(eq(menuItemsInKitchen.id, input.menuItemId))
 			.then(() => undefined)
 	)
 }
@@ -232,12 +234,12 @@ export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTra
 	// outras cozinhas. Itens órfãos (daily_menu hard-deletado) ficam de fora pelo inner join.
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ item: menuItemsInSisub, recipe_origin: recipesInSisub, daily_menu: dailyMenuInSisub })
-			.from(menuItemsInSisub)
-			.innerJoin(dailyMenuInSisub, eq(menuItemsInSisub.dailyMenuId, dailyMenuInSisub.id))
-			.leftJoin(recipesInSisub, eq(menuItemsInSisub.recipeOriginId, recipesInSisub.id))
-			.where(and(isNotNull(menuItemsInSisub.deletedAt), eq(dailyMenuInSisub.kitchenId, input.kitchenId)))
-			.orderBy(desc(menuItemsInSisub.deletedAt))
+			.select({ item: menuItemsInKitchen, recipe_origin: recipesInKitchen, daily_menu: dailyMenuInKitchen })
+			.from(menuItemsInKitchen)
+			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
+			.leftJoin(recipesInKitchen, eq(menuItemsInKitchen.recipeOriginId, recipesInKitchen.id))
+			.where(and(isNotNull(menuItemsInKitchen.deletedAt), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
+			.orderBy(desc(menuItemsInKitchen.deletedAt))
 	)
 
 	return rows.map((r) => ({
@@ -272,23 +274,23 @@ function mapMealTypeNameToKey(name: string): string | null {
  */
 export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, input: FetchDailyMenuContent): Promise<DayMenuContent> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.dailyMenuInSisub.findMany({
+		db.query.dailyMenuInKitchen.findMany({
 			columns: { serviceDate: true, kitchenId: true },
 			with: {
-				mealTypeInSisub: { columns: { name: true } },
-				menuItemsInSisubs: {
+				mealTypeInKitchen: { columns: { name: true } },
+				menuItemsInKitchens: {
 					// Não devolver itens soft-deleted ao diner (paridade com as demais queries do arquivo).
-					where: isNull(menuItemsInSisub.deletedAt),
+					where: isNull(menuItemsInKitchen.deletedAt),
 					columns: { id: true, recipe: true },
-					with: { recipesInSisub: { columns: { name: true } } },
+					with: { recipesInKitchen: { columns: { name: true } } },
 				},
 			},
 			where: and(
-				inArray(dailyMenuInSisub.kitchenId, input.kitchenIds),
-				gte(dailyMenuInSisub.serviceDate, input.startDate),
-				lte(dailyMenuInSisub.serviceDate, input.endDate),
+				inArray(dailyMenuInKitchen.kitchenId, input.kitchenIds),
+				gte(dailyMenuInKitchen.serviceDate, input.startDate),
+				lte(dailyMenuInKitchen.serviceDate, input.endDate),
 				// Não vazar daily_menu soft-deleted (ex.: apagado por applyTemplate) ao diner.
-				isNull(dailyMenuInSisub.deletedAt)
+				isNull(dailyMenuInKitchen.deletedAt)
 			),
 		})
 	)
@@ -299,7 +301,7 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 		const date = menu.serviceDate
 		if (!date) continue
 
-		const mealName = menu.mealTypeInSisub?.name
+		const mealName = menu.mealTypeInKitchen?.name
 		if (!mealName) continue
 
 		const mealKey = mapMealTypeNameToKey(mealName)
@@ -308,7 +310,7 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 		if (!content[date]) content[date] = {}
 		if (!content[date][mealKey]) content[date][mealKey] = []
 
-		for (const item of menu.menuItemsInSisubs ?? []) {
+		for (const item of menu.menuItemsInKitchens ?? []) {
 			let dishName = "Prato sem nome"
 			let ingredients: DishIngredient[] = []
 
@@ -316,8 +318,8 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 				const snapshot = item.recipe as RecipeSnapshot
 				dishName = snapshot?.name || dishName
 				if (snapshot.ingredients) ingredients = snapshot.ingredients
-			} else if (item.recipesInSisub?.name) {
-				dishName = item.recipesInSisub.name || dishName
+			} else if (item.recipesInKitchen?.name) {
+				dishName = item.recipesInKitchen.name || dishName
 			}
 
 			content[date][mealKey].push({ id: item.id, name: dishName, ingredients })

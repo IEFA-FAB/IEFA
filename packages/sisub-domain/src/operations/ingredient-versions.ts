@@ -8,12 +8,12 @@
  */
 
 import {
-	ingredientInSisub,
-	ingredientItemInSisub,
-	ingredientNutrientInSisub,
-	ingredientVersionInSisub,
-	purchaseItemIngredientInSisub,
-	purchaseItemInSisub,
+	ingredientInKitchen,
+	ingredientItemInKitchen,
+	ingredientNutrientInKitchen,
+	ingredientVersionInKitchen,
+	purchaseItemIngredientInProcurement,
+	purchaseItemInProcurement,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq, isNull } from "drizzle-orm"
@@ -83,40 +83,40 @@ function stableStringify(value: unknown): string {
 /** Lê o agregado completo do insumo (perspectiva da tela de edição) → snapshot. */
 export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string): Promise<IngredientSnapshot> {
 	const ing = await runQuery("QUERY_FAILED", () =>
-		db.query.ingredientInSisub.findFirst({
+		db.query.ingredientInKitchen.findFirst({
 			columns: { description: true, folderId: true, measureUnit: true, correctionFactor: true, ceafaId: true },
 			with: {
-				folderInSisub: { columns: { description: true } },
-				ceafaInSisub: { columns: { description: true } },
+				folderInKitchen: { columns: { description: true } },
+				ceafaInKitchen: { columns: { description: true } },
 			},
-			where: eq(ingredientInSisub.id, ingredientId),
+			where: eq(ingredientInKitchen.id, ingredientId),
 		})
 	)
 	if (!ing) throw new NotFoundError("ingredient", ingredientId)
 
-	const folder = ing.folderInSisub
-	const ceafa = ing.ceafaInSisub
+	const folder = ing.folderInKitchen
+	const ceafa = ing.ceafaInKitchen
 
 	const nutrientRows = await runQuery("QUERY_FAILED", () =>
-		db.query.ingredientNutrientInSisub.findMany({
+		db.query.ingredientNutrientInKitchen.findMany({
 			columns: { nutrientId: true, nutrientValue: true },
-			with: { nutrientInSisub: { columns: { name: true, displayOrder: true } } },
-			where: and(eq(ingredientNutrientInSisub.ingredientId, ingredientId), isNull(ingredientNutrientInSisub.deletedAt)),
+			with: { nutrientInKitchen: { columns: { name: true, displayOrder: true } } },
+			where: and(eq(ingredientNutrientInKitchen.ingredientId, ingredientId), isNull(ingredientNutrientInKitchen.deletedAt)),
 		})
 	)
 
 	const nutrients = nutrientRows
 		.map((r) => ({
 			nutrient_id: r.nutrientId,
-			name: r.nutrientInSisub?.name ?? null,
+			name: r.nutrientInKitchen?.name ?? null,
 			value: Number(r.nutrientValue),
-			_order: r.nutrientInSisub?.displayOrder ?? 9999,
+			_order: r.nutrientInKitchen?.displayOrder ?? 9999,
 		}))
 		.sort((a, b) => a._order - b._order || (a.name ?? "").localeCompare(b.name ?? ""))
 		.map(({ _order, ...rest }) => rest)
 
 	const itemRows = await runQuery("QUERY_FAILED", () =>
-		db.query.ingredientItemInSisub.findMany({
+		db.query.ingredientItemInKitchen.findMany({
 			columns: {
 				id: true,
 				description: true,
@@ -126,7 +126,7 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 				correctionFactor: true,
 				purchaseItemId: true,
 			},
-			where: and(eq(ingredientItemInSisub.ingredientId, ingredientId), isNull(ingredientItemInSisub.deletedAt)),
+			where: and(eq(ingredientItemInKitchen.ingredientId, ingredientId), isNull(ingredientItemInKitchen.deletedAt)),
 			orderBy: (i, { asc }) => [asc(i.createdAt)],
 		})
 	)
@@ -142,10 +142,10 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 	}))
 
 	const linkRows = await runQuery("QUERY_FAILED", () =>
-		db.query.purchaseItemIngredientInSisub.findMany({
+		db.query.purchaseItemIngredientInProcurement.findMany({
 			columns: { id: true, conversionFactor: true, isDefault: true },
 			with: {
-				purchaseItemInSisub: {
+				purchaseItemInProcurement: {
 					columns: {
 						id: true,
 						description: true,
@@ -157,13 +157,13 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 					},
 				},
 			},
-			where: eq(purchaseItemIngredientInSisub.ingredientId, ingredientId),
+			where: eq(purchaseItemIngredientInProcurement.ingredientId, ingredientId),
 			orderBy: (l, { asc }) => [asc(l.createdAt)],
 		})
 	)
 
 	const purchase_links = linkRows
-		.map((r) => ({ r, pi: r.purchaseItemInSisub }))
+		.map((r) => ({ r, pi: r.purchaseItemInProcurement }))
 		.filter(({ pi }) => pi && pi.deletedAt == null)
 		.map(({ r, pi }) => ({
 			link_id: r.id,
@@ -209,9 +209,9 @@ export async function recordIngredientVersion(
 	const snapshot = await buildIngredientSnapshot(db, input.ingredientId)
 
 	const latest = await runQuery("QUERY_FAILED", () =>
-		db.query.ingredientVersionInSisub.findFirst({
+		db.query.ingredientVersionInKitchen.findFirst({
 			columns: { snapshot: true, versionNumber: true },
-			where: eq(ingredientVersionInSisub.ingredientId, input.ingredientId),
+			where: eq(ingredientVersionInKitchen.ingredientId, input.ingredientId),
 			orderBy: (v, { desc }) => [desc(v.versionNumber)],
 		})
 	)
@@ -224,7 +224,7 @@ export async function recordIngredientVersion(
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(ingredientVersionInSisub)
+			.insert(ingredientVersionInKitchen)
 			.values({
 				ingredientId: input.ingredientId,
 				versionNumber: nextVersion,
@@ -243,15 +243,15 @@ export async function listIngredientVersions(db: SisubDb, ctx: UserContext, inpu
 	const rows = await runQuery("QUERY_FAILED", () =>
 		db
 			.select()
-			.from(ingredientVersionInSisub)
-			.where(eq(ingredientVersionInSisub.ingredientId, input.ingredientId))
-			.orderBy(desc(ingredientVersionInSisub.versionNumber))
+			.from(ingredientVersionInKitchen)
+			.where(eq(ingredientVersionInKitchen.ingredientId, input.ingredientId))
+			.orderBy(desc(ingredientVersionInKitchen.versionNumber))
 	)
 	return rows.map((r) => toVersionRow(r))
 }
 
 /** Map da linha Drizzle (camelCase) → contrato `IngredientVersionRow` (snake_case). */
-function toVersionRow(row: typeof ingredientVersionInSisub.$inferSelect): IngredientVersionRow {
+function toVersionRow(row: typeof ingredientVersionInKitchen.$inferSelect): IngredientVersionRow {
 	return {
 		id: row.id,
 		ingredient_id: row.ingredientId,
@@ -281,8 +281,8 @@ export async function restoreIngredientVersion(
 	requirePermission(ctx, "kitchen", 1)
 
 	const version = await runQuery("QUERY_FAILED", () =>
-		db.query.ingredientVersionInSisub.findFirst({
-			where: and(eq(ingredientVersionInSisub.id, input.versionId), eq(ingredientVersionInSisub.ingredientId, input.ingredientId)),
+		db.query.ingredientVersionInKitchen.findFirst({
+			where: and(eq(ingredientVersionInKitchen.id, input.versionId), eq(ingredientVersionInKitchen.ingredientId, input.ingredientId)),
 		})
 	)
 	if (!version) throw new NotFoundError("ingredient_version", input.versionId)
@@ -293,7 +293,7 @@ export async function restoreIngredientVersion(
 		db.transaction(async (tx) => {
 			// 1) Campos do insumo
 			await tx
-				.update(ingredientInSisub)
+				.update(ingredientInKitchen)
 				.set({
 					description: snap.ingredient.description,
 					folderId: snap.ingredient.folder_id,
@@ -301,7 +301,7 @@ export async function restoreIngredientVersion(
 					correctionFactor: snap.ingredient.correction_factor != null ? String(snap.ingredient.correction_factor) : null,
 					ceafaId: snap.ingredient.ceafa_id,
 				})
-				.where(eq(ingredientInSisub.id, input.ingredientId))
+				.where(eq(ingredientInKitchen.id, input.ingredientId))
 
 			// 2) Nutrientes — substituição total (soft-delete ativos, reinsere do snapshot)
 			await replaceIngredientNutrients(
@@ -313,14 +313,14 @@ export async function restoreIngredientVersion(
 			// 3) Itens de produto (ingredient_item) — reconciliação por id
 			const snapItemIds = new Set(snap.product_items.map((i) => i.id))
 			const currentItems = await tx
-				.select({ id: ingredientItemInSisub.id })
-				.from(ingredientItemInSisub)
-				.where(and(eq(ingredientItemInSisub.ingredientId, input.ingredientId), isNull(ingredientItemInSisub.deletedAt)))
+				.select({ id: ingredientItemInKitchen.id })
+				.from(ingredientItemInKitchen)
+				.where(and(eq(ingredientItemInKitchen.ingredientId, input.ingredientId), isNull(ingredientItemInKitchen.deletedAt)))
 
 			// soft-delete itens ativos que não existem no snapshot
 			for (const cur of currentItems) {
 				if (!snapItemIds.has(cur.id)) {
-					await tx.update(ingredientItemInSisub).set({ deletedAt: new Date().toISOString() }).where(eq(ingredientItemInSisub.id, cur.id))
+					await tx.update(ingredientItemInKitchen).set({ deletedAt: new Date().toISOString() }).where(eq(ingredientItemInKitchen.id, cur.id))
 				}
 			}
 			// upsert itens do snapshot (recria/atualiza, garante deleted_at null)
@@ -336,32 +336,32 @@ export async function restoreIngredientVersion(
 					purchaseItemId: item.purchase_item_id,
 					deletedAt: null,
 				}
-				await tx.insert(ingredientItemInSisub).values(values).onConflictDoUpdate({ target: ingredientItemInSisub.id, set: values })
+				await tx.insert(ingredientItemInKitchen).values(values).onConflictDoUpdate({ target: ingredientItemInKitchen.id, set: values })
 			}
 
 			// 4) Vínculos de compra (purchase_item_ingredient) — reconciliação por purchase_item_id
 			const snapLinkPiIds = new Set(snap.purchase_links.map((l) => l.purchase_item_id))
 			const currentLinks = await tx
-				.select({ id: purchaseItemIngredientInSisub.id, purchaseItemId: purchaseItemIngredientInSisub.purchaseItemId })
-				.from(purchaseItemIngredientInSisub)
-				.where(eq(purchaseItemIngredientInSisub.ingredientId, input.ingredientId))
+				.select({ id: purchaseItemIngredientInProcurement.id, purchaseItemId: purchaseItemIngredientInProcurement.purchaseItemId })
+				.from(purchaseItemIngredientInProcurement)
+				.where(eq(purchaseItemIngredientInProcurement.ingredientId, input.ingredientId))
 
 			// remove vínculos atuais ausentes no snapshot
 			for (const cur of currentLinks) {
 				if (!snapLinkPiIds.has(cur.purchaseItemId)) {
-					await tx.delete(purchaseItemIngredientInSisub).where(eq(purchaseItemIngredientInSisub.id, cur.id))
+					await tx.delete(purchaseItemIngredientInProcurement).where(eq(purchaseItemIngredientInProcurement.id, cur.id))
 				}
 			}
 			// upsert vínculos do snapshot (apenas se o purchase_item ainda existir)
 			for (const link of snap.purchase_links) {
 				const piExists = await tx
-					.select({ id: purchaseItemInSisub.id })
-					.from(purchaseItemInSisub)
-					.where(and(eq(purchaseItemInSisub.id, link.purchase_item_id), isNull(purchaseItemInSisub.deletedAt)))
+					.select({ id: purchaseItemInProcurement.id })
+					.from(purchaseItemInProcurement)
+					.where(and(eq(purchaseItemInProcurement.id, link.purchase_item_id), isNull(purchaseItemInProcurement.deletedAt)))
 					.limit(1)
 				if (piExists.length === 0) continue // catálogo removido — não recria
 				await tx
-					.insert(purchaseItemIngredientInSisub)
+					.insert(purchaseItemIngredientInProcurement)
 					.values({
 						purchaseItemId: link.purchase_item_id,
 						ingredientId: input.ingredientId,
@@ -369,7 +369,7 @@ export async function restoreIngredientVersion(
 						isDefault: link.is_default,
 					})
 					.onConflictDoUpdate({
-						target: [purchaseItemIngredientInSisub.purchaseItemId, purchaseItemIngredientInSisub.ingredientId],
+						target: [purchaseItemIngredientInProcurement.purchaseItemId, purchaseItemIngredientInProcurement.ingredientId],
 						set: {
 							conversionFactor: link.conversion_factor != null ? String(link.conversion_factor) : "1.0",
 							isDefault: link.is_default,

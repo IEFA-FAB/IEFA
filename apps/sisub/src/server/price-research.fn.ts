@@ -130,7 +130,7 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 
 		// 1. Cabeçalho da pesquisa (ON CONFLICT DO NOTHING via idempotency_key)
 		const { data: inserted, error: researchErr } = await supabase
-			.schema("sisub")
+			.schema("procurement")
 			.from("procurement_pesquisa_preco")
 			.upsert(
 				{
@@ -150,7 +150,7 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 		// Conflito: pesquisa idêntica já existe hoje — devolve a existente sem duplicar.
 		if (!inserted || inserted.length === 0) {
 			const { data: existing, error: existingErr } = await supabase
-				.schema("sisub")
+				.schema("procurement")
 				.from("procurement_pesquisa_preco")
 				.select("id, procurement_pesquisa_preco_item(id)")
 				.eq("idempotency_key", idempotencyKey)
@@ -164,7 +164,7 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 
 		// 2. Item da pesquisa (um por ingredient/catmat consultado)
 		const { data: researchItem, error: itemErr } = await supabase
-			.schema("sisub")
+			.schema("procurement")
 			.from("procurement_pesquisa_preco_item")
 			.insert({
 				research_id: research.id,
@@ -229,7 +229,9 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			})
 
 			// Upsert no catálogo → ids alinhados à ordem de entrada.
-			const { data: amostraIds, error: rpcErr } = await supabase.schema("sisub").rpc("upsert_compras_amostras", { p_samples: factRows as unknown as Json })
+			const { data: amostraIds, error: rpcErr } = await supabase
+				.schema("procurement")
+				.rpc("upsert_compras_amostras", { p_samples: factRows as unknown as Json })
 			if (rpcErr) throw new Error(`Erro ao salvar observações de compra: ${rpcErr.message}`)
 			if (!amostraIds || amostraIds.length !== classified.length) {
 				throw new Error("Catálogo de amostras retornou contagem inesperada")
@@ -243,7 +245,7 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			}))
 
 			const { error: bridgeErr } = await supabase
-				.schema("sisub")
+				.schema("procurement")
 				.from("procurement_pesquisa_preco_amostra")
 				.upsert(bridge, { onConflict: "research_item_id,amostra_id", ignoreDuplicates: true })
 			if (bridgeErr) throw new Error(`Erro ao salvar amostras: ${bridgeErr.message}`)

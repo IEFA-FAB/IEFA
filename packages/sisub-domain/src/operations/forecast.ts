@@ -7,23 +7,27 @@
  * and take an explicit userId.
  */
 
-import { mealForecastsInSisub, type SisubDb, userDataInSisub } from "@iefa/database/drizzle/sisub"
+import { mealForecastsInKitchen, type SisubDb, userDataInCore } from "@iefa/database/drizzle/sisub"
 import { and, eq, gte, lte } from "drizzle-orm"
 import type { DeleteForecast, GetUserDefaultMessHall, ListMealForecasts, PersistDefaultMessHall, UpsertForecast } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
 import { runQuery, toWire } from "../utils/index.ts"
 
-// `mess_halls(code)` aninhado vem na relation `messHallsInSisub` (FK mess_hall_id) → contrato `mess_halls`.
-const FORECAST_RELATIONS: Record<string, string> = { messHallsInSisub: "mess_halls" }
+// `mess_halls(code)` aninhado vem na relation `messHallsInCore` (FK mess_hall_id) → contrato `mess_halls`.
+const FORECAST_RELATIONS: Record<string, string> = { messHallsInCore: "mess_halls" }
 
 type ForecastListItem = { date: string; meal: string; will_eat: boolean; mess_halls: { code: string | null } | null }
 
 export async function listMealForecasts(db: SisubDb, input: ListMealForecasts): Promise<ForecastListItem[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.mealForecastsInSisub.findMany({
+		db.query.mealForecastsInKitchen.findMany({
 			columns: { date: true, meal: true, willEat: true },
-			with: { messHallsInSisub: { columns: { code: true } } },
-			where: and(eq(mealForecastsInSisub.userId, input.userId), gte(mealForecastsInSisub.date, input.startDate), lte(mealForecastsInSisub.date, input.endDate)),
+			with: { messHallsInCore: { columns: { code: true } } },
+			where: and(
+				eq(mealForecastsInKitchen.userId, input.userId),
+				gte(mealForecastsInKitchen.date, input.startDate),
+				lte(mealForecastsInKitchen.date, input.endDate)
+			),
 			orderBy: (forecast, { asc }) => [asc(forecast.date)],
 		})
 	)
@@ -32,7 +36,7 @@ export async function listMealForecasts(db: SisubDb, input: ListMealForecasts): 
 
 export async function getUserDefaultMessHall(db: SisubDb, input: GetUserDefaultMessHall) {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.select({ default_mess_hall_id: userDataInSisub.defaultMessHallId }).from(userDataInSisub).where(eq(userDataInSisub.id, input.userId)).limit(1)
+		db.select({ default_mess_hall_id: userDataInCore.defaultMessHallId }).from(userDataInCore).where(eq(userDataInCore.id, input.userId)).limit(1)
 	)
 	return rows[0] ?? null
 }
@@ -40,9 +44,9 @@ export async function getUserDefaultMessHall(db: SisubDb, input: GetUserDefaultM
 export async function persistDefaultMessHall(db: SisubDb, ctx: UserContext, input: PersistDefaultMessHall) {
 	await runQuery("UPSERT_FAILED", () =>
 		db
-			.insert(userDataInSisub)
+			.insert(userDataInCore)
 			.values({ id: ctx.userId, defaultMessHallId: input.messHallId, email: input.email })
-			.onConflictDoUpdate({ target: userDataInSisub.id, set: { defaultMessHallId: input.messHallId, email: input.email } })
+			.onConflictDoUpdate({ target: userDataInCore.id, set: { defaultMessHallId: input.messHallId, email: input.email } })
 	)
 }
 
@@ -51,10 +55,10 @@ export async function upsertForecast(db: SisubDb, ctx: UserContext, input: Upser
 
 	try {
 		await db
-			.insert(mealForecastsInSisub)
+			.insert(mealForecastsInKitchen)
 			.values(row)
 			.onConflictDoUpdate({
-				target: [mealForecastsInSisub.userId, mealForecastsInSisub.date, mealForecastsInSisub.meal],
+				target: [mealForecastsInKitchen.userId, mealForecastsInKitchen.date, mealForecastsInKitchen.meal],
 				set: { willEat: input.willEat, messHallId: input.messHallId },
 			})
 	} catch {
@@ -63,9 +67,9 @@ export async function upsertForecast(db: SisubDb, ctx: UserContext, input: Upser
 		await runQuery("UPSERT_FAILED", () =>
 			db.transaction(async (tx) => {
 				await tx
-					.delete(mealForecastsInSisub)
-					.where(and(eq(mealForecastsInSisub.userId, ctx.userId), eq(mealForecastsInSisub.date, input.date), eq(mealForecastsInSisub.meal, input.meal)))
-				await tx.insert(mealForecastsInSisub).values(row)
+					.delete(mealForecastsInKitchen)
+					.where(and(eq(mealForecastsInKitchen.userId, ctx.userId), eq(mealForecastsInKitchen.date, input.date), eq(mealForecastsInKitchen.meal, input.meal)))
+				await tx.insert(mealForecastsInKitchen).values(row)
 			})
 		)
 	}
@@ -74,7 +78,7 @@ export async function upsertForecast(db: SisubDb, ctx: UserContext, input: Upser
 export async function deleteForecast(db: SisubDb, ctx: UserContext, input: DeleteForecast) {
 	await runQuery("DELETE_FAILED", () =>
 		db
-			.delete(mealForecastsInSisub)
-			.where(and(eq(mealForecastsInSisub.userId, ctx.userId), eq(mealForecastsInSisub.date, input.date), eq(mealForecastsInSisub.meal, input.meal)))
+			.delete(mealForecastsInKitchen)
+			.where(and(eq(mealForecastsInKitchen.userId, ctx.userId), eq(mealForecastsInKitchen.date, input.date), eq(mealForecastsInKitchen.meal, input.meal)))
 	)
 }

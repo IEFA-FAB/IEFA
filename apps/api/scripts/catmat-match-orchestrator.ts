@@ -408,7 +408,7 @@ async function loadPurchaseItems(options: Options): Promise<PurchaseItemRow[]> {
 		const to = from + pageSize - 1
 
 		let query = supabase
-			.from("purchase_item")
+			.schema("procurement").from("purchase_item")
 			.select("id, description, purchase_measure_unit")
 			.is("deleted_at", null)
 			.order("description", { ascending: true, nullsFirst: false })
@@ -487,7 +487,7 @@ async function findCandidates(cleanedDescription: string): Promise<CandidateRow[
 
 async function persistDecision(decision: PurchaseItemDecision): Promise<void> {
 	const { error } = await supabase
-		.from("purchase_item")
+		.schema("procurement").from("purchase_item")
 		.update({
 			catmat_item_codigo: decision.catmatItemCodigo,
 			catmat_item_descricao: decision.catmatItemDescricao,

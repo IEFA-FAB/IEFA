@@ -10,7 +10,7 @@
  * propagate the raw error instead of mapping it through handleDomainError.
  */
 
-import { mealForecastsInSisub, mealPresencesInSisub, type SisubDb, vMealPresencesWithUserInSisub } from "@iefa/database/drizzle/sisub"
+import { mealForecastsInKitchen, mealPresencesInKitchen, type SisubDb, vMealPresencesWithUserInKitchen } from "@iefa/database/drizzle/sisub"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import type { InsertPresence, ListForecastMap, ListPresences } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
@@ -20,23 +20,23 @@ export async function listPresences(db: SisubDb, input: ListPresences) {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				id: vMealPresencesWithUserInSisub.id,
-				user_id: vMealPresencesWithUserInSisub.userId,
-				date: vMealPresencesWithUserInSisub.date,
-				meal: vMealPresencesWithUserInSisub.meal,
-				created_at: vMealPresencesWithUserInSisub.createdAt,
-				mess_hall_id: vMealPresencesWithUserInSisub.messHallId,
-				display_name: vMealPresencesWithUserInSisub.displayName,
+				id: vMealPresencesWithUserInKitchen.id,
+				user_id: vMealPresencesWithUserInKitchen.userId,
+				date: vMealPresencesWithUserInKitchen.date,
+				meal: vMealPresencesWithUserInKitchen.meal,
+				created_at: vMealPresencesWithUserInKitchen.createdAt,
+				mess_hall_id: vMealPresencesWithUserInKitchen.messHallId,
+				display_name: vMealPresencesWithUserInKitchen.displayName,
 			})
-			.from(vMealPresencesWithUserInSisub)
+			.from(vMealPresencesWithUserInKitchen)
 			.where(
 				and(
-					eq(vMealPresencesWithUserInSisub.date, input.date),
-					eq(vMealPresencesWithUserInSisub.meal, input.meal),
-					eq(vMealPresencesWithUserInSisub.messHallId, input.messHallId)
+					eq(vMealPresencesWithUserInKitchen.date, input.date),
+					eq(vMealPresencesWithUserInKitchen.meal, input.meal),
+					eq(vMealPresencesWithUserInKitchen.messHallId, input.messHallId)
 				)
 			)
-			.orderBy(desc(vMealPresencesWithUserInSisub.createdAt))
+			.orderBy(desc(vMealPresencesWithUserInKitchen.createdAt))
 	)
 
 	// Colunas da view são tipadas nullable pelo Drizzle, mas vêm de meal_presences NOT NULL
@@ -60,14 +60,14 @@ export async function listForecastMap(db: SisubDb, input: ListForecastMap): Prom
 	let rows: Array<{ user_id: string; will_eat: boolean | null }>
 	try {
 		rows = await db
-			.select({ user_id: mealForecastsInSisub.userId, will_eat: mealForecastsInSisub.willEat })
-			.from(mealForecastsInSisub)
+			.select({ user_id: mealForecastsInKitchen.userId, will_eat: mealForecastsInKitchen.willEat })
+			.from(mealForecastsInKitchen)
 			.where(
 				and(
-					eq(mealForecastsInSisub.date, input.date),
-					eq(mealForecastsInSisub.meal, input.meal),
-					eq(mealForecastsInSisub.messHallId, input.messHallId),
-					inArray(mealForecastsInSisub.userId, input.userIds)
+					eq(mealForecastsInKitchen.date, input.date),
+					eq(mealForecastsInKitchen.meal, input.meal),
+					eq(mealForecastsInKitchen.messHallId, input.messHallId),
+					inArray(mealForecastsInKitchen.userId, input.userIds)
 				)
 			)
 	} catch {
@@ -84,7 +84,7 @@ export async function listForecastMap(db: SisubDb, input: ListForecastMap): Prom
 
 export async function insertPresence(db: SisubDb, _ctx: UserContext, input: InsertPresence) {
 	try {
-		await db.insert(mealPresencesInSisub).values({ userId: input.user_id, date: input.date, meal: input.meal, messHallId: input.messHallId })
+		await db.insert(mealPresencesInKitchen).values({ userId: input.user_id, date: input.date, meal: input.meal, messHallId: input.messHallId })
 	} catch (e) {
 		// Preserva o código de erro do PG (ex.: "23505" duplicate) para tratamento no caller.
 		const err = e as { message?: string; code?: string }
@@ -93,5 +93,5 @@ export async function insertPresence(db: SisubDb, _ctx: UserContext, input: Inse
 }
 
 export async function deletePresence(db: SisubDb, _ctx: UserContext, input: { id: string }) {
-	await runQuery("DELETE_FAILED", () => db.delete(mealPresencesInSisub).where(eq(mealPresencesInSisub.id, input.id)))
+	await runQuery("DELETE_FAILED", () => db.delete(mealPresencesInKitchen).where(eq(mealPresencesInKitchen.id, input.id)))
 }

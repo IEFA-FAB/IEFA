@@ -8,7 +8,105 @@ export type Database = {
 	}
 	access_control: {
 		Tables: {
-			[_ in never]: never
+			mcp_api_keys: {
+				Row: {
+					created_at: string
+					id: string
+					is_active: boolean
+					key_hash: string
+					key_prefix: string
+					label: string
+					last_used_at: string | null
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					is_active?: boolean
+					key_hash: string
+					key_prefix: string
+					label: string
+					last_used_at?: string | null
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					is_active?: boolean
+					key_hash?: string
+					key_prefix?: string
+					label?: string
+					last_used_at?: string | null
+					user_id?: string
+				}
+				Relationships: []
+			}
+			profiles_admin: {
+				Row: {
+					created_at: string | null
+					email: string
+					id: string
+					name: string | null
+					om: string | null
+					role: "user" | "admin" | "superadmin" | null
+					saram: string
+					updated_at: string | null
+				}
+				Insert: {
+					created_at?: string | null
+					email: string
+					id: string
+					name?: string | null
+					om?: string | null
+					role?: "user" | "admin" | "superadmin" | null
+					saram: string
+					updated_at?: string | null
+				}
+				Update: {
+					created_at?: string | null
+					email?: string
+					id?: string
+					name?: string | null
+					om?: string | null
+					role?: "user" | "admin" | "superadmin" | null
+					saram?: string
+					updated_at?: string | null
+				}
+				Relationships: []
+			}
+			user_permissions: {
+				Row: {
+					created_at: string
+					id: string
+					kitchen_id: number | null
+					level: number
+					mess_hall_id: number | null
+					module: string
+					unit_id: number | null
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number | null
+					level?: number
+					mess_hall_id?: number | null
+					module: string
+					unit_id?: number | null
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number | null
+					level?: number
+					mess_hall_id?: number | null
+					module?: string
+					unit_id?: number | null
+					user_id?: string
+				}
+				Relationships: []
+			}
 		}
 		Views: {
 			[_ in never]: never
@@ -645,10 +743,566 @@ export type Database = {
 	}
 	core: {
 		Tables: {
-			[_ in never]: never
+			analytics_chat_message: {
+				Row: {
+					chart: Json | null
+					chart_type_override: string | null
+					content: string
+					created_at: string
+					error: string | null
+					id: string
+					input_tokens: number | null
+					langsmith_run_id: string | null
+					latency_ms: number | null
+					model: string | null
+					output_tokens: number | null
+					role: string
+					session_id: string
+				}
+				Insert: {
+					chart?: Json | null
+					chart_type_override?: string | null
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
+					role: string
+					session_id: string
+				}
+				Update: {
+					chart?: Json | null
+					chart_type_override?: string | null
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
+					role?: string
+					session_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "analytics_chat_message_session_id_fkey"
+						columns: ["session_id"]
+						isOneToOne: false
+						referencedRelation: "analytics_chat_session"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			analytics_chat_session: {
+				Row: {
+					created_at: string
+					id: string
+					title: string
+					updated_at: string
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					title?: string
+					updated_at?: string
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					title?: string
+					updated_at?: string
+					user_id?: string
+				}
+				Relationships: []
+			}
+			changelog: {
+				Row: {
+					body: string
+					id: string
+					published: boolean
+					published_at: string
+					tags: string[] | null
+					title: string
+					version: string | null
+				}
+				Insert: {
+					body: string
+					id?: string
+					published?: boolean
+					published_at?: string
+					tags?: string[] | null
+					title: string
+					version?: string | null
+				}
+				Update: {
+					body?: string
+					id?: string
+					published?: boolean
+					published_at?: string
+					tags?: string[] | null
+					title?: string
+					version?: string | null
+				}
+				Relationships: []
+			}
+			kitchen: {
+				Row: {
+					address_bairro: string | null
+					address_cep: string | null
+					address_complemento: string | null
+					address_logradouro: string | null
+					address_municipio: string | null
+					address_numero: string | null
+					address_uf: string | null
+					created_at: string
+					display_name: string | null
+					id: number
+					kitchen_id: number | null
+					purchase_unit_id: number | null
+					type: Database["sisub"]["Enums"]["kitchen_type"] | null
+					unit_id: number | null
+				}
+				Insert: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
+					created_at?: string
+					display_name?: string | null
+					id?: number
+					kitchen_id?: number | null
+					purchase_unit_id?: number | null
+					type?: Database["sisub"]["Enums"]["kitchen_type"] | null
+					unit_id?: number | null
+				}
+				Update: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
+					created_at?: string
+					display_name?: string | null
+					id?: number
+					kitchen_id?: number | null
+					purchase_unit_id?: number | null
+					type?: Database["sisub"]["Enums"]["kitchen_type"] | null
+					unit_id?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "kitchen_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "kitchen_purchase_unit_id_fkey"
+						columns: ["purchase_unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "kitchen_unit_id_fkey"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			mess_halls: {
+				Row: {
+					code: string
+					display_name: string | null
+					id: number
+					kitchen_id: number | null
+					unit_id: number
+				}
+				Insert: {
+					code: string
+					display_name?: string | null
+					id?: number
+					kitchen_id?: number | null
+					unit_id: number
+				}
+				Update: {
+					code?: string
+					display_name?: string | null
+					id?: number
+					kitchen_id?: number | null
+					unit_id?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "mess_halls_kitchen_id_fkey"
+						columns: ["kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "mess_halls_unit_fk"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "mess_halls_unit_id_fkey"
+						columns: ["unit_id"]
+						isOneToOne: false
+						referencedRelation: "units"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			migration_folder_lookup: {
+				Row: {
+					created_at: string | null
+					legacy_id_grupo_produto: number
+					new_folder_id: string
+				}
+				Insert: {
+					created_at?: string | null
+					legacy_id_grupo_produto: number
+					new_folder_id: string
+				}
+				Update: {
+					created_at?: string | null
+					legacy_id_grupo_produto?: number
+					new_folder_id?: string
+				}
+				Relationships: []
+			}
+			migration_nutrient_lookup: {
+				Row: {
+					created_at: string | null
+					legacy_id_nutriente: number
+					new_nutrient_id: string
+				}
+				Insert: {
+					created_at?: string | null
+					legacy_id_nutriente: number
+					new_nutrient_id: string
+				}
+				Update: {
+					created_at?: string | null
+					legacy_id_nutriente?: number
+					new_nutrient_id?: string
+				}
+				Relationships: []
+			}
+			migration_product_lookup: {
+				Row: {
+					created_at: string | null
+					legacy_descricao: string | null
+					legacy_id_insumo: number
+					new_product_id: string
+				}
+				Insert: {
+					created_at?: string | null
+					legacy_descricao?: string | null
+					legacy_id_insumo: number
+					new_product_id: string
+				}
+				Update: {
+					created_at?: string | null
+					legacy_descricao?: string | null
+					legacy_id_insumo?: number
+					new_product_id?: string
+				}
+				Relationships: []
+			}
+			migration_recipe_lookup: {
+				Row: {
+					created_at: string | null
+					legacy_id_preparacao: number
+					legacy_rendimento: number | null
+					new_recipe_id: string
+				}
+				Insert: {
+					created_at?: string | null
+					legacy_id_preparacao: number
+					legacy_rendimento?: number | null
+					new_recipe_id: string
+				}
+				Update: {
+					created_at?: string | null
+					legacy_id_preparacao?: number
+					legacy_rendimento?: number | null
+					new_recipe_id?: string
+				}
+				Relationships: []
+			}
+			module_chat_message: {
+				Row: {
+					content: string
+					created_at: string
+					error: string | null
+					id: string
+					input_tokens: number | null
+					langsmith_run_id: string | null
+					latency_ms: number | null
+					model: string | null
+					output_tokens: number | null
+					role: string
+					session_id: string
+					tool_call_id: string | null
+					tool_calls: Json | null
+					tool_name: string | null
+					tool_result: Json | null
+				}
+				Insert: {
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
+					role: string
+					session_id: string
+					tool_call_id?: string | null
+					tool_calls?: Json | null
+					tool_name?: string | null
+					tool_result?: Json | null
+				}
+				Update: {
+					content?: string
+					created_at?: string
+					error?: string | null
+					id?: string
+					input_tokens?: number | null
+					langsmith_run_id?: string | null
+					latency_ms?: number | null
+					model?: string | null
+					output_tokens?: number | null
+					role?: string
+					session_id?: string
+					tool_call_id?: string | null
+					tool_calls?: Json | null
+					tool_name?: string | null
+					tool_result?: Json | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "module_chat_message_session_id_fkey"
+						columns: ["session_id"]
+						isOneToOne: false
+						referencedRelation: "module_chat_session"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			module_chat_session: {
+				Row: {
+					created_at: string
+					id: string
+					module: string
+					scope_id: number | null
+					title: string
+					updated_at: string
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					module: string
+					scope_id?: number | null
+					title?: string
+					updated_at?: string
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					module?: string
+					scope_id?: number | null
+					title?: string
+					updated_at?: string
+					user_id?: string
+				}
+				Relationships: []
+			}
+			opinions: {
+				Row: {
+					created_at: string
+					id: number
+					question: string | null
+					userId: string | null
+					value: number | null
+				}
+				Insert: {
+					created_at?: string
+					id?: number
+					question?: string | null
+					userId?: string | null
+					value?: number | null
+				}
+				Update: {
+					created_at?: string
+					id?: number
+					question?: string | null
+					userId?: string | null
+					value?: number | null
+				}
+				Relationships: []
+			}
+			super_admin_controller: {
+				Row: {
+					active: boolean | null
+					created_at: string
+					key: string
+					value: string | null
+				}
+				Insert: {
+					active?: boolean | null
+					created_at?: string
+					key: string
+					value?: string | null
+				}
+				Update: {
+					active?: boolean | null
+					created_at?: string
+					key?: string
+					value?: string | null
+				}
+				Relationships: []
+			}
+			units: {
+				Row: {
+					address_bairro: string | null
+					address_cep: string | null
+					address_complemento: string | null
+					address_logradouro: string | null
+					address_municipio: string | null
+					address_numero: string | null
+					address_uf: string | null
+					code: string
+					display_name: string | null
+					id: number
+					type: Database["sisub"]["Enums"]["unit_type"] | null
+					uasg: string | null
+				}
+				Insert: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
+					code: string
+					display_name?: string | null
+					id?: number
+					type?: Database["sisub"]["Enums"]["unit_type"] | null
+					uasg?: string | null
+				}
+				Update: {
+					address_bairro?: string | null
+					address_cep?: string | null
+					address_complemento?: string | null
+					address_logradouro?: string | null
+					address_municipio?: string | null
+					address_numero?: string | null
+					address_uf?: string | null
+					code?: string
+					display_name?: string | null
+					id?: number
+					type?: Database["sisub"]["Enums"]["unit_type"] | null
+					uasg?: string | null
+				}
+				Relationships: []
+			}
+			user_data: {
+				Row: {
+					created_at: string
+					default_mess_hall_id: number | null
+					email: string
+					id: string
+					nrOrdem: string | null
+				}
+				Insert: {
+					created_at?: string
+					default_mess_hall_id?: number | null
+					email: string
+					id?: string
+					nrOrdem?: string | null
+				}
+				Update: {
+					created_at?: string
+					default_mess_hall_id?: number | null
+					email?: string
+					id?: string
+					nrOrdem?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "user_data_default_mess_hall_id_fkey"
+						columns: ["default_mess_hall_id"]
+						isOneToOne: false
+						referencedRelation: "mess_halls"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			user_military_data: {
+				Row: {
+					dataAtualizacao: string | null
+					nmGuerra: string | null
+					nmPessoa: string | null
+					nrCpf: string
+					nrOrdem: string | null
+					sgOrg: string | null
+					sgPosto: string | null
+				}
+				Insert: {
+					dataAtualizacao?: string | null
+					nmGuerra?: string | null
+					nmPessoa?: string | null
+					nrCpf: string
+					nrOrdem?: string | null
+					sgOrg?: string | null
+					sgPosto?: string | null
+				}
+				Update: {
+					dataAtualizacao?: string | null
+					nmGuerra?: string | null
+					nmPessoa?: string | null
+					nrCpf?: string
+					nrOrdem?: string | null
+					sgOrg?: string | null
+					sgPosto?: string | null
+				}
+				Relationships: []
+			}
 		}
 		Views: {
-			[_ in never]: never
+			v_user_identity: {
+				Row: {
+					display_name: string | null
+					id: string | null
+				}
+				Relationships: []
+			}
 		}
 		Functions: {
 			[_ in never]: never
@@ -662,7 +1316,51 @@ export type Database = {
 	}
 	finance: {
 		Tables: {
-			[_ in never]: never
+			empenho: {
+				Row: {
+					arp_item_id: string
+					created_at: string
+					created_by: string | null
+					data_empenho: string
+					id: string
+					nota_lancamento: string | null
+					numero_empenho: string
+					quantidade_empenhada: number
+					status: string
+					unit_id: number
+					valor_total: number
+					valor_unitario: number
+				}
+				Insert: {
+					arp_item_id: string
+					created_at?: string
+					created_by?: string | null
+					data_empenho: string
+					id?: string
+					nota_lancamento?: string | null
+					numero_empenho: string
+					quantidade_empenhada: number
+					status?: string
+					unit_id: number
+					valor_total: number
+					valor_unitario: number
+				}
+				Update: {
+					arp_item_id?: string
+					created_at?: string
+					created_by?: string | null
+					data_empenho?: string
+					id?: string
+					nota_lancamento?: string | null
+					numero_empenho?: string
+					quantidade_empenhada?: number
+					status?: string
+					unit_id?: number
+					valor_total?: number
+					valor_unitario?: number
+				}
+				Relationships: []
+			}
 		}
 		Views: {
 			[_ in never]: never
@@ -2037,10 +2735,1195 @@ export type Database = {
 	}
 	kitchen: {
 		Tables: {
-			[_ in never]: never
+			ceafa: {
+				Row: {
+					created_at: string
+					description: string
+					id: string
+					legacy_id: number | null
+					quantity: number
+				}
+				Insert: {
+					created_at?: string
+					description: string
+					id?: string
+					legacy_id?: number | null
+					quantity: number
+				}
+				Update: {
+					created_at?: string
+					description?: string
+					id?: string
+					legacy_id?: number | null
+					quantity?: number
+				}
+				Relationships: []
+			}
+			daily_menu: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					forecasted_headcount: number | null
+					id: string
+					kitchen_id: number | null
+					meal_type_id: string | null
+					service_date: string | null
+					status: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					forecasted_headcount?: number | null
+					id?: string
+					kitchen_id?: number | null
+					meal_type_id?: string | null
+					service_date?: string | null
+					status?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					forecasted_headcount?: number | null
+					id?: string
+					kitchen_id?: number | null
+					meal_type_id?: string | null
+					service_date?: string | null
+					status?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "daily_menu_meal_type_id_fkey"
+						columns: ["meal_type_id"]
+						isOneToOne: false
+						referencedRelation: "meal_type"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			folder: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					id: string
+					legacy_id: number | null
+					parent_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					legacy_id?: number | null
+					parent_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					legacy_id?: number | null
+					parent_id?: string | null
+				}
+				Relationships: []
+			}
+			ingredient: {
+				Row: {
+					ceafa_id: string | null
+					correction_factor: number | null
+					created_at: string
+					deleted_at: string | null
+					density_factor: number | null
+					description: string | null
+					folder_id: string | null
+					id: string
+					legacy_id: number | null
+					measure_unit: string | null
+				}
+				Insert: {
+					ceafa_id?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					density_factor?: number | null
+					description?: string | null
+					folder_id?: string | null
+					id?: string
+					legacy_id?: number | null
+					measure_unit?: string | null
+				}
+				Update: {
+					ceafa_id?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					density_factor?: number | null
+					description?: string | null
+					folder_id?: string | null
+					id?: string
+					legacy_id?: number | null
+					measure_unit?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "product_ceafa_id_fkey"
+						columns: ["ceafa_id"]
+						isOneToOne: false
+						referencedRelation: "ceafa"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_folder_id_fkey"
+						columns: ["folder_id"]
+						isOneToOne: false
+						referencedRelation: "folder"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			ingredient_item: {
+				Row: {
+					barcode: string | null
+					correction_factor: number | null
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					id: string
+					ingredient_id: string | null
+					purchase_item_id: string | null
+					purchase_measure_unit: string | null
+					unit_content_quantity: number | null
+				}
+				Insert: {
+					barcode?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					ingredient_id?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					unit_content_quantity?: number | null
+				}
+				Update: {
+					barcode?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					ingredient_id?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					unit_content_quantity?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "product_item_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_item_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_nutrient: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					ingredient_id: string
+					nutrient_id: string
+					nutrient_value: number | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					ingredient_id: string
+					nutrient_id: string
+					nutrient_value?: number | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					ingredient_id?: string
+					nutrient_id?: string
+					nutrient_value?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "product_nutrient_nutrient_id_fkey"
+						columns: ["nutrient_id"]
+						isOneToOne: false
+						referencedRelation: "nutrient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_nutrient_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "product_nutrient_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_review: {
+				Row: {
+					id: string
+					ingredient_id: string
+					note: string | null
+					reviewed_at: string
+					reviewed_by: string | null
+					reviewed_by_name: string | null
+				}
+				Insert: {
+					id?: string
+					ingredient_id: string
+					note?: string | null
+					reviewed_at?: string
+					reviewed_by?: string | null
+					reviewed_by_name?: string | null
+				}
+				Update: {
+					id?: string
+					ingredient_id?: string
+					note?: string | null
+					reviewed_at?: string
+					reviewed_by?: string | null
+					reviewed_by_name?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_version: {
+				Row: {
+					change_summary: string | null
+					changed_by: string | null
+					changed_by_name: string | null
+					created_at: string
+					id: string
+					ingredient_id: string
+					snapshot: Json
+					version_number: number
+				}
+				Insert: {
+					change_summary?: string | null
+					changed_by?: string | null
+					changed_by_name?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id: string
+					snapshot: Json
+					version_number: number
+				}
+				Update: {
+					change_summary?: string | null
+					changed_by?: string | null
+					changed_by_name?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id?: string
+					snapshot?: Json
+					version_number?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_version_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_version_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			meal_forecasts: {
+				Row: {
+					created_at: string | null
+					date: string
+					id: string
+					meal: string
+					mess_hall_id: number
+					updated_at: string | null
+					user_id: string
+					will_eat: boolean
+				}
+				Insert: {
+					created_at?: string | null
+					date: string
+					id?: string
+					meal: string
+					mess_hall_id: number
+					updated_at?: string | null
+					user_id: string
+					will_eat: boolean
+				}
+				Update: {
+					created_at?: string | null
+					date?: string
+					id?: string
+					meal?: string
+					mess_hall_id?: number
+					updated_at?: string | null
+					user_id?: string
+					will_eat?: boolean
+				}
+				Relationships: []
+			}
+			meal_presences: {
+				Row: {
+					created_at: string
+					date: string
+					id: string
+					meal: string
+					mess_hall_id: number
+					updated_at: string | null
+					user_id: string
+				}
+				Insert: {
+					created_at?: string
+					date: string
+					id?: string
+					meal: string
+					mess_hall_id: number
+					updated_at?: string | null
+					user_id: string
+				}
+				Update: {
+					created_at?: string
+					date?: string
+					id?: string
+					meal?: string
+					mess_hall_id?: number
+					updated_at?: string | null
+					user_id?: string
+				}
+				Relationships: []
+			}
+			meal_type: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					kitchen_id: number | null
+					name: string | null
+					sort_order: number | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string | null
+					sort_order?: number | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string | null
+					sort_order?: number | null
+				}
+				Relationships: []
+			}
+			menu_items: {
+				Row: {
+					created_at: string
+					daily_menu_id: string | null
+					deleted_at: string | null
+					excluded_from_procurement: number | null
+					id: string
+					planned_portion_quantity: number | null
+					recipe: Json | null
+					recipe_origin_id: string | null
+					substitutions: Json | null
+				}
+				Insert: {
+					created_at?: string
+					daily_menu_id?: string | null
+					deleted_at?: string | null
+					excluded_from_procurement?: number | null
+					id?: string
+					planned_portion_quantity?: number | null
+					recipe?: Json | null
+					recipe_origin_id?: string | null
+					substitutions?: Json | null
+				}
+				Update: {
+					created_at?: string
+					daily_menu_id?: string | null
+					deleted_at?: string | null
+					excluded_from_procurement?: number | null
+					id?: string
+					planned_portion_quantity?: number | null
+					recipe?: Json | null
+					recipe_origin_id?: string | null
+					substitutions?: Json | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "menu_items_daily_menu_id_fkey"
+						columns: ["daily_menu_id"]
+						isOneToOne: false
+						referencedRelation: "daily_menu"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "menu_items_recipe_origin_id_fkey"
+						columns: ["recipe_origin_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			menu_template: {
+				Row: {
+					base_template_id: string | null
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					id: string
+					kitchen_id: number | null
+					name: string | null
+					template_type: string
+				}
+				Insert: {
+					base_template_id?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string | null
+					template_type?: string
+				}
+				Update: {
+					base_template_id?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string | null
+					template_type?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "menu_template_base_template_id_fkey"
+						columns: ["base_template_id"]
+						isOneToOne: false
+						referencedRelation: "menu_template"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			menu_template_items: {
+				Row: {
+					created_at: string
+					day_of_week: number | null
+					headcount_override: number | null
+					id: string
+					meal_type_id: string | null
+					menu_template_id: string | null
+					recipe_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					day_of_week?: number | null
+					headcount_override?: number | null
+					id?: string
+					meal_type_id?: string | null
+					menu_template_id?: string | null
+					recipe_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					day_of_week?: number | null
+					headcount_override?: number | null
+					id?: string
+					meal_type_id?: string | null
+					menu_template_id?: string | null
+					recipe_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "menu_template_items_meal_type_id_fkey"
+						columns: ["meal_type_id"]
+						isOneToOne: false
+						referencedRelation: "meal_type"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "menu_template_items_menu_template_id_fkey"
+						columns: ["menu_template_id"]
+						isOneToOne: false
+						referencedRelation: "menu_template"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "menu_template_items_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			nutrient: {
+				Row: {
+					created_at: string
+					daily_value: number | null
+					deleted_at: string | null
+					display_order: number | null
+					enum_name: string | null
+					id: string
+					is_energy_value: boolean | null
+					legacy_id: number | null
+					minimum_value: number | null
+					name: string
+				}
+				Insert: {
+					created_at?: string
+					daily_value?: number | null
+					deleted_at?: string | null
+					display_order?: number | null
+					enum_name?: string | null
+					id?: string
+					is_energy_value?: boolean | null
+					legacy_id?: number | null
+					minimum_value?: number | null
+					name: string
+				}
+				Update: {
+					created_at?: string
+					daily_value?: number | null
+					deleted_at?: string | null
+					display_order?: number | null
+					enum_name?: string | null
+					id?: string
+					is_energy_value?: boolean | null
+					legacy_id?: number | null
+					minimum_value?: number | null
+					name?: string
+				}
+				Relationships: []
+			}
+			other_presences: {
+				Row: {
+					admin_id: string | null
+					created_at: string
+					date: string
+					id: number
+					meal: string
+					mess_hall_id: number
+					updated_at: string | null
+				}
+				Insert: {
+					admin_id?: string | null
+					created_at?: string
+					date: string
+					id?: number
+					meal: string
+					mess_hall_id: number
+					updated_at?: string | null
+				}
+				Update: {
+					admin_id?: string | null
+					created_at?: string
+					date?: string
+					id?: number
+					meal?: string
+					mess_hall_id?: number
+					updated_at?: string | null
+				}
+				Relationships: []
+			}
+			production_task: {
+				Row: {
+					completed_at: string | null
+					created_at: string
+					id: string
+					kitchen_id: number
+					menu_item_id: string
+					notes: string | null
+					production_date: string
+					started_at: string | null
+					status: string
+					updated_at: string | null
+				}
+				Insert: {
+					completed_at?: string | null
+					created_at?: string
+					id?: string
+					kitchen_id: number
+					menu_item_id: string
+					notes?: string | null
+					production_date: string
+					started_at?: string | null
+					status?: string
+					updated_at?: string | null
+				}
+				Update: {
+					completed_at?: string | null
+					created_at?: string
+					id?: string
+					kitchen_id?: number
+					menu_item_id?: string
+					notes?: string | null
+					production_date?: string
+					started_at?: string | null
+					status?: string
+					updated_at?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "production_task_menu_item_id_fkey"
+						columns: ["menu_item_id"]
+						isOneToOne: true
+						referencedRelation: "menu_items"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_ingredient_alternatives: {
+				Row: {
+					created_at: string
+					id: string
+					ingredient_id: string | null
+					net_quantity: number | null
+					priority_order: number | null
+					recipe_ingredient_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					ingredient_id?: string | null
+					net_quantity?: number | null
+					priority_order?: number | null
+					recipe_ingredient_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					ingredient_id?: string | null
+					net_quantity?: number | null
+					priority_order?: number | null
+					recipe_ingredient_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+					{
+						foreignKeyName: "recipe_ingredient_alternatives_recipe_ingredient_id_fkey"
+						columns: ["recipe_ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_ingredients"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_ingredients: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					ingredient_id: string | null
+					is_optional: boolean | null
+					net_quantity: number | null
+					priority_order: number | null
+					recipe_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					ingredient_id?: string | null
+					is_optional?: boolean | null
+					net_quantity?: number | null
+					priority_order?: number | null
+					recipe_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					ingredient_id?: string | null
+					is_optional?: boolean | null
+					net_quantity?: number | null
+					priority_order?: number | null
+					recipe_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_ingredients_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_ingredients_product_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+					{
+						foreignKeyName: "recipe_ingredients_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step: {
+				Row: {
+					canvas_x: number
+					canvas_y: number
+					created_at: string
+					deleted_at: string | null
+					description: string | null
+					duration_minutes: number | null
+					id: string
+					label: string | null
+					recipe_id: string
+					step_template_id: string | null
+				}
+				Insert: {
+					canvas_x?: number
+					canvas_y?: number
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					duration_minutes?: number | null
+					id?: string
+					label?: string | null
+					recipe_id: string
+					step_template_id?: string | null
+				}
+				Update: {
+					canvas_x?: number
+					canvas_y?: number
+					created_at?: string
+					deleted_at?: string | null
+					description?: string | null
+					duration_minutes?: number | null
+					id?: string
+					label?: string | null
+					recipe_id?: string
+					step_template_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_step_template_id_fkey"
+						columns: ["step_template_id"]
+						isOneToOne: false
+						referencedRelation: "step_template"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step_input: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					measure_unit: string | null
+					quantity: number | null
+					recipe_ingredient_id: string | null
+					recipe_step_id: string
+					source_output_id: string | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_ingredient_id?: string | null
+					recipe_step_id: string
+					source_output_id?: string | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_ingredient_id?: string | null
+					recipe_step_id?: string
+					source_output_id?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_input_recipe_ingredient_id_fkey"
+						columns: ["recipe_ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_ingredients"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_input_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_input_source_output_id_fkey"
+						columns: ["source_output_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step_output"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step_output: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					is_final: boolean
+					label: string | null
+					measure_unit: string | null
+					quantity: number | null
+					recipe_id: string
+					recipe_step_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_final?: boolean
+					label?: string | null
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_id: string
+					recipe_step_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					is_final?: boolean
+					label?: string | null
+					measure_unit?: string | null
+					quantity?: number | null
+					recipe_id?: string
+					recipe_step_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_output_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_output_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipe_step_utensil: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					recipe_step_id: string
+					utensil_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					recipe_step_id: string
+					utensil_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					recipe_step_id?: string
+					utensil_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_step_utensil_recipe_step_id_fkey"
+						columns: ["recipe_step_id"]
+						isOneToOne: false
+						referencedRelation: "recipe_step"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "recipe_step_utensil_utensil_id_fkey"
+						columns: ["utensil_id"]
+						isOneToOne: false
+						referencedRelation: "utensil"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			recipes: {
+				Row: {
+					base_recipe_id: string | null
+					cooking_factor: number | null
+					created_at: string
+					deleted_at: string | null
+					id: string
+					kitchen_id: number | null
+					legacy_id: number | null
+					name: string
+					portion_yield: number | null
+					preparation_method: string | null
+					preparation_time_minutes: number | null
+					rational_id: string | null
+					upstream_version_snapshot: number | null
+					version: number
+				}
+				Insert: {
+					base_recipe_id?: string | null
+					cooking_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					legacy_id?: number | null
+					name: string
+					portion_yield?: number | null
+					preparation_method?: string | null
+					preparation_time_minutes?: number | null
+					rational_id?: string | null
+					upstream_version_snapshot?: number | null
+					version: number
+				}
+				Update: {
+					base_recipe_id?: string | null
+					cooking_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					legacy_id?: number | null
+					name?: string
+					portion_yield?: number | null
+					preparation_method?: string | null
+					preparation_time_minutes?: number | null
+					rational_id?: string | null
+					upstream_version_snapshot?: number | null
+					version?: number
+				}
+				Relationships: []
+			}
+			step_template: {
+				Row: {
+					created_at: string
+					default_duration_minutes: number | null
+					deleted_at: string | null
+					description: string | null
+					id: string
+					kitchen_id: number | null
+					name: string
+				}
+				Insert: {
+					created_at?: string
+					default_duration_minutes?: number | null
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name: string
+				}
+				Update: {
+					created_at?: string
+					default_duration_minutes?: number | null
+					deleted_at?: string | null
+					description?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string
+				}
+				Relationships: []
+			}
+			step_template_utensil: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					step_template_id: string
+					utensil_id: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					step_template_id: string
+					utensil_id: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					step_template_id?: string
+					utensil_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "step_template_utensil_step_template_id_fkey"
+						columns: ["step_template_id"]
+						isOneToOne: false
+						referencedRelation: "step_template"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "step_template_utensil_utensil_id_fkey"
+						columns: ["utensil_id"]
+						isOneToOne: false
+						referencedRelation: "utensil"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			utensil: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					kitchen_id: number | null
+					name: string
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name: string
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					kitchen_id?: number | null
+					name?: string
+				}
+				Relationships: []
+			}
 		}
 		Views: {
-			[_ in never]: never
+			ingredient_last_review: {
+				Row: {
+					ingredient_id: string | null
+					reviewed_at: string | null
+					reviewed_by: string | null
+					reviewed_by_name: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_review_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			v_ingredient_kg_lt_items: {
+				Row: {
+					base_unit: string | null
+					density_factor: number | null
+					description: string | null
+					item_created_at: string | null
+					item_description: string | null
+					kg_to_base_factor: number | null
+					product_id: string | null
+					product_item_id: string | null
+					purchase_measure_unit: string | null
+				}
+				Relationships: []
+			}
+			v_meal_presences_with_user: {
+				Row: {
+					created_at: string | null
+					date: string | null
+					display_name: string | null
+					id: string | null
+					meal: string | null
+					mess_hall_id: number | null
+					updated_at: string | null
+					user_id: string | null
+				}
+				Relationships: []
+			}
 		}
 		Functions: {
 			[_ in never]: never
@@ -2054,13 +3937,750 @@ export type Database = {
 	}
 	procurement: {
 		Tables: {
-			[_ in never]: never
+			compras_amostra: {
+				Row: {
+					capacidade_unidade_fornecimento: number | null
+					codigo_uasg: string | null
+					created_at: string
+					descricao_item: string | null
+					esfera: string | null
+					estado: string | null
+					fingerprint: string | null
+					id: string
+					id_compra: string
+					id_item_compra: number | null
+					marca: string | null
+					municipio: string | null
+					nome_uasg: string | null
+					normalized_price: number | null
+					preco_unitario: number | null
+					quantidade: number | null
+					reference_date: string | null
+					sigla_unidade_fornecimento: string | null
+					sigla_unidade_medida: string | null
+				}
+				Insert: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_uasg?: string | null
+					created_at?: string
+					descricao_item?: string | null
+					esfera?: string | null
+					estado?: string | null
+					fingerprint?: string | null
+					id?: string
+					id_compra: string
+					id_item_compra?: number | null
+					marca?: string | null
+					municipio?: string | null
+					nome_uasg?: string | null
+					normalized_price?: number | null
+					preco_unitario?: number | null
+					quantidade?: number | null
+					reference_date?: string | null
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+				}
+				Update: {
+					capacidade_unidade_fornecimento?: number | null
+					codigo_uasg?: string | null
+					created_at?: string
+					descricao_item?: string | null
+					esfera?: string | null
+					estado?: string | null
+					fingerprint?: string | null
+					id?: string
+					id_compra?: string
+					id_item_compra?: number | null
+					marca?: string | null
+					municipio?: string | null
+					nome_uasg?: string | null
+					normalized_price?: number | null
+					preco_unitario?: number | null
+					quantidade?: number | null
+					reference_date?: string | null
+					sigla_unidade_fornecimento?: string | null
+					sigla_unidade_medida?: string | null
+				}
+				Relationships: []
+			}
+			kitchen_ata_draft: {
+				Row: {
+					created_at: string
+					id: string
+					kitchen_id: number
+					notes: string | null
+					status: string
+					title: string
+					updated_at: string | null
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					kitchen_id: number
+					notes?: string | null
+					status?: string
+					title: string
+					updated_at?: string | null
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number
+					notes?: string | null
+					status?: string
+					title?: string
+					updated_at?: string | null
+				}
+				Relationships: []
+			}
+			kitchen_ata_draft_selection: {
+				Row: {
+					draft_id: string
+					id: string
+					repetitions: number
+					template_id: string
+				}
+				Insert: {
+					draft_id: string
+					id?: string
+					repetitions?: number
+					template_id: string
+				}
+				Update: {
+					draft_id?: string
+					id?: string
+					repetitions?: number
+					template_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "kitchen_ata_draft_selection_draft_id_fkey"
+						columns: ["draft_id"]
+						isOneToOne: false
+						referencedRelation: "kitchen_ata_draft"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			policy_rule: {
+				Row: {
+					active: boolean
+					created_at: string
+					deleted_at: string | null
+					description: string
+					display_order: number
+					id: string
+					target: string
+					title: string
+					updated_at: string
+				}
+				Insert: {
+					active?: boolean
+					created_at?: string
+					deleted_at?: string | null
+					description: string
+					display_order?: number
+					id?: string
+					target: string
+					title: string
+					updated_at?: string
+				}
+				Update: {
+					active?: boolean
+					created_at?: string
+					deleted_at?: string | null
+					description?: string
+					display_order?: number
+					id?: string
+					target?: string
+					title?: string
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			procurement_arp: {
+				Row: {
+					ano_ata: string | null
+					ata_id: string
+					created_at: string
+					data_vigencia_fim: string | null
+					data_vigencia_inicio: string | null
+					id: string
+					last_synced_at: string | null
+					nome_uasg_gerenciadora: string | null
+					numero_ata: string
+					objeto: string | null
+					status_ata: string | null
+					uasg_gerenciadora: string
+					unit_id: number
+				}
+				Insert: {
+					ano_ata?: string | null
+					ata_id: string
+					created_at?: string
+					data_vigencia_fim?: string | null
+					data_vigencia_inicio?: string | null
+					id?: string
+					last_synced_at?: string | null
+					nome_uasg_gerenciadora?: string | null
+					numero_ata: string
+					objeto?: string | null
+					status_ata?: string | null
+					uasg_gerenciadora: string
+					unit_id: number
+				}
+				Update: {
+					ano_ata?: string | null
+					ata_id?: string
+					created_at?: string
+					data_vigencia_fim?: string | null
+					data_vigencia_inicio?: string | null
+					id?: string
+					last_synced_at?: string | null
+					nome_uasg_gerenciadora?: string | null
+					numero_ata?: string
+					objeto?: string | null
+					status_ata?: string | null
+					uasg_gerenciadora?: string
+					unit_id?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_arp_ata_id_fkey"
+						columns: ["ata_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_arp_item: {
+				Row: {
+					arp_id: string
+					ata_item_id: string | null
+					catmat_item_codigo: number | null
+					descricao_item: string | null
+					id: string
+					medida_catmat: string | null
+					ni_fornecedor: string | null
+					nome_fornecedor: string | null
+					numero_item: number | null
+					quantidade_empenhada: number | null
+					quantidade_homologada: number | null
+					saldo_empenho: number | null
+					synced_at: string
+					valor_unitario: number | null
+				}
+				Insert: {
+					arp_id: string
+					ata_item_id?: string | null
+					catmat_item_codigo?: number | null
+					descricao_item?: string | null
+					id?: string
+					medida_catmat?: string | null
+					ni_fornecedor?: string | null
+					nome_fornecedor?: string | null
+					numero_item?: number | null
+					quantidade_empenhada?: number | null
+					quantidade_homologada?: number | null
+					saldo_empenho?: number | null
+					synced_at?: string
+					valor_unitario?: number | null
+				}
+				Update: {
+					arp_id?: string
+					ata_item_id?: string | null
+					catmat_item_codigo?: number | null
+					descricao_item?: string | null
+					id?: string
+					medida_catmat?: string | null
+					ni_fornecedor?: string | null
+					nome_fornecedor?: string | null
+					numero_item?: number | null
+					quantidade_empenhada?: number | null
+					quantidade_homologada?: number | null
+					saldo_empenho?: number | null
+					synced_at?: string
+					valor_unitario?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_arp_item_arp_id_fkey"
+						columns: ["arp_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_arp"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_arp_item_ata_item_id_fkey"
+						columns: ["ata_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_list: {
+				Row: {
+					created_at: string
+					deleted_at: string | null
+					id: string
+					notes: string | null
+					status: string
+					title: string
+					unit_id: number
+					updated_at: string | null
+					wizard_step: number | null
+				}
+				Insert: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					notes?: string | null
+					status?: string
+					title: string
+					unit_id: number
+					updated_at?: string | null
+					wizard_step?: number | null
+				}
+				Update: {
+					created_at?: string
+					deleted_at?: string | null
+					id?: string
+					notes?: string | null
+					status?: string
+					title?: string
+					unit_id?: number
+					updated_at?: string | null
+					wizard_step?: number | null
+				}
+				Relationships: []
+			}
+			procurement_list_item: {
+				Row: {
+					catmat_item_codigo: number | null
+					catmat_item_descricao: string | null
+					conversion_factor: number | null
+					folder_description: string | null
+					folder_id: string | null
+					id: string
+					ingredient_id: string | null
+					ingredient_name: string
+					item_description: string | null
+					list_id: string
+					measure_unit: string | null
+					purchase_item_description: string | null
+					purchase_item_id: string | null
+					purchase_measure_unit: string | null
+					purchase_quantity: number | null
+					total_quantity: number
+					unit_price: number | null
+				}
+				Insert: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					conversion_factor?: number | null
+					folder_description?: string | null
+					folder_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_name: string
+					item_description?: string | null
+					list_id: string
+					measure_unit?: string | null
+					purchase_item_description?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					purchase_quantity?: number | null
+					total_quantity: number
+					unit_price?: number | null
+				}
+				Update: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					conversion_factor?: number | null
+					folder_description?: string | null
+					folder_id?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_name?: string
+					item_description?: string | null
+					list_id?: string
+					measure_unit?: string | null
+					purchase_item_description?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					purchase_quantity?: number | null
+					total_quantity?: number
+					unit_price?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_item_ata_id_fkey"
+						columns: ["list_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_list_item_purchase_item_id_fkey"
+						columns: ["purchase_item_id"]
+						isOneToOne: false
+						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_list_kitchen: {
+				Row: {
+					delivery_notes: string | null
+					id: string
+					kitchen_id: number
+					list_id: string
+				}
+				Insert: {
+					delivery_notes?: string | null
+					id?: string
+					kitchen_id: number
+					list_id: string
+				}
+				Update: {
+					delivery_notes?: string | null
+					id?: string
+					kitchen_id?: number
+					list_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_kitchen_ata_id_fkey"
+						columns: ["list_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_list_selection: {
+				Row: {
+					id: string
+					list_kitchen_id: string
+					repetitions: number
+					template_id: string
+				}
+				Insert: {
+					id?: string
+					list_kitchen_id: string
+					repetitions?: number
+					template_id: string
+				}
+				Update: {
+					id?: string
+					list_kitchen_id?: string
+					repetitions?: number
+					template_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_ata_selection_ata_kitchen_id_fkey"
+						columns: ["list_kitchen_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list_kitchen"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_pesquisa_preco: {
+				Row: {
+					ata_id: string | null
+					created_at: string
+					filter_estado: string | null
+					filter_municipio_code: number | null
+					filter_uasg_code: string | null
+					id: string
+					idempotency_key: string | null
+					items_with_price: number
+					items_without_catmat: number
+					non_compliant_items: number
+					period_months: number | null
+					reference_method: string
+					similarity_threshold: number | null
+					total_items: number
+				}
+				Insert: {
+					ata_id?: string | null
+					created_at?: string
+					filter_estado?: string | null
+					filter_municipio_code?: number | null
+					filter_uasg_code?: string | null
+					id?: string
+					idempotency_key?: string | null
+					items_with_price?: number
+					items_without_catmat?: number
+					non_compliant_items?: number
+					period_months?: number | null
+					reference_method?: string
+					similarity_threshold?: number | null
+					total_items?: number
+				}
+				Update: {
+					ata_id?: string | null
+					created_at?: string
+					filter_estado?: string | null
+					filter_municipio_code?: number | null
+					filter_uasg_code?: string | null
+					id?: string
+					idempotency_key?: string | null
+					items_with_price?: number
+					items_without_catmat?: number
+					non_compliant_items?: number
+					period_months?: number | null
+					reference_method?: string
+					similarity_threshold?: number | null
+					total_items?: number
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_ata_id_fkey"
+						columns: ["ata_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_pesquisa_preco_amostra: {
+				Row: {
+					amostra_id: string
+					id: string
+					research_item_id: string
+					sample_type: string
+					similarity: number | null
+				}
+				Insert: {
+					amostra_id: string
+					id?: string
+					research_item_id: string
+					sample_type: string
+					similarity?: number | null
+				}
+				Update: {
+					amostra_id?: string
+					id?: string
+					research_item_id?: string
+					sample_type?: string
+					similarity?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
+						columns: ["amostra_id"]
+						isOneToOne: false
+						referencedRelation: "compras_amostra"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
+						columns: ["research_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_pesquisa_preco_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_pesquisa_preco_item: {
+				Row: {
+					ata_item_id: string | null
+					catmat_codigo: number | null
+					catmat_descricao: string | null
+					created_at: string
+					cv_pct: number | null
+					error: string | null
+					id: string
+					is_compliant: boolean
+					measure_unit: string | null
+					non_compliance_reasons: string[]
+					price_max: number | null
+					price_mean: number | null
+					price_median: number | null
+					price_min: number | null
+					product_name: string
+					reference_method: string | null
+					reference_price: number | null
+					research_id: string
+					std_dev: number | null
+					total_after_date_filter: number
+					total_after_outlier: number
+					total_after_pollution_filter: number
+					total_raw: number
+					unique_sources: number | null
+				}
+				Insert: {
+					ata_item_id?: string | null
+					catmat_codigo?: number | null
+					catmat_descricao?: string | null
+					created_at?: string
+					cv_pct?: number | null
+					error?: string | null
+					id?: string
+					is_compliant?: boolean
+					measure_unit?: string | null
+					non_compliance_reasons?: string[]
+					price_max?: number | null
+					price_mean?: number | null
+					price_median?: number | null
+					price_min?: number | null
+					product_name: string
+					reference_method?: string | null
+					reference_price?: number | null
+					research_id: string
+					std_dev?: number | null
+					total_after_date_filter?: number
+					total_after_outlier?: number
+					total_after_pollution_filter?: number
+					total_raw?: number
+					unique_sources?: number | null
+				}
+				Update: {
+					ata_item_id?: string | null
+					catmat_codigo?: number | null
+					catmat_descricao?: string | null
+					created_at?: string
+					cv_pct?: number | null
+					error?: string | null
+					id?: string
+					is_compliant?: boolean
+					measure_unit?: string | null
+					non_compliance_reasons?: string[]
+					price_max?: number | null
+					price_mean?: number | null
+					price_median?: number | null
+					price_min?: number | null
+					product_name?: string
+					reference_method?: string | null
+					reference_price?: number | null
+					research_id?: string
+					std_dev?: number | null
+					total_after_date_filter?: number
+					total_after_outlier?: number
+					total_after_pollution_filter?: number
+					total_raw?: number
+					unique_sources?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_pesquisa_preco_item_ata_item_id_fkey"
+						columns: ["ata_item_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "procurement_pesquisa_preco_item_research_id_fkey"
+						columns: ["research_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_pesquisa_preco"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			purchase_item: {
+				Row: {
+					catmat_item_codigo: number | null
+					catmat_item_descricao: string | null
+					catmat_match_score: number | null
+					catmat_match_status: string | null
+					created_at: string
+					deleted_at: string | null
+					description: string
+					gpc_brick_code: string | null
+					gpc_class_code: string | null
+					gpc_family_code: string | null
+					gpc_segment_code: string | null
+					id: string
+					purchase_measure_unit: string | null
+					unit_price: number | null
+					updated_at: string
+				}
+				Insert: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					description: string
+					gpc_brick_code?: string | null
+					gpc_class_code?: string | null
+					gpc_family_code?: string | null
+					gpc_segment_code?: string | null
+					id?: string
+					purchase_measure_unit?: string | null
+					unit_price?: number | null
+					updated_at?: string
+				}
+				Update: {
+					catmat_item_codigo?: number | null
+					catmat_item_descricao?: string | null
+					catmat_match_score?: number | null
+					catmat_match_status?: string | null
+					created_at?: string
+					deleted_at?: string | null
+					description?: string
+					gpc_brick_code?: string | null
+					gpc_class_code?: string | null
+					gpc_family_code?: string | null
+					gpc_segment_code?: string | null
+					id?: string
+					purchase_measure_unit?: string | null
+					unit_price?: number | null
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			purchase_item_ingredient: {
+				Row: {
+					conversion_factor: number
+					conversion_notes: string | null
+					created_at: string
+					id: string
+					ingredient_id: string
+					is_default: boolean
+					purchase_item_id: string
+				}
+				Insert: {
+					conversion_factor?: number
+					conversion_notes?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id: string
+					is_default?: boolean
+					purchase_item_id: string
+				}
+				Update: {
+					conversion_factor?: number
+					conversion_notes?: string | null
+					created_at?: string
+					id?: string
+					ingredient_id?: string
+					is_default?: boolean
+					purchase_item_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "purchase_item_ingredient_purchase_item_id_fkey"
+						columns: ["purchase_item_id"]
+						isOneToOne: false
+						referencedRelation: "purchase_item"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 		}
 		Views: {
 			[_ in never]: never
 		}
 		Functions: {
-			[_ in never]: never
+			upsert_compras_amostras: { Args: { p_samples: Json }; Returns: string[] }
 		}
 		Enums: {
 			[_ in never]: never
@@ -2426,2836 +5046,10 @@ export type Database = {
 	}
 	sisub: {
 		Tables: {
-			analytics_chat_message: {
-				Row: {
-					chart: Json | null
-					chart_type_override: string | null
-					content: string
-					created_at: string
-					error: string | null
-					id: string
-					input_tokens: number | null
-					langsmith_run_id: string | null
-					latency_ms: number | null
-					model: string | null
-					output_tokens: number | null
-					role: string
-					session_id: string
-				}
-				Insert: {
-					chart?: Json | null
-					chart_type_override?: string | null
-					content?: string
-					created_at?: string
-					error?: string | null
-					id?: string
-					input_tokens?: number | null
-					langsmith_run_id?: string | null
-					latency_ms?: number | null
-					model?: string | null
-					output_tokens?: number | null
-					role: string
-					session_id: string
-				}
-				Update: {
-					chart?: Json | null
-					chart_type_override?: string | null
-					content?: string
-					created_at?: string
-					error?: string | null
-					id?: string
-					input_tokens?: number | null
-					langsmith_run_id?: string | null
-					latency_ms?: number | null
-					model?: string | null
-					output_tokens?: number | null
-					role?: string
-					session_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "analytics_chat_message_session_id_fkey"
-						columns: ["session_id"]
-						isOneToOne: false
-						referencedRelation: "analytics_chat_session"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			analytics_chat_session: {
-				Row: {
-					created_at: string
-					id: string
-					title: string
-					updated_at: string
-					user_id: string
-				}
-				Insert: {
-					created_at?: string
-					id?: string
-					title?: string
-					updated_at?: string
-					user_id: string
-				}
-				Update: {
-					created_at?: string
-					id?: string
-					title?: string
-					updated_at?: string
-					user_id?: string
-				}
-				Relationships: []
-			}
-			ceafa: {
-				Row: {
-					created_at: string
-					description: string
-					id: string
-					legacy_id: number | null
-					quantity: number
-				}
-				Insert: {
-					created_at?: string
-					description: string
-					id?: string
-					legacy_id?: number | null
-					quantity: number
-				}
-				Update: {
-					created_at?: string
-					description?: string
-					id?: string
-					legacy_id?: number | null
-					quantity?: number
-				}
-				Relationships: []
-			}
-			changelog: {
-				Row: {
-					body: string
-					id: string
-					published: boolean
-					published_at: string
-					tags: string[] | null
-					title: string
-					version: string | null
-				}
-				Insert: {
-					body: string
-					id?: string
-					published?: boolean
-					published_at?: string
-					tags?: string[] | null
-					title: string
-					version?: string | null
-				}
-				Update: {
-					body?: string
-					id?: string
-					published?: boolean
-					published_at?: string
-					tags?: string[] | null
-					title?: string
-					version?: string | null
-				}
-				Relationships: []
-			}
-			compras_amostra: {
-				Row: {
-					capacidade_unidade_fornecimento: number | null
-					codigo_uasg: string | null
-					created_at: string
-					descricao_item: string | null
-					esfera: string | null
-					estado: string | null
-					fingerprint: string | null
-					id: string
-					id_compra: string
-					id_item_compra: number | null
-					marca: string | null
-					municipio: string | null
-					nome_uasg: string | null
-					normalized_price: number | null
-					preco_unitario: number | null
-					quantidade: number | null
-					reference_date: string | null
-					sigla_unidade_fornecimento: string | null
-					sigla_unidade_medida: string | null
-				}
-				Insert: {
-					capacidade_unidade_fornecimento?: number | null
-					codigo_uasg?: string | null
-					created_at?: string
-					descricao_item?: string | null
-					esfera?: string | null
-					estado?: string | null
-					fingerprint?: string | null
-					id?: string
-					id_compra: string
-					id_item_compra?: number | null
-					marca?: string | null
-					municipio?: string | null
-					nome_uasg?: string | null
-					normalized_price?: number | null
-					preco_unitario?: number | null
-					quantidade?: number | null
-					reference_date?: string | null
-					sigla_unidade_fornecimento?: string | null
-					sigla_unidade_medida?: string | null
-				}
-				Update: {
-					capacidade_unidade_fornecimento?: number | null
-					codigo_uasg?: string | null
-					created_at?: string
-					descricao_item?: string | null
-					esfera?: string | null
-					estado?: string | null
-					fingerprint?: string | null
-					id?: string
-					id_compra?: string
-					id_item_compra?: number | null
-					marca?: string | null
-					municipio?: string | null
-					nome_uasg?: string | null
-					normalized_price?: number | null
-					preco_unitario?: number | null
-					quantidade?: number | null
-					reference_date?: string | null
-					sigla_unidade_fornecimento?: string | null
-					sigla_unidade_medida?: string | null
-				}
-				Relationships: []
-			}
-			daily_menu: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					forecasted_headcount: number | null
-					id: string
-					kitchen_id: number | null
-					meal_type_id: string | null
-					service_date: string | null
-					status: string | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					forecasted_headcount?: number | null
-					id?: string
-					kitchen_id?: number | null
-					meal_type_id?: string | null
-					service_date?: string | null
-					status?: string | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					forecasted_headcount?: number | null
-					id?: string
-					kitchen_id?: number | null
-					meal_type_id?: string | null
-					service_date?: string | null
-					status?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "daily_menu_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "daily_menu_meal_type_id_fkey"
-						columns: ["meal_type_id"]
-						isOneToOne: false
-						referencedRelation: "meal_type"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			empenho: {
-				Row: {
-					arp_item_id: string
-					created_at: string
-					created_by: string | null
-					data_empenho: string
-					id: string
-					nota_lancamento: string | null
-					numero_empenho: string
-					quantidade_empenhada: number
-					status: string
-					unit_id: number
-					valor_total: number
-					valor_unitario: number
-				}
-				Insert: {
-					arp_item_id: string
-					created_at?: string
-					created_by?: string | null
-					data_empenho: string
-					id?: string
-					nota_lancamento?: string | null
-					numero_empenho: string
-					quantidade_empenhada: number
-					status?: string
-					unit_id: number
-					valor_total: number
-					valor_unitario: number
-				}
-				Update: {
-					arp_item_id?: string
-					created_at?: string
-					created_by?: string | null
-					data_empenho?: string
-					id?: string
-					nota_lancamento?: string | null
-					numero_empenho?: string
-					quantidade_empenhada?: number
-					status?: string
-					unit_id?: number
-					valor_total?: number
-					valor_unitario?: number
-				}
-				Relationships: [
-					{
-						foreignKeyName: "empenho_arp_item_id_fkey"
-						columns: ["arp_item_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_arp_item"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "empenho_unit_id_fkey"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			folder: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					description: string | null
-					id: string
-					legacy_id: number | null
-					parent_id: string | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					legacy_id?: number | null
-					parent_id?: string | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					legacy_id?: number | null
-					parent_id?: string | null
-				}
-				Relationships: []
-			}
-			ingredient: {
-				Row: {
-					ceafa_id: string | null
-					correction_factor: number | null
-					created_at: string
-					deleted_at: string | null
-					density_factor: number | null
-					description: string | null
-					folder_id: string | null
-					id: string
-					legacy_id: number | null
-					measure_unit: string | null
-				}
-				Insert: {
-					ceafa_id?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					density_factor?: number | null
-					description?: string | null
-					folder_id?: string | null
-					id?: string
-					legacy_id?: number | null
-					measure_unit?: string | null
-				}
-				Update: {
-					ceafa_id?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					density_factor?: number | null
-					description?: string | null
-					folder_id?: string | null
-					id?: string
-					legacy_id?: number | null
-					measure_unit?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "product_ceafa_id_fkey"
-						columns: ["ceafa_id"]
-						isOneToOne: false
-						referencedRelation: "ceafa"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_folder_id_fkey"
-						columns: ["folder_id"]
-						isOneToOne: false
-						referencedRelation: "folder"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			ingredient_item: {
-				Row: {
-					barcode: string | null
-					correction_factor: number | null
-					created_at: string
-					deleted_at: string | null
-					description: string | null
-					id: string
-					ingredient_id: string | null
-					purchase_item_id: string | null
-					purchase_measure_unit: string | null
-					unit_content_quantity: number | null
-				}
-				Insert: {
-					barcode?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					ingredient_id?: string | null
-					purchase_item_id?: string | null
-					purchase_measure_unit?: string | null
-					unit_content_quantity?: number | null
-				}
-				Update: {
-					barcode?: string | null
-					correction_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					ingredient_id?: string | null
-					purchase_item_id?: string | null
-					purchase_measure_unit?: string | null
-					unit_content_quantity?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "ingredient_item_purchase_item_id_fkey"
-						columns: ["purchase_item_id"]
-						isOneToOne: false
-						referencedRelation: "purchase_item"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_item_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_item_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-				]
-			}
-			ingredient_nutrient: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					ingredient_id: string
-					nutrient_id: string
-					nutrient_value: number | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					ingredient_id: string
-					nutrient_id: string
-					nutrient_value?: number | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					ingredient_id?: string
-					nutrient_id?: string
-					nutrient_value?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "product_nutrient_nutrient_id_fkey"
-						columns: ["nutrient_id"]
-						isOneToOne: false
-						referencedRelation: "nutrient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_nutrient_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "product_nutrient_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-				]
-			}
-			ingredient_review: {
-				Row: {
-					id: string
-					ingredient_id: string
-					note: string | null
-					reviewed_at: string
-					reviewed_by: string | null
-					reviewed_by_name: string | null
-				}
-				Insert: {
-					id?: string
-					ingredient_id: string
-					note?: string | null
-					reviewed_at?: string
-					reviewed_by?: string | null
-					reviewed_by_name?: string | null
-				}
-				Update: {
-					id?: string
-					ingredient_id?: string
-					note?: string | null
-					reviewed_at?: string
-					reviewed_by?: string | null
-					reviewed_by_name?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "ingredient_review_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "ingredient_review_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-				]
-			}
-			ingredient_version: {
-				Row: {
-					change_summary: string | null
-					changed_by: string | null
-					changed_by_name: string | null
-					created_at: string
-					id: string
-					ingredient_id: string
-					snapshot: Json
-					version_number: number
-				}
-				Insert: {
-					change_summary?: string | null
-					changed_by?: string | null
-					changed_by_name?: string | null
-					created_at?: string
-					id?: string
-					ingredient_id: string
-					snapshot: Json
-					version_number: number
-				}
-				Update: {
-					change_summary?: string | null
-					changed_by?: string | null
-					changed_by_name?: string | null
-					created_at?: string
-					id?: string
-					ingredient_id?: string
-					snapshot?: Json
-					version_number?: number
-				}
-				Relationships: [
-					{
-						foreignKeyName: "ingredient_version_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "ingredient_version_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-				]
-			}
-			kitchen: {
-				Row: {
-					address_bairro: string | null
-					address_cep: string | null
-					address_complemento: string | null
-					address_logradouro: string | null
-					address_municipio: string | null
-					address_numero: string | null
-					address_uf: string | null
-					created_at: string
-					display_name: string | null
-					id: number
-					kitchen_id: number | null
-					purchase_unit_id: number | null
-					type: Database["sisub"]["Enums"]["kitchen_type"] | null
-					unit_id: number | null
-				}
-				Insert: {
-					address_bairro?: string | null
-					address_cep?: string | null
-					address_complemento?: string | null
-					address_logradouro?: string | null
-					address_municipio?: string | null
-					address_numero?: string | null
-					address_uf?: string | null
-					created_at?: string
-					display_name?: string | null
-					id?: number
-					kitchen_id?: number | null
-					purchase_unit_id?: number | null
-					type?: Database["sisub"]["Enums"]["kitchen_type"] | null
-					unit_id?: number | null
-				}
-				Update: {
-					address_bairro?: string | null
-					address_cep?: string | null
-					address_complemento?: string | null
-					address_logradouro?: string | null
-					address_municipio?: string | null
-					address_numero?: string | null
-					address_uf?: string | null
-					created_at?: string
-					display_name?: string | null
-					id?: number
-					kitchen_id?: number | null
-					purchase_unit_id?: number | null
-					type?: Database["sisub"]["Enums"]["kitchen_type"] | null
-					unit_id?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "kitchen_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "kitchen_purchase_unit_id_fkey"
-						columns: ["purchase_unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "kitchen_unit_id_fkey"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			kitchen_ata_draft: {
-				Row: {
-					created_at: string
-					id: string
-					kitchen_id: number
-					notes: string | null
-					status: string
-					title: string
-					updated_at: string | null
-				}
-				Insert: {
-					created_at?: string
-					id?: string
-					kitchen_id: number
-					notes?: string | null
-					status?: string
-					title: string
-					updated_at?: string | null
-				}
-				Update: {
-					created_at?: string
-					id?: string
-					kitchen_id?: number
-					notes?: string | null
-					status?: string
-					title?: string
-					updated_at?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "kitchen_ata_draft_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			kitchen_ata_draft_selection: {
-				Row: {
-					draft_id: string
-					id: string
-					repetitions: number
-					template_id: string
-				}
-				Insert: {
-					draft_id: string
-					id?: string
-					repetitions?: number
-					template_id: string
-				}
-				Update: {
-					draft_id?: string
-					id?: string
-					repetitions?: number
-					template_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "kitchen_ata_draft_selection_draft_id_fkey"
-						columns: ["draft_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen_ata_draft"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "kitchen_ata_draft_selection_template_id_fkey"
-						columns: ["template_id"]
-						isOneToOne: false
-						referencedRelation: "menu_template"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			mcp_api_keys: {
-				Row: {
-					created_at: string
-					id: string
-					is_active: boolean
-					key_hash: string
-					key_prefix: string
-					label: string
-					last_used_at: string | null
-					user_id: string
-				}
-				Insert: {
-					created_at?: string
-					id?: string
-					is_active?: boolean
-					key_hash: string
-					key_prefix: string
-					label: string
-					last_used_at?: string | null
-					user_id: string
-				}
-				Update: {
-					created_at?: string
-					id?: string
-					is_active?: boolean
-					key_hash?: string
-					key_prefix?: string
-					label?: string
-					last_used_at?: string | null
-					user_id?: string
-				}
-				Relationships: []
-			}
-			meal_forecasts: {
-				Row: {
-					created_at: string | null
-					date: string
-					id: string
-					meal: string
-					mess_hall_id: number
-					updated_at: string | null
-					user_id: string
-					will_eat: boolean
-				}
-				Insert: {
-					created_at?: string | null
-					date: string
-					id?: string
-					meal: string
-					mess_hall_id: number
-					updated_at?: string | null
-					user_id: string
-					will_eat: boolean
-				}
-				Update: {
-					created_at?: string | null
-					date?: string
-					id?: string
-					meal?: string
-					mess_hall_id?: number
-					updated_at?: string | null
-					user_id?: string
-					will_eat?: boolean
-				}
-				Relationships: [
-					{
-						foreignKeyName: "meal_forecasts_mess_hall_id_fkey"
-						columns: ["mess_hall_id"]
-						isOneToOne: false
-						referencedRelation: "mess_halls"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			meal_presences: {
-				Row: {
-					created_at: string
-					date: string
-					id: string
-					meal: string
-					mess_hall_id: number
-					updated_at: string | null
-					user_id: string
-				}
-				Insert: {
-					created_at?: string
-					date: string
-					id?: string
-					meal: string
-					mess_hall_id: number
-					updated_at?: string | null
-					user_id: string
-				}
-				Update: {
-					created_at?: string
-					date?: string
-					id?: string
-					meal?: string
-					mess_hall_id?: number
-					updated_at?: string | null
-					user_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "meal_presences_mess_hall_id_fkey"
-						columns: ["mess_hall_id"]
-						isOneToOne: false
-						referencedRelation: "mess_halls"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			meal_type: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					kitchen_id: number | null
-					name: string | null
-					sort_order: number | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name?: string | null
-					sort_order?: number | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name?: string | null
-					sort_order?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "meal_type_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			menu_items: {
-				Row: {
-					created_at: string
-					daily_menu_id: string | null
-					deleted_at: string | null
-					excluded_from_procurement: number | null
-					id: string
-					planned_portion_quantity: number | null
-					recipe: Json | null
-					recipe_origin_id: string | null
-					substitutions: Json | null
-				}
-				Insert: {
-					created_at?: string
-					daily_menu_id?: string | null
-					deleted_at?: string | null
-					excluded_from_procurement?: number | null
-					id?: string
-					planned_portion_quantity?: number | null
-					recipe?: Json | null
-					recipe_origin_id?: string | null
-					substitutions?: Json | null
-				}
-				Update: {
-					created_at?: string
-					daily_menu_id?: string | null
-					deleted_at?: string | null
-					excluded_from_procurement?: number | null
-					id?: string
-					planned_portion_quantity?: number | null
-					recipe?: Json | null
-					recipe_origin_id?: string | null
-					substitutions?: Json | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "menu_items_daily_menu_id_fkey"
-						columns: ["daily_menu_id"]
-						isOneToOne: false
-						referencedRelation: "daily_menu"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "menu_items_recipe_origin_id_fkey"
-						columns: ["recipe_origin_id"]
-						isOneToOne: false
-						referencedRelation: "recipes"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			menu_template: {
-				Row: {
-					base_template_id: string | null
-					created_at: string
-					deleted_at: string | null
-					description: string | null
-					id: string
-					kitchen_id: number | null
-					name: string | null
-					template_type: string
-				}
-				Insert: {
-					base_template_id?: string | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name?: string | null
-					template_type?: string
-				}
-				Update: {
-					base_template_id?: string | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name?: string | null
-					template_type?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "menu_template_base_template_id_fkey"
-						columns: ["base_template_id"]
-						isOneToOne: false
-						referencedRelation: "menu_template"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "menu_template_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			menu_template_items: {
-				Row: {
-					created_at: string
-					day_of_week: number | null
-					headcount_override: number | null
-					id: string
-					meal_type_id: string | null
-					menu_template_id: string | null
-					recipe_id: string | null
-				}
-				Insert: {
-					created_at?: string
-					day_of_week?: number | null
-					headcount_override?: number | null
-					id?: string
-					meal_type_id?: string | null
-					menu_template_id?: string | null
-					recipe_id?: string | null
-				}
-				Update: {
-					created_at?: string
-					day_of_week?: number | null
-					headcount_override?: number | null
-					id?: string
-					meal_type_id?: string | null
-					menu_template_id?: string | null
-					recipe_id?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "menu_template_items_meal_type_id_fkey"
-						columns: ["meal_type_id"]
-						isOneToOne: false
-						referencedRelation: "meal_type"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "menu_template_items_menu_template_id_fkey"
-						columns: ["menu_template_id"]
-						isOneToOne: false
-						referencedRelation: "menu_template"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "menu_template_items_recipe_id_fkey"
-						columns: ["recipe_id"]
-						isOneToOne: false
-						referencedRelation: "recipes"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			mess_halls: {
-				Row: {
-					code: string
-					display_name: string | null
-					id: number
-					kitchen_id: number | null
-					unit_id: number
-				}
-				Insert: {
-					code: string
-					display_name?: string | null
-					id?: number
-					kitchen_id?: number | null
-					unit_id: number
-				}
-				Update: {
-					code?: string
-					display_name?: string | null
-					id?: number
-					kitchen_id?: number | null
-					unit_id?: number
-				}
-				Relationships: [
-					{
-						foreignKeyName: "mess_halls_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "mess_halls_unit_fk"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "mess_halls_unit_id_fkey"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			migration_folder_lookup: {
-				Row: {
-					created_at: string | null
-					legacy_id_grupo_produto: number
-					new_folder_id: string
-				}
-				Insert: {
-					created_at?: string | null
-					legacy_id_grupo_produto: number
-					new_folder_id: string
-				}
-				Update: {
-					created_at?: string | null
-					legacy_id_grupo_produto?: number
-					new_folder_id?: string
-				}
-				Relationships: []
-			}
-			migration_nutrient_lookup: {
-				Row: {
-					created_at: string | null
-					legacy_id_nutriente: number
-					new_nutrient_id: string
-				}
-				Insert: {
-					created_at?: string | null
-					legacy_id_nutriente: number
-					new_nutrient_id: string
-				}
-				Update: {
-					created_at?: string | null
-					legacy_id_nutriente?: number
-					new_nutrient_id?: string
-				}
-				Relationships: []
-			}
-			migration_product_lookup: {
-				Row: {
-					created_at: string | null
-					legacy_descricao: string | null
-					legacy_id_insumo: number
-					new_product_id: string
-				}
-				Insert: {
-					created_at?: string | null
-					legacy_descricao?: string | null
-					legacy_id_insumo: number
-					new_product_id: string
-				}
-				Update: {
-					created_at?: string | null
-					legacy_descricao?: string | null
-					legacy_id_insumo?: number
-					new_product_id?: string
-				}
-				Relationships: []
-			}
-			migration_recipe_lookup: {
-				Row: {
-					created_at: string | null
-					legacy_id_preparacao: number
-					legacy_rendimento: number | null
-					new_recipe_id: string
-				}
-				Insert: {
-					created_at?: string | null
-					legacy_id_preparacao: number
-					legacy_rendimento?: number | null
-					new_recipe_id: string
-				}
-				Update: {
-					created_at?: string | null
-					legacy_id_preparacao?: number
-					legacy_rendimento?: number | null
-					new_recipe_id?: string
-				}
-				Relationships: []
-			}
-			module_chat_message: {
-				Row: {
-					content: string
-					created_at: string
-					error: string | null
-					id: string
-					input_tokens: number | null
-					langsmith_run_id: string | null
-					latency_ms: number | null
-					model: string | null
-					output_tokens: number | null
-					role: string
-					session_id: string
-					tool_call_id: string | null
-					tool_calls: Json | null
-					tool_name: string | null
-					tool_result: Json | null
-				}
-				Insert: {
-					content?: string
-					created_at?: string
-					error?: string | null
-					id?: string
-					input_tokens?: number | null
-					langsmith_run_id?: string | null
-					latency_ms?: number | null
-					model?: string | null
-					output_tokens?: number | null
-					role: string
-					session_id: string
-					tool_call_id?: string | null
-					tool_calls?: Json | null
-					tool_name?: string | null
-					tool_result?: Json | null
-				}
-				Update: {
-					content?: string
-					created_at?: string
-					error?: string | null
-					id?: string
-					input_tokens?: number | null
-					langsmith_run_id?: string | null
-					latency_ms?: number | null
-					model?: string | null
-					output_tokens?: number | null
-					role?: string
-					session_id?: string
-					tool_call_id?: string | null
-					tool_calls?: Json | null
-					tool_name?: string | null
-					tool_result?: Json | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "module_chat_message_session_id_fkey"
-						columns: ["session_id"]
-						isOneToOne: false
-						referencedRelation: "module_chat_session"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			module_chat_session: {
-				Row: {
-					created_at: string
-					id: string
-					module: string
-					scope_id: number | null
-					title: string
-					updated_at: string
-					user_id: string
-				}
-				Insert: {
-					created_at?: string
-					id?: string
-					module: string
-					scope_id?: number | null
-					title?: string
-					updated_at?: string
-					user_id: string
-				}
-				Update: {
-					created_at?: string
-					id?: string
-					module?: string
-					scope_id?: number | null
-					title?: string
-					updated_at?: string
-					user_id?: string
-				}
-				Relationships: []
-			}
-			nutrient: {
-				Row: {
-					created_at: string
-					daily_value: number | null
-					deleted_at: string | null
-					display_order: number | null
-					enum_name: string | null
-					id: string
-					is_energy_value: boolean | null
-					legacy_id: number | null
-					minimum_value: number | null
-					name: string
-				}
-				Insert: {
-					created_at?: string
-					daily_value?: number | null
-					deleted_at?: string | null
-					display_order?: number | null
-					enum_name?: string | null
-					id?: string
-					is_energy_value?: boolean | null
-					legacy_id?: number | null
-					minimum_value?: number | null
-					name: string
-				}
-				Update: {
-					created_at?: string
-					daily_value?: number | null
-					deleted_at?: string | null
-					display_order?: number | null
-					enum_name?: string | null
-					id?: string
-					is_energy_value?: boolean | null
-					legacy_id?: number | null
-					minimum_value?: number | null
-					name?: string
-				}
-				Relationships: []
-			}
-			opinions: {
-				Row: {
-					created_at: string
-					id: number
-					question: string | null
-					userId: string | null
-					value: number | null
-				}
-				Insert: {
-					created_at?: string
-					id?: number
-					question?: string | null
-					userId?: string | null
-					value?: number | null
-				}
-				Update: {
-					created_at?: string
-					id?: number
-					question?: string | null
-					userId?: string | null
-					value?: number | null
-				}
-				Relationships: []
-			}
-			other_presences: {
-				Row: {
-					admin_id: string | null
-					created_at: string
-					date: string
-					id: number
-					meal: string
-					mess_hall_id: number
-					updated_at: string | null
-				}
-				Insert: {
-					admin_id?: string | null
-					created_at?: string
-					date: string
-					id?: number
-					meal: string
-					mess_hall_id: number
-					updated_at?: string | null
-				}
-				Update: {
-					admin_id?: string | null
-					created_at?: string
-					date?: string
-					id?: number
-					meal?: string
-					mess_hall_id?: number
-					updated_at?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "other_presences_mess_hall_id_fkey"
-						columns: ["mess_hall_id"]
-						isOneToOne: false
-						referencedRelation: "mess_halls"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			policy_rule: {
-				Row: {
-					active: boolean
-					created_at: string
-					deleted_at: string | null
-					description: string
-					display_order: number
-					id: string
-					target: string
-					title: string
-					updated_at: string
-				}
-				Insert: {
-					active?: boolean
-					created_at?: string
-					deleted_at?: string | null
-					description: string
-					display_order?: number
-					id?: string
-					target: string
-					title: string
-					updated_at?: string
-				}
-				Update: {
-					active?: boolean
-					created_at?: string
-					deleted_at?: string | null
-					description?: string
-					display_order?: number
-					id?: string
-					target?: string
-					title?: string
-					updated_at?: string
-				}
-				Relationships: []
-			}
-			procurement_arp: {
-				Row: {
-					ano_ata: string | null
-					ata_id: string
-					created_at: string
-					data_vigencia_fim: string | null
-					data_vigencia_inicio: string | null
-					id: string
-					last_synced_at: string | null
-					nome_uasg_gerenciadora: string | null
-					numero_ata: string
-					objeto: string | null
-					status_ata: string | null
-					uasg_gerenciadora: string
-					unit_id: number
-				}
-				Insert: {
-					ano_ata?: string | null
-					ata_id: string
-					created_at?: string
-					data_vigencia_fim?: string | null
-					data_vigencia_inicio?: string | null
-					id?: string
-					last_synced_at?: string | null
-					nome_uasg_gerenciadora?: string | null
-					numero_ata: string
-					objeto?: string | null
-					status_ata?: string | null
-					uasg_gerenciadora: string
-					unit_id: number
-				}
-				Update: {
-					ano_ata?: string | null
-					ata_id?: string
-					created_at?: string
-					data_vigencia_fim?: string | null
-					data_vigencia_inicio?: string | null
-					id?: string
-					last_synced_at?: string | null
-					nome_uasg_gerenciadora?: string | null
-					numero_ata?: string
-					objeto?: string | null
-					status_ata?: string | null
-					uasg_gerenciadora?: string
-					unit_id?: number
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_arp_ata_id_fkey"
-						columns: ["ata_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_arp_unit_id_fkey"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_arp_item: {
-				Row: {
-					arp_id: string
-					ata_item_id: string | null
-					catmat_item_codigo: number | null
-					descricao_item: string | null
-					id: string
-					medida_catmat: string | null
-					ni_fornecedor: string | null
-					nome_fornecedor: string | null
-					numero_item: number | null
-					quantidade_empenhada: number | null
-					quantidade_homologada: number | null
-					saldo_empenho: number | null
-					synced_at: string
-					valor_unitario: number | null
-				}
-				Insert: {
-					arp_id: string
-					ata_item_id?: string | null
-					catmat_item_codigo?: number | null
-					descricao_item?: string | null
-					id?: string
-					medida_catmat?: string | null
-					ni_fornecedor?: string | null
-					nome_fornecedor?: string | null
-					numero_item?: number | null
-					quantidade_empenhada?: number | null
-					quantidade_homologada?: number | null
-					saldo_empenho?: number | null
-					synced_at?: string
-					valor_unitario?: number | null
-				}
-				Update: {
-					arp_id?: string
-					ata_item_id?: string | null
-					catmat_item_codigo?: number | null
-					descricao_item?: string | null
-					id?: string
-					medida_catmat?: string | null
-					ni_fornecedor?: string | null
-					nome_fornecedor?: string | null
-					numero_item?: number | null
-					quantidade_empenhada?: number | null
-					quantidade_homologada?: number | null
-					saldo_empenho?: number | null
-					synced_at?: string
-					valor_unitario?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_arp_item_arp_id_fkey"
-						columns: ["arp_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_arp"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_arp_item_ata_item_id_fkey"
-						columns: ["ata_item_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list_item"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_list: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					notes: string | null
-					status: string
-					title: string
-					unit_id: number
-					updated_at: string | null
-					wizard_step: number | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					notes?: string | null
-					status?: string
-					title: string
-					unit_id: number
-					updated_at?: string | null
-					wizard_step?: number | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					notes?: string | null
-					status?: string
-					title?: string
-					unit_id?: number
-					updated_at?: string | null
-					wizard_step?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_ata_unit_id_fkey"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_list_item: {
-				Row: {
-					catmat_item_codigo: number | null
-					catmat_item_descricao: string | null
-					conversion_factor: number | null
-					folder_description: string | null
-					folder_id: string | null
-					id: string
-					ingredient_id: string | null
-					ingredient_name: string
-					item_description: string | null
-					list_id: string
-					measure_unit: string | null
-					purchase_item_description: string | null
-					purchase_item_id: string | null
-					purchase_measure_unit: string | null
-					purchase_quantity: number | null
-					total_quantity: number
-					unit_price: number | null
-				}
-				Insert: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					conversion_factor?: number | null
-					folder_description?: string | null
-					folder_id?: string | null
-					id?: string
-					ingredient_id?: string | null
-					ingredient_name: string
-					item_description?: string | null
-					list_id: string
-					measure_unit?: string | null
-					purchase_item_description?: string | null
-					purchase_item_id?: string | null
-					purchase_measure_unit?: string | null
-					purchase_quantity?: number | null
-					total_quantity: number
-					unit_price?: number | null
-				}
-				Update: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					conversion_factor?: number | null
-					folder_description?: string | null
-					folder_id?: string | null
-					id?: string
-					ingredient_id?: string | null
-					ingredient_name?: string
-					item_description?: string | null
-					list_id?: string
-					measure_unit?: string | null
-					purchase_item_description?: string | null
-					purchase_item_id?: string | null
-					purchase_measure_unit?: string | null
-					purchase_quantity?: number | null
-					total_quantity?: number
-					unit_price?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_ata_item_ata_id_fkey"
-						columns: ["list_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_ata_item_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_ata_item_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-					{
-						foreignKeyName: "procurement_list_item_purchase_item_id_fkey"
-						columns: ["purchase_item_id"]
-						isOneToOne: false
-						referencedRelation: "purchase_item"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_list_kitchen: {
-				Row: {
-					delivery_notes: string | null
-					id: string
-					kitchen_id: number
-					list_id: string
-				}
-				Insert: {
-					delivery_notes?: string | null
-					id?: string
-					kitchen_id: number
-					list_id: string
-				}
-				Update: {
-					delivery_notes?: string | null
-					id?: string
-					kitchen_id?: number
-					list_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_ata_kitchen_ata_id_fkey"
-						columns: ["list_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_ata_kitchen_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_list_selection: {
-				Row: {
-					id: string
-					list_kitchen_id: string
-					repetitions: number
-					template_id: string
-				}
-				Insert: {
-					id?: string
-					list_kitchen_id: string
-					repetitions?: number
-					template_id: string
-				}
-				Update: {
-					id?: string
-					list_kitchen_id?: string
-					repetitions?: number
-					template_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_ata_selection_ata_kitchen_id_fkey"
-						columns: ["list_kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list_kitchen"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_ata_selection_template_id_fkey"
-						columns: ["template_id"]
-						isOneToOne: false
-						referencedRelation: "menu_template"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_pesquisa_preco: {
-				Row: {
-					ata_id: string | null
-					created_at: string
-					filter_estado: string | null
-					filter_municipio_code: number | null
-					filter_uasg_code: string | null
-					id: string
-					idempotency_key: string | null
-					items_with_price: number
-					items_without_catmat: number
-					non_compliant_items: number
-					period_months: number | null
-					reference_method: string
-					similarity_threshold: number | null
-					total_items: number
-				}
-				Insert: {
-					ata_id?: string | null
-					created_at?: string
-					filter_estado?: string | null
-					filter_municipio_code?: number | null
-					filter_uasg_code?: string | null
-					id?: string
-					idempotency_key?: string | null
-					items_with_price?: number
-					items_without_catmat?: number
-					non_compliant_items?: number
-					period_months?: number | null
-					reference_method?: string
-					similarity_threshold?: number | null
-					total_items?: number
-				}
-				Update: {
-					ata_id?: string | null
-					created_at?: string
-					filter_estado?: string | null
-					filter_municipio_code?: number | null
-					filter_uasg_code?: string | null
-					id?: string
-					idempotency_key?: string | null
-					items_with_price?: number
-					items_without_catmat?: number
-					non_compliant_items?: number
-					period_months?: number | null
-					reference_method?: string
-					similarity_threshold?: number | null
-					total_items?: number
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_pesquisa_preco_ata_id_fkey"
-						columns: ["ata_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_pesquisa_preco_amostra: {
-				Row: {
-					amostra_id: string
-					id: string
-					research_item_id: string
-					sample_type: string
-					similarity: number | null
-				}
-				Insert: {
-					amostra_id: string
-					id?: string
-					research_item_id: string
-					sample_type: string
-					similarity?: number | null
-				}
-				Update: {
-					amostra_id?: string
-					id?: string
-					research_item_id?: string
-					sample_type?: string
-					similarity?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_pesquisa_preco_amostra_amostra_id_fkey"
-						columns: ["amostra_id"]
-						isOneToOne: false
-						referencedRelation: "compras_amostra"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_pesquisa_preco_amostra_research_item_id_fkey"
-						columns: ["research_item_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_pesquisa_preco_item"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			procurement_pesquisa_preco_item: {
-				Row: {
-					ata_item_id: string | null
-					catmat_codigo: number | null
-					catmat_descricao: string | null
-					created_at: string
-					cv_pct: number | null
-					error: string | null
-					id: string
-					is_compliant: boolean
-					measure_unit: string | null
-					non_compliance_reasons: string[]
-					price_max: number | null
-					price_mean: number | null
-					price_median: number | null
-					price_min: number | null
-					product_name: string
-					reference_method: string | null
-					reference_price: number | null
-					research_id: string
-					std_dev: number | null
-					total_after_date_filter: number
-					total_after_outlier: number
-					total_after_pollution_filter: number
-					total_raw: number
-					unique_sources: number | null
-				}
-				Insert: {
-					ata_item_id?: string | null
-					catmat_codigo?: number | null
-					catmat_descricao?: string | null
-					created_at?: string
-					cv_pct?: number | null
-					error?: string | null
-					id?: string
-					is_compliant?: boolean
-					measure_unit?: string | null
-					non_compliance_reasons?: string[]
-					price_max?: number | null
-					price_mean?: number | null
-					price_median?: number | null
-					price_min?: number | null
-					product_name: string
-					reference_method?: string | null
-					reference_price?: number | null
-					research_id: string
-					std_dev?: number | null
-					total_after_date_filter?: number
-					total_after_outlier?: number
-					total_after_pollution_filter?: number
-					total_raw?: number
-					unique_sources?: number | null
-				}
-				Update: {
-					ata_item_id?: string | null
-					catmat_codigo?: number | null
-					catmat_descricao?: string | null
-					created_at?: string
-					cv_pct?: number | null
-					error?: string | null
-					id?: string
-					is_compliant?: boolean
-					measure_unit?: string | null
-					non_compliance_reasons?: string[]
-					price_max?: number | null
-					price_mean?: number | null
-					price_median?: number | null
-					price_min?: number | null
-					product_name?: string
-					reference_method?: string | null
-					reference_price?: number | null
-					research_id?: string
-					std_dev?: number | null
-					total_after_date_filter?: number
-					total_after_outlier?: number
-					total_after_pollution_filter?: number
-					total_raw?: number
-					unique_sources?: number | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "procurement_pesquisa_preco_item_ata_item_id_fkey"
-						columns: ["ata_item_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_list_item"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "procurement_pesquisa_preco_item_research_id_fkey"
-						columns: ["research_id"]
-						isOneToOne: false
-						referencedRelation: "procurement_pesquisa_preco"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			production_task: {
-				Row: {
-					completed_at: string | null
-					created_at: string
-					id: string
-					kitchen_id: number
-					menu_item_id: string
-					notes: string | null
-					production_date: string
-					started_at: string | null
-					status: string
-					updated_at: string | null
-				}
-				Insert: {
-					completed_at?: string | null
-					created_at?: string
-					id?: string
-					kitchen_id: number
-					menu_item_id: string
-					notes?: string | null
-					production_date: string
-					started_at?: string | null
-					status?: string
-					updated_at?: string | null
-				}
-				Update: {
-					completed_at?: string | null
-					created_at?: string
-					id?: string
-					kitchen_id?: number
-					menu_item_id?: string
-					notes?: string | null
-					production_date?: string
-					started_at?: string | null
-					status?: string
-					updated_at?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "production_task_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "production_task_menu_item_id_fkey"
-						columns: ["menu_item_id"]
-						isOneToOne: true
-						referencedRelation: "menu_items"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			profiles_admin: {
-				Row: {
-					created_at: string | null
-					email: string
-					id: string
-					name: string | null
-					om: string | null
-					role: "user" | "admin" | "superadmin" | null
-					saram: string
-					updated_at: string | null
-				}
-				Insert: {
-					created_at?: string | null
-					email: string
-					id: string
-					name?: string | null
-					om?: string | null
-					role?: "user" | "admin" | "superadmin" | null
-					saram: string
-					updated_at?: string | null
-				}
-				Update: {
-					created_at?: string | null
-					email?: string
-					id?: string
-					name?: string | null
-					om?: string | null
-					role?: "user" | "admin" | "superadmin" | null
-					saram?: string
-					updated_at?: string | null
-				}
-				Relationships: []
-			}
-			purchase_item: {
-				Row: {
-					catmat_item_codigo: number | null
-					catmat_item_descricao: string | null
-					catmat_match_score: number | null
-					catmat_match_status: string | null
-					created_at: string
-					deleted_at: string | null
-					description: string
-					gpc_brick_code: string | null
-					gpc_class_code: string | null
-					gpc_family_code: string | null
-					gpc_segment_code: string | null
-					id: string
-					purchase_measure_unit: string | null
-					unit_price: number | null
-					updated_at: string
-				}
-				Insert: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					catmat_match_score?: number | null
-					catmat_match_status?: string | null
-					created_at?: string
-					deleted_at?: string | null
-					description: string
-					gpc_brick_code?: string | null
-					gpc_class_code?: string | null
-					gpc_family_code?: string | null
-					gpc_segment_code?: string | null
-					id?: string
-					purchase_measure_unit?: string | null
-					unit_price?: number | null
-					updated_at?: string
-				}
-				Update: {
-					catmat_item_codigo?: number | null
-					catmat_item_descricao?: string | null
-					catmat_match_score?: number | null
-					catmat_match_status?: string | null
-					created_at?: string
-					deleted_at?: string | null
-					description?: string
-					gpc_brick_code?: string | null
-					gpc_class_code?: string | null
-					gpc_family_code?: string | null
-					gpc_segment_code?: string | null
-					id?: string
-					purchase_measure_unit?: string | null
-					unit_price?: number | null
-					updated_at?: string
-				}
-				Relationships: []
-			}
-			purchase_item_ingredient: {
-				Row: {
-					conversion_factor: number
-					conversion_notes: string | null
-					created_at: string
-					id: string
-					ingredient_id: string
-					is_default: boolean
-					purchase_item_id: string
-				}
-				Insert: {
-					conversion_factor?: number
-					conversion_notes?: string | null
-					created_at?: string
-					id?: string
-					ingredient_id: string
-					is_default?: boolean
-					purchase_item_id: string
-				}
-				Update: {
-					conversion_factor?: number
-					conversion_notes?: string | null
-					created_at?: string
-					id?: string
-					ingredient_id?: string
-					is_default?: boolean
-					purchase_item_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "purchase_item_ingredient_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "purchase_item_ingredient_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-					{
-						foreignKeyName: "purchase_item_ingredient_purchase_item_id_fkey"
-						columns: ["purchase_item_id"]
-						isOneToOne: false
-						referencedRelation: "purchase_item"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipe_ingredient_alternatives: {
-				Row: {
-					created_at: string
-					id: string
-					ingredient_id: string | null
-					net_quantity: number | null
-					priority_order: number | null
-					recipe_ingredient_id: string | null
-				}
-				Insert: {
-					created_at?: string
-					id?: string
-					ingredient_id?: string | null
-					net_quantity?: number | null
-					priority_order?: number | null
-					recipe_ingredient_id?: string | null
-				}
-				Update: {
-					created_at?: string
-					id?: string
-					ingredient_id?: string | null
-					net_quantity?: number | null
-					priority_order?: number | null
-					recipe_ingredient_id?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-					{
-						foreignKeyName: "recipe_ingredient_alternatives_recipe_ingredient_id_fkey"
-						columns: ["recipe_ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "recipe_ingredients"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipe_ingredients: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					ingredient_id: string | null
-					is_optional: boolean | null
-					net_quantity: number | null
-					priority_order: number | null
-					recipe_id: string | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					ingredient_id?: string | null
-					is_optional?: boolean | null
-					net_quantity?: number | null
-					priority_order?: number | null
-					recipe_id?: string | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					ingredient_id?: string | null
-					is_optional?: boolean | null
-					net_quantity?: number | null
-					priority_order?: number | null
-					recipe_id?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipe_ingredients_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_ingredients_product_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-					{
-						foreignKeyName: "recipe_ingredients_recipe_id_fkey"
-						columns: ["recipe_id"]
-						isOneToOne: false
-						referencedRelation: "recipes"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipe_step: {
-				Row: {
-					canvas_x: number
-					canvas_y: number
-					created_at: string
-					deleted_at: string | null
-					description: string | null
-					duration_minutes: number | null
-					id: string
-					label: string | null
-					recipe_id: string
-					step_template_id: string | null
-				}
-				Insert: {
-					canvas_x?: number
-					canvas_y?: number
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					duration_minutes?: number | null
-					id?: string
-					label?: string | null
-					recipe_id: string
-					step_template_id?: string | null
-				}
-				Update: {
-					canvas_x?: number
-					canvas_y?: number
-					created_at?: string
-					deleted_at?: string | null
-					description?: string | null
-					duration_minutes?: number | null
-					id?: string
-					label?: string | null
-					recipe_id?: string
-					step_template_id?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipe_step_recipe_id_fkey"
-						columns: ["recipe_id"]
-						isOneToOne: false
-						referencedRelation: "recipes"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_step_step_template_id_fkey"
-						columns: ["step_template_id"]
-						isOneToOne: false
-						referencedRelation: "step_template"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipe_step_input: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					measure_unit: string | null
-					quantity: number | null
-					recipe_ingredient_id: string | null
-					recipe_step_id: string
-					source_output_id: string | null
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					measure_unit?: string | null
-					quantity?: number | null
-					recipe_ingredient_id?: string | null
-					recipe_step_id: string
-					source_output_id?: string | null
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					measure_unit?: string | null
-					quantity?: number | null
-					recipe_ingredient_id?: string | null
-					recipe_step_id?: string
-					source_output_id?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipe_step_input_recipe_ingredient_id_fkey"
-						columns: ["recipe_ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "recipe_ingredients"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_step_input_recipe_step_id_fkey"
-						columns: ["recipe_step_id"]
-						isOneToOne: false
-						referencedRelation: "recipe_step"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_step_input_source_output_id_fkey"
-						columns: ["source_output_id"]
-						isOneToOne: false
-						referencedRelation: "recipe_step_output"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipe_step_output: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					is_final: boolean
-					label: string | null
-					measure_unit: string | null
-					quantity: number | null
-					recipe_id: string
-					recipe_step_id: string
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					is_final?: boolean
-					label?: string | null
-					measure_unit?: string | null
-					quantity?: number | null
-					recipe_id: string
-					recipe_step_id: string
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					is_final?: boolean
-					label?: string | null
-					measure_unit?: string | null
-					quantity?: number | null
-					recipe_id?: string
-					recipe_step_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipe_step_output_recipe_id_fkey"
-						columns: ["recipe_id"]
-						isOneToOne: false
-						referencedRelation: "recipes"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_step_output_recipe_step_id_fkey"
-						columns: ["recipe_step_id"]
-						isOneToOne: false
-						referencedRelation: "recipe_step"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipe_step_utensil: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					recipe_step_id: string
-					utensil_id: string
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					recipe_step_id: string
-					utensil_id: string
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					recipe_step_id?: string
-					utensil_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipe_step_utensil_recipe_step_id_fkey"
-						columns: ["recipe_step_id"]
-						isOneToOne: false
-						referencedRelation: "recipe_step"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "recipe_step_utensil_utensil_id_fkey"
-						columns: ["utensil_id"]
-						isOneToOne: false
-						referencedRelation: "utensil"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			recipes: {
-				Row: {
-					base_recipe_id: string | null
-					cooking_factor: number | null
-					created_at: string
-					deleted_at: string | null
-					id: string
-					kitchen_id: number | null
-					legacy_id: number | null
-					name: string
-					portion_yield: number | null
-					preparation_method: string | null
-					preparation_time_minutes: number | null
-					rational_id: string | null
-					upstream_version_snapshot: number | null
-					version: number
-				}
-				Insert: {
-					base_recipe_id?: string | null
-					cooking_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					kitchen_id?: number | null
-					legacy_id?: number | null
-					name: string
-					portion_yield?: number | null
-					preparation_method?: string | null
-					preparation_time_minutes?: number | null
-					rational_id?: string | null
-					upstream_version_snapshot?: number | null
-					version: number
-				}
-				Update: {
-					base_recipe_id?: string | null
-					cooking_factor?: number | null
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					kitchen_id?: number | null
-					legacy_id?: number | null
-					name?: string
-					portion_yield?: number | null
-					preparation_method?: string | null
-					preparation_time_minutes?: number | null
-					rational_id?: string | null
-					upstream_version_snapshot?: number | null
-					version?: number
-				}
-				Relationships: [
-					{
-						foreignKeyName: "recipes_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			step_template: {
-				Row: {
-					created_at: string
-					default_duration_minutes: number | null
-					deleted_at: string | null
-					description: string | null
-					id: string
-					kitchen_id: number | null
-					name: string
-				}
-				Insert: {
-					created_at?: string
-					default_duration_minutes?: number | null
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name: string
-				}
-				Update: {
-					created_at?: string
-					default_duration_minutes?: number | null
-					deleted_at?: string | null
-					description?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "step_template_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			step_template_utensil: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					step_template_id: string
-					utensil_id: string
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					step_template_id: string
-					utensil_id: string
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					step_template_id?: string
-					utensil_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "step_template_utensil_step_template_id_fkey"
-						columns: ["step_template_id"]
-						isOneToOne: false
-						referencedRelation: "step_template"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "step_template_utensil_utensil_id_fkey"
-						columns: ["utensil_id"]
-						isOneToOne: false
-						referencedRelation: "utensil"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			super_admin_controller: {
-				Row: {
-					active: boolean | null
-					created_at: string
-					key: string
-					value: string | null
-				}
-				Insert: {
-					active?: boolean | null
-					created_at?: string
-					key: string
-					value?: string | null
-				}
-				Update: {
-					active?: boolean | null
-					created_at?: string
-					key?: string
-					value?: string | null
-				}
-				Relationships: []
-			}
-			units: {
-				Row: {
-					address_bairro: string | null
-					address_cep: string | null
-					address_complemento: string | null
-					address_logradouro: string | null
-					address_municipio: string | null
-					address_numero: string | null
-					address_uf: string | null
-					code: string
-					display_name: string | null
-					id: number
-					type: Database["sisub"]["Enums"]["unit_type"] | null
-					uasg: string | null
-				}
-				Insert: {
-					address_bairro?: string | null
-					address_cep?: string | null
-					address_complemento?: string | null
-					address_logradouro?: string | null
-					address_municipio?: string | null
-					address_numero?: string | null
-					address_uf?: string | null
-					code: string
-					display_name?: string | null
-					id?: number
-					type?: Database["sisub"]["Enums"]["unit_type"] | null
-					uasg?: string | null
-				}
-				Update: {
-					address_bairro?: string | null
-					address_cep?: string | null
-					address_complemento?: string | null
-					address_logradouro?: string | null
-					address_municipio?: string | null
-					address_numero?: string | null
-					address_uf?: string | null
-					code?: string
-					display_name?: string | null
-					id?: number
-					type?: Database["sisub"]["Enums"]["unit_type"] | null
-					uasg?: string | null
-				}
-				Relationships: []
-			}
-			user_data: {
-				Row: {
-					created_at: string
-					default_mess_hall_id: number | null
-					email: string
-					id: string
-					nrOrdem: string | null
-				}
-				Insert: {
-					created_at?: string
-					default_mess_hall_id?: number | null
-					email: string
-					id?: string
-					nrOrdem?: string | null
-				}
-				Update: {
-					created_at?: string
-					default_mess_hall_id?: number | null
-					email?: string
-					id?: string
-					nrOrdem?: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "user_data_default_mess_hall_id_fkey"
-						columns: ["default_mess_hall_id"]
-						isOneToOne: false
-						referencedRelation: "mess_halls"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			user_military_data: {
-				Row: {
-					dataAtualizacao: string | null
-					nmGuerra: string | null
-					nmPessoa: string | null
-					nrCpf: string
-					nrOrdem: string | null
-					sgOrg: string | null
-					sgPosto: string | null
-				}
-				Insert: {
-					dataAtualizacao?: string | null
-					nmGuerra?: string | null
-					nmPessoa?: string | null
-					nrCpf: string
-					nrOrdem?: string | null
-					sgOrg?: string | null
-					sgPosto?: string | null
-				}
-				Update: {
-					dataAtualizacao?: string | null
-					nmGuerra?: string | null
-					nmPessoa?: string | null
-					nrCpf?: string
-					nrOrdem?: string | null
-					sgOrg?: string | null
-					sgPosto?: string | null
-				}
-				Relationships: []
-			}
-			user_permissions: {
-				Row: {
-					created_at: string
-					id: string
-					kitchen_id: number | null
-					level: number
-					mess_hall_id: number | null
-					module: string
-					unit_id: number | null
-					user_id: string
-				}
-				Insert: {
-					created_at?: string
-					id?: string
-					kitchen_id?: number | null
-					level?: number
-					mess_hall_id?: number | null
-					module: string
-					unit_id?: number | null
-					user_id: string
-				}
-				Update: {
-					created_at?: string
-					id?: string
-					kitchen_id?: number | null
-					level?: number
-					mess_hall_id?: number | null
-					module?: string
-					unit_id?: number | null
-					user_id?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "user_permissions_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "user_permissions_mess_hall_id_fkey"
-						columns: ["mess_hall_id"]
-						isOneToOne: false
-						referencedRelation: "mess_halls"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "user_permissions_unit_id_fkey"
-						columns: ["unit_id"]
-						isOneToOne: false
-						referencedRelation: "units"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			utensil: {
-				Row: {
-					created_at: string
-					deleted_at: string | null
-					id: string
-					kitchen_id: number | null
-					name: string
-				}
-				Insert: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name: string
-				}
-				Update: {
-					created_at?: string
-					deleted_at?: string | null
-					id?: string
-					kitchen_id?: number | null
-					name?: string
-				}
-				Relationships: [
-					{
-						foreignKeyName: "utensil_kitchen_id_fkey"
-						columns: ["kitchen_id"]
-						isOneToOne: false
-						referencedRelation: "kitchen"
-						referencedColumns: ["id"]
-					},
-				]
-			}
+			[_ in never]: never
 		}
 		Views: {
-			ingredient_last_review: {
-				Row: {
-					ingredient_id: string | null
-					reviewed_at: string | null
-					reviewed_by: string | null
-					reviewed_by_name: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "ingredient_review_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "ingredient"
-						referencedColumns: ["id"]
-					},
-					{
-						foreignKeyName: "ingredient_review_ingredient_id_fkey"
-						columns: ["ingredient_id"]
-						isOneToOne: false
-						referencedRelation: "v_ingredient_kg_lt_items"
-						referencedColumns: ["product_id"]
-					},
-				]
-			}
-			v_ingredient_kg_lt_items: {
-				Row: {
-					base_unit: string | null
-					density_factor: number | null
-					description: string | null
-					item_created_at: string | null
-					item_description: string | null
-					kg_to_base_factor: number | null
-					product_id: string | null
-					product_item_id: string | null
-					purchase_measure_unit: string | null
-				}
-				Relationships: []
-			}
-			v_meal_presences_with_user: {
-				Row: {
-					created_at: string | null
-					date: string | null
-					display_name: string | null
-					id: string | null
-					meal: string | null
-					mess_hall_id: number | null
-					updated_at: string | null
-					user_id: string | null
-				}
-				Relationships: [
-					{
-						foreignKeyName: "meal_presences_mess_hall_id_fkey"
-						columns: ["mess_hall_id"]
-						isOneToOne: false
-						referencedRelation: "mess_halls"
-						referencedColumns: ["id"]
-					},
-				]
-			}
-			v_user_identity: {
-				Row: {
-					display_name: string | null
-					id: string | null
-				}
-				Relationships: []
-			}
+			[_ in never]: never
 		}
 		Functions: {
 			catmat_match_candidates: {
@@ -5305,7 +5099,6 @@ export type Database = {
 			normalize_catmat_match_text: { Args: { p_text: string }; Returns: string }
 			normalize_label_text: { Args: { p_text: string }; Returns: string }
 			normalize_recipe_name: { Args: { p_name: string }; Returns: string }
-			upsert_compras_amostras: { Args: { p_samples: Json }; Returns: string[] }
 		}
 		Enums: {
 			kitchen_type: "consumption" | "production"

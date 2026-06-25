@@ -8,7 +8,7 @@
  * uniformidade).
  */
 
-import { kitchenInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { kitchenInCore, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { asc, eq } from "drizzle-orm"
 import type { FetchKitchenSettings, ListUnitKitchens, UpdateKitchenSettings } from "../schemas/kitchens.ts"
@@ -17,7 +17,7 @@ import { DomainError } from "../types/errors.ts"
 import { mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 
 // kitchen tem DUAS relations p/ units (unit_id e purchase_unit_id) — a do contrato é unit_id.
-const KITCHEN_RELATIONS: Record<string, string> = { unitsInSisub_unitId: "unit" }
+const KITCHEN_RELATIONS: Record<string, string> = { unitsInCore_unitId: "unit" }
 
 type UnitRef = { id: number; display_name: string | null; code: string }
 type KitchenWithUnit = Tables<"kitchen"> & { unit: UnitRef | null }
@@ -37,8 +37,8 @@ type KitchenSettings = Pick<
 
 export async function listKitchens(db: SisubDb, _ctx: UserContext): Promise<KitchenWithUnit[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.kitchenInSisub.findMany({
-			with: { unitsInSisub_unitId: { columns: { id: true, displayName: true, code: true } } },
+		db.query.kitchenInCore.findMany({
+			with: { unitsInCore_unitId: { columns: { id: true, displayName: true, code: true } } },
 			orderBy: (kitchen, { asc }) => [asc(kitchen.id)],
 		})
 	)
@@ -48,10 +48,10 @@ export async function listKitchens(db: SisubDb, _ctx: UserContext): Promise<Kitc
 export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: ListUnitKitchens): Promise<{ id: number; display_name: string | null }[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: kitchenInSisub.id, display_name: kitchenInSisub.displayName })
-			.from(kitchenInSisub)
-			.where(eq(kitchenInSisub.unitId, input.unitId))
-			.orderBy(asc(kitchenInSisub.displayName))
+			.select({ id: kitchenInCore.id, display_name: kitchenInCore.displayName })
+			.from(kitchenInCore)
+			.where(eq(kitchenInCore.unitId, input.unitId))
+			.orderBy(asc(kitchenInCore.displayName))
 	)
 	return rows
 }
@@ -60,7 +60,7 @@ export async function listUnitKitchens(db: SisubDb, _ctx: UserContext, input: Li
 
 export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input: FetchKitchenSettings): Promise<KitchenSettings> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.kitchenInSisub.findFirst({
+		db.query.kitchenInCore.findFirst({
 			columns: {
 				id: true,
 				displayName: true,
@@ -73,8 +73,8 @@ export async function fetchKitchenSettings(db: SisubDb, _ctx: UserContext, input
 				addressUf: true,
 				addressCep: true,
 			},
-			with: { unitsInSisub_unitId: { columns: { id: true, code: true, displayName: true } } },
-			where: eq(kitchenInSisub.id, input.kitchenId),
+			with: { unitsInCore_unitId: { columns: { id: true, code: true, displayName: true } } },
+			where: eq(kitchenInCore.id, input.kitchenId),
 		})
 	)
 	if (!row) throw new DomainError("FETCH_FAILED", `kitchen ${input.kitchenId} not found`)
@@ -85,7 +85,7 @@ export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, inpu
 	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
 	await mutateOrFail("UPDATE_FAILED", `kitchen ${input.kitchenId} not found`, () =>
 		db
-			.update(kitchenInSisub)
+			.update(kitchenInCore)
 			.set({
 				addressLogradouro: input.settings.address_logradouro,
 				addressNumero: input.settings.address_numero,
@@ -95,8 +95,8 @@ export async function updateKitchenSettings(db: SisubDb, _ctx: UserContext, inpu
 				addressUf: input.settings.address_uf,
 				addressCep: input.settings.address_cep,
 			})
-			.where(eq(kitchenInSisub.id, input.kitchenId))
-			.returning({ id: kitchenInSisub.id })
+			.where(eq(kitchenInCore.id, input.kitchenId))
+			.returning({ id: kitchenInCore.id })
 	)
 	return { ok: true as const }
 }

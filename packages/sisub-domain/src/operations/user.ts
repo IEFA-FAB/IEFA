@@ -10,7 +10,7 @@
  * com aliases explícitos — o mapper `toWire` (camel→snake) corromperia essas chaves.
  */
 
-import { type SisubDb, userDataInSisub, userMilitaryDataInSisub } from "@iefa/database/drizzle/sisub"
+import { type SisubDb, userDataInCore, userMilitaryDataInCore } from "@iefa/database/drizzle/sisub"
 import { and, eq, ne, sql } from "drizzle-orm"
 import type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "../schemas/user.ts"
 import { DomainError } from "../types/errors.ts"
@@ -50,7 +50,7 @@ async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; ema
 	const values = { id: row.id, email: row.email, ...(row.nrOrdem !== undefined ? { nrOrdem: row.nrOrdem } : {}) }
 	const set = { email: row.email, ...(row.nrOrdem !== undefined ? { nrOrdem: row.nrOrdem } : {}) }
 	// Cru (sem runQuery): precisamos inspecionar o 23505 antes de embrulhar em DomainError.
-	const upsert = () => db.insert(userDataInSisub).values(values).onConflictDoUpdate({ target: userDataInSisub.id, set })
+	const upsert = () => db.insert(userDataInCore).values(values).onConflictDoUpdate({ target: userDataInCore.id, set })
 
 	try {
 		await upsert()
@@ -64,7 +64,7 @@ async function upsertUserDataReclaimingEmail(db: SisubDb, row: { id: string; ema
 	if (row.email.trim().length === 0) return
 
 	// Remove a linha órfã que detém o email e reivindica para o usuário atual.
-	await runQuery("UPSERT_FAILED", () => db.delete(userDataInSisub).where(and(eq(userDataInSisub.email, row.email), ne(userDataInSisub.id, row.id))))
+	await runQuery("UPSERT_FAILED", () => db.delete(userDataInCore).where(and(eq(userDataInCore.email, row.email), ne(userDataInCore.id, row.id))))
 
 	try {
 		await upsert()
@@ -79,14 +79,14 @@ export async function fetchSisubUserData(db: SisubDb, input: FetchUserData) {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				id: userDataInSisub.id,
-				email: userDataInSisub.email,
-				nrOrdem: userDataInSisub.nrOrdem,
-				created_at: userDataInSisub.createdAt,
-				default_mess_hall_id: userDataInSisub.defaultMessHallId,
+				id: userDataInCore.id,
+				email: userDataInCore.email,
+				nrOrdem: userDataInCore.nrOrdem,
+				created_at: userDataInCore.createdAt,
+				default_mess_hall_id: userDataInCore.defaultMessHallId,
 			})
-			.from(userDataInSisub)
-			.where(eq(userDataInSisub.id, input.userId))
+			.from(userDataInCore)
+			.where(eq(userDataInCore.id, input.userId))
 			.limit(1)
 	)
 	return rows[0] ?? null
@@ -96,17 +96,17 @@ export async function fetchMilitaryData(db: SisubDb, input: FetchMilitaryData) {
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				nrOrdem: userMilitaryDataInSisub.nrOrdem,
-				nrCpf: userMilitaryDataInSisub.nrCpf,
-				nmGuerra: userMilitaryDataInSisub.nmGuerra,
-				nmPessoa: userMilitaryDataInSisub.nmPessoa,
-				sgPosto: userMilitaryDataInSisub.sgPosto,
-				sgOrg: userMilitaryDataInSisub.sgOrg,
-				dataAtualizacao: userMilitaryDataInSisub.dataAtualizacao,
+				nrOrdem: userMilitaryDataInCore.nrOrdem,
+				nrCpf: userMilitaryDataInCore.nrCpf,
+				nmGuerra: userMilitaryDataInCore.nmGuerra,
+				nmPessoa: userMilitaryDataInCore.nmPessoa,
+				sgPosto: userMilitaryDataInCore.sgPosto,
+				sgOrg: userMilitaryDataInCore.sgOrg,
+				dataAtualizacao: userMilitaryDataInCore.dataAtualizacao,
 			})
-			.from(userMilitaryDataInSisub)
-			.where(eq(userMilitaryDataInSisub.nrOrdem, input.nrOrdem))
-			.orderBy(sql`${userMilitaryDataInSisub.dataAtualizacao} desc nulls last`)
+			.from(userMilitaryDataInCore)
+			.where(eq(userMilitaryDataInCore.nrOrdem, input.nrOrdem))
+			.orderBy(sql`${userMilitaryDataInCore.dataAtualizacao} desc nulls last`)
 			.limit(1)
 	)
 	return rows[0] ?? null
@@ -114,7 +114,7 @@ export async function fetchMilitaryData(db: SisubDb, input: FetchMilitaryData) {
 
 export async function fetchUserNrOrdem(db: SisubDb, input: FetchUserNrOrdem): Promise<string | null> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.select({ nrOrdem: userDataInSisub.nrOrdem }).from(userDataInSisub).where(eq(userDataInSisub.id, input.userId)).limit(1)
+		db.select({ nrOrdem: userDataInCore.nrOrdem }).from(userDataInCore).where(eq(userDataInCore.id, input.userId)).limit(1)
 	)
 	const value = rows[0]?.nrOrdem
 	const asString = value != null ? String(value) : null

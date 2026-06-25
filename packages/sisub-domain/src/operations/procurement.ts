@@ -10,13 +10,13 @@
  */
 
 import {
-	dailyMenuInSisub,
-	kitchenInSisub,
-	menuItemsInSisub,
-	procurementArpInSisub,
-	procurementArpItemInSisub,
-	procurementListInSisub,
-	recipesInSisub,
+	dailyMenuInKitchen,
+	kitchenInCore,
+	menuItemsInKitchen,
+	procurementArpInProcurement,
+	procurementArpItemInProcurement,
+	procurementListInProcurement,
+	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
@@ -51,25 +51,25 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 
 	let kitchenIds: number[] | undefined
 	if (unitId) {
-		const kitchens = await runQuery("QUERY_FAILED", () => db.select({ id: kitchenInSisub.id }).from(kitchenInSisub).where(eq(kitchenInSisub.unitId, unitId)))
+		const kitchens = await runQuery("QUERY_FAILED", () => db.select({ id: kitchenInCore.id }).from(kitchenInCore).where(eq(kitchenInCore.unitId, unitId)))
 		kitchenIds = kitchens.map((k) => k.id)
 		if (kitchenIds.length === 0) return []
 	}
 
 	// daily_menu (filtro service_date/kitchen + soft delete) ⋈ menu_items (não excluído, não soft-deleted).
-	const dailyMenuWhere = [gte(dailyMenuInSisub.serviceDate, startDate), lte(dailyMenuInSisub.serviceDate, endDate), isNull(dailyMenuInSisub.deletedAt)]
-	if (kitchenId != null) dailyMenuWhere.push(eq(dailyMenuInSisub.kitchenId, kitchenId))
-	else if (kitchenIds) dailyMenuWhere.push(inArray(dailyMenuInSisub.kitchenId, kitchenIds))
+	const dailyMenuWhere = [gte(dailyMenuInKitchen.serviceDate, startDate), lte(dailyMenuInKitchen.serviceDate, endDate), isNull(dailyMenuInKitchen.deletedAt)]
+	if (kitchenId != null) dailyMenuWhere.push(eq(dailyMenuInKitchen.kitchenId, kitchenId))
+	else if (kitchenIds) dailyMenuWhere.push(inArray(dailyMenuInKitchen.kitchenId, kitchenIds))
 
 	const menuRows = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
-				plannedPortionQuantity: menuItemsInSisub.plannedPortionQuantity,
-				recipeOriginId: menuItemsInSisub.recipeOriginId,
+				plannedPortionQuantity: menuItemsInKitchen.plannedPortionQuantity,
+				recipeOriginId: menuItemsInKitchen.recipeOriginId,
 			})
-			.from(menuItemsInSisub)
-			.innerJoin(dailyMenuInSisub, eq(menuItemsInSisub.dailyMenuId, dailyMenuInSisub.id))
-			.where(and(...dailyMenuWhere, isNull(menuItemsInSisub.deletedAt), eq(menuItemsInSisub.excludedFromProcurement, "0")))
+			.from(menuItemsInKitchen)
+			.innerJoin(dailyMenuInKitchen, eq(menuItemsInKitchen.dailyMenuId, dailyMenuInKitchen.id))
+			.where(and(...dailyMenuWhere, isNull(menuItemsInKitchen.deletedAt), eq(menuItemsInKitchen.excludedFromProcurement, "0")))
 	)
 
 	if (menuRows.length === 0) return []
@@ -78,20 +78,20 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 	if (recipeIds.length === 0) return []
 
 	const recipes = await runQuery("QUERY_FAILED", () =>
-		db.query.recipesInSisub.findMany({
+		db.query.recipesInKitchen.findMany({
 			columns: { id: true, portionYield: true },
 			with: {
-				recipeIngredientsInSisubs: {
+				recipeIngredientsInKitchens: {
 					columns: { ingredientId: true, netQuantity: true },
 					with: {
-						ingredientInSisub: {
+						ingredientInKitchen: {
 							columns: { id: true, description: true, measureUnit: true, folderId: true },
-							with: { folderInSisub: { columns: { id: true, description: true } } },
+							with: { folderInKitchen: { columns: { id: true, description: true } } },
 						},
 					},
 				},
 			},
-			where: inArray(recipesInSisub.id, recipeIds),
+			where: inArray(recipesInKitchen.id, recipeIds),
 		})
 	)
 	if (recipes.length === 0) return []
@@ -119,8 +119,8 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 
 		const portionMultiplier = Number(menuItem.plannedPortionQuantity ?? 0) / (Number(recipe.portionYield ?? 0) || 1)
 
-		for (const ri of recipe.recipeIngredientsInSisubs) {
-			const ingredientRaw = ri.ingredientInSisub
+		for (const ri of recipe.recipeIngredientsInKitchens) {
+			const ingredientRaw = ri.ingredientInKitchen
 			if (!ingredientRaw) continue
 
 			const ingredientId = ri.ingredientId
@@ -137,7 +137,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 						description: ingredientRaw.description,
 						measure_unit: ingredientRaw.measureUnit,
 						folder_id: ingredientRaw.folderId,
-						folder: ingredientRaw.folderInSisub ? { id: ingredientRaw.folderInSisub.id, description: ingredientRaw.folderInSisub.description } : null,
+						folder: ingredientRaw.folderInKitchen ? { id: ingredientRaw.folderInKitchen.id, description: ingredientRaw.folderInKitchen.description } : null,
 					},
 					total_quantity: quantityNeeded,
 				})
@@ -219,9 +219,9 @@ export async function fetchUnitDashboard(
 	const allAtas = await runQuery("QUERY_FAILED", () =>
 		db
 			.select()
-			.from(procurementListInSisub)
-			.where(and(eq(procurementListInSisub.unitId, input.unitId), isNull(procurementListInSisub.deletedAt)))
-			.orderBy(desc(procurementListInSisub.createdAt))
+			.from(procurementListInProcurement)
+			.where(and(eq(procurementListInProcurement.unitId, input.unitId), isNull(procurementListInProcurement.deletedAt)))
+			.orderBy(desc(procurementListInProcurement.createdAt))
 	)
 
 	const publishedAtasRows = allAtas.filter((a) => a.status === "published")
@@ -236,14 +236,14 @@ export async function fetchUnitDashboard(
 	const arpsData = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
-				id: procurementArpInSisub.id,
-				ataId: procurementArpInSisub.ataId,
-				numeroAta: procurementArpInSisub.numeroAta,
-				anoAta: procurementArpInSisub.anoAta,
-				dataVigenciaFim: procurementArpInSisub.dataVigenciaFim,
+				id: procurementArpInProcurement.id,
+				ataId: procurementArpInProcurement.ataId,
+				numeroAta: procurementArpInProcurement.numeroAta,
+				anoAta: procurementArpInProcurement.anoAta,
+				dataVigenciaFim: procurementArpInProcurement.dataVigenciaFim,
 			})
-			.from(procurementArpInSisub)
-			.where(inArray(procurementArpInSisub.ataId, publishedAtaIds))
+			.from(procurementArpInProcurement)
+			.where(inArray(procurementArpInProcurement.ataId, publishedAtaIds))
 	)
 
 	if (arpsData.length === 0) {
@@ -256,7 +256,7 @@ export async function fetchUnitDashboard(
 
 	// ── 3. Itens das ARPs com join no item da ATA (para ingredient_id) ────────
 	const arpItems = await runQuery("QUERY_FAILED", () =>
-		db.query.procurementArpItemInSisub.findMany({
+		db.query.procurementArpItemInProcurement.findMany({
 			columns: {
 				id: true,
 				arpId: true,
@@ -270,8 +270,8 @@ export async function fetchUnitDashboard(
 				saldoEmpenho: true,
 				medidaCatmat: true,
 			},
-			with: { procurementListItemInSisub: { columns: { id: true, ingredientId: true, ingredientName: true } } },
-			where: inArray(procurementArpItemInSisub.arpId, arpIds),
+			with: { procurementListItemInProcurement: { columns: { id: true, ingredientId: true, ingredientName: true } } },
+			where: inArray(procurementArpItemInProcurement.arpId, arpIds),
 		})
 	)
 
@@ -288,15 +288,13 @@ export async function fetchUnitDashboard(
 	}
 
 	// ── 5. Coletar ingredient_ids dos itens relevantes ───────────────────────
-	const ingredientIds = relevantItems.map((item) => item.procurementListItemInSisub?.ingredientId ?? null).filter((id): id is string => Boolean(id))
+	const ingredientIds = relevantItems.map((item) => item.procurementListItemInProcurement?.ingredientId ?? null).filter((id): id is string => Boolean(id))
 
 	// ── 6. Verificar quais ingredientes aparecem em menus dos próximos 30 dias ─
 	const upcomingIngredientIds = new Set<string>()
 
 	if (ingredientIds.length > 0) {
-		const kitchens = await runQuery("QUERY_FAILED", () =>
-			db.select({ id: kitchenInSisub.id }).from(kitchenInSisub).where(eq(kitchenInSisub.unitId, input.unitId))
-		)
+		const kitchens = await runQuery("QUERY_FAILED", () => db.select({ id: kitchenInCore.id }).from(kitchenInCore).where(eq(kitchenInCore.unitId, input.unitId)))
 		const kitchenIds = kitchens.map((k) => k.id)
 
 		if (kitchenIds.length > 0) {
@@ -304,34 +302,34 @@ export async function fetchUnitDashboard(
 			const future = new Date(Date.now() + 30 * 86_400_000).toISOString().substring(0, 10)
 
 			const menus = await runQuery("QUERY_FAILED", () =>
-				db.query.dailyMenuInSisub.findMany({
+				db.query.dailyMenuInKitchen.findMany({
 					columns: { id: true },
 					with: {
-						menuItemsInSisubs: {
+						menuItemsInKitchens: {
 							columns: { id: true, deletedAt: true },
 							with: {
-								recipesInSisub: {
+								recipesInKitchen: {
 									columns: { id: true },
-									with: { recipeIngredientsInSisubs: { columns: { ingredientId: true } } },
+									with: { recipeIngredientsInKitchens: { columns: { ingredientId: true } } },
 								},
 							},
 						},
 					},
 					where: and(
-						inArray(dailyMenuInSisub.kitchenId, kitchenIds),
-						gte(dailyMenuInSisub.serviceDate, today),
-						lte(dailyMenuInSisub.serviceDate, future),
-						isNull(dailyMenuInSisub.deletedAt)
+						inArray(dailyMenuInKitchen.kitchenId, kitchenIds),
+						gte(dailyMenuInKitchen.serviceDate, today),
+						lte(dailyMenuInKitchen.serviceDate, future),
+						isNull(dailyMenuInKitchen.deletedAt)
 					),
 				})
 			)
 
 			for (const menu of menus) {
-				for (const menuItem of menu.menuItemsInSisubs) {
+				for (const menuItem of menu.menuItemsInKitchens) {
 					if (menuItem.deletedAt) continue
-					const recipeOrigin = menuItem.recipesInSisub
+					const recipeOrigin = menuItem.recipesInKitchen
 					if (!recipeOrigin) continue
-					for (const ing of recipeOrigin.recipeIngredientsInSisubs) {
+					for (const ing of recipeOrigin.recipeIngredientsInKitchens) {
 						if (ing.ingredientId) upcomingIngredientIds.add(ing.ingredientId)
 					}
 				}
@@ -346,7 +344,7 @@ export async function fetchUnitDashboard(
 		const arp = arpById.get(item.arpId)
 		if (!arp) continue
 
-		const ataItem = item.procurementListItemInSisub
+		const ataItem = item.procurementListItemInProcurement
 		const ingredientId = ataItem?.ingredientId ?? null
 
 		const qtdHom = Number(item.quantidadeHomologada ?? 0)

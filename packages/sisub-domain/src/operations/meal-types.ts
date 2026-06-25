@@ -5,7 +5,7 @@
  * `meal_type` é flat (sem relations) → não usa o builder relacional `db.query`.
  */
 
-import { mealTypeInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { mealTypeInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, isNull, or, type SQL } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
@@ -18,12 +18,12 @@ type MealType = Tables<"meal_type">
 
 // Projeção snake_case do contrato (todas as colunas de meal_type).
 const MEAL_TYPE_COLS = {
-	id: mealTypeInSisub.id,
-	created_at: mealTypeInSisub.createdAt,
-	name: mealTypeInSisub.name,
-	kitchen_id: mealTypeInSisub.kitchenId,
-	sort_order: mealTypeInSisub.sortOrder,
-	deleted_at: mealTypeInSisub.deletedAt,
+	id: mealTypeInKitchen.id,
+	created_at: mealTypeInKitchen.createdAt,
+	name: mealTypeInKitchen.name,
+	kitchen_id: mealTypeInKitchen.kitchenId,
+	sort_order: mealTypeInKitchen.sortOrder,
+	deleted_at: mealTypeInKitchen.deletedAt,
 } as const
 
 export async function fetchMealTypes(db: SisubDb, ctx: UserContext, input: FetchMealTypes): Promise<MealType[]> {
@@ -33,19 +33,19 @@ export async function fetchMealTypes(db: SisubDb, ctx: UserContext, input: Fetch
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	const conditions: (SQL | undefined)[] = [isNull(mealTypeInSisub.deletedAt)]
+	const conditions: (SQL | undefined)[] = [isNull(mealTypeInKitchen.deletedAt)]
 	if (input.kitchenId != null) {
-		conditions.push(or(isNull(mealTypeInSisub.kitchenId), eq(mealTypeInSisub.kitchenId, input.kitchenId)))
+		conditions.push(or(isNull(mealTypeInKitchen.kitchenId), eq(mealTypeInKitchen.kitchenId, input.kitchenId)))
 	} else {
-		conditions.push(isNull(mealTypeInSisub.kitchenId))
+		conditions.push(isNull(mealTypeInKitchen.kitchenId))
 	}
 
 	return runQuery("FETCH_FAILED", () =>
 		db
 			.select(MEAL_TYPE_COLS)
-			.from(mealTypeInSisub)
+			.from(mealTypeInKitchen)
 			.where(and(...conditions))
-			.orderBy(asc(mealTypeInSisub.sortOrder))
+			.orderBy(asc(mealTypeInKitchen.sortOrder))
 	)
 }
 
@@ -58,7 +58,7 @@ export async function createMealType(db: SisubDb, ctx: UserContext, input: Creat
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(mealTypeInSisub)
+			.insert(mealTypeInKitchen)
 			.values({ name: input.name, sortOrder: input.sortOrder ?? null, kitchenId: input.kitchenId ?? null })
 			.returning(MEAL_TYPE_COLS)
 	)
@@ -68,7 +68,7 @@ export async function createMealType(db: SisubDb, ctx: UserContext, input: Creat
 export async function updateMealType(db: SisubDb, ctx: UserContext, input: UpdateMealType): Promise<MealType> {
 	requirePermission(ctx, "kitchen", 2)
 
-	const updates: Partial<typeof mealTypeInSisub.$inferInsert> = {}
+	const updates: Partial<typeof mealTypeInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
 	if (input.sortOrder != null) updates.sortOrder = input.sortOrder
 	if ("kitchenId" in input) updates.kitchenId = input.kitchenId ?? null
@@ -76,7 +76,7 @@ export async function updateMealType(db: SisubDb, ctx: UserContext, input: Updat
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
 	const row = await insertOneOrFail("UPDATE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
-		db.update(mealTypeInSisub).set(updates).where(eq(mealTypeInSisub.id, input.mealTypeId)).returning(MEAL_TYPE_COLS)
+		db.update(mealTypeInKitchen).set(updates).where(eq(mealTypeInKitchen.id, input.mealTypeId)).returning(MEAL_TYPE_COLS)
 	)
 	return row
 }
@@ -86,10 +86,10 @@ export async function deleteMealType(db: SisubDb, ctx: UserContext, input: Delet
 
 	await mutateOrFail("DELETE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
 		db
-			.update(mealTypeInSisub)
+			.update(mealTypeInKitchen)
 			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(mealTypeInSisub.id, input.mealTypeId))
-			.returning({ id: mealTypeInSisub.id })
+			.where(eq(mealTypeInKitchen.id, input.mealTypeId))
+			.returning({ id: mealTypeInKitchen.id })
 	)
 }
 
@@ -97,6 +97,6 @@ export async function restoreMealType(db: SisubDb, ctx: UserContext, input: Rest
 	requirePermission(ctx, "kitchen", 2)
 
 	await mutateOrFail("RESTORE_FAILED", `meal_type ${input.mealTypeId} not found`, () =>
-		db.update(mealTypeInSisub).set({ deletedAt: null }).where(eq(mealTypeInSisub.id, input.mealTypeId)).returning({ id: mealTypeInSisub.id })
+		db.update(mealTypeInKitchen).set({ deletedAt: null }).where(eq(mealTypeInKitchen.id, input.mealTypeId)).returning({ id: mealTypeInKitchen.id })
 	)
 }

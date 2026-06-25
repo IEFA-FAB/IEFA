@@ -17,12 +17,13 @@ export function getRumaerServerClient() {
 }
 
 /**
- * Cliente service role apontando para o schema sisub — usado apenas para LER
- * o perfil militar do usuário (user_data / user_military_data). Read-only.
+ * Cliente service role apontando para o schema `core` — usado apenas para LER
+ * o perfil militar do usuário (user_data / user_military_data, movidos de sisub
+ * para core no split de schemas por domínio). Read-only.
  */
-export function getSisubReadClient() {
-	return createClient<Database, "sisub">(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
-		db: { schema: "sisub" },
+export function getCoreReadClient() {
+	return createClient<Database, "core">(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
+		db: { schema: "core" },
 		auth: { persistSession: false },
 	})
 }

@@ -1,12 +1,43 @@
 import type { Database } from "./generated.ts"
 
-type SisubSchema = Database["sisub"]
+/**
+ * O schema `sisub` foi dividido em schemas por domínio (core, access_control,
+ * kitchen, procurement, finance, compras_gov_integration). Estes helpers de tipo
+ * resolvem uma tabela/view/enum em QUALQUER um desses schemas — os nomes de
+ * tabela são únicos no conjunto, então a interseção expõe todas as chaves sem
+ * exigir que cada call site saiba o schema de origem. Mantém `Tables<"recipes">`
+ * etc. funcionando após o split (a camada Drizzle já é a fonte de verdade das
+ * queries; estes tipos descrevem apenas o contrato de linha snake_case).
+ */
+type DomainTables = Database["core"]["Tables"] &
+	Database["access_control"]["Tables"] &
+	Database["kitchen"]["Tables"] &
+	Database["procurement"]["Tables"] &
+	Database["finance"]["Tables"] &
+	Database["compras_gov_integration"]["Tables"] &
+	Database["sisub"]["Tables"]
 
-export type Tables<T extends keyof SisubSchema["Tables"]> = SisubSchema["Tables"][T]["Row"]
-export type TablesInsert<T extends keyof SisubSchema["Tables"]> = SisubSchema["Tables"][T]["Insert"]
-export type TablesUpdate<T extends keyof SisubSchema["Tables"]> = SisubSchema["Tables"][T]["Update"]
-export type Views<T extends keyof SisubSchema["Views"]> = SisubSchema["Views"][T]["Row"]
-export type Enums<T extends keyof SisubSchema["Enums"]> = SisubSchema["Enums"][T]
+type DomainViews = Database["core"]["Views"] &
+	Database["access_control"]["Views"] &
+	Database["kitchen"]["Views"] &
+	Database["procurement"]["Views"] &
+	Database["finance"]["Views"] &
+	Database["compras_gov_integration"]["Views"] &
+	Database["sisub"]["Views"]
+
+type DomainEnums = Database["core"]["Enums"] &
+	Database["access_control"]["Enums"] &
+	Database["kitchen"]["Enums"] &
+	Database["procurement"]["Enums"] &
+	Database["finance"]["Enums"] &
+	Database["compras_gov_integration"]["Enums"] &
+	Database["sisub"]["Enums"]
+
+export type Tables<T extends keyof DomainTables> = DomainTables[T]["Row"]
+export type TablesInsert<T extends keyof DomainTables> = DomainTables[T]["Insert"]
+export type TablesUpdate<T extends keyof DomainTables> = DomainTables[T]["Update"]
+export type Views<T extends keyof DomainViews> = DomainViews[T]["Row"]
+export type Enums<T extends keyof DomainEnums> = DomainEnums[T]
 
 export type ProfileAdmin = Tables<"profiles_admin">
 export type ProfileAdminInsert = TablesInsert<"profiles_admin">

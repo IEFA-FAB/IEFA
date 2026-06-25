@@ -102,7 +102,7 @@ export function createMcpServer(credential: string): Server {
 			requireKitchen(ctx, 1, kitchenId)
 
 			const today = new Date().toISOString().split("T")[0]
-			const db = getDataClient()
+			const db = getDataClient("kitchen")
 			const { data, error } = await db
 				.from("daily_menu")
 				.select(`*, meal_type:meal_type_id(*), menu_items:menu_items(*, recipe_origin:recipe_origin_id(*))`)
@@ -139,7 +139,7 @@ export function createMcpServer(credential: string): Server {
 			const lastDay = new Date(parseInt(year, 10), parseInt(month, 10), 0).getDate()
 			const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`
 
-			const db = getDataClient()
+			const db = getDataClient("kitchen")
 			const { data, error } = await db
 				.from("daily_menu")
 				.select(`id, service_date, meal_type_id, status, forecasted_headcount, meal_type:meal_type_id(name)`)
@@ -173,7 +173,7 @@ export function createMcpServer(credential: string): Server {
 			const ctx = await resolveCredential(credential)
 			requireKitchen(ctx, 1, kitchenId)
 
-			const db = getDataClient()
+			const db = getDataClient("kitchen")
 			// H3: kitchenId já passou por safeInt — interpolação segura
 			const { data, error } = await db
 				.from("menu_template")

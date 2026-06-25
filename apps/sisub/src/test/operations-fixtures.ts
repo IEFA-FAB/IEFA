@@ -146,21 +146,40 @@ export interface Seeder {
 	cleanup(): Promise<void>
 }
 
+// Split de schemas por domínio: cada tabela seedada vive no seu schema.
+const TABLE_SCHEMA: Record<string, string> = {
+	// core
+	units: "core",
+	kitchen: "core",
+	mess_halls: "core",
+	user_data: "core",
+	user_military_data: "core",
+	// access_control
+	user_permissions: "access_control",
+	// procurement
+	purchase_item: "procurement",
+	purchase_item_ingredient: "procurement",
+	// kitchen (default p/ o resto)
+}
+const schemaFor = (table: string): string => TABLE_SCHEMA[table] ?? "kitchen"
+
 export function makeSeeder(client: AnyClient): Seeder {
 	const cleanups: CleanupFn[] = []
+	// Roteia cada tabela para seu schema de domínio (client base é só o ponto de entrada).
+	const tbl = (table: string) => client.schema(schemaFor(table)).from(table)
 
 	// IMPORTANTE: supabase-js NÃO lança em erro — retorna { error }. Se o delete falhar
 	// (FK ainda pendente, timeout sob carga), precisamos LANÇAR para o retry do cleanup
 	// reprocessar; senão a linha vaza silenciosamente (pending=0, sem erro aparente).
 	const track: Seeder["track"] = (table, id) => {
 		cleanups.push(async () => {
-			const { error } = await client.from(table).delete().eq("id", id)
+			const { error } = await tbl(table).delete().eq("id", id)
 			if (error) throw new Error(`delete ${table}#${id}: ${error.message}`)
 		})
 	}
 	const trackWhere: Seeder["trackWhere"] = (table, column, value) => {
 		cleanups.push(async () => {
-			const { error } = await client.from(table).delete().eq(column, value)
+			const { error } = await tbl(table).delete().eq(column, value)
 			if (error) throw new Error(`delete ${table}.${column}=${value}: ${error.message}`)
 		})
 	}
@@ -169,7 +188,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 	}
 
 	async function insertReturningId(table: string, row: Record<string, unknown>): Promise<string | number> {
-		const { data, error } = await client.from(table).insert(row).select("id").single()
+		const { data, error } = await tbl(table).insert(row).select("id").single()
 		if (error || !data) throw new Error(`seed ${table} failed: ${error?.message ?? "no row"}`)
 		track(table, data.id)
 		return data.id as string | number
@@ -250,7 +269,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 					is_optional: false,
 					priority_order: i,
 				}))
-				const { error } = await client.from("recipe_ingredients").insert(rows)
+				const { error } = await tbl("recipe_ingredients").insert(rows)
 				if (error) throw new Error(`seed recipe_ingredients failed: ${error.message}`)
 				trackWhere("recipe_ingredients", "recipe_id", recipeId)
 			}
@@ -332,15 +351,12 @@ export function makeSeeder(client: AnyClient): Seeder {
 		},
 
 		async seedUserData(opts) {
-			const { error } = await client
-				.schema("sisub")
-				.from("user_data")
-				.insert({
-					id: opts.id,
-					email: opts.email ?? `${uid("ud-")}@example.invalid`.toLowerCase(),
-					...(opts.nrOrdem !== undefined && { nrOrdem: opts.nrOrdem }),
-					...(opts.defaultMessHallId !== undefined && { default_mess_hall_id: opts.defaultMessHallId }),
-				})
+			const { error } = await tbl("user_data").insert({
+				id: opts.id,
+				email: opts.email ?? `${uid("ud-")}@example.invalid`.toLowerCase(),
+				...(opts.nrOrdem !== undefined && { nrOrdem: opts.nrOrdem }),
+				...(opts.defaultMessHallId !== undefined && { default_mess_hall_id: opts.defaultMessHallId }),
+			})
 			if (error) throw new Error(`seed user_data failed: ${error.message}`)
 			track("user_data", opts.id)
 			return opts.id
@@ -348,7 +364,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 
 		async seedUserMilitaryData(opts) {
 			const nrOrdem = opts?.nrOrdem ?? uid("NO")
-			const { error } = await client.from("user_military_data").insert({
+			const { error } = await tbl("user_military_data").insert({
 				nrOrdem,
 				nrCpf: opts?.nrCpf ?? uid("CPF"),
 				nmGuerra: opts?.nmGuerra ?? uid("[TEST] Guerra "),
@@ -360,16 +376,13 @@ export function makeSeeder(client: AnyClient): Seeder {
 		},
 
 		async seedMealForecast(opts) {
-			const { error } = await client
-				.schema("sisub")
-				.from("meal_forecasts")
-				.insert({
-					user_id: opts.userId,
-					mess_hall_id: opts.messHallId,
-					date: opts.date ?? futureDate(seq),
-					meal: opts.meal ?? "almoco",
-					will_eat: opts.willEat ?? true,
-				})
+			const { error } = await tbl("meal_forecasts").insert({
+				user_id: opts.userId,
+				mess_hall_id: opts.messHallId,
+				date: opts.date ?? futureDate(seq),
+				meal: opts.meal ?? "almoco",
+				will_eat: opts.willEat ?? true,
+			})
 			if (error) throw new Error(`seed meal_forecasts failed: ${error.message}`)
 			trackWhere("meal_forecasts", "user_id", opts.userId)
 		},
@@ -385,15 +398,12 @@ export function makeSeeder(client: AnyClient): Seeder {
 		},
 
 		async seedOtherPresence(opts) {
-			const { error } = await client
-				.schema("sisub")
-				.from("other_presences")
-				.insert({
-					admin_id: opts.adminId,
-					mess_hall_id: opts.messHallId,
-					date: opts.date ?? futureDate(seq),
-					meal: opts.meal ?? "almoco",
-				})
+			const { error } = await tbl("other_presences").insert({
+				admin_id: opts.adminId,
+				mess_hall_id: opts.messHallId,
+				date: opts.date ?? futureDate(seq),
+				meal: opts.meal ?? "almoco",
+			})
 			if (error) throw new Error(`seed other_presences failed: ${error.message}`)
 			trackWhere("other_presences", "admin_id", opts.adminId)
 		},
@@ -426,13 +436,13 @@ export function makeSeeder(client: AnyClient): Seeder {
 		},
 
 		async purgeKitchenMenus(kitchenId) {
-			const { data: menus, error: selErr } = await client.from("daily_menu").select("id").eq("kitchen_id", kitchenId)
+			const { data: menus, error: selErr } = await tbl("daily_menu").select("id").eq("kitchen_id", kitchenId)
 			if (selErr) throw new Error(`purge select: ${selErr.message}`)
 			const ids = (menus ?? []).map((m: { id: string }) => m.id)
 			if (ids.length > 0) {
-				const { error: miErr } = await client.from("menu_items").delete().in("daily_menu_id", ids)
+				const { error: miErr } = await tbl("menu_items").delete().in("daily_menu_id", ids)
 				if (miErr) throw new Error(`purge menu_items: ${miErr.message}`)
-				const { error: dmErr } = await client.from("daily_menu").delete().in("id", ids)
+				const { error: dmErr } = await tbl("daily_menu").delete().in("id", ids)
 				if (dmErr) throw new Error(`purge daily_menu: ${dmErr.message}`)
 			}
 		},

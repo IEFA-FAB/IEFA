@@ -1,7 +1,7 @@
 /**
  * @module changelog.fn
  * Paginated reader for published changelog entries.
- * CLIENT: getSupabaseServerClient (service role).
+ * CLIENT: getCoreClient (service role).
  * TABLE: changelog (published=true rows only).
  * @domain external
  * @migration n-a
@@ -9,7 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getCoreClient } from "@/lib/supabase.server"
 
 export type ChangelogEntry = {
 	id: string
@@ -42,7 +42,7 @@ export const fetchChangelogPageFn = createServerFn({ method: "GET" })
 		const from = data.page * data.pageSize
 		const to = from + data.pageSize // overfetch +1 to detect hasMore
 
-		const { data: rows, error } = await getSupabaseServerClient()
+		const { data: rows, error } = await getCoreClient()
 			.from("changelog")
 			.select("id, version, title, body, tags, published_at, published")
 			.eq("published", true)

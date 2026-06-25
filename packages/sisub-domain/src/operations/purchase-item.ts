@@ -5,7 +5,7 @@
  * Mensagens de erro especiais (`Falha ... [code]: message`) preservadas (prefixo + code + msg do driver).
  */
 
-import { purchaseItemIngredientInSisub, purchaseItemInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { purchaseItemIngredientInProcurement, purchaseItemInProcurement, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, asc, eq, ilike, isNull } from "drizzle-orm"
 import type {
@@ -26,8 +26,8 @@ import { insertOneOrFail, mutateOrFail, runQuery, toColumns, toWire } from "../u
 
 type PurchaseItem = Tables<"purchase_item">
 type PurchaseItemIngredient = Tables<"purchase_item_ingredient">
-type PurchaseItemInsert = typeof purchaseItemInSisub.$inferInsert
-type PurchaseItemIngredientInsert = typeof purchaseItemIngredientInSisub.$inferInsert
+type PurchaseItemInsert = typeof purchaseItemInProcurement.$inferInsert
+type PurchaseItemIngredientInsert = typeof purchaseItemIngredientInProcurement.$inferInsert
 
 type IngredientRef = { id: string; description: string | null; measure_unit: string | null }
 type PurchaseItemIngredientWire = PurchaseItemIngredient & { ingredient: IngredientRef | null }
@@ -38,7 +38,7 @@ type PurchaseItemDetail = PurchaseItem & {
 }
 type PurchaseItemWithLink = PurchaseItem & { link_id: string; conversion_factor: number; is_default: boolean }
 
-const PI_INGREDIENT_RELATIONS: Record<string, string> = { purchaseItemIngredientInSisubs: "purchase_item_ingredient", ingredientInSisub: "ingredient" }
+const PI_INGREDIENT_RELATIONS: Record<string, string> = { purchaseItemIngredientInProcurements: "purchase_item_ingredient", ingredientInKitchen: "ingredient" }
 const INGREDIENT_COLS = { columns: { id: true, description: true, measureUnit: true } } as const
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
@@ -47,10 +47,12 @@ export async function fetchPurchaseItems(db: SisubDb, _ctx: UserContext, input: 
 	const search = input.search?.trim()
 	const where = search
 		? // escapa metacaracteres LIKE (\ % _) p/ busca literal
-			and(isNull(purchaseItemInSisub.deletedAt), ilike(purchaseItemInSisub.description, `%${search.replace(/[\\%_]/g, "\\$&")}%`))
-		: isNull(purchaseItemInSisub.deletedAt)
+			and(isNull(purchaseItemInProcurement.deletedAt), ilike(purchaseItemInProcurement.description, `%${search.replace(/[\\%_]/g, "\\$&")}%`))
+		: isNull(purchaseItemInProcurement.deletedAt)
 
-	const rows = await runQuery("FETCH_FAILED", () => db.select().from(purchaseItemInSisub).where(where).orderBy(asc(purchaseItemInSisub.description)).limit(100))
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.select().from(purchaseItemInProcurement).where(where).orderBy(asc(purchaseItemInProcurement.description)).limit(100)
+	)
 	return rows.map((r) => toWire<PurchaseItem>(r))
 }
 
@@ -62,15 +64,15 @@ export async function fetchIngredientPurchaseItems(db: SisubDb, _ctx: UserContex
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				link_id: purchaseItemIngredientInSisub.id,
-				conversion_factor: purchaseItemIngredientInSisub.conversionFactor,
-				is_default: purchaseItemIngredientInSisub.isDefault,
-				pi: purchaseItemInSisub,
+				link_id: purchaseItemIngredientInProcurement.id,
+				conversion_factor: purchaseItemIngredientInProcurement.conversionFactor,
+				is_default: purchaseItemIngredientInProcurement.isDefault,
+				pi: purchaseItemInProcurement,
 			})
-			.from(purchaseItemIngredientInSisub)
-			.innerJoin(purchaseItemInSisub, eq(purchaseItemIngredientInSisub.purchaseItemId, purchaseItemInSisub.id))
-			.where(and(eq(purchaseItemIngredientInSisub.ingredientId, input.ingredientId), isNull(purchaseItemInSisub.deletedAt)))
-			.orderBy(asc(purchaseItemIngredientInSisub.createdAt))
+			.from(purchaseItemIngredientInProcurement)
+			.innerJoin(purchaseItemInProcurement, eq(purchaseItemIngredientInProcurement.purchaseItemId, purchaseItemInProcurement.id))
+			.where(and(eq(purchaseItemIngredientInProcurement.ingredientId, input.ingredientId), isNull(purchaseItemInProcurement.deletedAt)))
+			.orderBy(asc(purchaseItemIngredientInProcurement.createdAt))
 	)
 	// conversion_factor numeric → number (contrato PurchaseItemWithLink; coluna é NOT NULL).
 	return rows.map((r) => ({ ...toWire<PurchaseItem>(r.pi), link_id: r.link_id, conversion_factor: Number(r.conversion_factor), is_default: r.is_default }))
@@ -78,14 +80,14 @@ export async function fetchIngredientPurchaseItems(db: SisubDb, _ctx: UserContex
 
 export async function fetchPurchaseItem(db: SisubDb, _ctx: UserContext, input: FetchPurchaseItem) {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.purchaseItemInSisub.findFirst({
+		db.query.purchaseItemInProcurement.findFirst({
 			with: {
-				purchaseItemIngredientInSisubs: {
+				purchaseItemIngredientInProcurements: {
 					columns: { id: true, ingredientId: true, conversionFactor: true, conversionNotes: true, isDefault: true },
-					with: { ingredientInSisub: INGREDIENT_COLS },
+					with: { ingredientInKitchen: INGREDIENT_COLS },
 				},
 			},
-			where: and(eq(purchaseItemInSisub.id, input.id), isNull(purchaseItemInSisub.deletedAt)),
+			where: and(eq(purchaseItemInProcurement.id, input.id), isNull(purchaseItemInProcurement.deletedAt)),
 		})
 	)
 	if (!row) throw new DomainError("FETCH_FAILED", `purchase_item ${input.id} not found`)
@@ -98,7 +100,7 @@ export async function createPurchaseItem(db: SisubDb, _ctx: UserContext, input: 
 	const row = await insertOneOrFail(
 		"INSERT_FAILED",
 		"Falha ao criar item de compra: no row returned",
-		() => db.insert(purchaseItemInSisub).values(toColumns<PurchaseItemInsert>(input.payload)).returning(),
+		() => db.insert(purchaseItemInProcurement).values(toColumns<PurchaseItemInsert>(input.payload)).returning(),
 		{ prefix: "Falha ao criar item de compra", includeCode: true }
 	)
 	return toWire<PurchaseItem>(row)
@@ -109,7 +111,7 @@ export async function updatePurchaseItem(db: SisubDb, _ctx: UserContext, input: 
 	const row = await insertOneOrFail(
 		"UPDATE_FAILED",
 		`Falha ao atualizar item de compra: ${input.id} não encontrado`,
-		() => db.update(purchaseItemInSisub).set(set).where(eq(purchaseItemInSisub.id, input.id)).returning(),
+		() => db.update(purchaseItemInProcurement).set(set).where(eq(purchaseItemInProcurement.id, input.id)).returning(),
 		{ prefix: "Falha ao atualizar item de compra", includeCode: true }
 	)
 	return toWire<PurchaseItem>(row)
@@ -118,10 +120,10 @@ export async function updatePurchaseItem(db: SisubDb, _ctx: UserContext, input: 
 export async function deletePurchaseItem(db: SisubDb, _ctx: UserContext, input: DeletePurchaseItem) {
 	await mutateOrFail("DELETE_FAILED", `purchase_item ${input.id} not found`, () =>
 		db
-			.update(purchaseItemInSisub)
+			.update(purchaseItemInProcurement)
 			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(purchaseItemInSisub.id, input.id))
-			.returning({ id: purchaseItemInSisub.id })
+			.where(eq(purchaseItemInProcurement.id, input.id))
+			.returning({ id: purchaseItemInProcurement.id })
 	)
 }
 
@@ -129,9 +131,9 @@ export async function deletePurchaseItem(db: SisubDb, _ctx: UserContext, input: 
 
 export async function fetchPurchaseItemIngredients(db: SisubDb, _ctx: UserContext, input: FetchPurchaseItemIngredients) {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.purchaseItemIngredientInSisub.findMany({
-			with: { ingredientInSisub: INGREDIENT_COLS },
-			where: eq(purchaseItemIngredientInSisub.purchaseItemId, input.purchaseItemId),
+		db.query.purchaseItemIngredientInProcurement.findMany({
+			with: { ingredientInKitchen: INGREDIENT_COLS },
+			where: eq(purchaseItemIngredientInProcurement.purchaseItemId, input.purchaseItemId),
 		})
 	)
 	return rows.map((r) => toWire<PurchaseItemIngredientWire>(r, PI_INGREDIENT_RELATIONS))
@@ -144,9 +146,9 @@ export async function upsertPurchaseItemIngredient(db: SisubDb, _ctx: UserContex
 		"Falha ao vincular ingrediente: no row returned",
 		() =>
 			db
-				.insert(purchaseItemIngredientInSisub)
+				.insert(purchaseItemIngredientInProcurement)
 				.values(values)
-				.onConflictDoUpdate({ target: [purchaseItemIngredientInSisub.purchaseItemId, purchaseItemIngredientInSisub.ingredientId], set: values })
+				.onConflictDoUpdate({ target: [purchaseItemIngredientInProcurement.purchaseItemId, purchaseItemIngredientInProcurement.ingredientId], set: values })
 				.returning(),
 		{ prefix: "Falha ao vincular ingrediente", includeCode: true }
 	)
@@ -155,7 +157,10 @@ export async function upsertPurchaseItemIngredient(db: SisubDb, _ctx: UserContex
 
 export async function deletePurchaseItemIngredient(db: SisubDb, _ctx: UserContext, input: DeletePurchaseItemIngredient) {
 	await mutateOrFail("DELETE_FAILED", `purchase_item_ingredient ${input.id} not found`, () =>
-		db.delete(purchaseItemIngredientInSisub).where(eq(purchaseItemIngredientInSisub.id, input.id)).returning({ id: purchaseItemIngredientInSisub.id })
+		db
+			.delete(purchaseItemIngredientInProcurement)
+			.where(eq(purchaseItemIngredientInProcurement.id, input.id))
+			.returning({ id: purchaseItemIngredientInProcurement.id })
 	)
 }
 
@@ -164,12 +169,15 @@ export async function setDefaultPurchaseItemIngredient(db: SisubDb, _ctx: UserCo
 	// o purchase_item sem default (ou com dois) se o segundo update falhar.
 	await runQuery("UPDATE_FAILED", () =>
 		db.transaction(async (tx) => {
-			await tx.update(purchaseItemIngredientInSisub).set({ isDefault: false }).where(eq(purchaseItemIngredientInSisub.purchaseItemId, input.purchaseItemId))
+			await tx
+				.update(purchaseItemIngredientInProcurement)
+				.set({ isDefault: false })
+				.where(eq(purchaseItemIngredientInProcurement.purchaseItemId, input.purchaseItemId))
 			const marked = await tx
-				.update(purchaseItemIngredientInSisub)
+				.update(purchaseItemIngredientInProcurement)
 				.set({ isDefault: true })
-				.where(eq(purchaseItemIngredientInSisub.id, input.id))
-				.returning({ id: purchaseItemIngredientInSisub.id })
+				.where(eq(purchaseItemIngredientInProcurement.id, input.id))
+				.returning({ id: purchaseItemIngredientInProcurement.id })
 			// id inexistente → 2º update afeta 0 linhas; lançar reverte o clear-all (senão ficaria sem default).
 			if (marked.length === 0) throw new DomainError("UPDATE_FAILED", `purchase_item_ingredient ${input.id} not found`)
 		})

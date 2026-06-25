@@ -10,16 +10,16 @@
  */
 
 import {
-	recipeIngredientsInSisub,
-	recipeStepInputInSisub,
-	recipeStepInSisub,
-	recipeStepOutputInSisub,
-	recipeStepUtensilInSisub,
-	recipesInSisub,
+	recipeIngredientsInKitchen,
+	recipeStepInKitchen,
+	recipeStepInputInKitchen,
+	recipeStepOutputInKitchen,
+	recipeStepUtensilInKitchen,
+	recipesInKitchen,
 	type SisubDb,
-	stepTemplateInSisub,
-	stepTemplateUtensilInSisub,
-	utensilInSisub,
+	stepTemplateInKitchen,
+	stepTemplateUtensilInKitchen,
+	utensilInKitchen,
 } from "@iefa/database/drizzle/sisub"
 import type { RecipeStep, RecipeStepInput, RecipeStepOutput, RecipeStepUtensil, StepTemplate, StepTemplateUtensil, Utensil } from "@iefa/database/sisub"
 import { and, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm"
@@ -32,12 +32,12 @@ import { type DeclaredIngredient, type IngredientBalance, validateFlow } from ".
 
 // Renomeia as relations "feias" do pull para as chaves do contrato.
 const FLOW_RELATIONS: Record<string, string> = {
-	recipeStepOutputInSisubs: "outputs",
-	recipeStepInputInSisubs: "inputs",
-	recipeStepUtensilInSisubs: "utensils",
-	stepTemplateUtensilInSisubs: "utensils",
-	utensilInSisub: "utensil",
-	stepTemplateInSisub: "step_template",
+	recipeStepOutputInKitchens: "outputs",
+	recipeStepInputInKitchens: "inputs",
+	recipeStepUtensilInKitchens: "utensils",
+	stepTemplateUtensilInKitchens: "utensils",
+	utensilInKitchen: "utensil",
+	stepTemplateInKitchen: "step_template",
 }
 
 // ── Wire contract (snake_case aninhado) ──
@@ -60,19 +60,19 @@ export interface SaveFlowResult {
 }
 
 const WITH_FLOW = {
-	recipeStepOutputInSisubs: { where: (t: typeof recipeStepOutputInSisub, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt) },
-	recipeStepInputInSisubs: { where: (t: typeof recipeStepInputInSisub, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt) },
-	recipeStepUtensilInSisubs: {
-		where: (t: typeof recipeStepUtensilInSisub, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt),
-		with: { utensilInSisub: true },
+	recipeStepOutputInKitchens: { where: (t: typeof recipeStepOutputInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt) },
+	recipeStepInputInKitchens: { where: (t: typeof recipeStepInputInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt) },
+	recipeStepUtensilInKitchens: {
+		where: (t: typeof recipeStepUtensilInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt),
+		with: { utensilInKitchen: true },
 	},
-	stepTemplateInSisub: true,
+	stepTemplateInKitchen: true,
 } as const
 
 /** Autoriza mutação de fluxo conforme a posse da receita (global vs cozinha). */
 async function authorizeFlowMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
 	const recipe = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInSisub.findFirst({ columns: { kitchenId: true }, where: eq(recipesInSisub.id, recipeId) })
+		db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, recipeId) })
 	)
 	if (!recipe) throw new NotFoundError("recipe", recipeId)
 	if (recipe.kitchenId == null) requirePermission(ctx, "global", 2)
@@ -83,8 +83,8 @@ export async function fetchRecipeFlow(db: SisubDb, ctx: UserContext, input: Fetc
 	requirePermission(ctx, "kitchen", 1)
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.recipeStepInSisub.findMany({
-			where: and(eq(recipeStepInSisub.recipeId, input.recipeId), isNull(recipeStepInSisub.deletedAt)),
+		db.query.recipeStepInKitchen.findMany({
+			where: and(eq(recipeStepInKitchen.recipeId, input.recipeId), isNull(recipeStepInKitchen.deletedAt)),
 			// biome-ignore lint/suspicious/noExplicitAny: relational `with` callbacks are typed loosely by drizzle-kit's generated relations
 			with: WITH_FLOW as any,
 			orderBy: (step, { asc }) => [asc(step.createdAt)],
@@ -97,9 +97,9 @@ export async function fetchRecipeFlow(db: SisubDb, ctx: UserContext, input: Fetc
 /** Insumos declarados ativos da receita — base do balanço de materiais. */
 async function fetchDeclaredIngredients(db: SisubDb, recipeId: string): Promise<DeclaredIngredient[]> {
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.recipeIngredientsInSisub.findMany({
+		db.query.recipeIngredientsInKitchen.findMany({
 			columns: { id: true, netQuantity: true, isOptional: true },
-			where: and(eq(recipeIngredientsInSisub.recipeId, recipeId), isNull(recipeIngredientsInSisub.deletedAt)),
+			where: and(eq(recipeIngredientsInKitchen.recipeId, recipeId), isNull(recipeIngredientsInKitchen.deletedAt)),
 		})
 	)
 	return rows.map((r) => ({
@@ -113,40 +113,40 @@ async function fetchDeclaredIngredients(db: SisubDb, recipeId: string): Promise<
 async function softDeleteFlow(tx: SisubDb, recipeId: string, now: string): Promise<void> {
 	const existing = await runQuery("FETCH_FAILED", () =>
 		tx
-			.select({ id: recipeStepInSisub.id })
-			.from(recipeStepInSisub)
-			.where(and(eq(recipeStepInSisub.recipeId, recipeId), isNull(recipeStepInSisub.deletedAt)))
+			.select({ id: recipeStepInKitchen.id })
+			.from(recipeStepInKitchen)
+			.where(and(eq(recipeStepInKitchen.recipeId, recipeId), isNull(recipeStepInKitchen.deletedAt)))
 	)
 	const stepIds = existing.map((s) => s.id)
 
 	if (stepIds.length > 0) {
 		await runQuery("DELETE_FAILED", () =>
 			tx
-				.update(recipeStepInputInSisub)
+				.update(recipeStepInputInKitchen)
 				.set({ deletedAt: now })
-				.where(and(inArray(recipeStepInputInSisub.recipeStepId, stepIds), isNull(recipeStepInputInSisub.deletedAt)))
+				.where(and(inArray(recipeStepInputInKitchen.recipeStepId, stepIds), isNull(recipeStepInputInKitchen.deletedAt)))
 				.then(() => undefined)
 		)
 		await runQuery("DELETE_FAILED", () =>
 			tx
-				.update(recipeStepUtensilInSisub)
+				.update(recipeStepUtensilInKitchen)
 				.set({ deletedAt: now })
-				.where(and(inArray(recipeStepUtensilInSisub.recipeStepId, stepIds), isNull(recipeStepUtensilInSisub.deletedAt)))
+				.where(and(inArray(recipeStepUtensilInKitchen.recipeStepId, stepIds), isNull(recipeStepUtensilInKitchen.deletedAt)))
 				.then(() => undefined)
 		)
 	}
 	await runQuery("DELETE_FAILED", () =>
 		tx
-			.update(recipeStepOutputInSisub)
+			.update(recipeStepOutputInKitchen)
 			.set({ deletedAt: now })
-			.where(and(eq(recipeStepOutputInSisub.recipeId, recipeId), isNull(recipeStepOutputInSisub.deletedAt)))
+			.where(and(eq(recipeStepOutputInKitchen.recipeId, recipeId), isNull(recipeStepOutputInKitchen.deletedAt)))
 			.then(() => undefined)
 	)
 	await runQuery("DELETE_FAILED", () =>
 		tx
-			.update(recipeStepInSisub)
+			.update(recipeStepInKitchen)
 			.set({ deletedAt: now })
-			.where(and(eq(recipeStepInSisub.recipeId, recipeId), isNull(recipeStepInSisub.deletedAt)))
+			.where(and(eq(recipeStepInKitchen.recipeId, recipeId), isNull(recipeStepInKitchen.deletedAt)))
 			.then(() => undefined)
 	)
 }
@@ -191,7 +191,7 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 		}))
 		await runQuery("INSERT_FAILED", () =>
 			tx
-				.insert(recipeStepInSisub)
+				.insert(recipeStepInKitchen)
 				.values(stepRows)
 				.then(() => undefined)
 		)
@@ -210,7 +210,7 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 		if (outputRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(recipeStepOutputInSisub)
+					.insert(recipeStepOutputInKitchen)
 					.values(outputRows)
 					.then(() => undefined)
 			)
@@ -228,7 +228,7 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 		if (inputRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(recipeStepInputInSisub)
+					.insert(recipeStepInputInKitchen)
 					.values(inputRows)
 					.then(() => undefined)
 			)
@@ -238,7 +238,7 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
 		if (utensilRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(recipeStepUtensilInSisub)
+					.insert(recipeStepUtensilInKitchen)
 					.values(utensilRows)
 					.then(() => undefined)
 			)
@@ -257,8 +257,8 @@ export async function saveRecipeFlow(db: SisubDb, ctx: UserContext, input: SaveR
  */
 export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipeId: string, riIdMap: Map<string, string>): Promise<void> {
 	const srcSteps = await runQuery("FETCH_FAILED", () =>
-		db.query.recipeStepInSisub.findMany({
-			where: and(eq(recipeStepInSisub.recipeId, srcRecipeId), isNull(recipeStepInSisub.deletedAt)),
+		db.query.recipeStepInKitchen.findMany({
+			where: and(eq(recipeStepInKitchen.recipeId, srcRecipeId), isNull(recipeStepInKitchen.deletedAt)),
 			// biome-ignore lint/suspicious/noExplicitAny: relational `with` callbacks typed loosely
 			with: WITH_FLOW as any,
 		})
@@ -266,7 +266,7 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 	if (srcSteps.length === 0) return
 
 	// O resultado relacional do Drizzle traz as relations sob as chaves CRUAS do pull
-	// (recipeStepOutputInSisubs, …) — `toWire` (que as renomearia p/ outputs/inputs/
+	// (recipeStepOutputInKitchens, …) — `toWire` (que as renomearia p/ outputs/inputs/
 	// utensils) NÃO é aplicado aqui, então acessamos as chaves cruas direto. O `with`
 	// é passado como `any` na query (callbacks tipados frouxamente), então tipamos o
 	// shape relacional manualmente.
@@ -278,9 +278,9 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 		durationMinutes: number | null
 		canvasX: number
 		canvasY: number
-		recipeStepOutputInSisubs: { id: string; label: string | null; quantity: string | null; measureUnit: string | null; isFinal: boolean }[]
-		recipeStepInputInSisubs: { recipeIngredientId: string | null; sourceOutputId: string | null; quantity: string | null; measureUnit: string | null }[]
-		recipeStepUtensilInSisubs: { utensilId: string }[]
+		recipeStepOutputInKitchens: { id: string; label: string | null; quantity: string | null; measureUnit: string | null; isFinal: boolean }[]
+		recipeStepInputInKitchens: { recipeIngredientId: string | null; sourceOutputId: string | null; quantity: string | null; measureUnit: string | null }[]
+		recipeStepUtensilInKitchens: { utensilId: string }[]
 	}
 	const steps = srcSteps as unknown as RawSrcStep[]
 
@@ -288,7 +288,7 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 	const outputIdMap = new Map<string, string>()
 	for (const s of steps) {
 		stepIdMap.set(s.id, crypto.randomUUID())
-		for (const o of s.recipeStepOutputInSisubs) outputIdMap.set(o.id, crypto.randomUUID())
+		for (const o of s.recipeStepOutputInKitchens) outputIdMap.set(o.id, crypto.randomUUID())
 	}
 
 	await db.transaction(async (tx) => {
@@ -304,13 +304,13 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 		}))
 		await runQuery("INSERT_FAILED", () =>
 			tx
-				.insert(recipeStepInSisub)
+				.insert(recipeStepInKitchen)
 				.values(stepRows)
 				.then(() => undefined)
 		)
 
 		const outputRows = steps.flatMap((s) =>
-			s.recipeStepOutputInSisubs.map((o) => ({
+			s.recipeStepOutputInKitchens.map((o) => ({
 				id: outputIdMap.get(o.id) as string,
 				recipeStepId: stepIdMap.get(s.id) as string,
 				recipeId: dstRecipeId,
@@ -323,14 +323,14 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 		if (outputRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(recipeStepOutputInSisub)
+					.insert(recipeStepOutputInKitchen)
 					.values(outputRows)
 					.then(() => undefined)
 			)
 		}
 
 		const inputRows = steps.flatMap((s) =>
-			s.recipeStepInputInSisubs
+			s.recipeStepInputInKitchens
 				.map((inp) => {
 					// insumo cru → remapeia pro recipe_ingredient da nova versão; descarta se sumiu.
 					const recipeIngredientId = inp.recipeIngredientId != null ? (riIdMap.get(inp.recipeIngredientId) ?? null) : null
@@ -349,17 +349,19 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 		if (inputRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(recipeStepInputInSisub)
+					.insert(recipeStepInputInKitchen)
 					.values(inputRows)
 					.then(() => undefined)
 			)
 		}
 
-		const utensilRows = steps.flatMap((s) => s.recipeStepUtensilInSisubs.map((u) => ({ recipeStepId: stepIdMap.get(s.id) as string, utensilId: u.utensilId })))
+		const utensilRows = steps.flatMap((s) =>
+			s.recipeStepUtensilInKitchens.map((u) => ({ recipeStepId: stepIdMap.get(s.id) as string, utensilId: u.utensilId }))
+		)
 		if (utensilRows.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(recipeStepUtensilInSisub)
+					.insert(recipeStepUtensilInKitchen)
 					.values(utensilRows)
 					.then(() => undefined)
 			)
@@ -370,25 +372,25 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 // ── Catálogo ──────────────────────────────────────────────────────────────
 
 const WITH_TEMPLATE_UTENSILS = {
-	stepTemplateUtensilInSisubs: {
-		where: (t: typeof stepTemplateUtensilInSisub, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt),
-		with: { utensilInSisub: true },
+	stepTemplateUtensilInKitchens: {
+		where: (t: typeof stepTemplateUtensilInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt),
+		with: { utensilInKitchen: true },
 	},
 } as const
 
 export async function listStepTemplates(db: SisubDb, ctx: UserContext, input: ListStepTemplates): Promise<StepTemplateWire[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const conditions: (SQL | undefined)[] = [isNull(stepTemplateInSisub.deletedAt)]
+	const conditions: (SQL | undefined)[] = [isNull(stepTemplateInKitchen.deletedAt)]
 	if (input.kitchenId != null) {
-		conditions.push(or(isNull(stepTemplateInSisub.kitchenId), eq(stepTemplateInSisub.kitchenId, input.kitchenId)))
+		conditions.push(or(isNull(stepTemplateInKitchen.kitchenId), eq(stepTemplateInKitchen.kitchenId, input.kitchenId)))
 	} else {
-		conditions.push(isNull(stepTemplateInSisub.kitchenId))
+		conditions.push(isNull(stepTemplateInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(stepTemplateInSisub.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(stepTemplateInKitchen.name, `%${input.search}%`))
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.stepTemplateInSisub.findMany({
+		db.query.stepTemplateInKitchen.findMany({
 			where: and(...conditions),
 			// biome-ignore lint/suspicious/noExplicitAny: relational `with` callbacks typed loosely
 			with: WITH_TEMPLATE_UTENSILS as any,
@@ -404,7 +406,7 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 
 	const template = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(stepTemplateInSisub)
+			.insert(stepTemplateInKitchen)
 			.values({
 				name: input.name,
 				description: input.description ?? null,
@@ -417,7 +419,7 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 	if (input.utensilIds.length > 0) {
 		await runQuery("INSERT_FAILED", () =>
 			db
-				.insert(stepTemplateUtensilInSisub)
+				.insert(stepTemplateUtensilInKitchen)
 				.values(input.utensilIds.map((utensilId) => ({ stepTemplateId: template.id, utensilId })))
 				.then(() => undefined)
 		)
@@ -428,15 +430,15 @@ export async function createStepTemplate(db: SisubDb, ctx: UserContext, input: C
 export async function listUtensils(db: SisubDb, ctx: UserContext, input: ListUtensils): Promise<UtensilWire[]> {
 	requirePermission(ctx, "kitchen", 1)
 
-	const conditions: (SQL | undefined)[] = [isNull(utensilInSisub.deletedAt)]
+	const conditions: (SQL | undefined)[] = [isNull(utensilInKitchen.deletedAt)]
 	if (input.kitchenId != null) {
-		conditions.push(or(isNull(utensilInSisub.kitchenId), eq(utensilInSisub.kitchenId, input.kitchenId)))
+		conditions.push(or(isNull(utensilInKitchen.kitchenId), eq(utensilInKitchen.kitchenId, input.kitchenId)))
 	} else {
-		conditions.push(isNull(utensilInSisub.kitchenId))
+		conditions.push(isNull(utensilInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(utensilInSisub.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(utensilInKitchen.name, `%${input.search}%`))
 
-	const rows = await runQuery("FETCH_FAILED", () => db.query.utensilInSisub.findMany({ where: and(...conditions), orderBy: (t, { asc }) => [asc(t.name)] }))
+	const rows = await runQuery("FETCH_FAILED", () => db.query.utensilInKitchen.findMany({ where: and(...conditions), orderBy: (t, { asc }) => [asc(t.name)] }))
 	return rows.map((r) => toWire<UtensilWire>(r, FLOW_RELATIONS))
 }
 
@@ -446,7 +448,7 @@ export async function createUtensil(db: SisubDb, ctx: UserContext, input: Create
 
 	const utensil = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(utensilInSisub)
+			.insert(utensilInKitchen)
 			.values({ name: input.name, kitchenId: input.kitchenId ?? null })
 			.returning()
 	)

@@ -1,314 +1,218 @@
 import { relations } from "drizzle-orm/relations";
-import { usersInAuth, profilesAdminInSisub, ingredientInSisub, ingredientVersionInSisub, kitchenInSisub, messHallsInSisub, unitsInSisub, recipeIngredientsInSisub, recipesInSisub, purchaseItemInSisub, ingredientItemInSisub, dailyMenuInSisub, menuItemsInSisub, ingredientReviewInSisub, mealForecastsInSisub, menuTemplateInSisub, userDataInSisub, opinionsInSisub, mealPresencesInSisub, otherPresencesInSisub, mealTypeInSisub, menuTemplateItemsInSisub, recipeIngredientAlternativesInSisub, userPermissionsInSisub, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInSisub, nutrientInSisub, ingredientNutrientInSisub, comprasMaterialItemInComprasGovIntegration, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, purchaseItemIngredientInSisub, ceafaInSisub, folderInSisub, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInSisub, procurementListKitchenInSisub, procurementListSelectionInSisub, procurementListItemInSisub, comprasAmostraInSisub, procurementPesquisaPrecoAmostraInSisub, procurementPesquisaPrecoItemInSisub, procurementPesquisaPrecoInSisub, kitchenAtaDraftInSisub, kitchenAtaDraftSelectionInSisub, productionTaskInSisub, procurementArpItemInSisub, empenhoInSisub, procurementArpInSisub, analyticsChatSessionInSisub, analyticsChatMessageInSisub, moduleChatSessionInSisub, moduleChatMessageInSisub, stepTemplateInSisub, utensilInSisub, stepTemplateUtensilInSisub, recipeStepInSisub, recipeStepOutputInSisub, recipeStepInputInSisub, recipeStepUtensilInSisub, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration } from "./schema";
+import { usersInAuth, profilesAdminInAccessControl, dailyMenuInKitchen, menuItemsInKitchen, recipesInKitchen, kitchenInCore, unitsInCore, messHallsInCore, userDataInCore, mealTypeInKitchen, mealPresencesInKitchen, otherPresencesInKitchen, menuTemplateItemsInKitchen, menuTemplateInKitchen, userPermissionsInAccessControl, comprasMaterialGrupoInComprasGovIntegration, comprasMaterialClasseInComprasGovIntegration, mcpApiKeysInAccessControl, comprasMaterialItemInComprasGovIntegration, purchaseItemInProcurement, comprasServicoDivisaoInComprasGovIntegration, comprasServicoGrupoInComprasGovIntegration, comprasServicoClasseInComprasGovIntegration, ceafaInKitchen, ingredientInKitchen, folderInKitchen, purchaseItemIngredientInProcurement, comprasSyncLogInComprasGovIntegration, comprasSyncStepInComprasGovIntegration, procurementListInProcurement, procurementListItemInProcurement, procurementListKitchenInProcurement, procurementListSelectionInProcurement, productionTaskInKitchen, procurementArpItemInProcurement, empenhoInFinance, procurementArpInProcurement, analyticsChatSessionInCore, analyticsChatMessageInCore, moduleChatSessionInCore, moduleChatMessageInCore, stepTemplateInKitchen, utensilInKitchen, stepTemplateUtensilInKitchen, recipeStepInKitchen, recipeStepOutputInKitchen, recipeIngredientsInKitchen, recipeStepInputInKitchen, recipeStepUtensilInKitchen, comprasMaterialPdmInComprasGovIntegration, comprasServicoSecaoInComprasGovIntegration, opinionsInCore, recipeIngredientAlternativesInKitchen, mealForecastsInKitchen, ingredientItemInKitchen, nutrientInKitchen, ingredientNutrientInKitchen, ingredientVersionInKitchen, ingredientReviewInKitchen, procurementPesquisaPrecoInProcurement, procurementPesquisaPrecoItemInProcurement, comprasAmostraInProcurement, procurementPesquisaPrecoAmostraInProcurement, kitchenAtaDraftInProcurement, kitchenAtaDraftSelectionInProcurement } from "./schema";
 
-export const profilesAdminInSisubRelations = relations(profilesAdminInSisub, ({one}) => ({
+export const profilesAdminInAccessControlRelations = relations(profilesAdminInAccessControl, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
-		fields: [profilesAdminInSisub.id],
+		fields: [profilesAdminInAccessControl.id],
 		references: [usersInAuth.id]
 	}),
 }));
 
 export const usersInAuthRelations = relations(usersInAuth, ({many}) => ({
-	profilesAdminInSisubs: many(profilesAdminInSisub),
-	mealForecastsInSisubs: many(mealForecastsInSisub),
-	userDataInSisubs: many(userDataInSisub),
-	opinionsInSisubs: many(opinionsInSisub),
-	mealPresencesInSisubs: many(mealPresencesInSisub),
-	otherPresencesInSisubs: many(otherPresencesInSisub),
-	userPermissionsInSisubs: many(userPermissionsInSisub),
-	mcpApiKeysInSisubs: many(mcpApiKeysInSisub),
-	empenhoInSisubs: many(empenhoInSisub),
-	analyticsChatSessionInSisubs: many(analyticsChatSessionInSisub),
-	moduleChatSessionInSisubs: many(moduleChatSessionInSisub),
+	profilesAdminInAccessControls: many(profilesAdminInAccessControl),
+	userDataInCores: many(userDataInCore),
+	mealPresencesInKitchens: many(mealPresencesInKitchen),
+	otherPresencesInKitchens: many(otherPresencesInKitchen),
+	userPermissionsInAccessControls: many(userPermissionsInAccessControl),
+	mcpApiKeysInAccessControls: many(mcpApiKeysInAccessControl),
+	empenhoInFinances: many(empenhoInFinance),
+	analyticsChatSessionInCores: many(analyticsChatSessionInCore),
+	moduleChatSessionInCores: many(moduleChatSessionInCore),
+	opinionsInCores: many(opinionsInCore),
+	mealForecastsInKitchens: many(mealForecastsInKitchen),
 }));
 
-export const ingredientVersionInSisubRelations = relations(ingredientVersionInSisub, ({one}) => ({
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [ingredientVersionInSisub.ingredientId],
-		references: [ingredientInSisub.id]
+export const menuItemsInKitchenRelations = relations(menuItemsInKitchen, ({one, many}) => ({
+	dailyMenuInKitchen: one(dailyMenuInKitchen, {
+		fields: [menuItemsInKitchen.dailyMenuId],
+		references: [dailyMenuInKitchen.id]
 	}),
+	recipesInKitchen: one(recipesInKitchen, {
+		fields: [menuItemsInKitchen.recipeOriginId],
+		references: [recipesInKitchen.id]
+	}),
+	productionTaskInKitchens: many(productionTaskInKitchen),
 }));
 
-export const ingredientInSisubRelations = relations(ingredientInSisub, ({one, many}) => ({
-	ingredientVersionInSisubs: many(ingredientVersionInSisub),
-	recipeIngredientsInSisubs: many(recipeIngredientsInSisub),
-	ingredientItemInSisubs: many(ingredientItemInSisub),
-	ingredientReviewInSisubs: many(ingredientReviewInSisub),
-	recipeIngredientAlternativesInSisubs: many(recipeIngredientAlternativesInSisub),
-	ingredientNutrientInSisubs: many(ingredientNutrientInSisub),
-	purchaseItemIngredientInSisubs: many(purchaseItemIngredientInSisub),
-	ceafaInSisub: one(ceafaInSisub, {
-		fields: [ingredientInSisub.ceafaId],
-		references: [ceafaInSisub.id]
+export const dailyMenuInKitchenRelations = relations(dailyMenuInKitchen, ({one, many}) => ({
+	menuItemsInKitchens: many(menuItemsInKitchen),
+	kitchenInCore: one(kitchenInCore, {
+		fields: [dailyMenuInKitchen.kitchenId],
+		references: [kitchenInCore.id]
 	}),
-	folderInSisub: one(folderInSisub, {
-		fields: [ingredientInSisub.folderId],
-		references: [folderInSisub.id]
-	}),
-	procurementListItemInSisubs: many(procurementListItemInSisub),
-}));
-
-export const messHallsInSisubRelations = relations(messHallsInSisub, ({one, many}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [messHallsInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	unitsInSisub_unitId: one(unitsInSisub, {
-		fields: [messHallsInSisub.unitId],
-		references: [unitsInSisub.id],
-		relationName: "messHallsInSisub_unitId_unitsInSisub_id"
-	}),
-	mealForecastsInSisubs: many(mealForecastsInSisub),
-	userDataInSisubs: many(userDataInSisub),
-	mealPresencesInSisubs: many(mealPresencesInSisub),
-	otherPresencesInSisubs: many(otherPresencesInSisub),
-	userPermissionsInSisubs: many(userPermissionsInSisub),
-}));
-
-export const kitchenInSisubRelations = relations(kitchenInSisub, ({one, many}) => ({
-	messHallsInSisubs: many(messHallsInSisub),
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [kitchenInSisub.kitchenId],
-		references: [kitchenInSisub.id],
-		relationName: "kitchenInSisub_kitchenId_kitchenInSisub_id"
-	}),
-	kitchenInSisubs: many(kitchenInSisub, {
-		relationName: "kitchenInSisub_kitchenId_kitchenInSisub_id"
-	}),
-	unitsInSisub_purchaseUnitId: one(unitsInSisub, {
-		fields: [kitchenInSisub.purchaseUnitId],
-		references: [unitsInSisub.id],
-		relationName: "kitchenInSisub_purchaseUnitId_unitsInSisub_id"
-	}),
-	unitsInSisub_unitId: one(unitsInSisub, {
-		fields: [kitchenInSisub.unitId],
-		references: [unitsInSisub.id],
-		relationName: "kitchenInSisub_unitId_unitsInSisub_id"
-	}),
-	menuTemplateInSisubs: many(menuTemplateInSisub),
-	mealTypeInSisubs: many(mealTypeInSisub),
-	recipesInSisubs: many(recipesInSisub),
-	dailyMenuInSisubs: many(dailyMenuInSisub),
-	userPermissionsInSisubs: many(userPermissionsInSisub),
-	procurementListKitchenInSisubs: many(procurementListKitchenInSisub),
-	kitchenAtaDraftInSisubs: many(kitchenAtaDraftInSisub),
-	productionTaskInSisubs: many(productionTaskInSisub),
-	stepTemplateInSisubs: many(stepTemplateInSisub),
-	utensilInSisubs: many(utensilInSisub),
-}));
-
-export const unitsInSisubRelations = relations(unitsInSisub, ({many}) => ({
-	messHallsInSisubs_unitId: many(messHallsInSisub, {
-		relationName: "messHallsInSisub_unitId_unitsInSisub_id"
-	}),
-	kitchenInSisubs_purchaseUnitId: many(kitchenInSisub, {
-		relationName: "kitchenInSisub_purchaseUnitId_unitsInSisub_id"
-	}),
-	kitchenInSisubs_unitId: many(kitchenInSisub, {
-		relationName: "kitchenInSisub_unitId_unitsInSisub_id"
-	}),
-	userPermissionsInSisubs: many(userPermissionsInSisub),
-	procurementListInSisubs: many(procurementListInSisub),
-	empenhoInSisubs: many(empenhoInSisub),
-	procurementArpInSisubs: many(procurementArpInSisub),
-}));
-
-export const recipeIngredientsInSisubRelations = relations(recipeIngredientsInSisub, ({one, many}) => ({
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [recipeIngredientsInSisub.ingredientId],
-		references: [ingredientInSisub.id]
-	}),
-	recipesInSisub: one(recipesInSisub, {
-		fields: [recipeIngredientsInSisub.recipeId],
-		references: [recipesInSisub.id]
-	}),
-	recipeIngredientAlternativesInSisubs: many(recipeIngredientAlternativesInSisub),
-	recipeStepInputInSisubs: many(recipeStepInputInSisub),
-}));
-
-export const recipesInSisubRelations = relations(recipesInSisub, ({one, many}) => ({
-	recipeIngredientsInSisubs: many(recipeIngredientsInSisub),
-	menuItemsInSisubs: many(menuItemsInSisub),
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [recipesInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	menuTemplateItemsInSisubs: many(menuTemplateItemsInSisub),
-	recipeStepInSisubs: many(recipeStepInSisub),
-	recipeStepOutputInSisubs: many(recipeStepOutputInSisub),
-}));
-
-export const ingredientItemInSisubRelations = relations(ingredientItemInSisub, ({one}) => ({
-	purchaseItemInSisub: one(purchaseItemInSisub, {
-		fields: [ingredientItemInSisub.purchaseItemId],
-		references: [purchaseItemInSisub.id]
-	}),
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [ingredientItemInSisub.ingredientId],
-		references: [ingredientInSisub.id]
+	mealTypeInKitchen: one(mealTypeInKitchen, {
+		fields: [dailyMenuInKitchen.mealTypeId],
+		references: [mealTypeInKitchen.id]
 	}),
 }));
 
-export const purchaseItemInSisubRelations = relations(purchaseItemInSisub, ({one, many}) => ({
-	ingredientItemInSisubs: many(ingredientItemInSisub),
-	comprasMaterialItemInComprasGovIntegration: one(comprasMaterialItemInComprasGovIntegration, {
-		fields: [purchaseItemInSisub.catmatItemCodigo],
-		references: [comprasMaterialItemInComprasGovIntegration.codigoItem]
+export const recipesInKitchenRelations = relations(recipesInKitchen, ({one, many}) => ({
+	menuItemsInKitchens: many(menuItemsInKitchen),
+	menuTemplateItemsInKitchens: many(menuTemplateItemsInKitchen),
+	kitchenInCore: one(kitchenInCore, {
+		fields: [recipesInKitchen.kitchenId],
+		references: [kitchenInCore.id]
 	}),
-	purchaseItemIngredientInSisubs: many(purchaseItemIngredientInSisub),
-	procurementListItemInSisubs: many(procurementListItemInSisub),
+	recipeStepInKitchens: many(recipeStepInKitchen),
+	recipeStepOutputInKitchens: many(recipeStepOutputInKitchen),
+	recipeIngredientsInKitchens: many(recipeIngredientsInKitchen),
 }));
 
-export const menuItemsInSisubRelations = relations(menuItemsInSisub, ({one, many}) => ({
-	dailyMenuInSisub: one(dailyMenuInSisub, {
-		fields: [menuItemsInSisub.dailyMenuId],
-		references: [dailyMenuInSisub.id]
+export const kitchenInCoreRelations = relations(kitchenInCore, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [kitchenInCore.kitchenId],
+		references: [kitchenInCore.id],
+		relationName: "kitchenInCore_kitchenId_kitchenInCore_id"
 	}),
-	recipesInSisub: one(recipesInSisub, {
-		fields: [menuItemsInSisub.recipeOriginId],
-		references: [recipesInSisub.id]
+	kitchenInCores: many(kitchenInCore, {
+		relationName: "kitchenInCore_kitchenId_kitchenInCore_id"
 	}),
-	productionTaskInSisubs: many(productionTaskInSisub),
+	unitsInCore_purchaseUnitId: one(unitsInCore, {
+		fields: [kitchenInCore.purchaseUnitId],
+		references: [unitsInCore.id],
+		relationName: "kitchenInCore_purchaseUnitId_unitsInCore_id"
+	}),
+	unitsInCore_unitId: one(unitsInCore, {
+		fields: [kitchenInCore.unitId],
+		references: [unitsInCore.id],
+		relationName: "kitchenInCore_unitId_unitsInCore_id"
+	}),
+	mealTypeInKitchens: many(mealTypeInKitchen),
+	dailyMenuInKitchens: many(dailyMenuInKitchen),
+	recipesInKitchens: many(recipesInKitchen),
+	userPermissionsInAccessControls: many(userPermissionsInAccessControl),
+	procurementListKitchenInProcurements: many(procurementListKitchenInProcurement),
+	productionTaskInKitchens: many(productionTaskInKitchen),
+	stepTemplateInKitchens: many(stepTemplateInKitchen),
+	utensilInKitchens: many(utensilInKitchen),
+	messHallsInCores: many(messHallsInCore),
+	menuTemplateInKitchens: many(menuTemplateInKitchen),
+	kitchenAtaDraftInProcurements: many(kitchenAtaDraftInProcurement),
 }));
 
-export const dailyMenuInSisubRelations = relations(dailyMenuInSisub, ({one, many}) => ({
-	menuItemsInSisubs: many(menuItemsInSisub),
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [dailyMenuInSisub.kitchenId],
-		references: [kitchenInSisub.id]
+export const unitsInCoreRelations = relations(unitsInCore, ({many}) => ({
+	kitchenInCores_purchaseUnitId: many(kitchenInCore, {
+		relationName: "kitchenInCore_purchaseUnitId_unitsInCore_id"
 	}),
-	mealTypeInSisub: one(mealTypeInSisub, {
-		fields: [dailyMenuInSisub.mealTypeId],
-		references: [mealTypeInSisub.id]
+	kitchenInCores_unitId: many(kitchenInCore, {
+		relationName: "kitchenInCore_unitId_unitsInCore_id"
 	}),
-}));
-
-export const ingredientReviewInSisubRelations = relations(ingredientReviewInSisub, ({one}) => ({
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [ingredientReviewInSisub.ingredientId],
-		references: [ingredientInSisub.id]
+	userPermissionsInAccessControls: many(userPermissionsInAccessControl),
+	procurementListInProcurements: many(procurementListInProcurement),
+	empenhoInFinances: many(empenhoInFinance),
+	procurementArpInProcurements: many(procurementArpInProcurement),
+	messHallsInCores_unitId: many(messHallsInCore, {
+		relationName: "messHallsInCore_unitId_unitsInCore_id"
 	}),
 }));
 
-export const mealForecastsInSisubRelations = relations(mealForecastsInSisub, ({one}) => ({
-	messHallsInSisub: one(messHallsInSisub, {
-		fields: [mealForecastsInSisub.messHallId],
-		references: [messHallsInSisub.id]
+export const userDataInCoreRelations = relations(userDataInCore, ({one}) => ({
+	messHallsInCore: one(messHallsInCore, {
+		fields: [userDataInCore.defaultMessHallId],
+		references: [messHallsInCore.id]
 	}),
 	usersInAuth: one(usersInAuth, {
-		fields: [mealForecastsInSisub.userId],
+		fields: [userDataInCore.id],
 		references: [usersInAuth.id]
 	}),
 }));
 
-export const menuTemplateInSisubRelations = relations(menuTemplateInSisub, ({one, many}) => ({
-	menuTemplateInSisub: one(menuTemplateInSisub, {
-		fields: [menuTemplateInSisub.baseTemplateId],
-		references: [menuTemplateInSisub.id],
-		relationName: "menuTemplateInSisub_baseTemplateId_menuTemplateInSisub_id"
+export const messHallsInCoreRelations = relations(messHallsInCore, ({one, many}) => ({
+	userDataInCores: many(userDataInCore),
+	mealPresencesInKitchens: many(mealPresencesInKitchen),
+	otherPresencesInKitchens: many(otherPresencesInKitchen),
+	userPermissionsInAccessControls: many(userPermissionsInAccessControl),
+	kitchenInCore: one(kitchenInCore, {
+		fields: [messHallsInCore.kitchenId],
+		references: [kitchenInCore.id]
 	}),
-	menuTemplateInSisubs: many(menuTemplateInSisub, {
-		relationName: "menuTemplateInSisub_baseTemplateId_menuTemplateInSisub_id"
+	unitsInCore_unitId: one(unitsInCore, {
+		fields: [messHallsInCore.unitId],
+		references: [unitsInCore.id],
+		relationName: "messHallsInCore_unitId_unitsInCore_id"
 	}),
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [menuTemplateInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	menuTemplateItemsInSisubs: many(menuTemplateItemsInSisub),
-	procurementListSelectionInSisubs: many(procurementListSelectionInSisub),
-	kitchenAtaDraftSelectionInSisubs: many(kitchenAtaDraftSelectionInSisub),
+	mealForecastsInKitchens: many(mealForecastsInKitchen),
 }));
 
-export const userDataInSisubRelations = relations(userDataInSisub, ({one}) => ({
-	messHallsInSisub: one(messHallsInSisub, {
-		fields: [userDataInSisub.defaultMessHallId],
-		references: [messHallsInSisub.id]
+export const mealTypeInKitchenRelations = relations(mealTypeInKitchen, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [mealTypeInKitchen.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	dailyMenuInKitchens: many(dailyMenuInKitchen),
+	menuTemplateItemsInKitchens: many(menuTemplateItemsInKitchen),
+}));
+
+export const mealPresencesInKitchenRelations = relations(mealPresencesInKitchen, ({one}) => ({
+	messHallsInCore: one(messHallsInCore, {
+		fields: [mealPresencesInKitchen.messHallId],
+		references: [messHallsInCore.id]
 	}),
 	usersInAuth: one(usersInAuth, {
-		fields: [userDataInSisub.id],
+		fields: [mealPresencesInKitchen.userId],
 		references: [usersInAuth.id]
 	}),
 }));
 
-export const opinionsInSisubRelations = relations(opinionsInSisub, ({one}) => ({
+export const otherPresencesInKitchenRelations = relations(otherPresencesInKitchen, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
-		fields: [opinionsInSisub.userId],
+		fields: [otherPresencesInKitchen.adminId],
 		references: [usersInAuth.id]
 	}),
+	messHallsInCore: one(messHallsInCore, {
+		fields: [otherPresencesInKitchen.messHallId],
+		references: [messHallsInCore.id]
+	}),
 }));
 
-export const mealPresencesInSisubRelations = relations(mealPresencesInSisub, ({one}) => ({
-	messHallsInSisub: one(messHallsInSisub, {
-		fields: [mealPresencesInSisub.messHallId],
-		references: [messHallsInSisub.id]
+export const menuTemplateItemsInKitchenRelations = relations(menuTemplateItemsInKitchen, ({one}) => ({
+	mealTypeInKitchen: one(mealTypeInKitchen, {
+		fields: [menuTemplateItemsInKitchen.mealTypeId],
+		references: [mealTypeInKitchen.id]
+	}),
+	menuTemplateInKitchen: one(menuTemplateInKitchen, {
+		fields: [menuTemplateItemsInKitchen.menuTemplateId],
+		references: [menuTemplateInKitchen.id]
+	}),
+	recipesInKitchen: one(recipesInKitchen, {
+		fields: [menuTemplateItemsInKitchen.recipeId],
+		references: [recipesInKitchen.id]
+	}),
+}));
+
+export const menuTemplateInKitchenRelations = relations(menuTemplateInKitchen, ({one, many}) => ({
+	menuTemplateItemsInKitchens: many(menuTemplateItemsInKitchen),
+	procurementListSelectionInProcurements: many(procurementListSelectionInProcurement),
+	menuTemplateInKitchen: one(menuTemplateInKitchen, {
+		fields: [menuTemplateInKitchen.baseTemplateId],
+		references: [menuTemplateInKitchen.id],
+		relationName: "menuTemplateInKitchen_baseTemplateId_menuTemplateInKitchen_id"
+	}),
+	menuTemplateInKitchens: many(menuTemplateInKitchen, {
+		relationName: "menuTemplateInKitchen_baseTemplateId_menuTemplateInKitchen_id"
+	}),
+	kitchenInCore: one(kitchenInCore, {
+		fields: [menuTemplateInKitchen.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	kitchenAtaDraftSelectionInProcurements: many(kitchenAtaDraftSelectionInProcurement),
+}));
+
+export const userPermissionsInAccessControlRelations = relations(userPermissionsInAccessControl, ({one}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [userPermissionsInAccessControl.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	messHallsInCore: one(messHallsInCore, {
+		fields: [userPermissionsInAccessControl.messHallId],
+		references: [messHallsInCore.id]
+	}),
+	unitsInCore: one(unitsInCore, {
+		fields: [userPermissionsInAccessControl.unitId],
+		references: [unitsInCore.id]
 	}),
 	usersInAuth: one(usersInAuth, {
-		fields: [mealPresencesInSisub.userId],
-		references: [usersInAuth.id]
-	}),
-}));
-
-export const otherPresencesInSisubRelations = relations(otherPresencesInSisub, ({one}) => ({
-	usersInAuth: one(usersInAuth, {
-		fields: [otherPresencesInSisub.adminId],
-		references: [usersInAuth.id]
-	}),
-	messHallsInSisub: one(messHallsInSisub, {
-		fields: [otherPresencesInSisub.messHallId],
-		references: [messHallsInSisub.id]
-	}),
-}));
-
-export const mealTypeInSisubRelations = relations(mealTypeInSisub, ({one, many}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [mealTypeInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	dailyMenuInSisubs: many(dailyMenuInSisub),
-	menuTemplateItemsInSisubs: many(menuTemplateItemsInSisub),
-}));
-
-export const menuTemplateItemsInSisubRelations = relations(menuTemplateItemsInSisub, ({one}) => ({
-	mealTypeInSisub: one(mealTypeInSisub, {
-		fields: [menuTemplateItemsInSisub.mealTypeId],
-		references: [mealTypeInSisub.id]
-	}),
-	menuTemplateInSisub: one(menuTemplateInSisub, {
-		fields: [menuTemplateItemsInSisub.menuTemplateId],
-		references: [menuTemplateInSisub.id]
-	}),
-	recipesInSisub: one(recipesInSisub, {
-		fields: [menuTemplateItemsInSisub.recipeId],
-		references: [recipesInSisub.id]
-	}),
-}));
-
-export const recipeIngredientAlternativesInSisubRelations = relations(recipeIngredientAlternativesInSisub, ({one}) => ({
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [recipeIngredientAlternativesInSisub.ingredientId],
-		references: [ingredientInSisub.id]
-	}),
-	recipeIngredientsInSisub: one(recipeIngredientsInSisub, {
-		fields: [recipeIngredientAlternativesInSisub.recipeIngredientId],
-		references: [recipeIngredientsInSisub.id]
-	}),
-}));
-
-export const userPermissionsInSisubRelations = relations(userPermissionsInSisub, ({one}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [userPermissionsInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	messHallsInSisub: one(messHallsInSisub, {
-		fields: [userPermissionsInSisub.messHallId],
-		references: [messHallsInSisub.id]
-	}),
-	unitsInSisub: one(unitsInSisub, {
-		fields: [userPermissionsInSisub.unitId],
-		references: [unitsInSisub.id]
-	}),
-	usersInAuth: one(usersInAuth, {
-		fields: [userPermissionsInSisub.userId],
+		fields: [userPermissionsInAccessControl.userId],
 		references: [usersInAuth.id]
 	}),
 }));
@@ -325,30 +229,25 @@ export const comprasMaterialGrupoInComprasGovIntegrationRelations = relations(co
 	comprasMaterialClasseInComprasGovIntegrations: many(comprasMaterialClasseInComprasGovIntegration),
 }));
 
-export const mcpApiKeysInSisubRelations = relations(mcpApiKeysInSisub, ({one}) => ({
+export const mcpApiKeysInAccessControlRelations = relations(mcpApiKeysInAccessControl, ({one}) => ({
 	usersInAuth: one(usersInAuth, {
-		fields: [mcpApiKeysInSisub.userId],
+		fields: [mcpApiKeysInAccessControl.userId],
 		references: [usersInAuth.id]
 	}),
 }));
 
-export const ingredientNutrientInSisubRelations = relations(ingredientNutrientInSisub, ({one}) => ({
-	nutrientInSisub: one(nutrientInSisub, {
-		fields: [ingredientNutrientInSisub.nutrientId],
-		references: [nutrientInSisub.id]
+export const purchaseItemInProcurementRelations = relations(purchaseItemInProcurement, ({one, many}) => ({
+	comprasMaterialItemInComprasGovIntegration: one(comprasMaterialItemInComprasGovIntegration, {
+		fields: [purchaseItemInProcurement.catmatItemCodigo],
+		references: [comprasMaterialItemInComprasGovIntegration.codigoItem]
 	}),
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [ingredientNutrientInSisub.ingredientId],
-		references: [ingredientInSisub.id]
-	}),
-}));
-
-export const nutrientInSisubRelations = relations(nutrientInSisub, ({many}) => ({
-	ingredientNutrientInSisubs: many(ingredientNutrientInSisub),
+	purchaseItemIngredientInProcurements: many(purchaseItemIngredientInProcurement),
+	procurementListItemInProcurements: many(procurementListItemInProcurement),
+	ingredientItemInKitchens: many(ingredientItemInKitchen),
 }));
 
 export const comprasMaterialItemInComprasGovIntegrationRelations = relations(comprasMaterialItemInComprasGovIntegration, ({many}) => ({
-	purchaseItemInSisubs: many(purchaseItemInSisub),
+	purchaseItemInProcurements: many(purchaseItemInProcurement),
 }));
 
 export const comprasServicoGrupoInComprasGovIntegrationRelations = relations(comprasServicoGrupoInComprasGovIntegration, ({one, many}) => ({
@@ -374,23 +273,42 @@ export const comprasServicoClasseInComprasGovIntegrationRelations = relations(co
 	}),
 }));
 
-export const purchaseItemIngredientInSisubRelations = relations(purchaseItemIngredientInSisub, ({one}) => ({
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [purchaseItemIngredientInSisub.ingredientId],
-		references: [ingredientInSisub.id]
+export const ingredientInKitchenRelations = relations(ingredientInKitchen, ({one, many}) => ({
+	ceafaInKitchen: one(ceafaInKitchen, {
+		fields: [ingredientInKitchen.ceafaId],
+		references: [ceafaInKitchen.id]
 	}),
-	purchaseItemInSisub: one(purchaseItemInSisub, {
-		fields: [purchaseItemIngredientInSisub.purchaseItemId],
-		references: [purchaseItemInSisub.id]
+	folderInKitchen: one(folderInKitchen, {
+		fields: [ingredientInKitchen.folderId],
+		references: [folderInKitchen.id]
 	}),
+	purchaseItemIngredientInProcurements: many(purchaseItemIngredientInProcurement),
+	procurementListItemInProcurements: many(procurementListItemInProcurement),
+	recipeIngredientsInKitchens: many(recipeIngredientsInKitchen),
+	recipeIngredientAlternativesInKitchens: many(recipeIngredientAlternativesInKitchen),
+	ingredientItemInKitchens: many(ingredientItemInKitchen),
+	ingredientNutrientInKitchens: many(ingredientNutrientInKitchen),
+	ingredientVersionInKitchens: many(ingredientVersionInKitchen),
+	ingredientReviewInKitchens: many(ingredientReviewInKitchen),
 }));
 
-export const ceafaInSisubRelations = relations(ceafaInSisub, ({many}) => ({
-	ingredientInSisubs: many(ingredientInSisub),
+export const ceafaInKitchenRelations = relations(ceafaInKitchen, ({many}) => ({
+	ingredientInKitchens: many(ingredientInKitchen),
 }));
 
-export const folderInSisubRelations = relations(folderInSisub, ({many}) => ({
-	ingredientInSisubs: many(ingredientInSisub),
+export const folderInKitchenRelations = relations(folderInKitchen, ({many}) => ({
+	ingredientInKitchens: many(ingredientInKitchen),
+}));
+
+export const purchaseItemIngredientInProcurementRelations = relations(purchaseItemIngredientInProcurement, ({one}) => ({
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [purchaseItemIngredientInProcurement.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+	purchaseItemInProcurement: one(purchaseItemInProcurement, {
+		fields: [purchaseItemIngredientInProcurement.purchaseItemId],
+		references: [purchaseItemInProcurement.id]
+	}),
 }));
 
 export const comprasSyncStepInComprasGovIntegrationRelations = relations(comprasSyncStepInComprasGovIntegration, ({one}) => ({
@@ -404,269 +322,228 @@ export const comprasSyncLogInComprasGovIntegrationRelations = relations(comprasS
 	comprasSyncStepInComprasGovIntegrations: many(comprasSyncStepInComprasGovIntegration),
 }));
 
-export const procurementListKitchenInSisubRelations = relations(procurementListKitchenInSisub, ({one, many}) => ({
-	procurementListInSisub: one(procurementListInSisub, {
-		fields: [procurementListKitchenInSisub.listId],
-		references: [procurementListInSisub.id]
+export const procurementListInProcurementRelations = relations(procurementListInProcurement, ({one, many}) => ({
+	unitsInCore: one(unitsInCore, {
+		fields: [procurementListInProcurement.unitId],
+		references: [unitsInCore.id]
 	}),
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [procurementListKitchenInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	procurementListSelectionInSisubs: many(procurementListSelectionInSisub),
+	procurementListItemInProcurements: many(procurementListItemInProcurement),
+	procurementListKitchenInProcurements: many(procurementListKitchenInProcurement),
+	procurementArpInProcurements: many(procurementArpInProcurement),
+	procurementPesquisaPrecoInProcurements: many(procurementPesquisaPrecoInProcurement),
 }));
 
-export const procurementListInSisubRelations = relations(procurementListInSisub, ({one, many}) => ({
-	procurementListKitchenInSisubs: many(procurementListKitchenInSisub),
-	unitsInSisub: one(unitsInSisub, {
-		fields: [procurementListInSisub.unitId],
-		references: [unitsInSisub.id]
+export const procurementListItemInProcurementRelations = relations(procurementListItemInProcurement, ({one, many}) => ({
+	procurementListInProcurement: one(procurementListInProcurement, {
+		fields: [procurementListItemInProcurement.listId],
+		references: [procurementListInProcurement.id]
 	}),
-	procurementListItemInSisubs: many(procurementListItemInSisub),
-	procurementPesquisaPrecoInSisubs: many(procurementPesquisaPrecoInSisub),
-	procurementArpInSisubs: many(procurementArpInSisub),
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [procurementListItemInProcurement.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+	purchaseItemInProcurement: one(purchaseItemInProcurement, {
+		fields: [procurementListItemInProcurement.purchaseItemId],
+		references: [purchaseItemInProcurement.id]
+	}),
+	procurementArpItemInProcurements: many(procurementArpItemInProcurement),
+	procurementPesquisaPrecoItemInProcurements: many(procurementPesquisaPrecoItemInProcurement),
 }));
 
-export const procurementListSelectionInSisubRelations = relations(procurementListSelectionInSisub, ({one}) => ({
-	procurementListKitchenInSisub: one(procurementListKitchenInSisub, {
-		fields: [procurementListSelectionInSisub.listKitchenId],
-		references: [procurementListKitchenInSisub.id]
+export const procurementListKitchenInProcurementRelations = relations(procurementListKitchenInProcurement, ({one, many}) => ({
+	procurementListInProcurement: one(procurementListInProcurement, {
+		fields: [procurementListKitchenInProcurement.listId],
+		references: [procurementListInProcurement.id]
 	}),
-	menuTemplateInSisub: one(menuTemplateInSisub, {
-		fields: [procurementListSelectionInSisub.templateId],
-		references: [menuTemplateInSisub.id]
+	kitchenInCore: one(kitchenInCore, {
+		fields: [procurementListKitchenInProcurement.kitchenId],
+		references: [kitchenInCore.id]
 	}),
+	procurementListSelectionInProcurements: many(procurementListSelectionInProcurement),
 }));
 
-export const procurementListItemInSisubRelations = relations(procurementListItemInSisub, ({one, many}) => ({
-	procurementListInSisub: one(procurementListInSisub, {
-		fields: [procurementListItemInSisub.listId],
-		references: [procurementListInSisub.id]
+export const procurementListSelectionInProcurementRelations = relations(procurementListSelectionInProcurement, ({one}) => ({
+	procurementListKitchenInProcurement: one(procurementListKitchenInProcurement, {
+		fields: [procurementListSelectionInProcurement.listKitchenId],
+		references: [procurementListKitchenInProcurement.id]
 	}),
-	ingredientInSisub: one(ingredientInSisub, {
-		fields: [procurementListItemInSisub.ingredientId],
-		references: [ingredientInSisub.id]
-	}),
-	purchaseItemInSisub: one(purchaseItemInSisub, {
-		fields: [procurementListItemInSisub.purchaseItemId],
-		references: [purchaseItemInSisub.id]
-	}),
-	procurementPesquisaPrecoItemInSisubs: many(procurementPesquisaPrecoItemInSisub),
-	procurementArpItemInSisubs: many(procurementArpItemInSisub),
-}));
-
-export const procurementPesquisaPrecoAmostraInSisubRelations = relations(procurementPesquisaPrecoAmostraInSisub, ({one}) => ({
-	comprasAmostraInSisub: one(comprasAmostraInSisub, {
-		fields: [procurementPesquisaPrecoAmostraInSisub.amostraId],
-		references: [comprasAmostraInSisub.id]
-	}),
-	procurementPesquisaPrecoItemInSisub: one(procurementPesquisaPrecoItemInSisub, {
-		fields: [procurementPesquisaPrecoAmostraInSisub.researchItemId],
-		references: [procurementPesquisaPrecoItemInSisub.id]
+	menuTemplateInKitchen: one(menuTemplateInKitchen, {
+		fields: [procurementListSelectionInProcurement.templateId],
+		references: [menuTemplateInKitchen.id]
 	}),
 }));
 
-export const comprasAmostraInSisubRelations = relations(comprasAmostraInSisub, ({many}) => ({
-	procurementPesquisaPrecoAmostraInSisubs: many(procurementPesquisaPrecoAmostraInSisub),
-}));
-
-export const procurementPesquisaPrecoItemInSisubRelations = relations(procurementPesquisaPrecoItemInSisub, ({one, many}) => ({
-	procurementPesquisaPrecoAmostraInSisubs: many(procurementPesquisaPrecoAmostraInSisub),
-	procurementListItemInSisub: one(procurementListItemInSisub, {
-		fields: [procurementPesquisaPrecoItemInSisub.ataItemId],
-		references: [procurementListItemInSisub.id]
+export const productionTaskInKitchenRelations = relations(productionTaskInKitchen, ({one}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [productionTaskInKitchen.kitchenId],
+		references: [kitchenInCore.id]
 	}),
-	procurementPesquisaPrecoInSisub: one(procurementPesquisaPrecoInSisub, {
-		fields: [procurementPesquisaPrecoItemInSisub.researchId],
-		references: [procurementPesquisaPrecoInSisub.id]
+	menuItemsInKitchen: one(menuItemsInKitchen, {
+		fields: [productionTaskInKitchen.menuItemId],
+		references: [menuItemsInKitchen.id]
 	}),
 }));
 
-export const procurementPesquisaPrecoInSisubRelations = relations(procurementPesquisaPrecoInSisub, ({one, many}) => ({
-	procurementListInSisub: one(procurementListInSisub, {
-		fields: [procurementPesquisaPrecoInSisub.ataId],
-		references: [procurementListInSisub.id]
-	}),
-	procurementPesquisaPrecoItemInSisubs: many(procurementPesquisaPrecoItemInSisub),
-}));
-
-export const kitchenAtaDraftInSisubRelations = relations(kitchenAtaDraftInSisub, ({one, many}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [kitchenAtaDraftInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	kitchenAtaDraftSelectionInSisubs: many(kitchenAtaDraftSelectionInSisub),
-}));
-
-export const kitchenAtaDraftSelectionInSisubRelations = relations(kitchenAtaDraftSelectionInSisub, ({one}) => ({
-	kitchenAtaDraftInSisub: one(kitchenAtaDraftInSisub, {
-		fields: [kitchenAtaDraftSelectionInSisub.draftId],
-		references: [kitchenAtaDraftInSisub.id]
-	}),
-	menuTemplateInSisub: one(menuTemplateInSisub, {
-		fields: [kitchenAtaDraftSelectionInSisub.templateId],
-		references: [menuTemplateInSisub.id]
-	}),
-}));
-
-export const productionTaskInSisubRelations = relations(productionTaskInSisub, ({one}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [productionTaskInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	menuItemsInSisub: one(menuItemsInSisub, {
-		fields: [productionTaskInSisub.menuItemId],
-		references: [menuItemsInSisub.id]
-	}),
-}));
-
-export const empenhoInSisubRelations = relations(empenhoInSisub, ({one}) => ({
-	procurementArpItemInSisub: one(procurementArpItemInSisub, {
-		fields: [empenhoInSisub.arpItemId],
-		references: [procurementArpItemInSisub.id]
+export const empenhoInFinanceRelations = relations(empenhoInFinance, ({one}) => ({
+	procurementArpItemInProcurement: one(procurementArpItemInProcurement, {
+		fields: [empenhoInFinance.arpItemId],
+		references: [procurementArpItemInProcurement.id]
 	}),
 	usersInAuth: one(usersInAuth, {
-		fields: [empenhoInSisub.createdBy],
+		fields: [empenhoInFinance.createdBy],
 		references: [usersInAuth.id]
 	}),
-	unitsInSisub: one(unitsInSisub, {
-		fields: [empenhoInSisub.unitId],
-		references: [unitsInSisub.id]
+	unitsInCore: one(unitsInCore, {
+		fields: [empenhoInFinance.unitId],
+		references: [unitsInCore.id]
 	}),
 }));
 
-export const procurementArpItemInSisubRelations = relations(procurementArpItemInSisub, ({one, many}) => ({
-	empenhoInSisubs: many(empenhoInSisub),
-	procurementArpInSisub: one(procurementArpInSisub, {
-		fields: [procurementArpItemInSisub.arpId],
-		references: [procurementArpInSisub.id]
+export const procurementArpItemInProcurementRelations = relations(procurementArpItemInProcurement, ({one, many}) => ({
+	empenhoInFinances: many(empenhoInFinance),
+	procurementArpInProcurement: one(procurementArpInProcurement, {
+		fields: [procurementArpItemInProcurement.arpId],
+		references: [procurementArpInProcurement.id]
 	}),
-	procurementListItemInSisub: one(procurementListItemInSisub, {
-		fields: [procurementArpItemInSisub.ataItemId],
-		references: [procurementListItemInSisub.id]
-	}),
-}));
-
-export const procurementArpInSisubRelations = relations(procurementArpInSisub, ({one, many}) => ({
-	procurementListInSisub: one(procurementListInSisub, {
-		fields: [procurementArpInSisub.ataId],
-		references: [procurementListInSisub.id]
-	}),
-	unitsInSisub: one(unitsInSisub, {
-		fields: [procurementArpInSisub.unitId],
-		references: [unitsInSisub.id]
-	}),
-	procurementArpItemInSisubs: many(procurementArpItemInSisub),
-}));
-
-export const analyticsChatMessageInSisubRelations = relations(analyticsChatMessageInSisub, ({one}) => ({
-	analyticsChatSessionInSisub: one(analyticsChatSessionInSisub, {
-		fields: [analyticsChatMessageInSisub.sessionId],
-		references: [analyticsChatSessionInSisub.id]
+	procurementListItemInProcurement: one(procurementListItemInProcurement, {
+		fields: [procurementArpItemInProcurement.ataItemId],
+		references: [procurementListItemInProcurement.id]
 	}),
 }));
 
-export const analyticsChatSessionInSisubRelations = relations(analyticsChatSessionInSisub, ({one, many}) => ({
-	analyticsChatMessageInSisubs: many(analyticsChatMessageInSisub),
+export const procurementArpInProcurementRelations = relations(procurementArpInProcurement, ({one, many}) => ({
+	procurementListInProcurement: one(procurementListInProcurement, {
+		fields: [procurementArpInProcurement.ataId],
+		references: [procurementListInProcurement.id]
+	}),
+	unitsInCore: one(unitsInCore, {
+		fields: [procurementArpInProcurement.unitId],
+		references: [unitsInCore.id]
+	}),
+	procurementArpItemInProcurements: many(procurementArpItemInProcurement),
+}));
+
+export const analyticsChatMessageInCoreRelations = relations(analyticsChatMessageInCore, ({one}) => ({
+	analyticsChatSessionInCore: one(analyticsChatSessionInCore, {
+		fields: [analyticsChatMessageInCore.sessionId],
+		references: [analyticsChatSessionInCore.id]
+	}),
+}));
+
+export const analyticsChatSessionInCoreRelations = relations(analyticsChatSessionInCore, ({one, many}) => ({
+	analyticsChatMessageInCores: many(analyticsChatMessageInCore),
 	usersInAuth: one(usersInAuth, {
-		fields: [analyticsChatSessionInSisub.userId],
+		fields: [analyticsChatSessionInCore.userId],
 		references: [usersInAuth.id]
 	}),
 }));
 
-export const moduleChatSessionInSisubRelations = relations(moduleChatSessionInSisub, ({one, many}) => ({
+export const moduleChatSessionInCoreRelations = relations(moduleChatSessionInCore, ({one, many}) => ({
 	usersInAuth: one(usersInAuth, {
-		fields: [moduleChatSessionInSisub.userId],
+		fields: [moduleChatSessionInCore.userId],
 		references: [usersInAuth.id]
 	}),
-	moduleChatMessageInSisubs: many(moduleChatMessageInSisub),
+	moduleChatMessageInCores: many(moduleChatMessageInCore),
 }));
 
-export const moduleChatMessageInSisubRelations = relations(moduleChatMessageInSisub, ({one}) => ({
-	moduleChatSessionInSisub: one(moduleChatSessionInSisub, {
-		fields: [moduleChatMessageInSisub.sessionId],
-		references: [moduleChatSessionInSisub.id]
-	}),
-}));
-
-export const stepTemplateInSisubRelations = relations(stepTemplateInSisub, ({one, many}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [stepTemplateInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	stepTemplateUtensilInSisubs: many(stepTemplateUtensilInSisub),
-	recipeStepInSisubs: many(recipeStepInSisub),
-}));
-
-export const utensilInSisubRelations = relations(utensilInSisub, ({one, many}) => ({
-	kitchenInSisub: one(kitchenInSisub, {
-		fields: [utensilInSisub.kitchenId],
-		references: [kitchenInSisub.id]
-	}),
-	stepTemplateUtensilInSisubs: many(stepTemplateUtensilInSisub),
-	recipeStepUtensilInSisubs: many(recipeStepUtensilInSisub),
-}));
-
-export const stepTemplateUtensilInSisubRelations = relations(stepTemplateUtensilInSisub, ({one}) => ({
-	stepTemplateInSisub: one(stepTemplateInSisub, {
-		fields: [stepTemplateUtensilInSisub.stepTemplateId],
-		references: [stepTemplateInSisub.id]
-	}),
-	utensilInSisub: one(utensilInSisub, {
-		fields: [stepTemplateUtensilInSisub.utensilId],
-		references: [utensilInSisub.id]
+export const moduleChatMessageInCoreRelations = relations(moduleChatMessageInCore, ({one}) => ({
+	moduleChatSessionInCore: one(moduleChatSessionInCore, {
+		fields: [moduleChatMessageInCore.sessionId],
+		references: [moduleChatSessionInCore.id]
 	}),
 }));
 
-export const recipeStepInSisubRelations = relations(recipeStepInSisub, ({one, many}) => ({
-	recipesInSisub: one(recipesInSisub, {
-		fields: [recipeStepInSisub.recipeId],
-		references: [recipesInSisub.id]
+export const stepTemplateInKitchenRelations = relations(stepTemplateInKitchen, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [stepTemplateInKitchen.kitchenId],
+		references: [kitchenInCore.id]
 	}),
-	stepTemplateInSisub: one(stepTemplateInSisub, {
-		fields: [recipeStepInSisub.stepTemplateId],
-		references: [stepTemplateInSisub.id]
-	}),
-	recipeStepOutputInSisubs: many(recipeStepOutputInSisub),
-	recipeStepInputInSisubs: many(recipeStepInputInSisub),
-	recipeStepUtensilInSisubs: many(recipeStepUtensilInSisub),
+	stepTemplateUtensilInKitchens: many(stepTemplateUtensilInKitchen),
+	recipeStepInKitchens: many(recipeStepInKitchen),
 }));
 
-export const recipeStepOutputInSisubRelations = relations(recipeStepOutputInSisub, ({one, many}) => ({
-	recipesInSisub: one(recipesInSisub, {
-		fields: [recipeStepOutputInSisub.recipeId],
-		references: [recipesInSisub.id]
+export const utensilInKitchenRelations = relations(utensilInKitchen, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [utensilInKitchen.kitchenId],
+		references: [kitchenInCore.id]
 	}),
-	recipeStepInSisub: one(recipeStepInSisub, {
-		fields: [recipeStepOutputInSisub.recipeStepId],
-		references: [recipeStepInSisub.id]
-	}),
-	recipeStepInputInSisubs: many(recipeStepInputInSisub),
+	stepTemplateUtensilInKitchens: many(stepTemplateUtensilInKitchen),
+	recipeStepUtensilInKitchens: many(recipeStepUtensilInKitchen),
 }));
 
-export const recipeStepInputInSisubRelations = relations(recipeStepInputInSisub, ({one}) => ({
-	recipeIngredientsInSisub: one(recipeIngredientsInSisub, {
-		fields: [recipeStepInputInSisub.recipeIngredientId],
-		references: [recipeIngredientsInSisub.id]
+export const stepTemplateUtensilInKitchenRelations = relations(stepTemplateUtensilInKitchen, ({one}) => ({
+	stepTemplateInKitchen: one(stepTemplateInKitchen, {
+		fields: [stepTemplateUtensilInKitchen.stepTemplateId],
+		references: [stepTemplateInKitchen.id]
 	}),
-	recipeStepInSisub: one(recipeStepInSisub, {
-		fields: [recipeStepInputInSisub.recipeStepId],
-		references: [recipeStepInSisub.id]
-	}),
-	recipeStepOutputInSisub: one(recipeStepOutputInSisub, {
-		fields: [recipeStepInputInSisub.sourceOutputId],
-		references: [recipeStepOutputInSisub.id]
+	utensilInKitchen: one(utensilInKitchen, {
+		fields: [stepTemplateUtensilInKitchen.utensilId],
+		references: [utensilInKitchen.id]
 	}),
 }));
 
-export const recipeStepUtensilInSisubRelations = relations(recipeStepUtensilInSisub, ({one}) => ({
-	recipeStepInSisub: one(recipeStepInSisub, {
-		fields: [recipeStepUtensilInSisub.recipeStepId],
-		references: [recipeStepInSisub.id]
+export const recipeStepInKitchenRelations = relations(recipeStepInKitchen, ({one, many}) => ({
+	recipesInKitchen: one(recipesInKitchen, {
+		fields: [recipeStepInKitchen.recipeId],
+		references: [recipesInKitchen.id]
 	}),
-	utensilInSisub: one(utensilInSisub, {
-		fields: [recipeStepUtensilInSisub.utensilId],
-		references: [utensilInSisub.id]
+	stepTemplateInKitchen: one(stepTemplateInKitchen, {
+		fields: [recipeStepInKitchen.stepTemplateId],
+		references: [stepTemplateInKitchen.id]
+	}),
+	recipeStepOutputInKitchens: many(recipeStepOutputInKitchen),
+	recipeStepInputInKitchens: many(recipeStepInputInKitchen),
+	recipeStepUtensilInKitchens: many(recipeStepUtensilInKitchen),
+}));
+
+export const recipeStepOutputInKitchenRelations = relations(recipeStepOutputInKitchen, ({one, many}) => ({
+	recipesInKitchen: one(recipesInKitchen, {
+		fields: [recipeStepOutputInKitchen.recipeId],
+		references: [recipesInKitchen.id]
+	}),
+	recipeStepInKitchen: one(recipeStepInKitchen, {
+		fields: [recipeStepOutputInKitchen.recipeStepId],
+		references: [recipeStepInKitchen.id]
+	}),
+	recipeStepInputInKitchens: many(recipeStepInputInKitchen),
+}));
+
+export const recipeStepInputInKitchenRelations = relations(recipeStepInputInKitchen, ({one}) => ({
+	recipeIngredientsInKitchen: one(recipeIngredientsInKitchen, {
+		fields: [recipeStepInputInKitchen.recipeIngredientId],
+		references: [recipeIngredientsInKitchen.id]
+	}),
+	recipeStepInKitchen: one(recipeStepInKitchen, {
+		fields: [recipeStepInputInKitchen.recipeStepId],
+		references: [recipeStepInKitchen.id]
+	}),
+	recipeStepOutputInKitchen: one(recipeStepOutputInKitchen, {
+		fields: [recipeStepInputInKitchen.sourceOutputId],
+		references: [recipeStepOutputInKitchen.id]
+	}),
+}));
+
+export const recipeIngredientsInKitchenRelations = relations(recipeIngredientsInKitchen, ({one, many}) => ({
+	recipeStepInputInKitchens: many(recipeStepInputInKitchen),
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [recipeIngredientsInKitchen.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+	recipesInKitchen: one(recipesInKitchen, {
+		fields: [recipeIngredientsInKitchen.recipeId],
+		references: [recipesInKitchen.id]
+	}),
+	recipeIngredientAlternativesInKitchens: many(recipeIngredientAlternativesInKitchen),
+}));
+
+export const recipeStepUtensilInKitchenRelations = relations(recipeStepUtensilInKitchen, ({one}) => ({
+	recipeStepInKitchen: one(recipeStepInKitchen, {
+		fields: [recipeStepUtensilInKitchen.recipeStepId],
+		references: [recipeStepInKitchen.id]
+	}),
+	utensilInKitchen: one(utensilInKitchen, {
+		fields: [recipeStepUtensilInKitchen.utensilId],
+		references: [utensilInKitchen.id]
 	}),
 }));
 
@@ -679,4 +556,127 @@ export const comprasMaterialPdmInComprasGovIntegrationRelations = relations(comp
 
 export const comprasServicoSecaoInComprasGovIntegrationRelations = relations(comprasServicoSecaoInComprasGovIntegration, ({many}) => ({
 	comprasServicoDivisaoInComprasGovIntegrations: many(comprasServicoDivisaoInComprasGovIntegration),
+}));
+
+export const opinionsInCoreRelations = relations(opinionsInCore, ({one}) => ({
+	usersInAuth: one(usersInAuth, {
+		fields: [opinionsInCore.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const recipeIngredientAlternativesInKitchenRelations = relations(recipeIngredientAlternativesInKitchen, ({one}) => ({
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [recipeIngredientAlternativesInKitchen.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+	recipeIngredientsInKitchen: one(recipeIngredientsInKitchen, {
+		fields: [recipeIngredientAlternativesInKitchen.recipeIngredientId],
+		references: [recipeIngredientsInKitchen.id]
+	}),
+}));
+
+export const mealForecastsInKitchenRelations = relations(mealForecastsInKitchen, ({one}) => ({
+	messHallsInCore: one(messHallsInCore, {
+		fields: [mealForecastsInKitchen.messHallId],
+		references: [messHallsInCore.id]
+	}),
+	usersInAuth: one(usersInAuth, {
+		fields: [mealForecastsInKitchen.userId],
+		references: [usersInAuth.id]
+	}),
+}));
+
+export const ingredientItemInKitchenRelations = relations(ingredientItemInKitchen, ({one}) => ({
+	purchaseItemInProcurement: one(purchaseItemInProcurement, {
+		fields: [ingredientItemInKitchen.purchaseItemId],
+		references: [purchaseItemInProcurement.id]
+	}),
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [ingredientItemInKitchen.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+}));
+
+export const ingredientNutrientInKitchenRelations = relations(ingredientNutrientInKitchen, ({one}) => ({
+	nutrientInKitchen: one(nutrientInKitchen, {
+		fields: [ingredientNutrientInKitchen.nutrientId],
+		references: [nutrientInKitchen.id]
+	}),
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [ingredientNutrientInKitchen.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+}));
+
+export const nutrientInKitchenRelations = relations(nutrientInKitchen, ({many}) => ({
+	ingredientNutrientInKitchens: many(ingredientNutrientInKitchen),
+}));
+
+export const ingredientVersionInKitchenRelations = relations(ingredientVersionInKitchen, ({one}) => ({
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [ingredientVersionInKitchen.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+}));
+
+export const ingredientReviewInKitchenRelations = relations(ingredientReviewInKitchen, ({one}) => ({
+	ingredientInKitchen: one(ingredientInKitchen, {
+		fields: [ingredientReviewInKitchen.ingredientId],
+		references: [ingredientInKitchen.id]
+	}),
+}));
+
+export const procurementPesquisaPrecoInProcurementRelations = relations(procurementPesquisaPrecoInProcurement, ({one, many}) => ({
+	procurementListInProcurement: one(procurementListInProcurement, {
+		fields: [procurementPesquisaPrecoInProcurement.ataId],
+		references: [procurementListInProcurement.id]
+	}),
+	procurementPesquisaPrecoItemInProcurements: many(procurementPesquisaPrecoItemInProcurement),
+}));
+
+export const procurementPesquisaPrecoItemInProcurementRelations = relations(procurementPesquisaPrecoItemInProcurement, ({one, many}) => ({
+	procurementListItemInProcurement: one(procurementListItemInProcurement, {
+		fields: [procurementPesquisaPrecoItemInProcurement.ataItemId],
+		references: [procurementListItemInProcurement.id]
+	}),
+	procurementPesquisaPrecoInProcurement: one(procurementPesquisaPrecoInProcurement, {
+		fields: [procurementPesquisaPrecoItemInProcurement.researchId],
+		references: [procurementPesquisaPrecoInProcurement.id]
+	}),
+	procurementPesquisaPrecoAmostraInProcurements: many(procurementPesquisaPrecoAmostraInProcurement),
+}));
+
+export const procurementPesquisaPrecoAmostraInProcurementRelations = relations(procurementPesquisaPrecoAmostraInProcurement, ({one}) => ({
+	comprasAmostraInProcurement: one(comprasAmostraInProcurement, {
+		fields: [procurementPesquisaPrecoAmostraInProcurement.amostraId],
+		references: [comprasAmostraInProcurement.id]
+	}),
+	procurementPesquisaPrecoItemInProcurement: one(procurementPesquisaPrecoItemInProcurement, {
+		fields: [procurementPesquisaPrecoAmostraInProcurement.researchItemId],
+		references: [procurementPesquisaPrecoItemInProcurement.id]
+	}),
+}));
+
+export const comprasAmostraInProcurementRelations = relations(comprasAmostraInProcurement, ({many}) => ({
+	procurementPesquisaPrecoAmostraInProcurements: many(procurementPesquisaPrecoAmostraInProcurement),
+}));
+
+export const kitchenAtaDraftInProcurementRelations = relations(kitchenAtaDraftInProcurement, ({one, many}) => ({
+	kitchenInCore: one(kitchenInCore, {
+		fields: [kitchenAtaDraftInProcurement.kitchenId],
+		references: [kitchenInCore.id]
+	}),
+	kitchenAtaDraftSelectionInProcurements: many(kitchenAtaDraftSelectionInProcurement),
+}));
+
+export const kitchenAtaDraftSelectionInProcurementRelations = relations(kitchenAtaDraftSelectionInProcurement, ({one}) => ({
+	kitchenAtaDraftInProcurement: one(kitchenAtaDraftInProcurement, {
+		fields: [kitchenAtaDraftSelectionInProcurement.draftId],
+		references: [kitchenAtaDraftInProcurement.id]
+	}),
+	menuTemplateInKitchen: one(menuTemplateInKitchen, {
+		fields: [kitchenAtaDraftSelectionInProcurement.templateId],
+		references: [menuTemplateInKitchen.id]
+	}),
 }));

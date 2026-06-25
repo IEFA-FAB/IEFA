@@ -13,7 +13,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start"
-import { getRumaerAuthClient, getSisubReadClient } from "@/lib/supabase.server"
+import { getCoreReadClient, getRumaerAuthClient } from "@/lib/supabase.server"
 
 export type MilitaryProfile = {
 	sgPosto: string | null
@@ -30,15 +30,15 @@ export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(
 	} = await auth.auth.getUser()
 	if (!user) return null
 
-	const sisub = getSisubReadClient()
+	const core = getCoreReadClient()
 
 	// auth uid -> user_data.nrOrdem
-	const { data: userData } = await sisub.from("user_data").select("nrOrdem").eq("id", user.id).maybeSingle()
+	const { data: userData } = await core.from("user_data").select("nrOrdem").eq("id", user.id).maybeSingle()
 	const nrOrdem = userData?.nrOrdem
 	if (!nrOrdem) return null
 
 	// nrOrdem -> user_military_data
-	const { data: mil } = await sisub.from("user_military_data").select("sgPosto, nmPessoa, nmGuerra").eq("nrOrdem", nrOrdem).maybeSingle()
+	const { data: mil } = await core.from("user_military_data").select("sgPosto, nmPessoa, nmGuerra").eq("nrOrdem", nrOrdem).maybeSingle()
 	if (!mil) return null
 
 	return {

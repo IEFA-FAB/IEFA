@@ -17,7 +17,8 @@ export interface ToolContext {
 	permissions: UserPermission[]
 	module: string
 	scopeId?: number
-	supabase: SupabaseClient<Database, "sisub">
+	// Schema default kitchen; tools que leem core/procurement usam `.schema()`.
+	supabase: SupabaseClient<Database, "kitchen">
 }
 
 // ── Tool definition (OpenAI function-calling format) ────────────────────────

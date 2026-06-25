@@ -11,7 +11,7 @@
  *     desfaz tudo (soft-delete dos menus existentes incluso).
  */
 
-import { dailyMenuInSisub, menuItemsInSisub, menuTemplateInSisub, menuTemplateItemsInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, menuItemsInKitchen, menuTemplateInKitchen, menuTemplateItemsInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { MealType, MenuTemplate, MenuTemplateItem, Recipe } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
@@ -49,14 +49,14 @@ type TemplateWithCounts = MenuTemplate & {
  * Aplicado em todos os níveis por `toWire`.
  */
 const TEMPLATE_RELATIONS: Record<string, string> = {
-	menuTemplateItemsInSisubs: "items",
-	mealTypeInSisub: "meal_type",
-	recipesInSisub: "recipe_origin",
+	menuTemplateItemsInKitchens: "items",
+	mealTypeInKitchen: "meal_type",
+	recipesInKitchen: "recipe_origin",
 }
 
 // Itens completos (com meal_type + recipe_origin aninhados) — para getTemplate/getTemplateItems.
 const WITH_ITEMS_FULL = {
-	menuTemplateItemsInSisubs: { with: { mealTypeInSisub: true, recipesInSisub: true } },
+	menuTemplateItemsInKitchens: { with: { mealTypeInKitchen: true, recipesInKitchen: true } },
 } as const
 
 // ── List helpers ──
@@ -75,8 +75,8 @@ function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
 }
 
 function templateScopeCondition(kitchenId: number | null | undefined) {
-	if (kitchenId != null) return or(isNull(menuTemplateInSisub.kitchenId), eq(menuTemplateInSisub.kitchenId, kitchenId))
-	return isNull(menuTemplateInSisub.kitchenId)
+	if (kitchenId != null) return or(isNull(menuTemplateInKitchen.kitchenId), eq(menuTemplateInKitchen.kitchenId, kitchenId))
+	return isNull(menuTemplateInKitchen.kitchenId)
 }
 
 export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTemplates): Promise<TemplateWithCounts[]> {
@@ -87,9 +87,9 @@ export async function listTemplates(db: SisubDb, ctx: UserContext, input: ListTe
 	}
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInSisub.findMany({
-			with: { menuTemplateItemsInSisubs: { columns: { headcountOverride: true, dayOfWeek: true } } },
-			where: and(isNull(menuTemplateInSisub.deletedAt), templateScopeCondition(input.kitchenId)),
+		db.query.menuTemplateInKitchen.findMany({
+			with: { menuTemplateItemsInKitchens: { columns: { headcountOverride: true, dayOfWeek: true } } },
+			where: and(isNull(menuTemplateInKitchen.deletedAt), templateScopeCondition(input.kitchenId)),
 			orderBy: (t) => [asc(t.name)],
 		})
 	)
@@ -104,9 +104,9 @@ export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input:
 	}
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInSisub.findMany({
-			with: { menuTemplateItemsInSisubs: { columns: { headcountOverride: true, dayOfWeek: true } } },
-			where: and(isNotNull(menuTemplateInSisub.deletedAt), templateScopeCondition(input.kitchenId)),
+		db.query.menuTemplateInKitchen.findMany({
+			with: { menuTemplateItemsInKitchens: { columns: { headcountOverride: true, dayOfWeek: true } } },
+			where: and(isNotNull(menuTemplateInKitchen.deletedAt), templateScopeCondition(input.kitchenId)),
 			orderBy: (t, { desc }) => [desc(t.deletedAt)],
 		})
 	)
@@ -115,10 +115,10 @@ export async function listDeletedTemplates(db: SisubDb, ctx: UserContext, input:
 
 export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateWithItemsFull> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInSisub.findFirst({
+		db.query.menuTemplateInKitchen.findFirst({
 			// Todas as colunas do template (contrato MenuTemplateWithItems = MenuTemplate completo).
 			with: WITH_ITEMS_FULL,
-			where: eq(menuTemplateInSisub.id, input.templateId),
+			where: eq(menuTemplateInKitchen.id, input.templateId),
 		})
 	)
 
@@ -138,10 +138,10 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 
 export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateItemFull[]> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInSisub.findFirst({
+		db.query.menuTemplateInKitchen.findFirst({
 			columns: { id: true, kitchenId: true, deletedAt: true },
 			with: WITH_ITEMS_FULL,
-			where: eq(menuTemplateInSisub.id, input.templateId),
+			where: eq(menuTemplateInKitchen.id, input.templateId),
 		})
 	)
 
@@ -154,11 +154,11 @@ export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: Get
 		requirePermission(ctx, "kitchen", 1)
 	}
 
-	const items = toWire<TemplateItemFull[]>(row.menuTemplateItemsInSisubs, TEMPLATE_RELATIONS)
+	const items = toWire<TemplateItemFull[]>(row.menuTemplateItemsInKitchens, TEMPLATE_RELATIONS)
 	return items.sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? "").localeCompare(b.meal_type_id ?? ""))
 }
 
-function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInSisub.$inferInsert)[] {
+function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInKitchen.$inferInsert)[] {
 	return items.map((item) => ({
 		menuTemplateId: templateId,
 		dayOfWeek: item.dayOfWeek,
@@ -180,7 +180,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
 			tx
-				.insert(menuTemplateInSisub)
+				.insert(menuTemplateInKitchen)
 				.values({
 					name: input.name,
 					description: input.description ?? null,
@@ -194,7 +194,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 		if (items.length > 0) {
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
-					.insert(menuTemplateItemsInSisub)
+					.insert(menuTemplateItemsInKitchen)
 					.values(buildTemplateItemRows(newTemplate.id, items))
 					.then(() => undefined)
 			)
@@ -214,7 +214,7 @@ export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: 
 
 	const [created] = await runQuery("INSERT_FAILED", () =>
 		db
-			.insert(menuTemplateInSisub)
+			.insert(menuTemplateInKitchen)
 			.values({
 				name: input.name,
 				description: input.description ?? null,
@@ -230,10 +230,10 @@ export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: 
 export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTemplate): Promise<MenuTemplate> {
 	// Fonte: template + itens juntos (uma query relacional).
 	const source = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInSisub.findFirst({
+		db.query.menuTemplateInKitchen.findFirst({
 			columns: { id: true, kitchenId: true, name: true, deletedAt: true, templateType: true },
-			with: { menuTemplateItemsInSisubs: { columns: { dayOfWeek: true, mealTypeId: true, recipeId: true } } },
-			where: eq(menuTemplateInSisub.id, input.sourceTemplateId),
+			with: { menuTemplateItemsInKitchens: { columns: { dayOfWeek: true, mealTypeId: true, recipeId: true } } },
+			where: eq(menuTemplateInKitchen.id, input.sourceTemplateId),
 		})
 	)
 
@@ -254,12 +254,12 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const sourceItems = source.menuTemplateItemsInSisubs
+	const sourceItems = source.menuTemplateItemsInKitchens
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
 			tx
-				.insert(menuTemplateInSisub)
+				.insert(menuTemplateInKitchen)
 				.values({
 					name: input.newName ?? source.name,
 					description: input.description ?? null,
@@ -280,7 +280,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 			}))
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
-					.insert(menuTemplateItemsInSisub)
+					.insert(menuTemplateItemsInKitchen)
 					.values(forkedItems)
 					.then(() => undefined)
 			)
@@ -300,14 +300,14 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 		requirePermission(ctx, "kitchen", 2)
 	}
 
-	const updates: Partial<typeof menuTemplateInSisub.$inferInsert> = {}
+	const updates: Partial<typeof menuTemplateInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
 	if (input.description != null) updates.description = input.description
 	if (input.templateType != null) updates.templateType = input.templateType
 
 	const result = await db.transaction(async (tx) => {
 		const [updated] = await runQuery("UPDATE_FAILED", () =>
-			tx.update(menuTemplateInSisub).set(updates).where(eq(menuTemplateInSisub.id, input.templateId)).returning()
+			tx.update(menuTemplateInKitchen).set(updates).where(eq(menuTemplateInKitchen.id, input.templateId)).returning()
 		)
 		if (!updated) throw new DomainError("UPDATE_FAILED", "no row returned")
 
@@ -316,14 +316,14 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 		if (newItems !== undefined) {
 			await runQuery("DELETE_ITEMS_FAILED", () =>
 				tx
-					.delete(menuTemplateItemsInSisub)
-					.where(eq(menuTemplateItemsInSisub.menuTemplateId, input.templateId))
+					.delete(menuTemplateItemsInKitchen)
+					.where(eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId))
 					.then(() => undefined)
 			)
 			if (newItems.length > 0) {
 				await runQuery("INSERT_ITEMS_FAILED", () =>
 					tx
-						.insert(menuTemplateItemsInSisub)
+						.insert(menuTemplateItemsInKitchen)
 						.values(buildTemplateItemRows(input.templateId, newItems))
 						.then(() => undefined)
 				)
@@ -346,18 +346,18 @@ export async function deleteTemplate(db: SisubDb, ctx: UserContext, input: Delet
 
 	await runQuery("DELETE_FAILED", () =>
 		db
-			.update(menuTemplateInSisub)
+			.update(menuTemplateInKitchen)
 			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(menuTemplateInSisub.id, input.templateId))
+			.where(eq(menuTemplateInKitchen.id, input.templateId))
 			.then(() => undefined)
 	)
 }
 
 export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: RestoreTemplate): Promise<void> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateInSisub.findFirst({
+		db.query.menuTemplateInKitchen.findFirst({
 			columns: { id: true, kitchenId: true, deletedAt: true },
-			where: eq(menuTemplateInSisub.id, input.templateId),
+			where: eq(menuTemplateInKitchen.id, input.templateId),
 		})
 	)
 
@@ -372,9 +372,9 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 
 	await runQuery("RESTORE_FAILED", () =>
 		db
-			.update(menuTemplateInSisub)
+			.update(menuTemplateInKitchen)
 			.set({ deletedAt: null })
-			.where(eq(menuTemplateInSisub.id, input.templateId))
+			.where(eq(menuTemplateInKitchen.id, input.templateId))
 			.then(() => undefined)
 	)
 }
@@ -393,9 +393,9 @@ export async function applyTemplate(
 	// precisa do mesmo shape que addMenuItem grava (snake_case aninhado com `ingredients`),
 	// senão o diner vê listas de ingredientes vazias e chaves camelCase.
 	const templateItems = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateItemsInSisub.findMany({
-			with: { recipesInSisub: { with: { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } } } },
-			where: eq(menuTemplateItemsInSisub.menuTemplateId, input.templateId),
+		db.query.menuTemplateItemsInKitchen.findMany({
+			with: { recipesInKitchen: { with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } } },
+			where: eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId),
 		})
 	)
 
@@ -408,8 +408,8 @@ export async function applyTemplate(
 	}
 
 	// Constrói menus + itens novos.
-	const newMenus: (typeof dailyMenuInSisub.$inferInsert)[] = []
-	const newMenuItems: (typeof menuItemsInSisub.$inferInsert)[] = []
+	const newMenus: (typeof dailyMenuInKitchen.$inferInsert)[] = []
+	const newMenuItems: (typeof menuItemsInKitchen.$inferInsert)[] = []
 
 	for (const dateStr of targetDates) {
 		const jsDay = new Date(dateStr).getDay()
@@ -429,8 +429,8 @@ export async function applyTemplate(
 			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED" })
 			for (const item of items) {
 				// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
-				const recipeSnapshot = item.recipesInSisub
-					? toWire<Record<string, unknown>>(item.recipesInSisub, { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" })
+				const recipeSnapshot = item.recipesInKitchen
+					? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 					: {}
 				newMenuItems.push({ dailyMenuId: menuId, recipeOriginId: item.recipeId ?? "", recipe: recipeSnapshot })
 			}
@@ -442,16 +442,16 @@ export async function applyTemplate(
 	await db.transaction(async (tx) => {
 		await runQuery("DELETE_FAILED", () =>
 			tx
-				.update(dailyMenuInSisub)
+				.update(dailyMenuInKitchen)
 				.set({ deletedAt: new Date().toISOString() })
-				.where(and(inArray(dailyMenuInSisub.serviceDate, targetDates), eq(dailyMenuInSisub.kitchenId, input.kitchenId)))
+				.where(and(inArray(dailyMenuInKitchen.serviceDate, targetDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
 				.then(() => undefined)
 		)
 
 		if (newMenus.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
 				tx
-					.insert(dailyMenuInSisub)
+					.insert(dailyMenuInKitchen)
 					.values(newMenus)
 					.then(() => undefined)
 			)
@@ -460,7 +460,7 @@ export async function applyTemplate(
 		if (newMenuItems.length > 0) {
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
-					.insert(menuItemsInSisub)
+					.insert(menuItemsInKitchen)
 					.values(newMenuItems)
 					.then(() => undefined)
 			)

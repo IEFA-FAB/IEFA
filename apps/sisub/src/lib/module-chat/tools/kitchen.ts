@@ -26,7 +26,7 @@ const listKitchens: ModuleToolDefinition = {
 	requiredLevel: 1,
 	async handler(_args, ctx) {
 		requireKitchenPermission(ctx, 1)
-		const { data, error } = await ctx.supabase.from("kitchen").select(`*, unit:units!kitchen_unit_id_fkey(id, name)`).order("id")
+		const { data, error } = await ctx.supabase.schema("core").from("kitchen").select(`*, unit:units!kitchen_unit_id_fkey(id, name)`).order("id")
 		if (error) return toolErr(sanitizeDbError(error, "list_kitchens"))
 		return toolOk(data ?? [])
 	},

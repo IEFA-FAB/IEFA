@@ -128,6 +128,7 @@ function defineDocRoute<TSchema extends z.ZodType>(config: {
 // /api/opinion -> opinions
 const [, opinionHandler] = createApiHandler({
 	table: "opinions",
+	schema: "core",
 	select: 'id, created_at, value, question, "userId"',
 	dateColumn: "created_at",
 	dateColumnType: "timestamp",
@@ -169,6 +170,7 @@ const opinionRoute = defineDocRoute({
 // /api/rancho_previsoes -> meal_forecasts
 const [, forecastHandler] = createApiHandler({
 	table: "meal_forecasts",
+	schema: "kitchen",
 	select: "user_id, date, meal, will_eat, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
 	dateColumnType: "date",
@@ -225,6 +227,7 @@ const forecastRoute = defineDocRoute({
 // /api/wherewhowhen -> meal_presences
 const [, presenceHandler] = createApiHandler({
 	table: "meal_presences",
+	schema: "kitchen",
 	select: "user_id, date, meal, mess_hall_id, created_at, updated_at",
 	dateColumn: "date",
 	dateColumnType: "date",
@@ -274,6 +277,7 @@ const presenceRoute = defineDocRoute({
 // /api/user-military-data -> user_military_data
 const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
+	schema: "core",
 	select: '"nrOrdem", "nrCpf", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"',
 	dateColumn: "dataAtualizacao",
 	dateColumnType: "timestamp",
@@ -360,6 +364,7 @@ const militaryDataRoute = defineDocRoute({
 // /api/user-data -> user_data
 const [, userDataHandler] = createApiHandler({
 	table: "user_data",
+	schema: "core",
 	select: 'id, created_at, email, "nrOrdem"',
 	dateColumn: "created_at",
 	dateColumnType: "timestamp",
@@ -417,6 +422,7 @@ const userDataRoute = defineDocRoute({
 // /api/units -> sisub.units
 const [, unitsHandler] = createApiHandler({
 	table: "units",
+	schema: "core",
 	select: "id, code, display_name",
 	defaultOrder: [
 		{ column: "code", ascending: true },
@@ -472,6 +478,7 @@ const unitsRoute = defineDocRoute({
 // /api/mess-halls -> sisub.mess_halls
 const [, messHallsHandler] = createApiHandler({
 	table: "mess_halls",
+	schema: "core",
 	select: "id, unit_id, code, display_name",
 	defaultOrder: [
 		{ column: "unit_id", ascending: true },
