@@ -68,6 +68,7 @@ const getAtaDetails: ModuleToolDefinition = {
 		const ataId = requireUuid(args.ataId, "ataId")
 
 		const { data: ata, error } = await ctx.supabase
+			.schema("procurement")
 			.from("procurement_list")
 			.select(`*, kitchens:procurement_list_kitchen(*, selections:procurement_list_selection(*)), items:procurement_list_item(*)`)
 			.eq("id", ataId)
@@ -127,6 +128,7 @@ const getUnitDashboard: ModuleToolDefinition = {
 
 		// All ATAs for listing
 		const { data: atas } = await ctx.supabase
+			.schema("procurement")
 			.from("procurement_list")
 			.select("id, name, status, created_at")
 			.eq("unit_id", unitId)

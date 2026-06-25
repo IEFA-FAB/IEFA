@@ -8,7 +8,7 @@ import type { AmostraPreco, AtaItemPriceResult, PriceAnalysis } from "../../work
 
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
-		db: { schema: "sisub" },
+		db: { schema: "procurement" },
 		auth: { persistSession: false },
 	})
 }
@@ -314,12 +314,12 @@ export const priceResearchRoutes = new Hono()
 
 		const supabase = getSupabase()
 
-		const { data: ata, error: ataError } = await supabase.from("procurement_ata").select("id").eq("id", ataId).is("deleted_at", null).single()
+		const { data: ata, error: ataError } = await supabase.from("procurement_list").select("id").eq("id", ataId).is("deleted_at", null).single()
 
 		if (ataError || !ata) return c.json({ error: "ATA não encontrada" }, 404)
 
 		const { data: ataItems, error: itemsError } = await supabase
-			.from("procurement_ata_item")
+			.from("procurement_list_item")
 			.select("id, ingredient_id, ingredient_name, catmat_item_codigo, catmat_item_descricao")
 			.eq("ata_id", ataId)
 

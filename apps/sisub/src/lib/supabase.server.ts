@@ -33,8 +33,9 @@ export function getServerClient<S extends DbSchema>(schema: S): SupabaseClient<D
 	}) as unknown as SupabaseClient<Database, S>
 }
 
-/** Helpers por domínio (preencher conforme cada schema recebe tabelas). */
+/** Helpers por domínio. */
 export const getCoreClient = () => getServerClient("core")
+export const getAccessControlClient = () => getServerClient("access_control")
 export const getKitchenClient = () => getServerClient("kitchen")
 export const getProcurementClient = () => getServerClient("procurement")
 export const getFinanceClient = () => getServerClient("finance")

@@ -14,7 +14,7 @@
  * (coluna camelCase no DB) — camel→snake corromperia a chave do contrato.
  */
 
-import { type SisubDb, userDataInSisub, userPermissionsInSisub } from "@iefa/database/drizzle/sisub"
+import { type SisubDb, userDataInCore, userPermissionsInAccessControl } from "@iefa/database/drizzle/sisub"
 import { asc, eq, ilike } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { CreateUserPermission, FetchUserPermissions, SearchUsersByEmail, UpdateUserPermission } from "../schemas/permissions.ts"
@@ -37,14 +37,14 @@ export async function listEffectiveUserPermissions(db: SisubDb, input: FetchUser
 	const permissions = await runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				module: userPermissionsInSisub.module,
-				level: userPermissionsInSisub.level,
-				mess_hall_id: userPermissionsInSisub.messHallId,
-				kitchen_id: userPermissionsInSisub.kitchenId,
-				unit_id: userPermissionsInSisub.unitId,
+				module: userPermissionsInAccessControl.module,
+				level: userPermissionsInAccessControl.level,
+				mess_hall_id: userPermissionsInAccessControl.messHallId,
+				kitchen_id: userPermissionsInAccessControl.kitchenId,
+				unit_id: userPermissionsInAccessControl.unitId,
 			})
-			.from(userPermissionsInSisub)
-			.where(eq(userPermissionsInSisub.userId, input.userId))
+			.from(userPermissionsInAccessControl)
+			.where(eq(userPermissionsInAccessControl.userId, input.userId))
 	)
 
 	// Implicit Allow: every valid user is a diner (module "diner") unless there
@@ -66,10 +66,10 @@ export async function searchUsersByEmail(db: SisubDb, ctx: UserContext, input: S
 	const term = input.email.replace(/[\\%_]/g, "\\$&")
 	return runQuery("FETCH_FAILED", () =>
 		db
-			.select({ id: userDataInSisub.id, email: userDataInSisub.email, nrOrdem: userDataInSisub.nrOrdem })
-			.from(userDataInSisub)
-			.where(ilike(userDataInSisub.email, `%${term}%`))
-			.orderBy(asc(userDataInSisub.email))
+			.select({ id: userDataInCore.id, email: userDataInCore.email, nrOrdem: userDataInCore.nrOrdem })
+			.from(userDataInCore)
+			.where(ilike(userDataInCore.email, `%${term}%`))
+			.orderBy(asc(userDataInCore.email))
 			.limit(10)
 	)
 }
@@ -79,23 +79,23 @@ export async function fetchUserPermissionsAdmin(db: SisubDb, ctx: UserContext, i
 	return runQuery("FETCH_FAILED", () =>
 		db
 			.select({
-				id: userPermissionsInSisub.id,
-				module: userPermissionsInSisub.module,
-				level: userPermissionsInSisub.level,
-				mess_hall_id: userPermissionsInSisub.messHallId,
-				kitchen_id: userPermissionsInSisub.kitchenId,
-				unit_id: userPermissionsInSisub.unitId,
+				id: userPermissionsInAccessControl.id,
+				module: userPermissionsInAccessControl.module,
+				level: userPermissionsInAccessControl.level,
+				mess_hall_id: userPermissionsInAccessControl.messHallId,
+				kitchen_id: userPermissionsInAccessControl.kitchenId,
+				unit_id: userPermissionsInAccessControl.unitId,
 			})
-			.from(userPermissionsInSisub)
-			.where(eq(userPermissionsInSisub.userId, input.userId))
-			.orderBy(asc(userPermissionsInSisub.module))
+			.from(userPermissionsInAccessControl)
+			.where(eq(userPermissionsInAccessControl.userId, input.userId))
+			.orderBy(asc(userPermissionsInAccessControl.module))
 	)
 }
 
 export async function createUserPermission(db: SisubDb, ctx: UserContext, input: CreateUserPermission) {
 	requirePermission(ctx, "global", 2)
 	await runQuery("INSERT_FAILED", () =>
-		db.insert(userPermissionsInSisub).values({
+		db.insert(userPermissionsInAccessControl).values({
 			userId: input.userId,
 			module: input.module,
 			level: input.level,
@@ -111,15 +111,15 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 	requirePermission(ctx, "global", 2)
 	await mutateOrFail("UPDATE_FAILED", `permission ${input.permissionId} not found`, () =>
 		db
-			.update(userPermissionsInSisub)
+			.update(userPermissionsInAccessControl)
 			.set({
 				level: input.level,
 				messHallId: input.mess_hall_id ?? null,
 				kitchenId: input.kitchen_id ?? null,
 				unitId: input.unit_id ?? null,
 			})
-			.where(eq(userPermissionsInSisub.id, input.permissionId))
-			.returning({ id: userPermissionsInSisub.id })
+			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
+			.returning({ id: userPermissionsInAccessControl.id })
 	)
 	return { success: true as const }
 }
@@ -127,7 +127,10 @@ export async function updateUserPermission(db: SisubDb, ctx: UserContext, input:
 export async function deleteUserPermission(db: SisubDb, ctx: UserContext, input: { permissionId: string }) {
 	requirePermission(ctx, "global", 2)
 	await mutateOrFail("DELETE_FAILED", `permission ${input.permissionId} not found`, () =>
-		db.delete(userPermissionsInSisub).where(eq(userPermissionsInSisub.id, input.permissionId)).returning({ id: userPermissionsInSisub.id })
+		db
+			.delete(userPermissionsInAccessControl)
+			.where(eq(userPermissionsInAccessControl.id, input.permissionId))
+			.returning({ id: userPermissionsInAccessControl.id })
 	)
 	return { success: true as const }
 }

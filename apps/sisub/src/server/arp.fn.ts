@@ -1,7 +1,7 @@
 /**
  * @module arp.fn
  * Integration with Compras.gov.br ARP (Ata de Registro de Preços) API + local empenho management.
- * CLIENT: getSupabaseServerClient (service role). External: dadosabertos.compras.gov.br (30 s timeout, 3 retries, exponential backoff).
+ * CLIENT: getProcurementClient (service role). External: dadosabertos.compras.gov.br (30 s timeout, 3 retries, exponential backoff).
  * TABLES: procurement_arp, procurement_arp_item, empenho.
  * @domain external
  * @migration n-a
@@ -11,7 +11,7 @@ import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getProcurementClient } from "@/lib/supabase.server"
 import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<ArpWithItems> => {
 		await requireAuth()
-		const supabase = getSupabaseServerClient()
+		const supabase = getProcurementClient()
 		const { ataId, unitId, arpData } = data
 
 		// ── 1. Buscar itens da ARP na API do Compras.gov.br ──────────────────────
@@ -209,7 +209,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 	.validator(z.object({ arpId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
-		const supabase = getSupabaseServerClient()
+		const supabase = getProcurementClient()
 
 		const { data: arp, error: arpError } = await supabase.from("procurement_arp").select("numero_ata, ano_ata, uasg_gerenciadora").eq("id", data.arpId).single()
 
@@ -266,7 +266,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 	.validator(z.object({ ataId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
-		const supabase = getSupabaseServerClient()
+		const supabase = getProcurementClient()
 
 		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("ata_id", data.ataId).maybeSingle()
 
@@ -287,7 +287,8 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpItemId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<Empenho[]> => {
-		const { data: empenhos, error } = await getSupabaseServerClient()
+		const { data: empenhos, error } = await getProcurementClient()
+			.schema("finance")
 			.from("empenho")
 			.select("*")
 			.eq("arp_item_id", data.arpItemId)
@@ -321,10 +322,11 @@ export const createEmpenhoFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<Empenho> => {
 		await requireAuth()
-		const supabase = getSupabaseServerClient()
+		const supabase = getProcurementClient()
 		const valorTotal = Number((data.quantidadeEmpenhada * data.valorUnitario).toFixed(4))
 
 		const { data: empenho, error } = await supabase
+			.schema("finance")
 			.from("empenho")
 			.insert({
 				unit_id: data.unitId,
@@ -362,7 +364,7 @@ export const anularEmpenhoFn = createServerFn({ method: "POST" })
 	.validator(z.object({ empenhoId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		await requireAuth()
-		const { error } = await getSupabaseServerClient().from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
+		const { error } = await getProcurementClient().schema("finance").from("empenho").update({ status: "anulado" }).eq("id", data.empenhoId)
 
 		if (error) throw new Error(`Erro ao anular empenho: ${error.message}`)
 	})

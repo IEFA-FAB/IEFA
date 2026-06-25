@@ -5,7 +5,7 @@
  * `IngredientLastReview` projeta a view sisub.ingredient_last_review (DISTINCT ON por insumo).
  */
 
-import { ingredientLastReviewInSisub, ingredientReviewInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { ingredientLastReviewInKitchen, ingredientReviewInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import { eq } from "drizzle-orm"
 import { requireAnyPermission } from "../guards/require-permission.ts"
 import type { ListIngredientLastReviews, RecordIngredientReview, VersionActor } from "../schemas/ingredients.ts"
@@ -38,7 +38,7 @@ export async function recordIngredientReview(db: SisubDb, ctx: UserContext, inpu
 
 	const row = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(ingredientReviewInSisub)
+			.insert(ingredientReviewInKitchen)
 			.values({
 				ingredientId: input.ingredientId,
 				reviewedBy: actor?.id ?? ctx.userId ?? null,
@@ -65,16 +65,16 @@ export async function recordIngredientReview(db: SisubDb, ctx: UserContext, inpu
 export async function listIngredientLastReviews(db: SisubDb, ctx: UserContext, input: ListIngredientLastReviews): Promise<IngredientLastReview[]> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 
-	const where = input.ingredientId ? eq(ingredientLastReviewInSisub.ingredientId, input.ingredientId) : undefined
+	const where = input.ingredientId ? eq(ingredientLastReviewInKitchen.ingredientId, input.ingredientId) : undefined
 	const rows = await runQuery("QUERY_FAILED", () =>
 		db
 			.select({
-				ingredient_id: ingredientLastReviewInSisub.ingredientId,
-				reviewed_at: ingredientLastReviewInSisub.reviewedAt,
-				reviewed_by: ingredientLastReviewInSisub.reviewedBy,
-				reviewed_by_name: ingredientLastReviewInSisub.reviewedByName,
+				ingredient_id: ingredientLastReviewInKitchen.ingredientId,
+				reviewed_at: ingredientLastReviewInKitchen.reviewedAt,
+				reviewed_by: ingredientLastReviewInKitchen.reviewedBy,
+				reviewed_by_name: ingredientLastReviewInKitchen.reviewedByName,
 			})
-			.from(ingredientLastReviewInSisub)
+			.from(ingredientLastReviewInKitchen)
 			.where(where)
 	)
 	// A view garante ingredient_id/reviewed_at não-nulos (DISTINCT ON sobre linhas reais).

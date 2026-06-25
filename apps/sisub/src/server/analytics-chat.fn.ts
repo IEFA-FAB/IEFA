@@ -1,7 +1,7 @@
 /**
  * @module analytics-chat.fn
  * LLM analytics chat session and message management with per-user ownership enforcement.
- * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getSupabaseServerClient (service role, DB reads/writes).
+ * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getCoreClient (service role, DB reads/writes).
  * TABLES: analytics_chat_session, analytics_chat_message.
  * Auth: all functions call requireUserId() — throws "Não autenticado" if JWT is invalid or missing.
  * @domain app
@@ -12,7 +12,7 @@ import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getCoreClient } from "@/lib/supabase.server"
 import { CHART_TYPES } from "@/types/domain/analytics-chat"
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ import { CHART_TYPES } from "@/types/domain/analytics-chat"
  */
 export const listChatSessionsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const userId = await requireUserId()
-	const supabase = getSupabaseServerClient()
+	const supabase = getCoreClient()
 
 	const { data, error } = await supabase
 		.from("analytics_chat_session")
@@ -49,7 +49,7 @@ export const createChatSessionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { data: row, error } = await supabase
 			.from("analytics_chat_session")
@@ -74,7 +74,7 @@ export const renameChatSessionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { error } = await supabase.from("analytics_chat_session").update({ title: data.title }).eq("id", data.sessionId).eq("user_id", userId)
 
@@ -90,7 +90,7 @@ export const deleteChatSessionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { error } = await supabase.from("analytics_chat_session").delete().eq("id", data.sessionId).eq("user_id", userId)
 
@@ -124,7 +124,7 @@ export const getChatMessagesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		// Single round-trip: ownership check (session.user_id) + messages via nested select.
 		// PostgREST resolves the FK relationship server-side; we cast the nested array
@@ -200,7 +200,7 @@ export const saveChatMessageFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		// Verify session ownership — single client reused for the insert below
 		const { data: session, error: sessionError } = await supabase
@@ -253,7 +253,7 @@ export const updateMessageChartTypeFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		// Verify the message belongs to a session owned by this user (FK: message → session)
 		const { data: msg, error: lookupError } = await supabase

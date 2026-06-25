@@ -18,8 +18,9 @@ async function canReachSupabase() {
 		const fetchWithTimeout = ((input: string | URL | Request, init?: RequestInit) =>
 			fetch(input, { ...init, signal: AbortSignal.timeout(3000) })) as typeof fetch
 
+		// opinions migrou de sisub para core no split de schemas por domínio.
 		const supabase = createClient(supabaseUrl, serviceRoleKey, {
-			db: { schema: "sisub" },
+			db: { schema: "core" },
 			auth: { persistSession: false },
 			global: { fetch: fetchWithTimeout },
 		})

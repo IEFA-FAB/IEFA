@@ -1,7 +1,7 @@
 /**
  * @module policy.fn
  * Policy rule CRUD and AI review prompt generation for product and recipe quality control.
- * CLIENT: getSupabaseServerClient (service role) — all functions.
+ * CLIENT: getProcurementClient (service role) — all functions.
  * TABLE: policy_rule (soft-delete via deleted_at). Targets: "product" | "recipe".
  * @domain app
  * @migration n-a
@@ -10,7 +10,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuth } from "@/lib/auth.server"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getProcurementClient } from "@/lib/supabase.server"
 import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 
 // ============================================================================
@@ -25,7 +25,7 @@ import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<PolicyRule[]> => {
-		const { data: result, error } = await getSupabaseServerClient()
+		const { data: result, error } = await getProcurementClient()
 			.from("policy_rule")
 			.select("*")
 			.eq("target", data.target)
@@ -56,7 +56,7 @@ export const createPolicyRuleFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<PolicyRule> => {
 		await requireAuth()
-		const { data: result, error } = await getSupabaseServerClient()
+		const { data: result, error } = await getProcurementClient()
 			.from("policy_rule")
 			.insert({
 				target: data.target,
@@ -101,7 +101,7 @@ export const updatePolicyRuleFn = createServerFn({ method: "POST" })
 			...(fields.active !== undefined && { active: fields.active }),
 		}
 
-		const { data: result, error } = await getSupabaseServerClient().from("policy_rule").update(payload).eq("id", id).is("deleted_at", null).select("*").single()
+		const { data: result, error } = await getProcurementClient().from("policy_rule").update(payload).eq("id", id).is("deleted_at", null).select("*").single()
 
 		if (error) throw new Error(error.message)
 		return result as PolicyRule
@@ -116,11 +116,7 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<void> => {
 		await requireAuth()
-		const { error } = await getSupabaseServerClient()
-			.from("policy_rule")
-			.update({ deleted_at: new Date().toISOString() })
-			.eq("id", data.id)
-			.is("deleted_at", null)
+		const { error } = await getProcurementClient().from("policy_rule").update({ deleted_at: new Date().toISOString() }).eq("id", data.id).is("deleted_at", null)
 
 		if (error) throw new Error(error.message)
 	})
@@ -144,7 +140,7 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 export const generateReviewPromptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<string> => {
-		const supabase = getSupabaseServerClient()
+		const supabase = getProcurementClient()
 		const target: PolicyTarget = data.target
 
 		// Busca apenas as regras ativas — os itens serão buscados pelo Claude via MCP

@@ -7,14 +7,14 @@
  * completed_at) -> PENDING (clears both timestamps).
  */
 
-import { dailyMenuInSisub, menuItemsInSisub, productionTaskInSisub, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, eq, isNull } from "drizzle-orm"
 import type { EnsureProductionTasks, FetchProductionBoard, UpdateProductionTaskStatus } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
 import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 
-const RECIPE_RELATIONS: Record<string, string> = { recipeIngredientsInSisubs: "ingredients", ingredientInSisub: "ingredient" }
+const RECIPE_RELATIONS: Record<string, string> = { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" }
 
 type ProductionTask = Tables<"production_task">
 type BoardItem = {
@@ -35,25 +35,25 @@ type BoardItem = {
  */
 export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input: FetchProductionBoard): Promise<BoardItem[]> {
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
-		db.query.dailyMenuInSisub.findMany({
+		db.query.dailyMenuInKitchen.findMany({
 			columns: { id: true, mealTypeId: true, forecastedHeadcount: true },
 			with: {
-				mealTypeInSisub: { columns: { id: true, name: true, sortOrder: true } },
-				menuItemsInSisubs: {
+				mealTypeInKitchen: { columns: { id: true, name: true, sortOrder: true } },
+				menuItemsInKitchens: {
 					// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
-					where: isNull(menuItemsInSisub.deletedAt),
+					where: isNull(menuItemsInKitchen.deletedAt),
 					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true },
 					with: {
-						recipesInSisub: {
+						recipesInKitchen: {
 							columns: { id: true, name: true, portionYield: true, preparationMethod: true, preparationTimeMinutes: true, kitchenId: true },
 							with: {
-								recipeIngredientsInSisubs: {
+								recipeIngredientsInKitchens: {
 									columns: { id: true, netQuantity: true, priorityOrder: true, isOptional: true },
-									with: { ingredientInSisub: { columns: { id: true, description: true, measureUnit: true } } },
+									with: { ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true } } },
 								},
 							},
 						},
-						productionTaskInSisubs: {
+						productionTaskInKitchens: {
 							columns: {
 								id: true,
 								status: true,
@@ -70,21 +70,21 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
 					},
 				},
 			},
-			where: and(eq(dailyMenuInSisub.kitchenId, input.kitchenId), eq(dailyMenuInSisub.serviceDate, input.date), isNull(dailyMenuInSisub.deletedAt)),
+			where: and(eq(dailyMenuInKitchen.kitchenId, input.kitchenId), eq(dailyMenuInKitchen.serviceDate, input.date), isNull(dailyMenuInKitchen.deletedAt)),
 		})
 	)
 
 	const items: BoardItem[] = []
 	for (const menu of dailyMenus) {
-		const mealType = menu.mealTypeInSisub ? toWire<Record<string, unknown>>(menu.mealTypeInSisub) : null
+		const mealType = menu.mealTypeInKitchen ? toWire<Record<string, unknown>>(menu.mealTypeInKitchen) : null
 
-		for (const menuItem of menu.menuItemsInSisubs ?? []) {
+		for (const menuItem of menu.menuItemsInKitchens ?? []) {
 			// Soft-deleted já filtrados no SQL (where acima).
 			// Skip items without a task yet — created later by ensureProductionTasks.
-			const taskRaw = menuItem.productionTaskInSisubs[0]
+			const taskRaw = menuItem.productionTaskInKitchens[0]
 			if (!taskRaw) continue
 
-			const recipeOrigin = menuItem.recipesInSisub ? toWire<Record<string, unknown>>(menuItem.recipesInSisub, RECIPE_RELATIONS) : null
+			const recipeOrigin = menuItem.recipesInKitchen ? toWire<Record<string, unknown>>(menuItem.recipesInKitchen, RECIPE_RELATIONS) : null
 
 			items.push({
 				task: toWire<ProductionTask>(taskRaw),
@@ -110,14 +110,14 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
  */
 export async function ensureProductionTasks(db: SisubDb, _ctx: UserContext, input: EnsureProductionTasks): Promise<{ created: number }> {
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
-		db.query.dailyMenuInSisub.findMany({
+		db.query.dailyMenuInKitchen.findMany({
 			columns: { id: true },
-			with: { menuItemsInSisubs: { where: isNull(menuItemsInSisub.deletedAt), columns: { id: true } } },
-			where: and(eq(dailyMenuInSisub.kitchenId, input.kitchenId), eq(dailyMenuInSisub.serviceDate, input.date), isNull(dailyMenuInSisub.deletedAt)),
+			with: { menuItemsInKitchens: { where: isNull(menuItemsInKitchen.deletedAt), columns: { id: true } } },
+			where: and(eq(dailyMenuInKitchen.kitchenId, input.kitchenId), eq(dailyMenuInKitchen.serviceDate, input.date), isNull(dailyMenuInKitchen.deletedAt)),
 		})
 	)
 
-	const menuItemIds = dailyMenus.flatMap((menu) => (menu.menuItemsInSisubs ?? []).map((item) => item.id))
+	const menuItemIds = dailyMenus.flatMap((menu) => (menu.menuItemsInKitchens ?? []).map((item) => item.id))
 	if (menuItemIds.length === 0) return { created: 0 }
 
 	const tasksToInsert = menuItemIds.map((menuItemId) => ({
@@ -129,10 +129,10 @@ export async function ensureProductionTasks(db: SisubDb, _ctx: UserContext, inpu
 
 	const inserted = await runQuery("INSERT_FAILED", () =>
 		db
-			.insert(productionTaskInSisub)
+			.insert(productionTaskInKitchen)
 			.values(tasksToInsert)
-			.onConflictDoNothing({ target: productionTaskInSisub.menuItemId })
-			.returning({ id: productionTaskInSisub.id })
+			.onConflictDoNothing({ target: productionTaskInKitchen.menuItemId })
+			.returning({ id: productionTaskInKitchen.id })
 	)
 
 	return { created: inserted.length }
@@ -154,7 +154,7 @@ export async function updateProductionTaskStatus(db: SisubDb, _ctx: UserContext,
 	}
 
 	const row = await insertOneOrFail("UPDATE_FAILED", `production_task ${input.taskId} not found`, () =>
-		db.update(productionTaskInSisub).set(updates).where(eq(productionTaskInSisub.id, input.taskId)).returning()
+		db.update(productionTaskInKitchen).set(updates).where(eq(productionTaskInKitchen.id, input.taskId)).returning()
 	)
 	return toWire<ProductionTask>(row)
 }

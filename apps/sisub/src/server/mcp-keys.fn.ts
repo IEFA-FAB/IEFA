@@ -14,7 +14,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getAccessControlClient } from "@/lib/supabase.server"
 
 // ---------------------------------------------------------------------------
 // Helpers internos
@@ -50,7 +50,7 @@ export type McpApiKey = {
  */
 export const listMcpKeysFn = createServerFn({ method: "GET" }).handler(async (): Promise<McpApiKey[]> => {
 	const userId = await requireUserId()
-	const db = getSupabaseServerClient()
+	const db = getAccessControlClient()
 
 	const { data, error } = await db
 		.from("mcp_api_keys")
@@ -87,7 +87,7 @@ export const createMcpKeyFn = createServerFn({ method: "POST" })
 
 		const hashHex = await sha256hex(rawKey)
 
-		const db = getSupabaseServerClient()
+		const db = getAccessControlClient()
 		const { data: row, error } = await db
 			.from("mcp_api_keys")
 			.insert({
@@ -115,7 +115,7 @@ export const revokeMcpKeyFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const db = getSupabaseServerClient()
+		const db = getAccessControlClient()
 
 		const { error } = await db.from("mcp_api_keys").update({ is_active: false }).eq("id", data.id).eq("user_id", userId)
 
@@ -135,7 +135,7 @@ export const deleteMcpKeyFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const db = getSupabaseServerClient()
+		const db = getAccessControlClient()
 
 		const { error } = await db.from("mcp_api_keys").delete().eq("id", data.id).eq("user_id", userId)
 

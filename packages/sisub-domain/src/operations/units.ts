@@ -5,7 +5,7 @@
  * entrypoints with no module-level PBAC guard. `ctx` accepted for uniformity.
  */
 
-import { type SisubDb, unitsInSisub } from "@iefa/database/drizzle/sisub"
+import { type SisubDb, unitsInCore } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { eq } from "drizzle-orm"
 import type { FetchUnitSettings, UpdateUnitSettings } from "../schemas/units.ts"
@@ -31,7 +31,7 @@ type UnitSettings = Pick<
 
 export async function fetchUnitSettings(db: SisubDb, _ctx: UserContext, input: FetchUnitSettings): Promise<UnitSettings> {
 	const row = await runQuery("FETCH_FAILED", () =>
-		db.query.unitsInSisub.findFirst({
+		db.query.unitsInCore.findFirst({
 			columns: {
 				id: true,
 				code: true,
@@ -46,7 +46,7 @@ export async function fetchUnitSettings(db: SisubDb, _ctx: UserContext, input: F
 				addressUf: true,
 				addressCep: true,
 			},
-			where: eq(unitsInSisub.id, BigInt(input.unitId)),
+			where: eq(unitsInCore.id, BigInt(input.unitId)),
 		})
 	)
 	if (!row) throw new DomainError("FETCH_FAILED", `unit ${input.unitId} not found`)
@@ -57,7 +57,7 @@ export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: 
 	// Distingue "atualizado" de "id inexistente" num path mutável (WHERE sem match = 0 linhas).
 	await mutateOrFail("UPDATE_FAILED", `unit ${input.unitId} not found`, () =>
 		db
-			.update(unitsInSisub)
+			.update(unitsInCore)
 			.set({
 				uasg: input.settings.uasg,
 				addressLogradouro: input.settings.address_logradouro,
@@ -68,8 +68,8 @@ export async function updateUnitSettings(db: SisubDb, _ctx: UserContext, input: 
 				addressUf: input.settings.address_uf,
 				addressCep: input.settings.address_cep,
 			})
-			.where(eq(unitsInSisub.id, BigInt(input.unitId)))
-			.returning({ id: unitsInSisub.id })
+			.where(eq(unitsInCore.id, BigInt(input.unitId)))
+			.returning({ id: unitsInCore.id })
 	)
 	return { ok: true as const }
 }

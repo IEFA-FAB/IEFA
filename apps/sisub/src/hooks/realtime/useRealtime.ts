@@ -47,7 +47,8 @@ export function useRealtimeSubscription(options: {
 
 	useEffect(() => {
 		const channelName = filter ? `${table}-${filter}` : `${table}-changes`
-		const pgFilter: Record<string, string> = { event, schema: "sisub", table }
+		// Tabelas realtime (daily_menu, recipes, menu_items) movidas p/ o schema kitchen.
+		const pgFilter: Record<string, string> = { event, schema: "kitchen", table }
 		if (filter) pgFilter.filter = filter
 
 		const channel = supabase.channel(channelName)

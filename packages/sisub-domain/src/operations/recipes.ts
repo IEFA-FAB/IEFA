@@ -11,11 +11,11 @@
  */
 
 import {
-	menuTemplateInSisub,
-	menuTemplateItemsInSisub,
-	recipeIngredientAlternativesInSisub,
-	recipeIngredientsInSisub,
-	recipesInSisub,
+	menuTemplateInKitchen,
+	menuTemplateItemsInKitchen,
+	recipeIngredientAlternativesInKitchen,
+	recipeIngredientsInKitchen,
+	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Ingredient, Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
@@ -49,20 +49,20 @@ type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
  * Passadas a `toWire()` para renomear às chaves do contrato (o resto vira snake_case).
  */
 const RECIPE_RELATIONS: Record<string, string> = {
-	recipeIngredientsInSisubs: "ingredients",
-	recipeIngredientAlternativesInSisubs: "alternatives",
-	ingredientInSisub: "ingredient",
+	recipeIngredientsInKitchens: "ingredients",
+	recipeIngredientAlternativesInKitchens: "alternatives",
+	ingredientInKitchen: "ingredient",
 }
 
 // Relational `with` — nível ingredientes (com o insumo de cada um).
-const WITH_INGREDIENTS = { recipeIngredientsInSisubs: { with: { ingredientInSisub: true } } } as const
+const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } as const
 
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
 	requirePermission(ctx, "kitchen", 1)
 
 	// BUG FIX: filtra deleted_at IS NULL — sisub não filtrava.
-	const where = and(eq(recipesInSisub.id, input.recipeId), isNull(recipesInSisub.deletedAt))
-	const row = await runQuery("FETCH_FAILED", () => db.query.recipesInSisub.findFirst({ where, with: WITH_INGREDIENTS }))
+	const where = and(eq(recipesInKitchen.id, input.recipeId), isNull(recipesInKitchen.deletedAt))
+	const row = await runQuery("FETCH_FAILED", () => db.query.recipesInKitchen.findFirst({ where, with: WITH_INGREDIENTS }))
 
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
 
@@ -74,13 +74,13 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	// Buscamos as alternativas dos recipe_ingredients desta receita (profundidade 2, dentro
 	// do limite) e costuramos no shape que o toWire/contrato espera.
 	if (input.includeAlternatives) {
-		const ingredientRows = row.recipeIngredientsInSisubs ?? []
+		const ingredientRows = row.recipeIngredientsInKitchens ?? []
 		const riIds = ingredientRows.map((ri) => ri.id)
 		if (riIds.length > 0) {
 			const alts = await runQuery("FETCH_FAILED", () =>
-				db.query.recipeIngredientAlternativesInSisub.findMany({
-					where: inArray(recipeIngredientAlternativesInSisub.recipeIngredientId, riIds),
-					with: { ingredientInSisub: true },
+				db.query.recipeIngredientAlternativesInKitchen.findMany({
+					where: inArray(recipeIngredientAlternativesInKitchen.recipeIngredientId, riIds),
+					with: { ingredientInKitchen: true },
 				})
 			)
 			const byRecipeIngredient = new Map<string, typeof alts>()
@@ -91,7 +91,8 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 				else byRecipeIngredient.set(alt.recipeIngredientId, [alt])
 			}
 			for (const ri of ingredientRows) {
-				;(ri as typeof ri & { recipeIngredientAlternativesInSisubs: typeof alts }).recipeIngredientAlternativesInSisubs = byRecipeIngredient.get(ri.id) ?? []
+				;(ri as typeof ri & { recipeIngredientAlternativesInKitchens: typeof alts }).recipeIngredientAlternativesInKitchens =
+					byRecipeIngredient.get(ri.id) ?? []
 			}
 		}
 	}
@@ -107,18 +108,18 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 	}
 
 	const conditions: (SQL | undefined)[] = []
-	if (!input.includeDeleted) conditions.push(isNull(recipesInSisub.deletedAt))
+	if (!input.includeDeleted) conditions.push(isNull(recipesInKitchen.deletedAt))
 	if (input.kitchenId != null && !input.globalOnly) {
-		conditions.push(or(isNull(recipesInSisub.kitchenId), eq(recipesInSisub.kitchenId, input.kitchenId)))
+		conditions.push(or(isNull(recipesInKitchen.kitchenId), eq(recipesInKitchen.kitchenId, input.kitchenId)))
 	} else {
-		conditions.push(isNull(recipesInSisub.kitchenId))
+		conditions.push(isNull(recipesInKitchen.kitchenId))
 	}
-	if (input.search) conditions.push(ilike(recipesInSisub.name, `%${input.search}%`))
+	if (input.search) conditions.push(ilike(recipesInKitchen.name, `%${input.search}%`))
 
 	// Sem orderBy no SQL: o sort pt-BR em JS (após o dedup) determina a ordem final;
 	// ordenar no Postgres seria um passo sem efeito observável.
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInSisub.findMany({
+		db.query.recipesInKitchen.findMany({
 			where: and(...conditions),
 			with: WITH_INGREDIENTS,
 		})
@@ -153,10 +154,10 @@ export async function listRecipeMenuUsage(db: SisubDb, ctx: UserContext): Promis
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
-			.select({ recipeId: menuTemplateItemsInSisub.recipeId })
-			.from(menuTemplateItemsInSisub)
-			.innerJoin(menuTemplateInSisub, eq(menuTemplateItemsInSisub.menuTemplateId, menuTemplateInSisub.id))
-			.where(and(eq(menuTemplateInSisub.templateType, "weekly"), isNull(menuTemplateInSisub.deletedAt), isNotNull(menuTemplateItemsInSisub.recipeId)))
+			.select({ recipeId: menuTemplateItemsInKitchen.recipeId })
+			.from(menuTemplateItemsInKitchen)
+			.innerJoin(menuTemplateInKitchen, eq(menuTemplateItemsInKitchen.menuTemplateId, menuTemplateInKitchen.id))
+			.where(and(eq(menuTemplateInKitchen.templateType, "weekly"), isNull(menuTemplateInKitchen.deletedAt), isNotNull(menuTemplateItemsInKitchen.recipeId)))
 	)
 
 	const ids = new Set<string>()
@@ -170,15 +171,15 @@ export async function listRecipeVersions(db: SisubDb, ctx: UserContext, input: L
 	requirePermission(ctx, "kitchen", 1)
 
 	const root = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInSisub.findFirst({ columns: { id: true, baseRecipeId: true }, where: eq(recipesInSisub.id, input.recipeId) })
+		db.query.recipesInKitchen.findFirst({ columns: { id: true, baseRecipeId: true }, where: eq(recipesInKitchen.id, input.recipeId) })
 	)
 	if (!root) throw new NotFoundError("recipe", input.recipeId)
 
 	const rootId = root.baseRecipeId ?? root.id
 
 	const rows = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInSisub.findMany({
-			where: or(eq(recipesInSisub.id, rootId), eq(recipesInSisub.baseRecipeId, rootId)),
+		db.query.recipesInKitchen.findMany({
+			where: or(eq(recipesInKitchen.id, rootId), eq(recipesInKitchen.baseRecipeId, rootId)),
 			with: WITH_INGREDIENTS,
 			orderBy: (recipe, { asc }) => [asc(recipe.version)],
 		})
@@ -203,10 +204,10 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	// INSERT ... RETURNING devolve as linhas na ordem de inserção, permitindo ligar cada
 	// alternativa ao recipe_ingredient recém-criado pelo índice.
 	const inserted = await runQuery("INSERT_INGREDIENTS_FAILED", () =>
-		db.insert(recipeIngredientsInSisub).values(rows).returning({
-			id: recipeIngredientsInSisub.id,
-			ingredientId: recipeIngredientsInSisub.ingredientId,
-			priorityOrder: recipeIngredientsInSisub.priorityOrder,
+		db.insert(recipeIngredientsInKitchen).values(rows).returning({
+			id: recipeIngredientsInKitchen.id,
+			ingredientId: recipeIngredientsInKitchen.ingredientId,
+			priorityOrder: recipeIngredientsInKitchen.priorityOrder,
 		})
 	)
 	if (inserted.length !== rows.length) throw new DomainError("INSERT_INGREDIENTS_FAILED", "row count mismatch")
@@ -222,7 +223,7 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	if (altRows.length) {
 		await runQuery("INSERT_ALTERNATIVES_FAILED", () =>
 			db
-				.insert(recipeIngredientAlternativesInSisub)
+				.insert(recipeIngredientAlternativesInKitchen)
 				.values(altRows)
 				.then(() => undefined)
 		)
@@ -236,9 +237,9 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
  */
 async function buildIngredientIdMap(db: SisubDb, sourceRecipeId: string, inserted: InsertedIngredient[]): Promise<Map<string, string>> {
 	const oldRows = await runQuery("FETCH_FAILED", () =>
-		db.query.recipeIngredientsInSisub.findMany({
+		db.query.recipeIngredientsInKitchen.findMany({
 			columns: { id: true, ingredientId: true, priorityOrder: true },
-			where: and(eq(recipeIngredientsInSisub.recipeId, sourceRecipeId), isNull(recipeIngredientsInSisub.deletedAt)),
+			where: and(eq(recipeIngredientsInKitchen.recipeId, sourceRecipeId), isNull(recipeIngredientsInKitchen.deletedAt)),
 		})
 	)
 	const key = (ingredientId: string | null, priorityOrder: number | null) => `${ingredientId ?? ""}:${priorityOrder ?? ""}`
@@ -260,7 +261,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
 
 	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(recipesInSisub)
+			.insert(recipesInKitchen)
 			.values({
 				name: input.name,
 				preparationMethod: input.preparationMethod ?? null,
@@ -285,7 +286,7 @@ export async function createRecipe(db: SisubDb, ctx: UserContext, input: CreateR
  */
 async function authorizeRecipeMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
 	const recipe = await runQuery("FETCH_FAILED", () =>
-		db.query.recipesInSisub.findFirst({ columns: { kitchenId: true }, where: eq(recipesInSisub.id, recipeId) })
+		db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, recipeId) })
 	)
 	if (!recipe) throw new NotFoundError("recipe", recipeId)
 
@@ -301,9 +302,9 @@ export async function deleteRecipe(db: SisubDb, ctx: UserContext, input: DeleteR
 	await authorizeRecipeMutation(db, ctx, input.id)
 	await runQuery("DELETE_FAILED", () =>
 		db
-			.update(recipesInSisub)
+			.update(recipesInKitchen)
 			.set({ deletedAt: new Date().toISOString() })
-			.where(eq(recipesInSisub.id, input.id))
+			.where(eq(recipesInKitchen.id, input.id))
 			.then(() => undefined)
 	)
 }
@@ -313,9 +314,9 @@ export async function restoreRecipe(db: SisubDb, ctx: UserContext, input: Restor
 	await authorizeRecipeMutation(db, ctx, input.id)
 	await runQuery("RESTORE_FAILED", () =>
 		db
-			.update(recipesInSisub)
+			.update(recipesInKitchen)
 			.set({ deletedAt: null })
-			.where(eq(recipesInSisub.id, input.id))
+			.where(eq(recipesInKitchen.id, input.id))
 			.then(() => undefined)
 	)
 }
@@ -325,9 +326,9 @@ export async function renameRecipe(db: SisubDb, ctx: UserContext, input: RenameR
 	await authorizeRecipeMutation(db, ctx, input.id)
 	await runQuery("UPDATE_FAILED", () =>
 		db
-			.update(recipesInSisub)
+			.update(recipesInKitchen)
 			.set({ name: input.name })
-			.where(eq(recipesInSisub.id, input.id))
+			.where(eq(recipesInKitchen.id, input.id))
 			.then(() => undefined)
 	)
 }
@@ -341,7 +342,7 @@ export async function createRecipeVersion(db: SisubDb, ctx: UserContext, input: 
 
 	const recipe = await insertOneOrFail("INSERT_FAILED", "no row returned", () =>
 		db
-			.insert(recipesInSisub)
+			.insert(recipesInKitchen)
 			.values({
 				name: input.name,
 				preparationMethod: input.preparationMethod ?? null,

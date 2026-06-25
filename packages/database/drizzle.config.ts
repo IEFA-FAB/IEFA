@@ -24,7 +24,7 @@ export default defineConfig({
 	dialect: "postgresql",
 	schema: "./drizzle/schema.ts",
 	out: "./drizzle",
-	schemaFilter: ["sisub", "compras_gov_integration"],
+	schemaFilter: ["sisub", "core", "access_control", "kitchen", "procurement", "finance", "compras_gov_integration"],
 	dbCredentials: {
 		// O driver `pg` (usado só pelo `drizzle-kit pull`) passou a tratar
 		// `sslmode=require` como `verify-full`; sem CA verificável o pooler do

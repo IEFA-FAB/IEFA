@@ -54,15 +54,21 @@ function getAuthClientFromEvent(event: H3Event) {
 	})
 }
 
+// Client default no schema kitchen (maioria das tools); queries a core/procurement
+// usam `.schema()` explícito. Permissões vêm de access_control (`.schema(...)`).
 function getDataClient() {
-	return createClient<Database, "sisub">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
-		db: { schema: "sisub" },
+	return createClient<Database, "kitchen">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
+		db: { schema: "kitchen" },
 		auth: { persistSession: false },
 	})
 }
 
 async function loadUserPermissions(supabase: ReturnType<typeof getDataClient>, userId: string): Promise<UserPermission[]> {
-	const { data, error } = await supabase.from("user_permissions").select("module, level, mess_hall_id, kitchen_id, unit_id").eq("user_id", userId)
+	const { data, error } = await supabase
+		.schema("access_control")
+		.from("user_permissions")
+		.select("module, level, mess_hall_id, kitchen_id, unit_id")
+		.eq("user_id", userId)
 	if (error) throw new Error("Erro ao carregar permissões")
 	return ((data ?? []) as UserPermission[]).filter((p) => p.level > 0)
 }

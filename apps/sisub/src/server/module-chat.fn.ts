@@ -1,7 +1,7 @@
 /**
  * @module module-chat.fn
  * Agentic chat session and message management with per-user + module + scope ownership enforcement.
- * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getSupabaseServerClient (service role, DB reads/writes).
+ * CLIENT: getSupabaseAuthClient (JWT validation via requireUserId) + getCoreClient (service role, DB reads/writes).
  * TABLES: module_chat_session, module_chat_message.
  * Auth: all functions call requireUserId() — throws "Não autenticado" if JWT is invalid or missing.
  * @domain app
@@ -11,7 +11,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireUserId } from "@/lib/auth.server"
-import { getSupabaseServerClient } from "@/lib/supabase.server"
+import { getCoreClient } from "@/lib/supabase.server"
 import { CHAT_MODULES } from "@/types/domain/module-chat"
 
 // The module_chat_* tables are created via migration but not yet in the generated
@@ -33,7 +33,7 @@ export const listModuleChatSessionsFn = createServerFn({ method: "GET" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		let query = supabase
 			.from("module_chat_session" as AnyFrom)
@@ -68,7 +68,7 @@ export const createModuleChatSessionFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { data: row, error } = await supabase
 			.from("module_chat_session" as AnyFrom)
@@ -93,7 +93,7 @@ export const renameModuleChatSessionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ sessionId: z.string().uuid(), title: z.string().min(1).max(200) }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { error } = await supabase
 			.from("module_chat_session" as AnyFrom)
@@ -111,7 +111,7 @@ export const deleteModuleChatSessionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { error } = await supabase
 			.from("module_chat_session" as AnyFrom)
@@ -131,7 +131,7 @@ export const getModuleChatMessagesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ sessionId: z.string().uuid() }))
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		const { data: session, error } = await supabase
 			.from("module_chat_session" as AnyFrom)
@@ -210,7 +210,7 @@ export const saveModuleChatMessageFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const userId = await requireUserId()
-		const supabase = getSupabaseServerClient()
+		const supabase = getCoreClient()
 
 		// Verify session ownership
 		const { data: session, error: sessionError } = await supabase

@@ -53,7 +53,7 @@ export async function resolveUserContext(jwt: string): Promise<UserContext> {
 	}
 
 	try {
-		const permissions = await resolveUserPermissions(user.id, getDataClient())
+		const permissions = await resolveUserPermissions(user.id, getDataClient("access_control"))
 		return { userId: user.id, permissions }
 	} catch (err) {
 		// M3: não expor detalhes internos ao cliente
@@ -77,7 +77,7 @@ export async function resolveApiKey(rawKey: string): Promise<UserContext> {
 	}
 
 	const hash = await sha256hex(rawKey)
-	const db = getDataClient()
+	const db = getDataClient("access_control")
 
 	const { data, error } = await db.from("mcp_api_keys").select("user_id").eq("key_hash", hash).eq("is_active", true).single()
 
