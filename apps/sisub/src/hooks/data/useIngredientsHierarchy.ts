@@ -46,7 +46,8 @@ export function useIngredientsHierarchy(
 	persistKey?: string,
 	sensitivity: SearchSensitivity = { caseSensitive: false, accentSensitive: false },
 	hiddenCategoryKeys: readonly string[] = [],
-	sortDirection: "asc" | "desc" = "asc"
+	sortDirection: "asc" | "desc" = "asc",
+	defaultCollapsed = false
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
@@ -55,7 +56,8 @@ export function useIngredientsHierarchy(
 	const { tree, error, refetch } = useIngredientsTree(includeDeleted)
 
 	// Estado de expand/collapse
-	// Inicializa com todas as pastas de primeiro nível expandidas.
+	// Inicializa com todas as pastas de primeiro nível expandidas — exceto quando
+	// `defaultCollapsed`, que abre a árvore totalmente recolhida.
 	// Usa ref para garantir que a inicialização ocorra somente uma vez,
 	// mesmo que `tree` chegue de forma assíncrona (ex: IngredientSelector sem loader).
 	const [expandedIds, setExpandedIds, expandMeta] = usePersistentState<Set<string>>(persistKey ? `${persistKey}:expanded` : null, new Set(), {
@@ -71,10 +73,12 @@ export function useIngredientsHierarchy(
 			initializedRef.current = true
 			// Havia estado salvo (inclui "tudo recolhido") → respeita, não reexpande.
 			if (expandMeta.hadStored) return
+			// Default da tela: abrir tudo recolhido (mantém o Set vazio).
+			if (defaultCollapsed) return
 			const rootFolders = asArray(tree.folders).flatMap((f) => (f.parent_id ? [] : [f.id]))
 			setExpandedIds(new Set(rootFolders))
 		}
-	}, [tree, expandMeta.hydrated, expandMeta.hadStored, setExpandedIds])
+	}, [tree, expandMeta.hydrated, expandMeta.hadStored, setExpandedIds, defaultCollapsed])
 
 	// Funções de controle de expansão
 	const toggleExpand = (nodeId: string) => {

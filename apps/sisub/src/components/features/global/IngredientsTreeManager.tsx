@@ -116,7 +116,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		"sisub:global-ingredients",
 		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
 		hiddenCategoryKeys,
-		sortDirection
+		sortDirection,
+		true // default da tela: abrir tudo recolhido
 	)
 
 	// Contagem do que está efetivamente visível (após busca + chips). `byId` contém
