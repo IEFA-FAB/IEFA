@@ -17,9 +17,21 @@ type DomainTables = Database["core"]["Tables"] &
 	Database["compras_gov_integration"]["Tables"] &
 	Database["sisub"]["Tables"]
 
-type DomainViews = Database["core"]["Views"] & Database["kitchen"]["Views"] & Database["sisub"]["Views"]
+type DomainViews = Database["core"]["Views"] &
+	Database["access_control"]["Views"] &
+	Database["kitchen"]["Views"] &
+	Database["procurement"]["Views"] &
+	Database["finance"]["Views"] &
+	Database["compras_gov_integration"]["Views"] &
+	Database["sisub"]["Views"]
 
-type DomainEnums = Database["core"]["Enums"] & Database["kitchen"]["Enums"] & Database["procurement"]["Enums"] & Database["sisub"]["Enums"]
+type DomainEnums = Database["core"]["Enums"] &
+	Database["access_control"]["Enums"] &
+	Database["kitchen"]["Enums"] &
+	Database["procurement"]["Enums"] &
+	Database["finance"]["Enums"] &
+	Database["compras_gov_integration"]["Enums"] &
+	Database["sisub"]["Enums"]
 
 export type Tables<T extends keyof DomainTables> = DomainTables[T]["Row"]
 export type TablesInsert<T extends keyof DomainTables> = DomainTables[T]["Insert"]

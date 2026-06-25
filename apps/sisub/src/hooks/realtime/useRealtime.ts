@@ -14,9 +14,12 @@ export function useRealtimeSubscription(options: {
 	onUpdate?: () => void
 	silent?: boolean
 	filter?: string
+	/** Schema da tabela. Default "kitchen" (onde vivem as tabelas realtime atuais
+	 *  após o split); explícito para callers futuros de outros domínios. */
+	schema?: string
 }) {
 	const queryClient = useQueryClient()
-	const { table, event = "*", queryKeyPrefix, message = "Dados atualizados por outro usuário", onUpdate, silent = false, filter } = options
+	const { table, event = "*", queryKeyPrefix, message = "Dados atualizados por outro usuário", onUpdate, silent = false, filter, schema = "kitchen" } = options
 
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -48,7 +51,7 @@ export function useRealtimeSubscription(options: {
 	useEffect(() => {
 		const channelName = filter ? `${table}-${filter}` : `${table}-changes`
 		// Tabelas realtime (daily_menu, recipes, menu_items) movidas p/ o schema kitchen.
-		const pgFilter: Record<string, string> = { event, schema: "kitchen", table }
+		const pgFilter: Record<string, string> = { event, schema, table }
 		if (filter) pgFilter.filter = filter
 
 		const channel = supabase.channel(channelName)
@@ -58,5 +61,5 @@ export function useRealtimeSubscription(options: {
 			if (debounceRef.current) clearTimeout(debounceRef.current)
 			supabase.removeChannel(channel)
 		}
-	}, [table, event, filter, handleChange])
+	}, [table, schema, event, filter, handleChange])
 }
