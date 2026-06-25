@@ -7,6 +7,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start"
+import { getRequestUser } from "@/lib/auth.server"
 import { getSupabaseAuthClient } from "@/lib/supabase.server"
 
 /**
@@ -20,17 +21,17 @@ export const getServerSessionFn = createServerFn({ method: "GET" }).handler(asyn
 	const supabase = getSupabaseAuthClient()
 	// getUser() valida o token no servidor Supabase — não usa localStorage.
 	// getSession() é independente de getUser() → roda em paralelo.
+	// getRequestUser() cacheia o getUser() por request: o resultado é reusado pelos
+	// requireUserId/requireAuth das server fns filhas no mesmo SSR (sem 2º round-trip).
 	const [
-		{
-			data: { user },
-		},
+		user,
 		{
 			data: { session },
 		},
-	] = await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()])
+	] = await Promise.all([getRequestUser(), supabase.auth.getSession()])
 
 	return {
-		user: user ?? null,
+		user,
 		session: session ?? null,
 	}
 })
