@@ -16,7 +16,7 @@ const chatSearchSchema = z.object({
 
 export const Route = createFileRoute("/_protected/_modules/global/chat")({
 	validateSearch: chatSearchSchema,
-	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
+	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Global" }],

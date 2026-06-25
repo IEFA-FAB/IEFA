@@ -5,7 +5,7 @@ import { ScopeSelector } from "@/components/features/shared/ScopeSelector"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 export const Route = createFileRoute("/_protected/_modules/local-analytics/")({
-	beforeLoad: ({ context }) => requirePermission(context, "local-analytics", 1),
+	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: LocalAnalyticsHubPage,
 	head: () => ({
 		meta: [{ title: "Análises da Unidade — Selecionar OM" }],

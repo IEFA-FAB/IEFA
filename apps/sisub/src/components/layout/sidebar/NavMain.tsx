@@ -59,7 +59,7 @@ export function NavMain({
 											isActive={isActive}
 											className={cn(isActive && activeClass)}
 											render={
-												<Link to={item.url}>
+												<Link to={item.url} preload={false}>
 													{item.icon && <item.icon />}
 													<span>{item.title}</span>
 												</Link>

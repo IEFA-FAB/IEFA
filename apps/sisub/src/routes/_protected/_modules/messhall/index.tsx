@@ -5,7 +5,7 @@ import { ScopeSelector } from "@/components/features/shared/ScopeSelector"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 export const Route = createFileRoute("/_protected/_modules/messhall/")({
-	beforeLoad: ({ context }) => requirePermission(context, "messhall", 1),
+	beforeLoad: (opts) => requirePermission(opts, "messhall", 1),
 	component: MessHallHubPage,
 	head: () => ({
 		meta: [{ title: "Fiscal — Selecionar Refeitório" }],

@@ -4,7 +4,7 @@ import { PlanningBoard } from "@/components/features/local/planning/PlanningBoar
 import { PageHeader } from "@/components/layout/PageHeader"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/planning")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: PlanningPage,
 	head: () => ({
 		meta: [{ title: "Planejamento - SISUB" }],

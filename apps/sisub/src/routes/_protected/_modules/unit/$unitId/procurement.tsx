@@ -6,6 +6,6 @@ import { requirePermission } from "@/auth/pbac"
  * Todas as sub-rotas (index, new, $ataId) são renderizadas via Outlet.
  */
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement")({
-	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
+	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: () => <Outlet />,
 })

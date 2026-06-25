@@ -15,7 +15,7 @@ import { useCreateTemplate } from "@/hooks/data/useTemplates"
  * Acesso: módulo "global" nível 2 (escrita)
  */
 export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/new")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: NewWeeklyPlanPage,
 	head: () => ({
 		meta: [{ title: "Novo Plano Semanal - SISUB" }],

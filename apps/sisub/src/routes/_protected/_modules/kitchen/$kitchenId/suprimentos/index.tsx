@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useDeleteKitchenDraft, useKitchenDrafts, useSendKitchenDraft } from "@/hooks/data/useKitchenDraft"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenSuprimentosPage,
 	head: () => ({
 		meta: [{ title: "Suprimentos - SISUB" }, { name: "description", content: "Gerencie rascunhos de suprimentos para a ata" }],

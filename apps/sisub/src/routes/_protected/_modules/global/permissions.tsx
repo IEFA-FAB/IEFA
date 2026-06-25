@@ -4,7 +4,7 @@ import PermissionsManager from "@/components/features/global/PermissionsManager"
 import { PageHeader } from "@/components/layout/PageHeader"
 
 export const Route = createFileRoute("/_protected/_modules/global/permissions")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: PermissionsPage,
 	head: () => ({
 		meta: [

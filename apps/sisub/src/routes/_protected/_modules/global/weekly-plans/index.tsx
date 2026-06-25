@@ -16,7 +16,7 @@ import { fetchMenuTemplatesFn } from "@/server/templates.fn"
  * Acesso: módulo "global" nível 1+
  */
 export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
+	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: WeeklyPlansPage,
 	head: () => ({
 		meta: [{ title: "Planos Semanais Modelo - SISUB" }, { name: "description", content: "Templates de cardápio semanal para todas as unidades" }],

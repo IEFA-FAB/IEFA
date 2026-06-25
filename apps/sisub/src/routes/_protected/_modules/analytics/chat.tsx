@@ -15,7 +15,7 @@ const chatSearchSchema = z.object({
 
 export const Route = createFileRoute("/_protected/_modules/analytics/chat")({
 	validateSearch: chatSearchSchema,
-	beforeLoad: ({ context }) => requirePermission(context, "analytics", 1),
+	beforeLoad: (opts) => requirePermission(opts, "analytics", 1),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Analytics" }],

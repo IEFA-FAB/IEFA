@@ -34,7 +34,7 @@ const WEEKDAYS = [
  * URL: /kitchen/:kitchenId/weekly-menus/:weeklyMenuId
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/weekly-menus/$weeklyMenuId")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: WeeklyMenuEditorPage,
 	head: () => ({
 		meta: [{ title: "Editar Cardápio Semanal - SISUB" }],

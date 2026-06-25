@@ -24,7 +24,7 @@ import { updateAtaItemPricesFn } from "@/server/ata.fn"
 import { fetchUnitSettingsFn } from "@/server/unit-settings.fn"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/$ataId")({
-	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
+	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: AtaDetailPage,
 	head: () => ({
 		meta: [{ title: "Detalhes da Ata" }],

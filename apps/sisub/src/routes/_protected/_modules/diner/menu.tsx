@@ -11,7 +11,7 @@ import { useMessHalls } from "@/hooks/data/useMessHalls"
 import { cn } from "@/lib/cn"
 
 export const Route = createFileRoute("/_protected/_modules/diner/menu")({
-	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
+	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: MenuPage,
 	head: () => ({
 		meta: [{ title: "Cardápio - SISUB" }, { name: "description", content: "Visualize o cardápio do rancho" }],

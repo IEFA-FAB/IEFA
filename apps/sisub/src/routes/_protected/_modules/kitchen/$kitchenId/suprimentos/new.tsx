@@ -7,7 +7,7 @@ import { useMenuTemplates } from "@/hooks/data/useTemplates"
 import type { TemplateSelection } from "@/types/domain/ata"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/suprimentos/new")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewDraftPage,
 	head: () => ({
 		meta: [{ title: "Novo Rascunho de Suprimentos" }],

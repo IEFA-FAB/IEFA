@@ -15,7 +15,7 @@ import { useEvalConfig } from "@/hooks/business/useEvalConfig"
 import type { EvalConfig } from "@/types/domain/admin"
 
 export const Route = createFileRoute("/_protected/_modules/global/evaluation")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: SuperAdminPanel,
 	head: () => ({
 		meta: [{ title: "Avaliação" }, { name: "description", content: "Configuração da pergunta de avaliação" }],

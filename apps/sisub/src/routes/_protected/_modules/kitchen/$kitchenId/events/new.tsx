@@ -17,7 +17,7 @@ import { createBlankTemplateFn } from "@/server/templates.fn"
  * Esses templates são selecionados no Step 2 da Ata de Registro de Preços.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/events/new")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewEventPage,
 	head: () => ({
 		meta: [{ title: "Novo Evento - SISUB" }],

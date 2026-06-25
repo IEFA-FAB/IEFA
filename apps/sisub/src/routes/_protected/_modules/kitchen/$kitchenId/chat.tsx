@@ -16,7 +16,7 @@ const chatSearchSchema = z.object({
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/chat")({
 	validateSearch: chatSearchSchema,
-	beforeLoad: ({ context, params }) => requirePermission(context, "kitchen", 1, { type: "kitchen", id: Number(params.kitchenId) }),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1, { type: "kitchen", id: Number(opts.params.kitchenId) }),
 	loader: async () => ({ capabilities: await getCapabilitiesFn() }),
 	head: () => ({
 		meta: [{ title: "Assistente IA · Cozinha" }],

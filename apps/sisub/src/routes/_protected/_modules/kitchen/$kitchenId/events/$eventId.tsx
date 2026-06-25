@@ -34,7 +34,7 @@ import type { TemplateItemDraft } from "@/types/domain/planning"
 const EVENT_DAY = 1
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/events/$eventId")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: EventEditorPage,
 	head: () => ({
 		meta: [{ title: "Editar Evento - SISUB" }],

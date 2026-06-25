@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAtaList, useDeleteAta } from "@/hooks/data/useAta"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/")({
-	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
+	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: ProcurementIndexPage,
 	head: () => ({
 		meta: [{ title: "Atas de Registro de Preços" }, { name: "description", content: "Gerencie as atas de aquisição da unidade" }],

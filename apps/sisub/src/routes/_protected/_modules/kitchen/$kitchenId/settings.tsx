@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { useKitchenSettings } from "@/hooks/data/useKitchenSettings"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/settings")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenSettingsPage,
 	head: () => ({
 		meta: [{ title: "Configurações da Cozinha" }],

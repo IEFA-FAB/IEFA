@@ -34,7 +34,7 @@ import type { PolicyRule, PolicyRuleInsert, PolicyTarget } from "@/types/domain/
 // ============================================================================
 
 export const Route = createFileRoute("/_protected/_modules/global/policy")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: PolicyPage,
 	head: () => ({
 		meta: [{ title: "Política de Revisão" }, { name: "description", content: "Gerenciamento de regras de política para revisão de insumos e preparações" }],

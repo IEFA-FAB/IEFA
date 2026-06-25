@@ -19,7 +19,7 @@ import { toNameCase } from "@/lib/utils"
 import type { MilitaryDataRow } from "@/types/domain/admin"
 
 export const Route = createFileRoute("/_protected/_modules/diner/profile")({
-	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
+	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: ProfilePage,
 	head: () => ({
 		meta: [{ title: "Perfil - SISUB" }, { name: "description", content: "Gerencie seu perfil e dados militares" }],

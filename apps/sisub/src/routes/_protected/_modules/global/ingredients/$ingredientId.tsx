@@ -16,7 +16,7 @@ import {
  * Responsabilidade: Visualizar e editar dados completos de um insumo
  */
 export const Route = createFileRoute("/_protected/_modules/global/ingredients/$ingredientId")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
+	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	loader: ({ context, params }) => {
 		return Promise.all([
 			context.queryClient.ensureQueryData(ingredientQueryOptions(params.ingredientId)),

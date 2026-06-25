@@ -7,9 +7,9 @@ import type { MessHall } from "@/types/domain/meal"
 import type { ScopeContext } from "@/types/domain/scope"
 
 export const Route = createFileRoute("/_protected/_modules/messhall/$messHallId")({
-	beforeLoad: async ({ context, params }) => {
+	beforeLoad: async ({ context, params, preload }) => {
 		const messHallId = Number(params.messHallId)
-		requirePermission(context, "messhall", 1, { type: "mess_hall", id: messHallId })
+		requirePermission({ context, preload }, "messhall", 1, { type: "mess_hall", id: messHallId })
 
 		// Busca os ranchos (cache de 10 min via React Query no servidor)
 		const messHalls = expectArray<MessHall>(

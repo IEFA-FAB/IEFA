@@ -7,9 +7,9 @@ import type { Unit } from "@/types/domain/meal"
 import type { ScopeContext } from "@/types/domain/scope"
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId")({
-	beforeLoad: async ({ context, params }) => {
+	beforeLoad: async ({ context, params, preload }) => {
 		const unitId = Number(params.unitId)
-		requirePermission(context, "unit", 1, { type: "unit", id: unitId })
+		requirePermission({ context, preload }, "unit", 1, { type: "unit", id: unitId })
 
 		const units = expectArray<Unit>(
 			await context.queryClient.fetchQuery({

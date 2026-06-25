@@ -5,7 +5,7 @@ import { ScopeSelector } from "@/components/features/shared/ScopeSelector"
 import { useMessHalls } from "@/hooks/data/useMessHalls"
 
 export const Route = createFileRoute("/_protected/_modules/unit/")({
-	beforeLoad: ({ context }) => requirePermission(context, "unit", 1),
+	beforeLoad: (opts) => requirePermission(opts, "unit", 1),
 	component: UnitHubPage,
 	head: () => ({
 		meta: [{ title: "Gestão Unidade — Selecionar OM" }],

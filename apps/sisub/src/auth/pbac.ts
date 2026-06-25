@@ -8,7 +8,7 @@
  *   usePBAC()                                                         (hook para componentes)
  *
  * Uso em rota (beforeLoad):
- *   beforeLoad: ({ context }) => requirePermission(context, "local", 1),
+ *   beforeLoad: (opts) => requirePermission(opts, "local", 1),
  *
  * Uso em componente:
  *   const { can } = usePBAC()
@@ -49,6 +49,19 @@ type PBACContext = {
 	auth: { user: { id: string } | null }
 }
 
+/** Subconjunto das opções de `beforeLoad` que o requirePermission precisa. */
+type RequirePermissionOptions = {
+	context: PBACContext
+	/**
+	 * `true` quando o `beforeLoad` roda por preload (hover/intent), não por navegação real.
+	 * Durante preload NÃO lançamos redirect: além de desnecessário (nada renderiza),
+	 * o router-core 1.171.x quebra ao processar um redirect lançado em preload
+	 * (TypeError `_nonReactive` em load-matches). A navegação real (cause "enter")
+	 * continua aplicando o redirect normalmente.
+	 */
+	preload?: boolean
+}
+
 /**
  * Usa dentro de `beforeLoad` para proteger uma rota.
  * Redireciona para /hub se o usuário não tiver a permissão necessária.
@@ -56,16 +69,20 @@ type PBACContext = {
  * As permissões já estão no cache React Query (carregadas em /_protected).
  *
  * @example
- * beforeLoad: ({ context }) => requirePermission(context, "local"),
- * beforeLoad: ({ context }) => requirePermission(context, "messhall", 2, { type: "mess_hall", id: 3 }),
+ * beforeLoad: (opts) => requirePermission(opts, "local"),
+ * beforeLoad: (opts) => requirePermission(opts, "messhall", 2, { type: "mess_hall", id: 3 }),
  */
-export function requirePermission(context: PBACContext, module: AppModule, minLevel = 1, scope?: PermissionScope) {
+export function requirePermission({ context, preload }: RequirePermissionOptions, module: AppModule, minLevel = 1, scope?: PermissionScope) {
 	const userId = context.auth.user?.id
-	if (!userId) throw redirect({ to: "/auth", replace: true })
+	if (!userId) {
+		if (preload) return
+		throw redirect({ to: "/auth", replace: true })
+	}
 
 	const permissions = context.queryClient.getQueryData<UserPermission[]>(userPermissionsQueryOptions(userId).queryKey) ?? []
 
 	if (!hasPermission(permissions, module, minLevel, scope)) {
+		if (preload) return
 		// Sinaliza ao /hub qual módulo foi negado para exibir feedback (em vez de bounce mudo).
 		throw redirect({ to: "/hub", replace: true, search: { denied: module } })
 	}

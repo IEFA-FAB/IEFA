@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export const Route = createFileRoute("/_protected/_modules/local-analytics/$unitId/indicators")({
-	beforeLoad: ({ context }) => requirePermission(context, "local-analytics", 1),
+	beforeLoad: (opts) => requirePermission(opts, "local-analytics", 1),
 	component: LocalIndicatorsPage,
 	head: () => ({
 		meta: [{ title: "Indicadores da Unidade" }, { name: "description", content: "Indicadores e relatórios Power BI da unidade" }],

@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
  * Acesso: módulo "kitchen" nível 2 (escrita)
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/qr-code")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: QrCodePage,
 	head: () => ({
 		meta: [{ title: "QR Check-in" }, { name: "description", content: "Gere QR codes para check-in automático" }],

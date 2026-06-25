@@ -5,7 +5,7 @@ import { ScopeSelector } from "@/components/features/shared/ScopeSelector"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: KitchenHubPage,
 	head: () => ({
 		meta: [{ title: "Gestão Cozinha — Selecionar Cozinha" }],

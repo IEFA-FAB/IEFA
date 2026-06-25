@@ -24,7 +24,7 @@ import type { CardData } from "@/types/ui"
 const DayCard = lazy(() => import("@/components/features/diner/DayCard"))
 
 export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
-	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
+	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: Forecast,
 	head: () => ({
 		meta: [{ title: "Previsão SISUB" }, { name: "description", content: "Faça sua previsão" }],

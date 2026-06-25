@@ -5,7 +5,7 @@ import { ScopeSelector } from "@/components/features/shared/ScopeSelector"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen-production/")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen-production", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen-production", 1),
 	component: KitchenProductionHubPage,
 	head: () => ({
 		meta: [{ title: "Produção Cozinha - SISUB" }],

@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/auth/useAuth"
 import { useMilitaryData, useUserData } from "@/hooks/auth/useProfile"
 
 export const Route = createFileRoute("/_protected/_modules/diner/qr-code")({
-	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
+	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: QrCodePage,
 	head: () => ({
 		meta: [{ title: "Meu QR Code - SISUB" }, { name: "description", content: "Seu QR Code pessoal para identificação no rancho" }],

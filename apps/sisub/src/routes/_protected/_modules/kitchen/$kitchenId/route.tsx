@@ -8,9 +8,9 @@ import { fetchKitchensFn } from "@/server/kitchens.fn"
 import type { ScopeContext } from "@/types/domain/scope"
 
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId")({
-	beforeLoad: async ({ context, params }) => {
+	beforeLoad: async ({ context, params, preload }) => {
 		const kitchenId = Number(params.kitchenId)
-		requirePermission(context, "kitchen", 1, { type: "kitchen", id: kitchenId })
+		requirePermission({ context, preload }, "kitchen", 1, { type: "kitchen", id: kitchenId })
 
 		const kitchens = expectArray<KitchenWithUnit>(
 			await context.queryClient.fetchQuery({

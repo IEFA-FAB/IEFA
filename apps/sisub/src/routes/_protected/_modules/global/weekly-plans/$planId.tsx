@@ -35,7 +35,7 @@ const WEEKDAYS = [
  * Acesso: módulo "global" nível 2 (escrita)
  */
 export const Route = createFileRoute("/_protected/_modules/global/weekly-plans/$planId")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalPlanEditorPage,
 	head: () => ({
 		meta: [{ title: "Editar Plano Semanal - SISUB" }],

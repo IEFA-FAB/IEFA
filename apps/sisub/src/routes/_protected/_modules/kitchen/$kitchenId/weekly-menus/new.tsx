@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 	validateSearch: z.object({
 		forkFrom: z.string().optional(),
 	}),
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 2),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 2),
 	component: NewWeeklyMenuPage,
 	head: () => ({
 		meta: [{ title: "Novo Cardápio Semanal - SISUB" }],

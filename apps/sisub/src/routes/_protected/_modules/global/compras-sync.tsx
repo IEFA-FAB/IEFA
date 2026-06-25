@@ -13,7 +13,7 @@ import { formatSyncDate, statusColor, statusLabel } from "@/lib/compras-sync"
 import { getLatestSyncFn, getSyncStatusFn, stopSyncFn, triggerSyncFn } from "@/server/compras-sync.fn"
 
 export const Route = createFileRoute("/_protected/_modules/global/compras-sync")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	loader: async () => {
 		return getLatestSyncFn()
 	},

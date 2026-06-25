@@ -14,7 +14,7 @@ import type { RecipeWithIngredients } from "@/types/domain/recipes"
  * Acesso: módulo "global" nível 1+
  */
 export const Route = createFileRoute("/_protected/_modules/global/recipes/$recipeId/versions")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 1),
+	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	component: GlobalRecipeVersionsPage,
 	head: () => ({
 		meta: [{ title: "Histórico de Versões - SISUB" }],

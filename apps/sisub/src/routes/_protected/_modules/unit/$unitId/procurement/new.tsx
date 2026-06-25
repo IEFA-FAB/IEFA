@@ -32,7 +32,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/_protected/_modules/unit/$unitId/procurement/new")({
 	validateSearch: searchSchema,
-	beforeLoad: ({ context }) => requirePermission(context, "unit", 2),
+	beforeLoad: (opts) => requirePermission(opts, "unit", 2),
 	component: NewAtaPage,
 	head: () => ({
 		meta: [{ title: "Nova Ata de Registro de Preços" }],

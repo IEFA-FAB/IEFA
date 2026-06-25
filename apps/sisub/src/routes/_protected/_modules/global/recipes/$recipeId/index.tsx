@@ -12,7 +12,7 @@ import { useRecipe } from "@/hooks/data/useRecipe"
  * Acesso: módulo "global" nível 2 (escrita)
  */
 export const Route = createFileRoute("/_protected/_modules/global/recipes/$recipeId/")({
-	beforeLoad: ({ context }) => requirePermission(context, "global", 2),
+	beforeLoad: (opts) => requirePermission(opts, "global", 2),
 	component: GlobalRecipeEditPage,
 	head: () => ({
 		meta: [{ title: "Editar Preparação Global - SISUB" }],

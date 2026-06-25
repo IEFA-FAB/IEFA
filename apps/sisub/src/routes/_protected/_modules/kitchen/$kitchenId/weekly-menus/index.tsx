@@ -13,7 +13,7 @@ import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
  * Lista os cardápios semanais locais da cozinha do escopo atual.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/weekly-menus/")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: WeeklyMenusPage,
 	head: () => ({
 		meta: [{ title: "Cardápios Semanais - SISUB" }, { name: "description", content: "Gerencie os cardápios semanais da sua cozinha" }],

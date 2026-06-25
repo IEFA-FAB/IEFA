@@ -14,7 +14,7 @@ import { useDeleteTemplate, useMenuTemplates } from "@/hooks/data/useTemplates"
  * Esses templates (template_type='event') alimentam o Step 2 da Ata de Registro de Preços.
  */
 export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/events/")({
-	beforeLoad: ({ context }) => requirePermission(context, "kitchen", 1),
+	beforeLoad: (opts) => requirePermission(opts, "kitchen", 1),
 	component: EventsPage,
 	head: () => ({
 		meta: [{ title: "Eventos - SISUB" }, { name: "description", content: "Gerencie cardápios de eventos especiais da sua cozinha" }],

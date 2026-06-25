@@ -33,7 +33,7 @@ import type { McpApiKey } from "@/server/mcp-keys.fn"
 // ============================================================================
 
 export const Route = createFileRoute("/_protected/_modules/diner/mcp-keys")({
-	beforeLoad: ({ context }) => requirePermission(context, "diner", 1),
+	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
 	component: McpKeysPage,
 	head: () => ({
 		meta: [{ title: "Chaves MCP — SISUB" }],

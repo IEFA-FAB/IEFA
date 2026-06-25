@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export const Route = createFileRoute("/_protected/_modules/analytics/global")({
-	beforeLoad: ({ context }) => requirePermission(context, "analytics", 2),
+	beforeLoad: (opts) => requirePermission(opts, "analytics", 2),
 	component: SuperAdminPanel,
 	head: () => ({
 		meta: [
