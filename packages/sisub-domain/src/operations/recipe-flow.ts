@@ -59,15 +59,36 @@ export interface SaveFlowResult {
 	balance: IngredientBalance[]
 }
 
+// O utensílio (`utensilInKitchen`) é hidratado à parte por `hydrateUtensils`, NÃO aninhado aqui:
+// o join de 3 níveis (step → vínculo → utensílio) gera um alias > 63 chars que o Postgres trunca
+// (NOTICE 42622 / NAMEDATALEN), e o Drizzle não casa a coluna truncada → a relation voltaria vazia.
 const WITH_FLOW = {
 	recipeStepOutputInKitchens: { where: (t: typeof recipeStepOutputInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt) },
 	recipeStepInputInKitchens: { where: (t: typeof recipeStepInputInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt) },
 	recipeStepUtensilInKitchens: {
 		where: (t: typeof recipeStepUtensilInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt),
-		with: { utensilInKitchen: true },
 	},
 	stepTemplateInKitchen: true,
 } as const
+
+// Linha de vínculo (recipe_step_utensil / step_template_utensil) com slot p/ o utensílio hidratado.
+// `utensilInKitchen` guarda a linha CRUA camelCase do Drizzle (o `toWire` converte p/ snake depois),
+// por isso `unknown` e não `Utensil` (que é o tipo wire snake_case do contrato).
+type UtensilLink = { utensilId: string; utensilInKitchen?: unknown }
+
+/**
+ * Hidrata `utensilInKitchen` em cada linha de vínculo via UMA query separada (batch por id).
+ * Necessário porque o nível profundo não pode ir no relational `with` (vide WITH_FLOW: alias > 63).
+ * Muta as linhas in-place injetando a chave `utensilInKitchen`, que o `toWire`/FLOW_RELATIONS
+ * renomeia p/ `utensil` no contrato. Sem filtro de `deletedAt` — paridade com o join antigo.
+ */
+async function hydrateUtensils(db: SisubDb, links: UtensilLink[]): Promise<void> {
+	const ids = [...new Set(links.map((l) => l.utensilId))]
+	if (ids.length === 0) return
+	const utensils = await runQuery("FETCH_FAILED", () => db.query.utensilInKitchen.findMany({ where: inArray(utensilInKitchen.id, ids) }))
+	const byId = new Map(utensils.map((u) => [u.id, u]))
+	for (const l of links) l.utensilInKitchen = byId.get(l.utensilId) ?? null
+}
 
 /** Autoriza mutação de fluxo conforme a posse da receita (global vs cozinha). */
 async function authorizeFlowMutation(db: SisubDb, ctx: UserContext, recipeId: string): Promise<void> {
@@ -89,6 +110,11 @@ export async function fetchRecipeFlow(db: SisubDb, ctx: UserContext, input: Fetc
 			with: WITH_FLOW as any,
 			orderBy: (step, { asc }) => [asc(step.createdAt)],
 		})
+	)
+
+	await hydrateUtensils(
+		db,
+		rows.flatMap((r) => (r as { recipeStepUtensilInKitchens: UtensilLink[] }).recipeStepUtensilInKitchens)
 	)
 
 	return { steps: rows.map((r) => toWire<RecipeStepWire>(r, FLOW_RELATIONS)) }
@@ -371,10 +397,10 @@ export async function copyRecipeFlow(db: SisubDb, srcRecipeId: string, dstRecipe
 
 // ── Catálogo ──────────────────────────────────────────────────────────────
 
+// utensílio hidratado à parte (`hydrateUtensils`) — mesmo motivo do WITH_FLOW (alias > 63 / truncamento).
 const WITH_TEMPLATE_UTENSILS = {
 	stepTemplateUtensilInKitchens: {
 		where: (t: typeof stepTemplateUtensilInKitchen, ops: { isNull: typeof isNull }) => ops.isNull(t.deletedAt),
-		with: { utensilInKitchen: true },
 	},
 } as const
 
@@ -396,6 +422,10 @@ export async function listStepTemplates(db: SisubDb, ctx: UserContext, input: Li
 			with: WITH_TEMPLATE_UTENSILS as any,
 			orderBy: (t, { asc }) => [asc(t.name)],
 		})
+	)
+	await hydrateUtensils(
+		db,
+		rows.flatMap((r) => (r as { stepTemplateUtensilInKitchens: UtensilLink[] }).stepTemplateUtensilInKitchens)
 	)
 	return rows.map((r) => toWire<StepTemplateWire>(r, FLOW_RELATIONS))
 }
