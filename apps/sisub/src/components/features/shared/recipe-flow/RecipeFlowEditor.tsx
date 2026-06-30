@@ -6,13 +6,15 @@
  * Insumos crus entram pela palette; saídas de etapa ligam etapa→etapa.
  */
 
+import { type DeclaredIngredient, validateFlow } from "@iefa/sisub-domain"
 import { type Connection, type EdgeChange, type Node, type NodeChange, ReactFlowProvider, useEdgesState, useNodesState } from "@xyflow/react"
-import { Loader2, Plus, Save } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ChevronDown, CircleAlert, Loader2, Plus, Save } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Spinner } from "@/components/ui/spinner"
 import { useCreateStepTemplate, useCreateUtensil, useRecipeFlow, useSaveRecipeFlow, useStepTemplates, useUtensils } from "@/hooks/data/useRecipeFlow"
-import { type FetchedStep, flowToGraph, graphToSave, makeIngredientNode } from "@/lib/recipe-flow/transform"
+import { type FetchedStep, flowToGraph, graphToSave, makeIngredientNode, toGraphSteps } from "@/lib/recipe-flow/transform"
 import { isValidRecipeFlowConnection } from "@/lib/recipe-flow/validate"
 import {
 	type FlowNode,
@@ -23,8 +25,7 @@ import {
 	STEP_TARGET_HANDLE,
 	type StepNode,
 } from "@/types/domain/recipe-flow"
-import { IngredientPalette } from "./IngredientPalette"
-import { MaterialBalanceIndicator } from "./MaterialBalanceIndicator"
+import { IngredientUsagePanel } from "./IngredientUsagePanel"
 import { RecipeFlowCanvas } from "./RecipeFlowCanvas"
 import { type CatalogTemplate, type CatalogUtensil, StepSidePanel } from "./StepSidePanel"
 
@@ -65,6 +66,21 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 
 	const selectedNode = useMemo(() => nodes.find((n): n is StepNode => n.type === "step" && n.id === selectedStepId) ?? null, [nodes, selectedStepId])
 	const incomingEdges = useMemo(() => (selectedStepId ? edges.filter((e) => e.target === selectedStepId) : []), [edges, selectedStepId])
+
+	// Balanço de materiais — calculado uma vez aqui e compartilhado entre o resumo do
+	// trigger (visível mesmo recolhido) e a lista de insumos dentro do collapsible.
+	const {
+		balance,
+		errors: balanceErrors,
+		warnings: balanceWarnings,
+	} = useMemo(() => {
+		const declared: DeclaredIngredient[] = ingredients.map((i) => ({
+			recipeIngredientId: i.recipeIngredientId,
+			netQuantity: i.netQuantity,
+			isOptional: i.isOptional,
+		}))
+		return validateFlow(toGraphSteps(nodes, edges), declared)
+	}, [nodes, edges, ingredients])
 
 	// ── Mutadores de estado ──
 	const patchStepData = useCallback(
@@ -247,15 +263,41 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 				</Button>
 			</div>
 
-			<div className="flex flex-col gap-3 lg:flex-row">
-				<div className="w-full space-y-4 lg:w-64 lg:shrink-0">
-					<IngredientPalette ingredients={ingredients} presentIds={presentIngredientIds} onAdd={handleAddIngredient} />
-					<div className="border-t border-border/60 pt-3">
-						<MaterialBalanceIndicator nodes={nodes} edges={edges} ingredients={ingredients} />
-					</div>
-				</div>
+			{/* Insumos + balanço recolhidos por padrão — liberam toda a largura ao DAG.
+			    O status de balanço fica no trigger para feedback mesmo com o painel fechado. */}
+			<Collapsible defaultOpen={false} className="rounded-md border border-border">
+				<CollapsibleTrigger className="group/usage flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+					<span className="text-label uppercase text-muted-foreground">Insumos e balanço</span>
+					<span className="flex items-center gap-2">
+						{balanceErrors.length > 0 ? (
+							<span className="inline-flex items-center gap-1.5 text-caption text-destructive">
+								<CircleAlert className="size-3.5" /> {balanceErrors.length} bloqueio(s)
+							</span>
+						) : balanceWarnings.length > 0 ? (
+							<span className="inline-flex items-center gap-1.5 text-caption text-warning">
+								<AlertTriangle className="size-3.5" /> {balanceWarnings.length} aviso(s)
+							</span>
+						) : (
+							<span className="inline-flex items-center gap-1.5 text-caption text-success">
+								<CheckCircle2 className="size-3.5" /> Balanço consistente
+							</span>
+						)}
+						<ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-aria-expanded/usage:rotate-180" />
+					</span>
+				</CollapsibleTrigger>
+				<CollapsibleContent className="border-t border-border px-3 py-3">
+					<IngredientUsagePanel
+						ingredients={ingredients}
+						presentIds={presentIngredientIds}
+						balance={balance}
+						errors={balanceErrors}
+						onAdd={handleAddIngredient}
+					/>
+				</CollapsibleContent>
+			</Collapsible>
 
-				<div className="h-[560px] flex-1">
+			<div className="relative">
+				<div className="h-[640px] w-full">
 					<RecipeFlowCanvas
 						nodes={nodes}
 						edges={edges}
@@ -270,7 +312,7 @@ function RecipeFlowEditorInner({ recipeId, kitchenId, ingredients }: RecipeFlowE
 				</div>
 
 				{selectedNode && (
-					<div className="w-full rounded-md border border-border bg-card lg:w-80 lg:shrink-0">
+					<div className="mt-3 w-full overflow-auto rounded-md border border-border bg-card lg:absolute lg:inset-y-2 lg:right-2 lg:mt-0 lg:w-80">
 						<StepSidePanel
 							node={selectedNode}
 							incomingEdges={incomingEdges}

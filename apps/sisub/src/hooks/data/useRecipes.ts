@@ -1,8 +1,9 @@
-import { queryOptions, useQuery } from "@tanstack/react-query"
+import type { RecipeLastReview } from "@iefa/sisub-domain"
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { queryKeys } from "@/lib/query-keys"
 import { normalizeForSearch } from "@/lib/text-search"
-import { fetchRecipeMenuUsageFn, fetchRecipesFn, fetchRecipeWithIngredientsFn } from "@/server/recipes.fn"
+import { fetchRecipeLastReviewsFn, fetchRecipeMenuUsageFn, fetchRecipesFn, fetchRecipeWithIngredientsFn, recordRecipeReviewFn } from "@/server/recipes.fn"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 export const recipesQueryOptions = (kitchenId?: number | null, includeDeleted?: boolean) =>
@@ -81,4 +82,29 @@ export function useRecipeMenuUsage() {
  */
 export async function fetchRecipeWithIngredients(recipeId: string): Promise<RecipeWithIngredients> {
 	return fetchRecipeWithIngredientsFn({ data: { recipeId } })
+}
+
+/** Última revisão (conferência) de uma preparação — null se nunca revisada. */
+export const recipeLastReviewQueryOptions = (recipeId: string) =>
+	queryOptions({
+		queryKey: queryKeys.recipes.lastReview(recipeId),
+		queryFn: async () => {
+			const rows = (await fetchRecipeLastReviewsFn({ data: { recipeId } })) as RecipeLastReview[]
+			return rows[0] ?? null
+		},
+		staleTime: 60 * 1000,
+	})
+
+/** Registra um evento de revisão (conferência) da preparação pelos nutricionistas. */
+export function useRecordRecipeReview() {
+	const queryClient = useQueryClient()
+	const mutation = useMutation({
+		mutationFn: (recipeId: string) => recordRecipeReviewFn({ data: { recipeId } }),
+		onSuccess: (_res, recipeId) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lastReview(recipeId) })
+			// Atualiza o painel de métricas (todas as janelas temporais).
+			queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics.all() })
+		},
+	})
+	return { recordRecipeReview: mutation.mutateAsync, isReviewing: mutation.isPending }
 }

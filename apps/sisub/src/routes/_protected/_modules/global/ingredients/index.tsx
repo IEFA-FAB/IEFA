@@ -1,10 +1,11 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { DownloadIcon, FolderPlus, PackagePlus } from "lucide-react"
-import { useRef } from "react"
+import { Activity, DownloadIcon, FolderPlus, PackagePlus } from "lucide-react"
+import { useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientsTreeManager, type IngredientsTreeManagerHandle } from "@/components/features/global/IngredientsTreeManager"
+import { ReviewMetricsSheet } from "@/components/features/global/ReviewMetricsSheet"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/_protected/_modules/global/ingredients/")
 function IngredientsPage() {
 	const { exportCSV } = useExportIngredientsCSV()
 	const managerRef = useRef<IngredientsTreeManagerHandle>(null)
+	const [metricsOpen, setMetricsOpen] = useState(false)
 
 	// Ensure data é carregado (suspense query via loader)
 	useSuspenseQuery(ingredientsTreeQueryOptions())
@@ -47,6 +49,11 @@ function IngredientsPage() {
 	return (
 		<div className="space-y-6">
 			<PageHeader title="Gestão de Insumos">
+				<Button variant="outline" size="sm" onClick={() => setMetricsOpen(true)} className="gap-2">
+					<Activity className="size-4" />
+					<span className="hidden sm:inline">Métricas de revisão</span>
+					<span className="sm:hidden">Métricas</span>
+				</Button>
 				<Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
 					<DownloadIcon className="size-4" />
 					<span className="hidden sm:inline">Exportar CSV</span>
@@ -64,6 +71,7 @@ function IngredientsPage() {
 				</ButtonGroup>
 			</PageHeader>
 			<IngredientsTreeManager ref={managerRef} />
+			<ReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
 		</div>
 	)
 }

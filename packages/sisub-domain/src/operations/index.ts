@@ -126,6 +126,12 @@ export {
 	saveRecipeFlow,
 } from "./recipe-flow.ts"
 export {
+	listRecipeLastReviews,
+	type RecipeLastReview,
+	type RecipeReviewRow,
+	recordRecipeReview,
+} from "./recipe-reviews.ts"
+export {
 	createRecipe,
 	createRecipeVersion,
 	deleteRecipe,
@@ -136,6 +142,13 @@ export {
 	renameRecipe,
 	restoreRecipe,
 } from "./recipes.ts"
+export {
+	getReviewMetrics,
+	type ReviewActivityDay,
+	type ReviewActivityEntry,
+	type ReviewMetrics,
+	type ReviewTypeMetrics,
+} from "./review-metrics.ts"
 export {
 	applyTemplate,
 	createBlankTemplate,
