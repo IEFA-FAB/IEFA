@@ -71,6 +71,7 @@ export const queryKeys = {
 	},
 
 	reviewMetrics: {
+		all: () => ["review-metrics"] as const,
 		summary: (from?: string, to?: string) => ["review-metrics", from ?? "all", to ?? "all"] as const,
 	},
 

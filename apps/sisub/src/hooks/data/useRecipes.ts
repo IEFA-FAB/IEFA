@@ -102,8 +102,8 @@ export function useRecordRecipeReview() {
 		mutationFn: (recipeId: string) => recordRecipeReviewFn({ data: { recipeId } }),
 		onSuccess: (_res, recipeId) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lastReview(recipeId) })
-			// Atualiza o painel de métricas de revisão.
-			queryClient.invalidateQueries({ queryKey: ["review-metrics"] })
+			// Atualiza o painel de métricas (todas as janelas temporais).
+			queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics.all() })
 		},
 	})
 	return { recordRecipeReview: mutation.mutateAsync, isReviewing: mutation.isPending }

@@ -55,15 +55,20 @@ export interface ReviewMetrics {
 const ingredientDayExpr = sql<string>`to_char((${ingredientReviewInKitchen.reviewedAt} AT TIME ZONE 'America/Sao_Paulo')::date, 'YYYY-MM-DD')`
 const recipeDayExpr = sql<string>`to_char((${recipeReviewInKitchen.reviewedAt} AT TIME ZONE 'America/Sao_Paulo')::date, 'YYYY-MM-DD')`
 
+/** Subtrai meses sem o overflow do `setMonth` (ex.: 31/03 − 6 meses → 30/09, não 01/10). */
+function subMonthsClamped(date: Date, months: number): Date {
+	const d = new Date(date)
+	const targetDay = d.getDate()
+	d.setDate(1)
+	d.setMonth(d.getMonth() - months)
+	const daysInTarget = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+	d.setDate(Math.min(targetDay, daysInTarget))
+	return d
+}
+
 function resolveWindow(input: GetReviewMetrics): { from: string; to: string } {
 	const to = input.to ? new Date(input.to) : new Date()
-	const from = input.from
-		? new Date(input.from)
-		: (() => {
-				const d = new Date(to)
-				d.setMonth(d.getMonth() - 6)
-				return d
-			})()
+	const from = input.from ? new Date(input.from) : subMonthsClamped(to, 6)
 	return { from: from.toISOString(), to: to.toISOString() }
 }
 

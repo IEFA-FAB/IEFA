@@ -105,19 +105,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const versionMutation = useVersionRecipe()
 
 	// Revisão (conferência pelos nutricionistas) — só para preparações persistidas em edição.
+	// A UI (e os hooks de revisão) vive em <RecipeReviewActions>, montado só quando há id.
 	const reviewRecipeId = mode === "edit" ? (initialData?.id ?? null) : null
-	const { recordRecipeReview, isReviewing } = useRecordRecipeReview()
-	const { data: lastReview } = useQuery({ ...recipeLastReviewQueryOptions(reviewRecipeId ?? ""), enabled: !!reviewRecipeId })
-	const handleReview = async () => {
-		if (!reviewRecipeId) return
-		try {
-			await recordRecipeReview(reviewRecipeId)
-			toast.success("Revisão registrada")
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err)
-			toast.error(msg || "Erro ao registrar revisão")
-		}
-	}
 
 	const [selectorOpen, setSelectorOpen] = useState(false)
 	// Índice do ingrediente que receberá a próxima substituição escolhida no selector (null = adicionando ingrediente principal)
@@ -281,33 +270,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				badge={modeBadge}
 				onBack={handleBack}
 			>
-				{reviewRecipeId && (
-					<div className="flex items-center gap-3">
-						<span className="hidden items-center gap-1.5 text-caption text-muted-foreground sm:flex">
-							<CalendarCheck className="size-4 shrink-0" />
-							{lastReview ? (
-								<span>
-									Revisada em <strong className="font-medium text-foreground">{formatReviewStamp(lastReview.reviewed_at)}</strong>
-									{lastReview.reviewed_by_name ? ` por ${lastReview.reviewed_by_name}` : ""}
-								</span>
-							) : (
-								<span>Ainda não revisada</span>
-							)}
-						</span>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={handleReview}
-							disabled={isReviewing}
-							className="gap-1.5"
-							title="Registrar conferência desta preparação (revisão pelos nutricionistas)"
-						>
-							{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
-							Revisado
-						</Button>
-					</div>
-				)}
+				{reviewRecipeId && <RecipeReviewActions recipeId={reviewRecipeId} />}
 			</PageHeader>
 
 			{/* Largura total (igual ao PageHeader / container do AppShell). As abas de leitura
@@ -667,6 +630,54 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				/>
 			)}
+		</div>
+	)
+}
+
+/**
+ * Ações de revisão (conferência) no header da preparação em edição. Montado apenas
+ * quando há `recipeId` persistido, então os hooks de revisão sempre recebem um id válido
+ * (sem chave de cache vazia nem query desabilitada).
+ */
+function RecipeReviewActions({ recipeId }: { recipeId: string }) {
+	const { recordRecipeReview, isReviewing } = useRecordRecipeReview()
+	const { data: lastReview } = useQuery(recipeLastReviewQueryOptions(recipeId))
+
+	const handleReview = async () => {
+		try {
+			await recordRecipeReview(recipeId)
+			toast.success("Revisão registrada")
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err)
+			toast.error(msg || "Erro ao registrar revisão")
+		}
+	}
+
+	return (
+		<div className="flex items-center gap-3">
+			<span className="hidden items-center gap-1.5 text-caption text-muted-foreground sm:flex">
+				<CalendarCheck className="size-4 shrink-0" />
+				{lastReview ? (
+					<span>
+						Revisada em <strong className="font-medium text-foreground">{formatReviewStamp(lastReview.reviewed_at)}</strong>
+						{lastReview.reviewed_by_name ? ` por ${lastReview.reviewed_by_name}` : ""}
+					</span>
+				) : (
+					<span>Ainda não revisada</span>
+				)}
+			</span>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				onClick={handleReview}
+				disabled={isReviewing}
+				className="gap-1.5"
+				title="Registrar conferência desta preparação (revisão pelos nutricionistas)"
+			>
+				{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
+				Revisado
+			</Button>
 		</div>
 	)
 }

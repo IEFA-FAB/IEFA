@@ -577,6 +577,8 @@ export function useRecordIngredientReview() {
 			queryClient.invalidateQueries({ queryKey: ["ingredients", "last-review", ingredientId] })
 			// Atualiza a data exibida na árvore de insumos.
 			queryClient.invalidateQueries({ queryKey: ["ingredients", "tree"] })
+			// Atualiza o painel de métricas de revisão (todas as janelas temporais).
+			queryClient.invalidateQueries({ queryKey: ["review-metrics"] })
 		},
 	})
 	return { recordIngredientReview: mutation.mutateAsync, isReviewing: mutation.isPending }

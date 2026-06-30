@@ -22,6 +22,17 @@ interface ReviewMetricsSheetProps {
 	onOpenChange: (open: boolean) => void
 }
 
+/** Subtrai meses sem o overflow do `setMonth` (ex.: 31/03 − 6 meses → 30/09, não 01/10). */
+function subMonthsClamped(date: Date, months: number): Date {
+	const d = new Date(date)
+	const targetDay = d.getDate()
+	d.setDate(1)
+	d.setMonth(d.getMonth() - months)
+	const daysInTarget = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+	d.setDate(Math.min(targetDay, daysInTarget))
+	return d
+}
+
 /** Janela ISO a partir do preset/custom. `null` quando o intervalo custom está incompleto. */
 function resolveWindow(preset: Preset, customFrom: string, customTo: string): { from?: string; to?: string } | null {
 	if (preset === "custom") {
@@ -33,8 +44,7 @@ function resolveWindow(preset: Preset, customFrom: string, customTo: string): { 
 	}
 	const months = preset === "6m" ? 6 : 12
 	const to = new Date()
-	const from = new Date()
-	from.setMonth(from.getMonth() - months)
+	const from = subMonthsClamped(to, months)
 	return { from: from.toISOString(), to: to.toISOString() }
 }
 
