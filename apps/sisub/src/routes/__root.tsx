@@ -99,7 +99,7 @@ function RootDocument() {
 		} = supabase.auth.onAuthStateChange((event) => {
 			if (event !== "PASSWORD_RECOVERY") return
 			if (window.location.pathname.startsWith("/auth/reset-password")) return
-			router.navigate({ to: "/auth/reset-password" })
+			router.navigate({ to: "/auth/reset-password", replace: true })
 		})
 		return () => subscription.unsubscribe()
 	}, [router])
