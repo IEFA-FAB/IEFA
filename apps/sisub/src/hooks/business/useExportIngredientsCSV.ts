@@ -22,6 +22,10 @@ export function useExportIngredientsCSV() {
 		const items = asArray<IngredientItem>(tree?.ingredientItems)
 		const reviews = asArray<{ ingredient_id: string | null; reviewed_at: string | null; reviewed_by_name: string | null }>(tree?.lastReviews)
 
+		if (!tree) {
+			toast.error("Aguarde o carregamento dos dados")
+			return
+		}
 		if (folders.length === 0 && ingredients.length === 0) {
 			toast.error("Nenhum dado para exportar")
 			return
@@ -61,22 +65,26 @@ export function useExportIngredientsCSV() {
 		for (const key of Object.keys(ingredientsByFolder)) ingredientsByFolder[key].sort(byDescription)
 		for (const key of Object.keys(itemsByIngredient)) itemsByIngredient[key].sort(byDescription)
 
-		// Caminho completo (raiz → folder, inclusivo) de uma pasta, separado por " > "
+		// Caminho completo (raiz → folder, inclusivo) de uma pasta, separado por " > ".
+		// Recursivo top-down: reutiliza o caminho do pai já cacheado, evitando re-traversal
+		// O(depth²). O `resolving` quebra ciclos de parent_id (FK self-ref não os impede).
 		const folderPathCache: Record<string, string> = {}
+		const resolving = new Set<string>()
 		const folderPath = (folderId: string | null): string => {
 			if (!folderId) return ""
-			if (folderPathCache[folderId] != null) return folderPathCache[folderId]
-			const labels: string[] = []
-			const seen = new Set<string>()
-			let id: string | null = folderId
-			while (id && !seen.has(id)) {
-				seen.add(id)
-				const f: Folder | undefined = folderById[id]
-				if (!f) break
-				labels.unshift(f.description ?? "(sem nome)")
-				id = f.parent_id
+			const cached = folderPathCache[folderId]
+			if (cached != null) return cached
+			const f: Folder | undefined = folderById[folderId]
+			// Pasta ausente ou ciclo detectado → encerra sem recursão.
+			if (!f || resolving.has(folderId)) {
+				folderPathCache[folderId] = ""
+				return ""
 			}
-			const path = labels.join(" > ")
+			resolving.add(folderId)
+			const parentPath = folderPath(f.parent_id)
+			resolving.delete(folderId)
+			const name = f.description ?? "(sem nome)"
+			const path = parentPath ? `${parentPath} > ${name}` : name
 			folderPathCache[folderId] = path
 			return path
 		}
