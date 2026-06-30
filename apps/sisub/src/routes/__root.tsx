@@ -2,14 +2,16 @@
 
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import type { QueryClient } from "@tanstack/react-query"
-import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router"
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, useRouterState } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { useEffect } from "react"
 import { type AuthState, authQueryOptions } from "@/auth/service"
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
 import { Toaster } from "@/components/ui/sonner"
 import TanStackQueryDevtools from "@/integrations/tanstack-query/devtools"
 import { cn } from "@/lib/cn"
+import supabase from "@/lib/supabase"
 import { ThemeProvider, ThemeScript } from "@/services/themeService"
 import AppStyles from "@/styles.css?url"
 import type { AuthContextType } from "@/types/domain/auth"
@@ -86,6 +88,21 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument() {
 	const isLoading = useRouterState({ select: (s) => s.isLoading })
+	const router = useRouter()
+
+	// Safety net: Supabase may land password-recovery links on the Site URL root
+	// (instead of the requested redirectTo) when the path isn't in the Redirect URLs
+	// allow-list. Detect the recovery event anywhere and route to the reset form.
+	useEffect(() => {
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((event) => {
+			if (event !== "PASSWORD_RECOVERY") return
+			if (window.location.pathname.startsWith("/auth/reset-password")) return
+			router.navigate({ to: "/auth/reset-password", replace: true })
+		})
+		return () => subscription.unsubscribe()
+	}, [router])
 
 	return (
 		<html lang="pt-BR" suppressHydrationWarning>
