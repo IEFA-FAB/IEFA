@@ -91,9 +91,25 @@ function RootDocument() {
 	const router = useRouter()
 
 	// Safety net: Supabase may land password-recovery links on the Site URL root
-	// (instead of the requested redirectTo) when the path isn't in the Redirect URLs
-	// allow-list. Detect the recovery event anywhere and route to the reset form.
+	// (instead of the requested redirectTo) when the path isn't honored by the
+	// Redirect URLs allow-list. Forward to the reset form for both auth flows.
 	useEffect(() => {
+		if (typeof window === "undefined") return
+
+		// PKCE flow: the link resolves to the root with a `?code=` query. Forward to
+		// the reset form with the code intact (full reload) so that page's Supabase
+		// client exchanges it. No OAuth/code login exists here, so `?code=` is always
+		// a recovery code; email confirmation uses `token_hash` instead.
+		if (!window.location.pathname.startsWith("/auth")) {
+			const params = new URLSearchParams(window.location.search)
+			if (params.has("code")) {
+				window.location.replace(`/auth/reset-password${window.location.search}`)
+				return
+			}
+		}
+
+		// Implicit/hash flow: Supabase fires PASSWORD_RECOVERY after parsing the
+		// token from the URL hash. Route to the reset form from wherever it landed.
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((event) => {
