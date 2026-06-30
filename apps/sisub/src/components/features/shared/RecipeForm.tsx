@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form"
-import { useNavigate, useParams } from "@tanstack/react-router"
-import { Circle, CircleCheck, Loader2, Pencil, Plus, Replace, Save, Trash2 } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
+import { CalendarCheck, Circle, CircleCheck, Loader2, Pencil, Plus, Replace, Save, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -17,9 +18,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
+import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
+
+// Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
+const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "fluxo"] as const
+type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
+
+// Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
+// usa a largura total do container. Centralizar tudo no mesmo eixo evita o "pulo" lateral
+// ao alternar entre abas estreitas e a larga — cresce simétrico a partir do centro.
+const READING_PANEL = "pt-4 max-w-5xl mx-auto"
+
+function formatReviewStamp(dateStr: string) {
+	return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+}
 
 // Schema Validation
 const alternativeSchema = z.object({
@@ -77,8 +92,32 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const navigate = useNavigate()
 	const { kitchenId } = useParams({ strict: false })
 
+	// Aba ativa via URL — compartilhável e navegável. strict:false porque RecipeForm é
+	// usado em várias rotas (criar/editar/fork, global e cozinha) sem declarar este param
+	// no validateSearch de cada uma; o valor é validado abaixo (fallback "detalhes").
+	const search = useSearch({ strict: false }) as { tab?: string }
+	const activeTab: RecipeFormTab = RECIPE_FORM_TABS.includes(search.tab as RecipeFormTab) ? (search.tab as RecipeFormTab) : "detalhes"
+	// navigate genérico (componente em várias rotas, sem `from`) não consegue tipar o reducer
+	// de search e o resolve como `never`; o cast preserva os demais params e grava ?tab= na URL.
+	const setTab = (tab: RecipeFormTab) => navigate({ search: ((prev: Record<string, unknown>) => ({ ...prev, tab })) as never, replace: true })
+
 	const createMutation = useCreateRecipe()
 	const versionMutation = useVersionRecipe()
+
+	// Revisão (conferência pelos nutricionistas) — só para preparações persistidas em edição.
+	const reviewRecipeId = mode === "edit" ? (initialData?.id ?? null) : null
+	const { recordRecipeReview, isReviewing } = useRecordRecipeReview()
+	const { data: lastReview } = useQuery({ ...recipeLastReviewQueryOptions(reviewRecipeId ?? ""), enabled: !!reviewRecipeId })
+	const handleReview = async () => {
+		if (!reviewRecipeId) return
+		try {
+			await recordRecipeReview(reviewRecipeId)
+			toast.success("Revisão registrada")
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err)
+			toast.error(msg || "Erro ao registrar revisão")
+		}
+	}
 
 	const [selectorOpen, setSelectorOpen] = useState(false)
 	// Índice do ingrediente que receberá a próxima substituição escolhida no selector (null = adicionando ingrediente principal)
@@ -241,9 +280,39 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				}
 				badge={modeBadge}
 				onBack={handleBack}
-			/>
+			>
+				{reviewRecipeId && (
+					<div className="flex items-center gap-3">
+						<span className="hidden items-center gap-1.5 text-caption text-muted-foreground sm:flex">
+							<CalendarCheck className="size-4 shrink-0" />
+							{lastReview ? (
+								<span>
+									Revisada em <strong className="font-medium text-foreground">{formatReviewStamp(lastReview.reviewed_at)}</strong>
+									{lastReview.reviewed_by_name ? ` por ${lastReview.reviewed_by_name}` : ""}
+								</span>
+							) : (
+								<span>Ainda não revisada</span>
+							)}
+						</span>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={handleReview}
+							disabled={isReviewing}
+							className="gap-1.5"
+							title="Registrar conferência desta preparação (revisão pelos nutricionistas)"
+						>
+							{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
+							Revisado
+						</Button>
+					</div>
+				)}
+			</PageHeader>
 
-			<div className="max-w-5xl mx-auto space-y-8 pb-24">
+			{/* Largura total (igual ao PageHeader / container do AppShell). As abas de leitura
+			    recebem cap interno via READING_PANEL; a aba de fluxo usa a largura inteira. */}
+			<div className="space-y-8 pb-24">
 				<form
 					id="recipe-form"
 					onSubmit={(e) => {
@@ -251,228 +320,240 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						e.stopPropagation()
 						form.handleSubmit()
 					}}
-					className="space-y-6"
 				>
-					{/* Rendimento e cocção — parâmetros que dimensionam a preparação */}
-					<Card>
-						<CardHeader>
-							<CardTitle>Rendimento e cocção</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-								<form.Field name="portion_yield">
-									{(field) => (
-										<Field data-invalid={field.state.meta.errors.length > 0}>
-											<FieldLabel htmlFor="portion_yield">Rendimento (Porções)</FieldLabel>
-											<FieldContent>
-												<Input
-													id="portion_yield"
-													type="number"
-													min={1}
-													value={field.state.value}
-													className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
-													onChange={(e) => field.handleChange(Number(e.target.value))}
-												/>
-												<FieldDescription>Base para custo e escala das quantidades.</FieldDescription>
-												<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
-											</FieldContent>
-										</Field>
-									)}
-								</form.Field>
+					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
+						<TabsList className="mx-auto">
+							<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+							<TabsTrigger value="ingredientes">
+								Ingredientes
+								<form.Subscribe selector={(state) => state.values.ingredients.length}>
+									{(count) => (count > 0 ? <Badge variant="secondary">{count}</Badge> : null)}
+								</form.Subscribe>
+							</TabsTrigger>
+							<TabsTrigger value="preparo">Modo de preparo</TabsTrigger>
+							<TabsTrigger value="fluxo">Fluxo de produção</TabsTrigger>
+						</TabsList>
 
-								<form.Field name="preparation_time_minutes">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor="preparation_time_minutes">Tempo de Preparo (min)</FieldLabel>
-											<FieldContent>
-												<Input
-													id="preparation_time_minutes"
-													type="number"
-													min={0}
-													value={field.state.value ?? 0}
-													onChange={(e) => field.handleChange(Number(e.target.value))}
-												/>
-											</FieldContent>
-										</Field>
-									)}
-								</form.Field>
-							</div>
-
-							<form.Field name="cooking_factor">
-								{(field) => (
-									<Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0} className="border-t border-border/60 pt-4">
-										<FieldContent>
-											<FieldLabel htmlFor="cooking_factor">Fator de Cocção (FC)</FieldLabel>
-											<FieldDescription>
-												Parâmetro avançado: 1,0 = sem perda de massa; acima disso o alimento perde peso ao cozinhar (ex.: frango ≈ 1,33). Faixa usual: 0,5–2,0.
-											</FieldDescription>
-											<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
-										</FieldContent>
-										<Input
-											id="cooking_factor"
-											type="number"
-											step="0.01"
-											placeholder="1,0"
-											value={field.state.value || 1}
-											className={cn("w-28 shrink-0", field.state.meta.errors.length > 0 && "border-destructive")}
-											onChange={(e) => field.handleChange(Number(e.target.value))}
-										/>
-									</Field>
-								)}
-							</form.Field>
-						</CardContent>
-					</Card>
-
-					{/* Ingredientes — núcleo da preparação */}
-					<form.Field name="ingredients">
-						{(field) => (
+						{/* Detalhes — rendimento e cocção dimensionam a preparação */}
+						<TabsContent value="detalhes" className={READING_PANEL}>
+							{/* Rendimento e cocção — parâmetros que dimensionam a preparação */}
 							<Card>
-								<CardHeader className="flex flex-row items-center justify-between">
-									<div className="flex items-center gap-2">
-										<CardTitle>Ingredientes</CardTitle>
-										{field.state.value.length > 0 && <Badge variant="secondary">{field.state.value.length}</Badge>}
-									</div>
-									<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
-										<Plus className="size-4 mr-2" />
-										Adicionar
-									</Button>
+								<CardHeader>
+									<CardTitle>Rendimento e cocção</CardTitle>
 								</CardHeader>
-								<CardContent className="space-y-3">
-									{field.state.value.length === 0 ? (
-										<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-10 text-muted-foreground">
-											<p className="text-body">Nenhum ingrediente adicionado</p>
-											<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
-												<Plus className="size-4 mr-2" />
-												Adicionar ingrediente
-											</Button>
-										</div>
-									) : (
-										<ItemGroup>
-											{field.state.value.map((ingredient: IngredientFormItem, index: number) => (
-												<div key={ingredient.ingredient_id || index} className="space-y-2">
-													<Item variant="outline">
-														<ItemContent>
-															<ItemTitle>{ingredient.ingredient_name}</ItemTitle>
-														</ItemContent>
-														<ItemActions className="gap-2">
-															<div className="flex items-center gap-1.5">
-																<Input
-																	aria-label={`Quantidade líquida de ${ingredient.ingredient_name}`}
-																	type="number"
-																	step="0.001"
-																	value={ingredient.net_quantity ?? 0}
-																	onChange={(e) => {
-																		const newList = [...field.state.value]
-																		newList[index].net_quantity = Number(e.target.value)
-																		field.handleChange(newList)
-																	}}
-																	className="w-24 text-right"
-																/>
-																<span className="text-caption text-muted-foreground w-8 shrink-0">{ingredient.measure_unit}</span>
-															</div>
-															<Toggle
-																variant="outline"
-																size="sm"
-																pressed={ingredient.is_optional}
-																onPressedChange={(pressed) => {
-																	const newList = [...field.state.value]
-																	newList[index].is_optional = pressed
-																	field.handleChange(newList)
-																}}
-															>
-																{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
-																Opcional
-															</Toggle>
-															<Button
-																type="button"
-																variant="ghost"
-																size="icon-sm"
-																className="text-muted-foreground hover:text-destructive"
-																aria-label={`Remover ${ingredient.ingredient_name}`}
-																onClick={() => {
-																	const snapshot = [...field.state.value]
-																	const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
-																	field.handleChange(newList)
-																	toast("Ingrediente removido.", {
-																		action: {
-																			label: "Desfazer",
-																			onClick: () => field.handleChange(snapshot),
-																		},
-																	})
-																}}
-															>
-																<Trash2 className="size-3.5" />
-															</Button>
-														</ItemActions>
-													</Item>
+								<CardContent className="space-y-4">
+									<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+										<form.Field name="portion_yield">
+											{(field) => (
+												<Field data-invalid={field.state.meta.errors.length > 0}>
+													<FieldLabel htmlFor="portion_yield">Rendimento (Porções)</FieldLabel>
+													<FieldContent>
+														<Input
+															id="portion_yield"
+															type="number"
+															min={1}
+															value={field.state.value}
+															className={field.state.meta.errors.length > 0 ? "border-destructive" : ""}
+															onChange={(e) => field.handleChange(Number(e.target.value))}
+														/>
+														<FieldDescription>Base para custo e escala das quantidades.</FieldDescription>
+														<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
+													</FieldContent>
+												</Field>
+											)}
+										</form.Field>
 
-													{/* Substituições — insumos que podem substituir este na preparação */}
-													<div className="ml-6 space-y-1.5 border-l border-border/60 pl-3">
-														{(ingredient.alternatives ?? []).map((alt: AlternativeFormItem, altIndex: number) => (
-															<div key={alt.ingredient_id || altIndex} className="flex items-center gap-1.5">
-																<Replace className="size-3.5 shrink-0 text-muted-foreground" />
-																<span className="flex-1 text-body text-muted-foreground">{alt.ingredient_name}</span>
-																<Input
-																	aria-label={`Quantidade líquida da substituição ${alt.ingredient_name}`}
-																	type="number"
-																	step="0.001"
-																	value={alt.net_quantity ?? 0}
-																	onChange={(e) => {
-																		const newList = [...field.state.value]
-																		const alts = [...(newList[index].alternatives ?? [])]
-																		alts[altIndex] = { ...alts[altIndex], net_quantity: Number(e.target.value) }
-																		newList[index].alternatives = alts
-																		field.handleChange(newList)
-																	}}
-																	className="w-24 text-right"
-																/>
-																<span className="text-caption text-muted-foreground w-8 shrink-0">{alt.measure_unit}</span>
-																<Button
-																	type="button"
-																	variant="ghost"
-																	size="icon-sm"
-																	className="text-muted-foreground hover:text-destructive"
-																	aria-label={`Remover substituição ${alt.ingredient_name}`}
-																	onClick={() => {
-																		const newList = [...field.state.value]
-																		newList[index].alternatives = (newList[index].alternatives ?? []).filter(
-																			(_: AlternativeFormItem, i: number) => i !== altIndex
-																		)
-																		field.handleChange(newList)
-																	}}
-																>
-																	<Trash2 className="size-3.5" />
-																</Button>
-															</div>
-														))}
-														<Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAltTargetIndex(index)}>
-															<Replace className="size-3.5 mr-2" />
-															Adicionar substituição
-														</Button>
-													</div>
-												</div>
-											))}
-										</ItemGroup>
-									)}
-									{field.state.meta.errors && <FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />}
+										<form.Field name="preparation_time_minutes">
+											{(field) => (
+												<Field>
+													<FieldLabel htmlFor="preparation_time_minutes">Tempo de Preparo (min)</FieldLabel>
+													<FieldContent>
+														<Input
+															id="preparation_time_minutes"
+															type="number"
+															min={0}
+															value={field.state.value ?? 0}
+															onChange={(e) => field.handleChange(Number(e.target.value))}
+														/>
+													</FieldContent>
+												</Field>
+											)}
+										</form.Field>
+									</div>
+
+									<form.Field name="cooking_factor">
+										{(field) => (
+											<Field orientation="horizontal" data-invalid={field.state.meta.errors.length > 0} className="border-t border-border/60 pt-4">
+												<FieldContent>
+													<FieldLabel htmlFor="cooking_factor">Fator de Cocção (FC)</FieldLabel>
+													<FieldDescription>
+														Parâmetro avançado: 1,0 = sem perda de massa; acima disso o alimento perde peso ao cozinhar (ex.: frango ≈ 1,33). Faixa usual:
+														0,5–2,0.
+													</FieldDescription>
+													<FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />
+												</FieldContent>
+												<Input
+													id="cooking_factor"
+													type="number"
+													step="0.01"
+													placeholder="1,0"
+													value={field.state.value || 1}
+													className={cn("w-28 shrink-0", field.state.meta.errors.length > 0 && "border-destructive")}
+													onChange={(e) => field.handleChange(Number(e.target.value))}
+												/>
+											</Field>
+										)}
+									</form.Field>
 								</CardContent>
 							</Card>
-						)}
-					</form.Field>
+						</TabsContent>
 
-					{/* Modo de preparo — texto livre + fluxo de produção estruturado */}
-					<Card>
-						<CardHeader>
-							<CardTitle>Modo de preparo</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<Tabs defaultValue="texto">
-								<TabsList>
-									<TabsTrigger value="texto">Texto</TabsTrigger>
-									<TabsTrigger value="fluxo">Fluxo de produção</TabsTrigger>
-								</TabsList>
+						{/* Ingredientes — núcleo da preparação */}
+						<TabsContent value="ingredientes" className={READING_PANEL}>
+							<form.Field name="ingredients">
+								{(field) => (
+									<Card>
+										<CardHeader className="flex flex-row items-center justify-between">
+											<div className="flex items-center gap-2">
+												<CardTitle>Ingredientes</CardTitle>
+												{field.state.value.length > 0 && <Badge variant="secondary">{field.state.value.length}</Badge>}
+											</div>
+											<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
+												<Plus className="size-4 mr-2" />
+												Adicionar
+											</Button>
+										</CardHeader>
+										<CardContent className="space-y-3">
+											{field.state.value.length === 0 ? (
+												<div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border py-10 text-muted-foreground">
+													<p className="text-body">Nenhum ingrediente adicionado</p>
+													<Button type="button" variant="outline" size="sm" onClick={() => setSelectorOpen(true)}>
+														<Plus className="size-4 mr-2" />
+														Adicionar ingrediente
+													</Button>
+												</div>
+											) : (
+												<ItemGroup>
+													{field.state.value.map((ingredient: IngredientFormItem, index: number) => (
+														<div key={ingredient.ingredient_id || index} className="space-y-2">
+															<Item variant="outline">
+																<ItemContent>
+																	<ItemTitle>{ingredient.ingredient_name}</ItemTitle>
+																</ItemContent>
+																<ItemActions className="gap-2">
+																	<div className="flex items-center gap-1.5">
+																		<Input
+																			aria-label={`Quantidade líquida de ${ingredient.ingredient_name}`}
+																			type="number"
+																			step="0.001"
+																			value={ingredient.net_quantity ?? 0}
+																			onChange={(e) => {
+																				const newList = [...field.state.value]
+																				newList[index].net_quantity = Number(e.target.value)
+																				field.handleChange(newList)
+																			}}
+																			className="w-24 text-right"
+																		/>
+																		<span className="text-caption text-muted-foreground w-8 shrink-0">{ingredient.measure_unit}</span>
+																	</div>
+																	<Toggle
+																		variant="outline"
+																		size="sm"
+																		pressed={ingredient.is_optional}
+																		onPressedChange={(pressed) => {
+																			const newList = [...field.state.value]
+																			newList[index].is_optional = pressed
+																			field.handleChange(newList)
+																		}}
+																	>
+																		{ingredient.is_optional ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+																		Opcional
+																	</Toggle>
+																	<Button
+																		type="button"
+																		variant="ghost"
+																		size="icon-sm"
+																		className="text-muted-foreground hover:text-destructive"
+																		aria-label={`Remover ${ingredient.ingredient_name}`}
+																		onClick={() => {
+																			const snapshot = [...field.state.value]
+																			const newList = snapshot.filter((_: IngredientFormItem, i: number) => i !== index)
+																			field.handleChange(newList)
+																			toast("Ingrediente removido.", {
+																				action: {
+																					label: "Desfazer",
+																					onClick: () => field.handleChange(snapshot),
+																				},
+																			})
+																		}}
+																	>
+																		<Trash2 className="size-3.5" />
+																	</Button>
+																</ItemActions>
+															</Item>
 
-								<TabsContent value="texto" className="pt-4">
+															{/* Substituições — insumos que podem substituir este na preparação */}
+															<div className="ml-6 space-y-1.5 border-l border-border/60 pl-3">
+																{(ingredient.alternatives ?? []).map((alt: AlternativeFormItem, altIndex: number) => (
+																	<div key={alt.ingredient_id || altIndex} className="flex items-center gap-1.5">
+																		<Replace className="size-3.5 shrink-0 text-muted-foreground" />
+																		<span className="flex-1 text-body text-muted-foreground">{alt.ingredient_name}</span>
+																		<Input
+																			aria-label={`Quantidade líquida da substituição ${alt.ingredient_name}`}
+																			type="number"
+																			step="0.001"
+																			value={alt.net_quantity ?? 0}
+																			onChange={(e) => {
+																				const newList = [...field.state.value]
+																				const alts = [...(newList[index].alternatives ?? [])]
+																				alts[altIndex] = { ...alts[altIndex], net_quantity: Number(e.target.value) }
+																				newList[index].alternatives = alts
+																				field.handleChange(newList)
+																			}}
+																			className="w-24 text-right"
+																		/>
+																		<span className="text-caption text-muted-foreground w-8 shrink-0">{alt.measure_unit}</span>
+																		<Button
+																			type="button"
+																			variant="ghost"
+																			size="icon-sm"
+																			className="text-muted-foreground hover:text-destructive"
+																			aria-label={`Remover substituição ${alt.ingredient_name}`}
+																			onClick={() => {
+																				const newList = [...field.state.value]
+																				newList[index].alternatives = (newList[index].alternatives ?? []).filter(
+																					(_: AlternativeFormItem, i: number) => i !== altIndex
+																				)
+																				field.handleChange(newList)
+																			}}
+																		>
+																			<Trash2 className="size-3.5" />
+																		</Button>
+																	</div>
+																))}
+																<Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAltTargetIndex(index)}>
+																	<Replace className="size-3.5 mr-2" />
+																	Adicionar substituição
+																</Button>
+															</div>
+														</div>
+													))}
+												</ItemGroup>
+											)}
+											{field.state.meta.errors && <FieldError errors={field.state.meta.errors.flatMap((err) => (err ? [{ message: String(err) }] : []))} />}
+										</CardContent>
+									</Card>
+								)}
+							</form.Field>
+						</TabsContent>
+
+						{/* Modo de preparo — texto livre */}
+						<TabsContent value="preparo" className={READING_PANEL}>
+							<Card>
+								<CardHeader>
+									<CardTitle>Modo de preparo</CardTitle>
+								</CardHeader>
+								<CardContent>
 									<form.Field name="preparation_method">
 										{(field) => (
 											<Field data-invalid={field.state.meta.errors.length > 0}>
@@ -491,9 +572,17 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											</Field>
 										)}
 									</form.Field>
-								</TabsContent>
+								</CardContent>
+							</Card>
+						</TabsContent>
 
-								<TabsContent value="fluxo" className="pt-4">
+						{/* Fluxo de produção — DAG estruturado, salvo separadamente da preparação */}
+						<TabsContent value="fluxo" className="pt-4">
+							<Card>
+								<CardHeader>
+									<CardTitle>Fluxo de produção</CardTitle>
+								</CardHeader>
+								<CardContent>
 									{flowEnabled && initialData ? (
 										<>
 											<p className="text-caption text-muted-foreground pb-3">
@@ -507,16 +596,16 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 											<p className="text-caption">Salve a preparação e abra-a em edição para montar o fluxo.</p>
 										</div>
 									)}
-								</TabsContent>
-							</Tabs>
-						</CardContent>
-					</Card>
+								</CardContent>
+							</Card>
+						</TabsContent>
+					</Tabs>
 				</form>
 			</div>
 
 			{/* Barra de ação do form — sempre acessível, efeito do salvamento explícito */}
 			<div className="sticky bottom-0 z-10 -mx-3 border-t border-border bg-background px-3 py-3 sm:-mx-6 sm:px-6">
-				<div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<p className="text-caption text-muted-foreground">{saveCaption}</p>
 					<div className="flex justify-end gap-2">
 						<Button type="button" variant="outline" onClick={handleBack}>

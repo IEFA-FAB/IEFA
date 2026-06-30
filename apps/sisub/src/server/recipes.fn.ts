@@ -17,13 +17,17 @@ import {
 	deleteRecipe,
 	FetchRecipeSchema,
 	fetchRecipe,
+	ListRecipeLastReviewsSchema,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
+	listRecipeLastReviews,
 	listRecipeMenuUsage,
 	listRecipes,
 	listRecipeVersions,
+	RecordRecipeReviewSchema,
 	RenameRecipeSchema,
 	RestoreRecipeSchema,
+	recordRecipeReview,
 	renameRecipe,
 	restoreRecipe,
 } from "@iefa/sisub-domain"
@@ -31,6 +35,18 @@ import { createServerFn } from "@tanstack/react-start"
 import { requireAuth } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
+import { getSupabaseAuthClient } from "@/lib/supabase.server"
+
+/** Identidade do autor da revisão (nome + id) a partir da sessão Supabase. */
+async function resolveActor(): Promise<{ id: string | null; name: string | null }> {
+	const {
+		data: { user },
+	} = await getSupabaseAuthClient().auth.getUser()
+	if (!user) return { id: null, name: null }
+	const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+	const name = (meta.full_name as string) ?? (meta.name as string) ?? (meta.display_name as string) ?? user.email ?? null
+	return { id: user.id, name }
+}
 
 export const fetchRecipesFn = createServerFn({ method: "GET" })
 	.validator(ListRecipesSchema)
@@ -95,4 +111,20 @@ export const renameRecipeFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return renameRecipe(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+// Registra um evento de revisão (conferência) da preparação pelos nutricionistas.
+export const recordRecipeReviewFn = createServerFn({ method: "POST" })
+	.validator(RecordRecipeReviewSchema)
+	.handler(async ({ data }) => {
+		const [ctx, actor] = await Promise.all([requireAuth(), resolveActor()])
+		return recordRecipeReview(getDb(), ctx, data, actor).catch(handleDomainError)
+	})
+
+// Última revisão por preparação (sem recipeId → todas; com → detalhe).
+export const fetchRecipeLastReviewsFn = createServerFn({ method: "GET" })
+	.validator(ListRecipeLastReviewsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listRecipeLastReviews(getDb(), ctx, data).catch(handleDomainError)
 	})

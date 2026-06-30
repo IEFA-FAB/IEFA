@@ -1414,6 +1414,22 @@ export const ingredientReviewInKitchen = kitchen.table("ingredient_review", {
 		}).onDelete("cascade"),
 ]);
 
+export const recipeReviewInKitchen = kitchen.table("recipe_review", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	recipeId: uuid("recipe_id").notNull(),
+	reviewedBy: uuid("reviewed_by"),
+	reviewedByName: text("reviewed_by_name"),
+	note: text(),
+	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("recipe_review_recipe_idx").using("btree", table.recipeId.asc().nullsLast().op("timestamptz_ops"), table.reviewedAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+			columns: [table.recipeId],
+			foreignColumns: [recipesInKitchen.id],
+			name: "recipe_review_recipe_id_fkey"
+		}).onDelete("cascade"),
+]);
+
 export const procurementArpItemInProcurement = procurement.table("procurement_arp_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	arpId: uuid("arp_id").notNull(),
@@ -1640,3 +1656,9 @@ export const ingredientLastReviewInKitchen = kitchen.view("ingredient_last_revie
 	reviewedBy: uuid("reviewed_by"),
 	reviewedByName: text("reviewed_by_name"),
 }).as(sql`SELECT DISTINCT ON (ingredient_id) ingredient_id, reviewed_at, reviewed_by, reviewed_by_name FROM kitchen.ingredient_review ORDER BY ingredient_id, reviewed_at DESC`);
+
+export const recipeLastReviewInKitchen = kitchen.view("recipe_last_review", {	recipeId: uuid("recipe_id"),
+	reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: 'string' }),
+	reviewedBy: uuid("reviewed_by"),
+	reviewedByName: text("reviewed_by_name"),
+}).as(sql`SELECT DISTINCT ON (recipe_id) recipe_id, reviewed_at, reviewed_by, reviewed_by_name FROM kitchen.recipe_review ORDER BY recipe_id, reviewed_at DESC`);

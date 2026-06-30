@@ -70,3 +70,17 @@ export const CreateRecipeVersionSchema = CreateRecipeSchema.extend({
 	sourceRecipeId: UuidSchema.optional(),
 })
 export type CreateRecipeVersion = z.infer<typeof CreateRecipeVersionSchema>
+
+// ── Revisão de preparações (conferência pelos nutricionistas) ────────────────
+
+export const RecordRecipeReviewSchema = z.object({
+	recipeId: UuidSchema,
+	note: z.string().nullable().optional(),
+})
+export type RecordRecipeReview = z.infer<typeof RecordRecipeReviewSchema>
+
+/** Última revisão por preparação. Sem recipeId → todas; com → 1 preparação (detalhe). */
+export const ListRecipeLastReviewsSchema = z.object({
+	recipeId: UuidSchema.optional(),
+})
+export type ListRecipeLastReviews = z.infer<typeof ListRecipeLastReviewsSchema>

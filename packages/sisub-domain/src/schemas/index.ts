@@ -276,8 +276,10 @@ export type {
 	DeleteRecipe,
 	FetchRecipe,
 	Ingredient,
+	ListRecipeLastReviews,
 	ListRecipes,
 	ListRecipeVersions,
+	RecordRecipeReview,
 	RenameRecipe,
 	RestoreRecipe,
 } from "./recipes.ts"
@@ -287,11 +289,15 @@ export {
 	DeleteRecipeSchema,
 	FetchRecipeSchema,
 	IngredientSchema,
+	ListRecipeLastReviewsSchema,
 	ListRecipesSchema,
 	ListRecipeVersionsSchema,
+	RecordRecipeReviewSchema,
 	RenameRecipeSchema,
 	RestoreRecipeSchema,
 } from "./recipes.ts"
+export type { GetReviewMetrics } from "./review-metrics.ts"
+export { GetReviewMetricsSchema } from "./review-metrics.ts"
 export type {
 	ApplyTemplate,
 	CreateBlankTemplate,

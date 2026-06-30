@@ -67,6 +67,11 @@ export const queryKeys = {
 		detail: (id: string | undefined) => ["recipe", id] as const,
 		versions: (recipeId: string | undefined) => ["recipe_versions", recipeId] as const,
 		menuUsage: () => ["recipes", "menu-usage"] as const,
+		lastReview: (recipeId: string | undefined) => ["recipes", "last-review", recipeId] as const,
+	},
+
+	reviewMetrics: {
+		summary: (from?: string, to?: string) => ["review-metrics", from ?? "all", to ?? "all"] as const,
 	},
 
 	recipeFlow: {
