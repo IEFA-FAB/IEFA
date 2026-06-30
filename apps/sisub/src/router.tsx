@@ -3,6 +3,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import type { ReactNode } from "react"
 import { type AuthState, authActions, authQueryOptions } from "@/auth/service"
 import { reportError } from "@/lib/observability/report-error"
+import { recoverIfStaleChunk } from "@/lib/recover-stale-chunk"
 import supabase from "@/lib/supabase"
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider"
 import { routeTree } from "./routeTree.gen"
@@ -29,6 +30,11 @@ export const getRouter = () => {
 		// Sink central das quebras de rota/render do TanStack — cobre tudo que
 		// cai no errorComponent (loaders, render, hidratação de match).
 		defaultOnCatch: (error, errorInfo) => {
+			// Chunk de rota obsoleto pós-deploy que resolve para módulo vazio: o
+			// lazyRouteComponent estoura TypeError ao ler o export e o TanStack
+			// captura aqui (nunca chega aos listeners de window). Hard-reload busca
+			// manifest novo; o guard de janela evita loop se for bug genuíno.
+			if (recoverIfStaleChunk(error, "router.defaultOnCatch")) return
 			reportError(error, { source: "router", ...errorInfo })
 		},
 		defaultPreload: "intent",

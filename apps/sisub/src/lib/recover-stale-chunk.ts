@@ -27,6 +27,15 @@ const WINDOW_MS = 15_000
 /** Mensagens de falha de import dinâmico nos diferentes engines. */
 const DYNAMIC_IMPORT_FAILURE = /Importing a module script failed|error loading dynamically imported module|Failed to fetch dynamically imported module/i
 
+// Segunda variante de chunk obsoleto: o import() RESOLVE, mas para um módulo
+// vazio/stale (manifest velho de aba antiga). O `lazyRouteComponent` então lê
+// `res[exportName]` num `res` undefined → TypeError, capturado pelo TanStack e
+// roteado pro `defaultOnCatch` (nunca chega aos listeners de window). Os nomes
+// de export vêm do code-split por rota do TanStack Start (component, errorComponent…).
+// Inclui a variante do Firefox/Spidermonkey (`res is undefined`).
+const STALE_LAZY_COMPONENT =
+	/Cannot read properties of undefined \(reading '(?:component|errorComponent|pendingComponent|notFoundComponent|default)'\)|res(?:ult)? is undefined/i
+
 // Fallback em memória para contextos onde sessionStorage lança (Safari em modo
 // privado / storage bloqueado). Não sobrevive ao reload, mas garante que a
 // leitura/escrita do guard nunca quebra a recuperação.
@@ -70,6 +79,27 @@ function attemptRecovery(reason: string): boolean {
 	})
 	window.location.reload()
 	return true
+}
+
+/**
+ * Detecta os dois feitios de chunk obsoleto: import que falha de vez
+ * (`DYNAMIC_IMPORT_FAILURE`) e import que resolve para um módulo vazio, fazendo
+ * o `lazyRouteComponent` estourar TypeError ao ler o export (`STALE_LAZY_COMPONENT`).
+ */
+export function isStaleChunkError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error ?? "")
+	return DYNAMIC_IMPORT_FAILURE.test(message) || STALE_LAZY_COMPONENT.test(message)
+}
+
+/**
+ * Recupera se — e somente se — `error` for de chunk obsoleto. Pensado para o
+ * `defaultOnCatch` do router, onde a variante `STALE_LAZY_COMPONENT` aparece
+ * (o TanStack captura o TypeError antes que chegue aos listeners de window).
+ * Retorna `true` se recarregou, `false` caso contrário (deixa o erro seguir
+ * para o `reportError`/`errorComponent` normal).
+ */
+export function recoverIfStaleChunk(error: unknown, reason: string): boolean {
+	return isStaleChunkError(error) ? attemptRecovery(reason) : false
 }
 
 /**
