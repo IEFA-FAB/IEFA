@@ -13,7 +13,7 @@ import type {
 	Nutrient,
 	PurchaseItem,
 } from "@iefa/database/sisub"
-import type { IngredientLastReview } from "@iefa/sisub-domain"
+import type { IngredientEffectiveNutrientsResult, IngredientLastReview, NutritionReferenceFoodSearchItem } from "@iefa/sisub-domain"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	createFolderFn,
@@ -25,13 +25,14 @@ import {
 	fetchCatmatItemsFn,
 	fetchCeafaFn,
 	fetchFoldersFn,
+	fetchIngredientEffectiveNutrientsFn,
 	fetchIngredientFn,
 	fetchIngredientItemsFn,
 	fetchIngredientLastReviewsFn,
-	fetchIngredientNutrientsFn,
 	fetchIngredientsFn,
 	fetchIngredientVersionsFn,
 	fetchNutrientsFn,
+	fetchNutritionReferenceFoodsFn,
 	recordIngredientReviewFn,
 	recordIngredientVersionFn,
 	restoreFolderFn,
@@ -133,7 +134,17 @@ export const nutrientsQueryOptions = () =>
 export const ingredientNutrientsQueryOptions = (ingredientId: string) =>
 	queryOptions({
 		queryKey: ["ingredients", "ingredient-nutrients", ingredientId],
-		queryFn: () => fetchIngredientNutrientsFn({ data: { ingredientId } }) as Promise<(IngredientNutrient & { nutrient: Nutrient })[]>,
+		queryFn: async () => {
+			const result = (await fetchIngredientEffectiveNutrientsFn({ data: { ingredientId } })) as IngredientEffectiveNutrientsResult
+			return result.nutrients as (IngredientNutrient & { nutrient: Nutrient })[]
+		},
+		staleTime: 5 * 60 * 1000,
+	})
+
+export const ingredientEffectiveNutrientsQueryOptions = (ingredientId: string) =>
+	queryOptions({
+		queryKey: ["ingredients", "ingredient-effective-nutrients", ingredientId],
+		queryFn: () => fetchIngredientEffectiveNutrientsFn({ data: { ingredientId } }) as Promise<IngredientEffectiveNutrientsResult>,
 		staleTime: 5 * 60 * 1000,
 	})
 
@@ -169,6 +180,14 @@ export const catmatQueryOptions = (search: string) =>
 		enabled: search.trim().length >= 3,
 	})
 
+export const nutritionReferenceFoodsQueryOptions = (search: string, sourceId?: string) =>
+	queryOptions({
+		queryKey: ["ingredients", "nutrition-reference-foods", sourceId ?? "all", search],
+		queryFn: () => fetchNutritionReferenceFoodsFn({ data: { search, sourceId } }) as Promise<NutritionReferenceFoodSearchItem[]>,
+		staleTime: 5 * 60 * 1000,
+		enabled: search.trim().length >= 2,
+	})
+
 export function useFolders() {
 	const { data, error, refetch } = useQuery(foldersQueryOptions())
 	return { folders: data, error, refetch }
@@ -202,6 +221,11 @@ export function useNutrients() {
 export function useIngredientNutrients(ingredientId: string) {
 	const { data, isLoading, error } = useQuery(ingredientNutrientsQueryOptions(ingredientId))
 	return { ingredientNutrients: data, isLoading, error }
+}
+
+export function useIngredientEffectiveNutrients(ingredientId: string) {
+	const { data, isLoading, error } = useQuery(ingredientEffectiveNutrientsQueryOptions(ingredientId))
+	return { effectiveNutrients: data, isLoading, error }
 }
 
 export function useCeafa(search?: string) {
@@ -523,6 +547,7 @@ export interface SaveIngredientDetailsPayload {
 	measureUnit?: string | null
 	correctionFactor?: number | null
 	ceafaId?: string | null
+	nutritionReferenceFoodRevisionId?: string | null
 	nutrients: { nutrient_id: string; nutrient_value: number | null }[]
 }
 
@@ -538,6 +563,7 @@ export function useSaveIngredientDetails() {
 					measureUnit: p.measureUnit ?? undefined,
 					correctionFactor: p.correctionFactor ?? undefined,
 					ceafaId: p.ceafaId ?? undefined,
+					nutritionReferenceFoodRevisionId: p.nutritionReferenceFoodRevisionId ?? null,
 					nutrients: p.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.nutrient_value })),
 				},
 			}),

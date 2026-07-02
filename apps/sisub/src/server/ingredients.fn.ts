@@ -18,9 +18,11 @@ import {
 	deleteFolder,
 	deleteIngredient,
 	deleteIngredientItem,
+	FetchIngredientEffectiveNutrientsSchema,
 	FetchIngredientNutrientsSchema,
 	FetchIngredientSchema,
 	fetchIngredient,
+	getIngredientNutritionReference,
 	ListCatmatSchema,
 	ListCeafaSchema,
 	ListFoldersSchema,
@@ -28,15 +30,18 @@ import {
 	ListIngredientLastReviewsSchema,
 	ListIngredientsSchema,
 	ListIngredientVersionsSchema,
+	ListNutritionReferenceFoodsSchema,
 	listCatmatItems,
 	listCeafa,
 	listFolders,
+	listIngredientEffectiveNutrients,
 	listIngredientItems,
 	listIngredientLastReviews,
 	listIngredientNutrients,
 	listIngredients,
 	listIngredientVersions,
 	listNutrients,
+	listNutritionReferenceFoods,
 	RecordIngredientReviewSchema,
 	RecordIngredientVersionSchema,
 	RestoreFolderSchema,
@@ -48,7 +53,9 @@ import {
 	restoreIngredient,
 	restoreIngredientVersion,
 	SetIngredientNutrientsSchema,
+	SetIngredientNutritionReferenceSchema,
 	setIngredientNutrients,
+	setIngredientNutritionReference,
 	UpdateFolderSchema,
 	UpdateIngredientItemSchema,
 	UpdateIngredientSchema,
@@ -86,11 +93,32 @@ export const fetchIngredientNutrientsFn = createServerFn({ method: "GET" })
 		return listIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
 	})
 
+export const fetchIngredientEffectiveNutrientsFn = createServerFn({ method: "GET" })
+	.validator(FetchIngredientEffectiveNutrientsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listIngredientEffectiveNutrients(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const fetchIngredientNutritionReferenceFn = createServerFn({ method: "GET" })
+	.validator(FetchIngredientNutrientsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return getIngredientNutritionReference(getDb(), ctx, data).catch(handleDomainError)
+	})
+
 export const setIngredientNutrientsFn = createServerFn({ method: "POST" })
 	.validator(SetIngredientNutrientsSchema)
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return setIngredientNutrients(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const setIngredientNutritionReferenceFn = createServerFn({ method: "POST" })
+	.validator(SetIngredientNutritionReferenceSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return setIngredientNutritionReference(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchCeafaFn = createServerFn({ method: "GET" })
@@ -105,6 +133,13 @@ export const fetchCatmatItemsFn = createServerFn({ method: "GET" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return listCatmatItems(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const fetchNutritionReferenceFoodsFn = createServerFn({ method: "GET" })
+	.validator(ListNutritionReferenceFoodsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return listNutritionReferenceFoods(getDb(), ctx, data).catch(handleDomainError)
 	})
 
 export const fetchFoldersFn = createServerFn({ method: "GET" })
@@ -220,6 +255,7 @@ export const deleteIngredientItemFn = createServerFn({ method: "POST" })
  */
 const SaveIngredientDetailsSchema = UpdateIngredientSchema.extend({
 	nutrients: z.array(z.object({ nutrientId: z.string().uuid(), nutrientValue: z.number().nullable() })),
+	nutritionReferenceFoodRevisionId: z.string().uuid().nullable().optional(),
 })
 
 export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
@@ -227,9 +263,14 @@ export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		const client = getDb()
-		const { nutrients, ...ingredient } = data
+		const { nutrients, nutritionReferenceFoodRevisionId, ...ingredient } = data
 		await updateIngredient(client, ctx, ingredient).catch(handleDomainError)
-		await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
+		if (nutritionReferenceFoodRevisionId) {
+			await setIngredientNutritionReference(client, ctx, { ingredientId: data.id, foodRevisionId: nutritionReferenceFoodRevisionId }).catch(handleDomainError)
+		} else {
+			await setIngredientNutritionReference(client, ctx, { ingredientId: data.id, foodRevisionId: null }).catch(handleDomainError)
+			await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
+		}
 		const actor = await resolveActor()
 		return recordIngredientVersion(client, ctx, { ingredientId: data.id }, actor).catch(handleDomainError)
 	})

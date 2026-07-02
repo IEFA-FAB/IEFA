@@ -2,10 +2,12 @@ import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
+import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
+import { startNutritionReferenceSyncWorker } from "./workers/nutrition-reference-sync/index.ts"
 
 const app = new OpenAPIHono()
 
@@ -43,6 +45,7 @@ type HealthResponse =
 const typedApp = app
 	.route("/api", api)
 	.route("/api/admin/compras", comprasAdminRoutes)
+	.route("/api/admin/nutrition", nutritionAdminRoutes)
 	.route("/api/admin/price-research", priceResearchRoutes)
 	.get("/health", (c) => {
 		const mem = process.memoryUsage()
@@ -139,6 +142,10 @@ export default {
 // startComprasSyncWorker é async: faz recovery de syncs presas antes de agendar
 startComprasSyncWorker().catch((err) => {
 	console.error("[compras-sync] Falha no startup do worker:", err)
+})
+
+startNutritionReferenceSyncWorker().catch((err) => {
+	console.error("[nutrition-sync] Falha no startup do worker:", err)
 })
 
 console.log(`🚀 Server running on http://localhost:${port}`)

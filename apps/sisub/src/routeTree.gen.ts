@@ -34,6 +34,7 @@ import { Route as ProtectedModulesAnalyticsIndexRouteImport } from './routes/_pr
 import { Route as ProtectedModulesGlobalPolicyRouteImport } from './routes/_protected/_modules/global/policy'
 import { Route as ProtectedModulesGlobalPlacesManagerRouteImport } from './routes/_protected/_modules/global/places-manager'
 import { Route as ProtectedModulesGlobalPermissionsRouteImport } from './routes/_protected/_modules/global/permissions'
+import { Route as ProtectedModulesGlobalNutritionSyncRouteImport } from './routes/_protected/_modules/global/nutrition-sync'
 import { Route as ProtectedModulesGlobalEvaluationRouteImport } from './routes/_protected/_modules/global/evaluation'
 import { Route as ProtectedModulesGlobalComprasSyncRouteImport } from './routes/_protected/_modules/global/compras-sync'
 import { Route as ProtectedModulesGlobalChatRouteImport } from './routes/_protected/_modules/global/chat'
@@ -226,6 +227,12 @@ const ProtectedModulesGlobalPermissionsRoute =
   ProtectedModulesGlobalPermissionsRouteImport.update({
     id: '/global/permissions',
     path: '/global/permissions',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
+const ProtectedModulesGlobalNutritionSyncRoute =
+  ProtectedModulesGlobalNutritionSyncRouteImport.update({
+    id: '/global/nutrition-sync',
+    path: '/global/nutrition-sync',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
 const ProtectedModulesGlobalEvaluationRoute =
@@ -608,6 +615,7 @@ export interface FileRoutesByFullPath {
   '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
+  '/global/nutrition-sync': typeof ProtectedModulesGlobalNutritionSyncRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
   '/global/policy': typeof ProtectedModulesGlobalPolicyRoute
@@ -684,6 +692,7 @@ export interface FileRoutesByTo {
   '/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
+  '/global/nutrition-sync': typeof ProtectedModulesGlobalNutritionSyncRoute
   '/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
   '/global/policy': typeof ProtectedModulesGlobalPolicyRoute
@@ -768,6 +777,7 @@ export interface FileRoutesById {
   '/_protected/_modules/global/chat': typeof ProtectedModulesGlobalChatRoute
   '/_protected/_modules/global/compras-sync': typeof ProtectedModulesGlobalComprasSyncRoute
   '/_protected/_modules/global/evaluation': typeof ProtectedModulesGlobalEvaluationRoute
+  '/_protected/_modules/global/nutrition-sync': typeof ProtectedModulesGlobalNutritionSyncRoute
   '/_protected/_modules/global/permissions': typeof ProtectedModulesGlobalPermissionsRoute
   '/_protected/_modules/global/places-manager': typeof ProtectedModulesGlobalPlacesManagerRoute
   '/_protected/_modules/global/policy': typeof ProtectedModulesGlobalPolicyRoute
@@ -852,6 +862,7 @@ export interface FileRouteTypes {
     | '/global/chat'
     | '/global/compras-sync'
     | '/global/evaluation'
+    | '/global/nutrition-sync'
     | '/global/permissions'
     | '/global/places-manager'
     | '/global/policy'
@@ -928,6 +939,7 @@ export interface FileRouteTypes {
     | '/global/chat'
     | '/global/compras-sync'
     | '/global/evaluation'
+    | '/global/nutrition-sync'
     | '/global/permissions'
     | '/global/places-manager'
     | '/global/policy'
@@ -1011,6 +1023,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/global/chat'
     | '/_protected/_modules/global/compras-sync'
     | '/_protected/_modules/global/evaluation'
+    | '/_protected/_modules/global/nutrition-sync'
     | '/_protected/_modules/global/permissions'
     | '/_protected/_modules/global/places-manager'
     | '/_protected/_modules/global/policy'
@@ -1248,6 +1261,13 @@ declare module '@tanstack/react-router' {
       path: '/global/permissions'
       fullPath: '/global/permissions'
       preLoaderRoute: typeof ProtectedModulesGlobalPermissionsRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/nutrition-sync': {
+      id: '/_protected/_modules/global/nutrition-sync'
+      path: '/global/nutrition-sync'
+      fullPath: '/global/nutrition-sync'
+      preLoaderRoute: typeof ProtectedModulesGlobalNutritionSyncRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/global/evaluation': {
@@ -1874,6 +1894,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesGlobalChatRoute: typeof ProtectedModulesGlobalChatRoute
   ProtectedModulesGlobalComprasSyncRoute: typeof ProtectedModulesGlobalComprasSyncRoute
   ProtectedModulesGlobalEvaluationRoute: typeof ProtectedModulesGlobalEvaluationRoute
+  ProtectedModulesGlobalNutritionSyncRoute: typeof ProtectedModulesGlobalNutritionSyncRoute
   ProtectedModulesGlobalPermissionsRoute: typeof ProtectedModulesGlobalPermissionsRoute
   ProtectedModulesGlobalPlacesManagerRoute: typeof ProtectedModulesGlobalPlacesManagerRoute
   ProtectedModulesGlobalPolicyRoute: typeof ProtectedModulesGlobalPolicyRoute
@@ -1918,6 +1939,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
   ProtectedModulesGlobalComprasSyncRoute:
     ProtectedModulesGlobalComprasSyncRoute,
   ProtectedModulesGlobalEvaluationRoute: ProtectedModulesGlobalEvaluationRoute,
+  ProtectedModulesGlobalNutritionSyncRoute:
+    ProtectedModulesGlobalNutritionSyncRoute,
   ProtectedModulesGlobalPermissionsRoute:
     ProtectedModulesGlobalPermissionsRoute,
   ProtectedModulesGlobalPlacesManagerRoute:

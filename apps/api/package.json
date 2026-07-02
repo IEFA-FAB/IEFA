@@ -9,6 +9,7 @@
         "start": "bun src/index.ts",
         "build": "bun build src/index.ts --outdir dist --target bun",
         "sync:food-catmat": "bun scripts/run-compras-food-sync.ts",
+        "sync:nutrition-reference": "bun scripts/run-nutrition-reference-sync.ts",
         "match:catmat-products": "bun scripts/catmat-match-orchestrator.ts",
         "test": "bun test",
         "format": "biome format",

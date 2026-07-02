@@ -1,4 +1,5 @@
 import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
+import type { NutritionReferenceSummary } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, CalendarCheck, Check, ChevronsUpDown, CircleCheck, History, Loader2, Pencil, RotateCcw, Save } from "lucide-react"
@@ -29,7 +30,7 @@ import { computeIngredientDiff } from "@/lib/ingredient-diff"
 import {
 	ceafaQueryOptions,
 	ingredientLastReviewQueryOptions,
-	useIngredientNutrients,
+	useIngredientEffectiveNutrients,
 	useIngredientVersions,
 	useNutrients,
 	useRecordIngredientReview,
@@ -40,6 +41,7 @@ import {
 import { IngredientHistorySheet } from "./IngredientHistorySheet"
 import { IngredientItemsManager } from "./IngredientItemsManager"
 import { IngredientVersionPreview } from "./IngredientVersionPreview"
+import { NutritionReferenceCombobox } from "./NutritionReferenceCombobox"
 import { PurchaseItemsManager } from "./PurchaseItemsManager"
 
 const productSchema = z.object({
@@ -73,11 +75,16 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	const { data: lastReview } = useQuery(ingredientLastReviewQueryOptions(ingredient.id))
 
 	const { nutrients } = useNutrients()
-	const { ingredientNutrients } = useIngredientNutrients(ingredient.id)
+	const { effectiveNutrients } = useIngredientEffectiveNutrients(ingredient.id)
+	const ingredientNutrients = effectiveNutrients?.nutrients
+	const serverNutritionReference = effectiveNutrients?.reference ?? null
 
 	const [ceafaOpen, setCeafaOpen] = useState(false)
 	const [ceafaSearch, setCeafaSearch] = useState("")
 	const [folderOpen, setFolderOpen] = useState(false)
+	const [nutritionReferenceOverride, setNutritionReferenceOverride] = useState<NutritionReferenceSummary | null | undefined>(undefined)
+	const nutritionReference = nutritionReferenceOverride !== undefined ? nutritionReferenceOverride : serverNutritionReference
+	const nutritionReferenceLocked = nutritionReference != null
 
 	// Caminho hierárquico de cada pasta (ex.: "Hortifruti / Frutas / Cítricas") — usado para
 	// exibir a estrutura e permitir busca por qualquer parte do caminho no combobox.
@@ -155,9 +162,12 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 					measureUnit: validation.data.measure_unit,
 					correctionFactor: validation.data.correction_factor,
 					ceafaId: validation.data.ceafa_id,
+					nutritionReferenceFoodRevisionId: nutritionReference?.food_revision_id ?? null,
 					nutrients: nutrientsPayload,
 				})
 
+				setNutrientOverrides({})
+				setNutritionReferenceOverride(undefined)
 				await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 				toast.success("Insumo atualizado com sucesso!")
 			} catch (err) {
@@ -198,6 +208,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				ceafa_id: snap.ceafa_id ?? null,
 			})
 			setNutrientOverrides({})
+			setNutritionReferenceOverride(undefined)
 			await queryClient.invalidateQueries({ queryKey: ["ingredients"] })
 			toast.success(`Insumo restaurado para a versão v${selectedVersion.version_number}`)
 			setRestoreConfirmOpen(false)
@@ -536,7 +547,23 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 										)}
 									</form.Field>
 
-									<NutrientsTable nutrients={syncedNutrients} values={nutrientValues} onChange={setNutrientValues} />
+									<Field>
+										<FieldLabel>Tabela alimentar</FieldLabel>
+										<FieldContent>
+											<NutritionReferenceCombobox value={nutritionReference} onChange={setNutritionReferenceOverride} />
+											<FieldDescription>
+												Sem vínculo, os dados nutricionais são informados manualmente. Com vínculo, os valores vêm da tabela selecionada.
+											</FieldDescription>
+										</FieldContent>
+									</Field>
+
+									<NutrientsTable
+										nutrients={syncedNutrients}
+										values={nutrientValues}
+										onChange={setNutrientValues}
+										readOnly={nutritionReferenceLocked}
+										reference={nutritionReference}
+									/>
 								</CardContent>
 							</Card>
 						</form>
@@ -617,6 +644,8 @@ interface NutrientsTableProps {
 	nutrients: Nutrient[]
 	values: Record<string, string>
 	onChange: Dispatch<SetStateAction<Record<string, string>>>
+	readOnly?: boolean
+	reference?: NutritionReferenceSummary | null
 }
 
 /** Extrai a unidade embutida no nome (ex.: "Carboidratos (g)" → label "Carboidratos", unit "g"). */
@@ -631,7 +660,7 @@ function formatNumber(n: number): string {
 	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
 }
 
-function NutrientsTable({ nutrients, values, onChange }: NutrientsTableProps) {
+function NutrientsTable({ nutrients, values, onChange, readOnly = false, reference = null }: NutrientsTableProps) {
 	if (nutrients.length === 0) {
 		return <p className="text-caption text-muted-foreground">Nenhum nutriente configurado no sistema.</p>
 	}
@@ -655,13 +684,15 @@ function NutrientsTable({ nutrients, values, onChange }: NutrientsTableProps) {
 					</thead>
 					<tbody className="divide-y divide-border">
 						{ordered.map((n) => (
-							<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} />
+							<NutrientRow key={n.id} nutrient={n} value={values[n.id] ?? ""} onChange={onChange} readOnly={readOnly} />
 						))}
 					</tbody>
 				</table>
 			</div>
 			<p className="mt-3 text-caption text-muted-foreground">
-				* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo.
+				{reference
+					? `Fonte: ${reference.source_name} ${reference.version_label}, ${reference.display_name}.`
+					: "* Percentual de valores diários (%VD) com base em uma dieta de 2.000 kcal. Passe o mouse sobre o %VD para ver o cálculo."}
 			</p>
 		</div>
 	)
@@ -671,9 +702,10 @@ interface NutrientRowProps {
 	nutrient: Nutrient
 	value: string
 	onChange: Dispatch<SetStateAction<Record<string, string>>>
+	readOnly?: boolean
 }
 
-function NutrientRow({ nutrient, value, onChange }: NutrientRowProps) {
+function NutrientRow({ nutrient, value, onChange, readOnly = false }: NutrientRowProps) {
 	const { label, unit } = parseNutrientName(nutrient.name)
 	const numeric = value !== "" ? Number(value) : null
 	const hasValue = numeric != null && !Number.isNaN(numeric)
@@ -693,6 +725,7 @@ function NutrientRow({ nutrient, value, onChange }: NutrientRowProps) {
 						min="0"
 						placeholder="—"
 						value={value}
+						disabled={readOnly}
 						onChange={(e) => onChange((prev) => ({ ...prev, [nutrient.id]: e.target.value }))}
 						className="h-8 w-24 text-right text-sm font-mono"
 					/>

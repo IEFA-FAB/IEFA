@@ -6,6 +6,7 @@ export const core = pgSchema("core");
 export const kitchen = pgSchema("kitchen");
 export const procurement = pgSchema("procurement");
 export const comprasGovIntegration = pgSchema("compras_gov_integration");
+export const nutritionReference = pgSchema("nutrition_reference");
 export const finance = pgSchema("finance");
 export const sisub = pgSchema("sisub");
 // Patched (patch-drizzle-pull.ts): cross-schema/custom-type refs the pull leaves dangling.
@@ -567,6 +568,28 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 		}),
 ]);
 
+export const ingredientNutritionReferenceInKitchen = kitchen.table("ingredient_nutrition_reference", {
+	ingredientId: uuid("ingredient_id").primaryKey().notNull(),
+	foodRevisionId: uuid("food_revision_id").notNull(),
+	matchStatus: text("match_status").default('manual').notNull(),
+	linkedAt: timestamp("linked_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	linkedBy: uuid("linked_by"),
+	notes: text(),
+}, (table) => [
+	index("ingredient_nutrition_reference_food_idx").using("btree", table.foodRevisionId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.ingredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "ingredient_nutrition_reference_ingredient_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.foodRevisionId],
+			foreignColumns: [nutritionFoodItemRevisionInNutritionReference.id],
+			name: "ingredient_nutrition_reference_food_revision_id_fkey"
+		}).onDelete("restrict"),
+	check("ingredient_nutrition_reference_status_check", sql`match_status = ANY (ARRAY['manual'::text, 'suggested'::text, 'reviewed'::text])`),
+]);
+
 export const purchaseItemIngredientInProcurement = procurement.table("purchase_item_ingredient", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	purchaseItemId: uuid("purchase_item_id").notNull(),
@@ -610,6 +633,205 @@ export const comprasSyncStepInComprasGovIntegration = comprasGovIntegration.tabl
 			name: "compras_sync_step_sync_id_fkey"
 		}).onDelete("cascade"),
 	unique("compras_sync_step_sync_id_step_name_key").on(table.syncId, table.stepName),
+]);
+
+export const nutritionSourceInNutritionReference = nutritionReference.table("source", {
+	id: text().primaryKey().notNull(),
+	displayName: text("display_name").notNull(),
+	publisher: text(),
+	countryCode: text("country_code"),
+	licenseName: text("license_name"),
+	licenseUrl: text("license_url"),
+	citation: text(),
+	importMode: text("import_mode").default('disabled').notNull(),
+	syncEnabled: boolean("sync_enabled").default(false).notNull(),
+	sourcePriority: integer("source_priority").default(100).notNull(),
+	metadata: jsonb().default({}).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, () => [
+	check("nutrition_source_import_mode_check", sql`import_mode = ANY (ARRAY['auto_download'::text, 'manual_file'::text, 'external_lookup'::text, 'disabled'::text])`),
+]);
+
+export const nutritionSourceReleaseInNutritionReference = nutritionReference.table("source_release", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	sourceId: text("source_id").notNull(),
+	versionLabel: text("version_label").notNull(),
+	publishedAt: timestamp("published_at", { withTimezone: true, mode: 'string' }),
+	upstreamUrl: text("upstream_url"),
+	downloadUrl: text("download_url"),
+	etag: text(),
+	lastModified: text("last_modified"),
+	checksumSha256: text("checksum_sha256"),
+	status: text().default('active').notNull(),
+	fetchedAt: timestamp("fetched_at", { withTimezone: true, mode: 'string' }),
+	importedAt: timestamp("imported_at", { withTimezone: true, mode: 'string' }),
+	metadata: jsonb().default({}).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.sourceId],
+			foreignColumns: [nutritionSourceInNutritionReference.id],
+			name: "source_release_source_id_fkey"
+		}).onDelete("cascade"),
+	unique("nutrition_source_release_source_version_key").on(table.sourceId, table.versionLabel),
+	check("nutrition_source_release_status_check", sql`status = ANY (ARRAY['active'::text, 'superseded'::text, 'blocked'::text, 'failed'::text])`),
+]);
+
+export const nutritionFoodItemInNutritionReference = nutritionReference.table("food_item", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	sourceId: text("source_id").notNull(),
+	externalCode: text("external_code").notNull(),
+	currentRevisionId: uuid("current_revision_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.sourceId],
+			foreignColumns: [nutritionSourceInNutritionReference.id],
+			name: "food_item_source_id_fkey"
+		}).onDelete("cascade"),
+	unique("food_item_source_id_external_code_key").on(table.sourceId, table.externalCode),
+]);
+
+export const nutritionFoodItemRevisionInNutritionReference = nutritionReference.table("food_item_revision", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	foodItemId: uuid("food_item_id").notNull(),
+	sourceReleaseId: uuid("source_release_id").notNull(),
+	displayName: text("display_name").notNull(),
+	originalName: text("original_name"),
+	groupCode: text("group_code"),
+	groupName: text("group_name"),
+	foodType: text("food_type"),
+	brandName: text("brand_name"),
+	preparationState: text("preparation_state"),
+	scientificName: text("scientific_name"),
+	baseQuantity: numeric("base_quantity").default('100').notNull(),
+	baseUnit: text("base_unit").default('g').notNull(),
+	ediblePortionFactor: numeric("edible_portion_factor"),
+	normalizedName: text("normalized_name").notNull(),
+	contentHash: text("content_hash").notNull(),
+	raw: jsonb().default({}).notNull(),
+	isCurrent: boolean("is_current").default(false).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("nutrition_food_revision_current_idx").using("btree", table.foodItemId.asc().nullsLast().op("uuid_ops")).where(sql`is_current`),
+	foreignKey({
+			columns: [table.foodItemId],
+			foreignColumns: [nutritionFoodItemInNutritionReference.id],
+			name: "food_item_revision_food_item_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.sourceReleaseId],
+			foreignColumns: [nutritionSourceReleaseInNutritionReference.id],
+			name: "food_item_revision_source_release_id_fkey"
+		}).onDelete("restrict"),
+	unique("food_item_revision_food_item_id_source_release_id_content_hash_key").on(table.foodItemId, table.sourceReleaseId, table.contentHash),
+]);
+
+export const nutritionNutrientComponentInNutritionReference = nutritionReference.table("nutrient_component", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	sourceId: text("source_id").notNull(),
+	externalCode: text("external_code").notNull(),
+	name: text().notNull(),
+	unit: text(),
+	infoodsTag: text("infoods_tag"),
+	raw: jsonb().default({}).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.sourceId],
+			foreignColumns: [nutritionSourceInNutritionReference.id],
+			name: "nutrient_component_source_id_fkey"
+		}).onDelete("cascade"),
+	unique("nutrient_component_source_id_external_code_key").on(table.sourceId, table.externalCode),
+]);
+
+export const nutritionNutrientComponentMappingInNutritionReference = nutritionReference.table("nutrient_component_mapping", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	componentId: uuid("component_id").notNull(),
+	nutrientId: uuid("nutrient_id").notNull(),
+	conversionMultiplier: numeric("conversion_multiplier").default('1').notNull(),
+	conversionOffset: numeric("conversion_offset").default('0').notNull(),
+	isPreferred: boolean("is_preferred").default(true).notNull(),
+	confidence: text().default('seeded').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.componentId],
+			foreignColumns: [nutritionNutrientComponentInNutritionReference.id],
+			name: "nutrient_component_mapping_component_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.nutrientId],
+			foreignColumns: [nutrientInKitchen.id],
+			name: "nutrient_component_mapping_nutrient_id_fkey"
+		}).onDelete("cascade"),
+	unique("nutrient_component_mapping_component_id_nutrient_id_key").on(table.componentId, table.nutrientId),
+	check("nutrition_component_mapping_confidence_check", sql`confidence = ANY (ARRAY['seeded'::text, 'reviewed'::text, 'inferred'::text])`),
+]);
+
+export const nutritionFoodNutrientValueInNutritionReference = nutritionReference.table("food_nutrient_value", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	foodRevisionId: uuid("food_revision_id").notNull(),
+	componentId: uuid("component_id").notNull(),
+	value: numeric(),
+	valueKind: text("value_kind").default('measured').notNull(),
+	rawValue: text("raw_value"),
+	raw: jsonb().default({}).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.foodRevisionId],
+			foreignColumns: [nutritionFoodItemRevisionInNutritionReference.id],
+			name: "food_nutrient_value_food_revision_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.componentId],
+			foreignColumns: [nutritionNutrientComponentInNutritionReference.id],
+			name: "food_nutrient_value_component_id_fkey"
+		}).onDelete("cascade"),
+	unique("food_nutrient_value_food_revision_id_component_id_key").on(table.foodRevisionId, table.componentId),
+	check("nutrition_food_nutrient_value_kind_check", sql`value_kind = ANY (ARRAY['measured'::text, 'calculated'::text, 'assumed'::text, 'trace'::text, 'not_analyzed'::text, 'missing'::text])`),
+]);
+
+export const nutritionSyncLogInNutritionReference = nutritionReference.table("nutrition_sync_log", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+	triggeredBy: text("triggered_by").default('cron').notNull(),
+	status: text().default('running').notNull(),
+	totalSteps: integer("total_steps").default(0).notNull(),
+	completedSteps: integer("completed_steps").default(0).notNull(),
+	successfulSteps: integer("successful_steps").default(0).notNull(),
+	failedSteps: integer("failed_steps").default(0).notNull(),
+	totalUpserted: integer("total_upserted").default(0).notNull(),
+	totalDeactivated: integer("total_deactivated").default(0).notNull(),
+	errorMessage: text("error_message"),
+	heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: 'string' }),
+	stopRequested: boolean("stop_requested").default(false).notNull(),
+}, (table) => [
+	index("nutrition_sync_log_started_at_idx").using("btree", table.startedAt.desc().nullsFirst().op("timestamptz_ops")),
+]);
+
+export const nutritionSyncStepInNutritionReference = nutritionReference.table("nutrition_sync_step", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	syncId: bigint("sync_id", { mode: "number" }).notNull(),
+	stepName: text("step_name").notNull(),
+	status: text().default('pending').notNull(),
+	currentPage: integer("current_page").default(0).notNull(),
+	totalPages: integer("total_pages"),
+	recordsUpserted: integer("records_upserted").default(0).notNull(),
+	recordsDeactivated: integer("records_deactivated").default(0).notNull(),
+	errorMessage: text("error_message"),
+	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
+	finishedAt: timestamp("finished_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	foreignKey({
+			columns: [table.syncId],
+			foreignColumns: [nutritionSyncLogInNutritionReference.id],
+			name: "nutrition_sync_step_sync_id_fkey"
+		}).onDelete("cascade"),
+	unique("nutrition_sync_step_sync_id_step_name_key").on(table.syncId, table.stepName),
 ]);
 
 export const unitsInCore = core.table("units", {
