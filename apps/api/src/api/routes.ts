@@ -38,7 +38,6 @@ const MealPresenceSchema = z.object({
 
 const UserMilitaryDataSchema = z.object({
 	nrOrdem: z.string(),
-	nrCpf: z.string(),
 	nmGuerra: z.string(),
 	nmPessoa: z.string(),
 	sgPosto: z.string(),
@@ -278,7 +277,7 @@ const presenceRoute = defineDocRoute({
 const [, militaryDataHandler] = createApiHandler({
 	table: "user_military_data",
 	schema: "core",
-	select: '"nrOrdem", "nrCpf", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"',
+	select: '"nrOrdem", "nmGuerra", "nmPessoa", "sgPosto", "sgOrg", "dataAtualizacao"',
 	dateColumn: "dataAtualizacao",
 	dateColumnType: "timestamp",
 	defaultOrder: [
@@ -289,7 +288,6 @@ const [, militaryDataHandler] = createApiHandler({
 	],
 	mapParams: {
 		nrOrdem: "nrOrdem",
-		nrCpf: "nrCpf",
 		nmGuerra: "nmGuerra",
 		nmPessoa: "nmPessoa",
 		sgPosto: "sgPosto",
@@ -308,12 +306,6 @@ const militaryDataRoute = defineDocRoute({
 			in: "query",
 			schema: MultiValueParamSchema,
 			description: "Filtrar por número de ordem",
-		},
-		{
-			name: "nrCpf",
-			in: "query",
-			schema: MultiValueParamSchema,
-			description: "Filtrar por CPF",
 		},
 		{
 			name: "nmGuerra",

@@ -183,7 +183,7 @@ describe.skipIf(!canRunIntegration)("Integration: GET /user-military-data", () =
 		if (body.length === 0) return
 		const item = body[0] as Record<string, unknown>
 		expect(item).toHaveProperty("nrOrdem")
-		expect(item).toHaveProperty("nrCpf")
+		expect(item).not.toHaveProperty("nrCpf")
 		expect(item).toHaveProperty("nmGuerra")
 		expect(item).toHaveProperty("nmPessoa")
 		expect(item).toHaveProperty("sgPosto")

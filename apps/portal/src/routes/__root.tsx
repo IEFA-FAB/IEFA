@@ -9,6 +9,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 import { type AuthContextType, type AuthState, authQueryOptions } from "@/auth/service"
 import { CommandPaletteProvider } from "@/components/command-palette/CommandPaletteProvider"
+import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary"
 import { NotFound } from "@/components/NotFound"
 import { ThemeProvider, ThemeScript } from "@/components/themeService"
@@ -150,6 +151,7 @@ function RootDocument() {
 					suppressHydrationWarning
 					className={`fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out ${isLoading ? "w-full opacity-100" : "w-0 opacity-0"}`}
 				/>
+				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<HotkeysProvider defaultOptions={{ hotkey: { preventDefault: true, stopPropagation: true } }}>
 					<ThemeProvider>
 						<CommandPaletteProvider>

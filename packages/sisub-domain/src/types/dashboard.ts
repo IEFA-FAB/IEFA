@@ -41,7 +41,6 @@ export interface UserDataAPI {
 
 export interface UserMilitaryDataAPI {
 	nrOrdem: string
-	nrCpf: string
 	nmGuerra: string | null
 	nmPessoa: string | null
 	sgPosto: string | null

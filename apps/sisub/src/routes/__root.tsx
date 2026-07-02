@@ -6,6 +6,7 @@ import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter, us
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 import { type AuthState, authQueryOptions } from "@/auth/service"
+import { DatabaseStatusBanner } from "@/components/DatabaseStatusBanner"
 import { DefaultCatchBoundary } from "@/components/layout/errors/DefaultCatchBoundary"
 import { NotFound } from "@/components/layout/errors/NotFound"
 import { Toaster } from "@/components/ui/sonner"
@@ -136,6 +137,7 @@ function RootDocument() {
 					suppressHydrationWarning
 					className={cn("fixed top-0 left-0 h-1 bg-primary z-50 transition-all duration-300 ease-out", isLoading ? "w-full opacity-100" : "w-0 opacity-0")}
 				/>
+				<DatabaseStatusBanner className="fixed inset-x-0 top-1" />
 				<ThemeProvider>
 					<Outlet />
 					<Toaster position="bottom-center" richColors expand className="z-2147483647" />
