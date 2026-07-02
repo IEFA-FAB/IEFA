@@ -1,8 +1,8 @@
 import { useForm } from "@tanstack/react-form"
 import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Loader2 } from "lucide-react"
-import { useEffect } from "react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -39,6 +39,51 @@ function DataField({ label, value, mono = false }: { label: string; value: strin
 	)
 }
 
+function onlyDigits(value: string | null | undefined) {
+	return String(value ?? "").replace(/\D/g, "")
+}
+
+function formatCpf(value: string | null | undefined) {
+	const digits = onlyDigits(value)
+	if (digits.length !== 11) return value && String(value).trim().length > 0 ? String(value) : "—"
+	return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`
+}
+
+function maskCpfGov(value: string | null | undefined) {
+	const digits = onlyDigits(value)
+	if (digits.length !== 11) return value && String(value).trim().length > 0 ? "***.***.***-**" : "—"
+	return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`
+}
+
+function CpfField({ value }: { value: string | null | undefined }) {
+	const [isVisible, setIsVisible] = useState(false)
+	const hasValue = !!value && String(value).trim().length > 0
+	const displayValue = isVisible ? formatCpf(value) : maskCpfGov(value)
+	const Icon = isVisible ? EyeOff : Eye
+
+	return (
+		<div className="space-y-0.5">
+			<dt className="text-xs text-muted-foreground">CPF</dt>
+			<dd className="flex min-h-8 items-center gap-2">
+				<span className="text-sm font-mono">{displayValue}</span>
+				{hasValue && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						className="size-7"
+						aria-label={isVisible ? "Ocultar CPF" : "Visualizar CPF"}
+						aria-pressed={isVisible}
+						onClick={() => setIsVisible((current) => !current)}
+					>
+						<Icon className="size-4" aria-hidden="true" />
+					</Button>
+				)}
+			</dd>
+		</div>
+	)
+}
+
 function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataRow; effectiveNrOrdem: string }) {
 	return (
 		<dl className="space-y-4">
@@ -48,7 +93,7 @@ function MilitaryPanel({ military, effectiveNrOrdem }: { military: MilitaryDataR
 				</div>
 				<DataField label="Nome de Guerra" value={military.nmGuerra ? toNameCase(military.nmGuerra) : military.nmGuerra} />
 				<DataField label="Nr. de Ordem" value={military.nrOrdem ?? effectiveNrOrdem} mono />
-				<DataField label="CPF" value={military.nrCpf} mono />
+				<CpfField value={military.nrCpf} />
 				<div className="grid grid-cols-2 gap-x-6 col-span-2">
 					<DataField label="Posto" value={military.sgPosto} />
 					<DataField label="OM" value={military.sgOrg} />
