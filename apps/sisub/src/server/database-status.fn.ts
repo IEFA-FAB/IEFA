@@ -9,7 +9,7 @@ export const checkDatabaseStatusFn = createServerFn({ method: "GET" }).handler(a
 	const timeout = setTimeout(() => controller.abort(), DATABASE_HEALTH_TIMEOUT_MS)
 
 	try {
-		const { error } = await supabase.from("super_admin_controller").select("key").limit(1).abortSignal(controller.signal)
+		const { error } = await supabase.from("units").select("id").limit(1).abortSignal(controller.signal)
 
 		if (error) {
 			throw new Error(error.message)

@@ -51,7 +51,7 @@ function formatCpf(value: string | null | undefined) {
 
 function maskCpfGov(value: string | null | undefined) {
 	const digits = onlyDigits(value)
-	if (digits.length !== 11) return value && String(value).trim().length > 0 ? "***.***.***-**" : "—"
+	if (digits.length !== 11) return value && String(value).trim().length > 0 ? String(value) : "—"
 	return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`
 }
 
