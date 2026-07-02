@@ -10,13 +10,21 @@
 import {
 	ingredientInKitchen,
 	ingredientItemInKitchen,
+	ingredientNutritionReferenceInKitchen,
 	ingredientNutrientInKitchen,
 	ingredientVersionInKitchen,
+	nutritionFoodItemInNutritionReference,
+	nutritionFoodItemRevisionInNutritionReference,
+	nutritionFoodNutrientValueInNutritionReference,
+	nutritionNutrientComponentMappingInNutritionReference,
+	nutritionSourceInNutritionReference,
+	nutritionSourceReleaseInNutritionReference,
+	nutrientInKitchen,
 	purchaseItemIngredientInProcurement,
 	purchaseItemInProcurement,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
-import { and, desc, eq, isNull } from "drizzle-orm"
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm"
 import { requirePermission } from "../guards/require-permission.ts"
 import type { ListIngredientVersions, RecordIngredientVersion, RestoreIngredientVersion, VersionActor } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
@@ -36,6 +44,21 @@ export interface IngredientSnapshot {
 		ceafa_id: string | null
 		ceafa_description: string | null
 	}
+	nutrition_reference?: {
+		food_revision_id: string
+		food_item_id: string
+		source_id: string
+		source_name: string
+		external_code: string
+		display_name: string
+		group_name: string | null
+		version_label: string
+		citation: string | null
+		base_quantity: number
+		base_unit: string
+		match_status: string | null
+		linked_at: string | null
+	} | null
 	nutrients: { nutrient_id: string; name: string | null; value: number }[]
 	product_items: {
 		id: string
@@ -80,6 +103,13 @@ function stableStringify(value: unknown): string {
 	return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`
 }
 
+function isMissingNutritionReferenceRelation(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error)
+	return /relation .*ingredient_nutrition_reference.* does not exist|relation .*nutrition_reference\..* does not exist|schema "nutrition_reference" does not exist/i.test(
+		message
+	)
+}
+
 /** Lê o agregado completo do insumo (perspectiva da tela de edição) → snapshot. */
 export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string): Promise<IngredientSnapshot> {
 	const ing = await runQuery("QUERY_FAILED", () =>
@@ -97,23 +127,103 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 	const folder = ing.folderInKitchen
 	const ceafa = ing.ceafaInKitchen
 
-	const nutrientRows = await runQuery("QUERY_FAILED", () =>
-		db.query.ingredientNutrientInKitchen.findMany({
-			columns: { nutrientId: true, nutrientValue: true },
-			with: { nutrientInKitchen: { columns: { name: true, displayOrder: true } } },
-			where: and(eq(ingredientNutrientInKitchen.ingredientId, ingredientId), isNull(ingredientNutrientInKitchen.deletedAt)),
-		})
-	)
+	const referenceRows = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db
+				.select({
+					food_revision_id: nutritionFoodItemRevisionInNutritionReference.id,
+					food_item_id: nutritionFoodItemInNutritionReference.id,
+					source_id: nutritionSourceInNutritionReference.id,
+					source_name: nutritionSourceInNutritionReference.displayName,
+					external_code: nutritionFoodItemInNutritionReference.externalCode,
+					display_name: nutritionFoodItemRevisionInNutritionReference.displayName,
+					group_name: nutritionFoodItemRevisionInNutritionReference.groupName,
+					version_label: nutritionSourceReleaseInNutritionReference.versionLabel,
+					citation: nutritionSourceInNutritionReference.citation,
+					base_quantity: nutritionFoodItemRevisionInNutritionReference.baseQuantity,
+					base_unit: nutritionFoodItemRevisionInNutritionReference.baseUnit,
+					match_status: ingredientNutritionReferenceInKitchen.matchStatus,
+					linked_at: ingredientNutritionReferenceInKitchen.linkedAt,
+				})
+				.from(ingredientNutritionReferenceInKitchen)
+				.innerJoin(
+					nutritionFoodItemRevisionInNutritionReference,
+					eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodItemRevisionInNutritionReference.id)
+				)
+				.innerJoin(
+					nutritionFoodItemInNutritionReference,
+					eq(nutritionFoodItemRevisionInNutritionReference.foodItemId, nutritionFoodItemInNutritionReference.id)
+				)
+				.innerJoin(nutritionSourceInNutritionReference, eq(nutritionFoodItemInNutritionReference.sourceId, nutritionSourceInNutritionReference.id))
+				.innerJoin(
+					nutritionSourceReleaseInNutritionReference,
+					eq(nutritionFoodItemRevisionInNutritionReference.sourceReleaseId, nutritionSourceReleaseInNutritionReference.id)
+				)
+				.where(eq(ingredientNutritionReferenceInKitchen.ingredientId, ingredientId))
+				.limit(1),
+		{ includeCode: true, prefix: "Falha ao buscar vínculo nutricional do snapshot" }
+	).catch((error) => {
+		if (isMissingNutritionReferenceRelation(error)) return []
+		throw error
+	})
+	const nutrition_reference = referenceRows[0]
+		? {
+				...referenceRows[0],
+				base_quantity: Number(referenceRows[0].base_quantity),
+			}
+		: null
 
-	const nutrients = nutrientRows
-		.map((r) => ({
-			nutrient_id: r.nutrientId,
-			name: r.nutrientInKitchen?.name ?? null,
-			value: Number(r.nutrientValue),
-			_order: r.nutrientInKitchen?.displayOrder ?? 9999,
-		}))
-		.sort((a, b) => a._order - b._order || (a.name ?? "").localeCompare(b.name ?? ""))
-		.map(({ _order, ...rest }) => rest)
+	const nutrients = nutrition_reference
+		? (
+				await runQuery("QUERY_FAILED", () =>
+					db
+						.select({
+							nutrient_id: nutrientInKitchen.id,
+							name: nutrientInKitchen.name,
+							value: sql<
+								number | null
+							>`(${nutritionFoodNutrientValueInNutritionReference.value} * ${nutritionNutrientComponentMappingInNutritionReference.conversionMultiplier}) + ${nutritionNutrientComponentMappingInNutritionReference.conversionOffset}`,
+						})
+						.from(ingredientNutritionReferenceInKitchen)
+						.innerJoin(
+							nutritionFoodNutrientValueInNutritionReference,
+							eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodNutrientValueInNutritionReference.foodRevisionId)
+						)
+						.innerJoin(
+							nutritionNutrientComponentMappingInNutritionReference,
+							eq(nutritionFoodNutrientValueInNutritionReference.componentId, nutritionNutrientComponentMappingInNutritionReference.componentId)
+						)
+						.innerJoin(nutrientInKitchen, eq(nutritionNutrientComponentMappingInNutritionReference.nutrientId, nutrientInKitchen.id))
+						.where(
+							and(
+								eq(ingredientNutritionReferenceInKitchen.ingredientId, ingredientId),
+								eq(nutritionNutrientComponentMappingInNutritionReference.isPreferred, true),
+								isNull(nutrientInKitchen.deletedAt)
+							)
+						)
+						.orderBy(asc(nutrientInKitchen.displayOrder), asc(nutrientInKitchen.name))
+				)
+			)
+				.filter((r) => r.value != null)
+				.map((r) => ({ nutrient_id: r.nutrient_id, name: r.name, value: Number(r.value) }))
+		: (
+				await runQuery("QUERY_FAILED", () =>
+					db.query.ingredientNutrientInKitchen.findMany({
+						columns: { nutrientId: true, nutrientValue: true },
+						with: { nutrientInKitchen: { columns: { name: true, displayOrder: true } } },
+						where: and(eq(ingredientNutrientInKitchen.ingredientId, ingredientId), isNull(ingredientNutrientInKitchen.deletedAt)),
+					})
+				)
+			)
+				.map((r) => ({
+					nutrient_id: r.nutrientId,
+					name: r.nutrientInKitchen?.name ?? null,
+					value: Number(r.nutrientValue),
+					_order: r.nutrientInKitchen?.displayOrder ?? 9999,
+				}))
+				.sort((a, b) => a._order - b._order || (a.name ?? "").localeCompare(b.name ?? ""))
+				.map(({ _order, ...rest }) => rest)
 
 	const itemRows = await runQuery("QUERY_FAILED", () =>
 		db.query.ingredientItemInKitchen.findMany({
@@ -187,6 +297,7 @@ export async function buildIngredientSnapshot(db: SisubDb, ingredientId: string)
 			ceafa_id: ing.ceafaId ?? null,
 			ceafa_description: ceafa?.description ?? null,
 		},
+		nutrition_reference,
 		nutrients,
 		product_items,
 		purchase_links,
@@ -303,12 +414,40 @@ export async function restoreIngredientVersion(
 				})
 				.where(eq(ingredientInKitchen.id, input.ingredientId))
 
-			// 2) Nutrientes — substituição total (soft-delete ativos, reinsere do snapshot)
-			await replaceIngredientNutrients(
-				tx,
-				input.ingredientId,
-				snap.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.value }))
-			)
+			// 2) Fonte nutricional + nutrientes. Snapshots vinculados restauram o link;
+			// snapshots manuais limpam o link e repõem ingredient_nutrient.
+			if (snap.nutrition_reference?.food_revision_id) {
+				const revisionExists = await tx
+					.select({ id: nutritionFoodItemRevisionInNutritionReference.id })
+					.from(nutritionFoodItemRevisionInNutritionReference)
+					.where(eq(nutritionFoodItemRevisionInNutritionReference.id, snap.nutrition_reference.food_revision_id))
+					.limit(1)
+				if (revisionExists.length > 0) {
+					await tx
+						.insert(ingredientNutritionReferenceInKitchen)
+						.values({
+							ingredientId: input.ingredientId,
+							foodRevisionId: snap.nutrition_reference.food_revision_id,
+							matchStatus: snap.nutrition_reference.match_status ?? "manual",
+							linkedAt: new Date().toISOString(),
+						})
+						.onConflictDoUpdate({
+							target: ingredientNutritionReferenceInKitchen.ingredientId,
+							set: {
+								foodRevisionId: snap.nutrition_reference.food_revision_id,
+								matchStatus: snap.nutrition_reference.match_status ?? "manual",
+								linkedAt: new Date().toISOString(),
+							},
+						})
+				}
+			} else {
+				await tx.delete(ingredientNutritionReferenceInKitchen).where(eq(ingredientNutritionReferenceInKitchen.ingredientId, input.ingredientId))
+				await replaceIngredientNutrients(
+					tx,
+					input.ingredientId,
+					snap.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.value }))
+				)
+			}
 
 			// 3) Itens de produto (ingredient_item) — reconciliação por id
 			const snapItemIds = new Set(snap.product_items.map((i) => i.id))
