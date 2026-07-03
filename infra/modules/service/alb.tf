@@ -18,16 +18,9 @@ resource "aws_lb_target_group" "this" {
   }
 }
 
-# Allow the ALB to reach this service's task port. Standalone rule on the shared
-# tasks security group (owned by the foundation), so services stay independent.
-resource "aws_vpc_security_group_ingress_rule" "from_alb" {
-  security_group_id            = var.tasks_security_group_id
-  description                  = "ALB to ${var.service_name}"
-  ip_protocol                  = "tcp"
-  from_port                    = var.container_port
-  to_port                      = var.container_port
-  referenced_security_group_id = var.alb_security_group_id
-}
+# ALB -> task ingress is opened once in the foundation (all TCP from the ALB SG),
+# because services share the tasks SG and many share port 3000, which would
+# collide as duplicate SG permissions if managed per service.
 
 locals {
   has_host_rule = length(var.hosts) > 0

@@ -81,12 +81,10 @@ resource "aws_security_group" "alb" {
   }
 }
 
-# Shared task security group. Per-service ingress rules (ALB -> task port) are
-# created by each service stack via the `service` module, so a service can be
-# applied without touching the foundation state.
+# Shared task security group.
 resource "aws_security_group" "tasks" {
   name        = "${local.name_prefix}-ecs-tasks"
-  description = "ECS task access. Inbound only from ALB, added per service."
+  description = "ECS task access. Inbound only from the ALB."
   vpc_id      = aws_vpc.this.id
 
   egress {
@@ -96,4 +94,18 @@ resource "aws_security_group" "tasks" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+# One ingress rule for the whole platform: any TCP port, but only from the ALB
+# security group. The ALB only ever connects to a target on its registered port,
+# so this is effectively "ALB may reach each service on its own port" without
+# needing a per-service rule (services share this SG and many share port 3000,
+# which would collide as duplicate permissions if managed per service).
+resource "aws_vpc_security_group_ingress_rule" "tasks_from_alb" {
+  security_group_id            = aws_security_group.tasks.id
+  description                  = "All TCP from the ALB"
+  ip_protocol                  = "tcp"
+  from_port                    = 0
+  to_port                      = 65535
+  referenced_security_group_id = aws_security_group.alb.id
 }

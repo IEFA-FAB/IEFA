@@ -59,11 +59,14 @@ resource "aws_ecs_task_definition" "this" {
 }
 
 resource "aws_ecs_service" "this" {
-  name                               = var.service_name
-  cluster                            = var.cluster_id
-  task_definition                    = aws_ecs_task_definition.this.arn
-  desired_count                      = var.desired_count
-  health_check_grace_period_seconds  = var.health_check_grace_period_seconds
+  name            = var.service_name
+  cluster         = var.cluster_id
+  task_definition = aws_ecs_task_definition.this.arn
+  desired_count   = var.desired_count
+  # A load-balanced service needs its target group associated with the ALB via a
+  # listener rule first; when the service has no host/path rule yet (e.g. before
+  # domains are configured) it runs unattached and the grace period is invalid.
+  health_check_grace_period_seconds  = local.make_rule ? var.health_check_grace_period_seconds : null
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent
   enable_execute_command             = false
@@ -90,10 +93,13 @@ resource "aws_ecs_service" "this" {
     assign_public_ip = var.assign_public_ip
   }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.this.arn
-    container_name   = var.service_name
-    container_port   = var.container_port
+  dynamic "load_balancer" {
+    for_each = local.make_rule ? [1] : []
+    content {
+      target_group_arn = aws_lb_target_group.this.arn
+      container_name   = var.service_name
+      container_port   = var.container_port
+    }
   }
 
   deployment_circuit_breaker {
