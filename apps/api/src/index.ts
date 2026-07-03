@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi"
 import { Scalar } from "@scalar/hono-api-reference"
 import { cors } from "hono/cors"
 import { comprasAdminRoutes } from "./api/routes/compras-admin.ts"
+import { nutritionAdminRoutes } from "./api/routes/nutrition-admin.ts"
 import { priceResearchRoutes } from "./api/routes/price-research.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
@@ -43,6 +44,7 @@ type HealthResponse =
 const typedApp = app
 	.route("/api", api)
 	.route("/api/admin/compras", comprasAdminRoutes)
+	.route("/api/admin/nutrition", nutritionAdminRoutes)
 	.route("/api/admin/price-research", priceResearchRoutes)
 	.get("/health", (c) => {
 		const mem = process.memoryUsage()
