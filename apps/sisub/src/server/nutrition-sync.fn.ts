@@ -10,11 +10,7 @@ import type { SyncLog } from "@/types/domain/compras-sync"
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
 async function fetchApi(path: string, init?: RequestInit): Promise<Response> {
-	try {
-		return await fetch(`${API_BASE}${path}`, init)
-	} catch {
-		return fetch(`https://iefa-api.fly.dev${path}`, init)
-	}
+	return fetch(`${API_BASE}${path}`, init)
 }
 
 function adminHeaders() {

@@ -1,7 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
-import { hasLiveNutritionSync, runNutritionReferenceSync } from "../../workers/nutrition-reference-sync/index.ts"
+import { hasLiveNutritionSync, NUTRITION_REFERENCE_SYNC_TOTAL_STEPS, runNutritionReferenceSync } from "../../workers/nutrition-reference-sync/index.ts"
 
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
@@ -118,21 +118,23 @@ nutritionAdminRoutes
 		const supabase = getSupabase()
 		if (await hasLiveNutritionSync(supabase)) return c.json({ error: "Sync já está em andamento" }, 409)
 
-		runNutritionReferenceSync({ triggeredBy: "manual" })
-			.then((syncId) => console.log(`[nutrition-admin] Sync manual #${syncId} concluída`))
-			.catch((err) => console.error("[nutrition-admin] Sync manual falhou:", err))
-
-		await new Promise((resolve) => setTimeout(resolve, 200))
-
-		const { data: latest } = await supabase
+		const { data: logRow, error: logErr } = await supabase
 			.from("nutrition_sync_log")
+			.insert({ triggered_by: "manual", total_steps: NUTRITION_REFERENCE_SYNC_TOTAL_STEPS })
 			.select("id")
-			.eq("triggered_by", "manual")
-			.order("started_at", { ascending: false })
-			.limit(1)
 			.single()
+		if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
 
-		return c.json({ sync_id: latest?.id ?? null, message: "Sync iniciada em background" }, 202)
+		const syncId = Number(logRow.id)
+		runNutritionReferenceSync({ triggeredBy: "manual", syncId })
+			.then((syncId) => console.log(`[nutrition-admin] Sync manual #${syncId} concluída`))
+			.catch(async (err) => {
+				const message = err instanceof Error ? err.message : String(err)
+				await supabase.from("nutrition_sync_log").update({ status: "error", error_message: message, finished_at: new Date().toISOString() }).eq("id", syncId)
+				console.error("[nutrition-admin] Sync manual falhou:", err)
+			})
+
+		return c.json({ sync_id: syncId, message: "Sync iniciada em background" }, 202)
 	})
 	.openapi(getSyncLatestRoute, async (c) => {
 		const supabase = getSupabase()

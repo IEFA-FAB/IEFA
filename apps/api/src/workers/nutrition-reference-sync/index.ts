@@ -2,9 +2,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
 
 const HEARTBEAT_TIMEOUT_MS = 90_000
+const HEADER_FETCH_TIMEOUT_MS = 10_000
 
 type TriggeredBy = "cron" | "manual"
 type StepFn = (supabase: SupabaseClient<any, any>) => Promise<number>
+type RunNutritionReferenceSyncOptions = { triggeredBy: TriggeredBy; syncId?: number }
 
 type SourceCheck = {
 	sourceId: string
@@ -51,6 +53,7 @@ const STEPS: Array<{ name: string; fn: StepFn }> = SOURCE_CHECKS.map((source) =>
 	name: `source.${source.sourceId}`,
 	fn: (supabase) => checkSourceRelease(supabase, source),
 }))
+export const NUTRITION_REFERENCE_SYNC_TOTAL_STEPS = STEPS.length
 
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
@@ -90,9 +93,19 @@ export async function hasLiveNutritionSync(supabase: SupabaseClient<any, any>) {
 	return data.some((sync) => isNutritionSyncLive(sync.heartbeat_at, sync.started_at))
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit) {
+	const controller = new AbortController()
+	const timeout = setTimeout(() => controller.abort(), HEADER_FETCH_TIMEOUT_MS)
+	try {
+		return await fetch(url, { ...init, signal: controller.signal })
+	} finally {
+		clearTimeout(timeout)
+	}
+}
+
 async function fetchHeaders(url: string) {
 	try {
-		const head = await fetch(url, { method: "HEAD" })
+		const head = await fetchWithTimeout(url, { method: "HEAD" })
 		if (head.ok) {
 			return {
 				etag: head.headers.get("etag"),
@@ -104,12 +117,15 @@ async function fetchHeaders(url: string) {
 		// Some institutional pages reject HEAD; GET below records reachability.
 	}
 
-	const res = await fetch(url, { method: "GET" })
-	return {
+	const res = await fetchWithTimeout(url, { method: "GET" })
+	const headers = {
 		etag: res.headers.get("etag"),
 		lastModified: res.headers.get("last-modified"),
 		statusCode: res.status,
 	}
+	const cancelBody = res.body?.cancel()
+	if (cancelBody) await cancelBody.catch(() => undefined)
+	return headers
 }
 
 async function checkSourceRelease(supabase: SupabaseClient<any, any>, source: SourceCheck): Promise<number> {
@@ -151,27 +167,52 @@ async function checkSourceRelease(supabase: SupabaseClient<any, any>, source: So
 	return 1
 }
 
-export async function runNutritionReferenceSync(opts: { triggeredBy: TriggeredBy }): Promise<number> {
+export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncOptions): Promise<number> {
 	const supabase = getSupabase()
 	await recoverStaleSyncs(supabase)
 
-	if (await hasLiveNutritionSync(supabase)) {
+	if (!opts.syncId && (await hasLiveNutritionSync(supabase))) {
 		if (opts.triggeredBy === "cron") console.log("[nutrition-sync] Sync já em andamento. Saindo.")
 		return -1
 	}
 
-	const { data: logRow, error: logErr } = await supabase
-		.from("nutrition_sync_log")
-		.insert({ triggered_by: opts.triggeredBy, total_steps: STEPS.length })
-		.select("id")
-		.single()
-	if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
+	let syncId = opts.syncId
+	if (!syncId) {
+		const { data: logRow, error: logErr } = await supabase
+			.from("nutrition_sync_log")
+			.insert({ triggered_by: opts.triggeredBy, total_steps: STEPS.length })
+			.select("id")
+			.single()
+		if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
+		syncId = Number(logRow.id)
+	}
 
-	const syncId = Number(logRow.id)
 	await supabase.from("nutrition_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
-	await supabase.from("nutrition_sync_step").insert(STEPS.map((step) => ({ sync_id: syncId, step_name: step.name, status: "pending" })))
+	const { error: stepsErr } = await supabase
+		.from("nutrition_sync_step")
+		.insert(STEPS.map((step) => ({ sync_id: syncId, step_name: step.name, status: "pending" })))
+	if (stepsErr) {
+		await supabase
+			.from("nutrition_sync_log")
+			.update({ status: "error", error_message: stepsErr.message, finished_at: new Date().toISOString() })
+			.eq("id", syncId)
+		throw new Error(`Falha ao criar nutrition_sync_step: ${stepsErr.message}`)
+	}
 
 	for (const step of STEPS) {
+		if (await isStopRequested(supabase, syncId)) {
+			console.log(`[nutrition-sync] Stop solicitado — abortando antes do step ${step.name}`)
+			await supabase
+				.from("nutrition_sync_step")
+				.update({ status: "error", error_message: "manually stopped", finished_at: new Date().toISOString() })
+				.eq("sync_id", syncId)
+				.eq("status", "pending")
+			await supabase
+				.from("nutrition_sync_log")
+				.update({ status: "error", error_message: "Parada manualmente pelo usuário", finished_at: new Date().toISOString() })
+				.eq("id", syncId)
+			return syncId
+		}
 		await runStep(supabase, syncId, step.name, step.fn)
 	}
 
@@ -183,6 +224,11 @@ export async function runNutritionReferenceSync(opts: { triggeredBy: TriggeredBy
 
 	console.log(`[nutrition-sync] Sync #${syncId} concluída: ${finalStatus}`)
 	return syncId
+}
+
+async function isStopRequested(supabase: SupabaseClient<any, any>, syncId: number) {
+	const { data } = await supabase.from("nutrition_sync_log").select("stop_requested").eq("id", syncId).single()
+	return Boolean(data?.stop_requested)
 }
 
 async function runStep(supabase: SupabaseClient<any, any>, syncId: number, stepName: string, fn: StepFn) {
