@@ -26,6 +26,12 @@ variable "aws_region" {
   default     = "sa-east-1"
 }
 
+variable "allowed_account_ids" {
+  description = "AWS account IDs Terraform may operate on. Guards against applying to the wrong account."
+  type        = list(string)
+  default     = ["103256050857"]
+}
+
 # ---- Service definition ----
 variable "service_name" {
   type = string

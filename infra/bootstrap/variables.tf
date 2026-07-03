@@ -16,6 +16,12 @@ variable "aws_region" {
   default     = "sa-east-1"
 }
 
+variable "allowed_account_ids" {
+  description = "AWS account IDs Terraform may operate on. Guards against applying to the wrong account."
+  type        = list(string)
+  default     = ["103256050857"]
+}
+
 variable "state_bucket_name" {
   description = "Optional globally unique S3 bucket name. Defaults to project-environment-terraform-state-account-id."
   type        = string
