@@ -3,7 +3,7 @@
 terraform {
   backend "s3" {
     bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
-    key            = "services/sisub/prod/terraform.tfstate"
+    key            = "services/docs/prod/terraform.tfstate"
     region         = "sa-east-1"
     encrypt        = true
     use_lockfile   = true

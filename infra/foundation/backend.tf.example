@@ -1,0 +1,13 @@
+# Copy to backend.tf and fill in the bucket/table from `infra/bootstrap` outputs.
+# use_lockfile (S3 native locking, TF >= 1.10) is the primary lock; dynamodb_table
+# is kept for belt-and-suspenders parity with the bootstrap stack.
+terraform {
+  backend "s3" {
+    bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+    key            = "foundation/prod/terraform.tfstate"
+    region         = "sa-east-1"
+    encrypt        = true
+    use_lockfile   = true
+    dynamodb_table = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+  }
+}

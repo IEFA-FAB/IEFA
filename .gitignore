@@ -69,7 +69,9 @@ coverage
 *.tfstate.*
 *.tfvars
 *.tfvars.json
-infra/sisub/secrets/*.local.json
+infra/*/secrets/*.local.json
+# Real backend configs (copied from backend.tf.example); keep the examples.
+infra/*/backend.tf
 crash.log
 crash.*.log
 override.tf

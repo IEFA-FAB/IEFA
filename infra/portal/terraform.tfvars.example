@@ -5,13 +5,13 @@ state_region         = "sa-east-1"
 foundation_state_key = "foundation/prod/terraform.tfstate"
 aws_region           = "sa-east-1"
 
-service_name      = "sisub"
-docker_target     = "sisub"
+service_name      = "portal"
+docker_target     = "portal"
 container_port    = 3000
-cpu               = 512
-memory            = 1024
+cpu               = 256
+memory            = 512
 health_check_path = "/health"
-listener_priority = 110
+listener_priority = 100
 
 environment_variables = {
   NODE_ENV = "production"
@@ -19,12 +19,13 @@ environment_variables = {
 }
 
 secret_names = [
-  "VITE_SISUB_SUPABASE_URL",
-  "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
-  "SISUB_SUPABASE_SECRET_KEY",
-  "SISUB_DATABASE_URL",
-  "ADMIN_SECRET",
+  "VITE_IEFA_SUPABASE_URL",
+  "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY",
+  "IEFA_SUPABASE_SECRET_KEY",
 ]
 
-# hosts = ["sisub.example.br"]
+# Host-based routing on the shared ALB (requires a certificate on the foundation).
+# hosts = ["iefa.example.br", "portal.example.br"]
+
+# User-facing SSR app: pin one on-demand task so a Spot reclamation can't drop it.
 # fargate_on_demand_base = 1

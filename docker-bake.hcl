@@ -51,7 +51,7 @@ variable "FARO_SOURCEMAP_API_KEY" {
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "sisub", "forms", "docs", "alpha", "5s"]
+  targets = ["api", "portal", "rumaer", "sisub", "forms", "docs", "alpha", "5s", "sisub-mcp"]
 }
 
 group "apps" {
@@ -162,4 +162,13 @@ target "5s" {
     VITE_IEFA_SUPABASE_PUBLISHABLE_KEY = VITE_IEFA_SUPABASE_PUBLISHABLE_KEY
     VITE_APP_TENANT                    = "cinco-s"
   }
+}
+
+# MCP server (server-side only; no VITE_* build args).
+target "sisub-mcp" {
+  inherits   = ["base"]
+  target     = "sisub-mcp"
+  tags       = ["${REGISTRY}/${REPOSITORY_PREFIX}/sisub-mcp:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=sisub-mcp"]
+  cache-to   = ["type=gha,scope=sisub-mcp,mode=max"]
 }

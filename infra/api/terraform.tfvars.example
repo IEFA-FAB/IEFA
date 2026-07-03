@@ -5,26 +5,25 @@ state_region         = "sa-east-1"
 foundation_state_key = "foundation/prod/terraform.tfstate"
 aws_region           = "sa-east-1"
 
-service_name      = "sisub"
-docker_target     = "sisub"
+service_name      = "api"
+docker_target     = "api"
 container_port    = 3000
-cpu               = 512
-memory            = 1024
+cpu               = 256
+memory            = 512
 health_check_path = "/health"
-listener_priority = 110
+listener_priority = 120
 
 environment_variables = {
   NODE_ENV = "production"
-  PORT     = "3000"
+  API_PORT = "3000"
 }
 
+# ADMIN_SECRET is required by the nutrition sync admin endpoints (POST
+# /api/admin/nutrition/sync). Store it in the api secret JSON.
 secret_names = [
-  "VITE_SISUB_SUPABASE_URL",
-  "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
-  "SISUB_SUPABASE_SECRET_KEY",
-  "SISUB_DATABASE_URL",
+  "API_SUPABASE_URL",
+  "API_SUPABASE_SERVICE_ROLE_KEY",
   "ADMIN_SECRET",
 ]
 
-# hosts = ["sisub.example.br"]
-# fargate_on_demand_base = 1
+# hosts = ["api.example.br"]

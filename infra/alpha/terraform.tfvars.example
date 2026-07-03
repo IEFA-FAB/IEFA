@@ -5,26 +5,24 @@ state_region         = "sa-east-1"
 foundation_state_key = "foundation/prod/terraform.tfstate"
 aws_region           = "sa-east-1"
 
-service_name      = "sisub"
-docker_target     = "sisub"
-container_port    = 3000
+service_name      = "alpha"
+docker_target     = "alpha"
+container_port    = 8000
 cpu               = 512
 memory            = 1024
 health_check_path = "/health"
-listener_priority = 110
+listener_priority = 130
 
 environment_variables = {
   NODE_ENV = "production"
-  PORT     = "3000"
+  PORT     = "8000"
 }
 
 secret_names = [
-  "VITE_SISUB_SUPABASE_URL",
-  "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
-  "SISUB_SUPABASE_SECRET_KEY",
-  "SISUB_DATABASE_URL",
-  "ADMIN_SECRET",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "DATABASE_URL",
+  "NVIDIA_API_KEY",
 ]
 
-# hosts = ["sisub.example.br"]
-# fargate_on_demand_base = 1
+# hosts = ["alpha.example.br"]

@@ -9,12 +9,11 @@ output "dynamodb_table_name" {
 }
 
 output "backend_config" {
-  description = "Backend config values for infra/sisub."
+  description = "Backend config shared by the foundation and per-service stacks. Each stack sets its own `key` (see its backend.tf.example)."
   value = {
     bucket         = aws_s3_bucket.terraform_state.bucket
     dynamodb_table = aws_dynamodb_table.terraform_locks.name
     region         = var.aws_region
-    key            = "sisub/${var.environment}/terraform.tfstate"
     encrypt        = true
     use_lockfile   = true
   }
