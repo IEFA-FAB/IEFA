@@ -25,4 +25,5 @@ secret_names = [
   "NVIDIA_API_KEY",
 ]
 
-# hosts = ["alpha.example.br"]
+
+hosts = ["alpha.iefa.com.br"]

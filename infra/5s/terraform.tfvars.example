@@ -25,5 +25,6 @@ secret_names = [
   "IEFA_SUPABASE_SECRET_KEY",
 ]
 
-# hosts = ["5s.example.br"]
 # fargate_on_demand_base = 1
+
+hosts = ["5s.iefa.com.br"]

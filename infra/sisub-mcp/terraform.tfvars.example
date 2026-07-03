@@ -26,4 +26,5 @@ secret_names = [
   "SISUB_SUPABASE_ANON_KEY",
 ]
 
-# hosts = ["mcp.example.br"]
+
+hosts = ["sisub-mcp.iefa.com.br"]

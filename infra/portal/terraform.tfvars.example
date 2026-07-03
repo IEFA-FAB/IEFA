@@ -25,7 +25,8 @@ secret_names = [
 ]
 
 # Host-based routing on the shared ALB (requires a certificate on the foundation).
-# hosts = ["iefa.example.br", "portal.example.br"]
 
 # User-facing SSR app: pin one on-demand task so a Spot reclamation can't drop it.
 # fargate_on_demand_base = 1
+
+hosts = ["portal.iefa.com.br"]

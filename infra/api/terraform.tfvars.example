@@ -26,4 +26,5 @@ secret_names = [
   "ADMIN_SECRET",
 ]
 
-# hosts = ["api.example.br"]
+
+hosts = ["api.iefa.com.br"]

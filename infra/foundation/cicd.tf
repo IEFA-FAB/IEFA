@@ -114,6 +114,19 @@ data "aws_iam_policy_document" "github_deploy" {
       values   = [aws_ecs_cluster.this.arn]
     }
   }
+
+  # Push runtime secret values into the per-service Secrets Manager secrets
+  # (sync-secrets workflow injects GitHub Secrets → AWS, by name prefix).
+  statement {
+    sid = "SecretsSync"
+    actions = [
+      "secretsmanager:PutSecretValue",
+      "secretsmanager:DescribeSecret",
+    ]
+    resources = [
+      "arn:aws:secretsmanager:${var.aws_region}:${local.account_id}:secret:${local.secret_name_prefix}*",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {

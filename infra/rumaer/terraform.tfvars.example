@@ -24,5 +24,6 @@ secret_names = [
   "RUMAER_SUPABASE_SECRET_KEY",
 ]
 
-# hosts = ["rumaer.example.br"]
 # fargate_on_demand_base = 1
+
+hosts = ["rumaer.iefa.com.br"]

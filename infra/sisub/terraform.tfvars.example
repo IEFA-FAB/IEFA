@@ -26,5 +26,6 @@ secret_names = [
   "ADMIN_SECRET",
 ]
 
-# hosts = ["sisub.example.br"]
 # fargate_on_demand_base = 1
+
+hosts = ["sisub.iefa.com.br", "app.previsaosisub.com.br"]

@@ -20,4 +20,5 @@ environment_variables = {
 
 secret_names = []
 
-# hosts = ["docs.example.br"]
+
+hosts = ["docs.iefa.com.br"]
