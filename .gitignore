@@ -63,6 +63,20 @@ coverage
 # === Docker ===
 .docker/
 
+# === Terraform ===
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+infra/sisub/secrets/*.local.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # === Fly.io ===
 .fly/
 

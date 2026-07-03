@@ -1,24 +1,19 @@
-# Reusable: build + push de um app via docker-bake → Fly registry.
-# Usado por deploy.yml (um caller por app). Concentra o bloco idêntico de
-# login → tag → bake que antes era duplicado em cada build-<app>.
+# Reusable: build + push de um app via docker-bake → Amazon ECR.
+# Usado por deploy.yml (um caller por app). Autentica na AWS via OIDC
+# (sem chaves de acesso de longa duracao) e publica no repo ECR do servico.
+#
+# Requer as GitHub Actions Variables (Settings → Secrets and variables → Actions):
+#   AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECR_REGISTRY, ECR_REPOSITORY_PREFIX
+# Preencha com os valores do `terraform output github_actions_variables`.
 name: app-build
 
 on:
   workflow_call:
     inputs:
-      target:
-        description: "Target do docker-bake.hcl (ex: sisub)"
+      service:
+        description: "Chave do servico = target do docker-bake.hcl e sufixo do repo ECR (ex: sisub, 5s)"
         required: true
         type: string
-      image_repo:
-        description: "Repositório da imagem sem tag (ex: registry.fly.io/sisub)"
-        required: true
-        type: string
-      ensure_app:
-        description: "Se preenchido, roda `flyctl apps create <nome> || true` antes do build"
-        required: false
-        type: string
-        default: ""
       bake_set:
         description: "Linhas extras de `set` do bake (build args), uma por linha"
         required: false
@@ -26,38 +21,38 @@ on:
         default: ""
     outputs:
       tag:
-        description: "Tag única gerada para a imagem"
+        description: "Tag unica gerada para a imagem"
         value: ${{ jobs.build.outputs.tag }}
     secrets:
-      FLY_API_TOKEN:
-        required: true
       FARO_SOURCEMAP_API_KEY:
-        description: "Faro sourcemap upload key — injetado como build arg <target>.args.FARO_SOURCEMAP_API_KEY quando presente"
+        description: "Faro sourcemap upload key — injetado como build arg <service>.args.FARO_SOURCEMAP_API_KEY quando presente"
         required: false
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4
 
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-        if: inputs.ensure_app != ''
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Ensure Fly app exists
-        if: inputs.ensure_app != ''
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl apps create "${{ inputs.ensure_app }}" || true
-
-      - name: Login to Fly Registry
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: echo "$FLY_API_TOKEN" | docker login registry.fly.io -u x --password-stdin
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Generate tag
         id: meta
@@ -65,12 +60,17 @@ jobs:
 
       - name: Build and push
         uses: docker/bake-action@v7
+        env:
+          IMAGE_REPO: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}
         with:
           files: ./docker-bake.hcl
-          targets: ${{ inputs.target }}
+          targets: ${{ inputs.service }}
           push: true
+          # ECS task definitions pin the `:latest` tag, so pushing `:latest` is
+          # what actually gets rolled out by `--force-new-deployment`. A
+          # sha-tagged image is also pushed for traceability/rollback.
           set: |
-            ${{ inputs.target }}.tags=${{ inputs.image_repo }}:${{ steps.meta.outputs.tag }}
-            ${{ inputs.target }}.tags=${{ inputs.image_repo }}:latest
+            ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.tag }}
+            ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:latest
             ${{ inputs.bake_set }}
-            ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.target, secrets.FARO_SOURCEMAP_API_KEY) || '' }}
+            ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.service, secrets.FARO_SOURCEMAP_API_KEY) || '' }}

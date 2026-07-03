@@ -1,0 +1,55 @@
+project     = "iefa"
+environment = "prod"
+aws_region  = "sa-east-1"
+
+# DNS e HTTPS sao OPCIONAIS e ficam comentados por padrao para que um
+# `terraform apply` limpo funcione sem certificado/zona reais (ALB sobe em HTTP,
+# so o default_service responde). Descomente e preencha com valores da SUA conta
+# antes de habilitar host-based routing / HTTPS. NAO aplique os placeholders
+# abaixo verbatim: um certificate_arn ou route53_zone_id inexistente quebra o apply.
+
+# Opcional, mas recomendado para host-based routing no unico ALB.
+# Com root_domain, os hosts ficam:
+# portal.example.com, sisub.example.com, api.example.com, alpha.example.com,
+# rumaer.example.com, forms.example.com, 5s.example.com, docs.example.com
+# root_domain = "example.com"
+
+# Use um certificado ACM da mesma regiao do ALB para HTTPS.
+# certificate_arn = "arn:aws:acm:sa-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+# Opcional: cria aliases Route53 para todos os hosts configurados.
+# route53_zone_id = "Z00000000000000000000"
+
+# Hostnames extras ou customizados por servico.
+# service_domains = {
+#   portal = ["iefa.example.com"]
+#   sisub  = ["sisub.example.com"]
+#   api    = ["api.example.com"]
+#   alpha  = ["alpha.example.com"]
+# }
+
+# Dois tasks por servico para manter uma duplicata.
+desired_count = 2
+
+# Spot-only por padrao. Para misturar on-demand, defina > 0.
+fargate_spot_weight      = 1
+fargate_on_demand_weight = 0
+
+# CloudWatch Logs fica desligado por custo.
+enable_cloudwatch_logs = false
+
+# Extras opcionais do JSON secret por servico.
+service_extra_secret_names = {
+  sisub = [
+    "MODULE_CHAT_AI_PROVIDER",
+    "MODULE_CHAT_AI_MODEL",
+    "MODULE_CHAT_AI_API_KEY",
+    "ANALYTICS_AI_PROVIDER",
+    "ANALYTICS_AI_MODEL",
+    "ANALYTICS_AI_API_KEY",
+  ]
+  alpha = [
+    "ALPHA_AI_API_KEY",
+    "LANGCHAIN_API_KEY",
+  ]
+}

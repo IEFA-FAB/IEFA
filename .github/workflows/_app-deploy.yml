@@ -1,21 +1,17 @@
-# Reusable: deploy de uma imagem já publicada → Fly, com smoke test e rollback.
-# Usado por deploy.yml (um caller por app). Concentra o bloco idêntico de
-# deploy → smoke → rollback que antes era duplicado em cada deploy-<app>.
+# Reusable: força um novo deploy de um servico ECS (imagem :latest já publicada
+# no ECR pelo _app-build.yml), aguarda estabilizar e roda smoke test.
+# O rollback é automático: os ECS services têm deployment_circuit_breaker com
+# rollback = true (ver infra/sisub/ecs.tf), então uma revisão que não estabiliza
+# volta sozinha para a anterior.
+#
+# Requer as GitHub Actions Variables: AWS_REGION, AWS_DEPLOY_ROLE_ARN, ECS_CLUSTER.
 name: app-deploy
 
 on:
   workflow_call:
     inputs:
-      image_repo:
-        description: "Repositório da imagem sem tag (ex: registry.fly.io/sisub)"
-        required: true
-        type: string
-      image_tag:
-        description: "Tag da imagem a deployar (output do app-build)"
-        required: true
-        type: string
-      fly_config:
-        description: "Caminho do fly.toml (ex: fly/sisub.toml)"
+      service:
+        description: "Nome do ECS service = chave do servico (ex: sisub, 5s)"
         required: true
         type: string
       health_url:
@@ -27,26 +23,48 @@ on:
         description: "Sufixo do grupo de concorrência (ex: sisub)"
         required: true
         type: string
-    secrets:
-      FLY_API_TOKEN:
-        required: true
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
     concurrency:
-      group: fly-deploy-${{ inputs.concurrency_suffix }}-${{ github.ref_name }}
+      group: ecs-deploy-${{ inputs.concurrency_suffix }}-${{ github.ref_name }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Deploy
+      - name: Force new deployment
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          IMAGE_TAG: ${{ inputs.image_tag }}
-        run: flyctl deploy -c "${{ inputs.fly_config }}" --image "${{ inputs.image_repo }}:$IMAGE_TAG" --wait-timeout 300
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment \
+            >/dev/null
+          echo "Triggered new deployment for $SERVICE on $CLUSTER"
+
+      - name: Wait for service to stabilize
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+        run: |
+          # If the circuit breaker rolls the deployment back, the service still
+          # returns to steady state, so the smoke test below is the real gate.
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
 
       - name: Smoke test
         if: inputs.health_url != ''
@@ -59,12 +77,3 @@ jobs:
             echo "Attempt $i/10 - status: ${status:-(connection error)} - waiting 10s..."; sleep 10
           done
           echo "❌ ${{ inputs.concurrency_suffix }} health check failed"; exit 1
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          PREV=$(flyctl releases -c "${{ inputs.fly_config }}" --json | jq -r '.[1].ImageRef // empty')
-          if [[ -z "$PREV" ]]; then echo "⚠️ No previous release to roll back to"; exit 0; fi
-          flyctl deploy -c "${{ inputs.fly_config }}" --image "$PREV" --wait-timeout 300 || true
