@@ -14,12 +14,20 @@ import {
 	folderInKitchen,
 	ingredientInKitchen,
 	ingredientItemInKitchen,
+	ingredientNutritionReferenceInKitchen,
 	ingredientNutrientInKitchen,
+	nutritionFoodItemInNutritionReference,
+	nutritionFoodItemRevisionInNutritionReference,
+	nutritionFoodNutrientValueInNutritionReference,
+	nutritionNutrientComponentInNutritionReference,
+	nutritionNutrientComponentMappingInNutritionReference,
+	nutritionSourceInNutritionReference,
+	nutritionSourceReleaseInNutritionReference,
 	nutrientInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm"
 import { requireAnyPermission } from "../guards/require-permission.ts"
 import type {
 	CreateFolder,
@@ -29,21 +37,24 @@ import type {
 	DeleteIngredient,
 	DeleteIngredientItem,
 	FetchIngredient,
+	FetchIngredientEffectiveNutrients,
 	FetchIngredientNutrients,
 	ListCatmat,
 	ListCeafa,
 	ListFolders,
 	ListIngredientItems,
 	ListIngredients,
+	ListNutritionReferenceFoods,
 	RestoreFolder,
 	RestoreIngredient,
+	SetIngredientNutritionReference,
 	SetIngredientNutrients,
 	UpdateFolder,
 	UpdateIngredient,
 	UpdateIngredientItem,
 } from "../schemas/ingredients.ts"
 import type { UserContext } from "../types/context.ts"
-import { NotFoundError } from "../types/errors.ts"
+import { DomainError, NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 
 type Folder = Tables<"folder">
@@ -63,6 +74,38 @@ type NutrientRef = Nutrient
 type IngredientNutrientWire = IngredientNutrient & { nutrient: NutrientRef | null }
 type CatmatItem = Pick<ComprasGovTables<"compras_material_item">, "codigo_item" | "descricao_item" | "item_sustentavel">
 
+export type NutritionReferenceSummary = {
+	ingredient_id?: string
+	food_revision_id: string
+	food_item_id: string
+	source_id: string
+	source_name: string
+	external_code: string
+	display_name: string
+	group_name: string | null
+	version_label: string
+	citation: string | null
+	base_quantity: number
+	base_unit: string
+	linked_at?: string
+	match_status?: "manual" | "suggested" | "reviewed"
+}
+
+export type NutritionReferenceFoodSearchItem = NutritionReferenceSummary & {
+	license_name: string | null
+}
+
+export type EffectiveIngredientNutrient = IngredientNutrientWire & {
+	source: "manual" | "reference"
+	value_kind?: string | null
+	raw_value?: string | null
+}
+
+export type IngredientEffectiveNutrientsResult = {
+	reference: NutritionReferenceSummary | null
+	nutrients: EffectiveIngredientNutrient[]
+}
+
 const ITEM_PURCHASE_RELATIONS: Record<string, string> = { purchaseItemInProcurement: "purchase_item" }
 const NUTRIENT_RELATIONS: Record<string, string> = { nutrientInKitchen: "nutrient" }
 const PURCHASE_ITEM_COLS = {
@@ -75,6 +118,13 @@ const PURCHASE_ITEM_COLS = {
 		unitPrice: true,
 	},
 } as const
+
+function isMissingNutritionReferenceRelation(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error)
+	return /relation .*ingredient_nutrition_reference.* does not exist|relation .*nutrition_reference\..* does not exist|schema "nutrition_reference" does not exist/i.test(
+		message
+	)
+}
 
 // ─── Folders ──────────────────────────────────────────────────────────────────
 
@@ -277,6 +327,253 @@ export async function listIngredientNutrients(db: SisubDb, ctx: UserContext, inp
 	return rows.map((r) => toWire<IngredientNutrientWire>(r, NUTRIENT_RELATIONS))
 }
 
+async function fetchIngredientNutritionReference(db: SisubDb, ingredientId: string): Promise<NutritionReferenceSummary | null> {
+	const rows = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db
+				.select({
+					ingredient_id: ingredientNutritionReferenceInKitchen.ingredientId,
+					food_revision_id: nutritionFoodItemRevisionInNutritionReference.id,
+					food_item_id: nutritionFoodItemInNutritionReference.id,
+					source_id: nutritionSourceInNutritionReference.id,
+					source_name: nutritionSourceInNutritionReference.displayName,
+					external_code: nutritionFoodItemInNutritionReference.externalCode,
+					display_name: nutritionFoodItemRevisionInNutritionReference.displayName,
+					group_name: nutritionFoodItemRevisionInNutritionReference.groupName,
+					version_label: nutritionSourceReleaseInNutritionReference.versionLabel,
+					citation: nutritionSourceInNutritionReference.citation,
+					base_quantity: nutritionFoodItemRevisionInNutritionReference.baseQuantity,
+					base_unit: nutritionFoodItemRevisionInNutritionReference.baseUnit,
+					linked_at: ingredientNutritionReferenceInKitchen.linkedAt,
+					match_status: ingredientNutritionReferenceInKitchen.matchStatus,
+				})
+				.from(ingredientNutritionReferenceInKitchen)
+				.innerJoin(
+					nutritionFoodItemRevisionInNutritionReference,
+					eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodItemRevisionInNutritionReference.id)
+				)
+				.innerJoin(
+					nutritionFoodItemInNutritionReference,
+					eq(nutritionFoodItemRevisionInNutritionReference.foodItemId, nutritionFoodItemInNutritionReference.id)
+				)
+				.innerJoin(nutritionSourceInNutritionReference, eq(nutritionFoodItemInNutritionReference.sourceId, nutritionSourceInNutritionReference.id))
+				.innerJoin(
+					nutritionSourceReleaseInNutritionReference,
+					eq(nutritionFoodItemRevisionInNutritionReference.sourceReleaseId, nutritionSourceReleaseInNutritionReference.id)
+				)
+				.where(eq(ingredientNutritionReferenceInKitchen.ingredientId, ingredientId))
+				.limit(1),
+		{ includeCode: true, prefix: "Falha ao buscar vínculo nutricional" }
+	).catch((error) => {
+		if (isMissingNutritionReferenceRelation(error)) return []
+		throw error
+	})
+	const row = rows[0]
+	if (!row) return null
+	return {
+		...row,
+		base_quantity: Number(row.base_quantity),
+		match_status: row.match_status as "manual" | "suggested" | "reviewed",
+	}
+}
+
+export async function getIngredientNutritionReference(
+	db: SisubDb,
+	ctx: UserContext,
+	input: FetchIngredientNutrients
+): Promise<NutritionReferenceSummary | null> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	return fetchIngredientNutritionReference(db, input.ingredientId)
+}
+
+export async function listNutritionReferenceFoods(
+	db: SisubDb,
+	ctx: UserContext,
+	input: ListNutritionReferenceFoods
+): Promise<NutritionReferenceFoodSearchItem[]> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const term = input.search.trim()
+	if (term.length < 2) return []
+
+	const escaped = `%${term.replace(/[\\%_]/g, "\\$&")}%`
+	const conditions = [
+		eq(nutritionFoodItemRevisionInNutritionReference.isCurrent, true),
+		or(
+			ilike(nutritionFoodItemRevisionInNutritionReference.displayName, escaped),
+			ilike(nutritionFoodItemRevisionInNutritionReference.normalizedName, escaped),
+			ilike(nutritionFoodItemInNutritionReference.externalCode, escaped),
+			ilike(nutritionFoodItemRevisionInNutritionReference.groupName, escaped)
+		),
+	]
+	if (input.sourceId) conditions.push(eq(nutritionSourceInNutritionReference.id, input.sourceId))
+
+	const rows = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db
+				.select({
+					food_revision_id: nutritionFoodItemRevisionInNutritionReference.id,
+					food_item_id: nutritionFoodItemInNutritionReference.id,
+					source_id: nutritionSourceInNutritionReference.id,
+					source_name: nutritionSourceInNutritionReference.displayName,
+					external_code: nutritionFoodItemInNutritionReference.externalCode,
+					display_name: nutritionFoodItemRevisionInNutritionReference.displayName,
+					group_name: nutritionFoodItemRevisionInNutritionReference.groupName,
+					version_label: nutritionSourceReleaseInNutritionReference.versionLabel,
+					citation: nutritionSourceInNutritionReference.citation,
+					base_quantity: nutritionFoodItemRevisionInNutritionReference.baseQuantity,
+					base_unit: nutritionFoodItemRevisionInNutritionReference.baseUnit,
+					license_name: nutritionSourceInNutritionReference.licenseName,
+				})
+				.from(nutritionFoodItemRevisionInNutritionReference)
+				.innerJoin(
+					nutritionFoodItemInNutritionReference,
+					eq(nutritionFoodItemRevisionInNutritionReference.foodItemId, nutritionFoodItemInNutritionReference.id)
+				)
+				.innerJoin(nutritionSourceInNutritionReference, eq(nutritionFoodItemInNutritionReference.sourceId, nutritionSourceInNutritionReference.id))
+				.innerJoin(
+					nutritionSourceReleaseInNutritionReference,
+					eq(nutritionFoodItemRevisionInNutritionReference.sourceReleaseId, nutritionSourceReleaseInNutritionReference.id)
+				)
+				.where(and(...conditions))
+				.orderBy(asc(nutritionSourceInNutritionReference.sourcePriority), asc(nutritionFoodItemRevisionInNutritionReference.displayName))
+				.limit(40),
+		{ includeCode: true, prefix: "Falha ao buscar tabela alimentar" }
+	).catch((error) => {
+		if (isMissingNutritionReferenceRelation(error)) return []
+		throw error
+	})
+
+	return rows.map((row) => ({ ...row, base_quantity: Number(row.base_quantity) }))
+}
+
+export async function setIngredientNutritionReference(db: SisubDb, ctx: UserContext, input: SetIngredientNutritionReference): Promise<void> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+
+	if (input.foodRevisionId == null) {
+		await runQuery(
+			"UPDATE_FAILED",
+			() => db.delete(ingredientNutritionReferenceInKitchen).where(eq(ingredientNutritionReferenceInKitchen.ingredientId, input.ingredientId)),
+			{ includeCode: true, prefix: "Falha ao remover vínculo nutricional" }
+		).catch((error) => {
+			if (isMissingNutritionReferenceRelation(error)) return
+			throw error
+		})
+		return
+	}
+
+	const revision = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({ id: nutritionFoodItemRevisionInNutritionReference.id })
+			.from(nutritionFoodItemRevisionInNutritionReference)
+			.where(eq(nutritionFoodItemRevisionInNutritionReference.id, input.foodRevisionId as string))
+			.limit(1)
+	)
+	if (revision.length === 0) throw new NotFoundError("nutrition_reference_food_revision", input.foodRevisionId)
+
+	await runQuery("UPDATE_FAILED", () =>
+		db
+			.insert(ingredientNutritionReferenceInKitchen)
+			.values({
+				ingredientId: input.ingredientId,
+				foodRevisionId: input.foodRevisionId as string,
+				matchStatus: input.matchStatus ?? "manual",
+				linkedBy: ctx.userId ?? null,
+				notes: input.notes ?? null,
+			})
+			.onConflictDoUpdate({
+				target: ingredientNutritionReferenceInKitchen.ingredientId,
+				set: {
+					foodRevisionId: input.foodRevisionId as string,
+					matchStatus: input.matchStatus ?? "manual",
+					linkedBy: ctx.userId ?? null,
+					notes: input.notes ?? null,
+					linkedAt: new Date().toISOString(),
+				},
+			})
+	)
+}
+
+export async function listIngredientEffectiveNutrients(
+	db: SisubDb,
+	ctx: UserContext,
+	input: FetchIngredientEffectiveNutrients
+): Promise<IngredientEffectiveNutrientsResult> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const reference = await fetchIngredientNutritionReference(db, input.ingredientId)
+	if (!reference) {
+		const nutrients = await listIngredientNutrients(db, ctx, input)
+		return { reference: null, nutrients: nutrients.map((n) => ({ ...n, source: "manual" as const })) }
+	}
+
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db
+			.select({
+				id: nutritionFoodNutrientValueInNutritionReference.id,
+				ingredient_id: ingredientNutritionReferenceInKitchen.ingredientId,
+				created_at: nutritionFoodNutrientValueInNutritionReference.createdAt,
+				nutrient_id: nutrientInKitchen.id,
+				nutrient_value: sql<
+					number | null
+				>`(${nutritionFoodNutrientValueInNutritionReference.value} * ${nutritionNutrientComponentMappingInNutritionReference.conversionMultiplier}) + ${nutritionNutrientComponentMappingInNutritionReference.conversionOffset}`,
+				deleted_at: sql<null>`null`,
+				value_kind: nutritionFoodNutrientValueInNutritionReference.valueKind,
+				raw_value: nutritionFoodNutrientValueInNutritionReference.rawValue,
+				nutrient: {
+					id: nutrientInKitchen.id,
+					created_at: nutrientInKitchen.createdAt,
+					name: nutrientInKitchen.name,
+					daily_value: nutrientInKitchen.dailyValue,
+					minimum_value: nutrientInKitchen.minimumValue,
+					is_energy_value: nutrientInKitchen.isEnergyValue,
+					enum_name: nutrientInKitchen.enumName,
+					display_order: nutrientInKitchen.displayOrder,
+					deleted_at: nutrientInKitchen.deletedAt,
+					legacy_id: nutrientInKitchen.legacyId,
+				},
+			})
+			.from(ingredientNutritionReferenceInKitchen)
+			.innerJoin(
+				nutritionFoodNutrientValueInNutritionReference,
+				eq(ingredientNutritionReferenceInKitchen.foodRevisionId, nutritionFoodNutrientValueInNutritionReference.foodRevisionId)
+			)
+			.innerJoin(
+				nutritionNutrientComponentMappingInNutritionReference,
+				eq(nutritionFoodNutrientValueInNutritionReference.componentId, nutritionNutrientComponentMappingInNutritionReference.componentId)
+			)
+			.innerJoin(nutrientInKitchen, eq(nutritionNutrientComponentMappingInNutritionReference.nutrientId, nutrientInKitchen.id))
+			.innerJoin(
+				nutritionNutrientComponentInNutritionReference,
+				eq(nutritionFoodNutrientValueInNutritionReference.componentId, nutritionNutrientComponentInNutritionReference.id)
+			)
+			.where(
+				and(
+					eq(ingredientNutritionReferenceInKitchen.ingredientId, input.ingredientId),
+					eq(nutritionNutrientComponentMappingInNutritionReference.isPreferred, true),
+					isNull(nutrientInKitchen.deletedAt)
+				)
+			)
+			.orderBy(asc(nutrientInKitchen.displayOrder), asc(nutrientInKitchen.name))
+	)
+
+	return {
+		reference,
+		nutrients: rows
+			.filter((row) => row.nutrient_value != null)
+			.map((row) => ({
+				...row,
+				nutrient_value: row.nutrient_value != null ? Number(row.nutrient_value) : null,
+				nutrient: {
+					...row.nutrient,
+					daily_value: row.nutrient.daily_value != null ? Number(row.nutrient.daily_value) : null,
+					minimum_value: row.nutrient.minimum_value != null ? Number(row.nutrient.minimum_value) : null,
+				},
+				source: "reference" as const,
+			})),
+	}
+}
+
 /** Cliente de transação Drizzle (o `tx` passado ao callback de `db.transaction`). */
 type SisubTx = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 
@@ -315,6 +612,10 @@ export async function replaceIngredientNutrients(
 
 export async function setIngredientNutrients(db: SisubDb, ctx: UserContext, input: SetIngredientNutrients): Promise<void> {
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const reference = await fetchIngredientNutritionReference(db, input.ingredientId)
+	if (reference) {
+		throw new DomainError("NUTRITION_REFERENCE_LOCKED", "Nutrientes manuais bloqueados: remova a vinculação com tabela alimentar para editar.")
+	}
 	await runQuery("UPDATE_FAILED", () => db.transaction((tx) => replaceIngredientNutrients(tx, input.ingredientId, input.nutrients)))
 }
 

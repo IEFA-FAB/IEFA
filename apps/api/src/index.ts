@@ -7,6 +7,7 @@ import { priceResearchRoutes } from "./api/routes/price-research.ts"
 import { api } from "./api/routes.js"
 import { env } from "./env.ts"
 import { startComprasSyncWorker } from "./workers/compras-sync/index.ts"
+import { startNutritionReferenceSyncWorker } from "./workers/nutrition-reference-sync/index.ts"
 
 const app = new OpenAPIHono()
 
@@ -141,6 +142,10 @@ export default {
 // startComprasSyncWorker é async: faz recovery de syncs presas antes de agendar
 startComprasSyncWorker().catch((err) => {
 	console.error("[compras-sync] Falha no startup do worker:", err)
+})
+
+startNutritionReferenceSyncWorker().catch((err) => {
+	console.error("[nutrition-sync] Falha no startup do worker:", err)
 })
 
 console.log(`🚀 Server running on http://localhost:${port}`)
