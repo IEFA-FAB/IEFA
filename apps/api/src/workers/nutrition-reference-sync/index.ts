@@ -1,12 +1,11 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import { env } from "../../env.ts"
 
 const HEARTBEAT_TIMEOUT_MS = 90_000
 const HEADER_FETCH_TIMEOUT_MS = 10_000
 
-type TriggeredBy = "cron" | "manual"
+export type NutritionReferenceSyncTriggeredBy = "cron" | "manual" | "test"
 type StepFn = (supabase: SupabaseClient<any, any>) => Promise<number>
-type RunNutritionReferenceSyncOptions = { triggeredBy: TriggeredBy; syncId?: number }
+type RunNutritionReferenceSyncOptions = { triggeredBy: NutritionReferenceSyncTriggeredBy; syncId?: number; maxSteps?: number }
 
 type SourceCheck = {
 	sourceId: string
@@ -54,12 +53,29 @@ const STEPS: Array<{ name: string; fn: StepFn }> = SOURCE_CHECKS.map((source) =>
 	fn: (supabase) => checkSourceRelease(supabase, source),
 }))
 export const NUTRITION_REFERENCE_SYNC_TOTAL_STEPS = STEPS.length
+export const NUTRITION_REFERENCE_SYNC_TEST_STEPS = 1
 
 function getSupabase() {
-	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
+	const supabaseUrl = process.env.API_SUPABASE_URL
+	const serviceRoleKey = process.env.API_SUPABASE_SERVICE_ROLE_KEY
+	if (!supabaseUrl || !serviceRoleKey) {
+		throw new Error("API_SUPABASE_URL and API_SUPABASE_SERVICE_ROLE_KEY are required for nutrition sync")
+	}
+
+	return createClient(supabaseUrl, serviceRoleKey, {
 		db: { schema: "nutrition_reference" },
 		auth: { persistSession: false },
 	})
+}
+
+function selectSteps(opts: Pick<RunNutritionReferenceSyncOptions, "triggeredBy" | "maxSteps">) {
+	const defaultMaxSteps = opts.triggeredBy === "test" ? NUTRITION_REFERENCE_SYNC_TEST_STEPS : STEPS.length
+	const maxSteps = Math.max(1, Math.min(opts.maxSteps ?? defaultMaxSteps, STEPS.length))
+	return STEPS.slice(0, maxSteps)
+}
+
+export function getNutritionReferenceSyncTotalSteps(opts: Pick<RunNutritionReferenceSyncOptions, "triggeredBy" | "maxSteps">) {
+	return selectSteps(opts).length
 }
 
 export function isNutritionSyncLive(heartbeatAt: string | null, startedAt: string): boolean {
@@ -169,6 +185,7 @@ async function checkSourceRelease(supabase: SupabaseClient<any, any>, source: So
 
 export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncOptions): Promise<number> {
 	const supabase = getSupabase()
+	const steps = selectSteps(opts)
 	await recoverStaleSyncs(supabase)
 
 	if (!opts.syncId && (await hasLiveNutritionSync(supabase))) {
@@ -180,7 +197,7 @@ export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncO
 	if (!syncId) {
 		const { data: logRow, error: logErr } = await supabase
 			.from("nutrition_sync_log")
-			.insert({ triggered_by: opts.triggeredBy, total_steps: STEPS.length })
+			.insert({ triggered_by: opts.triggeredBy, total_steps: steps.length })
 			.select("id")
 			.single()
 		if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
@@ -190,7 +207,7 @@ export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncO
 	await supabase.from("nutrition_sync_log").update({ heartbeat_at: new Date().toISOString() }).eq("id", syncId)
 	const { error: stepsErr } = await supabase
 		.from("nutrition_sync_step")
-		.insert(STEPS.map((step) => ({ sync_id: syncId, step_name: step.name, status: "pending" })))
+		.insert(steps.map((step) => ({ sync_id: syncId, step_name: step.name, status: "pending" })))
 	if (stepsErr) {
 		await supabase
 			.from("nutrition_sync_log")
@@ -199,7 +216,7 @@ export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncO
 		throw new Error(`Falha ao criar nutrition_sync_step: ${stepsErr.message}`)
 	}
 
-	for (const step of STEPS) {
+	for (const step of steps) {
 		if (await isStopRequested(supabase, syncId)) {
 			console.log(`[nutrition-sync] Stop solicitado — abortando antes do step ${step.name}`)
 			await supabase

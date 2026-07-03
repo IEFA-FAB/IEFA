@@ -1,16 +1,37 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
-import { env } from "../../env.ts"
-import { hasLiveNutritionSync, NUTRITION_REFERENCE_SYNC_TOTAL_STEPS, runNutritionReferenceSync } from "../../workers/nutrition-reference-sync/index.ts"
+import {
+	getNutritionReferenceSyncTotalSteps,
+	hasLiveNutritionSync,
+	NUTRITION_REFERENCE_SYNC_TOTAL_STEPS,
+	type NutritionReferenceSyncTriggeredBy,
+	runNutritionReferenceSync,
+} from "../../workers/nutrition-reference-sync/index.ts"
+
+type NutritionSyncClient = ReturnType<typeof getSupabase>
+
+function requiredEnv(name: "API_SUPABASE_URL" | "API_SUPABASE_SERVICE_ROLE_KEY" | "ADMIN_SECRET") {
+	const value = process.env[name]
+	if (!value) throw new Error(`${name} is required`)
+	return value
+}
 
 function getSupabase() {
-	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
+	return createClient(requiredEnv("API_SUPABASE_URL"), requiredEnv("API_SUPABASE_SERVICE_ROLE_KEY"), {
 		db: { schema: "nutrition_reference" },
 		auth: { persistSession: false },
 	})
 }
 
 const ErrorSchema = z.object({ error: z.string() })
+
+const TriggerSyncRequestSchema = z
+	.object({
+		triggered_by: z.enum(["test", "manual", "cron"]).optional(),
+		test_run: z.boolean().optional(),
+		max_steps: z.number().int().min(1).max(NUTRITION_REFERENCE_SYNC_TOTAL_STEPS).optional(),
+	})
+	.optional()
 
 const SyncStepSchema = z.object({
 	id: z.number(),
@@ -48,9 +69,19 @@ const triggerSyncRoute = createRoute({
 	method: "post",
 	path: "/sync",
 	tags: ["Admin — Nutrition Sync"],
-	summary: "Trigger manual nutrition reference sync",
-	description: "Starts a new nutrition reference sync job in background. Returns 409 if a sync is already running.",
+	summary: "Trigger nutrition reference sync",
+	description: "Starts a nutrition reference sync job in background. Use test_run=true for a limited production test run.",
 	security: adminSecurity,
+	request: {
+		body: {
+			content: {
+				"application/json": {
+					schema: TriggerSyncRequestSchema,
+				},
+			},
+			required: false,
+		},
+	},
 	responses: {
 		202: {
 			content: { "application/json": { schema: z.object({ sync_id: z.number().nullable(), message: z.string() }) } },
@@ -105,62 +136,85 @@ const stopSyncRoute = createRoute({
 	},
 })
 
-export const nutritionAdminRoutes = new OpenAPIHono()
+export interface NutritionAdminRoutesDeps {
+	adminSecret?: string
+	getSupabase?: () => NutritionSyncClient
+	hasLiveSync?: (supabase: NutritionSyncClient) => Promise<boolean>
+	runSync?: (options: { triggeredBy: NutritionReferenceSyncTriggeredBy; syncId: number; maxSteps?: number }) => Promise<number>
+}
 
-nutritionAdminRoutes.use("*", async (c, next) => {
-	const secret = c.req.header("x-admin-secret")
-	if (!secret || secret !== env.ADMIN_SECRET) return c.json({ error: "Unauthorized" }, 401)
-	return next()
-})
+export function createNutritionAdminRoutes(deps: NutritionAdminRoutesDeps = {}) {
+	const nutritionAdminRoutes = new OpenAPIHono()
+	const adminSecret = deps.adminSecret ?? process.env.ADMIN_SECRET
+	const createSupabase = deps.getSupabase ?? getSupabase
+	const isLive = deps.hasLiveSync ?? hasLiveNutritionSync
+	const sync = deps.runSync ?? runNutritionReferenceSync
 
-nutritionAdminRoutes
-	.openapi(triggerSyncRoute, async (c) => {
-		const supabase = getSupabase()
-		if (await hasLiveNutritionSync(supabase)) return c.json({ error: "Sync já está em andamento" }, 409)
-
-		const { data: logRow, error: logErr } = await supabase
-			.from("nutrition_sync_log")
-			.insert({ triggered_by: "manual", total_steps: NUTRITION_REFERENCE_SYNC_TOTAL_STEPS })
-			.select("id")
-			.single()
-		if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
-
-		const syncId = Number(logRow.id)
-		runNutritionReferenceSync({ triggeredBy: "manual", syncId })
-			.then((syncId) => console.log(`[nutrition-admin] Sync manual #${syncId} concluída`))
-			.catch(async (err) => {
-				const message = err instanceof Error ? err.message : String(err)
-				await supabase.from("nutrition_sync_log").update({ status: "error", error_message: message, finished_at: new Date().toISOString() }).eq("id", syncId)
-				console.error("[nutrition-admin] Sync manual falhou:", err)
-			})
-
-		return c.json({ sync_id: syncId, message: "Sync iniciada em background" }, 202)
+	nutritionAdminRoutes.use("*", async (c, next) => {
+		const secret = c.req.header("x-admin-secret")
+		if (!secret || secret !== adminSecret) return c.json({ error: "Unauthorized" }, 401)
+		return next()
 	})
-	.openapi(getSyncLatestRoute, async (c) => {
-		const supabase = getSupabase()
-		const { data: log, error } = await supabase.from("nutrition_sync_log").select("*").order("started_at", { ascending: false }).limit(1).single()
-		if (error || !log) return c.json({ error: "Nenhuma sync encontrada" }, 404)
 
-		const { data: steps } = await supabase.from("nutrition_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
-		return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
-	})
-	.openapi(getSyncByIdRoute, async (c) => {
-		const { id } = c.req.valid("param")
-		const supabase = getSupabase()
-		const { data: log, error } = await supabase.from("nutrition_sync_log").select("*").eq("id", id).single()
-		if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
+	nutritionAdminRoutes
+		.openapi(triggerSyncRoute, async (c) => {
+			const body = await c.req.json().catch(() => undefined)
+			const input = TriggerSyncRequestSchema.parse(body)
+			const triggeredBy = (input?.test_run ? "test" : (input?.triggered_by ?? "manual")) as NutritionReferenceSyncTriggeredBy
+			const maxSteps = input?.max_steps
+			const totalSteps = getNutritionReferenceSyncTotalSteps({ triggeredBy, maxSteps })
+			const supabase = createSupabase()
 
-		const { data: steps } = await supabase.from("nutrition_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
-		return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
-	})
-	.openapi(stopSyncRoute, async (c) => {
-		const { id } = c.req.valid("param")
-		const supabase = getSupabase()
-		const { data: log, error } = await supabase.from("nutrition_sync_log").select("id, status").eq("id", id).single()
-		if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
-		if (log.status !== "running") return c.json({ error: "Sync não está em andamento" }, 409)
+			if (await isLive(supabase)) return c.json({ error: "Sync já está em andamento" }, 409)
 
-		await supabase.from("nutrition_sync_log").update({ stop_requested: true }).eq("id", id)
-		console.log(`[nutrition-admin] Stop solicitado para sync #${id}`)
-		return c.json({ message: "Parada solicitada" }, 200)
-	})
+			const { data: logRow, error: logErr } = await supabase
+				.from("nutrition_sync_log")
+				.insert({ triggered_by: triggeredBy, total_steps: totalSteps })
+				.select("id")
+				.single()
+			if (logErr || !logRow) throw new Error(`Falha ao criar nutrition_sync_log: ${logErr?.message}`)
+
+			const syncId = Number(logRow.id)
+			sync({ triggeredBy, syncId, maxSteps })
+				.then((syncId) => console.log(`[nutrition-admin] Sync ${triggeredBy} #${syncId} concluída`))
+				.catch(async (err) => {
+					const message = err instanceof Error ? err.message : String(err)
+					await supabase.from("nutrition_sync_log").update({ status: "error", error_message: message, finished_at: new Date().toISOString() }).eq("id", syncId)
+					console.error(`[nutrition-admin] Sync ${triggeredBy} falhou:`, err)
+				})
+
+			return c.json({ sync_id: syncId, message: "Sync iniciada em background" }, 202)
+		})
+		.openapi(getSyncLatestRoute, async (c) => {
+			const supabase = createSupabase()
+			const { data: log, error } = await supabase.from("nutrition_sync_log").select("*").order("started_at", { ascending: false }).limit(1).single()
+			if (error || !log) return c.json({ error: "Nenhuma sync encontrada" }, 404)
+
+			const { data: steps } = await supabase.from("nutrition_sync_step").select("*").eq("sync_id", log.id).order("id", { ascending: true })
+			return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
+		})
+		.openapi(getSyncByIdRoute, async (c) => {
+			const { id } = c.req.valid("param")
+			const supabase = createSupabase()
+			const { data: log, error } = await supabase.from("nutrition_sync_log").select("*").eq("id", id).single()
+			if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
+
+			const { data: steps } = await supabase.from("nutrition_sync_step").select("*").eq("sync_id", id).order("id", { ascending: true })
+			return c.json(SyncLogSchema.parse({ ...log, steps: steps ?? [] }), 200)
+		})
+		.openapi(stopSyncRoute, async (c) => {
+			const { id } = c.req.valid("param")
+			const supabase = createSupabase()
+			const { data: log, error } = await supabase.from("nutrition_sync_log").select("id, status").eq("id", id).single()
+			if (error || !log) return c.json({ error: "Sync não encontrada" }, 404)
+			if (log.status !== "running") return c.json({ error: "Sync não está em andamento" }, 409)
+
+			await supabase.from("nutrition_sync_log").update({ stop_requested: true }).eq("id", id)
+			console.log(`[nutrition-admin] Stop solicitado para sync #${id}`)
+			return c.json({ message: "Parada solicitada" }, 200)
+		})
+
+	return nutritionAdminRoutes
+}
+
+export const nutritionAdminRoutes = createNutritionAdminRoutes()
