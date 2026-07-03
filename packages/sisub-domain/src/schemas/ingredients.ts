@@ -73,6 +73,9 @@ export type DeleteIngredientItem = z.infer<typeof DeleteIngredientItemSchema>
 export const FetchIngredientNutrientsSchema = z.object({ ingredientId: UuidSchema })
 export type FetchIngredientNutrients = z.infer<typeof FetchIngredientNutrientsSchema>
 
+export const FetchIngredientEffectiveNutrientsSchema = z.object({ ingredientId: UuidSchema })
+export type FetchIngredientEffectiveNutrients = z.infer<typeof FetchIngredientEffectiveNutrientsSchema>
+
 export const SetIngredientNutrientsSchema = z.object({
 	ingredientId: UuidSchema,
 	nutrients: z.array(
@@ -127,3 +130,17 @@ export type ListCeafa = z.infer<typeof ListCeafaSchema>
 
 export const ListCatmatSchema = z.object({ search: z.string() })
 export type ListCatmat = z.infer<typeof ListCatmatSchema>
+
+export const ListNutritionReferenceFoodsSchema = z.object({
+	search: z.string(),
+	sourceId: z.string().optional(),
+})
+export type ListNutritionReferenceFoods = z.infer<typeof ListNutritionReferenceFoodsSchema>
+
+export const SetIngredientNutritionReferenceSchema = z.object({
+	ingredientId: UuidSchema,
+	foodRevisionId: UuidSchema.nullable(),
+	matchStatus: z.enum(["manual", "suggested", "reviewed"]).optional(),
+	notes: z.string().nullable().optional(),
+})
+export type SetIngredientNutritionReference = z.infer<typeof SetIngredientNutritionReferenceSchema>
