@@ -13,6 +13,21 @@ export interface IngredientSnapshot {
 		ceafa_id: string | null
 		ceafa_description: string | null
 	}
+	nutrition_reference?: {
+		food_revision_id: string
+		food_item_id: string
+		source_id: string
+		source_name: string
+		external_code: string
+		display_name: string
+		group_name: string | null
+		version_label: string
+		citation: string | null
+		base_quantity: number
+		base_unit: string
+		match_status: string | null
+		linked_at: string | null
+	} | null
 	nutrients: { nutrient_id: string; name: string | null; value: number }[]
 	product_items: {
 		id: string
