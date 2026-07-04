@@ -14,8 +14,11 @@
 -- Idempotente: só insere quando ainda não existe grant `rumaer` para o usuário.
 -- Ajuste manualmente após o deploy se a lista inicial de admins do rumaer for outra.
 
-insert into access_control.user_permissions (user_id, module, level, mess_hall_id, kitchen_id, unit_id)
-select distinct up.user_id, 'rumaer', 3, null, null, null
+-- Não listamos mess_hall_id/kitchen_id/unit_id: são nullable e default NULL (grant
+-- unscoped). Listá-las com `null` puro no SELECT faz o Postgres inferir tipo `text`
+-- e recusar o INSERT na coluna bigint (42804).
+insert into access_control.user_permissions (user_id, module, level)
+select distinct up.user_id, 'rumaer', 3
 from access_control.user_permissions up
 where up.module = 'global'
   and up.level >= 2
