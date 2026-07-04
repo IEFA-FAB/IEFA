@@ -26,6 +26,14 @@ variable "VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY" {
   default = ""
 }
 
+variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_URL" {
+  default = ""
+}
+
+variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
 variable "VITE_SISUB_SUPABASE_URL" {
   default = ""
 }
@@ -51,7 +59,7 @@ variable "FARO_SOURCEMAP_API_KEY" {
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "sisub", "forms", "docs", "alpha", "5s", "sisub-mcp"]
+  targets = ["api", "portal", "rumaer", "assignment-selection", "sisub", "forms", "docs", "alpha", "5s", "sisub-mcp"]
 }
 
 group "apps" {
@@ -103,6 +111,18 @@ target "rumaer" {
   args = {
     VITE_RUMAER_SUPABASE_URL             = VITE_RUMAER_SUPABASE_URL
     VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY = VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
+  }
+}
+
+target "assignment-selection" {
+  inherits = ["base"]
+  target = "assignment-selection"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/assignment-selection:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=assignment-selection"]
+  cache-to = ["type=gha,scope=assignment-selection,mode=max"]
+  args = {
+    VITE_ASSIGNMENT_SELECTION_SUPABASE_URL             = VITE_ASSIGNMENT_SELECTION_SUPABASE_URL
+    VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY = VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
   }
 }
 

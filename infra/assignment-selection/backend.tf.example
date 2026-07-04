@@ -1,0 +1,12 @@
+# Copy to backend.tf and fill bucket/table from infra/bootstrap outputs.
+# Apply the foundation stack first; this stack reads it via terraform_remote_state.
+terraform {
+  backend "s3" {
+    bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+    key            = "services/assignment-selection/prod/terraform.tfstate"
+    region         = "sa-east-1"
+    encrypt        = true
+    use_lockfile   = true
+    dynamodb_table = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+  }
+}
