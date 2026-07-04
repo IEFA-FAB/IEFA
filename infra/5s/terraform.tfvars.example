@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+service_name      = "5s"
+docker_target     = "forms"
+container_port    = 3000
+cpu               = 256
+memory            = 512
+health_check_path = "/health"
+listener_priority = 160
+
+environment_variables = {
+  NODE_ENV        = "production"
+  PORT            = "3000"
+  VITE_APP_TENANT = "cinco-s"
+}
+
+secret_names = [
+  "VITE_IEFA_SUPABASE_URL",
+  "VITE_IEFA_SUPABASE_PUBLISHABLE_KEY",
+  "IEFA_SUPABASE_SECRET_KEY",
+]
+
+# fargate_on_demand_base = 1
+
+hosts = ["5s.iefa.com.br"]

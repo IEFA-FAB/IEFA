@@ -239,3 +239,28 @@ COPY --from=docs-build /app/apps/docs/.output ./apps/docs/.output
 USER bun
 EXPOSE 3003
 CMD ["bun", "apps/docs/.output/server/index.mjs"]
+
+# =============================================================================
+# SISUB-MCP — MCP server (bun runtime, HTTP transport)
+# Runs the TypeScript entrypoint directly (no bundle), so the runtime image
+# keeps node_modules + the workspace packages it resolves via symlink.
+# =============================================================================
+FROM deps AS sisub-mcp-build
+COPY packages/database ./packages/database
+COPY packages/pbac ./packages/pbac
+COPY packages/sisub-domain ./packages/sisub-domain
+COPY apps/sisub-mcp ./apps/sisub-mcp
+RUN test -f apps/sisub-mcp/src/index.ts || \
+    (echo "❌ sisub-mcp entrypoint missing" && exit 1)
+
+FROM base AS sisub-mcp
+ENV NODE_ENV=production
+ENV MCP_TRANSPORT=http
+ENV MCP_PORT=3000
+COPY --from=sisub-mcp-build /app/package.json ./package.json
+COPY --from=sisub-mcp-build /app/node_modules ./node_modules
+COPY --from=sisub-mcp-build /app/packages ./packages
+COPY --from=sisub-mcp-build /app/apps/sisub-mcp ./apps/sisub-mcp
+USER bun
+EXPOSE 3000
+CMD ["bun", "apps/sisub-mcp/src/index.ts"]

@@ -1,0 +1,38 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+service_name      = "sisub"
+docker_target     = "sisub"
+container_port    = 3000
+cpu               = 512
+memory            = 1024
+health_check_path = "/health"
+listener_priority = 110
+
+environment_variables = {
+  NODE_ENV = "production"
+  PORT     = "3000"
+}
+
+secret_names = [
+  "VITE_SISUB_SUPABASE_URL",
+  "VITE_SISUB_SUPABASE_PUBLISHABLE_KEY",
+  "SISUB_SUPABASE_SECRET_KEY",
+  "SISUB_DATABASE_URL",
+  "ADMIN_SECRET",
+  # AI chat/analytics (optional at runtime — absent → "Em breve").
+  "MODULE_CHAT_AI_PROVIDER",
+  "MODULE_CHAT_AI_MODEL",
+  "MODULE_CHAT_AI_API_KEY",
+  "ANALYTICS_AI_PROVIDER",
+  "ANALYTICS_AI_MODEL",
+  "ANALYTICS_AI_API_KEY",
+]
+
+# fargate_on_demand_base = 1
+
+hosts = ["sisub.iefa.com.br", "app.previsaosisub.com.br"]

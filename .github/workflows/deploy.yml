@@ -32,10 +32,15 @@ on:
         description: "Force deploy 5S"
         type: boolean
         default: false
+      force_mcp:
+        description: "Force deploy sisub-mcp"
+        type: boolean
+        default: false
 
+# id-token: write → OIDC para assumir a role de deploy AWS (sem chaves estaticas).
 permissions:
   contents: read
-  actions: write
+  id-token: write
 
 jobs:
   # ============================================
@@ -52,6 +57,7 @@ jobs:
       docs: ${{ steps.final.outputs.docs }}
       # alpha: ${{ steps.final.outputs.alpha }}
       5s: ${{ steps.final.outputs['5s'] }}
+      mcp: ${{ steps.final.outputs.mcp }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -140,6 +146,18 @@ jobs:
               - '.github/workflows/_app-deploy.yml'
               - 'package.json'
               - 'turbo.json'
+            mcp:
+              - 'apps/sisub-mcp/**'
+              - 'packages/database/**'
+              - 'packages/pbac/**'
+              - 'packages/sisub-domain/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+              - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
 
       # workflow_dispatch: use force_* inputs; push: use paths filter
       - name: Resolve outputs
@@ -154,6 +172,7 @@ jobs:
           FORCE_FORMS: ${{ inputs.force_forms }}
           # FORCE_ALPHA: ${{ inputs.force_alpha }}
           FORCE_5S: ${{ inputs.force_5s }}
+          FORCE_MCP: ${{ inputs.force_mcp }}
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_RUMAER: ${{ steps.filter.outputs.rumaer }}
@@ -162,6 +181,7 @@ jobs:
           FILTER_DOCS: ${{ steps.filter.outputs.docs }}
           # FILTER_ALPHA: ${{ steps.filter.outputs.alpha }}
           FILTER_5S: ${{ steps.filter.outputs['5s'] }}
+          FILTER_MCP: ${{ steps.filter.outputs.mcp }}
         run: |
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
@@ -172,6 +192,7 @@ jobs:
             echo "docs=$FORCE_DOCS"     >> $GITHUB_OUTPUT
             # echo "alpha=$FORCE_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FORCE_5S"         >> $GITHUB_OUTPUT
+            echo "mcp=$FORCE_MCP"       >> $GITHUB_OUTPUT
           else
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
             echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
@@ -181,6 +202,7 @@ jobs:
             echo "docs=$FILTER_DOCS"     >> $GITHUB_OUTPUT
             # echo "alpha=$FILTER_ALPHA"   >> $GITHUB_OUTPUT
             echo "5s=$FILTER_5S"         >> $GITHUB_OUTPUT
+            echo "mcp=$FILTER_MCP"       >> $GITHUB_OUTPUT
           fi
 
   # ============================================================
@@ -198,7 +220,8 @@ jobs:
       needs.changes.outputs.sisub == 'true' ||
       needs.changes.outputs.forms == 'true' ||
       needs.changes.outputs.docs == 'true' ||
-      needs.changes.outputs['5s'] == 'true'
+      needs.changes.outputs['5s'] == 'true' ||
+      needs.changes.outputs.mcp == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -242,41 +265,16 @@ jobs:
     needs: [check-api, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: api
-      image_repo: registry.fly.io/iefa-api
+      service: api
     secrets: inherit
-
-  secrets-api:
-    needs: [check-api]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-      - name: Stage Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_API_PORT: ${{ vars.API_PORT }}
-          V_SUPABASE_URL: ${{ vars.API_SUPABASE_URL }}
-          S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
-          S_ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-        run: |
-          flyctl --config fly/api.toml secrets set --stage \
-            "API_PORT=$V_API_PORT" \
-            "API_SUPABASE_URL=$V_SUPABASE_URL" \
-            "API_SUPABASE_SERVICE_ROLE_KEY=$S_SUPABASE_SERVICE_ROLE_KEY" \
-            "ADMIN_SECRET=$S_ADMIN_SECRET"
 
   deploy-api:
-    needs: [build-api, secrets-api]
+    needs: [build-api]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/iefa-api
-      image_tag: ${{ needs.build-api.outputs.tag }}
-      fly_config: fly/api.toml
+      service: api
       health_url: ${{ vars.API_HEALTH_URL }}
       concurrency_suffix: api
-    secrets: inherit
 
   # ============================================================
   # PORTAL  ── check → build → deploy
@@ -308,45 +306,25 @@ jobs:
     needs: [check-portal, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: portal
-      image_repo: registry.fly.io/iefa
+      service: portal
       bake_set: |
-        portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
     secrets: inherit
-
-  secrets-portal:
-    needs: [check-portal]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-      - name: Stage Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-        run: |
-          flyctl secrets set --stage --config fly/portal.toml \
-            "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
-            "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
 
   deploy-portal:
-    needs: [build-portal, secrets-portal]
+    needs: [build-portal]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/iefa
-      image_tag: ${{ needs.build-portal.outputs.tag }}
-      fly_config: fly/portal.toml
+      service: portal
       health_url: ${{ vars.IEFA_HEALTH_URL }}
       concurrency_suffix: portal
-    secrets: inherit
 
   # ============================================================
   # RUMAER  ── check → build → deploy
   # Mesmo projeto Supabase do sisub → reutiliza vars/secrets do sisub,
-  # mapeados para os nomes VITE_RUMAER_* / RUMAER_SUPABASE_SECRET_KEY.
+  # mapeados para os nomes VITE_RUMAER_* no build. Secrets de runtime ficam
+  # no Secrets Manager (ver infra/sisub/secrets/rumaer.example.json).
   # ============================================================
   check-rumaer:
     needs: [changes]
@@ -375,43 +353,19 @@ jobs:
     needs: [check-rumaer, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: rumaer
-      image_repo: registry.fly.io/iefa-rumaer
-      ensure_app: iefa-rumaer
+      service: rumaer
       bake_set: |
         rumaer.args.VITE_RUMAER_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
         rumaer.args.VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
     secrets: inherit
 
-  secrets-rumaer:
-    # depende de build-rumaer porque ele roda `ensure_app` (cria o app iefa-rumaer
-    # no primeiro deploy); `secrets set --stage` exige que o app já exista.
-    needs: [build-rumaer]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-      - name: Stage Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_RUMAER_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          S_RUMAER_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-        run: |
-          flyctl secrets set --stage --config fly/rumaer.toml \
-            "VITE_RUMAER_SUPABASE_URL=$V_RUMAER_SUPABASE_URL" \
-            "RUMAER_SUPABASE_SECRET_KEY=$S_RUMAER_SUPABASE_SECRET_KEY"
-
   deploy-rumaer:
-    needs: [build-rumaer, secrets-rumaer]
+    needs: [build-rumaer]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/iefa-rumaer
-      image_tag: ${{ needs.build-rumaer.outputs.tag }}
-      fly_config: fly/rumaer.toml
-      health_url: https://iefa-rumaer.fly.dev/health
+      service: rumaer
+      health_url: ${{ vars.RUMAER_HEALTH_URL }}
       concurrency_suffix: rumaer
-    secrets: inherit
 
   # ============================================================
   # SISUB  ── check → build → (e2e) → deploy
@@ -453,13 +407,12 @@ jobs:
     needs: [check-sisub, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: sisub
-      image_repo: registry.fly.io/sisub
+      service: sisub
       # Observability camada 1 (Faro frontend) + camada 3 (sourcemaps) entram como
       # build args — VITE_* são baked no bundle do cliente. Vars vazias → no-op.
       # FARO_SOURCEMAP_API_KEY é secret: o _app-build.yml o injeta como
-      # <target>.args.FARO_SOURCEMAP_API_KEY (secrets não são válidos em `with:`).
-      # Camada 2 (OTel backend) é runtime, vai no job secrets-sisub.
+      # <service>.args.FARO_SOURCEMAP_API_KEY (secrets não são válidos em `with:`).
+      # Camada 2 (OTel backend) é runtime → Secrets Manager (secrets/sisub.example.json).
       bake_set: |
         sisub.args.VITE_SISUB_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
         sisub.args.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
@@ -511,63 +464,13 @@ jobs:
   #           apps/sisub/test-results/
   #         if-no-files-found: ignore
 
-  secrets-sisub:
-    needs: [check-sisub]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-      - name: Stage Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_SISUB_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          S_SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
-          V_IEFA_API_BASE_URL: ${{ vars.IEFA_API_BASE_URL }}
-          V_ANALYTICS_AI_PROVIDER: ${{ vars.ANALYTICS_AI_PROVIDER }}
-          V_ANALYTICS_AI_MODEL: ${{ vars.ANALYTICS_AI_MODEL }}
-          V_MODULE_CHAT_AI_PROVIDER: ${{ vars.MODULE_CHAT_AI_PROVIDER }}
-          V_MODULE_CHAT_AI_MODEL: ${{ vars.MODULE_CHAT_AI_MODEL }}
-          S_SISUB_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-          S_ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-          S_OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          S_ANALYTICS_AI_API_KEY: ${{ secrets.ANALYTICS_AI_API_KEY }}
-          S_MODULE_CHAT_AI_API_KEY: ${{ secrets.MODULE_CHAT_AI_API_KEY }}
-          # Observability camada 2 (OTel backend) — runtime. DESLIGADA por enquanto.
-          # Para ligar: definir os secrets/var no GitHub, descomentar as 3 linhas do
-          # env abaixo e as 3 linhas correspondentes no `flyctl secrets set`.
-          # S_OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
-          # S_OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-          # V_OTEL_SERVICE_NAME: ${{ vars.OTEL_SERVICE_NAME }}
-        run: |
-          flyctl --config fly/sisub.toml secrets set --stage \
-            "VITE_SISUB_SUPABASE_URL=$V_SISUB_SUPABASE_URL" \
-            "SISUB_DATABASE_URL=$S_SISUB_DATABASE_URL" \
-            "SISUB_SUPABASE_SECRET_KEY=$S_SISUB_SUPABASE_SECRET_KEY" \
-            "ADMIN_SECRET=$S_ADMIN_SECRET" \
-            "OPENROUTER_API_KEY=$S_OPENROUTER_API_KEY" \
-            "ANALYTICS_AI_PROVIDER=$V_ANALYTICS_AI_PROVIDER" \
-            "ANALYTICS_AI_MODEL=$V_ANALYTICS_AI_MODEL" \
-            "ANALYTICS_AI_API_KEY=$S_ANALYTICS_AI_API_KEY" \
-            "MODULE_CHAT_AI_PROVIDER=$V_MODULE_CHAT_AI_PROVIDER" \
-            "MODULE_CHAT_AI_MODEL=$V_MODULE_CHAT_AI_MODEL" \
-            "MODULE_CHAT_AI_API_KEY=$S_MODULE_CHAT_AI_API_KEY" \
-            "IEFA_API_BASE_URL=$V_IEFA_API_BASE_URL"
-            # Camada 2 (OTel) — descomentar junto com o env acima:
-            # "OTEL_EXPORTER_OTLP_ENDPOINT=$S_OTEL_EXPORTER_OTLP_ENDPOINT" \
-            # "OTEL_EXPORTER_OTLP_HEADERS=$S_OTEL_EXPORTER_OTLP_HEADERS" \
-            # "OTEL_SERVICE_NAME=$V_OTEL_SERVICE_NAME"
-
   deploy-sisub:
-    needs: [build-sisub, secrets-sisub]
+    needs: [build-sisub]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/sisub
-      image_tag: ${{ needs.build-sisub.outputs.tag }}
-      fly_config: fly/sisub.toml
+      service: sisub
       health_url: ${{ vars.SISUB_HEALTH_URL }}
       concurrency_suffix: sisub
-    secrets: inherit
 
   # ============================================================
   # FORMS  ── check → build → deploy
@@ -599,41 +502,20 @@ jobs:
     needs: [check-forms, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: forms
-      image_repo: registry.fly.io/iefa-forms
+      service: forms
       bake_set: |
-        forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
         forms.args.VITE_APP_TENANT=forms
     secrets: inherit
 
-  secrets-forms:
-    needs: [check-forms]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-      - name: Stage Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-        run: |
-          flyctl secrets set --stage --config fly/forms.toml \
-            "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
-            "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
-
   deploy-forms:
-    needs: [build-forms, secrets-forms]
+    needs: [build-forms]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/iefa-forms
-      image_tag: ${{ needs.build-forms.outputs.tag }}
-      fly_config: fly/forms.toml
+      service: forms
       health_url: ${{ vars.FORMS_HEALTH_URL }}
       concurrency_suffix: forms
-    secrets: inherit
 
   # ============================================================
   # DOCS  ── check → build → deploy
@@ -662,20 +544,16 @@ jobs:
     needs: [check-docs, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: docs
-      image_repo: registry.fly.io/iefa-docs
+      service: docs
     secrets: inherit
 
   deploy-docs:
     needs: [build-docs]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/iefa-docs
-      image_tag: ${{ needs.build-docs.outputs.tag }}
-      fly_config: fly/docs.toml
+      service: docs
       health_url: ${{ vars.DOCS_HEALTH_URL }}
       concurrency_suffix: docs
-    secrets: inherit
 
   # ============================================================
   # 5S (apps/forms)  ── check → build → deploy
@@ -707,60 +585,65 @@ jobs:
     needs: [check-5s, warm-deps]
     uses: ./.github/workflows/_app-build.yml
     with:
-      target: 5s
-      image_repo: registry.fly.io/iefa-5s
-      ensure_app: iefa-5s
+      service: 5s
       bake_set: |
-        5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
         5s.args.VITE_APP_TENANT=cinco-s
     secrets: inherit
 
-  secrets-5s:
-    needs: [check-5s]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: superfly/flyctl-actions/setup-flyctl@v1
-      - name: Stage Fly secrets
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          V_IEFA_SUPABASE_URL: ${{ vars.VITE_SISUB_SUPABASE_URL }}
-          S_IEFA_SUPABASE_SECRET_KEY: ${{ secrets.SISUB_SUPABASE_SECRET_KEY }}
-        run: |
-          flyctl secrets set --stage --config fly/5s.toml \
-            "VITE_IEFA_SUPABASE_URL=$V_IEFA_SUPABASE_URL" \
-            "IEFA_SUPABASE_SECRET_KEY=$S_IEFA_SUPABASE_SECRET_KEY"
-
   deploy-5s:
-    needs: [build-5s, secrets-5s]
+    needs: [build-5s]
     uses: ./.github/workflows/_app-deploy.yml
     with:
-      image_repo: registry.fly.io/iefa-5s
-      image_tag: ${{ needs.build-5s.outputs.tag }}
-      fly_config: fly/5s.toml
+      service: 5s
       health_url: ${{ vars.FORMS_5S_HEALTH_URL }}
       concurrency_suffix: 5s
+
+  # ============================================================
+  # SISUB-MCP  ── check → build → deploy
+  # ============================================================
+  check-mcp:
+    needs: [changes]
+    if: needs.changes.outputs.mcp == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint · types
+        run: bunx turbo run lint typecheck --filter=./apps/sisub-mcp
+
+  build-mcp:
+    needs: [check-mcp, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      service: sisub-mcp
     secrets: inherit
+
+  deploy-mcp:
+    needs: [build-mcp]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      service: sisub-mcp
+      health_url: ${{ vars.MCP_HEALTH_URL }}
+      concurrency_suffix: sisub-mcp
 
   # ============================================================
   # Projeto α / apps/alpha  ── SUSPENSO
   # Para reativar: descomentar os blocos `alpha` em changes/paths-filter acima e
   # adicionar callers usando os reusables _app-build.yml / _app-deploy.yml:
-  #   build-alpha:  target=alpha, image_repo=registry.fly.io/iefa-ai, ensure_app=iefa-ai
-  #   deploy-alpha: fly_config=fly/alpha.toml, health_url=${{ vars.RAG_HEALTH_URL }}, concurrency_suffix=alpha
-  # Secrets staged (job secrets-alpha): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
-  #   DATABASE_URL, NVIDIA_API_KEY, NVIDIA_BASE_URL, LLM_MODEL, ALPHA_AI_PROVIDER,
-  #   ALPHA_AI_MODEL, ALPHA_AI_API_KEY, EMB_MODEL, NVIDIA_RERANK_MODEL,
-  #   LANGCHAIN_API_KEY, LANGCHAIN_TRACING_V2=true, LANGCHAIN_PROJECT=alpha-aci
-  # Fontes (vars/secrets): RAG_SUPABASE_URL, RAG_SUPABASE_SERVICE_ROLE_KEY,
-  #   RAG_DATABASE_URL, NVIDIA_API_KEY, ALPHA_AI_API_KEY, LANGCHAIN_API_KEY.
-
-  # ============================================================
-  # TODO: SISUB-MCP  ── check → build → deploy
-  # ============================================================
-  # Pending: Dockerfile target, docker-bake target, fly/sisub-mcp.toml
-  # Paths filter: 'apps/sisub-mcp/**' + 'packages/database/**'
-  # Runtime secrets: VITE_SISUB_SUPABASE_URL, SISUB_SUPABASE_SECRET_KEY,
-  #                  SISUB_SUPABASE_ANON_KEY, MCP_PORT, MCP_TRANSPORT
+  #   build-alpha:  service=alpha, bake_set com as VITE_* necessarias
+  #   deploy-alpha: service=alpha, health_url=${{ vars.RAG_HEALTH_URL }}, concurrency_suffix=alpha
+  # Secrets de runtime ficam no Secrets Manager (infra/alpha/secrets/alpha.example.json):
+  #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, NVIDIA_API_KEY,
+  #   ALPHA_AI_API_KEY, LANGCHAIN_API_KEY, etc.

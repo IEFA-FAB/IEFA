@@ -63,6 +63,22 @@ coverage
 # === Docker ===
 .docker/
 
+# === Terraform ===
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+infra/*/secrets/*.local.json
+# Real backend configs (copied from backend.tf.example); keep the examples.
+infra/*/backend.tf
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # === Fly.io ===
 .fly/
 

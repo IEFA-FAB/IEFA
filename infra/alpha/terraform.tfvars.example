@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+service_name      = "alpha"
+docker_target     = "alpha"
+container_port    = 8000
+cpu               = 512
+memory            = 1024
+health_check_path = "/health"
+listener_priority = 130
+
+environment_variables = {
+  NODE_ENV = "production"
+  PORT     = "8000"
+}
+
+secret_names = [
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "DATABASE_URL",
+  "NVIDIA_API_KEY",
+  "ALPHA_AI_API_KEY",
+  "LANGCHAIN_API_KEY",
+]
+
+
+hosts = ["alpha.iefa.com.br"]

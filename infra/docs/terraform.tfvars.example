@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+service_name      = "docs"
+docker_target     = "docs"
+container_port    = 3003
+cpu               = 256
+memory            = 512
+health_check_path = "/api/health"
+listener_priority = 170
+
+environment_variables = {
+  NODE_ENV = "production"
+  PORT     = "3003"
+}
+
+secret_names = []
+
+
+hosts = ["docs.iefa.com.br"]

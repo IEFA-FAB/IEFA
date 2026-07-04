@@ -1,0 +1,32 @@
+# Foundation stack — shared VPC, ALB, ECS cluster, IAM, and the GitHub OIDC
+# deploy role. Apply this before any per-service stack.
+
+project     = "iefa"
+environment = "prod"
+aws_region  = "sa-east-1"
+
+# --- Networking ---
+vpc_cidr = "10.42.0.0/16"
+az_count = 2
+
+# --- TLS / DNS (optional) ---
+# Leave empty for an HTTP-only ALB. With multiple services on one ALB, host-based
+# routing (per-service domains) is required to reach anything other than a 404,
+# so set a certificate + per-service hostnames for real use.
+# certificate_arn = "arn:aws:acm:sa-east-1:<account-id>:certificate/<cert-id>"
+# route53_zone_id = "<zone-id>"
+
+# --- Observability ---
+enable_container_insights = true
+
+# --- Secrets encryption (optional) ---
+# secrets_kms_key_arn = "arn:aws:kms:sa-east-1:<account-id>:key/<key-id>"
+
+# --- CI/CD (GitHub Actions OIDC) ---
+enable_github_deploy_role = true
+github_repository         = "IEFA-FAB/IEFA"
+# Reuse an existing account OIDC provider instead of creating one:
+# github_oidc_provider_arn = "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
+github_deploy_subject_refs = ["ref:refs/heads/main"]
+
+tags = {}
