@@ -34,8 +34,6 @@ const CENTROID_OFFSETS: Record<string, { dx: number; dy: number }> = {
 	Goiás: { dx: -34, dy: -22 },
 	"Distrito Federal": { dx: 16, dy: -42 },
 	"Minas Gerais": { dx: 6, dy: 30 },
-	"São Paulo": { dx: -34, dy: 34 },
-	"Rio de Janeiro": { dx: 56, dy: 30 },
 	"Espírito Santo": { dx: 50, dy: 2 },
 }
 
