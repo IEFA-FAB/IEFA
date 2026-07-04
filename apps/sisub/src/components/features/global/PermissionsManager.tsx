@@ -27,7 +27,11 @@ import type { AppModule } from "@/types/domain/permissions"
 
 // ─── Label Maps ──────────────────────────────────────────────────────────────
 
-const MODULE_LABELS: Record<AppModule, string> = {
+// sisub gerencia apenas os próprios módulos; "rumaer" é gerido no app rumaer,
+// mesmo compartilhando a tabela access_control.user_permissions.
+type SisubModule = Exclude<AppModule, "rumaer">
+
+const MODULE_LABELS: Record<SisubModule, string> = {
 	diner: "Comensal",
 	messhall: "Fiscal de Rancho",
 	unit: "Gestão Unidade",
@@ -68,7 +72,7 @@ function getScopeOptions(module: AppModule) {
 }
 
 type FormState = {
-	module: AppModule
+	module: SisubModule
 	level: string
 	scopeType: ScopeType
 	scopeId: string
@@ -103,7 +107,7 @@ function scopeTypeOf(perm: PermissionRow): ScopeType {
 // ─── Display Helpers ──────────────────────────────────────────────────────────
 
 function ModuleBadge({ module }: { module: AppModule }) {
-	return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption">{MODULE_LABELS[module] ?? module}</span>
+	return <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-caption">{MODULE_LABELS[module as SisubModule] ?? module}</span>
 }
 
 function LevelBadge({ level }: { level: number }) {
@@ -180,7 +184,7 @@ function PermissionDialog({
 							<Select
 								value={form.module}
 								onValueChange={(v) => {
-									const mod = v as AppModule
+									const mod = v as SisubModule
 									const validScopes = MODULE_SCOPES[mod] ?? ["global"]
 									setForm((f) => ({
 										...f,
@@ -195,7 +199,7 @@ function PermissionDialog({
 									<SelectValue>{MODULE_LABELS[form.module]}</SelectValue>
 								</SelectTrigger>
 								<SelectContent className={CONTENT_CLS}>
-									{(Object.keys(MODULE_LABELS) as AppModule[]).map((m) => (
+									{(Object.keys(MODULE_LABELS) as SisubModule[]).map((m) => (
 										<SelectItem key={m} value={m}>
 											{MODULE_LABELS[m]}
 										</SelectItem>
@@ -331,7 +335,8 @@ function DeleteDialog({ perm, isPending, onConfirm, onClose }: { perm: Permissio
 					<DialogTitle>Remover permissão</DialogTitle>
 				</DialogHeader>
 				<p className="text-sm text-muted-foreground py-2">
-					Tem certeza que deseja remover a permissão <span className="text-subheading text-foreground">{perm ? MODULE_LABELS[perm.module] : ""}</span> (nível{" "}
+					Tem certeza que deseja remover a permissão{" "}
+					<span className="text-subheading text-foreground">{perm ? (MODULE_LABELS[perm.module as SisubModule] ?? perm.module) : ""}</span> (nível{" "}
 					{perm?.level ?? ""})?{" "}
 					{perm?.module === "diner" && perm?.level === 0 && (
 						<span className="text-warning">Isso restaurará o acesso implícito de Comensal para este usuário.</span>
@@ -374,7 +379,7 @@ function usePermissionCRUD(selectedUser: UserSearchResult | null) {
 	const openEdit = (perm: PermissionRow) => {
 		const scopeType = scopeTypeOf(perm)
 		const scopeId = (perm.unit_id ?? perm.kitchen_id ?? perm.mess_hall_id)?.toString() ?? ""
-		setForm({ module: perm.module, level: String(perm.level), scopeType, scopeId })
+		setForm({ module: perm.module as SisubModule, level: String(perm.level), scopeType, scopeId })
 		setDialog({ mode: "edit", perm })
 	}
 

@@ -17,6 +17,19 @@ export function getRumaerServerClient() {
 }
 
 /**
+ * Cliente service role apontando para o schema `access_control` — tabela
+ * `user_permissions` compartilhada entre os apps do ERP (sisub, rumaer).
+ * Bypass de RLS; use apenas em server functions. A autorização por módulo/nível
+ * é aplicada na camada de app (@iefa/pbac), não por RLS.
+ */
+export function getAccessControlClient() {
+	return createClient<Database, "access_control">(envServer.VITE_RUMAER_SUPABASE_URL, envServer.RUMAER_SUPABASE_SECRET_KEY, {
+		db: { schema: "access_control" },
+		auth: { persistSession: false },
+	})
+}
+
+/**
  * Cliente service role apontando para o schema `core` — usado apenas para LER
  * o perfil militar do usuário (user_data / user_military_data, movidos de sisub
  * para core no split de schemas por domínio). Read-only.

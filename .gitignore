@@ -83,3 +83,6 @@ override.tf.json
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
+
+# === Claude Code local git worktrees (ephemeral, never commit/lint) ===
+.claude/worktrees/
