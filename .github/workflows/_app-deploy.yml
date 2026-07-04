@@ -46,25 +46,46 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Force new deployment
+        id: deploy
         env:
           CLUSTER: ${{ vars.ECS_CLUSTER }}
           SERVICE: ${{ inputs.service }}
         run: |
-          aws ecs update-service \
+          DEPLOY_ID="$(aws ecs update-service \
             --cluster "$CLUSTER" \
             --service "$SERVICE" \
             --force-new-deployment \
-            >/dev/null
-          echo "Triggered new deployment for $SERVICE on $CLUSTER"
+            --query 'service.deployments[?status==`PRIMARY`].id | [0]' \
+            --output text)"
+          echo "deployment_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+          echo "Triggered deployment $DEPLOY_ID for $SERVICE on $CLUSTER"
 
       - name: Wait for service to stabilize
         env:
           CLUSTER: ${{ vars.ECS_CLUSTER }}
           SERVICE: ${{ inputs.service }}
         run: |
-          # If the circuit breaker rolls the deployment back, the service still
-          # returns to steady state, so the smoke test below is the real gate.
           aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+
+      - name: Verify new revision rolled out (not rolled back)
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ inputs.service }}
+          DEPLOY_ID: ${{ steps.deploy.outputs.deployment_id }}
+        run: |
+          # wait services-stable also returns 0 when the deployment circuit
+          # breaker rolls back (old tasks become stable again). Assert the
+          # deployment we triggered actually reached COMPLETED, otherwise the new
+          # image was rejected and silently reverted — fail so CI reflects it.
+          STATE="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query "services[0].deployments[?id=='$DEPLOY_ID'].rolloutState | [0]" --output text)"
+          echo "Deployment $DEPLOY_ID rolloutState=$STATE"
+          if [ "$STATE" != "COMPLETED" ]; then
+            echo "::error::Deployment $DEPLOY_ID did not complete (state=$STATE) — the circuit breaker likely rolled it back."
+            aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query 'services[0].events[0:6].message' --output text || true
+            exit 1
+          fi
 
       - name: Smoke test
         if: inputs.health_url != ''

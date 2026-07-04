@@ -23,6 +23,8 @@ secret_names = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "DATABASE_URL",
   "NVIDIA_API_KEY",
+  "ALPHA_AI_API_KEY",
+  "LANGCHAIN_API_KEY",
 ]
 
 

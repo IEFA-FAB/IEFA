@@ -24,6 +24,13 @@ secret_names = [
   "SISUB_SUPABASE_SECRET_KEY",
   "SISUB_DATABASE_URL",
   "ADMIN_SECRET",
+  # AI chat/analytics (optional at runtime — absent → "Em breve").
+  "MODULE_CHAT_AI_PROVIDER",
+  "MODULE_CHAT_AI_MODEL",
+  "MODULE_CHAT_AI_API_KEY",
+  "ANALYTICS_AI_PROVIDER",
+  "ANALYTICS_AI_MODEL",
+  "ANALYTICS_AI_API_KEY",
 ]
 
 # fargate_on_demand_base = 1

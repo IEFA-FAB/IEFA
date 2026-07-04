@@ -308,8 +308,8 @@ jobs:
     with:
       service: portal
       bake_set: |
-        portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        portal.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        portal.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
     secrets: inherit
 
   deploy-portal:
@@ -504,8 +504,8 @@ jobs:
     with:
       service: forms
       bake_set: |
-        forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        forms.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        forms.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
         forms.args.VITE_APP_TENANT=forms
     secrets: inherit
 
@@ -587,8 +587,8 @@ jobs:
     with:
       service: 5s
       bake_set: |
-        5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
-        5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+        5s.args.VITE_IEFA_SUPABASE_URL=${{ vars.VITE_IEFA_SUPABASE_URL }}
+        5s.args.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_IEFA_SUPABASE_PUBLISHABLE_KEY }}
         5s.args.VITE_APP_TENANT=cinco-s
     secrets: inherit
 
