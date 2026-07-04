@@ -62,53 +62,65 @@ export function parseUsdaDataset(files: Record<string, Uint8Array>, dataType: st
 	// Nutrients: id → {name, unit}
 	const components: ParsedComponent[] = []
 	const nutrientById = new Map<string, { name: string; unit: string }>()
-	forEachCsvRow(toText(findFile(files, "nutrient.csv")), (get) => {
-		const id = get("id")
-		if (!id) return
-		const name = get("name")
-		const unit = get("unit_name").toLowerCase()
-		nutrientById.set(id, { name, unit })
-		components.push({ externalCode: id, name, unit: unit || null, infoodsTag: null })
-	})
+	forEachCsvRow(
+		toText(findFile(files, "nutrient.csv")),
+		(get) => {
+			const id = get("id")
+			if (!id) return
+			const name = get("name")
+			const unit = get("unit_name").toLowerCase()
+			nutrientById.set(id, { name, unit })
+			components.push({ externalCode: id, name, unit: unit || null, infoodsTag: null })
+		},
+		["id", "name", "unit_name"]
+	)
 
 	// Foods of the requested data_type: fdc_id → food
 	const foodByFdcId = new Map<string, ParsedFood>()
-	forEachCsvRow(toText(findFile(files, "food.csv")), (get) => {
-		if (get("data_type") !== dataType) return
-		const fdcId = get("fdc_id")
-		if (!fdcId) return
-		const categoryId = get("food_category_id")
-		const groupName = categoryById.get(categoryId) || null
-		foodByFdcId.set(fdcId, {
-			externalCode: fdcId,
-			displayName: get("description"),
-			originalName: get("description"),
-			groupCode: categoryId || null,
-			groupName,
-			baseQuantity: 100,
-			baseUnit: "g",
-			values: [],
-			raw: { fdc_id: fdcId, data_type: dataType, publication_date: get("publication_date") },
-		})
-	})
+	forEachCsvRow(
+		toText(findFile(files, "food.csv")),
+		(get) => {
+			if (get("data_type") !== dataType) return
+			const fdcId = get("fdc_id")
+			if (!fdcId) return
+			const categoryId = get("food_category_id")
+			const groupName = categoryById.get(categoryId) || null
+			foodByFdcId.set(fdcId, {
+				externalCode: fdcId,
+				displayName: get("description"),
+				originalName: get("description"),
+				groupCode: categoryId || null,
+				groupName,
+				baseQuantity: 100,
+				baseUnit: "g",
+				values: [],
+				raw: { fdc_id: fdcId, data_type: dataType, publication_date: get("publication_date") },
+			})
+		},
+		["fdc_id", "data_type", "description", "food_category_id"]
+	)
 
 	// Nutrient values, attached only to kept foods.
-	forEachCsvRow(toText(findFile(files, "food_nutrient.csv")), (get) => {
-		const fdcId = get("fdc_id")
-		const food = foodByFdcId.get(fdcId)
-		if (!food) return
-		const nutrientId = get("nutrient_id")
-		if (!nutrientById.has(nutrientId)) return
-		const amountRaw = get("amount")
-		const amount = amountRaw === "" ? null : Number(amountRaw)
-		const value: ParsedValue = {
-			componentCode: nutrientId,
-			value: amount != null && Number.isFinite(amount) ? amount : null,
-			valueKind: amount != null && Number.isFinite(amount) ? "measured" : "missing",
-			rawValue: null,
-		}
-		food.values.push(value)
-	})
+	forEachCsvRow(
+		toText(findFile(files, "food_nutrient.csv")),
+		(get) => {
+			const fdcId = get("fdc_id")
+			const food = foodByFdcId.get(fdcId)
+			if (!food) return
+			const nutrientId = get("nutrient_id")
+			if (!nutrientById.has(nutrientId)) return
+			const amountRaw = get("amount")
+			const amount = amountRaw === "" ? null : Number(amountRaw)
+			const value: ParsedValue = {
+				componentCode: nutrientId,
+				value: amount != null && Number.isFinite(amount) ? amount : null,
+				valueKind: amount != null && Number.isFinite(amount) ? "measured" : "missing",
+				rawValue: null,
+			}
+			food.values.push(value)
+		},
+		["fdc_id", "nutrient_id", "amount"]
+	)
 
 	// Only emit components actually referenced, to keep the table lean.
 	const usedComponentCodes = new Set<string>()

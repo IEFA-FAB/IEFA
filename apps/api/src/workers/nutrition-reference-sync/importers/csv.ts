@@ -43,12 +43,23 @@ function splitCsvLine(line: string): string[] {
 }
 
 /** Parse CSV into objects keyed by header, streaming a callback per row to avoid
- * holding every object in memory for the large food_nutrient files. */
-export function forEachCsvRow(text: string, onRow: (get: (col: string) => string) => void): void {
+ * holding every object in memory for the large food_nutrient files.
+ *
+ * Pass `required` to surface upstream format drift: if a source (e.g. USDA FDC) ever
+ * renames a column, `get()` would silently return "" for every row and the import would
+ * write foods with zero nutrient values without any error. Missing required columns are
+ * logged as a warning so the drift is visible in the worker logs. */
+export function forEachCsvRow(text: string, onRow: (get: (col: string) => string) => void, required?: string[]): void {
 	const lines = text.split(/\r?\n/)
 	if (lines.length === 0) return
 	const header = splitCsvLine(lines[0])
 	const index = new Map<string, number>(header.map((h, i) => [h.trim(), i]))
+	if (required) {
+		const missing = required.filter((col) => !index.has(col))
+		if (missing.length > 0) {
+			console.warn(`[nutrition-sync] CSV faltando coluna(s) esperada(s): ${missing.join(", ")} — cabeçalho tem: ${header.map((h) => h.trim()).join(", ")}`)
+		}
+	}
 	for (let i = 1; i < lines.length; i++) {
 		if (lines[i].length === 0) continue
 		const cols = splitCsvLine(lines[i])

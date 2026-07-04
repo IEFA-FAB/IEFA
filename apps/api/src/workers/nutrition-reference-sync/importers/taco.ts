@@ -199,12 +199,24 @@ export function parseTacoWorkbook(buffer: ArrayBuffer): ParsedFood[] {
 	return foods
 }
 
+/** xlsx is a zip container — it must start with the "PK" local-file-header signature.
+ * NEPA currently serves the binary straight from UPSTREAM_URL; if that ever becomes an
+ * HTML page (CMS migration), XLSX.read would return an empty workbook and the failure
+ * would masquerade as "layout mudou?". Detecting the signature makes it unambiguous. */
+function assertXlsx(buffer: ArrayBuffer, url: string): void {
+	const head = new Uint8Array(buffer.slice(0, 2))
+	if (head[0] !== 0x50 || head[1] !== 0x4b) {
+		throw new Error(`TACO: ${url} não retornou um .xlsx (assinatura zip "PK" ausente) — a página serviu HTML? URL de download mudou?`)
+	}
+}
+
 export async function importTaco(supabase: SupabaseAny): Promise<number> {
 	const res = await fetch(UPSTREAM_URL, { redirect: "follow" })
 	if (!res.ok) throw new Error(`Download TACO falhou: HTTP ${res.status}`)
 	const buffer = await res.arrayBuffer()
-	const checksum = createHash("sha256").update(Buffer.from(buffer)).digest("hex")
 	const downloadUrl = res.url || UPSTREAM_URL
+	assertXlsx(buffer, downloadUrl)
+	const checksum = createHash("sha256").update(Buffer.from(buffer)).digest("hex")
 
 	const foods = parseTacoWorkbook(buffer)
 	if (foods.length === 0) throw new Error("TACO: nenhum alimento parseado — layout da planilha mudou?")

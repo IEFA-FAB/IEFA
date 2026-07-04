@@ -82,21 +82,34 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 		)
 		if (error) throw new Error(`food_item upsert falhou: ${error.message}`)
 	}
-	const { data: foodRows, error: foodErr } = await supabase.from("food_item").select("id, external_code").eq("source_id", sourceId)
+	const { data: foodRows, error: foodErr } = await supabase.from("food_item").select("id, external_code, current_revision_id").eq("source_id", sourceId)
 	if (foodErr) throw new Error(`food_item select falhou: ${foodErr.message}`)
 	const foodIdByCode = new Map<string, string>((foodRows ?? []).map((r) => [r.external_code as string, r.id as string]))
+	// The pointer `food_item.current_revision_id` (a scalar column) is the single
+	// source of truth for "which revision is current" — NOT `is_current`. If a crash
+	// between steps 6–8 ever leaves two `is_current=true` rows for a food (no wrapping
+	// transaction), reading `is_current` would be ambiguous; the scalar pointer never is.
+	const currentRevIdByFoodId = new Map<string, string>()
+	for (const r of foodRows ?? []) {
+		if (r.current_revision_id) currentRevIdByFoodId.set(r.id as string, r.current_revision_id as string)
+	}
 
-	// 4) Current revision hashes for THIS source's foods only — to skip unchanged foods.
-	const foodItemIds = [...foodIdByCode.values()]
-	const currentByFoodId = new Map<string, { id: string; hash: string }>()
-	for (const part of chunk(foodItemIds, CHUNK)) {
-		const { data, error } = await supabase.from("food_item_revision").select("id, food_item_id, content_hash").in("food_item_id", part).eq("is_current", true)
+	// 4) Hash of each food's CURRENT revision (resolved via the pointer) — to skip unchanged foods.
+	const currentRevIds = [...currentRevIdByFoodId.values()]
+	const hashByRevId = new Map<string, string>()
+	for (const part of chunk(currentRevIds, CHUNK)) {
+		const { data, error } = await supabase.from("food_item_revision").select("id, content_hash").in("id", part)
 		if (error) throw new Error(`food_item_revision select falhou: ${error.message}`)
-		for (const r of data ?? []) currentByFoodId.set(r.food_item_id as string, { id: r.id as string, hash: r.content_hash as string })
+		for (const r of data ?? []) hashByRevId.set(r.id as string, r.content_hash as string)
+	}
+	const currentByFoodId = new Map<string, { id: string; hash: string }>()
+	for (const [foodItemId, revId] of currentRevIdByFoodId) {
+		const hash = hashByRevId.get(revId)
+		if (hash != null) currentByFoodId.set(foodItemId, { id: revId, hash })
 	}
 
 	// 5) Diff: only changed/new foods produce a new revision.
-	type Pending = { food: ParsedFood; foodItemId: string; hash: string; supersedes: string | null }
+	type Pending = { food: ParsedFood; foodItemId: string; hash: string }
 	const pending: Pending[] = []
 	for (const food of parsed.foods) {
 		const foodItemId = foodIdByCode.get(food.externalCode)
@@ -104,7 +117,7 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 		const hash = contentHash(food)
 		const current = currentByFoodId.get(foodItemId)
 		if (current && current.hash === hash) continue // unchanged — skip
-		pending.push({ food, foodItemId, hash, supersedes: current?.id ?? null })
+		pending.push({ food, foodItemId, hash })
 	}
 
 	if (pending.length === 0) {
@@ -112,7 +125,15 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 		return 0
 	}
 
-	// 6) Insert new revisions (is_current=true), mapped back by food_item_id.
+	// Steps 6–8 are not wrapped in a single DB transaction (Supabase REST). To keep
+	// re-runs self-healing after a mid-way crash, they are ordered so the scalar pointer
+	// `food_item.current_revision_id` is the authority and is moved AFTER the new revision
+	// exists but BEFORE `is_current` is flipped. New revisions are inserted `is_current=false`
+	// and promoted only once the pointer is in place, so a crash can leave at most a stray
+	// `is_current` flag (ignored — step 4 reads the pointer, not `is_current`), never an
+	// ambiguous "current" or a stale/orphaned pointer.
+
+	// 6) Insert new revisions as NOT current yet, mapped back by food_item_id.
 	const revIdByFoodItemId = new Map<string, string>()
 	for (const part of chunk(pending, CHUNK)) {
 		const { data, error } = await supabase
@@ -132,7 +153,7 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 					normalized_name: normalizeName(p.food.displayName),
 					content_hash: p.hash,
 					raw: p.food.raw ?? {},
-					is_current: true,
+					is_current: false,
 				}))
 			)
 			.select("id, food_item_id")
@@ -140,7 +161,7 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 		for (const r of data ?? []) revIdByFoodItemId.set(r.food_item_id as string, r.id as string)
 	}
 
-	// 7) Point food_item at the new revision and demote the superseded one. No deletes.
+	// 7a) Point food_item at the new revision (the authority). No deletes.
 	// Batched upsert on the primary key (id) — updates current_revision_id for many
 	// foods per round-trip. source_id/external_code are re-sent unchanged (NOT NULL cols).
 	const pointerRows = pending
@@ -153,10 +174,19 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 		const { error } = await supabase.from("food_item").upsert(part, { onConflict: "id" })
 		if (error) throw new Error(`atualizar current_revision_id falhou: ${error.message}`)
 	}
-	const supersededIds = pending.map((p) => p.supersedes).filter((id): id is string => Boolean(id))
-	for (const part of chunk(supersededIds, CHUNK)) {
-		const { error } = await supabase.from("food_item_revision").update({ is_current: false }).in("id", part)
+
+	// 7b) Reconcile `is_current` to match the pointer for the affected foods: demote every
+	// prior/stray current revision, then promote the new ones. Demoting by food scope (not
+	// just the recorded `supersedes`) also cleans up any stray flags left by an earlier crash.
+	const newRevIds = [...revIdByFoodItemId.values()]
+	const affectedFoodIds = pending.map((p) => p.foodItemId).filter((id) => revIdByFoodItemId.has(id))
+	for (const part of chunk(affectedFoodIds, CHUNK)) {
+		const { error } = await supabase.from("food_item_revision").update({ is_current: false }).in("food_item_id", part).eq("is_current", true)
 		if (error) throw new Error(`demote revisão anterior falhou: ${error.message}`)
+	}
+	for (const part of chunk(newRevIds, CHUNK)) {
+		const { error } = await supabase.from("food_item_revision").update({ is_current: true }).in("id", part)
+		if (error) throw new Error(`promover revisão atual falhou: ${error.message}`)
 	}
 
 	// 8) Nutrient values for the new revisions only. Deduplicate by (revision, component):
@@ -177,7 +207,7 @@ export async function persistSourceImport(supabase: SupabaseAny, sourceId: strin
 		}
 	}
 	const valueRows = [...valueByKey.values()]
-	for (const part of chunk(valueRows, 1000)) {
+	for (const part of chunk(valueRows, CHUNK)) {
 		const { error } = await supabase.from("food_nutrient_value").upsert(part, { onConflict: "food_revision_id,component_id" })
 		if (error) throw new Error(`food_nutrient_value upsert falhou: ${error.message}`)
 	}
