@@ -28,6 +28,10 @@ export const Route = createFileRoute("/admin/")({
 
 type Grupo = (typeof GRUPO_ORDER)[number]
 
+/** Case- and accent-insensitive fold for client-side search. Module-scoped so it is a
+ * stable reference (no per-render allocation, no exhaustive-deps ambiguity). */
+const normalized = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+
 function AdminDashboard() {
 	const { data: uniforms } = useSuspenseQuery(uniformsQueryOptions({}))
 	const { data: allVariants } = useSuspenseQuery(allVariantsQueryOptions())
@@ -67,7 +71,6 @@ function AdminDashboard() {
 	})
 
 	// Filtro por título, traje e rótulo do grupo (case-insensitive, acento-insensível).
-	const normalized = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
 	const filteredUniforms = useMemo(() => {
 		const q = normalized(query.trim())
 		if (!q) return uniforms
@@ -92,7 +95,18 @@ function AdminDashboard() {
 					<p className="text-sm text-muted-foreground">Cadastro de uniformes, variantes, composições e peças.</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
-					<Dialog open={newOpen} onOpenChange={setNewOpen}>
+					<Dialog
+						open={newOpen}
+						onOpenChange={(open) => {
+							// Reset the form when the dialog is dismissed (Cancelar/backdrop), so a
+							// partially filled form never persists into the next open.
+							if (!open) {
+								setNome("")
+								setGrupo(null)
+							}
+							setNewOpen(open)
+						}}
+					>
 						<DialogTrigger
 							render={
 								<Button>
@@ -185,32 +199,32 @@ function AdminDashboard() {
 				) : (
 					<ul className="flex flex-col divide-y divide-border border border-border rounded-md overflow-hidden">
 						{filteredUniforms.map((u) => (
-						<li key={u.id} className="flex items-center justify-between gap-3 px-4 py-3">
-							<div className="flex items-center gap-3">
-								<Badge variant="outline">{GRUPO_LABELS[u.grupo]}</Badge>
-								<span className="text-sm font-medium">{uniformTitle(u)}</span>
-								<span className="text-xs text-muted-foreground">{u.traje}</span>
-							</div>
-							<div className="flex items-center gap-1">
-								<Button variant="ghost" size="sm" onClick={() => clone.mutate(u.id)} disabled={clone.isPending} title="Clonar uniforme">
-									<Copy className="size-4" />
-									Clonar
-								</Button>
-								<Button
-									nativeButton={false}
-									variant="ghost"
-									size="sm"
-									render={
-										<Link to="/admin/uniformes/$uniformId" params={{ uniformId: u.id }}>
-											<Pencil className="size-4" />
-											Editar
-										</Link>
-									}
-								/>
-							</div>
-						</li>
-					))}
-				</ul>
+							<li key={u.id} className="flex items-center justify-between gap-3 px-4 py-3">
+								<div className="flex items-center gap-3">
+									<Badge variant="outline">{GRUPO_LABELS[u.grupo]}</Badge>
+									<span className="text-sm font-medium">{uniformTitle(u)}</span>
+									<span className="text-xs text-muted-foreground">{u.traje}</span>
+								</div>
+								<div className="flex items-center gap-1">
+									<Button variant="ghost" size="sm" onClick={() => clone.mutate(u.id)} disabled={clone.isPending} title="Clonar uniforme">
+										<Copy className="size-4" />
+										Clonar
+									</Button>
+									<Button
+										nativeButton={false}
+										variant="ghost"
+										size="sm"
+										render={
+											<Link to="/admin/uniformes/$uniformId" params={{ uniformId: u.id }}>
+												<Pencil className="size-4" />
+												Editar
+											</Link>
+										}
+									/>
+								</div>
+							</li>
+						))}
+					</ul>
 				)}
 			</section>
 		</div>
