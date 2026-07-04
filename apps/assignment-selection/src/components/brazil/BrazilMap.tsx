@@ -89,7 +89,7 @@ export function BrazilMap({
 			role="img"
 			aria-label="Mapa do Brasil"
 			viewBox={viewBox}
-			style={{ width: "100%", height: "auto", maxWidth: size, maxHeight: "100%", stroke: strokeColor, strokeWidth }}
+			style={{ width: "100%", height: "100%", maxWidth: size, stroke: strokeColor, strokeWidth }}
 		>
 			<title>Escolha de vagas por estado</title>
 			{stateCode.map((code) => (

@@ -22,9 +22,9 @@ export function VacancyBoard({ data }: { data: Escolha[] }) {
 				</span>
 			</div>
 
-			<div className="min-h-0 flex-1 overflow-y-auto">
-				<table className="w-full">
-					<thead className="sticky top-0 bg-slate-950/85 backdrop-blur">
+			<div className="min-h-0 flex-1 overflow-hidden">
+				<table className="h-full w-full">
+					<thead className="bg-slate-950/85 backdrop-blur">
 						<tr className="text-white/45">
 							<th className="px-7 py-2.5 text-left text-sm font-semibold uppercase tracking-widest">OM</th>
 							<th className="px-2 py-2.5 text-center text-sm font-semibold uppercase tracking-widest">Escolhidos</th>
@@ -41,7 +41,7 @@ export function VacancyBoard({ data }: { data: Escolha[] }) {
 								<tr key={e.id} className={cn("border-b border-white/5 transition-colors", full ? "bg-amber-400/[0.07]" : "hover:bg-white/[0.03]")}>
 									<td className="px-7 py-1">
 										<div className="flex items-center gap-4">
-											<span className={cn("text-2xl font-black tracking-tight", full ? "text-amber-300" : "text-white")}>{e.OM}</span>
+											<span className={cn("whitespace-nowrap text-2xl font-black tracking-tight", full ? "text-amber-300" : "text-white")}>{e.OM}</span>
 											<div className="hidden h-2 w-24 overflow-hidden rounded-full bg-white/10 md:block">
 												<div
 													className={cn("h-full rounded-full transition-all", full ? "bg-amber-400" : empty ? "bg-white/20" : "bg-emerald-400")}

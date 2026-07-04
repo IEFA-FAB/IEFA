@@ -66,7 +66,7 @@ function BoardPage() {
 			<div className="pointer-events-none absolute -left-40 top-0 size-[42rem] rounded-full bg-blue-600/10 blur-[120px]" />
 			<div className="pointer-events-none absolute -right-40 bottom-0 size-[42rem] rounded-full bg-indigo-700/10 blur-[120px]" />
 
-			<div className="relative flex h-full flex-col gap-5 p-6 xl:p-8">
+			<div className="relative flex h-full flex-col gap-3 p-4">
 				<header className="flex items-center justify-between">
 					<div>
 						<p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-300/70">CPAINT · Força Aérea Brasileira</p>
@@ -78,10 +78,10 @@ function BoardPage() {
 					</div>
 				</header>
 
-				<div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-10 lg:grid-cols-[1.4fr_0.85fr]">
-					<div className="flex items-center justify-center">
+				<div className="flex min-h-0 flex-1 gap-6">
+					<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center">
 						<BrazilMap
-							size={1000}
+							size={1100}
 							selected={highlightedState ?? null}
 							markers={markers}
 							mapColor="#e2e8f0"
@@ -92,7 +92,7 @@ function BoardPage() {
 						/>
 					</div>
 
-					<div className="h-full max-h-[92vh]">
+					<div className="min-h-0 w-[34%] max-w-[760px]">
 						<VacancyBoard data={escolhas} />
 					</div>
 				</div>
