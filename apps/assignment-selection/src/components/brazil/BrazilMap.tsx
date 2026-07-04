@@ -19,8 +19,8 @@ export interface BrazilMapProps {
 	className?: string
 }
 
-// Nº máximo de rostos empilhados por estado antes do "+N".
-const MAX_AVATARS = 3
+// Máximo de rostos por linha antes de quebrar para uma nova linha (mostra todos).
+const MAX_PER_ROW = 6
 // Raio do avatar em unidades do SVG (viewBox ~600 de largura).
 const AVATAR_R = 18
 
@@ -99,23 +99,25 @@ export function BrazilMap({
 
 			{activeMarkers.map(({ estado, people }) => {
 				const c = centroids[estado]
-				const shown = people.slice(0, MAX_AVATARS)
-				const extra = people.length - shown.length
-				const step = AVATAR_R * 0.95
-				const slots = shown.length + (extra > 0 ? 1 : 0)
-				const totalW = 2 * AVATAR_R + (slots - 1) * step
-				const startX = c.cx - totalW / 2 + AVATAR_R
+				const step = AVATAR_R * 0.82
+				const rowStep = AVATAR_R * 1.8
+				const nRows = Math.ceil(people.length / MAX_PER_ROW)
+				const startY = c.cy - ((nRows - 1) * rowStep) / 2
 
 				const oms = Array.from(new Set(people.map((p) => p.om).filter((o): o is string => !!o)))
 				const badge = oms.length === 1 ? oms[0] : `${oms.length} unidades`
 				const badgeW = badge.length * 7.3 + 12
-				const badgeY = c.cy + AVATAR_R + 4
+				const badgeY = startY + (nRows - 1) * rowStep + AVATAR_R + 4
 
 				return (
 					<g key={estado} style={{ pointerEvents: "none" }}>
-						{shown.map((p, i) => {
-							const x = startX + i * step
-							const y = c.cy
+						{people.map((p, i) => {
+							const r = Math.floor(i / MAX_PER_ROW)
+							const rowLen = Math.min(MAX_PER_ROW, people.length - r * MAX_PER_ROW)
+							const col = i % MAX_PER_ROW
+							const rowW = 2 * AVATAR_R + (rowLen - 1) * step
+							const x = c.cx - rowW / 2 + AVATAR_R + col * step
+							const y = startY + r * rowStep
 							const clip = `av-${instanceId}-${p.id}`
 							return (
 								<g key={p.id} className="map-avatar-pop" style={{ transformBox: "fill-box", transformOrigin: "center" }}>
@@ -136,22 +138,6 @@ export function BrazilMap({
 								</g>
 							)
 						})}
-						{extra > 0 && (
-							<g>
-								<circle cx={startX + shown.length * step} cy={c.cy} r={AVATAR_R} fill="#1e293b" stroke="#ffffff" strokeWidth={1.6} />
-								<text
-									x={startX + shown.length * step}
-									y={c.cy}
-									fill="#ffffff"
-									fontSize={AVATAR_R * 0.9}
-									fontWeight={700}
-									textAnchor="middle"
-									dominantBaseline="central"
-								>
-									+{extra}
-								</text>
-							</g>
-						)}
 						<g>
 							<rect x={c.cx - badgeW / 2} y={badgeY} width={badgeW} height={17} rx={8.5} fill="#0b1226" opacity={0.92} />
 							<text
