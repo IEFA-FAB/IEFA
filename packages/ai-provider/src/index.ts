@@ -1,5 +1,6 @@
 import type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
 import { createAnthropicAdapter } from "./providers/anthropic.js"
+import { createBedrockAdapter } from "./providers/bedrock.js"
 import { createGeminiAdapter } from "./providers/gemini.js"
 import { createGroqAdapter } from "./providers/groq.js"
 import { createNvidiaAdapter } from "./providers/nvidia.js"
@@ -10,7 +11,7 @@ import type { AdapterConfig, ProviderType } from "./types.js"
 export type { AnyTextAdapter, ChatMiddleware } from "@tanstack/ai"
 export type { AdapterConfig, ProviderType } from "./types.js"
 
-const VALID_PROVIDERS: ProviderType[] = ["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama"]
+const VALID_PROVIDERS: ProviderType[] = ["groq", "nvidia", "openrouter", "gemini", "anthropic", "ollama", "bedrock"]
 
 export function createAdapter(config: AdapterConfig): AnyTextAdapter {
 	switch (config.provider) {
@@ -26,6 +27,8 @@ export function createAdapter(config: AdapterConfig): AnyTextAdapter {
 			return createAnthropicAdapter(config.model, config.apiKey)
 		case "ollama":
 			return createOllamaAdapter(config.model, config.baseUrl)
+		case "bedrock":
+			return createBedrockAdapter(config.model, config.region)
 		default:
 			throw new Error(`Provider inválido: "${(config as AdapterConfig).provider}". Válidos: ${VALID_PROVIDERS.join(", ")}`)
 	}
@@ -37,6 +40,8 @@ export function createAdapterFromEnv(prefix?: string): AnyTextAdapter {
 	const model = process.env[`${p}AI_MODEL`]
 	const apiKey = process.env[`${p}AI_API_KEY`]
 	const baseUrl = process.env[`${p}AI_BASE_URL`]
+	// Região do Bedrock: prefixo dedicado, senão a região padrão da AWS.
+	const region = process.env[`${p}AI_REGION`] ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION
 
 	if (!provider || !model) {
 		throw new Error(`Env vars obrigatórias ausentes: ${[`${p}AI_PROVIDER`, `${p}AI_MODEL`, `${p}AI_API_KEY`].filter((k) => !process.env[k]).join(", ")}`)
@@ -47,6 +52,7 @@ export function createAdapterFromEnv(prefix?: string): AnyTextAdapter {
 		model,
 		apiKey: apiKey ?? "",
 		baseUrl,
+		region,
 	})
 }
 

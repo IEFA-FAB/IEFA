@@ -16,14 +16,17 @@
  * (ex.: "MODULE_CHAT" → MODULE_CHAT_AI_PROVIDER / _AI_MODEL / _AI_API_KEY).
  *
  * Alinhado com createAdapterFromEnv de @iefa/ai-provider: provider + model são
- * obrigatórios; api key é exigida para todos os providers exceto ollama.
+ * obrigatórios; api key é exigida para todos os providers exceto ollama e
+ * bedrock (que autenticam por host local / cadeia de credenciais AWS).
  */
+const KEYLESS_PROVIDERS = new Set(["ollama", "bedrock"])
+
 function hasAiEnv(prefix: string): boolean {
 	const p = `${prefix}_`
 	const provider = process.env[`${p}AI_PROVIDER`]
 	const model = process.env[`${p}AI_MODEL`]
 	if (!provider || !model) return false
-	if (provider !== "ollama" && !process.env[`${p}AI_API_KEY`]) return false
+	if (!KEYLESS_PROVIDERS.has(provider) && !process.env[`${p}AI_API_KEY`]) return false
 	return true
 }
 
