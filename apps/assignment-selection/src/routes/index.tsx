@@ -61,12 +61,12 @@ function BoardPage() {
 	const highlightedState = featured?.show_om ? (featured.estado ?? undefined) : undefined
 
 	return (
-		<div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-[#0b1226] via-[#0a0f1e] to-[#05070f] text-white">
+		<div className="relative h-screen w-full overflow-hidden bg-gradient-to-br from-[#0b1226] via-[#0a0f1e] to-[#05070f] text-white">
 			{/* Brilho de fundo sutil */}
 			<div className="pointer-events-none absolute -left-40 top-0 size-[42rem] rounded-full bg-blue-600/10 blur-[120px]" />
 			<div className="pointer-events-none absolute -right-40 bottom-0 size-[42rem] rounded-full bg-indigo-700/10 blur-[120px]" />
 
-			<div className="relative flex min-h-screen flex-col gap-6 p-8 xl:p-10">
+			<div className="relative flex h-full flex-col gap-5 p-6 xl:p-8">
 				<header className="flex items-center justify-between">
 					<div>
 						<p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-300/70">CPAINT · Força Aérea Brasileira</p>
@@ -78,10 +78,10 @@ function BoardPage() {
 					</div>
 				</header>
 
-				<div className="grid min-h-0 flex-1 grid-cols-1 items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+				<div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-10 lg:grid-cols-[1.4fr_0.85fr]">
 					<div className="flex items-center justify-center">
 						<BrazilMap
-							size={720}
+							size={1000}
 							selected={highlightedState ?? null}
 							markers={markers}
 							mapColor="#e2e8f0"
@@ -92,7 +92,7 @@ function BoardPage() {
 						/>
 					</div>
 
-					<div className="h-[78vh] max-h-[880px]">
+					<div className="h-full max-h-[92vh]">
 						<VacancyBoard data={escolhas} />
 					</div>
 				</div>

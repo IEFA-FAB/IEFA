@@ -83,7 +83,14 @@ export function BrazilMap({
 	const activeMarkers = useMemo(() => markers.filter((m) => m.people.length > 0 && centroids[m.estado]), [markers, centroids])
 
 	return (
-		<svg ref={svgRef} className={className} role="img" aria-label="Mapa do Brasil" width={size} viewBox={viewBox} style={{ stroke: strokeColor, strokeWidth }}>
+		<svg
+			ref={svgRef}
+			className={className}
+			role="img"
+			aria-label="Mapa do Brasil"
+			viewBox={viewBox}
+			style={{ width: "100%", height: "auto", maxWidth: size, maxHeight: "100%", stroke: strokeColor, strokeWidth }}
+		>
 			<title>Escolha de vagas por estado</title>
 			{stateCode.map((code) => (
 				<path
