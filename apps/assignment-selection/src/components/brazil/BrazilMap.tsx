@@ -33,7 +33,7 @@ const PAD = { l: 12, t: 16, r: 82, b: 28 }
 const CENTROID_OFFSETS: Record<string, { dx: number; dy: number }> = {
 	Goiás: { dx: -34, dy: -22 },
 	"Distrito Federal": { dx: 16, dy: -42 },
-	"Minas Gerais": { dx: 6, dy: 30 },
+	"Minas Gerais": { dx: 6, dy: 14 },
 	"Espírito Santo": { dx: 50, dy: 2 },
 }
 
