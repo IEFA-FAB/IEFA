@@ -15,9 +15,11 @@
     "./gemini": "./src/providers/gemini.ts",
     "./anthropic": "./src/providers/anthropic.ts",
     "./ollama": "./src/providers/ollama.ts",
+    "./bedrock": "./src/providers/bedrock.ts",
     "./langchain-compat": "./src/langchain-compat.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.716.0",
     "@langchain/openai": "^1.5.1",
     "@tanstack/ai": "^0.32.0",
     "@tanstack/ai-anthropic": "^0.15.5",
