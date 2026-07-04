@@ -1,57 +1,29 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { importIbge } from "./importers/ibge.ts"
+import { importTaco } from "./importers/taco.ts"
+import { importUsda } from "./importers/usda.ts"
 
 const HEARTBEAT_TIMEOUT_MS = 90_000
-const HEADER_FETCH_TIMEOUT_MS = 10_000
 
 export type NutritionReferenceSyncTriggeredBy = "cron" | "manual" | "test"
 type StepFn = (supabase: SupabaseClient<any, any>) => Promise<number>
 type RunNutritionReferenceSyncOptions = { triggeredBy: NutritionReferenceSyncTriggeredBy; syncId?: number; maxSteps?: number }
 
-type SourceCheck = {
-	sourceId: string
-	versionLabel: string
-	upstreamUrl: string
-	downloadUrl?: string
-	status?: "active" | "blocked"
-}
+type BlockedSource = { sourceId: string; versionLabel: string; upstreamUrl: string }
 
-const SOURCE_CHECKS: SourceCheck[] = [
-	{
-		sourceId: "taco",
-		versionLabel: "4a edicao 2011",
-		upstreamUrl: "https://nepa.unicamp.br/publicacoes/tabela-taco-excel/",
-		downloadUrl: "https://nepa.unicamp.br/publicacoes/tabela-taco-excel/",
-	},
-	{
-		sourceId: "ibge_pof_2008_2009",
-		versionLabel: "POF 2008-2009",
-		upstreamUrl: "https://biblioteca.ibge.gov.br/index.php/biblioteca-catalogo?id=250002&view=detalhes",
-		downloadUrl: "https://biblioteca.ibge.gov.br/index.php/biblioteca-catalogo?id=250002&view=detalhes",
-	},
-	{
-		sourceId: "usda_fdc",
-		versionLabel: "latest",
-		upstreamUrl: "https://fdc.nal.usda.gov/download-datasets",
-		downloadUrl: "https://fdc.nal.usda.gov/download-datasets",
-	},
-	{
-		sourceId: "tbca",
-		versionLabel: "manual-authorized-file",
-		upstreamUrl: "https://www.tbca.net.br/",
-		status: "blocked",
-	},
-	{
-		sourceId: "tucunduva",
-		versionLabel: "manual-authorized-file",
-		upstreamUrl: "https://repositorio.usp.br/item/002302912",
-		status: "blocked",
-	},
+// Sources requiring a manually-obtained authorized file — never fetched automatically.
+const BLOCKED_SOURCES: BlockedSource[] = [
+	{ sourceId: "tbca", versionLabel: "manual-authorized-file", upstreamUrl: "https://www.tbca.net.br/" },
+	{ sourceId: "tucunduva", versionLabel: "manual-authorized-file", upstreamUrl: "https://repositorio.usp.br/item/002302912" },
 ]
 
-const STEPS: Array<{ name: string; fn: StepFn }> = SOURCE_CHECKS.map((source) => ({
-	name: `source.${source.sourceId}`,
-	fn: (supabase) => checkSourceRelease(supabase, source),
-}))
+// Each step imports exactly ONE source and only ever touches that source's own rows.
+const STEPS: Array<{ name: string; fn: StepFn }> = [
+	{ name: "source.taco", fn: importTaco },
+	{ name: "source.ibge_pof_2008_2009", fn: importIbge },
+	{ name: "source.usda_fdc", fn: importUsda },
+	...BLOCKED_SOURCES.map((source) => ({ name: `source.${source.sourceId}`, fn: (supabase: SupabaseClient<any, any>) => writeBlockedSource(supabase, source) })),
+]
 export const NUTRITION_REFERENCE_SYNC_TOTAL_STEPS = STEPS.length
 export const NUTRITION_REFERENCE_SYNC_TEST_STEPS = 1
 
@@ -109,78 +81,25 @@ export async function hasLiveNutritionSync(supabase: SupabaseClient<any, any>) {
 	return data.some((sync) => isNutritionSyncLive(sync.heartbeat_at, sync.started_at))
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit) {
-	const controller = new AbortController()
-	const timeout = setTimeout(() => controller.abort(), HEADER_FETCH_TIMEOUT_MS)
-	try {
-		return await fetch(url, { ...init, signal: controller.signal })
-	} finally {
-		clearTimeout(timeout)
-	}
-}
-
-async function fetchHeaders(url: string) {
-	try {
-		const head = await fetchWithTimeout(url, { method: "HEAD" })
-		if (head.ok) {
-			return {
-				etag: head.headers.get("etag"),
-				lastModified: head.headers.get("last-modified"),
-				statusCode: head.status,
-			}
-		}
-	} catch {
-		// Some institutional pages reject HEAD; GET below records reachability.
-	}
-
-	const res = await fetchWithTimeout(url, { method: "GET" })
-	const headers = {
-		etag: res.headers.get("etag"),
-		lastModified: res.headers.get("last-modified"),
-		statusCode: res.status,
-	}
-	const cancelBody = res.body?.cancel()
-	if (cancelBody) await cancelBody.catch(() => undefined)
-	return headers
-}
-
-async function checkSourceRelease(supabase: SupabaseClient<any, any>, source: SourceCheck): Promise<number> {
-	const now = new Date().toISOString()
-
-	if (source.status === "blocked") {
-		const { error } = await supabase.from("source_release").upsert(
-			{
-				source_id: source.sourceId,
-				version_label: source.versionLabel,
-				upstream_url: source.upstreamUrl,
-				download_url: source.downloadUrl ?? null,
-				status: "blocked",
-				fetched_at: now,
-				metadata: { reason: "requires_authorized_file" },
-			},
-			{ onConflict: "source_id,version_label" }
-		)
-		if (error) throw new Error(error.message)
-		return 1
-	}
-
-	const headers = await fetchHeaders(source.downloadUrl ?? source.upstreamUrl)
+/**
+ * Records a blocked source (TBCA, Tucunduva). These require a manually-obtained
+ * authorized file, so the worker never downloads them — it only marks the release
+ * as blocked. Scoped to the source's own release row; no other data is touched.
+ */
+async function writeBlockedSource(supabase: SupabaseClient<any, any>, source: BlockedSource): Promise<number> {
 	const { error } = await supabase.from("source_release").upsert(
 		{
 			source_id: source.sourceId,
 			version_label: source.versionLabel,
 			upstream_url: source.upstreamUrl,
-			download_url: source.downloadUrl ?? null,
-			etag: headers.etag,
-			last_modified: headers.lastModified,
-			status: headers.statusCode >= 200 && headers.statusCode < 400 ? "active" : "failed",
-			fetched_at: now,
-			metadata: { http_status: headers.statusCode },
+			status: "blocked",
+			fetched_at: new Date().toISOString(),
+			metadata: { reason: "requires_authorized_file" },
 		},
 		{ onConflict: "source_id,version_label" }
 	)
 	if (error) throw new Error(error.message)
-	return 1
+	return 0
 }
 
 export async function runNutritionReferenceSync(opts: RunNutritionReferenceSyncOptions): Promise<number> {
