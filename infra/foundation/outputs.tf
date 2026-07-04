@@ -114,6 +114,22 @@ output "github_deploy_role_arn" {
   value       = var.enable_github_deploy_role ? aws_iam_role.github_deploy[0].arn : ""
 }
 
+output "certificate_arn_created" {
+  description = "ARN of the ACM certificate created here (empty if not provisioned). Set as certificate_arn once ISSUED to enable HTTPS."
+  value       = var.provision_certificate ? aws_acm_certificate.this[0].arn : ""
+}
+
+output "certificate_validation_records" {
+  description = "DNS validation CNAMEs to add at the DNS provider (Registro.br), keyed by domain."
+  value = var.provision_certificate ? {
+    for o in aws_acm_certificate.this[0].domain_validation_options : o.domain_name => {
+      name  = o.resource_record_name
+      type  = o.resource_record_type
+      value = o.resource_record_value
+    }
+  } : {}
+}
+
 output "github_actions_variables" {
   description = "Values to configure as GitHub Actions repository variables for the deploy workflow."
   value = {

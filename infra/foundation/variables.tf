@@ -51,6 +51,24 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "provision_certificate" {
+  description = "Create a DNS-validated ACM certificate. Add the emitted validation CNAMEs at the DNS provider, then set certificate_arn to the issued cert."
+  type        = bool
+  default     = false
+}
+
+variable "acm_certificate_primary_domain" {
+  description = "Primary domain for the ACM certificate."
+  type        = string
+  default     = "*.iefa.com.br"
+}
+
+variable "acm_certificate_sans" {
+  description = "Subject alternative names for the ACM certificate."
+  type        = list(string)
+  default     = ["iefa.com.br", "app.previsaosisub.com.br"]
+}
+
 variable "secrets_kms_key_arn" {
   description = "Optional KMS key ARN used by the per-service Secrets Manager secrets. When set, the execution role is granted kms:Decrypt on it."
   type        = string
