@@ -24,7 +24,10 @@ const MODULE = "rumaer" as const
  */
 export const fetchMyRumaerPermissionsFn = createServerFn({ method: "GET" }).handler(async (): Promise<UserPermission[]> => {
 	const userId = await requireUserId()
-	return resolveUserPermissions(userId, getAccessControlClient())
+	const all = await resolveUserPermissions(userId, getAccessControlClient())
+	// Só devolve grants do rumaer: a tabela é compartilhada e mandar grants de outros
+	// apps (global, kitchen, …) para o browser vazaria autorização cross-app sem uso aqui.
+	return all.filter((p) => p.module === MODULE)
 })
 
 export type RumaerUserSearchResult = { id: string; email: string; nrOrdem: string | null }
@@ -64,27 +67,42 @@ export const fetchUserRumaerPermissionsFn = createServerFn({ method: "GET" })
 	})
 
 /**
- * Concede/atualiza o acesso `rumaer` de um usuário (idempotente).
- * Nível 2 = editar uniformes; 3 = administrar grants do rumaer. Sempre unscoped.
+ * Concede/atualiza o acesso `rumaer` de um usuário (idempotente). Sempre unscoped —
+ * nível 2 = editar uniformes; 3 = administrar grants do rumaer.
+ *
+ * Padrão update-first → insert → retry-em-23505 para ser seguro sob concorrência.
+ * O select-then-insert simples tem corrida (dois admins simultâneos podem ambos ver
+ * "não existe" e inserir). Não usamos upsert(onConflict) porque o PostgREST não infere
+ * índice ÚNICO PARCIAL (o unscoped rumaer é garantido por índice parcial — ver migration
+ * 20260704140000). A garantia dura fica no DB (índice único); a corrida perde com 23505 e
+ * reaplica como update.
  */
 export const grantRumaerPermissionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ userId: z.string().min(1), level: z.union([z.literal(2), z.literal(3)]) }))
 	.handler(async ({ data }) => {
 		await requireRumaerAdmin()
 		const client = getAccessControlClient()
-		const { data: existing, error: selErr } = await client.from("user_permissions").select("id").eq("user_id", data.userId).eq("module", MODULE).maybeSingle()
-		if (selErr) throw new Error(selErr.message)
 
-		if (existing) {
-			const { error } = await client.from("user_permissions").update({ level: data.level }).eq("id", existing.id).eq("module", MODULE)
-			if (error) throw new Error(error.message)
-		} else {
-			const { error } = await client
-				.from("user_permissions")
-				.insert({ user_id: data.userId, module: MODULE, level: data.level, mess_hall_id: null, kitchen_id: null, unit_id: null })
-			if (error) throw new Error(error.message)
+		const applyUpdate = () => client.from("user_permissions").update({ level: data.level }).eq("user_id", data.userId).eq("module", MODULE).select("id")
+
+		// 1. atualiza o grant existente, se houver
+		const { data: updated, error: updErr } = await applyUpdate()
+		if (updErr) throw new Error(updErr.message)
+		if (updated && updated.length > 0) return { ok: true as const }
+
+		// 2. não existia → insere (índice único parcial impede duplicata de fato)
+		const { error: insErr } = await client
+			.from("user_permissions")
+			.insert({ user_id: data.userId, module: MODULE, level: data.level, mess_hall_id: null, kitchen_id: null, unit_id: null })
+		if (!insErr) return { ok: true as const }
+
+		// 3. corrida: outro request inseriu primeiro (unique_violation) → reaplica como update
+		if (insErr.code === "23505") {
+			const { error: retryErr } = await applyUpdate()
+			if (retryErr) throw new Error(retryErr.message)
+			return { ok: true as const }
 		}
-		return { ok: true as const }
+		throw new Error(insErr.message)
 	})
 
 /** Revoga um grant `rumaer`. O `.eq("module", ...)` garante que só grants do rumaer sejam apagados. */
