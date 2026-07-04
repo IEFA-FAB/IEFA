@@ -548,7 +548,8 @@ export interface SaveIngredientDetailsPayload {
 	correctionFactor?: number | null
 	ceafaId?: string | null
 	nutritionReferenceFoodRevisionId?: string | null
-	nutrients: { nutrient_id: string; nutrient_value: number | null }[]
+	/** Omit to leave manual nutrients untouched (linking a table, or unlinking without editing). */
+	nutrients?: { nutrient_id: string; nutrient_value: number | null }[]
 }
 
 /** Salva identificação + nutrientes e registra UMA versão do insumo. */
@@ -564,7 +565,7 @@ export function useSaveIngredientDetails() {
 					correctionFactor: p.correctionFactor ?? undefined,
 					ceafaId: p.ceafaId ?? undefined,
 					nutritionReferenceFoodRevisionId: p.nutritionReferenceFoodRevisionId ?? null,
-					nutrients: p.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.nutrient_value })),
+					nutrients: p.nutrients ? p.nutrients.map((n) => ({ nutrientId: n.nutrient_id, nutrientValue: n.nutrient_value })) : undefined,
 				},
 			}),
 	})

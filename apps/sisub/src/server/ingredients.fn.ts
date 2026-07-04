@@ -254,7 +254,9 @@ export const deleteIngredientItemFn = createServerFn({ method: "POST" })
  * Coalesce as duas escritas (metadata + nutrientes) num único snapshot.
  */
 const SaveIngredientDetailsSchema = UpdateIngredientSchema.extend({
-	nutrients: z.array(z.object({ nutrientId: z.string().uuid(), nutrientValue: z.number().nullable() })),
+	// Optional: omit to leave manual nutrients untouched (e.g. when linking a table or
+	// unlinking without editing). Only present when the user actually edited the values.
+	nutrients: z.array(z.object({ nutrientId: z.string().uuid(), nutrientValue: z.number().nullable() })).optional(),
 	nutritionReferenceFoodRevisionId: z.string().uuid().nullable().optional(),
 })
 
@@ -266,10 +268,16 @@ export const saveIngredientDetailsFn = createServerFn({ method: "POST" })
 		const { nutrients, nutritionReferenceFoodRevisionId, ...ingredient } = data
 		await updateIngredient(client, ctx, ingredient).catch(handleDomainError)
 		if (nutritionReferenceFoodRevisionId) {
+			// Linked to a table: values come from the reference. Manual rows are preserved
+			// (not touched) so they reappear if the link is removed later.
 			await setIngredientNutritionReference(client, ctx, { ingredientId: data.id, foodRevisionId: nutritionReferenceFoodRevisionId }).catch(handleDomainError)
 		} else {
 			await setIngredientNutritionReference(client, ctx, { ingredientId: data.id, foodRevisionId: null }).catch(handleDomainError)
-			await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
+			// Only rewrite manual nutrients when the client actually sends them (user edited
+			// the table). A plain unlink sends nothing, so the preserved rows stay intact.
+			if (nutrients !== undefined) {
+				await setIngredientNutrients(client, ctx, { ingredientId: data.id, nutrients }).catch(handleDomainError)
+			}
 		}
 		const actor = await resolveActor()
 		return recordIngredientVersion(client, ctx, { ingredientId: data.id }, actor).catch(handleDomainError)

@@ -149,10 +149,17 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 			}
 
 			try {
-				const nutrientsPayload = syncedNutrients.map((n) => ({
-					nutrient_id: n.id,
-					nutrient_value: nutrientValues[n.id] !== "" ? Number(nutrientValues[n.id]) : null,
-				}))
+				// Só reescreve os nutrientes manuais quando NÃO há tabela vinculada E o usuário
+				// realmente editou a tabela. Vincular, ou desvincular sem editar, preserva as
+				// linhas manuais antigas (elas voltam a aparecer ao remover o vínculo).
+				const userEditedNutrients = Object.keys(nutrientOverrides).length > 0
+				const nutrientsPayload =
+					!nutritionReference && userEditedNutrients
+						? syncedNutrients.map((n) => ({
+								nutrient_id: n.id,
+								nutrient_value: nutrientValues[n.id] !== "" ? Number(nutrientValues[n.id]) : null,
+							}))
+						: undefined
 
 				// Salva identificação + nutrientes e registra UMA versão do insumo.
 				await saveIngredientDetails({
