@@ -12,6 +12,7 @@ const validScopes = [
 	"forms",
 	"5s",
 	"sucont",
+	"assignment-selection",
 	// packages
 	"database",
 	"sisub-domain",

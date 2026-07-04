@@ -121,6 +121,134 @@ export type Database = {
 			[_ in never]: never
 		}
 	}
+	assignment_selection: {
+		Tables: {
+			edition: {
+				Row: {
+					active: boolean
+					created_at: string
+					id: string
+					name: string
+				}
+				Insert: {
+					active?: boolean
+					created_at?: string
+					id?: string
+					name: string
+				}
+				Update: {
+					active?: boolean
+					created_at?: string
+					id?: string
+					name?: string
+				}
+				Relationships: []
+			}
+			person: {
+				Row: {
+					classificacao: number
+					created_at: string
+					edition_id: string
+					estado: string | null
+					hide_card: boolean
+					id: number
+					localidade: string | null
+					nome: string
+					show_card: boolean
+					show_om: boolean
+				}
+				Insert: {
+					classificacao: number
+					created_at?: string
+					edition_id: string
+					estado?: string | null
+					hide_card?: boolean
+					id?: number
+					localidade?: string | null
+					nome: string
+					show_card?: boolean
+					show_om?: boolean
+				}
+				Update: {
+					classificacao?: number
+					created_at?: string
+					edition_id?: string
+					estado?: string | null
+					hide_card?: boolean
+					id?: number
+					localidade?: string | null
+					nome?: string
+					show_card?: boolean
+					show_om?: boolean
+				}
+				Relationships: [
+					{
+						foreignKeyName: "person_edition_id_fkey"
+						columns: ["edition_id"]
+						isOneToOne: false
+						referencedRelation: "edition"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			vacancy: {
+				Row: {
+					created_at: string
+					edition_id: string
+					estado: string | null
+					id: number
+					om: string | null
+					total_vagas: number | null
+				}
+				Insert: {
+					created_at?: string
+					edition_id: string
+					estado?: string | null
+					id?: number
+					om?: string | null
+					total_vagas?: number | null
+				}
+				Update: {
+					created_at?: string
+					edition_id?: string
+					estado?: string | null
+					id?: number
+					om?: string | null
+					total_vagas?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "vacancy_edition_id_fkey"
+						columns: ["edition_id"]
+						isOneToOne: false
+						referencedRelation: "edition"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+		}
+		Views: {
+			vacancy_status: {
+				Row: {
+					chosen: number | null
+					edition_id: string | null
+					estado: string | null
+					om: string | null
+					total_vagas: number | null
+				}
+				Relationships: []
+			}
+		}
+		Functions: {
+			[_ in never]: never
+		}
+		Enums: {
+			[_ in never]: never
+		}
+		CompositeTypes: {
+			[_ in never]: never
+		}
+	}
 	compras_gov_integration: {
 		Tables: {
 			compras_material_caracteristica: {
@@ -5217,6 +5345,9 @@ export type CompositeTypes<
 
 export const Constants = {
 	access_control: {
+		Enums: {},
+	},
+	assignment_selection: {
 		Enums: {},
 	},
 	compras_gov_integration: {
