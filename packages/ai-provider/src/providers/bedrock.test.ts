@@ -93,6 +93,33 @@ describe("bedrock adapter — chatStream", () => {
 		const adapter = createBedrockChat("model-x", "us-east-1", client)
 		await expect(collect(adapter.chatStream(opts({ messages: [{ role: "user", content: "x" }] })))).rejects.toThrow("boom")
 	})
+
+	it("stream vazio ainda emite RUN_STARTED antes de RUN_FINISHED", async () => {
+		const { client } = fakeClient([])
+		const adapter = createBedrockChat("model-x", "us-east-1", client)
+		const events = await collect(adapter.chatStream(opts({ messages: [{ role: "user", content: "x" }] })))
+		expect(events.map((e) => e.type)).toEqual(["RUN_STARTED", "RUN_FINISHED"])
+	})
+})
+
+describe("bedrock adapter — structuredOutput", () => {
+	it("injeta instrução de JSON com o schema e parseia a resposta (com cercas)", async () => {
+		const { client, sent } = fakeClient([], {
+			output: { message: { content: [{ text: '```json\n{"ok":true}\n```' }] } },
+			usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
+		})
+		// biome-ignore lint/suspicious/noExplicitAny: shim do adapter para teste
+		const adapter = createBedrockChat("model-x", "us-east-1", client) as any
+		const schema = { type: "object", properties: { ok: { type: "boolean" } } }
+		const result = await adapter.structuredOutput({ chatOptions: opts({ messages: [{ role: "user", content: "dá o json" }] }), outputSchema: schema })
+
+		expect(result.data).toEqual({ ok: true })
+		expect(result.usage).toEqual({ promptTokens: 3, completionTokens: 2, totalTokens: 5 })
+
+		const input = sent[0].input as { system?: { text: string }[] }
+		expect(sent[0].name).toBe("ConverseCommand")
+		expect(input.system?.at(-1)?.text).toContain(JSON.stringify(schema))
+	})
 })
 
 describe("bedrock adapter — conversão de mensagens", () => {

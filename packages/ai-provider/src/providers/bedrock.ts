@@ -1,15 +1,24 @@
-import {
-	type Message as BedrockMessage,
+import type {
+	Message as BedrockMessage,
 	BedrockRuntimeClient,
-	type Tool as BedrockTool,
-	type ContentBlock,
-	ConverseCommand,
-	ConverseStreamCommand,
-	type ConverseStreamOutput,
-	type StopReason,
-	type ToolConfiguration,
+	Tool as BedrockTool,
+	ContentBlock,
+	ConverseStreamOutput,
+	StopReason,
+	ToolConfiguration,
 } from "@aws-sdk/client-bedrock-runtime"
 import type { AnyTextAdapter, StreamChunk, TextOptions } from "@tanstack/ai"
+
+// Import dinâmico do AWS SDK: só carrega a árvore de deps do Bedrock quando um
+// adapter bedrock é efetivamente usado. Assim `import "@iefa/ai-provider"` não
+// puxa o SDK para consumidores que usam outro provider. Os imports acima são
+// só de tipo (apagados na compilação) e não disparam o require em runtime.
+type BedrockSdk = typeof import("@aws-sdk/client-bedrock-runtime")
+let sdkPromise: Promise<BedrockSdk> | undefined
+function loadSdk(): Promise<BedrockSdk> {
+	if (!sdkPromise) sdkPromise = import("@aws-sdk/client-bedrock-runtime")
+	return sdkPromise
+}
 
 /**
  * Adapter AWS Bedrock — genérico via Converse API (`ConverseStream`).
@@ -158,7 +167,16 @@ function mapFinishReason(stopReason: StopReason | undefined, hadToolCalls: boole
 // ── Adapter ───────────────────────────────────────────────────────────────────
 
 export function createBedrockChat(model: string, region?: string, client?: BedrockRuntimeClient): AnyTextAdapter {
-	const bedrock = client ?? new BedrockRuntimeClient(region ? { region } : {})
+	// Cliente resolvido preguiçosamente (injetável em teste): evita instanciar o
+	// SDK — e disparar a cadeia de credenciais AWS — antes do primeiro uso real.
+	let clientPromise: Promise<BedrockRuntimeClient> | undefined
+	function getClient(): Promise<BedrockRuntimeClient> {
+		if (client) return Promise.resolve(client)
+		if (!clientPromise) {
+			clientPromise = loadSdk().then((sdk) => new sdk.BedrockRuntimeClient(region ? { region } : {}))
+		}
+		return clientPromise
+	}
 
 	async function* chatStream(options: TextOptions): AsyncIterable<StreamChunk> {
 		// logger é obrigatório no TextOptions, mas guardamos por robustez (chamadas diretas em teste).
@@ -168,7 +186,6 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 		const threadId = options.threadId ?? generateId("thread")
 		const messageId = generateId("msg")
 
-		let hasRunStarted = false
 		let textStarted = false
 		let accumulatedText = ""
 		let hadToolCalls = false
@@ -183,17 +200,18 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 				model,
 			})
 
-			const response = await bedrock.send(new ConverseStreamCommand(buildConverseInput(model, options)), {
+			const sdk = await loadSdk()
+			const bedrock = await getClient()
+			const response = await bedrock.send(new sdk.ConverseStreamCommand(buildConverseInput(model, options)), {
 				abortSignal: options.abortController?.signal,
 			})
 
+			// RUN_STARTED sempre precede RUN_FINISHED — emitido antes do loop para
+			// que um stream vazio (sem eventos) ainda respeite o protocolo AG-UI.
+			yield asChunk({ type: "RUN_STARTED", runId, threadId, model, timestamp })
+
 			for await (const ev of (response.stream ?? []) as AsyncIterable<ConverseStreamOutput>) {
 				logger?.provider?.("provider=bedrock", { chunk: ev })
-
-				if (!hasRunStarted) {
-					hasRunStarted = true
-					yield asChunk({ type: "RUN_STARTED", runId, threadId, model, timestamp })
-				}
 
 				// Início de um bloco toolUse.
 				const startTool = ev.contentBlockStart?.start?.toolUse
@@ -311,8 +329,19 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 		chatOptions: TextOptions
 		outputSchema: unknown
 	}): Promise<{ data: unknown; rawText: string; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
-		const { chatOptions } = options
-		const response = await bedrock.send(new ConverseCommand(buildConverseInput(model, chatOptions)), {
+		const { chatOptions, outputSchema } = options
+		const sdk = await loadSdk()
+		const bedrock = await getClient()
+
+		// Converse não tem json-mode nativo uniforme entre modelos: instruímos o
+		// modelo, via system prompt, a responder só com JSON conforme o schema.
+		const input = buildConverseInput(model, chatOptions)
+		if (outputSchema != null) {
+			const instruction = `Responda SOMENTE com um objeto JSON válido conforme este JSON Schema, sem texto adicional e sem cercas de markdown:\n${JSON.stringify(outputSchema)}`
+			input.system = [...(input.system ?? []), { text: instruction }]
+		}
+
+		const response = await bedrock.send(new sdk.ConverseCommand(input), {
 			abortSignal: chatOptions.abortController?.signal,
 		})
 
@@ -320,7 +349,12 @@ export function createBedrockChat(model: string, region?: string, client?: Bedro
 
 		let data: unknown
 		try {
-			data = JSON.parse(rawText)
+			// Tolera cercas ```json … ``` caso o modelo as inclua apesar da instrução.
+			const cleaned = rawText
+				.trim()
+				.replace(/^```(?:json)?\s*/i, "")
+				.replace(/\s*```$/i, "")
+			data = JSON.parse(cleaned)
 		} catch {
 			throw new Error(`Falha ao parsear saída estruturada como JSON. Conteúdo: ${rawText.slice(0, 200)}`)
 		}
