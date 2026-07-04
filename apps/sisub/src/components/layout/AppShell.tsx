@@ -54,6 +54,7 @@ const SEGMENT_PT: Record<string, string> = {
 	events: "Eventos",
 	"compras-sync": "Sincronização Compras",
 	"nutrition-sync": "Sincronização Nutrição",
+	"sync-routines": "Rotinas de Sincronização",
 	"places-manager": "Gerenciador de Locais",
 	policy: "Política",
 	// Sub-páginas

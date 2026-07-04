@@ -10,7 +10,12 @@ import type { SyncLog } from "@/types/domain/compras-sync"
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
 
 async function fetchApi(path: string, init?: RequestInit): Promise<Response> {
-	return fetch(`${API_BASE}${path}`, init)
+	try {
+		return await fetch(`${API_BASE}${path}`, init)
+	} catch {
+		const fallback = "https://api.iefa.com.br"
+		return fetch(`${fallback}${path}`, init)
+	}
 }
 
 function adminHeaders() {

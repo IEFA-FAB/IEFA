@@ -133,8 +133,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Locais", url: "/global/places-manager", icon: MapPin, minLevel: 2 },
 			{ title: "Permissões", url: "/global/permissions", icon: ShieldCheck, minLevel: 2 },
 			{ title: "Avaliação", url: "/global/evaluation", icon: Star, minLevel: 2 },
-			{ title: "Sync Compras", url: "/global/compras-sync", icon: RefreshCw, minLevel: 2 },
-			{ title: "Sync Nutrição", url: "/global/nutrition-sync", icon: RefreshCw, minLevel: 2 },
+			{ title: "Sincronização", url: "/global/sync-routines", icon: RefreshCw, minLevel: 2 },
 			{ title: "Política de Revisão", url: "/global/policy", icon: ClipboardList, minLevel: 2 },
 
 			{ title: "Assistente IA", url: "/global/chat", icon: MessageSquare },
