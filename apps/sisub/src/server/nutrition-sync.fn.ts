@@ -29,6 +29,9 @@ export const triggerNutritionSyncFn = createServerFn({ method: "POST" }).handler
 	const res = await fetchApi("/api/admin/nutrition/sync", {
 		method: "POST",
 		headers: adminHeaders(),
+		// Content-Type is application/json, so a JSON body is required — an empty body makes
+		// the API's OpenAPI validator reject the request with 400 (Malformed JSON).
+		body: JSON.stringify({ triggered_by: "manual" }),
 	})
 
 	if (res.status === 409) return { error: "Sync já está em andamento", sync_id: null as number | null }
