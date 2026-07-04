@@ -1,8 +1,3 @@
-import type { AppModule, PermissionScope, UserPermission } from "@iefa/pbac"
-
-export interface UserContext {
-	userId: string
-	permissions: UserPermission[]
-}
-
-export type { AppModule, PermissionScope, UserPermission }
+// UserContext agora é canônico em @iefa/pbac (compartilhado entre apps do ERP).
+// Re-exportado aqui para preservar os imports existentes do sisub-domain.
+export type { AppModule, PermissionScope, UserContext, UserPermission } from "@iefa/pbac"

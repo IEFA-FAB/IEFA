@@ -1,17 +1,22 @@
 /**
  * Módulos da aplicação — define "o quê" o usuário pode acessar.
  *
- * - diner:               Comensal (acesso implícito para todos os usuários válidos)
- * - messhall:            Rancho (fiscal, operador) — scoped by mess_hall_id
- * - unit:                Gestão Unidade — scoped by unit_id
- * - kitchen:             Gestão Cozinha — scoped by kitchen_id
- * - kitchen-production:  Produção Cozinha — scoped by kitchen_id
- * - global:              Administração global
- * - analytics:           Análise sistêmica global
- * - local-analytics:     Análises da unidade — scoped by unit_id
- * - storage:             Estoque e almoxarifado
+ * O módulo é a fronteira entre apps do ERP: cada app resolve a MESMA tabela
+ * `access_control.user_permissions` e filtra a própria visão pelos seus módulos.
+ *
+ * - diner:               Comensal (acesso implícito para todos os usuários válidos) — sisub
+ * - messhall:            Rancho (fiscal, operador) — sisub, scoped by mess_hall_id
+ * - unit:                Gestão Unidade — sisub, scoped by unit_id
+ * - kitchen:             Gestão Cozinha — sisub, scoped by kitchen_id
+ * - kitchen-production:  Produção Cozinha — sisub, scoped by kitchen_id
+ * - global:              Administração global — sisub
+ * - analytics:           Análise sistêmica global — sisub
+ * - local-analytics:     Análises da unidade — sisub, scoped by unit_id
+ * - storage:             Estoque e almoxarifado — sisub
+ * - rumaer:              Uniformes RUMAER — rumaer, unscoped/global
+ *                          level 2 = editar uniformes; level 3 = gerenciar grants do rumaer.
  */
-export type AppModule = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics" | "storage"
+export type AppModule = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics" | "storage" | "rumaer"
 
 /**
  * Permissão individual de um usuário.
@@ -31,3 +36,13 @@ export interface UserPermission {
 
 /** Escopo geográfico/operacional para validação granular. */
 export type PermissionScope = { type: "unit"; id: number } | { type: "mess_hall"; id: number } | { type: "kitchen"; id: number }
+
+/**
+ * Contexto de um usuário autenticado após resolução das permissões.
+ * Compartilhado entre apps (sisub, rumaer) — cada app monta o seu no
+ * `requireAuth()` do próprio runtime a partir de `resolveUserPermissions`.
+ */
+export interface UserContext {
+	userId: string
+	permissions: UserPermission[]
+}

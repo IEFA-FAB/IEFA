@@ -2,11 +2,12 @@
  * @module storage.fn
  * Signed URLs para imagens dos uniformes (bucket privado rumaer-uniforms).
  * Download: qualquer um (a app é read-only pública).
- * Upload: usado pelo admin — protegido pelo guard de rota /admin.
+ * Upload: exige grant `rumaer` nível 2 (requireUniformEditor) — não basta estar logado.
  */
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireUniformEditor } from "@/lib/auth.server"
 import { getRumaerServerClient } from "@/lib/supabase.server"
 
 const BUCKET = "rumaer-uniforms"
@@ -55,6 +56,8 @@ export const getUniformPreviewImagesFn = createServerFn({ method: "GET" })
 export const getSignedUploadUrlFn = createServerFn({ method: "POST" })
 	.validator(z.object({ filePath: z.string().min(1) }))
 	.handler(async ({ data }) => {
+		// Upload é operação de edição — exige grant rumaer nível 2 (não basta estar logado).
+		await requireUniformEditor()
 		const { data: result, error } = await getRumaerServerClient().storage.from(BUCKET).createSignedUploadUrl(data.filePath)
 		if (error) throw new Error(error.message)
 		return result // { signedUrl, token, path }
