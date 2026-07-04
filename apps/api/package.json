@@ -23,7 +23,9 @@
         "@scalar/hono-api-reference": "^0.11.4",
         "@scalar/openapi-to-markdown": "^0.5.26",
         "@supabase/supabase-js": "^2.108.2",
+        "fflate": "^0.8.3",
         "hono": "^4.12.26",
+        "xlsx": "^0.18.5",
         "zod": "^4.4.3"
     },
     "devDependencies": {
