@@ -41,6 +41,19 @@ function BoardPage() {
 		[data.vacancies, chosenByOm]
 	)
 
+	// Rostos dos militares já confirmados, agrupados por estado escolhido.
+	const markers = useMemo(() => {
+		const byState = new Map<string, { id: number; classificacao: number; nome: string; om: string | null }[]>()
+		for (const p of data.persons) {
+			if (p.hide_card && p.estado) {
+				const arr = byState.get(p.estado) ?? []
+				arr.push({ id: p.id, classificacao: p.classificacao, nome: p.nome, om: p.localidade })
+				byState.set(p.estado, arr)
+			}
+		}
+		return Array.from(byState, ([estado, people]) => ({ estado, people }))
+	}, [data.persons])
+
 	// Militar em destaque (chamado, ainda não ocultado).
 	const featured = useMemo(() => data.persons.find((p) => p.show_card && !p.hide_card) ?? null, [data.persons])
 
@@ -70,6 +83,7 @@ function BoardPage() {
 						<BrazilMap
 							size={720}
 							selected={highlightedState ?? null}
+							markers={markers}
 							mapColor="#e2e8f0"
 							strokeColor="#0b1226"
 							strokeWidth={0.6}

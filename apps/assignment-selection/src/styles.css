@@ -112,3 +112,22 @@
 .flash-update {
 	animation: flash 1.5s ease-out;
 }
+
+/* Pop-in do rosto no mapa quando um militar confirma a vaga. */
+@keyframes map-avatar-pop {
+	0% {
+		opacity: 0;
+		transform: scale(0.3);
+	}
+	70% {
+		transform: scale(1.12);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.map-avatar-pop {
+	animation: map-avatar-pop 450ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
