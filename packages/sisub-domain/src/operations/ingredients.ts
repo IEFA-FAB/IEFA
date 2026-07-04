@@ -14,8 +14,9 @@ import {
 	folderInKitchen,
 	ingredientInKitchen,
 	ingredientItemInKitchen,
-	ingredientNutritionReferenceInKitchen,
 	ingredientNutrientInKitchen,
+	ingredientNutritionReferenceInKitchen,
+	nutrientInKitchen,
 	nutritionFoodItemInNutritionReference,
 	nutritionFoodItemRevisionInNutritionReference,
 	nutritionFoodNutrientValueInNutritionReference,
@@ -23,7 +24,6 @@ import {
 	nutritionNutrientComponentMappingInNutritionReference,
 	nutritionSourceInNutritionReference,
 	nutritionSourceReleaseInNutritionReference,
-	nutrientInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
@@ -47,8 +47,8 @@ import type {
 	ListNutritionReferenceFoods,
 	RestoreFolder,
 	RestoreIngredient,
-	SetIngredientNutritionReference,
 	SetIngredientNutrients,
+	SetIngredientNutritionReference,
 	UpdateFolder,
 	UpdateIngredient,
 	UpdateIngredientItem,
