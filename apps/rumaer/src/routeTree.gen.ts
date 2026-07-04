@@ -16,6 +16,7 @@ import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as AdminPermissoesRouteImport } from './routes/admin/permissoes'
 import { Route as AdminPecasIndexRouteImport } from './routes/admin/pecas/index'
 import { Route as AdminItensIndexRouteImport } from './routes/admin/itens/index'
 import { Route as PublicUniformesIndexRouteImport } from './routes/_public/uniformes/index'
@@ -56,6 +57,11 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const AdminPermissoesRoute = AdminPermissoesRouteImport.update({
+  id: '/permissoes',
+  path: '/permissoes',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminPecasIndexRoute = AdminPecasIndexRouteImport.update({
   id: '/pecas/',
   path: '/pecas/',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/admin/permissoes': typeof AdminPermissoesRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/admin/uniformes/$uniformId': typeof AdminUniformesUniformIdRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
+  '/admin/permissoes': typeof AdminPermissoesRoute
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminIndexRoute
   '/auth': typeof AuthIndexRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/health': typeof HealthRoute
+  '/admin/permissoes': typeof AdminPermissoesRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/health'
+    | '/admin/permissoes'
     | '/admin/'
     | '/auth/'
     | '/admin/uniformes/$uniformId'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
+    | '/admin/permissoes'
     | '/'
     | '/admin'
     | '/auth'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/health'
+    | '/admin/permissoes'
     | '/_public/'
     | '/admin/'
     | '/auth/'
@@ -221,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/admin/permissoes': {
+      id: '/admin/permissoes'
+      path: '/permissoes'
+      fullPath: '/admin/permissoes'
+      preLoaderRoute: typeof AdminPermissoesRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/pecas/': {
       id: '/admin/pecas/'
       path: '/pecas'
@@ -276,6 +295,7 @@ const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
 )
 
 interface AdminRouteRouteChildren {
+  AdminPermissoesRoute: typeof AdminPermissoesRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminUniformesUniformIdRoute: typeof AdminUniformesUniformIdRoute
   AdminItensIndexRoute: typeof AdminItensIndexRoute
@@ -283,6 +303,7 @@ interface AdminRouteRouteChildren {
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminPermissoesRoute: AdminPermissoesRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminUniformesUniformIdRoute: AdminUniformesUniformIdRoute,
   AdminItensIndexRoute: AdminItensIndexRoute,

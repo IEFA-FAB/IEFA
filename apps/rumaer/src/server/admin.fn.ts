@@ -1,21 +1,15 @@
 /**
  * @module admin.fn
  * CRUD protegido para popular o regulamento. Usa service-role (bypassa RLS).
- * Toda mutação exige usuário autenticado (requireAuth) — além do guard de rota /admin.
+ * Toda mutação exige grant `rumaer` nível 2 (requireUniformEditor) — não basta estar
+ * logado. Aplicado por operação (defense-in-depth) além do guard de rota /admin.
  */
 
 import type { Piece, PieceItem, Uniform, UniformVariant, UniformVariantImage } from "@iefa/database/rumaer"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { getRumaerAuthClient, getRumaerServerClient } from "@/lib/supabase.server"
-
-async function requireAuth() {
-	const {
-		data: { user },
-	} = await getRumaerAuthClient().auth.getUser()
-	if (!user) throw new Error("Não autenticado")
-	return user
-}
+import { requireUniformEditor } from "@/lib/auth.server"
+import { getRumaerServerClient } from "@/lib/supabase.server"
 
 const BUCKET = "rumaer-uniforms"
 
@@ -54,7 +48,7 @@ export const upsertUniformFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<Uniform> => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { data: row, error } = await supabase.from("uniform").upsert(data).select("*").single()
 		if (error) throw new Error(error.message)
@@ -64,7 +58,7 @@ export const upsertUniformFn = createServerFn({ method: "POST" })
 export const deleteUniformFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const { error } = await getRumaerServerClient().from("uniform").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 		if (error) throw new Error(error.message)
 		return { ok: true }
@@ -73,7 +67,7 @@ export const deleteUniformFn = createServerFn({ method: "POST" })
 export const cloneUniformFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<Uniform> => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 
 		// 1. uniforme de origem
@@ -124,7 +118,7 @@ export const cloneUniformFn = createServerFn({ method: "POST" })
 export const setUniformCategoriesFn = createServerFn({ method: "POST" })
 	.validator(z.object({ uniformId: z.string().uuid(), categorias: z.array(CATEGORIA) }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { error: delErr } = await supabase.from("uniform_category").delete().eq("uniform_id", data.uniformId)
 		if (delErr) throw new Error(delErr.message)
@@ -151,7 +145,7 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<UniformVariant> => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		// Sempre que o payload mexe na imagem base (troca p/ outro path OU limpa com null), o arquivo
 		// antigo vira órfão — remover. `undefined` = payload não toca na imagem (ex.: edita só círculo);
@@ -170,7 +164,7 @@ export const upsertVariantFn = createServerFn({ method: "POST" })
 export const deleteVariantFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		// Coleta os paths (imagem base + alternativas) antes de deletar a variante para limpar o storage.
 		const { data: variant } = await supabase
@@ -188,7 +182,7 @@ export const deleteVariantFn = createServerFn({ method: "POST" })
 export const clearVariantImageFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { data: existing } = await supabase.from("uniform_variant").select("image_path").eq("id", data.id).maybeSingle()
 		const { error } = await supabase.from("uniform_variant").update({ image_path: null }).eq("id", data.id)
@@ -210,7 +204,7 @@ export const upsertPieceFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<Piece> => {
-		await requireAuth()
+		await requireUniformEditor()
 		const { data: row, error } = await getRumaerServerClient().from("piece").upsert(data).select("*").single()
 		if (error) throw new Error(error.message)
 		return row
@@ -219,7 +213,7 @@ export const upsertPieceFn = createServerFn({ method: "POST" })
 export const deletePieceFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const { error } = await getRumaerServerClient().from("piece").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 		if (error) throw new Error(error.message)
 		return { ok: true }
@@ -241,7 +235,7 @@ export const upsertPieceItemFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<PieceItem> => {
-		await requireAuth()
+		await requireUniformEditor()
 		const { data: row, error } = await getRumaerServerClient().from("piece_item").upsert(data).select("*").single()
 		if (error) throw new Error(error.message)
 		return row
@@ -250,7 +244,7 @@ export const upsertPieceItemFn = createServerFn({ method: "POST" })
 export const deletePieceItemFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const { error } = await getRumaerServerClient().from("piece_item").update({ deleted_at: new Date().toISOString() }).eq("id", data.id)
 		if (error) throw new Error(error.message)
 		return { ok: true }
@@ -275,7 +269,7 @@ export const setVariantPiecesFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { error: delErr } = await supabase.from("uniform_variant_piece").delete().eq("variant_id", data.variantId)
 		if (delErr) throw new Error(delErr.message)
@@ -299,7 +293,7 @@ export const addPieceToVariantsFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 
 		// próxima ordem por variante (anexa ao fim, sem tocar nas peças existentes)
@@ -333,7 +327,7 @@ export type AllVariantsItem = {
 }
 
 export const listAllVariantsFn = createServerFn({ method: "GET" }).handler(async (): Promise<AllVariantsItem[]> => {
-	await requireAuth()
+	await requireUniformEditor()
 	const { data, error } = await getRumaerServerClient()
 		.from("uniform_variant")
 		.select("id, uniform_id, circulo, genero, sub_variacao, uniform:uniform!inner(numero, letra, nome, grupo, ordem, deleted_at)")
@@ -361,7 +355,7 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<UniformVariantImage> => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		// Ao trocar a imagem alternativa: remove o arquivo antigo se o path mudou (órfão).
 		const { data: existing } = await supabase
@@ -379,7 +373,7 @@ export const upsertVariantImageFn = createServerFn({ method: "POST" })
 export const deleteVariantImageFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuth()
+		await requireUniformEditor()
 		const supabase = getRumaerServerClient()
 		const { data: existing } = await supabase.from("uniform_variant_image").select("image_path").eq("id", data.id).maybeSingle()
 		const { error } = await supabase.from("uniform_variant_image").delete().eq("id", data.id)

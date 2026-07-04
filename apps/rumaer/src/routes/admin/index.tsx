@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { Copy, Layers, Pencil, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
+import { useRumaerAccess } from "@/auth/pbac"
 import { BulkAddPieceDialog, type BulkTarget } from "@/components/admin/bulk-add-piece-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,7 @@ function AdminDashboard() {
 	const { data: pieceItems } = useSuspenseQuery(pieceItemsQueryOptions())
 	const queryClient = useQueryClient()
 	const router = useRouter()
+	const { canManage } = useRumaerAccess()
 
 	// Alvos do modal global: todas as variantes, agrupadas pelo título do uniforme.
 	const bulkTargets = useMemo<BulkTarget[]>(
@@ -95,6 +97,7 @@ function AdminDashboard() {
 					)}
 					<Button nativeButton={false} render={<Link to="/admin/pecas">Catálogo de peças</Link>} variant="outline" />
 					<Button nativeButton={false} render={<Link to="/admin/itens">Itens de venda</Link>} variant="outline" />
+					{canManage && <Button nativeButton={false} render={<Link to="/admin/permissoes">Permissões</Link>} variant="outline" />}
 				</div>
 			</header>
 
