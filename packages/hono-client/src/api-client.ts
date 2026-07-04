@@ -15,7 +15,7 @@ export type ApiClientOptions = {
  *
  * @example
  * ```ts
- * const client = createApiClient({ baseUrl: 'https://iefa-api.fly.dev' })
+ * const client = createApiClient({ baseUrl: 'https://api.iefa.com.br' })
  * const res = await client.api.units.$get()
  * const units = await res.json() // Unit[]
  * ```

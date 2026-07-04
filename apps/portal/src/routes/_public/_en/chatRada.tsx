@@ -14,7 +14,7 @@ import type { AskReference, AskResponse, ChatMessage, HealthStatus, RemoteMessag
    Constantes
 ========================= */
 
-const API_BASE = "https://iefa-rag.fly.dev"
+const API_BASE = "https://alpha.iefa.com.br"
 const USE_STREAM = true
 
 // localStorage keys (somente quando logado)

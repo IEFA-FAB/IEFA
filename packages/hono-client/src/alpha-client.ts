@@ -18,7 +18,7 @@ export type AlphaClientOptions = {
  *
  * @example
  * ```ts
- * const client = createAlphaClient({ baseUrl: 'https://iefa-ai.fly.dev', token })
+ * const client = createAlphaClient({ baseUrl: 'https://alpha.iefa.com.br', token })
  * const res = await client.api.v1.sessions.$post()
  * const { session_id } = await res.json()
  * ```

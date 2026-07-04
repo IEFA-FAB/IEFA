@@ -79,9 +79,6 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# === Fly.io ===
-.fly/
-
 # === VSCode (caso alguém do time use) ===
 .vscode/*
 !.vscode/settings.json

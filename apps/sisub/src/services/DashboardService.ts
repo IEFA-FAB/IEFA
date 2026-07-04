@@ -4,7 +4,7 @@ import { fetchForecasts, fetchMessHalls, fetchPresences, fetchUnits, fetchUserDa
 import { queryOptions } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/query-keys"
 
-const IEFA_API_BASE = "https://iefa-api.fly.dev"
+const IEFA_API_BASE = "https://api.iefa.com.br"
 
 // ============================================================================
 // QUERY OPTIONS

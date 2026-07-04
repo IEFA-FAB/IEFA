@@ -18,7 +18,7 @@ Monorepo for the IEFA platform.
 - **Frontend:** [TanStack Start](https://tanstack.com/start) + React 19
 - **Database:** [Supabase](https://supabase.com)
 - **Linting/Formatting:** [Biome](https://biomejs.dev)
-- **Deploy:** [Fly.io](https://fly.io)
+- **Deploy:** [AWS ECS Fargate](https://aws.amazon.com/fargate/) via Terraform (`infra/`) + GitHub OIDC
 
 ## Getting Started
 

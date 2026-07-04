@@ -76,7 +76,7 @@ type HealthServiceItem = {
 	healthPath?: string
 }
 
-const API_BASE = "https://iefa-rag.fly.dev"
+const API_BASE = "https://alpha.iefa.com.br"
 const AUTO_REFRESH_MS = 60_000
 const REQ_TIMEOUT_MS = 8_000
 
@@ -382,8 +382,8 @@ function defaultTargets(): ServiceTarget[] {
 	return [
 		portal,
 		{ name: "SISUB", url: "https://app.previsaosisub.com.br" },
-		{ name: "RAG API", url: "https://iefa-rag.fly.dev" },
-		{ name: "IEFA API", url: "https://iefa-api.fly.dev" },
+		{ name: "RAG API", url: "https://alpha.iefa.com.br" },
+		{ name: "IEFA API", url: "https://api.iefa.com.br" },
 	]
 }
 

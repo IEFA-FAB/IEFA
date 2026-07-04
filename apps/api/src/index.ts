@@ -77,7 +77,7 @@ app.openAPIRegistry.registerComponent("securitySchemes", "AdminSecret", {
 	type: "apiKey",
 	in: "header",
 	name: "x-admin-secret",
-	description: "Secret obrigatório para endpoints /api/admin/*. Configurado via env ADMIN_SECRET em iefa-api.fly.dev.",
+	description: "Secret obrigatório para endpoints /api/admin/*. Configurado via env ADMIN_SECRET em api.iefa.com.br.",
 })
 
 // Documentação OpenAPI
@@ -90,7 +90,7 @@ app.doc("/doc", {
 	},
 	servers: [
 		{
-			url: "https://iefa-api.fly.dev",
+			url: "https://api.iefa.com.br",
 			description: "Produção",
 		},
 		{

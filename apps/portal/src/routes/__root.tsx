@@ -99,7 +99,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 // Registers the Supabase auth listener exactly once per browser session.
 // Lives in a React component so useEffect guarantees cleanup on unmount —
 // preventing the listener from accumulating on the module-level singleton
-// across SSR requests (which was causing the OOM crash on Fly.io).
+// across SSR requests (which was causing the OOM crash in production).
 function AuthSync() {
 	const router = useRouter()
 	const queryClient = useQueryClient()

@@ -6,8 +6,8 @@
  */
 import { createAlphaClient, createApiClient } from "@iefa/hono-client"
 
-const API_BASE_URL = process.env.IEFA_API_BASE_URL ?? "https://iefa-api.fly.dev"
-const ALPHA_BASE_URL = process.env.ALPHA_API_BASE_URL ?? "https://iefa-ai.fly.dev"
+const API_BASE_URL = process.env.IEFA_API_BASE_URL ?? "https://api.iefa.com.br"
+const ALPHA_BASE_URL = process.env.ALPHA_API_BASE_URL ?? "https://alpha.iefa.com.br"
 
 /**
  * Cliente RPC para rotas públicas de @iefa/api.

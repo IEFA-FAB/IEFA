@@ -42,10 +42,6 @@ docker-compose*.yml
 .docker/
 .dockerignore
 
-# === Fly.io ===
-.fly/
-fly.toml
-
 # === IDE ===
 .vscode
 .idea

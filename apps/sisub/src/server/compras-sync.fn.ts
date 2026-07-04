@@ -1,7 +1,7 @@
 /**
  * @module compras-sync.fn
  * Proxy to the iefa-api sync worker for Compras.gov.br data ingestion.
- * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://api.iefa.com.br, fallback: https://iefa-api.fly.dev). No Supabase.
+ * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://api.iefa.com.br, fallback: https://api.iefa.com.br). No Supabase.
  * AUTH: x-admin-secret header from ADMIN_SECRET env var.
  * @domain external
  * @migration n-a
@@ -17,7 +17,7 @@ async function fetchApi(path: string, init?: RequestInit): Promise<Response> {
 	try {
 		return await fetch(`${API_BASE}${path}`, init)
 	} catch {
-		const fallback = "https://iefa-api.fly.dev"
+		const fallback = "https://api.iefa.com.br"
 		return fetch(`${fallback}${path}`, init)
 	}
 }

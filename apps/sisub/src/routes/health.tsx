@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-// 90% de 1GB — força o Fly.io a reiniciar o container antes de OOM
+// 90% de 1GB — força o orquestrador a reiniciar o container antes de OOM
 const MEMORY_LIMIT_BYTES = 900 * 1024 * 1024
 
 export const Route = createFileRoute("/health")({
