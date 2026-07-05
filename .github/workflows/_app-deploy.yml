@@ -73,19 +73,39 @@ jobs:
           SERVICE: ${{ inputs.service }}
           DEPLOY_ID: ${{ steps.deploy.outputs.deployment_id }}
         run: |
-          # wait services-stable also returns 0 when the deployment circuit
-          # breaker rolls back (old tasks become stable again). Assert the
-          # deployment we triggered actually reached COMPLETED, otherwise the new
-          # image was rejected and silently reverted — fail so CI reflects it.
-          STATE="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
-            --query "services[0].deployments[?id=='$DEPLOY_ID'].rolloutState | [0]" --output text)"
-          echo "Deployment $DEPLOY_ID rolloutState=$STATE"
-          if [ "$STATE" != "COMPLETED" ]; then
-            echo "::error::Deployment $DEPLOY_ID did not complete (state=$STATE) — the circuit breaker likely rolled it back."
-            aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
-              --query 'services[0].events[0:6].message' --output text || true
-            exit 1
-          fi
+          # `wait services-stable` can return 0 while our deployment is still
+          # IN_PROGRESS (it also returns 0 when the circuit breaker rolls back and
+          # the old tasks become stable again). A single read right after it is
+          # racy — an IN_PROGRESS deployment that goes on to COMPLETE would be
+          # misreported as a rollback. Poll the deployment's own rolloutState
+          # until it reaches a terminal state:
+          #   COMPLETED       -> new image is live, success
+          #   FAILED / gone   -> circuit breaker rolled it back, fail
+          #   IN_PROGRESS     -> keep waiting
+          for i in $(seq 1 60); do
+            STATE="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query "services[0].deployments[?id=='$DEPLOY_ID'].rolloutState | [0]" --output text)"
+            echo "Attempt $i/60 - Deployment $DEPLOY_ID rolloutState=$STATE"
+            case "$STATE" in
+              COMPLETED)
+                echo "✅ Deployment $DEPLOY_ID completed"
+                exit 0
+                ;;
+              FAILED|None|"")
+                echo "::error::Deployment $DEPLOY_ID did not complete (state=$STATE) — the circuit breaker likely rolled it back."
+                aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+                  --query 'services[0].events[0:6].message' --output text || true
+                exit 1
+                ;;
+              *)
+                sleep 10
+                ;;
+            esac
+          done
+          echo "::error::Deployment $DEPLOY_ID still not terminal after polling — treating as failure."
+          aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].events[0:6].message' --output text || true
+          exit 1
 
       - name: Smoke test
         if: inputs.health_url != ''
