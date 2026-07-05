@@ -2,7 +2,7 @@ import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
 import type { NutritionReferenceSummary } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, CalendarCheck, Check, ChevronsUpDown, CircleCheck, History, Loader2, Pencil, RotateCcw, Save } from "lucide-react"
+import { ArrowLeft, CalendarCheck, Check, ChevronsUpDown, CircleCheck, History, Loader2, Lock, Pencil, RotateCcw, Save } from "lucide-react"
 import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -17,6 +17,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -680,7 +681,15 @@ function NutrientsTable({ nutrients, values, onChange, readOnly = false, referen
 
 	return (
 		<div>
-			<div className="overflow-hidden rounded-lg">
+			{reference && (
+				<div className="mb-2 flex items-center gap-2">
+					<Badge variant="secondary">
+						<Lock />
+						Somente leitura · vinculado à tabela
+					</Badge>
+				</div>
+			)}
+			<div className={cn("overflow-hidden rounded-lg transition-colors", reference && "bg-muted/40")}>
 				<table className="w-full text-sm">
 					<thead>
 						<tr className="border-b-2 border-foreground/80 bg-muted/40">
