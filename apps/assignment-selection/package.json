@@ -10,7 +10,9 @@
 		"lint": "biome lint",
 		"check": "biome check",
 		"typecheck": "tsgo --noEmit",
-		"validate-env": "bun run src/env.ts"
+		"validate-env": "bun run src/env.ts",
+		"test": "ASSIGNMENT_SELECTION_RUN_INTEGRATION=false vitest run --config vitest.config.ts",
+		"test:integration": "ASSIGNMENT_SELECTION_RUN_INTEGRATION=true ASSIGNMENT_SELECTION_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -44,6 +46,7 @@
 		"@vitejs/plugin-react": "^6.0.2",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"typescript": "^6.0.3",
-		"vite": "^8.0.16"
+		"vite": "^8.0.16",
+		"vitest": "^4.1.9"
 	}
 }
