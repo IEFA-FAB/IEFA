@@ -12,28 +12,36 @@ import {
 	createReviewFn,
 	createSubmissionFn,
 	createUserProfileFn,
+	decideArticleFn,
 	declineReviewInvitationFn,
 	deleteArticleAuthorFn,
 	deleteArticleAuthorsByArticleIdFn,
 	deleteArticleFn,
 	getArticleAuthorsFn,
+	getArticleEventsFn,
 	getArticleFn,
 	getArticleReviewsFn,
 	getArticlesFn,
 	getArticleVersionsFn,
 	getArticleWithDetailsFn,
+	getAuthorArticleReviewsFn,
 	getEditorialDashboardFn,
 	getJournalSettingsFn,
 	getLatestArticleVersionFn,
 	getPublishedArticleFn,
 	getPublishedArticlesFn,
 	getReviewAssignmentByTokenFn,
+	getReviewAssignmentFn,
 	getReviewAssignmentsFn,
+	getReviewerAssignmentsFn,
+	getReviewersFn,
 	getReviewFn,
 	getUserActiveDraftFn,
 	getUserNotificationsFn,
 	getUserProfileFn,
+	inviteReviewerFn,
 	markNotificationAsReadFn,
+	resubmitRevisionFn,
 	saveReviewDraftFn,
 	submitReviewFn,
 	updateArticleAuthorFn,
@@ -107,6 +115,12 @@ export async function deleteArticle(articleId: string): Promise<Article> {
 	return (await deleteArticleFn({ data: { articleId } })) as Article
 }
 
+export type ArticleDecision = "accepted" | "rejected" | "revision_requested"
+
+export async function decideArticle(articleId: string, decision: ArticleDecision): Promise<{ id: string; submitter_id: string; title_pt: string }> {
+	return (await decideArticleFn({ data: { articleId, decision } })) as { id: string; submitter_id: string; title_pt: string }
+}
+
 export async function createSubmission(data: CreateSubmissionInput): Promise<Article> {
 	return (await createSubmissionFn({ data: data as unknown as Record<string, unknown> })) as Article
 }
@@ -147,6 +161,10 @@ export async function getLatestArticleVersion(articleId: string): Promise<Articl
 	return (await getLatestArticleVersionFn({ data: { articleId } })) as ArticleVersion
 }
 
+export async function resubmitRevision(input: { articleId: string; pdfPath: string; sourcePath?: string; coverLetter?: string }): Promise<ArticleVersion> {
+	return (await resubmitRevisionFn({ data: input })) as ArticleVersion
+}
+
 // ─── Published Articles ───────────────────────────────────────────────────────
 
 export async function getPublishedArticles(filters?: { limit?: number; offset?: number }): Promise<PublishedArticle[]> {
@@ -167,6 +185,42 @@ export async function getEditorialDashboard(filters?: { status?: string; limit?:
 
 export async function getReviewAssignments(filters?: { article_id?: string; reviewer_id?: string; status?: string }): Promise<ReviewAssignment[]> {
 	return (await getReviewAssignmentsFn({ data: filters ?? {} })) as ReviewAssignment[]
+}
+
+// Assignments do revisor com título do artigo embutido (painel do revisor).
+export type ReviewerAssignment = ReviewAssignment & {
+	article: Pick<Article, "id" | "title_pt" | "title_en" | "submission_number" | "abstract_pt"> | null
+}
+
+export async function getReviewerAssignments(reviewerId: string): Promise<ReviewerAssignment[]> {
+	return (await getReviewerAssignmentsFn({ data: { reviewerId } })) as ReviewerAssignment[]
+}
+
+// Um assignment (com artigo) por id — formulário de parecer.
+export type ReviewAssignmentWithArticle = ReviewAssignment & {
+	article: Pick<Article, "id" | "title_pt" | "title_en" | "submission_number" | "abstract_pt" | "abstract_en"> | null
+}
+
+export async function getReviewAssignment(assignmentId: string): Promise<ReviewAssignmentWithArticle> {
+	return (await getReviewAssignmentFn({ data: { assignmentId } })) as ReviewAssignmentWithArticle
+}
+
+// Diretório de revisores (para o convite pelo editor).
+export type ReviewerDirectoryEntry = {
+	id: string
+	full_name: string
+	affiliation: string | null
+	expertise: string[] | null
+	role: string
+	email: string
+}
+
+export async function getReviewers(): Promise<ReviewerDirectoryEntry[]> {
+	return (await getReviewersFn()) as ReviewerDirectoryEntry[]
+}
+
+export async function inviteReviewer(input: { articleId: string; reviewerId: string; dueDate: string }): Promise<ReviewAssignment> {
+	return (await inviteReviewerFn({ data: input })) as ReviewAssignment
 }
 
 export async function getReviewAssignmentByToken(token: string): Promise<ReviewAssignment> {
@@ -191,12 +245,55 @@ export async function declineReviewInvitation(token: string, reason?: string) {
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
-export async function getReview(assignmentId: string): Promise<Review> {
-	return (await getReviewFn({ data: { assignmentId } })) as Review
+export async function getReview(assignmentId: string): Promise<Review | null> {
+	return (await getReviewFn({ data: { assignmentId } })) as Review | null
 }
 
-export async function getArticleReviews(articleId: string): Promise<Review[]> {
-	return (await getArticleReviewsFn({ data: { articleId } })) as Review[]
+// Parecer submetido + dados do assignment (identificação do revisor para o editor).
+export type ArticleReviewWithAssignment = Review & {
+	assignment: {
+		id: string
+		article_id: string
+		reviewer_id: string | null
+		invitation_email: string
+		status: string
+		due_date: string
+	} | null
+}
+
+export async function getArticleReviews(articleId: string): Promise<ArticleReviewWithAssignment[]> {
+	return (await getArticleReviewsFn({ data: { articleId } })) as ArticleReviewWithAssignment[]
+}
+
+// Visão restrita do autor: feedback qualitativo + recomendação, sem identidade
+// do revisor e sem comentários confidenciais ao editor.
+export type AuthorReview = {
+	id: string
+	label: string
+	recommendation: string | null
+	strengths: string | null
+	weaknesses: string | null
+	comments_for_authors: string | null
+	submitted_at: string | null
+}
+
+export async function getAuthorArticleReviews(articleId: string): Promise<{ status: string; reviews: AuthorReview[] }> {
+	return (await getAuthorArticleReviewsFn({ data: { articleId } })) as { status: string; reviews: AuthorReview[] }
+}
+
+// ─── Article Events (timeline) ────────────────────────────────────────────────
+
+export type ArticleEvent = {
+	id: string
+	article_id: string
+	user_id: string | null
+	event_type: string
+	event_data: Record<string, unknown> | null
+	created_at: string
+}
+
+export async function getArticleEvents(articleId: string): Promise<ArticleEvent[]> {
+	return (await getArticleEventsFn({ data: { articleId } })) as ArticleEvent[]
 }
 
 export async function createReview(review: Partial<Review>): Promise<Review> {
@@ -265,6 +362,14 @@ export async function uploadArticleFile(
 export function getArticleFileUrl(bucket: string, path: string): string {
 	const { data } = supabase.storage.from(bucket).getPublicUrl(path)
 	return data.publicUrl
+}
+
+/**
+ * URL assinada (temporária) gerada no servidor. Use para manuscritos, pois o
+ * bucket `journal-submissions` é privado (confidencialidade + duplo-cego).
+ */
+export async function getSignedFileUrl(bucket: string, path: string, expiresIn = 3600): Promise<string> {
+	return (await getSignedDownloadUrlFn({ data: { bucket, path, expiresIn } })) as string
 }
 
 /** Download via signed URL gerada no servidor. */

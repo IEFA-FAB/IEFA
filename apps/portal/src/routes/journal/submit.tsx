@@ -159,7 +159,7 @@ function RouteComponent() {
 		<div className="container mx-auto max-w-5xl px-4 py-8">
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold tracking-tight">Nova Submissão de Artigo</h1>
-				<p className="mt-2 text-muted-foreground">Preen all as informações solicitadas para submeter seu artigo para revisão por pares.</p>
+				<p className="mt-2 text-muted-foreground">Preencha todas as informações solicitadas para submeter seu artigo para revisão por pares.</p>
 			</div>
 
 			{error && (
