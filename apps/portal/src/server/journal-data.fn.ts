@@ -40,6 +40,24 @@ async function requireAssignedReviewer(assignmentId: string): Promise<void> {
 	if (!assignment || assignment.reviewer_id !== userId) throw new Error("Você não é o revisor designado deste parecer.")
 }
 
+async function isEditor(userId: string): Promise<boolean> {
+	const { data } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
+	return data?.role === "editor"
+}
+
+// Leitura de dados do assignment: permitida ao revisor designado ou a editores.
+// (Endpoints service-role bypassam RLS; sem isso qualquer autenticado leria o
+// parecer/abstract de outro revisor — quebra do duplo-cego.)
+async function requireAssignmentAccess(assignmentId: string): Promise<void> {
+	const userId = await getRequestUserId()
+	if (!userId) throw new Error("Não autenticado.")
+	const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id").eq("id", assignmentId).maybeSingle()
+	if (!assignment) throw new Error("Convite de revisão não encontrado.")
+	if (assignment.reviewer_id === userId) return
+	if (await isEditor(userId)) return
+	throw new Error("Você não tem acesso a este parecer.")
+}
+
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
 export const getUserProfileFn = createServerFn({ method: "GET" })
@@ -384,6 +402,7 @@ export const declineReviewInvitationFn = createServerFn({ method: "POST" })
 export const getReviewFn = createServerFn({ method: "GET" })
 	.validator(z.object({ assignmentId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAssignmentAccess(data.assignmentId)
 		// maybeSingle: um assignment ainda sem parecer retorna null (não é erro).
 		// `.single()` lançava PGRST116 e quebrava o formulário de revisão em branco.
 		const { data: result, error } = await getJournalServerClient().from("reviews").select("*").eq("assignment_id", data.assignmentId).maybeSingle()
@@ -394,6 +413,8 @@ export const getReviewFn = createServerFn({ method: "GET" })
 export const getArticleReviewsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		// Contém comentários confidenciais ao editor + identidade do revisor — só editor.
+		await requireEditor()
 		// Editor vê os pareceres já submetidos (is_draft = false) do artigo,
 		// com dados do assignment (revisor/e-mail/prazo) para identificação.
 		const { data: result, error } = await getJournalServerClient()
@@ -715,6 +736,10 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 export const getReviewerAssignmentsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ reviewerId: z.string() }))
 	.handler(async ({ data }) => {
+		// Só o próprio revisor (ou um editor) lê seus assignments.
+		const uid = await getRequestUserId()
+		if (!uid) throw new Error("Não autenticado.")
+		if (uid !== data.reviewerId && !(await isEditor(uid))) throw new Error("Você não tem acesso a estes convites.")
 		const db = getJournalServerClient()
 		// Expira convites vencidos (best-effort) antes de listar — não há cron, então
 		// a expiração acontece oportunamente na leitura.
@@ -737,6 +762,8 @@ export const getReviewerAssignmentsFn = createServerFn({ method: "GET" })
 export const getReviewAssignmentFn = createServerFn({ method: "GET" })
 	.validator(z.object({ assignmentId: z.string() }))
 	.handler(async ({ data }) => {
+		// Revisor designado ou editor — o abstract embutido não pode vazar.
+		await requireAssignmentAccess(data.assignmentId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("review_assignments")
 			.select("*, article:articles(id, title_pt, title_en, submission_number, abstract_pt, abstract_en)")
@@ -751,6 +778,8 @@ export const getReviewAssignmentFn = createServerFn({ method: "GET" })
 export const getArticleEventsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		// Timeline expõe metadados editoriais/identidade de revisores — só editor.
+		await requireEditor()
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_events")
 			.select("*")
