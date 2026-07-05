@@ -13,6 +13,8 @@ export type FetchProcurementNeeds = z.infer<typeof FetchProcurementNeedsSchema>
 
 export const PurchaseItemWriteSchema = z.object({
 	description: z.string().min(1, "Descrição obrigatória"),
+	detailed_description: z.string().nullable().optional(),
+	delivery_conditioning: z.string().nullable().optional(),
 	purchase_measure_unit: z.string().nullable().optional(),
 	catmat_item_codigo: z.number().int().positive().nullable().optional(),
 	catmat_item_descricao: z.string().nullable().optional(),

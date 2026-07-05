@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { Edit, PackagePlus, ShoppingCart, Trash2 } from "lucide-react"
+import { Edit, PackagePlus, ShoppingCart, Trash2, Truck } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -116,6 +116,13 @@ export function PurchaseItemsManager({ ingredientId, onChanged }: PurchaseItemsM
 										{summary && <span className="font-mono">{summary}</span>}
 										{item.catmat_item_codigo == null && !summary && "Sem dados comerciais"}
 									</ItemDescription>
+									{item.detailed_description && <p className="text-caption text-muted-foreground whitespace-pre-line">{item.detailed_description}</p>}
+									{item.delivery_conditioning && (
+										<p className="flex items-start gap-1.5 text-caption text-muted-foreground">
+											<Truck className="size-3.5 shrink-0 translate-y-0.5" />
+											<span className="whitespace-pre-line">{item.delivery_conditioning}</span>
+										</p>
+									)}
 								</ItemContent>
 								<ItemActions>
 									<Button
