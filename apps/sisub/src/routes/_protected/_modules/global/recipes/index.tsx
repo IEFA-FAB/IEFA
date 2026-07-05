@@ -3,7 +3,7 @@ import { Activity, Plus } from "lucide-react"
 import { useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
-import { ReviewMetricsSheet } from "@/components/features/global/ReviewMetricsSheet"
+import { RecipeReviewMetricsSheet } from "@/components/features/global/ReviewMetricsSheet"
 import { RecipesManager } from "@/components/features/shared/RecipesManager"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,7 @@ function GlobalRecipesPage() {
 				/>
 			</PageHeader>
 			<RecipesManager />
-			<ReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
+			<RecipeReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
 		</div>
 	)
 }

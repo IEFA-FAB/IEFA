@@ -1,7 +1,6 @@
 import type { ReviewActivityEntry, ReviewTypeMetrics } from "@iefa/sisub-domain"
 import { Activity, CalendarCheck, Loader2, Package, UtensilsCrossed } from "lucide-react"
-import { useMemo, useState } from "react"
-import { Badge } from "@/components/ui/badge"
+import { useCallback, useMemo, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -10,11 +9,26 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { useReviewMetrics } from "@/services/ReviewMetricsService"
 
 type Preset = "6m" | "12m" | "custom"
+type MetricType = "ingredient" | "recipe"
 
 const PRESET_LABELS: Record<Preset, string> = {
 	"6m": "Últimos 6 meses",
 	"12m": "Últimos 12 meses",
 	custom: "Intervalo personalizado",
+}
+
+/** Configuração por tipo — cada painel mostra apenas o seu domínio (insumos OU preparações). */
+const TYPE_CONFIG: Record<MetricType, { label: string; icon: React.ReactNode; description: string }> = {
+	ingredient: {
+		label: "Insumos",
+		icon: <Package className="size-4" />,
+		description: "Progresso da conferência de insumos pelos nutricionistas.",
+	},
+	recipe: {
+		label: "Preparações",
+		icon: <UtensilsCrossed className="size-4" />,
+		description: "Progresso da conferência de preparações pelos nutricionistas.",
+	},
 }
 
 interface ReviewMetricsSheetProps {
@@ -62,7 +76,7 @@ function formatStamp(dateStr: string): string {
 	return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-/** Cobertura geral de um tipo (insumos ou preparações): % já revisado + pendentes. */
+/** Cobertura geral do tipo do painel: % já revisado + pendentes. */
 function CoverageCard({ label, icon, metrics }: { label: string; icon: React.ReactNode; metrics: ReviewTypeMetrics }) {
 	const coverage = pct(metrics.reviewed_ever, metrics.total)
 	const pending = Math.max(0, metrics.total - metrics.reviewed_ever)
@@ -91,7 +105,12 @@ function CoverageCard({ label, icon, metrics }: { label: string; icon: React.Rea
 	)
 }
 
-export function ReviewMetricsSheet({ open, onOpenChange }: ReviewMetricsSheetProps) {
+/**
+ * Painel lateral de métricas de revisão de um único tipo (insumos OU preparações).
+ * Base compartilhada; cada tela instancia o seu painel via os wrappers exportados abaixo.
+ */
+function ReviewMetricsSheetBase({ open, onOpenChange, type }: ReviewMetricsSheetProps & { type: MetricType }) {
+	const config = TYPE_CONFIG[type]
 	const [preset, setPreset] = useState<Preset>("6m")
 	const [customFrom, setCustomFrom] = useState("")
 	const [customTo, setCustomTo] = useState("")
@@ -100,15 +119,21 @@ export function ReviewMetricsSheet({ open, onOpenChange }: ReviewMetricsSheetPro
 	const enabled = open && window !== null
 	const { data, isLoading, isError } = useReviewMetrics(window?.from, window?.to, enabled)
 
+	// Cobertura, atividade diária e feed do tipo deste painel — payload traz ambos separados.
+	const metrics = type === "ingredient" ? data?.ingredients : data?.recipes
+	const countFor = useCallback((d: { ingredient_count: number; recipe_count: number }) => (type === "ingredient" ? d.ingredient_count : d.recipe_count), [type])
+
 	const maxDaily = useMemo(() => {
 		if (!data) return 0
-		return data.daily.reduce((m, d) => Math.max(m, d.ingredient_count + d.recipe_count), 0)
-	}, [data])
+		return data.daily.reduce((m, d) => Math.max(m, countFor(d)), 0)
+	}, [data, countFor])
 
 	const periodTotal = useMemo(() => {
 		if (!data) return 0
-		return data.daily.reduce((sum, d) => sum + d.ingredient_count + d.recipe_count, 0)
-	}, [data])
+		return data.daily.reduce((sum, d) => sum + countFor(d), 0)
+	}, [data, countFor])
+
+	const recent = useMemo(() => (data ? data.recent.filter((e) => e.type === type) : []), [data, type])
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -116,9 +141,9 @@ export function ReviewMetricsSheet({ open, onOpenChange }: ReviewMetricsSheetPro
 				<SheetHeader className="border-b border-border px-5 py-4">
 					<SheetTitle className="flex items-center gap-2">
 						<Activity className="size-4" />
-						Métricas de revisão
+						Revisão de {config.label}
 					</SheetTitle>
-					<SheetDescription>Progresso da conferência de insumos e preparações pelos nutricionistas.</SheetDescription>
+					<SheetDescription>{config.description}</SheetDescription>
 				</SheetHeader>
 
 				{/* Filtro temporal */}
@@ -143,22 +168,21 @@ export function ReviewMetricsSheet({ open, onOpenChange }: ReviewMetricsSheetPro
 					{preset === "custom" && window === null && <p className="text-caption text-muted-foreground">Selecione um intervalo de datas válido.</p>}
 				</div>
 
-				<ScrollArea className="flex-1">
+				<ScrollArea className="min-h-0 flex-1">
 					{isLoading ? (
 						<div className="flex items-center justify-center py-16">
 							<Loader2 className="size-6 animate-spin text-muted-foreground" />
 						</div>
 					) : isError ? (
 						<div className="px-6 py-12 text-center text-sm text-muted-foreground">Não foi possível carregar as métricas.</div>
-					) : !data ? (
+					) : !data || !metrics ? (
 						<div className="px-6 py-12 text-center text-sm text-muted-foreground">Selecione um período para ver as métricas.</div>
 					) : (
 						<div className="space-y-6 px-5 py-4">
 							{/* Cobertura geral (independente do período) */}
 							<section className="space-y-3">
 								<h3 className="text-caption font-medium uppercase tracking-wide text-muted-foreground">Cobertura geral</h3>
-								<CoverageCard label="Insumos" icon={<Package className="size-4 text-muted-foreground" />} metrics={data.ingredients} />
-								<CoverageCard label="Preparações" icon={<UtensilsCrossed className="size-4 text-muted-foreground" />} metrics={data.recipes} />
+								<CoverageCard label={config.label} icon={<span className="text-muted-foreground">{config.icon}</span>} metrics={metrics} />
 							</section>
 
 							{/* Atividade no período (estilo GitHub) */}
@@ -167,35 +191,38 @@ export function ReviewMetricsSheet({ open, onOpenChange }: ReviewMetricsSheetPro
 									<h3 className="text-caption font-medium uppercase tracking-wide text-muted-foreground">Atividade no período</h3>
 									<span className="text-caption text-muted-foreground tabular-nums">{periodTotal} revisões</span>
 								</div>
-								{data.daily.length === 0 ? (
+								{periodTotal === 0 ? (
 									<p className="rounded-lg border border-dashed border-border py-6 text-center text-caption text-muted-foreground">
 										Nenhuma revisão registrada neste período.
 									</p>
 								) : (
 									<ul className="space-y-1.5">
-										{[...data.daily].reverse().map((d) => {
-											const total = d.ingredient_count + d.recipe_count
-											const width = maxDaily > 0 ? Math.max(4, Math.round((total / maxDaily) * 100)) : 0
-											return (
-												<li key={d.date} className="flex items-center gap-3">
-													<span className="w-14 shrink-0 text-caption text-muted-foreground tabular-nums">{formatDay(d.date)}</span>
-													<div className="flex h-4 flex-1 overflow-hidden rounded-sm bg-muted">
-														<div className="h-full bg-primary" style={{ width: `${width}%` }} />
-													</div>
-													<span className="w-8 shrink-0 text-right text-caption text-foreground tabular-nums">{total}</span>
-												</li>
-											)
-										})}
+										{[...data.daily]
+											.filter((d) => countFor(d) > 0)
+											.reverse()
+											.map((d) => {
+												const total = countFor(d)
+												const width = maxDaily > 0 ? Math.max(4, Math.round((total / maxDaily) * 100)) : 0
+												return (
+													<li key={d.date} className="flex items-center gap-3">
+														<span className="w-14 shrink-0 text-caption text-muted-foreground tabular-nums">{formatDay(d.date)}</span>
+														<div className="flex h-4 flex-1 overflow-hidden rounded-sm bg-muted">
+															<div className="h-full bg-primary" style={{ width: `${width}%` }} />
+														</div>
+														<span className="w-8 shrink-0 text-right text-caption text-foreground tabular-nums">{total}</span>
+													</li>
+												)
+											})}
 									</ul>
 								)}
 							</section>
 
 							{/* Feed recente */}
-							{data.recent.length > 0 && (
+							{recent.length > 0 && (
 								<section className="space-y-3">
 									<h3 className="text-caption font-medium uppercase tracking-wide text-muted-foreground">Revisões recentes</h3>
 									<ol className="space-y-2.5">
-										{data.recent.map((entry) => (
+										{recent.map((entry) => (
 											<ActivityRow key={`${entry.type}-${entry.id}-${entry.reviewed_at}`} entry={entry} />
 										))}
 									</ol>
@@ -210,17 +237,11 @@ export function ReviewMetricsSheet({ open, onOpenChange }: ReviewMetricsSheetPro
 }
 
 function ActivityRow({ entry }: { entry: ReviewActivityEntry }) {
-	const isIngredient = entry.type === "ingredient"
 	return (
 		<li className="flex items-start gap-2.5">
 			<CalendarCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-2">
-					<span className="truncate text-sm text-foreground">{entry.name}</span>
-					<Badge variant="outline" className="shrink-0 text-[11px]">
-						{isIngredient ? "Insumo" : "Preparação"}
-					</Badge>
-				</div>
+				<span className="block truncate text-sm text-foreground">{entry.name}</span>
 				<p className="text-caption text-muted-foreground">
 					{formatStamp(entry.reviewed_at)}
 					{entry.reviewed_by_name ? ` · ${entry.reviewed_by_name}` : ""}
@@ -228,4 +249,14 @@ function ActivityRow({ entry }: { entry: ReviewActivityEntry }) {
 			</div>
 		</li>
 	)
+}
+
+/** Painel de métricas de revisão de insumos — usado na tela de Gestão de Insumos. */
+export function IngredientReviewMetricsSheet(props: ReviewMetricsSheetProps) {
+	return <ReviewMetricsSheetBase {...props} type="ingredient" />
+}
+
+/** Painel de métricas de revisão de preparações — usado na tela de Preparações Globais. */
+export function RecipeReviewMetricsSheet(props: ReviewMetricsSheetProps) {
+	return <ReviewMetricsSheetBase {...props} type="recipe" />
 }
