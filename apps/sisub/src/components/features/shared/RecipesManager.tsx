@@ -161,14 +161,21 @@ export function RecipesManager() {
 	// Preparações usadas em planos semanais → revisão prioritária pelas nutricionistas.
 	const { usedIds: menuUsageIds } = useRecipeMenuUsage()
 	// Status de revisão (conferência) por preparação — para o badge por linha e o filtro de pendentes.
-	const { reviewedAtById } = useRecipeLastReviews()
+	const { reviewedAtById, isLoading: reviewsLoading } = useRecipeLastReviews()
 
 	const filteredRecipes = useMemo(() => {
 		let list = allRecipes
 		if (onlyWeeklyMenu) list = list.filter((r) => menuUsageIds.has(r.id))
-		if (onlyNotReviewed) list = list.filter((r) => !reviewedAtById.has(r.id))
+		// Só filtra por revisão quando o mapa já chegou — com o Map ainda vazio, `!has` seria
+		// verdadeiro para todas e a lista completa apareceria antes de sumir (flash). O gate de
+		// loading abaixo mostra o spinner nesse meio-tempo.
+		if (onlyNotReviewed && !reviewsLoading) list = list.filter((r) => !reviewedAtById.has(r.id))
 		return list
-	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, menuUsageIds, reviewedAtById])
+	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, reviewsLoading, menuUsageIds, reviewedAtById])
+
+	// Enquanto o filtro de pendentes está ativo e o mapa de revisões carrega (1ª visita, sem
+	// cache), exibe loading em vez de uma lista transitoriamente incorreta.
+	const showLoading = isLoading || (onlyNotReviewed && reviewsLoading)
 
 	const clearSelection = () => setSelected(new Map())
 
@@ -326,7 +333,7 @@ export function RecipesManager() {
 			{/* Virtualized List */}
 			<Card>
 				<div ref={parentRef} className="h-150 overflow-auto">
-					{isLoading ? (
+					{showLoading ? (
 						<div className="flex items-center justify-center h-full text-sm text-muted-foreground">Carregando preparações...</div>
 					) : filteredRecipes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">

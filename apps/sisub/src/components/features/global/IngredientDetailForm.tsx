@@ -2,7 +2,7 @@ import type { Ceafa, Folder, Ingredient, Nutrient } from "@iefa/database/sisub"
 import type { NutritionReferenceSummary } from "@iefa/sisub-domain"
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { getRouteApi } from "@tanstack/react-router"
 import { ArrowLeft, CalendarCheck, Check, ChevronsUpDown, CircleCheck, History, Loader2, Pencil, RotateCcw, Save } from "lucide-react"
 import { type Dispatch, type SetStateAction, useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -46,6 +46,10 @@ import { IngredientVersionPreview } from "./IngredientVersionPreview"
 import { NutritionReferenceCombobox } from "./NutritionReferenceCombobox"
 import { PurchaseItemsManager } from "./PurchaseItemsManager"
 
+// API tipada da rota de detalhe — hooks (useSearch/useNavigate) já ligados ao ?tab= validado
+// pela rota, sem cast. getRouteApi evita o import circular com o módulo da rota.
+const ingredientRoute = getRouteApi("/_protected/_modules/global/ingredients/$ingredientId")
+
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
 // Espelha a estrutura de abas do RecipeForm (preparação).
 const INGREDIENT_FORM_TABS = ["detalhes", "nutricao", "compra", "produto"] as const
@@ -79,14 +83,12 @@ interface IngredientDetailFormProps {
 export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFormProps) {
 	const queryClient = useQueryClient()
 
-	// Aba ativa via URL — compartilhável e navegável. strict:false porque a rota de detalhe
-	// não declara ?tab= no validateSearch; o valor é validado abaixo (fallback "detalhes").
-	const navigate = useNavigate()
-	const search = useSearch({ strict: false }) as { tab?: string }
+	// Aba ativa via URL — compartilhável e navegável. Tipada via `from` (a rota declara
+	// `validateSearch: { tab?: string }`); o fallback "detalhes" cobre valores fora do enum.
+	const navigate = ingredientRoute.useNavigate()
+	const search = ingredientRoute.useSearch()
 	const activeTab: IngredientFormTab = INGREDIENT_FORM_TABS.includes(search.tab as IngredientFormTab) ? (search.tab as IngredientFormTab) : "detalhes"
-	// navigate genérico (sem `from`) resolve o reducer de search como `never`; o cast preserva
-	// os demais params e grava ?tab= na URL.
-	const setTab = (tab: IngredientFormTab) => navigate({ search: ((prev: Record<string, unknown>) => ({ ...prev, tab })) as never, replace: true })
+	const setTab = (tab: IngredientFormTab) => navigate({ search: (prev) => ({ ...prev, tab }), replace: true })
 
 	const { saveIngredientDetails, isSaving } = useSaveIngredientDetails()
 	const { recordIngredientVersion } = useRecordIngredientVersion()
