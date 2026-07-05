@@ -87,6 +87,7 @@ FROM deps AS rumaer-build
 ARG VITE_RUMAER_SUPABASE_URL
 ARG VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
 COPY packages/database ./packages/database
+COPY packages/pbac ./packages/pbac
 COPY apps/rumaer ./apps/rumaer
 RUN rm -rf apps/rumaer/.vite apps/rumaer/.tanstack apps/rumaer/node_modules/.vite
 RUN bun --filter='@iefa/rumaer' run build
