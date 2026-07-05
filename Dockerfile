@@ -15,6 +15,7 @@ COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/portal/package.json ./apps/portal/
 COPY apps/rumaer/package.json ./apps/rumaer/
+COPY apps/assignment-selection/package.json ./apps/assignment-selection/
 COPY apps/sisub/package.json ./apps/sisub/
 COPY apps/sisub-mcp/package.json ./apps/sisub-mcp/
 COPY apps/docs/package.json ./apps/docs/
@@ -106,6 +107,37 @@ FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b4
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=rumaer-build /app/apps/rumaer/.output ./.output
+USER bun
+EXPOSE 3000
+CMD ["bun", ".output/server/index.mjs"]
+
+# =============================================================================
+# ASSIGNMENT-SELECTION (escolha de vagas / CPAINT)
+# =============================================================================
+FROM deps AS assignment-selection-build
+ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_URL
+ARG VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY
+COPY packages/database ./packages/database
+COPY apps/assignment-selection ./apps/assignment-selection
+RUN rm -rf apps/assignment-selection/.vite apps/assignment-selection/.tanstack apps/assignment-selection/node_modules/.vite
+RUN bun --filter='@iefa/assignment-selection' run build
+RUN test -f apps/assignment-selection/.output/server/index.mjs || \
+    (echo "❌ Build failed: output missing" && exit 1)
+
+RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/assignment-selection/.output/server/index.mjs \
+    | tr -d '"' \
+    | sort -u \
+    | while read asset; do \
+        if [ ! -f "apps/assignment-selection/.output/public${asset}" ]; then \
+          echo "❌ Asset referenced by server but missing from public: ${asset}"; exit 1; \
+        fi; \
+      done \
+    && echo "✅ All server-referenced assets present in public/"
+
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS assignment-selection
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=assignment-selection-build /app/apps/assignment-selection/.output ./.output
 USER bun
 EXPOSE 3000
 CMD ["bun", ".output/server/index.mjs"]
