@@ -5,7 +5,7 @@ import { useRef, useState } from "react"
 import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientsTreeManager, type IngredientsTreeManagerHandle } from "@/components/features/global/IngredientsTreeManager"
-import { ReviewMetricsSheet } from "@/components/features/global/ReviewMetricsSheet"
+import { IngredientReviewMetricsSheet } from "@/components/features/global/ReviewMetricsSheet"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -71,7 +71,7 @@ function IngredientsPage() {
 				</ButtonGroup>
 			</PageHeader>
 			<IngredientsTreeManager ref={managerRef} />
-			<ReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
+			<IngredientReviewMetricsSheet open={metricsOpen} onOpenChange={setMetricsOpen} />
 		</div>
 	)
 }

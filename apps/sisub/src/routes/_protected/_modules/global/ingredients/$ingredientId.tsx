@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { z } from "zod"
 import { requirePermission } from "@/auth/pbac"
 import { IngredientDetailForm } from "@/components/features/global/IngredientDetailForm"
 import {
@@ -15,7 +16,13 @@ import {
  * ACL: módulo "global" nível 1+ (GLOBAL-01)
  * Responsabilidade: Visualizar e editar dados completos de um insumo
  */
+// Aba ativa do formulário de detalhe (?tab=) — persistida na URL, compartilhável.
+const searchSchema = z.object({
+	tab: z.string().optional(),
+})
+
 export const Route = createFileRoute("/_protected/_modules/global/ingredients/$ingredientId")({
+	validateSearch: searchSchema,
 	beforeLoad: (opts) => requirePermission(opts, "global", 1),
 	loader: ({ context, params }) => {
 		return Promise.all([

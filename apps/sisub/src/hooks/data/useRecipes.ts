@@ -84,6 +84,32 @@ export async function fetchRecipeWithIngredients(recipeId: string): Promise<Reci
 	return fetchRecipeWithIngredientsFn({ data: { recipeId } })
 }
 
+/**
+ * Últimas revisões de TODAS as preparações (bulk) — para exibir o status de revisão
+ * por linha na listagem e alimentar o filtro "somente não revisadas".
+ */
+export const recipeLastReviewsQueryOptions = () =>
+	queryOptions({
+		queryKey: queryKeys.recipes.lastReviews(),
+		queryFn: () => fetchRecipeLastReviewsFn({ data: {} }) as Promise<RecipeLastReview[]>,
+		staleTime: 5 * 60 * 1000,
+		gcTime: 5 * 60 * 1000,
+	})
+
+/**
+ * Mapa `recipeId → reviewed_at` (ISO) das preparações já revisadas ao menos uma vez.
+ * Ausência da chave = nunca revisada. Espelha `useRecipeMenuUsage`.
+ */
+export function useRecipeLastReviews() {
+	const query = useQuery(recipeLastReviewsQueryOptions())
+	const reviewedAtById = useMemo(() => {
+		const map = new Map<string, string>()
+		for (const r of query.data ?? []) map.set(r.recipe_id, r.reviewed_at)
+		return map
+	}, [query.data])
+	return { ...query, reviewedAtById }
+}
+
 /** Última revisão (conferência) de uma preparação — null se nunca revisada. */
 export const recipeLastReviewQueryOptions = (recipeId: string) =>
 	queryOptions({
@@ -100,8 +126,9 @@ export function useRecordRecipeReview() {
 	const queryClient = useQueryClient()
 	const mutation = useMutation({
 		mutationFn: (recipeId: string) => recordRecipeReviewFn({ data: { recipeId } }),
-		onSuccess: (_res, recipeId) => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lastReview(recipeId) })
+		onSuccess: () => {
+			// Prefixo invalida tanto a última revisão individual quanto o bulk da listagem.
+			queryClient.invalidateQueries({ queryKey: queryKeys.recipes.lastReviews() })
 			// Atualiza o painel de métricas (todas as janelas temporais).
 			queryClient.invalidateQueries({ queryKey: queryKeys.reviewMetrics.all() })
 		},

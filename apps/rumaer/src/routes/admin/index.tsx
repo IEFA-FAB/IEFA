@@ -122,13 +122,7 @@ function AdminDashboard() {
 							<div className="flex flex-col gap-4">
 								<div className="flex flex-col gap-1.5">
 									<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nome</span>
-									<Input
-										value={nome}
-										onChange={(e) => setNome(e.target.value)}
-										placeholder="Ex.: 5º Uniforme A"
-										// biome-ignore lint/a11y/noAutofocus: foco no primeiro campo ao abrir o modal
-										autoFocus
-									/>
+									<Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: 5º Uniforme A" autoFocus />
 								</div>
 								<div className="flex flex-col gap-1.5">
 									<span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Grupo</span>
