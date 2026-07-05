@@ -76,13 +76,10 @@ export const getArticleFn = createServerFn({ method: "GET" })
 export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		// Usa cliente padrão (sem schema) para chamar RPC na schema pública
-		const { createClient } = await import("@supabase/supabase-js")
-		const { envServer } = await import("@/lib/env.server")
-		const client = createClient(envServer.VITE_IEFA_SUPABASE_URL, envServer.IEFA_SUPABASE_SECRET_KEY, {
-			auth: { persistSession: false },
-		})
-		const { data: result, error } = await client.rpc("get_article_details", {
+		// A função vive no schema `journal` (journal.get_article_details), então
+		// precisa do client com schema journal — o client "public" resolve para
+		// public.get_article_details, que não existe (PGRST202).
+		const { data: result, error } = await getJournalServerClient().rpc("get_article_details", {
 			article_uuid: data.articleId,
 		})
 		if (error) throw new Error(error.message)
@@ -358,7 +355,9 @@ export const declineReviewInvitationFn = createServerFn({ method: "POST" })
 export const getReviewFn = createServerFn({ method: "GET" })
 	.validator(z.object({ assignmentId: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getJournalServerClient().from("reviews").select("*").eq("assignment_id", data.assignmentId).single()
+		// maybeSingle: um assignment ainda sem parecer retorna null (não é erro).
+		// `.single()` lançava PGRST116 e quebrava o formulário de revisão em branco.
+		const { data: result, error } = await getJournalServerClient().from("reviews").select("*").eq("assignment_id", data.assignmentId).maybeSingle()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -366,10 +365,14 @@ export const getReviewFn = createServerFn({ method: "GET" })
 export const getArticleReviewsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		// Editor vê os pareceres já submetidos (is_draft = false) do artigo,
+		// com dados do assignment (revisor/e-mail/prazo) para identificação.
 		const { data: result, error } = await getJournalServerClient()
 			.from("reviews")
-			.select("*, assignment:review_assignments!inner(article_id)")
+			.select("*, assignment:review_assignments!inner(id, article_id, reviewer_id, invitation_email, status, due_date)")
 			.eq("assignment.article_id", data.articleId)
+			.eq("is_draft", false)
+			.order("submitted_at", { ascending: false })
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -404,12 +407,30 @@ async function writeReview(assignmentId: string, fields: Record<string, unknown>
 export const submitReviewFn = createServerFn({ method: "POST" })
 	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
 	.handler(async ({ data }) => {
+		const db = getJournalServerClient()
 		const review = await writeReview(data.assignmentId, { ...data.reviewData, is_draft: false, submitted_at: new Date().toISOString() })
-		const { error: assignmentError } = await getJournalServerClient()
+
+		const { data: assignment, error: assignmentError } = await db
 			.from("review_assignments")
 			.update({ status: "completed", completed_at: new Date().toISOString() })
 			.eq("id", data.assignmentId)
+			.select("article_id, reviewer_id")
+			.single()
 		if (assignmentError) throw new Error(assignmentError.message)
+
+		// Avança o artigo para "under_review" ao receber o primeiro parecer
+		// (quando ainda está apenas "submitted"). O status de decisão final
+		// continua sendo do editor.
+		await db.from("articles").update({ status: "under_review" }).eq("id", assignment.article_id).eq("status", "submitted")
+
+		// Log de evento para a timeline do editor (o trigger de status só cobre mudanças de status).
+		await db.from("article_events").insert({
+			article_id: assignment.article_id,
+			user_id: assignment.reviewer_id,
+			event_type: "review_completed",
+			event_data: { recommendation: (data.reviewData as { recommendation?: string }).recommendation ?? null },
+		})
+
 		return review
 	})
 
@@ -537,4 +558,141 @@ export const canSubmitReviewFn = createServerFn({ method: "GET" })
 		const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id, status").eq("id", data.assignmentId).single()
 		if (!assignment) return false
 		return assignment.reviewer_id === data.userId && assignment.status === "accepted"
+	})
+
+// ─── Reviewer directory + convites (lado do editor) ───────────────────────────
+
+// Lista candidatos a revisor (role reviewer ou editor) com e-mail resolvido de auth.users.
+export const getReviewersFn = createServerFn({ method: "GET" }).handler(async () => {
+	const db = getJournalServerClient()
+	const { data: profiles, error } = await db
+		.from("user_profiles")
+		.select("id, full_name, affiliation, expertise, role")
+		.in("role", ["reviewer", "editor"])
+		.order("full_name", { ascending: true })
+	if (error) throw new Error(error.message)
+
+	// E-mail vive em auth.users — resolve por id via admin API (service role).
+	// getUserById por revisor evita o teto de paginação do listUsers (o projeto
+	// tem >1000 usuários, então listUsers perderia revisores fora da 1ª página).
+	const withEmail = await Promise.all(
+		(profiles ?? []).map(async (p) => {
+			const { data: user } = await db.auth.admin.getUserById(p.id)
+			return { ...p, email: user?.user?.email ?? "" }
+		})
+	)
+	return withEmail
+})
+
+// Cria o convite de revisão: resolve e-mail, insere o assignment, notifica o revisor,
+// avança o artigo para under_review e registra o evento. Encapsula tudo no servidor.
+export const inviteReviewerFn = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			articleId: z.string(),
+			reviewerId: z.string(),
+			invitedBy: z.string(),
+			dueDate: z.string(),
+		})
+	)
+	.handler(async ({ data }) => {
+		const db = getJournalServerClient()
+
+		const { data: reviewerUser, error: userError } = await db.auth.admin.getUserById(data.reviewerId)
+		if (userError) throw new Error(userError.message)
+		const email = reviewerUser?.user?.email
+		if (!email) throw new Error("Revisor não possui e-mail cadastrado.")
+
+		// Impede convite duplicado ativo para o mesmo revisor/artigo.
+		const { data: existing } = await db
+			.from("review_assignments")
+			.select("id")
+			.eq("article_id", data.articleId)
+			.eq("reviewer_id", data.reviewerId)
+			.in("status", ["invited", "accepted", "completed"])
+			.maybeSingle()
+		if (existing) throw new Error("Este revisor já foi convidado para este artigo.")
+
+		const { data: assignment, error } = await db
+			.from("review_assignments")
+			.insert({
+				article_id: data.articleId,
+				reviewer_id: data.reviewerId,
+				invited_by: data.invitedBy,
+				invitation_email: email,
+				status: "invited",
+				due_date: data.dueDate,
+			})
+			.select()
+			.single()
+		if (error) throw new Error(error.message)
+
+		// Avança o artigo para under_review (se ainda submitted).
+		await db.from("articles").update({ status: "under_review" }).eq("id", data.articleId).eq("status", "submitted")
+
+		// Notificação in-app + evento (best-effort — não deve derrubar o convite).
+		await db
+			.from("notifications")
+			.insert({
+				user_id: data.reviewerId,
+				article_id: data.articleId,
+				type: "review_invite",
+				title: "Novo convite para revisão",
+				message: "Você foi convidado para revisar um artigo. Acesse para aceitar ou recusar.",
+				action_url: `/journal/review/${assignment.invitation_token}`,
+			})
+			.then(() => {})
+		await db
+			.from("article_events")
+			.insert({
+				article_id: data.articleId,
+				user_id: data.invitedBy,
+				event_type: "reviewer_invited",
+				event_data: { reviewer_id: data.reviewerId, invitation_email: email },
+			})
+			.then(() => {})
+
+		return assignment
+	})
+
+// ─── Assignments do revisor (dashboard) ───────────────────────────────────────
+
+// Assignments de um revisor com título do artigo embutido, para o painel do revisor.
+export const getReviewerAssignmentsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ reviewerId: z.string() }))
+	.handler(async ({ data }) => {
+		const { data: result, error } = await getJournalServerClient()
+			.from("review_assignments")
+			.select("*, article:articles(id, title_pt, title_en, submission_number, abstract_pt)")
+			.eq("reviewer_id", data.reviewerId)
+			.order("created_at", { ascending: false })
+		if (error) throw new Error(error.message)
+		return result
+	})
+
+// Um assignment (com artigo) por id — para o formulário de parecer.
+export const getReviewAssignmentFn = createServerFn({ method: "GET" })
+	.validator(z.object({ assignmentId: z.string() }))
+	.handler(async ({ data }) => {
+		const { data: result, error } = await getJournalServerClient()
+			.from("review_assignments")
+			.select("*, article:articles(id, title_pt, title_en, submission_number, abstract_pt, abstract_en)")
+			.eq("id", data.assignmentId)
+			.single()
+		if (error) throw new Error(error.message)
+		return result
+	})
+
+// ─── Timeline de eventos do artigo (lado do editor) ───────────────────────────
+
+export const getArticleEventsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ articleId: z.string() }))
+	.handler(async ({ data }) => {
+		const { data: result, error } = await getJournalServerClient()
+			.from("article_events")
+			.select("*")
+			.eq("article_id", data.articleId)
+			.order("created_at", { ascending: false })
+		if (error) throw new Error(error.message)
+		return result
 	})

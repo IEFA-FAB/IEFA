@@ -25,7 +25,6 @@ import { Route as JournalReviewIndexRouteImport } from './routes/journal/review/
 import { Route as JournalArticlesIndexRouteImport } from './routes/journal/articles/index'
 import { Route as JournalSubmissionsIdRouteImport } from './routes/journal/submissions/$id'
 import { Route as JournalReviewTokenRouteImport } from './routes/journal/review/$token'
-import { Route as JournalReviewAssignmentIdRouteImport } from './routes/journal/review/$assignmentId'
 import { Route as JournalEditorialVolumesRouteImport } from './routes/journal/editorial/volumes'
 import { Route as JournalEditorialSettingsRouteImport } from './routes/journal/editorial/settings'
 import { Route as JournalEditorialPublicationRouteImport } from './routes/journal/editorial/publication'
@@ -49,6 +48,7 @@ import { Route as PublicPtPublicacoesIndexRouteImport } from './routes/_public/_
 import { Route as PublicPtInstalacoesIndexRouteImport } from './routes/_public/_pt/instalacoes/index'
 import { Route as PublicEnPostsIndexRouteImport } from './routes/_public/_en/posts/index'
 import { Route as PublicEnFacilitiesIndexRouteImport } from './routes/_public/_en/facilities/index'
+import { Route as JournalReviewAssignmentAssignmentIdRouteImport } from './routes/journal/review/assignment/$assignmentId'
 import { Route as JournalEditorialArticlesArticleIdRouteImport } from './routes/journal/editorial/articles/$articleId'
 import { Route as PublicPtPublicacoesSlugRouteImport } from './routes/_public/_pt/publicacoes/$slug'
 import { Route as PublicPtInstalacoesPregoeiroRouteImport } from './routes/_public/_pt/instalacoes/pregoeiro'
@@ -134,12 +134,6 @@ const JournalReviewTokenRoute = JournalReviewTokenRouteImport.update({
   path: '/review/$token',
   getParentRoute: () => JournalRouteRoute,
 } as any)
-const JournalReviewAssignmentIdRoute =
-  JournalReviewAssignmentIdRouteImport.update({
-    id: '/review/$assignmentId',
-    path: '/review/$assignmentId',
-    getParentRoute: () => JournalRouteRoute,
-  } as any)
 const JournalEditorialVolumesRoute = JournalEditorialVolumesRouteImport.update({
   id: '/volumes',
   path: '/volumes',
@@ -265,6 +259,12 @@ const PublicEnFacilitiesIndexRoute = PublicEnFacilitiesIndexRouteImport.update({
   path: '/facilities/',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const JournalReviewAssignmentAssignmentIdRoute =
+  JournalReviewAssignmentAssignmentIdRouteImport.update({
+    id: '/review/assignment/$assignmentId',
+    path: '/review/assignment/$assignmentId',
+    getParentRoute: () => JournalRouteRoute,
+  } as any)
 const JournalEditorialArticlesArticleIdRoute =
   JournalEditorialArticlesArticleIdRouteImport.update({
     id: '/articles/$articleId',
@@ -324,7 +324,6 @@ export interface FileRoutesByFullPath {
   '/journal/editorial/publication': typeof JournalEditorialPublicationRoute
   '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
   '/journal/editorial/volumes': typeof JournalEditorialVolumesRoute
-  '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/journal/articles/': typeof JournalArticlesIndexRoute
@@ -335,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
   '/publicacoes/$slug': typeof PublicPtPublicacoesSlugRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
+  '/journal/review/assignment/$assignmentId': typeof JournalReviewAssignmentAssignmentIdRoute
   '/facilities/': typeof PublicEnFacilitiesIndexRoute
   '/posts/': typeof PublicEnPostsIndexRoute
   '/instalacoes/': typeof PublicPtInstalacoesIndexRoute
@@ -368,7 +368,6 @@ export interface FileRoutesByTo {
   '/journal/editorial/publication': typeof JournalEditorialPublicationRoute
   '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
   '/journal/editorial/volumes': typeof JournalEditorialVolumesRoute
-  '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/journal/articles': typeof JournalArticlesIndexRoute
@@ -379,6 +378,7 @@ export interface FileRoutesByTo {
   '/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
   '/publicacoes/$slug': typeof PublicPtPublicacoesSlugRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
+  '/journal/review/assignment/$assignmentId': typeof JournalReviewAssignmentAssignmentIdRoute
   '/facilities': typeof PublicEnFacilitiesIndexRoute
   '/posts': typeof PublicEnPostsIndexRoute
   '/instalacoes': typeof PublicPtInstalacoesIndexRoute
@@ -416,7 +416,6 @@ export interface FileRoutesById {
   '/journal/editorial/publication': typeof JournalEditorialPublicationRoute
   '/journal/editorial/settings': typeof JournalEditorialSettingsRoute
   '/journal/editorial/volumes': typeof JournalEditorialVolumesRoute
-  '/journal/review/$assignmentId': typeof JournalReviewAssignmentIdRoute
   '/journal/review/$token': typeof JournalReviewTokenRoute
   '/journal/submissions/$id': typeof JournalSubmissionsIdRoute
   '/journal/articles/': typeof JournalArticlesIndexRoute
@@ -427,6 +426,7 @@ export interface FileRoutesById {
   '/_public/_pt/instalacoes/pregoeiro': typeof PublicPtInstalacoesPregoeiroRoute
   '/_public/_pt/publicacoes/$slug': typeof PublicPtPublicacoesSlugRoute
   '/journal/editorial/articles/$articleId': typeof JournalEditorialArticlesArticleIdRoute
+  '/journal/review/assignment/$assignmentId': typeof JournalReviewAssignmentAssignmentIdRoute
   '/_public/_en/facilities/': typeof PublicEnFacilitiesIndexRoute
   '/_public/_en/posts/': typeof PublicEnPostsIndexRoute
   '/_public/_pt/instalacoes/': typeof PublicPtInstalacoesIndexRoute
@@ -464,7 +464,6 @@ export interface FileRouteTypes {
     | '/journal/editorial/publication'
     | '/journal/editorial/settings'
     | '/journal/editorial/volumes'
-    | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
     | '/journal/articles/'
@@ -475,6 +474,7 @@ export interface FileRouteTypes {
     | '/instalacoes/pregoeiro'
     | '/publicacoes/$slug'
     | '/journal/editorial/articles/$articleId'
+    | '/journal/review/assignment/$assignmentId'
     | '/facilities/'
     | '/posts/'
     | '/instalacoes/'
@@ -508,7 +508,6 @@ export interface FileRouteTypes {
     | '/journal/editorial/publication'
     | '/journal/editorial/settings'
     | '/journal/editorial/volumes'
-    | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
     | '/journal/articles'
@@ -519,6 +518,7 @@ export interface FileRouteTypes {
     | '/instalacoes/pregoeiro'
     | '/publicacoes/$slug'
     | '/journal/editorial/articles/$articleId'
+    | '/journal/review/assignment/$assignmentId'
     | '/facilities'
     | '/posts'
     | '/instalacoes'
@@ -555,7 +555,6 @@ export interface FileRouteTypes {
     | '/journal/editorial/publication'
     | '/journal/editorial/settings'
     | '/journal/editorial/volumes'
-    | '/journal/review/$assignmentId'
     | '/journal/review/$token'
     | '/journal/submissions/$id'
     | '/journal/articles/'
@@ -566,6 +565,7 @@ export interface FileRouteTypes {
     | '/_public/_pt/instalacoes/pregoeiro'
     | '/_public/_pt/publicacoes/$slug'
     | '/journal/editorial/articles/$articleId'
+    | '/journal/review/assignment/$assignmentId'
     | '/_public/_en/facilities/'
     | '/_public/_en/posts/'
     | '/_public/_pt/instalacoes/'
@@ -691,13 +691,6 @@ declare module '@tanstack/react-router' {
       path: '/review/$token'
       fullPath: '/journal/review/$token'
       preLoaderRoute: typeof JournalReviewTokenRouteImport
-      parentRoute: typeof JournalRouteRoute
-    }
-    '/journal/review/$assignmentId': {
-      id: '/journal/review/$assignmentId'
-      path: '/review/$assignmentId'
-      fullPath: '/journal/review/$assignmentId'
-      preLoaderRoute: typeof JournalReviewAssignmentIdRouteImport
       parentRoute: typeof JournalRouteRoute
     }
     '/journal/editorial/volumes': {
@@ -861,6 +854,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEnFacilitiesIndexRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/journal/review/assignment/$assignmentId': {
+      id: '/journal/review/assignment/$assignmentId'
+      path: '/review/assignment/$assignmentId'
+      fullPath: '/journal/review/assignment/$assignmentId'
+      preLoaderRoute: typeof JournalReviewAssignmentAssignmentIdRouteImport
+      parentRoute: typeof JournalRouteRoute
+    }
     '/journal/editorial/articles/$articleId': {
       id: '/journal/editorial/articles/$articleId'
       path: '/articles/$articleId'
@@ -996,12 +996,12 @@ interface JournalRouteRouteChildren {
   JournalSubmitRoute: typeof JournalSubmitRoute
   JournalIndexRoute: typeof JournalIndexRoute
   JournalArticlesIdRoute: typeof JournalArticlesIdRoute
-  JournalReviewAssignmentIdRoute: typeof JournalReviewAssignmentIdRoute
   JournalReviewTokenRoute: typeof JournalReviewTokenRoute
   JournalSubmissionsIdRoute: typeof JournalSubmissionsIdRoute
   JournalArticlesIndexRoute: typeof JournalArticlesIndexRoute
   JournalReviewIndexRoute: typeof JournalReviewIndexRoute
   JournalSubmissionsIndexRoute: typeof JournalSubmissionsIndexRoute
+  JournalReviewAssignmentAssignmentIdRoute: typeof JournalReviewAssignmentAssignmentIdRoute
 }
 
 const JournalRouteRouteChildren: JournalRouteRouteChildren = {
@@ -1011,12 +1011,13 @@ const JournalRouteRouteChildren: JournalRouteRouteChildren = {
   JournalSubmitRoute: JournalSubmitRoute,
   JournalIndexRoute: JournalIndexRoute,
   JournalArticlesIdRoute: JournalArticlesIdRoute,
-  JournalReviewAssignmentIdRoute: JournalReviewAssignmentIdRoute,
   JournalReviewTokenRoute: JournalReviewTokenRoute,
   JournalSubmissionsIdRoute: JournalSubmissionsIdRoute,
   JournalArticlesIndexRoute: JournalArticlesIndexRoute,
   JournalReviewIndexRoute: JournalReviewIndexRoute,
   JournalSubmissionsIndexRoute: JournalSubmissionsIndexRoute,
+  JournalReviewAssignmentAssignmentIdRoute:
+    JournalReviewAssignmentAssignmentIdRoute,
 }
 
 const JournalRouteRouteWithChildren = JournalRouteRoute._addFileChildren(

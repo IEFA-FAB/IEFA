@@ -13,6 +13,8 @@ import {
 	deleteArticle,
 	getArticle,
 	getArticleAuthors,
+	getArticleEvents,
+	getArticleReviews,
 	getArticles,
 	getArticleVersions,
 	getArticleWithDetails,
@@ -21,11 +23,15 @@ import {
 	getPublishedArticle,
 	getPublishedArticles,
 	getReview,
+	getReviewAssignment,
 	getReviewAssignmentByToken,
 	getReviewAssignments,
+	getReviewerAssignments,
+	getReviewers,
 	getUserActiveDraft,
 	getUserNotifications,
 	getUserProfile,
+	inviteReviewer,
 	markNotificationAsRead,
 	saveReviewDraft,
 	submitReview,
@@ -110,6 +116,41 @@ export const reviewQueryOptions = (assignmentId: string) =>
 		staleTime: 1000 * 60, // 1 minute
 	})
 
+export const reviewAssignmentQueryOptions = (assignmentId: string) =>
+	queryOptions({
+		queryKey: ["journal", "review-assignment", assignmentId],
+		queryFn: () => getReviewAssignment(assignmentId),
+		staleTime: 1000 * 60, // 1 minute
+	})
+
+export const reviewerAssignmentsQueryOptions = (reviewerId: string) =>
+	queryOptions({
+		queryKey: ["journal", "reviewer-assignments", reviewerId],
+		queryFn: () => getReviewerAssignments(reviewerId),
+		staleTime: 1000 * 30, // 30 seconds
+	})
+
+export const reviewersQueryOptions = () =>
+	queryOptions({
+		queryKey: ["journal", "reviewers"],
+		queryFn: () => getReviewers(),
+		staleTime: 1000 * 60 * 5, // 5 minutes
+	})
+
+export const articleReviewsQueryOptions = (articleId: string) =>
+	queryOptions({
+		queryKey: ["journal", "article-reviews", articleId],
+		queryFn: () => getArticleReviews(articleId),
+		staleTime: 1000 * 30, // 30 seconds
+	})
+
+export const articleEventsQueryOptions = (articleId: string) =>
+	queryOptions({
+		queryKey: ["journal", "article-events", articleId],
+		queryFn: () => getArticleEvents(articleId),
+		staleTime: 1000 * 30, // 30 seconds
+	})
+
 export const reviewAssignmentByTokenQueryOptions = (token: string) =>
 	queryOptions({
 		queryKey: ["journal", "review-assignment-by-token", token],
@@ -171,10 +212,14 @@ export function useUpdateArticle() {
 			queryClient.invalidateQueries({
 				queryKey: ["journal", "article", data.id],
 			})
+			queryClient.invalidateQueries({
+				queryKey: ["journal", "article", "details", data.id],
+			})
 			queryClient.invalidateQueries({ queryKey: ["journal", "articles"] })
 			queryClient.invalidateQueries({
 				queryKey: ["journal", "editorial-dashboard"],
 			})
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-events", data.id] })
 		},
 	})
 }
@@ -288,6 +333,10 @@ export function useSubmitReview() {
 		onSuccess: (_data, { assignmentId }) => {
 			queryClient.invalidateQueries({ queryKey: ["journal", "review", assignmentId] })
 			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignments"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "reviewer-assignments"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-reviews"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-events"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article", "details"] })
 		},
 	})
 }
@@ -311,6 +360,7 @@ export function useAcceptReviewInvitation() {
 		onSuccess: (_data, token) => {
 			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignment-by-token", token] })
 			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignments"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "reviewer-assignments"] })
 		},
 	})
 }
@@ -322,6 +372,22 @@ export function useDeclineReviewInvitation() {
 		mutationFn: ({ token, reason }: { token: string; reason?: string }) => declineReviewInvitation(token, reason),
 		onSuccess: (_data, { token }) => {
 			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignment-by-token", token] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "reviewer-assignments"] })
+		},
+	})
+}
+
+export function useInviteReviewer() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: (input: { articleId: string; reviewerId: string; invitedBy: string; dueDate: string }) => inviteReviewer(input),
+		onSuccess: (_data, { articleId }) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignments"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "reviewer-assignments"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article", "details", articleId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-events", articleId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "editorial-dashboard"] })
 		},
 	})
 }

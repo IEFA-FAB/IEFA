@@ -17,6 +17,7 @@ import {
 	deleteArticleAuthorsByArticleIdFn,
 	deleteArticleFn,
 	getArticleAuthorsFn,
+	getArticleEventsFn,
 	getArticleFn,
 	getArticleReviewsFn,
 	getArticlesFn,
@@ -28,11 +29,15 @@ import {
 	getPublishedArticleFn,
 	getPublishedArticlesFn,
 	getReviewAssignmentByTokenFn,
+	getReviewAssignmentFn,
 	getReviewAssignmentsFn,
+	getReviewerAssignmentsFn,
+	getReviewersFn,
 	getReviewFn,
 	getUserActiveDraftFn,
 	getUserNotificationsFn,
 	getUserProfileFn,
+	inviteReviewerFn,
 	markNotificationAsReadFn,
 	saveReviewDraftFn,
 	submitReviewFn,
@@ -169,6 +174,42 @@ export async function getReviewAssignments(filters?: { article_id?: string; revi
 	return (await getReviewAssignmentsFn({ data: filters ?? {} })) as ReviewAssignment[]
 }
 
+// Assignments do revisor com título do artigo embutido (painel do revisor).
+export type ReviewerAssignment = ReviewAssignment & {
+	article: Pick<Article, "id" | "title_pt" | "title_en" | "submission_number" | "abstract_pt"> | null
+}
+
+export async function getReviewerAssignments(reviewerId: string): Promise<ReviewerAssignment[]> {
+	return (await getReviewerAssignmentsFn({ data: { reviewerId } })) as ReviewerAssignment[]
+}
+
+// Um assignment (com artigo) por id — formulário de parecer.
+export type ReviewAssignmentWithArticle = ReviewAssignment & {
+	article: Pick<Article, "id" | "title_pt" | "title_en" | "submission_number" | "abstract_pt" | "abstract_en"> | null
+}
+
+export async function getReviewAssignment(assignmentId: string): Promise<ReviewAssignmentWithArticle> {
+	return (await getReviewAssignmentFn({ data: { assignmentId } })) as ReviewAssignmentWithArticle
+}
+
+// Diretório de revisores (para o convite pelo editor).
+export type ReviewerDirectoryEntry = {
+	id: string
+	full_name: string
+	affiliation: string | null
+	expertise: string[] | null
+	role: string
+	email: string
+}
+
+export async function getReviewers(): Promise<ReviewerDirectoryEntry[]> {
+	return (await getReviewersFn()) as ReviewerDirectoryEntry[]
+}
+
+export async function inviteReviewer(input: { articleId: string; reviewerId: string; invitedBy: string; dueDate: string }): Promise<ReviewAssignment> {
+	return (await inviteReviewerFn({ data: input })) as ReviewAssignment
+}
+
 export async function getReviewAssignmentByToken(token: string): Promise<ReviewAssignment> {
 	return (await getReviewAssignmentByTokenFn({ data: { token } })) as ReviewAssignment
 }
@@ -191,12 +232,39 @@ export async function declineReviewInvitation(token: string, reason?: string) {
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
-export async function getReview(assignmentId: string): Promise<Review> {
-	return (await getReviewFn({ data: { assignmentId } })) as Review
+export async function getReview(assignmentId: string): Promise<Review | null> {
+	return (await getReviewFn({ data: { assignmentId } })) as Review | null
 }
 
-export async function getArticleReviews(articleId: string): Promise<Review[]> {
-	return (await getArticleReviewsFn({ data: { articleId } })) as Review[]
+// Parecer submetido + dados do assignment (identificação do revisor para o editor).
+export type ArticleReviewWithAssignment = Review & {
+	assignment: {
+		id: string
+		article_id: string
+		reviewer_id: string | null
+		invitation_email: string
+		status: string
+		due_date: string
+	} | null
+}
+
+export async function getArticleReviews(articleId: string): Promise<ArticleReviewWithAssignment[]> {
+	return (await getArticleReviewsFn({ data: { articleId } })) as ArticleReviewWithAssignment[]
+}
+
+// ─── Article Events (timeline) ────────────────────────────────────────────────
+
+export type ArticleEvent = {
+	id: string
+	article_id: string
+	user_id: string | null
+	event_type: string
+	event_data: Record<string, unknown> | null
+	created_at: string
+}
+
+export async function getArticleEvents(articleId: string): Promise<ArticleEvent[]> {
+	return (await getArticleEventsFn({ data: { articleId } })) as ArticleEvent[]
 }
 
 export async function createReview(review: Partial<Review>): Promise<Review> {
