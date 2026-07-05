@@ -4,17 +4,17 @@ import { ArrowLeft, Calendar, CheckCircle, Clock, Download, MessageText, Page, U
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import type { ArticleEvent, ArticleReviewWithAssignment, ReviewerDirectoryEntry } from "@/lib/journal/client"
+import type { ArticleDecision, ArticleEvent, ArticleReviewWithAssignment, ReviewerDirectoryEntry } from "@/lib/journal/client"
 import {
 	articleEventsQueryOptions,
 	articleReviewsQueryOptions,
 	articleWithDetailsQueryOptions,
 	journalSettingsQueryOptions,
 	reviewersQueryOptions,
+	signedFileUrlQueryOptions,
+	useDecideArticle,
 	useInviteReviewer,
-	useUpdateArticle,
 } from "@/lib/journal/hooks"
-import type { ArticleStatus } from "@/lib/journal/types"
 
 export const Route = createFileRoute("/journal/editorial/articles/$articleId")({
 	loader: async ({ context, params }) => {
@@ -52,14 +52,14 @@ function ArticleDetailEditor() {
 	const { data: reviews } = useSuspenseQuery(articleReviewsQueryOptions(articleId))
 	const { data: events } = useSuspenseQuery(articleEventsQueryOptions(articleId))
 
-	const updateArticle = useUpdateArticle()
+	const decideArticle = useDecideArticle()
 	const [inviteOpen, setInviteOpen] = useState(false)
 	const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null)
 
-	const decide = async (status: ArticleStatus, message: string) => {
+	const decide = async (decision: ArticleDecision, message: string) => {
 		setBanner(null)
 		try {
-			await updateArticle.mutateAsync({ articleId, updates: { status } })
+			await decideArticle.mutateAsync({ articleId, decision })
 			setBanner({ kind: "success", text: message })
 		} catch (err) {
 			setBanner({ kind: "error", text: err instanceof Error ? err.message : "Não foi possível atualizar o status." })
@@ -111,11 +111,11 @@ function ArticleDetailEditor() {
 
 				{/* Quick Actions */}
 				<div className="flex gap-2 flex-wrap">
-					<Button variant="default" onClick={() => decide("accepted", "Artigo marcado como aceito.")} disabled={updateArticle.isPending}>
+					<Button variant="default" onClick={() => decide("accepted", "Artigo marcado como aceito.")} disabled={decideArticle.isPending}>
 						<CheckCircle className="size-4 mr-2" />
 						Aceitar
 					</Button>
-					<Button variant="outline" onClick={() => decide("revision_requested", "Revisão solicitada ao autor.")} disabled={updateArticle.isPending}>
+					<Button variant="outline" onClick={() => decide("revision_requested", "Revisão solicitada ao autor.")} disabled={decideArticle.isPending}>
 						<MessageText className="size-4 mr-2" />
 						Solicitar Revisão
 					</Button>
@@ -123,7 +123,7 @@ function ArticleDetailEditor() {
 						<User className="size-4 mr-2" />
 						Convidar Revisor
 					</Button>
-					<Button variant="destructive" onClick={() => decide("rejected", "Artigo rejeitado.")} disabled={updateArticle.isPending}>
+					<Button variant="destructive" onClick={() => decide("rejected", "Artigo rejeitado.")} disabled={decideArticle.isPending}>
 						<XmarkCircle className="size-4 mr-2" />
 						Rejeitar
 					</Button>
@@ -203,24 +203,23 @@ function ArticleDetailEditor() {
 						</CardHeader>
 						<CardContent>
 							<div className="space-y-2">
-								{versions.map((version: { id: string; version_number: number; version_label?: string | null; created_at: string }) => (
-									<div key={version.id} className="flex items-center justify-between p-3 rounded-lg border">
-										<div className="flex items-center gap-3">
-											<Page className="size-5 text-muted-foreground" />
-											<div>
-												<p className="font-medium text-sm">
-													Versão {version.version_number}
-													{version.version_label && ` - ${version.version_label}`}
-												</p>
-												<p className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleDateString("pt-BR")}</p>
+								{versions.map(
+									(version: { id: string; version_number: number; version_label?: string | null; created_at: string; pdf_path?: string | null }) => (
+										<div key={version.id} className="flex items-center justify-between p-3 rounded-lg border">
+											<div className="flex items-center gap-3">
+												<Page className="size-5 text-muted-foreground" />
+												<div>
+													<p className="font-medium text-sm">
+														Versão {version.version_number}
+														{version.version_label && ` - ${version.version_label}`}
+													</p>
+													<p className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleDateString("pt-BR")}</p>
+												</div>
 											</div>
+											<VersionDownload pdfPath={version.pdf_path} />
 										</div>
-										<Button size="sm" variant="outline">
-											<Download className="size-4 mr-2" />
-											Download
-										</Button>
-									</div>
-								))}
+									)
+								)}
 							</div>
 						</CardContent>
 					</Card>
@@ -353,6 +352,26 @@ function ReviewCard({ review }: { review: ArticleReviewWithAssignment }) {
 
 function Flag({ text }: { text: string }) {
 	return <span className="px-2 py-0.5 rounded text-xs bg-destructive/10 text-destructive">{text}</span>
+}
+
+// Baixa o manuscrito via URL assinada (bucket privado).
+function VersionDownload({ pdfPath }: { pdfPath?: string | null }) {
+	const { data: url, isLoading } = useQuery(signedFileUrlQueryOptions("journal-submissions", pdfPath))
+	if (!pdfPath) return null
+	if (!url) {
+		return (
+			<span className="inline-flex items-center gap-2 h-9 px-3 rounded-md border text-sm text-muted-foreground">
+				<Download className="size-4" />
+				{isLoading ? "..." : "Indisponível"}
+			</span>
+		)
+	}
+	return (
+		<a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 h-9 px-3 rounded-md border text-sm hover:bg-accent">
+			<Download className="size-4" />
+			Download
+		</a>
+	)
 }
 
 function ScorePill({ label, value, highlight = false }: { label: string; value: number | null; highlight?: boolean }) {

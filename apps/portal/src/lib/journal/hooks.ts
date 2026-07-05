@@ -3,12 +3,14 @@
 
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
+	type ArticleDecision,
 	acceptReviewInvitation,
 	createArticle,
 	createArticleAuthors,
 	createArticleVersion,
 	createReview,
 	createUserProfile,
+	decideArticle,
 	declineReviewInvitation,
 	deleteArticle,
 	getArticle,
@@ -18,6 +20,7 @@ import {
 	getArticles,
 	getArticleVersions,
 	getArticleWithDetails,
+	getAuthorArticleReviews,
 	getEditorialDashboard,
 	getJournalSettings,
 	getPublishedArticle,
@@ -28,11 +31,13 @@ import {
 	getReviewAssignments,
 	getReviewerAssignments,
 	getReviewers,
+	getSignedFileUrl,
 	getUserActiveDraft,
 	getUserNotifications,
 	getUserProfile,
 	inviteReviewer,
 	markNotificationAsRead,
+	resubmitRevision,
 	saveReviewDraft,
 	submitReview,
 	updateArticle,
@@ -149,6 +154,23 @@ export const articleEventsQueryOptions = (articleId: string) =>
 		queryKey: ["journal", "article-events", articleId],
 		queryFn: () => getArticleEvents(articleId),
 		staleTime: 1000 * 30, // 30 seconds
+	})
+
+export const authorArticleReviewsQueryOptions = (articleId: string) =>
+	queryOptions({
+		queryKey: ["journal", "author-article-reviews", articleId],
+		queryFn: () => getAuthorArticleReviews(articleId),
+		staleTime: 1000 * 30, // 30 seconds
+	})
+
+// URL assinada para download de arquivo privado. staleTime < expiração (1h)
+// para renovar antes de expirar.
+export const signedFileUrlQueryOptions = (bucket: string, path: string | null | undefined) =>
+	queryOptions({
+		queryKey: ["journal", "signed-file-url", bucket, path],
+		queryFn: () => (path ? getSignedFileUrl(bucket, path) : Promise.resolve(null)),
+		enabled: !!path,
+		staleTime: 1000 * 60 * 30, // 30 min (URL vale 1h)
 	})
 
 export const reviewAssignmentByTokenQueryOptions = (token: string) =>
@@ -388,6 +410,36 @@ export function useInviteReviewer() {
 			queryClient.invalidateQueries({ queryKey: ["journal", "article", "details", articleId] })
 			queryClient.invalidateQueries({ queryKey: ["journal", "article-events", articleId] })
 			queryClient.invalidateQueries({ queryKey: ["journal", "editorial-dashboard"] })
+		},
+	})
+}
+
+export function useDecideArticle() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ articleId, decision }: { articleId: string; decision: ArticleDecision }) => decideArticle(articleId, decision),
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "article", data.id] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article", "details", data.id] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-events", data.id] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "articles"] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "editorial-dashboard"] })
+		},
+	})
+}
+
+export function useResubmitRevision() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: (input: { articleId: string; pdfPath: string; sourcePath?: string; coverLetter?: string }) => resubmitRevision(input),
+		onSuccess: (_data, { articleId }) => {
+			queryClient.invalidateQueries({ queryKey: ["journal", "article", articleId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article", "details", articleId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-versions", articleId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "article-events", articleId] })
+			queryClient.invalidateQueries({ queryKey: ["journal", "author-article-reviews", articleId] })
 		},
 	})
 }

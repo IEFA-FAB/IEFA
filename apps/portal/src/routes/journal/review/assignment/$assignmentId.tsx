@@ -1,15 +1,15 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, CheckCircle, Download, FloppyDisk, SendDiagonal, WarningTriangle } from "iconoir-react"
 import { useState } from "react"
 import { authQueryOptions } from "@/auth/service"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { getArticleFileUrl } from "@/lib/journal/client"
 import {
 	articleVersionsQueryOptions,
 	reviewAssignmentQueryOptions,
 	reviewQueryOptions,
+	signedFileUrlQueryOptions,
 	userProfileQueryOptions,
 	useSaveReviewDraft,
 	useSubmitReview,
@@ -104,7 +104,8 @@ function ReviewSubmission() {
 
 	const readOnly = !canEdit || assignment.status === "completed"
 	const latestVersion = versions?.[0]
-	const manuscriptUrl = latestVersion?.pdf_path ? getArticleFileUrl("journal-submissions", latestVersion.pdf_path) : null
+	// Manuscrito via URL assinada (bucket privado — confidencialidade/duplo-cego).
+	const { data: manuscriptUrl } = useQuery(signedFileUrlQueryOptions("journal-submissions", latestVersion?.pdf_path))
 
 	const updateField = <K extends keyof ReviewFormData>(field: K, value: ReviewFormData[K]) => {
 		setFormData((prev) => ({ ...prev, [field]: value }))

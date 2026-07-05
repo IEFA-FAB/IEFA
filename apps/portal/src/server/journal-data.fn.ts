@@ -7,6 +7,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { sendJournalEmail } from "@/lib/journal/email.server"
 import { getIefaAuthClient, getJournalServerClient } from "@/lib/supabase.server"
 
 const looseRecord = z.record(z.string(), z.unknown())
@@ -637,6 +638,18 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 		const email = reviewerUser?.user?.email
 		if (!email) throw new Error("Revisor não possui e-mail cadastrado.")
 
+		// Conflito de interesse: o revisor não pode ser autor do próprio artigo
+		// (submitter ou coautor, por id ou por e-mail).
+		const { data: articleRow } = await db.from("articles").select("submitter_id").eq("id", data.articleId).single()
+		if (articleRow?.submitter_id === data.reviewerId) {
+			throw new Error("Conflito de interesse: este usuário é o autor submissor do artigo.")
+		}
+		const { data: authorRows } = await db.from("article_authors").select("email").eq("article_id", data.articleId)
+		const authorEmails = new Set((authorRows ?? []).map((a) => (a.email ?? "").trim().toLowerCase()).filter(Boolean))
+		if (authorEmails.has(email.trim().toLowerCase())) {
+			throw new Error("Conflito de interesse: este usuário consta como autor do artigo.")
+		}
+
 		const { data: assignment, error } = await db
 			.from("review_assignments")
 			.insert({
@@ -682,6 +695,17 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 			})
 			.then(() => {})
 
+		// E-mail de convite (só despacha se houver provider — senão a notificação
+		// in-app acima é a entrega).
+		await sendJournalEmail({
+			to: email,
+			template: "review_invitation",
+			vars: {
+				due_date: new Date(data.dueDate).toLocaleDateString("pt-BR"),
+				review_url: `${process.env.PORTAL_PUBLIC_URL ?? ""}/journal/review/${assignment.invitation_token}`,
+			},
+		})
+
 		return assignment
 	})
 
@@ -691,7 +715,16 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 export const getReviewerAssignmentsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ reviewerId: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getJournalServerClient()
+		const db = getJournalServerClient()
+		// Expira convites vencidos (best-effort) antes de listar — não há cron, então
+		// a expiração acontece oportunamente na leitura.
+		await db
+			.from("review_assignments")
+			.update({ status: "expired" })
+			.eq("reviewer_id", data.reviewerId)
+			.eq("status", "invited")
+			.lt("due_date", new Date().toISOString())
+		const { data: result, error } = await db
 			.from("review_assignments")
 			.select("*, article:articles(id, title_pt, title_en, submission_number, abstract_pt)")
 			.eq("reviewer_id", data.reviewerId)
@@ -725,4 +758,165 @@ export const getArticleEventsFn = createServerFn({ method: "GET" })
 			.order("created_at", { ascending: false })
 		if (error) throw new Error(error.message)
 		return result
+	})
+
+// ─── Decisão editorial ────────────────────────────────────────────────────────
+
+const DECISION_LABELS: Record<string, string> = {
+	accepted: "aceito",
+	rejected: "rejeitado",
+	revision_requested: "revisão solicitada",
+}
+
+// Decisão do editor sobre o artigo. Impõe min_reviewers_required ao aceitar,
+// registra o evento e notifica o autor (in-app + e-mail).
+export const decideArticleFn = createServerFn({ method: "POST" })
+	.validator(z.object({ articleId: z.string(), decision: z.enum(["accepted", "rejected", "revision_requested"]) }))
+	.handler(async ({ data }) => {
+		await requireEditor()
+		const db = getJournalServerClient()
+
+		// Ao aceitar, exige o número mínimo de pareceres concluídos.
+		if (data.decision === "accepted") {
+			const { data: settings } = await db.from("journal_settings").select("min_reviewers_required").limit(1).maybeSingle()
+			const min = settings?.min_reviewers_required ?? 2
+			const { count } = await db
+				.from("review_assignments")
+				.select("id", { count: "exact", head: true })
+				.eq("article_id", data.articleId)
+				.eq("status", "completed")
+			if ((count ?? 0) < min) {
+				throw new Error(`São necessários ao menos ${min} parecer(es) concluído(s) para aceitar (atual: ${count ?? 0}).`)
+			}
+		}
+
+		const { data: article, error } = await db
+			.from("articles")
+			.update({ status: data.decision })
+			.eq("id", data.articleId)
+			.select("id, submitter_id, title_pt")
+			.single()
+		if (error) throw new Error(error.message)
+
+		// Notifica o autor (in-app garantido + e-mail se houver provider).
+		const label = DECISION_LABELS[data.decision] ?? data.decision
+		await db
+			.from("notifications")
+			.insert({
+				user_id: article.submitter_id,
+				article_id: article.id,
+				type: "decision_made",
+				title: "Decisão editorial sobre sua submissão",
+				message: `Sua submissão "${article.title_pt}" teve o status atualizado para: ${label}.`,
+				action_url: `/journal/submissions/${article.id}`,
+			})
+			.then(() => {})
+
+		const { data: submitter } = await db.auth.admin.getUserById(article.submitter_id)
+		const submitterEmail = submitter?.user?.email
+		if (submitterEmail) {
+			await sendJournalEmail({
+				to: submitterEmail,
+				template: "decision_made",
+				vars: {
+					article_title: article.title_pt,
+					decision: label,
+					article_url: `${process.env.PORTAL_PUBLIC_URL ?? ""}/journal/submissions/${article.id}`,
+				},
+			})
+		}
+
+		return article
+	})
+
+// ─── Pareceres para o autor (visão restrita) ──────────────────────────────────
+
+const DECISION_STATUSES = new Set(["revision_requested", "revised_submitted", "accepted", "rejected", "published"])
+
+// Retorna os pareceres visíveis ao autor: apenas feedback qualitativo e
+// recomendação, SEM identidade do revisor, SEM comentários confidenciais ao
+// editor, e somente depois que uma decisão foi tomada.
+export const getAuthorArticleReviewsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ articleId: z.string() }))
+	.handler(async ({ data }) => {
+		const userId = await getRequestUserId()
+		if (!userId) throw new Error("Não autenticado.")
+		const db = getJournalServerClient()
+
+		const { data: article } = await db.from("articles").select("submitter_id, status").eq("id", data.articleId).single()
+		if (!article || article.submitter_id !== userId) throw new Error("Você não tem acesso a este artigo.")
+		if (!DECISION_STATUSES.has(article.status)) return { status: article.status, reviews: [] }
+
+		const { data: rows, error } = await db
+			.from("reviews")
+			.select("id, recommendation, strengths, weaknesses, comments_for_authors, submitted_at, assignment:review_assignments!inner(article_id)")
+			.eq("assignment.article_id", data.articleId)
+			.eq("is_draft", false)
+			.order("submitted_at", { ascending: true })
+		if (error) throw new Error(error.message)
+
+		// Reforço em runtime: só campos seguros saem daqui.
+		const reviews = (rows ?? []).map((r, i) => ({
+			id: r.id,
+			label: `Parecer ${i + 1}`,
+			recommendation: r.recommendation,
+			strengths: r.strengths,
+			weaknesses: r.weaknesses,
+			comments_for_authors: r.comments_for_authors,
+			submitted_at: r.submitted_at,
+		}))
+		return { status: article.status, reviews }
+	})
+
+// ─── Re-submissão de revisão (autor envia nova versão) ────────────────────────
+
+// O autor, com o artigo em revision_requested, envia uma nova versão do manuscrito
+// (PDF já subido via signed URL). Cria a versão N+1, move para revised_submitted,
+// reabre os assignments concluídos para nova rodada e registra o evento.
+export const resubmitRevisionFn = createServerFn({ method: "POST" })
+	.validator(z.object({ articleId: z.string(), pdfPath: z.string(), sourcePath: z.string().optional(), coverLetter: z.string().optional() }))
+	.handler(async ({ data }) => {
+		const userId = await getRequestUserId()
+		if (!userId) throw new Error("Não autenticado.")
+		const db = getJournalServerClient()
+
+		const { data: article } = await db.from("articles").select("submitter_id, status").eq("id", data.articleId).single()
+		if (!article || article.submitter_id !== userId) throw new Error("Você não tem acesso a este artigo.")
+		if (article.status !== "revision_requested") throw new Error("A submissão não está aguardando revisão do autor.")
+
+		const { data: last } = await db
+			.from("article_versions")
+			.select("version_number")
+			.eq("article_id", data.articleId)
+			.order("version_number", { ascending: false })
+			.limit(1)
+			.maybeSingle()
+		const nextVersion = (last?.version_number ?? 1) + 1
+
+		const { data: version, error } = await db
+			.from("article_versions")
+			.insert({
+				article_id: data.articleId,
+				version_number: nextVersion,
+				version_label: `Revisão ${nextVersion - 1}`,
+				pdf_path: data.pdfPath,
+				source_path: data.sourcePath ?? null,
+			})
+			.select()
+			.single()
+		if (error) throw new Error(error.message)
+
+		await db.from("articles").update({ status: "revised_submitted" }).eq("id", data.articleId)
+
+		await db
+			.from("article_events")
+			.insert({
+				article_id: data.articleId,
+				user_id: userId,
+				event_type: "revision_submitted",
+				event_data: { version_number: nextVersion, cover_letter: data.coverLetter ?? null },
+			})
+			.then(() => {})
+
+		return version
 	})

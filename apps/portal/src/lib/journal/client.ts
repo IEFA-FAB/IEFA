@@ -12,6 +12,7 @@ import {
 	createReviewFn,
 	createSubmissionFn,
 	createUserProfileFn,
+	decideArticleFn,
 	declineReviewInvitationFn,
 	deleteArticleAuthorFn,
 	deleteArticleAuthorsByArticleIdFn,
@@ -23,6 +24,7 @@ import {
 	getArticlesFn,
 	getArticleVersionsFn,
 	getArticleWithDetailsFn,
+	getAuthorArticleReviewsFn,
 	getEditorialDashboardFn,
 	getJournalSettingsFn,
 	getLatestArticleVersionFn,
@@ -39,6 +41,7 @@ import {
 	getUserProfileFn,
 	inviteReviewerFn,
 	markNotificationAsReadFn,
+	resubmitRevisionFn,
 	saveReviewDraftFn,
 	submitReviewFn,
 	updateArticleAuthorFn,
@@ -112,6 +115,12 @@ export async function deleteArticle(articleId: string): Promise<Article> {
 	return (await deleteArticleFn({ data: { articleId } })) as Article
 }
 
+export type ArticleDecision = "accepted" | "rejected" | "revision_requested"
+
+export async function decideArticle(articleId: string, decision: ArticleDecision): Promise<{ id: string; submitter_id: string; title_pt: string }> {
+	return (await decideArticleFn({ data: { articleId, decision } })) as { id: string; submitter_id: string; title_pt: string }
+}
+
 export async function createSubmission(data: CreateSubmissionInput): Promise<Article> {
 	return (await createSubmissionFn({ data: data as unknown as Record<string, unknown> })) as Article
 }
@@ -150,6 +159,10 @@ export async function createArticleVersion(version: Partial<ArticleVersion>): Pr
 
 export async function getLatestArticleVersion(articleId: string): Promise<ArticleVersion> {
 	return (await getLatestArticleVersionFn({ data: { articleId } })) as ArticleVersion
+}
+
+export async function resubmitRevision(input: { articleId: string; pdfPath: string; sourcePath?: string; coverLetter?: string }): Promise<ArticleVersion> {
+	return (await resubmitRevisionFn({ data: input })) as ArticleVersion
 }
 
 // ─── Published Articles ───────────────────────────────────────────────────────
@@ -252,6 +265,22 @@ export async function getArticleReviews(articleId: string): Promise<ArticleRevie
 	return (await getArticleReviewsFn({ data: { articleId } })) as ArticleReviewWithAssignment[]
 }
 
+// Visão restrita do autor: feedback qualitativo + recomendação, sem identidade
+// do revisor e sem comentários confidenciais ao editor.
+export type AuthorReview = {
+	id: string
+	label: string
+	recommendation: string | null
+	strengths: string | null
+	weaknesses: string | null
+	comments_for_authors: string | null
+	submitted_at: string | null
+}
+
+export async function getAuthorArticleReviews(articleId: string): Promise<{ status: string; reviews: AuthorReview[] }> {
+	return (await getAuthorArticleReviewsFn({ data: { articleId } })) as { status: string; reviews: AuthorReview[] }
+}
+
 // ─── Article Events (timeline) ────────────────────────────────────────────────
 
 export type ArticleEvent = {
@@ -333,6 +362,14 @@ export async function uploadArticleFile(
 export function getArticleFileUrl(bucket: string, path: string): string {
 	const { data } = supabase.storage.from(bucket).getPublicUrl(path)
 	return data.publicUrl
+}
+
+/**
+ * URL assinada (temporária) gerada no servidor. Use para manuscritos, pois o
+ * bucket `journal-submissions` é privado (confidencialidade + duplo-cego).
+ */
+export async function getSignedFileUrl(bucket: string, path: string, expiresIn = 3600): Promise<string> {
+	return (await getSignedDownloadUrlFn({ data: { bucket, path, expiresIn } })) as string
 }
 
 /** Download via signed URL gerada no servidor. */
