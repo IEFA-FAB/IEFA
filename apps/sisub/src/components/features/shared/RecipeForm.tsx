@@ -30,7 +30,13 @@ type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
 // usa a largura total do container. Centralizar tudo no mesmo eixo evita o "pulo" lateral
 // ao alternar entre abas estreitas e a larga — cresce simétrico a partir do centro.
-const READING_PANEL = "pt-4 max-w-5xl mx-auto"
+// min-h reserva altura comum: abas curtas/vazias ocupam o mesmo espaço das cheias, sem
+// "encolher" o layout ao alternar.
+const READING_PANEL = "pt-4 max-w-5xl mx-auto w-full min-h-[32rem]"
+
+// Aba de fluxo — largura total (DAG precisa de espaço horizontal), mesma altura mínima que
+// as demais para não haver salto vertical ao alternar de/para as abas de leitura.
+const FLOW_PANEL = "pt-4 min-h-[32rem]"
 
 function formatReviewStamp(dateStr: string) {
 	return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
@@ -242,7 +248,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				: "Salvar cria a preparação."
 
 	return (
-		<div className="space-y-6">
+		<div className="flex min-h-full flex-col space-y-6">
 			<PageHeader
 				title={
 					<form.Field name="name">
@@ -274,8 +280,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 			</PageHeader>
 
 			{/* Largura total (igual ao PageHeader / container do AppShell). As abas de leitura
-			    recebem cap interno via READING_PANEL; a aba de fluxo usa a largura inteira. */}
-			<div className="space-y-8 pb-24">
+			    recebem cap interno via READING_PANEL; a aba de fluxo usa a largura inteira.
+			    flex-1 empurra a barra de salvar para o rodapé mesmo com abas curtas. */}
+			<div className="flex-1 space-y-8 pb-24">
 				<form
 					id="recipe-form"
 					onSubmit={(e) => {
@@ -285,7 +292,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						<TabsList className="mx-auto">
+						{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
+						<TabsList className="mx-auto grid w-full max-w-xl grid-cols-4">
 							<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
 							<TabsTrigger value="ingredientes">
 								Ingredientes
@@ -540,7 +548,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 						</TabsContent>
 
 						{/* Fluxo de produção — DAG estruturado, salvo separadamente da preparação */}
-						<TabsContent value="fluxo" className="pt-4">
+						<TabsContent value="fluxo" className={FLOW_PANEL}>
 							<Card>
 								<CardHeader>
 									<CardTitle>Fluxo de produção</CardTitle>
