@@ -58,7 +58,9 @@ type IngredientFormTab = (typeof INGREDIENT_FORM_TABS)[number]
 
 // Todas as abas são de leitura (campos/tabelas/managers) → largura confortável centralizada,
 // crescendo simétrico a partir do centro para evitar "pulo" lateral ao alternar abas.
-const READING_PANEL = "pt-4 max-w-5xl mx-auto"
+// min-h reserva uma altura comum: abas curtas/vazias (ex.: produto sem itens) ocupam o mesmo
+// espaço das abas cheias (ex.: nutrição), sem "encolher" o layout ao alternar.
+const READING_PANEL = "pt-4 max-w-5xl mx-auto w-full min-h-[32rem]"
 
 const productSchema = z.object({
 	description: z.string().min(3, "Descrição deve ter no mínimo 3 caracteres"),
@@ -265,7 +267,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="flex min-h-full flex-col space-y-6">
 			<PageHeader
 				title={
 					isPreviewing ? (
@@ -364,7 +366,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 				<IngredientVersionPreview snapshot={selectedVersion.snapshot} diff={previewDiff} isBaseline={!previousVersion} />
 			) : (
 				<>
-					<div className="space-y-8 pb-24">
+					<div className="flex-1 space-y-8 pb-24">
 						{/* Escopo do form: identificação + informação nutricional (salvos juntos pela barra inferior).
 						    Itens de compra/produto ficam em abas próprias — persistidos separadamente. */}
 						<form
@@ -376,7 +378,8 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 							}}
 						>
 							<Tabs value={activeTab} onValueChange={(value) => setTab(value as IngredientFormTab)}>
-								<TabsList className="mx-auto">
+								{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
+								<TabsList className="mx-auto grid w-full max-w-xl grid-cols-4">
 									<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
 									<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
 									<TabsTrigger value="compra">Itens de compra</TabsTrigger>
