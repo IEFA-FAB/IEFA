@@ -79,6 +79,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
 	// Ordenação alfabética (A-Z / Z-A). Persistida por aba.
 	const [sortDirection, setSortDirection] = usePersistentState<"asc" | "desc">("sisub:global-ingredients:sort", "asc")
+	// Filtro: mostrar apenas insumos ainda não revisados (conferência pendente). Persistido por aba.
+	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState("sisub:global-ingredients:onlyNotReviewed", false)
 	// Busca rápida (toggle group multi-seleção). Persistida por aba.
 	const [quickFilters, setQuickFilters] = usePersistentState<string[]>("sisub:global-ingredients:quickFilters", DEFAULT_QUICK_FILTERS)
 	const showDeleted = quickFilters.includes("excluidos")
@@ -89,6 +91,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 	const selectedNodes = useMemo(() => Array.from(selected.values()), [selected])
 	const searchCaseId = useId()
 	const searchAccentId = useId()
+	const onlyNotReviewedId = useId()
 
 	const handleSelectChange = (node: IngredientTreeNode, checked: boolean) => {
 		setSelected((prev) => {
@@ -117,7 +120,8 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 		{ caseSensitive: searchCaseSensitive, accentSensitive: searchAccentSensitive },
 		hiddenCategoryKeys,
 		sortDirection,
-		true // default da tela: abrir tudo recolhido
+		true, // default da tela: abrir tudo recolhido
+		onlyNotReviewed
 	)
 
 	// Contagem do que está efetivamente visível (após busca + chips). `byId` contém
@@ -222,7 +226,7 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
 							<SlidersHorizontal className="size-4" />
 							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
+							{(searchCaseSensitive || searchAccentSensitive || onlyNotReviewed) && <span className="size-1.5 rounded-full bg-primary" aria-hidden />}
 						</PopoverTrigger>
 						<PopoverContent align="start" className="w-64">
 							<div className="flex flex-col gap-3 text-sm">
@@ -233,6 +237,10 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 								<label htmlFor={searchAccentId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
 									Diferenciar acentos
 									<Switch id={searchAccentId} checked={searchAccentSensitive} onCheckedChange={setSearchAccentSensitive} size="sm" />
+								</label>
+								<label htmlFor={onlyNotReviewedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Somente não revisados
+									<Switch id={onlyNotReviewedId} checked={onlyNotReviewed} onCheckedChange={setOnlyNotReviewed} size="sm" />
 								</label>
 							</div>
 						</PopoverContent>
@@ -291,7 +299,11 @@ export function IngredientsTreeManager({ ref }: { ref?: Ref<IngredientsTreeManag
 					{flatTree && flatTree.nodes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">Nenhum insumo encontrado</p>
-							{urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>}
+							{onlyNotReviewed ? (
+								<p className="text-sm mt-2">Nenhum insumo pendente de revisão neste filtro</p>
+							) : (
+								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
+							)}
 						</div>
 					) : (
 						<div

@@ -68,6 +68,8 @@ export const queryKeys = {
 		versions: (recipeId: string | undefined) => ["recipe_versions", recipeId] as const,
 		menuUsage: () => ["recipes", "menu-usage"] as const,
 		lastReview: (recipeId: string | undefined) => ["recipes", "last-review", recipeId] as const,
+		/** Prefixo de todas as últimas revisões — usado pelo bulk da listagem e para invalidar em lote. */
+		lastReviews: () => ["recipes", "last-review"] as const,
 	},
 
 	reviewMetrics: {

@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { BulkSelectedRecipe } from "@/hooks/business/useBulkRecipeOps"
 import { useRecipe } from "@/hooks/data/useRecipe"
-import { useRecipeMenuUsage, useRecipes } from "@/hooks/data/useRecipes"
+import { useRecipeLastReviews, useRecipeMenuUsage, useRecipes } from "@/hooks/data/useRecipes"
 import { usePersistentState } from "@/hooks/ui/usePersistentState"
 import { getStoredScrollOffset, usePersistScrollOffset } from "@/hooks/ui/useScrollRestoration"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
@@ -27,6 +27,11 @@ const ROW_HEIGHT = 48
 
 function formatQty(n: number): string {
 	return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+}
+
+/** Formata a data ISO da revisão como "09/06/2026" (curto, pt-BR). Espelha a árvore de insumos. */
+function formatReviewDate(iso: string): string {
+	return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
 /** Conteúdo do hovercard de uma preparação: prévia dos ingredientes principais (montado só ao abrir → fetch sob demanda) */
@@ -134,12 +139,15 @@ export function RecipesManager() {
 	const [findReplaceOpen, setFindReplaceOpen] = useState(false)
 	// Filtro: mostrar apenas preparações usadas em algum plano semanal.
 	const [onlyWeeklyMenu, setOnlyWeeklyMenu] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:onlyWeeklyMenu`, false)
+	// Filtro: mostrar apenas preparações ainda não revisadas (conferência pendente).
+	const [onlyNotReviewed, setOnlyNotReviewed] = usePersistentState(`sisub:recipes:${kitchenIdStr ?? "global"}:onlyNotReviewed`, false)
 	const [selected, setSelected] = useState<Map<string, BulkSelectedRecipe>>(new Map())
 	const selectedRecipes = useMemo(() => Array.from(selected.values()), [selected])
 	const showDeletedId = useId()
 	const searchCaseId = useId()
 	const searchAccentId = useId()
 	const onlyWeeklyMenuId = useId()
+	const onlyNotReviewedId = useId()
 
 	const { data: allRecipes = [], isLoading } = useRecipes({
 		search: urlSearch || undefined,
@@ -152,11 +160,15 @@ export function RecipesManager() {
 
 	// Preparações usadas em planos semanais → revisão prioritária pelas nutricionistas.
 	const { usedIds: menuUsageIds } = useRecipeMenuUsage()
+	// Status de revisão (conferência) por preparação — para o badge por linha e o filtro de pendentes.
+	const { reviewedAtById } = useRecipeLastReviews()
 
-	const filteredRecipes = useMemo(
-		() => (onlyWeeklyMenu ? allRecipes.filter((r) => menuUsageIds.has(r.id)) : allRecipes),
-		[allRecipes, onlyWeeklyMenu, menuUsageIds]
-	)
+	const filteredRecipes = useMemo(() => {
+		let list = allRecipes
+		if (onlyWeeklyMenu) list = list.filter((r) => menuUsageIds.has(r.id))
+		if (onlyNotReviewed) list = list.filter((r) => !reviewedAtById.has(r.id))
+		return list
+	}, [allRecipes, onlyWeeklyMenu, onlyNotReviewed, menuUsageIds, reviewedAtById])
 
 	const clearSelection = () => setSelected(new Map())
 
@@ -229,7 +241,7 @@ export function RecipesManager() {
 						<PopoverTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-2" aria-label="Opções de busca" />}>
 							<SlidersHorizontal className="size-4" />
 							<span className="hidden sm:inline">Opções</span>
-							{(searchCaseSensitive || searchAccentSensitive || showDeleted || onlyWeeklyMenu) && (
+							{(searchCaseSensitive || searchAccentSensitive || showDeleted || onlyWeeklyMenu || onlyNotReviewed) && (
 								<span className="size-1.5 rounded-full bg-primary" aria-hidden />
 							)}
 						</PopoverTrigger>
@@ -250,6 +262,10 @@ export function RecipesManager() {
 								<label htmlFor={onlyWeeklyMenuId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
 									Apenas em plano semanal
 									<Switch id={onlyWeeklyMenuId} checked={onlyWeeklyMenu} onCheckedChange={setOnlyWeeklyMenu} size="sm" />
+								</label>
+								<label htmlFor={onlyNotReviewedId} className="flex items-center justify-between gap-3 cursor-pointer select-none">
+									Somente não revisadas
+									<Switch id={onlyNotReviewedId} checked={onlyNotReviewed} onCheckedChange={setOnlyNotReviewed} size="sm" />
 								</label>
 							</div>
 						</PopoverContent>
@@ -315,7 +331,9 @@ export function RecipesManager() {
 					) : filteredRecipes.length === 0 ? (
 						<div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
 							<p className="font-sans">Nenhuma preparação encontrada</p>
-							{onlyWeeklyMenu ? (
+							{onlyNotReviewed ? (
+								<p className="text-sm mt-2">Nenhuma preparação pendente de revisão neste filtro</p>
+							) : onlyWeeklyMenu ? (
 								<p className="text-sm mt-2">Nenhuma preparação em plano semanal — ajuste o filtro em Opções</p>
 							) : (
 								urlSearch && <p className="text-sm mt-2">Tente ajustar os filtros de busca</p>
@@ -327,6 +345,7 @@ export function RecipesManager() {
 								const recipe = filteredRecipes[vRow.index]
 								const isSelected = selected.has(recipe.id)
 								const isDeleted = !!recipe.deleted_at
+								const reviewedAt = reviewedAtById.get(recipe.id)
 								return (
 									<div
 										key={vRow.key}
@@ -394,6 +413,17 @@ export function RecipesManager() {
 													<TooltipContent>Usada em plano semanal — priorize a revisão</TooltipContent>
 												</Tooltip>
 											)}
+											{!isDeleted &&
+												(reviewedAt ? (
+													<Badge variant="outline" className="gap-1 text-muted-foreground shrink-0" title={`Última revisão em ${formatReviewDate(reviewedAt)}`}>
+														<CalendarCheck className="size-3" />
+														<span className="hidden sm:inline">Revisada {formatReviewDate(reviewedAt)}</span>
+													</Badge>
+												) : (
+													<Badge variant="warning" className="shrink-0" title="Preparação ainda não revisada">
+														Não revisada
+													</Badge>
+												))}
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">
 													v{recipe.version}

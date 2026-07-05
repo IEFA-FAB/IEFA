@@ -47,7 +47,8 @@ export function useIngredientsHierarchy(
 	sensitivity: SearchSensitivity = { caseSensitive: false, accentSensitive: false },
 	hiddenCategoryKeys: readonly string[] = [],
 	sortDirection: "asc" | "desc" = "asc",
-	defaultCollapsed = false
+	defaultCollapsed = false,
+	onlyNotReviewed = false
 ) {
 	const { caseSensitive, accentSensitive } = sensitivity
 	// Chave estável (ordenada) para o memo: ocultação de categorias por pasta raiz.
@@ -135,7 +136,17 @@ export function useIngredientsHierarchy(
 
 		const norm = (value: string) => normalizeForSearch(value, { caseSensitive, accentSensitive })
 		const filter = norm(filterText).trim()
-		const isFiltering = !!filter
+		const isTextFiltering = !!filter
+		// O filtro de revisão restringe insumos (folhas); combina com o texto por interseção.
+		const isFiltering = isTextFiltering || onlyNotReviewed
+
+		// Insumos já revisados ao menos uma vez — excluídos quando "somente não revisados" está ativo.
+		const reviewedIngredientIds = new Set<string>()
+		if (onlyNotReviewed) {
+			for (const r of asArray(tree.lastReviews)) {
+				if (r.ingredient_id) reviewedIngredientIds.add(r.ingredient_id)
+			}
+		}
 
 		// Lookup de pastas por ID para traversal de ancestrais
 		const folderById: Record<string, (typeof folders)[0]> = {}
@@ -206,6 +217,7 @@ export function useIngredientsHierarchy(
 						stack.push(childFolderId)
 					}
 					for (const ingredientId of ingredientsByFolder[fid] ?? []) {
+						if (onlyNotReviewed && reviewedIngredientIds.has(ingredientId)) continue
 						includedIds.add(ingredientId)
 					}
 				}
@@ -213,22 +225,28 @@ export function useIngredientsHierarchy(
 
 			ingredients.forEach((ingredient) => {
 				if (isIngredientExcluded(ingredient.folder_id)) return
+				if (onlyNotReviewed && reviewedIngredientIds.has(ingredient.id)) return
 				const description = ingredient.description || "Sem descrição"
-				if (norm(description).includes(filter)) {
+				if (!isTextFiltering || norm(description).includes(filter)) {
 					includedIds.add(ingredient.id)
 					addWithAncestors(ingredient.folder_id)
 				}
 			})
 
-			folders.forEach((folder) => {
-				if (isFolderExcluded(folder.id)) return
-				const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
-				if (norm(description).includes(filter)) {
-					includedIds.add(folder.id)
-					addWithAncestors(folder.parent_id)
-					addDescendants(folder.id)
-				}
-			})
+			// Pastas só casam por texto; o filtro de revisão é escopo de insumo (folha).
+			// Quando uma pasta casa o texto, seus descendentes entram via addDescendants
+			// (que já pula insumos revisados sob o filtro de revisão).
+			if (isTextFiltering) {
+				folders.forEach((folder) => {
+					if (isFolderExcluded(folder.id)) return
+					const description = folder.description || `Pasta ${folder.id.substring(0, 8)}...`
+					if (norm(description).includes(filter)) {
+						includedIds.add(folder.id)
+						addWithAncestors(folder.parent_id)
+						addDescendants(folder.id)
+					}
+				})
+			}
 		}
 
 		// Ordenação alfabética dos filhos de cada nó (pastas primeiro, depois insumos),
@@ -329,7 +347,7 @@ export function useIngredientsHierarchy(
 		traverse(null, 0)
 
 		return { nodes: visibleNodes, byId, byParentId }
-	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey, sortDirection])
+	}, [tree, filterText, expandedIds, caseSensitive, accentSensitive, hiddenKey, sortDirection, onlyNotReviewed])
 
 	// Estatísticas
 	const stats = useMemo(() => {
