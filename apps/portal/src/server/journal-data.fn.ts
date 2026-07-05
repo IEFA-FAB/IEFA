@@ -7,9 +7,37 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { getJournalServerClient } from "@/lib/supabase.server"
+import { getIefaAuthClient, getJournalServerClient } from "@/lib/supabase.server"
 
 const looseRecord = z.record(z.string(), z.unknown())
+
+// ─── Server-side auth helpers ─────────────────────────────────────────────────
+// Server functions são endpoints HTTP crus: o `beforeLoad` das rotas NÃO os
+// protege. Como usamos o client service-role (bypassa RLS), mutations sensíveis
+// precisam validar o chamador aqui, no servidor, a partir do cookie de sessão.
+
+async function getRequestUserId(): Promise<string | null> {
+	const {
+		data: { user },
+	} = await getIefaAuthClient().auth.getUser()
+	return user?.id ?? null
+}
+
+async function requireEditor(): Promise<string> {
+	const userId = await getRequestUserId()
+	if (!userId) throw new Error("Não autenticado.")
+	const { data: profile } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
+	if (profile?.role !== "editor") throw new Error("Apenas editores podem executar esta ação.")
+	return userId
+}
+
+// Garante que o chamador é o revisor designado do assignment (dono do parecer).
+async function requireAssignedReviewer(assignmentId: string): Promise<void> {
+	const userId = await getRequestUserId()
+	if (!userId) throw new Error("Não autenticado.")
+	const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id").eq("id", assignmentId).maybeSingle()
+	if (!assignment || assignment.reviewer_id !== userId) throw new Error("Você não é o revisor designado deste parecer.")
+}
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
@@ -407,6 +435,7 @@ async function writeReview(assignmentId: string, fields: Record<string, unknown>
 export const submitReviewFn = createServerFn({ method: "POST" })
 	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
 	.handler(async ({ data }) => {
+		await requireAssignedReviewer(data.assignmentId)
 		const db = getJournalServerClient()
 		const review = await writeReview(data.assignmentId, { ...data.reviewData, is_draft: false, submitted_at: new Date().toISOString() })
 
@@ -438,6 +467,7 @@ export const submitReviewFn = createServerFn({ method: "POST" })
 export const saveReviewDraftFn = createServerFn({ method: "POST" })
 	.validator(z.object({ assignmentId: z.string(), reviewData: looseRecord }))
 	.handler(async ({ data }) => {
+		await requireAssignedReviewer(data.assignmentId)
 		return writeReview(data.assignmentId, { ...data.reviewData, is_draft: true })
 	})
 
@@ -563,7 +593,9 @@ export const canSubmitReviewFn = createServerFn({ method: "GET" })
 // ─── Reviewer directory + convites (lado do editor) ───────────────────────────
 
 // Lista candidatos a revisor (role reviewer ou editor) com e-mail resolvido de auth.users.
+// Expõe e-mails (PII) — restrito a editores.
 export const getReviewersFn = createServerFn({ method: "GET" }).handler(async () => {
+	await requireEditor()
 	const db = getJournalServerClient()
 	const { data: profiles, error } = await db
 		.from("user_profiles")
@@ -591,11 +623,13 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 		z.object({
 			articleId: z.string(),
 			reviewerId: z.string(),
-			invitedBy: z.string(),
 			dueDate: z.string(),
 		})
 	)
 	.handler(async ({ data }) => {
+		// Autorização server-side: só editor convida. invited_by vem da sessão,
+		// nunca do cliente.
+		const editorId = await requireEditor()
 		const db = getJournalServerClient()
 
 		const { data: reviewerUser, error: userError } = await db.auth.admin.getUserById(data.reviewerId)
@@ -603,29 +637,25 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 		const email = reviewerUser?.user?.email
 		if (!email) throw new Error("Revisor não possui e-mail cadastrado.")
 
-		// Impede convite duplicado ativo para o mesmo revisor/artigo.
-		const { data: existing } = await db
-			.from("review_assignments")
-			.select("id")
-			.eq("article_id", data.articleId)
-			.eq("reviewer_id", data.reviewerId)
-			.in("status", ["invited", "accepted", "completed"])
-			.maybeSingle()
-		if (existing) throw new Error("Este revisor já foi convidado para este artigo.")
-
 		const { data: assignment, error } = await db
 			.from("review_assignments")
 			.insert({
 				article_id: data.articleId,
 				reviewer_id: data.reviewerId,
-				invited_by: data.invitedBy,
+				invited_by: editorId,
 				invitation_email: email,
 				status: "invited",
 				due_date: data.dueDate,
 			})
 			.select()
 			.single()
-		if (error) throw new Error(error.message)
+		// A atomicidade contra convite duplicado é garantida por índice único
+		// parcial (article_id, reviewer_id) WHERE status ativo — ver migration
+		// 20260705160000. 23505 = unique_violation.
+		if (error) {
+			if (error.code === "23505") throw new Error("Este revisor já foi convidado para este artigo.")
+			throw new Error(error.message)
+		}
 
 		// Avança o artigo para under_review (se ainda submitted).
 		await db.from("articles").update({ status: "under_review" }).eq("id", data.articleId).eq("status", "submitted")
@@ -646,7 +676,7 @@ export const inviteReviewerFn = createServerFn({ method: "POST" })
 			.from("article_events")
 			.insert({
 				article_id: data.articleId,
-				user_id: data.invitedBy,
+				user_id: editorId,
 				event_type: "reviewer_invited",
 				event_data: { reviewer_id: data.reviewerId, invitation_email: email },
 			})

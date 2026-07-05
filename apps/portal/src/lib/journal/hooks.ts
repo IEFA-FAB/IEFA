@@ -381,7 +381,7 @@ export function useInviteReviewer() {
 	const queryClient = useQueryClient()
 
 	return useMutation({
-		mutationFn: (input: { articleId: string; reviewerId: string; invitedBy: string; dueDate: string }) => inviteReviewer(input),
+		mutationFn: (input: { articleId: string; reviewerId: string; dueDate: string }) => inviteReviewer(input),
 		onSuccess: (_data, { articleId }) => {
 			queryClient.invalidateQueries({ queryKey: ["journal", "review-assignments"] })
 			queryClient.invalidateQueries({ queryKey: ["journal", "reviewer-assignments"] })

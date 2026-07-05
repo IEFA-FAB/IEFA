@@ -206,7 +206,7 @@ export async function getReviewers(): Promise<ReviewerDirectoryEntry[]> {
 	return (await getReviewersFn()) as ReviewerDirectoryEntry[]
 }
 
-export async function inviteReviewer(input: { articleId: string; reviewerId: string; invitedBy: string; dueDate: string }): Promise<ReviewAssignment> {
+export async function inviteReviewer(input: { articleId: string; reviewerId: string; dueDate: string }): Promise<ReviewAssignment> {
 	return (await inviteReviewerFn({ data: input })) as ReviewAssignment
 }
 

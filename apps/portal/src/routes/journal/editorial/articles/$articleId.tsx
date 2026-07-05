@@ -1,8 +1,7 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowLeft, Calendar, CheckCircle, Clock, Download, MessageText, Page, User, WarningTriangle, Xmark, XmarkCircle } from "iconoir-react"
 import { useState } from "react"
-import { authQueryOptions } from "@/auth/service"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import type { ArticleEvent, ArticleReviewWithAssignment, ReviewerDirectoryEntry } from "@/lib/journal/client"
@@ -52,7 +51,6 @@ function ArticleDetailEditor() {
 	const versions = details.versions ?? []
 	const { data: reviews } = useSuspenseQuery(articleReviewsQueryOptions(articleId))
 	const { data: events } = useSuspenseQuery(articleEventsQueryOptions(articleId))
-	const { data: auth } = useSuspenseQuery(authQueryOptions())
 
 	const updateArticle = useUpdateArticle()
 	const [inviteOpen, setInviteOpen] = useState(false)
@@ -293,12 +291,7 @@ function ArticleDetailEditor() {
 			</div>
 
 			{inviteOpen && (
-				<InviteReviewerDialog
-					articleId={articleId}
-					invitedBy={auth.user?.id ?? ""}
-					onClose={() => setInviteOpen(false)}
-					onDone={(text) => setBanner({ kind: "success", text })}
-				/>
+				<InviteReviewerDialog articleId={articleId} onClose={() => setInviteOpen(false)} onDone={(text) => setBanner({ kind: "success", text })} />
 			)}
 		</div>
 	)
@@ -392,19 +385,12 @@ function TimelineItem({ event }: { event: ArticleEvent }) {
 	)
 }
 
-function InviteReviewerDialog({
-	articleId,
-	invitedBy,
-	onClose,
-	onDone,
-}: {
-	articleId: string
-	invitedBy: string
-	onClose: () => void
-	onDone: (text: string) => void
-}) {
-	const { data: reviewers } = useSuspenseQuery(reviewersQueryOptions())
-	const { data: settings } = useSuspenseQuery(journalSettingsQueryOptions())
+function InviteReviewerDialog({ articleId, onClose, onDone }: { articleId: string; onClose: () => void; onDone: (text: string) => void }) {
+	// useQuery (não-suspense): os dados do diálogo não estão no loader da rota,
+	// então useSuspenseQuery dispararia o Suspense de nível de rota e piscaria a
+	// página inteira ao abrir. Aqui carregamos com estado de loading local.
+	const { data: reviewers, isLoading: loadingReviewers } = useQuery(reviewersQueryOptions())
+	const { data: settings } = useQuery(journalSettingsQueryOptions())
 	const inviteMutation = useInviteReviewer()
 
 	const defaultDays = settings?.default_review_deadline_days ?? 21
@@ -414,7 +400,7 @@ function InviteReviewerDialog({
 	const [dueDate, setDueDate] = useState(defaultDue)
 	const [error, setError] = useState<string | null>(null)
 
-	const selectableReviewers = reviewers.filter((r) => r.email)
+	const selectableReviewers = (reviewers ?? []).filter((r) => r.email)
 
 	const handleInvite = async () => {
 		setError(null)
@@ -422,13 +408,9 @@ function InviteReviewerDialog({
 			setError("Selecione um revisor.")
 			return
 		}
-		if (!invitedBy) {
-			setError("Sessão do editor não identificada.")
-			return
-		}
 		try {
-			await inviteMutation.mutateAsync({ articleId, reviewerId, invitedBy, dueDate: new Date(dueDate).toISOString() })
-			const reviewer = reviewers.find((r) => r.id === reviewerId)
+			await inviteMutation.mutateAsync({ articleId, reviewerId, dueDate: new Date(dueDate).toISOString() })
+			const reviewer = (reviewers ?? []).find((r) => r.id === reviewerId)
 			onDone(`Convite enviado a ${reviewer?.full_name ?? "revisor"}.`)
 			onClose()
 		} catch (err) {
@@ -448,7 +430,9 @@ function InviteReviewerDialog({
 					</button>
 				</div>
 
-				{selectableReviewers.length === 0 ? (
+				{loadingReviewers ? (
+					<p className="text-sm text-muted-foreground">Carregando revisores...</p>
+				) : selectableReviewers.length === 0 ? (
 					<p className="text-sm text-muted-foreground">Nenhum revisor disponível. Cadastre usuários com função "reviewer" ou "editor".</p>
 				) : (
 					<>
