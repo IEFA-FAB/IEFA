@@ -5,11 +5,15 @@ import { z } from "zod"
 // rodam no Nitro, onde import.meta.env não é injetado pelo Vite.
 const serverEnvSchema = z.object({
 	VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: z.string().url(),
+	// Chave publicável (anon) — usada pelo client SSR de auth, que estabelece a
+	// identidade pelo JWT do cookie (respeita RLS), nunca pela chave.
+	VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 	ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY: z.string().min(1),
 })
 
 const parsed = serverEnvSchema.safeParse({
 	VITE_ASSIGNMENT_SELECTION_SUPABASE_URL: process.env.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL,
+	VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY: process.env.VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY,
 	ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY: process.env.ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY,
 })
 

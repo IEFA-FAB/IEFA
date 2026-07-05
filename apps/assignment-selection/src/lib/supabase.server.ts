@@ -25,7 +25,7 @@ export function getAssignmentServerClient() {
 export function getSupabaseAuthClient() {
 	return createServerClient<Database, "assignment_selection">(
 		envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_URL,
-		envServer.ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY,
+		envServer.VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY,
 		{
 			db: { schema: "assignment_selection" },
 			cookies: {

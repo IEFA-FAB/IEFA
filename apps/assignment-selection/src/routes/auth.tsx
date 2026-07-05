@@ -10,9 +10,13 @@ type AuthSearch = { redirect?: string }
 // E-mail institucional FAB.
 const FAB_EMAIL_RE = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
 
+// Só aceita caminhos internos (começam com "/" mas não "//") — evita open redirect
+// para URLs externas via `?redirect=https://phishing`.
+const isInternalPath = (value: unknown): value is string => typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
+
 export const Route = createFileRoute("/auth")({
 	validateSearch: (search: Record<string, unknown>): AuthSearch => ({
-		redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+		redirect: isInternalPath(search.redirect) ? search.redirect : undefined,
 	}),
 	// Pré-carrega a sessão e desvia quem já está autorizado. Quem está logado mas
 	// SEM concessão permanece aqui (a tela mostra o estado "sem acesso").
