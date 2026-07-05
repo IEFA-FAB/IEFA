@@ -4719,7 +4719,9 @@ export type Database = {
 					catmat_match_status: string | null
 					created_at: string
 					deleted_at: string | null
+					delivery_conditioning: string | null
 					description: string
+					detailed_description: string | null
 					gpc_brick_code: string | null
 					gpc_class_code: string | null
 					gpc_family_code: string | null
@@ -4736,7 +4738,9 @@ export type Database = {
 					catmat_match_status?: string | null
 					created_at?: string
 					deleted_at?: string | null
+					delivery_conditioning?: string | null
 					description: string
+					detailed_description?: string | null
 					gpc_brick_code?: string | null
 					gpc_class_code?: string | null
 					gpc_family_code?: string | null
@@ -4753,7 +4757,9 @@ export type Database = {
 					catmat_match_status?: string | null
 					created_at?: string
 					deleted_at?: string | null
+					delivery_conditioning?: string | null
 					description?: string
+					detailed_description?: string | null
 					gpc_brick_code?: string | null
 					gpc_class_code?: string | null
 					gpc_family_code?: string | null

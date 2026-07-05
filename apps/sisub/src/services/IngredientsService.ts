@@ -410,6 +410,8 @@ const positiveOrNull = (n?: number | null) => (n != null && n > 0 ? n : null)
 export interface CreatePurchaseItemPayload {
 	ingredientId: string
 	description: string
+	detailedDescription?: string | null
+	deliveryConditioning?: string | null
 	purchaseMeasureUnit?: string | null
 	catmatItemCodigo?: number | null
 	catmatItemDescricao?: string | null
@@ -426,6 +428,8 @@ export function useCreatePurchaseItem() {
 				data: {
 					payload: {
 						description: p.description,
+						detailed_description: p.detailedDescription ?? null,
+						delivery_conditioning: p.deliveryConditioning ?? null,
 						purchase_measure_unit: p.purchaseMeasureUnit ?? null,
 						catmat_item_codigo: codigo,
 						catmat_item_descricao: p.catmatItemDescricao ?? null,
@@ -458,6 +462,8 @@ export interface UpdatePurchaseItemPayload {
 	id: string
 	ingredientId: string
 	description: string
+	detailedDescription?: string | null
+	deliveryConditioning?: string | null
 	purchaseMeasureUnit?: string | null
 	catmatItemCodigo?: number | null
 	catmatItemDescricao?: string | null
@@ -475,6 +481,8 @@ export function useUpdatePurchaseItem() {
 					id: p.id,
 					payload: {
 						description: p.description,
+						detailed_description: p.detailedDescription ?? null,
+						delivery_conditioning: p.deliveryConditioning ?? null,
 						purchase_measure_unit: p.purchaseMeasureUnit ?? null,
 						catmat_item_codigo: codigo,
 						catmat_item_descricao: p.catmatItemDescricao ?? null,

@@ -438,6 +438,8 @@ export const comprasMaterialCaracteristicaInComprasGovIntegration = comprasGovIn
 export const purchaseItemInProcurement = procurement.table("purchase_item", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	description: text().notNull(),
+	detailedDescription: text("detailed_description"),
+	deliveryConditioning: text("delivery_conditioning"),
 	purchaseMeasureUnit: text("purchase_measure_unit"),
 	catmatItemCodigo: integer("catmat_item_codigo"),
 	catmatItemDescricao: text("catmat_item_descricao"),

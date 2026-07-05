@@ -7,11 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { type PurchaseItemWithLink, useCreatePurchaseItem, useUpdatePurchaseItem } from "@/services/IngredientsService"
 import { CatmatCombobox } from "./CatmatCombobox"
 
 const purchaseItemSchema = z.object({
 	description: z.string().min(1, "Descrição obrigatória"),
+	detailedDescription: z.string(),
+	deliveryConditioning: z.string(),
 	purchaseMeasureUnit: z.string(),
 	unitPrice: z.number().min(0).nullable(),
 	conversionFactor: z.number().min(0),
@@ -41,6 +44,8 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 	const form = useForm({
 		defaultValues: {
 			description: purchaseItem?.description ?? "",
+			detailedDescription: purchaseItem?.detailed_description ?? "",
+			deliveryConditioning: purchaseItem?.delivery_conditioning ?? "",
 			purchaseMeasureUnit: purchaseItem?.purchase_measure_unit ?? "",
 			unitPrice: purchaseItem?.unit_price != null ? Number(purchaseItem.unit_price) : null,
 			conversionFactor: purchaseItem?.conversion_factor != null ? Number(purchaseItem.conversion_factor) : 1.0,
@@ -52,6 +57,8 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 					await createPurchaseItem({
 						ingredientId,
 						description: value.description,
+						detailedDescription: value.detailedDescription || null,
+						deliveryConditioning: value.deliveryConditioning || null,
 						purchaseMeasureUnit: value.purchaseMeasureUnit || null,
 						catmatItemCodigo: catmat.codigo,
 						catmatItemDescricao: catmat.descricao,
@@ -64,6 +71,8 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 						id: purchaseItem.id,
 						ingredientId,
 						description: value.description,
+						detailedDescription: value.detailedDescription || null,
+						deliveryConditioning: value.deliveryConditioning || null,
 						purchaseMeasureUnit: value.purchaseMeasureUnit || null,
 						catmatItemCodigo: catmat.codigo,
 						catmatItemDescricao: catmat.descricao,
@@ -137,6 +146,40 @@ export function PurchaseItemForm({ isOpen, onClose, mode, purchaseItem, ingredie
 										aria-invalid={!!field.state.meta.errors.length}
 									/>
 									<FieldError errors={field.state.meta.errors.map((e) => ({ message: typeof e === "string" ? e : e?.message }))} />
+								</Field>
+							)}
+						</form.Field>
+
+						{/* Descrição detalhada */}
+						<form.Field name="detailedDescription">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Descrição Detalhada</FieldLabel>
+									<Textarea
+										id={field.name}
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Especificação completa do item (características, tipo, embalagem, marca de referência...)"
+										rows={3}
+									/>
+									<FieldDescription>Especificação livre do item, além do rótulo curto e do CATMAT.</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+
+						{/* Acondicionamento da entrega */}
+						<form.Field name="deliveryConditioning">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Acondicionamento da Entrega</FieldLabel>
+									<Textarea
+										id={field.name}
+										value={field.state.value}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Ex: Entregue congelado em caminhão frigorífico, mantendo cadeia de frio até -12 °C"
+										rows={2}
+									/>
+									<FieldDescription>Como o item deve ser entregue/transportado — critério de aceite na entrega.</FieldDescription>
 								</Field>
 							)}
 						</form.Field>
