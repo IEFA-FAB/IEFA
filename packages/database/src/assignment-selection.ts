@@ -8,6 +8,10 @@ export type TablesUpdate<T extends keyof AssignmentSelectionSchema["Tables"]> = 
 export type Views<T extends keyof AssignmentSelectionSchema["Views"]> = AssignmentSelectionSchema["Views"][T]["Row"]
 
 // ---- Tables ----
+export type AccessGrant = Tables<"access_grant">
+export type AccessGrantInsert = TablesInsert<"access_grant">
+export type AccessGrantUpdate = TablesUpdate<"access_grant">
+
 export type Edition = Tables<"edition">
 export type EditionInsert = TablesInsert<"edition">
 export type EditionUpdate = TablesUpdate<"edition">

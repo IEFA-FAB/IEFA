@@ -2,6 +2,8 @@ import { createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import type { ReactNode } from "react"
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider"
+import { authQueryOptions } from "./lib/auth"
+import { supabase } from "./lib/supabase"
 import { routeTree } from "./routeTree.gen"
 
 export const getRouter = () => {
@@ -25,6 +27,17 @@ export const getRouter = () => {
 		// de workspace do Bun); ambos apontam pro mesmo runtime (5.10x).
 		queryClient: rqContext.queryClient as unknown as Parameters<typeof setupRouterSsrQueryIntegration>[0]["queryClient"],
 	})
+
+	// No cliente, mantém a query de auth em sincronia com os eventos do Supabase
+	// (login/logout, inclusive entre abas) e revalida as rotas.
+	if (typeof window !== "undefined") {
+		supabase.auth.onAuthStateChange((event) => {
+			if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
+				rqContext.queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
+				router.invalidate()
+			}
+		})
+	}
 
 	return router
 }

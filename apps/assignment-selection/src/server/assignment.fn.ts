@@ -1,6 +1,7 @@
 import type { Edition, Person, Vacancy } from "@iefa/database/assignment-selection"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAccess } from "@/lib/auth.server"
 import { getAssignmentServerClient } from "@/lib/supabase.server"
 
 export interface BoardData {
@@ -73,6 +74,7 @@ const personChangesSchema = z
 export const updatePersonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.number().int(), changes: personChangesSchema }))
 	.handler(async ({ data }): Promise<Person> => {
+		await requireAccess()
 		const supabase = getAssignmentServerClient()
 		const { data: row, error } = await supabase.from("person").update(data.changes).eq("id", data.id).select("*").single()
 		if (error) throw new Error(error.message)
@@ -83,6 +85,7 @@ export const updatePersonFn = createServerFn({ method: "POST" })
 export const setActiveEditionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ editionId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<void> => {
+		await requireAccess()
 		const supabase = getAssignmentServerClient()
 		const off = await supabase.from("edition").update({ active: false }).neq("id", data.editionId)
 		if (off.error) throw new Error(off.error.message)
@@ -97,6 +100,7 @@ export const setActiveEditionFn = createServerFn({ method: "POST" })
 export const callPersonFn = createServerFn({ method: "POST" })
 	.validator(z.object({ editionId: z.string().uuid(), personId: z.number().int() }))
 	.handler(async ({ data }): Promise<void> => {
+		await requireAccess()
 		const supabase = getAssignmentServerClient()
 		const clear = await supabase.from("person").update({ show_card: false, show_om: false }).eq("edition_id", data.editionId)
 		if (clear.error) throw new Error(clear.error.message)
@@ -112,6 +116,7 @@ export const callPersonFn = createServerFn({ method: "POST" })
 export const resetEditionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ editionId: z.string().uuid(), clearChoices: z.boolean() }))
 	.handler(async ({ data }): Promise<void> => {
+		await requireAccess()
 		const supabase = getAssignmentServerClient()
 		const changes = data.clearChoices
 			? { show_card: false, show_om: false, hide_card: false, localidade: null, estado: null }

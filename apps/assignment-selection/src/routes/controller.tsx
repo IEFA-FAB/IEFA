@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
-import { MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { LogOut, MonitorPlay, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { ConductPanel } from "@/components/ConductPanel"
 import { ControllerTable, type PersonChanges } from "@/components/ControllerTable"
 import { EditionSelect } from "@/components/EditionSelect"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/hooks/useAuth"
 import { useBoardRealtime } from "@/hooks/useBoardRealtime"
+import { authQueryOptions } from "@/lib/auth"
 import { localidadesFab } from "@/lib/localidades"
 import { boardQueryOptions } from "@/lib/queries"
 import { callPersonFn, resetEditionFn, setActiveEditionFn, updatePersonFn } from "@/server/assignment.fn"
@@ -17,6 +19,16 @@ export const Route = createFileRoute("/controller")({
 	validateSearch: (search: Record<string, unknown>): ControllerSearch => ({
 		edition: typeof search.edition === "string" ? search.edition : undefined,
 	}),
+	// Gate de acesso: exige sessão + concessão (PBAC). O telão "/" segue público.
+	beforeLoad: async ({ context, location }) => {
+		const auth = await context.queryClient.ensureQueryData(authQueryOptions())
+		if (!auth.isAuthenticated) {
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
+		}
+		if (!auth.isAuthorized) {
+			throw redirect({ to: "/auth" })
+		}
+	},
 	loaderDeps: ({ search }) => ({ edition: search.edition }),
 	loader: ({ context, deps }) => context.queryClient.ensureQueryData(boardQueryOptions(deps.edition)),
 	component: ControllerPage,
@@ -26,7 +38,14 @@ function ControllerPage() {
 	const { edition } = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const queryClient = useQueryClient()
+	const { user, signOut } = useAuth()
 	const { data } = useSuspenseQuery(boardQueryOptions(edition))
+
+	const handleSignOut = async () => {
+		await signOut()
+		await queryClient.invalidateQueries({ queryKey: authQueryOptions().queryKey })
+		navigate({ to: "/auth" })
+	}
 
 	useBoardRealtime(data.editionId, edition)
 
@@ -64,6 +83,16 @@ function ControllerPage() {
 							>
 								<MonitorPlay /> {isActiveOnBoard ? "No telão" : "Ativar no telão"}
 							</Button>
+							<div className="flex items-center gap-2 border-l border-slate-200 pl-2">
+								{user?.email && (
+									<span className="hidden max-w-[16ch] truncate text-xs text-slate-400 sm:inline" title={user.email}>
+										{user.email}
+									</span>
+								)}
+								<Button variant="ghost" size="icon-sm" onClick={handleSignOut} title="Sair">
+									<LogOut />
+								</Button>
+							</div>
 						</div>
 					</header>
 
