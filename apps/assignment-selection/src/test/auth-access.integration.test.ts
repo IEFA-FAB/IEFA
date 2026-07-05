@@ -8,8 +8,9 @@ import { createAnonClient, createServiceClient, describeIntegration, getTestEnv,
 //  - person é lida por anon (telão público) mas NÃO escrita (writes só service_role)
 //  - resolveAccess() autoriza só concessões ativas, por e-mail
 // Todo dado criado usa o prefixo `zzz-test-audit-` e é removido no finally/afterAll.
+// O suite é self-contained: não depende de nenhuma conta/concessão real de prod
+// (que poderia mudar por motivo operacional) — cria e limpa seus próprios grants.
 
-const SEED_EMAIL = "nannijpsn@fab.mil.br"
 const TEST_PREFIX = "zzz-test-audit-"
 const env = getTestEnv()
 
@@ -60,13 +61,7 @@ describeIntegration("assignment_selection · auth/PBAC (prod DB, com cleanup)", 
 		expect(data ?? []).toHaveLength(0)
 	})
 
-	// ── Seed / PBAC ───────────────────────────────────────────────────────────
-
-	it("seed: nannijpsn@fab.mil.br existe como admin ativo", async () => {
-		const { data, error } = await service.from("access_grant").select("role, active").eq("email", SEED_EMAIL).maybeSingle()
-		expect(error).toBeNull()
-		expect(data).toMatchObject({ role: "admin", active: true })
-	})
+	// ── PBAC (resolveAccess) ──────────────────────────────────────────────────
 
 	it("resolveAccess: visitante anônimo (null) → não autorizado", async () => {
 		expect(await resolveAccess(null)).toEqual({ authorized: false, role: null })
@@ -76,8 +71,14 @@ describeIntegration("assignment_selection · auth/PBAC (prod DB, com cleanup)", 
 		expect(await resolveAccess({} as User)).toEqual({ authorized: false, role: null })
 	})
 
-	it("resolveAccess: concessão ativa (seed) → autorizado com role", async () => {
-		expect(await resolveAccess(asUser(SEED_EMAIL))).toEqual({ authorized: true, role: "admin" })
+	it("resolveAccess: concessão admin ativa → autorizado como admin", async () => {
+		const email = `${TEST_PREFIX}admin@fab.mil.br`
+		await service.from("access_grant").insert({ email, role: "admin", active: true })
+		try {
+			expect(await resolveAccess(asUser(email))).toEqual({ authorized: true, role: "admin" })
+		} finally {
+			await service.from("access_grant").delete().eq("email", email)
+		}
 	})
 
 	it("resolveAccess: e-mail sem concessão → não autorizado", async () => {

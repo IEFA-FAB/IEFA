@@ -23,6 +23,11 @@ describe("isInternalPath / safeRedirect (open-redirect guard)", () => {
 		}
 	})
 
+	it("aceita /%2Fevil.com (boundary documentado: é seguro no SPA — o router trata como segmento literal, sem decode para //)", () => {
+		expect(isInternalPath("/%2Fevil.com")).toBe(true)
+		expect(safeRedirect("/%2Fevil.com")).toBe("/%2Fevil.com")
+	})
+
 	it("rejeita paths relativos sem barra inicial e valores não-string", () => {
 		for (const p of ["controller", "", "evil.com", undefined, null, 42, {}, ["/x"]]) {
 			expect(isInternalPath(p)).toBe(false)

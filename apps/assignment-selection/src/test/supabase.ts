@@ -17,8 +17,11 @@ function timeoutFetch(timeoutMs: number): typeof fetch {
 	return (async (input, init = {}) => {
 		const controller = new AbortController()
 		const timer = setTimeout(() => controller.abort(new Error(`Supabase test request timed out after ${timeoutMs}ms`)), timeoutMs)
+		// Preserva um AbortSignal do caller (ex.: cancelamento do supabase-js): o
+		// primeiro a abortar (timeout ou caller) vence, em vez de sobrescrever o dele.
+		const signal = init.signal ? AbortSignal.any([controller.signal, init.signal]) : controller.signal
 		try {
-			return await fetch(input, { ...init, signal: controller.signal })
+			return await fetch(input, { ...init, signal })
 		} finally {
 			clearTimeout(timer)
 		}
