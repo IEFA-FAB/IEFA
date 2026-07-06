@@ -26,7 +26,14 @@ export function UniformSearchBox({
 	const [open, setOpen] = useState(false)
 	const [active, setActive] = useState(-1)
 	const rootRef = useRef<HTMLDivElement>(null)
+	const inputRef = useRef<HTMLInputElement>(null)
 	const listId = useId()
+
+	// Mantém o campo em sincronia com o `q` da URL (ex.: editado na busca da lista),
+	// sem sobrescrever o que a pessoa está digitando aqui (só quando sem foco).
+	useEffect(() => {
+		if (document.activeElement !== inputRef.current) setQuery(initialQuery ?? "")
+	}, [initialQuery])
 
 	// Todos os uniformes (sem filtro) — base das sugestões; carrega em background.
 	const { data: uniforms } = useQuery(uniformsQueryOptions({}))
@@ -93,6 +100,7 @@ export function UniformSearchBox({
 			>
 				<Search className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
 				<input
+					ref={inputRef}
 					type="text"
 					value={query}
 					onChange={(e) => {

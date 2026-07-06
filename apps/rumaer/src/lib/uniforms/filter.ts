@@ -76,8 +76,8 @@ function tokenMatches(u: UniformListItem, hayWords: string[], tok: string): bool
 	// "5o", "16o" — forma ordinal abreviada → número exato
 	const ordinal = tok.match(/^(\d{1,2})o$/)
 	if (ordinal) return u.numero === Number(ordinal[1])
-	// "5a", "7b" — forma contraída número+letra → número e letra exatos
-	const contracted = tok.match(/^(\d{1,2})([a-e])$/)
+	// "5a", "7b" — forma contraída número+letra → número e letra exatos ("5o" já foi tratado acima como ordinal)
+	const contracted = tok.match(/^(\d{1,2})([a-z])$/)
 	if (contracted) return u.numero === Number(contracted[1]) && (u.letra?.toLowerCase() ?? "") === contracted[2]
 	// "5", "16" — número puro → número exato (evita casar "5" dentro de "15")
 	const pure = tok.match(/^(\d{1,2})$/)

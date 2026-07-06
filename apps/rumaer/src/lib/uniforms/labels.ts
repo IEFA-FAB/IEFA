@@ -16,7 +16,7 @@ export const GRUPO_DESCRIPTIONS: Record<GrupoUniforme, string> = {
 	desfile: "Composições específicas para desfiles e formaturas.",
 }
 
-export const GRUPO_ORDER: GrupoUniforme[] = ["representacao", "servicos", "educacao_fisica", "desfile", "historicos"]
+export const GRUPO_ORDER = ["representacao", "servicos", "educacao_fisica", "desfile", "historicos"] as const satisfies readonly GrupoUniforme[]
 
 /**
  * Cor de acento por grupo (oklch) — tira lateral + leve tingimento do card na

@@ -1,7 +1,9 @@
 import { z } from "zod"
+import { GRUPO_ORDER } from "@/lib/uniforms/labels"
 
 /** Grupos e categorias válidos como filtro na busca de uniformes. */
-export const GRUPOS = ["historicos", "representacao", "servicos", "educacao_fisica", "desfile"] as const
+// Deriva de GRUPO_ORDER (fonte única) para não divergir de labels.ts.
+export const GRUPOS = GRUPO_ORDER
 export const CATEGORIAS = ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_formacao", "pracas"] as const
 
 export const SORT_OPTIONS = [
