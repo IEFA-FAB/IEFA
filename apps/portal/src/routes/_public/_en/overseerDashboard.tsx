@@ -381,7 +381,7 @@ function defaultTargets(): ServiceTarget[] {
 
 	return [
 		portal,
-		{ name: "SISUB", url: "https://app.previsaosisub.com.br" },
+		{ name: "SISUB", url: "https://sisub.iefa.com.br" },
 		{ name: "RAG API", url: "https://alpha.iefa.com.br" },
 		{ name: "IEFA API", url: "https://api.iefa.com.br" },
 	]

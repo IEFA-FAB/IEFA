@@ -11,12 +11,16 @@
     "preview": "vite preview",
     "format": "biome format",
     "lint": "biome lint",
-    "check": "biome check"
+    "check": "biome check",
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.9.0",
     "@iefa/ai-provider": "workspace:*",
+    "@iefa/database": "workspace:*",
+    "@iefa/pbac": "workspace:*",
     "@hookform/resolvers": "^5.4.0",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.2",
     "@tailwindcss/vite": "^4.3.1",
     "@tanstack/ai": "^0.32.0",
     "@tanstack/ai-client": "^0.18.0",

@@ -16,6 +16,7 @@ import {
 	ingredientItemInKitchen,
 	ingredientNutrientInKitchen,
 	ingredientNutritionReferenceInKitchen,
+	ingredientSubstitutionInKitchen,
 	nutrientInKitchen,
 	nutritionFoodItemInNutritionReference,
 	nutritionFoodItemRevisionInNutritionReference,
@@ -43,12 +44,14 @@ import type {
 	ListCeafa,
 	ListFolders,
 	ListIngredientItems,
+	ListIngredientSubstitutions,
 	ListIngredients,
 	ListNutritionReferenceFoods,
 	RestoreFolder,
 	RestoreIngredient,
 	SetIngredientNutrients,
 	SetIngredientNutritionReference,
+	SetIngredientSubstitutions,
 	UpdateFolder,
 	UpdateIngredient,
 	UpdateIngredientItem,
@@ -236,6 +239,50 @@ export async function restoreIngredient(db: SisubDb, ctx: UserContext, input: Re
 	requireAnyPermission(ctx, ["kitchen", "global"], 1)
 	await mutateOrFail("RESTORE_FAILED", `ingredient ${input.id} not found`, () =>
 		db.update(ingredientInKitchen).set({ deletedAt: null }).where(eq(ingredientInKitchen.id, input.id)).returning({ id: ingredientInKitchen.id })
+	)
+}
+
+// ─── Substituições de insumo (direcionais, vivem no insumo) ───────────────────
+
+/** Linha wire da substituição. Tipo local — a tabela é nova e não está no generated.ts. */
+export type IngredientSubstitution = {
+	id: string
+	created_at: string
+	ingredient_id: string
+	substitute_ingredient_id: string
+	factor: number
+}
+
+export async function listIngredientSubstitutions(db: SisubDb, ctx: UserContext, input: ListIngredientSubstitutions): Promise<IngredientSubstitution[]> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const rows = await runQuery("QUERY_FAILED", () =>
+		db.select().from(ingredientSubstitutionInKitchen).where(eq(ingredientSubstitutionInKitchen.ingredientId, input.ingredientId))
+	)
+	// `factor` é numeric → o driver devolve string; normaliza para número no contrato wire.
+	return rows.map((r) => ({ ...toWire<IngredientSubstitution>(r), factor: Number(r.factor) }))
+}
+
+/**
+ * Replace-all do conjunto de substitutos de um insumo, dentro de uma transação:
+ * apaga as linhas atuais e reinsere as marcadas. Sem soft-delete → o unique
+ * (ingredient_id, substitute_ingredient_id) nunca colide com linha órfã.
+ * Ignora auto-referência (o próprio insumo nunca é seu substituto).
+ */
+export async function setIngredientSubstitutions(db: SisubDb, ctx: UserContext, input: SetIngredientSubstitutions): Promise<void> {
+	requireAnyPermission(ctx, ["kitchen", "global"], 1)
+	const rows = input.substitutions
+		.filter((s) => s.substituteIngredientId !== input.ingredientId)
+		.map((s) => ({
+			ingredientId: input.ingredientId,
+			substituteIngredientId: s.substituteIngredientId,
+			factor: String(s.factor ?? 1),
+		}))
+
+	await runQuery("UPDATE_FAILED", () =>
+		db.transaction(async (tx) => {
+			await tx.delete(ingredientSubstitutionInKitchen).where(eq(ingredientSubstitutionInKitchen.ingredientId, input.ingredientId))
+			if (rows.length > 0) await tx.insert(ingredientSubstitutionInKitchen).values(rows)
+		})
 	)
 }
 

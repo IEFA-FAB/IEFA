@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { Star } from "iconoir-react"
 import { AppCard } from "@/components/AppCard"
 import { DynamicIcon } from "@/components/dynamicIcon"
 import { Separator } from "@/components/ui/separator"
+import { useAppFavorites } from "@/hooks/useAppFavorites"
 import { useAppsData } from "@/hooks/useAppsData"
 import type { AppItem } from "@/types/domain"
 
@@ -38,9 +40,11 @@ export const Route = createFileRoute("/_public/_en/facilities/")({
 function Home() {
 	// usa TanStack Query
 	const { data, isLoading, error } = useAppsData()
+	const { isFavorite, toggle } = useAppFavorites()
 
 	// mapeia DbApp -> AppItem com React nodes (DynamicIcon)
 	const apps: AppItem[] = (data ?? []).map((a) => ({
+		id: a.id,
 		title: a.title,
 		description: a.description,
 		to: a.to_path ?? undefined,
@@ -55,8 +59,31 @@ function Home() {
 		})),
 	}))
 
+	const favoriteApps = apps.filter((a) => isFavorite(a.id))
+
 	return (
 		<div className="relative flex flex-col items-center justify-center w-full text-foreground">
+			{/* Seção Favoritos */}
+			{favoriteApps.length > 0 ? (
+				<section id="favoritos" className="mt-10 md:mt-12 w-full" aria-labelledby="favoritos-heading">
+					<div className="flex items-center gap-2 px-1 md:px-0">
+						<Star className="h-5 w-5 text-primary" aria-hidden="true" />
+						<h2 id="favoritos-heading" className="text-2xl md:text-3xl font-bold tracking-tight text-balance">
+							Seus favoritos
+						</h2>
+					</div>
+					<p className="text-muted-foreground mt-2 px-1 md:px-0 text-pretty">Os apps que você marcou para acesso rápido.</p>
+
+					<Separator className="my-6" />
+
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+						{favoriteApps.map((app) => (
+							<AppCard key={app.title} app={app} isFavorite onToggleFavorite={toggle} />
+						))}
+					</div>
+				</section>
+			) : null}
+
 			{/* Seção Apps */}
 			<section id="apps" className="mt-10 md:mt-12 w-full" aria-labelledby="apps-heading">
 				<div className="flex items-center justify-between px-1 md:px-0">
@@ -78,7 +105,7 @@ function Home() {
 				) : (
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 						{apps.map((app) => (
-							<AppCard key={app.title} app={app} />
+							<AppCard key={app.title} app={app} isFavorite={isFavorite(app.id)} onToggleFavorite={toggle} />
 						))}
 					</div>
 				)}

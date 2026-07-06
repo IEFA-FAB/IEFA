@@ -1,6 +1,9 @@
-import { GoogleGenAI, Type } from "@google/genai"
+import type { DocumentInsert } from "@iefa/database/sucont"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { generateJson } from "#/lib/ai.server"
+import { requireSucontAccess } from "#/lib/auth.server"
+import { getSucontServerClient } from "#/lib/supabase.server"
 
 // ── Tipos exportados (usados pelos componentes) ──────────────
 export type DocumentType = "FAB_OFFICE" | "DATA_ANALYSIS"
@@ -42,21 +45,92 @@ export interface DataAnalysisData {
 	recommendations: string[]
 }
 
+// ── JSON Schemas (instruem o modelo Bedrock via Converse; substituem o Type.* do Gemini) ──
+const fabSchema = {
+	type: "object",
+	properties: {
+		organization: { type: "string" },
+		subOrganization: { type: "string" },
+		documentNumber: { type: "string" },
+		acronym: { type: "string" },
+		year: { type: "string" },
+		city: { type: "string" },
+		date: { type: "string" },
+		protocol: { type: "string" },
+		sender: { type: "string" },
+		recipient: { type: "string" },
+		subject: { type: "string" },
+		references: { type: "array", items: { type: "string" } },
+		annexes: { type: "array", items: { type: "string" } },
+		paragraphs: { type: "array", items: { type: "string" } },
+		signerName: { type: "string" },
+		signerRank: { type: "string" },
+		signerPosition: { type: "string" },
+		urgency: { type: "boolean" },
+	},
+	required: [
+		"organization",
+		"documentNumber",
+		"acronym",
+		"year",
+		"city",
+		"date",
+		"protocol",
+		"sender",
+		"recipient",
+		"subject",
+		"paragraphs",
+		"signerName",
+		"signerRank",
+		"signerPosition",
+	],
+} as const
+
+const analysisSchema = {
+	type: "object",
+	properties: {
+		title: { type: "string" },
+		subtitle: { type: "string" },
+		author: { type: "string" },
+		date: { type: "string" },
+		summary: { type: "string" },
+		keyMetrics: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					label: { type: "string" },
+					value: { type: "string" },
+					trend: { type: "string", enum: ["up", "down", "neutral"] },
+				},
+				required: ["label", "value", "trend"],
+			},
+		},
+		tableData: {
+			type: "object",
+			properties: {
+				headers: { type: "array", items: { type: "string" } },
+				rows: { type: "array", items: { type: "array", items: { type: "string" } } },
+			},
+			required: ["headers", "rows"],
+		},
+		analysis: { type: "array", items: { type: "string" } },
+		conclusion: { type: "string" },
+		recommendations: { type: "array", items: { type: "string" } },
+	},
+	required: ["title", "subtitle", "author", "date", "summary", "keyMetrics", "tableData", "analysis", "conclusion", "recommendations"],
+} as const
+
 // ── Server Function ──────────────────────────────────────────
 export const adaptDraftFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			draft: z.string().min(1),
 			type: z.enum(["FAB_OFFICE", "DATA_ANALYSIS"]),
 		})
 	)
 	.handler(async ({ data }) => {
-		const apiKey = process.env.GEMINI_API_KEY
-		if (!apiKey) {
-			throw new Error("GEMINI_API_KEY não configurada no servidor. Adicione ao .env.local.")
-		}
-
-		const ai = new GoogleGenAI({ apiKey })
+		const ctx = await requireSucontAccess()
 		const { draft, type } = data
 		const isFab = type === "FAB_OFFICE"
 
@@ -117,102 +191,26 @@ Retorne um JSON com os campos:
        - conclusion: Texto de conclusão.
        - recommendations: Array de recomendações práticas para o gestor.`
 
-		const schema = isFab
-			? {
-					type: Type.OBJECT,
-					properties: {
-						organization: { type: Type.STRING },
-						subOrganization: { type: Type.STRING },
-						documentNumber: { type: Type.STRING },
-						acronym: { type: Type.STRING },
-						year: { type: Type.STRING },
-						city: { type: Type.STRING },
-						date: { type: Type.STRING },
-						protocol: { type: Type.STRING },
-						sender: { type: Type.STRING },
-						recipient: { type: Type.STRING },
-						subject: { type: Type.STRING },
-						references: { type: Type.ARRAY, items: { type: Type.STRING } },
-						annexes: { type: Type.ARRAY, items: { type: Type.STRING } },
-						paragraphs: { type: Type.ARRAY, items: { type: Type.STRING } },
-						signerName: { type: Type.STRING },
-						signerRank: { type: Type.STRING },
-						signerPosition: { type: Type.STRING },
-						urgency: { type: Type.BOOLEAN },
-					},
-					required: [
-						"organization",
-						"documentNumber",
-						"acronym",
-						"year",
-						"city",
-						"date",
-						"protocol",
-						"sender",
-						"recipient",
-						"subject",
-						"paragraphs",
-						"signerName",
-						"signerRank",
-						"signerPosition",
-					],
-				}
-			: {
-					type: Type.OBJECT,
-					properties: {
-						title: { type: Type.STRING },
-						subtitle: { type: Type.STRING },
-						author: { type: Type.STRING },
-						date: { type: Type.STRING },
-						summary: { type: Type.STRING },
-						keyMetrics: {
-							type: Type.ARRAY,
-							items: {
-								type: Type.OBJECT,
-								properties: {
-									label: { type: Type.STRING },
-									value: { type: Type.STRING },
-									trend: { type: Type.STRING, enum: ["up", "down", "neutral"] },
-								},
-								required: ["label", "value", "trend"],
-							},
-						},
-						tableData: {
-							type: Type.OBJECT,
-							properties: {
-								headers: { type: Type.ARRAY, items: { type: Type.STRING } },
-								rows: {
-									type: Type.ARRAY,
-									items: { type: Type.ARRAY, items: { type: Type.STRING } },
-								},
-							},
-							required: ["headers", "rows"],
-						},
-						analysis: { type: Type.ARRAY, items: { type: Type.STRING } },
-						conclusion: { type: Type.STRING },
-						recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-					},
-					required: ["title", "subtitle", "author", "date", "summary", "keyMetrics", "tableData", "analysis", "conclusion", "recommendations"],
-				}
-
-		const apiCall = ai.models.generateContent({
-			model: "gemini-2.0-flash",
-			contents: [{ role: "user", parts: [{ text: prompt }] }],
-			config: {
-				responseMimeType: "application/json",
-				responseSchema: schema,
-			},
-		})
-
 		const timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error("O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto.")), 45000)
+			setTimeout(() => reject(new Error("O processamento demorou mais que o esperado (timeout). Tente com um rascunho mais curto.")), 60000)
 		)
 
-		const response = await Promise.race([apiCall, timeoutPromise])
+		const generated = await Promise.race([
+			generateJson<FabDocumentData | DataAnalysisData>({ user: prompt, schema: isFab ? fabSchema : analysisSchema }),
+			timeoutPromise,
+		])
 
-		if (!response?.text) {
-			throw new Error("A IA retornou uma resposta inválida ou vazia.")
+		// Persiste no histórico de documentos da seção (não bloqueia o retorno em caso de falha).
+		try {
+			const title = isFab ? (generated as FabDocumentData).subject : (generated as DataAnalysisData).title
+			// `generated` é um objeto validado; o cast satisfaz o tipo Json da coluna jsonb.
+			const generatedJson = generated as unknown as DocumentInsert["generated"]
+			await getSucontServerClient()
+				.from("document")
+				.insert({ type, title: title ?? null, draft, generated: generatedJson, created_by: ctx.userId })
+		} catch {
+			// histórico é acessório — falha não deve derrubar a geração.
 		}
 
-		return JSON.parse(response.text)
+		return generated
 	})

@@ -16,7 +16,19 @@ export const GRUPO_DESCRIPTIONS: Record<GrupoUniforme, string> = {
 	desfile: "Composições específicas para desfiles e formaturas.",
 }
 
-export const GRUPO_ORDER: GrupoUniforme[] = ["representacao", "servicos", "educacao_fisica", "desfile", "historicos"]
+export const GRUPO_ORDER = ["representacao", "servicos", "educacao_fisica", "desfile", "historicos"] as const satisfies readonly GrupoUniforme[]
+
+/**
+ * Cor de acento por grupo (oklch) — tira lateral + leve tingimento do card na
+ * lista. Tons moderados que funcionam em tema claro e escuro.
+ */
+export const GRUPO_ACCENT: Record<GrupoUniforme, string> = {
+	representacao: "oklch(0.72 0.14 85)", // dourado/gala
+	servicos: "oklch(0.6 0.12 240)", // azul/serviço
+	educacao_fisica: "oklch(0.64 0.14 155)", // verde/EF
+	desfile: "oklch(0.58 0.19 25)", // vermelho/desfile
+	historicos: "oklch(0.56 0.13 300)", // roxo/tradição
+}
 
 export const CATEGORIA_LABELS: Record<CategoriaMilitar, string> = {
 	oficiais: "Oficiais",

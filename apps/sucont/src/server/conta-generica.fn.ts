@@ -1,29 +1,22 @@
-import { GoogleGenAI } from "@google/genai"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { generateText } from "#/lib/ai.server"
+import { requireSucontAccess } from "#/lib/auth.server"
 
 export const oracleContaGenericaFn = createServerFn({ method: "POST" })
-	.inputValidator(
+	.validator(
 		z.object({
 			query: z.string().min(1),
 			systemContext: z.string(),
 		})
 	)
 	.handler(async ({ data }) => {
-		const apiKey = process.env.GEMINI_API_KEY
-		if (!apiKey) {
-			throw new Error("GEMINI_API_KEY não configurada no servidor. Adicione ao .env.local.")
-		}
+		await requireSucontAccess()
 
-		const ai = new GoogleGenAI({ apiKey })
-
-		const response = await ai.models.generateContent({
-			model: "gemini-2.0-flash",
-			contents: data.query,
-			config: {
-				systemInstruction: `${data.systemContext}\nResponda de forma técnica, militar e objetiva. Use negrito para destacar pontos críticos.`,
-			},
+		const text = await generateText({
+			system: `${data.systemContext}\nResponda de forma técnica, militar e objetiva. Use negrito para destacar pontos críticos.`,
+			user: data.query,
 		})
 
-		return response.text ?? "Não foi possível processar sua pergunta."
+		return text || "Não foi possível processar sua pergunta."
 	})

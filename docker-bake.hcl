@@ -34,6 +34,14 @@ variable "VITE_ASSIGNMENT_SELECTION_SUPABASE_PUBLISHABLE_KEY" {
   default = ""
 }
 
+variable "VITE_SUCONT_SUPABASE_URL" {
+  default = ""
+}
+
+variable "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY" {
+  default = ""
+}
+
 variable "VITE_SISUB_SUPABASE_URL" {
   default = ""
 }
@@ -59,7 +67,7 @@ variable "FARO_SOURCEMAP_API_KEY" {
 }
 
 group "default" {
-  targets = ["api", "portal", "rumaer", "assignment-selection", "sisub", "forms", "docs", "alpha", "5s", "sisub-mcp"]
+  targets = ["api", "portal", "rumaer", "sucont", "assignment-selection", "sisub", "forms", "docs", "alpha", "5s", "sisub-mcp"]
 }
 
 group "apps" {
@@ -111,6 +119,18 @@ target "rumaer" {
   args = {
     VITE_RUMAER_SUPABASE_URL             = VITE_RUMAER_SUPABASE_URL
     VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY = VITE_RUMAER_SUPABASE_PUBLISHABLE_KEY
+  }
+}
+
+target "sucont" {
+  inherits = ["base"]
+  target = "sucont"
+  tags = ["${REGISTRY}/${REPOSITORY_PREFIX}/sucont:${TAG}"]
+  cache-from = ["type=gha,scope=deps", "type=gha,scope=sucont"]
+  cache-to = ["type=gha,scope=sucont,mode=max"]
+  args = {
+    VITE_SUCONT_SUPABASE_URL             = VITE_SUCONT_SUPABASE_URL
+    VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY = VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY
   }
 }
 

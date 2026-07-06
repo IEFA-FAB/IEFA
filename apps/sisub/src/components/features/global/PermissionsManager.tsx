@@ -27,9 +27,9 @@ import type { AppModule } from "@/types/domain/permissions"
 
 // ─── Label Maps ──────────────────────────────────────────────────────────────
 
-// sisub gerencia apenas os próprios módulos; "rumaer" é gerido no app rumaer,
-// mesmo compartilhando a tabela access_control.user_permissions.
-type SisubModule = Exclude<AppModule, "rumaer">
+// sisub gerencia apenas os próprios módulos; "rumaer" e "sucont" são geridos nos
+// próprios apps, mesmo compartilhando a tabela access_control.user_permissions.
+type SisubModule = Exclude<AppModule, "rumaer" | "sucont">
 
 const MODULE_LABELS: Record<SisubModule, string> = {
 	diner: "Comensal",
