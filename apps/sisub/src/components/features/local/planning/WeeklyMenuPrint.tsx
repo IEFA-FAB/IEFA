@@ -1,11 +1,13 @@
+import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { addDays, format, parseISO, startOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ArrowLeft, Loader2, Printer } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import { queryKeys } from "@/lib/query-keys"
+import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
 
 /**
@@ -57,14 +59,14 @@ const DEFAULT_HEADER: PrintHeader = {
 	],
 }
 
-function headerStorageKey(kitchenId: number) {
-	return `sisub:cardapio-print-header:${kitchenId}`
+function headerStorageKey(scope: string) {
+	return `sisub:cardapio-print-header:${scope}`
 }
 
-function loadHeader(kitchenId: number): PrintHeader {
+function loadHeader(scope: string): PrintHeader {
 	if (typeof window === "undefined") return DEFAULT_HEADER
 	try {
-		const raw = window.localStorage.getItem(headerStorageKey(kitchenId))
+		const raw = window.localStorage.getItem(headerStorageKey(scope))
 		if (!raw) return DEFAULT_HEADER
 		const parsed = JSON.parse(raw) as Partial<PrintHeader>
 		return {
@@ -83,26 +85,42 @@ function itemRecipeName(item: MenuTemplateWithItems["items"][number]): string {
 	return item.recipe_origin?.name?.trim() || "Preparação sem nome"
 }
 
+/**
+ * Escopo de origem do modelo — define de onde vêm os meal types, a chave de
+ * persistência do cabeçalho e os destinos de navegação (voltar + ?week=).
+ * `kitchen` = cozinha local; `global` = plano modelo da SDAB (kitchen_id null).
+ */
+export type PrintScope = { kind: "kitchen"; kitchenId: number; kitchenIdStr: string } | { kind: "global" }
+
 interface WeeklyMenuPrintProps {
 	templateId: string
-	kitchenId: number
-	kitchenIdStr: string
+	scope: PrintScope
 	/** Data-início da semana (YYYY-MM-DD) para datar as colunas. Opcional. */
 	initialWeek?: string
 }
 
-export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWeek }: WeeklyMenuPrintProps) {
+export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPrintProps) {
 	const navigate = useNavigate()
 	const { data: template, isLoading } = useTemplate(templateId)
-	const { data: mealTypes } = useMealTypes(kitchenId)
+
+	// Meal types: cozinha → genéricos + da cozinha; global → apenas genéricos
+	// (kitchen_id null). fetchMealTypesFn aceita null; o hook useMealTypes não.
+	const mealTypeKitchenId = scope.kind === "kitchen" ? scope.kitchenId : null
+	const { data: mealTypes } = useQuery({
+		queryKey: queryKeys.mealTypes.byKitchen(mealTypeKitchenId),
+		queryFn: () => fetchMealTypesFn({ data: { kitchenId: mealTypeKitchenId } }),
+		staleTime: 5 * 60 * 1000,
+	})
+
+	const storageScope = scope.kind === "kitchen" ? String(scope.kitchenId) : "global"
 
 	// Datas só são resolvidas no cliente (evita divergência de hidratação no SSR).
 	const [weekStart, setWeekStart] = useState<Date | null>(null)
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
 
 	useEffect(() => {
-		setHeader(loadHeader(kitchenId))
-	}, [kitchenId])
+		setHeader(loadHeader(storageScope))
+	}, [storageScope])
 
 	useEffect(() => {
 		const parsed = initialWeek ? parseISO(initialWeek) : new Date()
@@ -114,18 +132,23 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 	// Atualiza estado local + query param (?week=) para tornar a semana compartilhável.
 	const handleWeekChange = (value: string) => {
 		setWeekStart(value ? startOfWeek(parseISO(value), { weekStartsOn: 1 }) : null)
-		void navigate({
-			to: "/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId",
-			params: { kitchenId: kitchenIdStr, weeklyMenuId: templateId },
-			search: value ? { week: value } : {},
-			replace: true,
-		})
+		const search = value ? { week: value } : {}
+		if (scope.kind === "kitchen") {
+			void navigate({
+				to: "/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId",
+				params: { kitchenId: scope.kitchenIdStr, weeklyMenuId: templateId },
+				search,
+				replace: true,
+			})
+		} else {
+			void navigate({ to: "/global/weekly-plans/print/$planId", params: { planId: templateId }, search, replace: true })
+		}
 	}
 
 	const persistHeader = (next: PrintHeader) => {
 		setHeader(next)
 		try {
-			window.localStorage.setItem(headerStorageKey(kitchenId), JSON.stringify(next))
+			window.localStorage.setItem(headerStorageKey(storageScope), JSON.stringify(next))
 		} catch {
 			// localStorage indisponível — mantém apenas em memória.
 		}
@@ -147,14 +170,20 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 	if (!template) {
 		return (
 			<div className="p-8 text-center bg-destructive/10 text-destructive rounded-md">
-				<p className="text-subheading">Cardápio semanal não encontrado.</p>
-				<Link
-					to="/kitchen/$kitchenId/weekly-menus"
-					params={{ kitchenId: kitchenIdStr }}
-					className="text-sm text-primary mt-2 flex items-center justify-center hover:underline"
-				>
-					← Voltar para listagem
-				</Link>
+				<p className="text-subheading">{scope.kind === "kitchen" ? "Cardápio semanal não encontrado." : "Plano semanal não encontrado."}</p>
+				{scope.kind === "kitchen" ? (
+					<Link
+						to="/kitchen/$kitchenId/weekly-menus"
+						params={{ kitchenId: scope.kitchenIdStr }}
+						className="text-sm text-primary mt-2 flex items-center justify-center hover:underline"
+					>
+						← Voltar para listagem
+					</Link>
+				) : (
+					<Link to="/global/weekly-plans" className="text-sm text-primary mt-2 flex items-center justify-center hover:underline">
+						← Voltar para listagem
+					</Link>
+				)}
 			</div>
 		)
 	}
@@ -203,10 +232,17 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 					size="sm"
 					nativeButton={false}
 					render={
-						<Link to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId" params={{ kitchenId: kitchenIdStr, weeklyMenuId: templateId }}>
-							<ArrowLeft className="size-4 mr-2" />
-							Voltar ao editor
-						</Link>
+						scope.kind === "kitchen" ? (
+							<Link to="/kitchen/$kitchenId/weekly-menus/$weeklyMenuId" params={{ kitchenId: scope.kitchenIdStr, weeklyMenuId: templateId }}>
+								<ArrowLeft className="size-4 mr-2" />
+								Voltar ao editor
+							</Link>
+						) : (
+							<Link to="/global/weekly-plans/$planId" params={{ planId: templateId }}>
+								<ArrowLeft className="size-4 mr-2" />
+								Voltar ao editor
+							</Link>
+						)
 					}
 				/>
 				<div className="flex items-center gap-2 ml-auto">
@@ -266,7 +302,9 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 						{orderedMealTypes.length === 0 ? (
 							<tr>
 								<td colSpan={8} className="cardapio-empty">
-									Nenhum tipo de refeição configurado para esta cozinha.
+									{scope.kind === "kitchen"
+									? "Nenhum tipo de refeição configurado para esta cozinha."
+									: "Nenhum tipo de refeição genérico configurado."}
 								</td>
 							</tr>
 						) : (

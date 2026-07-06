@@ -59,6 +59,7 @@ const SEGMENT_PT: Record<string, string> = {
 	policy: "Política",
 	// Sub-páginas
 	new: "Novo",
+	print: "Imprimir",
 	fork: "Derivar",
 	versions: "Versões",
 	settings: "Configurações",
