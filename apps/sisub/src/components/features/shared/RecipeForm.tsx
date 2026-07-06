@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, Circle, CircleCheck, Loader2, Pencil, Plus, Replace, Save, Trash2, TriangleAlert } from "lucide-react"
+import { CalendarCheck, Circle, CircleCheck, Loader2, Pencil, Plus, Save, Trash2, TriangleAlert } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -45,14 +45,6 @@ function formatReviewStamp(dateStr: string) {
 }
 
 // Schema Validation
-const alternativeSchema = z.object({
-	ingredient_id: z.string().uuid(),
-	ingredient_name: z.string(), // Helper for UI
-	measure_unit: z.string(), // Helper for UI
-	net_quantity: z.number().min(0.001, "Quantidade deve ser maior que 0"),
-	priority_order: z.number().default(0),
-})
-
 const ingredientSchema = z.object({
 	ingredient_id: z.string().uuid(),
 	ingredient_name: z.string(), // Helper for UI
@@ -63,7 +55,6 @@ const ingredientSchema = z.object({
 	// Fatores da ficha técnica (opcionais): vazio/null = herda o insumo e, na ausência, vale 1.
 	correction_factor: z.number().positive("FC deve ser maior que 0").nullable().default(null),
 	rehydration_index: z.number().positive("IR deve ser maior que 0").nullable().default(null),
-	alternatives: z.array(alternativeSchema).default([]),
 })
 
 const recipeSchema = z.object({
@@ -75,14 +66,6 @@ const recipeSchema = z.object({
 	ingredients: z.array(ingredientSchema).min(1, "Adicione pelo menos um ingrediente"),
 })
 
-interface AlternativeFormItem {
-	ingredient_id: string
-	ingredient_name: string
-	measure_unit: string
-	net_quantity: number | null
-	priority_order: number
-}
-
 interface IngredientFormItem {
 	ingredient_id: string | null
 	ingredient_name: string
@@ -92,7 +75,6 @@ interface IngredientFormItem {
 	priority_order: number
 	correction_factor: number | null
 	rehydration_index: number | null
-	alternatives: AlternativeFormItem[]
 }
 
 interface RecipeFormProps {
@@ -122,8 +104,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 	const reviewRecipeId = mode === "edit" ? (initialData?.id ?? null) : null
 
 	const [selectorOpen, setSelectorOpen] = useState(false)
-	// Índice do ingrediente que receberá a próxima substituição escolhida no selector (null = adicionando ingrediente principal)
-	const [altTargetIndex, setAltTargetIndex] = useState<number | null>(null)
 
 	// Editor de fluxo opera sobre a versão PERSISTIDA (initialData) — seus insumos têm
 	// recipe_ingredient_id, exigidos pelo balanço de materiais. Só habilitado em edição.
@@ -168,14 +148,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					priority_order: ing.priority_order || 0,
 					correction_factor: ing.correction_factor ?? null,
 					rehydration_index: ing.rehydration_index ?? null,
-					alternatives:
-						ing.alternatives?.map((alt) => ({
-							ingredient_id: alt.ingredient_id ?? "",
-							ingredient_name: alt.ingredient?.description || "Insumo Desconhecido",
-							measure_unit: alt.ingredient?.measure_unit || "UN",
-							net_quantity: alt.net_quantity,
-							priority_order: alt.priority_order || 0,
-						})) ?? [],
 				})) || [],
 		},
 		onSubmit: async ({ value }) => {
@@ -200,13 +172,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					priority_order: i.priority_order,
 					correction_factor: i.correction_factor,
 					rehydration_index: i.rehydration_index,
-					alternatives: (i.alternatives ?? [])
-						.filter((a): a is typeof a & { ingredient_id: string; net_quantity: number } => !!a.ingredient_id && a.net_quantity != null && a.net_quantity > 0)
-						.map((a) => ({
-							ingredient_id: a.ingredient_id,
-							net_quantity: a.net_quantity,
-							priority_order: a.priority_order,
-						})),
 				}))
 
 			if (mode === "create" || isFork) {
@@ -303,7 +268,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					}}
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
-						{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
+						{/* grid-cols-5: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
 						<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
 							<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
 							<TabsTrigger value="ingredientes">
@@ -523,51 +488,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 																	</span>
 																)}
 															</div>
-
-															{/* Substituições — insumos que podem substituir este na preparação */}
-															<div className="ml-6 space-y-1.5 border-l border-border/60 pl-3">
-																{(ingredient.alternatives ?? []).map((alt: AlternativeFormItem, altIndex: number) => (
-																	<div key={alt.ingredient_id || altIndex} className="flex items-center gap-1.5">
-																		<Replace className="size-3.5 shrink-0 text-muted-foreground" />
-																		<span className="flex-1 text-body text-muted-foreground">{alt.ingredient_name}</span>
-																		<Input
-																			aria-label={`Quantidade líquida da substituição ${alt.ingredient_name}`}
-																			type="number"
-																			step="0.001"
-																			value={alt.net_quantity ?? 0}
-																			onChange={(e) => {
-																				const newList = [...field.state.value]
-																				const alts = [...(newList[index].alternatives ?? [])]
-																				alts[altIndex] = { ...alts[altIndex], net_quantity: Number(e.target.value) }
-																				newList[index].alternatives = alts
-																				field.handleChange(newList)
-																			}}
-																			className="w-24 text-right"
-																		/>
-																		<span className="text-caption text-muted-foreground w-8 shrink-0">{alt.measure_unit}</span>
-																		<Button
-																			type="button"
-																			variant="ghost"
-																			size="icon-sm"
-																			className="text-muted-foreground hover:text-destructive"
-																			aria-label={`Remover substituição ${alt.ingredient_name}`}
-																			onClick={() => {
-																				const newList = [...field.state.value]
-																				newList[index].alternatives = (newList[index].alternatives ?? []).filter(
-																					(_: AlternativeFormItem, i: number) => i !== altIndex
-																				)
-																				field.handleChange(newList)
-																			}}
-																		>
-																			<Trash2 className="size-3.5" />
-																		</Button>
-																	</div>
-																))}
-																<Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAltTargetIndex(index)}>
-																	<Replace className="size-3.5 mr-2" />
-																	Adicionar substituição
-																</Button>
-															</div>
 														</div>
 													))}
 												</ItemGroup>
@@ -658,42 +578,12 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				</div>
 			</div>
 
-			{/* Ingredient Selector Modal — adiciona ingrediente principal OU substituição (quando altTargetIndex setado) */}
-			{(selectorOpen || altTargetIndex !== null) && (
+			{/* Ingredient Selector Modal — adiciona ingrediente principal à preparação */}
+			{selectorOpen && (
 				<IngredientSelector
-					isOpen={selectorOpen || altTargetIndex !== null}
-					onClose={() => {
-						setSelectorOpen(false)
-						setAltTargetIndex(null)
-					}}
+					isOpen={selectorOpen}
+					onClose={() => setSelectorOpen(false)}
 					onSelect={(ingredient) => {
-						if (altTargetIndex !== null) {
-							const list = [...form.getFieldValue("ingredients")] as IngredientFormItem[]
-							const target = list[altTargetIndex]
-							if (target) {
-								const alts = target.alternatives ?? []
-								// Evita duplicar substituição já existente ou apontar para o próprio ingrediente
-								const alreadyExists = ingredient.id === target.ingredient_id || alts.some((a) => a.ingredient_id === ingredient.id)
-								if (!alreadyExists) {
-									list[altTargetIndex] = {
-										...target,
-										alternatives: [
-											...alts,
-											{
-												ingredient_id: ingredient.id,
-												ingredient_name: ingredient.description ?? "",
-												measure_unit: ingredient.measure_unit ?? "UN",
-												net_quantity: target.net_quantity ?? 0,
-												priority_order: alts.length + 1,
-											},
-										],
-									}
-									form.setFieldValue("ingredients", list)
-								}
-							}
-							setAltTargetIndex(null)
-							return
-						}
 						form.pushFieldValue("ingredients", {
 							ingredient_id: ingredient.id,
 							ingredient_name: ingredient.description ?? "",
@@ -704,7 +594,6 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							// Prefill dos fatores com o padrão do insumo (editável por preparação; vazio = 1).
 							correction_factor: ingredient.correction_factor ?? null,
 							rehydration_index: ingredient.rehydration_index ?? null,
-							alternatives: [],
 						})
 					}}
 				/>

@@ -1492,6 +1492,28 @@ export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingre
 		}),
 ]);
 
+export const ingredientSubstitutionInKitchen = kitchen.table("ingredient_substitution", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	ingredientId: uuid("ingredient_id").notNull(),
+	substituteIngredientId: uuid("substitute_ingredient_id").notNull(),
+	factor: numeric().default('1').notNull(),
+}, (table) => [
+	index("ingredient_substitution_ingredient_id_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.ingredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "ingredient_substitution_ingredient_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.substituteIngredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "ingredient_substitution_substitute_ingredient_id_fkey"
+		}).onDelete("cascade"),
+	unique("ingredient_substitution_unique").on(table.ingredientId, table.substituteIngredientId),
+	check("ingredient_substitution_not_self", sql`ingredient_id <> substitute_ingredient_id`),
+]);
+
 export const mealForecastsInKitchen = kitchen.table("meal_forecasts", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	date: date().notNull(),

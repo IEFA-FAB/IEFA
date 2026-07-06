@@ -1,4 +1,4 @@
-import type { Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
+import type { Recipe, RecipeIngredient } from "@iefa/database/sisub"
 import type { Ingredient } from "./ingredients"
 
 // Extended recipe with ingredients (Query Result)
@@ -9,18 +9,6 @@ export interface RecipeWithIngredients extends Recipe {
 // Recipe ingredient with ingredient details
 export interface RecipeIngredientWithIngredient extends RecipeIngredient {
 	ingredient: Ingredient | null
-	alternatives?: RecipeIngredientAlternativeWithIngredient[]
-}
-
-// Alternative with ingredient details
-export interface RecipeIngredientAlternativeWithIngredient extends RecipeIngredientAlternative {
-	ingredient: Ingredient | null
-}
-
-export interface RecipeFormIngredientAlternative {
-	ingredient_id: string
-	net_quantity: number
-	priority_order: number
 }
 
 export interface RecipeFormIngredient {
@@ -30,7 +18,6 @@ export interface RecipeFormIngredient {
 	priority_order: number
 	correction_factor?: number | null
 	rehydration_index?: number | null
-	alternatives?: RecipeFormIngredientAlternative[]
 }
 
 // Form Data (Input)

@@ -100,7 +100,9 @@ export function useRecipeNutrition(ingredients: RecipeNutritionInputIngredient[]
 
 		// Mapa insumo → nutrientes efetivos (por 100 g do insumo).
 		const byIngredient = new Map<string, (typeof queries)[number]["data"]>()
-		uniqueIds.forEach((id, idx) => byIngredient.set(id, queries[idx]?.data))
+		uniqueIds.forEach((id, idx) => {
+			byIngredient.set(id, queries[idx]?.data)
+		})
 
 		// Acumuladores por nutriente.
 		type Acc = { total: number; meta: { name: string; isEnergy: boolean; dailyValue: number | null; displayOrder: number | null } }
