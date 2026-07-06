@@ -302,9 +302,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						{orderedMealTypes.length === 0 ? (
 							<tr>
 								<td colSpan={8} className="cardapio-empty">
-									{scope.kind === "kitchen"
-									? "Nenhum tipo de refeição configurado para esta cozinha."
-									: "Nenhum tipo de refeição genérico configurado."}
+									{scope.kind === "kitchen" ? "Nenhum tipo de refeição configurado para esta cozinha." : "Nenhum tipo de refeição genérico configurado."}
 								</td>
 							</tr>
 						) : (
