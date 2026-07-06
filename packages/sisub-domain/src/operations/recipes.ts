@@ -160,6 +160,9 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 		netQuantity: String(ing.netQuantity),
 		isOptional: ing.isOptional,
 		priorityOrder: ing.priorityOrder,
+		// Fatores por ingrediente da preparação (opcionais): null = herda o insumo / vale 1.
+		correctionFactor: ing.correctionFactor != null ? String(ing.correctionFactor) : null,
+		rehydrationIndex: ing.rehydrationIndex != null ? String(ing.rehydrationIndex) : null,
 	}))
 	// INSERT ... RETURNING devolve as linhas na ordem de inserção — usado para mapear
 	// insumo antigo → novo no copy-forward do fluxo de produção.

@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+service_name      = "sucont"
+docker_target     = "sucont"
+container_port    = 3000
+cpu               = 256
+memory            = 512
+health_check_path = "/health"
+listener_priority = 200
+
+environment_variables = {
+  NODE_ENV = "production"
+  PORT     = "3000"
+  # IA via AWS Bedrock (keyless — usa a task role do ECS). Nao-secretos.
+  SUCONT_AI_PROVIDER = "bedrock"
+  SUCONT_AI_MODEL    = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  SUCONT_AI_REGION   = "us-east-1"
+}
+
+secret_names = [
+  "VITE_SUCONT_SUPABASE_URL",
+  "VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY",
+  "SUCONT_SUPABASE_SECRET_KEY",
+]
+
+hosts = ["sucont.iefa.com.br"]

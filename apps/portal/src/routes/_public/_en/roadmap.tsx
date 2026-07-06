@@ -483,12 +483,12 @@ const APPS: AppEntry[] = [
 	{
 		icon: Box,
 		slug: "sisub",
-		title: "Sisub — ERP de Subsistência",
+		title: "SISUB — Sistema de Subsistência",
 		description:
-			"ERP de Subsistência da FAB. Cardápios, receitas, planejamento mensal, analytics de consumo, integrações com compras.gov e fluxo completo de gestão de OM.",
+			"Sistema de Subsistência da FAB. Cardápios, receitas, planejamento mensal, analytics de consumo, integrações com compras.gov e fluxo completo de gestão de OM.",
 		stack: ["React 19", "TanStack Start", "Nitro SSR", "Supabase"],
 		status: "active",
-		url: "https://app.previsaosisub.com.br",
+		url: "https://sisub.iefa.com.br",
 	},
 	{
 		icon: Server,

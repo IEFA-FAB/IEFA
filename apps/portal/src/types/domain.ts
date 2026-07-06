@@ -38,6 +38,7 @@ export type Contributor = {
 }
 
 export type AppItem = {
+	id: string
 	title: string
 	description: string
 	to?: string
@@ -55,6 +56,7 @@ export type DbContributor = {
 }
 
 export type DbApp = {
+	id: string
 	title: string
 	description: string
 	to_path: string | null

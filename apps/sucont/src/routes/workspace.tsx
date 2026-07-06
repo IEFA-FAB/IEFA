@@ -1,96 +1,124 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bell, ClipboardList, Edit2, Plus, StickyNote, Terminal, Trash2, Users, X } from "lucide-react"
+import { Bell, ClipboardList, Edit2, Loader2, Plus, StickyNote, Terminal, Trash2, Users, X } from "lucide-react"
 import { motion } from "motion/react"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import { HubLayout } from "#/components/hub-layout"
-import { getNthBusinessDay, initialChecklist, initialNotices, unitResponsibilities } from "#/lib/data"
+import { getNthBusinessDay } from "#/lib/data"
 import { useSearchQuery } from "#/lib/hub-store"
-import type { ChecklistItem, Notice } from "#/lib/types"
+import {
+	createChecklistItemFn,
+	createNoticeFn,
+	deleteChecklistItemFn,
+	deleteNoticeFn,
+	getWorkspaceNoteFn,
+	listChecklistFn,
+	listNoticesFn,
+	listUnidadesGestorasFn,
+	saveWorkspaceNoteFn,
+	updateChecklistResponsibleFn,
+} from "#/server/workspace.fn"
 
 export const Route = createFileRoute("/workspace")({ component: Workspace })
 
+const OPERATORS = ["3S VANESSA", "SGT KLEBSON", "3S TALITA"] as const
+
 function Workspace() {
 	const searchQuery = useSearchQuery()
-
-	// ── Checklist ──────────────────────────────────────────
-	const [checklist, setChecklist] = useState<ChecklistItem[]>(initialChecklist)
+	const queryClient = useQueryClient()
 	const [editingId, setEditingId] = useState<string | null>(null)
 	const [isAddingTask, setIsAddingTask] = useState(false)
-
-	// ── Notices ────────────────────────────────────────────
-	const [notices, setNotices] = useState<Notice[]>(initialNotices)
 	const [isAddingNotice, setIsAddingNotice] = useState(false)
 
-	// ── Notes ──────────────────────────────────────────────
-	const [notes, setNotes] = useState("")
+	// ── Queries ────────────────────────────────────────────
+	const { data: checklist = [], isLoading: loadingChecklist } = useQuery({ queryKey: ["sucont", "checklist"], queryFn: () => listChecklistFn() })
+	const { data: notices = [] } = useQuery({ queryKey: ["sucont", "notices"], queryFn: () => listNoticesFn() })
+	const { data: unidades = [] } = useQuery({ queryKey: ["sucont", "unidades"], queryFn: () => listUnidadesGestorasFn() })
+	const { data: noteFromDb = "" } = useQuery({ queryKey: ["sucont", "note"], queryFn: () => getWorkspaceNoteFn() })
 
-	// Hydrate from localStorage client-side
-	useEffect(() => {
-		try {
-			const c = localStorage.getItem("sucont_checklist")
-			if (c) setChecklist(JSON.parse(c))
-			const n = localStorage.getItem("sucont_notices")
-			if (n) setNotices(JSON.parse(n))
-			const nt = localStorage.getItem("sucont_notes")
-			if (nt) setNotes(nt)
-		} catch {}
-	}, [])
+	const invalidate = (key: string) => queryClient.invalidateQueries({ queryKey: ["sucont", key] })
 
-	// Persist
-	useEffect(() => {
-		localStorage.setItem("sucont_checklist", JSON.stringify(checklist))
-	}, [checklist])
-	useEffect(() => {
-		localStorage.setItem("sucont_notices", JSON.stringify(notices))
-	}, [notices])
-	useEffect(() => {
-		localStorage.setItem("sucont_notes", notes)
-	}, [notes])
-
-	// Handlers
-	const addTask = (data: Partial<ChecklistItem>) => {
-		setChecklist((p) => [
-			...p,
-			{
-				id: `task-${Date.now()}`,
-				task: data.task || "Nova Tarefa",
-				deadline: data.deadline || "Mensal",
-				description: data.description || "",
-				responsible: data.responsible || "Pendente",
-				path: data.path,
-			},
-		])
-		setIsAddingTask(false)
-	}
-
-	const deleteTask = (id: string) => setChecklist((p) => p.filter((i) => i.id !== id))
-
+	// ── Mutations: checklist ───────────────────────────────
+	const addTaskMutation = useMutation({
+		mutationFn: (data: { task: string; deadline: string; description: string; responsible: string; path: string }) => createChecklistItemFn({ data }),
+		onSuccess: () => {
+			setIsAddingTask(false)
+			invalidate("checklist")
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao adicionar"),
+	})
+	const deleteTaskMutation = useMutation({
+		mutationFn: (id: string) => deleteChecklistItemFn({ data: { id } }),
+		onSuccess: () => invalidate("checklist"),
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir"),
+	})
+	const updateResponsibleMutation = useMutation({
+		mutationFn: (data: { id: string; responsible: string }) => updateChecklistResponsibleFn({ data }),
+		onSuccess: () => invalidate("checklist"),
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao atualizar"),
+	})
 	const updateResponsible = (id: string, value: string) => {
-		setChecklist((p) => p.map((i) => (i.id === id ? { ...i, responsible: value } : i)))
 		setEditingId(null)
+		updateResponsibleMutation.mutate({ id, responsible: value })
 	}
 
-	const addNotice = (content: string, type: "info" | "alert") => {
-		setNotices((p) => [
-			{
-				id: `notice-${Date.now()}`,
-				content,
-				type,
-				date: new Date().toLocaleDateString("pt-BR"),
-			},
-			...p,
-		])
-		setIsAddingNotice(false)
+	// ── Mutations: notices ─────────────────────────────────
+	const addNoticeMutation = useMutation({
+		mutationFn: (data: { content: string; type: "info" | "alert" }) => createNoticeFn({ data }),
+		onSuccess: () => {
+			setIsAddingNotice(false)
+			invalidate("notices")
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao adicionar aviso"),
+	})
+	const deleteNoticeMutation = useMutation({
+		mutationFn: (id: string) => deleteNoticeFn({ data: { id } }),
+		onSuccess: () => invalidate("notices"),
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir aviso"),
+	})
+
+	// ── Nota livre (auto-save com debounce) ────────────────
+	// `dirtyRef` marca edição local pendente. Enquanto sujo, não re-sincroniza do DB
+	// (não perde o que o usuário digitou); quando limpo, reflete mudanças de outros
+	// operadores. `latestRef` evita corrida: só limpa o dirty se nada novo foi
+	// digitado desde o save que acabou de confirmar.
+	const [notes, setNotes] = useState("")
+	const dirtyRef = useRef(false)
+	const latestRef = useRef("")
+	useEffect(() => {
+		latestRef.current = notes
+	}, [notes])
+	useEffect(() => {
+		if (!dirtyRef.current) setNotes(noteFromDb)
+	}, [noteFromDb])
+	const saveNoteMutation = useMutation({
+		mutationFn: (content: string) => saveWorkspaceNoteFn({ data: { content } }),
+		onSuccess: (_res, content) => {
+			if (content === latestRef.current) dirtyRef.current = false
+		},
+	})
+	const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const onNotesChange = (value: string) => {
+		dirtyRef.current = true
+		setNotes(value)
+		if (noteTimer.current) clearTimeout(noteTimer.current)
+		noteTimer.current = setTimeout(() => saveNoteMutation.mutate(value), 800)
 	}
+	// Limpa o timer pendente no unmount (evita save/estado após desmontar).
+	useEffect(
+		() => () => {
+			if (noteTimer.current) clearTimeout(noteTimer.current)
+		},
+		[]
+	)
 
-	const deleteNotice = (id: string) => setNotices((p) => p.filter((n) => n.id !== id))
-
-	// Filtered lists
+	// ── Filtro ─────────────────────────────────────────────
 	const filteredChecklist = checklist.filter(
 		(item) =>
 			item.task.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			item.responsible.toLowerCase().includes(searchQuery.toLowerCase())
+			(item.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(item.responsible ?? "").toLowerCase().includes(searchQuery.toLowerCase())
 	)
 
 	return (
@@ -125,12 +153,12 @@ function Workspace() {
 								onSubmit={(e) => {
 									e.preventDefault()
 									const fd = new FormData(e.currentTarget)
-									addTask({
+									addTaskMutation.mutate({
 										task: fd.get("task") as string,
 										deadline: fd.get("deadline") as string,
-										description: fd.get("description") as string,
+										description: (fd.get("description") as string) ?? "",
 										responsible: fd.get("responsible") as string,
-										path: fd.get("path") as string,
+										path: (fd.get("path") as string) ?? "",
 									})
 								}}
 								className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -167,78 +195,89 @@ function Workspace() {
 									<button type="button" onClick={() => setIsAddingTask(false)} className="px-4 py-2 text-xs text-slate-500 hover:text-slate-800">
 										CANCELAR
 									</button>
-									<button type="submit" className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md">
-										SALVAR TAREFA
+									<button
+										type="submit"
+										disabled={addTaskMutation.isPending}
+										className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md inline-flex items-center gap-2"
+									>
+										{addTaskMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR TAREFA
 									</button>
 								</div>
 							</form>
 						</motion.div>
 					)}
 
-					<div className="grid grid-cols-1 gap-4">
-						{filteredChecklist.map((item, idx) => (
-							<motion.div
-								key={item.id}
-								initial={{ opacity: 0, x: -20 }}
-								animate={{ opacity: 1, x: 0 }}
-								transition={{ delay: idx * 0.04 }}
-								className="bg-white border border-slate-200 p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm"
-							>
-								<div className="flex flex-col md:flex-row justify-between gap-4">
-									<div className="flex-grow">
-										<div className="flex items-start gap-3 mb-2">
-											<div className="flex flex-col shrink-0">
-												<span className="text-tech-cyan font-mono text-[10px] bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 uppercase w-fit">
-													{item.deadline}
-												</span>
-												<span className="text-[9px] font-mono text-slate-400 mt-1">Data: {getNthBusinessDay(item.deadline)}</span>
+					{loadingChecklist ? (
+						<div className="flex items-center justify-center py-12 text-slate-400 gap-2 text-sm font-mono">
+							<Loader2 className="w-4 h-4 animate-spin" /> Carregando cronograma...
+						</div>
+					) : (
+						<div className="grid grid-cols-1 gap-4">
+							{filteredChecklist.map((item, idx) => (
+								<motion.div
+									key={item.id}
+									initial={{ opacity: 0, x: -20 }}
+									animate={{ opacity: 1, x: 0 }}
+									transition={{ delay: idx * 0.04 }}
+									className="bg-white border border-slate-200 p-5 rounded-lg hover:border-tech-cyan/30 transition-all group shadow-sm"
+								>
+									<div className="flex flex-col md:flex-row justify-between gap-4">
+										<div className="flex-grow">
+											<div className="flex items-start gap-3 mb-2">
+												<div className="flex flex-col shrink-0">
+													<span className="text-tech-cyan font-mono text-[10px] bg-tech-cyan/5 px-2 py-0.5 rounded border border-tech-cyan/10 uppercase w-fit">
+														{item.deadline}
+													</span>
+													<span className="text-[9px] font-mono text-slate-400 mt-1">Data: {getNthBusinessDay(item.deadline ?? "")}</span>
+												</div>
+												<h4 className="text-slate-800 font-bold">{item.task}</h4>
 											</div>
-											<h4 className="text-slate-800 font-bold">{item.task}</h4>
+											<p className="text-slate-500 text-xs leading-relaxed mb-3">{item.description}</p>
+											{item.path && (
+												<div className="flex items-start gap-2 text-[10px] font-mono text-slate-400 bg-slate-50 p-2 rounded border border-slate-100">
+													<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
+													<span>{item.path}</span>
+												</div>
+											)}
 										</div>
-										<p className="text-slate-500 text-xs leading-relaxed mb-3">{item.description}</p>
-										{item.path && (
-											<div className="flex items-start gap-2 text-[10px] font-mono text-slate-400 bg-slate-50 p-2 rounded border border-slate-100">
-												<Terminal className="w-3 h-3 mt-0.5 shrink-0" />
-												<span>{item.path}</span>
-											</div>
-										)}
-									</div>
 
-									<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
-										<span className="text-[10px] font-mono uppercase text-slate-400 mb-1">Responsável</span>
-										{editingId === item.id ? (
-											<input
-												className="bg-slate-50 border border-tech-cyan/30 text-slate-800 text-xs p-1 rounded w-full focus:outline-none focus:border-tech-cyan"
-												defaultValue={item.responsible}
-												onKeyDown={(e) => {
-													if (e.key === "Enter") updateResponsible(item.id, e.currentTarget.value)
-													if (e.key === "Escape") setEditingId(null)
-												}}
-												onBlur={(e) => updateResponsible(item.id, e.target.value)}
-											/>
-										) : (
-											<button type="button" className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditingId(item.id)}>
-												<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
-												<Edit2 className="w-3 h-3 text-slate-300 group-hover:text-tech-cyan transition-colors" />
+										<div className="md:w-48 shrink-0 flex flex-col justify-center items-end border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
+											<span className="text-[10px] font-mono uppercase text-slate-400 mb-1">Responsável</span>
+											{editingId === item.id ? (
+												<input
+													className="bg-slate-50 border border-tech-cyan/30 text-slate-800 text-xs p-1 rounded w-full focus:outline-none focus:border-tech-cyan"
+													defaultValue={item.responsible ?? ""}
+													// biome-ignore lint/a11y/noAutofocus: edição inline pontual
+													autoFocus
+													onKeyDown={(e) => {
+														if (e.key === "Enter") updateResponsible(item.id, e.currentTarget.value)
+														if (e.key === "Escape") setEditingId(null)
+													}}
+													onBlur={(e) => updateResponsible(item.id, e.target.value)}
+												/>
+											) : (
+												<button type="button" className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditingId(item.id)}>
+													<span className="text-xs font-bold text-tech-cyan">{item.responsible}</span>
+													<Edit2 className="w-3 h-3 text-slate-300 group-hover:text-tech-cyan transition-colors" />
+												</button>
+											)}
+											<button
+												type="button"
+												onClick={() => deleteTaskMutation.mutate(item.id)}
+												className="mt-4 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
+											>
+												<Trash2 className="w-3 h-3" /> EXCLUIR
 											</button>
-										)}
-										<button
-											type="button"
-											onClick={() => deleteTask(item.id)}
-											className="mt-4 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 text-[9px] font-mono"
-										>
-											<Trash2 className="w-3 h-3" /> EXCLUIR
-										</button>
+										</div>
 									</div>
-								</div>
-							</motion.div>
-						))}
-					</div>
+								</motion.div>
+							))}
+						</div>
+					)}
 				</section>
 
 				{/* ── Notes & Notices ───────────────────────────── */}
 				<section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-					{/* Notes */}
 					<div>
 						<div className="flex items-center gap-3 mb-4">
 							<StickyNote className="text-tech-cyan w-4 h-4" />
@@ -246,16 +285,15 @@ function Workspace() {
 						</div>
 						<textarea
 							value={notes}
-							onChange={(e) => setNotes(e.target.value)}
+							onChange={(e) => onNotesChange(e.target.value)}
 							placeholder="Digite aqui anotações importantes, pendências ou lembretes..."
 							className="w-full h-64 bg-white border border-slate-200 rounded-lg p-4 text-slate-600 text-sm font-mono focus:outline-none focus:border-tech-cyan/40 transition-all resize-none shadow-sm"
 						/>
 						<div className="mt-2 flex justify-end">
-							<span className="text-[9px] font-mono text-slate-400 uppercase">Auto-save ativo</span>
+							<span className="text-[9px] font-mono text-slate-400 uppercase">{saveNoteMutation.isPending ? "Salvando..." : "Auto-save ativo"}</span>
 						</div>
 					</div>
 
-					{/* Notices */}
 					<div>
 						<div className="flex items-center justify-between mb-4">
 							<div className="flex items-center gap-3">
@@ -267,19 +305,23 @@ function Workspace() {
 							</button>
 						</div>
 
-						{isAddingNotice && <AddNoticeForm onSave={addNotice} onCancel={() => setIsAddingNotice(false)} />}
+						{isAddingNotice && (
+							<AddNoticeForm
+								onSave={(content, type) => addNoticeMutation.mutate({ content, type })}
+								onCancel={() => setIsAddingNotice(false)}
+								pending={addNoticeMutation.isPending}
+							/>
+						)}
 
 						<div className="space-y-3">
 							{notices.map((notice) => (
 								<div
 									key={notice.id}
-									className={`group relative border-l-4 p-4 rounded-r-lg shadow-sm ${
-										notice.type === "alert" ? "bg-orange-50 border-orange-400" : "bg-blue-50 border-blue-400"
-									}`}
+									className={`group relative border-l-4 p-4 rounded-r-lg shadow-sm ${notice.type === "alert" ? "bg-orange-50 border-orange-400" : "bg-blue-50 border-blue-400"}`}
 								>
 									<button
 										type="button"
-										onClick={() => deleteNotice(notice.id)}
+										onClick={() => deleteNoticeMutation.mutate(notice.id)}
 										className="absolute top-2 right-2 text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
 									>
 										<X className="w-3 h-3" />
@@ -301,8 +343,8 @@ function Workspace() {
 					</div>
 
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-						{(["3S VANESSA", "SGT KLEBSON", "3S TALITA"] as const).map((operator) => {
-							const units = unitResponsibilities.filter((u) => u.operator === operator)
+						{OPERATORS.map((operator) => {
+							const units = unidades.filter((u) => u.operador === operator)
 							return (
 								<div key={operator} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
 									<div className="bg-slate-50 p-3 border-b border-slate-100">
@@ -318,9 +360,9 @@ function Workspace() {
 											</thead>
 											<tbody className="divide-y divide-slate-50">
 												{units.map((u) => (
-													<tr key={u.code} className="hover:bg-slate-50 transition-colors">
-														<td className="py-2 text-tech-cyan font-bold">{u.code}</td>
-														<td className="py-2 text-slate-600">{u.name}</td>
+													<tr key={u.codigo} className="hover:bg-slate-50 transition-colors">
+														<td className="py-2 text-tech-cyan font-bold">{u.codigo}</td>
+														<td className="py-2 text-slate-600">{u.nome}</td>
 													</tr>
 												))}
 											</tbody>
@@ -340,7 +382,7 @@ function Workspace() {
 }
 
 // ── Helper component ──────────────────────────────────────
-function AddNoticeForm({ onSave, onCancel }: { onSave: (content: string, type: "info" | "alert") => void; onCancel: () => void }) {
+function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string, type: "info" | "alert") => void; onCancel: () => void; pending: boolean }) {
 	const [content, setContent] = React.useState("")
 	const [type, setType] = React.useState<"info" | "alert">("info")
 
@@ -367,10 +409,11 @@ function AddNoticeForm({ onSave, onCancel }: { onSave: (content: string, type: "
 					</button>
 					<button
 						type="button"
+						disabled={pending}
 						onClick={() => content && onSave(content, type)}
-						className="bg-tech-cyan text-white px-3 py-1 rounded font-bold text-[10px] shadow-sm"
+						className="bg-tech-cyan text-white px-3 py-1 rounded font-bold text-[10px] shadow-sm inline-flex items-center gap-1"
 					>
-						SALVAR
+						{pending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR
 					</button>
 				</div>
 			</div>

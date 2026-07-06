@@ -67,3 +67,34 @@ resource "aws_iam_role_policy" "task_additional" {
   role   = aws_iam_role.task.id
   policy = var.task_role_policy_json
 }
+
+# ---- Bedrock invoke (shared) ----
+# Concede à task role compartilhada permissão de invocar modelos Bedrock via a
+# Converse API. Usado pelo adapter bedrock do @iefa/ai-provider (sisub, sucont) —
+# autenticação keyless pela task role, sem API key. Escopo: foundation-models +
+# inference-profiles (perfis cross-region exigem ambos) nas regiões configuradas.
+data "aws_iam_policy_document" "task_bedrock" {
+  count = var.enable_bedrock_task_access ? 1 : 0
+
+  statement {
+    sid = "InvokeBedrockModels"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+      "bedrock:Converse",
+      "bedrock:ConverseStream",
+    ]
+    resources = concat(
+      [for r in var.bedrock_regions : "arn:aws:bedrock:${r}::foundation-model/*"],
+      [for r in var.bedrock_regions : "arn:aws:bedrock:${r}:${data.aws_caller_identity.current.account_id}:inference-profile/*"],
+    )
+  }
+}
+
+resource "aws_iam_role_policy" "task_bedrock" {
+  count = var.enable_bedrock_task_access ? 1 : 0
+
+  name   = "${local.name_prefix}-ecs-task-bedrock"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_bedrock[0].json
+}
