@@ -1,9 +1,9 @@
-import type { Recipe } from "@iefa/database/sisub"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CheckCircle2, Circle, Loader2, Plus, Printer, Save, X } from "lucide-react"
+import { CheckCircle2, Circle, Loader2, Plus, Printer, Save } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
+import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
@@ -125,76 +126,6 @@ function DayOverviewCard({
 	)
 }
 
-function DayMealSection({
-	mealType,
-	recipes,
-	onOpenSelector,
-	onRemoveRecipe,
-}: {
-	mealType: MealType
-	recipes: Recipe[]
-	onOpenSelector: () => void
-	onRemoveRecipe: (recipeId: string) => void
-}) {
-	const hasRecipes = recipes.length > 0
-
-	return (
-		<Card className="overflow-hidden p-0 gap-0">
-			<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-				<div className="flex items-center gap-2">
-					<span className="text-subheading">{mealType.name}</span>
-					{hasRecipes && (
-						<Badge variant="secondary" className="text-xs">
-							{recipes.length}
-						</Badge>
-					)}
-				</div>
-				<Button type="button" size="sm" variant="ghost" onClick={onOpenSelector} className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
-					<Plus className="size-3.5" />
-					Adicionar
-				</Button>
-			</div>
-
-			{hasRecipes ? (
-				<div className="p-3 space-y-1.5">
-					{recipes.map((recipe) => (
-						<div key={recipe.id} className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/30 group hover:bg-muted/60 transition-colors">
-							<div className="flex-1 min-w-0">
-								<p className="text-sm truncate">{recipe.name}</p>
-								{recipe.rational_id && <p className="text-xs text-muted-foreground font-mono">{recipe.rational_id}</p>}
-							</div>
-							<Tooltip>
-								<TooltipTrigger
-									render={
-										<Button
-											type="button"
-											size="icon"
-											variant="ghost"
-											className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-											onClick={() => onRemoveRecipe(recipe.id)}
-										>
-											<X className="size-3.5" />
-										</Button>
-									}
-								></TooltipTrigger>
-								<TooltipContent>Remover</TooltipContent>
-							</Tooltip>
-						</div>
-					))}
-				</div>
-			) : (
-				<div className="px-4 py-6 text-center">
-					<p className="text-xs text-muted-foreground mb-2">Nenhuma preparação atribuída</p>
-					<Button type="button" size="sm" variant="outline" onClick={onOpenSelector} className="text-xs">
-						<Plus className="size-3.5 mr-1" />
-						Adicionar Preparações
-					</Button>
-				</div>
-			)}
-		</Card>
-	)
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function GlobalPlanEditorPage() {
@@ -223,6 +154,7 @@ function GlobalPlanEditorPage() {
 	const [selectedCell, setSelectedCell] = useState<{
 		dayOfWeek: number
 		mealTypeId: string
+		group: MenuItemGroup | null
 	} | null>(null)
 
 	if (template && !initialized) {
@@ -233,29 +165,76 @@ function GlobalPlanEditorPage() {
 				day_of_week: item.day_of_week ?? 0,
 				meal_type_id: item.meal_type_id ?? "",
 				recipe_id: item.recipe_id ?? "",
+				item_group: (item.item_group as MenuItemGroup | null) ?? null,
+				sort_order: item.sort_order ?? 0,
+				recommended_proportion: item.recommended_proportion ?? null,
 			}))
 		)
 		setInitialized(true)
 	}
 
-	const getCellRecipes = (dayOfWeek: number, mealTypeId: string): Recipe[] => {
-		const ids = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId).map((i) => i.recipe_id)
-		return allRecipes?.filter((r) => ids.includes(r.id)) ?? []
+	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
+	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
+		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
+		return cellItems.flatMap((item) => {
+			const recipe = allRecipes?.find((r) => r.id === item.recipe_id)
+			if (!recipe) return []
+			return [
+				{
+					id: item.recipe_id,
+					title: recipe.name ?? item.recipe_id,
+					subtitle: recipe.rational_id ?? null,
+					group: item.item_group ?? null,
+					sortOrder: item.sort_order ?? 0,
+					proportion: item.recommended_proportion ?? null,
+				},
+			]
+		})
 	}
 
-	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string) => {
-		setSelectedCell({ dayOfWeek, mealTypeId })
+	/** Persiste um rearranjo (drag-drop) da célula: reatribui grupo + reindexa a ordem dos itens. */
+	const handleArrange = (dayOfWeek: number, mealTypeId: string, arrangement: BoardArrangement) => {
+		const byRecipe = new Map(arrangement.map((a) => [a.id, a]))
+		setItems(
+			items.map((i) => {
+				if (i.day_of_week !== dayOfWeek || i.meal_type_id !== mealTypeId) return i
+				const next = byRecipe.get(i.recipe_id)
+				return next ? { ...i, item_group: next.group, sort_order: next.sortOrder } : i
+			})
+		)
+	}
+
+	/** Atualiza a proporção recomendada de uma preparação da célula. */
+	const handleProportionChange = (dayOfWeek: number, mealTypeId: string, recipeId: string, value: number | null) => {
+		setItems(
+			items.map((i) => (i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, recommended_proportion: value } : i))
+		)
+	}
+
+	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string, group: MenuItemGroup | null) => {
+		setSelectedCell({ dayOfWeek, mealTypeId, group })
 		setSelectorOpen(true)
 	}
 
 	const handleSelectRecipes = (recipeIds: string[]) => {
 		if (!selectedCell) return
-		const filtered = items.filter((i) => !(i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId))
-		const newItems = recipeIds.map((recipeId) => ({
-			day_of_week: selectedCell.dayOfWeek,
-			meal_type_id: selectedCell.mealTypeId,
-			recipe_id: recipeId,
-		}))
+		const { dayOfWeek, mealTypeId, group } = selectedCell
+		// Preserva grupo/ordem/proporção das preparações que permanecem na célula.
+		const existingByRecipe = new Map(items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId).map((i) => [i.recipe_id, i]))
+		const filtered = items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId))
+		let nextInGroup = existingByRecipe.size
+		const newItems: TemplateItemDraft[] = recipeIds.map((recipeId) => {
+			const existing = existingByRecipe.get(recipeId)
+			if (existing) return existing
+			return {
+				day_of_week: dayOfWeek,
+				meal_type_id: mealTypeId,
+				recipe_id: recipeId,
+				item_group: group,
+				sort_order: nextInGroup++,
+				recommended_proportion: null,
+			}
+		})
 		setItems([...filtered, ...newItems])
 		setSelectedCell(null)
 	}
@@ -281,6 +260,9 @@ function GlobalPlanEditorPage() {
 					day_of_week: i.day_of_week,
 					meal_type_id: i.meal_type_id,
 					recipe_id: i.recipe_id,
+					item_group: i.item_group ?? null,
+					sort_order: i.sort_order ?? 0,
+					recommended_proportion: i.recommended_proportion ?? null,
 				})),
 			},
 			{
@@ -440,15 +422,42 @@ function GlobalPlanEditorPage() {
 								</div>
 
 								{mealTypes && mealTypes.length > 0 ? (
-									mealTypes.map((mealType) => (
-										<DayMealSection
-											key={mealType.id}
-											mealType={mealType}
-											recipes={getCellRecipes(day.num, mealType.id)}
-											onOpenSelector={() => handleOpenSelector(day.num, mealType.id)}
-											onRemoveRecipe={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
-										/>
-									))
+									mealTypes.map((mealType) => {
+										const boardItems = getCellBoardItems(day.num, mealType.id)
+										return (
+											<Card key={mealType.id} className="overflow-hidden p-0 gap-0">
+												<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+													<div className="flex items-center gap-2">
+														<span className="text-subheading">{mealType.name}</span>
+														{boardItems.length > 0 && (
+															<Badge variant="secondary" className="text-xs">
+																{boardItems.length}
+															</Badge>
+														)}
+													</div>
+													<Button
+														type="button"
+														size="sm"
+														variant="ghost"
+														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+														onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+													>
+														<Plus className="size-3.5" />
+														Adicionar
+													</Button>
+												</div>
+												<div className="p-3">
+													<MealGroupBoard
+														items={boardItems}
+														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
+														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
+														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
+														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
+													/>
+												</div>
+											</Card>
+										)
+									})
 								) : (
 									<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
 										Nenhum tipo de refeição genérico cadastrado. Configure os tipos de refeição no módulo Gestão.
