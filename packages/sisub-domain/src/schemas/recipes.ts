@@ -43,6 +43,16 @@ export const IngredientSchema = z.object({
 	netQuantity: z.number().positive(),
 	isOptional: z.boolean(),
 	priorityOrder: z.number().int().nonnegative(),
+	/**
+	 * Fator de Correção específico desta preparação (peso bruto / peso líquido).
+	 * Opcional: null/omitido = herda o insumo e, na ausência, vale 1 (não altera).
+	 */
+	correctionFactor: z.number().positive().nullable().optional(),
+	/**
+	 * Índice de reidratação específico desta preparação (peso reidratado / peso seco).
+	 * Opcional: null/omitido = herda o insumo e, na ausência, vale 1 (não altera).
+	 */
+	rehydrationIndex: z.number().positive().nullable().optional(),
 	/** Insumos que podem substituir este na preparação (recipe_ingredient_alternatives). */
 	alternatives: z.array(IngredientAlternativeSchema).optional(),
 })

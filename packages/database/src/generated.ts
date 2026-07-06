@@ -2996,6 +2996,7 @@ export type Database = {
 					id: string
 					legacy_id: number | null
 					measure_unit: string | null
+					rehydration_index: number | null
 				}
 				Insert: {
 					ceafa_id?: string | null
@@ -3008,6 +3009,7 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
+					rehydration_index?: number | null
 				}
 				Update: {
 					ceafa_id?: string | null
@@ -3020,6 +3022,7 @@ export type Database = {
 					id?: string
 					legacy_id?: number | null
 					measure_unit?: string | null
+					rehydration_index?: number | null
 				}
 				Relationships: [
 					{
@@ -3674,6 +3677,7 @@ export type Database = {
 			}
 			recipe_ingredients: {
 				Row: {
+					correction_factor: number | null
 					created_at: string
 					deleted_at: string | null
 					id: string
@@ -3682,8 +3686,10 @@ export type Database = {
 					net_quantity: number | null
 					priority_order: number | null
 					recipe_id: string | null
+					rehydration_index: number | null
 				}
 				Insert: {
+					correction_factor?: number | null
 					created_at?: string
 					deleted_at?: string | null
 					id?: string
@@ -3692,8 +3698,10 @@ export type Database = {
 					net_quantity?: number | null
 					priority_order?: number | null
 					recipe_id?: string | null
+					rehydration_index?: number | null
 				}
 				Update: {
+					correction_factor?: number | null
 					created_at?: string
 					deleted_at?: string | null
 					id?: string
@@ -3702,6 +3710,7 @@ export type Database = {
 					net_quantity?: number | null
 					priority_order?: number | null
 					recipe_id?: string | null
+					rehydration_index?: number | null
 				}
 				Relationships: [
 					{

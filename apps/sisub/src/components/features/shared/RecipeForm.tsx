@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { CalendarCheck, Circle, CircleCheck, Loader2, Pencil, Plus, Replace, Save, Trash2 } from "lucide-react"
+import { CalendarCheck, Circle, CircleCheck, Loader2, Pencil, Plus, Replace, Save, Trash2, TriangleAlert } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -14,17 +14,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
+import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
 import { cn } from "@/lib/cn"
 import type { RecipeIngredientSource } from "@/types/domain/recipe-flow"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
-const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "fluxo"] as const
+const RECIPE_FORM_TABS = ["detalhes", "ingredientes", "preparo", "nutricao", "fluxo"] as const
 type RecipeFormTab = (typeof RECIPE_FORM_TABS)[number]
 
 // Abas de leitura (campos/texto) mantêm largura confortável e centralizada; a aba "fluxo"
@@ -58,6 +60,9 @@ const ingredientSchema = z.object({
 	net_quantity: z.number().min(0.001, "Quantidade deve ser maior que 0"),
 	is_optional: z.boolean().default(false),
 	priority_order: z.number().default(0),
+	// Fatores da ficha técnica (opcionais): vazio/null = herda o insumo e, na ausência, vale 1.
+	correction_factor: z.number().positive("FC deve ser maior que 0").nullable().default(null),
+	rehydration_index: z.number().positive("IR deve ser maior que 0").nullable().default(null),
 	alternatives: z.array(alternativeSchema).default([]),
 })
 
@@ -85,6 +90,8 @@ interface IngredientFormItem {
 	net_quantity: number | null
 	is_optional: boolean
 	priority_order: number
+	correction_factor: number | null
+	rehydration_index: number | null
 	alternatives: AlternativeFormItem[]
 }
 
@@ -159,6 +166,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					net_quantity: ing.net_quantity,
 					is_optional: ing.is_optional || false,
 					priority_order: ing.priority_order || 0,
+					correction_factor: ing.correction_factor ?? null,
+					rehydration_index: ing.rehydration_index ?? null,
 					alternatives:
 						ing.alternatives?.map((alt) => ({
 							ingredient_id: alt.ingredient_id ?? "",
@@ -189,6 +198,8 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 					net_quantity: i.net_quantity,
 					is_optional: i.is_optional,
 					priority_order: i.priority_order,
+					correction_factor: i.correction_factor,
+					rehydration_index: i.rehydration_index,
 					alternatives: (i.alternatives ?? [])
 						.filter((a): a is typeof a & { ingredient_id: string; net_quantity: number } => !!a.ingredient_id && a.net_quantity != null && a.net_quantity > 0)
 						.map((a) => ({
@@ -293,7 +304,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 				>
 					<Tabs value={activeTab} onValueChange={(value) => setTab(value as RecipeFormTab)}>
 						{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
-						<TabsList className="mx-auto grid w-full max-w-xl grid-cols-4">
+						<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
 							<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
 							<TabsTrigger value="ingredientes">
 								Ingredientes
@@ -302,6 +313,7 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 								</form.Subscribe>
 							</TabsTrigger>
 							<TabsTrigger value="preparo">Modo de preparo</TabsTrigger>
+							<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
 							<TabsTrigger value="fluxo">Fluxo de produção</TabsTrigger>
 						</TabsList>
 
@@ -463,6 +475,55 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 																</ItemActions>
 															</Item>
 
+															{/* Fatores da ficha técnica — opcionais; vazio = 1 (não altera). Peso bruto = peso líquido × FC. */}
+															<div className="ml-6 flex flex-wrap items-center gap-x-4 gap-y-2 pl-3 text-caption text-muted-foreground">
+																<div className="flex items-center gap-1.5">
+																	<span>Fator de correção</span>
+																	<Input
+																		aria-label={`Fator de correção de ${ingredient.ingredient_name}`}
+																		type="number"
+																		step="0.01"
+																		min={0}
+																		placeholder="1"
+																		value={ingredient.correction_factor ?? ""}
+																		onChange={(e) => {
+																			const newList = [...field.state.value]
+																			newList[index].correction_factor = e.target.value === "" ? null : Number(e.target.value)
+																			field.handleChange(newList)
+																		}}
+																		className="w-20 text-right"
+																	/>
+																</div>
+																<div className="flex items-center gap-1.5">
+																	<span>Índice de reidratação</span>
+																	<Input
+																		aria-label={`Índice de reidratação de ${ingredient.ingredient_name}`}
+																		type="number"
+																		step="0.01"
+																		min={0}
+																		placeholder="1"
+																		value={ingredient.rehydration_index ?? ""}
+																		onChange={(e) => {
+																			const newList = [...field.state.value]
+																			newList[index].rehydration_index = e.target.value === "" ? null : Number(e.target.value)
+																			field.handleChange(newList)
+																		}}
+																		className="w-20 text-right"
+																	/>
+																</div>
+																{(ingredient.net_quantity ?? 0) > 0 && (ingredient.correction_factor ?? 0) > 0 && (
+																	<span className="text-foreground">
+																		Peso bruto:{" "}
+																		<strong className="font-medium">
+																			{((ingredient.net_quantity ?? 0) * (ingredient.correction_factor ?? 1)).toLocaleString("pt-BR", {
+																				maximumFractionDigits: 2,
+																			})}
+																		</strong>{" "}
+																		{ingredient.measure_unit}
+																	</span>
+																)}
+															</div>
+
 															{/* Substituições — insumos que podem substituir este na preparação */}
 															<div className="ml-6 space-y-1.5 border-l border-border/60 pl-3">
 																{(ingredient.alternatives ?? []).map((alt: AlternativeFormItem, altIndex: number) => (
@@ -545,6 +606,13 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 									</form.Field>
 								</CardContent>
 							</Card>
+						</TabsContent>
+
+						{/* Nutrição — tabela por 100 g, calculada dos insumos + quantidades (peso líquido) */}
+						<TabsContent value="nutricao" className={READING_PANEL}>
+							<form.Subscribe selector={(state) => state.values.ingredients}>
+								{(ingredients) => <RecipeNutritionPanel ingredients={ingredients as IngredientFormItem[]} />}
+							</form.Subscribe>
 						</TabsContent>
 
 						{/* Fluxo de produção — DAG estruturado, salvo separadamente da preparação */}
@@ -633,6 +701,9 @@ export function RecipeForm({ initialData, mode }: RecipeFormProps) {
 							net_quantity: 0,
 							is_optional: false,
 							priority_order: form.getFieldValue("ingredients").length + 1,
+							// Prefill dos fatores com o padrão do insumo (editável por preparação; vazio = 1).
+							correction_factor: ingredient.correction_factor ?? null,
+							rehydration_index: ingredient.rehydration_index ?? null,
 							alternatives: [],
 						})
 					}}
@@ -687,5 +758,118 @@ function RecipeReviewActions({ recipeId }: { recipeId: string }) {
 				Revisado
 			</Button>
 		</div>
+	)
+}
+
+/** Separa a unidade embutida no nome do nutriente ("Carboidratos (g)" → label + "g"). */
+function parseNutrientName(name: string): { label: string; unit: string | null } {
+	const match = name.match(/\s*\(([^)]+)\)\s*$/)
+	if (match && match.index != null) return { label: name.slice(0, match.index).trim(), unit: match[1] }
+	return { label: name, unit: null }
+}
+
+function formatNutrientNumber(n: number): string {
+	return n.toLocaleString("pt-BR", { maximumFractionDigits: n < 1 ? 2 : 1 })
+}
+
+/**
+ * Tabela nutricional automática da preparação — POR 100 g do preparo.
+ *
+ * Calculada dos insumos (peso líquido) via `useRecipeNutrition`; reativa às edições de
+ * ingredientes/quantidades no formulário. Não persiste — é derivada. Os fatores de
+ * correção/cocção/reidratação NÃO entram (dimensionam peso bruto/compras, não a composição).
+ */
+function RecipeNutritionPanel({ ingredients }: { ingredients: IngredientFormItem[] }) {
+	const input = useMemo<RecipeNutritionInputIngredient[]>(
+		() =>
+			ingredients.map((i) => ({
+				ingredientId: i.ingredient_id,
+				ingredientName: i.ingredient_name,
+				netQuantity: i.net_quantity,
+				measureUnit: i.measure_unit,
+				isOptional: i.is_optional,
+			})),
+		[ingredients]
+	)
+	const { isLoading, rows, coverage, massWithDataG } = useRecipeNutrition(input)
+
+	const hasActiveIngredients = coverage.totalIngredients > 0
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Tabela nutricional (por 100 g)</CardTitle>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				{!hasActiveIngredients ? (
+					<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border py-10 text-center text-muted-foreground">
+						<p className="text-body">Adicione ingredientes com quantidade para calcular a tabela nutricional.</p>
+						<p className="text-caption">Ingredientes opcionais não entram no cálculo da preparação base.</p>
+					</div>
+				) : isLoading ? (
+					<div className="space-y-2">
+						<Skeleton className="h-8 w-full" />
+						<Skeleton className="h-8 w-full" />
+						<Skeleton className="h-8 w-full" />
+					</div>
+				) : rows.length === 0 ? (
+					<div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-4 text-body text-muted-foreground">
+						<TriangleAlert className="size-4 shrink-0 translate-y-0.5" />
+						<p>Nenhum dos ingredientes tem composição nutricional cadastrada. Vincule uma tabela alimentar ou informe os nutrientes nos insumos.</p>
+					</div>
+				) : (
+					<>
+						<div className="overflow-hidden rounded-lg">
+							<table className="w-full text-sm">
+								<thead>
+									<tr className="border-b-2 border-foreground/80 bg-muted/40">
+										<th className="px-4 py-2 text-left font-semibold text-foreground">Nutrientes</th>
+										<th className="w-44 px-4 py-2 text-right font-semibold text-foreground">Quantidade por 100 g</th>
+										<th className="w-24 px-4 py-2 text-right font-semibold text-foreground">%VD*</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-border">
+									{rows.map((row) => {
+										const { label, unit } = parseNutrientName(row.name)
+										const vd = row.dailyValue && row.dailyValue > 0 ? (row.per100g / row.dailyValue) * 100 : null
+										const vdLabel = vd != null ? `${vd < 1 && vd > 0 ? vd.toFixed(1) : Math.round(vd)}%` : "—"
+										return (
+											<tr key={row.nutrientId} className={cn("transition-colors hover:bg-muted/30", row.isEnergy && "bg-muted/20")}>
+												<td className={cn("px-4 py-1.5 text-foreground", row.isEnergy && "font-semibold")}>{label}</td>
+												<td className="px-4 py-1.5 text-right font-mono tabular-nums text-foreground">
+													{formatNutrientNumber(row.per100g)}
+													{unit ? <span className="ml-1 text-xs text-muted-foreground">{unit}</span> : null}
+												</td>
+												<td className="px-4 py-1.5 text-right tabular-nums text-muted-foreground">{vdLabel}</td>
+											</tr>
+										)
+									})}
+								</tbody>
+							</table>
+						</div>
+
+						<p className="text-caption text-muted-foreground">
+							* %VD com base em uma dieta de 2.000 kcal. Calculado sobre o peso líquido dos insumos (a parte comestível); os fatores de correção, cocção e
+							reidratação não alteram a composição.
+						</p>
+
+						{coverage.missing.length > 0 && (
+							<div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-caption text-foreground">
+								<TriangleAlert className="size-4 shrink-0 translate-y-0.5 text-amber-600" />
+								<div>
+									<p className="font-medium">
+										{coverage.withData} de {coverage.totalIngredients} ingredientes com composição conhecida.
+									</p>
+									<p className="text-muted-foreground">
+										Sem dados nutricionais (não contabilizados): {coverage.missing.join(", ")}. A tabela reflete apenas os{" "}
+										{massWithDataG.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} g caracterizados.
+									</p>
+								</div>
+							</div>
+						)}
+					</>
+				)}
+			</CardContent>
+		</Card>
 	)
 }

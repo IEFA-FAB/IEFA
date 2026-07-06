@@ -557,6 +557,7 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 	legacyId: bigint("legacy_id", { mode: "number" }),
 	ceafaId: uuid("ceafa_id"),
 	densityFactor: numeric("density_factor"),
+	rehydrationIndex: numeric("rehydration_index"),
 }, (table) => [
 	foreignKey({
 			columns: [table.ceafaId],
@@ -1453,6 +1454,8 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 	netQuantity: numeric("net_quantity"),
 	isOptional: boolean("is_optional"),
 	priorityOrder: smallint("priority_order"),
+	correctionFactor: numeric("correction_factor"),
+	rehydrationIndex: numeric("rehydration_index"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [

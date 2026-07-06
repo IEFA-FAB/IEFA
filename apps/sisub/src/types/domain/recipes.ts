@@ -28,6 +28,8 @@ export interface RecipeFormIngredient {
 	net_quantity: number
 	is_optional: boolean
 	priority_order: number
+	correction_factor?: number | null
+	rehydration_index?: number | null
 	alternatives?: RecipeFormIngredientAlternative[]
 }
 
