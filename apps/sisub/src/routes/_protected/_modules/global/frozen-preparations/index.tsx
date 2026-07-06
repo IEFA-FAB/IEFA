@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { useRealtimeSubscription } from "@/hooks/realtime/useRealtime"
 import { useCreateFrozenPreparation, useDeleteFrozenPreparation, useFrozenPreparations, useUpdateFrozenPreparation } from "@/services/FrozenPreparationsService"
 
 const searchSchema = z.object({ search: z.string().optional() })
@@ -35,19 +34,16 @@ const CATEGORIES: { value: FrozenPreparationCategory; label: string }[] = [
 const categoryLabel = (c: string) => CATEGORIES.find((x) => x.value === c)?.label ?? c
 
 function FrozenPreparationsPage() {
-	const [search, setSearch] = useState("")
+	// Busca é fonte-da-verdade na URL (?search=) — habilita compartilhar link e voltar navegando.
+	const { search = "" } = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const setSearch = (value: string) => navigate({ search: (prev) => ({ ...prev, search: value || undefined }), replace: true })
 	const [category, setCategory] = useState<FrozenPreparationCategory | undefined>(undefined)
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [editing, setEditing] = useState<FrozenPreparation | null>(null)
 
 	const { frozenPreparations, isLoading } = useFrozenPreparations({ search: search || undefined, category })
 	const deleteMutation = useDeleteFrozenPreparation()
-
-	useRealtimeSubscription({
-		table: "frozen_preparation",
-		queryKeyPrefix: ["frozen-preparations"],
-		message: "Preparação congelada atualizada por outro usuário",
-	})
 
 	const rows = useMemo(() => frozenPreparations ?? [], [frozenPreparations])
 

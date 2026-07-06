@@ -32,13 +32,14 @@ export async function listFrozenPreparations(db: SisubDb, _ctx: UserContext, inp
 	if (search) conditions.push(ilike(frozenPreparationInKitchen.description, `%${search.replace(/[\\%_]/g, "\\$&")}%`))
 	if (input.category) conditions.push(eq(frozenPreparationInKitchen.category, input.category))
 
+	// Sem limit: catálogo curado e pequeno (subconjunto dos antigos insumos), igual ao fetch
+	// de insumos que também retorna a lista completa. Evita truncar silenciosamente.
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db
 			.select()
 			.from(frozenPreparationInKitchen)
 			.where(and(...conditions))
 			.orderBy(asc(frozenPreparationInKitchen.description))
-			.limit(500)
 	)
 	return rows.map((r) => toWire<FrozenPreparation>(r))
 }

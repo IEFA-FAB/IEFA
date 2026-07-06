@@ -62,6 +62,24 @@ const RECIPE_RELATIONS: Record<string, string> = {
 // limite de 63 chars de alias do Postgres — o problema de NAMEDATALEN é só a partir do nível 3.
 const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true, frozenPreparationInKitchen: true } } } as const
 
+/**
+ * O Drizzle não aceita `where` numa relação `one` (só em `many`), então a preparação
+ * congelada é eager-loaded sem filtro. Zeramos aqui as soft-deletadas p/ não vazarem pela
+ * relação — consistente com list/fetch que filtram `deleted_at IS NULL`.
+ */
+function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unknown } | null | undefined): void {
+	const ingredients = (row?.recipeIngredientsInKitchens ?? []) as Array<{
+		frozenPreparationInKitchen?: { deletedAt?: string | null } | null
+		recipeIngredientAlternativesInKitchens?: Array<{ frozenPreparationInKitchen?: { deletedAt?: string | null } | null }>
+	}>
+	for (const ri of ingredients) {
+		if (ri.frozenPreparationInKitchen?.deletedAt) ri.frozenPreparationInKitchen = null
+		for (const alt of ri.recipeIngredientAlternativesInKitchens ?? []) {
+			if (alt.frozenPreparationInKitchen?.deletedAt) alt.frozenPreparationInKitchen = null
+		}
+	}
+}
+
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
 	requirePermission(ctx, "kitchen", 1)
 
@@ -102,6 +120,7 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 		}
 	}
 
+	scrubDeletedFrozenPreparations(row)
 	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
 }
 
@@ -142,7 +161,10 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 
 	return Array.from(familyMap.values())
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-		.map((r) => toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS))
+		.map((r) => {
+			scrubDeletedFrozenPreparations(r)
+			return toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS)
+		})
 }
 
 /**
