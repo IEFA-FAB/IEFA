@@ -38,3 +38,15 @@ export type Pagination = z.infer<typeof PaginationSchema>
 
 export const SortOrderSchema = z.number().int().nonnegative().optional()
 export type SortOrder = z.infer<typeof SortOrderSchema>
+
+/**
+ * Grupo canônico de uma preparação dentro de uma refeição. Ordem de declaração =
+ * ordem de leitura no cardápio (prato principal → ... → sobremesa). null/ausente = sem grupo.
+ */
+export const MENU_ITEM_GROUPS = ["prato_principal", "acompanhamento", "guarnicao", "bebida", "sobremesa"] as const
+export const MenuItemGroupSchema = z.enum(MENU_ITEM_GROUPS)
+export type MenuItemGroup = z.infer<typeof MenuItemGroupSchema>
+
+/** Proporção recomendada de consumo (%). Advisory — sem soma forçada dentro do grupo. */
+export const RecommendedProportionSchema = z.number().min(0).max(100).optional()
+export type RecommendedProportion = z.infer<typeof RecommendedProportionSchema>

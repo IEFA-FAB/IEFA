@@ -58,6 +58,8 @@ const WITH_MENU_ITEMS = {
 	menuItemsInKitchens: {
 		// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
 		where: isNull(menuItemsInKitchen.deletedAt),
+		// Ordem estável dentro da refeição (posição do grupo). Agrupamento por item_group é do consumidor.
+		orderBy: asc(menuItemsInKitchen.sortOrder),
 		with: { recipesInKitchen: true },
 	},
 } as const
@@ -127,6 +129,30 @@ export async function upsertDailyMenu(db: SisubDb, ctx: UserContext, input: Upse
 	return inserted.map((row) => toWire<DailyMenu>(row))
 }
 
+/** Próxima posição livre no fim de um grupo dentro do cardápio do dia (itens ativos). */
+async function nextSortOrder(db: SisubDb, dailyMenuId: string, itemGroup: string | null): Promise<number> {
+	const rows = await runQuery("FETCH_FAILED", () =>
+		db.query.menuItemsInKitchen.findMany({
+			columns: { sortOrder: true },
+			where: and(
+				eq(menuItemsInKitchen.dailyMenuId, dailyMenuId),
+				itemGroup === null ? isNull(menuItemsInKitchen.itemGroup) : eq(menuItemsInKitchen.itemGroup, itemGroup),
+				isNull(menuItemsInKitchen.deletedAt)
+			),
+		})
+	)
+	return rows.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
+}
+
+/** Próxima posição no fim do grupo destino, resolvendo o cardápio do próprio item. */
+async function nextSortOrderForItem(db: SisubDb, menuItemId: string, itemGroup: string | null): Promise<number> {
+	const row = await runQuery("FETCH_FAILED", () =>
+		db.query.menuItemsInKitchen.findFirst({ columns: { dailyMenuId: true }, where: eq(menuItemsInKitchen.id, menuItemId) })
+	)
+	if (!row?.dailyMenuId) return 0
+	return nextSortOrder(db, row.dailyMenuId, itemGroup)
+}
+
 export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuItem): Promise<MenuItem[]> {
 	const kitchenId = await resolveKitchenFromMenu(db, input.dailyMenuId)
 	requireKitchen(ctx, 2, kitchenId)
@@ -147,6 +173,10 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 	// Snapshot da receita gravado em JSON no contrato snake_case (idêntico ao PostgREST).
 	const recipeSnapshot = toWire<Record<string, unknown>>(recipe, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 
+	const itemGroup = input.itemGroup ?? null
+	// Sem sortOrder explícito → posiciona no fim do grupo dentro do cardápio.
+	const sortOrder = input.sortOrder ?? (await nextSortOrder(db, input.dailyMenuId, itemGroup))
+
 	const inserted = await mutateOrFail("INSERT_FAILED", "no row returned", () =>
 		db
 			.insert(menuItemsInKitchen)
@@ -156,6 +186,9 @@ export async function addMenuItem(db: SisubDb, ctx: UserContext, input: AddMenuI
 				recipe: recipeSnapshot,
 				...(input.plannedPortionQuantity != null && { plannedPortionQuantity: String(input.plannedPortionQuantity) }),
 				...(input.excludedFromProcurement != null && { excludedFromProcurement: String(input.excludedFromProcurement) }),
+				itemGroup,
+				sortOrder,
+				recommendedProportion: input.recommendedProportion != null ? String(input.recommendedProportion) : null,
 			})
 			.returning()
 	)
@@ -166,9 +199,26 @@ export async function updateMenuItem(db: SisubDb, ctx: UserContext, input: Updat
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireKitchen(ctx, 2, kitchenId)
 
-	const updates: { plannedPortionQuantity?: string; excludedFromProcurement?: string } = {}
+	const updates: {
+		plannedPortionQuantity?: string
+		excludedFromProcurement?: string
+		itemGroup?: string | null
+		sortOrder?: number
+		recommendedProportion?: string | null
+	} = {}
 	if (input.plannedPortionQuantity != null) updates.plannedPortionQuantity = String(input.plannedPortionQuantity)
 	if (input.excludedFromProcurement != null) updates.excludedFromProcurement = String(input.excludedFromProcurement)
+	if (input.recommendedProportion !== undefined)
+		updates.recommendedProportion = input.recommendedProportion != null ? String(input.recommendedProportion) : null
+
+	if (input.itemGroup !== undefined) {
+		updates.itemGroup = input.itemGroup
+		// Trocar de grupo sem posição explícita → recoloca o item no fim do grupo destino
+		// (evita colisão de sort_order herdado do grupo anterior).
+		updates.sortOrder = input.sortOrder ?? (await nextSortOrderForItem(db, input.menuItemId, input.itemGroup))
+	} else if (input.sortOrder !== undefined) {
+		updates.sortOrder = input.sortOrder
+	}
 
 	if (Object.keys(updates).length === 0) throw new DomainError("NO_UPDATES", "No fields to update")
 
@@ -252,7 +302,7 @@ export async function getTrashItems(db: SisubDb, ctx: UserContext, input: GetTra
 // ─── Aggregated daily menu content (diner-facing) ───────────────────────────
 
 type DishIngredient = { ingredient_name: string; quantity: number; measure_unit: string }
-type DishDetails = { id: string; name: string; ingredients: DishIngredient[] }
+type DishDetails = { id: string; name: string; ingredients: DishIngredient[]; group: string | null; recommended_proportion: number | null }
 type DayMenuContent = { [date: string]: { [mealKey: string]: DishDetails[] } }
 type RecipeSnapshot = { name?: string; ingredients?: DishIngredient[] }
 
@@ -281,7 +331,9 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 				menuItemsInKitchens: {
 					// Não devolver itens soft-deleted ao diner (paridade com as demais queries do arquivo).
 					where: isNull(menuItemsInKitchen.deletedAt),
-					columns: { id: true, recipe: true },
+					// Ordem estável de leitura (arroz antes de feijão): posição dentro do grupo.
+					orderBy: asc(menuItemsInKitchen.sortOrder),
+					columns: { id: true, recipe: true, itemGroup: true, recommendedProportion: true },
 					with: { recipesInKitchen: { columns: { name: true } } },
 				},
 			},
@@ -322,7 +374,8 @@ export async function fetchDailyMenuContent(db: SisubDb, _ctx: UserContext, inpu
 				dishName = item.recipesInKitchen.name || dishName
 			}
 
-			content[date][mealKey].push({ id: item.id, name: dishName, ingredients })
+			const proportion = item.recommendedProportion == null ? null : Number(item.recommendedProportion)
+			content[date][mealKey].push({ id: item.id, name: dishName, ingredients, group: item.itemGroup ?? null, recommended_proportion: proportion })
 		}
 	}
 

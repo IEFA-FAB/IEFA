@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Printer } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import { menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
@@ -191,14 +192,23 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// Ordena os tipos de refeição (linhas da grade) por sort_order → nome.
 	const orderedMealTypes = (mealTypes ?? []).slice().sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || (a.name ?? "").localeCompare(b.name ?? ""))
 
-	// Índice (dia → refeição → nomes das preparações).
-	const cellIndex = new Map<string, string[]>()
+	// Índice (dia → refeição → preparações), ordenadas por grupo canônico e depois posição.
+	type CellEntry = { name: string; group: string | null; sortOrder: number; proportion: number | null }
+	const cellIndex = new Map<string, CellEntry[]>()
 	for (const item of template.items) {
 		if (item.day_of_week == null || !item.meal_type_id) continue
 		const key = `${item.day_of_week}:${item.meal_type_id}`
 		const list = cellIndex.get(key) ?? []
-		list.push(itemRecipeName(item))
+		list.push({
+			name: itemRecipeName(item),
+			group: item.item_group ?? null,
+			sortOrder: item.sort_order ?? 0,
+			proportion: item.recommended_proportion ?? null,
+		})
 		cellIndex.set(key, list)
+	}
+	for (const list of cellIndex.values()) {
+		list.sort((a, b) => menuItemGroupOrder(a.group) - menuItemGroupOrder(b.group) || a.sortOrder - b.sortOrder)
 	}
 
 	// Lista de preparações: receitas distintas com modo de preparo, ordenadas.
@@ -310,13 +320,14 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 								<tr key={mt.id}>
 									<th className="cardapio-meal-col">{(mt.name ?? "").toUpperCase()}</th>
 									{WEEKDAYS.map((d) => {
-										const names = cellIndex.get(`${d.num}:${mt.id}`) ?? []
+										const entries = cellIndex.get(`${d.num}:${mt.id}`) ?? []
 										const weekend = d.num >= 6
 										return (
 											<td key={d.num} className={weekend ? "cardapio-weekend" : undefined}>
-												{names.map((n, i) => (
-													<div key={`${n}-${i}`} className="cardapio-dish">
-														{n.toUpperCase()}
+												{entries.map((entry, i) => (
+													<div key={`${entry.name}-${i}`} className="cardapio-dish">
+														{entry.name.toUpperCase()}
+														{entry.proportion != null && <span className="cardapio-dish-prop"> {entry.proportion}%</span>}
 													</div>
 												))}
 											</td>
@@ -469,6 +480,7 @@ const PRINT_CSS = `
 .cardapio-daynum { font-weight: 400; font-size: 8px; }
 .cardapio-weekend { background: #f4f4f4; }
 .cardapio-dish { font-size: 8px; }
+.cardapio-dish-prop { font-weight: 700; color: #333; }
 .cardapio-dish + .cardapio-dish { border-top: 1px dotted #bbb; margin-top: 1px; padding-top: 1px; }
 .cardapio-empty { text-align: center; font-style: italic; padding: 12px; }
 .cardapio-preps { margin-top: 8px; }

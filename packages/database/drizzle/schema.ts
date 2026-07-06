@@ -68,6 +68,9 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	substitutions: json(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	recipeOriginId: uuid("recipe_origin_id"),
+	itemGroup: text("item_group"),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	recommendedProportion: numeric("recommended_proportion"),
 }, (table) => [
 	foreignKey({
 			columns: [table.dailyMenuId],
@@ -275,6 +278,9 @@ export const menuTemplateItemsInKitchen = kitchen.table("menu_template_items", {
 	mealTypeId: uuid("meal_type_id"),
 	recipeId: uuid("recipe_id"),
 	headcountOverride: integer("headcount_override"),
+	itemGroup: text("item_group"),
+	sortOrder: smallint("sort_order").default(0).notNull(),
+	recommendedProportion: numeric("recommended_proportion"),
 }, (table) => [
 	foreignKey({
 			columns: [table.mealTypeId],

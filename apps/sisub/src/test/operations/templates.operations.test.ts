@@ -11,6 +11,7 @@ import {
 	createBlankTemplate,
 	createTemplate,
 	deleteTemplate,
+	fetchDayDetails,
 	forkTemplate,
 	getTemplate,
 	getTemplateItems,
@@ -209,5 +210,62 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(result.datesProcessed).toEqual([date])
 		expect(result.menusCreated).toBe(1)
 		expect(result.itemsCreated).toBe(1)
+	})
+
+	test("grupo + ordem + proporção fazem round-trip em createTemplate/getTemplateItems", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Grupos "),
+			kitchenId,
+			templateType: "weekly",
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "guarnicao", sortOrder: 1, recommendedProportion: 30 },
+				{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "prato_principal", sortOrder: 0, recommendedProportion: 70 },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		const items = (await getTemplateItems(db, ctx, { templateId: tpl.id })) as unknown as {
+			item_group: string | null
+			sort_order: number | null
+			recommended_proportion: number | string | null
+		}[]
+		const principal = items.find((i) => i.item_group === "prato_principal")
+		const guarnicao = items.find((i) => i.item_group === "guarnicao")
+		expect(principal).toBeDefined()
+		expect(guarnicao).toBeDefined()
+		expect(principal?.sort_order).toBe(0)
+		expect(Number(principal?.recommended_proportion)).toBe(70)
+		expect(Number(guarnicao?.recommended_proportion)).toBe(30)
+	})
+
+	test("applyTemplate propaga grupo/ordem/proporção para os menu_items", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Aplicar grupos "),
+			kitchenId,
+			templateType: "weekly",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, itemGroup: "prato_principal", sortOrder: 0, recommendedProportion: 65 }],
+		})
+		trackTemplate(tpl.id)
+
+		const date = "2099-04-06"
+		const js = new Date(date).getDay()
+		const startDayOfWeek = js === 0 ? 7 : js
+		await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: date, endDate: date, startDayOfWeek })
+
+		const details = await fetchDayDetails(db, ctx, { kitchenId, date })
+		const menuItems = details.flatMap((m) => m.menu_items) as unknown as {
+			item_group: string | null
+			sort_order: number | null
+			recommended_proportion: number | string | null
+		}[]
+		expect(menuItems.length).toBe(1)
+		expect(menuItems[0]?.item_group).toBe("prato_principal")
+		expect(Number(menuItems[0]?.recommended_proportion)).toBe(65)
 	})
 })
