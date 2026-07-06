@@ -59,6 +59,7 @@ import { Route as ProtectedModulesKitchenProductionKitchenIdIndexRouteImport } f
 import { Route as ProtectedModulesGlobalWeeklyPlansIndexRouteImport } from './routes/_protected/_modules/global/weekly-plans/index'
 import { Route as ProtectedModulesGlobalRecipesIndexRouteImport } from './routes/_protected/_modules/global/recipes/index'
 import { Route as ProtectedModulesGlobalIngredientsIndexRouteImport } from './routes/_protected/_modules/global/ingredients/index'
+import { Route as ProtectedModulesGlobalFrozenPreparationsIndexRouteImport } from './routes/_protected/_modules/global/frozen-preparations/index'
 import { Route as ProtectedModulesUnitUnitIdSettingsRouteImport } from './routes/_protected/_modules/unit/$unitId/settings'
 import { Route as ProtectedModulesUnitUnitIdProcurementRouteImport } from './routes/_protected/_modules/unit/$unitId/procurement'
 import { Route as ProtectedModulesUnitUnitIdDashboardRouteImport } from './routes/_protected/_modules/unit/$unitId/dashboard'
@@ -380,6 +381,12 @@ const ProtectedModulesGlobalIngredientsIndexRoute =
     path: '/global/ingredients/',
     getParentRoute: () => ProtectedModulesRouteRoute,
   } as any)
+const ProtectedModulesGlobalFrozenPreparationsIndexRoute =
+  ProtectedModulesGlobalFrozenPreparationsIndexRouteImport.update({
+    id: '/global/frozen-preparations/',
+    path: '/global/frozen-preparations/',
+    getParentRoute: () => ProtectedModulesRouteRoute,
+  } as any)
 const ProtectedModulesUnitUnitIdSettingsRoute =
   ProtectedModulesUnitUnitIdSettingsRouteImport.update({
     id: '/settings',
@@ -650,6 +657,7 @@ export interface FileRoutesByFullPath {
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
+  '/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
   '/global/weekly-plans/': typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
@@ -727,6 +735,7 @@ export interface FileRoutesByTo {
   '/unit/$unitId/chat': typeof ProtectedModulesUnitUnitIdChatRoute
   '/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
+  '/global/frozen-preparations': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/global/ingredients': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/global/recipes': typeof ProtectedModulesGlobalRecipesIndexRoute
   '/global/weekly-plans': typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
@@ -814,6 +823,7 @@ export interface FileRoutesById {
   '/_protected/_modules/unit/$unitId/dashboard': typeof ProtectedModulesUnitUnitIdDashboardRoute
   '/_protected/_modules/unit/$unitId/procurement': typeof ProtectedModulesUnitUnitIdProcurementRouteWithChildren
   '/_protected/_modules/unit/$unitId/settings': typeof ProtectedModulesUnitUnitIdSettingsRoute
+  '/_protected/_modules/global/frozen-preparations/': typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   '/_protected/_modules/global/ingredients/': typeof ProtectedModulesGlobalIngredientsIndexRoute
   '/_protected/_modules/global/recipes/': typeof ProtectedModulesGlobalRecipesIndexRoute
   '/_protected/_modules/global/weekly-plans/': typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
@@ -900,6 +910,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/procurement'
     | '/unit/$unitId/settings'
+    | '/global/frozen-preparations/'
     | '/global/ingredients/'
     | '/global/recipes/'
     | '/global/weekly-plans/'
@@ -977,6 +988,7 @@ export interface FileRouteTypes {
     | '/unit/$unitId/chat'
     | '/unit/$unitId/dashboard'
     | '/unit/$unitId/settings'
+    | '/global/frozen-preparations'
     | '/global/ingredients'
     | '/global/recipes'
     | '/global/weekly-plans'
@@ -1063,6 +1075,7 @@ export interface FileRouteTypes {
     | '/_protected/_modules/unit/$unitId/dashboard'
     | '/_protected/_modules/unit/$unitId/procurement'
     | '/_protected/_modules/unit/$unitId/settings'
+    | '/_protected/_modules/global/frozen-preparations/'
     | '/_protected/_modules/global/ingredients/'
     | '/_protected/_modules/global/recipes/'
     | '/_protected/_modules/global/weekly-plans/'
@@ -1449,6 +1462,13 @@ declare module '@tanstack/react-router' {
       path: '/global/ingredients'
       fullPath: '/global/ingredients/'
       preLoaderRoute: typeof ProtectedModulesGlobalIngredientsIndexRouteImport
+      parentRoute: typeof ProtectedModulesRouteRoute
+    }
+    '/_protected/_modules/global/frozen-preparations/': {
+      id: '/_protected/_modules/global/frozen-preparations/'
+      path: '/global/frozen-preparations'
+      fullPath: '/global/frozen-preparations/'
+      preLoaderRoute: typeof ProtectedModulesGlobalFrozenPreparationsIndexRouteImport
       parentRoute: typeof ProtectedModulesRouteRoute
     }
     '/_protected/_modules/unit/$unitId/settings': {
@@ -1930,6 +1950,7 @@ interface ProtectedModulesRouteRouteChildren {
   ProtectedModulesGlobalRecipesNewRoute: typeof ProtectedModulesGlobalRecipesNewRoute
   ProtectedModulesGlobalWeeklyPlansPlanIdRoute: typeof ProtectedModulesGlobalWeeklyPlansPlanIdRoute
   ProtectedModulesGlobalWeeklyPlansNewRoute: typeof ProtectedModulesGlobalWeeklyPlansNewRoute
+  ProtectedModulesGlobalFrozenPreparationsIndexRoute: typeof ProtectedModulesGlobalFrozenPreparationsIndexRoute
   ProtectedModulesGlobalIngredientsIndexRoute: typeof ProtectedModulesGlobalIngredientsIndexRoute
   ProtectedModulesGlobalRecipesIndexRoute: typeof ProtectedModulesGlobalRecipesIndexRoute
   ProtectedModulesGlobalWeeklyPlansIndexRoute: typeof ProtectedModulesGlobalWeeklyPlansIndexRoute
@@ -1985,6 +2006,8 @@ const ProtectedModulesRouteRouteChildren: ProtectedModulesRouteRouteChildren = {
     ProtectedModulesGlobalWeeklyPlansPlanIdRoute,
   ProtectedModulesGlobalWeeklyPlansNewRoute:
     ProtectedModulesGlobalWeeklyPlansNewRoute,
+  ProtectedModulesGlobalFrozenPreparationsIndexRoute:
+    ProtectedModulesGlobalFrozenPreparationsIndexRoute,
   ProtectedModulesGlobalIngredientsIndexRoute:
     ProtectedModulesGlobalIngredientsIndexRoute,
   ProtectedModulesGlobalRecipesIndexRoute:

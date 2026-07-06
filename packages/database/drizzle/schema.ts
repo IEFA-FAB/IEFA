@@ -570,6 +570,52 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 		}),
 ]);
 
+export const frozenPreparationInKitchen = kitchen.table("frozen_preparation", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	description: text().notNull(),
+	measureUnit: text("measure_unit"),
+	yieldQuantity: numeric("yield_quantity"),
+	correctionFactor: numeric("correction_factor"),
+	densityFactor: numeric("density_factor"),
+	category: text().default('preparacao').notNull(),
+	productionRecipeId: uuid("production_recipe_id"),
+	regenerationRecipeId: uuid("regeneration_recipe_id"),
+	shelfLifeDays: integer("shelf_life_days"),
+	storageTemperatureC: numeric("storage_temperature_c"),
+	storageInstructions: text("storage_instructions"),
+	ceafaId: uuid("ceafa_id"),
+	sourceIngredientId: uuid("source_ingredient_id"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	legacyId: bigint("legacy_id", { mode: "number" }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("frozen_preparation_category_idx").using("btree", table.category.asc().nullsLast().op("text_ops")).where(sql`(deleted_at IS NULL)`),
+	index("frozen_preparation_source_ingredient_idx").using("btree", table.sourceIngredientId.asc().nullsLast().op("uuid_ops")).where(sql`(deleted_at IS NULL)`),
+	foreignKey({
+			columns: [table.productionRecipeId],
+			foreignColumns: [recipesInKitchen.id],
+			name: "frozen_preparation_production_recipe_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.regenerationRecipeId],
+			foreignColumns: [recipesInKitchen.id],
+			name: "frozen_preparation_regeneration_recipe_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.ceafaId],
+			foreignColumns: [ceafaInKitchen.id],
+			name: "frozen_preparation_ceafa_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.sourceIngredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "frozen_preparation_source_ingredient_id_fkey"
+		}),
+	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
+	check("frozen_preparation_category_check", sql`category = ANY (ARRAY['preparacao'::text, 'prato_pronto'::text, 'lanche_pronto'::text])`),
+]);
+
 export const ingredientNutritionReferenceInKitchen = kitchen.table("ingredient_nutrition_reference", {
 	ingredientId: uuid("ingredient_id").primaryKey().notNull(),
 	foodRevisionId: uuid("food_revision_id").notNull(),
@@ -1450,6 +1496,7 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	recipeId: uuid("recipe_id"),
 	ingredientId: uuid("ingredient_id"),
+	frozenPreparationId: uuid("frozen_preparation_id"),
 	netQuantity: numeric("net_quantity"),
 	isOptional: boolean("is_optional"),
 	priorityOrder: smallint("priority_order"),
@@ -1467,6 +1514,12 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 			foreignColumns: [recipesInKitchen.id],
 			name: "recipe_ingredients_recipe_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.frozenPreparationId],
+			foreignColumns: [frozenPreparationInKitchen.id],
+			name: "recipe_ingredients_frozen_preparation_id_fkey"
+		}),
+	check("recipe_ingredients_source_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) <= 1`),
 ]);
 
 export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingredient_alternatives", {
@@ -1474,6 +1527,7 @@ export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingre
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	recipeIngredientId: uuid("recipe_ingredient_id"),
 	ingredientId: uuid("ingredient_id"),
+	frozenPreparationId: uuid("frozen_preparation_id"),
 	netQuantity: numeric("net_quantity"),
 	priorityOrder: smallint("priority_order"),
 }, (table) => [
@@ -1487,6 +1541,12 @@ export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingre
 			foreignColumns: [recipeIngredientsInKitchen.id],
 			name: "recipe_ingredient_alternatives_recipe_ingredient_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.frozenPreparationId],
+			foreignColumns: [frozenPreparationInKitchen.id],
+			name: "recipe_ingredient_alternatives_frozen_preparation_id_fkey"
+		}),
+	check("recipe_ingredient_alt_source_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) <= 1`),
 ]);
 
 export const mealForecastsInKitchen = kitchen.table("meal_forecasts", {

@@ -3573,9 +3573,99 @@ export type Database = {
 					},
 				]
 			}
+			frozen_preparation: {
+				Row: {
+					category: string
+					ceafa_id: string | null
+					correction_factor: number | null
+					created_at: string
+					deleted_at: string | null
+					density_factor: number | null
+					description: string
+					id: string
+					legacy_id: number | null
+					measure_unit: string | null
+					production_recipe_id: string | null
+					regeneration_recipe_id: string | null
+					shelf_life_days: number | null
+					source_ingredient_id: string | null
+					storage_instructions: string | null
+					storage_temperature_c: number | null
+					yield_quantity: number | null
+				}
+				Insert: {
+					category?: string
+					ceafa_id?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					density_factor?: number | null
+					description: string
+					id?: string
+					legacy_id?: number | null
+					measure_unit?: string | null
+					production_recipe_id?: string | null
+					regeneration_recipe_id?: string | null
+					shelf_life_days?: number | null
+					source_ingredient_id?: string | null
+					storage_instructions?: string | null
+					storage_temperature_c?: number | null
+					yield_quantity?: number | null
+				}
+				Update: {
+					category?: string
+					ceafa_id?: string | null
+					correction_factor?: number | null
+					created_at?: string
+					deleted_at?: string | null
+					density_factor?: number | null
+					description?: string
+					id?: string
+					legacy_id?: number | null
+					measure_unit?: string | null
+					production_recipe_id?: string | null
+					regeneration_recipe_id?: string | null
+					shelf_life_days?: number | null
+					source_ingredient_id?: string | null
+					storage_instructions?: string | null
+					storage_temperature_c?: number | null
+					yield_quantity?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "frozen_preparation_production_recipe_id_fkey"
+						columns: ["production_recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "frozen_preparation_regeneration_recipe_id_fkey"
+						columns: ["regeneration_recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "frozen_preparation_ceafa_id_fkey"
+						columns: ["ceafa_id"]
+						isOneToOne: false
+						referencedRelation: "ceafa"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "frozen_preparation_source_ingredient_id_fkey"
+						columns: ["source_ingredient_id"]
+						isOneToOne: false
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			recipe_ingredient_alternatives: {
 				Row: {
 					created_at: string
+					frozen_preparation_id: string | null
 					id: string
 					ingredient_id: string | null
 					net_quantity: number | null
@@ -3584,6 +3674,7 @@ export type Database = {
 				}
 				Insert: {
 					created_at?: string
+					frozen_preparation_id?: string | null
 					id?: string
 					ingredient_id?: string | null
 					net_quantity?: number | null
@@ -3592,6 +3683,7 @@ export type Database = {
 				}
 				Update: {
 					created_at?: string
+					frozen_preparation_id?: string | null
 					id?: string
 					ingredient_id?: string | null
 					net_quantity?: number | null
@@ -3599,6 +3691,13 @@ export type Database = {
 					recipe_ingredient_id?: string | null
 				}
 				Relationships: [
+					{
+						foreignKeyName: "recipe_ingredient_alternatives_frozen_preparation_id_fkey"
+						columns: ["frozen_preparation_id"]
+						isOneToOne: false
+						referencedRelation: "frozen_preparation"
+						referencedColumns: ["id"]
+					},
 					{
 						foreignKeyName: "recipe_ingredient_alternatives_product_id_fkey"
 						columns: ["ingredient_id"]
@@ -3626,6 +3725,7 @@ export type Database = {
 				Row: {
 					created_at: string
 					deleted_at: string | null
+					frozen_preparation_id: string | null
 					id: string
 					ingredient_id: string | null
 					is_optional: boolean | null
@@ -3636,6 +3736,7 @@ export type Database = {
 				Insert: {
 					created_at?: string
 					deleted_at?: string | null
+					frozen_preparation_id?: string | null
 					id?: string
 					ingredient_id?: string | null
 					is_optional?: boolean | null
@@ -3646,6 +3747,7 @@ export type Database = {
 				Update: {
 					created_at?: string
 					deleted_at?: string | null
+					frozen_preparation_id?: string | null
 					id?: string
 					ingredient_id?: string | null
 					is_optional?: boolean | null
@@ -3654,6 +3756,13 @@ export type Database = {
 					recipe_id?: string | null
 				}
 				Relationships: [
+					{
+						foreignKeyName: "recipe_ingredients_frozen_preparation_id_fkey"
+						columns: ["frozen_preparation_id"]
+						isOneToOne: false
+						referencedRelation: "frozen_preparation"
+						referencedColumns: ["id"]
+					},
 					{
 						foreignKeyName: "recipe_ingredients_product_id_fkey"
 						columns: ["ingredient_id"]

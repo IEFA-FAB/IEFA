@@ -22,6 +22,13 @@ export {
 } from "./dashboard.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
+	createFrozenPreparation,
+	deleteFrozenPreparation,
+	fetchFrozenPreparation,
+	listFrozenPreparations,
+	updateFrozenPreparation,
+} from "./frozen-preparation.ts"
+export {
 	type IngredientLastReview,
 	type IngredientReviewRow,
 	listIngredientLastReviews,

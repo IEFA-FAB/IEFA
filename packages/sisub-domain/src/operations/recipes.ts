@@ -18,7 +18,7 @@ import {
 	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
-import type { Ingredient, Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
+import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
 import { and, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -40,7 +40,9 @@ import { copyRecipeFlow } from "./recipe-flow.ts"
 
 type RecipeIngredientWire = RecipeIngredient & {
 	ingredient: Ingredient | null
-	alternatives?: (RecipeIngredientAlternative & { ingredient: Ingredient | null })[]
+	// Preparação congelada segregada: uma linha de ficha técnica aponta OU p/ um insumo cru OU p/ uma preparação.
+	frozen_preparation: FrozenPreparation | null
+	alternatives?: (RecipeIngredientAlternative & { ingredient: Ingredient | null; frozen_preparation: FrozenPreparation | null })[]
 }
 type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 
@@ -52,10 +54,13 @@ const RECIPE_RELATIONS: Record<string, string> = {
 	recipeIngredientsInKitchens: "ingredients",
 	recipeIngredientAlternativesInKitchens: "alternatives",
 	ingredientInKitchen: "ingredient",
+	frozenPreparationInKitchen: "frozen_preparation",
 }
 
-// Relational `with` — nível ingredientes (com o insumo de cada um).
-const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } as const
+// Relational `with` — nível ingredientes (com o insumo cru OU a preparação congelada de cada um).
+// Profundidade 2 (recipe → recipe_ingredients → {ingredient|frozen_preparation}), dentro do
+// limite de 63 chars de alias do Postgres — o problema de NAMEDATALEN é só a partir do nível 3.
+const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true, frozenPreparationInKitchen: true } } } as const
 
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
 	requirePermission(ctx, "kitchen", 1)
@@ -80,7 +85,7 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 			const alts = await runQuery("FETCH_FAILED", () =>
 				db.query.recipeIngredientAlternativesInKitchen.findMany({
 					where: inArray(recipeIngredientAlternativesInKitchen.recipeIngredientId, riIds),
-					with: { ingredientInKitchen: true },
+					with: { ingredientInKitchen: true, frozenPreparationInKitchen: true },
 				})
 			)
 			const byRecipeIngredient = new Map<string, typeof alts>()
