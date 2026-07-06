@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeftRight, Check, FolderOpen, Loader2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -60,7 +60,13 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 	const [overrides, setOverrides] = useState<Record<string, RowState>>({})
 	const rowState = (id: string): RowState => overrides[id] ?? base[id] ?? EMPTY_ROW
 
-	// Constrói o conjunto completo (replace-all) a partir de um resolvedor de estado por id.
+	// Fila de gravação: cada save (replace-all) só dispara após o anterior terminar.
+	// Serializa as mutações para que toggles rápidos cheguem ao servidor em ordem — sem
+	// duas transações replace-all em paralelo em que a que chega por último sobrescreve a outra.
+	const saveChainRef = useRef<Promise<unknown>>(Promise.resolve())
+
+	// Constrói o conjunto completo (replace-all) a partir de um resolvedor de estado por id
+	// e enfileira a gravação. O payload é calculado no momento da chamada (estado mais recente).
 	const buildAndSave = (resolve: (id: string) => RowState) => {
 		const substitutions = siblings
 			.filter((sib) => resolve(sib.id).enabled)
@@ -69,10 +75,13 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 				const parsed = raw === "" ? undefined : Number(raw)
 				return { substituteIngredientId: sib.id, factor: parsed != null && parsed > 0 ? parsed : undefined }
 			})
-		setIngredientSubstitutions({ ingredientId, substitutions }).catch((err) => {
-			const msg = err instanceof Error ? err.message : String(err)
-			toast.error(msg || "Erro ao salvar substituições")
-		})
+		saveChainRef.current = saveChainRef.current
+			.catch(() => {})
+			.then(() => setIngredientSubstitutions({ ingredientId, substitutions }))
+			.catch((err) => {
+				const msg = err instanceof Error ? err.message : String(err)
+				toast.error(msg || "Erro ao salvar substituições")
+			})
 	}
 
 	// Marcar/desmarcar persiste imediatamente (o toggle é a ação deliberada do usuário).
@@ -178,7 +187,7 @@ export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsMa
 										<Input
 											type="number"
 											step="0.0001"
-											min="0"
+											min="0.0001"
 											inputMode="decimal"
 											placeholder="1"
 											value={row.factor}
