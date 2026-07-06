@@ -28,7 +28,12 @@ export const Route = createFileRoute("/_protected/_modules/kitchen/$kitchenId/we
 function WeeklyMenuPrintPage() {
 	const { kitchenId: kitchenIdStr, weeklyMenuId } = useParams({ strict: false })
 	const { week } = Route.useSearch()
-	const kitchenId = Number(kitchenIdStr)
 
-	return <WeeklyMenuPrint templateId={weeklyMenuId as string} kitchenId={kitchenId} kitchenIdStr={kitchenIdStr as string} initialWeek={week} />
+	return (
+		<WeeklyMenuPrint
+			templateId={weeklyMenuId as string}
+			scope={{ kind: "kitchen", kitchenId: Number(kitchenIdStr), kitchenIdStr: kitchenIdStr as string }}
+			initialWeek={week}
+		/>
+	)
 }

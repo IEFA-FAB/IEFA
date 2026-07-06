@@ -1,7 +1,7 @@
 import type { Recipe } from "@iefa/database/sisub"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { CheckCircle2, Circle, Loader2, Plus, Save, X } from "lucide-react"
+import { CheckCircle2, Circle, Loader2, Plus, Printer, Save, X } from "lucide-react"
 import { useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
@@ -319,6 +319,25 @@ function GlobalPlanEditorPage() {
 			<div className="space-y-6">
 				<PageHeader title="Editar Plano Semanal Modelo" onBack={() => navigate({ to: "/global/weekly-plans" })}>
 					<div className="flex items-center gap-2">
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										nativeButton={false}
+										type="button"
+										variant="outline"
+										size="sm"
+										render={
+											<Link to="/global/weekly-plans/print/$planId" params={{ planId }}>
+												<Printer className="size-4 sm:mr-2" />
+												<span className="hidden sm:inline">Imprimir</span>
+											</Link>
+										}
+									/>
+								}
+							></TooltipTrigger>
+							<TooltipContent>Imprimir / baixar PDF do plano</TooltipContent>
+						</Tooltip>
 						<Button nativeButton={false} type="button" variant="outline" size="sm" render={<Link to="/global/weekly-plans">Cancelar</Link>} />
 						<Button size="sm" disabled={isSaving || !name.trim()} onClick={handleSave}>
 							{isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
