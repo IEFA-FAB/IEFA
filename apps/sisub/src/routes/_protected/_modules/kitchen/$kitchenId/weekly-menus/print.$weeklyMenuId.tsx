@@ -5,7 +5,11 @@ import { WeeklyMenuPrint } from "@/components/features/local/planning/WeeklyMenu
 
 const printSearchSchema = z.object({
 	// Data-início (YYYY-MM-DD) para datar as colunas da semana. Opcional.
-	week: z.string().optional(),
+	// Restrito ao formato ISO de data para evitar Invalid Date em parseISO.
+	week: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.optional(),
 })
 
 /**

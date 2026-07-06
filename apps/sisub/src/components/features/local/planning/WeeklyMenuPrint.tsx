@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { addDays, format, parseISO, startOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ArrowLeft, Loader2, Printer } from "lucide-react"
@@ -92,6 +92,7 @@ interface WeeklyMenuPrintProps {
 }
 
 export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWeek }: WeeklyMenuPrintProps) {
+	const navigate = useNavigate()
 	const { data: template, isLoading } = useTemplate(templateId)
 	const { data: mealTypes } = useMealTypes(kitchenId)
 
@@ -104,9 +105,22 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 	}, [kitchenId])
 
 	useEffect(() => {
-		const base = initialWeek ? parseISO(initialWeek) : new Date()
+		const parsed = initialWeek ? parseISO(initialWeek) : new Date()
+		// Defesa extra: parseISO de valor inválido devolve Invalid Date (truthy).
+		const base = Number.isNaN(parsed.getTime()) ? new Date() : parsed
 		setWeekStart(startOfWeek(base, { weekStartsOn: 1 }))
 	}, [initialWeek])
+
+	// Atualiza estado local + query param (?week=) para tornar a semana compartilhável.
+	const handleWeekChange = (value: string) => {
+		setWeekStart(value ? startOfWeek(parseISO(value), { weekStartsOn: 1 }) : null)
+		void navigate({
+			to: "/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId",
+			params: { kitchenId: kitchenIdStr, weeklyMenuId: templateId },
+			search: value ? { week: value } : {},
+			replace: true,
+		})
+	}
 
 	const persistHeader = (next: PrintHeader) => {
 		setHeader(next)
@@ -159,12 +173,12 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 	}
 
 	// Lista de preparações: receitas distintas com modo de preparo, ordenadas.
-	const prepMap = new Map<string, { name: string; method: string }>()
+	const prepMap = new Map<string, { id: string; name: string; method: string }>()
 	for (const item of template.items) {
 		const r = item.recipe_origin
 		const method = r?.preparation_method?.trim()
 		if (!r || !method) continue
-		if (!prepMap.has(r.id)) prepMap.set(r.id, { name: r.name?.trim() || "Preparação sem nome", method })
+		if (!prepMap.has(r.id)) prepMap.set(r.id, { id: r.id, name: r.name?.trim() || "Preparação sem nome", method })
 	}
 	const preparations = Array.from(prepMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
 
@@ -203,7 +217,7 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 						id="week-start"
 						type="date"
 						value={weekInputValue}
-						onChange={(e) => setWeekStart(e.target.value ? startOfWeek(parseISO(e.target.value), { weekStartsOn: 1 }) : null)}
+						onChange={(e) => handleWeekChange(e.target.value)}
 						className="h-9 rounded-none border border-input bg-background px-2 text-sm"
 					/>
 					<Button size="sm" onClick={() => window.print()}>
@@ -284,7 +298,7 @@ export function WeeklyMenuPrint({ templateId, kitchenId, kitchenIdStr, initialWe
 						<div className="cardapio-preps-title">LISTA DE PREPARAÇÕES</div>
 						<ul>
 							{preparations.map((p) => (
-								<li key={p.name}>
+								<li key={p.id}>
 									<span className="cardapio-prep-name">{p.name.toUpperCase()}</span>
 									{" — "}
 									<span className="cardapio-prep-method">{p.method}</span>
