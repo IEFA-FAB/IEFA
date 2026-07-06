@@ -632,7 +632,7 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 
 								{/* Substituições — insumos da mesma pasta que podem substituir este (vivem no insumo) */}
 								<TabsContent value="substituicoes" className={READING_PANEL}>
-									<SubstitutionsManager ingredientId={ingredient.id} folderId={ingredient.folder_id} onChanged={handleVersionChanged} />
+									<SubstitutionsManager ingredientId={ingredient.id} folderId={ingredient.folder_id} />
 								</TabsContent>
 							</Tabs>
 						</form>

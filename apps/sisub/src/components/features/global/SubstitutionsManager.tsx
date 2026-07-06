@@ -1,20 +1,18 @@
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeftRight, FolderOpen, Loader2, Save } from "lucide-react"
+import { ArrowLeftRight, Check, FolderOpen, Loader2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item"
+import { cn } from "@/lib/cn"
 import { ingredientSubstitutionsQueryOptions, ingredientsQueryOptions, useSetIngredientSubstitutions } from "@/services/IngredientsService"
 
 interface SubstitutionsManagerProps {
 	ingredientId: string
 	/** Pasta do insumo — define o universo de irmãos elegíveis a substituto. */
 	folderId: string | null
-	/** Chamado após salvar para registrar uma versão do insumo. */
-	onChanged?: () => void
 }
 
 /** Estado editável de uma linha (substituto candidato). */
@@ -24,13 +22,19 @@ interface RowState {
 	factor: string
 }
 
+const EMPTY_ROW: RowState = { enabled: false, factor: "" }
+
 /**
  * Gerenciador de substituições de um insumo. As substituições vivem NO insumo
  * (não na preparação) e são direcionais: esta aba lista os insumos-irmãos (mesma
  * pasta) e permite habilitar cada um como substituto, com um fator opcional
- * (omitido = 1). Salva como replace-all do conjunto.
+ * (omitido = 1).
+ *
+ * Salva automaticamente (replace-all) a cada alteração — marcar/desmarcar persiste
+ * na hora; o fator persiste ao sair do campo. Não há botão próprio: o salvamento é
+ * silencioso e a barra inferior do insumo cuida de identificação/nutrição.
  */
-export function SubstitutionsManager({ ingredientId, folderId, onChanged }: SubstitutionsManagerProps) {
+export function SubstitutionsManager({ ingredientId, folderId }: SubstitutionsManagerProps) {
 	const { setIngredientSubstitutions, isSaving } = useSetIngredientSubstitutions()
 
 	// Irmãos: todos os insumos da mesma pasta, menos o próprio.
@@ -54,28 +58,35 @@ export function SubstitutionsManager({ ingredientId, folderId, onChanged }: Subs
 	}, [current, siblings])
 
 	const [overrides, setOverrides] = useState<Record<string, RowState>>({})
-	const rowState = (id: string): RowState => overrides[id] ?? base[id] ?? { enabled: false, factor: "" }
-	const setRow = (id: string, next: Partial<RowState>) => setOverrides((prev) => ({ ...prev, [id]: { ...rowState(id), ...next } }))
+	const rowState = (id: string): RowState => overrides[id] ?? base[id] ?? EMPTY_ROW
 
-	const isDirty = Object.keys(overrides).length > 0
-
-	const handleSave = async () => {
+	// Constrói o conjunto completo (replace-all) a partir de um resolvedor de estado por id.
+	const buildAndSave = (resolve: (id: string) => RowState) => {
 		const substitutions = siblings
-			.map((sib) => ({ sib, row: rowState(sib.id) }))
-			.filter(({ row }) => row.enabled)
-			.map(({ sib, row }) => {
-				const parsed = row.factor.trim() === "" ? undefined : Number(row.factor)
+			.filter((sib) => resolve(sib.id).enabled)
+			.map((sib) => {
+				const raw = resolve(sib.id).factor.trim()
+				const parsed = raw === "" ? undefined : Number(raw)
 				return { substituteIngredientId: sib.id, factor: parsed != null && parsed > 0 ? parsed : undefined }
 			})
-		try {
-			await setIngredientSubstitutions({ ingredientId, substitutions })
-			setOverrides({})
-			onChanged?.()
-			toast.success("Substituições salvas!")
-		} catch (err) {
+		setIngredientSubstitutions({ ingredientId, substitutions }).catch((err) => {
 			const msg = err instanceof Error ? err.message : String(err)
 			toast.error(msg || "Erro ao salvar substituições")
-		}
+		})
+	}
+
+	// Marcar/desmarcar persiste imediatamente (o toggle é a ação deliberada do usuário).
+	const toggle = (id: string, enabled: boolean) => {
+		const next = { ...overrides, [id]: { ...rowState(id), enabled } }
+		setOverrides(next)
+		buildAndSave((x) => next[x] ?? base[x] ?? EMPTY_ROW)
+	}
+
+	// O fator só atualiza o estado local ao digitar; persiste ao sair do campo (blur).
+	const changeFactor = (id: string, factor: string) => setOverrides((prev) => ({ ...prev, [id]: { ...rowState(id), factor } }))
+	const commitFactor = (id: string) => {
+		if (!rowState(id).enabled) return
+		buildAndSave((x) => overrides[x] ?? base[x] ?? EMPTY_ROW)
 	}
 
 	// ── Estados especiais ────────────────────────────────────────────────────
@@ -105,10 +116,20 @@ export function SubstitutionsManager({ ingredientId, folderId, onChanged }: Subs
 						Insumos da mesma pasta que podem substituir este. O fator ajusta a quantidade do substituto (padrão 1).
 					</p>
 				</div>
-				<Button size="sm" onClick={handleSave} disabled={!isDirty || isSaving} className="gap-2 shrink-0">
-					{isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-					Salvar
-				</Button>
+				{/* Sem botão próprio: as alterações salvam sozinhas. Só um indicador discreto de estado. */}
+				<span className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground" aria-live="polite">
+					{isSaving ? (
+						<>
+							<Loader2 className="size-3.5 animate-spin" />
+							Salvando…
+						</>
+					) : (
+						<>
+							<Check className="size-3.5" />
+							Salvo automaticamente
+						</>
+					)}
+				</span>
 			</div>
 
 			{isLoading ? (
@@ -126,17 +147,29 @@ export function SubstitutionsManager({ ingredientId, folderId, onChanged }: Subs
 				<ItemGroup>
 					{siblings.map((sib) => {
 						const row = rowState(sib.id)
+						const label = sib.description ?? "Sem nome"
 						return (
-							<Item key={sib.id} variant="outline" data-checked={row.enabled || undefined}>
+							<Item
+								key={sib.id}
+								variant="outline"
+								data-checked={row.enabled || undefined}
+								className={cn("cursor-pointer transition-colors", row.enabled ? "border-primary/40 bg-primary/5" : "hover:bg-muted/40")}
+								onClick={(e) => {
+									// Clicar na linha alterna; ignora cliques vindos do input do fator.
+									if ((e.target as HTMLElement).closest("input")) return
+									toggle(sib.id, !row.enabled)
+								}}
+							>
 								<ItemMedia>
 									<Checkbox
 										checked={row.enabled}
-										onCheckedChange={(checked) => setRow(sib.id, { enabled: checked === true })}
-										aria-label={`Habilitar ${sib.description ?? "insumo"} como substituto`}
+										onCheckedChange={(checked) => toggle(sib.id, checked === true)}
+										aria-label={`Habilitar ${label} como substituto`}
+										className="size-5 border-2 border-muted-foreground/60 data-checked:border-primary"
 									/>
 								</ItemMedia>
 								<ItemContent>
-									<ItemTitle>{sib.description ?? "Sem nome"}</ItemTitle>
+									<ItemTitle>{label}</ItemTitle>
 									{sib.measure_unit && <ItemDescription>{sib.measure_unit}</ItemDescription>}
 								</ItemContent>
 								<ItemActions>
@@ -150,9 +183,10 @@ export function SubstitutionsManager({ ingredientId, folderId, onChanged }: Subs
 											placeholder="1"
 											value={row.factor}
 											disabled={!row.enabled}
-											onChange={(e) => setRow(sib.id, { factor: e.target.value })}
+											onChange={(e) => changeFactor(sib.id, e.target.value)}
+											onBlur={() => commitFactor(sib.id)}
 											className="h-8 w-20 text-right text-sm font-mono"
-											aria-label={`Fator de substituição de ${sib.description ?? "insumo"}`}
+											aria-label={`Fator de substituição de ${label}`}
 										/>
 									</div>
 								</ItemActions>
