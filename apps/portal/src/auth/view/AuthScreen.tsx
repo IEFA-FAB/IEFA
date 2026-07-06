@@ -84,7 +84,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 function ErrorBanner({ message }: { message: string }) {
 	return (
-		<div className="border-l-2 border-destructive bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
+		<div className="border border-destructive/50 bg-destructive/5 px-3 py-2.5 text-sm text-destructive flex items-start gap-2">
 			<WarningCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
 			{message}
 		</div>
@@ -93,7 +93,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessBanner({ message }: { message: string }) {
 	return (
-		<div className="border-l-2 border-foreground bg-foreground/5 px-3 py-2.5 text-sm text-foreground flex items-start gap-2">
+		<div className="border border-foreground/25 bg-foreground/5 px-3 py-2.5 text-sm text-foreground flex items-start gap-2">
 			<CheckCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
 			{message}
 		</div>

@@ -317,7 +317,7 @@ function Workspace() {
 							{notices.map((notice) => (
 								<div
 									key={notice.id}
-									className={`group relative border-l-4 p-4 rounded-r-lg shadow-sm ${notice.type === "alert" ? "bg-orange-50 border-orange-400" : "bg-blue-50 border-blue-400"}`}
+									className={`group relative border p-4 rounded-lg shadow-sm ${notice.type === "alert" ? "bg-orange-50 border-orange-300" : "bg-blue-50 border-blue-300"}`}
 								>
 									<button
 										type="button"

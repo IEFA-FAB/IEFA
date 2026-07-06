@@ -108,7 +108,7 @@ export function IngredientSelector({ isOpen, onClose, onSelect }: IngredientSele
 												type="button"
 												className={cn(
 													"flex items-center p-3 w-full text-left border-b border-border/50 transition-all duration-150",
-													isProduct ? "hover:bg-primary/5 cursor-pointer hover:border-l-2 hover:border-l-primary" : "cursor-default text-muted-foreground"
+													isProduct ? "hover:bg-primary/5 cursor-pointer" : "cursor-default text-muted-foreground"
 												)}
 												style={{ paddingLeft: `${node.level * 20 + 12}px` }}
 												disabled={!isProduct}

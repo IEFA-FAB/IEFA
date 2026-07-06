@@ -574,7 +574,7 @@ function MonitoramentoPage() {
 										</span>
 									))}
 								</div>
-								<div className="bg-amber-50 border-l-4 border-amber-500 p-3 rounded-r-md">
+								<div className="bg-amber-50 border border-amber-300 p-3 rounded-md">
 									<p className="text-xs text-amber-800 flex items-center">
 										<AlertTriangle className="w-4 h-4 mr-1.5 shrink-0" />
 										<strong>Atenção:</strong>&nbsp;Contas presentes na planilha que não fazem parte do escopo parametrizado do RAC também são analisadas e
@@ -1286,7 +1286,7 @@ function MonitoramentoPage() {
 								<AlertCircle className="w-6 h-6 mr-2 text-amber-500" />
 								PAINEL DE CONTAS FORA DO ESCOPO DO RAC
 							</h2>
-							<div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl mb-6">
+							<div className="bg-amber-50 border border-amber-300 p-4 rounded-xl mb-6">
 								<p className="text-sm text-amber-800">
 									<span className="font-semibold">Possível inconsistência contábil – conta não parametrizada no RAC.</span>
 									<br />

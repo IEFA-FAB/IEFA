@@ -278,7 +278,7 @@ SUCONT-3 • DIREF • COMAER`
 	return (
 		<div className="w-full space-y-8 pb-12">
 			{/* INFORMAÇÃO DO ROTEIRO DE ACOMPANHAMENTO */}
-			<div className="bg-blue-50 border-l-4 border-[#0033A0] p-5 rounded-r-xl shadow-sm text-left flex items-start gap-4">
+			<div className="bg-blue-50 border border-blue-300 p-5 rounded-xl shadow-sm text-left flex items-start gap-4">
 				<FileText className="w-6 h-6 text-[#0033A0] shrink-0 mt-0.5" />
 				<div>
 					<h3 className="text-xs font-bold text-[#0033A0] uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>

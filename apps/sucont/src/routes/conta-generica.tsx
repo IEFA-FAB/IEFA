@@ -1050,7 +1050,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 									{ label: "UGs com Inconsistências", value: totalUGs, color: "emerald-500", type: "number" },
 									{ label: "Média de Inconsistências / UG", value: (totalInconsistencias / (totalUGs || 1)).toFixed(1), color: "purple-500", type: "number" },
 								].map(({ label, value, color, type }) => (
-									<div key={label} className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-${color}`}>
+									<div key={label} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
 										<p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
 										<p className={`${type === "currency" ? "text-xl mt-2" : "text-3xl"} font-black text-${color}`}>{value}</p>
 									</div>
@@ -1202,7 +1202,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 										{/* Pareto + Priority */}
 										<div className="space-y-6">
-											<div className="bg-white p-6 rounded-2xl shadow-md border-l-8 border-l-purple-600">
+											<div className="bg-white p-6 rounded-2xl shadow-md border border-purple-200">
 												<div className="flex items-center gap-2 mb-4">
 													<TrendingUp className="w-5 h-5 text-purple-600" />
 													<h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Análise de Concentração (Pareto)</h3>
@@ -1226,7 +1226,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 												</div>
 											</div>
 
-											<div className="bg-white p-6 rounded-2xl shadow-md border-l-8 border-l-emerald-600">
+											<div className="bg-white p-6 rounded-2xl shadow-md border border-emerald-200">
 												<div className="flex items-center gap-2 mb-4">
 													<Target className="w-5 h-5 text-emerald-600" />
 													<h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Priorização de Atuação Imediata</h3>
@@ -1474,7 +1474,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 
 					{/* OPERACIONAL + no found */}
 					{!foundAny ? (
-						<div className="bg-emerald-50 border-l-4 border-l-emerald-500 rounded-2xl p-8 text-center shadow-lg">
+						<div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-8 text-center shadow-lg">
 							<div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-sm">
 								<CheckCircle className="w-10 h-10" />
 							</div>

@@ -388,7 +388,7 @@ a {
 
 /* ── Conta Genérica / Q35 utility classes ──────────────── */
 .diref-card {
-  @apply bg-white border-l-4 border-l-fab-blue shadow-sm hover:shadow-md transition-all;
+  @apply bg-white border border-fab-blue/30 shadow-sm hover:shadow-md transition-all;
 }
 
 .military-label {

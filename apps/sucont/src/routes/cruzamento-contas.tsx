@@ -90,7 +90,7 @@ function CruzamentoContas() {
 
 					<div className="w-full max-w-2xl mb-10 space-y-4">
 						{/* QUESTÃO 43 */}
-						<div className="bg-blue-50 border-l-4 border-[#0033A0] p-5 rounded-r-xl shadow-sm text-left">
+						<div className="bg-blue-50 border border-blue-300 p-5 rounded-xl shadow-sm text-left">
 							<h3 className="text-xs font-bold text-[#0033A0] uppercase tracking-wider mb-2">Roteiro de Acompanhamento Contábil (SUCONT-3)</h3>
 							<p className="text-sm text-blue-900 font-medium leading-relaxed">
 								<span className="font-bold">Questão 43</span> - Os saldos da conta EM COBRANÇA - A RECEBER (8.9.7.1.1.03.00), registrados na UG, são compatíveis

@@ -132,6 +132,10 @@ Referências-chave: **adidas.com** · **greptile.com** · **Vercel Geist** · **
 | `2px` | Ênfase: elemento ativo, selecionado, `.border-hard` |
 | `3px` | Brutalista explícito: CTA destaque, `.shadow-hard-*` offset |
 
+**Regra: a borda envolve, nunca acentua um lado só.** Ênfase (`2px`/`3px`) aplica-se à borda **inteira**, não a um único lado.
+
+> **PROIBIDO — side-tab / side-stripe accent border.** Nunca usar `border-l`/`border-r`/`border-s`/`border-e` acima de `1px` como faixa colorida de acento em card, item de lista, callout ou alerta — inclusive o par `border-l-4 … rounded-r-*` (barra de um lado + cantos arredondados do outro; note que isso já viola o Zero Radius). É o marcador nº 1 de AI slop segundo o `impeccable`. Para diferenciar grupo/status/severidade use: borda completa mais escura (`border-foreground`), tint de fundo (`bg-*/5`), `text-label` + ícone/número à esquerda, ou `shadow-hard-*`. Blockquotes editoriais (`border-l-2 border-foreground` em `<blockquote>` com Lora) são a **única** exceção — são citação, não acento de superfície.
+
 ### 4.3 Sombras
 
 | Token | Valor | Uso |
@@ -326,7 +330,7 @@ Para seções que beneficiam de delimitação lateral explícita:
 COR          → cinza-50 até cinza-950 · 1 acento (vermelho/destructive apenas)
 RADIUS       → 0 (sempre)
 SOMBRA       → none (padrão) · shadow-hard-md (destaque)
-BORDER       → 1px solid (padrão) · 2px solid (ênfase)
+BORDER       → 1px solid (padrão) · 2px solid (ênfase, borda inteira) · NUNCA side-stripe colorido
 TRACKING     → -0.04em (h1) · -0.02em (h2-h3) · -0.01em (body) · +0.06em (labels)
 UPPERCASE    → apenas labels/tags/badges, não headings ou botões
 FONTE        → IBM Plex Sans (UI) · Lora (editorial)

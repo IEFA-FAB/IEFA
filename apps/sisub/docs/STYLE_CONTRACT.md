@@ -126,6 +126,7 @@ A arquitetura visual deve seguir estritamente a sequência de prioridade abaixo:
 - **Proibido** aninhar tags HTML interativas (ex: `<Link><Button>...</Button></Link>`). Usar `render` ou `asChild`.
 - **Proibido** reimplementar patterns existentes: `div.flex.border.rounded` para listas → usar `<Item>`; `<Label>` + tag de erro solta → usar `field.tsx`; `<p className="text-xs ...">` como hint → usar `<FieldDescription>`.
 - **Proibido** usar o atributo `title` como tooltip. Usar o primitivo `<Tooltip>`.
+- **Proibido** *side-tab / side-stripe accent border*: `border-l`/`border-r`/`border-s`/`border-e` acima de `1px` como faixa colorida de acento em `<Card>`, `<Item>`, callout ou alerta — inclusive o par `border-l-4 … rounded-r-*` (barra de um lado + cantos arredondados do outro). É o marcador nº 1 de AI slop segundo o `impeccable`. Para diferenciar grupo/status/severidade, usar **outras formas**: borda completa via `variant` do primitive, tint de fundo semântico (`bg-success/10`, `bg-warning/10`), `<ItemMedia>` com ícone/`<Badge>` à esquerda, ou nada. Exceção: `border-l-2` em `<blockquote>` de markdown (citação editorial, não acento de superfície).
 
 ### 6.2 Fronteira tipográfica — a regra única
 
@@ -186,6 +187,7 @@ Ao executar manutenções automáticas, refatorações contextuais ou aditamento
 - [ ] Tooltips em elementos interativos usam o primitivo `<Tooltip>` (não o atributo `title`)?
 - [ ] Formulários adotaram as instâncias do `field.tsx` (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription` para hints)?
 - [ ] Listas de entidades usam `ItemGroup` + `Item` + slots semânticos em vez de `div.border.rounded-md.p-3`?
+- [ ] Zero side-stripe accent border (`border-l-4`/`border-r-*` colorido de um lado só)? Grupo/status expresso por borda completa, tint de fundo ou ícone/badge?
 - [ ] Foi verificado se a mudança justifica uma abstração de primitive `CVA` ou apenas um `className` de espaçamento de feature/tela?
 
 ## 10. Referências de implementação
