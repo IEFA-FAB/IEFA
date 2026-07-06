@@ -88,9 +88,9 @@ variable "task_role_policy_json" {
 }
 
 variable "enable_bedrock_task_access" {
-  description = "Grant the shared ECS task role permission to invoke AWS Bedrock models (Converse/InvokeModel). Used by the @iefa/ai-provider bedrock adapter (sisub, sucont) — keyless via the task role."
+  description = "Grant the shared ECS task role permission to invoke AWS Bedrock models (Converse/InvokeModel). Used by the @iefa/ai-provider bedrock adapter (sisub, sucont) — keyless via the task role. Opt-in: set true in terraform.tfvars to avoid inadvertent privilege expansion for services that don't use AI."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "bedrock_regions" {

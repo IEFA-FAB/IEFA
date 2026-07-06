@@ -45,7 +45,10 @@ export function getCoreReadClient() {
  * Use APENAS em auth.fn.ts / auth.server.ts. Para dados, use getSucontServerClient().
  */
 export function getSucontAuthClient() {
-	return createServerClient(envServer.VITE_SUCONT_SUPABASE_URL, envServer.SUCONT_SUPABASE_SECRET_KEY, {
+	// Chave anon/publishable (não a service role): getUser() valida o JWT do cookie
+	// no servidor Supabase e o nível de acesso vem do próprio JWT. Inicializar com a
+	// service role faria qualquer query acidental por este client burlar a RLS.
+	return createServerClient(envServer.VITE_SUCONT_SUPABASE_URL, envServer.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY, {
 		cookies: {
 			getAll() {
 				const request = getRequest()

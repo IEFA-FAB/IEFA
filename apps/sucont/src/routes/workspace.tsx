@@ -79,21 +79,39 @@ function Workspace() {
 	})
 
 	// ── Nota livre (auto-save com debounce) ────────────────
+	// `dirtyRef` marca edição local pendente. Enquanto sujo, não re-sincroniza do DB
+	// (não perde o que o usuário digitou); quando limpo, reflete mudanças de outros
+	// operadores. `latestRef` evita corrida: só limpa o dirty se nada novo foi
+	// digitado desde o save que acabou de confirmar.
 	const [notes, setNotes] = useState("")
-	const noteHydrated = useRef(false)
+	const dirtyRef = useRef(false)
+	const latestRef = useRef("")
 	useEffect(() => {
-		if (!noteHydrated.current) {
-			setNotes(noteFromDb)
-			noteHydrated.current = true
-		}
+		latestRef.current = notes
+	}, [notes])
+	useEffect(() => {
+		if (!dirtyRef.current) setNotes(noteFromDb)
 	}, [noteFromDb])
-	const saveNoteMutation = useMutation({ mutationFn: (content: string) => saveWorkspaceNoteFn({ data: { content } }) })
+	const saveNoteMutation = useMutation({
+		mutationFn: (content: string) => saveWorkspaceNoteFn({ data: { content } }),
+		onSuccess: (_res, content) => {
+			if (content === latestRef.current) dirtyRef.current = false
+		},
+	})
 	const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const onNotesChange = (value: string) => {
+		dirtyRef.current = true
 		setNotes(value)
 		if (noteTimer.current) clearTimeout(noteTimer.current)
 		noteTimer.current = setTimeout(() => saveNoteMutation.mutate(value), 800)
 	}
+	// Limpa o timer pendente no unmount (evita save/estado após desmontar).
+	useEffect(
+		() => () => {
+			if (noteTimer.current) clearTimeout(noteTimer.current)
+		},
+		[]
+	)
 
 	// ── Filtro ─────────────────────────────────────────────
 	const filteredChecklist = checklist.filter(
