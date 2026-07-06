@@ -46,6 +46,7 @@ import { IngredientItemsManager } from "./IngredientItemsManager"
 import { IngredientVersionPreview } from "./IngredientVersionPreview"
 import { NutritionReferenceCombobox } from "./NutritionReferenceCombobox"
 import { PurchaseItemsManager } from "./PurchaseItemsManager"
+import { SubstitutionsManager } from "./SubstitutionsManager"
 
 // API tipada da rota de detalhe — hooks (useSearch/useNavigate) já ligados ao ?tab= validado
 // pela rota, sem cast. getRouteApi evita o import circular com o módulo da rota.
@@ -53,7 +54,7 @@ const ingredientRoute = getRouteApi("/_protected/_modules/global/ingredients/$in
 
 // Tabs do formulário — estado persistido na URL (?tab=) para navegação e links compartilháveis.
 // Espelha a estrutura de abas do RecipeForm (preparação).
-const INGREDIENT_FORM_TABS = ["detalhes", "nutricao", "compra", "produto"] as const
+const INGREDIENT_FORM_TABS = ["detalhes", "nutricao", "compra", "produto", "substituicoes"] as const
 type IngredientFormTab = (typeof INGREDIENT_FORM_TABS)[number]
 
 // Todas as abas são de leitura (campos/tabelas/managers) → largura confortável centralizada,
@@ -379,11 +380,12 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 						>
 							<Tabs value={activeTab} onValueChange={(value) => setTab(value as IngredientFormTab)}>
 								{/* grid-cols-4: triggers com largura idêntica — o pill ativo não muda de tamanho ao trocar de aba */}
-								<TabsList className="mx-auto grid w-full max-w-xl grid-cols-4">
+								<TabsList className="mx-auto grid w-full max-w-2xl grid-cols-5">
 									<TabsTrigger value="detalhes">Detalhes</TabsTrigger>
 									<TabsTrigger value="nutricao">Nutrição</TabsTrigger>
 									<TabsTrigger value="compra">Itens de compra</TabsTrigger>
 									<TabsTrigger value="produto">Itens de produto</TabsTrigger>
+									<TabsTrigger value="substituicoes">Substituições</TabsTrigger>
 								</TabsList>
 
 								{/* Detalhes — classificação e medida (o nome do insumo é editado no título da página) */}
@@ -626,6 +628,11 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 								{/* Itens de produto (ingredient_item — estoque/GS1, vinculado a 1 item de compra) — persistidos separadamente */}
 								<TabsContent value="produto" className={READING_PANEL}>
 									<IngredientItemsManager ingredientId={ingredient.id} onChanged={handleVersionChanged} />
+								</TabsContent>
+
+								{/* Substituições — insumos da mesma pasta que podem substituir este (vivem no insumo) */}
+								<TabsContent value="substituicoes" className={READING_PANEL}>
+									<SubstitutionsManager ingredientId={ingredient.id} folderId={ingredient.folder_id} onChanged={handleVersionChanged} />
 								</TabsContent>
 							</Tabs>
 						</form>

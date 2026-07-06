@@ -144,3 +144,21 @@ export const SetIngredientNutritionReferenceSchema = z.object({
 	notes: z.string().nullable().optional(),
 })
 export type SetIngredientNutritionReference = z.infer<typeof SetIngredientNutritionReferenceSchema>
+
+// ── Substituições de insumo (vivem NO insumo, direcionais) ───────────────────
+
+export const ListIngredientSubstitutionsSchema = z.object({ ingredientId: UuidSchema })
+export type ListIngredientSubstitutions = z.infer<typeof ListIngredientSubstitutionsSchema>
+
+/** Replace-all: o conjunto enviado passa a ser a lista completa de substitutos do insumo. */
+export const SetIngredientSubstitutionsSchema = z.object({
+	ingredientId: UuidSchema,
+	substitutions: z.array(
+		z.object({
+			substituteIngredientId: UuidSchema,
+			// Fator opcional — omitido = 1 (o substituto usa a mesma quantidade líquida).
+			factor: z.number().positive().optional(),
+		})
+	),
+})
+export type SetIngredientSubstitutions = z.infer<typeof SetIngredientSubstitutionsSchema>
