@@ -3540,9 +3540,12 @@ export type Database = {
 					deleted_at: string | null
 					excluded_from_procurement: number | null
 					id: string
+					item_group: string | null
 					planned_portion_quantity: number | null
 					recipe: Json | null
 					recipe_origin_id: string | null
+					recommended_proportion: number | null
+					sort_order: number
 					substitutions: Json | null
 				}
 				Insert: {
@@ -3551,9 +3554,12 @@ export type Database = {
 					deleted_at?: string | null
 					excluded_from_procurement?: number | null
 					id?: string
+					item_group?: string | null
 					planned_portion_quantity?: number | null
 					recipe?: Json | null
 					recipe_origin_id?: string | null
+					recommended_proportion?: number | null
+					sort_order?: number
 					substitutions?: Json | null
 				}
 				Update: {
@@ -3562,9 +3568,12 @@ export type Database = {
 					deleted_at?: string | null
 					excluded_from_procurement?: number | null
 					id?: string
+					item_group?: string | null
 					planned_portion_quantity?: number | null
 					recipe?: Json | null
 					recipe_origin_id?: string | null
+					recommended_proportion?: number | null
+					sort_order?: number
 					substitutions?: Json | null
 				}
 				Relationships: [
@@ -3631,27 +3640,36 @@ export type Database = {
 					day_of_week: number | null
 					headcount_override: number | null
 					id: string
+					item_group: string | null
 					meal_type_id: string | null
 					menu_template_id: string | null
 					recipe_id: string | null
+					recommended_proportion: number | null
+					sort_order: number
 				}
 				Insert: {
 					created_at?: string
 					day_of_week?: number | null
 					headcount_override?: number | null
 					id?: string
+					item_group?: string | null
 					meal_type_id?: string | null
 					menu_template_id?: string | null
 					recipe_id?: string | null
+					recommended_proportion?: number | null
+					sort_order?: number
 				}
 				Update: {
 					created_at?: string
 					day_of_week?: number | null
 					headcount_override?: number | null
 					id?: string
+					item_group?: string | null
 					meal_type_id?: string | null
 					menu_template_id?: string | null
 					recipe_id?: string | null
+					recommended_proportion?: number | null
+					sort_order?: number
 				}
 				Relationships: [
 					{

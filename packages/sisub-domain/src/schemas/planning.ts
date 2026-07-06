@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { DateSchema, KitchenIdSchema, UuidSchema } from "./common.ts"
+import { DateSchema, KitchenIdSchema, MenuItemGroupSchema, RecommendedProportionSchema, UuidSchema } from "./common.ts"
 
 export const DailyMenuFetchSchema = z.object({
 	kitchenId: KitchenIdSchema,
@@ -27,6 +27,9 @@ export const AddMenuItemSchema = z.object({
 	recipeId: UuidSchema,
 	plannedPortionQuantity: z.number().positive().optional(),
 	excludedFromProcurement: z.union([z.literal(0), z.literal(1)]).optional(),
+	itemGroup: MenuItemGroupSchema.nullable().optional(),
+	sortOrder: z.number().int().nonnegative().optional(),
+	recommendedProportion: RecommendedProportionSchema.nullable(),
 })
 export type AddMenuItem = z.infer<typeof AddMenuItemSchema>
 
@@ -34,6 +37,9 @@ export const UpdateMenuItemSchema = z.object({
 	menuItemId: UuidSchema,
 	plannedPortionQuantity: z.number().positive().optional(),
 	excludedFromProcurement: z.union([z.literal(0), z.literal(1)]).optional(),
+	itemGroup: MenuItemGroupSchema.nullable().optional(),
+	sortOrder: z.number().int().nonnegative().optional(),
+	recommendedProportion: RecommendedProportionSchema.nullable(),
 })
 export type UpdateMenuItem = z.infer<typeof UpdateMenuItemSchema>
 

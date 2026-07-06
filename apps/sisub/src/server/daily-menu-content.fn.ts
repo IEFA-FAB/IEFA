@@ -23,6 +23,10 @@ export interface DishDetails {
 	id: string
 	name: string
 	ingredients: DishIngredient[]
+	/** Grupo canônico da preparação (prato principal, guarnição, …); null = sem grupo. */
+	group: string | null
+	/** Proporção recomendada de consumo (%), advisory. */
+	recommended_proportion: number | null
 }
 
 export interface DayMenuContent {

@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useAddMenuItem, useCreateDailyMenu, useDayDetails, useDeleteMenuItem, useUpdateDailyMenu } from "@/hooks/data/usePlanning"
 import { fetchRecipeWithIngredients } from "@/hooks/data/useRecipes"
+import { groupMenuItems } from "@/lib/menu-item-groups"
 import type { DailyMenuWithItems, MenuItem } from "@/types/domain/planning"
 import { MenuItemCard } from "./MenuItemCard"
 import { RecipeSelector } from "./RecipeSelector"
@@ -292,9 +293,16 @@ function MealSection({
 							{!menu.menu_items || menu.menu_items.length === 0 ? (
 								<div className="border border-dashed rounded-md p-4 text-center text-sm text-muted-foreground">Nenhuma preparação adicionada.</div>
 							) : (
-								<div className="grid gap-2">
-									{menu.menu_items.map((item) => (
-										<MenuItemCard key={item.id} item={item} onSubstitute={onSubstitute} onDelete={onDelete} />
+								<div className="space-y-3">
+									{groupMenuItems(menu.menu_items).map((group) => (
+										<div key={group.key} className="space-y-2">
+											<p className="text-xs uppercase tracking-wide text-muted-foreground/80">{group.label}</p>
+											<div className="grid gap-2">
+												{group.items.map((item) => (
+													<MenuItemCard key={item.id} item={item} onSubstitute={onSubstitute} onDelete={onDelete} />
+												))}
+											</div>
+										</div>
 									))}
 								</div>
 							)}

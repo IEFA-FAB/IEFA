@@ -1,6 +1,7 @@
 import type { MenuTemplateInsert, MenuTemplateItemInsert, MenuTemplateUpdate } from "@iefa/database/sisub"
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import {
 	applyTemplateFn,
@@ -80,11 +81,14 @@ export function useCreateTemplate() {
 					description: template.description ?? undefined,
 					kitchenId: template.kitchen_id ?? null,
 					templateType: (template.template_type ?? "weekly") as "weekly" | "event",
-					items: items.map((i) => ({
+					items: items.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",
 						recipeId: i.recipe_id ?? "",
 						headcountOverride: i.headcount_override ?? undefined,
+						itemGroup: (i.item_group as MenuItemGroup | null | undefined) ?? null,
+						sortOrder: i.sort_order ?? index,
+						recommendedProportion: i.recommended_proportion ?? null,
 					})),
 				},
 			}),
@@ -106,11 +110,14 @@ export function useUpdateTemplate(options?: { silent?: boolean }) {
 					name: updates.name ?? undefined,
 					description: updates.description ?? undefined,
 					templateType: updates.template_type as "weekly" | "event" | undefined,
-					items: items?.map((i) => ({
+					items: items?.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",
 						recipeId: i.recipe_id ?? "",
 						headcountOverride: i.headcount_override ?? undefined,
+						itemGroup: (i.item_group as MenuItemGroup | null | undefined) ?? null,
+						sortOrder: i.sort_order ?? index,
+						recommendedProportion: i.recommended_proportion ?? null,
 					})),
 				},
 			}),

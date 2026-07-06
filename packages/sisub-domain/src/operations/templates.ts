@@ -54,6 +54,12 @@ const TEMPLATE_RELATIONS: Record<string, string> = {
 	recipesInKitchen: "recipe_origin",
 }
 
+/** Ordena por dia → refeição → posição dentro da célula (sort_order). O agrupamento por
+ * item_group é responsabilidade do consumidor (ordem canônica dos grupos vive na UI). */
+function compareTemplateItems(a: TemplateItemFull, b: TemplateItemFull): number {
+	return (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? "").localeCompare(b.meal_type_id ?? "") || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+}
+
 // Itens completos (com meal_type + recipe_origin aninhados) — para getTemplate/getTemplateItems.
 const WITH_ITEMS_FULL = {
 	menuTemplateItemsInKitchens: { with: { mealTypeInKitchen: true, recipesInKitchen: true } },
@@ -132,7 +138,7 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 	}
 
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
-	const items = [...wire.items].sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? "").localeCompare(b.meal_type_id ?? ""))
+	const items = [...wire.items].sort(compareTemplateItems)
 	return { ...wire, items }
 }
 
@@ -155,16 +161,20 @@ export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: Get
 	}
 
 	const items = toWire<TemplateItemFull[]>(row.menuTemplateItemsInKitchens, TEMPLATE_RELATIONS)
-	return items.sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0) || (a.meal_type_id ?? "").localeCompare(b.meal_type_id ?? ""))
+	return items.sort(compareTemplateItems)
 }
 
 function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (typeof menuTemplateItemsInKitchen.$inferInsert)[] {
-	return items.map((item) => ({
+	return items.map((item, index) => ({
 		menuTemplateId: templateId,
 		dayOfWeek: item.dayOfWeek,
 		mealTypeId: item.mealTypeId,
 		recipeId: item.recipeId,
 		...(item.headcountOverride != null && { headcountOverride: item.headcountOverride }),
+		itemGroup: item.itemGroup ?? null,
+		// Fallback: preserva a ordem de chegada do array quando o cliente não informa sortOrder.
+		sortOrder: item.sortOrder ?? index,
+		recommendedProportion: item.recommendedProportion != null ? String(item.recommendedProportion) : null,
 	}))
 }
 
@@ -232,7 +242,11 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	const source = await runQuery("FETCH_FAILED", () =>
 		db.query.menuTemplateInKitchen.findFirst({
 			columns: { id: true, kitchenId: true, name: true, deletedAt: true, templateType: true },
-			with: { menuTemplateItemsInKitchens: { columns: { dayOfWeek: true, mealTypeId: true, recipeId: true } } },
+			with: {
+				menuTemplateItemsInKitchens: {
+					columns: { dayOfWeek: true, mealTypeId: true, recipeId: true, itemGroup: true, sortOrder: true, recommendedProportion: true },
+				},
+			},
 			where: eq(menuTemplateInKitchen.id, input.sourceTemplateId),
 		})
 	)
@@ -277,6 +291,9 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				dayOfWeek: item.dayOfWeek,
 				mealTypeId: item.mealTypeId,
 				recipeId: item.recipeId,
+				itemGroup: item.itemGroup,
+				sortOrder: item.sortOrder ?? 0,
+				recommendedProportion: item.recommendedProportion,
 			}))
 			await runQuery("INSERT_ITEMS_FAILED", () =>
 				tx
@@ -432,7 +449,15 @@ export async function applyTemplate(
 				const recipeSnapshot = item.recipesInKitchen
 					? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 					: {}
-				newMenuItems.push({ dailyMenuId: menuId, recipeOriginId: item.recipeId ?? "", recipe: recipeSnapshot })
+				newMenuItems.push({
+					dailyMenuId: menuId,
+					recipeOriginId: item.recipeId ?? "",
+					recipe: recipeSnapshot,
+					// Preserva grupo/ordem/proporção do template no cardápio materializado.
+					itemGroup: item.itemGroup,
+					sortOrder: item.sortOrder ?? 0,
+					recommendedProportion: item.recommendedProportion,
+				})
 			}
 		}
 	}

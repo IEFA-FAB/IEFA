@@ -1,4 +1,5 @@
 import type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MealType, MenuItem, MenuItemInsert, MenuItemUpdate, Recipe, Tables } from "@iefa/database/sisub"
+import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import type { RecipeWithIngredients } from "@/types/domain/recipes"
 
 export type { DailyMenu, DailyMenuInsert, DailyMenuUpdate, MenuItem, MenuItemInsert, MenuItemUpdate }
@@ -49,6 +50,12 @@ export interface TemplateItemDraft {
 	recipe_id: string
 	/** Previsão de comensais para esta preparação específica */
 	headcount_override?: number | null
+	/** Grupo canônico dentro da refeição (prato principal, guarnição, …); null = sem grupo. */
+	item_group?: MenuItemGroup | null
+	/** Posição dentro do grupo, dentro da célula (dia+refeição). */
+	sort_order?: number
+	/** Proporção recomendada de consumo (%), advisory. */
+	recommended_proportion?: number | null
 }
 
 /**

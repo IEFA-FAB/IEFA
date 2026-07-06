@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import {
 	addMenuItemFn,
@@ -96,6 +97,9 @@ export function useAddMenuItem() {
 					recipeId: item.recipe_origin_id as string,
 					plannedPortionQuantity: item.planned_portion_quantity ?? undefined,
 					excludedFromProcurement: (item.excluded_from_procurement as 0 | 1 | undefined) ?? undefined,
+					itemGroup: (item.item_group as MenuItemGroup | null | undefined) ?? undefined,
+					sortOrder: item.sort_order ?? undefined,
+					recommendedProportion: item.recommended_proportion ?? undefined,
 				},
 			}),
 		onSuccess: () => {
@@ -151,6 +155,9 @@ export function useUpdateMenuItem() {
 			updates: Partial<{
 				planned_portion_quantity: number | null
 				excluded_from_procurement: number | null
+				item_group: MenuItemGroup | null
+				sort_order: number
+				recommended_proportion: number | null
 			}>
 		}) =>
 			updateMenuItemFn({
@@ -158,6 +165,9 @@ export function useUpdateMenuItem() {
 					menuItemId: id,
 					plannedPortionQuantity: updates.planned_portion_quantity ?? undefined,
 					excludedFromProcurement: (updates.excluded_from_procurement as 0 | 1 | undefined) ?? undefined,
+					itemGroup: updates.item_group,
+					sortOrder: updates.sort_order,
+					recommendedProportion: updates.recommended_proportion,
 				},
 			}),
 		onSuccess: () => {

@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, CheckCircle2, Circle, GitFork, Loader2, Printer, Save } from "lucide-react"
+import { Check, CheckCircle2, Circle, GitFork, Loader2, Plus, Printer, Save, Users } from "lucide-react"
 import { useEffect, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
-import type { MealTypeInfo, RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
-import { MealTypeSection } from "@/components/features/local/planning/MealTypeSection"
+import { type BoardArrangement, type BoardItem, MealGroupBoard } from "@/components/features/local/planning/MealGroupBoard"
+import type { MealTypeInfo } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,7 @@ import { useMealTypes } from "@/hooks/data/useMealTypes"
 import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
+import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import type { TemplateItemDraft } from "@/types/domain/planning"
 
 const WEEKDAYS = [
@@ -131,7 +132,7 @@ type WeeklyMenuEditorState = {
 	initialized: boolean
 	activeTab: string
 	selectorOpen: boolean
-	selectedCell: { dayOfWeek: number; mealTypeId: string } | null
+	selectedCell: { dayOfWeek: number; mealTypeId: string; group: MenuItemGroup | null } | null
 }
 
 type WeeklyMenuEditorAction =
@@ -141,7 +142,7 @@ type WeeklyMenuEditorAction =
 	| { type: "SET_INITIALIZED" }
 	| { type: "SET_ACTIVE_TAB"; value: string }
 	| { type: "SET_SELECTOR_OPEN"; value: boolean }
-	| { type: "SET_SELECTED_CELL"; value: { dayOfWeek: number; mealTypeId: string } | null }
+	| { type: "SET_SELECTED_CELL"; value: { dayOfWeek: number; mealTypeId: string; group: MenuItemGroup | null } | null }
 
 const initialWeeklyMenuEditorState: WeeklyMenuEditorState = {
 	name: "",
@@ -205,6 +206,9 @@ function WeeklyMenuEditorPage() {
 				meal_type_id: item.meal_type_id ?? "",
 				recipe_id: item.recipe_id ?? "",
 				headcount_override: item.headcount_override ?? null,
+				item_group: (item.item_group as MenuItemGroup | null) ?? null,
+				sort_order: item.sort_order ?? 0,
+				recommended_proportion: item.recommended_proportion ?? null,
 			})),
 		})
 		dispatch({ type: "SET_INITIALIZED" })
@@ -230,6 +234,9 @@ function WeeklyMenuEditorPage() {
 						meal_type_id: i.meal_type_id,
 						recipe_id: i.recipe_id,
 						headcount_override: i.headcount_override,
+						item_group: i.item_group ?? null,
+						sort_order: i.sort_order ?? 0,
+						recommended_proportion: i.recommended_proportion ?? null,
 					})),
 				},
 				{
@@ -243,13 +250,45 @@ function WeeklyMenuEditorPage() {
 		}
 	}, [name, description, items, initialized, autoSave, weeklyMenuId])
 
-	/** Retorna as preparações de uma célula (dia + tipo de refeição) com seus headcounts individuais. */
-	const getCellItems = (dayOfWeek: number, mealTypeId: string): RecipeWithHeadcount[] => {
+	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
+	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
 		const cellItems = items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId)
 		return cellItems.flatMap((item) => {
 			const recipe = allRecipes?.find((r) => r.id === item.recipe_id)
 			if (!recipe) return []
-			return [{ ...recipe, headcountOverride: item.headcount_override ?? null }]
+			return [
+				{
+					id: item.recipe_id,
+					title: recipe.name ?? item.recipe_id,
+					subtitle: recipe.rational_id ?? null,
+					group: item.item_group ?? null,
+					sortOrder: item.sort_order ?? 0,
+					proportion: item.recommended_proportion ?? null,
+				},
+			]
+		})
+	}
+
+	/** Persiste um rearranjo (drag-drop) da célula: reatribui grupo + reindexa a ordem dos itens. */
+	const handleArrange = (dayOfWeek: number, mealTypeId: string, arrangement: BoardArrangement) => {
+		const byRecipe = new Map(arrangement.map((a) => [a.id, a]))
+		dispatch({
+			type: "SET_ITEMS",
+			value: items.map((i) => {
+				if (i.day_of_week !== dayOfWeek || i.meal_type_id !== mealTypeId) return i
+				const next = byRecipe.get(i.recipe_id)
+				return next ? { ...i, item_group: next.group, sort_order: next.sortOrder } : i
+			}),
+		})
+	}
+
+	/** Atualiza a proporção recomendada de uma preparação da célula. */
+	const handleProportionChange = (dayOfWeek: number, mealTypeId: string, recipeId: string, value: number | null) => {
+		dispatch({
+			type: "SET_ITEMS",
+			value: items.map((i) =>
+				i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, recommended_proportion: value } : i
+			),
 		})
 	}
 
@@ -263,23 +302,32 @@ function WeeklyMenuEditorPage() {
 		})
 	}
 
-	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string) => {
-		dispatch({ type: "SET_SELECTED_CELL", value: { dayOfWeek, mealTypeId } })
+	const handleOpenSelector = (dayOfWeek: number, mealTypeId: string, group: MenuItemGroup | null) => {
+		dispatch({ type: "SET_SELECTED_CELL", value: { dayOfWeek, mealTypeId, group } })
 		dispatch({ type: "SET_SELECTOR_OPEN", value: true })
 	}
 
 	const handleSelectRecipes = (recipeIds: string[]) => {
 		if (!selectedCell) return
-		// Preserva o headcount individual de cada preparação que permanece na célula
-		const existingItems = items.filter((i) => i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId)
-		const existingHeadcounts = new Map(existingItems.map((i) => [i.recipe_id, i.headcount_override ?? null]))
-		const filtered = items.filter((i) => !(i.day_of_week === selectedCell.dayOfWeek && i.meal_type_id === selectedCell.mealTypeId))
-		const newItems = recipeIds.map((recipeId) => ({
-			day_of_week: selectedCell.dayOfWeek,
-			meal_type_id: selectedCell.mealTypeId,
-			recipe_id: recipeId,
-			headcount_override: existingHeadcounts.get(recipeId) ?? null,
-		}))
+		const { dayOfWeek, mealTypeId, group } = selectedCell
+		// Preserva grupo/ordem/proporção/headcount das preparações que permanecem na célula.
+		const existingByRecipe = new Map(items.filter((i) => i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId).map((i) => [i.recipe_id, i]))
+		const filtered = items.filter((i) => !(i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId))
+		// Novas preparações entram no grupo escolhido, no fim dele; existentes mantêm seus atributos.
+		let nextInGroup = existingByRecipe.size
+		const newItems: TemplateItemDraft[] = recipeIds.map((recipeId) => {
+			const existing = existingByRecipe.get(recipeId)
+			if (existing) return existing
+			return {
+				day_of_week: dayOfWeek,
+				meal_type_id: mealTypeId,
+				recipe_id: recipeId,
+				headcount_override: null,
+				item_group: group,
+				sort_order: nextInGroup++,
+				recommended_proportion: null,
+			}
+		})
 		dispatch({ type: "SET_ITEMS", value: [...filtered, ...newItems] })
 		dispatch({ type: "SET_SELECTED_CELL", value: null })
 	}
@@ -307,6 +355,9 @@ function WeeklyMenuEditorPage() {
 					meal_type_id: i.meal_type_id,
 					recipe_id: i.recipe_id,
 					headcount_override: i.headcount_override ?? null,
+					item_group: i.item_group ?? null,
+					sort_order: i.sort_order ?? 0,
+					recommended_proportion: i.recommended_proportion ?? null,
 				})),
 			},
 			{
@@ -522,17 +573,61 @@ function WeeklyMenuEditorPage() {
 								</div>
 
 								{mealTypes && mealTypes.length > 0 ? (
-									mealTypes.map((mealType) => (
-										<MealTypeSection
-											key={mealType.id}
-											mealType={mealType}
-											recipes={getCellItems(day.num, mealType.id)}
-											onOpenSelector={() => handleOpenSelector(day.num, mealType.id)}
-											onRemoveRecipe={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
-											onItemHeadcountChange={(recipeId, value) => handleItemHeadcountChange(day.num, mealType.id, recipeId, value)}
-											emptyLabel="Nenhuma receita atribuída"
-										/>
-									))
+									mealTypes.map((mealType) => {
+										const boardItems = getCellBoardItems(day.num, mealType.id)
+										const headcountByRecipe = new Map(
+											items.filter((i) => i.day_of_week === day.num && i.meal_type_id === mealType.id).map((i) => [i.recipe_id, i.headcount_override ?? null])
+										)
+										return (
+											<Card key={mealType.id} className="overflow-hidden p-0 gap-0">
+												<div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+													<div className="flex items-center gap-2">
+														<span className="text-subheading">{mealType.name}</span>
+														{boardItems.length > 0 && (
+															<Badge variant="secondary" className="text-xs">
+																{boardItems.length}
+															</Badge>
+														)}
+													</div>
+													<Button
+														type="button"
+														size="sm"
+														variant="ghost"
+														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+														onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+													>
+														<Plus className="size-3.5" />
+														Adicionar
+													</Button>
+												</div>
+												<div className="p-3">
+													<MealGroupBoard
+														items={boardItems}
+														onArrange={(arrangement) => handleArrange(day.num, mealType.id, arrangement)}
+														onProportionChange={(recipeId, value) => handleProportionChange(day.num, mealType.id, recipeId, value)}
+														onRemove={(recipeId) => handleRemoveRecipe(day.num, mealType.id, recipeId)}
+														onAdd={(group) => handleOpenSelector(day.num, mealType.id, group)}
+														renderExtra={(item) => (
+															<div className="flex items-center gap-1 shrink-0" title="Comensais previstos desta preparação">
+																<Users className="size-3 text-muted-foreground" />
+																<Input
+																	type="number"
+																	min="1"
+																	className="h-6 w-16 text-xs"
+																	value={headcountByRecipe.get(item.id) ?? ""}
+																	placeholder="pax"
+																	onChange={(e) =>
+																		handleItemHeadcountChange(day.num, mealType.id, item.id, e.target.value ? Number.parseInt(e.target.value, 10) : null)
+																	}
+																	onClick={(e) => e.stopPropagation()}
+																/>
+															</div>
+														)}
+													/>
+												</div>
+											</Card>
+										)
+									})
 								) : (
 									<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
 										Nenhum tipo de refeição disponível. Configure os tipos de refeição no Planejamento.
