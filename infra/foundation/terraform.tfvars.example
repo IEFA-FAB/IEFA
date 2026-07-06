@@ -19,6 +19,13 @@ az_count = 2
 # --- Observability ---
 enable_container_insights = true
 
+# --- AWS Bedrock (IA keyless via task role) ---
+# Concede à task role compartilhada permissão de invocar modelos Bedrock (Converse).
+# Necessário para os apps que usam o adapter bedrock do @iefa/ai-provider (sisub, sucont).
+# Opt-in por segurança (default false na variável); habilite aqui ao aplicar a foundation.
+enable_bedrock_task_access = true
+# bedrock_regions = ["us-east-1", "us-west-2", "sa-east-1"]
+
 # --- Secrets encryption (optional) ---
 # secrets_kms_key_arn = "arn:aws:kms:sa-east-1:<account-id>:key/<key-id>"
 

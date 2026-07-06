@@ -1,52 +1,60 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { FileBarChart, Plus } from "lucide-react"
+import { FileBarChart, Loader2, Plus } from "lucide-react"
 import { motion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { toast } from "sonner"
 import { HubLayout } from "#/components/hub-layout"
 import { ToolCard } from "#/components/tool-card"
-import { reportTools } from "#/lib/data"
 import { useSearchQuery } from "#/lib/hub-store"
 import type { Tool } from "#/lib/types"
+import { createReportFn, deleteReportFn, listReportsFn } from "#/server/reports.fn"
 
 export const Route = createFileRoute("/reports")({ component: Reports })
 
+const reportsQueryKey = ["sucont", "reports"] as const
+
 function Reports() {
 	const searchQuery = useSearchQuery()
-	const [reports, setReports] = useState<Tool[]>(reportTools)
+	const queryClient = useQueryClient()
 	const [isAdding, setIsAdding] = useState(false)
 
-	// Hydrate from localStorage
-	useEffect(() => {
-		try {
-			const saved = localStorage.getItem("sucont_reports")
-			if (saved) setReports(JSON.parse(saved))
-		} catch {}
-	}, [])
+	const { data: reports = [], isLoading } = useQuery({
+		queryKey: reportsQueryKey,
+		queryFn: () => listReportsFn(),
+	})
 
-	useEffect(() => {
-		localStorage.setItem("sucont_reports", JSON.stringify(reports))
-	}, [reports])
+	const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsQueryKey })
 
-	const addReport = (data: { title: string; url: string; description: string }) => {
-		setReports((p) => [
-			...p,
-			{
-				id: `report-${Date.now()}`,
-				title: data.title,
-				description: data.description,
-				url: data.url,
-				icon: "FileBarChart",
-				category: "Relatórios",
-				iconColor: "bg-tech-blue",
-			},
-		])
-		setIsAdding(false)
-	}
+	const createMutation = useMutation({
+		mutationFn: (data: { title: string; url: string; description: string }) => createReportFn({ data }),
+		onSuccess: () => {
+			setIsAdding(false)
+			invalidate()
+			toast.success("Relatório salvo")
+		},
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar"),
+	})
 
-	const deleteReport = (id: string) => setReports((p) => p.filter((r) => r.id !== id))
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteReportFn({ data: { id } }),
+		onSuccess: invalidate,
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao excluir"),
+	})
 
-	const filtered = reports.filter(
-		(r) => r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase())
+	// DB Report → forma Tool que o ToolCard consome.
+	const asTools: Tool[] = reports.map((r) => ({
+		id: r.id,
+		title: r.title,
+		description: r.description ?? "",
+		url: r.url,
+		icon: r.icon ?? "FileBarChart",
+		category: r.category ?? "Relatórios",
+		iconColor: "bg-tech-blue",
+	}))
+
+	const filtered = asTools.filter(
+		(r) => r.title.toLowerCase().includes(searchQuery.toLowerCase()) || (r.description ?? "").toLowerCase().includes(searchQuery.toLowerCase())
 	)
 
 	return (
@@ -79,10 +87,10 @@ function Reports() {
 							onSubmit={(e) => {
 								e.preventDefault()
 								const fd = new FormData(e.currentTarget)
-								addReport({
+								createMutation.mutate({
 									title: fd.get("title") as string,
 									url: fd.get("url") as string,
-									description: fd.get("description") as string,
+									description: (fd.get("description") as string) ?? "",
 								})
 							}}
 							className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -108,20 +116,28 @@ function Reports() {
 								<button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs text-slate-500 hover:text-slate-800">
 									CANCELAR
 								</button>
-								<button type="submit" className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md">
-									SALVAR RELATÓRIO
+								<button
+									type="submit"
+									disabled={createMutation.isPending}
+									className="bg-tech-cyan text-white px-6 py-2 rounded font-bold text-xs shadow-md inline-flex items-center gap-2"
+								>
+									{createMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />} SALVAR RELATÓRIO
 								</button>
 							</div>
 						</form>
 					</motion.div>
 				)}
 
-				{filtered.length === 0 ? (
+				{isLoading ? (
+					<div className="flex items-center justify-center py-16 text-slate-400 gap-2 text-sm font-mono">
+						<Loader2 className="w-4 h-4 animate-spin" /> Carregando relatórios...
+					</div>
+				) : filtered.length === 0 ? (
 					<p className="text-slate-400 text-sm font-mono text-center py-16">Nenhum relatório encontrado.</p>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 						{filtered.map((report, i) => (
-							<ToolCard key={report.id} tool={report} index={i} onDelete={() => deleteReport(report.id)} />
+							<ToolCard key={report.id} tool={report} index={i} onDelete={() => deleteMutation.mutate(report.id)} />
 						))}
 					</div>
 				)}

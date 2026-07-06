@@ -1,6 +1,8 @@
-import { Link, useRouterState } from "@tanstack/react-router"
-import { Activity, FileText, LayoutGrid, MessageSquare, Monitor, Search, ShieldCheck, Zap } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link, useRouter, useRouterState } from "@tanstack/react-router"
+import { Activity, FileText, LayoutGrid, LogOut, MessageSquare, Monitor, Search, ShieldCheck, Zap } from "lucide-react"
 import type React from "react"
+import { authActions, authQueryOptions } from "#/auth/service"
 import { SidebarRailItem } from "#/components/sidebar-rail-item"
 import { externalSystems, iaTools, reportTools } from "#/lib/data"
 import { setActiveCategory, setSearchQuery, useActiveCategory, useSearchQuery } from "#/lib/hub-store"
@@ -65,12 +67,15 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 					})}
 				</nav>
 
-				<div className="mt-auto p-4 bg-slate-50 rounded-2xl border border-slate-100">
-					<div className="flex items-center gap-2 mb-2">
-						<ShieldCheck className="w-3 h-3 text-tech-blue" />
-						<span className="text-[10px] font-bold text-slate-600 uppercase">Uso Institucional</span>
+				<div className="mt-auto flex flex-col gap-3">
+					<UserBlock />
+					<div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+						<div className="flex items-center gap-2 mb-2">
+							<ShieldCheck className="w-3 h-3 text-tech-blue" />
+							<span className="text-[10px] font-bold text-slate-600 uppercase">Uso Institucional</span>
+						</div>
+						<p className="text-[9px] text-slate-400 leading-relaxed">Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).</p>
 					</div>
-					<p className="text-[9px] text-slate-400 leading-relaxed">Aplicativo desenvolvido no âmbito da Subdiretoria de Contabilidade (SUCONT/DIREF).</p>
 				</div>
 			</aside>
 
@@ -188,6 +193,38 @@ export function HubLayout({ children }: { children: React.ReactNode }) {
 					))}
 				</div>
 			</aside>
+		</div>
+	)
+}
+
+function UserBlock() {
+	const router = useRouter()
+	const queryClient = useQueryClient()
+	const { data: auth } = useQuery(authQueryOptions())
+	const email = auth?.user?.email ?? ""
+
+	async function logout() {
+		await authActions.signOut()
+		queryClient.clear()
+		await router.navigate({ to: "/auth" })
+	}
+
+	return (
+		<div className="flex items-center justify-between gap-2 p-3 bg-white rounded-2xl border border-slate-100">
+			<div className="flex flex-col min-w-0">
+				<span className="text-[10px] font-bold text-slate-600 uppercase">Sessão</span>
+				<span className="text-[10px] text-slate-400 truncate" title={email}>
+					{email || "—"}
+				</span>
+			</div>
+			<button
+				type="button"
+				onClick={logout}
+				title="Sair"
+				className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+			>
+				<LogOut className="w-4 h-4" />
+			</button>
 		</div>
 	)
 }

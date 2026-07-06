@@ -13,6 +13,7 @@ import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as SubitensGenericosRouteImport } from './routes/subitens-genericos'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as MonitoramentoRouteImport } from './routes/monitoramento'
+import { Route as HealthRouteImport } from './routes/health'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as CruzamentoContasRouteImport } from './routes/cruzamento-contas'
 import { Route as ContaGenericaRouteImport } from './routes/conta-generica'
@@ -21,6 +22,7 @@ import { Route as AuditorRouteImport } from './routes/auditor'
 import { Route as AnalistasaldoalongadoRouteImport } from './routes/analistasaldoalongado'
 import { Route as AnalistaCompatibilidadeRouteImport } from './routes/analista-compatibilidade'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -40,6 +42,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const MonitoramentoRoute = MonitoramentoRouteImport.update({
   id: '/monitoramento',
   path: '/monitoramento',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentacaoRoute = DocumentacaoRouteImport.update({
@@ -82,6 +89,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -92,10 +104,12 @@ export interface FileRoutesByFullPath {
   '/conta-generica': typeof ContaGenericaRoute
   '/cruzamento-contas': typeof CruzamentoContasRoute
   '/documentacao': typeof DocumentacaoRoute
+  '/health': typeof HealthRoute
   '/monitoramento': typeof MonitoramentoRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/workspace': typeof WorkspaceRoute
+  '/auth/': typeof AuthIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -106,10 +120,12 @@ export interface FileRoutesByTo {
   '/conta-generica': typeof ContaGenericaRoute
   '/cruzamento-contas': typeof CruzamentoContasRoute
   '/documentacao': typeof DocumentacaoRoute
+  '/health': typeof HealthRoute
   '/monitoramento': typeof MonitoramentoRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/workspace': typeof WorkspaceRoute
+  '/auth': typeof AuthIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -121,10 +137,12 @@ export interface FileRoutesById {
   '/conta-generica': typeof ContaGenericaRoute
   '/cruzamento-contas': typeof CruzamentoContasRoute
   '/documentacao': typeof DocumentacaoRoute
+  '/health': typeof HealthRoute
   '/monitoramento': typeof MonitoramentoRoute
   '/reports': typeof ReportsRoute
   '/subitens-genericos': typeof SubitensGenericosRoute
   '/workspace': typeof WorkspaceRoute
+  '/auth/': typeof AuthIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,10 +155,12 @@ export interface FileRouteTypes {
     | '/conta-generica'
     | '/cruzamento-contas'
     | '/documentacao'
+    | '/health'
     | '/monitoramento'
     | '/reports'
     | '/subitens-genericos'
     | '/workspace'
+    | '/auth/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,10 +171,12 @@ export interface FileRouteTypes {
     | '/conta-generica'
     | '/cruzamento-contas'
     | '/documentacao'
+    | '/health'
     | '/monitoramento'
     | '/reports'
     | '/subitens-genericos'
     | '/workspace'
+    | '/auth'
   id:
     | '__root__'
     | '/'
@@ -165,10 +187,12 @@ export interface FileRouteTypes {
     | '/conta-generica'
     | '/cruzamento-contas'
     | '/documentacao'
+    | '/health'
     | '/monitoramento'
     | '/reports'
     | '/subitens-genericos'
     | '/workspace'
+    | '/auth/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -180,10 +204,12 @@ export interface RootRouteChildren {
   ContaGenericaRoute: typeof ContaGenericaRoute
   CruzamentoContasRoute: typeof CruzamentoContasRoute
   DocumentacaoRoute: typeof DocumentacaoRoute
+  HealthRoute: typeof HealthRoute
   MonitoramentoRoute: typeof MonitoramentoRoute
   ReportsRoute: typeof ReportsRoute
   SubitensGenericosRoute: typeof SubitensGenericosRoute
   WorkspaceRoute: typeof WorkspaceRoute
+  AuthIndexRoute: typeof AuthIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -214,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/monitoramento'
       fullPath: '/monitoramento'
       preLoaderRoute: typeof MonitoramentoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documentacao': {
@@ -272,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/': {
+      id: '/auth/'
+      path: '/auth'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -284,10 +324,12 @@ const rootRouteChildren: RootRouteChildren = {
   ContaGenericaRoute: ContaGenericaRoute,
   CruzamentoContasRoute: CruzamentoContasRoute,
   DocumentacaoRoute: DocumentacaoRoute,
+  HealthRoute: HealthRoute,
   MonitoramentoRoute: MonitoramentoRoute,
   ReportsRoute: ReportsRoute,
   SubitensGenericosRoute: SubitensGenericosRoute,
   WorkspaceRoute: WorkspaceRoute,
+  AuthIndexRoute: AuthIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

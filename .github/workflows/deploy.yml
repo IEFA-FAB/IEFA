@@ -16,6 +16,10 @@ on:
         description: "Force deploy rumaer"
         type: boolean
         default: false
+      force_sucont:
+        description: "Force deploy sucont"
+        type: boolean
+        default: false
       force_assignment_selection:
         description: "Force deploy assignment-selection"
         type: boolean
@@ -56,6 +60,7 @@ jobs:
       api: ${{ steps.final.outputs.api }}
       portal: ${{ steps.final.outputs.portal }}
       rumaer: ${{ steps.final.outputs.rumaer }}
+      sucont: ${{ steps.final.outputs.sucont }}
       assignment_selection: ${{ steps.final.outputs.assignment_selection }}
       sisub: ${{ steps.final.outputs.sisub }}
       forms: ${{ steps.final.outputs.forms }}
@@ -91,6 +96,18 @@ jobs:
             rumaer:
               - 'apps/rumaer/**'
               - 'packages/database/**'
+              - 'Dockerfile'
+              - 'docker-bake.hcl'
+              - '.github/workflows/deploy.yml'
+              - '.github/workflows/_app-build.yml'
+              - '.github/workflows/_app-deploy.yml'
+              - 'package.json'
+              - 'turbo.json'
+            sucont:
+              - 'apps/sucont/**'
+              - 'packages/database/**'
+              - 'packages/pbac/**'
+              - 'packages/ai-provider/**'
               - 'Dockerfile'
               - 'docker-bake.hcl'
               - '.github/workflows/deploy.yml'
@@ -182,6 +199,7 @@ jobs:
           FORCE_API: ${{ inputs.force_api }}
           FORCE_PORTAL: ${{ inputs.force_portal }}
           FORCE_RUMAER: ${{ inputs.force_rumaer }}
+          FORCE_SUCONT: ${{ inputs.force_sucont }}
           FORCE_ASSIGNMENT_SELECTION: ${{ inputs.force_assignment_selection }}
           FORCE_SISUB: ${{ inputs.force_sisub }}
           FORCE_DOCS: ${{ inputs.force_docs }}
@@ -192,6 +210,7 @@ jobs:
           FILTER_API: ${{ steps.filter.outputs.api }}
           FILTER_PORTAL: ${{ steps.filter.outputs.portal }}
           FILTER_RUMAER: ${{ steps.filter.outputs.rumaer }}
+          FILTER_SUCONT: ${{ steps.filter.outputs.sucont }}
           FILTER_ASSIGNMENT_SELECTION: ${{ steps.filter.outputs.assignment_selection }}
           FILTER_SISUB: ${{ steps.filter.outputs.sisub }}
           FILTER_FORMS: ${{ steps.filter.outputs.forms }}
@@ -204,6 +223,7 @@ jobs:
             echo "api=$FORCE_API"       >> $GITHUB_OUTPUT
             echo "portal=$FORCE_PORTAL" >> $GITHUB_OUTPUT
             echo "rumaer=$FORCE_RUMAER" >> $GITHUB_OUTPUT
+            echo "sucont=$FORCE_SUCONT" >> $GITHUB_OUTPUT
             echo "assignment_selection=$FORCE_ASSIGNMENT_SELECTION" >> $GITHUB_OUTPUT
             echo "sisub=$FORCE_SISUB"   >> $GITHUB_OUTPUT
             echo "forms=$FORCE_FORMS"   >> $GITHUB_OUTPUT
@@ -215,6 +235,7 @@ jobs:
             echo "api=$FILTER_API"       >> $GITHUB_OUTPUT
             echo "portal=$FILTER_PORTAL" >> $GITHUB_OUTPUT
             echo "rumaer=$FILTER_RUMAER" >> $GITHUB_OUTPUT
+            echo "sucont=$FILTER_SUCONT" >> $GITHUB_OUTPUT
             echo "assignment_selection=$FILTER_ASSIGNMENT_SELECTION" >> $GITHUB_OUTPUT
             echo "sisub=$FILTER_SISUB"   >> $GITHUB_OUTPUT
             echo "forms=$FILTER_FORMS"   >> $GITHUB_OUTPUT
@@ -236,6 +257,7 @@ jobs:
       needs.changes.outputs.api == 'true' ||
       needs.changes.outputs.portal == 'true' ||
       needs.changes.outputs.rumaer == 'true' ||
+      needs.changes.outputs.sucont == 'true' ||
       needs.changes.outputs.assignment_selection == 'true' ||
       needs.changes.outputs.sisub == 'true' ||
       needs.changes.outputs.forms == 'true' ||
@@ -386,6 +408,54 @@ jobs:
       service: rumaer
       health_url: ${{ vars.RUMAER_HEALTH_URL }}
       concurrency_suffix: rumaer
+
+  # ============================================================
+  # SUCONT (HUB SUCONT-4) ── check → build → deploy
+  # Mesmo projeto Supabase do sisub → reutiliza vars/secrets do sisub,
+  # mapeados para os nomes VITE_SUCONT_* no build. Secrets de runtime ficam no
+  # Secrets Manager (ver infra/sucont/secrets/sucont.example.json). IA via Bedrock
+  # é keyless (task role) — sem secret de API key.
+  # ============================================================
+  check-sucont:
+    needs: [changes]
+    if: needs.changes.outputs.sucont == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      # Só lint por ora: o código dos analisadores portados do Google AI Studio
+      # ainda não é type-clean (Charts/recharts, tipos do h3). Reabilitar typecheck
+      # (`bunx turbo run lint typecheck ...`) quando essa dívida for saneada.
+      - name: Lint
+        run: bunx turbo run lint --filter=./apps/sucont
+
+  build-sucont:
+    needs: [check-sucont, warm-deps]
+    uses: ./.github/workflows/_app-build.yml
+    with:
+      service: sucont
+      bake_set: |
+        sucont.args.VITE_SUCONT_SUPABASE_URL=${{ vars.VITE_SISUB_SUPABASE_URL }}
+        sucont.args.VITE_SUCONT_SUPABASE_PUBLISHABLE_KEY=${{ vars.VITE_SISUB_SUPABASE_PUBLISHABLE_KEY }}
+    secrets: inherit
+
+  deploy-sucont:
+    needs: [build-sucont]
+    uses: ./.github/workflows/_app-deploy.yml
+    with:
+      service: sucont
+      health_url: ${{ vars.SUCONT_HEALTH_URL }}
+      concurrency_suffix: sucont
 
   # ============================================================
   # ASSIGNMENT-SELECTION (escolha de vagas / CPAINT) ── check → build → deploy
