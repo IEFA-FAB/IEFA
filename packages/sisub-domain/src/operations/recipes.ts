@@ -11,7 +11,7 @@
  */
 
 import { menuTemplateInKitchen, menuTemplateItemsInKitchen, recipeIngredientsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
-import type { Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
+import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
 import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
@@ -33,6 +33,8 @@ import { copyRecipeFlow } from "./recipe-flow.ts"
 
 type RecipeIngredientWire = RecipeIngredient & {
 	ingredient: Ingredient | null
+	// Preparação congelada segregada: uma linha de ficha técnica aponta OU p/ um insumo cru OU p/ uma preparação.
+	frozen_preparation: FrozenPreparation | null
 }
 type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 
@@ -43,10 +45,27 @@ type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 const RECIPE_RELATIONS: Record<string, string> = {
 	recipeIngredientsInKitchens: "ingredients",
 	ingredientInKitchen: "ingredient",
+	frozenPreparationInKitchen: "frozen_preparation",
 }
 
-// Relational `with` — nível ingredientes (com o insumo de cada um).
-const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } as const
+// Relational `with` — nível ingredientes (com o insumo cru OU a preparação congelada de cada um).
+// Profundidade 2 (recipe → recipe_ingredients → {ingredient|frozen_preparation}), dentro do
+// limite de 63 chars de alias do Postgres — o problema de NAMEDATALEN é só a partir do nível 3.
+const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true, frozenPreparationInKitchen: true } } } as const
+
+/**
+ * O Drizzle não aceita `where` numa relação `one` (só em `many`), então a preparação
+ * congelada é eager-loaded sem filtro. Zeramos aqui as soft-deletadas p/ não vazarem pela
+ * relação — consistente com list/fetch que filtram `deleted_at IS NULL`.
+ */
+function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unknown } | null | undefined): void {
+	const ingredients = (row?.recipeIngredientsInKitchens ?? []) as Array<{
+		frozenPreparationInKitchen?: { deletedAt?: string | null } | null
+	}>
+	for (const ri of ingredients) {
+		if (ri.frozenPreparationInKitchen?.deletedAt) ri.frozenPreparationInKitchen = null
+	}
+}
 
 export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRecipe): Promise<RecipeWithIngredients> {
 	requirePermission(ctx, "kitchen", 1)
@@ -57,6 +76,7 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
 
+	scrubDeletedFrozenPreparations(row)
 	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
 }
 
@@ -97,7 +117,10 @@ export async function listRecipes(db: SisubDb, ctx: UserContext, input: ListReci
 
 	return Array.from(familyMap.values())
 		.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-		.map((r) => toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS))
+		.map((r) => {
+			scrubDeletedFrozenPreparations(r)
+			return toWire<RecipeWithIngredients>(r, RECIPE_RELATIONS)
+		})
 }
 
 /**

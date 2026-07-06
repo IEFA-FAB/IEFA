@@ -115,6 +115,10 @@ export type IngredientNutrient = Tables<"ingredient_nutrient">
 export type IngredientNutrientInsert = TablesInsert<"ingredient_nutrient">
 export type IngredientNutrientUpdate = TablesUpdate<"ingredient_nutrient">
 
+export type FrozenPreparation = Tables<"frozen_preparation">
+export type FrozenPreparationInsert = TablesInsert<"frozen_preparation">
+export type FrozenPreparationUpdate = TablesUpdate<"frozen_preparation">
+
 export type Recipe = Tables<"recipes">
 export type RecipeInsert = TablesInsert<"recipes">
 export type RecipeUpdate = TablesUpdate<"recipes">
