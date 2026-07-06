@@ -61,16 +61,16 @@ const WITH_ITEMS_FULL = {
 
 // ── List helpers ──
 
-type CountRow = MenuTemplate & { items?: { headcountOverride: number | null; dayOfWeek: number | null }[] }
+type CountRow = MenuTemplate & { menuTemplateItemsInKitchens?: { headcountOverride: number | null; dayOfWeek: number | null }[] }
 
 function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
-	const items = t.items ?? []
+	const items = t.menuTemplateItemsInKitchens ?? []
 	const item_count = items.length
 	const headcount_filled = items.filter((i) => i.headcountOverride !== null).length
 	const weekdayItems = items.filter((i) => i.dayOfWeek !== null && i.dayOfWeek >= 1 && i.dayOfWeek <= 4 && i.headcountOverride !== null)
 	const avg_headcount_weekday =
 		weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) / weekdayItems.length) : null
-	const { items: _items, ...meta } = t
+	const { menuTemplateItemsInKitchens: _items, ...meta } = t
 	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday }
 }
 
