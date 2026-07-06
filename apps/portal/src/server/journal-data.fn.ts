@@ -130,6 +130,19 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 			article_uuid: data.articleId,
 		})
 		if (error) throw new Error(error.message)
+
+		// `reviews` embute `comments_for_editors` + a identidade do revisor
+		// (assignment.reviewer_id): dados confidenciais ao corpo editorial. Expor
+		// isso no payload que chega ao autor quebra o duplo-cego, mesmo que a UI
+		// não renderize. Só editores recebem `reviews`; o autor lê os pareceres
+		// liberados via getAuthorArticleReviewsFn (apenas campos seguros).
+		const userId = await getRequestUserId()
+		if (userId && (await isEditor(userId))) return result
+		if (result && typeof result === "object") {
+			const clone = { ...(result as Record<string, unknown>) }
+			delete clone.reviews
+			return clone
+		}
 		return result
 	})
 
