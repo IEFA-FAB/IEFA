@@ -58,6 +58,30 @@ async function requireAssignmentAccess(assignmentId: string): Promise<void> {
 	throw new Error("Você não tem acesso a este parecer.")
 }
 
+// Acesso de leitura ao artigo: editor, submitter, revisor aceito/concluído ou
+// artigo publicado (público). Mesma lógica de `canViewArticleFn`, mas com o
+// userId derivado da sessão no servidor — nunca do input do cliente. Retorna se
+// o chamador é editor para o caller decidir a redação de campos confidenciais.
+async function requireArticleAccess(articleId: string): Promise<{ isEditor: boolean }> {
+	const db = getJournalServerClient()
+	const { data: article } = await db.from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).maybeSingle()
+	if (!article) throw new Error("Artigo não encontrado.")
+	const userId = await getRequestUserId()
+	if (userId && (await isEditor(userId))) return { isEditor: true }
+	if (article.status === "published" && !article.deleted_at) return { isEditor: false }
+	if (!userId) throw new Error("Não autenticado.")
+	if (article.submitter_id === userId) return { isEditor: false }
+	const { data: assignment } = await db
+		.from("review_assignments")
+		.select("id")
+		.eq("article_id", articleId)
+		.eq("reviewer_id", userId)
+		.in("status", ["accepted", "completed"])
+		.maybeSingle()
+	if (assignment) return { isEditor: false }
+	throw new Error("Você não tem acesso a este artigo.")
+}
+
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
 export const getUserProfileFn = createServerFn({ method: "GET" })
@@ -123,6 +147,11 @@ export const getArticleFn = createServerFn({ method: "GET" })
 export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		// Server fn = endpoint HTTP cru (o `beforeLoad` da rota não protege) e o
+		// client é service-role (bypassa RLS). Sem este gate, qualquer UUID de
+		// artigo retornaria metadados completos a qualquer chamador (IDOR).
+		const { isEditor: callerIsEditor } = await requireArticleAccess(data.articleId)
+
 		// A função vive no schema `journal` (journal.get_article_details), então
 		// precisa do client com schema journal — o client "public" resolve para
 		// public.get_article_details, que não existe (PGRST202).
@@ -136,9 +165,10 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 		// isso no payload que chega ao autor quebra o duplo-cego, mesmo que a UI
 		// não renderize. Só editores recebem `reviews`; o autor lê os pareceres
 		// liberados via getAuthorArticleReviewsFn (apenas campos seguros).
-		const userId = await getRequestUserId()
-		if (userId && (await isEditor(userId))) return result
-		if (result && typeof result === "object") {
+		if (callerIsEditor) return result
+		// `typeof [] === "object"` é true: sem o guard de array, um payload em set
+		// (RETURNS SETOF / wrapper do client) escaparia a redação silenciosamente.
+		if (result && typeof result === "object" && !Array.isArray(result)) {
 			const clone = { ...(result as Record<string, unknown>) }
 			delete clone.reviews
 			return clone
