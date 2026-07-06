@@ -257,7 +257,15 @@ export type Database = {
 					om: string | null
 					total_vagas: number | null
 				}
-				Relationships: []
+				Relationships: [
+					{
+						foreignKeyName: "vacancy_edition_id_fkey"
+						columns: ["edition_id"]
+						isOneToOne: false
+						referencedRelation: "edition"
+						referencedColumns: ["id"]
+					},
+				]
 			}
 		}
 		Functions: {
@@ -2685,14 +2693,14 @@ export type Database = {
 			reviews: {
 				Row: {
 					assignment_id: string
-					comments_for_authors: string
+					comments_for_authors: string | null
 					comments_for_editors: string | null
 					has_ethical_concerns: boolean | null
 					has_methodology_issues: boolean | null
 					has_statistical_errors: boolean | null
 					id: string
 					is_draft: boolean | null
-					recommendation: string
+					recommendation: string | null
 					score_clarity: number | null
 					score_methodology: number | null
 					score_originality: number | null
@@ -2706,14 +2714,14 @@ export type Database = {
 				}
 				Insert: {
 					assignment_id: string
-					comments_for_authors: string
+					comments_for_authors?: string | null
 					comments_for_editors?: string | null
 					has_ethical_concerns?: boolean | null
 					has_methodology_issues?: boolean | null
 					has_statistical_errors?: boolean | null
 					id?: string
 					is_draft?: boolean | null
-					recommendation: string
+					recommendation?: string | null
 					score_clarity?: number | null
 					score_methodology?: number | null
 					score_originality?: number | null
@@ -2727,14 +2735,14 @@ export type Database = {
 				}
 				Update: {
 					assignment_id?: string
-					comments_for_authors?: string
+					comments_for_authors?: string | null
 					comments_for_editors?: string | null
 					has_ethical_concerns?: boolean | null
 					has_methodology_issues?: boolean | null
 					has_statistical_errors?: boolean | null
 					id?: string
 					is_draft?: boolean | null
-					recommendation?: string
+					recommendation?: string | null
 					score_clarity?: number | null
 					score_methodology?: number | null
 					score_originality?: number | null
@@ -3128,6 +3136,48 @@ export type Database = {
 						foreignKeyName: "product_nutrient_product_id_fkey"
 						columns: ["ingredient_id"]
 						isOneToOne: false
+						referencedRelation: "v_ingredient_kg_lt_items"
+						referencedColumns: ["product_id"]
+					},
+				]
+			}
+			ingredient_nutrition_reference: {
+				Row: {
+					food_revision_id: string
+					ingredient_id: string
+					linked_at: string
+					linked_by: string | null
+					match_status: string
+					notes: string | null
+				}
+				Insert: {
+					food_revision_id: string
+					ingredient_id: string
+					linked_at?: string
+					linked_by?: string | null
+					match_status?: string
+					notes?: string | null
+				}
+				Update: {
+					food_revision_id?: string
+					ingredient_id?: string
+					linked_at?: string
+					linked_by?: string | null
+					match_status?: string
+					notes?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "ingredient_nutrition_reference_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: true
+						referencedRelation: "ingredient"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "ingredient_nutrition_reference_ingredient_id_fkey"
+						columns: ["ingredient_id"]
+						isOneToOne: true
 						referencedRelation: "v_ingredient_kg_lt_items"
 						referencedColumns: ["product_id"]
 					},
@@ -3677,6 +3727,41 @@ export type Database = {
 					},
 				]
 			}
+			recipe_review: {
+				Row: {
+					id: string
+					note: string | null
+					recipe_id: string
+					reviewed_at: string
+					reviewed_by: string | null
+					reviewed_by_name: string | null
+				}
+				Insert: {
+					id?: string
+					note?: string | null
+					recipe_id: string
+					reviewed_at?: string
+					reviewed_by?: string | null
+					reviewed_by_name?: string | null
+				}
+				Update: {
+					id?: string
+					note?: string | null
+					recipe_id?: string
+					reviewed_at?: string
+					reviewed_by?: string | null
+					reviewed_by_name?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_review_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			recipe_step: {
 				Row: {
 					canvas_x: number
@@ -4046,6 +4131,23 @@ export type Database = {
 					},
 				]
 			}
+			recipe_last_review: {
+				Row: {
+					recipe_id: string | null
+					reviewed_at: string | null
+					reviewed_by: string | null
+					reviewed_by_name: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "recipe_review_recipe_id_fkey"
+						columns: ["recipe_id"]
+						isOneToOne: false
+						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+				]
+			}
 			v_ingredient_kg_lt_items: {
 				Row: {
 					base_unit: string | null
@@ -4076,6 +4178,487 @@ export type Database = {
 		}
 		Functions: {
 			[_ in never]: never
+		}
+		Enums: {
+			[_ in never]: never
+		}
+		CompositeTypes: {
+			[_ in never]: never
+		}
+	}
+	nutrition_reference: {
+		Tables: {
+			food_item: {
+				Row: {
+					created_at: string
+					current_revision_id: string | null
+					external_code: string
+					id: string
+					source_id: string
+				}
+				Insert: {
+					created_at?: string
+					current_revision_id?: string | null
+					external_code: string
+					id?: string
+					source_id: string
+				}
+				Update: {
+					created_at?: string
+					current_revision_id?: string | null
+					external_code?: string
+					id?: string
+					source_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "food_item_current_revision_id_fkey"
+						columns: ["current_revision_id"]
+						isOneToOne: false
+						referencedRelation: "food_item_revision"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "food_item_source_id_fkey"
+						columns: ["source_id"]
+						isOneToOne: false
+						referencedRelation: "source"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			food_item_revision: {
+				Row: {
+					base_quantity: number
+					base_unit: string
+					brand_name: string | null
+					content_hash: string
+					created_at: string
+					display_name: string
+					edible_portion_factor: number | null
+					food_item_id: string
+					food_type: string | null
+					group_code: string | null
+					group_name: string | null
+					id: string
+					is_current: boolean
+					normalized_name: string
+					original_name: string | null
+					preparation_state: string | null
+					raw: Json
+					scientific_name: string | null
+					source_release_id: string
+				}
+				Insert: {
+					base_quantity?: number
+					base_unit?: string
+					brand_name?: string | null
+					content_hash: string
+					created_at?: string
+					display_name: string
+					edible_portion_factor?: number | null
+					food_item_id: string
+					food_type?: string | null
+					group_code?: string | null
+					group_name?: string | null
+					id?: string
+					is_current?: boolean
+					normalized_name: string
+					original_name?: string | null
+					preparation_state?: string | null
+					raw?: Json
+					scientific_name?: string | null
+					source_release_id: string
+				}
+				Update: {
+					base_quantity?: number
+					base_unit?: string
+					brand_name?: string | null
+					content_hash?: string
+					created_at?: string
+					display_name?: string
+					edible_portion_factor?: number | null
+					food_item_id?: string
+					food_type?: string | null
+					group_code?: string | null
+					group_name?: string | null
+					id?: string
+					is_current?: boolean
+					normalized_name?: string
+					original_name?: string | null
+					preparation_state?: string | null
+					raw?: Json
+					scientific_name?: string | null
+					source_release_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "food_item_revision_food_item_id_fkey"
+						columns: ["food_item_id"]
+						isOneToOne: false
+						referencedRelation: "food_item"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "food_item_revision_source_release_id_fkey"
+						columns: ["source_release_id"]
+						isOneToOne: false
+						referencedRelation: "source_release"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			food_nutrient_value: {
+				Row: {
+					component_id: string
+					created_at: string
+					food_revision_id: string
+					id: string
+					raw: Json
+					raw_value: string | null
+					value: number | null
+					value_kind: string
+				}
+				Insert: {
+					component_id: string
+					created_at?: string
+					food_revision_id: string
+					id?: string
+					raw?: Json
+					raw_value?: string | null
+					value?: number | null
+					value_kind?: string
+				}
+				Update: {
+					component_id?: string
+					created_at?: string
+					food_revision_id?: string
+					id?: string
+					raw?: Json
+					raw_value?: string | null
+					value?: number | null
+					value_kind?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "food_nutrient_value_component_id_fkey"
+						columns: ["component_id"]
+						isOneToOne: false
+						referencedRelation: "nutrient_component"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "food_nutrient_value_food_revision_id_fkey"
+						columns: ["food_revision_id"]
+						isOneToOne: false
+						referencedRelation: "food_item_revision"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			nutrient_component: {
+				Row: {
+					created_at: string
+					external_code: string
+					id: string
+					infoods_tag: string | null
+					name: string
+					raw: Json
+					source_id: string
+					unit: string | null
+				}
+				Insert: {
+					created_at?: string
+					external_code: string
+					id?: string
+					infoods_tag?: string | null
+					name: string
+					raw?: Json
+					source_id: string
+					unit?: string | null
+				}
+				Update: {
+					created_at?: string
+					external_code?: string
+					id?: string
+					infoods_tag?: string | null
+					name?: string
+					raw?: Json
+					source_id?: string
+					unit?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "nutrient_component_source_id_fkey"
+						columns: ["source_id"]
+						isOneToOne: false
+						referencedRelation: "source"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			nutrient_component_mapping: {
+				Row: {
+					component_id: string
+					confidence: string
+					conversion_multiplier: number
+					conversion_offset: number
+					created_at: string
+					id: string
+					is_preferred: boolean
+					nutrient_id: string
+				}
+				Insert: {
+					component_id: string
+					confidence?: string
+					conversion_multiplier?: number
+					conversion_offset?: number
+					created_at?: string
+					id?: string
+					is_preferred?: boolean
+					nutrient_id: string
+				}
+				Update: {
+					component_id?: string
+					confidence?: string
+					conversion_multiplier?: number
+					conversion_offset?: number
+					created_at?: string
+					id?: string
+					is_preferred?: boolean
+					nutrient_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "nutrient_component_mapping_component_id_fkey"
+						columns: ["component_id"]
+						isOneToOne: false
+						referencedRelation: "nutrient_component"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			nutrition_sync_log: {
+				Row: {
+					completed_steps: number
+					error_message: string | null
+					failed_steps: number
+					finished_at: string | null
+					heartbeat_at: string | null
+					id: number
+					started_at: string
+					status: string
+					stop_requested: boolean
+					successful_steps: number
+					total_deactivated: number
+					total_steps: number
+					total_upserted: number
+					triggered_by: string
+				}
+				Insert: {
+					completed_steps?: number
+					error_message?: string | null
+					failed_steps?: number
+					finished_at?: string | null
+					heartbeat_at?: string | null
+					id?: number
+					started_at?: string
+					status?: string
+					stop_requested?: boolean
+					successful_steps?: number
+					total_deactivated?: number
+					total_steps?: number
+					total_upserted?: number
+					triggered_by?: string
+				}
+				Update: {
+					completed_steps?: number
+					error_message?: string | null
+					failed_steps?: number
+					finished_at?: string | null
+					heartbeat_at?: string | null
+					id?: number
+					started_at?: string
+					status?: string
+					stop_requested?: boolean
+					successful_steps?: number
+					total_deactivated?: number
+					total_steps?: number
+					total_upserted?: number
+					triggered_by?: string
+				}
+				Relationships: []
+			}
+			nutrition_sync_step: {
+				Row: {
+					current_page: number
+					error_message: string | null
+					finished_at: string | null
+					id: number
+					records_deactivated: number
+					records_upserted: number
+					started_at: string | null
+					status: string
+					step_name: string
+					sync_id: number
+					total_pages: number | null
+				}
+				Insert: {
+					current_page?: number
+					error_message?: string | null
+					finished_at?: string | null
+					id?: number
+					records_deactivated?: number
+					records_upserted?: number
+					started_at?: string | null
+					status?: string
+					step_name: string
+					sync_id: number
+					total_pages?: number | null
+				}
+				Update: {
+					current_page?: number
+					error_message?: string | null
+					finished_at?: string | null
+					id?: number
+					records_deactivated?: number
+					records_upserted?: number
+					started_at?: string | null
+					status?: string
+					step_name?: string
+					sync_id?: number
+					total_pages?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "nutrition_sync_step_sync_id_fkey"
+						columns: ["sync_id"]
+						isOneToOne: false
+						referencedRelation: "nutrition_sync_log"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			source: {
+				Row: {
+					citation: string | null
+					country_code: string | null
+					created_at: string
+					display_name: string
+					id: string
+					import_mode: string
+					license_name: string | null
+					license_url: string | null
+					metadata: Json
+					publisher: string | null
+					source_priority: number
+					sync_enabled: boolean
+					updated_at: string
+				}
+				Insert: {
+					citation?: string | null
+					country_code?: string | null
+					created_at?: string
+					display_name: string
+					id: string
+					import_mode?: string
+					license_name?: string | null
+					license_url?: string | null
+					metadata?: Json
+					publisher?: string | null
+					source_priority?: number
+					sync_enabled?: boolean
+					updated_at?: string
+				}
+				Update: {
+					citation?: string | null
+					country_code?: string | null
+					created_at?: string
+					display_name?: string
+					id?: string
+					import_mode?: string
+					license_name?: string | null
+					license_url?: string | null
+					metadata?: Json
+					publisher?: string | null
+					source_priority?: number
+					sync_enabled?: boolean
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			source_release: {
+				Row: {
+					checksum_sha256: string | null
+					created_at: string
+					download_url: string | null
+					etag: string | null
+					fetched_at: string | null
+					id: string
+					imported_at: string | null
+					last_modified: string | null
+					metadata: Json
+					published_at: string | null
+					source_id: string
+					status: string
+					upstream_url: string | null
+					version_label: string
+				}
+				Insert: {
+					checksum_sha256?: string | null
+					created_at?: string
+					download_url?: string | null
+					etag?: string | null
+					fetched_at?: string | null
+					id?: string
+					imported_at?: string | null
+					last_modified?: string | null
+					metadata?: Json
+					published_at?: string | null
+					source_id: string
+					status?: string
+					upstream_url?: string | null
+					version_label: string
+				}
+				Update: {
+					checksum_sha256?: string | null
+					created_at?: string
+					download_url?: string | null
+					etag?: string | null
+					fetched_at?: string | null
+					id?: string
+					imported_at?: string | null
+					last_modified?: string | null
+					metadata?: Json
+					published_at?: string | null
+					source_id?: string
+					status?: string
+					upstream_url?: string | null
+					version_label?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "source_release_source_id_fkey"
+						columns: ["source_id"]
+						isOneToOne: false
+						referencedRelation: "source"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+		}
+		Views: {
+			[_ in never]: never
+		}
+		Functions: {
+			nutrition_sync_step_failure: {
+				Args: { p_sync_id: number }
+				Returns: undefined
+			}
+			nutrition_sync_step_success: {
+				Args: { p_sync_id: number; p_upserted: number }
+				Returns: undefined
+			}
 		}
 		Enums: {
 			[_ in never]: never
@@ -5263,6 +5846,282 @@ export type Database = {
 			[_ in never]: never
 		}
 	}
+	sucont: {
+		Tables: {
+			analysis_run: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					filename: string | null
+					id: string
+					period: string | null
+					records_count: number | null
+					summary: Json | null
+					tool: string
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					filename?: string | null
+					id?: string
+					period?: string | null
+					records_count?: number | null
+					summary?: Json | null
+					tool: string
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					filename?: string | null
+					id?: string
+					period?: string | null
+					records_count?: number | null
+					summary?: Json | null
+					tool?: string
+				}
+				Relationships: []
+			}
+			checklist_item: {
+				Row: {
+					created_at: string
+					deadline: string | null
+					description: string | null
+					done: boolean
+					id: string
+					path: string | null
+					responsible: string | null
+					sort_order: number
+					task: string
+					updated_at: string
+				}
+				Insert: {
+					created_at?: string
+					deadline?: string | null
+					description?: string | null
+					done?: boolean
+					id?: string
+					path?: string | null
+					responsible?: string | null
+					sort_order?: number
+					task: string
+					updated_at?: string
+				}
+				Update: {
+					created_at?: string
+					deadline?: string | null
+					description?: string | null
+					done?: boolean
+					id?: string
+					path?: string | null
+					responsible?: string | null
+					sort_order?: number
+					task?: string
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			document: {
+				Row: {
+					created_at: string
+					created_by: string | null
+					draft: string
+					generated: Json | null
+					id: string
+					title: string | null
+					type: string
+				}
+				Insert: {
+					created_at?: string
+					created_by?: string | null
+					draft: string
+					generated?: Json | null
+					id?: string
+					title?: string | null
+					type: string
+				}
+				Update: {
+					created_at?: string
+					created_by?: string | null
+					draft?: string
+					generated?: Json | null
+					id?: string
+					title?: string | null
+					type?: string
+				}
+				Relationships: []
+			}
+			generated_message: {
+				Row: {
+					analysis_run_id: string | null
+					corpo: string
+					created_at: string
+					created_by: string | null
+					id: string
+					number: number
+					tipo: string | null
+					tool: string
+					ug_codigo: string | null
+				}
+				Insert: {
+					analysis_run_id?: string | null
+					corpo: string
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					number?: number
+					tipo?: string | null
+					tool: string
+					ug_codigo?: string | null
+				}
+				Update: {
+					analysis_run_id?: string | null
+					corpo?: string
+					created_at?: string
+					created_by?: string | null
+					id?: string
+					number?: number
+					tipo?: string | null
+					tool?: string
+					ug_codigo?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "generated_message_analysis_run_id_fkey"
+						columns: ["analysis_run_id"]
+						isOneToOne: false
+						referencedRelation: "analysis_run"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			notice: {
+				Row: {
+					content: string
+					created_at: string
+					date: string | null
+					id: string
+					type: string
+				}
+				Insert: {
+					content: string
+					created_at?: string
+					date?: string | null
+					id?: string
+					type?: string
+				}
+				Update: {
+					content?: string
+					created_at?: string
+					date?: string | null
+					id?: string
+					type?: string
+				}
+				Relationships: []
+			}
+			report: {
+				Row: {
+					category: string | null
+					created_at: string
+					created_by: string | null
+					description: string | null
+					icon: string | null
+					id: string
+					title: string
+					url: string
+				}
+				Insert: {
+					category?: string | null
+					created_at?: string
+					created_by?: string | null
+					description?: string | null
+					icon?: string | null
+					id?: string
+					title: string
+					url: string
+				}
+				Update: {
+					category?: string | null
+					created_at?: string
+					created_by?: string | null
+					description?: string | null
+					icon?: string | null
+					id?: string
+					title?: string
+					url?: string
+				}
+				Relationships: []
+			}
+			unidade_gestora: {
+				Row: {
+					codigo: string
+					created_at: string
+					is_setorial: boolean
+					is_stn: boolean
+					nome: string
+					ods: string | null
+					operador: string | null
+					orgao_superior: string | null
+					updated_at: string
+				}
+				Insert: {
+					codigo: string
+					created_at?: string
+					is_setorial?: boolean
+					is_stn?: boolean
+					nome: string
+					ods?: string | null
+					operador?: string | null
+					orgao_superior?: string | null
+					updated_at?: string
+				}
+				Update: {
+					codigo?: string
+					created_at?: string
+					is_setorial?: boolean
+					is_stn?: boolean
+					nome?: string
+					ods?: string | null
+					operador?: string | null
+					orgao_superior?: string | null
+					updated_at?: string
+				}
+				Relationships: []
+			}
+			workspace_note: {
+				Row: {
+					content: string
+					id: number
+					updated_at: string
+					updated_by: string | null
+				}
+				Insert: {
+					content?: string
+					id?: number
+					updated_at?: string
+					updated_by?: string | null
+				}
+				Update: {
+					content?: string
+					id?: number
+					updated_at?: string
+					updated_by?: string | null
+				}
+				Relationships: []
+			}
+		}
+		Views: {
+			[_ in never]: never
+		}
+		Functions: {
+			[_ in never]: never
+		}
+		Enums: {
+			[_ in never]: never
+		}
+		CompositeTypes: {
+			[_ in never]: never
+		}
+	}
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
@@ -5411,6 +6270,9 @@ export const Constants = {
 	kitchen: {
 		Enums: {},
 	},
+	nutrition_reference: {
+		Enums: {},
+	},
 	procurement: {
 		Enums: {},
 	},
@@ -5433,5 +6295,8 @@ export const Constants = {
 			kitchen_type: ["consumption", "production"],
 			unit_type: ["consumption", "purchase"],
 		},
+	},
+	sucont: {
+		Enums: {},
 	},
 } as const
