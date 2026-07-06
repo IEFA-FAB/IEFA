@@ -106,7 +106,7 @@ export const getAppsFn = createServerFn({ method: "GET" })
 		const { data: result, error } = await getPortalClient()
 			.from("apps")
 			.select(
-				`title, description, to_path, href, icon_key, external, badges,
+				`id, title, description, to_path, href, icon_key, external, badges,
 				contributors:app_contributors!app_contributors_app_id_fkey(label, url, icon_key)`
 			)
 			.order("title", { ascending: true })

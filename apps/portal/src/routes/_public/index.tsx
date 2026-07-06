@@ -5,6 +5,7 @@ import { DynamicIcon } from "@/components/dynamicIcon"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useAppFavorites } from "@/hooks/useAppFavorites"
 import { useAppsData } from "@/hooks/useAppsData"
 import type { AppItem } from "@/types/domain"
 
@@ -68,20 +69,27 @@ function SkeletonGrid() {
 	)
 }
 
-function AppGrid({ list }: { list: AppItem[] }) {
+function AppGrid({ list, isFavorite, onToggleFavorite }: { list: AppItem[]; isFavorite?: (id: string) => boolean; onToggleFavorite?: (id: string) => void }) {
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 			{list.map((app) => (
-				<AppCard key={app.title} app={app} />
+				<AppCard key={app.title} app={app} isFavorite={isFavorite?.(app.id)} onToggleFavorite={onToggleFavorite} />
 			))}
 		</div>
 	)
 }
 
+// favoritos primeiro, preservando a ordem original dentro de cada grupo
+function sortFavoritesFirst(list: AppItem[], isFavorite: (id: string) => boolean): AppItem[] {
+	return [...list].sort((a, b) => Number(isFavorite(b.id)) - Number(isFavorite(a.id)))
+}
+
 function Home() {
 	const { data, isLoading, error } = useAppsData(50)
+	const { isFavorite, toggle } = useAppFavorites()
 
 	const apps: AppItem[] = (data ?? []).map((a) => ({
+		id: a.id,
 		title: a.title,
 		description: a.description,
 		to: a.to_path ?? undefined,
@@ -96,8 +104,14 @@ function Home() {
 		})),
 	}))
 
-	const suiteApps = apps.filter((a) => !a.external).slice(0, 4)
-	const partnerApps = apps.filter((a) => a.external).slice(0, 4)
+	const suiteApps = sortFavoritesFirst(
+		apps.filter((a) => !a.external),
+		isFavorite
+	).slice(0, 4)
+	const partnerApps = sortFavoritesFirst(
+		apps.filter((a) => a.external),
+		isFavorite
+	).slice(0, 4)
 
 	return (
 		<div className="relative flex flex-col w-full text-foreground">
@@ -229,7 +243,7 @@ function Home() {
 					) : error ? (
 						<p className="text-sm text-destructive">Erro ao carregar apps: {error instanceof Error ? error.message : "Erro desconhecido"}</p>
 					) : suiteApps.length > 0 ? (
-						<AppGrid list={suiteApps} />
+						<AppGrid list={suiteApps} isFavorite={isFavorite} onToggleFavorite={toggle} />
 					) : null}
 
 					<div className="mt-6 flex sm:hidden justify-center">
@@ -258,7 +272,7 @@ function Home() {
 
 						<Separator className="my-6" />
 
-						{isLoading ? <SkeletonGrid /> : <AppGrid list={partnerApps} />}
+						{isLoading ? <SkeletonGrid /> : <AppGrid list={partnerApps} isFavorite={isFavorite} onToggleFavorite={toggle} />}
 					</section>
 				)}
 

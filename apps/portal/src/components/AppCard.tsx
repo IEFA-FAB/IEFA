@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router"
-import { GitBranch, OpenNewWindow, User } from "iconoir-react"
+import { GitBranch, OpenNewWindow, Star, StarSolid, User } from "iconoir-react"
 import type { AppItem } from "@/types/domain"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "./ui/card"
 
-export function AppCard({ app }: { app: AppItem }) {
+export function AppCard({ app, isFavorite, onToggleFavorite }: { app: AppItem; isFavorite?: boolean; onToggleFavorite?: (appId: string) => void }) {
 	const isExternal = app.external && !!app.href
+	const showFavorite = typeof onToggleFavorite === "function"
 
 	return (
 		<Card className="group flex h-full flex-col border border-border bg-card text-card-foreground transition-all hover:border-foreground hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_var(--foreground)] focus-within:ring-2 focus-within:ring-ring/50">
@@ -17,11 +18,26 @@ export function AppCard({ app }: { app: AppItem }) {
 					</span>
 					<h3 className="text-lg font-semibold leading-tight">{app.title}</h3>
 				</div>
-				{isExternal ? (
-					<Badge variant="secondary" className="gap-1">
-						Externo <OpenNewWindow className="h-3 w-3" aria-hidden="true" />
-					</Badge>
-				) : null}
+				<div className="flex items-center gap-2">
+					{isExternal ? (
+						<Badge variant="secondary" className="gap-1">
+							Externo <OpenNewWindow className="h-3 w-3" aria-hidden="true" />
+						</Badge>
+					) : null}
+					{showFavorite ? (
+						<button
+							type="button"
+							onClick={() => onToggleFavorite?.(app.id)}
+							aria-pressed={isFavorite}
+							aria-label={isFavorite ? `Remover ${app.title} dos favoritos` : `Favoritar ${app.title}`}
+							title={isFavorite ? "Remover dos favoritos" : "Favoritar"}
+							className="inline-flex h-8 w-8 items-center justify-center border border-transparent text-muted-foreground transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[fav=true]:text-foreground"
+							data-fav={isFavorite ? "true" : "false"}
+						>
+							{isFavorite ? <StarSolid className="h-4 w-4" aria-hidden="true" /> : <Star className="h-4 w-4" aria-hidden="true" />}
+						</button>
+					) : null}
+				</div>
 			</CardHeader>
 
 			<CardContent className="flex-1 space-y-3 w-full">

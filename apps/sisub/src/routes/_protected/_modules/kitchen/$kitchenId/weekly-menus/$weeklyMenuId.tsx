@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, CheckCircle2, Circle, GitFork, Loader2, Save } from "lucide-react"
+import { Check, CheckCircle2, Circle, GitFork, Loader2, Printer, Save } from "lucide-react"
 import { useEffect, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import type { MealTypeInfo, RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
@@ -374,6 +374,28 @@ function WeeklyMenuEditorPage() {
 								Salvo
 							</span>
 						)}
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										nativeButton={false}
+										type="button"
+										variant="outline"
+										size="sm"
+										render={
+											<Link
+												to="/kitchen/$kitchenId/weekly-menus/print/$weeklyMenuId"
+												params={{ kitchenId: kitchenIdStr as string, weeklyMenuId: weeklyMenuId as string }}
+											>
+												<Printer className="size-4 sm:mr-2" />
+												<span className="hidden sm:inline">Imprimir</span>
+											</Link>
+										}
+									/>
+								}
+							></TooltipTrigger>
+							<TooltipContent>Imprimir / baixar PDF do cardápio</TooltipContent>
+						</Tooltip>
 						<Button
 							nativeButton={false}
 							type="button"

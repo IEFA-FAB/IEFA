@@ -15,8 +15,23 @@
  * - storage:             Estoque e almoxarifado — sisub
  * - rumaer:              Uniformes RUMAER — rumaer, unscoped/global
  *                          level 2 = editar uniformes; level 3 = gerenciar grants do rumaer.
+ * - sucont:              HUB SUCONT-4 (acompanhamento contábil) — sucont, unscoped/global.
+ *                          level 1 = acessar o hub e ferramentas; level 2 = editar dados da
+ *                          seção (área de trabalho, relatórios, mensagens); level 3 = gerenciar
+ *                          grants do sucont.
  */
-export type AppModule = "diner" | "messhall" | "unit" | "kitchen" | "kitchen-production" | "global" | "analytics" | "local-analytics" | "storage" | "rumaer"
+export type AppModule =
+	| "diner"
+	| "messhall"
+	| "unit"
+	| "kitchen"
+	| "kitchen-production"
+	| "global"
+	| "analytics"
+	| "local-analytics"
+	| "storage"
+	| "rumaer"
+	| "sucont"
 
 /**
  * Permissão individual de um usuário.

@@ -557,6 +557,7 @@ export const ingredientInKitchen = kitchen.table("ingredient", {
 	legacyId: bigint("legacy_id", { mode: "number" }),
 	ceafaId: uuid("ceafa_id"),
 	densityFactor: numeric("density_factor"),
+	rehydrationIndex: numeric("rehydration_index"),
 }, (table) => [
 	foreignKey({
 			columns: [table.ceafaId],
@@ -1500,6 +1501,8 @@ export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 	netQuantity: numeric("net_quantity"),
 	isOptional: boolean("is_optional"),
 	priorityOrder: smallint("priority_order"),
+	correctionFactor: numeric("correction_factor"),
+	rehydrationIndex: numeric("rehydration_index"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
@@ -1547,6 +1550,28 @@ export const recipeIngredientAlternativesInKitchen = kitchen.table("recipe_ingre
 			name: "recipe_ingredient_alternatives_frozen_preparation_id_fkey"
 		}),
 	check("recipe_ingredient_alt_source_xor", sql`num_nonnulls(ingredient_id, frozen_preparation_id) <= 1`),
+]);
+
+export const ingredientSubstitutionInKitchen = kitchen.table("ingredient_substitution", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	ingredientId: uuid("ingredient_id").notNull(),
+	substituteIngredientId: uuid("substitute_ingredient_id").notNull(),
+	factor: numeric().default('1').notNull(),
+}, (table) => [
+	index("ingredient_substitution_ingredient_id_idx").using("btree", table.ingredientId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.ingredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "ingredient_substitution_ingredient_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.substituteIngredientId],
+			foreignColumns: [ingredientInKitchen.id],
+			name: "ingredient_substitution_substitute_ingredient_id_fkey"
+		}).onDelete("cascade"),
+	unique("ingredient_substitution_unique").on(table.ingredientId, table.substituteIngredientId),
+	check("ingredient_substitution_not_self", sql`ingredient_id <> substitute_ingredient_id`),
 ]);
 
 export const mealForecastsInKitchen = kitchen.table("meal_forecasts", {

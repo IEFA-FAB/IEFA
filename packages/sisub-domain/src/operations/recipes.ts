@@ -10,16 +10,9 @@
  *   - fetchRecipe: filtra deleted_at IS NULL (faltava no sisub — devolvia receitas no lixo).
  */
 
-import {
-	menuTemplateInKitchen,
-	menuTemplateItemsInKitchen,
-	recipeIngredientAlternativesInKitchen,
-	recipeIngredientsInKitchen,
-	recipesInKitchen,
-	type SisubDb,
-} from "@iefa/database/drizzle/sisub"
-import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient, RecipeIngredientAlternative } from "@iefa/database/sisub"
-import { and, eq, ilike, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm"
+import { menuTemplateInKitchen, menuTemplateItemsInKitchen, recipeIngredientsInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import type { FrozenPreparation, Ingredient, Recipe, RecipeIngredient } from "@iefa/database/sisub"
+import { and, eq, ilike, isNotNull, isNull, or, type SQL } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import type {
 	CreateRecipe,
@@ -42,7 +35,6 @@ type RecipeIngredientWire = RecipeIngredient & {
 	ingredient: Ingredient | null
 	// Preparação congelada segregada: uma linha de ficha técnica aponta OU p/ um insumo cru OU p/ uma preparação.
 	frozen_preparation: FrozenPreparation | null
-	alternatives?: (RecipeIngredientAlternative & { ingredient: Ingredient | null; frozen_preparation: FrozenPreparation | null })[]
 }
 type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
 
@@ -52,7 +44,6 @@ type RecipeWithIngredients = Recipe & { ingredients: RecipeIngredientWire[] }
  */
 const RECIPE_RELATIONS: Record<string, string> = {
 	recipeIngredientsInKitchens: "ingredients",
-	recipeIngredientAlternativesInKitchens: "alternatives",
 	ingredientInKitchen: "ingredient",
 	frozenPreparationInKitchen: "frozen_preparation",
 }
@@ -70,13 +61,9 @@ const WITH_INGREDIENTS = { recipeIngredientsInKitchens: { with: { ingredientInKi
 function scrubDeletedFrozenPreparations(row: { recipeIngredientsInKitchens?: unknown } | null | undefined): void {
 	const ingredients = (row?.recipeIngredientsInKitchens ?? []) as Array<{
 		frozenPreparationInKitchen?: { deletedAt?: string | null } | null
-		recipeIngredientAlternativesInKitchens?: Array<{ frozenPreparationInKitchen?: { deletedAt?: string | null } | null }>
 	}>
 	for (const ri of ingredients) {
 		if (ri.frozenPreparationInKitchen?.deletedAt) ri.frozenPreparationInKitchen = null
-		for (const alt of ri.recipeIngredientAlternativesInKitchens ?? []) {
-			if (alt.frozenPreparationInKitchen?.deletedAt) alt.frozenPreparationInKitchen = null
-		}
 	}
 }
 
@@ -88,37 +75,6 @@ export async function fetchRecipe(db: SisubDb, ctx: UserContext, input: FetchRec
 	const row = await runQuery("FETCH_FAILED", () => db.query.recipesInKitchen.findFirst({ where, with: WITH_INGREDIENTS }))
 
 	if (!row) throw new NotFoundError("recipe", input.recipeId)
-
-	// Alternativas em query SEPARADA — NÃO aninhar no relational query acima.
-	// recipe → recipe_ingredients → alternatives → ingredient é fundo demais: o Drizzle
-	// concatena o caminho das relations no alias da tabela e o nome estoura o limite de
-	// 63 chars de identificador do Postgres (NAMEDATALEN), que trunca silenciosamente →
-	// aliases divergem/colidem e a query inteira quebra (detalhe da preparação nunca carrega).
-	// Buscamos as alternativas dos recipe_ingredients desta receita (profundidade 2, dentro
-	// do limite) e costuramos no shape que o toWire/contrato espera.
-	if (input.includeAlternatives) {
-		const ingredientRows = row.recipeIngredientsInKitchens ?? []
-		const riIds = ingredientRows.map((ri) => ri.id)
-		if (riIds.length > 0) {
-			const alts = await runQuery("FETCH_FAILED", () =>
-				db.query.recipeIngredientAlternativesInKitchen.findMany({
-					where: inArray(recipeIngredientAlternativesInKitchen.recipeIngredientId, riIds),
-					with: { ingredientInKitchen: true, frozenPreparationInKitchen: true },
-				})
-			)
-			const byRecipeIngredient = new Map<string, typeof alts>()
-			for (const alt of alts) {
-				if (!alt.recipeIngredientId) continue
-				const bucket = byRecipeIngredient.get(alt.recipeIngredientId)
-				if (bucket) bucket.push(alt)
-				else byRecipeIngredient.set(alt.recipeIngredientId, [alt])
-			}
-			for (const ri of ingredientRows) {
-				;(ri as typeof ri & { recipeIngredientAlternativesInKitchens: typeof alts }).recipeIngredientAlternativesInKitchens =
-					byRecipeIngredient.get(ri.id) ?? []
-			}
-		}
-	}
 
 	scrubDeletedFrozenPreparations(row)
 	return toWire<RecipeWithIngredients>(row, RECIPE_RELATIONS)
@@ -227,9 +183,12 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 		netQuantity: String(ing.netQuantity),
 		isOptional: ing.isOptional,
 		priorityOrder: ing.priorityOrder,
+		// Fatores por ingrediente da preparação (opcionais): null = herda o insumo / vale 1.
+		correctionFactor: ing.correctionFactor != null ? String(ing.correctionFactor) : null,
+		rehydrationIndex: ing.rehydrationIndex != null ? String(ing.rehydrationIndex) : null,
 	}))
-	// INSERT ... RETURNING devolve as linhas na ordem de inserção, permitindo ligar cada
-	// alternativa ao recipe_ingredient recém-criado pelo índice.
+	// INSERT ... RETURNING devolve as linhas na ordem de inserção — usado para mapear
+	// insumo antigo → novo no copy-forward do fluxo de produção.
 	const inserted = await runQuery("INSERT_INGREDIENTS_FAILED", () =>
 		db.insert(recipeIngredientsInKitchen).values(rows).returning({
 			id: recipeIngredientsInKitchen.id,
@@ -239,22 +198,6 @@ async function insertIngredients(db: SisubDb, recipeId: string, ingredients: Cre
 	)
 	if (inserted.length !== rows.length) throw new DomainError("INSERT_INGREDIENTS_FAILED", "row count mismatch")
 
-	const altRows = inserted.flatMap((row, i) =>
-		(ingredients[i].alternatives ?? []).map((alt) => ({
-			recipeIngredientId: row.id,
-			ingredientId: alt.ingredientId,
-			netQuantity: String(alt.netQuantity),
-			priorityOrder: alt.priorityOrder,
-		}))
-	)
-	if (altRows.length) {
-		await runQuery("INSERT_ALTERNATIVES_FAILED", () =>
-			db
-				.insert(recipeIngredientAlternativesInKitchen)
-				.values(altRows)
-				.then(() => undefined)
-		)
-	}
 	return inserted.map((r) => ({ id: r.id, ingredientId: r.ingredientId ?? "", priorityOrder: r.priorityOrder }))
 }
 
