@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Printer } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useTemplate } from "@/hooks/data/useTemplates"
+import { queryKeys } from "@/lib/query-keys"
 import { fetchMealTypesFn } from "@/server/meal-types.fn"
 import type { MenuTemplateWithItems } from "@/types/domain/planning"
 
@@ -106,7 +107,7 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 	// (kitchen_id null). fetchMealTypesFn aceita null; o hook useMealTypes não.
 	const mealTypeKitchenId = scope.kind === "kitchen" ? scope.kitchenId : null
 	const { data: mealTypes } = useQuery({
-		queryKey: ["meal_types", mealTypeKitchenId],
+		queryKey: queryKeys.mealTypes.byKitchen(mealTypeKitchenId),
 		queryFn: () => fetchMealTypesFn({ data: { kitchenId: mealTypeKitchenId } }),
 		staleTime: 5 * 60 * 1000,
 	})
@@ -301,7 +302,9 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						{orderedMealTypes.length === 0 ? (
 							<tr>
 								<td colSpan={8} className="cardapio-empty">
-									Nenhum tipo de refeição configurado para esta cozinha.
+									{scope.kind === "kitchen"
+									? "Nenhum tipo de refeição configurado para esta cozinha."
+									: "Nenhum tipo de refeição genérico configurado."}
 								</td>
 							</tr>
 						) : (
