@@ -29,11 +29,28 @@ export const Route = createFileRoute("/_protected")({
 		// Falha NÃO pode derrubar todo o _protected (tela branca) → fallback com o implicit
 		// allow (Comensal) para a sidebar/hub renderizarem ao menos o módulo básico.
 		const ensurePermissions = context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)).catch((err) => {
-			// biome-ignore lint/suspicious/noConsole: intentional — surface permission load failure
-			console.error("Falha ao carregar permissões; aplicando fallback Comensal:", err)
-			context.queryClient.setQueryData<UserPermission[]>(userPermissionsQueryOptions(id).queryKey, [
-				{ module: "diner", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null },
-			])
+			const raw = err instanceof Error ? err.message : String(err)
+			const isTransient = raw.trimStart().startsWith("<") || /\b5\d{2}\b/.test(raw) || raw.includes("Failed to fetch")
+			const msg = isTransient
+				? `HTTP proxy error (${raw.match(/\b[45]\d{2}\b/)?.[0] ?? "unknown status"})`
+				: raw
+			if (isTransient) {
+				// biome-ignore lint/suspicious/noConsole: intentional — transient infra error, fallback handles it
+				console.warn("Permissões indisponíveis (erro transitório); aplicando fallback Comensal:", msg)
+			} else {
+				// biome-ignore lint/suspicious/noConsole: intentional — surface permission load failure
+				console.error("Falha ao carregar permissões; aplicando fallback Comensal:", msg)
+			}
+			// `updatedAt: 0` marca o fallback como IMEDIATAMENTE stale. Sem isso, o setQueryData
+			// carimba o dado como fresh e o staleTime de 30 min impede o refetch — uma falha
+			// transitória (ex.: 502 do gateway / cold start) rebaixaria o usuário a Comensal por
+			// até 30 min mesmo após o backend voltar. Stale → o ensureQueryData da próxima
+			// navegação tenta de novo e restaura as permissões reais.
+			context.queryClient.setQueryData<UserPermission[]>(
+				userPermissionsQueryOptions(id).queryKey,
+				[{ module: "diner", level: 1, mess_hall_id: null, kitchen_id: null, unit_id: null }],
+				{ updatedAt: 0 }
+			)
 		})
 
 		// Bootstrap do perfil (upsert/reclaim de user_data). Roda em PARALELO com as
