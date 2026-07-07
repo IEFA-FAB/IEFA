@@ -12,6 +12,7 @@ export type AuthState = {
 
 export interface AuthContextType extends AuthState {
 	signIn: (email: string, password: string) => Promise<void>
+	signUp: (email: string, password: string, name?: string) => Promise<void>
 	signOut: () => Promise<void>
 	resetPassword: (email: string, redirectTo?: string) => Promise<void>
 }
@@ -24,6 +25,9 @@ function getAuthErrorMessage(error: unknown): string {
 	const msg = (error as { message?: string })?.message || "Erro desconhecido"
 	if (/invalid login credentials/i.test(msg)) return "E-mail ou senha incorretos"
 	if (/email not confirmed/i.test(msg)) return "Confirme seu e-mail antes de entrar"
+	if (/user already registered/i.test(msg)) return "Este e-mail já está cadastrado"
+	if (/password should be at least/i.test(msg)) return "A senha deve ter no mínimo 8 caracteres, com maiúscula, minúscula e número"
+	if (/signup is disabled/i.test(msg)) return "Cadastro temporariamente desabilitado"
 	if (/invalid format/i.test(msg)) return "Formato de e-mail inválido"
 	return msg
 }
@@ -31,6 +35,19 @@ function getAuthErrorMessage(error: unknown): string {
 export const authActions = {
 	signIn: async (email: string, password: string) => {
 		const { error } = await supabase.auth.signInWithPassword({ email: normalizeEmail(email), password })
+		if (error) throw new Error(getAuthErrorMessage(error))
+	},
+
+	signUp: async (email: string, password: string, name?: string) => {
+		const { error } = await supabase.auth.signUp({
+			email: normalizeEmail(email),
+			password,
+			options: {
+				data: name ? { display_name: name } : undefined,
+				// Confirmação de e-mail retorna à própria tela de login.
+				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
+			},
+		})
 		if (error) throw new Error(getAuthErrorMessage(error))
 	},
 
