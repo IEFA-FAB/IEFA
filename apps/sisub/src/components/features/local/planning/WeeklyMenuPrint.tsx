@@ -4,6 +4,7 @@ import { addDays, format, parseISO, startOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useTemplate } from "@/hooks/data/useTemplates"
@@ -85,8 +86,10 @@ function loadHeader(scope: string, defaultOrg: string): PrintHeader {
 		const raw = window.localStorage.getItem(headerStorageKey(scope))
 		if (!raw) return fallback
 		const parsed = JSON.parse(raw) as Partial<PrintHeader>
-		const storedOrg = parsed.organization?.trim()
-		const organization = !storedOrg || storedOrg === LEGACY_DEFAULT_ORG ? defaultOrg : storedOrg
+		// `== null` (não `!storedOrg`) preserva string vazia intencional — o usuário
+		// pode limpar a OM de propósito para gerar um documento sem cabeçalho de OM.
+		const storedOrg = parsed.organization
+		const organization = storedOrg == null || storedOrg.trim() === LEGACY_DEFAULT_ORG ? defaultOrg : storedOrg
 		return {
 			organization,
 			section: parsed.section ?? DEFAULT_HEADER.section,
@@ -288,6 +291,10 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 				},
 				`${header.title} - ${template.name ?? "cardapio"}`
 			)
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: intentional — surface DOCX export failure
+			console.error("Falha ao gerar DOCX:", err)
+			toast.error("Não foi possível gerar o DOCX. Tente novamente.")
 		} finally {
 			setIsExporting(false)
 		}
