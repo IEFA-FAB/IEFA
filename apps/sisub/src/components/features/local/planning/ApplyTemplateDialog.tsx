@@ -19,6 +19,12 @@ interface ApplyTemplateDialogProps {
 	kitchenId: number
 }
 
+/** Parse "YYYY-MM-DD" como data no fuso local (evita o shift UTC do `new Date(str)`). */
+function parseLocalDate(dateStr: string): Date {
+	const [y, m, d] = dateStr.split("-").map(Number)
+	return new Date(y, m - 1, d)
+}
+
 const WEEKDAYS = [
 	{ value: 1, label: "Segunda-feira" },
 	{ value: 2, label: "Terça-feira" },
@@ -35,9 +41,11 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1) // Monday
 
-	// Calculate day mapping preview
+	// Calculate day mapping preview. Parse "YYYY-MM-DD" como data de calendário local
+	// (não UTC): `new Date("YYYY-MM-DD")` é meia-noite UTC e desloca o dia da semana em
+	// fusos negativos. Aqui o weekday casa com o servidor (que itera em UTC).
 	const dayMappings = targetDates.map((dateStr) => {
-		const date = new Date(dateStr)
+		const date = parseLocalDate(dateStr)
 		const jsDay = date.getDay()
 		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1-7
 		const offset = dateDayOfWeek - startDayOfWeek
@@ -93,7 +101,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 						<div className="flex flex-wrap gap-1">
 							{targetDates.map((d) => (
 								<Badge key={d} variant="outline" className="bg-background">
-									{format(new Date(d), "dd/MM (EEE)", { locale: ptBR })}
+									{format(parseLocalDate(d), "dd/MM (EEE)", { locale: ptBR })}
 								</Badge>
 							))}
 						</div>
@@ -174,7 +182,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 									{dayMappings.map((mapping) => (
 										<Item key={mapping.date} size="xs" variant="default">
 											<Badge variant="outline" className="w-24 justify-center">
-												{format(new Date(mapping.date), "dd/MM", {
+												{format(parseLocalDate(mapping.date), "dd/MM", {
 													locale: ptBR,
 												})}
 											</Badge>

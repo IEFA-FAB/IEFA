@@ -400,7 +400,7 @@ export async function applyTemplate(
 	db: SisubDb,
 	ctx: UserContext,
 	input: ApplyTemplate
-): Promise<{ menusCreated: number; itemsCreated: number; datesProcessed: string[] }> {
+): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; datesProcessed: string[] }> {
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	// Valida template: não excluído, cozinha confere (lança se inacessível).
@@ -416,49 +416,73 @@ export async function applyTemplate(
 		})
 	)
 
-	// Intervalo de datas (YYYY-MM-DD).
+	// Intervalo de datas (YYYY-MM-DD). Iteração em UTC: as colunas são calendário puro
+	// (sem hora), então tratar a string como meia-noite UTC e avançar com setUTCDate torna
+	// o cálculo determinístico e independente do fuso do servidor. O bug antigo misturava
+	// parse UTC (`new Date("YYYY-MM-DD")`) com `getDay()`/`getDate()` locais, o que deslocava
+	// o dia da semana em servidores de offset negativo (ex.: Brasil UTC-3).
 	const targetDates: string[] = []
-	const start = new Date(input.startDate)
-	const end = new Date(input.endDate)
-	for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+	for (let d = new Date(`${input.startDate}T00:00:00Z`); d <= new Date(`${input.endDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
 		targetDates.push(d.toISOString().slice(0, 10))
 	}
 
 	// Constrói menus + itens novos.
 	const newMenus: (typeof dailyMenuInKitchen.$inferInsert)[] = []
 	const newMenuItems: (typeof menuItemsInKitchen.$inferInsert)[] = []
+	// Itens do template descartados por dado incompleto (sem refeição ou sem receita).
+	let itemsSkipped = 0
 
 	for (const dateStr of targetDates) {
-		const jsDay = new Date(dateStr).getDay()
-		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay
+		const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay() // 0=Dom … 6=Sáb
+		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1=Seg … 7=Dom
 		const templateDay = ((dateDayOfWeek - input.startDayOfWeek + 7) % 7) + 1
 
+		// Agrupa por refeição; item sem refeição não tem onde materializar.
 		const itemsByMealType: Record<string, typeof templateItems> = {}
 		for (const item of templateItems.filter((i) => i.dayOfWeek === templateDay)) {
-			const key = item.mealTypeId ?? "__null__"
-			if (!itemsByMealType[key]) itemsByMealType[key] = []
-			itemsByMealType[key].push(item)
+			if (!item.mealTypeId) {
+				itemsSkipped++
+				continue
+			}
+			if (!itemsByMealType[item.mealTypeId]) itemsByMealType[item.mealTypeId] = []
+			itemsByMealType[item.mealTypeId].push(item)
 		}
 
 		for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
-			if (mealTypeId === "__null__") continue
+			// Efetivo derivado do template (ponte aquisição→produção): média arredondada dos
+			// headcount_override preenchidos da refeição. O override é exceção por-item; na
+			// ausência de qualquer valor o efetivo fica nulo (planejador preenche no DayDrawer).
+			const overrides = items.map((i) => i.headcountOverride).filter((h): h is number => h != null)
+			const mealForecast = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
+
 			const menuId = crypto.randomUUID()
-			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED" })
+			const menuItemRows: (typeof menuItemsInKitchen.$inferInsert)[] = []
 			for (const item of items) {
+				if (!item.recipeId) {
+					itemsSkipped++
+					continue
+				}
 				// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
 				const recipeSnapshot = item.recipesInKitchen
 					? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 					: {}
-				newMenuItems.push({
+				// Porção planejada = override do item (exceção) senão o efetivo derivado da refeição.
+				const plannedPortion = item.headcountOverride ?? mealForecast
+				menuItemRows.push({
 					dailyMenuId: menuId,
-					recipeOriginId: item.recipeId ?? "",
+					recipeOriginId: item.recipeId,
 					recipe: recipeSnapshot,
+					plannedPortionQuantity: plannedPortion != null ? String(plannedPortion) : null,
 					// Preserva grupo/ordem/proporção do template no cardápio materializado.
 					itemGroup: item.itemGroup,
 					sortOrder: item.sortOrder ?? 0,
 					recommendedProportion: item.recommendedProportion,
 				})
 			}
+			// Não cria refeição vazia se todos os itens foram descartados.
+			if (menuItemRows.length === 0) continue
+			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED", forecastedHeadcount: mealForecast })
+			newMenuItems.push(...menuItemRows)
 		}
 	}
 
@@ -492,5 +516,5 @@ export async function applyTemplate(
 		}
 	})
 
-	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, datesProcessed: targetDates }
+	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed: targetDates }
 }
