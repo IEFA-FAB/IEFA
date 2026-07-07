@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle, CircleAlert, Eye, EyeOff, Loader2, Lock, Mail, Monitor, ShieldAlert, User } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLoginRateLimiter } from "#/auth/rate-limiter"
 import { Button } from "#/components/ui/button"
 import { Input } from "#/components/ui/input"
@@ -349,10 +349,16 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 		}
 	}
 
+	// Token de recuperação é consumido no primeiro verifyOtp: a partir daí ele já não
+	// é mais válido. Guardamos qual token já foi tentado para não re-verificar num
+	// re-render (actions muda de identidade a cada render; o SIGNED_IN da sessão de
+	// recuperação também dispara re-render), o que mostraria "Link inválido" à toa.
+	const verifiedTokenRef = useRef<string | null>(null)
 	useEffect(() => {
 		// currentView === "reset" ≡ !!searchParams.token_hash — o link do e-mail traz o token.
-		if (searchParams.token_hash && searchParams.type === "email") {
-			const tokenHash = searchParams.token_hash
+		const tokenHash = searchParams.token_hash
+		if (tokenHash && searchParams.type === "email" && verifiedTokenRef.current !== tokenHash) {
+			verifiedTokenRef.current = tokenHash
 			const verify = async () => {
 				const { error: otpError } = await actions.verifyOtp(tokenHash, "email")
 				if (otpError) setError("Link inválido ou expirado. Solicite uma nova recuperação.")

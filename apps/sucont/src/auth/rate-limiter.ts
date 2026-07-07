@@ -33,7 +33,13 @@ function getRemainingSeconds(): number {
 function recordFailure(): number {
 	const s = load()
 	const now = Date.now()
-	if (s.lockUntil > 0 && s.lockUntil <= now) s.failures = 0
+	// Lock expirado: zera o contador E limpa lockUntil — senão a guarda
+	// (lockUntil > 0 && lockUntil <= now) fica sempre verdadeira e failures
+	// oscila entre 0 e 1 para sempre, nunca voltando a atingir MAX_ATTEMPTS.
+	if (s.lockUntil > 0 && s.lockUntil <= now) {
+		s.failures = 0
+		s.lockUntil = 0
+	}
 	s.failures++
 	if (s.failures >= MAX_ATTEMPTS) {
 		const cooldown = COOLDOWNS_SEC[Math.min(s.tier, COOLDOWNS_SEC.length - 1)]
