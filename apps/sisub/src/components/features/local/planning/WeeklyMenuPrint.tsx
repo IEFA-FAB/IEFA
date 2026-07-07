@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { addDays, format, parseISO, startOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { ArrowLeft, Loader2, Printer } from "lucide-react"
-import { useEffect, useState } from "react"
+import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { useUserKitchens } from "@/hooks/data/useKitchens"
 import { useTemplate } from "@/hooks/data/useTemplates"
 import { menuItemGroupOrder } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
@@ -48,8 +50,16 @@ type PrintHeader = {
 	signatures: [SignatureBlock, SignatureBlock, SignatureBlock, SignatureBlock]
 }
 
+/**
+ * Nome da OM/organização impresso no topo. Antes era hardcoded como EEAR; hoje
+ * vem dinâmico do escopo (unidade da cozinha, ou SDAB no plano modelo global).
+ */
+const GLOBAL_ORGANIZATION = "SUBDIRETORIA DE ADMINISTRAÇÃO DA AERONÁUTICA"
+/** Valor hardcoded legado; migrado p/ o nome dinâmico quando reencontrado no localStorage. */
+const LEGACY_DEFAULT_ORG = "ESCOLA DE ESPECIALISTAS DE AERONÁUTICA"
+
 const DEFAULT_HEADER: PrintHeader = {
-	organization: "ESCOLA DE ESPECIALISTAS DE AERONÁUTICA",
+	organization: "",
 	section: "SEÇÃO DE SUBSISTÊNCIA",
 	title: "CARDÁPIO SEMANAL",
 	signatures: [
@@ -64,20 +74,30 @@ function headerStorageKey(scope: string) {
 	return `sisub:cardapio-print-header:${scope}`
 }
 
-function loadHeader(scope: string): PrintHeader {
-	if (typeof window === "undefined") return DEFAULT_HEADER
+/**
+ * Carrega o cabeçalho persistido (localStorage), usando `defaultOrg` como nome
+ * de organização quando nada foi salvo — ou quando o que ficou salvo é o valor
+ * hardcoded legado (EEAR), que migramos para o nome correto da OM/SDAB.
+ */
+function loadHeader(scope: string, defaultOrg: string): PrintHeader {
+	const fallback: PrintHeader = { ...DEFAULT_HEADER, organization: defaultOrg }
+	if (typeof window === "undefined") return fallback
 	try {
 		const raw = window.localStorage.getItem(headerStorageKey(scope))
-		if (!raw) return DEFAULT_HEADER
+		if (!raw) return fallback
 		const parsed = JSON.parse(raw) as Partial<PrintHeader>
+		// `== null` (não `!storedOrg`) preserva string vazia intencional — o usuário
+		// pode limpar a OM de propósito para gerar um documento sem cabeçalho de OM.
+		const storedOrg = parsed.organization
+		const organization = storedOrg == null || storedOrg.trim() === LEGACY_DEFAULT_ORG ? defaultOrg : storedOrg
 		return {
-			organization: parsed.organization ?? DEFAULT_HEADER.organization,
+			organization,
 			section: parsed.section ?? DEFAULT_HEADER.section,
 			title: parsed.title ?? DEFAULT_HEADER.title,
 			signatures: (parsed.signatures ?? DEFAULT_HEADER.signatures) as PrintHeader["signatures"],
 		}
 	} catch {
-		return DEFAULT_HEADER
+		return fallback
 	}
 }
 
@@ -115,13 +135,25 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	const storageScope = scope.kind === "kitchen" ? String(scope.kitchenId) : "global"
 
+	// Nome da OM impresso no topo: unidade da cozinha (padrão canônico do app),
+	// ou a SDAB no plano modelo global. Serve de default do cabeçalho; o usuário
+	// ainda pode sobrescrever inline (persistido por escopo no localStorage).
+	const { data: kitchens } = useUserKitchens()
+	const organizationName = useMemo(() => {
+		if (scope.kind === "global") return GLOBAL_ORGANIZATION
+		const kitchen = kitchens?.find((k) => k.id === scope.kitchenId)
+		const om = kitchen?.unit?.display_name?.trim() || kitchen?.unit?.code?.trim() || kitchen?.display_name?.trim()
+		return om ? om.toUpperCase() : ""
+	}, [kitchens, scope])
+
 	// Datas só são resolvidas no cliente (evita divergência de hidratação no SSR).
 	const [weekStart, setWeekStart] = useState<Date | null>(null)
 	const [header, setHeader] = useState<PrintHeader>(DEFAULT_HEADER)
+	const [isExporting, setIsExporting] = useState(false)
 
 	useEffect(() => {
-		setHeader(loadHeader(storageScope))
-	}, [storageScope])
+		setHeader(loadHeader(storageScope, organizationName))
+	}, [storageScope, organizationName])
 
 	useEffect(() => {
 		const parsed = initialWeek ? parseISO(initialWeek) : new Date()
@@ -231,6 +263,43 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 
 	const weekInputValue = weekStart ? format(weekStart, "yyyy-MM-dd") : ""
 
+	// Export .docx (Word): reaproveita os mesmos dados/ordem da grade do print.
+	// Import dinâmico — a lib `docx` é pesada e só carrega ao exportar.
+	const handleDownloadDocx = async () => {
+		if (isExporting) return
+		setIsExporting(true)
+		try {
+			const { downloadCardapioDocx } = await import("@/lib/cardapio-docx")
+			const columns = WEEKDAYS.map((d) => {
+				const date = dayDate(d.num)
+				return { label: d.label, date: date ? format(date, "dd/MM") : null }
+			})
+			const rows = orderedMealTypes.map((mt) => ({
+				meal: mt.name ?? "",
+				cells: WEEKDAYS.map((d) => (cellIndex.get(`${d.num}:${mt.id}`) ?? []).map((e) => ({ name: e.name, proportion: e.proportion }))),
+			}))
+			await downloadCardapioDocx(
+				{
+					organization: header.organization,
+					section: header.section,
+					title: header.title,
+					weekLabel,
+					signatures: header.signatures,
+					columns,
+					rows,
+					preparations: preparations.map((p) => ({ name: p.name, method: p.method })),
+				},
+				`${header.title} - ${template.name ?? "cardapio"}`
+			)
+		} catch (err) {
+			// biome-ignore lint/suspicious/noConsole: intentional — surface DOCX export failure
+			console.error("Falha ao gerar DOCX:", err)
+			toast.error("Não foi possível gerar o DOCX. Tente novamente.")
+		} finally {
+			setIsExporting(false)
+		}
+	}
+
 	return (
 		<div>
 			<style>{PRINT_CSS}</style>
@@ -266,6 +335,10 @@ export function WeeklyMenuPrint({ templateId, scope, initialWeek }: WeeklyMenuPr
 						onChange={(e) => handleWeekChange(e.target.value)}
 						className="h-9 rounded-none border border-input bg-background px-2 text-sm"
 					/>
+					<Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={isExporting}>
+						{isExporting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
+						Baixar DOCX
+					</Button>
 					<Button size="sm" onClick={() => window.print()}>
 						<Printer className="size-4 mr-2" />
 						Imprimir / Baixar PDF

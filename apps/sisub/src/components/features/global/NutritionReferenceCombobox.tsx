@@ -66,6 +66,22 @@ export function NutritionReferenceCombobox({ value, onChange }: NutritionReferen
 				<Command shouldFilter={false}>
 					<CommandInput placeholder="Buscar alimento, código ou grupo..." value={inputValue} onValueChange={setInputValue} />
 					<CommandList className="max-h-[340px]">
+						{/* Remover vínculo — sempre disponível quando há tabela vinculada, sem depender de busca. */}
+						{value && (
+							<CommandGroup>
+								<CommandItem
+									value="__CLEAR__"
+									onSelect={() => {
+										onChange(null)
+										setOpen(false)
+										setInputValue("")
+									}}
+								>
+									<span className="text-sm italic text-muted-foreground">Remover vínculo · usar dados manuais</span>
+								</CommandItem>
+							</CommandGroup>
+						)}
+
 						{inputValue.trim().length < 2 && <div className="py-6 text-center text-sm text-muted-foreground">Pesquise por nome, código ou grupo.</div>}
 
 						{inputValue.trim().length >= 2 && showLoading && (
@@ -81,17 +97,6 @@ export function NutritionReferenceCombobox({ value, onChange }: NutritionReferen
 								<CommandEmpty>Nenhum resultado para "{debouncedSearch}".</CommandEmpty>
 							) : (
 								<CommandGroup>
-									{value && (
-										<CommandItem
-											value="__CLEAR__"
-											onSelect={() => {
-												onChange(null)
-												setOpen(false)
-											}}
-										>
-											<span className="text-sm italic text-muted-foreground">Usar dados manuais</span>
-										</CommandItem>
-									)}
 									{(results as NutritionReferenceFoodSearchItem[]).map((item) => (
 										<CommandItem
 											key={item.food_revision_id}
