@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { generateRestrictedDates, inferDefaultMeal, MEAL_LABEL } from "./fiscal"
 
 describe("MEAL_LABEL", () => {
@@ -33,14 +33,28 @@ describe("inferDefaultMeal", () => {
 })
 
 describe("generateRestrictedDates", () => {
-	test("devolve ontem, hoje e amanhã em ISO (yyyy-mm-dd)", () => {
+	beforeEach(() => vi.useFakeTimers())
+	afterEach(() => vi.useRealTimers())
+
+	const localIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+
+	test("devolve ontem, hoje e amanhã na DATA LOCAL (sem vazar por fuso)", () => {
+		// Instante às 23:30 locais de 06/07: em fuso negativo (BRT) já é 07/07 em UTC.
+		// Se a fonte usasse toISOString (UTC), o slot 'hoje' viraria 07/07 — o que
+		// quebraria a data padrão da fiscalização durante o jantar/ceia.
+		vi.setSystemTime(new Date(2026, 6, 6, 23, 30))
+		const dates = generateRestrictedDates()
+
+		expect(dates).toEqual([localIso(new Date(2026, 6, 5)), localIso(new Date(2026, 6, 6)), localIso(new Date(2026, 6, 7))])
+		expect(dates[1]).toBe("2026-07-06") // 'hoje' local, não o dia seguinte em UTC
+	})
+
+	test("mantém o formato yyyy-mm-dd e três dias consecutivos", () => {
+		vi.setSystemTime(new Date(2026, 0, 1, 8, 0))
 		const dates = generateRestrictedDates()
 		expect(dates).toHaveLength(3)
 		for (const d of dates) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-		// ordenadas cronologicamente e consecutivas
-		const [prev, today, next] = dates.map((d) => new Date(`${d}T00:00:00Z`).getTime())
-		const DAY = 86_400_000
-		expect(today - prev).toBe(DAY)
-		expect(next - today).toBe(DAY)
+		// vira a virada de ano corretamente (31/12 → 01/01 → 02/01)
+		expect(dates).toEqual(["2025-12-31", "2026-01-01", "2026-01-02"])
 	})
 })

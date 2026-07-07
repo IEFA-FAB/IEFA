@@ -94,7 +94,10 @@ describe("autoSelectPrice", () => {
 		const r = autoSelectPrice([priceResult(10), priceResult(11), priceResult(12), priceResult(13), priceResult(100), priceResult(null)])
 		expect(r?.validSamples).toHaveLength(5) // 10,11,12,13 e o nulo
 		expect(r?.outlierSamples).toHaveLength(1) // 100
-		expect(r?.rawCount).toBe(5) // nulos não contam como amostra de preço
+		// rawCount = preços não-nulos (10,11,12,13,100); validCount exclui o outlier 100
+		expect(r?.rawCount).toBe(5)
+		expect(r?.validCount).toBe(4)
+		expect(r?.outlierCount).toBe(1)
 	})
 
 	test("uniqueSources conta UASGs distintas e ignora nulos", () => {
