@@ -54,7 +54,7 @@ export interface AuthScreenProps {
 		signUp: (email: string, password: string, name: string) => Promise<void>
 		resetPassword: (email: string) => Promise<void>
 		updateUserPassword: (password: string) => Promise<{ error: Error | null }>
-		verifyOtp: (token_hash: string, type: "email") => Promise<{ error: Error | null }>
+		verifyOtp: (token_hash: string, type: "email" | "recovery") => Promise<{ error: Error | null }>
 	}
 }
 
@@ -356,11 +356,14 @@ export function AuthScreen({ isLoading, isAuthenticated, searchParams, onNavigat
 	const verifiedTokenRef = useRef<string | null>(null)
 	useEffect(() => {
 		// currentView === "reset" ≡ !!searchParams.token_hash — o link do e-mail traz o token.
+		// resetPasswordForEmail gera links com type=recovery; a confirmação de cadastro,
+		// type=email. Encaminhamos o tipo real para o verifyOtp em ambos os casos.
 		const tokenHash = searchParams.token_hash
-		if (tokenHash && searchParams.type === "email" && verifiedTokenRef.current !== tokenHash) {
+		const otpType = searchParams.type
+		if (tokenHash && (otpType === "email" || otpType === "recovery") && verifiedTokenRef.current !== tokenHash) {
 			verifiedTokenRef.current = tokenHash
 			const verify = async () => {
-				const { error: otpError } = await actions.verifyOtp(tokenHash, "email")
+				const { error: otpError } = await actions.verifyOtp(tokenHash, otpType)
 				if (otpError) setError("Link inválido ou expirado. Solicite uma nova recuperação.")
 			}
 			verify()

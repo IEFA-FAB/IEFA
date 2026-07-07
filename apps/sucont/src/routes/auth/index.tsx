@@ -45,7 +45,7 @@ function AuthPage() {
 				const { error } = await supabase.auth.updateUser({ password })
 				return { error: error ? new Error(error.message) : null }
 			},
-			verifyOtp: async (token_hash: string, type: "email") => {
+			verifyOtp: async (token_hash: string, type: "email" | "recovery") => {
 				const { error } = await supabase.auth.verifyOtp({ token_hash, type })
 				return { error: error ? new Error(error.message) : null }
 			},
