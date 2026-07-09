@@ -84,6 +84,7 @@ function BoardPage() {
 							size={1100}
 							selected={highlightedState ?? null}
 							markers={markers}
+							editionName={editionName}
 							mapColor="#e2e8f0"
 							strokeColor="#0b1226"
 							strokeWidth={0.6}
@@ -98,7 +99,7 @@ function BoardPage() {
 				</div>
 			</div>
 
-			{featured && <PersonCard cardData={featured} />}
+			{featured && <PersonCard cardData={featured} editionName={editionName} />}
 		</div>
 	)
 }
