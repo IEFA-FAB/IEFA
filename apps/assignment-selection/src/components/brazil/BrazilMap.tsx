@@ -11,6 +11,8 @@ export interface BrazilMapProps {
 	selected?: string | null
 	/** Militares já confirmados, agrupados por estado. */
 	markers?: StateMarker[]
+	/** Edição ativa (ano) — segmento da pasta das fotos (/pessoas/{ano}/…). */
+	editionName: string
 	size?: number
 	mapColor?: string
 	strokeColor?: string
@@ -48,6 +50,7 @@ const CENTROID_OFFSETS: Record<string, { dx: number; dy: number }> = {
 export function BrazilMap({
 	selected = null,
 	markers = [],
+	editionName,
 	size = constants.WIDTH,
 	mapColor = constants.MAPCOLOR,
 	strokeColor = constants.STROKE_COLOR,
@@ -133,7 +136,7 @@ export function BrazilMap({
 									</clipPath>
 									<circle cx={x} cy={y} r={AVATAR_R + 1.6} fill="#0b1226" stroke="none" />
 									<image
-										href={`/pessoas/${p.classificacao}.jpg`}
+										href={`/pessoas/${encodeURIComponent(editionName)}/${p.classificacao}.jpg`}
 										x={x - AVATAR_R}
 										y={y - AVATAR_R}
 										width={AVATAR_R * 2}

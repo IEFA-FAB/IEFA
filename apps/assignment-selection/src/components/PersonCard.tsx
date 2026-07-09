@@ -37,10 +37,11 @@ ImageWithFallback.displayName = "ImageWithFallback"
 
 /**
  * Card em destaque do militar da vez (overlay full-screen no painel).
- * Foto por classificação e brasão da OM servidos de /public.
+ * Foto por edição+classificação (/pessoas/{ano}/{classificacao}.jpg) e brasão da
+ * OM servidos de /public.
  */
-export const PersonCard = memo(({ cardData }: { cardData: Person }) => {
-	const personImageUrl = `/pessoas/${cardData.classificacao}.jpg`
+export const PersonCard = memo(({ cardData, editionName }: { cardData: Person; editionName: string }) => {
+	const personImageUrl = `/pessoas/${encodeURIComponent(editionName)}/${cardData.classificacao}.jpg`
 	const omImageUrl = cardData.localidade ? `/dom/${encodeURIComponent(cardData.localidade)}.png` : ""
 
 	return (
