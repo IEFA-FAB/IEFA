@@ -11,7 +11,14 @@
  *     desfaz tudo (soft-delete dos menus existentes incluso).
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, menuTemplateInKitchen, menuTemplateItemsInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import {
+	dailyMenuInKitchen,
+	menuItemsInKitchen,
+	menuTemplateInKitchen,
+	menuTemplateItemsInKitchen,
+	menuTemplateMealInKitchen,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
 import type { MealType, MenuTemplate, MenuTemplateItem, Recipe } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
@@ -26,6 +33,7 @@ import type {
 	ListTemplates,
 	RestoreTemplate,
 	TemplateItem,
+	TemplateMeal,
 	UpdateTemplate,
 } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
@@ -35,8 +43,18 @@ import { runQuery, toWire } from "../utils/index.ts"
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
 type TemplateItemFull = MenuTemplateItem & { meal_type: MealType | null; recipe_origin: Recipe | null }
+// Efetivo base por (dia + refeição) — grão natural do efetivo; item.headcount_override é exceção.
+// Tipo derivado à mão (a tabela ainda não existe nos tipos gerados do Supabase até db:types).
+type TemplateMealWire = {
+	id: string
+	menu_template_id: string | null
+	day_of_week: number
+	meal_type_id: string
+	base_headcount: number | null
+	created_at: string
+}
 // Linha completa do template (o consumidor MenuTemplateWithItems espera todas as colunas, não um subset).
-type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[] }
+type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[]; meals: TemplateMealWire[] }
 type TemplateWithCounts = MenuTemplate & {
 	item_count: number
 	recipe_count: number
@@ -50,6 +68,7 @@ type TemplateWithCounts = MenuTemplate & {
  */
 const TEMPLATE_RELATIONS: Record<string, string> = {
 	menuTemplateItemsInKitchens: "items",
+	menuTemplateMealsInKitchens: "meals",
 	mealTypeInKitchen: "meal_type",
 	recipesInKitchen: "recipe_origin",
 }
@@ -63,6 +82,7 @@ function compareTemplateItems(a: TemplateItemFull, b: TemplateItemFull): number 
 // Itens completos (com meal_type + recipe_origin aninhados) — para getTemplate/getTemplateItems.
 const WITH_ITEMS_FULL = {
 	menuTemplateItemsInKitchens: { with: { mealTypeInKitchen: true, recipesInKitchen: true } },
+	menuTemplateMealsInKitchens: true,
 } as const
 
 // ── List helpers ──
@@ -178,6 +198,15 @@ function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (type
 	}))
 }
 
+function buildTemplateMealRows(templateId: string, meals: TemplateMeal[]): (typeof menuTemplateMealInKitchen.$inferInsert)[] {
+	return meals.map((meal) => ({
+		menuTemplateId: templateId,
+		dayOfWeek: meal.dayOfWeek,
+		mealTypeId: meal.mealTypeId,
+		baseHeadcount: meal.baseHeadcount,
+	}))
+}
+
 export async function createTemplate(db: SisubDb, ctx: UserContext, input: CreateTemplate): Promise<MenuTemplate> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 2, input.kitchenId)
@@ -186,6 +215,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 	}
 
 	const items = input.items ?? []
+	const meals = input.meals ?? []
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -206,6 +236,14 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 				tx
 					.insert(menuTemplateItemsInKitchen)
 					.values(buildTemplateItemRows(newTemplate.id, items))
+					.then(() => undefined)
+			)
+		}
+		if (meals.length > 0) {
+			await runQuery("INSERT_MEALS_FAILED", () =>
+				tx
+					.insert(menuTemplateMealInKitchen)
+					.values(buildTemplateMealRows(newTemplate.id, meals))
 					.then(() => undefined)
 			)
 		}
@@ -246,6 +284,9 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				menuTemplateItemsInKitchens: {
 					columns: { dayOfWeek: true, mealTypeId: true, recipeId: true, itemGroup: true, sortOrder: true, recommendedProportion: true },
 				},
+				menuTemplateMealsInKitchens: {
+					columns: { dayOfWeek: true, mealTypeId: true, baseHeadcount: true },
+				},
 			},
 			where: eq(menuTemplateInKitchen.id, input.sourceTemplateId),
 		})
@@ -269,6 +310,7 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	}
 
 	const sourceItems = source.menuTemplateItemsInKitchens
+	const sourceMeals = source.menuTemplateMealsInKitchens
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -299,6 +341,21 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				tx
 					.insert(menuTemplateItemsInKitchen)
 					.values(forkedItems)
+					.then(() => undefined)
+			)
+		}
+
+		if (sourceMeals.length > 0) {
+			const forkedMeals = sourceMeals.map((meal) => ({
+				menuTemplateId: newTemplate.id,
+				dayOfWeek: meal.dayOfWeek,
+				mealTypeId: meal.mealTypeId,
+				baseHeadcount: meal.baseHeadcount,
+			}))
+			await runQuery("INSERT_MEALS_FAILED", () =>
+				tx
+					.insert(menuTemplateMealInKitchen)
+					.values(forkedMeals)
 					.then(() => undefined)
 			)
 		}
@@ -342,6 +399,25 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 					tx
 						.insert(menuTemplateItemsInKitchen)
 						.values(buildTemplateItemRows(input.templateId, newItems))
+						.then(() => undefined)
+				)
+			}
+		}
+
+		// Substituição destrutiva do efetivo base por refeição, se fornecido.
+		const newMeals = input.meals
+		if (newMeals !== undefined) {
+			await runQuery("DELETE_MEALS_FAILED", () =>
+				tx
+					.delete(menuTemplateMealInKitchen)
+					.where(eq(menuTemplateMealInKitchen.menuTemplateId, input.templateId))
+					.then(() => undefined)
+			)
+			if (newMeals.length > 0) {
+				await runQuery("INSERT_MEALS_FAILED", () =>
+					tx
+						.insert(menuTemplateMealInKitchen)
+						.values(buildTemplateMealRows(input.templateId, newMeals))
 						.then(() => undefined)
 				)
 			}
@@ -416,6 +492,18 @@ export async function applyTemplate(
 		})
 	)
 
+	// Efetivo base por (dia + refeição) — grão natural do efetivo. É a fonte primária do
+	// forecasted_headcount na materialização; o headcount_override do item é só exceção.
+	const templateMeals = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateMealInKitchen.findMany({
+			where: eq(menuTemplateMealInKitchen.menuTemplateId, input.templateId),
+		})
+	)
+	const baseByCell = new Map<string, number>()
+	for (const meal of templateMeals) {
+		if (meal.baseHeadcount != null) baseByCell.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
+	}
+
 	// Intervalo de datas (YYYY-MM-DD). Iteração em UTC: as colunas são calendário puro
 	// (sem hora), então tratar a string como meia-noite UTC e avançar com setUTCDate torna
 	// o cálculo determinístico e independente do fuso do servidor. O bug antigo misturava
@@ -449,16 +537,18 @@ export async function applyTemplate(
 		}
 
 		for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
-			// Efetivo derivado do template (ponte aquisição→produção): média arredondada dos
-			// headcount_override preenchidos da refeição. O override é exceção por-item; na
-			// ausência de qualquer valor o efetivo fica nulo (planejador preenche no DayDrawer).
-			// Só conta itens COM receita (os que serão materializados); um item sem recipeId é
-			// descartado abaixo e não deve enviesar o efetivo da refeição.
+			// Efetivo da refeição (ponte aquisição→produção): usa o efetivo BASE do template
+			// (grão dia+refeição). Fallback para a média dos headcount_override preenchidos
+			// (templates legados sem base). Null quando nenhum dos dois existe → planejador
+			// preenche no DayDrawer. Só conta overrides de itens COM receita (os que serão
+			// materializados); um item sem recipeId é descartado abaixo e não deve enviesar.
+			const base = baseByCell.get(`${templateDay}:${mealTypeId}`) ?? null
 			const overrides = items
 				.filter((i) => i.recipeId != null)
 				.map((i) => i.headcountOverride)
 				.filter((h): h is number => h != null)
-			const mealForecast = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
+			const overrideAvg = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
+			const mealForecast = base ?? overrideAvg
 
 			const menuId = crypto.randomUUID()
 			const menuItemRows: (typeof menuItemsInKitchen.$inferInsert)[] = []

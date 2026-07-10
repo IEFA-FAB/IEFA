@@ -25,12 +25,21 @@ export const TemplateItemSchema = z.object({
 })
 export type TemplateItem = z.infer<typeof TemplateItemSchema>
 
+/** Efetivo base por (dia + refeição) do template. headcount_override do item é exceção. */
+export const TemplateMealSchema = z.object({
+	dayOfWeek: z.number().int().min(1).max(7),
+	mealTypeId: UuidSchema,
+	baseHeadcount: z.number().int().positive().nullable(),
+})
+export type TemplateMeal = z.infer<typeof TemplateMealSchema>
+
 export const CreateTemplateSchema = z.object({
 	name: z.string().min(1),
 	description: z.string().optional(),
 	kitchenId: KitchenIdSchema.nullable().optional(),
 	templateType: z.enum(["weekly", "event"]),
 	items: z.array(TemplateItemSchema).optional(),
+	meals: z.array(TemplateMealSchema).optional(),
 })
 export type CreateTemplate = z.infer<typeof CreateTemplateSchema>
 
@@ -56,6 +65,7 @@ export const UpdateTemplateSchema = z.object({
 	description: z.string().optional(),
 	templateType: z.enum(["weekly", "event"]).optional(),
 	items: z.array(TemplateItemSchema).optional(),
+	meals: z.array(TemplateMealSchema).optional(),
 })
 export type UpdateTemplate = z.infer<typeof UpdateTemplateSchema>
 

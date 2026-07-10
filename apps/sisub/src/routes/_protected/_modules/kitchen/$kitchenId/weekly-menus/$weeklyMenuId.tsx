@@ -18,7 +18,7 @@ import { useRecipes } from "@/hooks/data/useRecipes"
 import { useTemplate, useUpdateTemplate } from "@/hooks/data/useTemplates"
 import { cn } from "@/lib/cn"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
-import type { TemplateItemDraft } from "@/types/domain/planning"
+import type { TemplateItemDraft, TemplateMealDraft } from "@/types/domain/planning"
 
 const WEEKDAYS = [
 	{ num: 1, label: "Segunda-feira", abbr: "Seg" },
@@ -129,6 +129,7 @@ type WeeklyMenuEditorState = {
 	name: string
 	description: string
 	items: TemplateItemDraft[]
+	meals: TemplateMealDraft[]
 	initialized: boolean
 	activeTab: string
 	selectorOpen: boolean
@@ -139,6 +140,7 @@ type WeeklyMenuEditorAction =
 	| { type: "SET_NAME"; value: string }
 	| { type: "SET_DESCRIPTION"; value: string }
 	| { type: "SET_ITEMS"; value: TemplateItemDraft[] }
+	| { type: "SET_MEALS"; value: TemplateMealDraft[] }
 	| { type: "SET_INITIALIZED" }
 	| { type: "SET_ACTIVE_TAB"; value: string }
 	| { type: "SET_SELECTOR_OPEN"; value: boolean }
@@ -148,6 +150,7 @@ const initialWeeklyMenuEditorState: WeeklyMenuEditorState = {
 	name: "",
 	description: "",
 	items: [],
+	meals: [],
 	initialized: false,
 	activeTab: "overview",
 	selectorOpen: false,
@@ -162,6 +165,8 @@ function weeklyMenuEditorReducer(state: WeeklyMenuEditorState, action: WeeklyMen
 			return { ...state, description: action.value }
 		case "SET_ITEMS":
 			return { ...state, items: action.value }
+		case "SET_MEALS":
+			return { ...state, meals: action.value }
 		case "SET_INITIALIZED":
 			return { ...state, initialized: true }
 		case "SET_ACTIVE_TAB":
@@ -189,7 +194,7 @@ function WeeklyMenuEditorPage() {
 	const { mutate: autoSave } = useUpdateTemplate({ silent: true })
 
 	const [editorState, dispatch] = useReducer(weeklyMenuEditorReducer, initialWeeklyMenuEditorState)
-	const { name, description, items, initialized, activeTab, selectorOpen, selectedCell } = editorState
+	const { name, description, items, meals, initialized, activeTab, selectorOpen, selectedCell } = editorState
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 	const prevInitializedRef = useRef(false)
@@ -209,6 +214,14 @@ function WeeklyMenuEditorPage() {
 				item_group: (item.item_group as MenuItemGroup | null) ?? null,
 				sort_order: item.sort_order ?? 0,
 				recommended_proportion: item.recommended_proportion ?? null,
+			})),
+		})
+		dispatch({
+			type: "SET_MEALS",
+			value: (template.meals ?? []).map((m) => ({
+				day_of_week: m.day_of_week,
+				meal_type_id: m.meal_type_id,
+				base_headcount: m.base_headcount ?? null,
 			})),
 		})
 		dispatch({ type: "SET_INITIALIZED" })
@@ -238,6 +251,7 @@ function WeeklyMenuEditorPage() {
 						sort_order: i.sort_order ?? 0,
 						recommended_proportion: i.recommended_proportion ?? null,
 					})),
+					meals,
 				},
 				{
 					onSuccess: () => setSaveStatus("saved"),
@@ -248,7 +262,7 @@ function WeeklyMenuEditorPage() {
 		return () => {
 			if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
 		}
-	}, [name, description, items, initialized, autoSave, weeklyMenuId])
+	}, [name, description, items, meals, initialized, autoSave, weeklyMenuId])
 
 	/** Preparações de uma célula (dia + refeição) como BoardItem (grupo + ordem + proporção). */
 	const getCellBoardItems = (dayOfWeek: number, mealTypeId: string): BoardItem[] => {
@@ -290,6 +304,23 @@ function WeeklyMenuEditorPage() {
 				i.day_of_week === dayOfWeek && i.meal_type_id === mealTypeId && i.recipe_id === recipeId ? { ...i, recommended_proportion: value } : i
 			),
 		})
+	}
+
+	/** Efetivo base (comensais) da refeição de um dia. Grão natural do efetivo; o headcount
+	 * por-preparação abaixo é exceção. Só cria a linha quando há valor. */
+	const getMealBase = (dayOfWeek: number, mealTypeId: string): number | null =>
+		meals.find((m) => m.day_of_week === dayOfWeek && m.meal_type_id === mealTypeId)?.base_headcount ?? null
+
+	const handleMealBaseChange = (dayOfWeek: number, mealTypeId: string, value: number | null) => {
+		const exists = meals.some((m) => m.day_of_week === dayOfWeek && m.meal_type_id === mealTypeId)
+		if (exists) {
+			dispatch({
+				type: "SET_MEALS",
+				value: meals.map((m) => (m.day_of_week === dayOfWeek && m.meal_type_id === mealTypeId ? { ...m, base_headcount: value } : m)),
+			})
+		} else if (value !== null) {
+			dispatch({ type: "SET_MEALS", value: [...meals, { day_of_week: dayOfWeek, meal_type_id: mealTypeId, base_headcount: value }] })
+		}
 	}
 
 	/** Atualiza o headcount de uma preparação específica dentro de uma célula. */
@@ -359,6 +390,7 @@ function WeeklyMenuEditorPage() {
 					sort_order: i.sort_order ?? 0,
 					recommended_proportion: i.recommended_proportion ?? null,
 				})),
+				meals,
 			},
 			{
 				onSuccess: () => {
@@ -589,16 +621,32 @@ function WeeklyMenuEditorPage() {
 															</Badge>
 														)}
 													</div>
-													<Button
-														type="button"
-														size="sm"
-														variant="ghost"
-														className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
-														onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
-													>
-														<Plus className="size-3.5" />
-														Adicionar
-													</Button>
+													<div className="flex items-center gap-2">
+														<div
+															className="flex items-center gap-1"
+															title="Efetivo base previsto desta refeição (comensais). Passa para o cardápio do dia ao aplicar o template."
+														>
+															<Users className="size-3.5 text-muted-foreground" />
+															<Input
+																type="number"
+																min="1"
+																className="h-7 w-20 text-xs"
+																placeholder="efetivo"
+																value={getMealBase(day.num, mealType.id) ?? ""}
+																onChange={(e) => handleMealBaseChange(day.num, mealType.id, e.target.value ? Number.parseInt(e.target.value, 10) : null)}
+															/>
+														</div>
+														<Button
+															type="button"
+															size="sm"
+															variant="ghost"
+															className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground"
+															onClick={() => handleOpenSelector(day.num, mealType.id, "prato_principal")}
+														>
+															<Plus className="size-3.5" />
+															Adicionar
+														</Button>
+													</div>
 												</div>
 												<div className="p-3">
 													<MealGroupBoard
