@@ -452,7 +452,12 @@ export async function applyTemplate(
 			// Efetivo derivado do template (ponte aquisição→produção): média arredondada dos
 			// headcount_override preenchidos da refeição. O override é exceção por-item; na
 			// ausência de qualquer valor o efetivo fica nulo (planejador preenche no DayDrawer).
-			const overrides = items.map((i) => i.headcountOverride).filter((h): h is number => h != null)
+			// Só conta itens COM receita (os que serão materializados); um item sem recipeId é
+			// descartado abaixo e não deve enviesar o efetivo da refeição.
+			const overrides = items
+				.filter((i) => i.recipeId != null)
+				.map((i) => i.headcountOverride)
+				.filter((h): h is number => h != null)
 			const mealForecast = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
 
 			const menuId = crypto.randomUUID()
