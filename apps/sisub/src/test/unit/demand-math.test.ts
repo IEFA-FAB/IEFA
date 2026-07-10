@@ -24,6 +24,8 @@ describe("scaleIngredientQuantity", () => {
 		// Mesma demanda, N ocorrências: projeção da ATA (repetitions=N) == somar N datas (×1).
 		const ata = scaleIngredientQuantity(100, 400, 200, 4)
 		const daily = Array.from({ length: 4 }, () => scaleIngredientQuantity(100, 400, 200)).reduce((a, b) => a + b, 0)
-		expect(ata).toBe(daily)
+		// toBeCloseTo (não toBe): a fórmula é float; a ordem das multiplicações pode divergir
+		// no último bit para entradas fracionárias reais.
+		expect(ata).toBeCloseTo(daily, 10)
 	})
 })
