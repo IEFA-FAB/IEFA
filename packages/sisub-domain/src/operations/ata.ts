@@ -96,7 +96,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 				columns: { id: true, templateType: true },
 				with: {
 					menuTemplateItemsInKitchens: {
-						columns: { id: true, recipeId: true, headcountOverride: true },
+						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true },
 						with: {
 							recipesInKitchen: {
 								columns: { id: true, portionYield: true },
@@ -114,6 +114,9 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 							},
 						},
 					},
+					menuTemplateMealsInKitchens: {
+						columns: { dayOfWeek: true, mealTypeId: true, baseHeadcount: true },
+					},
 				},
 				where: inArray(menuTemplateInKitchen.id, uniqueTemplateIds),
 			}),
@@ -123,6 +126,17 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	if (templates.length === 0) return []
 
 	const templateMap = new Map(templates.map((t) => [t.id, t]))
+
+	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
+	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
+	const baseByTemplateCell = new Map<string, Map<string, number>>()
+	for (const t of templates) {
+		const cells = new Map<string, number>()
+		for (const meal of t.menuTemplateMealsInKitchens) {
+			if (meal.baseHeadcount != null) cells.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
+		}
+		baseByTemplateCell.set(t.id, cells)
+	}
 
 	type NeedAccumulator = {
 		ingredient: {
@@ -139,12 +153,15 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	for (const selection of allSelections) {
 		const template = templateMap.get(selection.templateId)
 		if (!template) continue
+		const baseByCell = baseByTemplateCell.get(selection.templateId)
 
 		for (const item of template.menuTemplateItemsInKitchens) {
 			const recipeData = item.recipesInKitchen
 			if (!recipeData) continue
 
-			const headcount = item.headcountOverride
+			// Exceção por-item (override) senão o efetivo base da refeição. Sem nenhum dos dois
+			// o item não tem efetivo dimensionável → não contribui para a compra.
+			const headcount = item.headcountOverride ?? baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null
 			if (!headcount) continue
 
 			const portionYield = Number(recipeData.portionYield ?? 0) || 1
