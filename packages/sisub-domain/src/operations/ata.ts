@@ -48,6 +48,7 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { scaleIngredientQuantity } from "./demand-math.ts"
 
 type ProcurementList = Tables<"procurement_list">
 type ProcurementListItem = Tables<"procurement_list_item">
@@ -164,8 +165,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 			const headcount = item.headcountOverride ?? baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null
 			if (!headcount) continue
 
-			const portionYield = Number(recipeData.portionYield ?? 0) || 1
-			const portionMultiplier = (headcount / portionYield) * selection.repetitions
+			const portionYield = Number(recipeData.portionYield ?? 0)
 
 			for (const ri of recipeData.recipeIngredientsInKitchens) {
 				const ingredientRaw = ri.ingredientInKitchen
@@ -179,7 +179,8 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 					folder: ingredientRaw.folderInKitchen ? { id: ingredientRaw.folderInKitchen.id, description: ingredientRaw.folderInKitchen.description } : null,
 				}
 
-				const quantityNeeded = Number(ri.netQuantity ?? 0) * portionMultiplier
+				// Aquisição: projeta o cardápio × repetições da seleção da ATA.
+				const quantityNeeded = scaleIngredientQuantity(Number(ri.netQuantity ?? 0), headcount, portionYield, selection.repetitions)
 
 				const existing = needsMap.get(ri.ingredientId)
 				if (existing) {

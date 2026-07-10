@@ -20,6 +20,7 @@ export {
 	fetchUserData,
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
+export { scaleIngredientQuantity } from "./demand-math.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,
