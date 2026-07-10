@@ -79,7 +79,7 @@ export function TrashDrawer({ open, onClose, kitchenId }: TrashDrawerProps) {
 															{format(new Date(item.daily_menu.service_date || new Date().toISOString()), "dd/MM/yyyy", {
 																locale: ptBR,
 															})}{" "}
-															· {item.planned_portion_quantity || 0}g
+															· {item.planned_portion_quantity || 0} comensais
 														</ItemDescription>
 														{item.deleted_at && (
 															<ItemDescription className="text-xs text-muted-foreground/70">
