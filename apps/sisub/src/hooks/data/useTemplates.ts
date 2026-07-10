@@ -165,7 +165,10 @@ export function useApplyTemplate() {
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
-			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} items criados.`)
+			// itemsSkipped é contado por ocorrência (data×refeição), não por slot único do template.
+			const skipped = result?.itemsSkipped ?? 0
+			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
+			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),
 	})
