@@ -768,7 +768,7 @@ function MonitoramentoPage() {
 														border: "none",
 														boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
 													}}
-													formatter={(value: number) => [value, "Ocorrências"]}
+													formatter={(value) => [Number(value), "Ocorrências"]}
 												/>
 												<Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
 											</BarChart>
@@ -795,7 +795,7 @@ function MonitoramentoPage() {
 														border: "none",
 														boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
 													}}
-													formatter={(value: number) => [value, "Ocorrências"]}
+													formatter={(value) => [Number(value), "Ocorrências"]}
 												/>
 												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
 											</PieChart>
@@ -916,10 +916,7 @@ function MonitoramentoPage() {
 												</Pie>
 												<Tooltip
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-													formatter={(value: number, _name: string, props: { payload: { percent: number } }) => [
-														`${value} (${props.payload.percent.toFixed(1)}%)`,
-														"Inconsistências",
-													]}
+													formatter={(value, _name, item) => [`${Number(value)} (${(Number(item?.payload?.percent) || 0).toFixed(1)}%)`, "Inconsistências"]}
 												/>
 												<Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
 											</PieChart>
@@ -941,7 +938,7 @@ function MonitoramentoPage() {
 												<Tooltip
 													cursor={{ fill: "#f1f5f9" }}
 													contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-													formatter={(value: number) => [value, "Inconsistências"]}
+													formatter={(value) => [Number(value), "Inconsistências"]}
 												/>
 												<Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
 											</BarChart>
