@@ -14,11 +14,11 @@ const config = defineConfig({
 		nitro({ rollupConfig: { external: [/^@sentry\//] } }),
 		tailwindcss(),
 		tanstackStart(),
-		viteReact({
-			babel: {
-				plugins: ["babel-plugin-react-compiler"],
-			},
-		}),
+		// @vitejs/plugin-react v6 (rolldown/oxc) no longer accepts a `babel` option.
+		// React Compiler would need `@rolldown/plugin-babel` + `@babel/core` wired via
+		// `reactCompilerPreset` (not installed here), so the previous `babel` block was
+		// already a no-op at runtime. Dropping it keeps behavior identical.
+		viteReact(),
 	],
 })
 

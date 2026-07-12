@@ -59,11 +59,13 @@ const getOdsColor = (ods: string) => {
 }
 
 // --- Shared Types ---
+// Mirrors recharts' label `content` render-prop props: coordinates arrive as
+// `string | number` (recharts' internal `Props`), so consumers must coerce.
 interface LabelListContentProps {
-	x?: number
-	y?: number
-	width?: number
-	value?: number | string
+	x?: string | number
+	y?: string | number
+	width?: string | number
+	value?: string | number | boolean | null
 }
 
 // --- Custom Tooltip ---
@@ -105,8 +107,10 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 		const pct = data.accumulatedPct
 		const icc = data.icc
 
-		const absDiff = Math.abs(siafi - siloms)
-		const pctDiff = siafi > 0 ? (absDiff / siafi) * 100 : 0
+		const siafiNum = siafi ?? 0
+		const silomsNum = siloms ?? 0
+		const absDiff = Math.abs(siafiNum - silomsNum)
+		const pctDiff = siafiNum > 0 ? (absDiff / siafiNum) * 100 : 0
 
 		const displayName = data.name && data.name !== "N/A" ? data.name : data.ug && data.ug !== "N/A" ? data.ug : label
 
@@ -148,7 +152,7 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 							<div className="w-2 h-2 rounded-sm bg-[#dc2626] shadow-[0_0_8px_rgba(220,38,38,0.3)]"></div>
 							<span className={`text-[11px] font-bold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Diferença Total:</span>
 						</div>
-						<span className={`text-xs font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>{formatCurrency(diff)}</span>
+						<span className={`text-xs font-bold font-mono ${isDarkMode ? "text-red-400" : "text-red-600"}`}>{formatCurrency(diff ?? 0)}</span>
 					</div>
 
 					{data.bmpDiff !== undefined && (
@@ -166,7 +170,7 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 									<span className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-slate-500" : "text-slate-500"}`}>Consumo</span>
 								</div>
 								<span className={`text-[10px] font-mono font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
-									{formatCurrency(data.consumoDiff)}
+									{formatCurrency(data.consumoDiff ?? 0)}
 								</span>
 							</div>
 							<div className="flex items-center justify-between">
@@ -175,7 +179,7 @@ const CustomDetailedTooltip = ({ active, payload, label, isDarkMode, viewMode: _
 									<span className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-slate-500" : "text-slate-500"}`}>Intangível</span>
 								</div>
 								<span className={`text-[10px] font-mono font-bold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
-									{formatCurrency(data.intangivelDiff)}
+									{formatCurrency(data.intangivelDiff ?? 0)}
 								</span>
 							</div>
 						</div>
@@ -425,7 +429,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 		return (
 			<g transform={`translate(${x},${y})`}>
 				<text x={0} y={0} dy={24} textAnchor="end" fill={isDarkMode ? "#94a3b8" : "#64748b"} fontSize={11} fontWeight="bold" transform="rotate(-45)">
-					{payload.value} {emoji}
+					{payload?.value} {emoji}
 				</text>
 			</g>
 		)
@@ -486,7 +490,7 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 						>
 							{name}
 						</span>
-						{width > 40 && height > 20 && (
+						{(width ?? 0) > 40 && (height ?? 0) > 20 && (
 							<span className="text-[9px] font-mono font-black tracking-tight" style={{ color: textColor, textShadow }}>
 								{formatCompactNumber(diff || 0)}
 							</span>
@@ -667,10 +671,13 @@ export const ComparisonChart: React.FC<ChartProps> = ({ data, isDarkMode, isExpa
 										angle={-90}
 										offset={20}
 										content={(props: LabelListContentProps) => {
-											const { x, y, width, value } = props
-											if (value === undefined || value === null || value === 0) return null
-											const formattedValue = formatCompactNumber(value)
-											if (!isExpanded && width < 20) return null
+											const { value } = props
+											const x = Number(props.x ?? 0)
+											const y = Number(props.y ?? 0)
+											const width = Number(props.width ?? 0)
+											if (value === undefined || value === null || value === 0) return <g />
+											const formattedValue = formatCompactNumber(Number(value))
+											if (!isExpanded && width < 20) return <g />
 
 											return (
 												<g transform={`translate(${x + width / 2},${y - 20})`}>
@@ -902,7 +909,9 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 							<span className={`text-[11px] font-bold uppercase ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}>
 								ICC Atual ({timeSeries[brushRange.end].axisLabel}):
 							</span>
-							<span className={`text-lg font-black ${isDarkMode ? "text-emerald-300" : "text-emerald-800"}`}>{timeSeries[brushRange.end].icc.toFixed(1)}%</span>
+							<span className={`text-lg font-black ${isDarkMode ? "text-emerald-300" : "text-emerald-800"}`}>
+								{(timeSeries[brushRange.end].icc ?? 0).toFixed(1)}%
+							</span>
 						</div>
 					)}
 				</div>
@@ -965,8 +974,11 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 									angle={-90}
 									offset={15}
 									content={(props: LabelListContentProps) => {
-										const { x, y, width, value } = props
-										if (value === undefined || value === null) return null
+										const { value } = props
+										const x = Number(props.x ?? 0)
+										const y = Number(props.y ?? 0)
+										const width = Number(props.width ?? 0)
+										if (value === undefined || value === null) return <g />
 										return (
 											<g transform={`translate(${x + width / 2},${y - 15})`}>
 												<rect x="-11" y="-65" width="22" height="70" fill={isDarkMode ? "#0f172a" : "#f8fafc"} fillOpacity={0.9} rx="4" />
@@ -980,7 +992,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 													fontWeight="bold"
 													transform="rotate(-90)"
 												>
-													{formatCompactNumber(value)}
+													{formatCompactNumber(Number(value))}
 												</text>
 											</g>
 										)
@@ -994,8 +1006,11 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 									angle={-90}
 									offset={15}
 									content={(props: LabelListContentProps) => {
-										const { x, y, width, value } = props
-										if (value === undefined || value === null) return null
+										const { value } = props
+										const x = Number(props.x ?? 0)
+										const y = Number(props.y ?? 0)
+										const width = Number(props.width ?? 0)
+										if (value === undefined || value === null) return <g />
 										return (
 											<g transform={`translate(${x + width / 2},${y - 15})`}>
 												<rect x="-11" y="-65" width="22" height="70" fill={isDarkMode ? "#0f172a" : "#f8fafc"} fillOpacity={0.9} rx="4" />
@@ -1009,7 +1024,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 													fontWeight="bold"
 													transform="rotate(-90)"
 												>
-													{formatCompactNumber(value)}
+													{formatCompactNumber(Number(value))}
 												</text>
 											</g>
 										)
@@ -1155,7 +1170,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										dataKey="icc"
 										position="top"
 										offset={20}
-										formatter={(val: number) => `${val.toFixed(1)}%`}
+										formatter={(val) => `${Number(val).toFixed(1)}%`}
 										style={{
 											fontSize: "16px",
 											fontWeight: "900",
@@ -1186,7 +1201,7 @@ export const EvolutionChart: React.FC<ChartProps> = ({ data, isDarkMode, selecte
 										dataKey="totalDiff"
 										position="top"
 										offset={15}
-										formatter={(val: number) => formatCompactNumber(val)}
+										formatter={(val) => formatCompactNumber(Number(val))}
 										style={{
 											fontSize: "14px",
 											fontWeight: "bold",

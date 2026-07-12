@@ -53,12 +53,11 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 			{
 				id: "welcome",
 				role: "assistant",
-				content:
-					'Olá! Sou o Assistente de Análise do Analista SUCONT. Posso ajudar a interpretar os dados contábeis, identificar padrões ou responder perguntas como "Qual ODS tem mais inconsistências?". Como posso ajudar hoje?',
 				parts: [
 					{
 						type: "text",
-						text: 'Olá! Sou o Assistente de Análise do Analista SUCONT. Posso ajudar a interpretar os dados contábeis, identificar padrões ou responder perguntas como "Qual ODS tem mais inconsistências?". Como posso ajudar hoje?',
+						content:
+							'Olá! Sou o Assistente de Análise do Analista SUCONT. Posso ajudar a interpretar os dados contábeis, identificar padrões ou responder perguntas como "Qual ODS tem mais inconsistências?". Como posso ajudar hoje?',
 					},
 				],
 			},
@@ -127,7 +126,8 @@ export function AIAssistant({ dataContext }: AIAssistantProps) {
 						{/* Messages */}
 						<div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
 							{messages.map((msg) => {
-								const text = msg.parts?.find((p) => p.type === "text")?.text ?? msg.content ?? ""
+								const textPart = msg.parts?.find((p) => p.type === "text")
+								const text = textPart?.content ?? ""
 								return (
 									<div key={msg.id} className={cn("flex gap-3 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto")}>
 										<div
