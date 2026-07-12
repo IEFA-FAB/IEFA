@@ -49,6 +49,7 @@ import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
 import { scaleIngredientQuantity } from "./demand-math.ts"
+import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 type ProcurementList = Tables<"procurement_list">
 type ProcurementListItem = Tables<"procurement_list_item">
@@ -115,9 +116,6 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 							},
 						},
 					},
-					menuTemplateMealsInKitchens: {
-						columns: { dayOfWeek: true, mealTypeId: true, baseHeadcount: true },
-					},
 				},
 				where: inArray(menuTemplateInKitchen.id, uniqueTemplateIds),
 			}),
@@ -130,10 +128,12 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 
 	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
 	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
+	// Lido à parte, tolerante à tabela ausente (migração pendente → base vazia, sem quebrar a ATA).
+	const mealsByTemplate = await fetchTemplateMealsSafe(db, uniqueTemplateIds)
 	const baseByTemplateCell = new Map<string, Map<string, number>>()
 	for (const t of templates) {
 		const cells = new Map<string, number>()
-		for (const meal of t.menuTemplateMealsInKitchens) {
+		for (const meal of mealsByTemplate.get(t.id) ?? []) {
 			if (meal.baseHeadcount != null) cells.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
 		}
 		baseByTemplateCell.set(t.id, cells)

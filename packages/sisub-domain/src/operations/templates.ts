@@ -19,7 +19,7 @@ import {
 	menuTemplateMealInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
-import type { MealType, MenuTemplate, MenuTemplateItem, Recipe } from "@iefa/database/sisub"
+import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
@@ -39,22 +39,14 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
+import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
 type TemplateItemFull = MenuTemplateItem & { meal_type: MealType | null; recipe_origin: Recipe | null }
-// Efetivo base por (dia + refeição) — grão natural do efetivo; item.headcount_override é exceção.
-// Tipo derivado à mão (a tabela ainda não existe nos tipos gerados do Supabase até db:types).
-type TemplateMealWire = {
-	id: string
-	menu_template_id: string | null
-	day_of_week: number
-	meal_type_id: string
-	base_headcount: number | null
-	created_at: string
-}
 // Linha completa do template (o consumidor MenuTemplateWithItems espera todas as colunas, não um subset).
-type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[]; meals: TemplateMealWire[] }
+// meals = efetivo base por (dia + refeição); grão natural do efetivo (item.headcount_override é exceção).
+type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[]; meals: MenuTemplateMeal[] }
 type TemplateWithCounts = MenuTemplate & {
 	item_count: number
 	recipe_count: number
@@ -80,9 +72,11 @@ function compareTemplateItems(a: TemplateItemFull, b: TemplateItemFull): number 
 }
 
 // Itens completos (com meal_type + recipe_origin aninhados) — para getTemplate/getTemplateItems.
+// O efetivo base (menu_template_meal) NÃO entra aqui de propósito: é lido à parte, tolerante à
+// tabela ausente (fetchTemplateMealsSafe), para não derrubar a leitura do template na janela de
+// migração.
 const WITH_ITEMS_FULL = {
 	menuTemplateItemsInKitchens: { with: { mealTypeInKitchen: true, recipesInKitchen: true } },
-	menuTemplateMealsInKitchens: true,
 } as const
 
 // ── List helpers ──
@@ -159,7 +153,10 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
 	const items = [...wire.items].sort(compareTemplateItems)
-	return { ...wire, items }
+	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
+	const mealRows = (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
+	const meals = mealRows.map((m) => toWire<MenuTemplateMeal>(m))
+	return { ...wire, items, meals }
 }
 
 export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateItemFull[]> {
@@ -284,9 +281,6 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 				menuTemplateItemsInKitchens: {
 					columns: { dayOfWeek: true, mealTypeId: true, recipeId: true, itemGroup: true, sortOrder: true, recommendedProportion: true },
 				},
-				menuTemplateMealsInKitchens: {
-					columns: { dayOfWeek: true, mealTypeId: true, baseHeadcount: true },
-				},
 			},
 			where: eq(menuTemplateInKitchen.id, input.sourceTemplateId),
 		})
@@ -310,7 +304,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	}
 
 	const sourceItems = source.menuTemplateItemsInKitchens
-	const sourceMeals = source.menuTemplateMealsInKitchens
+	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
+	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -494,11 +489,8 @@ export async function applyTemplate(
 
 	// Efetivo base por (dia + refeição) — grão natural do efetivo. É a fonte primária do
 	// forecasted_headcount na materialização; o headcount_override do item é só exceção.
-	const templateMeals = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateMealInKitchen.findMany({
-			where: eq(menuTemplateMealInKitchen.menuTemplateId, input.templateId),
-		})
-	)
+	// Tolerante à tabela ausente (migração pendente): sem base → cai no fallback de overrides.
+	const templateMeals = (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
 	const baseByCell = new Map<string, number>()
 	for (const meal of templateMeals) {
 		if (meal.baseHeadcount != null) baseByCell.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
