@@ -56,4 +56,4 @@
 - [~] 7.3 `check`: `@iefa/sisub`/`@iefa/database`/`@iefa/sisub-domain` verdes (0 erros). `sucont` falha por drift pré-existente de recharts/AI SDK (não tocado nesta mudança)
 - [x] 7.4 `bunx vitest run` (sisub) — 168 passed, 0 falhas (109 integração pulados sem DB)
 - [x] 7.5 `react-doctor --scope changed` — "No issues found", 88/100
-- [ ] 7.6 Abrir PR (aguardando confirmação p/ push — trabalho sempre por PR, nunca direto na main)
+- [x] 7.6 PR #94 aberto (base main), com pendências de merge documentadas (migration+db:types; sucont drift à parte)
