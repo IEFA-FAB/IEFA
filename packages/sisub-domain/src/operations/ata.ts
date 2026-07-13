@@ -18,6 +18,7 @@
  */
 
 import {
+	kitchenInCore,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	procurementListInProcurement,
@@ -29,6 +30,7 @@ import {
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
 	purchaseItemIngredientInProcurement,
+	recipeIngredientsInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
@@ -445,10 +447,14 @@ export async function saveAtaDraftItems(
 
 type ResearchLink = { ingredientId: string; researchId: string; researchItemId: string }
 
-/** Chave de negócio de um item para reconciliar pesquisa de preço: CATMAT tem prioridade, ingrediente é fallback. */
+/**
+ * Chave de negócio de um item para reconciliar pesquisa de preço.
+ * Ingrediente tem prioridade (identidade real do item, única por ATA); CATMAT é só fallback
+ * para itens sem ingrediente — evita remapear pesquisa entre ingredientes que compartilham CATMAT.
+ */
 function itemBusinessKey(catmat: number | null | undefined, ingredientId: string | null | undefined): string | null {
-	if (catmat != null) return `c:${catmat}`
 	if (ingredientId) return `i:${ingredientId}`
+	if (catmat != null) return `c:${catmat}`
 	return null
 }
 
@@ -763,16 +769,34 @@ async function computeAtaMeta(db: SisubDb, status: string, listId: string, kitch
 	if (status === "draft" && lastComputedAt) {
 		const templateIds = [...new Set(kitchens.flatMap((k) => k.procurementListSelectionInProcurements.map((s) => s.templateId)))]
 		if (templateIds.length > 0) {
-			const edits = await runQuery(
+			// Sinal 1: edição da composição do cardápio/evento (updateTemplate faz delete-all + reinsert dos itens,
+			// então created_at reflete headcount_override, receita escolhida, grupo etc.).
+			const templateEdits = await runQuery(
 				"QUERY_FAILED",
 				() =>
 					db
-						.select({ createdAt: menuTemplateItemsInKitchen.createdAt })
+						.select({ createdAt: menuTemplateItemsInKitchen.createdAt, recipeId: menuTemplateItemsInKitchen.recipeId })
 						.from(menuTemplateItemsInKitchen)
 						.where(inArray(menuTemplateItemsInKitchen.menuTemplateId, templateIds)),
 				{ prefix: "Erro ao verificar defasagem" }
 			)
-			const lastEdit = maxDate(edits.map((e) => e.createdAt))
+			let lastEdit = maxDate(templateEdits.map((e) => e.createdAt))
+
+			// Sinal 2: edição do conteúdo das receitas referenciadas (recipe_ingredients reinseridos → created_at novo).
+			const recipeIds = [...new Set(templateEdits.map((e) => e.recipeId).filter((id): id is string => !!id))]
+			if (recipeIds.length > 0) {
+				const recipeEdits = await runQuery(
+					"QUERY_FAILED",
+					() =>
+						db
+							.select({ createdAt: recipeIngredientsInKitchen.createdAt })
+							.from(recipeIngredientsInKitchen)
+							.where(inArray(recipeIngredientsInKitchen.recipeId, recipeIds)),
+					{ prefix: "Erro ao verificar defasagem" }
+				)
+				lastEdit = maxDate([lastEdit, ...recipeEdits.map((e) => e.createdAt)])
+			}
+
 			isStale = !!lastEdit && lastEdit > lastComputedAt
 		}
 	}
@@ -854,18 +878,20 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 	await tx.delete(procurementListSnapshotSelectionInProcurement).where(eq(procurementListSnapshotSelectionInProcurement.listId, listId))
 	await tx.delete(procurementListSnapshotComponentInProcurement).where(eq(procurementListSnapshotComponentInProcurement.listId, listId))
 
-	// Seleções resolvidas (nome/tipo do cardápio congelados).
+	// Seleções resolvidas (nome/tipo do cardápio + nome da cozinha congelados).
 	const selections = await tx
 		.select({
 			originTemplateId: procurementListSelectionInProcurement.templateId,
 			templateName: menuTemplateInKitchen.name,
 			templateType: menuTemplateInKitchen.templateType,
 			kitchenId: procurementListKitchenInProcurement.kitchenId,
+			kitchenName: kitchenInCore.displayName,
 			repetitions: procurementListSelectionInProcurement.repetitions,
 		})
 		.from(procurementListSelectionInProcurement)
 		.innerJoin(procurementListKitchenInProcurement, eq(procurementListSelectionInProcurement.listKitchenId, procurementListKitchenInProcurement.id))
 		.leftJoin(menuTemplateInKitchen, eq(procurementListSelectionInProcurement.templateId, menuTemplateInKitchen.id))
+		.leftJoin(kitchenInCore, eq(procurementListKitchenInProcurement.kitchenId, kitchenInCore.id))
 		.where(eq(procurementListKitchenInProcurement.listId, listId))
 
 	if (selections.length > 0) {
@@ -876,6 +902,7 @@ async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
 				templateName: s.templateName,
 				templateType: s.templateType,
 				kitchenId: s.kitchenId,
+				kitchenName: s.kitchenName,
 				repetitions: s.repetitions,
 				snapshotSource: "native",
 			}))
@@ -934,7 +961,8 @@ export async function updateAtaStatus(db: SisubDb, _ctx: UserContext, input: Upd
 			{ prefix: "Erro ao atualizar status" }
 		)
 
-		if (input.status === "published") {
+		// Congela o snapshot ao sair do rascunho (publicar OU arquivar direto). Idempotente em republicação.
+		if (input.status !== "draft") {
 			await buildAtaSnapshot(tx, input.ataId)
 		}
 	})
