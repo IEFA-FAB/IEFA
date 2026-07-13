@@ -136,6 +136,29 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(list.find((t) => t.id === weekly.id)?.monthly_headcount_total).toBeNull()
 	})
 
+	test("updateTemplate limpa description e expected_monthly_occurrences quando null", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId } = await base()
+
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Limpar "),
+			description: "descrição inicial",
+			kitchenId,
+			templateType: "exception",
+			expectedMonthlyOccurrences: 12,
+		})
+		trackTemplate(tpl.id)
+		expect(tpl.description).toBe("descrição inicial")
+		expect(tpl.expected_monthly_occurrences).toBe(12)
+
+		// null = limpar (não deve ser tratado como undefined/"não mexe")
+		await updateTemplate(db, ctx, { templateId: tpl.id, description: null, expectedMonthlyOccurrences: null })
+
+		const after = await getTemplate(db, ctx, { templateId: tpl.id })
+		expect(after.description).toBeNull()
+		expect(after.expected_monthly_occurrences).toBeNull()
+	})
+
 	test("getTemplate retorna itens ordenados por day_of_week; getTemplateItems idem", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, recipeId } = await base()

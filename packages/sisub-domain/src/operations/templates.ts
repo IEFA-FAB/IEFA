@@ -333,7 +333,8 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 
 	const updates: Partial<typeof menuTemplateInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
-	if (input.description != null) updates.description = input.description
+	// nullable: undefined = não mexe; null = limpa a descrição.
+	if (input.description !== undefined) updates.description = input.description
 	if (input.templateType != null) updates.templateType = input.templateType
 	// nullable: undefined = não mexe; null = limpa a recorrência.
 	if (input.expectedMonthlyOccurrences !== undefined) updates.expectedMonthlyOccurrences = input.expectedMonthlyOccurrences

@@ -109,9 +109,10 @@ export function useUpdateTemplate(options?: { silent?: boolean }) {
 				data: {
 					templateId: id,
 					name: updates.name ?? undefined,
-					description: updates.description ?? undefined,
+					// Preserva null (limpar) vs undefined (não mexer) — `?? undefined` apagaria o intent de limpar.
+					description: updates.description === undefined ? undefined : updates.description,
 					templateType: updates.template_type as "weekly" | "event" | "exception" | undefined,
-					expectedMonthlyOccurrences: updates.expected_monthly_occurrences ?? undefined,
+					expectedMonthlyOccurrences: updates.expected_monthly_occurrences === undefined ? undefined : updates.expected_monthly_occurrences,
 					items: items?.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",

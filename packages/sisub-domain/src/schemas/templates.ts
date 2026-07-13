@@ -62,7 +62,8 @@ export type ForkTemplate = z.infer<typeof ForkTemplateSchema>
 export const UpdateTemplateSchema = z.object({
 	templateId: UuidSchema,
 	name: z.string().min(1).optional(),
-	description: z.string().optional(),
+	// nullable: null limpa a descrição; undefined = não mexe.
+	description: z.string().nullable().optional(),
 	templateType: TemplateTypeSchema.optional(),
 	expectedMonthlyOccurrences: ExpectedMonthlyOccurrencesSchema.nullable().optional(),
 	items: z.array(TemplateItemSchema).optional(),
