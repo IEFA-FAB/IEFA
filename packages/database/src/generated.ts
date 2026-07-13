@@ -3603,6 +3603,7 @@ export type Database = {
 					kitchen_id: number | null
 					name: string | null
 					template_type: string
+					expected_monthly_occurrences: number | null
 				}
 				Insert: {
 					base_template_id?: string | null
@@ -3613,6 +3614,7 @@ export type Database = {
 					kitchen_id?: number | null
 					name?: string | null
 					template_type?: string
+					expected_monthly_occurrences?: number | null
 				}
 				Update: {
 					base_template_id?: string | null
@@ -3623,6 +3625,7 @@ export type Database = {
 					kitchen_id?: number | null
 					name?: string | null
 					template_type?: string
+					expected_monthly_occurrences?: number | null
 				}
 				Relationships: [
 					{

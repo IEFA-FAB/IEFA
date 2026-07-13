@@ -1485,6 +1485,7 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	baseTemplateId: uuid("base_template_id"),
 	templateType: text("template_type").default('weekly').notNull(),
+	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
 }, (table) => [
 	foreignKey({
 			columns: [table.baseTemplateId],
@@ -1496,7 +1497,8 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 			foreignColumns: [kitchenInCore.id],
 			name: "menu_template_kitchen_id_fkey"
 		}),
-	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text])`),
+	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
+	check("menu_template_expected_monthly_occurrences_check", sql`expected_monthly_occurrences IS NULL OR expected_monthly_occurrences > 0`),
 ]);
 
 export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {

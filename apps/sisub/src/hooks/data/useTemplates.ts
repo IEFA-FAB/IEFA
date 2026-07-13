@@ -80,7 +80,8 @@ export function useCreateTemplate() {
 					name: template.name ?? "",
 					description: template.description ?? undefined,
 					kitchenId: template.kitchen_id ?? null,
-					templateType: (template.template_type ?? "weekly") as "weekly" | "event",
+					templateType: (template.template_type ?? "weekly") as "weekly" | "event" | "exception",
+					expectedMonthlyOccurrences: template.expected_monthly_occurrences ?? null,
 					items: items.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",
@@ -109,7 +110,8 @@ export function useUpdateTemplate(options?: { silent?: boolean }) {
 					templateId: id,
 					name: updates.name ?? undefined,
 					description: updates.description ?? undefined,
-					templateType: updates.template_type as "weekly" | "event" | undefined,
+					templateType: updates.template_type as "weekly" | "event" | "exception" | undefined,
+					expectedMonthlyOccurrences: updates.expected_monthly_occurrences ?? undefined,
 					items: items?.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",

@@ -64,11 +64,13 @@ function KitchenStepSection({
 	const { data: templates, isLoading } = useMenuTemplates(kitchenState.kitchenId)
 	const { data: pendingDraft } = usePendingDraft(kitchenState.kitchenId)
 
-	const filterType = selectionType === "templateSelections" ? "weekly" : "event"
+	// Step "Cardápios Semanais" = weekly; Step "Eventos / Refeições Especiais" = event + exception.
 	const filteredTemplates =
 		templates?.filter((t) => {
+			if (t.kitchen_id === null) return false
 			const type = (t as typeof t & { template_type?: string }).template_type
-			return t.kitchen_id !== null && (type === filterType || (!type && filterType === "weekly"))
+			if (selectionType === "templateSelections") return type === "weekly" || !type
+			return type === "event" || type === "exception"
 		}) || []
 
 	const handleImport = (_kitchenId: number, templateSels: TemplateSelection[], eventSels: TemplateSelection[]) => {
@@ -171,7 +173,7 @@ function NewAtaPage() {
 					eventSelections: k.selections
 						.filter((s) => {
 							const sw = s as typeof s & { template?: { template_type?: string } }
-							return sw.template?.template_type === "event"
+							return sw.template?.template_type === "event" || sw.template?.template_type === "exception"
 						})
 						.map((s) => {
 							const sw = s as typeof s & { template?: { name?: string | null } }

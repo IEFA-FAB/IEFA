@@ -95,6 +95,47 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(found?.recipe_count).toBe(2)
 	})
 
+	test("exceção: monthly_headcount_total = Σ comensais × ocorrências; nulo em não-exceção", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+
+		// Exceção "Lanche de Bordo": 2 itens (200 + 100 comensais) × 30 ocorrências/mês = 9000.
+		const exc = await createTemplate(db, ctx, {
+			name: uid("[TEST] Lanche de Bordo "),
+			kitchenId,
+			templateType: "exception",
+			expectedMonthlyOccurrences: 30,
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 200 },
+				{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 100 },
+			],
+		})
+		trackTemplate(exc.id)
+
+		// Exceção sem ocorrências informadas: nulo tratado como 1 → soma = 50.
+		const excNoOcc = await createTemplate(db, ctx, {
+			name: uid("[TEST] Café Reunião "),
+			kitchenId,
+			templateType: "exception",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 50 }],
+		})
+		trackTemplate(excNoOcc.id)
+
+		// Semanal: monthly_headcount_total é nulo (usa avg_headcount_weekday).
+		const weekly = await createTemplate(db, ctx, {
+			name: uid("[TEST] Semanal "),
+			kitchenId,
+			templateType: "weekly",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 400 }],
+		})
+		trackTemplate(weekly.id)
+
+		const list = await listTemplates(db, ctx, { kitchenId })
+		expect(list.find((t) => t.id === exc.id)?.monthly_headcount_total).toBe(9000)
+		expect(list.find((t) => t.id === excNoOcc.id)?.monthly_headcount_total).toBe(50)
+		expect(list.find((t) => t.id === weekly.id)?.monthly_headcount_total).toBeNull()
+	})
+
 	test("getTemplate retorna itens ordenados por day_of_week; getTemplateItems idem", async () => {
 		if (!reachable || !seeder || !db) return
 		const { kitchenId, mealTypeId, recipeId } = await base()

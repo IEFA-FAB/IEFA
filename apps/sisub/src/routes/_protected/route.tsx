@@ -31,9 +31,7 @@ export const Route = createFileRoute("/_protected")({
 		const ensurePermissions = context.queryClient.ensureQueryData(userPermissionsQueryOptions(id)).catch((err) => {
 			const raw = err instanceof Error ? err.message : String(err)
 			const isTransient = raw.trimStart().startsWith("<") || /\b5\d{2}\b/.test(raw) || raw.includes("Failed to fetch")
-			const msg = isTransient
-				? `HTTP proxy error (${raw.match(/\b[45]\d{2}\b/)?.[0] ?? "unknown status"})`
-				: raw
+			const msg = isTransient ? `HTTP proxy error (${raw.match(/\b[45]\d{2}\b/)?.[0] ?? "unknown status"})` : raw
 			if (isTransient) {
 				// biome-ignore lint/suspicious/noConsole: intentional — transient infra error, fallback handles it
 				console.warn("Permissões indisponíveis (erro transitório); aplicando fallback Comensal:", msg)

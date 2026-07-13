@@ -114,7 +114,12 @@ export interface Seeder {
 	seedMealType(opts?: { kitchenId?: number | null; sortOrder?: number }): Promise<string>
 	seedDailyMenu(opts: { kitchenId: number; mealTypeId: string; serviceDate?: string }): Promise<{ id: string; serviceDate: string }>
 	seedMenuItem(opts: { dailyMenuId: string; recipeId: string; plannedPortionQuantity?: number; excludedFromProcurement?: 0 | 1 }): Promise<string>
-	seedTemplate(opts?: { kitchenId?: number | null; templateType?: "weekly" | "event"; deleted?: boolean }): Promise<string>
+	seedTemplate(opts?: {
+		kitchenId?: number | null
+		templateType?: "weekly" | "event" | "exception"
+		expectedMonthlyOccurrences?: number | null
+		deleted?: boolean
+	}): Promise<string>
 	seedTemplateItem(opts: { templateId: string; mealTypeId: string; recipeId: string; dayOfWeek: number; headcountOverride?: number }): Promise<string>
 
 	// ── Identidade (auth.users) e tabelas user-scoped ──────────────────────────
@@ -310,6 +315,7 @@ export function makeSeeder(client: AnyClient): Seeder {
 				name: uid("[TEST] Template "),
 				kitchen_id: opts?.kitchenId ?? null,
 				template_type: opts?.templateType ?? "weekly",
+				...(opts?.expectedMonthlyOccurrences != null && { expected_monthly_occurrences: opts.expectedMonthlyOccurrences }),
 				...(opts?.deleted ? { deleted_at: new Date().toISOString() } : {}),
 			})) as string
 			return id
