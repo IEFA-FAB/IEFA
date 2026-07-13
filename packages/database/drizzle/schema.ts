@@ -945,6 +945,7 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 	purchaseQuantity: numeric("purchase_quantity", { precision: 14, scale:  4 }),
 	conversionFactor: numeric("conversion_factor", { precision: 12, scale:  6 }),
 	itemDescription: text("item_description"),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
 	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
@@ -989,6 +990,7 @@ export const procurementListSelectionInProcurement = procurement.table("procurem
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	listKitchenId: uuid("list_kitchen_id").notNull(),
 	templateId: uuid("template_id").notNull(),
+	originTemplateId: uuid("origin_template_id"),
 	repetitions: integer().default(1).notNull(),
 }, (table) => [
 	foreignKey({
@@ -1001,7 +1003,59 @@ export const procurementListSelectionInProcurement = procurement.table("procurem
 			foreignColumns: [menuTemplateInKitchen.id],
 			name: "procurement_ata_selection_template_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.originTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "procurement_list_selection_origin_template_id_fkey"
+		}).onDelete("set null"),
 	check("procurement_ata_selection_repetitions_check", sql`repetitions > 0`),
+]);
+
+export const procurementListSnapshotSelectionInProcurement = procurement.table("procurement_list_snapshot_selection", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	listId: uuid("list_id").notNull(),
+	originTemplateId: uuid("origin_template_id"),
+	templateName: text("template_name"),
+	templateType: text("template_type"),
+	kitchenId: integer("kitchen_id"),
+	kitchenName: text("kitchen_name"),
+	repetitions: integer().default(1).notNull(),
+	snapshotSource: text("snapshot_source").default('native').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_proc_snapshot_selection_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.listId],
+			foreignColumns: [procurementListInProcurement.id],
+			name: "procurement_list_snapshot_selection_list_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_list_snapshot_selection_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
+]);
+
+export const procurementListSnapshotComponentInProcurement = procurement.table("procurement_list_snapshot_component", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	listId: uuid("list_id").notNull(),
+	ingredientId: uuid("ingredient_id"),
+	ingredientName: text("ingredient_name").notNull(),
+	folderDescription: text("folder_description"),
+	measureUnit: text("measure_unit"),
+	totalQuantity: numeric("total_quantity", { precision: 14, scale:  4 }).notNull(),
+	purchaseItemId: uuid("purchase_item_id"),
+	purchaseItemDescription: text("purchase_item_description"),
+	purchaseMeasureUnit: text("purchase_measure_unit"),
+	purchaseQuantity: numeric("purchase_quantity", { precision: 14, scale:  4 }),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	unitPrice: numeric("unit_price", { precision: 12, scale:  4 }),
+	snapshotSource: text("snapshot_source").default('native').notNull(),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_proc_snapshot_component_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.listId],
+			foreignColumns: [procurementListInProcurement.id],
+			name: "procurement_list_snapshot_component_list_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_list_snapshot_component_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
 ]);
 
 export const productionTaskInKitchen = kitchen.table("production_task", {

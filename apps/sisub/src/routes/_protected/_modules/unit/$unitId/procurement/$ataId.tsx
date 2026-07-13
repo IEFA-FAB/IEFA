@@ -1,7 +1,7 @@
 import type { ProcurementNeed } from "@iefa/sisub-domain/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useParams } from "@tanstack/react-router"
-import { Archive, ArrowLeft, Download, Link2, Search, Send } from "lucide-react"
+import { AlertTriangle, Archive, ArrowLeft, Download, Link2, Lock, Search, Send } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { requirePermission } from "@/auth/pbac"
@@ -197,6 +197,18 @@ function AtaDetailPage() {
 			{/* Status + resumo */}
 			<div className="flex items-center gap-3 flex-wrap">
 				<Badge variant={STATUS_VARIANTS[ata.status] || "secondary"}>{STATUS_LABELS[ata.status] || ata.status}</Badge>
+				{ata.status !== "draft" && ata.meta.snapshot && (
+					<Badge variant="outline" className="gap-1.5">
+						<Lock className="size-3" aria-hidden="true" />
+						Composição congelada
+					</Badge>
+				)}
+				{ata.meta.price_research.is_expired && (
+					<Badge variant="outline" className="gap-1.5 border-amber-500 text-amber-700">
+						<AlertTriangle className="size-3" aria-hidden="true" />
+						Pesquisa vencida (&gt; {ata.meta.price_research.validity_days}d)
+					</Badge>
+				)}
 				{hasPrices && (
 					<span className="text-sm text-muted-foreground">
 						Total estimado: <strong className="text-foreground">{BRL.format(grandTotal)}</strong>
@@ -206,6 +218,21 @@ function AtaDetailPage() {
 					{ata.items.length} {ata.items.length === 1 ? "item" : "itens"}
 				</span>
 			</div>
+
+			{ata.status === "draft" && ata.meta.is_stale && (
+				<Card className="border-amber-500/50 bg-amber-50/50">
+					<CardContent className="flex items-start gap-3 py-4">
+						<AlertTriangle className="size-5 shrink-0 text-amber-600" aria-hidden="true" />
+						<div className="text-sm">
+							<p className="font-medium text-amber-900">Quantitativos desatualizados</p>
+							<p className="text-amber-800">
+								Um cardápio ou evento desta ATA foi editado após o último cálculo. Refaça o cálculo dos quantitativos para refletir a composição atual antes de
+								publicar.
+							</p>
+						</div>
+					</CardContent>
+				</Card>
+			)}
 
 			{ata.notes && (
 				<Card>

@@ -149,9 +149,15 @@ export function useSaveAtaDraftItems() {
 		}) =>
 			saveAtaDraftItemsFn({ data: params }) as Promise<{
 				savedIds: Array<{ ingredientId: string; ataItemId: string }>
+				unlinkedResearchCount: number
 			}>,
-		onSuccess: (_, variables) => {
+		onSuccess: (result, variables) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ata.draft(variables.draftId) })
+			if (result.unlinkedResearchCount > 0) {
+				toast.warning(
+					`${result.unlinkedResearchCount} pesquisa${result.unlinkedResearchCount !== 1 ? "s" : ""} de preço desvinculada${result.unlinkedResearchCount !== 1 ? "s" : ""} (item removido da lista).`
+				)
+			}
 		},
 		onError: (error) => toast.error(`Erro ao salvar itens: ${error.message}`),
 	})

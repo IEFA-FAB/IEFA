@@ -19,10 +19,13 @@
 
 import {
 	menuTemplateInKitchen,
+	menuTemplateItemsInKitchen,
 	procurementListInProcurement,
 	procurementListItemInProcurement,
 	procurementListKitchenInProcurement,
 	procurementListSelectionInProcurement,
+	procurementListSnapshotComponentInProcurement,
+	procurementListSnapshotSelectionInProcurement,
 	procurementPesquisaPrecoInProcurement,
 	procurementPesquisaPrecoItemInProcurement,
 	purchaseItemIngredientInProcurement,
@@ -46,8 +49,39 @@ import type {
 	UpdateAtaStatus,
 } from "../schemas/procurement.ts"
 import type { UserContext } from "../types/context.ts"
+import { DomainError } from "../types/errors.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+
+/** Janela legal padrão de validade da pesquisa de preço (IN SEGES 65/2021). */
+const PRICE_RESEARCH_VALIDITY_DAYS = 180
+
+/** Transições de status permitidas da ATA. Publicada e arquivada são terminais quanto a downgrade. */
+const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
+	draft: ["published", "archived"],
+	published: ["archived"],
+	archived: [],
+}
+
+type TxClient = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
+
+/** Lê o status atual da lista ou lança se inexistente. */
+async function getListStatus(client: SisubDb | TxClient, listId: string): Promise<string> {
+	const rows = await client
+		.select({ status: procurementListInProcurement.status })
+		.from(procurementListInProcurement)
+		.where(eq(procurementListInProcurement.id, listId))
+	if (!rows[0]) throw new DomainError("NOT_FOUND", `ata ${listId} não encontrada`)
+	return rows[0].status
+}
+
+/** Barra mutações de composição/quantitativo quando a ATA já saiu do rascunho. */
+async function assertDraftEditable(client: SisubDb | TxClient, listId: string): Promise<void> {
+	const status = await getListStatus(client, listId)
+	if (status !== "draft") {
+		throw new DomainError("ATA_NOT_DRAFT", `ATA ${listId} está ${status}: composição e quantitativos são imutáveis após publicação`)
+	}
+}
 
 type ProcurementList = Tables<"procurement_list">
 type ProcurementListItem = Tables<"procurement_list_item">
@@ -56,7 +90,34 @@ type ProcurementListSelection = Tables<"procurement_list_selection">
 
 type AtaSelectionWire = ProcurementListSelection & { template: { name: string | null; template_type: string } | null }
 type AtaKitchenWire = ProcurementListKitchen & { kitchen: { id: number; display_name: string | null } | null; selections: AtaSelectionWire[] }
-type AtaWithDetails = ProcurementList & { kitchens: AtaKitchenWire[]; items: ProcurementListItem[] }
+
+type AtaSnapshotSelection = {
+	template_name: string | null
+	template_type: string | null
+	kitchen_id: number | null
+	kitchen_name: string | null
+	repetitions: number
+	snapshot_source: string
+}
+type AtaSnapshotComponent = {
+	ingredient_name: string
+	folder_description: string | null
+	measure_unit: string | null
+	total_quantity: string
+	purchase_item_description: string | null
+	purchase_measure_unit: string | null
+	purchase_quantity: string | null
+	catmat_item_codigo: number | null
+	unit_price: string | null
+	snapshot_source: string
+}
+/** Metadados de integridade computados por request (não persistidos). */
+type AtaMeta = {
+	is_stale: boolean
+	price_research: { oldest_research_at: string | null; validity_days: number; is_expired: boolean }
+	snapshot: { selections: AtaSnapshotSelection[]; components: AtaSnapshotComponent[] } | null
+}
+type AtaWithDetails = ProcurementList & { kitchens: AtaKitchenWire[]; items: ProcurementListItem[]; meta: AtaMeta }
 
 type ItemInsert = typeof procurementListItemInProcurement.$inferInsert
 
@@ -342,6 +403,7 @@ function buildItemPayload(item: DraftItem, draftId: string): ItemInsert {
 		catmatItemDescricao: item.catmat_item_descricao || null,
 		unitPrice: item.unit_price == null ? null : String(item.unit_price),
 		itemDescription: item.item_description || null,
+		computedAt: new Date().toISOString(),
 	}
 }
 
@@ -354,13 +416,14 @@ export async function saveAtaDraftItems(
 	db: SisubDb,
 	_ctx: UserContext,
 	input: SaveAtaDraftItems
-): Promise<{ savedIds: Array<{ ingredientId: string; ataItemId: string }> }> {
+): Promise<{ savedIds: Array<{ ingredientId: string; ataItemId: string }>; unlinkedResearchCount: number }> {
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
 	const insertedItemsById = new Map<string, string>() // ingredient_id → new item id
 
-	await db.transaction(async (tx) => {
-		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
+	const { unlinkedResearchCount } = await db.transaction(async (tx) => {
+		await assertDraftEditable(tx, input.draftId)
+		const result = await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
 		await runQuery(
 			"UPDATE_FAILED",
 			() =>
@@ -370,19 +433,32 @@ export async function saveAtaDraftItems(
 					.where(eq(procurementListInProcurement.id, input.draftId)),
 			{ prefix: "Erro ao atualizar rascunho" }
 		)
+		return result
 	})
 
 	const savedIds: Array<{ ingredientId: string; ataItemId: string }> = [
 		...existing.map((item) => ({ ingredientId: item.ingredient_id ?? "", ataItemId: item.ata_item_id as string })),
 		...Array.from(insertedItemsById.entries()).map(([ingredientId, ataItemId]) => ({ ingredientId, ataItemId })),
 	]
-	return { savedIds }
+	return { savedIds, unlinkedResearchCount }
 }
 
-type TxClient = Parameters<Parameters<SisubDb["transaction"]>[0]>[0]
 type ResearchLink = { ingredientId: string; researchId: string; researchItemId: string }
 
-/** Núcleo compartilhado por saveAtaDraftItems/finalizeAtaDraft: replace-all dos itens + relink de pesquisas. */
+/** Chave de negócio de um item para reconciliar pesquisa de preço: CATMAT tem prioridade, ingrediente é fallback. */
+function itemBusinessKey(catmat: number | null | undefined, ingredientId: string | null | undefined): string | null {
+	if (catmat != null) return `c:${catmat}`
+	if (ingredientId) return `i:${ingredientId}`
+	return null
+}
+
+/**
+ * Núcleo compartilhado por saveAtaDraftItems/finalizeAtaDraft: replace-all dos itens + reconciliação de pesquisas.
+ *
+ * Reconciliação por chave de negócio (CATMAT→ingrediente): itens existentes preservam o id (e o link);
+ * quando um item some mas outro de mesma chave sobrevive/entra, a pesquisa é remapeada em vez de orfanada.
+ * Pesquisas realmente órfãs (`ata_item_id` nulo) desta ATA são removidas. Retorna a contagem desvinculada.
+ */
 async function persistDraftItems(
 	tx: TxClient,
 	draftId: string,
@@ -390,17 +466,26 @@ async function persistDraftItems(
 	toInsert: DraftItem[],
 	insertedItemsById: Map<string, string>,
 	researchLinks: ResearchLink[] | undefined
-): Promise<void> {
+): Promise<{ unlinkedResearchCount: number }> {
 	const keepIds = new Set(existing.map((i) => i.ata_item_id as string))
 
-	// Deletar itens que não estão mais na lista.
+	// Itens atuais com chave de negócio (para reconciliar pesquisas antes de deletar).
 	const currentItems = await tx
-		.select({ id: procurementListItemInProcurement.id })
+		.select({
+			id: procurementListItemInProcurement.id,
+			ingredientId: procurementListItemInProcurement.ingredientId,
+			catmat: procurementListItemInProcurement.catmatItemCodigo,
+		})
 		.from(procurementListItemInProcurement)
 		.where(eq(procurementListItemInProcurement.listId, draftId))
+	const keyByCurrentId = new Map(currentItems.map((r) => [r.id, itemBusinessKey(r.catmat, r.ingredientId)]))
 	const toDelete = currentItems.filter((row) => !keepIds.has(row.id)).map((row) => row.id)
-	if (toDelete.length > 0) {
-		await tx.delete(procurementListItemInProcurement).where(inArray(procurementListItemInProcurement.id, toDelete))
+
+	// Mapa chave → item sobrevivente (existentes mantêm id).
+	const survivorByKey = new Map<string, string>()
+	for (const item of existing) {
+		const key = itemBusinessKey(item.catmat_item_codigo, item.ingredient_id)
+		if (key) survivorByKey.set(key, item.ata_item_id as string)
 	}
 
 	// Atualizar existentes (preserva IDs, logo preserva pesquisa_preco_item.ata_item_id).
@@ -419,15 +504,39 @@ async function persistDraftItems(
 				tx
 					.insert(procurementListItemInProcurement)
 					.values(toInsert.map((item) => buildItemPayload(item, draftId)))
-					.returning({ id: procurementListItemInProcurement.id, ingredientId: procurementListItemInProcurement.ingredientId }),
+					.returning({
+						id: procurementListItemInProcurement.id,
+						ingredientId: procurementListItemInProcurement.ingredientId,
+						catmat: procurementListItemInProcurement.catmatItemCodigo,
+					}),
 			{ prefix: "Erro ao salvar itens" }
 		)
 		for (const row of insertedItems) {
 			if (row.ingredientId) insertedItemsById.set(row.ingredientId, row.id)
+			const key = itemBusinessKey(row.catmat, row.ingredientId)
+			if (key && !survivorByKey.has(key)) survivorByKey.set(key, row.id)
 		}
 	}
 
-	// Linkar pesquisas de preço para itens novos (itens existentes já mantêm o link).
+	// Reconciliar pesquisas dos itens que vão sumir: mover o vínculo para um sobrevivente de mesma chave.
+	if (toDelete.length > 0) {
+		const deleteSet = new Set(toDelete)
+		const research = await tx
+			.select({ id: procurementPesquisaPrecoItemInProcurement.id, ataItemId: procurementPesquisaPrecoItemInProcurement.ataItemId })
+			.from(procurementPesquisaPrecoItemInProcurement)
+			.where(inArray(procurementPesquisaPrecoItemInProcurement.ataItemId, toDelete))
+		for (const r of research) {
+			const key = r.ataItemId ? keyByCurrentId.get(r.ataItemId) : null
+			const target = key ? survivorByKey.get(key) : undefined
+			if (target && !deleteSet.has(target)) {
+				await tx.update(procurementPesquisaPrecoItemInProcurement).set({ ataItemId: target }).where(eq(procurementPesquisaPrecoItemInProcurement.id, r.id))
+			}
+		}
+		// Deletar itens removidos (o que não foi remapeado vira ata_item_id NULL via ON DELETE SET NULL).
+		await tx.delete(procurementListItemInProcurement).where(inArray(procurementListItemInProcurement.id, toDelete))
+	}
+
+	// Linkar pesquisas de preço para itens novos (cliente reconcilia estado local).
 	if (researchLinks?.length && insertedItemsById.size > 0) {
 		for (const link of researchLinks) {
 			const newItemId = insertedItemsById.get(link.ingredientId)
@@ -439,6 +548,30 @@ async function persistDraftItems(
 			await tx.update(procurementPesquisaPrecoInProcurement).set({ ataId: draftId }).where(eq(procurementPesquisaPrecoInProcurement.id, link.researchId))
 		}
 	}
+
+	// Limpar pesquisas realmente órfãs desta ATA (item removido de vez, sem sobrevivente de mesma chave).
+	let unlinkedResearchCount = 0
+	const headers = await tx
+		.select({ id: procurementPesquisaPrecoInProcurement.id })
+		.from(procurementPesquisaPrecoInProcurement)
+		.where(eq(procurementPesquisaPrecoInProcurement.ataId, draftId))
+	if (headers.length > 0) {
+		const deleted = await tx
+			.delete(procurementPesquisaPrecoItemInProcurement)
+			.where(
+				and(
+					isNull(procurementPesquisaPrecoItemInProcurement.ataItemId),
+					inArray(
+						procurementPesquisaPrecoItemInProcurement.researchId,
+						headers.map((h) => h.id)
+					)
+				)
+			)
+			.returning({ id: procurementPesquisaPrecoItemInProcurement.id })
+		unlinkedResearchCount = deleted.length
+	}
+
+	return { unlinkedResearchCount }
 }
 
 // ─── Finalizar rascunho (wizard_step → null, ata pronta para publicação) ──────
@@ -449,6 +582,7 @@ export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: Fi
 	const insertedItemsById = new Map<string, string>()
 
 	const ata = await db.transaction(async (tx) => {
+		await assertDraftEditable(tx, input.draftId)
 		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
 
 		const updated = await insertOneOrFail(
@@ -603,28 +737,207 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 		{ prefix: "Erro ao buscar itens" }
 	)
 
+	const meta = await computeAtaMeta(db, ata.status, input.ataId, kitchens, items)
+
 	return {
 		...toWire<ProcurementList>(ata),
 		kitchens: kitchens.map((k) => toWire<AtaKitchenWire>(k, DETAILS_RELATIONS)),
 		items: items.map((i) => toWire<ProcurementListItem>(i)),
+		meta,
+	}
+}
+
+type KitchenRow = { procurementListSelectionInProcurements: Array<{ templateId: string }> }
+type ItemRow = { computedAt: string | null }
+
+/** Calcula defasagem (stale) do rascunho, validade da pesquisa e snapshot congelado (ATA publicada). */
+async function computeAtaMeta(db: SisubDb, status: string, listId: string, kitchens: KitchenRow[], items: ItemRow[]): Promise<AtaMeta> {
+	const maxDate = (values: Array<string | null | undefined>): string | null => {
+		const valid = values.filter((v): v is string => !!v)
+		return valid.length ? valid.reduce((a, b) => (a > b ? a : b)) : null
+	}
+
+	// Defasagem: só faz sentido em rascunho com itens já calculados.
+	let isStale = false
+	const lastComputedAt = maxDate(items.map((i) => i.computedAt))
+	if (status === "draft" && lastComputedAt) {
+		const templateIds = [...new Set(kitchens.flatMap((k) => k.procurementListSelectionInProcurements.map((s) => s.templateId)))]
+		if (templateIds.length > 0) {
+			const edits = await runQuery(
+				"QUERY_FAILED",
+				() =>
+					db
+						.select({ createdAt: menuTemplateItemsInKitchen.createdAt })
+						.from(menuTemplateItemsInKitchen)
+						.where(inArray(menuTemplateItemsInKitchen.menuTemplateId, templateIds)),
+				{ prefix: "Erro ao verificar defasagem" }
+			)
+			const lastEdit = maxDate(edits.map((e) => e.createdAt))
+			isStale = !!lastEdit && lastEdit > lastComputedAt
+		}
+	}
+
+	// Validade legal da pesquisa de preço (não-bloqueante).
+	const research = await runQuery(
+		"QUERY_FAILED",
+		() =>
+			db
+				.select({ createdAt: procurementPesquisaPrecoInProcurement.createdAt })
+				.from(procurementPesquisaPrecoInProcurement)
+				.where(eq(procurementPesquisaPrecoInProcurement.ataId, listId)),
+		{ prefix: "Erro ao buscar pesquisas" }
+	)
+	const oldestResearchAt = research.length ? research.map((r) => r.createdAt).reduce((a, b) => (a < b ? a : b)) : null
+	let isExpired = false
+	if (oldestResearchAt) {
+		const ageDays = (Date.now() - new Date(oldestResearchAt).getTime()) / 86_400_000
+		isExpired = ageDays >= PRICE_RESEARCH_VALIDITY_DAYS
+	}
+
+	// Snapshot congelado (só existe após publicação).
+	let snapshot: AtaMeta["snapshot"] = null
+	if (status !== "draft") {
+		const [selections, components] = await Promise.all([
+			runQuery(
+				"QUERY_FAILED",
+				() => db.select().from(procurementListSnapshotSelectionInProcurement).where(eq(procurementListSnapshotSelectionInProcurement.listId, listId)),
+				{ prefix: "Erro ao buscar snapshot" }
+			),
+			runQuery(
+				"QUERY_FAILED",
+				() => db.select().from(procurementListSnapshotComponentInProcurement).where(eq(procurementListSnapshotComponentInProcurement.listId, listId)),
+				{ prefix: "Erro ao buscar snapshot" }
+			),
+		])
+		if (selections.length || components.length) {
+			snapshot = {
+				selections: selections.map((s) => ({
+					template_name: s.templateName,
+					template_type: s.templateType,
+					kitchen_id: s.kitchenId,
+					kitchen_name: s.kitchenName,
+					repetitions: s.repetitions,
+					snapshot_source: s.snapshotSource,
+				})),
+				components: components.map((c) => ({
+					ingredient_name: c.ingredientName,
+					folder_description: c.folderDescription,
+					measure_unit: c.measureUnit,
+					total_quantity: c.totalQuantity,
+					purchase_item_description: c.purchaseItemDescription,
+					purchase_measure_unit: c.purchaseMeasureUnit,
+					purchase_quantity: c.purchaseQuantity,
+					catmat_item_codigo: c.catmatItemCodigo,
+					unit_price: c.unitPrice,
+					snapshot_source: c.snapshotSource,
+				})),
+			}
+		}
+	}
+
+	return {
+		is_stale: isStale,
+		price_research: { oldest_research_at: oldestResearchAt, validity_days: PRICE_RESEARCH_VALIDITY_DAYS, is_expired: isExpired },
+		snapshot,
+	}
+}
+
+// ─── Snapshot da composição (congela ao publicar) ─────────────────────────────
+
+/**
+ * Materializa a composição resolvida da ATA em tabelas de snapshot próprias, tornando-a
+ * autocontida e imune a edições/soft-delete posteriores de menu_template/receita/item.
+ * Idempotente: substitui qualquer snapshot nativo anterior daquela ATA.
+ */
+async function buildAtaSnapshot(tx: TxClient, listId: string): Promise<void> {
+	// Recomeça do zero para permitir republicação sem duplicar.
+	await tx.delete(procurementListSnapshotSelectionInProcurement).where(eq(procurementListSnapshotSelectionInProcurement.listId, listId))
+	await tx.delete(procurementListSnapshotComponentInProcurement).where(eq(procurementListSnapshotComponentInProcurement.listId, listId))
+
+	// Seleções resolvidas (nome/tipo do cardápio congelados).
+	const selections = await tx
+		.select({
+			originTemplateId: procurementListSelectionInProcurement.templateId,
+			templateName: menuTemplateInKitchen.name,
+			templateType: menuTemplateInKitchen.templateType,
+			kitchenId: procurementListKitchenInProcurement.kitchenId,
+			repetitions: procurementListSelectionInProcurement.repetitions,
+		})
+		.from(procurementListSelectionInProcurement)
+		.innerJoin(procurementListKitchenInProcurement, eq(procurementListSelectionInProcurement.listKitchenId, procurementListKitchenInProcurement.id))
+		.leftJoin(menuTemplateInKitchen, eq(procurementListSelectionInProcurement.templateId, menuTemplateInKitchen.id))
+		.where(eq(procurementListKitchenInProcurement.listId, listId))
+
+	if (selections.length > 0) {
+		await tx.insert(procurementListSnapshotSelectionInProcurement).values(
+			selections.map((s) => ({
+				listId,
+				originTemplateId: s.originTemplateId,
+				templateName: s.templateName,
+				templateType: s.templateType,
+				kitchenId: s.kitchenId,
+				repetitions: s.repetitions,
+				snapshotSource: "native",
+			}))
+		)
+	}
+
+	// Componentes (cópia imutável dos itens agregados).
+	const items = await tx.select().from(procurementListItemInProcurement).where(eq(procurementListItemInProcurement.listId, listId))
+	if (items.length > 0) {
+		await tx.insert(procurementListSnapshotComponentInProcurement).values(
+			items.map((i) => ({
+				listId,
+				ingredientId: i.ingredientId,
+				ingredientName: i.ingredientName,
+				folderDescription: i.folderDescription,
+				measureUnit: i.measureUnit,
+				totalQuantity: i.totalQuantity,
+				purchaseItemId: i.purchaseItemId,
+				purchaseItemDescription: i.purchaseItemDescription,
+				purchaseMeasureUnit: i.purchaseMeasureUnit,
+				purchaseQuantity: i.purchaseQuantity,
+				catmatItemCodigo: i.catmatItemCodigo,
+				unitPrice: i.unitPrice,
+				snapshotSource: "native",
+				computedAt: i.computedAt ?? new Date().toISOString(),
+			}))
+		)
 	}
 }
 
 // ─── Atualizar status da ATA ──────────────────────────────────────────────────
 
-/** Transitions ATA status to "draft" | "published" | "archived" and stamps updated_at. */
+/**
+ * Transiciona o status da ATA validando o ciclo de vida (draft → published → archived; sem downgrade).
+ * Ao publicar, congela a composição num snapshot próprio (memória de cálculo imutável).
+ */
 export async function updateAtaStatus(db: SisubDb, _ctx: UserContext, input: UpdateAtaStatus): Promise<void> {
-	await mutateOrFail(
-		"UPDATE_FAILED",
-		`Erro ao atualizar status: ata ${input.ataId} não encontrada`,
-		() =>
-			db
-				.update(procurementListInProcurement)
-				.set({ status: input.status, updatedAt: new Date().toISOString() })
-				.where(eq(procurementListInProcurement.id, input.ataId))
-				.returning({ id: procurementListInProcurement.id }),
-		{ prefix: "Erro ao atualizar status" }
-	)
+	await db.transaction(async (tx) => {
+		const current = await getListStatus(tx, input.ataId)
+		if (current === input.status) return // no-op idempotente
+
+		const allowed = ALLOWED_STATUS_TRANSITIONS[current] ?? []
+		if (!allowed.includes(input.status)) {
+			throw new DomainError("INVALID_STATUS_TRANSITION", `Transição inválida: ${current} → ${input.status}`)
+		}
+
+		await mutateOrFail(
+			"UPDATE_FAILED",
+			`Erro ao atualizar status: ata ${input.ataId} não encontrada`,
+			() =>
+				tx
+					.update(procurementListInProcurement)
+					.set({ status: input.status, updatedAt: new Date().toISOString() })
+					.where(eq(procurementListInProcurement.id, input.ataId))
+					.returning({ id: procurementListInProcurement.id }),
+			{ prefix: "Erro ao atualizar status" }
+		)
+
+		if (input.status === "published") {
+			await buildAtaSnapshot(tx, input.ataId)
+		}
+	})
 }
 
 // ─── Atualizar preços de itens de uma ATA já salva ───────────────────────────

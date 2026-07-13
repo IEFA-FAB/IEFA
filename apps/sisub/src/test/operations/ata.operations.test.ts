@@ -222,4 +222,75 @@ describeSupabaseIntegration("ata operations (regressão)", () => {
 		expect(need?.total_quantity).toBe(600)
 		expect(need?.measure_unit).toBe("KG")
 	})
+
+	// ─── freeze-ata-snapshot-on-publish ──────────────────────────────────────────
+
+	test("saveAtaDraftItems é rejeitado após a ATA sair do rascunho (ATA_NOT_DRAFT)", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const ata = await createAta(db, ctx, {
+			unitId,
+			title: uid("[TEST] ATA "),
+			kitchenSelections: [],
+			items: [{ ingredient_name: "Arroz", total_quantity: 10 }],
+		})
+		seeder.track("procurement_list", ata.id)
+		await updateAtaStatus(db, ctx, { ataId: ata.id, status: "published" })
+
+		await expect(saveAtaDraftItems(db, ctx, { draftId: ata.id, items: [{ ingredient_name: "Arroz", total_quantity: 99 }] })).rejects.toThrow(
+			/imutáveis|ATA_NOT_DRAFT|published/i
+		)
+	})
+
+	test("updateAtaStatus proíbe downgrade published → draft (INVALID_STATUS_TRANSITION)", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const ata = await createAta(db, ctx, { unitId, title: uid("[TEST] ATA "), kitchenSelections: [], items: [] })
+		seeder.track("procurement_list", ata.id)
+		await updateAtaStatus(db, ctx, { ataId: ata.id, status: "published" })
+
+		await expect(updateAtaStatus(db, ctx, { ataId: ata.id, status: "draft" })).rejects.toThrow(/Transição inválida|INVALID_STATUS_TRANSITION/i)
+	})
+
+	test("publicar congela snapshot da composição; fetchAtaDetails.meta.snapshot reflete os itens", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const ata = await createAta(db, ctx, {
+			unitId,
+			title: uid("[TEST] ATA "),
+			kitchenSelections: [],
+			items: [
+				{ ingredient_name: "Feijão", total_quantity: 5 },
+				{ ingredient_name: "Sal", total_quantity: 2 },
+			],
+		})
+		seeder.track("procurement_list", ata.id)
+
+		// Rascunho: sem snapshot.
+		const draftDetails = await fetchAtaDetails(db, ctx, { ataId: ata.id })
+		expect(draftDetails?.meta.snapshot).toBeNull()
+
+		await updateAtaStatus(db, ctx, { ataId: ata.id, status: "published" })
+		const pubDetails = await fetchAtaDetails(db, ctx, { ataId: ata.id })
+		expect(pubDetails?.meta.snapshot).not.toBeNull()
+		expect(pubDetails?.meta.snapshot?.components).toHaveLength(2)
+		expect(pubDetails?.meta.snapshot?.components.every((c) => c.snapshot_source === "native")).toBe(true)
+	})
+
+	test("createAta carimba computed_at nos itens (base do detector de defasagem)", async () => {
+		if (!reachable || !seeder || !db) return
+		const unitId = await seeder.seedUnit()
+		const ata = await createAta(db, ctx, {
+			unitId,
+			title: uid("[TEST] ATA "),
+			kitchenSelections: [],
+			items: [{ ingredient_name: "Açúcar", total_quantity: 4 }],
+		})
+		seeder.track("procurement_list", ata.id)
+
+		const details = await fetchAtaDetails(db, ctx, { ataId: ata.id })
+		expect(details?.items[0].computed_at).toBeTruthy()
+		// Sem edição de cardápio posterior → não está defasado.
+		expect(details?.meta.is_stale).toBe(false)
+	})
 })
