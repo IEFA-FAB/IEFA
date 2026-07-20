@@ -209,7 +209,8 @@ export function useApplyTemplate() {
 			const skipped = result?.itemsSkipped ?? 0
 			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
 			const preserved = result?.datesSkipped?.length ?? 0
-			const preservedNote = preserved > 0 ? ` ${preserved} ${preserved === 1 ? "dia já planejado foi preservado" : "dias já planejados foram preservados"}.` : ""
+			const preservedNote =
+				preserved > 0 ? ` ${preserved} ${preserved === 1 ? "dia já planejado foi preservado" : "dias já planejados foram preservados"}.` : ""
 			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${preservedNote}${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),

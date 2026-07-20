@@ -121,7 +121,14 @@ export {
 } from "./planning.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
-export { ensureProductionTasks, fetchProductionBoard, updateProductionTaskStatus } from "./production.ts"
+export {
+	adjustProductionPortions,
+	ensureProductionTasks,
+	fetchProductionBoard,
+	recordProductionSubstitution,
+	updateProductionTaskRecord,
+	updateProductionTaskStatus,
+} from "./production.ts"
 export {
 	createPurchaseItem,
 	deletePurchaseItem,

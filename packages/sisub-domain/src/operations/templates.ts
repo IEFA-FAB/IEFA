@@ -538,9 +538,7 @@ export async function applyTemplate(
 			db
 				.select({ serviceDate: dailyMenuInKitchen.serviceDate })
 				.from(dailyMenuInKitchen)
-				.where(
-					and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt))
-				)
+				.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt)))
 		)
 		const occupied = new Set(occupiedRows.map((r) => r.serviceDate).filter((d): d is string => d != null))
 		datesSkipped = allDates.filter((d) => occupied.has(d))

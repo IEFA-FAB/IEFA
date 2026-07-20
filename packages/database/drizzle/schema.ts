@@ -1075,6 +1075,8 @@ export const productionTaskInKitchen = kitchen.table("production_task", {
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
 	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
 	notes: text(),
+	producedQuantity: numeric("produced_quantity"),
+	leftoverQuantity: numeric("leftover_quantity"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [

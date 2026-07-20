@@ -3828,8 +3828,10 @@ export type Database = {
 					created_at: string
 					id: string
 					kitchen_id: number
+					leftover_quantity: number | null
 					menu_item_id: string
 					notes: string | null
+					produced_quantity: number | null
 					production_date: string
 					started_at: string | null
 					status: string
@@ -3840,8 +3842,10 @@ export type Database = {
 					created_at?: string
 					id?: string
 					kitchen_id: number
+					leftover_quantity?: number | null
 					menu_item_id: string
 					notes?: string | null
+					produced_quantity?: number | null
 					production_date: string
 					started_at?: string | null
 					status?: string
@@ -3852,8 +3856,10 @@ export type Database = {
 					created_at?: string
 					id?: string
 					kitchen_id?: number
+					leftover_quantity?: number | null
 					menu_item_id?: string
 					notes?: string | null
+					produced_quantity?: number | null
 					production_date?: string
 					started_at?: string | null
 					status?: string

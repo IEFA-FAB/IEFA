@@ -24,21 +24,36 @@ interface ProductionBoardProps {
 const COLUMNS: ProductionTaskStatus[] = ["PENDING", "IN_PROGRESS", "DONE"]
 
 export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, date, isUpdating }: ProductionBoardProps) {
-	const [selectedItem, setSelectedItem] = useState<ProductionItem | null>(null)
+	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+	const [selectedSnapshot, setSelectedSnapshot] = useState<ProductionItem | null>(null)
+
+	// Deriva o item do board (dado fresco pós-ajuste/registro); o snapshot cobre a
+	// janela entre o optimistic update e o refetch.
+	const selectedItem = selectedTaskId != null ? (items.find((i) => i.task.id === selectedTaskId) ?? selectedSnapshot) : null
+
+	function setSelectedItem(item: ProductionItem | null) {
+		setSelectedTaskId(item?.task.id ?? null)
+		setSelectedSnapshot(item)
+	}
 
 	function handleUpdateStatus(taskId: string, status: ProductionTaskStatus) {
 		onUpdateStatus(taskId, status, kitchenId, date)
-		// Atualiza o item selecionado no sheet se for o mesmo
+		// Atualiza o snapshot do sheet se for o mesmo (o board refaz o resto via cache)
 		if (selectedItem?.task.id === taskId) {
-			setSelectedItem((prev) =>
-				prev
+			setSelectedSnapshot(
+				selectedItem
 					? {
-							...prev,
+							...selectedItem,
 							task: {
-								...prev.task,
+								...selectedItem.task,
 								status,
-								started_at: status === "IN_PROGRESS" ? (prev.task.started_at ?? new Date().toISOString()) : status === "PENDING" ? null : prev.task.started_at,
-								completed_at: status === "DONE" ? new Date().toISOString() : status === "PENDING" ? null : prev.task.completed_at,
+								started_at:
+									status === "IN_PROGRESS"
+										? (selectedItem.task.started_at ?? new Date().toISOString())
+										: status === "PENDING"
+											? null
+											: selectedItem.task.started_at,
+								completed_at: status === "DONE" ? new Date().toISOString() : status === "PENDING" ? null : selectedItem.task.completed_at,
 							},
 						}
 					: null
@@ -98,6 +113,8 @@ export function ProductionBoard({ items, isLoading, onUpdateStatus, kitchenId, d
 					if (!open) setSelectedItem(null)
 				}}
 				onUpdateStatus={handleUpdateStatus}
+				kitchenId={kitchenId}
+				date={date}
 				isUpdating={isUpdating}
 			/>
 		</>

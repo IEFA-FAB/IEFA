@@ -10,8 +10,18 @@
 import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
 import { and, eq, isNull } from "drizzle-orm"
-import type { EnsureProductionTasks, FetchProductionBoard, UpdateProductionTaskStatus } from "../schemas/meal-ops.ts"
+import { requireAnyPermission, requireKitchenProduction } from "../guards/require-permission.ts"
+import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
+import type {
+	AdjustProductionPortions,
+	EnsureProductionTasks,
+	FetchProductionBoard,
+	RecordProductionSubstitution,
+	UpdateProductionTaskRecord,
+	UpdateProductionTaskStatus,
+} from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
+import { NotFoundError } from "../types/errors.ts"
 import { insertOneOrFail, runQuery, toWire } from "../utils/index.ts"
 
 const RECIPE_RELATIONS: Record<string, string> = { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" }
@@ -23,6 +33,7 @@ type BoardItem = {
 		id: string
 		recipe_origin_id: string | null
 		planned_portion_quantity: string | null
+		substitutions: Record<string, unknown> | null
 		recipe_origin: Record<string, unknown> | null
 		recipe_with_ingredients: Record<string, unknown> | null
 	}
@@ -42,7 +53,7 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
 				menuItemsInKitchens: {
 					// Filtra soft-deleted no SQL (Drizzle permite where em relation aninhada — PostgREST não).
 					where: isNull(menuItemsInKitchen.deletedAt),
-					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true },
+					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true, substitutions: true },
 					with: {
 						recipesInKitchen: {
 							columns: { id: true, name: true, portionYield: true, preparationMethod: true, preparationTimeMinutes: true, kitchenId: true },
@@ -60,6 +71,8 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
 								startedAt: true,
 								completedAt: true,
 								notes: true,
+								producedQuantity: true,
+								leftoverQuantity: true,
 								updatedAt: true,
 								createdAt: true,
 								kitchenId: true,
@@ -92,6 +105,7 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
 					id: menuItem.id,
 					recipe_origin_id: menuItem.recipeOriginId,
 					planned_portion_quantity: menuItem.plannedPortionQuantity,
+					substitutions: (menuItem.substitutions as Record<string, unknown> | null) ?? null,
 					recipe_origin: recipeOrigin,
 					recipe_with_ingredients: recipeOrigin ? { ...recipeOrigin, ingredients: recipeOrigin.ingredients ?? [] } : null,
 				},
@@ -157,4 +171,83 @@ export async function updateProductionTaskStatus(db: SisubDb, _ctx: UserContext,
 		db.update(productionTaskInKitchen).set(updates).where(eq(productionTaskInKitchen.id, input.taskId)).returning()
 	)
 	return toWire<ProductionTask>(row)
+}
+
+/** Resolve a cozinha dona da task (para o guard escopado). */
+async function resolveKitchenFromTask(db: SisubDb, taskId: string): Promise<number> {
+	const task = await runQuery("FETCH_FAILED", () =>
+		db.query.productionTaskInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(productionTaskInKitchen.id, taskId) })
+	)
+	if (!task) throw new NotFoundError("production_task", taskId)
+	return task.kitchenId
+}
+
+/**
+ * Registra o REAL da produção: porções produzidas, sobras e observações.
+ * Gate nível 1 do módulo kitchen-production (mesmo acesso do board): o check-in
+ * do turno é a interação-grão do painel, não uma edição de planejamento.
+ */
+export async function updateProductionTaskRecord(db: SisubDb, ctx: UserContext, input: UpdateProductionTaskRecord): Promise<ProductionTask> {
+	const kitchenId = await resolveKitchenFromTask(db, input.taskId)
+	requireKitchenProduction(ctx, 1, kitchenId)
+
+	const updates: { updatedAt: string; producedQuantity?: string | null; leftoverQuantity?: string | null; notes?: string | null } = {
+		updatedAt: new Date().toISOString(),
+	}
+	if (input.producedQuantity !== undefined) updates.producedQuantity = input.producedQuantity != null ? String(input.producedQuantity) : null
+	if (input.leftoverQuantity !== undefined) updates.leftoverQuantity = input.leftoverQuantity != null ? String(input.leftoverQuantity) : null
+	if (input.notes !== undefined) updates.notes = input.notes
+
+	const row = await insertOneOrFail("UPDATE_FAILED", `production_task ${input.taskId} not found`, () =>
+		db.update(productionTaskInKitchen).set(updates).where(eq(productionTaskInKitchen.id, input.taskId)).returning()
+	)
+	return toWire<ProductionTask>(row)
+}
+
+/**
+ * Ajusta as porções planejadas de um item direto do painel de produção (corte de
+ * efetivo, evento surpresa). Edição de dado de planejamento → exige nível 2 em
+ * kitchen-production OU kitchen (o nutricionista também ajusta por aqui).
+ */
+export async function adjustProductionPortions(db: SisubDb, ctx: UserContext, input: AdjustProductionPortions): Promise<{ id: string }> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
+	requireAnyPermission(ctx, ["kitchen-production", "kitchen"], 2, { type: "kitchen", id: kitchenId })
+
+	const row = await insertOneOrFail("UPDATE_FAILED", `menu_item ${input.menuItemId} not found`, () =>
+		db
+			.update(menuItemsInKitchen)
+			.set({ plannedPortionQuantity: String(input.plannedPortionQuantity) })
+			.where(eq(menuItemsInKitchen.id, input.menuItemId))
+			.returning({ id: menuItemsInKitchen.id })
+	)
+	return row
+}
+
+/**
+ * Registra uma substituição de insumo feita durante o turno. Merge no JSON
+ * `substitutions` do menu_item (mesmo contrato do SubstitutionModal do
+ * planejamento), com type "production" para distinguir a origem chão de fábrica.
+ */
+export async function recordProductionSubstitution(db: SisubDb, ctx: UserContext, input: RecordProductionSubstitution): Promise<void> {
+	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
+	requireAnyPermission(ctx, ["kitchen-production", "kitchen"], 2, { type: "kitchen", id: kitchenId })
+
+	const item = await runQuery("FETCH_FAILED", () =>
+		db.query.menuItemsInKitchen.findFirst({ columns: { substitutions: true }, where: eq(menuItemsInKitchen.id, input.menuItemId) })
+	)
+	if (!item) throw new NotFoundError("menu_item", input.menuItemId)
+
+	const current = (item.substitutions as Record<string, unknown> | null) ?? {}
+	const substitutions = {
+		...current,
+		[input.ingredientId]: { type: "production", rationale: input.rationale, updated_at: new Date().toISOString() },
+	}
+
+	await runQuery("UPDATE_FAILED", () =>
+		db
+			.update(menuItemsInKitchen)
+			.set({ substitutions })
+			.where(eq(menuItemsInKitchen.id, input.menuItemId))
+			.then(() => undefined)
+	)
 }

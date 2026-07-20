@@ -104,6 +104,7 @@ export {
 	UpdateKitchenSettingsSchema,
 } from "./kitchens.ts"
 export type {
+	AdjustProductionPortions,
 	DeleteForecast,
 	DeletePresence,
 	EnsureProductionTasks,
@@ -115,10 +116,13 @@ export type {
 	ListMealForecasts,
 	ListPresences,
 	PersistDefaultMessHall,
+	RecordProductionSubstitution,
+	UpdateProductionTaskRecord,
 	UpdateProductionTaskStatus,
 	UpsertForecast,
 } from "./meal-ops.ts"
 export {
+	AdjustProductionPortionsSchema,
 	DeleteForecastSchema,
 	DeletePresenceSchema,
 	EnsureProductionTasksSchema,
@@ -130,6 +134,8 @@ export {
 	ListMealForecastsSchema,
 	ListPresencesSchema,
 	PersistDefaultMessHallSchema,
+	RecordProductionSubstitutionSchema,
+	UpdateProductionTaskRecordSchema,
 	UpdateProductionTaskStatusSchema,
 	UpsertForecastSchema,
 } from "./meal-ops.ts"
