@@ -5251,6 +5251,7 @@ export type Database = {
 				Row: {
 					catmat_item_codigo: number | null
 					catmat_item_descricao: string | null
+					computed_at: string | null
 					conversion_factor: number | null
 					folder_description: string | null
 					folder_id: string | null
@@ -5270,6 +5271,7 @@ export type Database = {
 				Insert: {
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
+					computed_at?: string | null
 					conversion_factor?: number | null
 					folder_description?: string | null
 					folder_id?: string | null
@@ -5289,6 +5291,7 @@ export type Database = {
 				Update: {
 					catmat_item_codigo?: number | null
 					catmat_item_descricao?: string | null
+					computed_at?: string | null
 					conversion_factor?: number | null
 					folder_description?: string | null
 					folder_id?: string | null
@@ -5355,18 +5358,21 @@ export type Database = {
 				Row: {
 					id: string
 					list_kitchen_id: string
+					origin_template_id: string | null
 					repetitions: number
 					template_id: string
 				}
 				Insert: {
 					id?: string
 					list_kitchen_id: string
+					origin_template_id?: string | null
 					repetitions?: number
 					template_id: string
 				}
 				Update: {
 					id?: string
 					list_kitchen_id?: string
+					origin_template_id?: string | null
 					repetitions?: number
 					template_id?: string
 				}
@@ -5376,6 +5382,115 @@ export type Database = {
 						columns: ["list_kitchen_id"]
 						isOneToOne: false
 						referencedRelation: "procurement_list_kitchen"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_list_snapshot_component: {
+				Row: {
+					catmat_item_codigo: number | null
+					computed_at: string
+					folder_description: string | null
+					id: string
+					ingredient_id: string | null
+					ingredient_name: string
+					list_id: string
+					measure_unit: string | null
+					purchase_item_description: string | null
+					purchase_item_id: string | null
+					purchase_measure_unit: string | null
+					purchase_quantity: number | null
+					snapshot_source: string
+					total_quantity: number
+					unit_price: number | null
+				}
+				Insert: {
+					catmat_item_codigo?: number | null
+					computed_at?: string
+					folder_description?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_name: string
+					list_id: string
+					measure_unit?: string | null
+					purchase_item_description?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					purchase_quantity?: number | null
+					snapshot_source?: string
+					total_quantity: number
+					unit_price?: number | null
+				}
+				Update: {
+					catmat_item_codigo?: number | null
+					computed_at?: string
+					folder_description?: string | null
+					id?: string
+					ingredient_id?: string | null
+					ingredient_name?: string
+					list_id?: string
+					measure_unit?: string | null
+					purchase_item_description?: string | null
+					purchase_item_id?: string | null
+					purchase_measure_unit?: string | null
+					purchase_quantity?: number | null
+					snapshot_source?: string
+					total_quantity?: number
+					unit_price?: number | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_list_snapshot_component_list_id_fkey"
+						columns: ["list_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			procurement_list_snapshot_selection: {
+				Row: {
+					created_at: string
+					id: string
+					kitchen_id: number | null
+					kitchen_name: string | null
+					list_id: string
+					origin_template_id: string | null
+					repetitions: number
+					snapshot_source: string
+					template_name: string | null
+					template_type: string | null
+				}
+				Insert: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number | null
+					kitchen_name?: string | null
+					list_id: string
+					origin_template_id?: string | null
+					repetitions?: number
+					snapshot_source?: string
+					template_name?: string | null
+					template_type?: string | null
+				}
+				Update: {
+					created_at?: string
+					id?: string
+					kitchen_id?: number | null
+					kitchen_name?: string | null
+					list_id?: string
+					origin_template_id?: string | null
+					repetitions?: number
+					snapshot_source?: string
+					template_name?: string | null
+					template_type?: string | null
+				}
+				Relationships: [
+					{
+						foreignKeyName: "procurement_list_snapshot_selection_list_id_fkey"
+						columns: ["list_id"]
+						isOneToOne: false
+						referencedRelation: "procurement_list"
 						referencedColumns: ["id"]
 					},
 				]

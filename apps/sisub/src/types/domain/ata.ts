@@ -22,9 +22,48 @@ export interface AtaKitchenWithDetails extends ProcurementListKitchen {
 	})[]
 }
 
+export interface AtaSnapshotSelection {
+	template_name: string | null
+	template_type: string | null
+	kitchen_id: number | null
+	kitchen_name: string | null
+	repetitions: number
+	snapshot_source: string
+}
+
+export interface AtaSnapshotComponent {
+	ingredient_name: string
+	folder_description: string | null
+	measure_unit: string | null
+	total_quantity: string
+	purchase_item_description: string | null
+	purchase_measure_unit: string | null
+	purchase_quantity: string | null
+	catmat_item_codigo: number | null
+	unit_price: string | null
+	snapshot_source: string
+}
+
+/** Metadados de integridade computados por request (não persistidos). */
+export interface AtaMeta {
+	/** Rascunho com quantitativos desatualizados vs. edição do cardápio. */
+	is_stale: boolean
+	price_research: {
+		oldest_research_at: string | null
+		validity_days: number
+		is_expired: boolean
+	}
+	/** Composição congelada (só existe após publicação). */
+	snapshot: {
+		selections: AtaSnapshotSelection[]
+		components: AtaSnapshotComponent[]
+	} | null
+}
+
 export interface AtaWithDetails extends ProcurementList {
 	kitchens: AtaKitchenWithDetails[]
 	items: ProcurementListItem[]
+	meta: AtaMeta
 }
 
 // ─── Rascunho com seleções carregadas ────────────────────────────────────────
