@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { type AuthOtpType, isPasswordRecoveryLink, parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/utils"
 
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
@@ -45,7 +46,7 @@ export interface AuthScreenProps {
 		token_hash?: string
 		type?: string
 	}
-	onNavigate: (options: { to?: string; search?: Record<string, unknown>; replace?: boolean }) => Promise<void> | void
+	onNavigate: (options: { to?: string; href?: string; search?: Record<string, unknown>; replace?: boolean }) => Promise<void> | void
 	onTabChange?: (tab: "login" | "register") => void
 	// null = voltar aos tabs (remove ?view=forgot da URL, back button funciona)
 	onViewChange?: (view: "forgot" | null) => void
@@ -54,7 +55,7 @@ export interface AuthScreenProps {
 		signUp: (email: string, password: string, name: string) => Promise<void>
 		resetPassword: (email: string) => Promise<void>
 		updateUserPassword: (password: string) => Promise<{ error: Error | null }>
-		verifyOtp: (token_hash: string, type: "email") => Promise<{ error: Error | null }>
+		verifyOtp: (token_hash: string, type: AuthOtpType) => Promise<{ error: Error | null }>
 	}
 }
 
@@ -395,7 +396,9 @@ function LoginTabContent({ state, dispatch, actions, onNavigate, searchParams, i
 			onSuccess()
 			if (state.rememberMe) localStorage.setItem(STORAGE_KEY_REMEMBER_EMAIL, norm)
 			else localStorage.removeItem(STORAGE_KEY_REMEMBER_EMAIL)
-			await onNavigate({ to: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
+			// href (não to): o destino salvo pode carregar query string, e `to` é
+			// resolvido como pathname puro — o "?" vira parte do path e cai em NotFound.
+			await onNavigate({ href: safeRedirect(searchParams.redirect, "/dashboard"), replace: true })
 		} catch (err) {
 			onFailure()
 			const msg = err instanceof Error ? err.message : "Erro desconhecido"
@@ -662,7 +665,9 @@ export function AuthScreen({ searchParams, onNavigate, onTabChange, onViewChange
 	const [state, dispatch] = useReducer(authReducer, initialState)
 
 	// view derivada da URL — nunca estado local
-	const currentView: AuthView = searchParams.token_hash ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
+	// Só link de recuperação abre o formulário de nova senha; signup/invite/magiclink
+	// apenas confirmam a sessão e o beforeLoad de /auth redireciona pro app.
+	const currentView: AuthView = isPasswordRecoveryLink(searchParams) ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
 	const activeTab = searchParams.tab ?? "login"
 
 	const goToForgot = () => onViewChange?.("forgot")
@@ -683,15 +688,16 @@ export function AuthScreen({ searchParams, onNavigate, onTabChange, onViewChange
 	}, [])
 
 	useEffect(() => {
-		// currentView === "reset" ≡ !!searchParams.token_hash — sem necessidade de incluí-lo nos deps
-		if (searchParams.token_hash && searchParams.type === "email") {
-			const tokenHash = searchParams.token_hash
-			const verify = async () => {
-				const { error } = await actions.verifyOtp(tokenHash, "email")
-				if (error) dispatch({ type: "SET_ERROR", message: "Link inválido ou expirado. Solicite uma nova recuperação." })
-			}
-			verify()
+		// Qualquer link de email do Supabase chega com token_hash + type (recovery, signup, …).
+		// Sem trocar o token por sessão, o "definir nova senha" falha com "Auth session missing".
+		if (!searchParams.token_hash) return
+		const tokenHash = searchParams.token_hash
+		const type = parseOtpType(searchParams.type)
+		const verify = async () => {
+			const { error } = await actions.verifyOtp(tokenHash, type)
+			if (error) dispatch({ type: "SET_ERROR", message: "Link inválido ou expirado. Solicite um novo email." })
 		}
+		verify()
 	}, [searchParams.token_hash, searchParams.type, actions])
 
 	if (currentView === "reset") {

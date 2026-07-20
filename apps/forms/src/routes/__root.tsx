@@ -98,8 +98,8 @@ function RootDocument() {
 				<ThemeScript />
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
-				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
-				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />
 			</head>
 			<body className="min-h-screen bg-background text-foreground antialiased">
