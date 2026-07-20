@@ -24,6 +24,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
 import type {
+	ApplyEventTemplate,
 	ApplyTemplate,
 	CreateBlankTemplate,
 	CreateTemplate,
@@ -492,7 +493,11 @@ export async function applyTemplate(
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	// Valida template: não excluído, cozinha confere (lança se inacessível).
-	await validateTemplateAccess(db, input.templateId, input.kitchenId)
+	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
+	// Evento/exceção não tem semana (day_of_week é placeholder): materializa via applyEventTemplate.
+	if (template.template_type != null && template.template_type !== "weekly") {
+		throw new DomainError("NOT_WEEKLY_TEMPLATE", `Template ${input.templateId} is ${template.template_type}; use applyEventTemplate`)
+	}
 
 	// Itens do template + receita de origem COM ingredientes — o snapshot json em menu_items
 	// precisa do mesmo shape que addMenuItem grava (snake_case aninhado com `ingredients`),
@@ -581,6 +586,9 @@ export async function applyTemplate(
 					itemGroup: item.itemGroup,
 					sortOrder: item.sortOrder ?? 0,
 					recommendedProportion: item.recommendedProportion,
+					// Rastreabilidade: de qual template (e regime) o item veio.
+					originTemplateId: input.templateId,
+					originTemplateType: "weekly",
 				})
 			}
 			// Não cria refeição vazia se todos os itens foram descartados.
@@ -621,4 +629,124 @@ export async function applyTemplate(
 	})
 
 	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed: targetDates }
+}
+
+/**
+ * Materializa um evento/exceção em datas concretas do calendário.
+ *
+ * ADITIVO por desenho: o planejamento rotineiro do dia permanece intacto — os
+ * itens do evento são acrescentados ao cardápio (daily_menu) existente da mesma
+ * refeição, criando-o quando não há. `day_of_week` do template é placeholder e é
+ * ignorado; o headcount é por item (headcount_override → planned_portion_quantity).
+ * Tudo numa transação: falha em qualquer data desfaz a aplicação inteira.
+ */
+export async function applyEventTemplate(
+	db: SisubDb,
+	ctx: UserContext,
+	input: ApplyEventTemplate
+): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; datesProcessed: string[] }> {
+	requireKitchen(ctx, 2, input.kitchenId)
+
+	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
+	if (template.template_type !== "event" && template.template_type !== "exception") {
+		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${template.template_type ?? "weekly"}; use applyTemplate`)
+	}
+
+	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
+	const templateItems = await runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateItemsInKitchen.findMany({
+			with: { recipesInKitchen: { with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } } },
+			where: eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId),
+		})
+	)
+
+	// Agrupa por refeição, ignorando day_of_week (placeholder em evento/exceção).
+	let itemsSkipped = 0
+	const itemsByMealType = new Map<string, typeof templateItems>()
+	for (const item of templateItems) {
+		if (!item.mealTypeId || !item.recipeId) {
+			itemsSkipped++
+			continue
+		}
+		const bucket = itemsByMealType.get(item.mealTypeId) ?? []
+		bucket.push(item)
+		itemsByMealType.set(item.mealTypeId, bucket)
+	}
+
+	const dates = [...new Set(input.dates)].toSorted()
+	let menusCreated = 0
+	let itemsCreated = 0
+
+	await db.transaction(async (tx) => {
+		for (const dateStr of dates) {
+			for (const [mealTypeId, items] of itemsByMealType) {
+				// Reusa o cardápio ativo do dia+refeição; cria (PLANNED, sem efetivo — o
+				// headcount do evento é por item) quando o dia ainda não tem essa refeição.
+				const existing = await runQuery("FETCH_FAILED", () =>
+					tx
+						.select({ id: dailyMenuInKitchen.id })
+						.from(dailyMenuInKitchen)
+						.where(
+							and(
+								eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+								eq(dailyMenuInKitchen.serviceDate, dateStr),
+								eq(dailyMenuInKitchen.mealTypeId, mealTypeId),
+								isNull(dailyMenuInKitchen.deletedAt)
+							)
+						)
+						.limit(1)
+				)
+				let menuId = existing[0]?.id
+				if (!menuId) {
+					const [created] = await runQuery("INSERT_FAILED", () =>
+						tx
+							.insert(dailyMenuInKitchen)
+							.values({ kitchenId: input.kitchenId, serviceDate: dateStr, mealTypeId, status: "PLANNED" })
+							.returning({ id: dailyMenuInKitchen.id })
+					)
+					if (!created) throw new DomainError("INSERT_FAILED", "no row returned")
+					menuId = created.id
+					menusCreated++
+				}
+				const targetMenuId = menuId
+
+				// Acrescenta após os itens ativos existentes (não colide com o sort da rotina).
+				const sortRows = await runQuery("FETCH_FAILED", () =>
+					tx
+						.select({ sortOrder: menuItemsInKitchen.sortOrder })
+						.from(menuItemsInKitchen)
+						.where(and(eq(menuItemsInKitchen.dailyMenuId, targetMenuId), isNull(menuItemsInKitchen.deletedAt)))
+				)
+				const baseSort = sortRows.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
+
+				const rows = items.map((item, index) => {
+					// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
+					const recipeSnapshot = item.recipesInKitchen
+						? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
+						: {}
+					return {
+						dailyMenuId: targetMenuId,
+						recipeOriginId: item.recipeId,
+						recipe: recipeSnapshot,
+						// Headcount por preparação (contrato de evento): sem fallback de refeição.
+						plannedPortionQuantity: item.headcountOverride != null ? String(item.headcountOverride) : null,
+						itemGroup: item.itemGroup,
+						sortOrder: baseSort + index,
+						recommendedProportion: item.recommendedProportion,
+						originTemplateId: input.templateId,
+						originTemplateType: template.template_type,
+					}
+				})
+				await runQuery("INSERT_ITEMS_FAILED", () =>
+					tx
+						.insert(menuItemsInKitchen)
+						.values(rows)
+						.then(() => undefined)
+				)
+				itemsCreated += rows.length
+			}
+		}
+	})
+
+	return { menusCreated, itemsCreated, itemsSkipped, datesProcessed: dates }
 }

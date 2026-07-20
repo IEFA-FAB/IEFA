@@ -3541,6 +3541,8 @@ export type Database = {
 					excluded_from_procurement: number | null
 					id: string
 					item_group: string | null
+					origin_template_id: string | null
+					origin_template_type: string | null
 					planned_portion_quantity: number | null
 					recipe: Json | null
 					recipe_origin_id: string | null
@@ -3555,6 +3557,8 @@ export type Database = {
 					excluded_from_procurement?: number | null
 					id?: string
 					item_group?: string | null
+					origin_template_id?: string | null
+					origin_template_type?: string | null
 					planned_portion_quantity?: number | null
 					recipe?: Json | null
 					recipe_origin_id?: string | null
@@ -3569,6 +3573,8 @@ export type Database = {
 					excluded_from_procurement?: number | null
 					id?: string
 					item_group?: string | null
+					origin_template_id?: string | null
+					origin_template_type?: string | null
 					planned_portion_quantity?: number | null
 					recipe?: Json | null
 					recipe_origin_id?: string | null
@@ -3582,6 +3588,13 @@ export type Database = {
 						columns: ["daily_menu_id"]
 						isOneToOne: false
 						referencedRelation: "daily_menu"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "menu_items_origin_template_id_fkey"
+						columns: ["origin_template_id"]
+						isOneToOne: false
+						referencedRelation: "menu_template"
 						referencedColumns: ["id"]
 					},
 					{

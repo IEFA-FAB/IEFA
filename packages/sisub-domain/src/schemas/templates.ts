@@ -98,3 +98,15 @@ export const ApplyTemplateSchema = z.object({
 	startDayOfWeek: z.number().int().min(1).max(7),
 })
 export type ApplyTemplate = z.infer<typeof ApplyTemplateSchema>
+
+/**
+ * Materializa um evento/exceção em datas concretas do calendário. Diferente do
+ * applyTemplate semanal, é ADITIVO: soma itens ao cardápio existente do dia sem
+ * apagar o planejamento rotineiro.
+ */
+export const ApplyEventTemplateSchema = z.object({
+	templateId: UuidSchema,
+	kitchenId: KitchenIdSchema,
+	dates: z.array(DateSchema).min(1),
+})
+export type ApplyEventTemplate = z.infer<typeof ApplyEventTemplateSchema>

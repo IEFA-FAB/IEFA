@@ -327,6 +327,7 @@ export {
 export type { GetReviewMetrics } from "./review-metrics.ts"
 export { GetReviewMetricsSchema } from "./review-metrics.ts"
 export type {
+	ApplyEventTemplate,
 	ApplyTemplate,
 	CreateBlankTemplate,
 	CreateTemplate,
@@ -339,6 +340,7 @@ export type {
 	UpdateTemplate,
 } from "./templates.ts"
 export {
+	ApplyEventTemplateSchema,
 	ApplyTemplateSchema,
 	CreateBlankTemplateSchema,
 	CreateTemplateSchema,

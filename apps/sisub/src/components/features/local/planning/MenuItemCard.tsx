@@ -78,6 +78,16 @@ export function MenuItemCard({ item, onSubstitute, onDelete }: MenuItemCardProps
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
 					<p className="text-subheading">{recipeName}</p>
+					{item.origin_template_type === "event" && (
+						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+							Evento
+						</Badge>
+					)}
+					{item.origin_template_type === "exception" && (
+						<Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+							Exceção
+						</Badge>
+					)}
 					{item.substitutions && (
 						<Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
 							Substituição Ativa

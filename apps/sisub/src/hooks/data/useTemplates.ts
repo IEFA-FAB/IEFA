@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import {
+	applyEventTemplateFn,
 	applyTemplateFn,
 	createTemplateFn,
 	deleteTemplateFn,
@@ -177,6 +178,22 @@ export function useRestoreTemplate() {
 			toast.success("Template restaurado!")
 		},
 		onError: (error) => toast.error(`Erro ao restaurar template: ${error.message}`),
+	})
+}
+
+export function useApplyEventTemplate() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: ({ templateId, kitchenId, dates }: { templateId: string; kitchenId: number; dates: string[] }) =>
+			applyEventTemplateFn({ data: { templateId, kitchenId, dates } }),
+		onSuccess: (result) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.all() })
+			const dates = result?.datesProcessed?.length ?? 0
+			toast.success(`Aplicado ao calendário! ${result?.itemsCreated ?? 0} itens somados em ${dates} ${dates === 1 ? "dia" : "dias"}.`)
+		},
+		onError: (error) => toast.error(`Erro ao aplicar ao calendário: ${error.message}`),
 	})
 }
 

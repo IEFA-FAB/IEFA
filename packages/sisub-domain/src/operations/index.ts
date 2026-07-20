@@ -168,6 +168,7 @@ export {
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
 export {
+	applyEventTemplate,
 	applyTemplate,
 	createBlankTemplate,
 	createTemplate,
