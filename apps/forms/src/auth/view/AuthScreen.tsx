@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { type AuthOtpType, isPasswordRecoveryLink, parseOtpType } from "@/lib/auth-otp"
 import { cn } from "@/lib/utils"
 
 const FAB_EMAIL_REGEX = /^[a-zA-Z0-9]+(?:[._-][a-zA-Z0-9]+)*@fab\.mil\.br$/
@@ -36,15 +37,6 @@ function safeRedirect(target: string | null | undefined, fallback = "/"): string
 
 // view derivada da URL — "reset" ativado por token_hash, "forgot" por ?view=forgot
 export type AuthView = "auth" | "forgot" | "reset"
-
-// tipos de OTP que o Supabase manda por email (?type=... no link)
-export type AuthOtpType = "email" | "recovery" | "signup" | "invite" | "magiclink" | "email_change"
-
-const OTP_TYPES: readonly AuthOtpType[] = ["email", "recovery", "signup", "invite", "magiclink", "email_change"]
-
-function parseOtpType(type: string | undefined): AuthOtpType {
-	return OTP_TYPES.includes(type as AuthOtpType) ? (type as AuthOtpType) : "recovery"
-}
 
 export interface AuthScreenProps {
 	searchParams: {
@@ -675,9 +667,7 @@ export function AuthScreen({ searchParams, onNavigate, onTabChange, onViewChange
 	// view derivada da URL — nunca estado local
 	// Só link de recuperação abre o formulário de nova senha; signup/invite/magiclink
 	// apenas confirmam a sessão e o beforeLoad de /auth redireciona pro app.
-	const otpType = parseOtpType(searchParams.type)
-	const isRecoveryLink = Boolean(searchParams.token_hash) && (otpType === "recovery" || otpType === "email")
-	const currentView: AuthView = isRecoveryLink ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
+	const currentView: AuthView = isPasswordRecoveryLink(searchParams) ? "reset" : searchParams.view === "forgot" ? "forgot" : "auth"
 	const activeTab = searchParams.tab ?? "login"
 
 	const goToForgot = () => onViewChange?.("forgot")

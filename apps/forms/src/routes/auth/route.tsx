@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { z } from "zod"
 import { env } from "@/env"
+import { isPasswordRecoveryLink } from "@/lib/auth-otp"
 
 const authSearchSchema = z.object({
 	redirect: z.string().optional(),
@@ -20,9 +21,10 @@ function safeRedirect(target: string | undefined) {
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
 	beforeLoad: ({ context, search }) => {
-		// Com token_hash na URL o usuário está no meio de um fluxo de email
-		// (recuperação/confirmação) — deixar a tela concluir antes de redirecionar.
-		if (context.auth.isAuthenticated && !search.token_hash) {
+		// Só o link de recuperação segura a tela (o usuário ainda vai digitar a nova
+		// senha). Em signup/invite/magiclink o verifyOtp já criou a sessão, então
+		// redirecionar é o esperado — senão o link fica consumido e o usuário parado aqui.
+		if (context.auth.isAuthenticated && !isPasswordRecoveryLink(search)) {
 			throw redirect({ href: safeRedirect(search.redirect) })
 		}
 	},

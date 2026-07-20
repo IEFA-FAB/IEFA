@@ -1,7 +1,8 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { z } from "zod"
-import { type AuthOtpType, AuthScreen } from "@/auth/view/AuthScreen"
+import { AuthScreen } from "@/auth/view/AuthScreen"
 import { useAuth } from "@/hooks/useAuth"
+import type { AuthOtpType } from "@/lib/auth-otp"
 import { supabase } from "@/lib/supabase"
 
 const authSearchSchema = z.object({
