@@ -28,8 +28,8 @@ function WeeklyMenusPage() {
 	const { mutate: deleteTemplate, isPending: isDeleting } = useDeleteTemplate()
 
 	const globalTemplates = templates?.filter((t) => t.kitchen_id === null) || []
-	// Exclui eventos (template_type='event') — eles são gerenciados em /events
-	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type !== "event") || []
+	// Allowlist explícita: só cardápios semanais. Eventos vivem em /events, exceções em /exceptions.
+	const localTemplates = templates?.filter((t) => t.kitchen_id !== null && t.template_type === "weekly") || []
 
 	const handleDelete = (id: string, name: string) => {
 		if (window.confirm(`Tem certeza que deseja remover o cardápio semanal "${name}"?\n\nEle poderá ser recuperado na lixeira do Planejamento.`)) {

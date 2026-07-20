@@ -52,6 +52,8 @@ type TemplateWithCounts = MenuTemplate & {
 	recipe_count: number
 	headcount_filled: number
 	avg_headcount_weekday: number | null
+	/** Custeio de exceção: Σ(comensais dos itens) × ocorrências mensais (nulo p/ não-exceção). */
+	monthly_headcount_total: number | null
 }
 
 /**
@@ -81,7 +83,13 @@ const WITH_ITEMS_FULL = {
 
 // ── List helpers ──
 
-type CountRow = MenuTemplate & { menuTemplateItemsInKitchens?: { headcountOverride: number | null; dayOfWeek: number | null }[] }
+// Linhas cruas do Drizzle são camelCase (toWire snake-iza no final). Declaramos os
+// campos camelCase lidos aqui (o base MenuTemplate é snake, só usado via toWire).
+type CountRow = MenuTemplate & {
+	templateType?: string | null
+	expectedMonthlyOccurrences?: number | null
+	menuTemplateItemsInKitchens?: { headcountOverride: number | null; dayOfWeek: number | null }[]
+}
 
 function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
 	const items = t.menuTemplateItemsInKitchens ?? []
@@ -90,8 +98,12 @@ function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
 	const weekdayItems = items.filter((i) => i.dayOfWeek !== null && i.dayOfWeek >= 1 && i.dayOfWeek <= 4 && i.headcountOverride !== null)
 	const avg_headcount_weekday =
 		weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) / weekdayItems.length) : null
+	// Custeio de exceção: sem semana. Soma os comensais de todos os itens e multiplica
+	// pelas ocorrências mensais (nulo = 1). Nulo para cardápios não-exceção.
+	const monthly_headcount_total =
+		t.templateType === "exception" ? items.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) * (t.expectedMonthlyOccurrences ?? 1) : null
 	const { menuTemplateItemsInKitchens: _items, ...meta } = t
-	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday }
+	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday, monthly_headcount_total }
 }
 
 function templateScopeCondition(kitchenId: number | null | undefined) {
@@ -223,6 +235,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 					description: input.description ?? null,
 					kitchenId: input.kitchenId ?? null,
 					templateType: input.templateType,
+					expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 				})
 				.returning()
 		)
@@ -265,6 +278,7 @@ export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: 
 				description: input.description ?? null,
 				kitchenId: input.kitchenId ?? null,
 				templateType: input.templateType,
+				expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 			})
 			.returning()
 	)
@@ -371,8 +385,11 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 
 	const updates: Partial<typeof menuTemplateInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
-	if (input.description != null) updates.description = input.description
+	// nullable: undefined = não mexe; null = limpa a descrição.
+	if (input.description !== undefined) updates.description = input.description
 	if (input.templateType != null) updates.templateType = input.templateType
+	// nullable: undefined = não mexe; null = limpa a recorrência.
+	if (input.expectedMonthlyOccurrences !== undefined) updates.expectedMonthlyOccurrences = input.expectedMonthlyOccurrences
 
 	const result = await db.transaction(async (tx) => {
 		const [updated] = await runQuery("UPDATE_FAILED", () =>

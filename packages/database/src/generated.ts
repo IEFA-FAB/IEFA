@@ -3599,6 +3599,7 @@ export type Database = {
 					created_at: string
 					deleted_at: string | null
 					description: string | null
+					expected_monthly_occurrences: number | null
 					id: string
 					kitchen_id: number | null
 					name: string | null
@@ -3609,6 +3610,7 @@ export type Database = {
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					expected_monthly_occurrences?: number | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
@@ -3619,6 +3621,7 @@ export type Database = {
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					expected_monthly_occurrences?: number | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
