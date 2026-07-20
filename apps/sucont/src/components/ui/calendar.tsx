@@ -61,7 +61,7 @@ function Calendar({
 					captionLayout === "label" ? "text-sm" : "flex h-8 items-center gap-1 rounded-md pr-1 pl-2 text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
 					defaultClassNames.caption_label
 				),
-				table: "w-full border-collapse",
+				month_grid: "w-full border-collapse",
 				weekdays: cn("flex", defaultClassNames.weekdays),
 				weekday: cn("flex-1 rounded-md text-[0.8rem] font-normal text-muted-foreground select-none", defaultClassNames.weekday),
 				week: cn("mt-2 flex w-full", defaultClassNames.week),

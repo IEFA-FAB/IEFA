@@ -14,7 +14,7 @@ import {
 	restoreTemplateFn,
 	updateTemplateFn,
 } from "@/server/templates.fn"
-import type { ApplyTemplatePayload, MenuTemplateWithItems, TemplateWithItemCounts } from "@/types/domain/planning"
+import type { ApplyTemplatePayload, MenuTemplateWithItems, TemplateMealDraft, TemplateWithItemCounts } from "@/types/domain/planning"
 
 // --- Query Options ---
 
@@ -74,13 +74,22 @@ export function useDeletedTemplates(kitchenId: number | null) {
 export function useCreateTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ template, items }: { template: MenuTemplateInsert; items: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
+		mutationFn: ({
+			template,
+			items,
+			meals,
+		}: {
+			template: MenuTemplateInsert
+			items: Omit<MenuTemplateItemInsert, "menu_template_id">[]
+			meals?: TemplateMealDraft[]
+		}) =>
 			createTemplateFn({
 				data: {
 					name: template.name ?? "",
 					description: template.description ?? undefined,
 					kitchenId: template.kitchen_id ?? null,
-					templateType: (template.template_type ?? "weekly") as "weekly" | "event",
+					templateType: (template.template_type ?? "weekly") as "weekly" | "event" | "exception",
+					expectedMonthlyOccurrences: template.expected_monthly_occurrences ?? null,
 					items: items.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",
@@ -90,6 +99,7 @@ export function useCreateTemplate() {
 						sortOrder: i.sort_order ?? index,
 						recommendedProportion: i.recommended_proportion ?? null,
 					})),
+					meals: meals?.map((m) => ({ dayOfWeek: m.day_of_week, mealTypeId: m.meal_type_id, baseHeadcount: m.base_headcount })),
 				},
 			}),
 		onSuccess: (data) => {
@@ -103,13 +113,25 @@ export function useCreateTemplate() {
 export function useUpdateTemplate(options?: { silent?: boolean }) {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ id, updates, items }: { id: string; updates: MenuTemplateUpdate; items?: Omit<MenuTemplateItemInsert, "menu_template_id">[] }) =>
+		mutationFn: ({
+			id,
+			updates,
+			items,
+			meals,
+		}: {
+			id: string
+			updates: MenuTemplateUpdate
+			items?: Omit<MenuTemplateItemInsert, "menu_template_id">[]
+			meals?: TemplateMealDraft[]
+		}) =>
 			updateTemplateFn({
 				data: {
 					templateId: id,
 					name: updates.name ?? undefined,
-					description: updates.description ?? undefined,
-					templateType: updates.template_type as "weekly" | "event" | undefined,
+					// Preserva null (limpar) vs undefined (não mexer) — `?? undefined` apagaria o intent de limpar.
+					description: updates.description === undefined ? undefined : updates.description,
+					templateType: updates.template_type as "weekly" | "event" | "exception" | undefined,
+					expectedMonthlyOccurrences: updates.expected_monthly_occurrences === undefined ? undefined : updates.expected_monthly_occurrences,
 					items: items?.map((i, index) => ({
 						dayOfWeek: i.day_of_week ?? 1,
 						mealTypeId: i.meal_type_id ?? "",
@@ -119,6 +141,7 @@ export function useUpdateTemplate(options?: { silent?: boolean }) {
 						sortOrder: i.sort_order ?? index,
 						recommendedProportion: i.recommended_proportion ?? null,
 					})),
+					meals: meals?.map((m) => ({ dayOfWeek: m.day_of_week, mealTypeId: m.meal_type_id, baseHeadcount: m.base_headcount })),
 				},
 			}),
 		onSuccess: (data) => {
@@ -165,7 +188,10 @@ export function useApplyTemplate() {
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
-			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} items criados.`)
+			// itemsSkipped é contado por ocorrência (data×refeição), não por slot único do template.
+			const skipped = result?.itemsSkipped ?? 0
+			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
+			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),
 	})

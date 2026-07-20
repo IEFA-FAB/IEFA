@@ -51,9 +51,6 @@ export const parseExcelFile = async (file: File): Promise<RawInputRow[]> => {
 					const col0 = String(row[0] || "")
 						.toUpperCase()
 						.trim()
-					const _col1 = String(row[1] || "")
-						.toUpperCase()
-						.trim()
 
 					if (col0 === "DATA" || col0.includes("MÊS") || col0.includes("REF") || col0.includes("PERÍODO")) {
 						startRowIndex = i + 1

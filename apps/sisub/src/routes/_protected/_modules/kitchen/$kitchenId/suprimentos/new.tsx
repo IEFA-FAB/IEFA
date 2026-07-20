@@ -25,8 +25,12 @@ function NewDraftPage() {
 
 	// Separar templates locais por tipo
 	const localTemplates = templates?.filter((t) => t.kitchen_id !== null) || []
-	const weeklyTemplates = localTemplates.filter((t) => (t as typeof t & { template_type?: string }).template_type !== "event")
-	const eventTemplates = localTemplates.filter((t) => (t as typeof t & { template_type?: string }).template_type === "event")
+	const weeklyTemplates = localTemplates.filter((t) => (t as typeof t & { template_type?: string }).template_type === "weekly")
+	// "Eventos / Refeições Especiais" agrupa eventos + exceções previsíveis.
+	const eventTemplates = localTemplates.filter((t) => {
+		const type = (t as typeof t & { template_type?: string }).template_type
+		return type === "event" || type === "exception"
+	})
 
 	const handleSave = (title: string, notes: string, selections: TemplateSelection[]) => {
 		createDraft(

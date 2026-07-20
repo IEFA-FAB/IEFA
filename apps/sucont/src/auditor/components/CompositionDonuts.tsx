@@ -69,7 +69,7 @@ export const CompositionDonuts: React.FC<CompositionDonutsProps> = ({ data, isDa
 								))}
 							</Pie>
 							<Tooltip
-								formatter={(value: number) => formatCurrency(value)}
+								formatter={(value) => formatCurrency(Number(value))}
 								contentStyle={{
 									backgroundColor: isDarkMode ? "#1e293b" : "#fff",
 									borderColor: isDarkMode ? "#334155" : "#e2e8f0",
@@ -126,7 +126,7 @@ export const CompositionDonuts: React.FC<CompositionDonutsProps> = ({ data, isDa
 								))}
 							</Pie>
 							<Tooltip
-								formatter={(value: number) => formatCurrency(value)}
+								formatter={(value) => formatCurrency(Number(value))}
 								contentStyle={{
 									backgroundColor: isDarkMode ? "#1e293b" : "#fff",
 									borderColor: isDarkMode ? "#334155" : "#e2e8f0",

@@ -19,6 +19,7 @@ import {
 	MessageSquare,
 	QrCode,
 	RefreshCw,
+	Sandwich,
 	Settings,
 	ShieldCheck,
 	ShoppingCart,
@@ -105,6 +106,7 @@ export const ALL_MODULES: ModuleDef[] = [
 		items: [
 			{ title: "Cardápios Semanais", url: "/kitchen/weekly-menus", icon: CalendarDays },
 			{ title: "Eventos", url: "/kitchen/events", icon: CalendarRange },
+			{ title: "Exceções", url: "/kitchen/exceptions", icon: Sandwich },
 			{ title: "Planejamento", url: "/kitchen/planning", icon: Calendar },
 			{ title: "Preparações", url: "/kitchen/recipes", icon: UtensilsCrossed },
 			{ title: "Suprimentos", url: "/kitchen/suprimentos", icon: ShoppingCart },

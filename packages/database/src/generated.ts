@@ -3599,6 +3599,7 @@ export type Database = {
 					created_at: string
 					deleted_at: string | null
 					description: string | null
+					expected_monthly_occurrences: number | null
 					id: string
 					kitchen_id: number | null
 					name: string | null
@@ -3609,6 +3610,7 @@ export type Database = {
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					expected_monthly_occurrences?: number | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
@@ -3619,6 +3621,7 @@ export type Database = {
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					expected_monthly_occurrences?: number | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
@@ -3691,6 +3694,48 @@ export type Database = {
 						columns: ["recipe_id"]
 						isOneToOne: false
 						referencedRelation: "recipes"
+						referencedColumns: ["id"]
+					},
+				]
+			}
+			menu_template_meal: {
+				Row: {
+					base_headcount: number | null
+					created_at: string
+					day_of_week: number
+					id: string
+					meal_type_id: string
+					menu_template_id: string
+				}
+				Insert: {
+					base_headcount?: number | null
+					created_at?: string
+					day_of_week: number
+					id?: string
+					meal_type_id: string
+					menu_template_id: string
+				}
+				Update: {
+					base_headcount?: number | null
+					created_at?: string
+					day_of_week?: number
+					id?: string
+					meal_type_id?: string
+					menu_template_id?: string
+				}
+				Relationships: [
+					{
+						foreignKeyName: "menu_template_meal_meal_type_id_fkey"
+						columns: ["meal_type_id"]
+						isOneToOne: false
+						referencedRelation: "meal_type"
+						referencedColumns: ["id"]
+					},
+					{
+						foreignKeyName: "menu_template_meal_menu_template_id_fkey"
+						columns: ["menu_template_id"]
+						isOneToOne: false
+						referencedRelation: "menu_template"
 						referencedColumns: ["id"]
 					},
 				]

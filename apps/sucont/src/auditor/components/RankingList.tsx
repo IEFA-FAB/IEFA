@@ -106,15 +106,6 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 		.sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0))
 		.slice(0, 50)
 
-	const _getGroupBadgeColor = (group: string) => {
-		if (group === AccountGroup.BMP)
-			return isDarkMode ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "bg-orange-50 text-orange-600 border-orange-200"
-		if (group === AccountGroup.CONSUMO) return isDarkMode ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-blue-50 text-blue-600 border-blue-200"
-		if (group === AccountGroup.INTANGIVEL)
-			return isDarkMode ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-green-50 text-green-600 border-green-200"
-		return isDarkMode ? "bg-slate-700/50 text-slate-400 border-slate-600/30" : "bg-slate-100 text-slate-600 border-slate-200"
-	}
-
 	const getCategoryConfig = (category: Category) => {
 		switch (category) {
 			case "REDUCAO_CONTINUA":

@@ -333,12 +333,12 @@ function ContaGenerica() {
 		}
 	}
 
-	const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+	const handleDragOver = (e: React.DragEvent<HTMLButtonElement>) => {
 		e.preventDefault()
 		e.stopPropagation()
 	}
 
-	const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+	const handleDrop = (e: React.DragEvent<HTMLButtonElement>) => {
 		e.preventDefault()
 		e.stopPropagation()
 		const f = e.dataTransfer.files?.[0]
@@ -653,6 +653,7 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 		for (const ug of ugsToInclude) {
 			text += `UG: ${getUgName(ug)} (${ug})\n`
 			const contas = result?.[ug]
+			if (!contas) continue
 			for (const conta of Object.keys(contas)) {
 				text += `- Conta Contábil: ${conta}\n`
 				contas[conta].forEach((reg) => {
@@ -737,7 +738,6 @@ Diretoria de Economia e Finanças da Aeronáutica (DIREF)`
 		}
 	}
 
-	const _topUgsByVolume = [...ugVolumes].sort((a, b) => b.volume - a.volume).slice(0, 3)
 	const topContasByFreq = Object.entries(contaFrequencies)
 		.map(([conta, d]) => ({ conta, ...d }))
 		.sort((a, b) => b.count - a.count)

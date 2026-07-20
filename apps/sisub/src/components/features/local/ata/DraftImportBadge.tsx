@@ -20,7 +20,8 @@ export function DraftImportBadge({ draft, kitchenState, onImport }: DraftImportB
 				templateName: sel.template.name || "",
 				repetitions: sel.repetitions,
 			}
-			if (sel.template.template_type === "event") {
+			// Eventos e exceções vão para o balde "Eventos / Refeições Especiais".
+			if (sel.template.template_type === "event" || sel.template.template_type === "exception") {
 				eventSelections.push(item)
 			} else {
 				templateSelections.push(item)

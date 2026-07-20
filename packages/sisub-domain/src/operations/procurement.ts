@@ -26,6 +26,7 @@ import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procu
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { runQuery, toWire } from "../utils/index.ts"
+import { scaleIngredientQuantity } from "./demand-math.ts"
 
 type ProcurementList = Tables<"procurement_list">
 
@@ -117,15 +118,19 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 		const recipe = recipeById.get(menuItem.recipeOriginId)
 		if (!recipe) continue
 
-		const portionMultiplier = Number(menuItem.plannedPortionQuantity ?? 0) / (Number(recipe.portionYield ?? 0) || 1)
-
 		for (const ri of recipe.recipeIngredientsInKitchens) {
 			const ingredientRaw = ri.ingredientInKitchen
 			if (!ingredientRaw) continue
 
 			const ingredientId = ri.ingredientId
 			if (!ingredientId) continue
-			const quantityNeeded = Number(ri.netQuantity ?? 0) * portionMultiplier
+			// Ajuste fino datado: uma ocorrência concreta por menu_item (repetitions = 1).
+			// demand = planned_portion_quantity (nº de comensais do item).
+			const quantityNeeded = scaleIngredientQuantity(
+				Number(ri.netQuantity ?? 0),
+				Number(menuItem.plannedPortionQuantity ?? 0),
+				Number(recipe.portionYield ?? 0)
+			)
 
 			const existing = needsMap.get(ingredientId)
 			if (existing) {

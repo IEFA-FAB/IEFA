@@ -613,8 +613,8 @@ Diferença apurada: ${formatCurrency(diff)}
 
 			const valoresText = report.pairs
 				.map((p) => {
-					const displayA = p.hasA ? formatCurrency(p.saldoA) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
-					const displayB = p.hasB ? formatCurrency(p.saldoB) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
+					const displayA = p.hasA ? formatCurrency(p.saldoA ?? 0) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
+					const displayB = p.hasB ? formatCurrency(p.saldoB ?? 0) : "CONTA NÃO LOCALIZADA NO RELATÓRIO"
 					return `Saldo da conta ${p.formattedA}: ${displayA}\nSaldo da conta ${p.formattedB}: ${displayB}\nDiferença apurada: ${formatCurrency(p.diff)}`
 				})
 				.join("\n\n")
@@ -1431,12 +1431,11 @@ DIREF/SUCONT/SUCONT-3
 												<XAxis type="number" tickFormatter={(value: number) => `R$ ${(value / 1000000).toFixed(1)}M`} stroke="#64748b" fontSize={12} />
 												<YAxis dataKey="name" type="category" stroke="#64748b" fontSize={12} fontWeight="bold" />
 												<Tooltip
-													formatter={(value: number | string | readonly (number | string)[]) =>
-														formatCurrency(typeof value === "number" ? value : Number(value))
-													}
-													labelFormatter={(label: string, payload: { payload?: { conferente?: string } }[]) => {
-														if (payload?.[0]?.payload) {
-															return `${label} — Conferente: ${payload[0].payload.conferente}`
+													formatter={(value) => formatCurrency(typeof value === "number" ? value : Number(value))}
+													labelFormatter={(label, payload) => {
+														const first = payload?.[0]?.payload
+														if (first) {
+															return `${String(label)} — Conferente: ${first.conferente}`
 														}
 														return String(label)
 													}}

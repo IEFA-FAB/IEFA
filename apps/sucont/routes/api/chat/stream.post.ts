@@ -1,4 +1,4 @@
-import { createError, readBody, type H3Event } from "h3"
+import { createError, readBody, type H3Event } from "nitro/h3"
 import { defineHandler } from "nitro"
 import { chat, chatParamsFromRequestBody, toServerSentEventsResponse } from "@tanstack/ai"
 import { createAdapterFromEnv } from "@iefa/ai-provider"
