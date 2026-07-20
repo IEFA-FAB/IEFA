@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { z } from "zod"
-import { AuthScreen } from "@/auth/view/AuthScreen"
+import { type AuthOtpType, AuthScreen } from "@/auth/view/AuthScreen"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
 
@@ -37,7 +37,7 @@ function AuthPage() {
 			const { error } = await supabase.auth.updateUser({ password })
 			return { error: error ? new Error(error.message) : null }
 		},
-		verifyOtp: async (token_hash: string, type: "email") => {
+		verifyOtp: async (token_hash: string, type: AuthOtpType) => {
 			const { error } = await supabase.auth.verifyOtp({ token_hash, type })
 			return { error: error ? new Error(error.message) : null }
 		},

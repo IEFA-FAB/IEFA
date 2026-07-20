@@ -4,13 +4,26 @@ import { env } from "@/env"
 
 const authSearchSchema = z.object({
 	redirect: z.string().optional(),
+	// token_hash/type precisam ser visíveis aqui: o verifyOtp do link de email cria
+	// sessão e re-dispara este beforeLoad — sem isso o usuário é chutado pra fora
+	// do formulário de nova senha antes de digitar.
+	token_hash: z.string().optional(),
+	type: z.string().optional(),
 })
+
+// Só aceita caminho interno absoluto: "//host" e URLs externas viram open redirect.
+function safeRedirect(target: string | undefined) {
+	if (!target?.startsWith("/") || target.startsWith("//")) return "/dashboard"
+	return target
+}
 
 export const Route = createFileRoute("/auth")({
 	validateSearch: authSearchSchema,
 	beforeLoad: ({ context, search }) => {
-		if (context.auth.isAuthenticated) {
-			throw redirect({ to: search.redirect || "/dashboard" })
+		// Com token_hash na URL o usuário está no meio de um fluxo de email
+		// (recuperação/confirmação) — deixar a tela concluir antes de redirecionar.
+		if (context.auth.isAuthenticated && !search.token_hash) {
+			throw redirect({ href: safeRedirect(search.redirect) })
 		}
 	},
 	component: AuthLayout,
