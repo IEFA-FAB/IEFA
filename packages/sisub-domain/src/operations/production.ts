@@ -1,7 +1,11 @@
 /**
  * Kitchen production-board operations: production_task lifecycle. Drizzle query layer.
  *
- * Auth posture preserved: authenticated entrypoints with no module-level PBAC guard.
+ * Postura de auth: todas as operations exigem o módulo kitchen-production escopado
+ * pela cozinha (o gate deixou de viver só na rota). Nível 1 cobre o ciclo do board
+ * (ler, criar tasks, check-in de status, registro do real) — é a interação-grão do
+ * terminal do chão de fábrica; ações que remodelam o planejamento (porções,
+ * substituições) exigem nível 2 em kitchen-production OU kitchen.
  *
  * State machine: PENDING -> IN_PROGRESS (sets started_at) -> DONE (sets
  * completed_at) -> PENDING (clears both timestamps).
@@ -44,7 +48,9 @@ type BoardItem = {
  * Returns production items for a kitchen on a date. Only items that already have
  * a production_task are returned — call ensureProductionTasks first to create them.
  */
-export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input: FetchProductionBoard): Promise<BoardItem[]> {
+export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input: FetchProductionBoard): Promise<BoardItem[]> {
+	requireKitchenProduction(ctx, 1, input.kitchenId)
+
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
 		db.query.dailyMenuInKitchen.findMany({
 			columns: { id: true, mealTypeId: true, forecastedHeadcount: true },
@@ -122,7 +128,9 @@ export async function fetchProductionBoard(db: SisubDb, _ctx: UserContext, input
  * one. Idempotent (onConflictDoNothing on UNIQUE menu_item_id). `created` é a
  * contagem REAL inserida (via RETURNING) — 0 numa 2ª chamada idempotente.
  */
-export async function ensureProductionTasks(db: SisubDb, _ctx: UserContext, input: EnsureProductionTasks): Promise<{ created: number }> {
+export async function ensureProductionTasks(db: SisubDb, ctx: UserContext, input: EnsureProductionTasks): Promise<{ created: number }> {
+	requireKitchenProduction(ctx, 1, input.kitchenId)
+
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
 		db.query.dailyMenuInKitchen.findMany({
 			columns: { id: true },
@@ -153,7 +161,10 @@ export async function ensureProductionTasks(db: SisubDb, _ctx: UserContext, inpu
 }
 
 /** Transitions a production_task to a new status, managing timestamps. */
-export async function updateProductionTaskStatus(db: SisubDb, _ctx: UserContext, input: UpdateProductionTaskStatus): Promise<ProductionTask> {
+export async function updateProductionTaskStatus(db: SisubDb, ctx: UserContext, input: UpdateProductionTaskStatus): Promise<ProductionTask> {
+	const kitchenId = await resolveKitchenFromTask(db, input.taskId)
+	requireKitchenProduction(ctx, 1, kitchenId)
+
 	const now = new Date().toISOString()
 
 	const updates: { status: string; updatedAt: string; startedAt?: string | null; completedAt?: string | null } = { status: input.status, updatedAt: now }

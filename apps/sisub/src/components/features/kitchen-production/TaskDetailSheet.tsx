@@ -1,10 +1,11 @@
-import { ArrowLeftRight, CheckCircle2, ChefHat, Clock, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
+import { ArrowLeftRight, CheckCircle2, ChefHat, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
 import { ProductionRecordSection } from "./ProductionRecordSection"
+import { RecipeStepsChecklist } from "./RecipeStepsChecklist"
 import { ShiftAdjustmentsSection } from "./ShiftAdjustmentsSection"
 
 // ---------------------------------------------------------------------------
@@ -172,18 +173,8 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitc
 						<ProductionRecordSection task={task} plannedPortions={plannedPortions != null ? Number(plannedPortions) : null} kitchenId={kitchenId} date={date} />
 					)}
 
-					{/* Modo de Preparo */}
-					{recipe?.preparation_method && (
-						<div className="px-4 pb-4 space-y-2">
-							<h3 className="text-subheading text-foreground flex items-center gap-2">
-								<Clock className="size-4 text-muted-foreground" />
-								Modo de Preparo
-							</h3>
-							<div className="rounded-md border border-border bg-muted/30 p-3">
-								<pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{recipe.preparation_method}</pre>
-							</div>
-						</div>
-					)}
+					{/* Modo de Preparo: checklist do fluxo estruturado (DAG) ou texto livre */}
+					<RecipeStepsChecklist recipeId={menuItem.recipe_origin_id} fallbackText={recipe?.preparation_method ?? null} />
 
 					{/* Timestamps */}
 					{(task.started_at || task.completed_at) && (
