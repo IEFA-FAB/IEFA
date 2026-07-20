@@ -1519,7 +1519,7 @@ function SubitensGenericos() {
 																<RechartsTooltip
 																	cursor={{ fill: "#E3F2FD", opacity: 0.4 }}
 																	contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
-																	formatter={(value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)}
+																	formatter={(value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value))}
 																/>
 																<Bar dataKey="saldo" fill="#003DA5" radius={[6, 6, 0, 0]} barSize={40} />
 															</BarChart>

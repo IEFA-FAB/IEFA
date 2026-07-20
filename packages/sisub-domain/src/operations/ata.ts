@@ -48,6 +48,8 @@ import type {
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { insertOneOrFail, mutateOrFail, runQuery, toWire } from "../utils/index.ts"
+import { scaleIngredientQuantity } from "./demand-math.ts"
+import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 type ProcurementList = Tables<"procurement_list">
 type ProcurementListItem = Tables<"procurement_list_item">
@@ -96,7 +98,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 				columns: { id: true, templateType: true },
 				with: {
 					menuTemplateItemsInKitchens: {
-						columns: { id: true, recipeId: true, headcountOverride: true },
+						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true },
 						with: {
 							recipesInKitchen: {
 								columns: { id: true, portionYield: true },
@@ -124,6 +126,19 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 
 	const templateMap = new Map(templates.map((t) => [t.id, t]))
 
+	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
+	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
+	// Lido à parte, tolerante à tabela ausente (migração pendente → base vazia, sem quebrar a ATA).
+	const mealsByTemplate = await fetchTemplateMealsSafe(db, uniqueTemplateIds)
+	const baseByTemplateCell = new Map<string, Map<string, number>>()
+	for (const t of templates) {
+		const cells = new Map<string, number>()
+		for (const meal of mealsByTemplate.get(t.id) ?? []) {
+			if (meal.baseHeadcount != null) cells.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
+		}
+		baseByTemplateCell.set(t.id, cells)
+	}
+
 	type NeedAccumulator = {
 		ingredient: {
 			id: string
@@ -139,16 +154,18 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	for (const selection of allSelections) {
 		const template = templateMap.get(selection.templateId)
 		if (!template) continue
+		const baseByCell = baseByTemplateCell.get(selection.templateId)
 
 		for (const item of template.menuTemplateItemsInKitchens) {
 			const recipeData = item.recipesInKitchen
 			if (!recipeData) continue
 
-			const headcount = item.headcountOverride
+			// Exceção por-item (override) senão o efetivo base da refeição. Sem nenhum dos dois
+			// o item não tem efetivo dimensionável → não contribui para a compra.
+			const headcount = item.headcountOverride ?? baseByCell?.get(`${item.dayOfWeek}:${item.mealTypeId}`) ?? null
 			if (!headcount) continue
 
-			const portionYield = Number(recipeData.portionYield ?? 0) || 1
-			const portionMultiplier = (headcount / portionYield) * selection.repetitions
+			const portionYield = Number(recipeData.portionYield ?? 0)
 
 			for (const ri of recipeData.recipeIngredientsInKitchens) {
 				const ingredientRaw = ri.ingredientInKitchen
@@ -162,7 +179,8 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 					folder: ingredientRaw.folderInKitchen ? { id: ingredientRaw.folderInKitchen.id, description: ingredientRaw.folderInKitchen.description } : null,
 				}
 
-				const quantityNeeded = Number(ri.netQuantity ?? 0) * portionMultiplier
+				// Aquisição: projeta o cardápio × repetições da seleção da ATA.
+				const quantityNeeded = scaleIngredientQuantity(Number(ri.netQuantity ?? 0), headcount, portionYield, selection.repetitions)
 
 				const existing = needsMap.get(ri.ingredientId)
 				if (existing) {

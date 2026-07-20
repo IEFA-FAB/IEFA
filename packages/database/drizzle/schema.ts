@@ -1501,6 +1501,30 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	check("menu_template_expected_monthly_occurrences_check", sql`expected_monthly_occurrences IS NULL OR expected_monthly_occurrences > 0`),
 ]);
 
+export const menuTemplateMealInKitchen = kitchen.table("menu_template_meal", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	menuTemplateId: uuid("menu_template_id").notNull(),
+	dayOfWeek: smallint("day_of_week").notNull(),
+	mealTypeId: uuid("meal_type_id").notNull(),
+	baseHeadcount: integer("base_headcount"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("menu_template_meal_unique").using("btree", table.menuTemplateId.asc().nullsLast().op("uuid_ops"), table.dayOfWeek.asc().nullsLast().op("int2_ops"), table.mealTypeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.menuTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_template_meal_menu_template_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.mealTypeId],
+			foreignColumns: [mealTypeInKitchen.id],
+			name: "menu_template_meal_meal_type_id_fkey"
+		}),
+	check("menu_template_meal_day_check", sql`day_of_week >= 1 AND day_of_week <= 7`),
+	check("menu_template_meal_headcount_check", sql`base_headcount IS NULL OR base_headcount > 0`),
+	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
+]);
+
 export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	recipeId: uuid("recipe_id"),

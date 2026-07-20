@@ -266,7 +266,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		trackTemplate(tpl.id)
 
 		const date = "2099-04-06"
-		const js = new Date(date).getDay()
+		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
 		const startDayOfWeek = js === 0 ? 7 : js
 
 		const result = await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: date, endDate: date, startDayOfWeek })
@@ -274,6 +274,40 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(result.datesProcessed).toEqual([date])
 		expect(result.menusCreated).toBe(1)
 		expect(result.itemsCreated).toBe(1)
+	})
+
+	test("applyTemplate deriva forecasted_headcount + planned_portion_quantity do headcount_override", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
+
+		// Dois itens na mesma refeição: um com override, outro sem → efetivo da refeição = média
+		// dos overrides preenchidos (só o 80). A porção de cada item = seu override senão o efetivo.
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Efetivo "),
+			kitchenId,
+			templateType: "weekly",
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 80, recommendedProportion: null },
+				{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null },
+			],
+		})
+		trackTemplate(tpl.id)
+
+		const date = "2099-04-06"
+		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
+		const startDayOfWeek = js === 0 ? 7 : js
+		await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: date, endDate: date, startDayOfWeek })
+
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
+			forecasted_headcount: number | null
+			menu_items: { planned_portion_quantity: number | string | null }[]
+		}[]
+		expect(details.length).toBe(1)
+		expect(details[0]?.forecasted_headcount).toBe(80)
+		const portions = details[0]?.menu_items.map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)
+		// item sem override herda o efetivo derivado (80); item com override mantém 80.
+		expect(portions).toEqual([80, 80])
 	})
 
 	test("grupo + ordem + proporção fazem round-trip em createTemplate/getTemplateItems", async () => {
@@ -318,7 +352,7 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		trackTemplate(tpl.id)
 
 		const date = "2099-04-06"
-		const js = new Date(date).getDay()
+		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
 		const startDayOfWeek = js === 0 ? 7 : js
 		await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: date, endDate: date, startDayOfWeek })
 
@@ -331,5 +365,81 @@ describeSupabaseIntegration("templates operations (regressão)", () => {
 		expect(menuItems.length).toBe(1)
 		expect(menuItems[0]?.item_group).toBe("prato_principal")
 		expect(Number(menuItems[0]?.recommended_proportion)).toBe(65)
+	})
+
+	test("efetivo base por refeição faz round-trip em createTemplate/getTemplate", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Base "),
+			kitchenId,
+			templateType: "weekly",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null }],
+			meals: [{ dayOfWeek: 1, mealTypeId, baseHeadcount: 120 }],
+		})
+		trackTemplate(tpl.id)
+
+		const full = (await getTemplate(db, ctx, { templateId: tpl.id })) as unknown as {
+			meals: { day_of_week: number; meal_type_id: string; base_headcount: number | null }[]
+		}
+		const meal = full.meals.find((m) => m.day_of_week === 1 && m.meal_type_id === mealTypeId)
+		expect(meal).toBeDefined()
+		expect(Number(meal?.base_headcount)).toBe(120)
+	})
+
+	test("applyTemplate usa o efetivo base do template (base vence a média de overrides)", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		seeder.trackFn(() => seeder?.purgeKitchenMenus(kitchenId) ?? Promise.resolve())
+
+		// Base = 120; um item tem override 80 (exceção), outro não tem.
+		const tpl = await createTemplate(db, ctx, {
+			name: uid("[TEST] Base apply "),
+			kitchenId,
+			templateType: "weekly",
+			items: [
+				{ dayOfWeek: 1, mealTypeId, recipeId, headcountOverride: 80, recommendedProportion: null },
+				{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null },
+			],
+			meals: [{ dayOfWeek: 1, mealTypeId, baseHeadcount: 120 }],
+		})
+		trackTemplate(tpl.id)
+
+		const date = "2099-04-06"
+		const js = new Date(`${date}T00:00:00Z`).getUTCDay()
+		const startDayOfWeek = js === 0 ? 7 : js
+		await applyTemplate(db, ctx, { templateId: tpl.id, kitchenId, startDate: date, endDate: date, startDayOfWeek })
+
+		const details = (await fetchDayDetails(db, ctx, { kitchenId, date })) as unknown as {
+			forecasted_headcount: number | null
+			menu_items: { planned_portion_quantity: number | string | null }[]
+		}[]
+		expect(details.length).toBe(1)
+		// forecasted_headcount = base (120), não a média dos overrides.
+		expect(details[0]?.forecasted_headcount).toBe(120)
+		const portions = details[0]?.menu_items.map((m) => Number(m.planned_portion_quantity)).sort((a, b) => a - b)
+		// item com override → 80; item sem override → base 120.
+		expect(portions).toEqual([80, 120])
+	})
+
+	test("forkTemplate copia o efetivo base das refeições", async () => {
+		if (!reachable || !seeder || !db) return
+		const { kitchenId, mealTypeId, recipeId } = await base()
+		const src = await createTemplate(db, ctx, {
+			name: uid("[TEST] Fork base "),
+			kitchenId,
+			templateType: "weekly",
+			items: [{ dayOfWeek: 1, mealTypeId, recipeId, recommendedProportion: null }],
+			meals: [{ dayOfWeek: 1, mealTypeId, baseHeadcount: 200 }],
+		})
+		trackTemplate(src.id)
+
+		const forked = await forkTemplate(db, ctx, { sourceTemplateId: src.id, targetKitchenId: kitchenId, newName: uid("[TEST] Forked ") })
+		trackTemplate(forked.id)
+
+		const full = (await getTemplate(db, ctx, { templateId: forked.id })) as unknown as {
+			meals: { day_of_week: number; base_headcount: number | null }[]
+		}
+		expect(Number(full.meals.find((m) => m.day_of_week === 1)?.base_headcount)).toBe(200)
 	})
 })

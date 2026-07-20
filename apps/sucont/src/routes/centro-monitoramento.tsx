@@ -34,7 +34,7 @@ interface ModuleItem {
 	id: string
 	name: string
 	purpose: string
-	examples: string[]
+	examples: readonly string[]
 	url?: string
 	group: string
 	highlighted?: boolean

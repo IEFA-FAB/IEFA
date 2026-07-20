@@ -18,8 +18,16 @@ export type PlanningStatus = "PLANNED" | "PUBLISHED" | "EXECUTED"
 export type MenuTemplate = Tables<"menu_template">
 export type MenuTemplateItem = Tables<"menu_template_items">
 
+/** Efetivo base por (dia + refeição) do template. Espelha kitchen.menu_template_meal. */
+export interface TemplateMeal {
+	day_of_week: number // 1-7
+	meal_type_id: string
+	base_headcount: number | null
+}
+
 export type MenuTemplateWithItems = MenuTemplate & {
 	items: (MenuTemplateItem & { recipe_origin: Recipe | null })[]
+	meals: TemplateMeal[]
 }
 
 export interface DailyMenuWithItems extends DailyMenu {
@@ -56,6 +64,13 @@ export interface TemplateItemDraft {
 	sort_order?: number
 	/** Proporção recomendada de consumo (%), advisory. */
 	recommended_proportion?: number | null
+}
+
+/** Draft do efetivo base por (dia + refeição) no editor de template. */
+export interface TemplateMealDraft {
+	day_of_week: number // 1-7
+	meal_type_id: string
+	base_headcount: number | null
 }
 
 /**
