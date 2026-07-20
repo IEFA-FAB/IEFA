@@ -200,15 +200,17 @@ export function useApplyEventTemplate() {
 export function useApplyTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId }: ApplyTemplatePayload) =>
-			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId } }),
+		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId, conflictMode }: ApplyTemplatePayload) =>
+			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId, conflictMode } }),
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			// itemsSkipped é contado por ocorrência (data×refeição), não por slot único do template.
 			const skipped = result?.itemsSkipped ?? 0
 			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
-			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${skippedNote}`)
+			const preserved = result?.datesSkipped?.length ?? 0
+			const preservedNote = preserved > 0 ? ` ${preserved} ${preserved === 1 ? "dia já planejado foi preservado" : "dias já planejados foram preservados"}.` : ""
+			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${preservedNote}${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),
 	})

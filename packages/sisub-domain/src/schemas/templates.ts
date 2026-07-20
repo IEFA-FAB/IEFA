@@ -96,6 +96,12 @@ export const ApplyTemplateSchema = z.object({
 	startDate: DateSchema,
 	endDate: DateSchema,
 	startDayOfWeek: z.number().int().min(1).max(7),
+	/**
+	 * O que fazer com datas que já têm planejamento ativo:
+	 * - "replace" (default, comportamento histórico): soft-delete e re-materializa.
+	 * - "skip": preserva o dia como está (inclusive ajustes manuais) e só materializa os vazios.
+	 */
+	conflictMode: z.enum(["replace", "skip"]).optional(),
 })
 export type ApplyTemplate = z.infer<typeof ApplyTemplateSchema>
 

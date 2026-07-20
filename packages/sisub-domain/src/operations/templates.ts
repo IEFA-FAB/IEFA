@@ -489,7 +489,7 @@ export async function applyTemplate(
 	db: SisubDb,
 	ctx: UserContext,
 	input: ApplyTemplate
-): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; datesProcessed: string[] }> {
+): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; datesProcessed: string[]; datesSkipped: string[] }> {
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	// Valida template: não excluído, cozinha confere (lança se inacessível).
@@ -523,9 +523,31 @@ export async function applyTemplate(
 	// o cálculo determinístico e independente do fuso do servidor. O bug antigo misturava
 	// parse UTC (`new Date("YYYY-MM-DD")`) com `getDay()`/`getDate()` locais, o que deslocava
 	// o dia da semana em servidores de offset negativo (ex.: Brasil UTC-3).
-	const targetDates: string[] = []
+	const allDates: string[] = []
 	for (let d = new Date(`${input.startDate}T00:00:00Z`); d <= new Date(`${input.endDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
-		targetDates.push(d.toISOString().slice(0, 10))
+		allDates.push(d.toISOString().slice(0, 10))
+	}
+
+	// conflictMode="skip": preserva dias que já têm planejamento ativo (inclusive ajustes
+	// manuais feitos no DayDrawer) e só materializa os vazios. Default "replace" mantém o
+	// comportamento histórico (soft-delete + re-materialização).
+	let datesSkipped: string[] = []
+	let targetDates = allDates
+	if ((input.conflictMode ?? "replace") === "skip") {
+		const occupiedRows = await runQuery("FETCH_FAILED", () =>
+			db
+				.select({ serviceDate: dailyMenuInKitchen.serviceDate })
+				.from(dailyMenuInKitchen)
+				.where(
+					and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt))
+				)
+		)
+		const occupied = new Set(occupiedRows.map((r) => r.serviceDate).filter((d): d is string => d != null))
+		datesSkipped = allDates.filter((d) => occupied.has(d))
+		targetDates = allDates.filter((d) => !occupied.has(d))
+		if (targetDates.length === 0) {
+			return { menusCreated: 0, itemsCreated: 0, itemsSkipped: 0, datesProcessed: [], datesSkipped }
+		}
 	}
 
 	// Constrói menus + itens novos.
@@ -628,7 +650,7 @@ export async function applyTemplate(
 		}
 	})
 
-	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed: targetDates }
+	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed: targetDates, datesSkipped }
 }
 
 /**

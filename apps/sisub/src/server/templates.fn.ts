@@ -117,6 +117,7 @@ const ApplyTemplateFnSchema = z.object({
 	targetDates: z.array(z.string()).min(1),
 	startDayOfWeek: z.number().int().min(1).max(7),
 	kitchenId: z.number().int().positive(),
+	conflictMode: z.enum(["replace", "skip"]).optional(),
 })
 
 // applyEventTemplateFn: materializa evento/exceção em datas concretas (aditivo,
@@ -139,5 +140,6 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 			startDate: sorted[0],
 			endDate: sorted[sorted.length - 1],
 			startDayOfWeek: data.startDayOfWeek,
+			conflictMode: data.conflictMode,
 		}).catch(handleDomainError)
 	})
