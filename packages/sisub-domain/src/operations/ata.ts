@@ -21,6 +21,7 @@ import {
 	kitchenInCore,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
+	menuTemplateMealInKitchen,
 	procurementListInProcurement,
 	procurementListItemInProcurement,
 	procurementListKitchenInProcurement,
@@ -405,7 +406,7 @@ export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: Upda
 
 // ─── Salvar itens calculados no rascunho (substitui todos) ───────────────────
 
-function buildItemPayload(item: DraftItem, draftId: string): ItemInsert {
+function buildItemPayload(item: DraftItem, draftId: string, computedAt: string): ItemInsert {
 	return {
 		listId: draftId,
 		ingredientId: item.ingredient_id || null,
@@ -423,7 +424,7 @@ function buildItemPayload(item: DraftItem, draftId: string): ItemInsert {
 		catmatItemDescricao: item.catmat_item_descricao || null,
 		unitPrice: item.unit_price == null ? null : String(item.unit_price),
 		itemDescription: item.item_description || null,
-		computedAt: new Date().toISOString(),
+		computedAt,
 	}
 }
 
@@ -440,17 +441,15 @@ export async function saveAtaDraftItems(
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
 	const insertedItemsById = new Map<string, string>() // ingredient_id → new item id
+	// Um único carimbo para computed_at e updated_at: evita que o próprio save marque o rascunho como defasado.
+	const stamp = new Date().toISOString()
 
 	const { unlinkedResearchCount } = await db.transaction(async (tx) => {
 		await assertDraftEditable(tx, input.draftId)
-		const result = await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
+		const result = await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
 		await runQuery(
 			"UPDATE_FAILED",
-			() =>
-				tx
-					.update(procurementListInProcurement)
-					.set({ wizardStep: 4, updatedAt: new Date().toISOString() })
-					.where(eq(procurementListInProcurement.id, input.draftId)),
+			() => tx.update(procurementListInProcurement).set({ wizardStep: 4, updatedAt: stamp }).where(eq(procurementListInProcurement.id, input.draftId)),
 			{ prefix: "Erro ao atualizar rascunho" }
 		)
 		return result
@@ -489,7 +488,8 @@ async function persistDraftItems(
 	existing: DraftItem[],
 	toInsert: DraftItem[],
 	insertedItemsById: Map<string, string>,
-	researchLinks: ResearchLink[] | undefined
+	researchLinks: ResearchLink[] | undefined,
+	stamp: string
 ): Promise<{ unlinkedResearchCount: number }> {
 	const keepIds = new Set(existing.map((i) => i.ata_item_id as string))
 
@@ -516,7 +516,7 @@ async function persistDraftItems(
 	for (const item of existing) {
 		await tx
 			.update(procurementListItemInProcurement)
-			.set(buildItemPayload(item, draftId))
+			.set(buildItemPayload(item, draftId, stamp))
 			.where(eq(procurementListItemInProcurement.id, item.ata_item_id as string))
 	}
 
@@ -527,7 +527,7 @@ async function persistDraftItems(
 			() =>
 				tx
 					.insert(procurementListItemInProcurement)
-					.values(toInsert.map((item) => buildItemPayload(item, draftId)))
+					.values(toInsert.map((item) => buildItemPayload(item, draftId, stamp)))
 					.returning({
 						id: procurementListItemInProcurement.id,
 						ingredientId: procurementListItemInProcurement.ingredientId,
@@ -604,10 +604,12 @@ export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: Fi
 	const existing = input.items.filter((i) => i.ata_item_id)
 	const toInsert = input.items.filter((i) => !i.ata_item_id)
 	const insertedItemsById = new Map<string, string>()
+	// Um único carimbo para computed_at e updated_at (ver saveAtaDraftItems).
+	const stamp = new Date().toISOString()
 
 	const ata = await db.transaction(async (tx) => {
 		await assertDraftEditable(tx, input.draftId)
-		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks)
+		await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
 
 		const updated = await insertOneOrFail(
 			"UPDATE_FAILED",
@@ -615,7 +617,7 @@ export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: Fi
 			() =>
 				tx
 					.update(procurementListInProcurement)
-					.set({ title: input.title, notes: input.notes || null, wizardStep: null, updatedAt: new Date().toISOString() })
+					.set({ title: input.title, notes: input.notes || null, wizardStep: null, updatedAt: stamp })
 					.where(eq(procurementListInProcurement.id, input.draftId))
 					.returning(),
 			{ prefix: "Erro ao finalizar ata" }
@@ -636,6 +638,7 @@ export async function finalizeAtaDraft(db: SisubDb, _ctx: UserContext, input: Fi
  */
 export async function createAta(db: SisubDb, _ctx: UserContext, input: CreateAta): Promise<ProcurementList> {
 	const { unitId, title, notes, kitchenSelections, items } = input
+	const stamp = new Date().toISOString()
 
 	const ata = await db.transaction(async (tx) => {
 		// 1. Criar lista de compras.
@@ -672,7 +675,7 @@ export async function createAta(db: SisubDb, _ctx: UserContext, input: CreateAta
 
 		// 3. Inserir itens calculados.
 		if (items.length > 0) {
-			const itemRows: ItemInsert[] = items.map((item) => buildItemPayload(item, created.id))
+			const itemRows: ItemInsert[] = items.map((item) => buildItemPayload(item, created.id, stamp))
 			const insertedItems = await runQuery(
 				"INSERT_FAILED",
 				() =>
@@ -761,7 +764,7 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 		{ prefix: "Erro ao buscar itens" }
 	)
 
-	const meta = await computeAtaMeta(db, ata.status, input.ataId, kitchens, items)
+	const meta = await computeAtaMeta(db, ata.status, input.ataId, kitchens, items, ata.updatedAt ?? null)
 
 	return {
 		...toWire<ProcurementList>(ata),
@@ -775,7 +778,14 @@ type KitchenRow = { procurementListSelectionInProcurements: Array<{ templateId: 
 type ItemRow = { computedAt: string | null }
 
 /** Calcula defasagem (stale) do rascunho, validade da pesquisa e snapshot congelado (ATA publicada). */
-async function computeAtaMeta(db: SisubDb, status: string, listId: string, kitchens: KitchenRow[], items: ItemRow[]): Promise<AtaMeta> {
+async function computeAtaMeta(
+	db: SisubDb,
+	status: string,
+	listId: string,
+	kitchens: KitchenRow[],
+	items: ItemRow[],
+	listUpdatedAt: string | null
+): Promise<AtaMeta> {
 	const maxDate = (values: Array<string | null | undefined>): string | null => {
 		const valid = values.filter((v): v is string => !!v)
 		return valid.length ? valid.reduce((a, b) => (a > b ? a : b)) : null
@@ -814,6 +824,23 @@ async function computeAtaMeta(db: SisubDb, status: string, listId: string, kitch
 				)
 				lastEdit = maxDate([lastEdit, ...recipeEdits.map((e) => e.createdAt)])
 			}
+
+			// Sinal 3: efetivo base por (dia, refeição) — updateTemplate reescreve menu_template_meal.
+			const mealEdits = await runQuery(
+				"QUERY_FAILED",
+				() =>
+					db
+						.select({ createdAt: menuTemplateMealInKitchen.createdAt })
+						.from(menuTemplateMealInKitchen)
+						.where(inArray(menuTemplateMealInKitchen.menuTemplateId, templateIds)),
+				{ prefix: "Erro ao verificar defasagem" }
+			)
+			lastEdit = maxDate([lastEdit, ...mealEdits.map((e) => e.createdAt)])
+
+			// Sinal 4: alteração das próprias seleções da ATA (repetições/cozinhas). procurement_list_selection não
+			// tem timestamp, mas updateAtaDraft carimba procurement_list.updated_at — conservador de propósito:
+			// melhor um falso "desatualizado" do que publicar quantitativo calculado com repetições antigas.
+			lastEdit = maxDate([lastEdit, listUpdatedAt])
 
 			isStale = !!lastEdit && lastEdit > lastComputedAt
 		}
