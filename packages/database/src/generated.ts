@@ -3599,33 +3599,33 @@ export type Database = {
 					created_at: string
 					deleted_at: string | null
 					description: string | null
+					expected_monthly_occurrences: number | null
 					id: string
 					kitchen_id: number | null
 					name: string | null
 					template_type: string
-					expected_monthly_occurrences: number | null
 				}
 				Insert: {
 					base_template_id?: string | null
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					expected_monthly_occurrences?: number | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
 					template_type?: string
-					expected_monthly_occurrences?: number | null
 				}
 				Update: {
 					base_template_id?: string | null
 					created_at?: string
 					deleted_at?: string | null
 					description?: string | null
+					expected_monthly_occurrences?: number | null
 					id?: string
 					kitchen_id?: number | null
 					name?: string | null
 					template_type?: string
-					expected_monthly_occurrences?: number | null
 				}
 				Relationships: [
 					{
