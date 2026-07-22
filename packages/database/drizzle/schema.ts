@@ -71,6 +71,8 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	itemGroup: text("item_group"),
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	recommendedProportion: numeric("recommended_proportion"),
+	originTemplateId: uuid("origin_template_id"),
+	originTemplateType: text("origin_template_type"),
 }, (table) => [
 	foreignKey({
 			columns: [table.dailyMenuId],
@@ -82,6 +84,12 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 			foreignColumns: [recipesInKitchen.id],
 			name: "menu_items_recipe_origin_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.originTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_items_origin_template_id_fkey"
+		}).onDelete("set null"),
+	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 ]);
 
@@ -1067,6 +1075,8 @@ export const productionTaskInKitchen = kitchen.table("production_task", {
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
 	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
 	notes: text(),
+	producedQuantity: numeric("produced_quantity"),
+	leftoverQuantity: numeric("leftover_quantity"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [

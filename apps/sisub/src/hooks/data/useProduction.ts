@@ -1,7 +1,14 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { queryKeys } from "@/lib/query-keys"
-import { ensureProductionTasksFn, fetchProductionBoardFn, updateProductionTaskStatusFn } from "@/server/production.fn"
+import {
+	adjustProductionPortionsFn,
+	ensureProductionTasksFn,
+	fetchProductionBoardFn,
+	recordProductionSubstitutionFn,
+	updateProductionTaskRecordFn,
+	updateProductionTaskStatusFn,
+} from "@/server/production.fn"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
 
 // ---------------------------------------------------------------------------
@@ -97,5 +104,73 @@ export function useUpdateTaskStatus() {
 			// Invalida para garantir consistência com o banco
 			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, date) })
 		},
+	})
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateTaskRecord — registro do REAL (produzido, sobras, observações)
+// ---------------------------------------------------------------------------
+
+export function useUpdateTaskRecord() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({
+			taskId,
+			producedQuantity,
+			leftoverQuantity,
+			notes,
+		}: {
+			taskId: string
+			producedQuantity?: number | null
+			leftoverQuantity?: number | null
+			notes?: string | null
+			kitchenId: number
+			date: string
+		}) => updateProductionTaskRecordFn({ data: { taskId, producedQuantity, leftoverQuantity, notes } }),
+		onSuccess: (_data, { kitchenId, date }) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, date) })
+			toast.success("Registro de produção salvo")
+		},
+		onError: () => toast.error("Erro ao salvar o registro de produção"),
+	})
+}
+
+// ---------------------------------------------------------------------------
+// useAdjustPortions — ajuste de porções planejadas direto do painel
+// ---------------------------------------------------------------------------
+
+export function useAdjustPortions() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ menuItemId, plannedPortionQuantity }: { menuItemId: string; plannedPortionQuantity: number; kitchenId: number; date: string }) =>
+			adjustProductionPortionsFn({ data: { menuItemId, plannedPortionQuantity } }),
+		onSuccess: (_data, { kitchenId, date }) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, date) })
+			// O planejamento exibe o mesmo dado (menu_items) — mantém as duas telas coerentes.
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
+			toast.success("Porções ajustadas")
+		},
+		onError: () => toast.error("Erro ao ajustar porções"),
+	})
+}
+
+// ---------------------------------------------------------------------------
+// useRecordSubstitution — substituição de insumo registrada no turno
+// ---------------------------------------------------------------------------
+
+export function useRecordSubstitution() {
+	const queryClient = useQueryClient()
+
+	return useMutation({
+		mutationFn: ({ menuItemId, ingredientId, rationale }: { menuItemId: string; ingredientId: string; rationale: string; kitchenId: number; date: string }) =>
+			recordProductionSubstitutionFn({ data: { menuItemId, ingredientId, rationale } }),
+		onSuccess: (_data, { kitchenId, date }) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.board(kitchenId, date) })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
+			toast.success("Substituição registrada")
+		},
+		onError: () => toast.error("Erro ao registrar substituição"),
 	})
 }

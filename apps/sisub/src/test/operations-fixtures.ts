@@ -33,7 +33,10 @@ export async function setupIntegration(probeTable = "recipes"): Promise<Integrat
 	if (!env) return { reachable: false, client: null }
 	try {
 		const probe = createSisubReachabilityClient(env)
-		const { error } = await probe.from(probeTable).select("id").limit(1)
+		// Schema por domínio: probar no schema errado (ex.: sisub.recipes após o split
+		// para kitchen) retorna 42P01 e silenciosamente desligava a suíte inteira —
+		// todos os testes early-returnavam "passando" sem tocar o banco.
+		const { error } = await probe.schema(schemaFor(probeTable)).from(probeTable).select("id").limit(1)
 		if (error) return { reachable: false, client: null }
 	} catch {
 		return { reachable: false, client: null }

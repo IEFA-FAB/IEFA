@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery } from "../utils/index.ts"
 
-type TemplateRow = { id: string; kitchen_id: number | null; name: string | null; deleted_at: string | null }
+type TemplateRow = { id: string; kitchen_id: number | null; name: string | null; deleted_at: string | null; template_type: string | null }
 
 export async function validateRecipeAccess(db: SisubDb, recipeId: string, targetKitchenId: number): Promise<void> {
 	const recipe = await runQuery("FETCH_FAILED", () =>
@@ -28,6 +28,7 @@ export async function validateTemplateAccess(db: SisubDb, templateId: string, ki
 				kitchen_id: menuTemplateInKitchen.kitchenId,
 				name: menuTemplateInKitchen.name,
 				deleted_at: menuTemplateInKitchen.deletedAt,
+				template_type: menuTemplateInKitchen.templateType,
 			})
 			.from(menuTemplateInKitchen)
 			.where(eq(menuTemplateInKitchen.id, templateId))

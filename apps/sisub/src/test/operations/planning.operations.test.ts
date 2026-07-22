@@ -151,7 +151,7 @@ describeSupabaseIntegration("planning operations (regressão)", () => {
 		const substitutions = { arroz: { type: "swap", rationale: "[TEST] motivo", updated_at: "2099-01-01T00:00:00Z" } }
 		await updateSubstitutions(db, ctx, { menuItemId, substitutions })
 
-		const { data } = await client.from("menu_items").select("substitutions").eq("id", menuItemId).single()
+		const { data } = await client.schema("kitchen").from("menu_items").select("substitutions").eq("id", menuItemId).single()
 		expect(data?.substitutions).toMatchObject(substitutions)
 	})
 })

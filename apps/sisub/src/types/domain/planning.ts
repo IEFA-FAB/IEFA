@@ -81,6 +81,8 @@ export interface ApplyTemplatePayload {
 	targetDates: string[] // Array de datas no formato YYYY-MM-DD
 	startDayOfWeek: number // 1-7, indica qual dia do template corresponde ao primeiro targetDate
 	kitchenId: number
+	/** "replace" (default) substitui dias já planejados; "skip" preserva-os e só materializa os vazios. */
+	conflictMode?: "replace" | "skip"
 }
 
 /**

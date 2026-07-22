@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import type { MenuItemGroup } from "@/lib/menu-item-groups"
 import { queryKeys } from "@/lib/query-keys"
 import {
+	applyEventTemplateFn,
 	applyTemplateFn,
 	createTemplateFn,
 	deleteTemplateFn,
@@ -180,18 +181,38 @@ export function useRestoreTemplate() {
 	})
 }
 
+export function useApplyEventTemplate() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: ({ templateId, kitchenId, dates }: { templateId: string; kitchenId: number; dates: string[] }) =>
+			applyEventTemplateFn({ data: { templateId, kitchenId, dates } }),
+		onSuccess: (result) => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
+			queryClient.invalidateQueries({ queryKey: queryKeys.production.all() })
+			const dates = result?.datesProcessed?.length ?? 0
+			const dup = result?.itemsAlreadyApplied ?? 0
+			const dupNote = dup > 0 ? ` ${dup} ${dup === 1 ? "item já aplicado foi ignorado" : "itens já aplicados foram ignorados"}.` : ""
+			toast.success(`Aplicado ao calendário! ${result?.itemsCreated ?? 0} itens somados em ${dates} ${dates === 1 ? "dia" : "dias"}.${dupNote}`)
+		},
+		onError: (error) => toast.error(`Erro ao aplicar ao calendário: ${error.message}`),
+	})
+}
+
 export function useApplyTemplate() {
 	const queryClient = useQueryClient()
 	return useMutation({
-		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId }: ApplyTemplatePayload) =>
-			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId } }),
+		mutationFn: ({ templateId, targetDates, startDayOfWeek, kitchenId, conflictMode }: ApplyTemplatePayload) =>
+			applyTemplateFn({ data: { templateId, targetDates, startDayOfWeek, kitchenId, conflictMode } }),
 		onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.dailyMenus.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			// itemsSkipped é contado por ocorrência (data×refeição), não por slot único do template.
 			const skipped = result?.itemsSkipped ?? 0
 			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
-			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${skippedNote}`)
+			const preserved = result?.datesSkipped?.length ?? 0
+			const preservedNote = preserved > 0 ? ` Refeições já planejadas foram preservadas em ${preserved} ${preserved === 1 ? "dia" : "dias"}.` : ""
+			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${preservedNote}${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),
 	})
