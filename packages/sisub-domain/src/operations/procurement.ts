@@ -102,9 +102,7 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 	const recipeById = new Map(recipes.map((r) => [r.id, r]))
 
 	const folderIds = [
-		...new Set(
-			recipes.flatMap((r) => r.recipeIngredientsInKitchens.map((ri) => ri.ingredientInKitchen?.folderId).filter((id): id is string => id != null))
-		),
+		...new Set(recipes.flatMap((r) => r.recipeIngredientsInKitchens.map((ri) => ri.ingredientInKitchen?.folderId).filter((id): id is string => id != null))),
 	]
 	const folders =
 		folderIds.length > 0
