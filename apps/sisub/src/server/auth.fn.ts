@@ -17,6 +17,9 @@ import { getSupabaseAuthClient } from "@/lib/supabase.server"
  * Uses getSupabaseAuthClient — auth.getUser() performs a server-side token check.
  * Does NOT throw on unauthenticated requests — returns { user: null, session: null } instead.
  */
+// Público por contrato: valida o JWT do request e devolve { user: null } quando não há
+// sessão. Guard aqui seria circular. Ver PUBLIC_SERVER_FNS em server-fn-auth.contract.test.ts.
+// nosemgrep: server-fn-missing-auth-guard
 export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
 	const supabase = getSupabaseAuthClient()
 	// getUser() valida o token no servidor Supabase — não usa localStorage.

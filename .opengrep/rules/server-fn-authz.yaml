@@ -87,6 +87,11 @@ rules:
         - "apps/*/src/server/**"
         - "apps/*/src/test/**"
         - "**/*.test.ts"
+        # Apps sem bundle de cliente (Bun/Hono puro): a premissa da regra — "pode vazar
+        # para o navegador" — não existe neles, todo o código é servidor.
+        - "apps/api/**"
+        - "apps/alpha/**"
+        - "apps/sisub-mcp/**"
     # Regex, e não pattern: `process.env.$FOO` trata o identificador inteiro como
     # metavariável e casa com QUALQUER env var (era o falso positivo em lib/hono.ts).
     pattern-regex: '\b[A-Z][A-Z0-9_]*_(SECRET_KEY|SERVICE_ROLE_KEY)\b'

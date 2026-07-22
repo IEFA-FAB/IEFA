@@ -43,6 +43,11 @@ jobs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # O token do checkout fica no .git/config e viaja em qualquer artifact/log gerado
+          # depois. Este job só faz build e push pro ECR — não usa credencial de git.
+          persist-credentials: false
+
       - uses: docker/setup-buildx-action@v4
 
       - name: Configure AWS credentials
@@ -80,7 +85,7 @@ jobs:
       # `exit-code: 0` de propósito: isto é observação, não gate. Bloquear o deploy por
       # CVE de pacote de SO sem fix disponível pararia a entrega sem ganho real.
       - name: Trivy — scan da imagem
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}:${{ steps.meta.outputs.tag }}

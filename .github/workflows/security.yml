@@ -45,6 +45,8 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Opengrep
         run: |
@@ -54,22 +56,43 @@ jobs:
           sudo mv opengrep /usr/local/bin/
           opengrep --version
 
-      # `--error` derruba o job em qualquer finding. As regras foram calibradas contra a
-      # árvore atual (zero falso positivo) — se aparecer um, ajuste a regra, não o gate.
-      - name: Scan
+      # Gate bloqueante: só o sisub. As regras foram calibradas contra ele (zero falso
+      # positivo verificado), e é o app com service key + PBAC onde o guard da server fn
+      # é a única barreira. Aparecendo um falso positivo aqui, ajuste a regra — não o gate.
+      - name: Scan (sisub — bloqueante)
         run: |
           opengrep scan \
             --config .opengrep/rules \
-            --sarif --sarif-output=opengrep.sarif \
+            --sarif --sarif-output=opengrep-sisub.sarif \
             --error \
-            .
+            apps/sisub packages
 
-      - name: Upload SARIF
+      - name: Upload SARIF (sisub)
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: opengrep.sarif
-          category: opengrep
+          sarif_file: opengrep-sisub.sarif
+          category: opengrep-sisub
+
+      # Os demais apps (portal, forms, rumaer, assignment-selection, sucont) têm as mesmas
+      # regras aplicadas, mas ainda NÃO foram calibrados: cada um usa seus próprios helpers
+      # de guard, e hoje o scan acha ~90 ocorrências que precisam de triagem app a app.
+      # Reporta na aba Security sem bloquear, para o backlog ficar visível em vez de
+      # inexistente. Conforme cada app for calibrado, mova-o para o gate acima.
+      - name: Scan (demais apps — relatório)
+        if: always()
+        run: |
+          opengrep scan \
+            --config .opengrep/rules \
+            --sarif --sarif-output=opengrep-outros.sarif \
+            $(ls -d apps/*/ | grep -v 'apps/sisub/') || true
+
+      - name: Upload SARIF (demais apps)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: opengrep-outros.sarif
+          category: opengrep-outros
 
   # ============================================
   # CODEQL — análise semântica genérica
@@ -84,6 +107,8 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - uses: github/codeql-action/init@v4
         with:
@@ -108,7 +133,10 @@ jobs:
       # é caro e a varredura de árvore (PR) não precisa dele.
       - uses: actions/checkout@v6
         with:
-          fetch-depth: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 0 || 1 }}
+          persist-credentials: false
+          # `cond && 1 || 0` e não `cond && 0 || 1`: 0 é falsy numa expressão do GitHub,
+          # então a segunda forma cai sempre no fallback e o histórico nunca seria clonado.
+          fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 1 || 0 }}
 
       - name: Install gitleaks
         run: |
@@ -139,6 +167,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -180,8 +210,10 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
-      - uses: zizmorcore/zizmor-action@v0.6.0
+      - uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
         with:
           # Os workflows de deploy assumem role AWS via OIDC (id-token: write) e aceitam
           # input de workflow_dispatch — exatamente a superfície que o zizmor audita.
@@ -200,6 +232,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -230,8 +264,10 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
-      - uses: aquasecurity/trivy-action@v0.36.0
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: .

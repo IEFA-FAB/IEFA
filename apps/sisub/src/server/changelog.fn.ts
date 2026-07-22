@@ -36,6 +36,8 @@ export type ChangelogPageResult = {
  *
  * @throws {Error} on Supabase query failure.
  */
+// Público por contrato: conteúdo da rota _public/changelog.
+// nosemgrep: server-fn-missing-auth-guard
 export const fetchChangelogPageFn = createServerFn({ method: "GET" })
 	.validator(z.object({ page: z.number(), pageSize: z.number() }))
 	.handler(async ({ data }): Promise<ChangelogPageResult> => {
