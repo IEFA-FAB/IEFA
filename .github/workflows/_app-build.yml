@@ -74,3 +74,17 @@ jobs:
             ${{ inputs.service }}.tags=${{ env.IMAGE_REPO }}:latest
             ${{ inputs.bake_set }}
             ${{ secrets.FARO_SOURCEMAP_API_KEY && format('{0}.args.FARO_SOURCEMAP_API_KEY={1}', inputs.service, secrets.FARO_SOURCEMAP_API_KEY) || '' }}
+
+      # Varredura da imagem que ACABOU de ser publicada — a única camada que enxerga o
+      # que veio da imagem base e dos pacotes de SO (opengrep/codeql só olham o código).
+      # `exit-code: 0` de propósito: isto é observação, não gate. Bloquear o deploy por
+      # CVE de pacote de SO sem fix disponível pararia a entrega sem ganho real.
+      - name: Trivy — scan da imagem
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY_PREFIX }}/${{ inputs.service }}:${{ steps.meta.outputs.tag }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"

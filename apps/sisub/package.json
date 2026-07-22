@@ -15,7 +15,7 @@
         "test:unit": "SISUB_RUN_INTEGRATION=false vitest run --config vitest.config.ts",
         "test:integration": "SISUB_RUN_INTEGRATION=true SISUB_INTEGRATION_REQUIRED=true vitest run --config vitest.config.ts",
         "test:e2e": "bunx playwright test",
-        "test:e2e:ci": "bunx playwright test --project=chromium e2e/tests/smoke.spec.ts e2e/tests/auth.spec.ts e2e/tests/navigation.spec.ts",
+        "test:e2e:ci": "bunx playwright test --project=chromium e2e/tests/smoke.spec.ts e2e/tests/auth.spec.ts e2e/tests/navigation.spec.ts e2e/tests/authz.spec.ts",
         "test:e2e:full": "ALL_BROWSERS=true bunx playwright test",
         "test:e2e:ui": "bunx playwright test --ui"
     },

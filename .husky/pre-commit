@@ -1,1 +1,18 @@
 bun run format:check
+
+# Bloqueio de segredo ANTES do commit. O CI também varre (workflow security), mas lá já
+# é tarde: num repo público, `git push` de um segredo significa rotacionar a credencial,
+# não só reescrever a história. Aqui só o que está staged é varrido — é instantâneo.
+#
+# Opcional por design: sem gitleaks instalado o commit segue, com um aviso. Instale com
+# `go install github.com/gitleaks/gitleaks/v8@latest` ou baixe o binário da release.
+if command -v gitleaks >/dev/null 2>&1; then
+	if ! gitleaks git --staged --redact --no-banner --exit-code 1; then
+		echo ""
+		echo "gitleaks encontrou um possível segredo no que está staged. O commit foi abortado."
+		echo "Falso positivo? Adicione uma allowlist em .gitleaks.toml (não use --no-verify)."
+		exit 1
+	fi
+else
+	echo "[aviso] gitleaks não instalado — pulando varredura de segredos (o CI ainda varre)"
+fi
