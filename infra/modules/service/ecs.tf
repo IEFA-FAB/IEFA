@@ -71,6 +71,13 @@ resource "aws_ecs_service" "this" {
   deployment_maximum_percent         = var.deployment_maximum_percent
   enable_execute_command             = false
 
+  # ECS rejects a capacity_provider_strategy change unless the update also forces
+  # a new deployment ("force_new_deployment should be true when
+  # capacity_provider_strategy is being updated"), which is what happens when a
+  # service opts into an on-demand base. This only fires when the resource is
+  # actually being updated, so a no-op plan still deploys nothing.
+  force_new_deployment = true
+
   capacity_provider_strategy {
     capacity_provider = "FARGATE_SPOT"
     weight            = var.fargate_spot_weight

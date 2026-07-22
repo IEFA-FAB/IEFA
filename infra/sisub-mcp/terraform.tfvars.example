@@ -26,5 +26,15 @@ secret_names = [
   "SISUB_SUPABASE_ANON_KEY",
 ]
 
+# Scaled to zero: this MCP server served 5 requests in 14 days, so paying for an
+# always-on task (Fargate hours + a public IPv4) buys nothing. It is on-demand
+# infrastructure — raise to 1 when someone actually needs it:
+#
+#   aws ecs update-service --cluster iefa-prod-cluster --service sisub-mcp --desired-count 1
+#
+# Migrating it to Lambda was considered and rejected: MCP sessions live in an
+# in-memory Map and StreamableHTTPServerTransport uses SSE, which ALB Lambda
+# targets cannot stream. Not worth the redesign at this usage.
+desired_count = 0
 
 hosts = ["sisub-mcp.iefa.com.br"]
