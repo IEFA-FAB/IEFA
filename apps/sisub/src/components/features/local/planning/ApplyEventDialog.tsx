@@ -33,6 +33,12 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 	const [draftDate, setDraftDate] = useState("")
 	const [dates, setDates] = useState<string[]>([])
 
+	const handleClose = () => {
+		onClose()
+		setDates([])
+		setDraftDate("")
+	}
+
 	const typeLabel = templateType === "event" ? "evento" : "exceção"
 
 	const addDate = () => {
@@ -46,17 +52,13 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 		applyEvent(
 			{ templateId, kitchenId, dates },
 			{
-				onSuccess: () => {
-					onClose()
-					setDates([])
-					setDraftDate("")
-				},
+				onSuccess: () => handleClose(),
 			}
 		)
 	}
 
 	return (
-		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+		<Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>Aplicar ao Calendário</DialogTitle>
@@ -102,7 +104,7 @@ export function ApplyEventDialog({ open, onClose, templateId, templateName, temp
 				</div>
 
 				<DialogFooter>
-					<Button variant="outline" onClick={onClose}>
+					<Button variant="outline" onClick={handleClose}>
 						Cancelar
 					</Button>
 					<Button onClick={handleApply} disabled={dates.length === 0 || isPending}>

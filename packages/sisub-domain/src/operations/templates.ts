@@ -492,7 +492,15 @@ type TemplateItemWithRecipe = Awaited<ReturnType<typeof fetchTemplateItemRows>>[
 }
 
 function fetchTemplateItemRows(db: SisubDb, templateId: string) {
-	return runQuery("FETCH_FAILED", () => db.query.menuTemplateItemsInKitchen.findMany({ where: eq(menuTemplateItemsInKitchen.menuTemplateId, templateId) }))
+	// Ordem determinística: no applyEventTemplate o índice do item vira o sort_order
+	// final do cardápio — sem orderBy a ordem do Postgres é indefinida e variaria
+	// entre datas/reaplicações.
+	return runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateItemsInKitchen.findMany({
+			where: eq(menuTemplateItemsInKitchen.menuTemplateId, templateId),
+			orderBy: (t, { asc }) => [asc(t.dayOfWeek), asc(t.mealTypeId), asc(t.sortOrder), asc(t.createdAt)],
+		})
+	)
 }
 
 function fetchRecipesWithIngredients(db: SisubDb, recipeIds: string[]) {

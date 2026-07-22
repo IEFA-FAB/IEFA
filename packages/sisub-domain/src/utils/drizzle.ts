@@ -79,7 +79,8 @@ export interface RunQueryOptions {
  */
 export function unwrapPgError(error: unknown): { code?: string; constraint_name?: string; message?: string } {
 	let e = error as { code?: string; constraint_name?: string; message?: string; cause?: unknown } | undefined
-	while (e && e.code == null && e.cause) e = e.cause as typeof e
+	// Teto de profundidade: cadeia de cause circular não pode travar o tratamento de erro.
+	for (let depth = 0; e && e.code == null && e.cause && depth < 10; depth++) e = e.cause as typeof e
 	return e ?? {}
 }
 
