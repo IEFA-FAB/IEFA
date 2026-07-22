@@ -1,0 +1,76 @@
+# Atualização automática de dependências.
+#
+# Escopo deliberadamente estreito: só ecossistemas onde uma versão desatualizada é risco
+# de segurança, e agrupado para não gerar 20 PRs por semana (o volume é o que mata a
+# adoção do Dependabot — PR ignorado é pior que PR inexistente).
+#
+# Alertas de vulnerabilidade (security updates) NÃO respeitam `schedule` nem os grupos:
+# o Dependabot abre PR assim que o advisory sai, que é o comportamento desejado.
+version: 2
+
+updates:
+  # ── JS/TS do monorepo ──────────────────────────────────────────────────────
+  # `bun` como package-ecosystem lê o bun.lock e cobre todos os workspaces a partir da raiz.
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    # Espera antes de propor uma versão recém-publicada: a janela em que um pacote
+    # comprometido é publicado, detectado e despublicado costuma ser de horas a dias.
+    # Atualização de SEGURANÇA ignora o cooldown e vem na hora, que é o certo.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # Um PR por família: subir React/TanStack/etc. peça por peça só cria conflito de peer.
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      tanstack:
+        patterns: ["@tanstack/*"]
+      supabase:
+        patterns: ["@supabase/*", "supabase", "drizzle-orm", "drizzle-kit", "postgres"]
+      tooling:
+        patterns: ["@biomejs/*", "turbo", "typescript", "vite", "vitest", "@vitejs/*", "knip", "husky", "commitizen", "cz-git", "@commitlint/*"]
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  # ── GitHub Actions ─────────────────────────────────────────────────────────
+  # Action comprometida = execução arbitrária num runner que assume role AWS via OIDC.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    # Espera antes de propor uma versão recém-publicada: a janela em que um pacote
+    # comprometido é publicado, detectado e despublicado costuma ser de horas a dias.
+    # Atualização de SEGURANÇA ignora o cooldown e vem na hora, que é o certo.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # ── Imagem base do Docker ──────────────────────────────────────────────────
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Sao_Paulo
+    # Espera antes de propor uma versão recém-publicada: a janela em que um pacote
+    # comprometido é publicado, detectado e despublicado costuma ser de horas a dias.
+    # Atualização de SEGURANÇA ignora o cooldown e vem na hora, que é o certo.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"

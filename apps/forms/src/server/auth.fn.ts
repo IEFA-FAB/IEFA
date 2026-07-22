@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getIefaAuthClient } from "@/lib/supabase.server"
 
+// Público por contrato: valida o JWT do request e devolve { user: null } sem sessão.
+// nosemgrep: server-fn-missing-auth-guard
 export const getServerSessionFn = createServerFn({ method: "GET" })
 	.validator(z.object({}))
 	.handler(async () => {

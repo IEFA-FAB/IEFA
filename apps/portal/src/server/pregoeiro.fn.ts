@@ -7,6 +7,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { forbidden, requireSelf, requireUserId } from "@/lib/auth.server"
 import { envServer } from "@/lib/env.server"
 
 function getDefaultClient() {
@@ -27,7 +28,8 @@ function getPortalClient() {
 export const getPreferencesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getDefaultClient().from("pregoeiro_preferences").select("*").eq("user_id", data.userId).maybeSingle()
+		const userId = await requireSelf(data.userId)
+		const { data: result, error } = await getDefaultClient().from("pregoeiro_preferences").select("*").eq("user_id", userId).maybeSingle()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -41,7 +43,8 @@ export const insertPreferencesFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { error } = await getDefaultClient().from("pregoeiro_preferences").insert({ user_id: data.userId, env: data.env, is_open: data.is_open })
+		const userId = await requireSelf(data.userId)
+		const { error } = await getDefaultClient().from("pregoeiro_preferences").insert({ user_id: userId, env: data.env, is_open: data.is_open })
 		if (error) throw new Error(error.message)
 	})
 
@@ -55,8 +58,9 @@ export const upsertPreferencesFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		const userId = await requireSelf(data.userId)
 		const payload: Record<string, unknown> = {
-			user_id: data.userId,
+			user_id: userId,
 			updated_at: new Date().toISOString(),
 		}
 		if (data.env !== undefined) payload.env = data.env
@@ -87,19 +91,33 @@ export const updateFacilityFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { error } = await getPortalClient().from("facilities_pregoeiro").update(data.payload).eq("id", data.id).eq("owner_id", data.ownerId)
+		// O `eq("owner_id")` é a autorização da linha — por isso ele tem de vir da sessão,
+		// não do payload (senão basta informar o owner alheio para editar a frase dele).
+		const userId = await requireSelf(data.ownerId)
+		const { error } = await getPortalClient().from("facilities_pregoeiro").update(data.payload).eq("id", data.id).eq("owner_id", userId)
 		if (error) throw new Error(error.message)
 	})
 
 export const insertFacilityFn = createServerFn({ method: "POST" })
 	.validator(FacilityPayloadSchema)
 	.handler(async ({ data }) => {
-		const { error } = await getPortalClient().from("facilities_pregoeiro").insert(data)
+		const userId = await requireUserId()
+		// `default: true` marca a frase como padrão do sistema para todo mundo — não é
+		// algo que um usuário comum publica pela API.
+		if (data.default) forbidden("Frase padrão só pode ser criada pela administração.")
+		const { error } = await getPortalClient()
+			.from("facilities_pregoeiro")
+			.insert({ ...data, owner_id: userId })
 		if (error) throw new Error(error.message)
 	})
 
 // ─── Apps (iefa schema) ───────────────────────────────────────────────────────
 
+/**
+ * Catálogo de apps renderizado na home pública (`_public/index.tsx`) — exigir sessão
+ * aqui apagaria a vitrine do portal para visitante anônimo.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const getAppsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ limit: z.number().optional() }))
 	.handler(async ({ data }) => {
@@ -115,6 +133,14 @@ export const getAppsFn = createServerFn({ method: "GET" })
 		return result ?? []
 	})
 
+/**
+ * Biblioteca de frases do pregoeiro, lida na ferramenta pública (`_public/.../pregoeiro`)
+ * antes de qualquer login. Mantido público para não quebrar a ferramenta — mas note que
+ * isso expõe TODAS as frases, inclusive as de `owner_id` de outros usuários. Se a
+ * intenção era biblioteca compartilhada, ok; se não, o filtro por dono é um follow-up
+ * de produto, não de segurança.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const getFacilitiesFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data: result, error } = await getPortalClient().from("facilities_pregoeiro").select("*")
 	if (error) throw new Error(error.message)

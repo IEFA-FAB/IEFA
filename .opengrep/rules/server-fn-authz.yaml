@@ -1,0 +1,97 @@
+##
+# Invariantes de autorização das server functions do TanStack Start.
+#
+# Por que existem: o endpoint `/_serverFn/<id>` é chamável diretamente por HTTP. O
+# guard de rota (`beforeLoad`) NÃO é atravessado nessa chamada — ele só protege a
+# navegação no router. Toda server fn precisa do próprio guard, e como o servidor do
+# sisub usa a service key (RLS não se aplica no caminho servidor), esse guard é a
+# única barreira que existe.
+#
+# Regras compatíveis com Opengrep e Semgrep (mesma sintaxe).
+##
+rules:
+  - id: server-fn-missing-auth-guard
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Server function sem guard de autenticação. O endpoint /_serverFn/... é chamável
+      direto por HTTP — o beforeLoad da rota não protege. Chame requireAuth(),
+      requireUserId(), requireUser() ou requireAuthWithPermission() no início do handler,
+      ou delegue a uma domain operation que receba UserContext. Se o endpoint for
+      genuinamente público, registre-o em PUBLIC_SERVER_FNS (server-fn-auth.contract.test.ts).
+    paths:
+      include:
+        - "apps/*/src/server/*.fn.ts"
+    patterns:
+      - pattern-either:
+          - pattern: createServerFn($OPTS).handler($HANDLER)
+          - pattern: createServerFn($OPTS).validator($V).handler($HANDLER)
+          - pattern: createServerFn($OPTS).middleware($M).handler($HANDLER)
+          - pattern: createServerFn($OPTS).middleware($M).validator($V).handler($HANDLER)
+      # O corpo do handler não pode conter nenhuma chamada de guard. Regex (e não
+      # metavariable-pattern) porque o operador de expressão profunda não desce nos
+      # STATEMENTS do corpo do arrow function — só em expressões aninhadas.
+      - metavariable-regex:
+          metavariable: $HANDLER
+          regex: '(?s)^(?!.*\brequire[A-Z]\w*\()'
+
+  - id: server-fn-user-id-from-client
+    languages: [typescript]
+    severity: WARNING
+    message: >-
+      `userId` vindo do payload do cliente. Numa operação self-service isso é IDOR — o
+      chamador escolhe de quem são os dados. Derive da sessão com requireUserId(). Se a
+      operação for administrativa (agir sobre OUTRO usuário), o handler precisa de um
+      guard PBAC explícito antes deste acesso.
+    paths:
+      include:
+        - "apps/*/src/server/*.fn.ts"
+    patterns:
+      - pattern-either:
+          - pattern: createServerFn($OPTS).handler($HANDLER)
+          - pattern: createServerFn($OPTS).validator($V).handler($HANDLER)
+          - pattern: createServerFn($OPTS).middleware($M).handler($HANDLER)
+          - pattern: createServerFn($OPTS).middleware($M).validator($V).handler($HANDLER)
+      # Consome `data.userId` e não tem nenhum guard de PERMISSÃO (só autenticação não
+      # basta: autenticado ≠ autorizado a ler/escrever o registro de outro usuário).
+      - metavariable-regex:
+          metavariable: $HANDLER
+          regex: '(?s)^(?=.*\bdata\.userId\b)(?!.*\brequire(Permission|AuthWithPermission|AnyPermission|Kitchen|Unit|MessHall|Self|Article\w*|Assign\w*|Editor|SyncAdmin|UniformEditor|RumaerAdmin|Sucont\w*|Access)\()'
+
+  - id: server-fn-throw-response
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      `throw new Response(...)` numa server function volta marcado com `x-tss-raw` e o
+      RPC client RESOLVE a promise com o objeto Response em vez de rejeitar — o chamador
+      recebe um Response no lugar dos dados. Use setResponseStatus(code) + throw new Error(...)
+      (ver handleDomainError em @/lib/domain-errors).
+    paths:
+      include:
+        - "apps/*/src/server/**"
+        - "apps/*/src/lib/**"
+    pattern: throw new Response(...)
+
+  - id: supabase-secret-key-outside-server-module
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A service key do Supabase (SECRET_KEY / service_role) só pode ser referenciada em
+      módulos exclusivamente de servidor (src/lib/*.server.ts, src/server/**). Fora daí ela
+      corre o risco de ser incluída no bundle do cliente — e ela ignora RLS por completo.
+    paths:
+      include:
+        - "apps/*/src/**"
+      exclude:
+        - "**/*.server.ts"
+        - "apps/*/src/server/**"
+        - "apps/*/src/test/**"
+        - "**/*.test.ts"
+        # Apps sem bundle de cliente (Bun/Hono puro): a premissa da regra — "pode vazar
+        # para o navegador" — não existe neles, todo o código é servidor.
+        - "apps/api/**"
+        - "apps/alpha/**"
+        - "apps/sisub-mcp/**"
+    # Regex, e não pattern: `process.env.$FOO` trata o identificador inteiro como
+    # metavariável e casa com QUALQUER env var (era o falso positivo em lib/hono.ts).
+    pattern-regex: '\b[A-Z][A-Z0-9_]*_(SECRET_KEY|SERVICE_ROLE_KEY)\b'

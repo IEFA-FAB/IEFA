@@ -19,6 +19,7 @@ import type { EvalConfig, EvaluationResult } from "@/types/domain/admin"
  * @throws {Error} on Supabase query failure.
  */
 export const fetchEvalConfigFn = createServerFn({ method: "GET" }).handler(async () => {
+	await requireUserId()
 	const { data, error } = await getCoreClient().from("super_admin_controller").select("key, active, value").eq("key", "evaluation").maybeSingle()
 
 	if (error) throw new Error(error.message)
@@ -66,7 +67,9 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
  */
 export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string() }))
-	.handler(async ({ data }): Promise<EvaluationResult> => {
+	.handler(async (): Promise<EvaluationResult> => {
+		// Self-only: o id do payload é ignorado — o cliente não decide de quem é a avaliação.
+		const userId = await requireUserId()
 		const { data: config, error: configError } = await getCoreClient()
 			.from("super_admin_controller")
 			.select("key, active, value")
@@ -86,7 +89,7 @@ export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
 			.from("opinions")
 			.select("id")
 			.eq("question", question)
-			.eq("userId", data.userId)
+			.eq("userId", userId)
 			.maybeSingle()
 
 		if (opinionError) throw new Error(opinionError.message)

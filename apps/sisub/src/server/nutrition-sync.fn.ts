@@ -1,10 +1,13 @@
 /**
  * @module nutrition-sync.fn
  * Proxy to the iefa-api worker for institutional food composition table sync.
+ * AUTH: `global` level 2 no chamador (espelha o beforeLoad de /global/sync-routines) +
+ * header x-admin-secret da env ADMIN_SECRET no salto para a API.
  */
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuthWithPermission } from "@/lib/auth.server"
 import type { SyncLog } from "@/types/domain/compras-sync"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
@@ -25,7 +28,13 @@ function adminHeaders() {
 	}
 }
 
+/** Ver `requireSyncAdmin` em compras-sync.fn: sem guard o `ADMIN_SECRET` fica acessível a anônimos. */
+async function requireSyncAdmin() {
+	await requireAuthWithPermission("global", 2)
+}
+
 export const triggerNutritionSyncFn = createServerFn({ method: "POST" }).handler(async () => {
+	await requireSyncAdmin()
 	const res = await fetchApi("/api/admin/nutrition/sync", {
 		method: "POST",
 		headers: adminHeaders(),
@@ -44,6 +53,7 @@ export const triggerNutritionSyncFn = createServerFn({ method: "POST" }).handler
 export const getNutritionSyncStatusFn = createServerFn({ method: "GET" })
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
+		await requireSyncAdmin()
 		const res = await fetchApi(`/api/admin/nutrition/sync/${data.id}`, {
 			headers: adminHeaders(),
 		})
@@ -54,6 +64,7 @@ export const getNutritionSyncStatusFn = createServerFn({ method: "GET" })
 export const stopNutritionSyncFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
+		await requireSyncAdmin()
 		const res = await fetchApi(`/api/admin/nutrition/sync/${data.id}/stop`, {
 			method: "POST",
 			headers: adminHeaders(),
@@ -64,6 +75,7 @@ export const stopNutritionSyncFn = createServerFn({ method: "POST" })
 	})
 
 export const getLatestNutritionSyncFn = createServerFn({ method: "GET" }).handler(async () => {
+	await requireSyncAdmin()
 	const res = await fetchApi("/api/admin/nutrition/sync/latest", {
 		headers: adminHeaders(),
 	})

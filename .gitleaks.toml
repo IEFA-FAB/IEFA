@@ -1,0 +1,42 @@
+# Configuração do gitleaks. Estende o conjunto de regras padrão e adiciona apenas as
+# exceções necessárias para a árvore atual.
+#
+# Regra de ouro para editar este arquivo: allowlist é para FALSO POSITIVO. Se um segredo
+# de verdade foi commitado, a correção é rotacionar a credencial e reescrever a história
+# — nunca adicionar uma linha aqui.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Arquivos .env.example / .env.schema — chaves com valor vazio, servem de documentação"
+paths = ['''\.env\.(example|schema)$''']
+
+[[allowlists]]
+description = """
+URL de embed público do Power BI nos cards de indicadores. O token `?r=eyJ...` faz parte
+de um relatório publicado com 'Publish to web' — é público por construção e renderizado
+no navegador. Casa com a regra grafana-api-key só pela forma (base64 iniciando em eyJ).
+Se o relatório deixar de ser público, o embed precisa sair do código-fonte, não daqui.
+"""
+# regexTarget = "line": por padrão a allowlist casa contra o SEGREDO extraído (só o
+# token), e a URL inteira nunca casaria.
+regexTarget = "line"
+regexes = ['''https://app\.powerbi\.com/view\?r=[A-Za-z0-9]+''']
+
+[[allowlists]]
+description = "Fixtures e snapshots de teste não contêm credencial real"
+paths = ['''(^|/)(test|tests|e2e|__fixtures__)/''', '''\.test\.(ts|tsx)$''']
+
+[[allowlists]]
+description = """
+Bundle de build commitado por engano em nov/2025 (commit d10dae6b, diretório `out/`,
+hoje no .gitignore e fora do índice). A varredura de histórico acha dois JWT ali; ambos
+decodificam para `"role":"anon"` — a publishable key, que por construção vai no bundle
+do navegador e é pública. Verificado que nenhum JWT `service_role` aparece em `out/` em
+nenhum ponto do histórico.
+
+Escopo estreito de propósito: só `out/` (saída de build, nunca fonte). Se um segredo de
+verdade tivesse vazado aqui, a correção seria rotacionar e reescrever a história — não
+esta entrada.
+"""
+paths = ['''^out/''']

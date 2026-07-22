@@ -1,0 +1,265 @@
+# Varredura de segurança do monorepo. Roda em PR, em push na main e semanalmente
+# (achado novo pode vir de advisory publicado depois do merge, sem mudança de código).
+#
+# Camadas, e o que cada uma cobre que a anterior não cobre:
+#   opengrep  — invariantes DESTE repo (guard de server fn, service key fora do servidor)
+#   codeql    — vulns genéricas com análise interprocedural (XSS, injection, path traversal)
+#   gitleaks  — credencial commitada (o repo é público: vazou = vazou)
+#   deps      — advisory em dependência instalada
+#   zizmor    — os próprios workflows, que assumem role AWS via OIDC
+#   trivy     — misconfig de IaC/Docker
+#
+# Resultados vão para a aba Security → Code scanning (SARIF). Repo público ⇒ sem custo.
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Segunda, 06:00 UTC (03:00 BRT).
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPENGREP_VERSION: "1.25.0"
+  GITLEAKS_VERSION: "8.30.1"
+
+jobs:
+  # ============================================
+  # OPENGREP — regras próprias do repo
+  # ============================================
+  opengrep:
+    name: opengrep (regras do repo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install Opengrep
+        run: |
+          curl -fsSL -o opengrep \
+            "https://github.com/opengrep/opengrep/releases/download/v${OPENGREP_VERSION}/opengrep_manylinux_x86"
+          chmod +x opengrep
+          sudo mv opengrep /usr/local/bin/
+          opengrep --version
+
+      # Gate bloqueante em TODO o monorepo. Cada app foi triado: os endpoints que
+      # continuam anônimos são públicos por decisão de produto e carregam um
+      # `// nosemgrep: <regra>` com o motivo na linha anterior — a exceção fica no
+      # código, ao lado de quem a lê, e não numa lista distante.
+      # Falso positivo novo se resolve ajustando a regra, não afrouxando o gate.
+      - name: Scan
+        run: |
+          opengrep scan \
+            --config .opengrep/rules \
+            --sarif --sarif-output=opengrep.sarif \
+            --error \
+            apps packages
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: opengrep.sarif
+          category: opengrep
+
+  # ============================================
+  # CODEQL — análise semântica genérica
+  # ============================================
+  codeql:
+    name: codeql (javascript-typescript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          # security-extended inclui as queries de qualidade-com-impacto-em-segurança
+          # (ex.: regex sujeita a ReDoS) que o pack default deixa de fora.
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript"
+
+  # ============================================
+  # SEGREDOS
+  # ============================================
+  gitleaks:
+    name: gitleaks (segredos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      # fetch-depth: 0 só quando o histórico vai ser varrido — clone completo deste repo
+      # é caro e a varredura de árvore (PR) não precisa dele.
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          # `cond && 1 || 0` e não `cond && 0 || 1`: 0 é falsy numa expressão do GitHub,
+          # então a segunda forma cai sempre no fallback e o histórico nunca seria clonado.
+          fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 1 || 0 }}
+
+      - name: Install gitleaks
+        run: |
+          curl -fsSL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
+      # PR/push: só a árvore (~2 s). O histórico completo leva minutos e não muda a
+      # cada PR — ele roda no agendamento semanal, onde o custo cabe.
+      - name: Scan (árvore de trabalho)
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: gitleaks dir --redact --no-banner --exit-code 1 .
+
+      # Segredo apagado num commit posterior continua recuperável — e continua exigindo
+      # rotação. Só a varredura do histórico encontra esses.
+      - name: Scan (histórico completo)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: gitleaks git --redact --no-banner --exit-code 1 .
+
+  # ============================================
+  # DEPENDÊNCIAS
+  # ============================================
+  dependencies:
+    name: bun audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - run: bun install --frozen-lockfile
+
+      # Relatório completo no resumo do job — visível sem abrir logs, não bloqueia.
+      - name: Relatório (todas as severidades)
+        run: |
+          {
+            echo '## bun audit'
+            echo '```'
+            bun audit --audit-level=moderate || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Gate real: qualquer CRÍTICA NOVA derruba o job. A baseline atual (2026-07-22) é
+      # ignorada por ID e listada aqui — as duas estão em cadeias de devDependency
+      # (build-time), não no runtime servido. Remova o --ignore quando o upstream subir.
+      #   GHSA-23hp-3jrh-7fpw  node-tar  ← @grafana/faro-rollup-plugin (build de sourcemap)
+      #   GHSA-w7jw-789q-3m8p  shell-quote ← @tanstack/devtools-vite (só dev)
+      # Não converta isto num allowlist permanente: cada ID aqui é dívida com data.
+      - name: Gate (crítica nova)
+        run: |
+          bun audit --audit-level=critical \
+            --ignore=GHSA-23hp-3jrh-7fpw \
+            --ignore=GHSA-w7jw-789q-3m8p
+
+  # ============================================
+  # WORKFLOWS (supply chain do próprio CI)
+  # ============================================
+  zizmor:
+    name: zizmor (github actions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
+        with:
+          # Os workflows de deploy assumem role AWS via OIDC (id-token: write) e aceitam
+          # input de workflow_dispatch — exatamente a superfície que o zizmor audita.
+          advanced-security: true
+          persona: regular
+
+  # ============================================
+  # BANCO — RLS dos schemas expostos no PostgREST
+  # ============================================
+  rls-audit:
+    name: auditoria de RLS
+    # Só no agendamento/manual: precisa de credencial de banco, e o resultado depende do
+    # estado do banco, não do diff — rodar em PR daria vermelho por algo que o PR não fez.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - run: bun install --frozen-lockfile
+
+      - name: Audit
+        # Sem o secret, o job não roda calado dando verde — ele falha pedindo a configuração.
+        env:
+          SISUB_DATABASE_URL: ${{ secrets.SISUB_DATABASE_URL }}
+        run: |
+          if [ -z "$SISUB_DATABASE_URL" ]; then
+            echo "::error::secret SISUB_DATABASE_URL ausente — a auditoria de RLS não pode rodar"
+            exit 1
+          fi
+          bun --filter @iefa/database audit:rls
+
+  # ============================================
+  # IaC / DOCKER
+  # ============================================
+  trivy-config:
+    name: trivy (iac + dockerfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "0" # relatório, não gate — misconfig de IaC costuma exigir contexto
+
+      - uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config

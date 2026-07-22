@@ -2,13 +2,15 @@
  * @module compras-sync.fn
  * Proxy to the iefa-api sync worker for Compras.gov.br data ingestion.
  * CLIENT: external fetch to IEFA_API_BASE_URL (default: https://api.iefa.com.br, fallback: https://api.iefa.com.br). No Supabase.
- * AUTH: x-admin-secret header from ADMIN_SECRET env var.
+ * AUTH: `global` level 2 no chamador (espelha o beforeLoad de /global/sync-routines) +
+ * header x-admin-secret da env ADMIN_SECRET no salto para a API.
  * @domain external
  * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireAuthWithPermission } from "@/lib/auth.server"
 import type { SyncLog } from "@/types/domain/compras-sync"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
@@ -29,6 +31,16 @@ function adminHeaders() {
 	}
 }
 
+/**
+ * Estes fns são um deputado confuso: eles carimbam o `ADMIN_SECRET` do servidor em
+ * chamadas privilegiadas à API. Sem guard, qualquer requisição anônima ao endpoint
+ * `/_serverFn/...` dispara ou aborta uma sincronização — o `beforeLoad` da rota não
+ * é atravessado numa chamada direta. Guard exigido: mesmo `global` nível 2 da rota.
+ */
+async function requireSyncAdmin() {
+	await requireAuthWithPermission("global", 2)
+}
+
 // ── Server Functions ──────────────────────────────────────────────────────────
 
 /**
@@ -40,6 +52,7 @@ function adminHeaders() {
  * @throws {Error} "API retornou {status}" on any other non-2xx response.
  */
 export const triggerSyncFn = createServerFn({ method: "POST" }).handler(async () => {
+	await requireSyncAdmin()
 	const res = await fetchApi("/api/admin/compras/sync", {
 		method: "POST",
 		headers: adminHeaders(),
@@ -64,6 +77,7 @@ export const triggerSyncFn = createServerFn({ method: "POST" }).handler(async ()
 export const getSyncStatusFn = createServerFn({ method: "GET" })
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
+		await requireSyncAdmin()
 		const res = await fetchApi(`/api/admin/compras/sync/${data.id}`, {
 			headers: adminHeaders(),
 		})
@@ -79,6 +93,7 @@ export const getSyncStatusFn = createServerFn({ method: "GET" })
 export const stopSyncFn = createServerFn({ method: "POST" })
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(async ({ data }) => {
+		await requireSyncAdmin()
 		const res = await fetchApi(`/api/admin/compras/sync/${data.id}/stop`, {
 			method: "POST",
 			headers: adminHeaders(),
@@ -96,6 +111,7 @@ export const stopSyncFn = createServerFn({ method: "POST" })
  * @throws {Error} "API retornou {status}" on non-2xx/404 API response.
  */
 export const getLatestSyncFn = createServerFn({ method: "GET" }).handler(async () => {
+	await requireSyncAdmin()
 	const res = await fetchApi("/api/admin/compras/sync/latest", {
 		headers: adminHeaders(),
 	})

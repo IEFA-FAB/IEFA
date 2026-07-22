@@ -2,12 +2,16 @@
  * @module uasg-lookup.fn
  * UASG (Unidade Administrativa de Serviços Gerais) lookup from Compras.gov.br. Read-only, no local persistence.
  * CLIENT: external fetch only — no Supabase. External: dadosabertos.compras.gov.br (10 s timeout, no retry).
+ * AUTH: apenas autenticação (qualquer sessão válida). Sem guard isto é um proxy aberto
+ * para a API do Compras.gov usando o IP do nosso servidor — anônimos podiam enumerar UASGs
+ * e consumir o rate limit da origem em nome da aplicação.
  * @domain external
  * @migration n-a
  */
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireUserId } from "@/lib/auth.server"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +59,7 @@ const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
 export const fetchUasgInfoFn = createServerFn({ method: "GET" })
 	.validator(z.object({ codigoUasg: z.string().length(6) }))
 	.handler(async ({ data }) => {
+		await requireUserId()
 		const url = new URL(`${COMPRAS_BASE}/modulo-uasg/1_consultarUasg`)
 		url.searchParams.set("pagina", "1")
 		url.searchParams.set("codigoUasg", data.codigoUasg)

@@ -7,102 +7,90 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import {
+	assertRoleChangeAllowed,
+	forbidden,
+	getRequestUserId,
+	isEditor,
+	requireArticleAccess,
+	requireArticleOwnerOrEditor,
+	requireEditor,
+	requireSelf,
+	requireUserId,
+} from "@/lib/auth.server"
 import { sendJournalEmail } from "@/lib/journal/email.server"
-import { getIefaAuthClient, getJournalServerClient } from "@/lib/supabase.server"
+import { getJournalServerClient } from "@/lib/supabase.server"
 
 const looseRecord = z.record(z.string(), z.unknown())
 
 // ─── Server-side auth helpers ─────────────────────────────────────────────────
 // Server functions são endpoints HTTP crus: o `beforeLoad` das rotas NÃO os
-// protege. Como usamos o client service-role (bypassa RLS), mutations sensíveis
-// precisam validar o chamador aqui, no servidor, a partir do cookie de sessão.
-
-async function getRequestUserId(): Promise<string | null> {
-	const {
-		data: { user },
-	} = await getIefaAuthClient().auth.getUser()
-	return user?.id ?? null
-}
-
-async function requireEditor(): Promise<string> {
-	const userId = await getRequestUserId()
-	if (!userId) throw new Error("Não autenticado.")
-	const { data: profile } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
-	if (profile?.role !== "editor") throw new Error("Apenas editores podem executar esta ação.")
-	return userId
-}
+// protege. Como usamos o client service-role (bypassa RLS), CADA fn precisa validar
+// o chamador aqui, no servidor, a partir do cookie de sessão. Os guards genéricos
+// (requireUserId/requireEditor/requireSelf/…) vivem em @/lib/auth.server; os
+// específicos do fluxo editorial ficam abaixo.
 
 // Garante que o chamador é o revisor designado do assignment (dono do parecer).
 async function requireAssignedReviewer(assignmentId: string): Promise<void> {
-	const userId = await getRequestUserId()
-	if (!userId) throw new Error("Não autenticado.")
+	const userId = await requireUserId()
 	const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id").eq("id", assignmentId).maybeSingle()
-	if (!assignment || assignment.reviewer_id !== userId) throw new Error("Você não é o revisor designado deste parecer.")
-}
-
-async function isEditor(userId: string): Promise<boolean> {
-	const { data } = await getJournalServerClient().from("user_profiles").select("role").eq("id", userId).maybeSingle()
-	return data?.role === "editor"
+	if (!assignment || assignment.reviewer_id !== userId) forbidden("Você não é o revisor designado deste parecer.")
 }
 
 // Leitura de dados do assignment: permitida ao revisor designado ou a editores.
 // (Endpoints service-role bypassam RLS; sem isso qualquer autenticado leria o
 // parecer/abstract de outro revisor — quebra do duplo-cego.)
 async function requireAssignmentAccess(assignmentId: string): Promise<void> {
-	const userId = await getRequestUserId()
-	if (!userId) throw new Error("Não autenticado.")
+	const userId = await requireUserId()
 	const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id").eq("id", assignmentId).maybeSingle()
 	if (!assignment) throw new Error("Convite de revisão não encontrado.")
 	if (assignment.reviewer_id === userId) return
 	if (await isEditor(userId)) return
-	throw new Error("Você não tem acesso a este parecer.")
-}
-
-// Acesso de leitura ao artigo: editor, submitter, revisor aceito/concluído ou
-// artigo publicado (público). Mesma lógica de `canViewArticleFn`, mas com o
-// userId derivado da sessão no servidor — nunca do input do cliente. Retorna se
-// o chamador é editor para o caller decidir a redação de campos confidenciais.
-async function requireArticleAccess(articleId: string): Promise<{ isEditor: boolean }> {
-	const db = getJournalServerClient()
-	const { data: article } = await db.from("articles").select("status, submitter_id, deleted_at").eq("id", articleId).maybeSingle()
-	if (!article) throw new Error("Artigo não encontrado.")
-	const userId = await getRequestUserId()
-	if (userId && (await isEditor(userId))) return { isEditor: true }
-	if (article.status === "published" && !article.deleted_at) return { isEditor: false }
-	if (!userId) throw new Error("Não autenticado.")
-	if (article.submitter_id === userId) return { isEditor: false }
-	const { data: assignment } = await db
-		.from("review_assignments")
-		.select("id")
-		.eq("article_id", articleId)
-		.eq("reviewer_id", userId)
-		.in("status", ["accepted", "completed"])
-		.maybeSingle()
-	if (assignment) return { isEditor: false }
-	throw new Error("Você não tem acesso a este artigo.")
+	forbidden("Você não tem acesso a este parecer.")
 }
 
 // ─── User Profiles ────────────────────────────────────────────────────────────
 
+// Perfil de qualquer usuário do journal (nome/afiliação aparecem como autoria), mas
+// só para quem tem sessão — sem isso o endpoint era um diretório de pesquisadores
+// aberto para raspagem anônima. Ler o perfil de OUTRO usuário é intencional (autoria
+// aparece nas páginas do journal), então aqui a barreira é sessão, não escopo.
+// nosemgrep: server-fn-user-id-from-client
 export const getUserProfileFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireUserId()
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").select("*").eq("id", data.userId).maybeSingle()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+// `id` vem da sessão: um perfil só pode ser criado para si mesmo, e `role` só entra
+// no payload se quem chama for editor (senão é auto-promoção a editor).
 export const createUserProfileFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getJournalServerClient().from("user_profiles").insert(data).select().single()
+		const userId = await requireUserId()
+		await assertRoleChangeAllowed(data)
+		const { data: result, error } = await getJournalServerClient()
+			.from("user_profiles")
+			.insert({ ...data, id: userId })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+// O escopo é conferido no corpo: alvo ≠ sessão exige papel de editor, e `role` no
+// payload passa por assertRoleChangeAllowed.
+// nosemgrep: server-fn-user-id-from-client
 export const updateUserProfileFn = createServerFn({ method: "POST" })
 	.validator(z.object({ userId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
+		// Editor edita qualquer perfil (moderação/atribuição de papel); os demais, só o próprio.
+		const userId = await requireUserId()
+		if (data.userId !== userId && !(await isEditor(userId))) forbidden("Você só pode editar o próprio perfil.")
+		await assertRoleChangeAllowed(data.updates)
 		const { data: result, error } = await getJournalServerClient().from("user_profiles").update(data.updates).eq("id", data.userId).select().single()
 		if (error) throw new Error(error.message)
 		return result
@@ -111,7 +99,13 @@ export const updateUserProfileFn = createServerFn({ method: "POST" })
 export const upsertUserProfileFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getJournalServerClient().from("user_profiles").upsert(data).select().single()
+		const userId = await requireUserId()
+		await assertRoleChangeAllowed(data)
+		const { data: result, error } = await getJournalServerClient()
+			.from("user_profiles")
+			.upsert({ ...data, id: userId })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -127,9 +121,16 @@ export const getArticlesFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
+		// Não-editor só enxerga as próprias submissões: o filtro `submitter_id` é
+		// FORÇADO para o id da sessão, não apenas validado. Sem isso, omitir o filtro
+		// listava todos os manuscritos não publicados da revista.
+		const userId = await requireUserId()
+		const callerIsEditor = await isEditor(userId)
+
 		let query = getJournalServerClient().from("articles").select("*")
 		if (data.status) query = query.eq("status", data.status)
-		if (data.submitter_id) query = query.eq("submitter_id", data.submitter_id)
+		query = callerIsEditor && data.submitter_id ? query.eq("submitter_id", data.submitter_id) : query
+		if (!callerIsEditor) query = query.eq("submitter_id", userId)
 		if (data.limit) query = query.limit(data.limit)
 		const { data: result, error } = await query.order("created_at", { ascending: false })
 		if (error) throw new Error(error.message)
@@ -139,6 +140,8 @@ export const getArticlesFn = createServerFn({ method: "GET" })
 export const getArticleFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		// Editor, autor, revisor designado ou artigo publicado — mesma regra do detalhe.
+		await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient().from("articles").select("*").eq("id", data.articleId).single()
 		if (error) throw new Error(error.message)
 		return result
@@ -179,6 +182,7 @@ export const getArticleWithDetailsFn = createServerFn({ method: "GET" })
 export const getUserActiveDraftFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireSelf(data.userId)
 		const db = getJournalServerClient()
 		const { data: article, error } = await db
 			.from("articles")
@@ -207,10 +211,16 @@ export const getUserActiveDraftFn = createServerFn({ method: "GET" })
 		return { article, authors: authors ?? [], version: version ?? null }
 	})
 
+// `submitter_id` vem da sessão: o autor de uma submissão não é escolhido pelo cliente.
 export const createArticleFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getJournalServerClient().from("articles").insert(data).select().single()
+		const userId = await requireUserId()
+		const { data: result, error } = await getJournalServerClient()
+			.from("articles")
+			.insert({ ...data, submitter_id: userId })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -218,6 +228,7 @@ export const createArticleFn = createServerFn({ method: "POST" })
 export const updateArticleFn = createServerFn({ method: "POST" })
 	.validator(z.object({ articleId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
+		await requireArticleOwnerOrEditor(data.articleId)
 		const { data: result, error } = await getJournalServerClient().from("articles").update(data.updates).eq("id", data.articleId).select().single()
 		if (error) throw new Error(error.message)
 		return result
@@ -226,6 +237,7 @@ export const updateArticleFn = createServerFn({ method: "POST" })
 export const deleteArticleFn = createServerFn({ method: "POST" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireArticleOwnerOrEditor(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("articles")
 			.update({ deleted_at: new Date().toISOString() })
@@ -239,13 +251,14 @@ export const deleteArticleFn = createServerFn({ method: "POST" })
 export const createSubmissionFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
+		const userId = await requireUserId()
 		const db = getJournalServerClient()
 		const year = new Date().getFullYear()
 		const { count } = await db.from("articles").select("*", { count: "exact", head: true }).gte("created_at", `${year}-01-01`)
 		const submissionNumber = `${year}-${String((count || 0) + 1).padStart(3, "0")}`
 		const { data: result, error } = await db
 			.from("articles")
-			.insert({ ...data, submission_number: submissionNumber, status: "submitted", submitted_at: new Date().toISOString() })
+			.insert({ ...data, submitter_id: userId, submission_number: submissionNumber, status: "submitted", submitted_at: new Date().toISOString() })
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -257,6 +270,7 @@ export const createSubmissionFn = createServerFn({ method: "POST" })
 export const getArticleAuthorsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_authors")
 			.select("*")
@@ -266,17 +280,34 @@ export const getArticleAuthorsFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+/**
+ * A autorização é por ARTIGO, não por linha de autor. O payload é um array livre, então
+ * cada `article_id` citado tem de pertencer ao chamador (ou ele ser editor) — senão
+ * bastava inserir com o article_id alheio para se declarar coautor de qualquer manuscrito.
+ */
 export const createArticleAuthorsFn = createServerFn({ method: "POST" })
 	.validator(z.array(looseRecord))
 	.handler(async ({ data }) => {
+		const articleIds = [...new Set(data.map((row) => row.article_id).filter((id): id is string => typeof id === "string"))]
+		if (articleIds.length === 0) forbidden("article_id é obrigatório em cada autor.")
+		for (const articleId of articleIds) await requireArticleOwnerOrEditor(articleId)
+
 		const { data: result, error } = await getJournalServerClient().from("article_authors").insert(data).select()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+/** Resolve o artigo dono da linha de autor para autorizar pelo artigo. */
+async function requireAuthorRowAccess(authorId: string): Promise<void> {
+	const { data: row } = await getJournalServerClient().from("article_authors").select("article_id").eq("id", authorId).maybeSingle()
+	if (!row?.article_id) forbidden("Autor não encontrado.")
+	await requireArticleOwnerOrEditor(row.article_id as string)
+}
+
 export const updateArticleAuthorFn = createServerFn({ method: "POST" })
 	.validator(z.object({ authorId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
+		await requireAuthorRowAccess(data.authorId)
 		const { data: result, error } = await getJournalServerClient().from("article_authors").update(data.updates).eq("id", data.authorId).select().single()
 		if (error) throw new Error(error.message)
 		return result
@@ -285,6 +316,7 @@ export const updateArticleAuthorFn = createServerFn({ method: "POST" })
 export const deleteArticleAuthorFn = createServerFn({ method: "POST" })
 	.validator(z.object({ authorId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireAuthorRowAccess(data.authorId)
 		const { error } = await getJournalServerClient().from("article_authors").delete().eq("id", data.authorId)
 		if (error) throw new Error(error.message)
 	})
@@ -292,6 +324,7 @@ export const deleteArticleAuthorFn = createServerFn({ method: "POST" })
 export const deleteArticleAuthorsByArticleIdFn = createServerFn({ method: "POST" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireArticleOwnerOrEditor(data.articleId)
 		const { error } = await getJournalServerClient().from("article_authors").delete().eq("article_id", data.articleId)
 		if (error) throw new Error(error.message)
 	})
@@ -301,6 +334,8 @@ export const deleteArticleAuthorsByArticleIdFn = createServerFn({ method: "POST"
 export const getArticleVersionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		// Versões apontam para o PDF do manuscrito — mesma regra de acesso do artigo.
+		await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_versions")
 			.select("*")
@@ -313,6 +348,9 @@ export const getArticleVersionsFn = createServerFn({ method: "GET" })
 export const createArticleVersionFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
+		const articleId = typeof data.article_id === "string" ? data.article_id : null
+		if (!articleId) forbidden("article_id é obrigatório.")
+		await requireArticleOwnerOrEditor(articleId)
 		const { data: result, error } = await getJournalServerClient().from("article_versions").insert(data).select().single()
 		if (error) throw new Error(error.message)
 		return result
@@ -321,6 +359,7 @@ export const createArticleVersionFn = createServerFn({ method: "POST" })
 export const getLatestArticleVersionFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireArticleAccess(data.articleId)
 		const { data: result, error } = await getJournalServerClient()
 			.from("article_versions")
 			.select("*")
@@ -334,6 +373,10 @@ export const getLatestArticleVersionFn = createServerFn({ method: "GET" })
 
 // ─── Published Articles ───────────────────────────────────────────────────────
 
+/**
+ * Acervo publicado — a razão de existir da revista é ser lida sem login.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const getPublishedArticlesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ limit: z.number().optional(), offset: z.number().optional() }))
 	.handler(async ({ data }) => {
@@ -345,6 +388,10 @@ export const getPublishedArticlesFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+/**
+ * Artigo publicado, leitura pública — ver `getPublishedArticlesFn`.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const getPublishedArticleFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
@@ -358,6 +405,8 @@ export const getPublishedArticleFn = createServerFn({ method: "GET" })
 export const getEditorialDashboardFn = createServerFn({ method: "GET" })
 	.validator(z.object({ status: z.string().optional(), limit: z.number().optional() }))
 	.handler(async ({ data }) => {
+		// Fila editorial completa: submissões não publicadas, status e contagem de pareceres.
+		await requireEditor()
 		let query = getJournalServerClient().from("editorial_dashboard").select("*")
 		if (data.status) query = query.eq("status", data.status)
 		if (data.limit) query = query.limit(data.limit)
@@ -377,15 +426,28 @@ export const getReviewAssignmentsFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
+		// Quem designou quem é informação editorial (duplo-cego). Não-editor só vê os
+		// próprios convites — o filtro `reviewer_id` é forçado para o id da sessão.
+		const userId = await requireUserId()
+		const callerIsEditor = await isEditor(userId)
+
 		let query = getJournalServerClient().from("review_assignments").select("*")
 		if (data.article_id) query = query.eq("article_id", data.article_id)
-		if (data.reviewer_id) query = query.eq("reviewer_id", data.reviewer_id)
+		query = callerIsEditor && data.reviewer_id ? query.eq("reviewer_id", data.reviewer_id) : query
+		if (!callerIsEditor) query = query.eq("reviewer_id", userId)
 		if (data.status) query = query.eq("status", data.status)
 		const { data: result, error } = await query.order("created_at", { ascending: false })
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+/**
+ * Sem sessão de propósito: o `invitation_token` É a credencial. O convite chega por
+ * e-mail e o revisor abre o link antes de ter conta — exigir login aqui quebraria o
+ * fluxo. O token é aleatório, de uso único por convite, e não vaza nada além do próprio
+ * convite.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const getReviewAssignmentByTokenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ token: z.string() }))
 	.handler(async ({ data }) => {
@@ -394,10 +456,16 @@ export const getReviewAssignmentByTokenFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+// Designar revisor é ato editorial — e `invited_by` vem da sessão.
 export const createReviewAssignmentFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
-		const { data: result, error } = await getJournalServerClient().from("review_assignments").insert(data).select().single()
+		const editorId = await requireEditor()
+		const { data: result, error } = await getJournalServerClient()
+			.from("review_assignments")
+			.insert({ ...data, invited_by: editorId })
+			.select()
+			.single()
 		if (error) throw new Error(error.message)
 		return result
 	})
@@ -405,11 +473,17 @@ export const createReviewAssignmentFn = createServerFn({ method: "POST" })
 export const updateReviewAssignmentFn = createServerFn({ method: "POST" })
 	.validator(z.object({ assignmentId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
+		await requireEditor()
 		const { data: result, error } = await getJournalServerClient().from("review_assignments").update(data.updates).eq("id", data.assignmentId).select().single()
 		if (error) throw new Error(error.message)
 		return result
 	})
 
+/**
+ * Token-autenticada, como `getReviewAssignmentByTokenFn`: aceitar/recusar acontece a
+ * partir do link do e-mail, antes de qualquer login.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const acceptReviewInvitationFn = createServerFn({ method: "POST" })
 	.validator(z.object({ token: z.string() }))
 	.handler(async ({ data }) => {
@@ -423,6 +497,10 @@ export const acceptReviewInvitationFn = createServerFn({ method: "POST" })
 		return result
 	})
 
+/**
+ * Token-autenticada — ver `acceptReviewInvitationFn`.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const declineReviewInvitationFn = createServerFn({ method: "POST" })
 	.validator(z.object({ token: z.string(), reason: z.string().optional() }))
 	.handler(async ({ data }) => {
@@ -470,9 +548,17 @@ export const getArticleReviewsFn = createServerFn({ method: "GET" })
 		return result
 	})
 
+/**
+ * Escrita direta na tabela de pareceres. O caminho normal do revisor é
+ * `submitReviewFn`/`saveReviewDraftFn`, que validam o assignment; estas duas são a
+ * porta genérica e ficam restritas ao revisor designado do assignment informado.
+ */
 export const createReviewFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
+		const assignmentId = typeof data.assignment_id === "string" ? data.assignment_id : null
+		if (!assignmentId) forbidden("assignment_id é obrigatório.")
+		await requireAssignedReviewer(assignmentId)
 		const { data: result, error } = await getJournalServerClient().from("reviews").insert(data).select().single()
 		if (error) throw new Error(error.message)
 		return result
@@ -481,6 +567,9 @@ export const createReviewFn = createServerFn({ method: "POST" })
 export const updateReviewFn = createServerFn({ method: "POST" })
 	.validator(z.object({ reviewId: z.string(), updates: looseRecord }))
 	.handler(async ({ data }) => {
+		const { data: row } = await getJournalServerClient().from("reviews").select("assignment_id").eq("id", data.reviewId).maybeSingle()
+		if (!row?.assignment_id) forbidden("Parecer não encontrado.")
+		await requireAssignedReviewer(row.assignment_id as string)
 		const { data: result, error } = await getJournalServerClient().from("reviews").update(data.updates).eq("id", data.reviewId).select().single()
 		if (error) throw new Error(error.message)
 		return result
@@ -541,7 +630,8 @@ export const saveReviewDraftFn = createServerFn({ method: "POST" })
 export const getUserNotificationsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string(), unreadOnly: z.boolean().optional() }))
 	.handler(async ({ data }) => {
-		let query = getJournalServerClient().from("notifications").select("*").eq("user_id", data.userId)
+		const userId = await requireSelf(data.userId)
+		let query = getJournalServerClient().from("notifications").select("*").eq("user_id", userId)
 		if (data.unreadOnly) query = query.eq("read", false)
 		const { data: result, error } = await query.order("created_at", { ascending: false })
 		if (error) throw new Error(error.message)
@@ -551,10 +641,14 @@ export const getUserNotificationsFn = createServerFn({ method: "GET" })
 export const markNotificationAsReadFn = createServerFn({ method: "POST" })
 	.validator(z.object({ notificationId: z.string() }))
 	.handler(async ({ data }) => {
+		// O `eq("user_id")` no UPDATE é a autorização: sem ele, um id de notificação
+		// alheio seria marcado como lida por qualquer um.
+		const userId = await requireUserId()
 		const { data: result, error } = await getJournalServerClient()
 			.from("notifications")
 			.update({ read: true, read_at: new Date().toISOString() })
 			.eq("id", data.notificationId)
+			.eq("user_id", userId)
 			.select()
 			.single()
 		if (error) throw new Error(error.message)
@@ -563,6 +657,11 @@ export const markNotificationAsReadFn = createServerFn({ method: "POST" })
 
 // ─── Journal Settings ─────────────────────────────────────────────────────────
 
+/**
+ * Configuração pública da revista (escopo, normas, prazos) — renderizada nas páginas
+ * abertas do journal, antes de qualquer login.
+ */
+// nosemgrep: server-fn-missing-auth-guard
 export const getJournalSettingsFn = createServerFn({ method: "GET" }).handler(async () => {
 	const { data, error } = await getJournalServerClient().from("journal_settings").select("*").limit(1).single()
 	if (error) throw new Error(error.message)
@@ -572,6 +671,8 @@ export const getJournalSettingsFn = createServerFn({ method: "GET" }).handler(as
 export const updateJournalSettingsFn = createServerFn({ method: "POST" })
 	.validator(looseRecord)
 	.handler(async ({ data }) => {
+		// Inclui min_reviewers_required, que é o piso da decisão editorial de aceite.
+		await requireEditor()
 		const db = getJournalServerClient()
 		const { data: settings, error: fetchError } = await db.from("journal_settings").select("id").limit(1).single()
 		if (fetchError) throw new Error(fetchError.message)
@@ -585,6 +686,7 @@ export const updateJournalSettingsFn = createServerFn({ method: "POST" })
 export const loadDraftFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
+		await requireArticleAccess(data.articleId)
 		const db = getJournalServerClient()
 		const { data: article, error: articleError } = await db.from("articles").select("*").eq("id", data.articleId).single()
 		if (articleError) throw new Error(articleError.message)
@@ -597,14 +699,19 @@ export const loadDraftFn = createServerFn({ method: "GET" })
 		return { article, authors: authors ?? [] }
 	})
 
+// Um check de permissão avaliado sobre um `userId` escolhido pelo cliente responde
+// "pode?" sobre outra pessoa. O id vem da sessão — o do payload é só conferido.
 export const canEditArticleFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string(), userId: z.string() }))
 	.handler(async ({ data }) => {
+		const userId = await requireSelf(data.userId)
 		const { data: article } = await getJournalServerClient().from("articles").select("submitter_id, status").eq("id", data.articleId).single()
 		if (!article) return false
-		return article.submitter_id === data.userId && (article.status === "draft" || article.status === "revision_requested")
+		return article.submitter_id === userId && (article.status === "draft" || article.status === "revision_requested")
 	})
 
+// `user_id` do evento vem da sessão: a timeline editorial é registro de auditoria, e
+// um autor de evento escolhido pelo cliente permite forjar quem fez o quê.
 export const createArticleEventFn = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
@@ -615,11 +722,12 @@ export const createArticleEventFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
+		const { userId } = await requireArticleOwnerOrEditor(data.articleId)
 		const { error } = await getJournalServerClient()
 			.from("article_events")
 			.insert({
 				article_id: data.articleId,
-				user_id: data.userId,
+				user_id: userId,
 				event_type: data.eventType,
 				event_data: data.eventData ?? {},
 			})
@@ -628,6 +736,9 @@ export const createArticleEventFn = createServerFn({ method: "POST" })
 
 // ─── Permission checks (usados por auth.ts) ───────────────────────────────────
 
+// Login opcional: artigo publicado responde `true` para anônimo. Para o resto, o
+// userId considerado é o da SESSÃO — o do payload é ignorado.
+// nosemgrep: server-fn-missing-auth-guard
 export const canViewArticleFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string(), userId: z.string().optional() }))
 	.handler(async ({ data }) => {
@@ -635,13 +746,14 @@ export const canViewArticleFn = createServerFn({ method: "GET" })
 		const { data: article } = await db.from("articles").select("status, submitter_id, deleted_at").eq("id", data.articleId).single()
 		if (!article) return false
 		if (article.status === "published" && !article.deleted_at) return true
-		if (!data.userId) return false
-		if (article.submitter_id === data.userId) return true
+		const userId = await getRequestUserId()
+		if (!userId) return false
+		if (article.submitter_id === userId) return true
 		const { data: assignment } = await db
 			.from("review_assignments")
 			.select("id")
 			.eq("article_id", data.articleId)
-			.eq("reviewer_id", data.userId)
+			.eq("reviewer_id", userId)
 			.in("status", ["accepted", "completed"])
 			.maybeSingle()
 		return !!assignment
@@ -650,9 +762,10 @@ export const canViewArticleFn = createServerFn({ method: "GET" })
 export const canSubmitReviewFn = createServerFn({ method: "GET" })
 	.validator(z.object({ assignmentId: z.string(), userId: z.string() }))
 	.handler(async ({ data }) => {
+		const userId = await requireSelf(data.userId)
 		const { data: assignment } = await getJournalServerClient().from("review_assignments").select("reviewer_id, status").eq("id", data.assignmentId).single()
 		if (!assignment) return false
-		return assignment.reviewer_id === data.userId && assignment.status === "accepted"
+		return assignment.reviewer_id === userId && assignment.status === "accepted"
 	})
 
 // ─── Reviewer directory + convites (lado do editor) ───────────────────────────
@@ -780,9 +893,8 @@ export const getReviewerAssignmentsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ reviewerId: z.string() }))
 	.handler(async ({ data }) => {
 		// Só o próprio revisor (ou um editor) lê seus assignments.
-		const uid = await getRequestUserId()
-		if (!uid) throw new Error("Não autenticado.")
-		if (uid !== data.reviewerId && !(await isEditor(uid))) throw new Error("Você não tem acesso a estes convites.")
+		const uid = await requireUserId()
+		if (uid !== data.reviewerId && !(await isEditor(uid))) forbidden("Você não tem acesso a estes convites.")
 		const db = getJournalServerClient()
 		// Expira convites vencidos (best-effort) antes de listar — não há cron, então
 		// a expiração acontece oportunamente na leitura.
@@ -911,12 +1023,11 @@ const DECISION_STATUSES = new Set(["revision_requested", "revised_submitted", "a
 export const getAuthorArticleReviewsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ articleId: z.string() }))
 	.handler(async ({ data }) => {
-		const userId = await getRequestUserId()
-		if (!userId) throw new Error("Não autenticado.")
+		const userId = await requireUserId()
 		const db = getJournalServerClient()
 
 		const { data: article } = await db.from("articles").select("submitter_id, status").eq("id", data.articleId).single()
-		if (!article || article.submitter_id !== userId) throw new Error("Você não tem acesso a este artigo.")
+		if (!article || article.submitter_id !== userId) forbidden("Você não tem acesso a este artigo.")
 		if (!DECISION_STATUSES.has(article.status)) return { status: article.status, reviews: [] }
 
 		const { data: rows, error } = await db
@@ -948,12 +1059,11 @@ export const getAuthorArticleReviewsFn = createServerFn({ method: "GET" })
 export const resubmitRevisionFn = createServerFn({ method: "POST" })
 	.validator(z.object({ articleId: z.string(), pdfPath: z.string(), sourcePath: z.string().optional(), coverLetter: z.string().optional() }))
 	.handler(async ({ data }) => {
-		const userId = await getRequestUserId()
-		if (!userId) throw new Error("Não autenticado.")
+		const userId = await requireUserId()
 		const db = getJournalServerClient()
 
 		const { data: article } = await db.from("articles").select("submitter_id, status").eq("id", data.articleId).single()
-		if (!article || article.submitter_id !== userId) throw new Error("Você não tem acesso a este artigo.")
+		if (!article || article.submitter_id !== userId) forbidden("Você não tem acesso a este artigo.")
 		if (article.status !== "revision_requested") throw new Error("A submissão não está aguardando revisão do autor.")
 
 		const { data: last } = await db

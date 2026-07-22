@@ -1,0 +1,24 @@
+# Política do zizmor para os workflows deste repo.
+#
+# `unpinned-uses`: a exigência de pin por SHA é aplicada a quem NÃO é publisher de
+# primeira parte. Para `actions/*`, `github/*`, `docker/*`, `aws-actions/*` e
+# `oven-sh/*` a tag é aceita: são orgs com o mesmo modelo de confiança do próprio
+# runner, e pinar todas por SHA aqui trocaria uma superfície pequena por dezenas de
+# refs opacas que ninguém revisa na hora do bump.
+#
+# Todo o resto precisa de SHA: uma action de terceiro é execução arbitrária num runner
+# que assume role AWS via OIDC, e uma tag é mutável — quem controla o repo da action
+# reaponta a tag e passa a rodar código novo no nosso pipeline sem PR nenhum.
+#
+# O Dependabot mantém os SHAs atualizados (ecossistema github-actions em dependabot.yml),
+# então o pin não vira dívida parada.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        actions/*: ref-pin
+        github/*: ref-pin
+        docker/*: ref-pin
+        aws-actions/*: ref-pin
+        oven-sh/*: ref-pin
+        "*": hash-pin

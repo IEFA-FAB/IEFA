@@ -3,6 +3,9 @@ import { getCoreClient } from "@/lib/supabase.server"
 
 const DATABASE_HEALTH_TIMEOUT_MS = 3500
 
+// Público por contrato: health check booleano, sem dado nenhum. O banner que o consome
+// renderiza no __root, inclusive na tela de login.
+// nosemgrep: server-fn-missing-auth-guard
 export const checkDatabaseStatusFn = createServerFn({ method: "GET" }).handler(async (): Promise<{ status: "ok" }> => {
 	const supabase = getCoreClient()
 	const controller = new AbortController()

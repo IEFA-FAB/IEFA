@@ -28,6 +28,8 @@ export type LegalDocument = {
 	published_at: string | null
 }
 
+// Público por contrato: termos de uso e política de privacidade, rotas _public.
+// nosemgrep: server-fn-missing-auth-guard
 export const fetchLegalDocumentFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({

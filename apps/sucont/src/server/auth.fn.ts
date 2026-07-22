@@ -8,6 +8,8 @@
 import { createServerFn } from "@tanstack/react-start"
 import { getSucontAuthClient } from "#/lib/supabase.server"
 
+// Público por contrato: valida o JWT do request e devolve { user: null } sem sessão.
+// nosemgrep: server-fn-missing-auth-guard
 export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
 	const supabase = getSucontAuthClient()
 	// Só getUser(): valida o JWT contra o servidor Supabase (fonte de verdade). NÃO

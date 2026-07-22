@@ -66,7 +66,7 @@ export const Route = createFileRoute("/_protected")({
 				// Non-critical upsert — failure (e.g. HMR module cache miss in dev) must not
 				// crash beforeLoad. A colisão de email já é reconciliada na operation (reclaim
 				// do registro órfão); o que chega aqui é genuinamente irrecuperável.
-				syncUserEmailFn({ data: { userId: id, email: email ?? "" } }).catch((err) => {
+				syncUserEmailFn().catch((err) => {
 					syncedEmailKeys.delete(syncKey) // permite retry na próxima navegação
 					// biome-ignore lint/suspicious/noConsole: intentional — non-critical sync failure
 					console.warn("Não foi possível sincronizar o perfil do usuário (não bloqueante):", err instanceof Error ? err.message : err)

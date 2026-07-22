@@ -4,7 +4,9 @@ import { syncUserEmailFn } from "@/server/user.fn"
 
 export function useSyncUserEmail() {
 	return useMutation({
-		mutationFn: (user: User) => syncUserEmailFn({ data: { userId: user.id, email: user.email } }),
+		// O `user` é mantido no contrato do mutate (chamadores já o têm em mãos), mas o
+		// servidor lê id/email do JWT — ver AUTH em user.fn.
+		mutationFn: (_user: User) => syncUserEmailFn(),
 		onError: (_error) => {},
 	})
 }

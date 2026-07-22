@@ -14,6 +14,8 @@ import { getIefaAuthClient } from "@/lib/supabase.server"
  * Uses getIefaAuthClient — auth.getUser() performs a server-side token check via cookies.
  * Does NOT throw on unauthenticated requests — returns { user: null, session: null } instead.
  */
+// Público por contrato: valida o JWT do request e devolve { user: null } sem sessão.
+// nosemgrep: server-fn-missing-auth-guard
 export const getServerSessionFn = createServerFn({ method: "GET" }).handler(async () => {
 	const supabase = getIefaAuthClient()
 	// getUser() valida o token no servidor Supabase — não usa localStorage

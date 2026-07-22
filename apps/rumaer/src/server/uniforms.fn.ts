@@ -15,6 +15,8 @@ const CATEGORIAS = ["oficiais", "cadetes", "suboficiais", "sargentos", "alunos_f
 
 export type UniformListItem = Uniform & { categories: { categoria: CategoriaMilitar }[] }
 
+// Catálogo público — ver listPiecesFn.
+// nosemgrep: server-fn-missing-auth-guard
 export const listUniformsFn = createServerFn({ method: "GET" })
 	.validator(
 		z.object({
@@ -38,6 +40,8 @@ export const listUniformsFn = createServerFn({ method: "GET" })
 		return (rows ?? []) as UniformListItem[]
 	})
 
+// Catálogo público — ver listUniformsFn.
+// nosemgrep: server-fn-missing-auth-guard
 export const getUniformFn = createServerFn({ method: "GET" })
 	.validator(z.object({ id: z.string().uuid() }))
 	.handler(async ({ data }): Promise<UniformDetail | null> => {
