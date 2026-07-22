@@ -20,7 +20,14 @@ function RootComponent() {
 				<HeadContent />
 			</head>
 			<body className="flex flex-col min-h-screen">
-				<RootProvider>
+				{/*
+				 * Busca 100% client-side: o navegador baixa o índice Orama exportado em
+				 * /api/search e consulta localmente, sem servidor. `type: "static"` é a
+				 * via suportada nesta versão do fumadocs-ui — está marcada como
+				 * deprecated em favor de recriar o diálogo com um client próprio, o que
+				 * só compensa se precisarmos customizar a UI da busca.
+				 */}
+				<RootProvider search={{ options: { type: "static", api: "/api/search" } }}>
 					<Outlet />
 				</RootProvider>
 				<Scripts />

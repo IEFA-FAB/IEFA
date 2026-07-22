@@ -127,6 +127,33 @@ data "aws_iam_policy_document" "github_deploy" {
       "arn:aws:secretsmanager:${var.aws_region}:${local.account_id}:secret:${local.secret_name_prefix}*",
     ]
   }
+
+  # Publish the prerendered static sites (infra/modules/static-site). Scoped to
+  # the `-site` bucket suffix that module owns, so this cannot touch the
+  # Terraform state bucket.
+  statement {
+    sid = "StaticSiteSync"
+    actions = [
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:GetObject",
+    ]
+    resources = ["arn:aws:s3:::${local.name_prefix}-*-site/*"]
+  }
+
+  statement {
+    sid       = "StaticSiteList"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${local.name_prefix}-*-site"]
+  }
+
+  # CloudFront invalidations are not resource-scopable by distribution in a way
+  # that survives recreating one, and the action only ever busts a cache.
+  statement {
+    sid       = "StaticSiteInvalidate"
+    actions   = ["cloudfront:CreateInvalidation"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {

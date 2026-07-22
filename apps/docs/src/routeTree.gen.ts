@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiDocsIndexRouteImport } from './routes/api/docs-index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,42 +29,42 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
+const ApiDocsIndexRoute = ApiDocsIndexRouteImport.update({
+  id: '/api/docs-index',
+  path: '/api/docs-index',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/docs-index': typeof ApiDocsIndexRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/docs-index': typeof ApiDocsIndexRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/docs-index': typeof ApiDocsIndexRoute
   '/api/search': typeof ApiSearchRoute
   '/docs/$': typeof DocsSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/health' | '/api/search' | '/docs/$'
+  fullPaths: '/' | '/api/docs-index' | '/api/search' | '/docs/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/health' | '/api/search' | '/docs/$'
-  id: '__root__' | '/' | '/api/health' | '/api/search' | '/docs/$'
+  to: '/' | '/api/docs-index' | '/api/search' | '/docs/$'
+  id: '__root__' | '/' | '/api/docs-index' | '/api/search' | '/docs/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApiHealthRoute: typeof ApiHealthRoute
+  ApiDocsIndexRoute: typeof ApiDocsIndexRoute
   ApiSearchRoute: typeof ApiSearchRoute
   DocsSplatRoute: typeof DocsSplatRoute
 }
@@ -92,11 +92,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/health': {
-      id: '/api/health'
-      path: '/api/health'
-      fullPath: '/api/health'
-      preLoaderRoute: typeof ApiHealthRouteImport
+    '/api/docs-index': {
+      id: '/api/docs-index'
+      path: '/api/docs-index'
+      fullPath: '/api/docs-index'
+      preLoaderRoute: typeof ApiDocsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -104,7 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiHealthRoute: ApiHealthRoute,
+  ApiDocsIndexRoute: ApiDocsIndexRoute,
   ApiSearchRoute: ApiSearchRoute,
   DocsSplatRoute: DocsSplatRoute,
 }
