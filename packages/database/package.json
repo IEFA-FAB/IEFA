@@ -27,7 +27,8 @@
     "db:migrations": "bunx supabase migration list",
     "db:repair:applied": "bunx supabase migration repair --status applied",
     "db:repair:reverted": "bunx supabase migration repair --status reverted",
-    "db:drizzle:pull": "bunx drizzle-kit pull && bun run scripts/patch-drizzle-pull.ts"
+    "db:drizzle:pull": "bunx drizzle-kit pull && bun run scripts/patch-drizzle-pull.ts",
+    "audit:rls": "bun run scripts/audit-rls.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
