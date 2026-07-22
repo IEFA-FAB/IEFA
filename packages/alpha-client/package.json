@@ -12,8 +12,8 @@
     "./tracer": "./src/tracer.ts"
   },
   "dependencies": {
-    "@langchain/core": "^1.2.0",
-    "@langchain/openai": "^1.5.1"
+    "@langchain/core": "^1.2.3",
+    "@langchain/openai": "^1.5.5"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
