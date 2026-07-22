@@ -13,7 +13,8 @@
  */
 
 import { createServerFn } from "@tanstack/react-start"
-import { getCoreReadClient, getRumaerAuthClient } from "@/lib/supabase.server"
+import { getRequestUser } from "@/lib/auth.server"
+import { getCoreReadClient } from "@/lib/supabase.server"
 
 export type MilitaryProfile = {
 	sgPosto: string | null
@@ -23,11 +24,12 @@ export type MilitaryProfile = {
 	especialidade: string | null
 }
 
+// Login é opcional no rumaer: sem sessão isto devolve `null` em vez de 401 — o perfil
+// militar é um enfeite do cabeçalho, não um gate. A identidade vem SEMPRE da sessão
+// (nenhum nrOrdem entra por payload), então não há alvo a escolher.
+// nosemgrep: server-fn-missing-auth-guard
 export const getMyMilitaryProfileFn = createServerFn({ method: "GET" }).handler(async (): Promise<MilitaryProfile | null> => {
-	const auth = getRumaerAuthClient()
-	const {
-		data: { user },
-	} = await auth.auth.getUser()
+	const user = await getRequestUser()
 	if (!user) return null
 
 	const core = getCoreReadClient()

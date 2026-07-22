@@ -10,6 +10,8 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { getRumaerServerClient } from "@/lib/supabase.server"
 
+// Catálogo público — ver listPiecesFn.
+// nosemgrep: server-fn-missing-auth-guard
 export const listPieceItemsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ pieceId: z.string().uuid().optional() }))
 	.handler(async ({ data }): Promise<PieceItemWithPiece[]> => {

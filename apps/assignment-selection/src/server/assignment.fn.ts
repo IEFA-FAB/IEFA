@@ -28,10 +28,15 @@ function resolveEditionId(editions: Edition[], requested?: string | null): strin
 	return editions[0]?.id ?? null
 }
 
+// Leitura pública: o telão da escolha de vagas roda sem sessão, e as tabelas têm
+// policy `public read` para anon. A escrita (updatePerson/callPerson/…) exige requireAccess.
+// nosemgrep: server-fn-missing-auth-guard
 export const listEditionsFn = createServerFn({ method: "GET" }).handler(async (): Promise<Edition[]> => {
 	return fetchEditions()
 })
 
+// Leitura pública do telão — ver listEditionsFn.
+// nosemgrep: server-fn-missing-auth-guard
 export const getBoardFn = createServerFn({ method: "GET" })
 	.validator(z.object({ editionId: z.string().uuid().nullish() }))
 	.handler(async ({ data }): Promise<BoardData> => {
