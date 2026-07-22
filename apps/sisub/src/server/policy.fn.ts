@@ -9,7 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuth } from "@/lib/auth.server"
+import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getProcurementClient } from "@/lib/supabase.server"
 import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 
@@ -25,6 +25,7 @@ import type { PolicyRule, PolicyTarget } from "@/types/domain/policy"
 export const fetchPolicyRulesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<PolicyRule[]> => {
+		await requireUserId()
 		const { data: result, error } = await getProcurementClient()
 			.from("policy_rule")
 			.select("*")
@@ -140,6 +141,7 @@ export const deletePolicyRuleFn = createServerFn({ method: "POST" })
 export const generateReviewPromptFn = createServerFn({ method: "GET" })
 	.validator(z.object({ target: z.enum(["product", "recipe"]) }))
 	.handler(async ({ data }): Promise<string> => {
+		await requireUserId()
 		const supabase = getProcurementClient()
 		const target: PolicyTarget = data.target
 

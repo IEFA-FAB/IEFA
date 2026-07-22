@@ -19,19 +19,25 @@ import {
 	upsertForecast,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
-import { requireAuth } from "@/lib/auth.server"
+import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
-// Reads stay unauthenticated to match the original server-fn posture (callers
-// gate on the diner's own user id). Mutations below require auth (ctx.userId).
+// Reads self-only: o `userId` do payload é IGNORADO em favor do da sessão. Antes eram
+// anônimos e o chamador escolhia de quem era a previsão/rancho padrão que queria ler.
 export const fetchMealForecastsFn = createServerFn({ method: "GET" })
 	.validator(ListMealForecastsSchema)
-	.handler(async ({ data }) => listMealForecasts(getDb(), data).catch(handleDomainError))
+	.handler(async ({ data }) => {
+		const userId = await requireUserId()
+		return listMealForecasts(getDb(), { ...data, userId }).catch(handleDomainError)
+	})
 
 export const fetchUserDefaultMessHallFn = createServerFn({ method: "GET" })
 	.validator(GetUserDefaultMessHallSchema)
-	.handler(async ({ data }) => getUserDefaultMessHall(getDb(), data).catch(handleDomainError))
+	.handler(async ({ data }) => {
+		const userId = await requireUserId()
+		return getUserDefaultMessHall(getDb(), { ...data, userId }).catch(handleDomainError)
+	})
 
 export const persistDefaultMessHallFn = createServerFn({ method: "POST" })
 	.validator(PersistDefaultMessHallSchema)

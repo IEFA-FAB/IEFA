@@ -10,7 +10,7 @@
 import type { Empenho } from "@iefa/database/sisub"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuth } from "@/lib/auth.server"
+import { requireAuth, requireUserId } from "@/lib/auth.server"
 import { getProcurementClient } from "@/lib/supabase.server"
 import type { ArpWithItems, ComprasArpItemPage, ComprasArpPage } from "@/types/domain/arp"
 
@@ -66,6 +66,7 @@ export const searchArpFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasArpPage> => {
+		await requireUserId()
 		const params = new URLSearchParams({
 			pagina: "1",
 			tamanhoPagina: "20",
@@ -266,6 +267,7 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 	.validator(z.object({ ataId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<ArpWithItems | null> => {
+		await requireUserId()
 		const supabase = getProcurementClient()
 
 		const { data: arp } = await supabase.from("procurement_arp").select("*").eq("ata_id", data.ataId).maybeSingle()
@@ -287,6 +289,7 @@ export const fetchArpForAtaFn = createServerFn({ method: "GET" })
 export const fetchEmpenhosFn = createServerFn({ method: "GET" })
 	.validator(z.object({ arpItemId: z.string().uuid() }))
 	.handler(async ({ data }): Promise<Empenho[]> => {
+		await requireUserId()
 		const { data: empenhos, error } = await getProcurementClient()
 			.schema("finance")
 			.from("empenho")

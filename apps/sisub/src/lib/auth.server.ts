@@ -5,9 +5,11 @@
  */
 
 import { resolveUserPermissions } from "@iefa/pbac"
-import type { UserContext } from "@iefa/sisub-domain/types"
+import { requirePermission } from "@iefa/sisub-domain"
+import type { AppModule, PermissionScope, UserContext } from "@iefa/sisub-domain/types"
 import type { User } from "@supabase/supabase-js"
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server"
+import { handleDomainError } from "@/lib/domain-errors"
 import { getAccessControlClient, getSupabaseAuthClient } from "@/lib/supabase.server"
 
 /** Sinaliza 401 no HTTP antes de lançar — senão o erro sai como 500 (default do framework). */
@@ -55,6 +57,19 @@ export async function requireUserId(): Promise<string> {
 }
 
 /**
+ * Usuário autenticado completo (id + email do JWT). Use quando a server fn precisa
+ * do email: ele DEVE vir da sessão, nunca do payload — um email vindo do cliente
+ * permite reivindicar a identidade de outra conta (ver `upsertUserDataReclaimingEmail`).
+ *
+ * @throws {Error} "UNAUTHORIZED" se o JWT estiver ausente ou inválido.
+ */
+export async function requireUser(): Promise<User> {
+	const user = await getRequestUser()
+	if (!user) unauthorized()
+	return user
+}
+
+/**
  * Validates the request's JWT (via SSR cookies) and resolves PBAC permissions.
  * Call at the start of every server function that touches protected data.
  *
@@ -71,4 +86,24 @@ export async function requireAuth(): Promise<UserContext> {
 	const dataClient = getAccessControlClient()
 	const permissions = await resolveUserPermissions(user.id, dataClient)
 	return { userId: user.id, permissions }
+}
+
+/**
+ * `requireAuth` + guard PBAC no próprio server fn, para endpoints que NÃO delegam a
+ * uma domain operation (proxies para a API, lookups externos). Nesses casos o guard
+ * de rota (`beforeLoad`) é a única barreira — e ele não protege nada: o endpoint
+ * `/_serverFn/...` é chamável direto, sem passar pelo router.
+ *
+ * Espelhe aqui o mesmo módulo/nível exigido pela rota que consome o fn.
+ *
+ * @throws {Error} "UNAUTHORIZED" (401) sem sessão; "Requires {module} level {n}" (403) sem permissão.
+ */
+export async function requireAuthWithPermission(module: AppModule, minLevel: 1 | 2 = 1, scope?: PermissionScope): Promise<UserContext> {
+	const ctx = await requireAuth()
+	try {
+		requirePermission(ctx, module, minLevel, scope)
+	} catch (error) {
+		handleDomainError(error)
+	}
+	return ctx
 }

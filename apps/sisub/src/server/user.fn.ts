@@ -2,7 +2,19 @@
  * @module user.fn
  * User profile and military data sync in the sisub schema.
  * Thin wrappers over @iefa/sisub-domain (operations/user).
- * Unauthenticated by design — used during login / profile bootstrap.
+ *
+ * AUTH — self-only. Todas exigem sessão e derivam a identidade do JWT, IGNORANDO o
+ * `userId`/`email` do payload. Antes eram anônimas ("by design", para o bootstrap de
+ * login), o que abria três buracos no endpoint `/_serverFn/...`, chamável direto:
+ *   - `fetchMilitaryDataFn` devolvia nrCpf + nome completo + posto para qualquer
+ *     `nrOrdem` — enumeração de dados pessoais sem autenticação (LGPD);
+ *   - `fetchUserDataFn`/`fetchUserNrOrdemFn` liam o perfil de qualquer `userId` (IDOR);
+ *   - `syncUserEmailFn` escrevia email arbitrário e, na colisão, APAGA a linha que
+ *     detém aquele email (`upsertUserDataReclaimingEmail`) — sequestro de identidade.
+ *
+ * O bootstrap continua funcionando: todos os chamadores rodam depois do login
+ * (`useProfile`, `useUserNrOrdem`, `_protected/route.tsx`), com sessão válida.
+ *
  * @domain core
  * @migration done
  */
@@ -14,31 +26,58 @@ import {
 	fetchMilitaryData,
 	fetchSisubUserData,
 	fetchUserNrOrdem,
-	SyncUserEmailSchema,
 	SyncUserNrOrdemSchema,
 	syncUserEmail,
 	syncUserNrOrdem,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { requireUser, requireUserId } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
 import { handleDomainError } from "@/lib/domain-errors"
 
+/**
+ * O validator é mantido para não quebrar o formato do payload dos chamadores, mas
+ * `data.userId` é descartado: a identidade vem sempre da sessão.
+ */
 export const fetchUserDataFn = createServerFn({ method: "GET" })
 	.validator(FetchUserDataSchema)
-	.handler(async ({ data }) => fetchSisubUserData(getDb(), data).catch(handleDomainError))
+	.handler(async () => {
+		const userId = await requireUserId()
+		return fetchSisubUserData(getDb(), { userId }).catch(handleDomainError)
+	})
 
+/**
+ * O `nrOrdem` é resolvido a partir da sessão, não do payload — comparar a string do
+ * cliente convidaria divergência de formato (zero à esquerda, número vs string) e um
+ * 403 falso na tela de perfil. Sem nrOrdem vinculado à conta: `null`.
+ */
 export const fetchMilitaryDataFn = createServerFn({ method: "GET" })
 	.validator(FetchMilitaryDataSchema)
-	.handler(async ({ data }) => fetchMilitaryData(getDb(), data).catch(handleDomainError))
+	.handler(async () => {
+		const userId = await requireUserId()
+		const db = getDb()
+		const nrOrdem = await fetchUserNrOrdem(db, { userId }).catch(handleDomainError)
+		if (!nrOrdem) return null
+		return fetchMilitaryData(db, { nrOrdem }).catch(handleDomainError)
+	})
 
 export const fetchUserNrOrdemFn = createServerFn({ method: "GET" })
 	.validator(FetchUserNrOrdemSchema)
-	.handler(async ({ data }) => fetchUserNrOrdem(getDb(), data).catch(handleDomainError))
+	.handler(async () => {
+		const userId = await requireUserId()
+		return fetchUserNrOrdem(getDb(), { userId }).catch(handleDomainError)
+	})
 
+/** `nrOrdem` vem do formulário (input legítimo do usuário); `userId`/`email`, da sessão. */
 export const syncUserNrOrdemFn = createServerFn({ method: "POST" })
 	.validator(SyncUserNrOrdemSchema)
-	.handler(async ({ data }) => syncUserNrOrdem(getDb(), data).catch(handleDomainError))
+	.handler(async ({ data }) => {
+		const user = await requireUser()
+		return syncUserNrOrdem(getDb(), { userId: user.id, email: user.email ?? "", nrOrdem: data.nrOrdem }).catch(handleDomainError)
+	})
 
-export const syncUserEmailFn = createServerFn({ method: "POST" })
-	.validator(SyncUserEmailSchema)
-	.handler(async ({ data }) => syncUserEmail(getDb(), data).catch(handleDomainError))
+/** Sem validator: ambos os campos vêm do JWT — o corpo enviado pelo cliente é irrelevante. */
+export const syncUserEmailFn = createServerFn({ method: "POST" }).handler(async () => {
+	const user = await requireUser()
+	return syncUserEmail(getDb(), { userId: user.id, email: user.email }).catch(handleDomainError)
+})
