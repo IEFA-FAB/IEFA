@@ -8,6 +8,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireSelf } from "@/lib/auth.server"
 import { envServer } from "@/lib/env.server"
 
 function getPortalClient() {
@@ -20,7 +21,9 @@ function getPortalClient() {
 export const getFavoritesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ userId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		const { data: row, error } = await getPortalClient().from("user_app_favorites").select("app_ids").eq("user_id", data.userId).maybeSingle()
+		// Self-only: a lista de favoritos é do usuário da sessão, não de um uuid do payload.
+		const userId = await requireSelf(data.userId)
+		const { data: row, error } = await getPortalClient().from("user_app_favorites").select("app_ids").eq("user_id", userId).maybeSingle()
 		if (error) throw new Error(error.message)
 		return ((row?.app_ids as string[] | undefined) ?? []) as string[]
 	})
@@ -28,8 +31,7 @@ export const getFavoritesFn = createServerFn({ method: "GET" })
 export const setFavoritesFn = createServerFn({ method: "POST" })
 	.validator(z.object({ userId: z.string().uuid(), appIds: z.array(z.string().uuid()) }))
 	.handler(async ({ data }) => {
-		const { error } = await getPortalClient()
-			.from("user_app_favorites")
-			.upsert({ user_id: data.userId, app_ids: data.appIds, updated_at: new Date().toISOString() })
+		const userId = await requireSelf(data.userId)
+		const { error } = await getPortalClient().from("user_app_favorites").upsert({ user_id: userId, app_ids: data.appIds, updated_at: new Date().toISOString() })
 		if (error) throw new Error(error.message)
 	})

@@ -9,6 +9,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { requireSelf } from "@/lib/auth.server"
 import { getJournalServerClient } from "@/lib/supabase.server"
 
 // ─── Shared schemas ───────────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ export const saveDraftFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<{ articleId: string }> => {
 		const supabase = getJournalServerClient()
+		// O `userId` do payload vira submitter_id/uploaded_by — conferido contra a sessão
+		// para que ninguém submeta, versione ou assine um manuscrito em nome de outro.
+		await requireSelf(data.userId)
 		const { userId, articleId, authors, ...fields } = data
 
 		let id: string
@@ -132,6 +136,9 @@ export const saveVersionDraftFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const supabase = getJournalServerClient()
+		// O `userId` do payload vira submitter_id/uploaded_by — conferido contra a sessão
+		// para que ninguém submeta, versione ou assine um manuscrito em nome de outro.
+		await requireSelf(data.userId)
 		const { articleId, userId, pdfPath, sourcePath, supplementaryPaths } = data
 
 		// Check if version 1 already exists
@@ -195,6 +202,9 @@ export const submitArticleFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }): Promise<{ articleId: string; submissionNumber: string }> => {
 		const supabase = getJournalServerClient()
+		// O `userId` do payload vira submitter_id/uploaded_by — conferido contra a sessão
+		// para que ninguém submeta, versione ou assine um manuscrito em nome de outro.
+		await requireSelf(data.userId)
 		const { articleId, userId, authors, has_ethics_approval, ethics_approval, ...fields } = data
 
 		// Promote article to submitted

@@ -3,6 +3,8 @@ import { getJournalServerClient } from "@/lib/supabase.server"
 
 const DATABASE_HEALTH_TIMEOUT_MS = 3500
 
+// Público por contrato: health check booleano, sem dado de negócio.
+// nosemgrep: server-fn-missing-auth-guard
 export const checkDatabaseStatusFn = createServerFn({ method: "GET" }).handler(async (): Promise<{ status: "ok" }> => {
 	const supabase = getJournalServerClient()
 	const controller = new AbortController()
