@@ -26,7 +26,12 @@ secret_names = [
 
 # Host-based routing on the shared ALB (requires a certificate on the foundation).
 
-# User-facing SSR app: pin one on-demand task so a Spot reclamation can't drop it.
+# User-facing SSR app: two tasks so a Spot reclamation never leaves the portal down.
+# Internal/low-traffic services stay on the module default of 1.
+desired_count = 2
+
+# Alternative to a second Spot task: pin one on-demand task instead (≈2x the
+# hourly rate of Spot, but immune to capacity reclamation).
 # fargate_on_demand_base = 1
 
 hosts = ["portal.iefa.com.br"]

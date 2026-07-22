@@ -92,8 +92,9 @@ variable "image_tag" {
 }
 
 variable "desired_count" {
-  type    = number
-  default = 2
+  description = "Number of tasks. Each task adds Fargate vCPU/GB hours plus a public IPv4 address (~US$3.60/month). Deploys stay zero-downtime at 1; a second task only buys survival of a Spot reclamation or an AZ failure."
+  type        = number
+  default     = 1
 }
 
 variable "fargate_on_demand_base" {

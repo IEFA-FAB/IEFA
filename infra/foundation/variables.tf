@@ -76,9 +76,9 @@ variable "secrets_kms_key_arn" {
 }
 
 variable "enable_container_insights" {
-  description = "Enable CloudWatch Container Insights on the ECS cluster. Recommended for debugging Spot task failures; adds a small CloudWatch cost."
+  description = "Enable CloudWatch Container Insights on the ECS cluster. Useful for debugging Spot task failures, but it publishes ~20 custom metrics per service (263 metrics / ~US$58 per month on this cluster) and the platform already reports errors and traces through Grafana Faro + OTel. Off by default; turn it on temporarily while investigating, then turn it back off."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "task_role_policy_json" {

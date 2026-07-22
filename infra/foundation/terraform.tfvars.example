@@ -17,7 +17,11 @@ az_count = 2
 # route53_zone_id = "<zone-id>"
 
 # --- Observability ---
-enable_container_insights = true
+# Container Insights publishes ~20 custom CloudWatch metrics per service. On this
+# cluster that was 263 metrics (~US$58/month) with zero alarms and zero dashboards
+# consuming them, while frontend errors and server traces already go to Grafana
+# Faro + OTel. Flip to true only while debugging Spot task failures.
+enable_container_insights = false
 
 # --- AWS Bedrock (IA keyless via task role) ---
 # Concede à task role compartilhada permissão de invocar modelos Bedrock (Converse).
