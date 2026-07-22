@@ -13,12 +13,23 @@
  * `beforeLoad` da rota não é uma barreira: `/_serverFn/<id>` é chamável direto por HTTP.
  */
 
-import { readdirSync, readFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { dirname, join, parse } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, test } from "vitest"
 
 const serverDir = dirname(fileURLToPath(import.meta.url))
+
+/** Raiz do monorepo (diretório que contém o turbo.json), subindo a partir daqui. */
+function monorepoRoot(): string {
+	let dir = serverDir
+	while (!existsSync(join(dir, "turbo.json"))) {
+		const parent = dirname(dir)
+		if (parent === dir || dir === parse(dir).root) throw new Error(`turbo.json não encontrado subindo de ${serverDir}`)
+		dir = parent
+	}
+	return dir
+}
 
 /**
  * Endpoints deliberadamente anônimos. Cada entrada precisa de um motivo — se você
@@ -124,6 +135,58 @@ describe("server function auth contract", () => {
 			const source = readFileSync(join(serverDir, file), "utf8")
 			expect(source).toContain('requireAuthWithPermission("global", 2)')
 		}
+	})
+
+	/**
+	 * O gate do Opengrep cobre o monorepo inteiro, e as exceções vivem no código como
+	 * `// nosemgrep: <regra>`. Uma exceção sem justificativa ao lado é como a exceção
+	 * envelhece até virar buraco: alguém copia a linha para calar o scanner e ninguém
+	 * revisa depois. Este teste exige que toda supressão tenha um comentário explicando,
+	 * e que a regra suprimida exista de fato.
+	 */
+	test("toda supressão nosemgrep do monorepo tem motivo escrito e cita uma regra existente", () => {
+		const root = monorepoRoot()
+		const rulesFile = readFileSync(join(root, ".opengrep/rules/server-fn-authz.yaml"), "utf8")
+		const knownRules = new Set([...rulesFile.matchAll(/^ {2}- id: ([\w-]+)$/gm)].map((m) => m[1]))
+		expect(knownRules.size).toBeGreaterThan(0)
+
+		const appsDir = join(root, "apps")
+		const problems: string[] = []
+
+		for (const app of readdirSync(appsDir)) {
+			const dir = join(appsDir, app, "src", "server")
+			if (!existsSync(dir)) continue
+
+			for (const file of readdirSync(dir).filter((f) => f.endsWith(".fn.ts"))) {
+				const lines = readFileSync(join(dir, file), "utf8").split("\n")
+				lines.forEach((line, index) => {
+					const match = line.match(/nosemgrep:\s*([\w-]+)/)
+					if (!match) return
+					const where = `${app}/${file}:${index + 1}`
+
+					if (!knownRules.has(match[1])) problems.push(`${where} suprime regra inexistente "${match[1]}"`)
+
+					// Sobe pelo bloco de comentário contíguo (linha `//`, corpo `*` ou o
+					// fechamento `*/` de um JSDoc) procurando prosa de verdade. Aceita tanto
+					// `// motivo` + `// nosemgrep` quanto o JSDoc acima da supressão.
+					let cursor = index - 1
+					let hasReason = false
+					while (cursor >= 0) {
+						const previous = (lines[cursor] ?? "").trim()
+						const isComment = previous.startsWith("//") || previous.startsWith("*") || previous.startsWith("/*")
+						if (!isComment) break
+						if (!previous.includes("nosemgrep") && previous.replace(/^[/*\s]+/, "").length > 8) {
+							hasReason = true
+							break
+						}
+						cursor--
+					}
+					if (!hasReason) problems.push(`${where} não explica o motivo no comentário acima`)
+				})
+			}
+		}
+
+		expect(problems, "supressões nosemgrep sem justificativa ou apontando para regra inexistente").toEqual([])
 	})
 
 	test("as fns de perfil são self-only — não usam o userId do payload", () => {

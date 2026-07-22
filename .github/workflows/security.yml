@@ -56,43 +56,25 @@ jobs:
           sudo mv opengrep /usr/local/bin/
           opengrep --version
 
-      # Gate bloqueante: só o sisub. As regras foram calibradas contra ele (zero falso
-      # positivo verificado), e é o app com service key + PBAC onde o guard da server fn
-      # é a única barreira. Aparecendo um falso positivo aqui, ajuste a regra — não o gate.
-      - name: Scan (sisub — bloqueante)
+      # Gate bloqueante em TODO o monorepo. Cada app foi triado: os endpoints que
+      # continuam anônimos são públicos por decisão de produto e carregam um
+      # `// nosemgrep: <regra>` com o motivo na linha anterior — a exceção fica no
+      # código, ao lado de quem a lê, e não numa lista distante.
+      # Falso positivo novo se resolve ajustando a regra, não afrouxando o gate.
+      - name: Scan
         run: |
           opengrep scan \
             --config .opengrep/rules \
-            --sarif --sarif-output=opengrep-sisub.sarif \
+            --sarif --sarif-output=opengrep.sarif \
             --error \
-            apps/sisub packages
+            apps packages
 
-      - name: Upload SARIF (sisub)
+      - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: opengrep-sisub.sarif
-          category: opengrep-sisub
-
-      # Os demais apps (portal, forms, rumaer, assignment-selection, sucont) têm as mesmas
-      # regras aplicadas, mas ainda NÃO foram calibrados: cada um usa seus próprios helpers
-      # de guard, e hoje o scan acha ~90 ocorrências que precisam de triagem app a app.
-      # Reporta na aba Security sem bloquear, para o backlog ficar visível em vez de
-      # inexistente. Conforme cada app for calibrado, mova-o para o gate acima.
-      - name: Scan (demais apps — relatório)
-        if: always()
-        run: |
-          opengrep scan \
-            --config .opengrep/rules \
-            --sarif --sarif-output=opengrep-outros.sarif \
-            $(ls -d apps/*/ | grep -v 'apps/sisub/') || true
-
-      - name: Upload SARIF (demais apps)
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: opengrep-outros.sarif
-          category: opengrep-outros
+          sarif_file: opengrep.sarif
+          category: opengrep
 
   # ============================================
   # CODEQL — análise semântica genérica

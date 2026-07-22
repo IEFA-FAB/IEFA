@@ -56,7 +56,7 @@ rules:
       # basta: autenticado ≠ autorizado a ler/escrever o registro de outro usuário).
       - metavariable-regex:
           metavariable: $HANDLER
-          regex: '(?s)^(?=.*\bdata\.userId\b)(?!.*\brequire(Permission|AuthWithPermission|AnyPermission|Kitchen|Unit|MessHall)\()'
+          regex: '(?s)^(?=.*\bdata\.userId\b)(?!.*\brequire(Permission|AuthWithPermission|AnyPermission|Kitchen|Unit|MessHall|Self|Article\w*|Assign\w*|Editor|SyncAdmin|UniformEditor|RumaerAdmin|Sucont\w*|Access)\()'
 
   - id: server-fn-throw-response
     languages: [typescript]
