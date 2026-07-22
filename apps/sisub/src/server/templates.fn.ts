@@ -10,6 +10,8 @@
  */
 
 import {
+	ApplyEventTemplateSchema,
+	applyEventTemplate,
 	applyTemplate,
 	CreateBlankTemplateSchema,
 	CreateTemplateSchema,
@@ -115,7 +117,17 @@ const ApplyTemplateFnSchema = z.object({
 	targetDates: z.array(z.string()).min(1),
 	startDayOfWeek: z.number().int().min(1).max(7),
 	kitchenId: z.number().int().positive(),
+	conflictMode: z.enum(["replace", "skip"]).optional(),
 })
+
+// applyEventTemplateFn: materializa evento/exceção em datas concretas (aditivo,
+// não substitui o planejamento rotineiro do dia).
+export const applyEventTemplateFn = createServerFn({ method: "POST" })
+	.validator(ApplyEventTemplateSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return applyEventTemplate(getDb(), ctx, data).catch(handleDomainError)
+	})
 
 export const applyTemplateFn = createServerFn({ method: "POST" })
 	.validator(ApplyTemplateFnSchema)
@@ -128,5 +140,6 @@ export const applyTemplateFn = createServerFn({ method: "POST" })
 			startDate: sorted[0],
 			endDate: sorted[sorted.length - 1],
 			startDayOfWeek: data.startDayOfWeek,
+			conflictMode: data.conflictMode,
 		}).catch(handleDomainError)
 	})

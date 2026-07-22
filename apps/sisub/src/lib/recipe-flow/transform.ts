@@ -182,6 +182,52 @@ export function graphToSave(recipeId: string, nodes: FlowNode[], edges: Material
 	return { recipeId, steps }
 }
 
+/**
+ * Ordena as etapas do DAG para execução (checklist do painel de produção):
+ * ordenação topológica pelas arestas de fluxo de material (saída de A → entrada
+ * de B ⇒ A antes de B), estável pela ordem original nos empates. Ciclos (dados
+ * inválidos) não travam: os nós restantes são anexados na ordem original.
+ */
+export function orderStepsForExecution(steps: FetchedStep[]): FetchedStep[] {
+	const outputToStep = new Map<string, string>()
+	for (const s of steps) for (const o of s.outputs) outputToStep.set(o.id, s.id)
+
+	// Grafo produtor → consumidores + grau de entrada por etapa.
+	const dependents = new Map<string, Set<string>>()
+	const inDegree = new Map<string, number>(steps.map((s) => [s.id, 0]))
+	for (const s of steps) {
+		for (const inp of s.inputs) {
+			if (inp.source_output_id == null) continue
+			const producer = outputToStep.get(inp.source_output_id)
+			if (producer == null || producer === s.id) continue
+			const set = dependents.get(producer) ?? new Set()
+			if (!set.has(s.id)) {
+				set.add(s.id)
+				dependents.set(producer, set)
+				inDegree.set(s.id, (inDegree.get(s.id) ?? 0) + 1)
+			}
+		}
+	}
+
+	// Kahn estável: varre na ordem original, emitindo tudo que estiver liberado.
+	const ordered: FetchedStep[] = []
+	const emitted = new Set<string>()
+	let progressed = true
+	while (progressed && ordered.length < steps.length) {
+		progressed = false
+		for (const s of steps) {
+			if (emitted.has(s.id) || (inDegree.get(s.id) ?? 0) > 0) continue
+			emitted.add(s.id)
+			ordered.push(s)
+			progressed = true
+			for (const dep of dependents.get(s.id) ?? []) inDegree.set(dep, (inDegree.get(dep) ?? 1) - 1)
+		}
+	}
+	// Ciclo (nunca deveria passar na validação do save): anexa o resto na ordem original.
+	for (const s of steps) if (!emitted.has(s.id)) ordered.push(s)
+	return ordered
+}
+
 /** Deriva o shape estrutural do grafo para as funções puras de validação do domínio. */
 export function toGraphSteps(nodes: FlowNode[], edges: MaterialEdge[]): FlowGraphStep[] {
 	return graphToSave("preview", nodes, edges).steps.map((s) => ({

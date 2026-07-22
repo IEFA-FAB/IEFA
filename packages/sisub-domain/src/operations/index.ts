@@ -20,6 +20,7 @@ export {
 	fetchUserData,
 	fetchUserMilitaryData,
 } from "./dashboard.ts"
+export { scaleIngredientQuantity } from "./demand-math.ts"
 export { deleteForecast, getUserDefaultMessHall, listMealForecasts, persistDefaultMessHall, upsertForecast } from "./forecast.ts"
 export {
 	createFrozenPreparation,
@@ -120,7 +121,14 @@ export {
 } from "./planning.ts"
 export { deletePresence, insertPresence, listForecastMap, listPresences } from "./presence.ts"
 export { fetchProcurementNeeds, fetchUnitDashboard } from "./procurement.ts"
-export { ensureProductionTasks, fetchProductionBoard, updateProductionTaskStatus } from "./production.ts"
+export {
+	adjustProductionPortions,
+	ensureProductionTasks,
+	fetchProductionBoard,
+	recordProductionSubstitution,
+	updateProductionTaskRecord,
+	updateProductionTaskStatus,
+} from "./production.ts"
 export {
 	createPurchaseItem,
 	deletePurchaseItem,
@@ -167,6 +175,7 @@ export {
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
 export {
+	applyEventTemplate,
 	applyTemplate,
 	createBlankTemplate,
 	createTemplate,

@@ -18,8 +18,16 @@ export type PlanningStatus = "PLANNED" | "PUBLISHED" | "EXECUTED"
 export type MenuTemplate = Tables<"menu_template">
 export type MenuTemplateItem = Tables<"menu_template_items">
 
+/** Efetivo base por (dia + refeição) do template. Espelha kitchen.menu_template_meal. */
+export interface TemplateMeal {
+	day_of_week: number // 1-7
+	meal_type_id: string
+	base_headcount: number | null
+}
+
 export type MenuTemplateWithItems = MenuTemplate & {
 	items: (MenuTemplateItem & { recipe_origin: Recipe | null })[]
+	meals: TemplateMeal[]
 }
 
 export interface DailyMenuWithItems extends DailyMenu {
@@ -58,6 +66,13 @@ export interface TemplateItemDraft {
 	recommended_proportion?: number | null
 }
 
+/** Draft do efetivo base por (dia + refeição) no editor de template. */
+export interface TemplateMealDraft {
+	day_of_week: number // 1-7
+	meal_type_id: string
+	base_headcount: number | null
+}
+
 /**
  * Payload para aplicação de template em datas específicas
  */
@@ -66,16 +81,20 @@ export interface ApplyTemplatePayload {
 	targetDates: string[] // Array de datas no formato YYYY-MM-DD
 	startDayOfWeek: number // 1-7, indica qual dia do template corresponde ao primeiro targetDate
 	kitchenId: number
+	/** "replace" (default) substitui dias já planejados; "skip" preserva-os e só materializa os vazios. */
+	conflictMode?: "replace" | "skip"
 }
 
 /**
  * Template com contagem de items e estatísticas de previsão de comensais.
  * headcount_filled = itens com headcount_override preenchido
  * avg_headcount_weekday = média de comensais Seg–Qui (refeições mais volumosas)
+ * monthly_headcount_total = custeio de exceção (Σ comensais × ocorrências/mês); nulo p/ não-exceção
  */
 export interface TemplateWithItemCounts extends MenuTemplate {
 	item_count: number
 	recipe_count: number
 	headcount_filled: number
 	avg_headcount_weekday: number | null
+	monthly_headcount_total: number | null
 }

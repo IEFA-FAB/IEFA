@@ -44,6 +44,19 @@ Valem para **qualquer** app do monorepo (sisub, portal, rumaer, sucont, alpha, d
 
 - **Side-tab / side-stripe accent border — PROIBIDO.** Nunca usar `border-l`/`border-r` (nem `border-s`/`border-e`) acima de `1px` como acento colorido em cards, itens de lista, callouts ou alertas — inclusive o par `border-l-4 … rounded-r-*` (barra colorida de um lado só + cantos arredondados do outro). É o marcador nº 1 de AI slop segundo o `impeccable` ("Absolute bans"). Distinguir grupo/status/severidade por **outras formas**: borda completa (todos os lados), tint de fundo (`bg-*/5`…`/10`), ícone/número/badge à esquerda, ou nada. Bordas de `1px` uniformes e blockquotes editoriais (`border-l-2` em citação) não são atingidos — a proibição é sobre a *faixa colorida de acento* de um lado só.
 
+## Workflow & Boas Práticas
+
+Regras de contribuição para **todos** os devs e agentes de IA no repo.
+
+- **Todo trabalho vai por Pull Request** — nunca commitar/mergear direto na `main`. O repo é open-source e elegível ao **Greptile**, que faz code review automatizado nos PRs. Sem PR, não há revisão.
+  - Criar feature branch → push → `gh pr create --base main`.
+  - NÃO auto-mergear: deixar o PR aberto pro Greptile + revisão humana. Mergear só quando solicitado.
+  - Push na branch/main dispara deploys per-app via paths-filter.
+- **Mensagens de commit sempre em inglês** — subject E body — mesmo com código, comentários ou diff em português. Conventional Commits: `feat(sisub): add Faro observability`, não `adicionar`.
+- **Rodar `bun run check` + testes antes de mergear** qualquer PR, e confirmar verde. Typecheck por-arquivo não pega tudo.
+  - Testes: `bun run test` (turbo, todos os apps) ou `cd apps/sisub && bunx vitest run`. **Não** rodar `bunx vitest run` da raiz — o alias `@/` não resolve e gera ~32 falsos positivos.
+  - Integração (`SISUB_RUN_INTEGRATION`/`SISUB_DATABASE_URL`) fica em skip por padrão — isso é esperado, não falha.
+
 ## DB
 
 - Supabase with schemas: `sisub` (default), `iefa`, `journal`

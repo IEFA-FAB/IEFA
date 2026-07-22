@@ -1,9 +1,12 @@
-import { CheckCircle2, ChefHat, Clock, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
+import { ArrowLeftRight, CheckCircle2, ChefHat, PlayCircle, RotateCcw, Timer, Utensils } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
+import { ProductionRecordSection } from "./ProductionRecordSection"
+import { RecipeStepsChecklist } from "./RecipeStepsChecklist"
+import { ShiftAdjustmentsSection } from "./ShiftAdjustmentsSection"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,16 +50,19 @@ interface TaskDetailSheetProps {
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	onUpdateStatus: (taskId: string, status: ProductionTaskStatus) => void
+	kitchenId: number
+	date: string
 	isUpdating?: boolean
 }
 
-export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUpdating = false }: TaskDetailSheetProps) {
+export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, kitchenId, date, isUpdating = false }: TaskDetailSheetProps) {
 	if (!item) return null
 
 	const { task, menuItem, mealType } = item
 	const recipe = menuItem.recipe_with_ingredients
 	const portionYield = recipe?.portion_yield ?? null
 	const plannedPortions = menuItem.planned_portion_quantity ?? null
+	const substitutionEntries = Object.entries((menuItem.substitutions as Record<string, { rationale?: string }> | null) ?? {})
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -138,18 +144,37 @@ export function TaskDetailSheet({ item, open, onOpenChange, onUpdateStatus, isUp
 						<div className="p-4 text-sm text-muted-foreground italic">Nenhum ingrediente cadastrado para esta receita.</div>
 					)}
 
-					{/* Modo de Preparo */}
-					{recipe?.preparation_method && (
-						<div className="px-4 pb-4 space-y-2">
+					{/* Substituições registradas */}
+					{substitutionEntries.length > 0 && (
+						<div className="px-4 pb-4 space-y-1">
 							<h3 className="text-subheading text-foreground flex items-center gap-2">
-								<Clock className="size-4 text-muted-foreground" />
-								Modo de Preparo
+								<ArrowLeftRight className="size-4 text-warning" />
+								Substituições ativas
 							</h3>
-							<div className="rounded-md border border-border bg-muted/30 p-3">
-								<pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{recipe.preparation_method}</pre>
+							<div className="rounded-md border border-warning/30 bg-warning/5 p-2 space-y-1">
+								{substitutionEntries.map(([key, entry]) => {
+									const ingredientName = recipe?.ingredients?.find((i) => i.ingredient?.id === key)?.ingredient?.description
+									return (
+										<p key={key} className="text-xs text-foreground">
+											<span className="text-subheading">{ingredientName ?? "Insumo"}</span>
+											{entry?.rationale ? <span className="text-muted-foreground"> — {entry.rationale}</span> : null}
+										</p>
+									)
+								})}
 							</div>
 						</div>
 					)}
+
+					{/* Ajustes do turno (porções + substituição) */}
+					<ShiftAdjustmentsSection item={item} kitchenId={kitchenId} date={date} />
+
+					{/* Registro do real (após início do preparo) */}
+					{task.status !== "PENDING" && (
+						<ProductionRecordSection task={task} plannedPortions={plannedPortions != null ? Number(plannedPortions) : null} kitchenId={kitchenId} date={date} />
+					)}
+
+					{/* Modo de Preparo: checklist do fluxo estruturado (DAG) ou texto livre */}
+					<RecipeStepsChecklist recipeId={menuItem.recipe_origin_id} fallbackText={recipe?.preparation_method ?? null} />
 
 					{/* Timestamps */}
 					{(task.started_at || task.completed_at) && (

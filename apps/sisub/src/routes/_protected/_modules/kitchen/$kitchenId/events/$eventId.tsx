@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Check, Loader2, Save } from "lucide-react"
+import { CalendarPlus, Check, Loader2, Save } from "lucide-react"
 import { useEffect, useReducer, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
+import { ApplyEventDialog } from "@/components/features/local/planning/ApplyEventDialog"
 import type { RecipeWithHeadcount } from "@/components/features/local/planning/MealTypeSection"
 import { MealTypeSection } from "@/components/features/local/planning/MealTypeSection"
 import { RecipeSelector } from "@/components/features/local/planning/RecipeSelector"
@@ -105,6 +106,7 @@ function EventEditorPage() {
 	const { name, description, items, initialized, selectorOpen, selectedMealTypeId } = editorState
 
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+	const [applyOpen, setApplyOpen] = useState(false)
 	const prevInitializedRef = useRef(false)
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -287,6 +289,10 @@ function EventEditorPage() {
 								Salvo
 							</span>
 						)}
+						<Button variant="outline" size="sm" disabled={totalRecipes === 0} onClick={() => setApplyOpen(true)}>
+							<CalendarPlus className="size-4 mr-2" />
+							Aplicar ao Calendário
+						</Button>
 						<Button
 							nativeButton={false}
 							type="button"
@@ -384,6 +390,15 @@ function EventEditorPage() {
 					selectedRecipeIds={currentSelectorRecipeIds}
 					onSelect={handleSelectRecipes}
 					multiSelect
+				/>
+
+				<ApplyEventDialog
+					open={applyOpen}
+					onClose={() => setApplyOpen(false)}
+					templateId={eventId as string}
+					templateName={name || "Evento"}
+					templateType="event"
+					kitchenId={kitchenId}
 				/>
 			</div>
 		</TooltipProvider>

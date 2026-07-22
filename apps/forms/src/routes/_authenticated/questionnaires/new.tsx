@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, Plus, Refresh, Trash } from "iconoir-react"
 import { useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -85,6 +86,13 @@ function NewQuestionnairePage() {
 
 	const handleSave = async (publish: boolean) => {
 		if (!title.trim()) return
+		// createQuestionFn exige text não-vazio: sem esta checagem o questionário e as
+		// seções já foram gravados quando a pergunta é rejeitada, deixando lixo no banco.
+		const blankQuestion = sections.some((s) => s.questions.some((q) => !q.text.trim()))
+		if (blankQuestion) {
+			toast.error("Preencha o texto de todas as perguntas antes de salvar.")
+			return
+		}
 		setSaving(true)
 		try {
 			const questionnaire = await createQuestionnaireFn({
@@ -122,7 +130,8 @@ function NewQuestionnairePage() {
 			}
 			await queryClient.invalidateQueries({ queryKey: ["questionnaires"] })
 			navigate({ to: "/dashboard" })
-		} catch (_err) {
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Erro ao salvar o questionário.")
 		} finally {
 			setSaving(false)
 		}

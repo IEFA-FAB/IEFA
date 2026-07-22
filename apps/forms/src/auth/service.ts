@@ -52,7 +52,8 @@ export const authActions = {
 			password,
 			options: {
 				data: name ? { display_name: name } : undefined,
-				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+				// /auth é a única rota de autenticação: lê token_hash/type da URL e faz o verifyOtp.
+				emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
 			},
 		})
 		if (error) throw new Error(getAuthErrorMessage(error))
@@ -67,7 +68,7 @@ export const authActions = {
 
 	resetPassword: async (email: string, redirectTo?: string) => {
 		const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
-			redirectTo: redirectTo ?? (typeof window !== "undefined" ? `${window.location.origin}/auth/reset-password` : undefined),
+			redirectTo: redirectTo ?? (typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined),
 		})
 		if (error) throw new Error(getAuthErrorMessage(error))
 	},

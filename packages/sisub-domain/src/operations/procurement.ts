@@ -11,6 +11,7 @@
 
 import {
 	dailyMenuInKitchen,
+	folderInKitchen,
 	kitchenInCore,
 	menuItemsInKitchen,
 	procurementArpInProcurement,
@@ -26,6 +27,7 @@ import type { FetchProcurementNeeds, FetchUnitDashboard } from "../schemas/procu
 import type { UserContext } from "../types/context.ts"
 import type { ProcurementNeed } from "../types/procurement.ts"
 import { runQuery, toWire } from "../utils/index.ts"
+import { scaleIngredientQuantity } from "./demand-math.ts"
 
 type ProcurementList = Tables<"procurement_list">
 
@@ -77,6 +79,8 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 	const recipeIds = [...new Set(menuRows.map((m) => m.recipeOriginId).filter((id): id is string => id !== null))]
 	if (recipeIds.length === 0) return []
 
+	// Folder buscado à parte: aninhá-lo aqui (4º nível) estoura o limite de 63 chars
+	// de alias do Postgres — os aliases profundos colidem após truncar → 42703.
 	const recipes = await runQuery("QUERY_FAILED", () =>
 		db.query.recipesInKitchen.findMany({
 			columns: { id: true, portionYield: true },
@@ -86,7 +90,6 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 					with: {
 						ingredientInKitchen: {
 							columns: { id: true, description: true, measureUnit: true, folderId: true },
-							with: { folderInKitchen: { columns: { id: true, description: true } } },
 						},
 					},
 				},
@@ -97,6 +100,17 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 	if (recipes.length === 0) return []
 
 	const recipeById = new Map(recipes.map((r) => [r.id, r]))
+
+	const folderIds = [
+		...new Set(recipes.flatMap((r) => r.recipeIngredientsInKitchens.map((ri) => ri.ingredientInKitchen?.folderId).filter((id): id is string => id != null))),
+	]
+	const folders =
+		folderIds.length > 0
+			? await runQuery("QUERY_FAILED", () =>
+					db.query.folderInKitchen.findMany({ columns: { id: true, description: true }, where: inArray(folderInKitchen.id, folderIds) })
+				)
+			: []
+	const folderById = new Map(folders.map((f) => [f.id, f]))
 
 	const needsMap = new Map<
 		string,
@@ -117,27 +131,32 @@ export async function fetchProcurementNeeds(db: SisubDb, ctx: UserContext, input
 		const recipe = recipeById.get(menuItem.recipeOriginId)
 		if (!recipe) continue
 
-		const portionMultiplier = Number(menuItem.plannedPortionQuantity ?? 0) / (Number(recipe.portionYield ?? 0) || 1)
-
 		for (const ri of recipe.recipeIngredientsInKitchens) {
 			const ingredientRaw = ri.ingredientInKitchen
 			if (!ingredientRaw) continue
 
 			const ingredientId = ri.ingredientId
 			if (!ingredientId) continue
-			const quantityNeeded = Number(ri.netQuantity ?? 0) * portionMultiplier
+			// Ajuste fino datado: uma ocorrência concreta por menu_item (repetitions = 1).
+			// demand = planned_portion_quantity (nº de comensais do item).
+			const quantityNeeded = scaleIngredientQuantity(
+				Number(ri.netQuantity ?? 0),
+				Number(menuItem.plannedPortionQuantity ?? 0),
+				Number(recipe.portionYield ?? 0)
+			)
 
 			const existing = needsMap.get(ingredientId)
 			if (existing) {
 				existing.total_quantity += quantityNeeded
 			} else {
+				const folder = ingredientRaw.folderId != null ? (folderById.get(ingredientRaw.folderId) ?? null) : null
 				needsMap.set(ingredientId, {
 					ingredient: {
 						id: ingredientRaw.id,
 						description: ingredientRaw.description,
 						measure_unit: ingredientRaw.measureUnit,
 						folder_id: ingredientRaw.folderId,
-						folder: ingredientRaw.folderInKitchen ? { id: ingredientRaw.folderInKitchen.id, description: ingredientRaw.folderInKitchen.description } : null,
+						folder: folder ? { id: folder.id, description: folder.description } : null,
 					},
 					total_quantity: quantityNeeded,
 				})

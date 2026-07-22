@@ -12,7 +12,7 @@ import { StatCard } from "#/auditor/components/StatCard"
 import { TemporalHeatmap } from "#/auditor/components/TemporalHeatmap"
 import { applyRiskClassification, formatCurrency, normalizeData, parseDateString, recalculateDeltas, toShortDate } from "#/auditor/services/dataProcessor"
 import { parseExcelFile } from "#/auditor/services/excelParser"
-import type { FinancialRecord, TimeFilter } from "#/auditor/types"
+import type { FinancialRecord, RawInputRow, TimeFilter } from "#/auditor/types"
 import { AccountGroup } from "#/auditor/types"
 
 export const Route = createFileRoute("/auditor")({
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/auditor")({
 })
 
 function AuditorPage() {
-	const [rawData, setRawData] = useState<FinancialRecord[]>([])
+	const [rawData, setRawData] = useState<RawInputRow[]>([])
 
 	// UI State
 	const [selectedGroup, setSelectedGroup] = useState<string>("ALL")

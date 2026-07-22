@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAutoSave } from "@/hooks/useAutoSave"
 import { EVALUATION_TYPES, type EvaluationType } from "@/lib/5s-constants"
 import { CONFORMITY_OPTIONS, type ConformityOptions } from "@/lib/conformity"
+import { assertUuidParam } from "@/lib/route-params"
 import { getMyResponseStateFn, getOmOptionsFn, getOrCreateResponseSessionFn, getQuestionnaireFn, submitResponseFn } from "@/server/forms.fn"
 
 const questionnaireQueryOptions = (id: string) =>
@@ -24,10 +25,11 @@ const questionnaireQueryOptions = (id: string) =>
 	})
 
 export const Route = createFileRoute("/respond/$id")({
-	beforeLoad: ({ context, location }) => {
+	beforeLoad: ({ context, location, params }) => {
+		assertUuidParam(params.id)
 		if (!context.auth.isAuthenticated) {
-			const redirectTarget = `${location.pathname}${location.search}${location.hash}`
-			throw redirect({ to: "/auth", search: { redirect: redirectTarget } })
+			// location.href já vem serializado; interpolar location.search (objeto) lança TypeError
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 	},
 	loader: ({ context, params }) => context.queryClient.ensureQueryData(questionnaireQueryOptions(params.id)),

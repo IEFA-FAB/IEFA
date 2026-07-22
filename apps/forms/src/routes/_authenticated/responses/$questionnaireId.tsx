@@ -24,6 +24,7 @@ import {
 	getScoreColor,
 } from "@/lib/conformity"
 import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
+import { assertUuidParam } from "@/lib/route-params"
 import {
 	getQuestionnaireFn,
 	getResponsesFn,
@@ -53,6 +54,7 @@ const viewersQueryOptions = (questionnaireId: string) =>
 	})
 
 export const Route = createFileRoute("/_authenticated/responses/$questionnaireId")({
+	beforeLoad: ({ params }) => assertUuidParam(params.questionnaireId),
 	loader: ({ context, params }) => {
 		context.queryClient.ensureQueryData(questionnaireQueryOptions(params.questionnaireId))
 		context.queryClient.ensureQueryData(viewersQueryOptions(params.questionnaireId))

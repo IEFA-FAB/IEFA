@@ -17,6 +17,14 @@ interface ApplyTemplateDialogProps {
 	onClose: () => void
 	targetDates: string[] // ISO strings
 	kitchenId: number
+	/** Datas (YYYY-MM-DD) que já têm planejamento ativo — usado para o aviso de conflito. */
+	plannedDates?: string[]
+}
+
+/** Parse "YYYY-MM-DD" como data no fuso local (evita o shift UTC do `new Date(str)`). */
+function parseLocalDate(dateStr: string): Date {
+	const [y, m, d] = dateStr.split("-").map(Number)
+	return new Date(y, m - 1, d)
 }
 
 const WEEKDAYS = [
@@ -29,15 +37,21 @@ const WEEKDAYS = [
 	{ value: 7, label: "Domingo" },
 ]
 
-export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: ApplyTemplateDialogProps) {
+export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, plannedDates }: ApplyTemplateDialogProps) {
 	const { data: templates, isLoading } = useMenuTemplates(kitchenId)
 	const { mutate: applyTemplate, isPending } = useApplyTemplate()
 	const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
 	const [startDayOfWeek, setStartDayOfWeek] = useState<number>(1) // Monday
+	const [conflictMode, setConflictMode] = useState<"replace" | "skip">("skip")
 
-	// Calculate day mapping preview
+	const plannedSet = new Set(plannedDates ?? [])
+	const conflictDates = targetDates.filter((d) => plannedSet.has(d))
+
+	// Calculate day mapping preview. Parse "YYYY-MM-DD" como data de calendário local
+	// (não UTC): `new Date("YYYY-MM-DD")` é meia-noite UTC e desloca o dia da semana em
+	// fusos negativos. Aqui o weekday casa com o servidor (que itera em UTC).
 	const dayMappings = targetDates.map((dateStr) => {
-		const date = new Date(dateStr)
+		const date = parseLocalDate(dateStr)
 		const jsDay = date.getDay()
 		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1-7
 		const offset = dateDayOfWeek - startDayOfWeek
@@ -59,12 +73,14 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 				targetDates,
 				startDayOfWeek,
 				kitchenId,
+				conflictMode,
 			},
 			{
 				onSuccess: () => {
 					onClose()
 					setSelectedTemplateId(null)
 					setStartDayOfWeek(1)
+					setConflictMode("skip")
 				},
 			}
 		)
@@ -81,8 +97,14 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 					<DialogTitle>Aplicar Template</DialogTitle>
 					<DialogDescription>
 						Selecione um template e configure como ele será aplicado aos {targetDates.length} dias selecionados.
-						<br />
-						<span className="text-caption text-warning">Atenção: Isso substituirá o planejamento existente para esses dias.</span>
+						{conflictDates.length > 0 && (
+							<>
+								<br />
+								<span className="text-caption text-warning">
+									{conflictDates.length} {conflictDates.length === 1 ? "dia já possui" : "dias já possuem"} planejamento — escolha abaixo o que fazer com eles.
+								</span>
+							</>
+						)}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -92,12 +114,46 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 						<span className="text-subheading block mb-1">Dias selecionados:</span>
 						<div className="flex flex-wrap gap-1">
 							{targetDates.map((d) => (
-								<Badge key={d} variant="outline" className="bg-background">
-									{format(new Date(d), "dd/MM (EEE)", { locale: ptBR })}
+								<Badge key={d} variant="outline" className={plannedSet.has(d) ? "bg-warning/10 text-warning border-warning/30" : "bg-background"}>
+									{format(parseLocalDate(d), "dd/MM (EEE)", { locale: ptBR })}
 								</Badge>
 							))}
 						</div>
 					</div>
+
+					{/* Conflito: dias já planejados */}
+					{conflictDates.length > 0 && (
+						<div className="space-y-2">
+							<Label className="text-subheading">Dias já planejados</Label>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+								<Button
+									variant="outline"
+									onClick={() => setConflictMode("skip")}
+									className={cn("h-auto p-3 justify-start font-normal text-left", conflictMode === "skip" && "border-primary bg-primary/5 ring-1 ring-primary")}
+								>
+									<div>
+										<p className="text-subheading">Preservar</p>
+										<p className="text-xs text-muted-foreground">
+											Mantém as refeições já planejadas (e ajustes manuais); o template preenche só as refeições vazias.
+										</p>
+									</div>
+								</Button>
+								<Button
+									variant="outline"
+									onClick={() => setConflictMode("replace")}
+									className={cn(
+										"h-auto p-3 justify-start font-normal text-left",
+										conflictMode === "replace" && "border-warning bg-warning/5 ring-1 ring-warning"
+									)}
+								>
+									<div>
+										<p className="text-subheading">Substituir</p>
+										<p className="text-xs text-muted-foreground">Apaga o planejamento atual desses dias e re-aplica o template.</p>
+									</div>
+								</Button>
+							</div>
+						</div>
+					)}
 
 					{/* Template Selection */}
 					<div className="space-y-2">
@@ -174,7 +230,7 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId }: A
 									{dayMappings.map((mapping) => (
 										<Item key={mapping.date} size="xs" variant="default">
 											<Badge variant="outline" className="w-24 justify-center">
-												{format(new Date(mapping.date), "dd/MM", {
+												{format(parseLocalDate(mapping.date), "dd/MM", {
 													locale: ptBR,
 												})}
 											</Badge>

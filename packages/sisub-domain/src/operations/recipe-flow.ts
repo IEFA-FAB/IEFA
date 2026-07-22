@@ -101,7 +101,17 @@ async function authorizeFlowMutation(db: SisubDb, ctx: UserContext, recipeId: st
 }
 
 export async function fetchRecipeFlow(db: SisubDb, ctx: UserContext, input: FetchRecipeFlow): Promise<RecipeFlowWire> {
-	requirePermission(ctx, "kitchen", 1)
+	// Leitura também pelo chão de fábrica: o painel de produção renderiza o fluxo
+	// como checklist de etapas (operadores têm kitchen-production, não kitchen).
+	// Escopado pela cozinha dona da receita — grant numa cozinha não abre o fluxo
+	// de receitas locais de outra; receita global (kitchen_id null) é leitura livre
+	// para quem tem qualquer um dos módulos.
+	const recipe = await runQuery("FETCH_FAILED", () =>
+		db.query.recipesInKitchen.findFirst({ columns: { kitchenId: true }, where: eq(recipesInKitchen.id, input.recipeId) })
+	)
+	if (!recipe) throw new NotFoundError("recipe", input.recipeId)
+	if (recipe.kitchenId == null) requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1)
+	else requireAnyPermission(ctx, ["kitchen", "kitchen-production"], 1, { type: "kitchen", id: recipe.kitchenId })
 
 	const rows = await runQuery("FETCH_FAILED", () =>
 		db.query.recipeStepInKitchen.findMany({

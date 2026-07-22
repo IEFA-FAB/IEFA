@@ -11,12 +11,21 @@
  *     desfaz tudo (soft-delete dos menus existentes incluso).
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, menuTemplateInKitchen, menuTemplateItemsInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
-import type { MealType, MenuTemplate, MenuTemplateItem, Recipe } from "@iefa/database/sisub"
+import {
+	dailyMenuInKitchen,
+	menuItemsInKitchen,
+	menuTemplateInKitchen,
+	menuTemplateItemsInKitchen,
+	menuTemplateMealInKitchen,
+	recipesInKitchen,
+	type SisubDb,
+} from "@iefa/database/drizzle/sisub"
+import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
 import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm"
 import { requireKitchen, requirePermission } from "../guards/require-permission.ts"
 import { validateTemplateAccess } from "../guards/validate-scope.ts"
 import type {
+	ApplyEventTemplate,
 	ApplyTemplate,
 	CreateBlankTemplate,
 	CreateTemplate,
@@ -26,22 +35,27 @@ import type {
 	ListTemplates,
 	RestoreTemplate,
 	TemplateItem,
+	TemplateMeal,
 	UpdateTemplate,
 } from "../schemas/templates.ts"
 import type { UserContext } from "../types/context.ts"
 import { DomainError, NotFoundError } from "../types/errors.ts"
 import { runQuery, toWire } from "../utils/index.ts"
+import { fetchTemplateMealsSafe } from "./template-meals.ts"
 
 // ── Wire contract (snake_case aninhado, idêntico ao que o PostgREST devolvia) ──
 
 type TemplateItemFull = MenuTemplateItem & { meal_type: MealType | null; recipe_origin: Recipe | null }
 // Linha completa do template (o consumidor MenuTemplateWithItems espera todas as colunas, não um subset).
-type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[] }
+// meals = efetivo base por (dia + refeição); grão natural do efetivo (item.headcount_override é exceção).
+type TemplateWithItemsFull = MenuTemplate & { items: TemplateItemFull[]; meals: MenuTemplateMeal[] }
 type TemplateWithCounts = MenuTemplate & {
 	item_count: number
 	recipe_count: number
 	headcount_filled: number
 	avg_headcount_weekday: number | null
+	/** Custeio de exceção: Σ(comensais dos itens) × ocorrências mensais (nulo p/ não-exceção). */
+	monthly_headcount_total: number | null
 }
 
 /**
@@ -50,6 +64,7 @@ type TemplateWithCounts = MenuTemplate & {
  */
 const TEMPLATE_RELATIONS: Record<string, string> = {
 	menuTemplateItemsInKitchens: "items",
+	menuTemplateMealsInKitchens: "meals",
 	mealTypeInKitchen: "meal_type",
 	recipesInKitchen: "recipe_origin",
 }
@@ -61,13 +76,22 @@ function compareTemplateItems(a: TemplateItemFull, b: TemplateItemFull): number 
 }
 
 // Itens completos (com meal_type + recipe_origin aninhados) — para getTemplate/getTemplateItems.
+// O efetivo base (menu_template_meal) NÃO entra aqui de propósito: é lido à parte, tolerante à
+// tabela ausente (fetchTemplateMealsSafe), para não derrubar a leitura do template na janela de
+// migração.
 const WITH_ITEMS_FULL = {
 	menuTemplateItemsInKitchens: { with: { mealTypeInKitchen: true, recipesInKitchen: true } },
 } as const
 
 // ── List helpers ──
 
-type CountRow = MenuTemplate & { menuTemplateItemsInKitchens?: { headcountOverride: number | null; dayOfWeek: number | null }[] }
+// Linhas cruas do Drizzle são camelCase (toWire snake-iza no final). Declaramos os
+// campos camelCase lidos aqui (o base MenuTemplate é snake, só usado via toWire).
+type CountRow = MenuTemplate & {
+	templateType?: string | null
+	expectedMonthlyOccurrences?: number | null
+	menuTemplateItemsInKitchens?: { headcountOverride: number | null; dayOfWeek: number | null }[]
+}
 
 function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
 	const items = t.menuTemplateItemsInKitchens ?? []
@@ -76,8 +100,12 @@ function mapTemplateWithCounts(t: CountRow): TemplateWithCounts {
 	const weekdayItems = items.filter((i) => i.dayOfWeek !== null && i.dayOfWeek >= 1 && i.dayOfWeek <= 4 && i.headcountOverride !== null)
 	const avg_headcount_weekday =
 		weekdayItems.length > 0 ? Math.round(weekdayItems.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) / weekdayItems.length) : null
+	// Custeio de exceção: sem semana. Soma os comensais de todos os itens e multiplica
+	// pelas ocorrências mensais (nulo = 1). Nulo para cardápios não-exceção.
+	const monthly_headcount_total =
+		t.templateType === "exception" ? items.reduce((sum, i) => sum + (i.headcountOverride ?? 0), 0) * (t.expectedMonthlyOccurrences ?? 1) : null
 	const { menuTemplateItemsInKitchens: _items, ...meta } = t
-	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday }
+	return { ...toWire<MenuTemplate>(meta), item_count, recipe_count: item_count, headcount_filled, avg_headcount_weekday, monthly_headcount_total }
 }
 
 function templateScopeCondition(kitchenId: number | null | undefined) {
@@ -139,7 +167,10 @@ export async function getTemplate(db: SisubDb, ctx: UserContext, input: GetTempl
 
 	const wire = toWire<TemplateWithItemsFull>(row, TEMPLATE_RELATIONS)
 	const items = [...wire.items].sort(compareTemplateItems)
-	return { ...wire, items }
+	// Efetivo base lido à parte, tolerante à tabela ausente (migração pendente → meals vazio).
+	const mealRows = (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
+	const meals = mealRows.map((m) => toWire<MenuTemplateMeal>(m))
+	return { ...wire, items, meals }
 }
 
 export async function getTemplateItems(db: SisubDb, ctx: UserContext, input: GetTemplate): Promise<TemplateItemFull[]> {
@@ -178,6 +209,15 @@ function buildTemplateItemRows(templateId: string, items: TemplateItem[]): (type
 	}))
 }
 
+function buildTemplateMealRows(templateId: string, meals: TemplateMeal[]): (typeof menuTemplateMealInKitchen.$inferInsert)[] {
+	return meals.map((meal) => ({
+		menuTemplateId: templateId,
+		dayOfWeek: meal.dayOfWeek,
+		mealTypeId: meal.mealTypeId,
+		baseHeadcount: meal.baseHeadcount,
+	}))
+}
+
 export async function createTemplate(db: SisubDb, ctx: UserContext, input: CreateTemplate): Promise<MenuTemplate> {
 	if (input.kitchenId != null) {
 		requireKitchen(ctx, 2, input.kitchenId)
@@ -186,6 +226,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 	}
 
 	const items = input.items ?? []
+	const meals = input.meals ?? []
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -196,6 +237,7 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 					description: input.description ?? null,
 					kitchenId: input.kitchenId ?? null,
 					templateType: input.templateType,
+					expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 				})
 				.returning()
 		)
@@ -206,6 +248,14 @@ export async function createTemplate(db: SisubDb, ctx: UserContext, input: Creat
 				tx
 					.insert(menuTemplateItemsInKitchen)
 					.values(buildTemplateItemRows(newTemplate.id, items))
+					.then(() => undefined)
+			)
+		}
+		if (meals.length > 0) {
+			await runQuery("INSERT_MEALS_FAILED", () =>
+				tx
+					.insert(menuTemplateMealInKitchen)
+					.values(buildTemplateMealRows(newTemplate.id, meals))
 					.then(() => undefined)
 			)
 		}
@@ -230,6 +280,7 @@ export async function createBlankTemplate(db: SisubDb, ctx: UserContext, input: 
 				description: input.description ?? null,
 				kitchenId: input.kitchenId ?? null,
 				templateType: input.templateType,
+				expectedMonthlyOccurrences: input.expectedMonthlyOccurrences ?? null,
 			})
 			.returning()
 	)
@@ -269,6 +320,8 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 	}
 
 	const sourceItems = source.menuTemplateItemsInKitchens
+	// Efetivo base lido à parte, tolerante à tabela ausente (fork continua mesmo sem a base).
+	const sourceMeals = (await fetchTemplateMealsSafe(db, [input.sourceTemplateId])).get(input.sourceTemplateId) ?? []
 
 	const created = await db.transaction(async (tx) => {
 		const [newTemplate] = await runQuery("INSERT_FAILED", () =>
@@ -302,6 +355,21 @@ export async function forkTemplate(db: SisubDb, ctx: UserContext, input: ForkTem
 					.then(() => undefined)
 			)
 		}
+
+		if (sourceMeals.length > 0) {
+			const forkedMeals = sourceMeals.map((meal) => ({
+				menuTemplateId: newTemplate.id,
+				dayOfWeek: meal.dayOfWeek,
+				mealTypeId: meal.mealTypeId,
+				baseHeadcount: meal.baseHeadcount,
+			}))
+			await runQuery("INSERT_MEALS_FAILED", () =>
+				tx
+					.insert(menuTemplateMealInKitchen)
+					.values(forkedMeals)
+					.then(() => undefined)
+			)
+		}
 		return newTemplate
 	})
 
@@ -319,8 +387,11 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 
 	const updates: Partial<typeof menuTemplateInKitchen.$inferInsert> = {}
 	if (input.name != null) updates.name = input.name
-	if (input.description != null) updates.description = input.description
+	// nullable: undefined = não mexe; null = limpa a descrição.
+	if (input.description !== undefined) updates.description = input.description
 	if (input.templateType != null) updates.templateType = input.templateType
+	// nullable: undefined = não mexe; null = limpa a recorrência.
+	if (input.expectedMonthlyOccurrences !== undefined) updates.expectedMonthlyOccurrences = input.expectedMonthlyOccurrences
 
 	const result = await db.transaction(async (tx) => {
 		const [updated] = await runQuery("UPDATE_FAILED", () =>
@@ -342,6 +413,25 @@ export async function updateTemplate(db: SisubDb, ctx: UserContext, input: Updat
 					tx
 						.insert(menuTemplateItemsInKitchen)
 						.values(buildTemplateItemRows(input.templateId, newItems))
+						.then(() => undefined)
+				)
+			}
+		}
+
+		// Substituição destrutiva do efetivo base por refeição, se fornecido.
+		const newMeals = input.meals
+		if (newMeals !== undefined) {
+			await runQuery("DELETE_MEALS_FAILED", () =>
+				tx
+					.delete(menuTemplateMealInKitchen)
+					.where(eq(menuTemplateMealInKitchen.menuTemplateId, input.templateId))
+					.then(() => undefined)
+			)
+			if (newMeals.length > 0) {
+				await runQuery("INSERT_MEALS_FAILED", () =>
+					tx
+						.insert(menuTemplateMealInKitchen)
+						.values(buildTemplateMealRows(input.templateId, newMeals))
 						.then(() => undefined)
 				)
 			}
@@ -396,82 +486,193 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 	)
 }
 
+/** Item do template com a receita (e ingredientes) da origem anexada. */
+type TemplateItemWithRecipe = Awaited<ReturnType<typeof fetchTemplateItemRows>>[number] & {
+	recipesInKitchen: Awaited<ReturnType<typeof fetchRecipesWithIngredients>>[number] | null
+}
+
+function fetchTemplateItemRows(db: SisubDb, templateId: string) {
+	// Ordem determinística: no applyEventTemplate o índice do item vira o sort_order
+	// final do cardápio — sem orderBy a ordem do Postgres é indefinida e variaria
+	// entre datas/reaplicações.
+	return runQuery("FETCH_FAILED", () =>
+		db.query.menuTemplateItemsInKitchen.findMany({
+			where: eq(menuTemplateItemsInKitchen.menuTemplateId, templateId),
+			orderBy: (t, { asc }) => [asc(t.dayOfWeek), asc(t.mealTypeId), asc(t.sortOrder), asc(t.createdAt)],
+		})
+	)
+}
+
+function fetchRecipesWithIngredients(db: SisubDb, recipeIds: string[]) {
+	return runQuery("FETCH_FAILED", () =>
+		db.query.recipesInKitchen.findMany({
+			with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } },
+			where: inArray(recipesInKitchen.id, recipeIds),
+		})
+	)
+}
+
+/**
+ * Itens do template com receita + ingredientes para o snapshot json.
+ *
+ * DUAS queries de propósito: a relational query de 4 níveis
+ * (template_items → recipes → recipe_ingredients → ingredient) gera aliases acima
+ * de 63 chars (NAMEDATALEN); o Postgres trunca e os dois níveis profundos colidem
+ * no mesmo identificador → 42703 "column … does not exist". Buscar as receitas à
+ * parte (3 níveis, dentro do limite) e juntar em JS evita o estouro.
+ */
+async function fetchTemplateItemsWithRecipes(db: SisubDb, templateId: string): Promise<TemplateItemWithRecipe[]> {
+	const items = await fetchTemplateItemRows(db, templateId)
+	const recipeIds = [...new Set(items.map((i) => i.recipeId).filter((id): id is string => id != null))]
+	const recipes = recipeIds.length > 0 ? await fetchRecipesWithIngredients(db, recipeIds) : []
+	const recipeById = new Map(recipes.map((r) => [r.id, r]))
+	return items.map((item) => ({ ...item, recipesInKitchen: item.recipeId != null ? (recipeById.get(item.recipeId) ?? null) : null }))
+}
+
 export async function applyTemplate(
 	db: SisubDb,
 	ctx: UserContext,
 	input: ApplyTemplate
-): Promise<{ menusCreated: number; itemsCreated: number; datesProcessed: string[] }> {
+): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; datesProcessed: string[]; datesSkipped: string[] }> {
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	// Valida template: não excluído, cozinha confere (lança se inacessível).
-	await validateTemplateAccess(db, input.templateId, input.kitchenId)
+	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
+	// Evento/exceção não tem semana (day_of_week é placeholder): materializa via applyEventTemplate.
+	if (template.template_type != null && template.template_type !== "weekly") {
+		throw new DomainError("NOT_WEEKLY_TEMPLATE", `Template ${input.templateId} is ${template.template_type}; use applyEventTemplate`)
+	}
 
 	// Itens do template + receita de origem COM ingredientes — o snapshot json em menu_items
 	// precisa do mesmo shape que addMenuItem grava (snake_case aninhado com `ingredients`),
 	// senão o diner vê listas de ingredientes vazias e chaves camelCase.
-	const templateItems = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateItemsInKitchen.findMany({
-			with: { recipesInKitchen: { with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } } },
-			where: eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId),
-		})
-	)
+	const templateItems = await fetchTemplateItemsWithRecipes(db, input.templateId)
 
-	// Intervalo de datas (YYYY-MM-DD).
-	const targetDates: string[] = []
-	const start = new Date(input.startDate)
-	const end = new Date(input.endDate)
-	for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-		targetDates.push(d.toISOString().slice(0, 10))
+	// Efetivo base por (dia + refeição) — grão natural do efetivo. É a fonte primária do
+	// forecasted_headcount na materialização; o headcount_override do item é só exceção.
+	// Tolerante à tabela ausente (migração pendente): sem base → cai no fallback de overrides.
+	const templateMeals = (await fetchTemplateMealsSafe(db, [input.templateId])).get(input.templateId) ?? []
+	const baseByCell = new Map<string, number>()
+	for (const meal of templateMeals) {
+		if (meal.baseHeadcount != null) baseByCell.set(`${meal.dayOfWeek}:${meal.mealTypeId}`, meal.baseHeadcount)
 	}
+
+	// Intervalo de datas (YYYY-MM-DD). Iteração em UTC: as colunas são calendário puro
+	// (sem hora), então tratar a string como meia-noite UTC e avançar com setUTCDate torna
+	// o cálculo determinístico e independente do fuso do servidor. O bug antigo misturava
+	// parse UTC (`new Date("YYYY-MM-DD")`) com `getDay()`/`getDate()` locais, o que deslocava
+	// o dia da semana em servidores de offset negativo (ex.: Brasil UTC-3).
+	const allDates: string[] = []
+	for (let d = new Date(`${input.startDate}T00:00:00Z`); d <= new Date(`${input.endDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+		allDates.push(d.toISOString().slice(0, 10))
+	}
+
+	// conflictMode="skip": preserva CÉLULAS (dia + refeição) que já têm cardápio ativo
+	// (inclusive ajustes manuais do DayDrawer) e só materializa as vazias — um dia com
+	// só o Almoço planejado ainda recebe Café/Jantar do template. Grão de refeição, não
+	// de dia: pular o dia inteiro deixaria refeições vazias sem cardápio. Default
+	// "replace" mantém o comportamento histórico (soft-delete + re-materialização).
+	const conflictMode = input.conflictMode ?? "replace"
+	const occupiedCells = new Set<string>()
+	if (conflictMode === "skip") {
+		const occupiedRows = await runQuery("FETCH_FAILED", () =>
+			db
+				.select({ serviceDate: dailyMenuInKitchen.serviceDate, mealTypeId: dailyMenuInKitchen.mealTypeId })
+				.from(dailyMenuInKitchen)
+				.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt)))
+		)
+		for (const r of occupiedRows) if (r.serviceDate && r.mealTypeId) occupiedCells.add(`${r.serviceDate}:${r.mealTypeId}`)
+	}
+	const datesSkippedSet = new Set<string>()
 
 	// Constrói menus + itens novos.
 	const newMenus: (typeof dailyMenuInKitchen.$inferInsert)[] = []
 	const newMenuItems: (typeof menuItemsInKitchen.$inferInsert)[] = []
+	// Itens do template descartados por dado incompleto (sem refeição ou sem receita).
+	let itemsSkipped = 0
 
-	for (const dateStr of targetDates) {
-		const jsDay = new Date(dateStr).getDay()
-		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay
+	for (const dateStr of allDates) {
+		const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay() // 0=Dom … 6=Sáb
+		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1=Seg … 7=Dom
 		const templateDay = ((dateDayOfWeek - input.startDayOfWeek + 7) % 7) + 1
 
+		// Agrupa por refeição; item sem refeição não tem onde materializar.
 		const itemsByMealType: Record<string, typeof templateItems> = {}
 		for (const item of templateItems.filter((i) => i.dayOfWeek === templateDay)) {
-			const key = item.mealTypeId ?? "__null__"
-			if (!itemsByMealType[key]) itemsByMealType[key] = []
-			itemsByMealType[key].push(item)
+			if (!item.mealTypeId) {
+				itemsSkipped++
+				continue
+			}
+			if (!itemsByMealType[item.mealTypeId]) itemsByMealType[item.mealTypeId] = []
+			itemsByMealType[item.mealTypeId].push(item)
 		}
 
 		for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
-			if (mealTypeId === "__null__") continue
+			// Célula já planejada + modo preservar → não mexe nela.
+			if (conflictMode === "skip" && occupiedCells.has(`${dateStr}:${mealTypeId}`)) {
+				datesSkippedSet.add(dateStr)
+				continue
+			}
+			// Efetivo da refeição (ponte aquisição→produção): usa o efetivo BASE do template
+			// (grão dia+refeição). Fallback para a média dos headcount_override preenchidos
+			// (templates legados sem base). Null quando nenhum dos dois existe → planejador
+			// preenche no DayDrawer. Só conta overrides de itens COM receita (os que serão
+			// materializados); um item sem recipeId é descartado abaixo e não deve enviesar.
+			const base = baseByCell.get(`${templateDay}:${mealTypeId}`) ?? null
+			const overrides = items
+				.filter((i) => i.recipeId != null)
+				.map((i) => i.headcountOverride)
+				.filter((h): h is number => h != null)
+			const overrideAvg = overrides.length > 0 ? Math.round(overrides.reduce((sum, h) => sum + h, 0) / overrides.length) : null
+			const mealForecast = base ?? overrideAvg
+
 			const menuId = crypto.randomUUID()
-			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED" })
+			const menuItemRows: (typeof menuItemsInKitchen.$inferInsert)[] = []
 			for (const item of items) {
+				if (!item.recipeId) {
+					itemsSkipped++
+					continue
+				}
 				// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
 				const recipeSnapshot = item.recipesInKitchen
 					? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
 					: {}
-				newMenuItems.push({
+				// Porção planejada = override do item (exceção) senão o efetivo derivado da refeição.
+				const plannedPortion = item.headcountOverride ?? mealForecast
+				menuItemRows.push({
 					dailyMenuId: menuId,
-					recipeOriginId: item.recipeId ?? "",
+					recipeOriginId: item.recipeId,
 					recipe: recipeSnapshot,
+					plannedPortionQuantity: plannedPortion != null ? String(plannedPortion) : null,
 					// Preserva grupo/ordem/proporção do template no cardápio materializado.
 					itemGroup: item.itemGroup,
 					sortOrder: item.sortOrder ?? 0,
 					recommendedProportion: item.recommendedProportion,
+					// Rastreabilidade: de qual template (e regime) o item veio.
+					originTemplateId: input.templateId,
+					originTemplateType: "weekly",
 				})
 			}
+			// Não cria refeição vazia se todos os itens foram descartados.
+			if (menuItemRows.length === 0) continue
+			newMenus.push({ id: menuId, serviceDate: dateStr, mealTypeId, kitchenId: input.kitchenId, status: "PLANNED", forecastedHeadcount: mealForecast })
+			newMenuItems.push(...menuItemRows)
 		}
 	}
 
-	// Tudo numa transação: soft-delete dos menus existentes + insert dos novos.
-	// Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
+	// Tudo numa transação: soft-delete dos menus existentes (só no replace) + insert
+	// dos novos. Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
+	// No skip não há delete algum: só inserimos em células vazias.
 	await db.transaction(async (tx) => {
-		await runQuery("DELETE_FAILED", () =>
-			tx
-				.update(dailyMenuInKitchen)
-				.set({ deletedAt: new Date().toISOString() })
-				.where(and(inArray(dailyMenuInKitchen.serviceDate, targetDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
-				.then(() => undefined)
-		)
+		if (conflictMode === "replace") {
+			await runQuery("DELETE_FAILED", () =>
+				tx
+					.update(dailyMenuInKitchen)
+					.set({ deletedAt: new Date().toISOString() })
+					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
+					.then(() => undefined)
+			)
+		}
 
 		if (newMenus.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
@@ -492,5 +693,142 @@ export async function applyTemplate(
 		}
 	})
 
-	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, datesProcessed: targetDates }
+	// datesProcessed = datas que receberam pelo menos um cardápio novo;
+	// datesSkipped = datas com pelo menos uma refeição preservada (grão célula).
+	const datesProcessed = conflictMode === "skip" ? [...new Set(newMenus.map((m) => m.serviceDate as string))] : allDates
+	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed, datesSkipped: [...datesSkippedSet].toSorted() }
+}
+
+/**
+ * Materializa um evento/exceção em datas concretas do calendário.
+ *
+ * ADITIVO por desenho: o planejamento rotineiro do dia permanece intacto — os
+ * itens do evento são acrescentados ao cardápio (daily_menu) existente da mesma
+ * refeição, criando-o quando não há. `day_of_week` do template é placeholder e é
+ * ignorado; o headcount é por item (headcount_override → planned_portion_quantity).
+ * Tudo numa transação: falha em qualquer data desfaz a aplicação inteira.
+ */
+export async function applyEventTemplate(
+	db: SisubDb,
+	ctx: UserContext,
+	input: ApplyEventTemplate
+): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; itemsAlreadyApplied: number; datesProcessed: string[] }> {
+	requireKitchen(ctx, 2, input.kitchenId)
+
+	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
+	if (template.template_type !== "event" && template.template_type !== "exception") {
+		throw new DomainError("NOT_EVENT_TEMPLATE", `Template ${input.templateId} is ${template.template_type ?? "weekly"}; use applyTemplate`)
+	}
+
+	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
+	const templateItems = await fetchTemplateItemsWithRecipes(db, input.templateId)
+
+	// Agrupa por refeição, ignorando day_of_week (placeholder em evento/exceção).
+	let itemsSkipped = 0
+	const itemsByMealType = new Map<string, typeof templateItems>()
+	for (const item of templateItems) {
+		if (!item.mealTypeId || !item.recipeId) {
+			itemsSkipped++
+			continue
+		}
+		const bucket = itemsByMealType.get(item.mealTypeId) ?? []
+		bucket.push(item)
+		itemsByMealType.set(item.mealTypeId, bucket)
+	}
+
+	const dates = [...new Set(input.dates)].toSorted()
+	let menusCreated = 0
+	let itemsCreated = 0
+	// Idempotência: reaplicar o mesmo evento na mesma data (retry, duplo clique) não
+	// duplica — itens ativos com a mesma origem+receita já presentes são pulados.
+	let itemsAlreadyApplied = 0
+
+	await db.transaction(async (tx) => {
+		for (const dateStr of dates) {
+			for (const [mealTypeId, items] of itemsByMealType) {
+				// Reusa o cardápio ativo do dia+refeição; cria (PLANNED, sem efetivo — o
+				// headcount do evento é por item) quando o dia ainda não tem essa refeição.
+				const existing = await runQuery("FETCH_FAILED", () =>
+					tx
+						.select({ id: dailyMenuInKitchen.id })
+						.from(dailyMenuInKitchen)
+						.where(
+							and(
+								eq(dailyMenuInKitchen.kitchenId, input.kitchenId),
+								eq(dailyMenuInKitchen.serviceDate, dateStr),
+								eq(dailyMenuInKitchen.mealTypeId, mealTypeId),
+								isNull(dailyMenuInKitchen.deletedAt)
+							)
+						)
+						.limit(1)
+				)
+				let menuId = existing[0]?.id
+				if (!menuId) {
+					const [created] = await runQuery("INSERT_FAILED", () =>
+						tx
+							.insert(dailyMenuInKitchen)
+							.values({ kitchenId: input.kitchenId, serviceDate: dateStr, mealTypeId, status: "PLANNED" })
+							.returning({ id: dailyMenuInKitchen.id })
+					)
+					if (!created) throw new DomainError("INSERT_FAILED", "no row returned")
+					menuId = created.id
+					menusCreated++
+				}
+				const targetMenuId = menuId
+
+				// Itens ativos existentes: base do sort (acrescenta após, sem colidir com a
+				// rotina) e chave de idempotência (origem+receita já aplicadas nesta refeição).
+				const existingItems = await runQuery("FETCH_FAILED", () =>
+					tx
+						.select({
+							sortOrder: menuItemsInKitchen.sortOrder,
+							recipeOriginId: menuItemsInKitchen.recipeOriginId,
+							originTemplateId: menuItemsInKitchen.originTemplateId,
+						})
+						.from(menuItemsInKitchen)
+						.where(and(eq(menuItemsInKitchen.dailyMenuId, targetMenuId), isNull(menuItemsInKitchen.deletedAt)))
+				)
+				const baseSort = existingItems.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
+				const alreadyApplied = new Set(existingItems.filter((r) => r.originTemplateId === input.templateId).map((r) => r.recipeOriginId))
+
+				const freshItems = items.filter((item) => {
+					if (alreadyApplied.has(item.recipeId)) {
+						itemsAlreadyApplied++
+						return false
+					}
+					return true
+				})
+
+				const rows = freshItems.map((item, index) => {
+					// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
+					const recipeSnapshot = item.recipesInKitchen
+						? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
+						: {}
+					return {
+						dailyMenuId: targetMenuId,
+						recipeOriginId: item.recipeId,
+						recipe: recipeSnapshot,
+						// Headcount por preparação (contrato de evento): sem fallback de refeição.
+						plannedPortionQuantity: item.headcountOverride != null ? String(item.headcountOverride) : null,
+						itemGroup: item.itemGroup,
+						sortOrder: baseSort + index,
+						recommendedProportion: item.recommendedProportion,
+						originTemplateId: input.templateId,
+						originTemplateType: template.template_type,
+					}
+				})
+				if (rows.length > 0) {
+					await runQuery("INSERT_ITEMS_FAILED", () =>
+						tx
+							.insert(menuItemsInKitchen)
+							.values(rows)
+							.then(() => undefined)
+					)
+					itemsCreated += rows.length
+				}
+			}
+		}
+	})
+
+	return { menusCreated, itemsCreated, itemsSkipped, itemsAlreadyApplied, datesProcessed: dates }
 }

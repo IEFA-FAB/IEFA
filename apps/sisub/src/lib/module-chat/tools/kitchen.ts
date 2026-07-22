@@ -440,7 +440,7 @@ O template deve ser global ou da mesma cozinha.`,
 		// Verify template ownership
 		const { data: template, error: templateFetchError } = await ctx.supabase
 			.from("menu_template")
-			.select("id, kitchen_id, name, deleted_at")
+			.select("id, kitchen_id, name, deleted_at, template_type")
 			.eq("id", templateId)
 			.single()
 
@@ -448,6 +448,12 @@ O template deve ser global ou da mesma cozinha.`,
 		if (template.deleted_at !== null) return toolErr("Template removido")
 		if (template.kitchen_id !== null && template.kitchen_id !== kitchenId) {
 			return toolErr("Template pertence a outra cozinha")
+		}
+		// Evento/exceção não tem semana e a aplicação semanal é destrutiva — mesmo guard
+		// do domínio (NOT_WEEKLY_TEMPLATE): eventos entram no calendário pela tela do
+		// evento ("Aplicar ao Calendário"), que soma sem apagar a rotina.
+		if (template.template_type != null && template.template_type !== "weekly") {
+			return toolErr(`Template é ${template.template_type}; aplique pelo editor de eventos/exceções (aditivo), não pelo fluxo semanal`)
 		}
 
 		// Fetch template items
@@ -481,7 +487,13 @@ O template deve ser global ou da mesma cozinha.`,
 
 		// Generate new menus
 		const newMenus: Array<{ id: string; service_date: string; meal_type_id: string; kitchen_id: number; status: string }> = []
-		const newMenuItems: Array<{ daily_menu_id: string; recipe_origin_id: string; recipe: unknown }> = []
+		const newMenuItems: Array<{
+			daily_menu_id: string
+			recipe_origin_id: string
+			recipe: unknown
+			origin_template_id: string
+			origin_template_type: string
+		}> = []
 
 		for (const dateStr of targetDates) {
 			const date = new Date(dateStr)
@@ -503,7 +515,14 @@ O template deve ser global ou da mesma cozinha.`,
 				const menuId = crypto.randomUUID()
 				newMenus.push({ id: menuId, service_date: dateStr, meal_type_id: mealTypeId, kitchen_id: kitchenId, status: "PLANNED" })
 				for (const item of items) {
-					newMenuItems.push({ daily_menu_id: menuId, recipe_origin_id: item.recipe_id ?? "", recipe: item.recipe_origin })
+					newMenuItems.push({
+						daily_menu_id: menuId,
+						recipe_origin_id: item.recipe_id ?? "",
+						recipe: item.recipe_origin,
+						// Rastreabilidade: mesmo stamp do applyTemplate do domínio.
+						origin_template_id: templateId,
+						origin_template_type: "weekly",
+					})
 				}
 			}
 		}

@@ -14,7 +14,7 @@ import { type SisubDb, userDataInCore, userMilitaryDataInCore } from "@iefa/data
 import { and, eq, ne, sql } from "drizzle-orm"
 import type { FetchMilitaryData, FetchUserData, FetchUserNrOrdem, SyncUserEmail, SyncUserNrOrdem } from "../schemas/user.ts"
 import { DomainError } from "../types/errors.ts"
-import { runQuery } from "../utils/index.ts"
+import { runQuery, unwrapPgError } from "../utils/index.ts"
 
 /**
  * `sisub.user_data` tem UNIQUE(email) (constraint `user_email_email_key`) além da
@@ -25,7 +25,8 @@ import { runQuery } from "../utils/index.ts"
  * postgres.js lança um erro com `.code`/`.constraint_name` (≠ do `{ error }` do supabase-js).
  */
 function isEmailUniqueViolation(error: unknown): boolean {
-	const e = error as { code?: string; constraint_name?: string; message?: string }
+	// O código real fica em .cause (DrizzleQueryError) — unwrapPgError o resgata.
+	const e = unwrapPgError(error)
 	return e?.code === "23505" && ((e.constraint_name?.includes("email") ?? false) || (e.message?.includes("email") ?? false))
 }
 

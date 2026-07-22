@@ -8,7 +8,7 @@
 }
 @font-face {
 	font-family: "Lora";
-	src: url("/fonts/Lora-Variable.ttf") format("truetype");
+	src: url("/fonts/Lora-Italic-Variable.ttf") format("truetype");
 	font-weight: 400 700;
 	font-style: italic;
 	font-display: swap;

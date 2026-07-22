@@ -1,3 +1,4 @@
+import { notFound } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { forbidden, requireUser, requireUserId } from "@/lib/auth.server"
@@ -84,8 +85,9 @@ async function getQuestionnaireAccessFromRow(
 }
 
 async function getQuestionnaireAccess(db: FormsDbClient, questionnaireId: string, userId: string) {
-	const { data: questionnaire, error } = await db.from("questionnaire").select("id, created_by").eq("id", questionnaireId).single()
+	const { data: questionnaire, error } = await db.from("questionnaire").select("id, created_by").eq("id", questionnaireId).maybeSingle()
 	if (error) throw new Error(error.message)
+	if (!questionnaire) throw notFound()
 	return getQuestionnaireAccessFromRow(db, questionnaire.id, questionnaire.created_by, userId)
 }
 
@@ -130,8 +132,13 @@ async function getViewerBindings(db: FormsDbClient, responseViewerId: string): P
 }
 
 async function resolveResponseVisibilityAccess(db: FormsDbClient, questionnaireId: string, userId: string): Promise<ResponseVisibilityAccess> {
-	const { data: questionnaire, error } = await db.from("questionnaire").select("id, created_by, response_metadata_config").eq("id", questionnaireId).single()
+	const { data: questionnaire, error } = await db
+		.from("questionnaire")
+		.select("id, created_by, response_metadata_config")
+		.eq("id", questionnaireId)
+		.maybeSingle()
 	if (error) throw new Error(error.message)
+	if (!questionnaire) throw notFound()
 
 	const questionnaireAccess = await getQuestionnaireAccessFromRow(db, questionnaire.id, questionnaire.created_by, userId)
 	const metadataConfig = parseResponseMetadataConfig(questionnaire.response_metadata_config)
@@ -277,8 +284,8 @@ async function getQuestionnairesByIds(db: FormsDbClient, ids: string[], tags?: s
 export const getQuestionnairesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ tags: z.array(z.string()).optional() }))
 	.handler(async ({ data: { tags } }) => {
-		// Lista todos os questionários da instância (títulos, tags, quem criou). Era o
-		// único endpoint do app sem checagem de sessão.
+		// O client roda com service key (bypassa RLS) — sem este guard o endpoint
+		// expõe todos os questionários da instância a qualquer requisição anônima.
 		await requireUserId()
 		const db = getFormsServerClient()
 		let query = db.from("questionnaire").select("*").order("created_at", { ascending: false })
@@ -301,8 +308,11 @@ export const getQuestionnaireFn = createServerFn({ method: "GET" })
 			.select("*, section(*, question(*))")
 			.eq("id", id)
 			.order("sort_order", { referencedTable: "section", ascending: true })
-			.single()
+			.maybeSingle()
 		if (error) throw new Error(error.message)
+		// maybeSingle + notFound: com .single() o PostgREST devolve PGRST116 e o usuário
+		// via a mensagem crua "JSON object requested, multiple (or no) rows returned".
+		if (!data) throw notFound()
 
 		const access = await getQuestionnaireAccessFromRow(db, data.id, data.created_by, user.id)
 		if (data.status !== "sent" && !access.canEdit) {
@@ -520,7 +530,7 @@ export const getOmOptionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({}))
 	.handler(async () => {
 		// Lista de OMs: dado de referência, mas é a estrutura organizacional da força —
-		// não precisa estar aberta a anônimo.
+		// não fica aberta a anônimo.
 		await requireUserId()
 		const db = getFormsServerClient()
 		const { data, error } = await db.from("om_option").select("id, name").eq("active", true).order("sort_order", { ascending: true })

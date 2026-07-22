@@ -24,12 +24,14 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 
 	const handleToggle = (template: TemplateWithItemCounts, checked: boolean) => {
 		if (checked) {
+			// Exceções pré-preenchem as repetições com as ocorrências mensais esperadas.
+			const defaultReps = template.template_type === "exception" ? (template.expected_monthly_occurrences ?? 1) : 1
 			onUpdateSelection(kitchenState.kitchenId, selectionType, [
 				...currentSelections,
 				{
 					templateId: template.id,
 					templateName: template.name || "",
-					repetitions: 1,
+					repetitions: defaultReps,
 				},
 			])
 		} else {
@@ -120,8 +122,19 @@ export function KitchenTemplateSection({ kitchenState, templates, isLoadingTempl
 												</>
 											)}
 
-											{/* Mostra média quando tudo preenchido */}
-											{allFilled && template.avg_headcount_weekday !== null && (
+											{/* Exceção: total mensal (comensais × ocorrências) em vez da média semanal */}
+											{template.template_type === "exception" && template.monthly_headcount_total !== null && (
+												<>
+													<span className="text-xs text-muted-foreground/40">·</span>
+													<span className="text-xs text-muted-foreground flex items-center gap-1">
+														<Users className="size-3" aria-hidden="true" />~{template.monthly_headcount_total} com./mês
+														{template.expected_monthly_occurrences ? ` (${template.expected_monthly_occurrences}×)` : ""}
+													</span>
+												</>
+											)}
+
+											{/* Semanal: média quando tudo preenchido */}
+											{template.template_type !== "exception" && allFilled && template.avg_headcount_weekday !== null && (
 												<>
 													<span className="text-xs text-muted-foreground/40">·</span>
 													<span className="text-xs text-muted-foreground flex items-center gap-1">

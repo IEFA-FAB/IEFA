@@ -25,6 +25,11 @@ export function requireKitchen(ctx: UserContext, level: 1 | 2, kitchenId: number
 	requirePermission(ctx, "kitchen", level, { type: "kitchen", id: kitchenId })
 }
 
+/** Gate do módulo kitchen-production (Produção Cozinha), escopado por cozinha. */
+export function requireKitchenProduction(ctx: UserContext, level: 1 | 2, kitchenId: number): void {
+	requirePermission(ctx, "kitchen-production", level, { type: "kitchen", id: kitchenId })
+}
+
 export function requireUnit(ctx: UserContext, level: 1 | 2, unitId: number): void {
 	requirePermission(ctx, "unit", level, { type: "unit", id: unitId })
 }

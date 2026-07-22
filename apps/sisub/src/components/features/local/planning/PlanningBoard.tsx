@@ -367,6 +367,7 @@ export function PlanningBoard() {
 				}}
 				targetDates={templateTargetDates}
 				kitchenId={kitchenId || 0}
+				plannedDates={(menus ?? []).flatMap((m) => (m.service_date ? [m.service_date] : []))}
 			/>
 
 			<TrashDrawer open={isTrashOpen} onClose={() => dispatch({ type: "SET_TRASH_OPEN", value: false })} kitchenId={kitchenId || 0} />

@@ -1,7 +1,7 @@
 import { queryOptions, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, EditPencil, Eye, Plus, Refresh, SendDiagonal, Trash } from "iconoir-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { ViewerManager } from "@/components/forms/ViewerManager"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { CONFORMITY_WEIGHTS, type ConformityOptions } from "@/lib/conformity"
 import { parseResponseMetadataConfig } from "@/lib/response-visibility-policy"
+import { assertUuidParam } from "@/lib/route-params"
 import {
 	addEditorFn,
 	createQuestionFn,
@@ -73,6 +74,7 @@ const viewersQueryOptions = (questionnaireId: string) =>
 	})
 
 export const Route = createFileRoute("/_authenticated/questionnaires/$id")({
+	beforeLoad: ({ params }) => assertUuidParam(params.id),
 	loader: ({ context, params }) => context.queryClient.ensureQueryData(questionnaireQueryOptions(params.id)),
 	component: EditQuestionnairePage,
 })
@@ -99,7 +101,13 @@ function EditQuestionnairePage() {
 	const isCreator = access.isCreator
 	const sections = questionnaire.section ?? []
 	const metadataConfig = parseResponseMetadataConfig(questionnaire.response_metadata_config)
-	const shareUrl = typeof window !== "undefined" ? new URL(`/respond/${id}`, window.location.origin).toString() : `/respond/${id}`
+	// Path no SSR e URL absoluta no client dariam valores diferentes no mesmo <Input
+	// value=…> controlado → mismatch de hidratação. Resolve o origin só após montar.
+	const sharePath = `/respond/${id}`
+	const [shareUrl, setShareUrl] = useState(sharePath)
+	useEffect(() => {
+		setShareUrl(new URL(sharePath, window.location.origin).toString())
+	}, [sharePath])
 
 	const invalidateQuestionnaire = () => queryClient.invalidateQueries({ queryKey: ["questionnaire", id] })
 	const invalidateDashboardLists = async () => {

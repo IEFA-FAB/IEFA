@@ -141,8 +141,8 @@ function RootDocument() {
 			<head>
 				<link rel="preload" href={AppStyles} as="style" />
 				<link rel="stylesheet" href={AppStyles} />
-				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
-				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/truetype" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/Lora-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+				<link rel="preload" href="/fonts/IBMPlexSans-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
 				<HeadContent />
 				<ThemeScript />
 			</head>

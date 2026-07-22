@@ -8,11 +8,17 @@
  */
 
 import {
+	AdjustProductionPortionsSchema,
+	adjustProductionPortions,
 	EnsureProductionTasksSchema,
 	ensureProductionTasks,
 	FetchProductionBoardSchema,
 	fetchProductionBoard,
+	RecordProductionSubstitutionSchema,
+	recordProductionSubstitution,
+	UpdateProductionTaskRecordSchema,
 	UpdateProductionTaskStatusSchema,
+	updateProductionTaskRecord,
 	updateProductionTaskStatus,
 } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
@@ -40,4 +46,25 @@ export const updateProductionTaskStatusFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await requireAuth()
 		return (await updateProductionTaskStatus(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProductionTask
+	})
+
+export const updateProductionTaskRecordFn = createServerFn({ method: "POST" })
+	.validator(UpdateProductionTaskRecordSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return (await updateProductionTaskRecord(getDb(), ctx, data).catch(handleDomainError)) as unknown as ProductionTask
+	})
+
+export const adjustProductionPortionsFn = createServerFn({ method: "POST" })
+	.validator(AdjustProductionPortionsSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return adjustProductionPortions(getDb(), ctx, data).catch(handleDomainError)
+	})
+
+export const recordProductionSubstitutionFn = createServerFn({ method: "POST" })
+	.validator(RecordProductionSubstitutionSchema)
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		return recordProductionSubstitution(getDb(), ctx, data).catch(handleDomainError)
 	})

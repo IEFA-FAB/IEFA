@@ -38,8 +38,9 @@ const sidebarData: AppSidebarData = {
 export const Route = createFileRoute("/_authenticated")({
 	beforeLoad: ({ context, location }) => {
 		if (!context.auth.isAuthenticated) {
-			const redirectTarget = `${location.pathname}${location.search}${location.hash}`
-			throw redirect({ to: "/auth", search: { redirect: redirectTarget } })
+			// location.href já traz pathname + search serializado + hash.
+			// Interpolar location.search direto quebra: é um objeto sem toString.
+			throw redirect({ to: "/auth", search: { redirect: location.href } })
 		}
 	},
 	component: AuthenticatedLayout,

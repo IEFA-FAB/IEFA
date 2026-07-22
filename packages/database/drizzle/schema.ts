@@ -71,6 +71,8 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 	itemGroup: text("item_group"),
 	sortOrder: smallint("sort_order").default(0).notNull(),
 	recommendedProportion: numeric("recommended_proportion"),
+	originTemplateId: uuid("origin_template_id"),
+	originTemplateType: text("origin_template_type"),
 }, (table) => [
 	foreignKey({
 			columns: [table.dailyMenuId],
@@ -82,6 +84,12 @@ export const menuItemsInKitchen = kitchen.table("menu_items", {
 			foreignColumns: [recipesInKitchen.id],
 			name: "menu_items_recipe_origin_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.originTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_items_origin_template_id_fkey"
+		}).onDelete("set null"),
+	check("menu_items_origin_template_type_check", sql`origin_template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
 	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 ]);
 
@@ -945,6 +953,7 @@ export const procurementListItemInProcurement = procurement.table("procurement_l
 	purchaseQuantity: numeric("purchase_quantity", { precision: 14, scale:  4 }),
 	conversionFactor: numeric("conversion_factor", { precision: 12, scale:  6 }),
 	itemDescription: text("item_description"),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("idx_procurement_list_item_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
 	index("procurement_list_item_purchase_item_idx").using("btree", table.purchaseItemId.asc().nullsLast().op("uuid_ops")).where(sql`(purchase_item_id IS NOT NULL)`),
@@ -989,6 +998,7 @@ export const procurementListSelectionInProcurement = procurement.table("procurem
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	listKitchenId: uuid("list_kitchen_id").notNull(),
 	templateId: uuid("template_id").notNull(),
+	originTemplateId: uuid("origin_template_id"),
 	repetitions: integer().default(1).notNull(),
 }, (table) => [
 	foreignKey({
@@ -1001,7 +1011,59 @@ export const procurementListSelectionInProcurement = procurement.table("procurem
 			foreignColumns: [menuTemplateInKitchen.id],
 			name: "procurement_ata_selection_template_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.originTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "procurement_list_selection_origin_template_id_fkey"
+		}).onDelete("set null"),
 	check("procurement_ata_selection_repetitions_check", sql`repetitions > 0`),
+]);
+
+export const procurementListSnapshotSelectionInProcurement = procurement.table("procurement_list_snapshot_selection", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	listId: uuid("list_id").notNull(),
+	originTemplateId: uuid("origin_template_id"),
+	templateName: text("template_name"),
+	templateType: text("template_type"),
+	kitchenId: integer("kitchen_id"),
+	kitchenName: text("kitchen_name"),
+	repetitions: integer().default(1).notNull(),
+	snapshotSource: text("snapshot_source").default('native').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_proc_snapshot_selection_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.listId],
+			foreignColumns: [procurementListInProcurement.id],
+			name: "procurement_list_snapshot_selection_list_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_list_snapshot_selection_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
+]);
+
+export const procurementListSnapshotComponentInProcurement = procurement.table("procurement_list_snapshot_component", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	listId: uuid("list_id").notNull(),
+	ingredientId: uuid("ingredient_id"),
+	ingredientName: text("ingredient_name").notNull(),
+	folderDescription: text("folder_description"),
+	measureUnit: text("measure_unit"),
+	totalQuantity: numeric("total_quantity", { precision: 14, scale:  4 }).notNull(),
+	purchaseItemId: uuid("purchase_item_id"),
+	purchaseItemDescription: text("purchase_item_description"),
+	purchaseMeasureUnit: text("purchase_measure_unit"),
+	purchaseQuantity: numeric("purchase_quantity", { precision: 14, scale:  4 }),
+	catmatItemCodigo: integer("catmat_item_codigo"),
+	unitPrice: numeric("unit_price", { precision: 12, scale:  4 }),
+	snapshotSource: text("snapshot_source").default('native').notNull(),
+	computedAt: timestamp("computed_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_proc_snapshot_component_list_id").using("btree", table.listId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.listId],
+			foreignColumns: [procurementListInProcurement.id],
+			name: "procurement_list_snapshot_component_list_id_fkey"
+		}).onDelete("cascade"),
+	check("procurement_list_snapshot_component_source_check", sql`snapshot_source = ANY (ARRAY['native'::text, 'backfill'::text])`),
 ]);
 
 export const productionTaskInKitchen = kitchen.table("production_task", {
@@ -1013,6 +1075,8 @@ export const productionTaskInKitchen = kitchen.table("production_task", {
 	startedAt: timestamp("started_at", { withTimezone: true, mode: 'string' }),
 	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
 	notes: text(),
+	producedQuantity: numeric("produced_quantity"),
+	leftoverQuantity: numeric("leftover_quantity"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
@@ -1485,6 +1549,7 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	baseTemplateId: uuid("base_template_id"),
 	templateType: text("template_type").default('weekly').notNull(),
+	expectedMonthlyOccurrences: smallint("expected_monthly_occurrences"),
 }, (table) => [
 	foreignKey({
 			columns: [table.baseTemplateId],
@@ -1496,7 +1561,32 @@ export const menuTemplateInKitchen = kitchen.table("menu_template", {
 			foreignColumns: [kitchenInCore.id],
 			name: "menu_template_kitchen_id_fkey"
 		}),
-	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text])`),
+	check("menu_template_template_type_check", sql`template_type = ANY (ARRAY['weekly'::text, 'event'::text, 'exception'::text])`),
+	check("menu_template_expected_monthly_occurrences_check", sql`expected_monthly_occurrences IS NULL OR expected_monthly_occurrences > 0`),
+]);
+
+export const menuTemplateMealInKitchen = kitchen.table("menu_template_meal", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	menuTemplateId: uuid("menu_template_id").notNull(),
+	dayOfWeek: smallint("day_of_week").notNull(),
+	mealTypeId: uuid("meal_type_id").notNull(),
+	baseHeadcount: integer("base_headcount"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("menu_template_meal_unique").using("btree", table.menuTemplateId.asc().nullsLast().op("uuid_ops"), table.dayOfWeek.asc().nullsLast().op("int2_ops"), table.mealTypeId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+			columns: [table.menuTemplateId],
+			foreignColumns: [menuTemplateInKitchen.id],
+			name: "menu_template_meal_menu_template_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.mealTypeId],
+			foreignColumns: [mealTypeInKitchen.id],
+			name: "menu_template_meal_meal_type_id_fkey"
+		}),
+	check("menu_template_meal_day_check", sql`day_of_week >= 1 AND day_of_week <= 7`),
+	check("menu_template_meal_headcount_check", sql`base_headcount IS NULL OR base_headcount > 0`),
+	pgPolicy("realtime_select", { as: "permissive", for: "select", to: ["authenticated"], using: sql`true` }),
 ]);
 
 export const recipeIngredientsInKitchen = kitchen.table("recipe_ingredients", {
