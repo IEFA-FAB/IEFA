@@ -133,7 +133,9 @@ export function ApplyTemplateDialog({ open, onClose, targetDates, kitchenId, pla
 								>
 									<div>
 										<p className="text-subheading">Preservar</p>
-										<p className="text-xs text-muted-foreground">Mantém o planejamento (e ajustes manuais) desses dias; aplica só nos vazios.</p>
+										<p className="text-xs text-muted-foreground">
+											Mantém as refeições já planejadas (e ajustes manuais); o template preenche só as refeições vazias.
+										</p>
 									</div>
 								</Button>
 								<Button

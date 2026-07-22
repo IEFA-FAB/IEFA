@@ -191,7 +191,9 @@ export function useApplyEventTemplate() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.planning.all() })
 			queryClient.invalidateQueries({ queryKey: queryKeys.production.all() })
 			const dates = result?.datesProcessed?.length ?? 0
-			toast.success(`Aplicado ao calendário! ${result?.itemsCreated ?? 0} itens somados em ${dates} ${dates === 1 ? "dia" : "dias"}.`)
+			const dup = result?.itemsAlreadyApplied ?? 0
+			const dupNote = dup > 0 ? ` ${dup} ${dup === 1 ? "item já aplicado foi ignorado" : "itens já aplicados foram ignorados"}.` : ""
+			toast.success(`Aplicado ao calendário! ${result?.itemsCreated ?? 0} itens somados em ${dates} ${dates === 1 ? "dia" : "dias"}.${dupNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar ao calendário: ${error.message}`),
 	})
@@ -209,8 +211,7 @@ export function useApplyTemplate() {
 			const skipped = result?.itemsSkipped ?? 0
 			const skippedNote = skipped > 0 ? ` ${skipped} ${skipped === 1 ? "ocorrência ignorada" : "ocorrências ignoradas"} (itens sem refeição ou receita).` : ""
 			const preserved = result?.datesSkipped?.length ?? 0
-			const preservedNote =
-				preserved > 0 ? ` ${preserved} ${preserved === 1 ? "dia já planejado foi preservado" : "dias já planejados foram preservados"}.` : ""
+			const preservedNote = preserved > 0 ? ` Refeições já planejadas foram preservadas em ${preserved} ${preserved === 1 ? "dia" : "dias"}.` : ""
 			toast.success(`Template aplicado! ${result?.menusCreated} cardápios e ${result?.itemsCreated} itens criados.${preservedNote}${skippedNote}`)
 		},
 		onError: (error) => toast.error(`Erro ao aplicar template: ${error.message}`),

@@ -14,7 +14,7 @@ import { mealForecastsInKitchen, mealPresencesInKitchen, type SisubDb, vMealPres
 import { and, desc, eq, inArray } from "drizzle-orm"
 import type { InsertPresence, ListForecastMap, ListPresences } from "../schemas/meal-ops.ts"
 import type { UserContext } from "../types/context.ts"
-import { runQuery } from "../utils/index.ts"
+import { runQuery, unwrapPgError } from "../utils/index.ts"
 
 export async function listPresences(db: SisubDb, input: ListPresences) {
 	const rows = await runQuery("FETCH_FAILED", () =>
@@ -87,7 +87,8 @@ export async function insertPresence(db: SisubDb, _ctx: UserContext, input: Inse
 		await db.insert(mealPresencesInKitchen).values({ userId: input.user_id, date: input.date, meal: input.meal, messHallId: input.messHallId })
 	} catch (e) {
 		// Preserva o código de erro do PG (ex.: "23505" duplicate) para tratamento no caller.
-		const err = e as { message?: string; code?: string }
+		// O código real fica em .cause (DrizzleQueryError) — unwrapPgError o resgata.
+		const err = unwrapPgError(e)
 		throw Object.assign(new Error(err.message ?? "insert presence failed"), { code: err.code })
 	}
 }

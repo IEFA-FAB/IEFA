@@ -11,9 +11,9 @@
  * completed_at) -> PENDING (clears both timestamps).
  */
 
-import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
+import { dailyMenuInKitchen, menuItemsInKitchen, productionTaskInKitchen, recipesInKitchen, type SisubDb } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import { requireAnyPermission, requireKitchenProduction } from "../guards/require-permission.ts"
 import { resolveKitchenFromMenuItem } from "../guards/validate-scope.ts"
 import type {
@@ -51,6 +51,10 @@ type BoardItem = {
 export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input: FetchProductionBoard): Promise<BoardItem[]> {
 	requireKitchenProduction(ctx, 1, input.kitchenId)
 
+	// DUAS queries de propósito: aninhar recipes → recipe_ingredients → ingredient aqui
+	// (5 níveis a partir de daily_menu) estoura o limite de 63 chars de alias do
+	// Postgres — os níveis profundos colidem no identificador truncado → 42703.
+	// As receitas (3 níveis, dentro do limite) são buscadas à parte e juntadas em JS.
 	const dailyMenus = await runQuery("FETCH_FAILED", () =>
 		db.query.dailyMenuInKitchen.findMany({
 			columns: { id: true, mealTypeId: true, forecastedHeadcount: true },
@@ -61,15 +65,6 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 					where: isNull(menuItemsInKitchen.deletedAt),
 					columns: { id: true, recipeOriginId: true, plannedPortionQuantity: true, substitutions: true },
 					with: {
-						recipesInKitchen: {
-							columns: { id: true, name: true, portionYield: true, preparationMethod: true, preparationTimeMinutes: true, kitchenId: true },
-							with: {
-								recipeIngredientsInKitchens: {
-									columns: { id: true, netQuantity: true, priorityOrder: true, isOptional: true },
-									with: { ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true } } },
-								},
-							},
-						},
 						productionTaskInKitchens: {
 							columns: {
 								id: true,
@@ -93,6 +88,26 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 		})
 	)
 
+	const recipeIds = [
+		...new Set(dailyMenus.flatMap((menu) => (menu.menuItemsInKitchens ?? []).map((item) => item.recipeOriginId).filter((id): id is string => id != null))),
+	]
+	const recipes =
+		recipeIds.length > 0
+			? await runQuery("FETCH_FAILED", () =>
+					db.query.recipesInKitchen.findMany({
+						columns: { id: true, name: true, portionYield: true, preparationMethod: true, preparationTimeMinutes: true, kitchenId: true },
+						with: {
+							recipeIngredientsInKitchens: {
+								columns: { id: true, netQuantity: true, priorityOrder: true, isOptional: true },
+								with: { ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true } } },
+							},
+						},
+						where: inArray(recipesInKitchen.id, recipeIds),
+					})
+				)
+			: []
+	const recipeById = new Map(recipes.map((r) => [r.id, r]))
+
 	const items: BoardItem[] = []
 	for (const menu of dailyMenus) {
 		const mealType = menu.mealTypeInKitchen ? toWire<Record<string, unknown>>(menu.mealTypeInKitchen) : null
@@ -103,7 +118,8 @@ export async function fetchProductionBoard(db: SisubDb, ctx: UserContext, input:
 			const taskRaw = menuItem.productionTaskInKitchens[0]
 			if (!taskRaw) continue
 
-			const recipeOrigin = menuItem.recipesInKitchen ? toWire<Record<string, unknown>>(menuItem.recipesInKitchen, RECIPE_RELATIONS) : null
+			const recipeRaw = menuItem.recipeOriginId != null ? recipeById.get(menuItem.recipeOriginId) : undefined
+			const recipeOrigin = recipeRaw ? toWire<Record<string, unknown>>(recipeRaw, RECIPE_RELATIONS) : null
 
 			items.push({
 				task: toWire<ProductionTask>(taskRaw),
@@ -243,22 +259,19 @@ export async function recordProductionSubstitution(db: SisubDb, ctx: UserContext
 	const kitchenId = await resolveKitchenFromMenuItem(db, input.menuItemId)
 	requireAnyPermission(ctx, ["kitchen-production", "kitchen"], 2, { type: "kitchen", id: kitchenId })
 
-	const item = await runQuery("FETCH_FAILED", () =>
-		db.query.menuItemsInKitchen.findFirst({ columns: { substitutions: true }, where: eq(menuItemsInKitchen.id, input.menuItemId) })
-	)
-	if (!item) throw new NotFoundError("menu_item", input.menuItemId)
+	const entry = { [input.ingredientId]: { type: "production", rationale: input.rationale, updated_at: new Date().toISOString() } }
 
-	const current = (item.substitutions as Record<string, unknown> | null) ?? {}
-	const substitutions = {
-		...current,
-		[input.ingredientId]: { type: "production", rationale: input.rationale, updated_at: new Date().toISOString() },
-	}
-
-	await runQuery("UPDATE_FAILED", () =>
+	// Merge atômico no SQL (jsonb ||): dois operadores registrando substituições
+	// diferentes ao mesmo tempo não se sobrescrevem — read-merge-write em JS perderia
+	// a escrita mais antiga.
+	const updated = await runQuery("UPDATE_FAILED", () =>
 		db
 			.update(menuItemsInKitchen)
-			.set({ substitutions })
+			.set({
+				substitutions: sql`(coalesce(${menuItemsInKitchen.substitutions}::jsonb, '{}'::jsonb) || ${JSON.stringify(entry)}::jsonb)::json`,
+			})
 			.where(eq(menuItemsInKitchen.id, input.menuItemId))
-			.then(() => undefined)
+			.returning({ id: menuItemsInKitchen.id })
 	)
+	if (updated.length === 0) throw new NotFoundError("menu_item", input.menuItemId)
 }

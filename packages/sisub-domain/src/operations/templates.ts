@@ -17,6 +17,7 @@ import {
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
 	menuTemplateMealInKitchen,
+	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { MealType, MenuTemplate, MenuTemplateItem, MenuTemplateMeal, Recipe } from "@iefa/database/sisub"
@@ -485,6 +486,41 @@ export async function restoreTemplate(db: SisubDb, ctx: UserContext, input: Rest
 	)
 }
 
+/** Item do template com a receita (e ingredientes) da origem anexada. */
+type TemplateItemWithRecipe = Awaited<ReturnType<typeof fetchTemplateItemRows>>[number] & {
+	recipesInKitchen: Awaited<ReturnType<typeof fetchRecipesWithIngredients>>[number] | null
+}
+
+function fetchTemplateItemRows(db: SisubDb, templateId: string) {
+	return runQuery("FETCH_FAILED", () => db.query.menuTemplateItemsInKitchen.findMany({ where: eq(menuTemplateItemsInKitchen.menuTemplateId, templateId) }))
+}
+
+function fetchRecipesWithIngredients(db: SisubDb, recipeIds: string[]) {
+	return runQuery("FETCH_FAILED", () =>
+		db.query.recipesInKitchen.findMany({
+			with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } },
+			where: inArray(recipesInKitchen.id, recipeIds),
+		})
+	)
+}
+
+/**
+ * Itens do template com receita + ingredientes para o snapshot json.
+ *
+ * DUAS queries de propósito: a relational query de 4 níveis
+ * (template_items → recipes → recipe_ingredients → ingredient) gera aliases acima
+ * de 63 chars (NAMEDATALEN); o Postgres trunca e os dois níveis profundos colidem
+ * no mesmo identificador → 42703 "column … does not exist". Buscar as receitas à
+ * parte (3 níveis, dentro do limite) e juntar em JS evita o estouro.
+ */
+async function fetchTemplateItemsWithRecipes(db: SisubDb, templateId: string): Promise<TemplateItemWithRecipe[]> {
+	const items = await fetchTemplateItemRows(db, templateId)
+	const recipeIds = [...new Set(items.map((i) => i.recipeId).filter((id): id is string => id != null))]
+	const recipes = recipeIds.length > 0 ? await fetchRecipesWithIngredients(db, recipeIds) : []
+	const recipeById = new Map(recipes.map((r) => [r.id, r]))
+	return items.map((item) => ({ ...item, recipesInKitchen: item.recipeId != null ? (recipeById.get(item.recipeId) ?? null) : null }))
+}
+
 export async function applyTemplate(
 	db: SisubDb,
 	ctx: UserContext,
@@ -502,12 +538,7 @@ export async function applyTemplate(
 	// Itens do template + receita de origem COM ingredientes — o snapshot json em menu_items
 	// precisa do mesmo shape que addMenuItem grava (snake_case aninhado com `ingredients`),
 	// senão o diner vê listas de ingredientes vazias e chaves camelCase.
-	const templateItems = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateItemsInKitchen.findMany({
-			with: { recipesInKitchen: { with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } } },
-			where: eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId),
-		})
-	)
+	const templateItems = await fetchTemplateItemsWithRecipes(db, input.templateId)
 
 	// Efetivo base por (dia + refeição) — grão natural do efetivo. É a fonte primária do
 	// forecasted_headcount na materialização; o headcount_override do item é só exceção.
@@ -528,25 +559,23 @@ export async function applyTemplate(
 		allDates.push(d.toISOString().slice(0, 10))
 	}
 
-	// conflictMode="skip": preserva dias que já têm planejamento ativo (inclusive ajustes
-	// manuais feitos no DayDrawer) e só materializa os vazios. Default "replace" mantém o
-	// comportamento histórico (soft-delete + re-materialização).
-	let datesSkipped: string[] = []
-	let targetDates = allDates
-	if ((input.conflictMode ?? "replace") === "skip") {
+	// conflictMode="skip": preserva CÉLULAS (dia + refeição) que já têm cardápio ativo
+	// (inclusive ajustes manuais do DayDrawer) e só materializa as vazias — um dia com
+	// só o Almoço planejado ainda recebe Café/Jantar do template. Grão de refeição, não
+	// de dia: pular o dia inteiro deixaria refeições vazias sem cardápio. Default
+	// "replace" mantém o comportamento histórico (soft-delete + re-materialização).
+	const conflictMode = input.conflictMode ?? "replace"
+	const occupiedCells = new Set<string>()
+	if (conflictMode === "skip") {
 		const occupiedRows = await runQuery("FETCH_FAILED", () =>
 			db
-				.select({ serviceDate: dailyMenuInKitchen.serviceDate })
+				.select({ serviceDate: dailyMenuInKitchen.serviceDate, mealTypeId: dailyMenuInKitchen.mealTypeId })
 				.from(dailyMenuInKitchen)
 				.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId), isNull(dailyMenuInKitchen.deletedAt)))
 		)
-		const occupied = new Set(occupiedRows.map((r) => r.serviceDate).filter((d): d is string => d != null))
-		datesSkipped = allDates.filter((d) => occupied.has(d))
-		targetDates = allDates.filter((d) => !occupied.has(d))
-		if (targetDates.length === 0) {
-			return { menusCreated: 0, itemsCreated: 0, itemsSkipped: 0, datesProcessed: [], datesSkipped }
-		}
+		for (const r of occupiedRows) if (r.serviceDate && r.mealTypeId) occupiedCells.add(`${r.serviceDate}:${r.mealTypeId}`)
 	}
+	const datesSkippedSet = new Set<string>()
 
 	// Constrói menus + itens novos.
 	const newMenus: (typeof dailyMenuInKitchen.$inferInsert)[] = []
@@ -554,7 +583,7 @@ export async function applyTemplate(
 	// Itens do template descartados por dado incompleto (sem refeição ou sem receita).
 	let itemsSkipped = 0
 
-	for (const dateStr of targetDates) {
+	for (const dateStr of allDates) {
 		const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay() // 0=Dom … 6=Sáb
 		const dateDayOfWeek = jsDay === 0 ? 7 : jsDay // 1=Seg … 7=Dom
 		const templateDay = ((dateDayOfWeek - input.startDayOfWeek + 7) % 7) + 1
@@ -571,6 +600,11 @@ export async function applyTemplate(
 		}
 
 		for (const [mealTypeId, items] of Object.entries(itemsByMealType)) {
+			// Célula já planejada + modo preservar → não mexe nela.
+			if (conflictMode === "skip" && occupiedCells.has(`${dateStr}:${mealTypeId}`)) {
+				datesSkippedSet.add(dateStr)
+				continue
+			}
 			// Efetivo da refeição (ponte aquisição→produção): usa o efetivo BASE do template
 			// (grão dia+refeição). Fallback para a média dos headcount_override preenchidos
 			// (templates legados sem base). Null quando nenhum dos dois existe → planejador
@@ -618,16 +652,19 @@ export async function applyTemplate(
 		}
 	}
 
-	// Tudo numa transação: soft-delete dos menus existentes + insert dos novos.
-	// Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
+	// Tudo numa transação: soft-delete dos menus existentes (só no replace) + insert
+	// dos novos. Qualquer falha desfaz tudo (bug fix vs sisub: rollback completo).
+	// No skip não há delete algum: só inserimos em células vazias.
 	await db.transaction(async (tx) => {
-		await runQuery("DELETE_FAILED", () =>
-			tx
-				.update(dailyMenuInKitchen)
-				.set({ deletedAt: new Date().toISOString() })
-				.where(and(inArray(dailyMenuInKitchen.serviceDate, targetDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
-				.then(() => undefined)
-		)
+		if (conflictMode === "replace") {
+			await runQuery("DELETE_FAILED", () =>
+				tx
+					.update(dailyMenuInKitchen)
+					.set({ deletedAt: new Date().toISOString() })
+					.where(and(inArray(dailyMenuInKitchen.serviceDate, allDates), eq(dailyMenuInKitchen.kitchenId, input.kitchenId)))
+					.then(() => undefined)
+			)
+		}
 
 		if (newMenus.length > 0) {
 			await runQuery("INSERT_FAILED", () =>
@@ -648,7 +685,10 @@ export async function applyTemplate(
 		}
 	})
 
-	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed: targetDates, datesSkipped }
+	// datesProcessed = datas que receberam pelo menos um cardápio novo;
+	// datesSkipped = datas com pelo menos uma refeição preservada (grão célula).
+	const datesProcessed = conflictMode === "skip" ? [...new Set(newMenus.map((m) => m.serviceDate as string))] : allDates
+	return { menusCreated: newMenus.length, itemsCreated: newMenuItems.length, itemsSkipped, datesProcessed, datesSkipped: [...datesSkippedSet].toSorted() }
 }
 
 /**
@@ -664,7 +704,7 @@ export async function applyEventTemplate(
 	db: SisubDb,
 	ctx: UserContext,
 	input: ApplyEventTemplate
-): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; datesProcessed: string[] }> {
+): Promise<{ menusCreated: number; itemsCreated: number; itemsSkipped: number; itemsAlreadyApplied: number; datesProcessed: string[] }> {
 	requireKitchen(ctx, 2, input.kitchenId)
 
 	const template = await validateTemplateAccess(db, input.templateId, input.kitchenId)
@@ -673,12 +713,7 @@ export async function applyEventTemplate(
 	}
 
 	// Itens com receita + ingredientes para o snapshot json (mesmo shape do addMenuItem).
-	const templateItems = await runQuery("FETCH_FAILED", () =>
-		db.query.menuTemplateItemsInKitchen.findMany({
-			with: { recipesInKitchen: { with: { recipeIngredientsInKitchens: { with: { ingredientInKitchen: true } } } } },
-			where: eq(menuTemplateItemsInKitchen.menuTemplateId, input.templateId),
-		})
-	)
+	const templateItems = await fetchTemplateItemsWithRecipes(db, input.templateId)
 
 	// Agrupa por refeição, ignorando day_of_week (placeholder em evento/exceção).
 	let itemsSkipped = 0
@@ -696,6 +731,9 @@ export async function applyEventTemplate(
 	const dates = [...new Set(input.dates)].toSorted()
 	let menusCreated = 0
 	let itemsCreated = 0
+	// Idempotência: reaplicar o mesmo evento na mesma data (retry, duplo clique) não
+	// duplica — itens ativos com a mesma origem+receita já presentes são pulados.
+	let itemsAlreadyApplied = 0
 
 	await db.transaction(async (tx) => {
 		for (const dateStr of dates) {
@@ -730,16 +768,30 @@ export async function applyEventTemplate(
 				}
 				const targetMenuId = menuId
 
-				// Acrescenta após os itens ativos existentes (não colide com o sort da rotina).
-				const sortRows = await runQuery("FETCH_FAILED", () =>
+				// Itens ativos existentes: base do sort (acrescenta após, sem colidir com a
+				// rotina) e chave de idempotência (origem+receita já aplicadas nesta refeição).
+				const existingItems = await runQuery("FETCH_FAILED", () =>
 					tx
-						.select({ sortOrder: menuItemsInKitchen.sortOrder })
+						.select({
+							sortOrder: menuItemsInKitchen.sortOrder,
+							recipeOriginId: menuItemsInKitchen.recipeOriginId,
+							originTemplateId: menuItemsInKitchen.originTemplateId,
+						})
 						.from(menuItemsInKitchen)
 						.where(and(eq(menuItemsInKitchen.dailyMenuId, targetMenuId), isNull(menuItemsInKitchen.deletedAt)))
 				)
-				const baseSort = sortRows.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
+				const baseSort = existingItems.reduce((max, r) => Math.max(max, (r.sortOrder ?? 0) + 1), 0)
+				const alreadyApplied = new Set(existingItems.filter((r) => r.originTemplateId === input.templateId).map((r) => r.recipeOriginId))
 
-				const rows = items.map((item, index) => {
+				const freshItems = items.filter((item) => {
+					if (alreadyApplied.has(item.recipeId)) {
+						itemsAlreadyApplied++
+						return false
+					}
+					return true
+				})
+
+				const rows = freshItems.map((item, index) => {
 					// Snapshot snake_case com `ingredients` aninhado — idêntico ao addMenuItem.
 					const recipeSnapshot = item.recipesInKitchen
 						? toWire<Record<string, unknown>>(item.recipesInKitchen, { recipeIngredientsInKitchens: "ingredients", ingredientInKitchen: "ingredient" })
@@ -757,16 +809,18 @@ export async function applyEventTemplate(
 						originTemplateType: template.template_type,
 					}
 				})
-				await runQuery("INSERT_ITEMS_FAILED", () =>
-					tx
-						.insert(menuItemsInKitchen)
-						.values(rows)
-						.then(() => undefined)
-				)
-				itemsCreated += rows.length
+				if (rows.length > 0) {
+					await runQuery("INSERT_ITEMS_FAILED", () =>
+						tx
+							.insert(menuItemsInKitchen)
+							.values(rows)
+							.then(() => undefined)
+					)
+					itemsCreated += rows.length
+				}
 			}
 		}
 	})
 
-	return { menusCreated, itemsCreated, itemsSkipped, datesProcessed: dates }
+	return { menusCreated, itemsCreated, itemsSkipped, itemsAlreadyApplied, datesProcessed: dates }
 }

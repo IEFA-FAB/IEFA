@@ -71,6 +71,18 @@ export interface RunQueryOptions {
  * `opts.prefix`/`opts.includeCode` substituem os wrappers locais `ataOp`/`piOp`/`draftOp` que
  * cada arquivo definia: `{ prefix }` → `"<prefix>: <msg>"`; `{ prefix, includeCode }` → `"<prefix> [<pgcode>]: <msg>"`.
  */
+/**
+ * Desembrulha o erro Postgres real: o drizzle (0.33+) envolve falhas de query em
+ * `DrizzleQueryError` e o erro do driver (com `.code`/`.constraint_name`) fica em
+ * `.cause`. Checar `.code` no erro de topo silenciosamente deixa de reconhecer
+ * violações (ex.: 23505) após o upgrade.
+ */
+export function unwrapPgError(error: unknown): { code?: string; constraint_name?: string; message?: string } {
+	let e = error as { code?: string; constraint_name?: string; message?: string; cause?: unknown } | undefined
+	while (e && e.code == null && e.cause) e = e.cause as typeof e
+	return e ?? {}
+}
+
 export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: RunQueryOptions): Promise<T> {
 	try {
 		return await op()
@@ -78,7 +90,7 @@ export async function runQuery<T>(code: string, op: () => Promise<T>, opts?: Run
 		if (e instanceof DomainError) throw e
 		const base = e instanceof Error ? e.message : String(e)
 		if (!opts?.prefix) throw new DomainError(code, base)
-		const pgCode = opts.includeCode ? (e as { code?: string }).code : undefined
+		const pgCode = opts.includeCode ? unwrapPgError(e).code : undefined
 		const codeSeg = pgCode ? ` [${pgCode}]` : ""
 		throw new DomainError(code, `${opts.prefix}${codeSeg}: ${base}`)
 	}
