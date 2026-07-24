@@ -7,6 +7,16 @@ resource "aws_lb" "this" {
 
   enable_deletion_protection = false
   idle_timeout               = 60
+
+  # Access logs por-request → visibilidade de 502/504, status por path e
+  # target_processing_time (ver alb_logs.tf). depends_on garante a bucket policy
+  # antes do LB tentar a primeira entrega.
+  access_logs {
+    bucket  = aws_s3_bucket.alb_logs.bucket
+    enabled = true
+  }
+
+  depends_on = [aws_s3_bucket_policy.alb_logs]
 }
 
 # The listener default action returns a fixed 404. Every service adds its own

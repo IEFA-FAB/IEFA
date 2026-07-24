@@ -4,6 +4,18 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { getRequest, setCookie } from "@tanstack/react-start/server"
 
 import { envServer } from "@/lib/env.server"
+import { createTimeoutFetch } from "@/lib/timeout-fetch"
+
+/**
+ * Deadlines dos round-trips Supabase no servidor. Sem eles, um upstream degradado
+ * (GoTrue/PostgREST/gateway) pendura o SSR até o ALB cortar em 60s → 504 + empilha
+ * conexão → 502. Auth roda no caminho crítico de TODO TTFB protegido → deadline
+ * mais curto; dados service-role toleram um pouco mais, mas ainda limitados.
+ */
+const AUTH_FETCH_TIMEOUT_MS = 8_000
+const DATA_FETCH_TIMEOUT_MS = 15_000
+const authTimeoutFetch = createTimeoutFetch(AUTH_FETCH_TIMEOUT_MS)
+const dataTimeoutFetch = createTimeoutFetch(DATA_FETCH_TIMEOUT_MS)
 
 /**
  * Schemas de domínio expostos via PostgREST que aceitam um service-role client.
@@ -30,6 +42,7 @@ export function getServerClient<S extends DbSchema>(schema: S): SupabaseClient<D
 	return createClient(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
 		db: { schema },
 		auth: { persistSession: false },
+		global: { fetch: dataTimeoutFetch },
 	}) as unknown as SupabaseClient<Database, S>
 }
 
@@ -56,6 +69,7 @@ export function getSupabaseServerClient() {
 	return createClient<Database, "sisub">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
 		db: { schema: "sisub" },
 		auth: { persistSession: false },
+		global: { fetch: dataTimeoutFetch },
 	})
 }
 
@@ -69,6 +83,7 @@ export function getSupabaseServerClient() {
 export function getSupabaseAuthClient() {
 	return createServerClient<Database, "sisub">(envServer.VITE_SISUB_SUPABASE_URL, envServer.SISUB_SUPABASE_SECRET_KEY, {
 		db: { schema: "sisub" },
+		global: { fetch: authTimeoutFetch },
 		cookies: {
 			getAll() {
 				const request = getRequest()

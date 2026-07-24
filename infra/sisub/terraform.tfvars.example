@@ -8,10 +8,17 @@ aws_region           = "sa-east-1"
 service_name      = "sisub"
 docker_target     = "sisub"
 container_port    = 3000
-cpu               = 512
+# 1 vCPU: Bun é single-thread → uma render SSR pesada em 0.5 vCPU satura o event
+# loop e derruba conexões concorrentes (502/504). 1024 dá folga p/ picos.
+cpu               = 1024
 memory            = 1024
 health_check_path = "/health"
 listener_priority = 110
+
+# Log driver awslogs no task. Sem isso o container não emite NADA pro CloudWatch
+# (erros de SSR/server fn ficam invisíveis) — lacuna que cegou o debug do 502.
+# Barato (só logs de app, não Container Insights). Mantido fora do caminho de custo.
+enable_cloudwatch_logs = true
 
 environment_variables = {
   NODE_ENV = "production"

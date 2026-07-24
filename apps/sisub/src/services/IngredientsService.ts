@@ -31,6 +31,7 @@ import {
 	fetchIngredientLastReviewsFn,
 	fetchIngredientSubstitutionsFn,
 	fetchIngredientsFn,
+	fetchIngredientsTreeFn,
 	fetchIngredientVersionsFn,
 	fetchNutrientsFn,
 	fetchNutritionReferenceFoodsFn,
@@ -118,17 +119,16 @@ export const ingredientSubstitutionsQueryOptions = (ingredientId: string) =>
 export const ingredientsTreeQueryOptions = (includeDeleted = false) =>
 	queryOptions({
 		queryKey: ["ingredients", "tree", includeDeleted ? "with-deleted" : "active"],
-		queryFn: async () => {
-			const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
-				fetchFoldersFn({ data: { includeDeleted } }) as Promise<Folder[]>,
-				fetchIngredientsFn({ data: { includeDeleted } }) as Promise<Ingredient[]>,
-				// Itens de compra/produto sempre ativos: contagem de badges não deve inflar com excluídos.
-				fetchIngredientItemsFn({ data: {} }) as Promise<IngredientItem[]>,
-				// Última revisão por insumo (data exibida na árvore para acompanhar a conferência).
-				fetchIngredientLastReviewsFn({ data: {} }) as Promise<IngredientLastReview[]>,
-			])
-			return { folders, ingredients, ingredientItems, lastReviews }
-		},
+		// Um único server fn (1 requireAuth, 1 conexão, payload único) em vez de 4
+		// requests `/_serverFn/` concorrentes — reduz a pressão de conexão que
+		// produzia o 502 no gateway. Ver fetchIngredientsTreeFn.
+		queryFn: () =>
+			fetchIngredientsTreeFn({ data: { includeDeleted } }) as Promise<{
+				folders: Folder[]
+				ingredients: Ingredient[]
+				ingredientItems: IngredientItem[]
+				lastReviews: IngredientLastReview[]
+			}>,
 		staleTime: 10 * 60 * 1000,
 		gcTime: 10 * 60 * 1000,
 	})

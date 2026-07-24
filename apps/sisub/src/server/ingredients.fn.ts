@@ -339,3 +339,28 @@ export const fetchIngredientLastReviewsFn = createServerFn({ method: "GET" })
 		const ctx = await requireAuth()
 		return listIngredientLastReviews(getDb(), ctx, data).catch(handleDomainError)
 	})
+
+/**
+ * Árvore de insumos num único round-trip. A tela `/global/ingredients` disparava
+ * 4 server fns em paralelo (folders + ingredients + items + lastReviews) → 4
+ * requests HTTP `/_serverFn/` concorrentes por load, cada um passando por
+ * requireAuth (4× getUser). Sob 1 instância Bun single-thread isso multiplica a
+ * pressão de conexão e a chance de uma resetar no gateway (o 502 observado no
+ * IngredientsService). Consolidar em 1 fn: 1 requireAuth, 1 conexão, payload único.
+ */
+export const fetchIngredientsTreeFn = createServerFn({ method: "GET" })
+	.validator(z.object({ includeDeleted: z.boolean().optional() }))
+	.handler(async ({ data }) => {
+		const ctx = await requireAuth()
+		const db = getDb()
+		const includeDeleted = data.includeDeleted ?? false
+		const [folders, ingredients, ingredientItems, lastReviews] = await Promise.all([
+			listFolders(db, ctx, { includeDeleted }),
+			listIngredients(db, ctx, { includeDeleted }),
+			// Itens de compra/produto sempre ativos: contagem de badges não infla com excluídos.
+			listIngredientItems(db, ctx, {}),
+			// Última revisão por insumo (data exibida na árvore p/ acompanhar a conferência).
+			listIngredientLastReviews(db, ctx, {}),
+		]).catch(handleDomainError)
+		return { folders, ingredients, ingredientItems, lastReviews }
+	})

@@ -87,6 +87,30 @@ live in Secrets Manager, not here): `API_SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECR
 `SISUB_SUPABASE_SECRET_KEY`, `ANALYTICS_AI_API_KEY`, `MODULE_CHAT_AI_API_KEY`,
 `FARO_SOURCEMAP_API_KEY`.
 
+## Terraform plan on PRs
+
+`.github/workflows/terraform-plan.yml` runs a **read-only** `terraform plan` on
+every PR that touches `infra/**` and posts the diff as a PR comment (one per
+changed stack; a `modules/**` change fans out to every service stack). It **never**
+applies — apply stays human/out-of-band. It authenticates via a dedicated
+read-only OIDC role (`<prefix>-github-tf-plan`, assumable only from `pull_request`
+events, AWS `ReadOnlyAccess` minus secret-value/KMS reads).
+
+One-time setup after `terraform apply` of `foundation`:
+
+| Variable / Secret | Kind | Source |
+|---|---|---|
+| `AWS_TF_PLAN_ROLE_ARN` | Variable | foundation output (`github_tf_plan_role_arn`) |
+| `TF_STATE_BUCKET` | Variable | `infra/bootstrap` output (state bucket) |
+| `TF_STATE_DYNAMODB_TABLE` | Variable | `infra/bootstrap` output (lock table) |
+| `TF_TFVARS_JSON` | Secret | JSON map `{ "<stack>": "<tfvars file contents>" }` |
+
+`TF_TFVARS_JSON` keeps the real tfvars **out of the repo** while letting CI plan:
+CI writes `.[stack]` to `infra/<stack>/terraform.tfvars` at runtime. A stack with
+no entry is skipped. **Caveat:** because tfvars live in the secret, a PR that only
+changes service *config* (cpu/hosts/…) does not diff here — only `.tf` / module /
+new-resource changes do.
+
 ## Routing
 
 Services share one ALB listener. Traffic is routed by **host header**, so each
