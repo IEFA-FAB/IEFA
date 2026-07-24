@@ -9,7 +9,7 @@ import { createHash } from "node:crypto"
 import type { Json } from "@iefa/database"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireUserId } from "@/lib/auth.server"
+import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ComprasMaterialPricePage } from "@/types/domain/price-research"
 
@@ -109,10 +109,10 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ researchId: string; researchItemId: string }> => {
-		// WRITE numa trilha de auditoria de preço (Lei 14.133/2021) — era anônimo, isto é,
-		// qualquer um podia forjar memória de cálculo. Follow-up: exigir `unit` nível 2 no
-		// escopo da ATA, em vez de só sessão.
-		await requireUserId()
+		// WRITE numa trilha de auditoria de preço (Lei 14.133/2021). Espelha o guard da
+		// rota consumidora (unit/$unitId/procurement → `unit` nível 1): sessão sozinha
+		// deixava qualquer autenticado (ex.: diner) forjar memória de cálculo.
+		await requireAuthWithPermission("unit", 1)
 		const supabase = getSupabaseServerClient()
 
 		// 0. Chave de idempotência — evita gravar a MESMA memória de cálculo duas

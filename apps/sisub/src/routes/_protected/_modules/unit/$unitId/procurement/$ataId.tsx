@@ -204,7 +204,7 @@ function AtaDetailPage() {
 					</Badge>
 				)}
 				{ata.meta.price_research.is_expired && (
-					<Badge variant="outline" className="gap-1.5 border-amber-500 text-amber-700">
+					<Badge variant="outline" className="gap-1.5 border-warning/50 text-warning">
 						<AlertTriangle className="size-3" aria-hidden="true" />
 						Pesquisa vencida (&gt; {ata.meta.price_research.validity_days}d)
 					</Badge>
@@ -220,12 +220,12 @@ function AtaDetailPage() {
 			</div>
 
 			{ata.status === "draft" && ata.meta.is_stale && (
-				<Card className="border-amber-500/50 bg-amber-50/50">
+				<Card className="border-warning/30 bg-warning/10">
 					<CardContent className="flex items-start gap-3 py-4">
-						<AlertTriangle className="size-5 shrink-0 text-amber-600" aria-hidden="true" />
+						<AlertTriangle className="size-5 shrink-0 text-warning" aria-hidden="true" />
 						<div className="text-sm">
-							<p className="font-medium text-amber-900">Quantitativos desatualizados</p>
-							<p className="text-amber-800">
+							<p className="font-medium text-foreground">Quantitativos desatualizados</p>
+							<p className="text-foreground">
 								Um cardápio ou evento desta ATA foi editado após o último cálculo. Refaça o cálculo dos quantitativos para refletir a composição atual antes de
 								publicar.
 							</p>

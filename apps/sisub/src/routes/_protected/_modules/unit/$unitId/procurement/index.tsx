@@ -99,7 +99,7 @@ function ProcurementIndexPage() {
 										{ata.notes && <CardDescription className="mt-1 line-clamp-2">{ata.notes}</CardDescription>}
 									</div>
 									{isWizardInProgress(ata) ? (
-										<Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+										<Badge variant="secondary" className="bg-info/15 text-info">
 											Preenchendo (passo {ata.wizard_step}/4)
 										</Badge>
 									) : (

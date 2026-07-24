@@ -335,10 +335,10 @@ export function IngredientDetailForm({ ingredient, folders }: IngredientDetailFo
 
 			{/* Banner de preview de versão histórica */}
 			{isPreviewing && selectedVersion && (
-				<div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex items-center gap-2 text-sm">
-						<History className="size-4 shrink-0 text-amber-700 dark:text-amber-400" />
-						<span className="text-amber-900 dark:text-amber-200">
+						<History className="size-4 shrink-0 text-warning" />
+						<span className="text-foreground">
 							Visualizando <strong>v{selectedVersion.version_number}</strong> de {formatVersionStamp(selectedVersion.created_at)} por{" "}
 							{selectedVersion.changed_by_name ?? "autor desconhecido"}
 						</span>

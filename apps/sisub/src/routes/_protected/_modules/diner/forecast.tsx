@@ -2,7 +2,7 @@
 
 import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Settings, UtensilsCrossed } from "lucide-react"
-import { lazy, Suspense, useState } from "react"
+import { lazy, memo, Suspense, useCallback, useMemo, useRef, useState } from "react"
 import { requirePermission } from "@/auth/pbac"
 import { BulkMealSelector } from "@/components/features/diner/BulkMealSelector"
 import { DayCardSkeleton } from "@/components/features/diner/DayCardSkeleton"
@@ -21,7 +21,13 @@ import { createEmptyDayMeals, isDateNear } from "@/lib/meal"
 import type { DayMeals, MessHallByDate, PendingChange, SelectionsByDate } from "@/types/domain/meal"
 import type { CardData } from "@/types/ui"
 
-const DayCard = lazy(() => import("@/components/features/diner/DayCard"))
+// memo: com "use no memo" no Forecast, o compiler não estabiliza os elementos — sem isto,
+// qualquer estado não-relacionado (toast, modal, isRefetching) re-renderiza os ~30 cards.
+const DayCard = memo(lazy(() => import("@/components/features/diner/DayCard")))
+
+// Identidade estável para dias sem seleção — somente leitura (criar um objeto novo por
+// render quebraria o memo dos cards vazios).
+const EMPTY_DAY_MEALS = createEmptyDayMeals()
 
 export const Route = createFileRoute("/_protected/_modules/diner/forecast")({
 	beforeLoad: (opts) => requirePermission(opts, "diner", 1),
@@ -127,7 +133,8 @@ function Forecast() {
 
 	const weekdayTargets = dates.filter((date: string) => isWeekday(date) && !isDateNear(date, NEAR_DATE_THRESHOLD))
 
-	const computedData = (() => {
+	// useMemo manual: "use no memo" desliga o compiler neste arquivo.
+	const computedData = useMemo(() => {
 		// "Cards sem rancho" = datas sem um messHallCode definido (falsy)
 		const cardsWithoutMessHall = dates.filter((date: string) => {
 			const code = dayMessHalls[date]
@@ -136,48 +143,52 @@ function Forecast() {
 
 		const cardData: CardData[] = dates.map((date: string) => ({
 			date,
-			daySelections: selections[date] || createEmptyDayMeals(),
+			daySelections: selections[date] || EMPTY_DAY_MEALS,
 			// UI sempre com CODE
 			dayMessHallCode: dayMessHalls[date] || defaultMessHallCode || "",
 		}))
 
 		return { cardsWithoutMessHall, cardData }
-	})()
+	}, [dates, dayMessHalls, selections, defaultMessHallCode])
 
-	const dayCardsProps = computedData.cardData.map(({ date, daySelections, dayMessHallCode }) => {
-		const dayCardData = getDayCardData(date, todayString, daySelections, NEAR_DATE_THRESHOLD)
-		// Determine kitchen ID for this date (logic available if filtering needed)
-		// const mh = messHalls.find((m) => String(m.id) === messHallId);
-		// const kitchenId = mh?.kitchenId;
+	const dayCardsProps = useMemo(
+		() =>
+			computedData.cardData.map(({ date, daySelections, dayMessHallCode }) => {
+				const dayCardData = getDayCardData(date, todayString, daySelections, NEAR_DATE_THRESHOLD)
+				// Determine kitchen ID for this date (logic available if filtering needed)
+				// const mh = messHalls.find((m) => String(m.id) === messHallId);
+				// const kitchenId = mh?.kitchenId;
 
-		// Extract menus for this date
-		// Note: useDailyMenuContent returns { [date]: { [meal]: Dish[] } }
-		// BUT it might contain menus for multiple kitchens if we fetched multiple.
-		// However, useDailyMenuContent implementation just groups by date/meal.
-		// If multiple kitchens have menu for same date/meal, they will collide or append.
-		// My mock implementation appended. Ideally I should filter by kitchenId if I can.
-		// For now, let's assume one kitchen per user/day context or the hook handles it?
-		// The hook currently returns `content[date][mealKey] = Dish[]`. It merges all kitchens.
-		// If the user has access to multiple kitchens, they might see merged dishes.
-		// To be precise, DayCard should filter by kitchenId.
-		// But DayCard doesn't know about kitchens.
-		// Let's pass the dishes directly.
+				// Extract menus for this date
+				// Note: useDailyMenuContent returns { [date]: { [meal]: Dish[] } }
+				// BUT it might contain menus for multiple kitchens if we fetched multiple.
+				// However, useDailyMenuContent implementation just groups by date/meal.
+				// If multiple kitchens have menu for same date/meal, they will collide or append.
+				// My mock implementation appended. Ideally I should filter by kitchenId if I can.
+				// For now, let's assume one kitchen per user/day context or the hook handles it?
+				// The hook currently returns `content[date][mealKey] = Dish[]`. It merges all kitchens.
+				// If the user has access to multiple kitchens, they might see merged dishes.
+				// To be precise, DayCard should filter by kitchenId.
+				// But DayCard doesn't know about kitchens.
+				// Let's pass the dishes directly.
 
-		const dishesForDay = menuContent?.[date]
+				const dishesForDay = menuContent?.[date]
 
-		return {
-			key: date,
-			date,
-			daySelections,
-			// DayCard e MessHallSelector trabalham com CODE (mantemos nome por compat)
-			dayMessHallId: dayMessHallCode,
-			// Também passamos o default como CODE
-			defaultMessHallId: defaultMessHallCode,
-			...dayCardData,
-			dishes: dishesForDay, // Pass dishes
-			isSaving: false,
-		}
-	})
+				return {
+					key: date,
+					date,
+					daySelections,
+					// DayCard e MessHallSelector trabalham com CODE (mantemos nome por compat)
+					dayMessHallId: dayMessHallCode,
+					// Também passamos o default como CODE
+					defaultMessHallId: defaultMessHallCode,
+					...dayCardData,
+					dishes: dishesForDay, // Pass dishes
+					isSaving: false,
+				}
+			}),
+		[computedData, todayString, menuContent, defaultMessHallCode]
+	)
 
 	/* ============================
      Event Handlers
@@ -250,6 +261,17 @@ function Forecast() {
 			return [...filtered, ...selectedMeals]
 		})
 	}
+
+	// Handlers estáveis (padrão ref, como RecipesManager/IngredientsTreeManager): identidade
+	// fixa para o memo dos DayCards; a versão corrente vive no ref. Escrita em render é
+	// tolerada aqui porque o arquivo opta fora do compiler ("use no memo").
+	const mealToggleRef = useRef(handleMealToggle)
+	mealToggleRef.current = handleMealToggle
+	const stableMealToggle = useCallback((date: string, meal: keyof DayMeals) => mealToggleRef.current(date, meal), [])
+
+	const messHallChangeRef = useRef(handleMessHallChange)
+	messHallChangeRef.current = handleMessHallChange
+	const stableMessHallChange = useCallback((date: string, code: string) => messHallChangeRef.current(date, code), [])
 
 	const handleRefresh = (): void => {
 		loadExistingForecasts()
@@ -494,7 +516,7 @@ function Forecast() {
 					{dayCardsProps.map(({ key, ...cardProps }) => (
 						<Suspense fallback={<DayCardSkeleton />} key={key}>
 							<div className="snap-center">
-								<DayCard {...cardProps} pendingChanges={pendingChanges} onMealToggle={handleMealToggle} onMessHallChange={handleMessHallChange} />
+								<DayCard {...cardProps} pendingChanges={pendingChanges} onMealToggle={stableMealToggle} onMessHallChange={stableMessHallChange} />
 							</div>
 						</Suspense>
 					))}

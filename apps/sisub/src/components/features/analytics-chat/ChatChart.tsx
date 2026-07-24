@@ -1,7 +1,10 @@
 import { Download } from "lucide-react"
 import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useCallback, useRef } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { reportError } from "@/lib/observability/report-error"
 import type { ChartSpec, ChartType } from "@/types/domain/analytics-chat"
 
@@ -166,7 +169,9 @@ function exportAsPng(container: HTMLDivElement, title: string) {
 
 // ── Lazy Recharts (avoid SSR, reduce initial bundle) ────────────────────────
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"]
+// Paleta de séries de dados — tokens de chart calibrados do tema (styles.css).
+// O 6º slot usa --governance (roxo calibrado) para manter 6 matizes distintos.
+const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-5)", "var(--governance)", "var(--chart-4)"]
 
 const RechartsBarChart = lazy(() =>
 	import("recharts").then((m) => ({
@@ -326,7 +331,7 @@ export function ChatChart({ spec, overrideType }: ChatChartProps) {
 	const keyError = validateChartKeys(spec)
 	if (keyError) {
 		return (
-			<div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+			<div className="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
 				<p className="text-subheading">Dados incompatíveis com a configuração do gráfico</p>
 				<p className="mt-1 text-xs opacity-80">{keyError}</p>
 			</div>
@@ -336,52 +341,50 @@ export function ChatChart({ spec, overrideType }: ChatChartProps) {
 	const fallback = <Skeleton className="h-[300px] w-full rounded-lg" />
 
 	return (
-		<div className="rounded-lg border border-border bg-card p-4">
+		<Card>
 			{/* Header — title/description + export buttons */}
 			{(spec.title || spec.description || isChart) && (
-				<div className="mb-3 flex items-start justify-between gap-2">
-					<div className="min-w-0">
-						{spec.title && <p className="text-subheading text-foreground">{spec.title}</p>}
-						{spec.description && <p className="mt-0.5 text-xs text-muted-foreground">{spec.description}</p>}
-					</div>
+				<CardHeader>
+					{spec.title && <CardTitle>{spec.title}</CardTitle>}
+					{spec.description && <CardDescription>{spec.description}</CardDescription>}
 					{isChart && (
-						<div className="flex shrink-0 items-center gap-1">
-							<button
-								type="button"
-								onClick={handleDownloadSvg}
-								className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-								title="Baixar como SVG"
-							>
-								<Download className="size-3" />
-								SVG
-							</button>
-							<button
-								type="button"
-								onClick={handleDownloadPng}
-								className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-								title="Baixar como PNG"
-							>
-								<Download className="size-3" />
-								PNG
-							</button>
+						<CardAction>
+							<div className="flex shrink-0 items-center gap-1">
+								<Tooltip>
+									<TooltipTrigger render={<Button size="sm" variant="outline" onClick={handleDownloadSvg} />}>
+										<Download />
+										SVG
+									</TooltipTrigger>
+									<TooltipContent>Baixar como SVG</TooltipContent>
+								</Tooltip>
+								<Tooltip>
+									<TooltipTrigger render={<Button size="sm" variant="outline" onClick={handleDownloadPng} />}>
+										<Download />
+										PNG
+									</TooltipTrigger>
+									<TooltipContent>Baixar como PNG</TooltipContent>
+								</Tooltip>
+							</div>
+						</CardAction>
+					)}
+				</CardHeader>
+			)}
+			<CardContent>
+				<ChartErrorBoundary>
+					{type === "table" ? (
+						<DataTable spec={spec} />
+					) : (
+						<div ref={chartRef}>
+							<Suspense fallback={fallback}>
+								{type === "bar" && <RechartsBarChart spec={spec} />}
+								{type === "line" && <RechartsLineChart spec={spec} />}
+								{type === "area" && <RechartsAreaChart spec={spec} />}
+								{type === "pie" && <RechartsPieChart spec={spec} />}
+							</Suspense>
 						</div>
 					)}
-				</div>
-			)}
-			<ChartErrorBoundary>
-				{type === "table" ? (
-					<DataTable spec={spec} />
-				) : (
-					<div ref={chartRef}>
-						<Suspense fallback={fallback}>
-							{type === "bar" && <RechartsBarChart spec={spec} />}
-							{type === "line" && <RechartsLineChart spec={spec} />}
-							{type === "area" && <RechartsAreaChart spec={spec} />}
-							{type === "pie" && <RechartsPieChart spec={spec} />}
-						</Suspense>
-					</div>
-				)}
-			</ChartErrorBoundary>
-		</div>
+				</ChartErrorBoundary>
+			</CardContent>
+		</Card>
 	)
 }

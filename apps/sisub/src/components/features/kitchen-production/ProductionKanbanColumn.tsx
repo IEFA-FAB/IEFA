@@ -26,13 +26,13 @@ const COLUMN_CONFIG: Record<
 	IN_PROGRESS: {
 		label: "Em Preparo",
 		icon: ChefHat,
-		headerClass: "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800/50",
+		headerClass: "bg-warning/10 border-warning/20",
 		dotClass: "bg-warning",
 	},
 	DONE: {
 		label: "Pronto",
 		icon: CheckCircle2,
-		headerClass: "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800/50",
+		headerClass: "bg-success/10 border-success/20",
 		dotClass: "bg-success",
 	},
 }

@@ -11,7 +11,7 @@ export const evaluationKey = queryKeys.evaluation.user
 export function useEvaluation(userId: string | null) {
 	return useQuery({
 		queryKey: queryKeys.evaluation.user(userId),
-		queryFn: (): Promise<EvaluationResult> => fetchEvaluationForUserFn({ data: { userId: userId ?? "" } }),
+		queryFn: (): Promise<EvaluationResult> => fetchEvaluationForUserFn(),
 		enabled: !!userId,
 		staleTime: QUERY_STALE_TIME,
 		gcTime: QUERY_GC_TIME,

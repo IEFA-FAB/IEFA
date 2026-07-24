@@ -1,4 +1,5 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import type { Dispatch, SetStateAction } from "react"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -20,41 +21,24 @@ interface FiscalDialogProps {
 	resolveDisplayName?: (userId: string) => Promise<string | null>
 }
 
-const nameCache = new Map<string, string>()
-
 export default function FiscalDialog({ setDialog, dialog, confirmDialog, selectedUnit, resolveDisplayName }: FiscalDialogProps) {
 	const forecastIsYes = !!dialog.systemForecast
 	const forecastIsNo = !dialog.systemForecast
 
 	const id = dialog.uuid?.trim() || null
-	const [fetchResult, setFetchResult] = useState<{ id: string | null; name: string | null }>({
-		id: null,
-		name: null,
+	// staleTime Infinity: nome não muda durante a sessão do fiscal — substitui o Map manual.
+	const nameQuery = useQuery({
+		queryKey: ["presences", "display-name", id],
+		queryFn: async () => {
+			if (!id || !resolveDisplayName) return null
+			const name = await resolveDisplayName(id)
+			return name?.trim() || null
+		},
+		enabled: !!id && !!resolveDisplayName,
+		staleTime: Number.POSITIVE_INFINITY,
 	})
 
-	// Derive loading from state — avoids synchronous setState in effect body
-	const loadingName = !!(id && resolveDisplayName && !nameCache.has(id) && fetchResult.id !== id)
-	const displayName = id ? (nameCache.get(id) ?? (fetchResult.id === id ? fetchResult.name : null)) : null
-
-	useEffect(() => {
-		if (!id || !resolveDisplayName || nameCache.has(id)) return
-		let cancelled = false
-		resolveDisplayName(id)
-			.then((name) => {
-				if (cancelled) return
-				const normalized = name?.trim() || null
-				if (normalized) nameCache.set(id, normalized)
-				setFetchResult({ id, name: normalized })
-			})
-			.catch(() => {
-				if (!cancelled) setFetchResult({ id, name: null })
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [id, resolveDisplayName])
-
-	const personLine = loadingName ? "Carregando..." : displayName || dialog.uuid || "—"
+	const personLine = nameQuery.isLoading ? "Carregando..." : nameQuery.data || dialog.uuid || "—"
 
 	return (
 		<>

@@ -57,7 +57,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 		) : toolCall.status === "error" ? (
 			<AlertCircle className="size-3.5 text-destructive" />
 		) : (
-			<Check className="size-3.5 text-emerald-600" />
+			<Check className="size-3.5 text-success" />
 		)
 
 	let parsedArgs: Record<string, unknown> | null = null

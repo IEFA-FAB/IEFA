@@ -1,7 +1,7 @@
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress"
 
 export function ConsumptionBar({ pct }: { pct: number }) {
-	const color = pct >= 100 ? "bg-destructive" : pct >= 90 ? "bg-destructive/80" : pct >= 80 ? "bg-amber-500" : "bg-primary"
+	const color = pct >= 100 ? "bg-destructive" : pct >= 90 ? "bg-destructive/80" : pct >= 80 ? "bg-warning" : "bg-primary"
 	return (
 		<div className="flex items-center gap-2 min-w-[120px]">
 			<Progress value={pct} className="flex-1">
@@ -9,7 +9,7 @@ export function ConsumptionBar({ pct }: { pct: number }) {
 					<ProgressIndicator className={color} />
 				</ProgressTrack>
 			</Progress>
-			<span className={`text-caption w-9 text-right ${pct >= 90 ? "text-destructive" : pct >= 80 ? "text-amber-600" : "text-foreground"}`}>{pct}%</span>
+			<span className={`text-caption w-9 text-right ${pct >= 90 ? "text-destructive" : pct >= 80 ? "text-warning" : "text-foreground"}`}>{pct}%</span>
 		</div>
 	)
 }

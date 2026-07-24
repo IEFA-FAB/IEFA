@@ -12,7 +12,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 		return (
 			<Card>
 				<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-					<CheckCircle2 className="size-9 text-green-500" />
+					<CheckCircle2 className="size-9 text-success" />
 					<p className="text-subheading">Nenhum item com saldo crítico</p>
 					<p className="text-sm text-muted-foreground max-w-sm">Todos os itens das ARPs vinculadas às atas publicadas estão com saldo confortável.</p>
 				</CardContent>
@@ -36,7 +36,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 					</thead>
 					<tbody className="divide-y divide-border/60">
 						{items.map((item) => (
-							<tr key={item.id} className={`hover:bg-muted/30 transition-colors ${item.in_upcoming_menu ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}>
+							<tr key={item.id} className={`hover:bg-muted/30 transition-colors ${item.in_upcoming_menu ? "bg-warning/10" : ""}`}>
 								<td className="py-2.5 px-3">
 									<p className="text-subheading line-clamp-1">{item.ingredient_name ?? item.descricao_item ?? "—"}</p>
 									<p className="text-xs text-muted-foreground font-mono mt-0.5">
@@ -66,7 +66,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 											(item.saldo_empenho != null ? Number(item.saldo_empenho) : 0) <= 0
 												? "text-destructive text-subheading"
 												: item.consumption_pct >= 90
-													? "text-amber-600 text-subheading"
+													? "text-warning text-subheading"
 													: ""
 										}
 									>
@@ -79,7 +79,7 @@ export function LowBalanceTable({ items, unitIdStr }: { items: DashboardArpItem[
 								</td>
 								<td className="py-2.5 px-3 text-center">
 									{item.in_upcoming_menu ? (
-										<Badge variant="outline" className="text-[10px] gap-1 border-amber-400 text-amber-700 dark:text-amber-400">
+										<Badge variant="outline" className="text-[10px] gap-1 border-warning/50 text-warning">
 											<ChefHat className="size-2.5" />
 											No cardápio
 										</Badge>

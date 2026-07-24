@@ -205,7 +205,7 @@ function UnitDashboardPage() {
 				{criticalMenuItems.length === 0 ? (
 					<Card>
 						<CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-							<CheckCircle2 className="size-9 text-green-500" />
+							<CheckCircle2 className="size-9 text-success" />
 							<p className="text-subheading text-muted-foreground">Sem alertas no momento</p>
 							<p className="text-sm text-muted-foreground max-w-sm">Nenhum item com saldo crítico está nos cardápios planejados das cozinhas desta unidade.</p>
 						</CardContent>

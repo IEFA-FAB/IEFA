@@ -176,9 +176,7 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 							</div>
 
 							{sync.error_message && (
-								<p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
-									{sync.error_message}
-								</p>
+								<p className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{sync.error_message}</p>
 							)}
 						</CardContent>
 					</Card>
@@ -204,7 +202,7 @@ export function SyncRunnerPanel({ config }: { config: SyncPanelConfig }) {
 											{sync.steps.map((step) => {
 												const label = config.stepLabel(step.step_name)
 												return (
-													<tr key={step.id} className={step.status === "running" ? "bg-blue-500/5" : step.status === "error" ? "bg-red-500/5" : undefined}>
+													<tr key={step.id} className={step.status === "running" ? "bg-info/5" : step.status === "error" ? "bg-destructive/5" : undefined}>
 														<td className="px-4 py-2.5">
 															{label.secondary ? (
 																<>

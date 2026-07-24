@@ -14,9 +14,10 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, Percent, Plus, X } from "lucide-react"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import { MENU_ITEM_GROUP_LABELS, MENU_ITEM_GROUPS, type MenuItemGroup, UNGROUPED_KEY, UNGROUPED_LABEL } from "@/lib/menu-item-groups"
 
@@ -96,8 +97,13 @@ function SortableItem({
 
 			{renderExtra?.(item)}
 
-			<div className="flex items-center gap-1 shrink-0" title="Proporção recomendada de consumo (%)">
-				<Percent className="size-3 text-muted-foreground" />
+			<div className="flex items-center gap-1 shrink-0">
+				<Tooltip>
+					<TooltipTrigger render={<span className="inline-flex" />}>
+						<Percent className="size-3 text-muted-foreground" />
+					</TooltipTrigger>
+					<TooltipContent>Proporção recomendada de consumo (%)</TooltipContent>
+				</Tooltip>
 				<Input
 					type="number"
 					min="0"
@@ -106,6 +112,7 @@ function SortableItem({
 					className="h-6 w-16 text-xs"
 					value={item.proportion ?? ""}
 					placeholder="%"
+					aria-label="Proporção recomendada de consumo (%)"
 					onChange={(e) => {
 						const raw = e.target.value
 						if (raw === "") return onProportionChange(item.id, null)
@@ -217,7 +224,17 @@ export function MealGroupBoard({
 	const [columns, setColumns] = useState<Record<ColumnKey, string[]>>(() => buildColumns(items))
 	const [activeId, setActiveId] = useState<string | null>(null)
 
+	// Refs (não deps do efeito): um re-render do pai no meio do drag não pode descartar
+	// o arranjo em curso; itens que chegarem durante o drag ficam pendentes e são
+	// aplicados só se o drag for cancelado (no drop, o eco do onArrange ressincroniza).
+	const draggingRef = useRef(false)
+	const pendingItemsRef = useRef<BoardItem[] | null>(null)
+
 	useEffect(() => {
+		if (draggingRef.current) {
+			pendingItemsRef.current = items
+			return
+		}
 		setColumns(buildColumns(items))
 	}, [items])
 
@@ -235,7 +252,17 @@ export function MealGroupBoard({
 	}
 
 	function handleDragStart(event: DragStartEvent) {
+		draggingRef.current = true
 		setActiveId(String(event.active.id))
+	}
+
+	/** Encerra o drag. Sem commit, volta ao estado externo mais recente (mudanças chegadas durante o drag). */
+	function finishDrag(commit: boolean) {
+		draggingRef.current = false
+		setActiveId(null)
+		const pending = pendingItemsRef.current
+		pendingItemsRef.current = null
+		if (!commit && pending) setColumns(buildColumns(pending))
 	}
 
 	function handleDragOver(event: DragOverEvent) {
@@ -262,13 +289,19 @@ export function MealGroupBoard({
 
 	function handleDragEnd(event: DragEndEvent) {
 		const { active, over } = event
-		setActiveId(null)
-		if (!over) return
+		if (!over) {
+			finishDrag(false)
+			return
+		}
 		const activeId = String(active.id)
 		const overId = String(over.id)
 		const from = findColumn(activeId)
 		const to = findColumn(overId)
-		if (!from || !to) return
+		if (!from || !to) {
+			finishDrag(false)
+			return
+		}
+		finishDrag(true)
 
 		let next = columns
 		if (from === to) {
@@ -292,7 +325,7 @@ export function MealGroupBoard({
 			onDragStart={handleDragStart}
 			onDragOver={handleDragOver}
 			onDragEnd={handleDragEnd}
-			onDragCancel={() => setActiveId(null)}
+			onDragCancel={() => finishDrag(false)}
 		>
 			<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
 				{([...MENU_ITEM_GROUPS, UNGROUPED_KEY] as ColumnKey[]).map((key) => {

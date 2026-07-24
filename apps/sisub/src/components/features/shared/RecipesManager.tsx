@@ -422,14 +422,28 @@ export function RecipesManager() {
 											)}
 											{!isDeleted &&
 												(reviewedAt ? (
-													<Badge variant="outline" className="gap-1 text-muted-foreground shrink-0" title={`Última revisão em ${formatReviewDate(reviewedAt)}`}>
-														<CalendarCheck className="size-3" />
-														<span className="hidden sm:inline">Revisada {formatReviewDate(reviewedAt)}</span>
-													</Badge>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Badge variant="outline" className="gap-1 text-muted-foreground shrink-0">
+																	<CalendarCheck className="size-3" />
+																	<span className="hidden sm:inline">Revisada {formatReviewDate(reviewedAt)}</span>
+																</Badge>
+															}
+														/>
+														<TooltipContent>Última revisão em {formatReviewDate(reviewedAt)}</TooltipContent>
+													</Tooltip>
 												) : (
-													<Badge variant="warning" className="shrink-0" title="Preparação ainda não revisada">
-														Não revisada
-													</Badge>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Badge variant="warning" className="shrink-0">
+																	Não revisada
+																</Badge>
+															}
+														/>
+														<TooltipContent>Preparação ainda não revisada</TooltipContent>
+													</Tooltip>
 												))}
 											{recipe.version > 1 && (
 												<Badge variant="secondary" className="rounded-full px-2 py-0 font-mono text-xs shrink-0">

@@ -110,7 +110,7 @@ export function IngredientVersionPreview({ snapshot, diff, isBaseline }: Ingredi
 								className={cn(
 									"flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm",
 									kind === "added" && "bg-success/10",
-									kind === "changed" && "bg-amber-50 dark:bg-amber-950/20"
+									kind === "changed" && "bg-warning/10"
 								)}
 							>
 								<span className="text-foreground">{n.name ?? n.nutrient_id}</span>
@@ -145,10 +145,7 @@ export function IngredientVersionPreview({ snapshot, diff, isBaseline }: Ingredi
 						const change = productChange.get(item.id)
 						const kind = change?.kind
 						return (
-							<div
-								key={item.id}
-								className={cn("rounded-md px-3 py-2 text-sm", kind === "added" && "bg-success/10", kind === "changed" && "bg-amber-50 dark:bg-amber-950/20")}
-							>
+							<div key={item.id} className={cn("rounded-md px-3 py-2 text-sm", kind === "added" && "bg-success/10", kind === "changed" && "bg-warning/10")}>
 								<div className="flex items-center justify-between gap-3">
 									<span className={cn(kind === "added" ? "text-success" : "text-foreground")}>{item.description ?? item.barcode ?? item.id}</span>
 									{item.purchase_measure_unit && <span className="font-mono text-xs text-muted-foreground">{item.purchase_measure_unit}</span>}
@@ -178,7 +175,7 @@ export function IngredientVersionPreview({ snapshot, diff, isBaseline }: Ingredi
 						return (
 							<div
 								key={link.purchase_item_id}
-								className={cn("rounded-md px-3 py-2 text-sm", kind === "added" && "bg-success/10", kind === "changed" && "bg-amber-50 dark:bg-amber-950/20")}
+								className={cn("rounded-md px-3 py-2 text-sm", kind === "added" && "bg-success/10", kind === "changed" && "bg-warning/10")}
 							>
 								<div className="flex items-center justify-between gap-3">
 									<span className={cn(kind === "added" ? "text-success" : "text-foreground")}>

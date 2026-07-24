@@ -203,9 +203,7 @@ export function KitchenSettingsForm({ kitchenId, defaultValues }: { kitchenId: n
 
 			{/* ── Ações ──────────────────────────────────────────────────────── */}
 			<div className="flex justify-end">
-				{updateMutation.isSuccess && !updateMutation.isPending && (
-					<p className="self-center mr-4 text-sm text-green-600 dark:text-green-400">Salvo com sucesso.</p>
-				)}
+				{updateMutation.isSuccess && !updateMutation.isPending && <p className="self-center mr-4 text-sm text-success">Salvo com sucesso.</p>}
 				{updateMutation.isError && <p className="self-center mr-4 text-sm text-destructive">{updateMutation.error?.message ?? "Erro ao salvar."}</p>}
 				<Button type="submit" disabled={updateMutation.isPending}>
 					{updateMutation.isPending ? "Salvando..." : "Salvar alterações"}
