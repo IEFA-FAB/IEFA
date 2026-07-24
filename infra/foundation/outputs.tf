@@ -114,6 +114,11 @@ output "github_deploy_role_arn" {
   value       = var.enable_github_deploy_role ? aws_iam_role.github_deploy[0].arn : ""
 }
 
+output "github_tf_plan_role_arn" {
+  description = "ARN of the read-only GitHub Actions Terraform plan role. Set as the AWS_TF_PLAN_ROLE_ARN GitHub Actions variable."
+  value       = var.enable_github_tf_plan_role ? aws_iam_role.github_tf_plan[0].arn : ""
+}
+
 output "certificate_arn_created" {
   description = "ARN of the ACM certificate created here (empty if not provisioned). Set as certificate_arn once ISSUED to enable HTTPS."
   value       = var.provision_certificate ? aws_acm_certificate.this[0].arn : ""
@@ -135,6 +140,7 @@ output "github_actions_variables" {
   value = {
     AWS_REGION            = var.aws_region
     AWS_DEPLOY_ROLE_ARN   = var.enable_github_deploy_role ? aws_iam_role.github_deploy[0].arn : ""
+    AWS_TF_PLAN_ROLE_ARN  = var.enable_github_tf_plan_role ? aws_iam_role.github_tf_plan[0].arn : ""
     ECR_REGISTRY          = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
     ECR_REPOSITORY_PREFIX = "${var.project}/${var.environment}"
     ECS_CLUSTER           = aws_ecs_cluster.this.name
