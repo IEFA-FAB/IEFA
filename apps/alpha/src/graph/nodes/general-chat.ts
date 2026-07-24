@@ -2,7 +2,7 @@ import { AIMessage } from "@langchain/core/messages"
 import { getLLM } from "../../lib/llm"
 import type { AgentState } from "../state"
 
-const SYSTEM_PROMPT = `Você é o ATLAS, assistente virtual da SEFA (Secretaria da Fazenda do Estado do Pará).
+const SYSTEM_PROMPT = `Você é o ATLAS, assistente virtual da SEFA (Secretaria de Economia, Finanças e Administração da Aeronáutica).
 Responda de forma prestativa e profissional. Para perguntas gerais e saudações, responda diretamente sem consultar documentos legislativos.`
 
 export async function generalChatNode(state: AgentState): Promise<Partial<AgentState>> {
