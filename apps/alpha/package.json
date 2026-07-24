@@ -30,6 +30,6 @@
     "@types/pg": "^8.20.0",
     "@types/uuid": "^11.0.0",
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
