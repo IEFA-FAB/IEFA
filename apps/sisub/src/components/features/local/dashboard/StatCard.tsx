@@ -15,15 +15,15 @@ export function StatCard({
 }) {
 	const iconColors = {
 		default: "text-muted-foreground",
-		warning: "text-amber-500",
+		warning: "text-warning",
 		danger: "text-destructive",
-		success: "text-green-600",
+		success: "text-success",
 	}
 	const valueColors = {
 		default: "text-foreground",
-		warning: "text-amber-600",
+		warning: "text-warning",
 		danger: "text-destructive",
-		success: "text-green-700",
+		success: "text-success",
 	}
 
 	return (

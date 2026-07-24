@@ -320,19 +320,15 @@ export async function fetchUnitDashboard(
 			const today = new Date().toISOString().substring(0, 10)
 			const future = new Date(Date.now() + 30 * 86_400_000).toISOString().substring(0, 10)
 
+			// DUAS queries de propósito (mesmo split de production.ts): daily_menu →
+			// menu_items → recipes → recipe_ingredients numa query só estoura o limite
+			// de 63 chars de alias do Postgres — os identificadores truncados colidem
+			// → 42703 ou resultado vazio silencioso.
 			const menus = await runQuery("QUERY_FAILED", () =>
 				db.query.dailyMenuInKitchen.findMany({
 					columns: { id: true },
 					with: {
-						menuItemsInKitchens: {
-							columns: { id: true, deletedAt: true },
-							with: {
-								recipesInKitchen: {
-									columns: { id: true },
-									with: { recipeIngredientsInKitchens: { columns: { ingredientId: true } } },
-								},
-							},
-						},
+						menuItemsInKitchens: { columns: { id: true, deletedAt: true, recipeOriginId: true } },
 					},
 					where: and(
 						inArray(dailyMenuInKitchen.kitchenId, kitchenIds),
@@ -343,12 +339,28 @@ export async function fetchUnitDashboard(
 				})
 			)
 
-			for (const menu of menus) {
-				for (const menuItem of menu.menuItemsInKitchens) {
-					if (menuItem.deletedAt) continue
-					const recipeOrigin = menuItem.recipesInKitchen
-					if (!recipeOrigin) continue
-					for (const ing of recipeOrigin.recipeIngredientsInKitchens) {
+			const menuRecipeIds = [
+				...new Set(
+					menus.flatMap((menu) =>
+						menu.menuItemsInKitchens
+							.filter((menuItem) => !menuItem.deletedAt)
+							.map((menuItem) => menuItem.recipeOriginId)
+							.filter((id): id is string => id != null)
+					)
+				),
+			]
+
+			if (menuRecipeIds.length > 0) {
+				const menuRecipes = await runQuery("QUERY_FAILED", () =>
+					db.query.recipesInKitchen.findMany({
+						columns: { id: true },
+						with: { recipeIngredientsInKitchens: { columns: { ingredientId: true } } },
+						where: inArray(recipesInKitchen.id, menuRecipeIds),
+					})
+				)
+
+				for (const recipe of menuRecipes) {
+					for (const ing of recipe.recipeIngredientsInKitchens) {
 						if (ing.ingredientId) upcomingIngredientIds.add(ing.ingredientId)
 					}
 				}

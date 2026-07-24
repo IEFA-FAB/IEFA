@@ -65,37 +65,30 @@ export const upsertEvalConfigFn = createServerFn({ method: "POST" })
  *
  * @throws {Error} on config or opinion query failure.
  */
-export const fetchEvaluationForUserFn = createServerFn({ method: "GET" })
-	.validator(z.object({ userId: z.string() }))
-	.handler(async (): Promise<EvaluationResult> => {
-		// Self-only: o id do payload é ignorado — o cliente não decide de quem é a avaliação.
-		const userId = await requireUserId()
-		const { data: config, error: configError } = await getCoreClient()
-			.from("super_admin_controller")
-			.select("key, active, value")
-			.eq("key", "evaluation")
-			.maybeSingle()
+export const fetchEvaluationForUserFn = createServerFn({ method: "GET" }).handler(async (): Promise<EvaluationResult> => {
+	// Self-only: a identidade vem da sessão — o cliente não decide de quem é a avaliação.
+	const userId = await requireUserId()
+	const { data: config, error: configError } = await getCoreClient()
+		.from("super_admin_controller")
+		.select("key, active, value")
+		.eq("key", "evaluation")
+		.maybeSingle()
 
-		if (configError) throw new Error(configError.message)
+	if (configError) throw new Error(configError.message)
 
-		const isActive = !!config?.active
-		const question = (config?.value ?? "") as string
+	const isActive = !!config?.active
+	const question = (config?.value ?? "") as string
 
-		if (!isActive || !question) {
-			return { shouldAsk: false, question: question || null }
-		}
+	if (!isActive || !question) {
+		return { shouldAsk: false, question: question || null }
+	}
 
-		const { data: opinion, error: opinionError } = await getCoreClient()
-			.from("opinions")
-			.select("id")
-			.eq("question", question)
-			.eq("userId", userId)
-			.maybeSingle()
+	const { data: opinion, error: opinionError } = await getCoreClient().from("opinions").select("id").eq("question", question).eq("userId", userId).maybeSingle()
 
-		if (opinionError) throw new Error(opinionError.message)
+	if (opinionError) throw new Error(opinionError.message)
 
-		return { shouldAsk: !opinion, question }
-	})
+	return { shouldAsk: !opinion, question }
+})
 
 /**
  * Records a user's evaluation answer for a specific question.

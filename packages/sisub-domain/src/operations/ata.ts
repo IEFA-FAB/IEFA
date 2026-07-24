@@ -18,6 +18,7 @@
  */
 
 import {
+	folderInKitchen,
 	kitchenInCore,
 	menuTemplateInKitchen,
 	menuTemplateItemsInKitchen,
@@ -32,6 +33,7 @@ import {
 	procurementPesquisaPrecoItemInProcurement,
 	purchaseItemIngredientInProcurement,
 	recipeIngredientsInKitchen,
+	recipesInKitchen,
 	type SisubDb,
 } from "@iefa/database/drizzle/sisub"
 import type { Tables } from "@iefa/database/sisub"
@@ -154,7 +156,12 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 
 	const uniqueTemplateIds = [...new Set(allSelections.map((s) => s.templateId))]
 
-	// Templates com items → recipe → ingredients → ingredient → folder (cozinha pura, sem catmat).
+	// TRÊS queries de propósito (mesmo split de production.ts): aninhar template →
+	// items → recipe → ingredients → ingredient → folder numa query só (5 níveis)
+	// estoura o limite de 63 chars de alias do Postgres — os níveis profundos
+	// colidem no identificador truncado → 42703 ou resultado vazio silencioso.
+	// Receitas (3 níveis, dentro do limite) e folders são buscadas à parte e
+	// juntadas em JS.
 	const templates = await runQuery(
 		"QUERY_FAILED",
 		() =>
@@ -163,22 +170,6 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 				with: {
 					menuTemplateItemsInKitchens: {
 						columns: { id: true, recipeId: true, headcountOverride: true, dayOfWeek: true, mealTypeId: true },
-						with: {
-							recipesInKitchen: {
-								columns: { id: true, portionYield: true },
-								with: {
-									recipeIngredientsInKitchens: {
-										columns: { ingredientId: true, netQuantity: true },
-										with: {
-											ingredientInKitchen: {
-												columns: { id: true, description: true, measureUnit: true, folderId: true },
-												with: { folderInKitchen: { columns: { id: true, description: true } } },
-											},
-										},
-									},
-								},
-							},
-						},
 					},
 				},
 				where: inArray(menuTemplateInKitchen.id, uniqueTemplateIds),
@@ -189,6 +180,41 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 	if (templates.length === 0) return []
 
 	const templateMap = new Map(templates.map((t) => [t.id, t]))
+
+	const recipeIds = [...new Set(templates.flatMap((t) => t.menuTemplateItemsInKitchens.map((item) => item.recipeId).filter((id): id is string => id != null)))]
+	const recipes =
+		recipeIds.length > 0
+			? await runQuery(
+					"QUERY_FAILED",
+					() =>
+						db.query.recipesInKitchen.findMany({
+							columns: { id: true, portionYield: true },
+							with: {
+								recipeIngredientsInKitchens: {
+									columns: { ingredientId: true, netQuantity: true },
+									with: { ingredientInKitchen: { columns: { id: true, description: true, measureUnit: true, folderId: true } } },
+								},
+							},
+							where: inArray(recipesInKitchen.id, recipeIds),
+						}),
+					{ prefix: "Erro ao buscar receitas" }
+				)
+			: []
+	const recipeById = new Map(recipes.map((r) => [r.id, r]))
+
+	const folderIds = [
+		...new Set(recipes.flatMap((r) => r.recipeIngredientsInKitchens.map((ri) => ri.ingredientInKitchen?.folderId).filter((id): id is string => id != null))),
+	]
+	const folders =
+		folderIds.length > 0
+			? await runQuery(
+					"QUERY_FAILED",
+					() =>
+						db.select({ id: folderInKitchen.id, description: folderInKitchen.description }).from(folderInKitchen).where(inArray(folderInKitchen.id, folderIds)),
+					{ prefix: "Erro ao buscar pastas" }
+				)
+			: []
+	const folderById = new Map(folders.map((f) => [f.id, f]))
 
 	// Efetivo base por (template → dia:refeição). O headcount_override do item é exceção;
 	// a base cobre os itens sem override (que antes eram pulados e não entravam na compra).
@@ -221,7 +247,7 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 		const baseByCell = baseByTemplateCell.get(selection.templateId)
 
 		for (const item of template.menuTemplateItemsInKitchens) {
-			const recipeData = item.recipesInKitchen
+			const recipeData = item.recipeId ? recipeById.get(item.recipeId) : undefined
 			if (!recipeData) continue
 
 			// Exceção por-item (override) senão o efetivo base da refeição. Sem nenhum dos dois
@@ -235,12 +261,13 @@ export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: C
 				const ingredientRaw = ri.ingredientInKitchen
 				if (!ingredientRaw || !ri.ingredientId) continue
 
+				const folder = ingredientRaw.folderId ? (folderById.get(ingredientRaw.folderId) ?? null) : null
 				const ingredient = {
 					id: ingredientRaw.id,
 					description: ingredientRaw.description,
 					measure_unit: ingredientRaw.measureUnit,
 					folder_id: ingredientRaw.folderId,
-					folder: ingredientRaw.folderInKitchen ? { id: ingredientRaw.folderInKitchen.id, description: ingredientRaw.folderInKitchen.description } : null,
+					folder: folder ? { id: folder.id, description: folder.description } : null,
 				}
 
 				// Aquisição: projeta o cardápio × repetições da seleção da ATA.

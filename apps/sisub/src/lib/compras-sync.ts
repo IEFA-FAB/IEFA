@@ -3,13 +3,13 @@ import type { SyncLog, SyncStep } from "@/types/domain/compras-sync"
 export function statusColor(status: SyncLog["status"] | SyncStep["status"]) {
 	switch (status) {
 		case "running":
-			return "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+			return "bg-info/15 text-info"
 		case "success":
-			return "bg-green-500/15 text-green-700 dark:text-green-400"
+			return "bg-success/15 text-success"
 		case "partial":
-			return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400"
+			return "bg-warning/15 text-warning"
 		case "error":
-			return "bg-red-500/15 text-red-700 dark:text-red-400"
+			return "bg-destructive/15 text-destructive"
 		case "pending":
 			return "bg-muted text-muted-foreground"
 		default:

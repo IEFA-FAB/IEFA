@@ -198,9 +198,18 @@ function NewAtaPage() {
 	// Sincronizar savedItems com o banco sempre que existingDraft.items mudar — garante que
 	// preços pesquisados persistem quando dados do cache ficam obsoletos entre sessões.
 	// TanStack Query usa structural sharing, então esse efeito só roda quando os dados realmente mudam.
+	// Merge (não replace): handleCalculate também escreve savedItems com ata_item_id enriquecido;
+	// um eco do server sem esse id não pode regredir o estado local (perderia os links de pesquisa).
 	useEffect(() => {
 		if (!existingDraft?.items?.length) return
-		setSavedItems(existingDraft.items.map(ataItemToNeed))
+		setSavedItems((prev) => {
+			const prevById = new Map(prev.map((p) => [p.ingredient_id, p]))
+			return (existingDraft.items ?? []).map((it) => {
+				const need = ataItemToNeed(it)
+				const local = prevById.get(need.ingredient_id)
+				return need.ata_item_id == null && local?.ata_item_id != null ? { ...need, ata_item_id: local.ata_item_id } : need
+			})
+		})
 	}, [existingDraft?.items])
 
 	// Merge de kitchenSelections com cozinhas carregadas
@@ -550,13 +559,13 @@ function NewAtaPage() {
 							{/* Resumo de mapeamento */}
 							<div className="flex items-center gap-3 flex-wrap">
 								<div className="flex items-center gap-2 text-sm">
-									<CheckCircle2 className="size-4 text-green-600 shrink-0" aria-hidden="true" />
+									<CheckCircle2 className="size-4 text-success shrink-0" aria-hidden="true" />
 									<span>
 										<strong>{matchedCount}</strong> de <strong>{displayItems.length}</strong> itens vinculados a um item de compra
 									</span>
 								</div>
 								{unmatchedItems.length > 0 && (
-									<div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+									<div className="flex items-center gap-2 text-sm text-warning">
 										<AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
 										<span>{unmatchedItems.length} sem vínculo — salvarão sem CATMAT/preço</span>
 									</div>
@@ -565,8 +574,8 @@ function NewAtaPage() {
 
 							{/* Aviso para itens sem vínculo */}
 							{unmatchedItems.length > 0 && (
-								<div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 px-4 py-3 text-sm space-y-1.5">
-									<p className="text-subheading text-amber-800 dark:text-amber-300">Insumos sem item de compra associado:</p>
+								<div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm space-y-1.5">
+									<p className="text-subheading text-warning">Insumos sem item de compra associado:</p>
 									<ul className="list-disc list-inside space-y-0.5 text-muted-foreground text-xs">
 										{unmatchedItems.map((i) => (
 											<li key={i.ingredient_id}>{i.ingredient_name}</li>

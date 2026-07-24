@@ -87,9 +87,9 @@ function computeStats(prices: number[]): PriceStats | null {
 }
 
 function getRecommendation(cv: number): { text: string; colorClass: string } {
-	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-emerald-600 dark:text-emerald-400" }
-	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-amber-600 dark:text-amber-400" }
-	return { text: "Alta variabilidade — mediana recomendada (IN SEGES 65/2021 Art. 5º).", colorClass: "text-orange-600 dark:text-orange-400" }
+	if (cv < 15) return { text: "Distribuição homogênea — média e mediana equivalentes.", colorClass: "text-success" }
+	if (cv < 30) return { text: "Variabilidade moderada — prefira a mediana.", colorClass: "text-warning" }
+	return { text: "Alta variabilidade — mediana recomendada (IN SEGES 65/2021 Art. 5º).", colorClass: "text-destructive" }
 }
 
 const multiSelectFilter: FilterFn<ComprasMaterialPriceResult> = (row, columnId, filterValue: string[]) => {
@@ -620,7 +620,7 @@ export function PriceResearchModal({ open, onOpenChange, catmatCode, catmatDescr
 							{activeAnalysis.outlierCount > 0 && (
 								<>
 									{" "}
-									· <span className="text-amber-600 dark:text-amber-400">{activeAnalysis.outlierCount} outlier(s) removido(s) (IQR)</span>
+									· <span className="text-warning">{activeAnalysis.outlierCount} outlier(s) removido(s) (IQR)</span>
 								</>
 							)}
 							{" · "}

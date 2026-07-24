@@ -417,9 +417,9 @@ function RevealKeyDialog({ rawKey, onClose }: RevealKeyDialogProps) {
 				</DialogHeader>
 
 				<div className="space-y-4">
-					<Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+					<Card className="border-warning/30 bg-warning/10">
 						<CardContent className="py-3 px-4">
-							<p className="text-subheading text-amber-800 dark:text-amber-200">⚠️ Salve esta chave agora — ela não será exibida novamente.</p>
+							<p className="text-subheading text-foreground">⚠️ Salve esta chave agora — ela não será exibida novamente.</p>
 						</CardContent>
 					</Card>
 

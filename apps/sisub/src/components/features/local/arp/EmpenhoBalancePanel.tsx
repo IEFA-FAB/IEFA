@@ -54,7 +54,7 @@ function EmpenhoRow({ empenho, arpItemId }: { empenho: Empenho; arpItemId: strin
 
 	return (
 		<div className="flex items-center gap-3 py-1.5 text-xs">
-			<CheckCircle2 className="size-3.5 shrink-0 text-green-600" />
+			<CheckCircle2 className="size-3.5 shrink-0 text-success" />
 			<span className="font-mono text-caption text-foreground">{empenho.numero_empenho}</span>
 			<span className="text-muted-foreground">{fmtDate(empenho.data_empenho)}</span>
 			<span>
@@ -247,12 +247,12 @@ function ArpItemRow({ item, unitId }: ArpItemRowProps) {
 						{saldoBaixo && (
 							<Tooltip>
 								<TooltipTrigger>
-									<AlertTriangle className="size-3.5 text-amber-500 shrink-0" />
+									<AlertTriangle className="size-3.5 text-warning shrink-0" />
 								</TooltipTrigger>
 								<TooltipContent>Mais de 90% do saldo empenhado</TooltipContent>
 							</Tooltip>
 						)}
-						<span className={saldoBaixo ? "text-amber-600 text-subheading" : ""}>{NUM.format(saldo)}</span>
+						<span className={saldoBaixo ? "text-warning text-subheading" : ""}>{NUM.format(saldo)}</span>
 					</div>
 				</td>
 				<td className="py-2.5 px-2 text-xs text-right tabular-nums">{item.valor_unitario != null ? BRL.format(item.valor_unitario) : "—"}</td>

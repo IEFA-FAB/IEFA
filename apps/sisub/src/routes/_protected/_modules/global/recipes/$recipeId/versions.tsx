@@ -131,8 +131,8 @@ function DiffView({ from, to }: { from: RecipeWithIngredients; to: RecipeWithIng
 						{diff.changedQuantities.map((i) => {
 							const fromIng = from.ingredients.find((fi) => fi.ingredient_id === i.ingredient_id)
 							return (
-								<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/20 text-xs">
-									<span className="font-mono text-heading text-amber-600 w-4 shrink-0">~</span>
+								<div key={i.ingredient_id} className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-warning/10 text-xs">
+									<span className="font-mono text-heading text-warning w-4 shrink-0">~</span>
 									<span className="text-foreground flex-1">{i.ingredient?.description ?? i.ingredient_id}</span>
 									<span className="shrink-0 font-mono space-x-1">
 										<span className="line-through text-destructive/70">{fromIng?.net_quantity}g</span>
@@ -240,7 +240,7 @@ function GlobalRecipeVersionsPage() {
 										className={cn(
 											"w-full text-left rounded-lg border px-3.5 py-3 text-sm transition-colors",
 											isLatest ? "cursor-default opacity-100 border-primary/40 bg-primary/5" : "hover:bg-muted/50 cursor-pointer",
-											isSelected && !isLatest && "border-amber-300 bg-amber-50 dark:bg-amber-950/20"
+											isSelected && !isLatest && "border-warning/30 bg-warning/10"
 										)}
 									>
 										<div className="flex items-center justify-between gap-2">

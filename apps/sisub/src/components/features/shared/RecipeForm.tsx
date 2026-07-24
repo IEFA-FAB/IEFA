@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCreateRecipe, useVersionRecipe } from "@/hooks/data/useRecipeMutations"
 import { type RecipeNutritionInputIngredient, useRecipeNutrition } from "@/hooks/data/useRecipeNutrition"
 import { recipeLastReviewQueryOptions, useRecordRecipeReview } from "@/hooks/data/useRecipes"
@@ -634,18 +635,17 @@ function RecipeReviewActions({ recipeId }: { recipeId: string }) {
 					<span>Ainda não revisada</span>
 				)}
 			</span>
-			<Button
-				type="button"
-				variant="outline"
-				size="sm"
-				onClick={handleReview}
-				disabled={isReviewing}
-				className="gap-1.5"
-				title="Registrar conferência desta preparação (revisão pelos nutricionistas)"
-			>
-				{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
-				Revisado
-			</Button>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button type="button" variant="outline" size="sm" onClick={handleReview} disabled={isReviewing} className="gap-1.5">
+							{isReviewing ? <Loader2 className="size-4 animate-spin" /> : <CircleCheck className="size-4" />}
+							Revisado
+						</Button>
+					}
+				/>
+				<TooltipContent>Registrar conferência desta preparação (revisão pelos nutricionistas)</TooltipContent>
+			</Tooltip>
 		</div>
 	)
 }
@@ -743,8 +743,8 @@ function RecipeNutritionPanel({ ingredients }: { ingredients: IngredientFormItem
 						</p>
 
 						{coverage.missing.length > 0 && (
-							<div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-caption text-foreground">
-								<TriangleAlert className="size-4 shrink-0 translate-y-0.5 text-amber-600" />
+							<div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-caption text-foreground">
+								<TriangleAlert className="size-4 shrink-0 translate-y-0.5 text-warning" />
 								<div>
 									<p className="font-medium">
 										{coverage.withData} de {coverage.totalIngredients} ingredientes com composição conhecida.

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/cn"
 import { ingredientNutrientsQueryOptions, useDeleteFolder, useDeleteIngredient, useRestoreFolder, useRestoreIngredient } from "@/services/IngredientsService"
 import type { Folder, Ingredient, IngredientTreeNode, TreeNodeType } from "@/types/domain/ingredients"
@@ -312,14 +313,22 @@ export function IngredientsTreeNode({
 						!isDeleted &&
 						lastReviewedAt !== undefined &&
 						(lastReviewedAt ? (
-							<Badge variant="outline" className="gap-1 text-muted-foreground" title={`Última revisão em ${formatReviewDate(lastReviewedAt)}`}>
-								<CalendarCheck className="size-3" />
-								Revisado {formatReviewDate(lastReviewedAt)}
-							</Badge>
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Badge variant="outline" className="gap-1 text-muted-foreground">
+											<CalendarCheck className="size-3" />
+											Revisado {formatReviewDate(lastReviewedAt)}
+										</Badge>
+									}
+								/>
+								<TooltipContent>Última revisão em {formatReviewDate(lastReviewedAt)}</TooltipContent>
+							</Tooltip>
 						) : (
-							<Badge variant="warning" title="Insumo ainda não revisado">
-								Não revisado
-							</Badge>
+							<Tooltip>
+								<TooltipTrigger render={<Badge variant="warning">Não revisado</Badge>} />
+								<TooltipContent>Insumo ainda não revisado</TooltipContent>
+							</Tooltip>
 						))}
 				</div>
 
