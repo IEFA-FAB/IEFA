@@ -4,7 +4,10 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".output/**", "dist/**", "build/**"],
+      "env": ["VITE_*", "NODE_ENV"],
       "inputs": [
+        "public/**",
+        "index.html",
         "src/**",
         "pages/**",
         "content/**",
@@ -93,9 +96,6 @@
     "dev": {
       "cache": false,
       "persistent": true
-    },
-    "@iefa/sisub-mcp#build": {
-      "outputs": ["dist/**"]
     }
   }
 }
