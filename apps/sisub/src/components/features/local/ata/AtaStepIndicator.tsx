@@ -1,5 +1,5 @@
 import { Check } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 
 export type AtaStep = 1 | 2 | 3 | 4
 

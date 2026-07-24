@@ -1,7 +1,7 @@
 import type * as React from "react"
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels"
 
-import { cn } from "../../lib/utils"
+import { cn } from "../../lib/cn"
 
 function ResizablePanelGroup({ className, ...props }: React.ComponentProps<typeof PanelGroup>) {
 	return <PanelGroup data-slot="resizable-panel-group" className={cn("flex size-full data-[panel-group-direction=vertical]:flex-col", className)} {...props} />

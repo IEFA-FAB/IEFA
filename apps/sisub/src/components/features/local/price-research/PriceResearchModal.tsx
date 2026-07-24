@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 import { savePrecoAuditFn, searchMaterialPricesFn } from "@/server/price-research.fn"
 import type { ComprasMaterialPricePage, ComprasMaterialPriceResult } from "@/types/domain/price-research"
 

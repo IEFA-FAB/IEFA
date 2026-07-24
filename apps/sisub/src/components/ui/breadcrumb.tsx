@@ -5,7 +5,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
 import type * as React from "react"
-import { cn } from "../../lib/utils"
+import { cn } from "../../lib/cn"
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
 	return <nav aria-label="breadcrumb" data-slot="breadcrumb" className={cn(className)} {...props} />
