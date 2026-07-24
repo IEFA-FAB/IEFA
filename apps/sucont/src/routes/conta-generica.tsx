@@ -34,6 +34,7 @@ import type React from "react"
 import { useRef, useState } from "react"
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { oracleContaGenericaFn } from "#/server/conta-generica.fn"
 
 // ── Data Maps ────────────────────────────────────────────────────────────────
@@ -1788,11 +1789,16 @@ function MessageControls({
 			</div>
 			<div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
 				<span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Tipo:</span>
-				<select value={messageType} onChange={(e) => setMessageType(e.target.value as typeof messageType)} className={inputCls}>
-					<option value="sem_prazo">Sem Prazo</option>
-					<option value="prazo">Com Prazo</option>
-					<option value="alerta">Apenas Alerta</option>
-				</select>
+				<Select value={messageType} onValueChange={(value) => setMessageType(value as typeof messageType)}>
+					<SelectTrigger className={`data-[size=default]:h-auto shadow-none ${inputCls}`}>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="sem_prazo">Sem Prazo</SelectItem>
+						<SelectItem value="prazo">Com Prazo</SelectItem>
+						<SelectItem value="alerta">Apenas Alerta</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 			{messageType === "prazo" && (
 				<div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-300 bg-white px-3 py-1.5 rounded-lg border border-slate-200">

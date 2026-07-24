@@ -1,5 +1,6 @@
 import { Copy } from "lucide-react"
 import { useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import type { ProcessedRow } from "#/lib/analista/types"
@@ -223,16 +224,19 @@ export function UGCard({ group, type, activeRacFilter }: UGCardProps) {
 								<label htmlFor="ug-message-type" className="block text-xs font-medium text-slate-700 mb-1">
 									Tipo de Mensagem
 								</label>
-								<select
-									id="ug-message-type"
-									value={messageType}
-									onChange={(e) => setMessageType(e.target.value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}
-									className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500 mb-2"
-								>
-									<option value="SEM_PRAZO">Padrão (Sem Prazo)</option>
-									<option value="COM_PRAZO">Com Prazo de Resposta</option>
-									<option value="ALERTA">Apenas Alerta (Sem Resposta)</option>
-								</select>
+								<Select value={messageType} onValueChange={(value) => setMessageType(value as "SEM_PRAZO" | "COM_PRAZO" | "ALERTA")}>
+									<SelectTrigger
+										id="ug-message-type"
+										className="w-full text-sm px-2 py-1.5 rounded border border-slate-300 bg-white text-slate-900 focus-visible:ring-blue-500 focus-visible:border-blue-500 mb-2"
+									>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="SEM_PRAZO">Padrão (Sem Prazo)</SelectItem>
+										<SelectItem value="COM_PRAZO">Com Prazo de Resposta</SelectItem>
+										<SelectItem value="ALERTA">Apenas Alerta (Sem Resposta)</SelectItem>
+									</SelectContent>
+								</Select>
 								{messageType === "COM_PRAZO" && (
 									<div className="mt-2">
 										<label htmlFor="ug-deadline-date" className="block text-xs font-medium text-slate-700 mb-1">

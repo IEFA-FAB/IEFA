@@ -17,6 +17,7 @@ import {
 	Users,
 } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { ReportData, UGAnalysis } from "#/lib/cruzamento/analyzer"
 import { CONFERENTES } from "#/lib/cruzamento/conferentes"
 
@@ -519,19 +520,20 @@ SUCONT-3 • DIREF • COMAER`
 						</h2>
 						<div className="flex items-center gap-2">
 							<Filter className="w-4 h-4 text-slate-400" />
-							<select
-								value={selectedConferente}
-								onChange={(e) => setSelectedConferente(e.target.value)}
-								className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 font-medium"
-							>
-								<option value="ALL">Modo Geral (Todos os Conferentes)</option>
-								{CONFERENTES.map((conf) => (
-									<option key={conf} value={conf}>
-										Modo por Conferente: {conf}
-									</option>
-								))}
-								<option value="NÃO ATRIBUÍDO">Não Atribuído</option>
-							</select>
+							<Select value={selectedConferente} onValueChange={setSelectedConferente}>
+								<SelectTrigger className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus-visible:ring-blue-500 focus-visible:border-blue-500 p-2 font-medium">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="ALL">Modo Geral (Todos os Conferentes)</SelectItem>
+									{CONFERENTES.map((conf) => (
+										<SelectItem key={conf} value={conf}>
+											Modo por Conferente: {conf}
+										</SelectItem>
+									))}
+									<SelectItem value="NÃO ATRIBUÍDO">Não Atribuído</SelectItem>
+								</SelectContent>
+							</Select>
 						</div>
 					</div>
 
@@ -670,21 +672,27 @@ SUCONT-3 • DIREF • COMAER`
 										<label htmlFor="cons-report-msg-type" className="text-xs font-semibold text-slate-600 uppercase">
 											Tipo de Mensagem
 										</label>
-										<select
-											id="cons-report-msg-type"
+										<Select
 											value={consolidatedConfig.messageType}
-											onChange={(e) =>
+											onValueChange={(value) =>
 												setConsolidatedConfig({
 													...consolidatedConfig,
-													messageType: e.target.value as MessageConfig["messageType"],
+													messageType: value as MessageConfig["messageType"],
 												})
 											}
-											className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 										>
-											<option value="SEM_PRAZO">Padrão (Sem Prazo)</option>
-											<option value="COM_PRAZO">Com Prazo</option>
-											<option value="ALERTA">Alerta (Sem Resposta)</option>
-										</select>
+											<SelectTrigger
+												id="cons-report-msg-type"
+												className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
+											>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="SEM_PRAZO">Padrão (Sem Prazo)</SelectItem>
+												<SelectItem value="COM_PRAZO">Com Prazo</SelectItem>
+												<SelectItem value="ALERTA">Alerta (Sem Resposta)</SelectItem>
+											</SelectContent>
+										</Select>
 									</div>
 									{consolidatedConfig.messageType === "COM_PRAZO" && (
 										<div className="flex flex-col gap-1.5 ml-2">
@@ -871,20 +879,26 @@ SUCONT-3 • DIREF • COMAER`
 														<label htmlFor={`ug-report-msg-type-${ug.ug}`} className="text-xs font-semibold text-slate-600 uppercase">
 															Tipo de Mensagem
 														</label>
-														<select
-															id={`ug-report-msg-type-${ug.ug}`}
+														<Select
 															value={getConfig(ug.ug).messageType}
-															onChange={(e) =>
+															onValueChange={(value) =>
 																updateConfig(ug.ug, {
-																	messageType: e.target.value as MessageConfig["messageType"],
+																	messageType: value as MessageConfig["messageType"],
 																})
 															}
-															className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0033A0]"
 														>
-															<option value="SEM_PRAZO">Padrão (Sem Prazo)</option>
-															<option value="COM_PRAZO">Com Prazo</option>
-															<option value="ALERTA">Alerta (Sem Resposta)</option>
-														</select>
+															<SelectTrigger
+																id={`ug-report-msg-type-${ug.ug}`}
+																className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus-visible:ring-2 focus-visible:ring-[#0033A0]"
+															>
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectItem value="SEM_PRAZO">Padrão (Sem Prazo)</SelectItem>
+																<SelectItem value="COM_PRAZO">Com Prazo</SelectItem>
+																<SelectItem value="ALERTA">Alerta (Sem Resposta)</SelectItem>
+															</SelectContent>
+														</Select>
 													</div>
 													{getConfig(ug.ug).messageType === "COM_PRAZO" && (
 														<div className="flex flex-col gap-1.5 ml-2">

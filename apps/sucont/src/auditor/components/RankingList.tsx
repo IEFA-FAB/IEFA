@@ -1,5 +1,6 @@
 import { Activity, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, MessageSquareText, TrendingDown, TrendingUp } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { FinancialRecord } from "../types"
 import { AccountGroup } from "../types"
 import { CurrencyDisplay } from "./CurrencyDisplay"
@@ -255,18 +256,21 @@ export const RankingList: React.FC<RankingListProps> = ({ data, historicalData =
 			<div className="flex items-center justify-between px-2">
 				<div className="flex items-center gap-2">
 					<span className={`text-xs font-bold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Filtro por Tipo:</span>
-					<select
-						value={categoryFilter}
-						onChange={(e) => setCategoryFilter(e.target.value as Category | "TODOS")}
-						className={`appearance-none pl-3 pr-8 py-1 rounded text-xs font-medium border outline-none cursor-pointer focus:ring-2 focus:ring-blue-500
+					<Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as Category | "TODOS")}>
+						<SelectTrigger
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
                ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
-					>
-						<option value="TODOS">Todas as Categorias</option>
-						<option value="AUMENTO_CONTINUO">Aumento Contínuo</option>
-						<option value="OSCILACAO_ATIPICA">Oscilação Atípica</option>
-						<option value="REDUCAO_CONTINUA">Redução Contínua</option>
-						<option value="REDUCAO_PONTUAL">Redução Pontual</option>
-					</select>
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="TODOS">Todas as Categorias</SelectItem>
+							<SelectItem value="AUMENTO_CONTINUO">Aumento Contínuo</SelectItem>
+							<SelectItem value="OSCILACAO_ATIPICA">Oscilação Atípica</SelectItem>
+							<SelectItem value="REDUCAO_CONTINUA">Redução Contínua</SelectItem>
+							<SelectItem value="REDUCAO_PONTUAL">Redução Pontual</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
 

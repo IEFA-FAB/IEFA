@@ -28,6 +28,7 @@ import { type ChangeEvent, useCallback, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import * as XLSX from "xlsx"
 import { HubLayout } from "#/components/hub-layout"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 
 export const Route = createFileRoute("/analista-compatibilidade")({
 	component: AnalistaCompatibilidade,
@@ -1095,20 +1096,18 @@ DIREF/SUCONT/SUCONT-3
 										>
 											Todas Questões
 										</button>
-										<select
-											value={racFilter !== "all" ? racFilter : ""}
-											onChange={(e) => setRacFilter(e.target.value)}
-											className="bg-transparent text-xs font-bold text-slate-600 outline-none px-2 py-1.5 border-l border-slate-200"
-										>
-											<option value="" disabled>
-												Filtrar por Questão RAC
-											</option>
-											{racQuestionsList.map((q) => (
-												<option key={q} value={q}>
-													{q}
-												</option>
-											))}
-										</select>
+										<Select value={racFilter !== "all" ? racFilter : ""} onValueChange={setRacFilter}>
+											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-slate-200 bg-transparent px-2 py-1.5 text-xs font-bold text-slate-600 shadow-none focus-visible:ring-0">
+												<SelectValue placeholder="Filtrar por Questão RAC" />
+											</SelectTrigger>
+											<SelectContent>
+												{racQuestionsList.map((q) => (
+													<SelectItem key={q} value={q}>
+														{q}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 									</div>
 
 									{/* Conferente Filter */}
@@ -1129,20 +1128,18 @@ DIREF/SUCONT/SUCONT-3
 												Minhas UGs
 											</button>
 										)}
-										<select
-											value={conferenteFilter !== "all" && conferenteFilter !== "minhas" ? conferenteFilter : ""}
-											onChange={(e) => setConferenteFilter(e.target.value)}
-											className="bg-transparent text-xs font-bold text-slate-600 outline-none px-2 py-1.5 border-l border-slate-200"
-										>
-											<option value="" disabled>
-												Todos
-											</option>
-											{conferentesList.map((c) => (
-												<option key={c} value={c}>
-													{c}
-												</option>
-											))}
-										</select>
+										<Select value={conferenteFilter !== "all" && conferenteFilter !== "minhas" ? conferenteFilter : ""} onValueChange={setConferenteFilter}>
+											<SelectTrigger className="data-[size=default]:h-auto rounded-none border-0 border-l border-slate-200 bg-transparent px-2 py-1.5 text-xs font-bold text-slate-600 shadow-none focus-visible:ring-0">
+												<SelectValue placeholder="Todos" />
+											</SelectTrigger>
+											<SelectContent>
+												{conferentesList.map((c) => (
+													<SelectItem key={c} value={c}>
+														{c}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 									</div>
 
 									{racFilter !== "all" && (

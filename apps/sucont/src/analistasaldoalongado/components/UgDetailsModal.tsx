@@ -1,6 +1,7 @@
 import { ArrowUpDown, Check, Copy, Download, Info, Search, Settings2, User, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as XLSX from "xlsx"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
 import { RAC_MAPPING } from "../utils/rac"
@@ -366,16 +367,19 @@ export function UgDetailsModal({ ugData, onClose, initialRacFilter }: UgDetailsM
 								<label htmlFor="ug-msg-type" className="text-xs font-medium text-slate-700">
 									Tipo de Mensagem
 								</label>
-								<select
-									id="ug-msg-type"
-									className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-white text-slate-900"
-									value={messageType}
-									onChange={(e) => setMessageType(e.target.value as MessageType)}
-								>
-									<option value="COM_PRAZO">Ação com Prazo</option>
-									<option value="SEM_PRAZO">Ação sem Prazo</option>
-									<option value="ALERTA">Apenas Alerta</option>
-								</select>
+								<Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
+									<SelectTrigger
+										id="ug-msg-type"
+										className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-fab-500 focus:border-fab-500 bg-white text-slate-900"
+									>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="COM_PRAZO">Ação com Prazo</SelectItem>
+										<SelectItem value="SEM_PRAZO">Ação sem Prazo</SelectItem>
+										<SelectItem value="ALERTA">Apenas Alerta</SelectItem>
+									</SelectContent>
+								</Select>
 
 								{messageType === "COM_PRAZO" && (
 									<div className="pt-2">

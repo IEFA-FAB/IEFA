@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import React, { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { HubLayout } from "#/components/hub-layout"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getNthBusinessDay } from "#/lib/data"
 import { useSearchQuery } from "#/lib/hub-store"
 import {
@@ -395,14 +396,15 @@ function AddNoticeForm({ onSave, onCancel, pending }: { onSave: (content: string
 				className="w-full bg-slate-50 border border-slate-200 p-2 rounded text-xs text-slate-800 mb-2 h-20 outline-none focus:border-tech-cyan"
 			/>
 			<div className="flex justify-between items-center">
-				<select
-					value={type}
-					onChange={(e) => setType(e.target.value as "info" | "alert")}
-					className="bg-slate-50 border border-slate-200 text-[10px] text-slate-600 p-1 rounded outline-none"
-				>
-					<option value="info">INFORMATIVO</option>
-					<option value="alert">ALERTA</option>
-				</select>
+				<Select value={type} onValueChange={(value) => setType(value as "info" | "alert")}>
+					<SelectTrigger className="data-[size=default]:h-auto bg-slate-50 border border-slate-200 text-[10px] text-slate-600 p-1 rounded shadow-none">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="info">INFORMATIVO</SelectItem>
+						<SelectItem value="alert">ALERTA</SelectItem>
+					</SelectContent>
+				</Select>
 				<div className="flex gap-2">
 					<button type="button" onClick={onCancel} className="text-[10px] text-slate-400 hover:text-slate-600">
 						CANCELAR

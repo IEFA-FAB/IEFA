@@ -28,6 +28,7 @@ import React, { useCallback, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { twMerge } from "tailwind-merge"
 import * as XLSX from "xlsx"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { AIAssistant } from "#/subitens/components/AIAssistant"
 import { CONFERENTES_MAPPING, UG_INFO } from "#/subitens/constants"
 
@@ -938,18 +939,19 @@ function SubitensGenericos() {
 										</button>
 
 										<div className="flex items-center gap-2">
-											<select
-												value={selectedConferente}
-												onChange={(e) => setSelectedConferente(e.target.value)}
-												className="bg-fab-sky/30 text-fab-blue border-none rounded-full px-5 py-2 text-[10px] font-bold uppercase tracking-widest focus:ring-2 focus:ring-fab-blue outline-none cursor-pointer"
-											>
-												<option value="all">Todos os Conferentes</option>
-												{allConferentes.map((c) => (
-													<option key={c} value={c}>
-														{c}
-													</option>
-												))}
-											</select>
+											<Select value={selectedConferente} onValueChange={setSelectedConferente}>
+												<SelectTrigger className="data-[size=default]:h-auto bg-fab-sky/30 text-fab-blue border-none rounded-full px-5 py-2 text-[10px] font-bold uppercase tracking-widest shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="all">Todos os Conferentes</SelectItem>
+													{allConferentes.map((c) => (
+														<SelectItem key={c} value={c}>
+															{c}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
 
 											{selectedConferente !== "all" && (
 												<button
@@ -1184,16 +1186,22 @@ function SubitensGenericos() {
 																				<label htmlFor={`ug-msg-type-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
 																					Tipo de Mensagem
 																				</label>
-																				<select
-																					id={`ug-msg-type-${idx}`}
+																				<Select
 																					value={ugConfig.messageType}
-																					onChange={(e) => updateUgConfig(group.ug, "messageType", e.target.value as "com_prazo" | "sem_prazo" | "alerta")}
-																					className="w-full px-3 py-2 bg-white border border-fab-blue/10 rounded-xl text-xs font-bold text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																					onValueChange={(value) => updateUgConfig(group.ug, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
-																					<option value="sem_prazo">Sem Prazo</option>
-																					<option value="com_prazo">Com Prazo</option>
-																					<option value="alerta">Apenas Alerta</option>
-																				</select>
+																					<SelectTrigger
+																						id={`ug-msg-type-${idx}`}
+																						className="w-full px-3 py-2 bg-white border border-fab-blue/10 rounded-xl text-xs font-bold text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					>
+																						<SelectValue />
+																					</SelectTrigger>
+																					<SelectContent>
+																						<SelectItem value="sem_prazo">Sem Prazo</SelectItem>
+																						<SelectItem value="com_prazo">Com Prazo</SelectItem>
+																						<SelectItem value="alerta">Apenas Alerta</SelectItem>
+																					</SelectContent>
+																				</Select>
 																			</div>
 
 																			<AnimatePresence>
@@ -1358,16 +1366,22 @@ function SubitensGenericos() {
 																				<label htmlFor={`rac-msg-type-${idx}`} className="text-[9px] font-bold uppercase tracking-widest text-fab-blue/40">
 																					Tipo de Mensagem
 																				</label>
-																				<select
-																					id={`rac-msg-type-${idx}`}
+																				<Select
 																					value={racConfig.messageType}
-																					onChange={(e) => updateRacConfig(racId, "messageType", e.target.value as "com_prazo" | "sem_prazo" | "alerta")}
-																					className="w-full px-3 py-2 bg-white border border-fab-blue/10 rounded-xl text-xs font-bold text-fab-blue focus:outline-none focus:ring-2 focus:ring-fab-blue/20"
+																					onValueChange={(value) => updateRacConfig(racId, "messageType", value as "com_prazo" | "sem_prazo" | "alerta")}
 																				>
-																					<option value="sem_prazo">Sem Prazo</option>
-																					<option value="com_prazo">Com Prazo</option>
-																					<option value="alerta">Apenas Alerta</option>
-																				</select>
+																					<SelectTrigger
+																						id={`rac-msg-type-${idx}`}
+																						className="w-full px-3 py-2 bg-white border border-fab-blue/10 rounded-xl text-xs font-bold text-fab-blue shadow-none focus-visible:ring-2 focus-visible:ring-fab-blue/20"
+																					>
+																						<SelectValue />
+																					</SelectTrigger>
+																					<SelectContent>
+																						<SelectItem value="sem_prazo">Sem Prazo</SelectItem>
+																						<SelectItem value="com_prazo">Com Prazo</SelectItem>
+																						<SelectItem value="alerta">Apenas Alerta</SelectItem>
+																					</SelectContent>
+																				</Select>
 																			</div>
 
 																			<AnimatePresence>

@@ -1,5 +1,5 @@
 import { AlertCircle, Calendar, CheckCircle2, FileText, Info, Minus, TrendingDown, TrendingUp, User } from "lucide-react"
-import type { DataAnalysisData } from "#/server/gemini.fn"
+import type { DataAnalysisData } from "#/server/document-ai.fn"
 
 interface DataAnalysisReportProps {
 	data: DataAnalysisData
