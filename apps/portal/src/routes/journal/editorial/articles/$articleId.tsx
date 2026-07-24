@@ -470,6 +470,7 @@ function InviteReviewerDialog({ articleId, onClose, onDone }: { articleId: strin
 									</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
+									<SelectItem value={null}>Nenhum</SelectItem>
 									{selectableReviewers.map((r: ReviewerDirectoryEntry) => (
 										<SelectItem key={r.id} value={r.id}>
 											{r.full_name} ({r.role}) — {r.email}
