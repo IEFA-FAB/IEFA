@@ -168,9 +168,9 @@ export function UniformBrowser({ search, setSearch }: { search: UniformSearch; s
 						<HoverCard key={u.id}>
 							<HoverCardTrigger render={<Link to="/uniformes/$uniformId" params={{ uniformId: u.id }} className="group block" />}>
 								<Card
-									className="h-full border-l-4 transition-all group-hover:-translate-y-0.5 group-hover:shadow-md"
+									className="h-full transition-all group-hover:-translate-y-0.5 group-hover:shadow-md"
 									style={{
-										borderLeftColor: GRUPO_ACCENT[u.grupo],
+										borderColor: `color-mix(in oklch, ${GRUPO_ACCENT[u.grupo]} 35%, var(--border))`,
 										background: `color-mix(in oklch, ${GRUPO_ACCENT[u.grupo]} 5%, var(--card))`,
 									}}
 								>
