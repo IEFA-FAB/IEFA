@@ -7,9 +7,12 @@
 
 import { createHash } from "node:crypto"
 import type { Json } from "@iefa/database"
+import { requirePermission } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
+import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
+import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ComprasMaterialPricePage } from "@/types/domain/price-research"
 
@@ -109,11 +112,48 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }): Promise<{ researchId: string; researchItemId: string }> => {
-		// WRITE numa trilha de auditoria de preço (Lei 14.133/2021). Espelha o guard da
-		// rota consumidora (unit/$unitId/procurement → `unit` nível 1): sessão sozinha
-		// deixava qualquer autenticado (ex.: diner) forjar memória de cálculo.
-		await requireAuthWithPermission("unit", 1)
+		// WRITE numa trilha de auditoria de preço (Lei 14.133/2021). Sessão sozinha
+		// deixava qualquer autenticado forjar memória de cálculo; um guard sem escopo
+		// ainda deixava membro de qualquer unidade gravar/ligar auditoria em ATA alheia.
+		// Postura: membro do módulo `unit` (L1) para pesquisa avulsa; quando o registro
+		// é ligado a ataId/ataItemId, `unit` L2 na unidade DONA da ATA — alvo resolvido
+		// no banco, nunca confiado do payload.
+		const ctx = await requireAuthWithPermission("unit", 1)
 		const supabase = getSupabaseServerClient()
+
+		if (data.ataId || data.ataItemId) {
+			let listId = data.ataId ?? null
+			if (data.ataItemId) {
+				const { data: item, error: itemLookupErr } = await supabase
+					.schema("procurement")
+					.from("procurement_list_item")
+					.select("id, list_id")
+					.eq("id", data.ataItemId)
+					.maybeSingle()
+				if (itemLookupErr) throw new Error(`Erro ao validar item da ATA: ${itemLookupErr.message}`)
+				if (!item || (listId != null && item.list_id !== listId)) {
+					setResponseStatus(400)
+					throw new Error("ataItemId não pertence à ATA informada")
+				}
+				listId = item.list_id
+			}
+			const { data: list, error: listLookupErr } = await supabase
+				.schema("procurement")
+				.from("procurement_list")
+				.select("id, unit_id")
+				.eq("id", listId as string)
+				.maybeSingle()
+			if (listLookupErr) throw new Error(`Erro ao validar ATA: ${listLookupErr.message}`)
+			if (!list) {
+				setResponseStatus(404)
+				throw new Error("ATA não encontrada")
+			}
+			try {
+				requirePermission(ctx, "unit", 2, { type: "unit", id: list.unit_id })
+			} catch (error) {
+				handleDomainError(error)
+			}
+		}
 
 		// 0. Chave de idempotência — evita gravar a MESMA memória de cálculo duas
 		// vezes (re-clique em "Usar", re-execução do bulk). Escopo: item/CATMAT +
