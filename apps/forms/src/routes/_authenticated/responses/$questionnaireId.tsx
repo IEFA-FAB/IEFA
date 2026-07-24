@@ -503,7 +503,7 @@ function QuestionSummaryCard({ summary, totalResponses }: { summary: Summary; to
 			) : (
 				<ul className="space-y-1.5">
 					{answers.map((v, i) => (
-						<li key={i} className="text-sm border-l-2 border-muted pl-3 py-0.5 text-foreground">
+						<li key={i} className="text-sm rounded bg-muted/40 px-3 py-0.5 text-foreground">
 							{String(v)}
 						</li>
 					))}

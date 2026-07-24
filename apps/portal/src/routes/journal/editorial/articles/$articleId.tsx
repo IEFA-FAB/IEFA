@@ -4,6 +4,7 @@ import { ArrowLeft, Calendar, CheckCircle, Clock, Download, MessageText, Page, U
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { ArticleDecision, ArticleEvent, ArticleReviewWithAssignment, ReviewerDirectoryEntry } from "@/lib/journal/client"
 import {
 	articleEventsQueryOptions,
@@ -459,19 +460,24 @@ function InviteReviewerDialog({ articleId, onClose, onDone }: { articleId: strin
 							<label htmlFor="reviewer-select" className="text-sm font-medium">
 								Revisor
 							</label>
-							<select
-								id="reviewer-select"
-								value={reviewerId}
-								onChange={(e) => setReviewerId(e.target.value)}
-								className="w-full px-3 py-2 border rounded-md bg-background text-sm"
-							>
-								<option value="">Selecione...</option>
-								{selectableReviewers.map((r: ReviewerDirectoryEntry) => (
-									<option key={r.id} value={r.id}>
-										{r.full_name} ({r.role}) — {r.email}
-									</option>
-								))}
-							</select>
+							<Select value={reviewerId || null} onValueChange={(value) => setReviewerId(value ?? "")}>
+								<SelectTrigger id="reviewer-select" className="w-full bg-background text-sm">
+									<SelectValue placeholder="Selecione...">
+										{(() => {
+											const selected = selectableReviewers.find((r: ReviewerDirectoryEntry) => r.id === reviewerId)
+											return selected ? `${selected.full_name} (${selected.role}) — ${selected.email}` : undefined
+										})()}
+									</SelectValue>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={null}>Nenhum</SelectItem>
+									{selectableReviewers.map((r: ReviewerDirectoryEntry) => (
+										<SelectItem key={r.id} value={r.id}>
+											{r.full_name} ({r.role}) — {r.email}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 
 						<div className="space-y-2">

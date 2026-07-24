@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
+import { secureCompare } from "../../lib/secure-compare.ts"
 import {
 	getNutritionReferenceSyncTotalSteps,
 	hasLiveNutritionSync,
@@ -152,7 +153,7 @@ export function createNutritionAdminRoutes(deps: NutritionAdminRoutesDeps = {}) 
 
 	nutritionAdminRoutes.use("*", async (c, next) => {
 		const secret = c.req.header("x-admin-secret")
-		if (!secret || secret !== adminSecret) return c.json({ error: "Unauthorized" }, 401)
+		if (!secureCompare(secret, adminSecret)) return c.json({ error: "Unauthorized" }, 401)
 		return next()
 	})
 

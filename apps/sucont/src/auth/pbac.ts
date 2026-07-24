@@ -1,22 +1,18 @@
 /**
  * PBAC do sucont — leitura das permissões do próprio usuário para guards de rota
- * e renderização condicional. A engine `hasPermission` vem de @iefa/pbac
- * (compartilhada com sisub/rumaer). O servidor resolve as permissões pela sessão.
+ * e renderização condicional. Wrapper fino: a engine `hasPermission` e a config
+ * das query options (`myModulePermissionsQueryConfig`) vêm de @iefa/pbac; aqui só
+ * amarramos `module = "sucont"` ao React Query do app. O servidor resolve as
+ * permissões pela sessão.
  */
 
-import { hasPermission } from "@iefa/pbac"
+import { hasPermission, myModulePermissionsQueryConfig } from "@iefa/pbac"
 import { queryOptions, useQuery } from "@tanstack/react-query"
 import { fetchMySucontPermissionsFn } from "#/server/permissions.fn"
 
 export { hasPermission }
 
-export const mySucontPermissionsQueryOptions = () =>
-	queryOptions({
-		queryKey: ["sucont", "myPermissions"],
-		queryFn: () => fetchMySucontPermissionsFn(),
-		staleTime: 1000 * 60 * 30, // 30 min — permissões mudam com baixa frequência
-		gcTime: 1000 * 60 * 60,
-	})
+export const mySucontPermissionsQueryOptions = () => queryOptions(myModulePermissionsQueryConfig("sucont", () => fetchMySucontPermissionsFn()))
 
 /**
  * Hook para renderização condicional.

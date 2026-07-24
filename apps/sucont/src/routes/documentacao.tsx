@@ -3,8 +3,8 @@ import { AlertCircle, ArrowLeft, BarChart3, FileText, HelpCircle, History, Layou
 import { useEffect, useState } from "react"
 import { DataAnalysisReport } from "#/components/plataforma-doc/data-analysis-report"
 import { FabDocument } from "#/components/plataforma-doc/fab-document"
-import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/gemini.fn"
-import { adaptDraftFn } from "#/server/gemini.fn"
+import type { DataAnalysisData, DocumentType, FabDocumentData } from "#/server/document-ai.fn"
+import { adaptDraftFn } from "#/server/document-ai.fn"
 
 export const Route = createFileRoute("/documentacao")({ component: PlataformaDoc })
 

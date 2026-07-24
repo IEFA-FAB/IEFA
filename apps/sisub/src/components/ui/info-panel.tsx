@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 
 type InfoPanelProps = {
 	/** Lucide icon component */

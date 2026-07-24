@@ -3,7 +3,7 @@
 import * as React from "react"
 import type * as RechartsPrimitive from "recharts"
 
-import { cn } from "../../lib/utils"
+import { cn } from "../../lib/cn"
 
 // Lazy-load recharts to keep it out of the initial bundle (~500kb)
 const LazyResponsiveContainer = React.lazy(() => import("recharts").then((m) => ({ default: m.ResponsiveContainer })))

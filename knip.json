@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "tags": ["-lintignore"],
   "workspaces": {
     ".": {
@@ -14,6 +14,22 @@
       "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
       "project": ["src/**/*.{ts,tsx}"]
     },
+    "apps/rumaer": {
+      "entry": ["src/client.tsx", "src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/forms": {
+      "entry": ["src/client.tsx", "src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/sucont": {
+      "entry": ["src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/assignment-selection": {
+      "entry": ["src/client.tsx", "src/ssr.tsx", "src/router.tsx"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
     "apps/alpha": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
@@ -22,9 +38,41 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "apps/docs": {
-      "entry": ["src/content.config.ts", "astro.config.ts"],
-      "project": ["src/**/*.{ts,astro,md,mdx}"]
+    "apps/sisub-mcp": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
     },
+    "apps/docs": {
+      "entry": ["src/router.tsx", "src/start.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/ai-provider": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/alpha-client": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/compras-api": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/database": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/hono-client": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/pbac": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/sisub-domain": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
   }
 }

@@ -16,11 +16,11 @@ const classifier = getLLM(0).withStructuredOutput({
 	},
 })
 
-const SYSTEM_PROMPT = `Você é um classificador de intenção para o sistema ATLAS da SEFA (Secretaria da Fazenda do Estado do Pará).
+const SYSTEM_PROMPT = `Você é um classificador de intenção para o sistema ATLAS da SEFA (Secretaria de Economia, Finanças e Administração da Aeronáutica).
 
 Classifique a mensagem do usuário em uma das categorias:
 - LEGISLATION: questões sobre RADA, RBHA, ICA, MCA, NSCA, legislação aeronáutica, regulamentos, artigos, capítulos
-- SEFA_SYSTEMS: sistemas internos SEFA, módulos, processos de gestão fiscal
+- SEFA_SYSTEMS: sistemas internos da SEFA, módulos, processos de administração financeira e orçamentária
 - PROCUREMENT: licitações, contratos, pregões, compras públicas
 - GENERAL: perguntas genéricas, não classificadas nos acima
 - GREETING: saudações, cumprimentos, despedidas

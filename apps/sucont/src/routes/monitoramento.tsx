@@ -29,6 +29,7 @@ import { ChatAssistant } from "#/components/analista/chat-assistant"
 import { ConsolidatedMessageCard } from "#/components/analista/consolidated-message-card"
 import { UGCard } from "#/components/analista/ug-card"
 import { HubLayout } from "#/components/hub-layout"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import { getConferente } from "#/lib/analista/conferentes"
 import { getOrganizacao } from "#/lib/analista/organizacao"
 import { classifyAccount, formatCurrency, getRacDescription, type ProcessedRow } from "#/lib/analista/types"
@@ -593,42 +594,48 @@ function MonitoramentoPage() {
 									<BookOpen className="w-4 h-4 mr-2 text-blue-600" />
 									Questão RAC:
 								</label>
-								<select
-									id="rac-filter"
-									value={activeRacFilter}
-									onChange={(e) => setActiveRacFilter(e.target.value)}
-									className="text-sm border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 py-2 pl-3 pr-10 bg-slate-50 font-medium text-slate-700"
-								>
-									<option value="TODOS">Todas as Questões</option>
-									{Array.from(new Set(data.filter((r) => r.questaoRAC).map((r) => r.questaoRAC)))
-										.sort()
-										.map((rac) => (
-											<option key={rac} value={rac}>
-												{rac}
-											</option>
-										))}
-								</select>
+								<Select value={activeRacFilter} onValueChange={setActiveRacFilter}>
+									<SelectTrigger
+										id="rac-filter"
+										className="text-sm border-slate-200 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500 py-2 pl-3 pr-3 bg-slate-50 font-medium text-slate-700"
+									>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="TODOS">Todas as Questões</SelectItem>
+										{Array.from(new Set(data.map((r) => r.questaoRAC).filter((rac): rac is string => Boolean(rac))))
+											.sort()
+											.map((rac) => (
+												<SelectItem key={rac} value={rac}>
+													{rac}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
 							</div>
 							<div className="flex items-center space-x-3">
 								<label htmlFor="conferente-filter" className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center">
 									<Filter className="w-4 h-4 mr-2 text-blue-600" />
 									Conferente:
 								</label>
-								<select
-									id="conferente-filter"
-									value={activeConferenteFilter}
-									onChange={(e) => setActiveConferenteFilter(e.target.value)}
-									className="text-sm border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 py-2 pl-3 pr-10 bg-slate-50 font-medium text-slate-700"
-								>
-									<option value="TODOS">Todos os Conferentes</option>
-									{Array.from(new Set(data.map((r) => getConferente(r.ug))))
-										.sort()
-										.map((conf) => (
-											<option key={conf} value={conf}>
-												{conf}
-											</option>
-										))}
-								</select>
+								<Select value={activeConferenteFilter} onValueChange={setActiveConferenteFilter}>
+									<SelectTrigger
+										id="conferente-filter"
+										className="text-sm border-slate-200 rounded-xl shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500 py-2 pl-3 pr-3 bg-slate-50 font-medium text-slate-700"
+									>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="TODOS">Todos os Conferentes</SelectItem>
+										{Array.from(new Set(data.map((r) => getConferente(r.ug))))
+											.sort()
+											.map((conf) => (
+												<SelectItem key={conf} value={conf}>
+													{conf}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 						{(activeRacFilter !== "TODOS" || activeConferenteFilter !== "TODOS") && (

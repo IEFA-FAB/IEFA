@@ -1,6 +1,7 @@
 import { Activity, AlertTriangle, FileImage, Filter, PieChart as PieChartIcon, Shield, TrendingUp, Users, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { DashboardMetrics, UgConsolidated } from "../utils/analytics"
 import { getConferente } from "../utils/conferentes"
 import { exportElementToImage } from "../utils/exportUtils"
@@ -134,18 +135,19 @@ export function ManagerialPanel({ data }: ManagerialPanelProps) {
 				<div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
 					<Filter className="w-4 h-4 text-slate-400" />
 					<span className="text-xs font-medium text-slate-600">Questão RAC:</span>
-					<select
-						value={selectedRac}
-						onChange={(e) => setSelectedRac(e.target.value)}
-						className="bg-transparent border-none p-0 font-bold text-fab-700 focus:ring-0 cursor-pointer text-xs"
-					>
-						<option value="Geral">Todas as Questões</option>
-						{RAC_QUESTIONS.map((q) => (
-							<option key={q} value={q}>
-								{q}
-							</option>
-						))}
-					</select>
+					<Select value={selectedRac} onValueChange={setSelectedRac}>
+						<SelectTrigger className="data-[size=default]:h-auto border-none bg-transparent p-0 text-xs font-bold text-fab-700 shadow-none focus-visible:ring-0">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="Geral">Todas as Questões</SelectItem>
+							{RAC_QUESTIONS.map((q) => (
+								<SelectItem key={q} value={q}>
+									{q}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
 

@@ -1,5 +1,6 @@
-import { Filter, Info, Maximize2, Minimize2, X } from "lucide-react"
+import { Info, Maximize2, Minimize2, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select"
 import type { FinancialRecord } from "../types"
 import { AccountGroup, RiskLevel } from "../types"
 
@@ -66,55 +67,61 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
 	const Controls = () => (
 		<div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
 			<div className="relative">
-				<select
-					value={localGroup}
-					onChange={(e) => setLocalGroup(e.target.value)}
-					className={`appearance-none pl-3 pr-8 py-1 rounded text-xs font-medium border outline-none cursor-pointer focus:ring-2 focus:ring-blue-500
+				<Select value={localGroup} onValueChange={setLocalGroup}>
+					<SelectTrigger
+						className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
             ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
-				>
-					<option value="ALL">Todos os Grupos</option>
-					<option value={AccountGroup.BMP}>BMP</option>
-					<option value={AccountGroup.CONSUMO}>CONSUMO</option>
-					<option value={AccountGroup.INTANGIVEL}>INTANGÍVEL</option>
-				</select>
-				<Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+					>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="ALL">Todos os Grupos</SelectItem>
+						<SelectItem value={AccountGroup.BMP}>BMP</SelectItem>
+						<SelectItem value={AccountGroup.CONSUMO}>CONSUMO</SelectItem>
+						<SelectItem value={AccountGroup.INTANGIVEL}>INTANGÍVEL</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 
 			{!hideMonthFilter && (
 				<div className="relative">
-					<select
-						value={localMonth}
-						onChange={(e) => setLocalMonth(e.target.value)}
-						className={`appearance-none pl-3 pr-8 py-1 rounded text-xs font-medium border outline-none cursor-pointer focus:ring-2 focus:ring-blue-500
+					<Select value={localMonth} onValueChange={setLocalMonth}>
+						<SelectTrigger
+							className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
               ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
-					>
-						<option value="TODOS">Todos os Meses</option>
-						{availableMonths.map((m) => (
-							<option key={m} value={m}>
-								{m}
-							</option>
-						))}
-					</select>
-					<Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="TODOS">Todos os Meses</SelectItem>
+							{availableMonths.map((m) => (
+								<SelectItem key={m} value={m}>
+									{m}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
 			)}
 
 			{showRiskFilter && (
 				<div className="flex items-center gap-1">
 					<div className="relative">
-						<select
-							value={localRisk}
-							onChange={(e) => setLocalRisk(e.target.value)}
-							className={`appearance-none pl-3 pr-8 py-1 rounded text-xs font-medium border outline-none cursor-pointer focus:ring-2 focus:ring-blue-500
+						<Select value={localRisk} onValueChange={setLocalRisk}>
+							<SelectTrigger
+								className={`data-[size=default]:h-auto pl-3 pr-2 py-1 rounded text-xs font-medium border shadow-none focus-visible:ring-2 focus-visible:ring-blue-500
                 ${isDarkMode ? "bg-slate-900 border-slate-600 text-slate-300" : "bg-slate-50 border-slate-300 text-slate-700"}`}
-						>
-							<option value="TODOS">Todos os Riscos</option>
-							<option value={RiskLevel.BAIXO}>Baixo Risco</option>
-							<option value={RiskLevel.MEDIO}>Médio Risco</option>
-							<option value={RiskLevel.ALTO}>Alto Risco</option>
-							<option value={RiskLevel.CRITICO}>Crítico</option>
-						</select>
-						<Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+							>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="TODOS">Todos os Riscos</SelectItem>
+								<SelectItem value={RiskLevel.BAIXO}>Baixo Risco</SelectItem>
+								<SelectItem value={RiskLevel.MEDIO}>Médio Risco</SelectItem>
+								<SelectItem value={RiskLevel.ALTO}>Alto Risco</SelectItem>
+								<SelectItem value={RiskLevel.CRITICO}>Crítico</SelectItem>
+							</SelectContent>
+						</Select>
 					</div>
 
 					<div className="group relative">

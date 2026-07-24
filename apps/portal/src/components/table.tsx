@@ -22,6 +22,7 @@ import CopyButton from "./copy-button"
 import { Button } from "./ui/button"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "./ui/dropdown-menu"
 import { Input } from "./ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table"
 
 /* ---------------------------------------------------------
@@ -353,13 +354,18 @@ export function FacilidadesTable({ OM, Date: dateString, Hour: hour, Hour_limit:
 
 				<div className="flex items-center gap-2">
 					<span className="text-sm text-muted-foreground">Linhas por página:</span>
-					<select className="h-9 border bg-background px-2 text-sm" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-						{[10, 25, 50, 100].map((sizeOption) => (
-							<option key={sizeOption} value={sizeOption}>
-								{sizeOption}
-							</option>
-						))}
-					</select>
+					<Select value={pageSize} onValueChange={(value) => setPageSize(Number(value))}>
+						<SelectTrigger className="data-[size=default]:h-9 bg-background px-2 text-sm">
+							<SelectValue>{pageSize}</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{[10, 25, 50, 100].map((sizeOption) => (
+								<SelectItem key={sizeOption} value={sizeOption}>
+									{sizeOption}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 
 					<DropdownMenu>
 						<DropdownMenuTrigger

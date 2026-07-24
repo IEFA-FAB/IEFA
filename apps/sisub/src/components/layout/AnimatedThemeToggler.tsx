@@ -1,6 +1,6 @@
 import { Moon, Sun } from "lucide-react"
 import { startTransition, useRef } from "react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 
 interface AnimatedThemeTogglerProps extends React.ComponentPropsWithoutRef<"button"> {
 	duration?: number

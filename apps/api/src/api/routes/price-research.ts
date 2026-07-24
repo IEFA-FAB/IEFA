@@ -1,10 +1,71 @@
 import { createHash } from "node:crypto"
 import { createClient } from "@supabase/supabase-js"
 import { Hono } from "hono"
+import { z } from "zod"
 import { env } from "../../env.ts"
+import { secureCompare } from "../../lib/secure-compare.ts"
 import { analisarPrecos, type OpcoesPesquisa } from "../../workers/pesquisa-preco/analyzer.ts"
 import { consultarMaterialPrecos } from "../../workers/pesquisa-preco/client.ts"
 import type { AmostraPreco, AtaItemPriceResult, PriceAnalysis } from "../../workers/pesquisa-preco/types.ts"
+
+// ─── Validação de entrada ─────────────────────────────────────────────────────
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
+/**
+ * Query params do GET /material/:catmatCode.
+ * Defaults e clamps codificados no schema preservam o contrato anterior:
+ * months 12 (inteiro, clamp 1–24; 0/vazio cai no default — herança do `|| 12`),
+ * similarityThreshold 0.4 (clamp 0–1; 0 cai no default — herança do `|| 0.4`).
+ */
+const materialQuerySchema = z.object({
+	months: z.coerce
+		.number()
+		.default(12)
+		.transform((v) => clamp(Math.trunc(v) || 12, 1, 24)),
+	similarityThreshold: z.coerce
+		.number()
+		.default(0.4)
+		.transform((v) => clamp(v || 0.4, 0, 1)),
+	estado: z.string().optional(),
+	codigoUasg: z.string().optional(),
+	codigoMunicipio: z.coerce.number().optional(),
+})
+
+/**
+ * Body do POST /ata/:ataId (todos opcionais).
+ * Contrato anterior preservado: months 12 (clamp 1–24), threshold 0.4 (clamp
+ * 0–1) — aqui 0 explícito NÃO cai no default (era `?? 12` / `?? 0.4`).
+ */
+const ataBodySchema = z.object({
+	months: z
+		.number()
+		.default(12)
+		.transform((v) => clamp(v, 1, 24)),
+	similarityThreshold: z
+		.number()
+		.default(0.4)
+		.transform((v) => clamp(v, 0, 1)),
+	estado: z.string().optional(),
+	codigoUasg: z.string().optional(),
+	codigoMunicipio: z.number().optional(),
+})
+
+/** Formata issues do zod numa linha só, apropriada pra payload de erro JSON. */
+function formatZodError(error: z.ZodError): string {
+	return error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ")
+}
+
+/** Monta OpcoesPesquisa a partir de input validado — mesma semântica dos spreads condicionais anteriores (vazio/0 ⇒ filtro omitido). */
+function buildOptions(input: z.output<typeof materialQuerySchema> | z.output<typeof ataBodySchema>): OpcoesPesquisa {
+	return {
+		months: input.months,
+		similarityThreshold: input.similarityThreshold,
+		...(input.estado ? { estado: input.estado.toUpperCase() } : {}),
+		...(input.codigoUasg ? { codigoUasg: input.codigoUasg } : {}),
+		...(input.codigoMunicipio ? { codigoMunicipio: input.codigoMunicipio } : {}),
+	}
+}
 
 function getSupabase() {
 	return createClient(env.API_SUPABASE_URL, env.API_SUPABASE_SERVICE_ROLE_KEY, {
@@ -235,11 +296,27 @@ function factPayload(a: AmostraPreco) {
 	}
 }
 
+// ─── Tipos do select aninhado de GET /research/:researchId ───────────────────
+// O client Supabase não é tipado (schemas custom) — estes shapes descrevem só a
+// estrutura que o achatamento manipula; o resto dos campos passa intacto.
+
+/** Linha da ponte pesquisa↔amostra com o fato `amostra` aninhado. */
+interface ResearchSampleRow {
+	[key: string]: unknown
+	amostra?: Record<string, unknown> | null
+}
+
+/** Linha de procurement_pesquisa_preco_item com as amostras aninhadas. */
+interface ResearchItemRow {
+	[key: string]: unknown
+	samples?: ResearchSampleRow[] | null
+}
+
 export const priceResearchRoutes = new Hono()
 	// Middleware: mesma proteção das rotas admin
 	.use("*", async (c, next) => {
 		const secret = c.req.header("x-admin-secret")
-		if (!secret || secret !== env.ADMIN_SECRET) {
+		if (!secureCompare(secret, env.ADMIN_SECRET)) {
 			return c.json({ error: "Unauthorized" }, 401)
 		}
 		return next()
@@ -258,14 +335,11 @@ export const priceResearchRoutes = new Hono()
 			return c.json({ error: "Código CATMAT inválido" }, 400)
 		}
 
-		const q = c.req.query() as Record<string, string>
-		const options: OpcoesPesquisa = {
-			months: Math.min(Math.max(parseInt(q.months ?? "12", 10) || 12, 1), 24),
-			similarityThreshold: Math.min(Math.max(parseFloat(q.similarityThreshold ?? "0.4") || 0.4, 0), 1),
-			...(q.estado ? { estado: q.estado.toUpperCase() } : {}),
-			...(q.codigoUasg ? { codigoUasg: q.codigoUasg } : {}),
-			...(q.codigoMunicipio ? { codigoMunicipio: Number(q.codigoMunicipio) } : {}),
+		const parsedQuery = materialQuerySchema.safeParse(c.req.query())
+		if (!parsedQuery.success) {
+			return c.json({ error: `Query inválida: ${formatZodError(parsedQuery.error)}` }, 400)
 		}
+		const options = buildOptions(parsedQuery.data)
 
 		const supabase = getSupabase()
 		const catmatDescricao = await buscarDescricaoCatmat(supabase, catmatCode)
@@ -296,21 +370,13 @@ export const priceResearchRoutes = new Hono()
 		const ataId = c.req.param("ataId")
 		if (!ataId) return c.json({ error: "ataId inválido" }, 400)
 
-		const body = (await c.req.json().catch(() => ({}))) as {
-			months?: number
-			estado?: string
-			codigoUasg?: string
-			codigoMunicipio?: number
-			similarityThreshold?: number
+		// Body é opcional — ausência/JSON inválido caem nos defaults (contrato anterior)
+		const rawBody = await c.req.json().catch(() => ({}))
+		const parsedBody = ataBodySchema.safeParse(rawBody ?? {})
+		if (!parsedBody.success) {
+			return c.json({ error: `Body inválido: ${formatZodError(parsedBody.error)}` }, 400)
 		}
-
-		const options: OpcoesPesquisa = {
-			months: Math.min(Math.max(body.months ?? 12, 1), 24),
-			similarityThreshold: Math.min(Math.max(body.similarityThreshold ?? 0.4, 0), 1),
-			...(body.estado ? { estado: body.estado.toUpperCase() } : {}),
-			...(body.codigoUasg ? { codigoUasg: body.codigoUasg } : {}),
-			...(body.codigoMunicipio ? { codigoMunicipio: body.codigoMunicipio } : {}),
-		}
+		const options = buildOptions(parsedBody.data)
 
 		const supabase = getSupabase()
 
@@ -492,9 +558,9 @@ export const priceResearchRoutes = new Hono()
 
 		// Achata a observação de compra de volta na amostra → preserva o contrato
 		// JSON plano (id, sample_type, similarity + campos de fato).
-		const flatItems = (items ?? []).map((it: any) => ({
-			...it,
-			samples: (it.samples ?? []).map(({ amostra, ...rest }: any) => ({ ...rest, ...(amostra ?? {}) })),
+		const flatItems = ((items ?? []) as ResearchItemRow[]).map(({ samples, ...rest }) => ({
+			...rest,
+			samples: (samples ?? []).map(({ amostra, ...sample }) => ({ ...sample, ...(amostra ?? {}) })),
 		}))
 
 		return c.json({ ...research, items: flatItems })

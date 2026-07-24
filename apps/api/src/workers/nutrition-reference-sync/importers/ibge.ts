@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { unzipSync } from "fflate"
 import * as XLSX from "xlsx"
+import { fetchWithRetry } from "../../../lib/fetch-with-retry.ts"
 import { persistSourceImport } from "./persist.ts"
 import type { ParsedComponent, ParsedFood, ParsedSource, ParsedValue, SupabaseAny } from "./types.ts"
 
@@ -125,7 +126,7 @@ export function parseIbgeWorkbook(xlsBytes: Uint8Array): ParsedFood[] {
 }
 
 export async function importIbge(supabase: SupabaseAny): Promise<number> {
-	const res = await fetch(DOWNLOAD_URL, { redirect: "follow" })
+	const res = await fetchWithRetry(DOWNLOAD_URL, { redirect: "follow" }, { label: "IBGE" })
 	if (!res.ok) throw new Error(`Download IBGE falhou: HTTP ${res.status}`)
 	const zipBytes = new Uint8Array(await res.arrayBuffer())
 	const checksum = createHash("sha256").update(zipBytes).digest("hex")

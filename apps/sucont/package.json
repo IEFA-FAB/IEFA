@@ -46,7 +46,7 @@
     "lucide-react": "^1.21.0",
     "motion": "^12.40.0",
     "next-themes": "^0.4.6",
-    "nitro": "npm:nitro-nightly@^3.0.1-20260622-083727-6de81eef",
+    "nitro": "^3.0.260610-beta",
     "papaparse": "^5.5.4",
     "radix-ui": "^1.6.0",
     "react": "^19.2.7",
@@ -66,7 +66,7 @@
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",
-    "@biomejs/biome": "2.5.0",
+    "@biomejs/biome": "^2.5.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/devtools-event-client": "^0.4.4",

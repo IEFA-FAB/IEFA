@@ -1,7 +1,9 @@
 # =============================================================================
 # BASE - Alpine com Bun
+# Digest centralizado: bump de versão do Bun altera só esta linha.
 # =============================================================================
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS base
+ARG BUN_IMAGE=oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0
+FROM ${BUN_IMAGE} AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -72,7 +74,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/portal/.output/server/index.mjs 
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS portal
+FROM ${BUN_IMAGE} AS portal
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=portal-build /app/apps/portal/.output ./.output
@@ -104,7 +106,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/rumaer/.output/server/index.mjs 
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS rumaer
+FROM ${BUN_IMAGE} AS rumaer
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=rumaer-build /app/apps/rumaer/.output ./.output
@@ -137,7 +139,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/sucont/.output/server/index.mjs 
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS sucont
+FROM ${BUN_IMAGE} AS sucont
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sucont-build /app/apps/sucont/.output ./.output
@@ -168,7 +170,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/assignment-selection/.output/ser
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS assignment-selection
+FROM ${BUN_IMAGE} AS assignment-selection
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=assignment-selection-build /app/apps/assignment-selection/.output ./.output
@@ -220,7 +222,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/sisub/.output/server/index.mjs \
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS sisub
+FROM ${BUN_IMAGE} AS sisub
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=sisub-build /app/apps/sisub/.output ./.output
@@ -252,7 +254,7 @@ RUN grep -oE '"(/assets/[^"]+\.(css|js))"' apps/forms/.output/server/index.mjs \
       done \
     && echo "✅ All server-referenced assets present in public/"
 
-FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS forms
+FROM ${BUN_IMAGE} AS forms
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=forms-build /app/apps/forms/.output ./.output

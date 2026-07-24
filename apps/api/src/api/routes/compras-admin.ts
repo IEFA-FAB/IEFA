@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "../../env.ts"
+import { secureCompare } from "../../lib/secure-compare.ts"
 import { hasLiveSync, runComprasSync } from "../../workers/compras-sync/index.ts"
 
 function getSupabase() {
@@ -160,7 +161,7 @@ export const comprasAdminRoutes = new OpenAPIHono()
 
 comprasAdminRoutes.use("*", async (c, next) => {
 	const secret = c.req.header("x-admin-secret")
-	if (!secret || secret !== env.ADMIN_SECRET) {
+	if (!secureCompare(secret, env.ADMIN_SECRET)) {
 		return c.json({ error: "Unauthorized" }, 401)
 	}
 	return next()

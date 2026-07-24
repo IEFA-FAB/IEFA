@@ -1,6 +1,6 @@
 import { CheckCircle2, ChefHat, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/cn"
 import type { ProductionItem, ProductionTaskStatus } from "@/types/domain/production"
 import { ProductionTaskCard } from "./ProductionTaskCard"
 

@@ -1,4 +1,4 @@
-import type { FabDocumentData } from "#/server/gemini.fn"
+import type { FabDocumentData } from "#/server/document-ai.fn"
 
 interface FabDocumentProps {
 	data: FabDocumentData
