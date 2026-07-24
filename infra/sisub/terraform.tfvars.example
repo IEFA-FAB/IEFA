@@ -33,6 +33,13 @@ secret_names = [
   "ANALYTICS_AI_API_KEY",
 ]
 
+# Busiest app by far (~90% of ALB requests): two tasks so a Spot reclamation never
+# leaves it down. cpu/memory stay at 512/1024 to protect SSR TTFB even though
+# measured usage is far below that. Internal services stay on the default of 1.
+desired_count = 2
+
+# Alternative to a second Spot task: pin one on-demand task instead (≈2x the
+# hourly rate of Spot, but immune to capacity reclamation).
 # fargate_on_demand_base = 1
 
 hosts = ["sisub.iefa.com.br", "app.previsaosisub.com.br"]

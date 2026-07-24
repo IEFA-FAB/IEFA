@@ -135,8 +135,9 @@ variable "image_tag" {
 }
 
 variable "desired_count" {
-  type    = number
-  default = 2
+  description = "Number of tasks. Each task costs Fargate vCPU/GB hours plus a public IPv4 address (~US$3.60/month), so a second task roughly doubles a service's bill. Deployments stay zero-downtime at 1 because deployment_minimum_healthy_percent is 100 (a new task starts before the old one stops); a second task only buys survival of a Spot reclamation or an AZ failure. Raise it for the services real users sit on."
+  type        = number
+  default     = 1
 }
 
 variable "fargate_spot_weight" {

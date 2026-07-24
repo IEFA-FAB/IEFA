@@ -24,6 +24,12 @@ secret_names = [
   "ASSIGNMENT_SELECTION_SUPABASE_SECRET_KEY",
 ]
 
-# fargate_on_demand_base = 1
+# Projected on a big screen during live assignment ceremonies, and the board polls
+# every 2s in the background (see apps/assignment-selection/src/lib/queries.ts).
+# A Spot reclamation mid-broadcast would blank the screen for a minute or two, so
+# this service pins one on-demand task that capacity reclamation cannot touch, and
+# runs a second Spot task alongside it.
+desired_count          = 2
+fargate_on_demand_base = 1
 
 hosts = ["escolha.iefa.com.br"]

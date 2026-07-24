@@ -97,14 +97,65 @@ of a single service via its target group, but not multi-service routing).
 
 ## Cost / reliability knobs
 
+- **One task per service by default** (`desired_count = 1`). Deploys stay
+  zero-downtime regardless, because `deployment_minimum_healthy_percent = 100`
+  starts the replacement task before stopping the old one. A second task only buys
+  survival of a Spot reclamation or an AZ failure, and it costs twice: Fargate
+  hours *and* a second public IPv4. `sisub` and `portal` set `desired_count = 2` in
+  their tfvars; everything else runs one task.
 - **Spot by default** (`fargate_on_demand_base = 0`): cheapest, but a Spot
-  reclamation can drop both tasks of a service at once. For user-facing SSR apps
+  reclamation can drop every task of a service at once. For user-facing SSR apps
   set `fargate_on_demand_base = 1` in the service tfvars to pin one on-demand task.
-- **Container Insights** is on by default (`enable_container_insights = true` in
-  foundation) to make Spot task failures debuggable; set false to shave cost.
+- **Container Insights** is off by default (`enable_container_insights = false` in
+  foundation). It publishes ~20 custom CloudWatch metrics per service, which was
+  the single largest CloudWatch line on this account. Frontend errors and server
+  traces already go to Grafana Faro + OTel. Turn it on while debugging Spot task
+  failures, then turn it back off.
 - **Per-service logs** (`enable_cloudwatch_logs`) are off by default; enable per
   service when debugging.
 - **`:latest` mutable** images + `--force-new-deployment`. For immutable rollout,
   set `image_tag_mutability = "IMMUTABLE"` and pin `image_tag` to a git sha.
 - **No NAT**: tasks get public IPs (egress via IGW). Cheaper than NAT, but every
   task carries a public IPv4; SGs only allow inbound from the ALB.
+
+### Where the money goes
+
+Roughly, per month, at this account's scale:
+
+| Line | Driver | Scales with |
+|---|---|---|
+| Fargate Spot vCPU-hours | the dominant compute cost | `desired_count` × `cpu` |
+| Public IPv4 in-use | ~US$3.60 per address | one per running task + 2 for the ALB |
+| CloudWatch metric monitoring | Container Insights only | number of services, if enabled |
+| ALB hours | fixed | shared across every service — do not split it |
+| Fargate Spot GB-hours | ~10x cheaper per unit than vCPU | `desired_count` × `memory` |
+
+Two consequences worth internalizing: **task count is the lever**, because it hits
+compute and IPv4 together; and **vCPU is far more expensive than memory**, so when
+a service needs headroom, prefer giving it memory over CPU.
+
+Before resizing anything, measure. With Container Insights temporarily enabled:
+
+```bash
+aws cloudwatch get-metric-statistics --namespace ECS/ContainerInsights \
+  --metric-name CpuUtilized \
+  --dimensions Name=ClusterName,Value=iefa-prod-cluster Name=ServiceName,Value=sisub \
+  --start-time "$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+  --end-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --period 1209600 --statistics Average Maximum
+```
+
+`CpuUtilized` is in CPU units (1024 = 1 vCPU), `MemoryUtilized` in MiB — compare
+directly against the `cpu` / `memory` in the service tfvars.
+
+Deliberately *not* done, and why:
+
+- **Private subnets + NAT gateway** to drop the public IPv4 charge. A NAT gateway
+  costs about as much as the IPv4 addresses it would replace at this task count,
+  and adds per-GB data processing on top.
+- **VPC interface endpoints** (ECR, Secrets Manager, logs) for the same purpose.
+  Each endpoint bills per-AZ-hour; four endpoints across two AZs cost more than the
+  addresses they save.
+- **Scheduled scale-to-zero** overnight for the internal-only apps. Real savings,
+  but it needs Application Auto Scaling resources and makes "the app is down"
+  ambiguous. Worth revisiting if compute climbs again.

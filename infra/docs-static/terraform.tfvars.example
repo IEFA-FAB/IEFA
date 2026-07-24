@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars. Apply infra/foundation first, then this stack.
+# state_bucket comes from the infra/bootstrap output (state_bucket_name).
+state_bucket         = "CHANGE_ME_FROM_INFRA_BOOTSTRAP_OUTPUT"
+state_region         = "sa-east-1"
+foundation_state_key = "foundation/prod/terraform.tfstate"
+aws_region           = "sa-east-1"
+
+site_name = "docs"
+hosts     = ["docs.iefa.com.br"]
+
+# Phase 1: leave certificate_arn empty and set provision_certificate = true. The
+# distribution comes up on its own *.cloudfront.net domain and the stack outputs
+# `certificate_validation_records` — add those CNAMEs at Registro.br.
+#
+# Phase 2: once ACM reports ISSUED, paste `certificate_arn_created` here and
+# re-apply. Only then does the distribution answer on docs.iefa.com.br.
+provision_certificate = true
+# certificate_arn = "arn:aws:acm:us-east-1:103256050857:certificate/<cert-id>"
+
+# Do not lower this. PriceClass_100 and _200 exclude South America, so Brazilian
+# visitors would be served from a North American edge — slower than the ALB this
+# replaces. Measured from Brazil, the CloudFront edge (GIG, Rio) beats the ALB on
+# both TCP connect and TLS handshake.
+price_class = "PriceClass_All"
