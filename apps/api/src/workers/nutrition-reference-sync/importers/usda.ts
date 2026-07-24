@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { unzipSync } from "fflate"
+import { fetchWithRetry } from "../../../lib/fetch-with-retry.ts"
 import { forEachCsvRow, parseCsv } from "./csv.ts"
 import { persistSourceImport } from "./persist.ts"
 import type { ParsedComponent, ParsedFood, ParsedSource, ParsedValue, SupabaseAny } from "./types.ts"
@@ -36,7 +37,7 @@ function toText(bytes: Uint8Array): string {
 /** Try to resolve the current Foundation CSV url from the downloads page; fall back to the pinned one. */
 async function resolveFoundationUrl(): Promise<string> {
 	try {
-		const res = await fetch(UPSTREAM_URL, { redirect: "follow" })
+		const res = await fetchWithRetry(UPSTREAM_URL, { redirect: "follow" }, { label: "USDA (downloads page)" })
 		if (!res.ok) return FOUNDATION_FALLBACK_URL
 		const html = await res.text()
 		const matches = [...html.matchAll(/FoodData_Central_foundation_food_csv_(\d{4}-\d{2}-\d{2})\.zip/g)]
@@ -46,7 +47,10 @@ async function resolveFoundationUrl(): Promise<string> {
 			.sort()
 			.at(-1)
 		return `${DOWNLOAD_HOST}/FoodData_Central_foundation_food_csv_${latest}.zip`
-	} catch {
+	} catch (err) {
+		console.warn(
+			`[nutrition-sync] USDA: falha ao resolver a URL do Foundation (${err instanceof Error ? err.message : String(err)}) — usando fallback ${FOUNDATION_FALLBACK_URL}`
+		)
 		return FOUNDATION_FALLBACK_URL
 	}
 }
@@ -131,7 +135,7 @@ export function parseUsdaDataset(files: Record<string, Uint8Array>, dataType: st
 }
 
 async function downloadZip(url: string): Promise<{ files: Record<string, Uint8Array>; checksum: string }> {
-	const res = await fetch(url, { redirect: "follow" })
+	const res = await fetchWithRetry(url, { redirect: "follow" }, { label: "USDA" })
 	if (!res.ok) throw new Error(`Download USDA falhou (${url}): HTTP ${res.status}`)
 	const buf = new Uint8Array(await res.arrayBuffer())
 	const checksum = createHash("sha256").update(buf).digest("hex")

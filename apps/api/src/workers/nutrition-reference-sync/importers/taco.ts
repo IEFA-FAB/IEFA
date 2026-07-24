@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import * as XLSX from "xlsx"
+import { fetchWithRetry } from "../../../lib/fetch-with-retry.ts"
 import { persistSourceImport } from "./persist.ts"
 import type { ParsedComponent, ParsedFood, ParsedSource, ParsedValue, SupabaseAny } from "./types.ts"
 
@@ -211,7 +212,7 @@ function assertXlsx(buffer: ArrayBuffer, url: string): void {
 }
 
 export async function importTaco(supabase: SupabaseAny): Promise<number> {
-	const res = await fetch(UPSTREAM_URL, { redirect: "follow" })
+	const res = await fetchWithRetry(UPSTREAM_URL, { redirect: "follow" }, { label: "TACO" })
 	if (!res.ok) throw new Error(`Download TACO falhou: HTTP ${res.status}`)
 	const buffer = await res.arrayBuffer()
 	const downloadUrl = res.url || UPSTREAM_URL
