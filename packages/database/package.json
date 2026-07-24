@@ -36,6 +36,6 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",
-    "supabase": "2.107.0"
+    "supabase": "2.109.1"
   }
 }
