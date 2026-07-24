@@ -296,7 +296,7 @@ describeSupabaseIntegration("purchase_item CRUD (integração)", () => {
 		expect(error).toBeNull()
 		expect(data?.id).toBe(testPurchaseItemId)
 		expect(Array.isArray(data?.purchase_item_ingredient)).toBe(true)
-		expect((data?.purchase_item_ingredient as unknown[]).length).toBeGreaterThan(0)
+		expect(((data?.purchase_item_ingredient ?? []) as unknown[]).length).toBeGreaterThan(0)
 	})
 
 	test("FK constraint rejeita ingredient_id inexistente", async () => {
