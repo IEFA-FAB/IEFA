@@ -168,7 +168,10 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 			)
 			.digest("hex")
 			.slice(0, 16)
-		const scope = data.ataItemId ?? `catmat-${data.catmatCodigo}`
+		// A ATA participa do escopo mesmo sem ataItemId: sem isso, duas ATAs distintas com
+		// o mesmo CATMAT/método/dia/amostras colidiriam na chave e a segunda receberia os
+		// IDs de auditoria da primeira — vazando o vínculo entre unidades.
+		const scope = data.ataItemId ?? (data.ataId ? `ata-${data.ataId}:catmat-${data.catmatCodigo}` : `catmat-${data.catmatCodigo}`)
 		// Dia no fuso de Brasília (não UTC) — senão re-execuções entre 21h–24h BRT
 		// cairiam em dias UTC distintos e gerariam registros duplicados.
 		const day = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10)
