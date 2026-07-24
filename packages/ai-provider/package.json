@@ -19,14 +19,14 @@
     "./langchain-compat": "./src/langchain-compat.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.716.0",
-    "@langchain/openai": "^1.5.1",
-    "@tanstack/ai": "^0.32.0",
-    "@tanstack/ai-anthropic": "^0.15.5",
-    "@tanstack/ai-gemini": "^0.17.0",
-    "@tanstack/ai-groq": "^0.4.8",
-    "@tanstack/ai-ollama": "^0.8.5",
-    "@tanstack/ai-openai": "^0.15.2"
+    "@aws-sdk/client-bedrock-runtime": "^3.1090.0",
+    "@langchain/openai": "^1.5.5",
+    "@tanstack/ai": "^0.41.0",
+    "@tanstack/ai-anthropic": "^0.16.2",
+    "@tanstack/ai-gemini": "^0.20.0",
+    "@tanstack/ai-groq": "^0.5.2",
+    "@tanstack/ai-ollama": "^0.8.15",
+    "@tanstack/ai-openai": "^0.17.0"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.9.1"
