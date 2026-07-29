@@ -109,6 +109,17 @@ export function createNfeAdminRoutes(deps: NfeAdminRoutesDeps = {}) {
 		if (docError) {
 			if (docError.code === "23505") {
 				const { data: existing } = await supabase.from("nfe_document").select("id").eq("access_key", parsed.accessKey).maybeSingle()
+				// Auto-cura: um import anterior que morreu entre documento e itens
+				// deixa um doc SEM itens reservando a chave — remove e reimporta,
+				// em vez de devolver 409 para sempre (review: cleanup non-atomic).
+				if (existing) {
+					const { count } = await supabase.from("nfe_item").select("id", { count: "exact", head: true }).eq("nfe_document_id", existing.id)
+					if ((count ?? 0) === 0) {
+						await supabase.from("nfe_document").delete().eq("id", existing.id)
+						console.warn(`[nfe-admin] Documento órfão (sem itens) removido para reimport: ${parsed.accessKey}`)
+						return c.json({ error: "Import anterior incompleto foi removido — envie o XML novamente", document_id: undefined }, 409)
+					}
+				}
 				return c.json({ error: "NF-e já importada (chave de acesso duplicada)", document_id: existing?.id }, 409)
 			}
 			throw new Error(`Falha ao gravar nfe_document: ${docError.message}`)
