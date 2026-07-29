@@ -239,6 +239,12 @@ begin
       join inventory.stock_lot l on l.id = ci.lot_id
       where ci.count_id = p_count_id
   loop
+    -- contagem da cozinha A não pode ajustar o ledger da cozinha B (review)
+    if v_item.kitchen_id <> v_count.kitchen_id then
+      raise exception 'Lote % pertence à cozinha %, não à cozinha da contagem (%)',
+        v_item.lot_id, v_item.kitchen_id, v_count.kitchen_id;
+    end if;
+
     select coalesce(sum(case when type in ('receipt','leftover_return','transfer_in','adjustment_in')
                              then quantity else -quantity end), 0)
       into v_balance
@@ -289,7 +295,9 @@ declare
 begin
   if p_quantity is null or p_quantity <= 0 then raise exception 'Quantidade deve ser positiva'; end if;
 
-  select * into v_lot from inventory.stock_lot where id = p_lot_id;
+  -- FOR UPDATE serializa transferências concorrentes do mesmo lote — sem o
+  -- lock, duas transações validavam o mesmo saldo e ambas sacavam (review).
+  select * into v_lot from inventory.stock_lot where id = p_lot_id for update;
   if not found then raise exception 'Lote não encontrado'; end if;
   if v_lot.kitchen_id = p_to_kitchen then raise exception 'Origem e destino são a mesma cozinha'; end if;
 
@@ -330,19 +338,12 @@ end;
 $$;
 
 -- ----------------------------------------------------------------------------
--- RLS: leitura authenticated; escrita via service_role (server fns) apenas
+-- RLS: DENY-ALL para anon/authenticated (sem policies) — custos e movimentos
+-- são dados sensíveis; todo acesso passa pelas server fns (service role) com
+-- PBAC `storage` escopado por cozinha.
 -- ----------------------------------------------------------------------------
 alter table inventory.stock_lot enable row level security;
 alter table inventory.stock_movement enable row level security;
 alter table inventory.stock_cost enable row level security;
 alter table inventory.inventory_count enable row level security;
 alter table inventory.inventory_count_item enable row level security;
-
-create policy stock_lot_read on inventory.stock_lot for select to authenticated using (true);
-create policy stock_movement_read on inventory.stock_movement for select to authenticated using (true);
-create policy stock_cost_read on inventory.stock_cost for select to authenticated using (true);
-create policy inventory_count_read on inventory.inventory_count for select to authenticated using (true);
-create policy inventory_count_item_read on inventory.inventory_count_item for select to authenticated using (true);
-
-grant select on inventory.stock_lot, inventory.stock_movement, inventory.stock_cost,
-  inventory.inventory_count, inventory.inventory_count_item to authenticated;

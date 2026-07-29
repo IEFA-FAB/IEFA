@@ -12,7 +12,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission } from "@/lib/auth.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
@@ -24,7 +24,7 @@ const procurement = () => getServerClient("procurement") as unknown as LooseClie
 export const listSupplyOrdersFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const proc = procurement()
 
 		const { data: orders, error } = await proc
@@ -82,7 +82,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
+		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		const proc = procurement()
 
 		const { data: order, error } = await proc
@@ -122,7 +122,7 @@ export const createSupplyOrderFn = createServerFn({ method: "POST" })
 export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const core = getServerClient("core") as unknown as LooseClient
 		const finance = getServerClient("finance") as unknown as LooseClient
 
@@ -144,7 +144,9 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 export const cancelSupplyOrderFn = createServerFn({ method: "POST" })
 	.validator(z.object({ supplyOrderId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 2)
+		const { data: order } = await procurement().from("supply_order").select("kitchen_id").eq("id", data.supplyOrderId).maybeSingle()
+		if (!order) throw new Error("OF não encontrada")
+		await requireStorageForKitchen(2, Number(order.kitchen_id))
 		const { error } = await procurement()
 			.from("supply_order")
 			.update({ status: "cancelled", updated_at: new Date().toISOString() })
