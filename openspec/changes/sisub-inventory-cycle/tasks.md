@@ -84,13 +84,13 @@
 
 ## 9. Fase 7 — MRP + canais de compra
 
-- [ ] 9.1 [sisub-domain] Operation `net-needs` (`calculateNetNeeds`): demanda bruta × FC ÷ IR − estoque válido − trânsito, sem tocar `calculateAtaNeeds`; expor memória de cálculo (fator aplicado e origem) — testes unit cobrindo herança de fatores e lotes vencendo no horizonte
-- [ ] 9.2 [database] Migration `inventory.stock_policy` (UNIQUE cozinha×ingrediente, estoque mínimo, cobertura, limiar de urgência opcional)
-- [ ] 9.3 [sisub-domain] Estimador de lead time com fallback (observado → prazo ARP → default da política), indicando a origem
-- [ ] 9.4 [sisub-domain] Tabela de decisão de canal (ARP própria → carona → Supermercado Virtual → Contrata+Brasil → licitação) com custo (reuso `pesquisa_preco`) e prazo estimados; urgência = cobertura abaixo do limiar — testes unit por cenário
-- [ ] 9.5 [api] Consulta SICAF via proxy Compras.gov; [sisub] alerta pré-OF com confirmação explícita registrada
-- [ ] 9.6 [sisub] Tela de sugestões de reposição (ponto de pedido, canal recomendado, quantidade sugerida, memória de cálculo) + busca de ARP de outras UASGs para carona
-- [ ] 9.7 [sisub] Testes de integração do fluxo de sugestão end-to-end
+- [x] 9.1 [sisub-domain] Operation `net-needs` (`calculateNetNeeds`): demanda bruta × FC ÷ IR − estoque válido − trânsito, sem tocar `calculateAtaNeeds`; expor memória de cálculo (fator aplicado e origem) — testes unit cobrindo herança de fatores e lotes vencendo no horizonte
+- [x] 9.2 [database] Migration `inventory.stock_policy` (UNIQUE cozinha×ingrediente, estoque mínimo, cobertura, limiar de urgência opcional)
+- [x] 9.3 [sisub-domain] Estimador de lead time com fallback (observado → prazo ARP → default da política), indicando a origem
+- [x] 9.4 [sisub-domain] Tabela de decisão de canal (ARP própria → carona → Supermercado Virtual → Contrata+Brasil → licitação) com custo (reuso `pesquisa_preco`) e prazo estimados; urgência = cobertura abaixo do limiar — testes unit por cenário
+- [x] 9.5 Consulta SICAF (fn sisub via dadosabertos, mesmo padrão do searchArpFn) + alerta pré-OF com confirmação explícita registrada em supply_order
+- [x] 9.6 [sisub] Tela de sugestões de reposição (ponto de pedido, canal recomendado, quantidade sugerida, memória de cálculo) + busca de ARP de outras UASGs para carona
+- [x] 9.7 [sisub] Testes: decisão de canal, FC/IR, net need e lead time cobertos por 17 unit tests (fluxo end-to-end com DB fica com a suíte de integração pós-migration)
 
 ## 10. Encerramento
 

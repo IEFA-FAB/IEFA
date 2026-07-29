@@ -25,6 +25,7 @@ import {
 	Sandwich,
 	Settings,
 	ShieldCheck,
+	ShoppingBasket,
 	ShoppingCart,
 	Star,
 	User,
@@ -141,6 +142,7 @@ export const ALL_MODULES: ModuleDef[] = [
 			{ title: "Baixa por Produção", url: "/storage/production-issue", icon: FlameKindling, minLevel: 2 },
 			{ title: "Contagem Física", url: "/storage/counts", icon: ClipboardCheck, minLevel: 3 },
 			{ title: "Relatórios MCASP", url: "/storage/reports", icon: FileSpreadsheet },
+			{ title: "Reposição (MRP)", url: "/storage/replenishment", icon: ShoppingBasket },
 		],
 	},
 	{
