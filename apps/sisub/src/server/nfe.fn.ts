@@ -16,6 +16,7 @@ import { matchNfeItem, type NfeMatchCandidates } from "@iefa/sisub-domain"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 const API_BASE = (process.env.IEFA_API_BASE_URL || "https://api.iefa.com.br").replace(/\/+$/, "")
@@ -26,23 +27,6 @@ type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Reco
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const gs1 = () => getServerClient("gs1_integration") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
-
-/**
- * Guard `storage` ESCOPADO por cozinha (review: o guard sem escopo aceitava
- * permissão de uma cozinha para dados de qualquer outra). Documento sem
- * kitchen_id (legado) exige a permissão sem restrição de escopo.
- */
-async function requireStorageForKitchen(level: 1 | 2, kitchenId: number | null | undefined) {
-	if (kitchenId != null) return requireAuthWithPermission("storage", level, { type: "kitchen", id: kitchenId })
-	// Sem cozinha resolvível: só permissão GLOBAL de storage passa — uma
-	// permissão escopada em outra cozinha não pode alcançar dados sem escopo.
-	const ctx = await requireAuthWithPermission("storage", level)
-	const isGlobal = ctx.permissions.some(
-		(p) => p.module === "storage" && p.level >= level && p.kitchen_id === null && p.unit_id === null && p.mess_hall_id === null
-	)
-	if (!isGlobal) throw new Error("Requer permissão global de estoque para dados sem cozinha atribuída")
-	return ctx
-}
 
 /** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
 async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
