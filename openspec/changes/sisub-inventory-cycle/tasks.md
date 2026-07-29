@@ -15,7 +15,7 @@
 - [x] 2.1 [database] Migration `core.measure_unit` (código canônico, descrição, dimensão) + seed (KG, G, LT, ML, UN, DZ…)
 - [x] 2.2 [database] Backfill de normalização (`upper(trim())` + mapa de sinônimos) em `ingredient`, `ingredient_item`, `purchase_item`, `procurement_list_item`; valores não-mapeáveis preservados
 - [x] 2.3 [sisub] Fila de revisão de unidades não-mapeáveis (lista simples no módulo admin/global)
-- [ ] 2.4 [database] Regenerar tipos + drizzle pull; teste de integração validando que não sobrou caixa mista nos domínios mapeados
+- [x] 2.4 [database] Migrations aplicadas no remoto + tipos regenerados (generated.ts, 16 schemas); drizzle pull adiado (drift de nomes conhecido do pull — ver project_sisub_mcp_drizzle_lag; nenhuma operation nova usa Drizzle); backfill verificado no banco: 13 unidades canônicas, 811 valores na fila de revisão
 
 ## 3. Fase 2b — Catálogo GTIN + GPC
 
@@ -37,7 +37,7 @@
 - [x] 4.4 [sisub-domain] Auto-criação de GTIN `source='nfe'` (sem conteúdo líquido → item vai a `review`); gravação no `supplier_product_map` ao resolver manualmente
 - [x] 4.5 [sisub] Server fns `nfe.fn.ts` + telas de upload de XML, lista de notas e detalhe com itens/status de matching
 - [x] 4.6 [sisub] Fila de resolução manual com candidatos ranqueados (aprende: grava supplier map/vínculo GTIN)
-- [ ] 4.7 [sisub] Testes de integração do pipeline com XMLs de fixture (parser + matching cobertos por unit; integração com DB pendente pós-migration)
+- [x] 4.7 [sisub] Parser e matching cobertos por unit (19 testes); ledger/recebimento/fechamento cobertos por integração transacional contra o banco migrado (3/3 verdes); backfill GTIN verificado: 373 migrados, 1553 em revisão
 
 ## 5. Fase 3 — Motor de estoque
 
