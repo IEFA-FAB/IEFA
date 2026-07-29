@@ -92,16 +92,18 @@ create function inventory.suggest_purchase_items(
   p_limit int default 5
 ) returns table (purchase_item_id uuid, description text, score real)
 language sql stable
--- pg_trgm vive no schema extensions (padrão Supabase); tabelas ficam qualificadas
-set search_path = extensions
+set search_path = ''
 as $$
+  -- sisub.catmat_similarity resolve pg_trgm em runtime (extensions/public) —
+  -- neste banco a extensão não vive em `extensions`, então nada de
+  -- referenciar similarity()/operator % com schema fixo.
   select pi.id,
          pi.description,
          ((case when p_gpc_brick is not null and pi.gpc_brick_code = p_gpc_brick then 0.3 else 0 end)
-          + coalesce(extensions.similarity(pi.description, p_description), 0))::real as score
+          + coalesce(sisub.catmat_similarity(pi.description, p_description), 0))::real as score
     from procurement.purchase_item pi
     where pi.deleted_at is null
-      and (pi.description operator(extensions.%) p_description
+      and (sisub.catmat_similarity(pi.description, p_description) > 0.3
            or (p_gpc_brick is not null and pi.gpc_brick_code = p_gpc_brick))
     order by score desc
     limit greatest(p_limit, 1);
