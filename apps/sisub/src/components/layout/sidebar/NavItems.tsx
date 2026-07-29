@@ -129,7 +129,13 @@ export const ALL_MODULES: ModuleDef[] = [
 		name: "Estoque",
 		icon: Package,
 		color: "primary",
-		items: [{ title: "Notas Fiscais (NF-e)", url: "/storage/nfe", icon: FileText }],
+		hubUrl: "/storage",
+		// URLs base — AppShell substitui por /storage/{id}/... quando dentro de um escopo
+		items: [
+			{ title: "Painel", url: "/storage/dashboard", icon: LayoutDashboard },
+			{ title: "Notas Fiscais (NF-e)", url: "/storage/nfe", icon: FileText },
+			{ title: "Contagem Física", url: "/storage/counts", icon: ClipboardCheck, minLevel: 3 },
+		],
 	},
 	{
 		id: "global",

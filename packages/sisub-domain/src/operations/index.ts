@@ -192,6 +192,14 @@ export {
 	type ReviewTypeMetrics,
 } from "./review-metrics.ts"
 export {
+	allocateFefo,
+	type FefoAllocation,
+	type FefoResult,
+	type LotBalance,
+	sortFefo,
+	sufficiency,
+} from "./stock-math.ts"
+export {
 	applyEventTemplate,
 	applyTemplate,
 	createBlankTemplate,

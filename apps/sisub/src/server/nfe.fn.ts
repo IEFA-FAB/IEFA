@@ -246,34 +246,39 @@ export const runNfeMatchingFn = createServerFn({ method: "POST" })
 	})
 
 /** Lists imported NF-e documents (most recent first) with per-status item counts. */
-export const listNfeDocumentsFn = createServerFn({ method: "GET" }).handler(async () => {
-	await requireAuthWithPermission("storage", 1)
-	const inv = inventory()
+export const listNfeDocumentsFn = createServerFn({ method: "GET" })
+	.validator(z.object({ kitchenId: z.number().int().positive().optional() }))
+	.handler(async ({ data }) => {
+		await requireAuthWithPermission("storage", 1)
+		const inv = inventory()
 
-	const { data: docs, error } = await inv
-		.from("nfe_document")
-		.select("id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at")
-		.order("created_at", { ascending: false })
-		.limit(50)
-	if (error) throw new Error(`Erro ao listar NF-e: ${error.message}`)
-	const documents = (docs ?? []) as NfeDocumentRow[]
-	if (documents.length === 0) return []
+		let query = inv
+			.from("nfe_document")
+			.select("id, access_key, supplier_cnpj, supplier_name, issued_at, total_value, status, created_at")
+			.order("created_at", { ascending: false })
+			.limit(50)
+		// notas da cozinha + notas ainda sem cozinha atribuída
+		if (data.kitchenId != null) query = query.or(`kitchen_id.eq.${data.kitchenId},kitchen_id.is.null`)
+		const { data: docs, error } = await query
+		if (error) throw new Error(`Erro ao listar NF-e: ${error.message}`)
+		const documents = (docs ?? []) as NfeDocumentRow[]
+		if (documents.length === 0) return []
 
-	const { data: items } = await inv
-		.from("nfe_item")
-		.select("nfe_document_id, match_status")
-		.in(
-			"nfe_document_id",
-			documents.map((d) => d.id)
-		)
-	const counts = new Map<string, Record<string, number>>()
-	for (const item of items ?? []) {
-		const acc = counts.get(item.nfe_document_id) ?? {}
-		acc[item.match_status] = (acc[item.match_status] ?? 0) + 1
-		counts.set(item.nfe_document_id, acc)
-	}
-	return documents.map((doc) => ({ ...doc, itemCounts: counts.get(doc.id) ?? {} }))
-})
+		const { data: items } = await inv
+			.from("nfe_item")
+			.select("nfe_document_id, match_status")
+			.in(
+				"nfe_document_id",
+				documents.map((d) => d.id)
+			)
+		const counts = new Map<string, Record<string, number>>()
+		for (const item of items ?? []) {
+			const acc = counts.get(item.nfe_document_id) ?? {}
+			acc[item.match_status] = (acc[item.match_status] ?? 0) + 1
+			counts.set(item.nfe_document_id, acc)
+		}
+		return documents.map((doc) => ({ ...doc, itemCounts: counts.get(doc.id) ?? {} }))
+	})
 
 /** Fetches one NF-e document with its items ordered by n_item. */
 export const fetchNfeDocumentFn = createServerFn({ method: "GET" })

@@ -10,9 +10,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { listNfeDocumentsFn, uploadNfeFn } from "@/server/nfe.fn"
 
-export const Route = createFileRoute("/_protected/_modules/storage/nfe/")({
+export const Route = createFileRoute("/_protected/_modules/storage/$kitchenId/nfe/")({
 	beforeLoad: (opts) => requirePermission(opts, "storage", 1),
-	loader: () => listNfeDocumentsFn(),
+	loader: ({ params }) => listNfeDocumentsFn({ data: { kitchenId: Number(params.kitchenId) } }),
 	component: NfeListPage,
 	head: () => ({
 		meta: [{ title: "Notas Fiscais — SISUB" }],
@@ -30,6 +30,7 @@ function fmtDate(iso: string | null): string {
 
 function NfeListPage() {
 	const documents = Route.useLoaderData()
+	const { kitchenId } = Route.useParams()
 	const router = useRouter()
 	const fileInput = useRef<HTMLInputElement>(null)
 	const [uploading, setUploading] = useState(false)
@@ -38,7 +39,7 @@ function NfeListPage() {
 		setUploading(true)
 		try {
 			const xml = await file.text()
-			const result = await uploadNfeFn({ data: { xml } })
+			const result = await uploadNfeFn({ data: { xml, kitchenId: Number(kitchenId) } })
 			toast.success(`NF-e importada: ${result.itemsCount} itens (${result.matching.matched} casados, ${result.matching.review} em revisão)`)
 			router.invalidate()
 		} catch (err) {
@@ -96,7 +97,7 @@ function NfeListPage() {
 									return (
 										<tr key={doc.id} className="hover:bg-muted/40">
 											<td className="py-2.5 pr-3 text-xs whitespace-nowrap">
-												<Link to="/storage/nfe/$nfeId" params={{ nfeId: doc.id }} className="text-primary hover:underline">
+												<Link to="/storage/$kitchenId/nfe/$nfeId" params={{ kitchenId, nfeId: doc.id }} className="text-primary hover:underline">
 													{fmtDate(doc.issued_at)}
 												</Link>
 											</td>
