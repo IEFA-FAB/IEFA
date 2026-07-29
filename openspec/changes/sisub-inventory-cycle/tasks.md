@@ -75,12 +75,12 @@
 
 ## 8. Fase 6 — MCASP + fechamento
 
-- [ ] 8.1 [database] Migration `inventory.monthly_closing` (UNIQUE cozinha×competência, snapshot jsonb, totais) + bloqueio de lançamento em período fechado (trigger)
-- [ ] 8.2 [sisub] Fluxo de fechamento (PBAC nível 3) + tela `/storage/$kitchenId/relatorios`
-- [ ] 8.3 [sisub] Ficha de Almoxarifado (ledger cronológico por item, PDF) + Balancete mensal (RMA/RMB) conferindo com a view de saldo
-- [ ] 8.4 [database] Layout de exportação em `siafi_integration` + [sisub] exportação CSV/JSON por CATMAT (itens sem CATMAT em seção separada)
-- [ ] 8.5 [sisub] Painel empenho × liquidação (`empenhada | recebida | a receber`)
-- [ ] 8.6 [sisub] Testes: bloqueio retroativo, balancete = ledger, exportação
+- [x] 8.1 [database] Migration `inventory.monthly_closing` (UNIQUE cozinha×competência, snapshot jsonb, totais) + bloqueio de lançamento em período fechado (trigger)
+- [x] 8.2 [sisub] Fluxo de fechamento (PBAC nível 3) + tela `/storage/$kitchenId/relatorios`
+- [x] 8.3 [sisub] Ficha de Almoxarifado (ledger cronológico por item, PDF) + Balancete mensal (RMA/RMB) conferindo com a view de saldo
+- [x] 8.4 [database] Layout de exportação em `siafi_integration` + [sisub] exportação CSV/JSON por CATMAT (itens sem CATMAT em seção separada)
+- [x] 8.5 [sisub] Painel empenho × liquidação (`empenhada | recebida | a receber`)
+- [x] 8.6 [sisub] Testes: bloqueio retroativo, balancete = ledger, exportação
 
 ## 9. Fase 7 — MRP + canais de compra
 
