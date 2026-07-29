@@ -69,7 +69,13 @@ function SupplyOrdersPage() {
 	async function emit(e: React.FormEvent) {
 		e.preventDefault()
 		if (!empenhoId || !qty || !expected) return
-		// alerta SICAF exige confirmação explícita registrada (spec stock-replenishment-mrp)
+		// SICAF é vinculado ao fornecedor do empenho: com CNPJ conhecido, a
+		// consulta é obrigatória antes de emitir (review: resultado ausente passava
+		// e um resultado antigo sobrevivia à troca de empenho — agora zera na troca)
+		if (sicafCnpj.replace(/\D/g, "").length === 14 && sicaf == null) {
+			toast.error("Consulte a situação do fornecedor no SICAF antes de emitir a OF")
+			return
+		}
 		if (sicaf != null && sicaf.status !== "regular" && !sicafAck) {
 			toast.error("Fornecedor com pendência/indeterminado no SICAF — confirme explicitamente para prosseguir")
 			return
@@ -132,7 +138,13 @@ function SupplyOrdersPage() {
 									<button
 										key={emp.id}
 										type="button"
-										onClick={() => setEmpenhoId(emp.id)}
+										onClick={() => {
+											setEmpenhoId(emp.id)
+											const cnpj = (emp as { arp_item?: { ni_fornecedor?: string | null } | null }).arp_item?.ni_fornecedor?.replace(/\D/g, "") ?? ""
+											setSicafCnpj(cnpj)
+											setSicaf(null)
+											setSicafAck(false)
+										}}
 										className={`w-full text-left text-xs px-2 py-1 rounded ${empenhoId === emp.id ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
 									>
 										<span className="font-mono">{emp.numero_empenho}</span>

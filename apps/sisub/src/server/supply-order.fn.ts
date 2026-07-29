@@ -132,7 +132,7 @@ export const listEmpenhosForKitchenFn = createServerFn({ method: "GET" })
 
 		const { data: empenhos, error } = await finance
 			.from("empenho")
-			.select("id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, arp_item_id")
+			.select("id, numero_empenho, data_empenho, quantidade_empenhada, valor_unitario, arp_item_id, arp_item:arp_item_id (ni_fornecedor, nome_fornecedor)")
 			.eq("unit_id", unitId)
 			.eq("status", "ativo")
 			.order("data_empenho", { ascending: false })

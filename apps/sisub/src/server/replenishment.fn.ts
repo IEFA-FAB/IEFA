@@ -16,10 +16,14 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
 import { getDb } from "@/lib/db.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
 type LooseClient = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
+
+/** Teto de dispensa por valor (art. 75, I/II, Lei 14.133) — atualizado por decreto; ajustar quando o índice anual sair. */
+const SMALL_VALUE_DISPENSA_LIMIT = 59_906.02
 
 const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
@@ -45,7 +49,7 @@ export interface ReplenishmentSuggestion {
 export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), horizonDays: z.number().int().min(1).max(60).default(14) }))
 	.handler(async ({ data }): Promise<ReplenishmentSuggestion[]> => {
-		const ctx = await requireAuthWithPermission("storage", 1)
+		const ctx = await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		const kit = kitchen()
 		const proc = procurement()
@@ -91,23 +95,52 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				purchaseQty.set(item.purchase_item_id, (purchaseQty.get(item.purchase_item_id) ?? 0) + Number(item.ordered_qty))
 			}
 		}
+		// OF parcialmente recebida: o que já entrou em definitivo sai do trânsito
+		// (review: trânsito superestimado suprimia sugestões necessárias)
+		const receivedByIngredient = new Map<string, number>()
+		const transitOrderIds = (transitOrders ?? []).map((o: { id: string }) => o.id)
+		if (transitOrderIds.length > 0) {
+			const { data: receipts } = await inv
+				.from("goods_receipt")
+				.select("id, supply_order_id")
+				.in("supply_order_id", transitOrderIds)
+				.not("definitive_at", "is", null)
+			const receiptIds = (receipts ?? []).map((r: { id: string }) => r.id)
+			if (receiptIds.length > 0) {
+				const { data: receiptItems } = await inv.from("goods_receipt_item").select("receipt_id, ingredient_id, received_qty_base").in("receipt_id", receiptIds)
+				for (const item of receiptItems ?? []) {
+					if (!item.ingredient_id) continue
+					receivedByIngredient.set(item.ingredient_id, (receivedByIngredient.get(item.ingredient_id) ?? 0) + Number(item.received_qty_base))
+				}
+			}
+		}
 		const transitById = new Map<string, number>()
+		const defaultPurchaseByIngredient = new Map<string, string>()
+		const priceByIngredient = new Map<string, { unitPrice: number | null; conversionFactor: number }>()
 		const purchaseItemIds = [...purchaseQty.keys()]
 		const catmatByIngredient = new Map<string, boolean>()
 		{
 			const { data: links } = await proc
 				.from("purchase_item_ingredient")
-				.select("ingredient_id, purchase_item_id, conversion_factor, is_default, purchase_item:purchase_item_id (catmat_item_codigo)")
+				.select("ingredient_id, purchase_item_id, conversion_factor, is_default, purchase_item:purchase_item_id (catmat_item_codigo, unit_price)")
 				.in("ingredient_id", ingredientIds)
 				.eq("is_default", true)
 			for (const link of links ?? []) {
 				catmatByIngredient.set(link.ingredient_id, link.purchase_item?.catmat_item_codigo != null)
+				defaultPurchaseByIngredient.set(link.ingredient_id, link.purchase_item_id)
+				priceByIngredient.set(link.ingredient_id, {
+					unitPrice: link.purchase_item?.unit_price != null ? Number(link.purchase_item.unit_price) : null,
+					conversionFactor: Number(link.conversion_factor ?? 1) || 1,
+				})
 				if (purchaseItemIds.includes(link.purchase_item_id)) {
 					// qty_ingrediente = qty_compra × conversion_factor (inversa de purchase_qty = total/factor)
 					const qty = (purchaseQty.get(link.purchase_item_id) ?? 0) * Number(link.conversion_factor ?? 1)
 					transitById.set(link.ingredient_id, (transitById.get(link.ingredient_id) ?? 0) + qty)
 				}
 			}
+		}
+		for (const [ingredientId, received] of receivedByIngredient) {
+			transitById.set(ingredientId, Math.max(0, (transitById.get(ingredientId) ?? 0) - received))
 		}
 
 		// (5) saldo oficial de ARP própria vigente (via ata_item → ingrediente)
@@ -128,8 +161,16 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 		// (6) política + lead time observado
 		const { data: policies } = await inv.from("stock_policy").select("*").eq("kitchen_id", data.kitchenId).in("ingredient_id", ingredientIds)
 		const policyById = new Map((policies ?? []).map((p: { ingredient_id: string }) => [p.ingredient_id, p]))
-		const { data: leadTimes } = await inv.from("v_supplier_lead_time").select("purchase_item_id, lead_time_days").limit(500)
-		const observedDays = (leadTimes ?? []).map((l: { lead_time_days: number }) => Number(l.lead_time_days)).filter((d: number) => Number.isFinite(d))
+		const { data: leadTimes } = await inv.from("v_supplier_lead_time").select("purchase_item_id, lead_time_days").limit(1000)
+		// por item de compra — mediana global misturava fornecedores/itens sem
+		// relação (review) e contaminava a recomendação de canal
+		const observedByPurchaseItem = new Map<string, number[]>()
+		for (const row of leadTimes ?? []) {
+			if (row.purchase_item_id == null || !Number.isFinite(Number(row.lead_time_days))) continue
+			const list = observedByPurchaseItem.get(row.purchase_item_id) ?? []
+			list.push(Number(row.lead_time_days))
+			observedByPurchaseItem.set(row.purchase_item_id, list)
+		}
 
 		return needs
 			.map((need) => {
@@ -140,20 +181,33 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 				})
 				const stock = stockById.get(need.ingredient_id) ?? { available: 0, expiring: 0 }
 				const inTransit = Number((transitById.get(need.ingredient_id) ?? 0).toFixed(4))
-				const netNeed = calculateNetNeed({ grossDemand, availableStock: stock.available, inTransit })
+				// estoque mínimo da política entra na demanda: a sugestão precisa
+				// recompor a reserva, não só cobrir o horizonte (review)
+				const minStock = Number((policyById.get(need.ingredient_id) as { min_stock?: number } | undefined)?.min_stock ?? 0)
+				const netNeed = calculateNetNeed({ grossDemand: grossDemand + minStock, availableStock: stock.available, inTransit })
 
-				const policy = policyById.get(need.ingredient_id) as { coverage_days?: number; urgency_threshold_days?: number | null } | undefined
+				const policy = policyById.get(need.ingredient_id) as { coverage_days?: number; urgency_threshold_days?: number | null; min_stock?: number } | undefined
 				const dailyDemand = grossDemand / data.horizonDays
 				const coverageDays = dailyDemand > 0 ? Math.floor(stock.available / dailyDemand) : data.horizonDays
+				const defaultPurchaseId = defaultPurchaseByIngredient.get(need.ingredient_id)
+				const observedDays = defaultPurchaseId != null ? (observedByPurchaseItem.get(defaultPurchaseId) ?? []) : []
 				const leadTime = estimateLeadTime(observedDays, null, policy?.coverage_days ?? 7)
+				// valor estimado ≈ (necessidade ÷ fator de conversão) × preço unitário
+				// do item de compra; limite de dispensa por valor (art. 75, I/II da
+				// Lei 14.133 — teto atualizado por decreto) habilita o Contrata+
+				// (review: canal ficava permanentemente inalcançável)
+				const price = priceByIngredient.get(need.ingredient_id)
+				const estimatedValue = price?.unitPrice != null ? (netNeed / price.conversionFactor) * price.unitPrice : null
 				const decision = decideChannel({
 					netNeed,
 					ownArpBalance: arpBalanceById.get(need.ingredient_id) ?? 0,
+					// carona não é pesquisada automaticamente (custo de API por item);
+					// a busca manual de ARP externa fica na tela de ATAs
 					caronaAvailable: null,
 					hasCatmat: catmatByIngredient.get(need.ingredient_id) ?? false,
 					coverageDays,
 					urgencyThresholdDays: policy?.urgency_threshold_days ?? leadTime.days,
-					smallValue: false,
+					smallValue: estimatedValue != null && estimatedValue > 0 && estimatedValue <= SMALL_VALUE_DISPENSA_LIMIT,
 				})
 
 				return {
@@ -169,7 +223,7 @@ export const fetchReplenishmentSuggestionsFn = createServerFn({ method: "GET" })
 					leadTime,
 					channel: decision.channel,
 					reason: decision.reason,
-					calcMemory: `bruta ${need.total_quantity} × FC ${factors?.correction_factor ?? 1} ÷ IR ${factors?.rehydration_index ?? 1} = ${grossDemand}; − estoque ${stock.available.toFixed(2)} (excl. ${stock.expiring.toFixed(2)} vencendo) − trânsito ${inTransit} = ${netNeed}`,
+					calcMemory: `bruta ${need.total_quantity} × FC ${factors?.correction_factor ?? 1} ÷ IR ${factors?.rehydration_index ?? 1} = ${grossDemand}${minStock > 0 ? ` + mínimo ${minStock}` : ""}; − estoque ${stock.available.toFixed(2)} (excl. ${stock.expiring.toFixed(2)} vencendo) − trânsito ${inTransit} = ${netNeed}`,
 				}
 			})
 			.filter((s) => s.netNeed > 0 || s.expiringExcluded > 0)
