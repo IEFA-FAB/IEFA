@@ -360,6 +360,15 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 	const vigenciaFim = arp.data_vigencia_fim
 	const isVencida = vigenciaFim ? new Date(vigenciaFim) < new Date() : false
 
+	// O upsert dos itens e o update do last_synced_at são requests separados:
+	// se o segundo falhar, os itens ficam mais novos que o header. Exibe o
+	// máximo efetivo para nunca mostrar snapshot "mais velho" que os itens.
+	const effectiveSyncedAt =
+		[arp.last_synced_at, ...arp.items.map((item) => item.synced_at)]
+			.filter((ts): ts is string => ts != null)
+			.sort()
+			.at(-1) ?? null
+
 	return (
 		<Card>
 			<CardHeader className="pb-3">
@@ -379,7 +388,7 @@ export function EmpenhoBalancePanel({ arp, unitId, ataId }: EmpenhoBalancePanelP
 						<p className="text-xs text-muted-foreground">
 							Vigência: {fmtDate(arp.data_vigencia_inicio)} → {fmtDate(arp.data_vigencia_fim)}
 							<span suppressHydrationWarning className="ml-3">
-								{arp.last_synced_at ? `Saldo oficial sincronizado em ${fmtDateTime(arp.last_synced_at)}` : "Saldo oficial nunca sincronizado"}
+								{effectiveSyncedAt ? `Saldo oficial sincronizado em ${fmtDateTime(effectiveSyncedAt)}` : "Saldo oficial nunca sincronizado"}
 							</span>
 						</p>
 					</div>

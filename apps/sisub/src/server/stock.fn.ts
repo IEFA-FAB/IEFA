@@ -13,7 +13,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission } from "@/lib/auth.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
@@ -61,7 +61,7 @@ async function describeItems(ingredientIds: string[], frozenIds: string[]) {
 export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }): Promise<StockBalanceItem[]> => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
 
 		const { data: rows, error } = await inv.from("v_stock_balance").select("*").eq("kitchen_id", data.kitchenId)
@@ -112,7 +112,7 @@ export const fetchStockBalanceFn = createServerFn({ method: "GET" })
 export const fetchStockMovementsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), limit: z.number().int().min(1).max(200).default(50) }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const { data: rows, error } = await inventory()
 			.from("stock_movement")
 			.select("id, ingredient_id, frozen_preparation_id, lot_id, type, quantity, unit_cost, total_cost, justification, created_at")
@@ -179,12 +179,17 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 3)
+		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const inv = inventory()
 
 		let lot: { id: string; ingredient_id: string | null; frozen_preparation_id: string | null }
 		if (data.lotId) {
-			const { data: existing, error } = await inv.from("stock_lot").select("id, ingredient_id, frozen_preparation_id").eq("id", data.lotId).single()
+			const { data: existing, error } = await inv
+				.from("stock_lot")
+				.select("id, ingredient_id, frozen_preparation_id")
+				.eq("id", data.lotId)
+				.eq("kitchen_id", data.kitchenId)
+				.single()
 			if (error || !existing) throw new Error("Lote não encontrado")
 			lot = existing
 		} else {
@@ -231,7 +236,10 @@ export const createAdjustmentFn = createServerFn({ method: "POST" })
 export const createTransferFn = createServerFn({ method: "POST" })
 	.validator(z.object({ lotId: z.string().uuid(), toKitchenId: z.number().int().positive(), quantity: z.number().positive() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
+		// escopo pela cozinha de ORIGEM do lote (quem cede precisa da permissão)
+		const { data: lotRow } = await inventory().from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
+		if (!lotRow) throw new Error("Lote não encontrado")
+		const { userId } = await requireStorageForKitchen(2, Number(lotRow.kitchen_id))
 		const { data: result, error } = await inventory().rpc("transfer_stock", {
 			p_lot_id: data.lotId,
 			p_to_kitchen: data.toKitchenId,
@@ -247,7 +255,7 @@ export const createTransferFn = createServerFn({ method: "POST" })
 export const createInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), notes: z.string().optional() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 3)
+		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const { data: count, error } = await inventory()
 			.from("inventory_count")
 			.insert({ kitchen_id: data.kitchenId, notes: data.notes?.trim() || null, created_by: userId })
@@ -260,8 +268,15 @@ export const createInventoryCountFn = createServerFn({ method: "POST" })
 export const upsertCountItemFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.string().uuid(), lotId: z.string().uuid(), countedQty: z.number().nonnegative() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 3)
-		const { error } = await inventory()
+		const inv = inventory()
+		const { data: count } = await inv.from("inventory_count").select("kitchen_id, status").eq("id", data.countId).maybeSingle()
+		if (!count) throw new Error("Contagem não encontrada")
+		await requireStorageForKitchen(3, Number(count.kitchen_id))
+		if (count.status !== "draft") throw new Error("Contagem já confirmada")
+		// lote precisa pertencer à cozinha da contagem (o confirm também valida no SQL)
+		const { data: lot } = await inv.from("stock_lot").select("kitchen_id").eq("id", data.lotId).maybeSingle()
+		if (!lot || Number(lot.kitchen_id) !== Number(count.kitchen_id)) throw new Error("Lote não pertence à cozinha desta contagem")
+		const { error } = await inv
 			.from("inventory_count_item")
 			.upsert({ count_id: data.countId, lot_id: data.lotId, counted_qty: data.countedQty }, { onConflict: "count_id,lot_id" })
 		if (error) throw new Error(`Erro ao registrar contagem do lote: ${error.message}`)
@@ -271,7 +286,9 @@ export const upsertCountItemFn = createServerFn({ method: "POST" })
 export const confirmInventoryCountFn = createServerFn({ method: "POST" })
 	.validator(z.object({ countId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 3)
+		const { data: count } = await inventory().from("inventory_count").select("kitchen_id").eq("id", data.countId).maybeSingle()
+		if (!count) throw new Error("Contagem não encontrada")
+		const { userId } = await requireStorageForKitchen(3, Number(count.kitchen_id))
 		const { data: result, error } = await inventory().rpc("confirm_inventory_count", { p_count_id: data.countId, p_user: userId })
 		if (error) throw new Error(`Confirmação falhou: ${error.message}`)
 		return { adjustments: Number(result?.[0]?.adjustments ?? 0) }
@@ -280,7 +297,7 @@ export const confirmInventoryCountFn = createServerFn({ method: "POST" })
 export const fetchInventoryCountsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		const { data: counts, error } = await inv
 			.from("inventory_count")
