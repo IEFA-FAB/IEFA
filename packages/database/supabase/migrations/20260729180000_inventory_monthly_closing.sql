@@ -37,6 +37,10 @@ create index monthly_closing_kitchen_idx on inventory.monthly_closing (kitchen_i
 create function inventory.stock_movement_period_lock() returns trigger
 language plpgsql as $$
 begin
+  -- lock COMPARTILHADO por cozinha: serializa contra close_month (que toma o
+  -- exclusivo) — um movimento em voo não escapa do snapshot nem entra depois
+  -- do fechamento sem ver a competência fechada (review: race no fechamento)
+  perform pg_advisory_xact_lock_shared(hashtextextended('inv_close:' || new.kitchen_id, 42));
   if exists (
     select 1 from inventory.monthly_closing mc
     where mc.kitchen_id = new.kitchen_id
@@ -75,6 +79,11 @@ begin
   if v_competencia >= date_trunc('month', now())::date + interval '1 month' then
     raise exception 'Não é possível fechar competência futura';
   end if;
+
+  -- lock EXCLUSIVO por cozinha: espera todos os movimentos em voo (shared no
+  -- trigger) terminarem e segura novos até o fechamento commitar — snapshot e
+  -- lock de período ficam consistentes por construção
+  perform pg_advisory_xact_lock(hashtextextended('inv_close:' || p_kitchen_id, 42));
 
   -- saldo valorado ATÉ o fim da competência (snapshot por item)
   with balances as (
@@ -127,6 +136,5 @@ $$;
 -- ----------------------------------------------------------------------------
 -- RLS
 -- ----------------------------------------------------------------------------
+-- DENY-ALL para anon/authenticated — leitura via server fns escopadas
 alter table inventory.monthly_closing enable row level security;
-create policy monthly_closing_read on inventory.monthly_closing for select to authenticated using (true);
-grant select on inventory.monthly_closing to authenticated;
