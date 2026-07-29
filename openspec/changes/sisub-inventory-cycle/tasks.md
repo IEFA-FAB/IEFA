@@ -31,13 +31,13 @@
 
 ## 4. Fase 2c — Ingestão de NF-e
 
-- [ ] 4.1 [database] Migration `inventory.nfe_document` (UNIQUE `access_key`, XML íntegro) + `inventory.nfe_item` (campos do `det` + rastro + `match_status` + FKs de resolução) + RLS
-- [ ] 4.2 [api] Parser XML NF-e 4.0 (endpoint de upload): validação de schema/chave, extração de `det`, normalização de `cEAN`/`cEANTrib` ("SEM GTIN" → null), rejeição de duplicata
-- [ ] 4.3 [sisub-domain] Pipeline de matching (operation `nfe-matching`): GTIN exato → supplier map → sugestão NCM+GPC+trigram → `no_match`; conversão via GTIN/`unit_content_quantity` (nunca `uCom`); item sem conversão resolvível nunca fica `matched` — com testes unit
-- [ ] 4.4 [sisub-domain] Auto-criação de GTIN `source='nfe'` (sem conteúdo líquido → item vai a `review`); gravação no `supplier_product_map` ao resolver manualmente
-- [ ] 4.5 [sisub] Server fns `nfe.fn.ts` + telas de upload de XML, lista de notas e detalhe com itens/status de matching
-- [ ] 4.6 [sisub] Fila de resolução manual com candidatos ranqueados (aprende: grava supplier map/vínculo GTIN)
-- [ ] 4.7 [sisub] Testes de integração do pipeline com XMLs de fixture (com GTIN, SEM GTIN, com rastro, duplicata, GTIN novo sem conversão)
+- [x] 4.1 [database] Migration `inventory.nfe_document` (UNIQUE `access_key`, XML íntegro) + `inventory.nfe_item` (campos do `det` + rastro + `match_status` + FKs de resolução) + RLS
+- [x] 4.2 [api] Parser XML NF-e 4.0 (endpoint de upload): validação de schema/chave, extração de `det`, normalização de `cEAN`/`cEANTrib` ("SEM GTIN" → null), rejeição de duplicata
+- [x] 4.3 [sisub-domain] Pipeline de matching (operation `nfe-matching`): GTIN exato → supplier map → sugestão NCM+GPC+trigram → `no_match`; conversão via GTIN/`unit_content_quantity` (nunca `uCom`); item sem conversão resolvível nunca fica `matched` — com testes unit
+- [x] 4.4 [sisub-domain] Auto-criação de GTIN `source='nfe'` (sem conteúdo líquido → item vai a `review`); gravação no `supplier_product_map` ao resolver manualmente
+- [x] 4.5 [sisub] Server fns `nfe.fn.ts` + telas de upload de XML, lista de notas e detalhe com itens/status de matching
+- [x] 4.6 [sisub] Fila de resolução manual com candidatos ranqueados (aprende: grava supplier map/vínculo GTIN)
+- [ ] 4.7 [sisub] Testes de integração do pipeline com XMLs de fixture (parser + matching cobertos por unit; integração com DB pendente pós-migration)
 
 ## 5. Fase 3 — Motor de estoque
 
@@ -49,7 +49,7 @@
 - [ ] 5.6 [sisub-domain] Transferência entre cozinhas: par atômico `transfer_out`/`transfer_in` com referência cruzada; lote destino herda código/validade/custo
 - [ ] 5.7 [sisub] Server fns `stock.fn.ts` (`fetchStockBalanceFn`, `fetchStockMovementsFn`, `createAdjustmentFn`, `createTransferFn`) + rota `/storage/$kitchenId/dashboard` (saldo por pasta, movimentos recentes, alertas de validade) com `requirePermission("storage", 1)`
 - [ ] 5.8 [sisub] Fluxo de contagem física (criar contagem → registrar contado por lote → confirmar → ajustes gerados)
-- [ ] 5.9 [sisub] NavItems: módulo `storage` (ícone Package)
+- [x] 5.9 [sisub] NavItems: módulo `storage` (ícone Package)
 - [ ] 5.10 [sisub] Testes: imutabilidade (UPDATE/DELETE abortados pelo trigger, inclusive via service role), XOR, custo médio, saldo após sequência, ajuste, contagem com/sem divergência, transferência atômica (falha parcial reverte)
 
 ## 6. Fase 4 — OF + Recebimento em dois estágios
