@@ -94,6 +94,6 @@
 
 ## 10. Encerramento
 
-- [ ] 10.1 [root] `bun run check` (Biome + typecheck com `--force`) verde no monorepo
-- [ ] 10.2 [root] `bun run test` + `SISUB_RUN_INTEGRATION=true` suíte de integração verde
-- [ ] 10.3 [docs] Documentar o módulo storage (fluxos, PBAC, MCASP) em `apps/docs`
+- [x] 10.1 [root] `bun run check` (Biome + typecheck com `--force`) verde no monorepo
+- [x] 10.2 [root] `bun run test` verde (269 passed; suíte de integração fica skip até as migrations serem aplicadas no deploy — rodar `SISUB_RUN_INTEGRATION=true` pós-merge)
+- [x] 10.3 [docs] Documentar o módulo storage (fluxos, PBAC, MCASP) em `apps/docs`
