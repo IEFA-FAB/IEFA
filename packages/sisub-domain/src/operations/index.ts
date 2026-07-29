@@ -30,6 +30,15 @@ export {
 	updateFrozenPreparation,
 } from "./frozen-preparation.ts"
 export {
+	type GtinHierarchyNode,
+	hasValidCheckDigit,
+	normalizeGtin,
+	parseGtin,
+	type ResolvedGtinContent,
+	resolveGtinContent,
+	SEM_GTIN,
+} from "./gtin.ts"
+export {
 	type IngredientLastReview,
 	type IngredientReviewRow,
 	listIngredientLastReviews,
