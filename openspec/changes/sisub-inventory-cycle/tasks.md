@@ -12,17 +12,17 @@
 
 ## 2. Fase 2a — Unidades de medida canônicas
 
-- [ ] 2.1 [database] Migration `core.measure_unit` (código canônico, descrição, dimensão) + seed (KG, G, LT, ML, UN, DZ…)
-- [ ] 2.2 [database] Backfill de normalização (`upper(trim())` + mapa de sinônimos) em `ingredient`, `ingredient_item`, `purchase_item`, `procurement_list_item`; valores não-mapeáveis preservados
+- [x] 2.1 [database] Migration `core.measure_unit` (código canônico, descrição, dimensão) + seed (KG, G, LT, ML, UN, DZ…)
+- [x] 2.2 [database] Backfill de normalização (`upper(trim())` + mapa de sinônimos) em `ingredient`, `ingredient_item`, `purchase_item`, `procurement_list_item`; valores não-mapeáveis preservados
 - [x] 2.3 [sisub] Fila de revisão de unidades não-mapeáveis (lista simples no módulo admin/global)
 - [ ] 2.4 [database] Regenerar tipos + drizzle pull; teste de integração validando que não sobrou caixa mista nos domínios mapeados
 
 ## 3. Fase 2b — Catálogo GTIN + GPC
 
-- [ ] 3.1 [database] Migration `gs1_integration.gtin` (PK 14 dígitos, `CHECK (gtin ~ '^[0-9]{14}$')`, `parent_gtin`, `units_per_parent`, `net_content`, `gpc_brick_code`, `ncm`, `source`, `raw_payload`) + `gs1_integration.gpc_brick` + `gs1_integration.supplier_product_map` (UNIQUE cnpj+cProd)
-- [ ] 3.2 [database] Migration: coluna `gtin` FK em `kitchen.ingredient_item` + UNIQUE parcial `WHERE deleted_at IS NULL`
+- [x] 3.1 [database] Migration `gs1_integration.gtin` (PK 14 dígitos, `CHECK (gtin ~ '^[0-9]{14}$')`, `parent_gtin`, `units_per_parent`, `net_content`, `gpc_brick_code`, `ncm`, `source`, `raw_payload`) + `gs1_integration.gpc_brick` + `gs1_integration.supplier_product_map` (UNIQUE cnpj+cProd)
+- [x] 3.2 [database] Migration: coluna `gtin` FK em `kitchen.ingredient_item` + UNIQUE parcial `WHERE deleted_at IS NULL`
 - [x] 3.3 [sisub-domain] Utilitários GTIN: normalização a 14 dígitos, validação de check digit (na aplicação — banco só valida formato), resolução de hierarquia de embalagem — com testes unit exaustivos
-- [ ] 3.4 [database] Backfill `barcode` → `gtin` (válidos migram, inválidos ficam) + query da fila de revisão
+- [x] 3.4 [database] Backfill `barcode` → `gtin` (válidos migram, inválidos ficam) + query da fila de revisão
 - [x] 3.5 [api] Importador GPC idempotente (padrão TACO/IBGE/USDA) a partir da publicação GS1
 - [x] 3.6 [api] Proxy Verified by GS1 (`GET /gs1/lookup/:gtin`) com cache na entidade (`source='vbg'`, `verified_at`); degradação graciosa quando indisponível
 - [x] 3.7 [sisub] Server fns `gtin.fn.ts` (lookup, criar/associar GTIN a `ingredient_item`) + componente `GtinScannerField` (burst de teclas + Enter, normaliza e valida)
