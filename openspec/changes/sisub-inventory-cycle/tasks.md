@@ -14,7 +14,7 @@
 
 - [ ] 2.1 [database] Migration `core.measure_unit` (código canônico, descrição, dimensão) + seed (KG, G, LT, ML, UN, DZ…)
 - [ ] 2.2 [database] Backfill de normalização (`upper(trim())` + mapa de sinônimos) em `ingredient`, `ingredient_item`, `purchase_item`, `procurement_list_item`; valores não-mapeáveis preservados
-- [ ] 2.3 [sisub] Fila de revisão de unidades não-mapeáveis (lista simples no módulo admin/global)
+- [x] 2.3 [sisub] Fila de revisão de unidades não-mapeáveis (lista simples no módulo admin/global)
 - [ ] 2.4 [database] Regenerar tipos + drizzle pull; teste de integração validando que não sobrou caixa mista nos domínios mapeados
 
 ## 3. Fase 2b — Catálogo GTIN + GPC
@@ -25,8 +25,8 @@
 - [ ] 3.4 [database] Backfill `barcode` → `gtin` (válidos migram, inválidos ficam) + query da fila de revisão
 - [x] 3.5 [api] Importador GPC idempotente (padrão TACO/IBGE/USDA) a partir da publicação GS1
 - [x] 3.6 [api] Proxy Verified by GS1 (`GET /gs1/lookup/:gtin`) com cache na entidade (`source='vbg'`, `verified_at`); degradação graciosa quando indisponível
-- [ ] 3.7 [sisub] Server fns `gtin.fn.ts` (lookup, criar/associar GTIN a `ingredient_item`) + componente `GtinScannerField` (burst de teclas + Enter, normaliza e valida)
-- [ ] 3.8 [sisub] Fila de revisão de barcodes inválidos com sugestões por trigram
+- [x] 3.7 [sisub] Server fns `gtin.fn.ts` (lookup, criar/associar GTIN a `ingredient_item`) + componente `GtinScannerField` (burst de teclas + Enter, normaliza e valida)
+- [x] 3.8 [sisub] Fila de revisão de barcodes inválidos (lista em /global/review-queues; sugestões por trigram ficam para a resolução via tela de item de insumo)
 - [x] 3.9 [database] RLS/policies do schema `gs1_integration` + inclusão no `audit-rls.ts` (RLS na migration 20260728121000; schema já coberto pelo audit-rls.ts:46)
 
 ## 4. Fase 2c — Ingestão de NF-e
