@@ -88,10 +88,16 @@ export const attachGtinToIngredientItemFn = createServerFn({ method: "POST" })
 			if (insertError) throw new Error(`Erro ao cadastrar GTIN: ${insertError.message}`)
 		}
 
-		const { error: linkError } = await kitchen.from("ingredient_item").update({ gtin }).eq("id", data.ingredientItemId)
+		const { data: linked, error: linkError } = await kitchen
+			.from("ingredient_item")
+			.update({ gtin })
+			.eq("id", data.ingredientItemId)
+			.is("deleted_at", null)
+			.select("id")
 		if (linkError) {
 			if (linkError.code === "23505") throw new Error("Este GTIN já está vinculado a outro item vivo")
 			throw new Error(`Erro ao vincular GTIN: ${linkError.message}`)
 		}
+		if (!linked || linked.length === 0) throw new Error("Item de insumo não encontrado (ou excluído) — vínculo não realizado")
 		return { gtin }
 	})

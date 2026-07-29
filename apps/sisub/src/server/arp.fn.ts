@@ -244,8 +244,9 @@ export const importArpItemsFn = createServerFn({ method: "POST" })
  * Refreshes qtdeEmpenhada and saldoEmpenho for all items of an ARP by re-querying Compras.gov.br.
  *
  * @remarks
- * SIDE EFFECTS: updates procurement_arp_item.{quantidade_empenhada, saldo_empenho, synced_at} for each matched item,
- *   then procurement_arp.last_synced_at — ONLY after every item update succeeded.
+ * SIDE EFFECTS: updates procurement_arp_item.{quantidade_empenhada, saldo_empenho, synced_at} for all matched
+ *   items in a SINGLE upsert (one PostgREST request = one transaction — no mixed snapshot),
+ *   then procurement_arp.last_synced_at.
  * Matches by numero_item (not catmat). Empty API response is treated as failure:
  * the previous snapshot (and last_synced_at) is preserved so the UI never shows
  * "sincronizado agora" over stale numbers.
@@ -289,27 +290,25 @@ export const syncArpBalanceFn = createServerFn({ method: "POST" })
 			if (dbItem.numero_item != null) numeroItemToDbId.set(dbItem.numero_item, dbItem.id)
 		}
 
-		// Atualizar cada item com os saldos frescos; qualquer falha aborta ANTES
-		// de tocar last_synced_at (o header nunca fica "mais novo" que os itens)
+		// Atualizar TODOS os itens em um único upsert (uma request PostgREST =
+		// uma transação): ou o snapshot inteiro entra, ou nada entra. Os ids vêm
+		// do banco, então o caminho de INSERT do upsert nunca é atingido.
 		const now = new Date().toISOString()
-		const results = await Promise.all(
-			apiItems
-				.filter((item) => item.numeroItem != null && numeroItemToDbId.has(item.numeroItem))
-				.map((item) =>
-					supabase
-						.from("procurement_arp_item")
-						.update({
-							quantidade_empenhada: item.qtdeEmpenhada ?? 0,
-							saldo_empenho: item.saldoEmpenho ?? null,
-							synced_at: now,
-						})
-						// biome-ignore lint/style/noNonNullAssertion: filtrado acima
-						.eq("id", numeroItemToDbId.get(item.numeroItem!)!)
-				)
-		)
-		const failed = results.filter((r) => r.error)
-		if (failed.length > 0) {
-			throw new Error(`Sincronização incompleta: ${failed.length} item(ns) falharam (${failed[0]?.error?.message}) — last_synced_at não atualizado`)
+		const updates = apiItems
+			.filter((item) => item.numeroItem != null && numeroItemToDbId.has(item.numeroItem))
+			.map((item) => ({
+				// biome-ignore lint/style/noNonNullAssertion: filtrado acima
+				id: numeroItemToDbId.get(item.numeroItem!)!,
+				arp_id: data.arpId,
+				quantidade_empenhada: item.qtdeEmpenhada ?? 0,
+				saldo_empenho: item.saldoEmpenho ?? null,
+				synced_at: now,
+			}))
+		if (updates.length > 0) {
+			const { error: upsertError } = await supabase.from("procurement_arp_item").upsert(updates, { onConflict: "id" })
+			if (upsertError) {
+				throw new Error(`Sincronização falhou (${upsertError.message}) — snapshot anterior mantido, last_synced_at não atualizado`)
+			}
 		}
 
 		// Atualizar timestamp da ARP (só chega aqui com todos os itens ok)

@@ -32,6 +32,21 @@ function getSupabase() {
 
 const ErrorSchema = z.object({ error: z.string() })
 
+/**
+ * Anti-SSRF: o endpoint de sync aceita URL do chamador (admin), mas o fetch
+ * sai do servidor — sem allowlist, viraria proxy para alvos internos/link-local.
+ * Só publicações GS1 oficiais, sempre https.
+ */
+const GPC_ALLOWED_HOSTS = /(^|\.)gs1\.org$|(^|\.)gs1br\.org$/
+export function isAllowedGpcUrl(raw: string): boolean {
+	try {
+		const url = new URL(raw)
+		return url.protocol === "https:" && GPC_ALLOWED_HOSTS.test(url.hostname)
+	} catch {
+		return false
+	}
+}
+
 const GtinLookupSchema = z.object({
 	gtin: z.string(),
 	description: z.string().nullable(),
@@ -83,6 +98,29 @@ const gtinLookupRoute = createRoute({
 	},
 })
 
+/**
+ * Códigos de unidade do VbG (UN/ECE Rec 20, ex.: KGM, GRM, LTR, MLT, H87)
+ * → catálogo canônico core.measure_unit. Código desconhecido vira null —
+ * gravar o código cru violaria a FK net_content_unit → measure_unit
+ * (o payload bruto preserva o original em raw_payload).
+ */
+const VBG_UNIT_TO_CANONICAL: Record<string, string> = {
+	KGM: "KG",
+	KG: "KG",
+	GRM: "G",
+	G: "G",
+	LTR: "LT",
+	L: "LT",
+	LT: "LT",
+	MLT: "ML",
+	ML: "ML",
+	H87: "UN",
+	EA: "UN",
+	UN: "UN",
+	DZN: "DZ",
+	DZ: "DZ",
+}
+
 /** Mapeia o payload do VbG (chaves variam por versão) para as colunas da entidade. */
 // biome-ignore lint/suspicious/noExplicitAny: payload externo sem contrato estável
 export function mapVbgPayload(payload: any): {
@@ -97,7 +135,8 @@ export function mapVbgPayload(payload: any): {
 	const brand = payload?.brandName ?? payload?.brand ?? null
 	const rawContent = payload?.netContent ?? payload?.tradeItemMeasurements?.netContent ?? null
 	const netContent = rawContent?.value != null ? Number(rawContent.value) : null
-	const netContentUnit = rawContent?.measurementUnitCode ?? rawContent?.unitCode ?? null
+	const rawUnit = rawContent?.measurementUnitCode ?? rawContent?.unitCode ?? null
+	const netContentUnit = rawUnit != null ? (VBG_UNIT_TO_CANONICAL[String(rawUnit).trim().toUpperCase()] ?? null) : null
 	const ncm = payload?.ncm ?? payload?.ncmCode ?? null
 	const gpc = payload?.gpcCategoryCode ?? payload?.gpcCode ?? null
 	return {
@@ -146,6 +185,7 @@ export function createGs1AdminRoutes(deps: Gs1AdminRoutesDeps = {}) {
 			const body = await c.req.json().catch(() => undefined)
 			const url = (body?.url as string | undefined) ?? process.env.GS1_GPC_PUBLICATION_URL
 			if (!url) return c.json({ error: "Informe { url } no body ou configure GS1_GPC_PUBLICATION_URL" }, 400)
+			if (!isAllowedGpcUrl(url)) return c.json({ error: "URL não permitida — apenas https em gs1.org/gs1br.org" }, 400)
 
 			const bricks = await runGpcImport(createSupabase(), url)
 			console.log(`[gs1-admin] GPC import concluído: ${bricks} bricks`)
