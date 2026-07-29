@@ -13,7 +13,7 @@ import { parseGtin } from "@iefa/sisub-domain/gtin"
 import { createClient } from "@supabase/supabase-js"
 import { fetchWithRetry } from "../../lib/fetch-with-retry.ts"
 import { secureCompare } from "../../lib/secure-compare.ts"
-import { importGpc } from "../../workers/gs1-sync/gpc.ts"
+import { importGpc, isAllowedGpcUrl } from "../../workers/gs1-sync/gpc.ts"
 
 type Gs1Client = ReturnType<typeof getSupabase>
 
@@ -32,20 +32,9 @@ function getSupabase() {
 
 const ErrorSchema = z.object({ error: z.string() })
 
-/**
- * Anti-SSRF: o endpoint de sync aceita URL do chamador (admin), mas o fetch
- * sai do servidor — sem allowlist, viraria proxy para alvos internos/link-local.
- * Só publicações GS1 oficiais, sempre https.
- */
-const GPC_ALLOWED_HOSTS = /(^|\.)gs1\.org$|(^|\.)gs1br\.org$/
-export function isAllowedGpcUrl(raw: string): boolean {
-	try {
-		const url = new URL(raw)
-		return url.protocol === "https:" && GPC_ALLOWED_HOSTS.test(url.hostname)
-	} catch {
-		return false
-	}
-}
+// Anti-SSRF: allowlist + bloqueio de redirects vivem no worker (fonte única);
+// o import do worker também valida — a checagem aqui só antecipa o erro 400.
+export { isAllowedGpcUrl } from "../../workers/gs1-sync/gpc.ts"
 
 const GtinLookupSchema = z.object({
 	gtin: z.string(),
