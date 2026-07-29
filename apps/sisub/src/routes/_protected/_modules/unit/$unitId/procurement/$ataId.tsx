@@ -8,7 +8,7 @@ import { requirePermission } from "@/auth/pbac"
 import { ArpSearchModal } from "@/components/features/local/arp/ArpSearchModal"
 import { EmpenhoBalancePanel } from "@/components/features/local/arp/EmpenhoBalancePanel"
 import { AtaItemsTable } from "@/components/features/local/ata/AtaItemsTable"
-import { PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
+import { type PriceResearchAuditIds, PriceResearchModal } from "@/components/features/local/price-research/PriceResearchModal"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -109,6 +109,27 @@ function AtaDetailPage() {
 			},
 		})
 	})
+
+	// Aplicação manual de um preço vindo do modal (item único). O vínculo da memória
+	// de cálculo já foi gravado pelo próprio modal via ataId/ataItemId; researchLinks
+	// aqui é reforço para o caso de o item ter sido relinkado no meio do caminho.
+	const handleApplyPrice = async (item: ProcurementNeed, price: number, auditIds: PriceResearchAuditIds | null) => {
+		const ataItemId = item.ata_item_id
+		if (!ataId || !ataItemId) return
+		try {
+			await updateAtaItemPricesFn({
+				data: {
+					ataId,
+					updates: [{ ataItemId, price }],
+					researchLinks: auditIds ? [{ ataItemId, researchId: auditIds.researchId, researchItemId: auditIds.researchItemId }] : undefined,
+				},
+			})
+			queryClient.invalidateQueries({ queryKey: queryKeys.ata.details(ataId) })
+			toast.success("Preço aplicado ao item.")
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Não foi possível aplicar o preço.")
+		}
+	}
 
 	const handleBulkResearch = async () => {
 		if (!ataId) return
@@ -354,6 +375,7 @@ function AtaDetailPage() {
 					catmatDescription={priceResearchItem.catmat_item_descricao}
 					ataId={ataId}
 					ataItemId={priceResearchItem.ata_item_id ?? undefined}
+					onApplyPrice={(price, auditIds) => handleApplyPrice(priceResearchItem, price, auditIds)}
 				/>
 			)}
 		</div>

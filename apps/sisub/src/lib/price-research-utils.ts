@@ -13,11 +13,63 @@ export interface AutoSelectResult {
 		max: number
 		uniqueSources: number
 	}
+	/** Amostras com preço, antes da janela de recência. */
 	rawCount: number
+	/** Amostras com preço que sobraram após a janela de recência. */
+	dateFilteredCount: number
+	/** Janela de recência aplicada, em meses; null quando a análise usou todo o histórico. */
+	periodMonths: number | null
 	validCount: number
 	outlierCount: number
 	validSamples: ComprasMaterialPriceResult[]
 	outlierSamples: ComprasMaterialPriceResult[]
+}
+
+/**
+ * Janela de recência padrão da pesquisa de preços.
+ * IN SEGES/ME 65/2021, Art. 5º: preços de até 1 ano da data da pesquisa.
+ */
+export const DEFAULT_PERIOD_MONTHS = 12
+
+/**
+ * Teto de páginas por CATMAT (20 × 500 = 10.000 registros). Amostra mais que
+ * suficiente para a estatística e evita rajada contra a API pública — que passa
+ * pelo nosso próprio server, então uma consulta sem teto castiga os dois lados.
+ */
+export const MAX_PAGES = 20
+const PAGE_SIZE = 500
+const PAGE_CONCURRENCY = 4
+
+export function sampleReferenceDate(r: ComprasMaterialPriceResult): string | null {
+	return r.dataResultado ?? r.dataCompra ?? null
+}
+
+/** Início da janela: `months` meses antes de `now`, em YYYY-MM-DD. */
+export function periodCutoff(months: number, now: Date = new Date()): string {
+	const cutoff = new Date(now)
+	cutoff.setMonth(cutoff.getMonth() - months)
+	return cutoff.toISOString().slice(0, 10)
+}
+
+/**
+ * Mantém apenas amostras dentro da janela de recência.
+ * Amostra SEM data é mantida de propósito: não há como provar que é antiga, e
+ * descartá-la reduziria a base sem justificativa auditável.
+ */
+export function filterByPeriod(results: ComprasMaterialPriceResult[], months: number, now?: Date): ComprasMaterialPriceResult[] {
+	const cutoff = periodCutoff(months, now)
+	return results.filter((r) => {
+		const date = sampleReferenceDate(r)
+		return !date || date.slice(0, 10) >= cutoff
+	})
+}
+
+export interface CatmatPriceFetch {
+	results: ComprasMaterialPriceResult[]
+	/** Total informado pela API, mesmo quando o teto de páginas corta a coleta. */
+	totalRegistros: number
+	/** true quando a API tem mais páginas do que MAX_PAGES — a amostra é parcial. */
+	truncated: boolean
 }
 
 function calcMediana(values: number[]): number {
@@ -37,18 +89,35 @@ function computeStats(prices: number[]) {
 	return { mean, median, stdDev, cv, min: Math.min(...prices), max: Math.max(...prices) }
 }
 
-export async function fetchAllPagesForCatmat(code: number): Promise<ComprasMaterialPriceResult[]> {
-	const first = await searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: 1, tamanhoPagina: 500 } })
-	if (first.totalPaginas <= 1) return first.resultado
-	const rest = await Promise.all(
-		Array.from({ length: first.totalPaginas - 1 }, (_, i) => searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: i + 2, tamanhoPagina: 500 } }))
-	)
-	return [...first.resultado, ...rest.flatMap((p) => p.resultado)]
+/**
+ * Coleta todas as páginas de um CATMAT, em lotes de PAGE_CONCURRENCY e até
+ * MAX_PAGES. O corte é reportado em `truncated` — nunca silencioso.
+ */
+export async function fetchAllPagesForCatmat(code: number): Promise<CatmatPriceFetch> {
+	const first = await searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: 1, tamanhoPagina: PAGE_SIZE } })
+	const results = [...first.resultado]
+	const totalPages = Math.min(first.totalPaginas, MAX_PAGES)
+
+	for (let start = 2; start <= totalPages; start += PAGE_CONCURRENCY) {
+		const end = Math.min(start + PAGE_CONCURRENCY - 1, totalPages)
+		const pages = await Promise.all(
+			Array.from({ length: end - start + 1 }, (_, i) =>
+				searchMaterialPricesFn({ data: { codigoItemCatalogo: code, pagina: start + i, tamanhoPagina: PAGE_SIZE } })
+			)
+		)
+		for (const page of pages) results.push(...page.resultado)
+	}
+
+	return { results, totalRegistros: first.totalRegistros, truncated: first.totalPaginas > MAX_PAGES }
 }
 
 // Mirrors the IQR + stats logic from PriceResearchModal, but returns the auto-selected price.
 // CV < 15 → mean (homogeneous distribution); CV ≥ 15 → median (IN SEGES 65/2021 Art. 5º).
-export function autoSelectPrice(results: ComprasMaterialPriceResult[]): AutoSelectResult | null {
+export function autoSelectPrice(allResults: ComprasMaterialPriceResult[], options?: { periodMonths?: number | null; now?: Date }): AutoSelectResult | null {
+	const periodMonths = options?.periodMonths === undefined ? DEFAULT_PERIOD_MONTHS : options.periodMonths
+	const rawCount = allResults.filter((r) => r.precoUnitario !== null).length
+	const results = periodMonths ? filterByPeriod(allResults, periodMonths, options?.now) : allResults
+
 	const prices = results.map((r) => r.precoUnitario).filter((p): p is number => p !== null)
 	if (prices.length === 0) return null
 
@@ -86,7 +155,10 @@ export function autoSelectPrice(results: ComprasMaterialPriceResult[]): AutoSele
 	const stats = computeStats(validPrices)
 	if (!stats) return null
 
-	const uniqueSources = new Set(results.flatMap((r) => (r.codigoUasg ? [r.codigoUasg] : []))).size
+	// Fontes contadas só entre as amostras VÁLIDAS: quem foi descartado como
+	// outlier não sustenta o preço de referência e não pode inflar o critério de
+	// conformidade (≥ 3 UASGs distintas).
+	const uniqueSources = new Set(validSamples.flatMap((r) => (r.codigoUasg ? [r.codigoUasg] : []))).size
 	const method: "mean" | "median" = stats.cv < 15 ? "mean" : "median"
 	const price = method === "mean" ? stats.mean : stats.median
 
@@ -94,7 +166,9 @@ export function autoSelectPrice(results: ComprasMaterialPriceResult[]): AutoSele
 		price,
 		method,
 		stats: { ...stats, uniqueSources },
-		rawCount: prices.length,
+		rawCount,
+		dateFilteredCount: prices.length,
+		periodMonths,
 		validCount: validPrices.length,
 		outlierCount,
 		validSamples,

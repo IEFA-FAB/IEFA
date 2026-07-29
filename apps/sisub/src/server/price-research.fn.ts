@@ -12,6 +12,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseStatus } from "@tanstack/react-start/server"
 import { z } from "zod"
 import { requireAuthWithPermission, requireUserId } from "@/lib/auth.server"
+import { parseComprasJson } from "@/lib/compras-json"
 import { handleDomainError } from "@/lib/domain-errors"
 import { getSupabaseServerClient } from "@/lib/supabase.server"
 import type { ComprasMaterialPricePage } from "@/types/domain/price-research"
@@ -19,6 +20,9 @@ import type { ComprasMaterialPricePage } from "@/types/domain/price-research"
 const COMPRAS_BASE = "https://dadosabertos.compras.gov.br"
 const TIMEOUT_MS = 30_000
 const MAX_RETRIES = 3
+/** A API responde 400 ("Informe um número de paginação no intervalo de 10 a 500") fora desta faixa. */
+const MIN_PAGE_SIZE = 10
+const MAX_PAGE_SIZE = 500
 
 async function fetchCompras(url: string): Promise<Response> {
 	let lastErr: unknown
@@ -45,28 +49,34 @@ export const searchMaterialPricesFn = createServerFn({ method: "GET" })
 		z.object({
 			codigoItemCatalogo: z.number().int().positive(),
 			pagina: z.number().int().min(1).default(1),
-			tamanhoPagina: z.number().int().min(1).max(500).default(20),
+			tamanhoPagina: z.number().int().min(MIN_PAGE_SIZE).max(MAX_PAGE_SIZE).default(MAX_PAGE_SIZE),
 			estado: z.string().optional(),
 		})
 	)
 	.handler(async ({ data }): Promise<ComprasMaterialPricePage> => {
 		await requireUserId()
+		// Contrato atual da API: o item consultado vai no par `tipo`/`codigo`.
+		// O antigo `codigoItemCatalogo=<n>` responde 404 (Resource not found).
 		const params = new URLSearchParams({
+			tipo: "codigoItemCatalogo",
+			codigo: String(data.codigoItemCatalogo),
 			pagina: String(data.pagina),
 			tamanhoPagina: String(data.tamanhoPagina),
-			codigoItemCatalogo: String(data.codigoItemCatalogo),
 		})
 		if (data.estado) params.set("estado", data.estado)
 
 		const url = `${COMPRAS_BASE}/modulo-pesquisa-preco/1_consultarMaterial?${params}`
 		const res = await fetchCompras(url)
-		return (await res.json()) as ComprasMaterialPricePage
+		return parseComprasJson<ComprasMaterialPricePage>(await res.text())
 	})
 
 // ─── Schema de amostra (subconjunto de ComprasMaterialPriceResult) ────────────
 
 const SampleSchema = z.object({
-	idCompra: z.string(),
+	// A API passou a devolver `idCompra` como inteiro; searchMaterialPricesFn já
+	// normaliza para string (ver parseComprasJson), mas aceitamos number para não
+	// derrubar a gravação de auditoria caso um payload cru chegue aqui.
+	idCompra: z.union([z.string(), z.number()]).transform(String),
 	idItemCompra: z.number(),
 	descricaoItem: z.string().nullable().optional(),
 	precoUnitario: z.number().nullable().optional(),
@@ -102,6 +112,11 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 				uniqueSources: z.number().int(),
 			}),
 			rawCount: z.number().int(),
+			// Amostras restantes após a janela de recência (Art. 5º da IN SEGES 65/2021).
+			// Ausente ⇒ nenhuma janela aplicada, o funil registra o bruto.
+			dateFilteredCount: z.number().int().optional(),
+			/** Janela de recência em meses; null/ausente quando a pesquisa considerou todo o histórico. */
+			periodMonths: z.number().int().min(1).nullable().optional(),
 			validCount: z.number().int(),
 			outlierCount: z.number().int(),
 			validSamples: z.array(SampleSchema),
@@ -185,6 +200,7 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 				{
 					ata_id: data.ataId ?? null,
 					reference_method: data.method,
+					period_months: data.periodMonths ?? null,
 					total_items: 1,
 					items_with_price: data.validCount > 0 ? 1 : 0,
 					items_without_catmat: 0,
@@ -222,8 +238,10 @@ export const savePrecoAuditFn = createServerFn({ method: "POST" })
 				catmat_descricao: data.catmatDescricao ?? null,
 				product_name: data.catmatDescricao ?? String(data.catmatCodigo),
 				total_raw: data.rawCount,
-				total_after_date_filter: data.rawCount,
-				total_after_pollution_filter: data.rawCount,
+				total_after_date_filter: data.dateFilteredCount ?? data.rawCount,
+				// Não há filtro de similaridade/poluição CATMAT nesta pesquisa — a etapa
+				// é registrada como passa-tudo (nenhuma amostra descartada por poluição).
+				total_after_pollution_filter: data.dateFilteredCount ?? data.rawCount,
 				total_after_outlier: data.validCount,
 				price_min: data.stats.min,
 				price_max: data.stats.max,
