@@ -14,6 +14,7 @@ import { allocateFefo, computeTheoreticalConsumption, type LotBalance, leftoverE
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
@@ -61,7 +62,7 @@ async function lotBalancesForIngredients(kitchenId: number, ingredientIds: strin
 export const fetchPendingIssuesFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const kit = kitchen()
 		const inv = inventory()
 
@@ -145,12 +146,11 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
 		const inv = inventory()
-		const { kitchenId } = await fetchTask(data.taskId)
-
-		const { data: existing } = await inv.from("stock_movement").select("id").eq("production_task_id", data.taskId).eq("type", "production_issue").limit(1)
-		if ((existing ?? []).length > 0) throw new Error("Esta tarefa já teve baixa de estoque registrada")
+		const { task, kitchenId } = await fetchTask(data.taskId)
+		const { userId } = await requireStorageForKitchen(2, kitchenId)
+		// baixa só de produção CONCLUÍDA — task PENDING/IN_PROGRESS não desconta (review)
+		if (task.status !== "DONE") throw new Error(`Tarefa ainda não concluída (status ${task.status}) — conclua a produção antes da baixa`)
 
 		const balances = await lotBalancesForIngredients(
 			kitchenId,
@@ -166,11 +166,8 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 					kitchen_id: kitchenId,
 					ingredient_id: item.ingredientId,
 					lot_id: item.overrideLotId,
-					type: "production_issue",
 					quantity: item.quantity,
 					justification: item.justification.trim(),
-					production_task_id: data.taskId,
-					created_by: userId,
 				})
 				continue
 			}
@@ -180,10 +177,8 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 					kitchen_id: kitchenId,
 					ingredient_id: item.ingredientId,
 					lot_id: allocation.lotId,
-					type: "production_issue",
 					quantity: allocation.quantity,
-					production_task_id: data.taskId,
-					created_by: userId,
+					justification: null,
 				})
 			}
 			if (shortfall > 0) {
@@ -192,18 +187,21 @@ export const confirmIssueFn = createServerFn({ method: "POST" })
 					kitchen_id: kitchenId,
 					ingredient_id: item.ingredientId,
 					lot_id: null,
-					type: "production_issue",
 					quantity: shortfall,
 					justification: "Consumo além do saldo em lotes (estoque ficará negativo — verificar contagem)",
-					production_task_id: data.taskId,
-					created_by: userId,
 				})
 			}
 		}
 
-		const { error } = await inv.from("stock_movement").insert(movements)
+		// efetivação atômica no banco: advisory lock por tarefa + recheck dentro
+		// da transação (review: confirmações concorrentes dobravam a baixa)
+		const { data: result, error } = await inv.rpc("register_production_issue", {
+			p_task_id: data.taskId,
+			p_movements: movements,
+			p_user: userId,
+		})
 		if (error) throw new Error(`Erro ao registrar baixa: ${error.message}`)
-		return { movements: movements.length }
+		return { movements: Number(result?.[0]?.movements ?? movements.length) }
 	})
 
 /** Sobra reaproveitável → lote de PREPARAÇÃO CONGELADA (validade = shelf_life_days). */
@@ -218,47 +216,31 @@ export const registerLeftoverFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
 		const inv = inventory()
 		const kit = kitchen()
 		const { task, kitchenId } = await fetchTask(data.taskId)
+		const { userId } = await requireStorageForKitchen(2, kitchenId)
 
 		if (data.discard && !data.discardReason?.trim()) throw new Error("Descarte exige motivo")
 
 		const { data: prep } = await kit.from("frozen_preparation").select("id, shelf_life_days").eq("id", data.frozenPreparationId).single()
 		if (!prep) throw new Error("Preparação congelada não encontrada")
 
-		const { data: lot, error: lotError } = await inv
-			.from("stock_lot")
-			.insert({
-				kitchen_id: kitchenId,
-				frozen_preparation_id: data.frozenPreparationId,
-				lot_code: `SOBRA-${task.production_date}`,
-				expiry_date: leftoverExpiryDate(task.production_date, prep.shelf_life_days),
-			})
-			.select("id")
-			.single()
-		if (lotError || !lot) throw new Error(`Erro ao criar lote de sobra: ${lotError?.message}`)
-
-		const base = {
-			kitchen_id: kitchenId,
-			frozen_preparation_id: data.frozenPreparationId,
-			lot_id: lot.id,
-			quantity: data.quantity,
-			production_task_id: data.taskId,
-			created_by: userId,
-		}
-		// descarte: par retorno+descarte no MESMO insert (documenta a perda, saldo zero)
-		const movements = data.discard
-			? [
-					{ ...base, type: "leftover_return", unit_cost: 0 },
-					{ ...base, type: "waste", justification: data.discardReason?.trim() },
-				]
-			: [{ ...base, type: "leftover_return", unit_cost: 0 }]
-
-		const { error } = await inv.from("stock_movement").insert(movements)
+		// lote + movimentos numa função SQL (review: falha parcial deixava lote
+		// órfão e retry duplicava o retorno)
+		const { data: result, error } = await inv.rpc("register_leftover", {
+			p_kitchen_id: kitchenId,
+			p_frozen_preparation_id: data.frozenPreparationId,
+			p_lot_code: `SOBRA-${task.production_date}`,
+			p_expiry_date: leftoverExpiryDate(task.production_date, prep.shelf_life_days),
+			p_quantity: data.quantity,
+			p_task_id: data.taskId,
+			p_discard: data.discard,
+			p_reason: data.discardReason?.trim() ?? null,
+			p_user: userId,
+		})
 		if (error) throw new Error(`Erro ao registrar sobra: ${error.message}`)
-		return { lotId: lot.id as string, discarded: data.discard }
+		return { lotId: (result?.[0]?.lot_id as string) ?? null, discarded: data.discard }
 	})
 
 /** Preparações congeladas disponíveis para destino de sobra. */
@@ -284,7 +266,7 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 		})
 	)
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const kit = kitchen()
 		const inv = inventory()
 
@@ -306,8 +288,16 @@ export const fetchVarianceFn = createServerFn({ method: "GET" })
 					"id",
 					taskList.map((t: { menu_item_id: string }) => t.menu_item_id)
 				)
-			for (const menuItem of menuItems ?? []) {
-				for (const line of computeTheoreticalConsumption(menuItem.recipe, Number(menuItem.planned_portion_quantity ?? 0))) {
+			const menuById = new Map((menuItems ?? []).map((m: { id: string }) => [m.id, m]))
+			// por TAREFA, não por menu_item deduplicado — a mesma preparação
+			// produzida N vezes conta N vezes (review: variância superestimada)
+			for (const taskRow of taskList as { menu_item_id: string }[]) {
+				const menuItem = menuById.get(taskRow.menu_item_id) as { recipe: unknown; planned_portion_quantity: number | null } | undefined
+				if (!menuItem) continue
+				for (const line of computeTheoreticalConsumption(
+					menuItem.recipe as Parameters<typeof computeTheoreticalConsumption>[0],
+					Number(menuItem.planned_portion_quantity ?? 0)
+				)) {
 					theoretical.set(line.ingredientId, (theoretical.get(line.ingredientId) ?? 0) + line.quantity)
 				}
 			}

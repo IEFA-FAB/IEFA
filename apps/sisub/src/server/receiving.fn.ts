@@ -14,6 +14,7 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { requireAuthWithPermission } from "@/lib/auth.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
@@ -36,7 +37,7 @@ export const createReceiptFromNfeFn = createServerFn({ method: "POST" })
 		})
 	)
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
+		const { userId } = await requireStorageForKitchen(2, data.kitchenId)
 		const inv = inventory()
 
 		const { data: items, error: itemsError } = await inv
@@ -123,8 +124,10 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 
 		const { data: item } = await inv.from("goods_receipt_item").select("id, invoiced_qty_base, receipt_id").eq("id", data.receiptItemId).single()
 		if (!item) throw new Error("Item do recebimento não encontrado")
-		const { data: receipt } = await inv.from("goods_receipt").select("status").eq("id", item.receipt_id).single()
-		if (receipt?.status === "definitive") throw new Error("Recebimento já efetivado — não pode ser alterado")
+		const { data: receipt } = await inv.from("goods_receipt").select("status, kitchen_id").eq("id", item.receipt_id).single()
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		await requireStorageForKitchen(2, Number(receipt.kitchen_id))
+		if (receipt.status === "definitive") throw new Error("Recebimento já efetivado — não pode ser alterado")
 
 		const invoiced = item.invoiced_qty_base != null ? Number(item.invoiced_qty_base) : null
 		const diverges = invoiced != null && data.receivedQtyBase !== invoiced
@@ -148,7 +151,9 @@ export const updateReceiptItemFn = createServerFn({ method: "POST" })
 export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
+		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const { userId } = await requireStorageForKitchen(2, Number(receipt.kitchen_id))
 		const { error } = await inventory()
 			.from("goods_receipt")
 			.update({ status: "provisional", provisional_by: userId, provisional_at: new Date().toISOString() })
@@ -161,7 +166,9 @@ export const setReceiptProvisionalFn = createServerFn({ method: "POST" })
 export const finalizeReceiptFn = createServerFn({ method: "POST" })
 	.validator(z.object({ receiptId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 3)
+		const { data: receipt } = await inventory().from("goods_receipt").select("kitchen_id").eq("id", data.receiptId).maybeSingle()
+		if (!receipt) throw new Error("Recebimento não encontrado")
+		const { userId } = await requireStorageForKitchen(3, Number(receipt.kitchen_id))
 		const { data: result, error } = await inventory().rpc("finalize_goods_receipt", { p_receipt_id: data.receiptId, p_user: userId })
 		if (error) throw new Error(`Efetivação falhou: ${error.message}`)
 		return { movements: Number(result?.[0]?.movements ?? 0) }
@@ -171,7 +178,7 @@ export const finalizeReceiptFn = createServerFn({ method: "POST" })
 export const listReceiptsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const { data: receipts, error } = await inventory()
 			.from("goods_receipt")
 			.select("id, nfe_document_id, supply_order_id, status, provisional_at, definitive_at, created_at")
@@ -192,6 +199,7 @@ export const fetchReceiptFn = createServerFn({ method: "GET" })
 
 		const { data: receipt, error } = await inv.from("goods_receipt").select("*").eq("id", data.receiptId).single()
 		if (error || !receipt) throw new Error("Recebimento não encontrado")
+		await requireStorageForKitchen(1, Number(receipt.kitchen_id))
 		const { data: items } = await inv.from("goods_receipt_item").select("*").eq("receipt_id", data.receiptId)
 
 		const ingredientIds = [...new Set((items ?? []).map((i: { ingredient_id: string | null }) => i.ingredient_id).filter(Boolean))] as string[]

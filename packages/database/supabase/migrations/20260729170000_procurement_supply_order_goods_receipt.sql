@@ -222,17 +222,10 @@ comment on view inventory.v_supplier_lead_time is
   'Lead time observado (dias) por fornecedor×item: OF enviada → recebimento definitivo; deviation_days contra a promessa. Alimenta o estimador do MRP (Fase 7).';
 
 -- ----------------------------------------------------------------------------
--- RLS
+-- RLS: DENY-ALL para anon/authenticated — acesso só pelas server fns
+-- (service role) com PBAC `storage` escopado por cozinha.
 -- ----------------------------------------------------------------------------
 alter table procurement.supply_order enable row level security;
 alter table procurement.supply_order_item enable row level security;
 alter table inventory.goods_receipt enable row level security;
 alter table inventory.goods_receipt_item enable row level security;
-
-create policy supply_order_read on procurement.supply_order for select to authenticated using (true);
-create policy supply_order_item_read on procurement.supply_order_item for select to authenticated using (true);
-create policy goods_receipt_read on inventory.goods_receipt for select to authenticated using (true);
-create policy goods_receipt_item_read on inventory.goods_receipt_item for select to authenticated using (true);
-
-grant select on procurement.supply_order, procurement.supply_order_item,
-  inventory.goods_receipt, inventory.goods_receipt_item to authenticated;

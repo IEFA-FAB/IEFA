@@ -11,7 +11,7 @@
 
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { requireAuthWithPermission } from "@/lib/auth.server"
+import { requireStorageForKitchen } from "@/lib/storage-auth.server"
 import { getServerClient } from "@/lib/supabase.server"
 
 // biome-ignore lint/suspicious/noExplicitAny: tabelas novas fora dos tipos gerados até o regen pós-migration (task 2.4)
@@ -42,7 +42,7 @@ async function describeIngredients(ids: string[]) {
 export const closeMonthFn = createServerFn({ method: "POST" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 3)
+		const { userId } = await requireStorageForKitchen(3, data.kitchenId)
 		const { data: result, error } = await inventory().rpc("close_month", {
 			p_kitchen_id: data.kitchenId,
 			p_competencia: `${data.competencia}-01`,
@@ -58,7 +58,7 @@ export const closeMonthFn = createServerFn({ method: "POST" })
 export const listClosingsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const { data: closings, error } = await inventory()
 			.from("monthly_closing")
 			.select("id, competencia, total_in, total_out, value_in, value_out, opening_value, closing_value, closed_at")
@@ -76,7 +76,7 @@ export const listClosingsFn = createServerFn({ method: "GET" })
 export const fetchBalanceteFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const { from, to } = monthRange(data.competencia)
 
 		const { data: moves, error } = await inventory()
@@ -143,7 +143,7 @@ export const fetchBalanceteFn = createServerFn({ method: "GET" })
 export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), ingredientId: z.string().uuid(), competencia: competenciaSchema }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const { from, to } = monthRange(data.competencia)
 		const inv = inventory()
 
@@ -178,7 +178,7 @@ export const fetchLedgerSheetFn = createServerFn({ method: "GET" })
 export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive(), competencia: competenciaSchema }))
 	.handler(async ({ data }): Promise<string> => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const balancete = await fetchBalanceteFn({ data })
 
 		const ingredientIds = balancete.map((row) => row.ingredientId).filter((id): id is string => id != null)
@@ -226,7 +226,7 @@ export const exportCatmatCsvFn = createServerFn({ method: "GET" })
 export const fetchEmpenhoLiquidacaoFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId)
 		const inv = inventory()
 		const core = getServerClient("core") as unknown as LooseClient
 		const finance = getServerClient("finance") as unknown as LooseClient
