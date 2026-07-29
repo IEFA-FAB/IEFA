@@ -1,5 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Book, Box, Calendar, Check, Clock, Code, Cpu, GitBranch, Globe, Map as MapIcon, NavArrowDown, OpenNewWindow, Server } from "iconoir-react"
+import {
+	Book,
+	Box,
+	Calendar,
+	Check,
+	ClipboardCheck,
+	Clock,
+	Code,
+	Cpu,
+	GitBranch,
+	Globe,
+	Group,
+	HistoricShield,
+	Map as MapIcon,
+	NavArrowDown,
+	OpenNewWindow,
+	Server,
+	StatsReport,
+} from "iconoir-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
@@ -120,67 +138,107 @@ const APP_ROADMAPS: AppRoadmap[] = [
 			},
 			{
 				number: "3",
+				title: "Produção & Demanda",
+				subtitle: "A cozinha como cidadã de primeira classe — fluxo de preparo, demanda unificada template → produção e flexibilidade operacional.",
+				phaseStatus: "done",
+				steps: [
+					{
+						number: "3.1",
+						label: "Fluxo de Produção (DAG)",
+						description:
+							"Receitas modeladas como grafo de preparo (xyflow) — etapas, dependências e insumos por etapa, com visualização interativa do fluxo de produção da cozinha.",
+						status: "done",
+						date: "Jun 2026",
+					},
+					{
+						number: "3.2",
+						label: "Composição avançada de cardápios",
+						description:
+							"Grupos de preparações com ordem e proporção recomendada (drag-and-drop), preparações congeladas por cozinha e substituição direcional de insumos.",
+						status: "done",
+						date: "Jul 2026",
+					},
+					{
+						number: "3.3",
+						label: "Demanda unificada template → produção",
+						description:
+							"Efetivo base por refeição no template de cardápio e escala de ingredientes compartilhada — planejamento e produção calculam demanda com a mesma matemática.",
+						status: "done",
+						date: "Jul 2026",
+					},
+					{
+						number: "3.4",
+						label: "Flexibilidade da produção",
+						description:
+							"Eventos e exceções aplicados ao calendário de produção de forma idempotente, registro de produzido e sobras por refeição e permissões de cozinha escopadas por OM.",
+						status: "done",
+						date: "Jul 2026",
+					},
+				],
+			},
+			{
+				number: "4",
 				title: "Gestão de Estoque",
 				subtitle: "Controle completo de materiais, movimentações e reposição nas Organizações Militares.",
 				phaseStatus: "active",
 				steps: [
 					{
-						number: "3.1",
+						number: "4.1",
 						label: "Cadastro de materiais",
 						description:
-							"Insumos, unidades de medida, categorias e estoque mínimo por OM. Vínculo automático entre materiais cadastrados e ingredientes das receitas.",
-						status: "planned",
+							"Insumos, unidades de medida, categorias e estoque mínimo por OM. Vínculo automático entre materiais cadastrados e ingredientes das receitas — a separação item de compra × ingrediente já está modelada e em uso.",
+						status: "in-progress",
 					},
 					{
-						number: "3.2",
+						number: "4.2",
 						label: "Entradas",
 						description:
 							"Recebimento de nota fiscal com registro de lote e validade, doações e transferências recebidas. Conferência de quantidade recebida vs. NF.",
 						status: "planned",
 					},
 					{
-						number: "3.3",
+						number: "4.3",
 						label: "Saídas",
 						description: "Baixa manual, baixa por descarte ou avaria com justificativa registrada, e transferência de material entre OMs.",
 						status: "planned",
 					},
 					{
-						number: "3.4",
+						number: "4.4",
 						label: "Posição em tempo real",
 						description:
 							"Dashboard de saldo por material e OM. Alertas de estoque mínimo atingido e alertas de validade próxima com antecedência configurável.",
 						status: "planned",
 					},
 					{
-						number: "3.5",
+						number: "4.5",
 						label: "Inventário periódico",
 						description: "Fluxo de contagem física, conciliação sistema × físico, relatório de divergências e ajustes com rastreabilidade de responsável.",
 						status: "planned",
 					},
 					{
-						number: "3.6",
+						number: "4.6",
 						label: "Integração cardápios ↔ estoque",
 						description:
 							"Ao confirmar cardápio: verificação de disponibilidade de insumos. Ao executar: baixa automática proporcional ao número de refeições. Alertas de falta antes do início do preparo.",
 						status: "planned",
 					},
 					{
-						number: "3.7",
+						number: "4.7",
 						label: "Pedido de empenho inteligente",
 						description:
-							"Sugestão de pedido calculada com base no saldo atual + planejamento mensal de cardápios. Geração automática de processo de empenho para compras.gov — com especificações técnicas e quantidades calculadas por insumo.",
-						status: "planned",
+							"Sugestão de pedido calculada com base no saldo atual + planejamento mensal de cardápios. Geração automática de processo de empenho para compras.gov — a integração com atas, licitações e auditoria de preços já está em operação.",
+						status: "in-progress",
 					},
 				],
 			},
 			{
-				number: "4",
+				number: "5",
 				title: "Escala",
 				subtitle: "Dashboard executivo consolidado para a SEFA — visão agregada de todas as OMs vinculadas.",
 				phaseStatus: "vision",
 				steps: [
 					{
-						number: "4.1",
+						number: "5.1",
 						label: "Dashboard executivo SEFA",
 						description:
 							"Painel gerencial consolidado para a Seção de Alimentação — visão agregada de consumo, custos, alertas e KPIs de todas as OMs vinculadas.",
@@ -206,7 +264,7 @@ const APP_ROADMAPS: AppRoadmap[] = [
 						number: "1.1",
 						label: "Portal IEFA",
 						description:
-							"Criação do portal.iefa.edu.br, centralizando o acesso às soluções do Instituto: CMS (Sanity), blog, painel de aplicativos e autenticação Supabase.",
+							"Criação do portal.iefa.com.br, centralizando o acesso às soluções do Instituto: CMS (Sanity), blog, painel de aplicativos e autenticação Supabase.",
 						status: "done",
 						date: "Out 2025",
 					},
@@ -244,6 +302,30 @@ const APP_ROADMAPS: AppRoadmap[] = [
 					},
 				],
 			},
+			{
+				number: "3",
+				title: "Plataforma & Infraestrutura",
+				subtitle: "Suíte de aplicativos dirigida por banco e migração de toda a infraestrutura do ecossistema para AWS.",
+				phaseStatus: "done",
+				steps: [
+					{
+						number: "3.1",
+						label: "Migração Fly.io → AWS ECS",
+						description:
+							"Toda a infraestrutura migrada para AWS ECS Fargate com Terraform — deploys por app via OIDC, ALB único compartilhado e otimização de custo (~43% de redução mensal).",
+						status: "done",
+						date: "Jul 2026",
+					},
+					{
+						number: "3.2",
+						label: "Suíte de apps + favoritos",
+						description:
+							"Painel de aplicativos dirigido por banco com favoritos por usuário — sincronizados entre dispositivos quando logado, localStorage quando anônimo.",
+						status: "done",
+						date: "Jul 2026",
+					},
+				],
+			},
 		],
 	},
 	{
@@ -272,14 +354,23 @@ const APP_ROADMAPS: AppRoadmap[] = [
 				number: "2",
 				title: "API Pública",
 				subtitle: "Abertura da API com documentação OpenAPI, endpoints de alimentos e preços de referência.",
-				phaseStatus: "planned",
+				phaseStatus: "done",
 				steps: [
 					{
 						number: "2.1",
 						label: "Endpoints públicos documentados",
 						description:
-							"Abertura da API (Bun + Hono + OpenAPI) com endpoints documentados via Scalar para consulta de tabelas de alimentos, preços de referência e histórico de variação de custos.",
-						status: "planned",
+							"Abertura da API (Bun + Hono + OpenAPI) em api.iefa.com.br com endpoints documentados via Scalar para consulta de tabelas de alimentos, preços de referência e histórico de variação de custos.",
+						status: "done",
+						date: "Jul 2026",
+					},
+					{
+						number: "2.2",
+						label: "Base nutricional de referência",
+						description:
+							"Importadores das tabelas TACO, IBGE e USDA — 10.830 alimentos de referência consolidados, com importação idempotente e re-executável.",
+						status: "done",
+						date: "Jul 2026",
 					},
 				],
 			},
@@ -316,7 +407,14 @@ const APP_ROADMAPS: AppRoadmap[] = [
 						number: "1.1",
 						label: "Base de documentação",
 						description:
-							"App de documentação (TanStack Start + Fumadocs) com guias de uso, referência de APIs, ADRs e manuais de onboarding para colaboradores e parceiros técnicos.",
+							"App de documentação (TanStack Start + Fumadocs) publicado em docs.iefa.com.br como build estático (S3 + CloudFront) — guias de uso, referência de APIs e manuais de onboarding.",
+						status: "done",
+						date: "Jul 2026",
+					},
+					{
+						number: "1.2",
+						label: "Expansão de conteúdo",
+						description: "Cobertura de guias por app, ADRs e manuais de onboarding para colaboradores e parceiros técnicos.",
 						status: "in-progress",
 					},
 				],
@@ -348,24 +446,145 @@ const APP_ROADMAPS: AppRoadmap[] = [
 		],
 	},
 	{
+		icon: StatsReport,
+		slug: "sucont",
+		title: "SUCONT — Análise Contábil",
+		status: "active",
+		phases: [
+			{
+				number: "1",
+				title: "Hub de Análise",
+				subtitle: "Ferramentas de análise contábil da SUCONT — monitoramento, cruzamento de contas e auditoria assistida por IA.",
+				phaseStatus: "done",
+				steps: [
+					{
+						number: "1.1",
+						label: "SUCONT-4 Hub",
+						description:
+							"Lançamento do sucont.iefa.com.br — hub com módulos de monitoramento, cruzamento de contas, análise de compatibilidade, saldo alongado e contas genéricas, com controle de acesso PBAC.",
+						status: "done",
+						date: "Abr 2026",
+					},
+					{
+						number: "1.2",
+						label: "Análise assistida por IA",
+						description:
+							"Análises contábeis assistidas por IA via AWS Bedrock — acesso keyless (IAM) pelo adaptador compartilhado do ecossistema (@iefa/ai-provider).",
+						status: "done",
+						date: "Jul 2026",
+					},
+				],
+			},
+		],
+	},
+	{
+		icon: HistoricShield,
+		slug: "rumaer",
+		title: "RUMAER — Uniformes da Aeronáutica",
+		status: "active",
+		phases: [
+			{
+				number: "1",
+				title: "Consulta de Uniformes",
+				subtitle: "O RUMAER navegável — busca tolerante, composições por uniforme e recomendação conforme o perfil do militar.",
+				phaseStatus: "done",
+				steps: [
+					{
+						number: "1.1",
+						label: "Lançamento do RUMAER",
+						description:
+							"Publicação do rumaer.iefa.com.br — consulta aos uniformes da FAB com busca tolerante (sem acento, por extenso, apelidos), detalhe de composições e perfil por posto e quadro.",
+						status: "done",
+						date: "Jun 2026",
+					},
+					{
+						number: "1.2",
+						label: "Gestão colaborativa",
+						description:
+							"Módulo de controle de acesso compartilhado — editores mantêm o catálogo de uniformes e variações diretamente no app, com permissões por nível.",
+						status: "done",
+						date: "Jul 2026",
+					},
+				],
+			},
+		],
+	},
+	{
+		icon: ClipboardCheck,
+		slug: "forms",
+		title: "Formulários IEFA",
+		status: "active",
+		phases: [
+			{
+				number: "1",
+				title: "Questionários Internos",
+				subtitle: "Criação, coleta e análise de questionários para usuários @fab.mil.br — com suporte a múltiplos tenants.",
+				phaseStatus: "done",
+				steps: [
+					{
+						number: "1.1",
+						label: "Lançamento do Forms",
+						description:
+							"Publicação do forms.iefa.com.br — questionários estruturados com múltiplos tipos de pergunta, coleta com salvamento automático e relatórios de respostas.",
+						status: "done",
+						date: "Mai 2026",
+					},
+					{
+						number: "1.2",
+						label: "Tenant VETOR 5S",
+						description:
+							"A mesma base de código serve o Programa VETOR 5S da SEFA em 5s.iefa.com.br — tenant dedicado com landing e formulários próprios de melhoria contínua.",
+						status: "done",
+						date: "Mai 2026",
+					},
+				],
+			},
+		],
+	},
+	{
+		icon: Group,
+		slug: "assignment-selection",
+		title: "Escolha de Vagas — CPAINT",
+		status: "stable",
+		phases: [
+			{
+				number: "1",
+				title: "Lançamento",
+				subtitle: "Telão público e mesa de controle para as sessões de escolha de vagas da CPAINT.",
+				phaseStatus: "done",
+				steps: [
+					{
+						number: "1.1",
+						label: "Telão e controlador",
+						description:
+							"Publicação do escolha.iefa.com.br — telão em tempo real para acompanhamento das sessões e interface de controle para condução da escolha de vagas.",
+						status: "done",
+						date: "Jul 2026",
+					},
+				],
+			},
+		],
+	},
+	{
 		icon: Cpu,
 		slug: "alpha",
 		title: "Projeto α",
-		status: "planned",
+		status: "active",
 		phases: [
 			{
 				number: "1",
 				title: "Módulo ACI",
 				subtitle:
 					"Validação do núcleo jurídico — RAG sobre legislação, extração estruturada de documentos, verificação de conformidade e plataforma integrada para o ACI.",
-				phaseStatus: "planned",
+				phaseStatus: "active",
 				steps: [
 					{
 						number: "1.1",
 						label: "ChatRADA",
 						description:
-							"RAG híbrido (semântico + BM25) sobre o Regulamento de Administração da Aeronáutica — busca em linguagem natural e consultas exatas a artigos e incisos.",
-						status: "planned",
+							"RAG híbrido (semântico + BM25) sobre o Regulamento de Administração da Aeronáutica — busca em linguagem natural e consultas exatas a artigos e incisos. No ar em alpha.iefa.com.br, integrado ao portal.",
+						status: "done",
+						date: "Mai 2026",
 					},
 					{
 						number: "1.2",
@@ -478,7 +697,7 @@ const APPS: AppEntry[] = [
 			"Portal web institucional. Centraliza CMS (Sanity), blog, sistema de publicações científicas (Revista Seiva), painel de aplicativos e autenticação Supabase.",
 		stack: ["React 19", "Vite", "TanStack Router", "Nitro SSR"],
 		status: "active",
-		url: "https://portal.iefa.edu.br",
+		url: "https://portal.iefa.com.br",
 	},
 	{
 		icon: Box,
@@ -498,6 +717,7 @@ const APPS: AppEntry[] = [
 			"API REST documentada via OpenAPI + Scalar. Endpoints de alimentos, preços de referência, sync workers e integrações governamentais (compras.gov).",
 		stack: ["Bun", "Hono", "OpenAPI", "Scalar"],
 		status: "active",
+		url: "https://api.iefa.com.br",
 	},
 	{
 		icon: Code,
@@ -515,7 +735,8 @@ const APPS: AppEntry[] = [
 		description:
 			"Plataforma de IA aplicada ao ciclo de contratações públicas da FAB (Lei 14.133/21). Módulos de RAG jurídico, extração estruturada, verificação de conformidade e copiloto integrado.",
 		stack: ["Bun", "Hono", "LangChain", "LangGraph"],
-		status: "planned",
+		status: "active",
+		url: "https://alpha.iefa.com.br",
 	},
 	{
 		icon: Book,
@@ -524,6 +745,45 @@ const APPS: AppEntry[] = [
 		description: "Documentação interna do ecossistema. Guias, referência de APIs, ADRs e manuais de onboarding para colaboradores e parceiros.",
 		stack: ["React 19", "TanStack Start", "Fumadocs"],
 		status: "active",
+		url: "https://docs.iefa.com.br",
+	},
+	{
+		icon: StatsReport,
+		slug: "sucont",
+		title: "SUCONT — Análise Contábil",
+		description:
+			"Hub de análise contábil da SUCONT. Monitoramento, cruzamento de contas, análise de compatibilidade, saldo alongado e análises assistidas por IA (AWS Bedrock).",
+		stack: ["React 19", "TanStack Start", "Supabase", "Bedrock"],
+		status: "active",
+		url: "https://sucont.iefa.com.br",
+	},
+	{
+		icon: HistoricShield,
+		slug: "rumaer",
+		title: "RUMAER — Uniformes da Aeronáutica",
+		description: "Consulta aos uniformes da FAB — busca tolerante, composições detalhadas, recomendação por posto e quadro e gestão colaborativa do catálogo.",
+		stack: ["React 19", "Vite", "TanStack Router", "Supabase"],
+		status: "active",
+		url: "https://rumaer.iefa.com.br",
+	},
+	{
+		icon: ClipboardCheck,
+		slug: "forms",
+		title: "Formulários IEFA",
+		description:
+			"Sistema de questionários internos para usuários @fab.mil.br — criação, coleta com salvamento automático e relatórios. Multi-tenant: serve também o Programa VETOR 5S (5s.iefa.com.br).",
+		stack: ["React 19", "Vite", "TanStack Form", "Supabase"],
+		status: "active",
+		url: "https://forms.iefa.com.br",
+	},
+	{
+		icon: Group,
+		slug: "assignment-selection",
+		title: "Escolha de Vagas — CPAINT",
+		description: "Telão em tempo real e mesa de controle para as sessões de escolha de vagas da CPAINT — acompanhamento público e condução centralizada.",
+		stack: ["React 19", "Vite", "TanStack Router", "Supabase"],
+		status: "stable",
+		url: "https://escolha.iefa.com.br",
 	},
 ]
 
@@ -559,6 +819,17 @@ const PACKAGES: PackageEntry[] = [
 		slug: "alpha-client",
 		description: "Wrapper de integração com LLMs via LangChain + OpenAI — configuração do modelo de chat e rastreamento de execuções para o Projeto α.",
 		stack: ["TypeScript", "LangChain", "OpenAI"],
+	},
+	{
+		slug: "ai-provider",
+		description:
+			"Camada unificada de provedores de IA — Bedrock, Anthropic, Gemini, Groq, OpenRouter, NVIDIA e Ollama — com compatibilidade LangChain e acesso keyless via IAM.",
+		stack: ["TypeScript", "LLM", "Bedrock"],
+	},
+	{
+		slug: "compras-api",
+		description: "Cliente HTTP tipado do Portal de Compras do Governo Federal — tipos gerados do OpenAPI oficial sobre openapi-fetch.",
+		stack: ["TypeScript", "OpenAPI"],
 	},
 ]
 
@@ -829,7 +1100,7 @@ function Roadmap() {
 							Ecossistema
 						</h2>
 						<p className="text-sm text-muted-foreground">
-							Seis apps e cinco packages compartilhados — todos no mesmo monorepo, com tooling e convenções unificadas.
+							Dez apps e sete packages compartilhados — todos no mesmo monorepo, com tooling e convenções unificadas.
 						</p>
 					</div>
 
@@ -934,7 +1205,7 @@ function Roadmap() {
 				{/* ── Footer ──────────────────────────────────────────────────── */}
 				<footer className="border-t pt-8 pb-4">
 					<p className="text-xs text-muted-foreground text-pretty leading-relaxed">
-						Esta página é atualizada a cada ciclo relevante de desenvolvimento. Última atualização: <strong>Abril de 2026</strong>. Repositório:{" "}
+						Esta página é atualizada a cada ciclo relevante de desenvolvimento. Última atualização: <strong>Julho de 2026</strong>. Repositório:{" "}
 						<a
 							href="https://github.com/IEFA-FAB"
 							target="_blank"
