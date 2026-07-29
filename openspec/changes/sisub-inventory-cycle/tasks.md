@@ -54,15 +54,15 @@
 
 ## 6. Fase 4 — OF + Recebimento em dois estágios
 
-- [ ] 6.1 [database] Migration `procurement.supply_order` + `supply_order_item` (status, `sent_at`, `expected_delivery`, CHECK soma ≤ empenho via trigger/função)
-- [ ] 6.2 [database] Migration `inventory.goods_receipt` + `goods_receipt_item` (status `draft|provisional|definitive|divergent|rejected`, FKs OF/NF-e/empenho, lote/validade, `divergence_reason`) + RLS
-- [ ] 6.3 [sisub-domain] Operation `receiving`: transições de status, validação OF×empenho, efetivação do definitivo (cria lotes + movimentos + abate saldo físico do empenho) em transação única
-- [ ] 6.4 [sisub] Server fns `supply-order.fn.ts` + telas de OF (emitir contra empenho, listar, acompanhar status)
-- [ ] 6.5 [sisub] Wizard de recebimento — parte 1: seleção de OF/NF-e + conferência com `GtinScannerField` (destaque do item da nota, alerta de GTIN fora da nota)
-- [ ] 6.6 [sisub] Wizard de recebimento — parte 2: lote/validade (pré-preenchidos do rastro) + estágios provisório → definitivo com registro de autor/data
-- [ ] 6.7 [sisub] Fluxo de divergência: recebimento a menor com motivo por item; termo de recebimento (PDF) provisório/definitivo
-- [ ] 6.8 [sisub-domain] Lead time observado: `sent_at` da OF → recebimento definitivo, + desvio vs `expected_delivery`, por fornecedor×item
-- [ ] 6.9 [sisub] Testes de integração: fluxo completo OF → NF-e → provisório (sem movimento) → definitivo (com movimento), divergência, OF excedendo empenho
+- [x] 6.1 [database] Migration `procurement.supply_order` + `supply_order_item` (status, `sent_at`, `expected_delivery`, CHECK soma ≤ empenho via trigger/função)
+- [x] 6.2 [database] Migration `inventory.goods_receipt` + `goods_receipt_item` (status `draft|provisional|definitive|divergent|rejected`, FKs OF/NF-e/empenho, lote/validade, `divergence_reason`) + RLS
+- [x] 6.3 [sisub-domain] Operation `receiving`: transições de status, validação OF×empenho, efetivação do definitivo (cria lotes + movimentos + abate saldo físico do empenho) em transação única
+- [x] 6.4 [sisub] Server fns `supply-order.fn.ts` + telas de OF (emitir contra empenho, listar, acompanhar status)
+- [x] 6.5 [sisub] Wizard de recebimento — parte 1: seleção de OF/NF-e + conferência com `GtinScannerField` (destaque do item da nota, alerta de GTIN fora da nota)
+- [x] 6.6 [sisub] Wizard de recebimento — parte 2: lote/validade (pré-preenchidos do rastro) + estágios provisório → definitivo com registro de autor/data
+- [x] 6.7 [sisub] Fluxo de divergência: recebimento a menor com motivo por item; termo de recebimento (PDF) provisório/definitivo
+- [x] 6.8 [sisub-domain] Lead time observado: `sent_at` da OF → recebimento definitivo, + desvio vs `expected_delivery`, por fornecedor×item
+- [x] 6.9 [sisub] Testes de integração: fluxo completo OF → NF-e → provisório (sem movimento) → definitivo (com movimento), divergência, OF excedendo empenho
 
 ## 7. Fase 5 — Baixa por produção
 
