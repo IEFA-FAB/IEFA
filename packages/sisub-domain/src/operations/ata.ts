@@ -95,7 +95,9 @@ type ProcurementListItem = Tables<"procurement_list_item">
 type ProcurementListKitchen = Tables<"procurement_list_kitchen">
 type ProcurementListSelection = Tables<"procurement_list_selection">
 
-type AtaSelectionWire = ProcurementListSelection & { template: { name: string | null; template_type: string } | null }
+type AtaSelectionWire = ProcurementListSelection & {
+	template: { name: string | null; template_type: string; expected_monthly_occurrences: number | null } | null
+}
 type AtaKitchenWire = ProcurementListKitchen & { kitchen: { id: number; display_name: string | null } | null; selections: AtaSelectionWire[] }
 
 type AtaSnapshotSelection = {
@@ -140,16 +142,19 @@ const DETAILS_RELATIONS: Record<string, string> = {
  * Computes ingredient quantities needed to fulfill a set of menu template selections — read-only, no persistence.
  *
  * Resolves templates → recipes → ingredients; multiplies net_quantity by (headcount / portion_yield × repetitions).
- * Aggregates identical ingredient_ids across all kitchenSelections (weekly + events combined).
+ * Aggregates identical ingredient_ids across all kitchenSelections (weekly + events + exceptions combined).
  * Translates ingredient → purchase_item via is_default link, then sorts by folder_description → ingredient_name (pt-BR).
  */
 export async function calculateAtaNeeds(db: SisubDb, _ctx: UserContext, input: CalculateAtaNeeds): Promise<ProcurementNeed[]> {
 	const { kitchenSelections } = input
 
-	// Coletar todas as seleções (weekly + events).
+	// Coletar as seleções dos três regimes (weekly, event, exception). `repetitions`
+	// já chega normalizado como "vezes dentro da vigência da ata" — a projeção
+	// mensal da exceção é resolvida antes, no wizard.
 	const allSelections = kitchenSelections.flatMap((ks) => [
 		...ks.templateSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
 		...ks.eventSelections.map((s) => ({ ...s, kitchenId: ks.kitchenId })),
+		...(ks.exceptionSelections ?? []).map((s) => ({ ...s, kitchenId: ks.kitchenId })),
 	])
 
 	if (allSelections.length === 0) return []
@@ -391,6 +396,7 @@ export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: Upda
 		if (input.title !== undefined) updateData.title = input.title
 		if (input.notes !== undefined) updateData.notes = input.notes || null
 		if (input.wizardStep !== undefined) updateData.wizardStep = input.wizardStep
+		if (input.validityMonths !== undefined) updateData.validityMonths = input.validityMonths
 
 		// Detecta draft inexistente (deletado mid-session) em vez de no-op silencioso — paridade com updateAtaStatus/deleteAta.
 		await mutateOrFail(
@@ -410,7 +416,7 @@ export async function updateAtaDraft(db: SisubDb, _ctx: UserContext, input: Upda
 			await tx.delete(procurementListKitchenInProcurement).where(eq(procurementListKitchenInProcurement.listId, input.draftId))
 
 			for (const ks of input.kitchenSelections) {
-				const allSels = [...ks.templateSelections, ...ks.eventSelections]
+				const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])]
 				if (allSels.length === 0) continue
 
 				const ataKitchen = await insertOneOrFail(
@@ -476,7 +482,8 @@ export async function saveAtaDraftItems(
 		const result = await persistDraftItems(tx, input.draftId, existing, toInsert, insertedItemsById, input.researchLinks, stamp)
 		await runQuery(
 			"UPDATE_FAILED",
-			() => tx.update(procurementListInProcurement).set({ wizardStep: 4, updatedAt: stamp }).where(eq(procurementListInProcurement.id, input.draftId)),
+			// Passo 5 = "Itens": salvar os quantitativos leva o rascunho para a revisão de itens.
+			() => tx.update(procurementListInProcurement).set({ wizardStep: 5, updatedAt: stamp }).where(eq(procurementListInProcurement.id, input.draftId)),
 			{ prefix: "Erro ao atualizar rascunho" }
 		)
 		return result
@@ -587,10 +594,17 @@ async function persistDraftItems(
 		await tx.delete(procurementListItemInProcurement).where(inArray(procurementListItemInProcurement.id, toDelete))
 	}
 
-	// Linkar pesquisas de preço para itens novos (cliente reconcilia estado local).
-	if (researchLinks?.length && insertedItemsById.size > 0) {
+	// Linkar pesquisas de preço aos itens da ATA (cliente reconcilia estado local).
+	// Cobre item NOVO e item JÁ EXISTENTE: no wizard, a pesquisa acontece no step 4,
+	// quando todos os itens já foram inseridos pelo cálculo — restringir a inseridos
+	// deixaria a memória de cálculo órfã justamente no fluxo principal.
+	if (researchLinks?.length) {
+		const itemIdByIngredient = new Map(insertedItemsById)
+		for (const item of existing) {
+			if (item.ingredient_id) itemIdByIngredient.set(item.ingredient_id, item.ata_item_id as string)
+		}
 		for (const link of researchLinks) {
-			const newItemId = insertedItemsById.get(link.ingredientId)
+			const newItemId = itemIdByIngredient.get(link.ingredientId)
 			if (!newItemId) continue
 			await tx
 				.update(procurementPesquisaPrecoItemInProcurement)
@@ -682,7 +696,7 @@ export async function createAta(db: SisubDb, _ctx: UserContext, input: CreateAta
 
 		// 2. Para cada cozinha com seleções, criar procurement_list_kitchen + selections.
 		for (const ks of kitchenSelections) {
-			const allSels = [...ks.templateSelections, ...ks.eventSelections]
+			const allSels = [...ks.templateSelections, ...ks.eventSelections, ...(ks.exceptionSelections ?? [])]
 			if (allSels.length === 0) continue
 
 			const ataKitchen = await insertOneOrFail(
@@ -767,18 +781,83 @@ export async function fetchAtaDetails(db: SisubDb, _ctx: UserContext, input: Fet
 	)
 	if (!ata) return null
 
-	const kitchens = await runQuery(
+	// Cozinha → seleções → template em queries SEPARADAS, juntadas em JS.
+	// A relational query aninhada gerava o alias
+	// `procurementListKitchenInProcurement_procurementListSelectionInProcurements`
+	// (73 chars): o Postgres trunca em NAMEDATALEN (63) e o SQL emitido continua
+	// referenciando o nome inteiro → 42703 `column ... .template_id does not exist`.
+	// Na prática, toda ATA com pelo menos uma cozinha respondia 400.
+	const kitchenRows = await runQuery(
 		"QUERY_FAILED",
-		() =>
-			db.query.procurementListKitchenInProcurement.findMany({
-				with: {
-					kitchenInCore: { columns: { id: true, displayName: true } },
-					procurementListSelectionInProcurements: { with: { menuTemplateInKitchen: { columns: { name: true, templateType: true } } } },
-				},
-				where: eq(procurementListKitchenInProcurement.listId, input.ataId),
-			}),
+		() => db.select().from(procurementListKitchenInProcurement).where(eq(procurementListKitchenInProcurement.listId, input.ataId)),
 		{ prefix: "Erro ao buscar cozinhas" }
 	)
+
+	const kitchenCoreIds = [...new Set(kitchenRows.map((k) => k.kitchenId).filter((id): id is number => id != null))]
+	const [coreKitchens, selectionRows] = await Promise.all([
+		kitchenCoreIds.length > 0
+			? runQuery(
+					"QUERY_FAILED",
+					() =>
+						db.select({ id: kitchenInCore.id, displayName: kitchenInCore.displayName }).from(kitchenInCore).where(inArray(kitchenInCore.id, kitchenCoreIds)),
+					{ prefix: "Erro ao buscar cozinhas" }
+				)
+			: Promise.resolve([]),
+		kitchenRows.length > 0
+			? runQuery(
+					"QUERY_FAILED",
+					() =>
+						db
+							.select()
+							.from(procurementListSelectionInProcurement)
+							.where(
+								inArray(
+									procurementListSelectionInProcurement.listKitchenId,
+									kitchenRows.map((k) => k.id)
+								)
+							),
+					{ prefix: "Erro ao buscar seleções" }
+				)
+			: Promise.resolve([]),
+	])
+
+	// expectedMonthlyOccurrences vem junto para o wizard reprojetar as seleções de
+	// exceção quando a vigência da ata muda, sem uma segunda consulta.
+	const selectionTemplateIds = [...new Set(selectionRows.map((s) => s.templateId).filter((id): id is string => id != null))]
+	const selectionTemplates =
+		selectionTemplateIds.length > 0
+			? await runQuery(
+					"QUERY_FAILED",
+					() =>
+						db
+							.select({
+								id: menuTemplateInKitchen.id,
+								name: menuTemplateInKitchen.name,
+								templateType: menuTemplateInKitchen.templateType,
+								expectedMonthlyOccurrences: menuTemplateInKitchen.expectedMonthlyOccurrences,
+							})
+							.from(menuTemplateInKitchen)
+							.where(inArray(menuTemplateInKitchen.id, selectionTemplateIds)),
+					{ prefix: "Erro ao buscar templates" }
+				)
+			: []
+
+	const coreKitchenById = new Map(coreKitchens.map((k) => [k.id, k]))
+	const templateById = new Map(selectionTemplates.map((t) => [t.id, t]))
+	const selectionsByKitchen = new Map<string, Array<(typeof selectionRows)[number] & { menuTemplateInKitchen: (typeof selectionTemplates)[number] | null }>>()
+	for (const sel of selectionRows) {
+		const withTemplate = { ...sel, menuTemplateInKitchen: (sel.templateId ? templateById.get(sel.templateId) : null) ?? null }
+		const bucket = selectionsByKitchen.get(sel.listKitchenId)
+		if (bucket) bucket.push(withTemplate)
+		else selectionsByKitchen.set(sel.listKitchenId, [withTemplate])
+	}
+
+	// Chaves iguais às da relational query — DETAILS_RELATIONS mapeia para o contrato de wire.
+	const kitchens = kitchenRows.map((k) => ({
+		...k,
+		kitchenInCore: (k.kitchenId != null ? coreKitchenById.get(k.kitchenId) : null) ?? null,
+		procurementListSelectionInProcurements: selectionsByKitchen.get(k.id) ?? [],
+	}))
 
 	const items = await runQuery(
 		"QUERY_FAILED",

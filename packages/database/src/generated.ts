@@ -5240,6 +5240,7 @@ export type Database = {
 					title: string
 					unit_id: number
 					updated_at: string | null
+					validity_months: number | null
 					wizard_step: number | null
 				}
 				Insert: {
@@ -5251,6 +5252,7 @@ export type Database = {
 					title: string
 					unit_id: number
 					updated_at?: string | null
+					validity_months?: number | null
 					wizard_step?: number | null
 				}
 				Update: {
@@ -5262,6 +5264,7 @@ export type Database = {
 					title?: string
 					unit_id?: number
 					updated_at?: string | null
+					validity_months?: number | null
 					wizard_step?: number | null
 				}
 				Relationships: []

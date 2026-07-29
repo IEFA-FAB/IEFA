@@ -924,6 +924,7 @@ export const procurementListInProcurement = procurement.table("procurement_list"
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	wizardStep: smallint("wizard_step"),
+	validityMonths: smallint("validity_months"),
 }, (table) => [
 	index("idx_procurement_list_unit_status").using("btree", table.unitId.asc().nullsLast().op("int4_ops"), table.status.asc().nullsLast().op("int4_ops")).where(sql`(deleted_at IS NULL)`),
 	foreignKey({
@@ -932,7 +933,8 @@ export const procurementListInProcurement = procurement.table("procurement_list"
 			name: "procurement_ata_unit_id_fkey"
 		}),
 	check("procurement_ata_status_check", sql`status = ANY (ARRAY['draft'::text, 'published'::text, 'archived'::text])`),
-	check("procurement_list_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 4)`),
+	check("procurement_list_wizard_step_check", sql`(wizard_step >= 1) AND (wizard_step <= 5)`),
+	check("procurement_list_validity_months_check", sql`validity_months IS NULL OR (validity_months > 0 AND validity_months <= 120)`),
 ]);
 
 export const procurementListItemInProcurement = procurement.table("procurement_list_item", {

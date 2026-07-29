@@ -1,18 +1,21 @@
 import { Check } from "lucide-react"
 import { cn } from "@/lib/cn"
 
-export type AtaStep = 1 | 2 | 3 | 4
+export type AtaStep = 1 | 2 | 3 | 4 | 5
 
 interface StepDef {
 	number: AtaStep
 	label: string
 }
 
+// Um passo por regime de produção (kitchen.menu_template.template_type): rotina,
+// evento pontual e exceção previsível. Antes evento e exceção dividiam um passo só.
 const STEPS: StepDef[] = [
 	{ number: 1, label: "Cardápios Semanais" },
 	{ number: 2, label: "Eventos" },
-	{ number: 3, label: "Resumo" },
-	{ number: 4, label: "Itens" },
+	{ number: 3, label: "Exceções" },
+	{ number: 4, label: "Resumo" },
+	{ number: 5, label: "Itens" },
 ]
 
 interface AtaStepIndicatorProps {
