@@ -111,14 +111,10 @@ comment on function inventory.suggest_purchase_items is
   'Candidatos de purchase_item para um item de NF-e sem match exato: similaridade trigram na descrição + boost por brick GPC.';
 
 -- ----------------------------------------------------------------------------
--- RLS: leitura para authenticated; escrita só via service_role (server fns)
+-- RLS: DENY-ALL para anon/authenticated (sem policies). Todo acesso passa
+-- pelas server fns (service role), que aplicam o PBAC `storage` escopado por
+-- cozinha — uma policy `using (true)` exporia XML, CNPJs e valores de toda
+-- NF-e a qualquer sessão autenticada via PostgREST.
 -- ----------------------------------------------------------------------------
 alter table inventory.nfe_document enable row level security;
 alter table inventory.nfe_item enable row level security;
-
-create policy nfe_document_read on inventory.nfe_document
-  for select to authenticated using (true);
-create policy nfe_item_read on inventory.nfe_item
-  for select to authenticated using (true);
-
-grant select on inventory.nfe_document, inventory.nfe_item to authenticated;

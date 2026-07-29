@@ -27,6 +27,32 @@ const inventory = () => getServerClient("inventory") as unknown as LooseClient
 const gs1 = () => getServerClient("gs1_integration") as unknown as LooseClient
 const kitchen = () => getServerClient("kitchen") as unknown as LooseClient
 
+/**
+ * Guard `storage` ESCOPADO por cozinha (review: o guard sem escopo aceitava
+ * permissão de uma cozinha para dados de qualquer outra). Documento sem
+ * kitchen_id (legado) exige a permissão sem restrição de escopo.
+ */
+async function requireStorageForKitchen(level: 1 | 2, kitchenId: number | null | undefined) {
+	if (kitchenId != null) return requireAuthWithPermission("storage", level, { type: "kitchen", id: kitchenId })
+	// Sem cozinha resolvível: só permissão GLOBAL de storage passa — uma
+	// permissão escopada em outra cozinha não pode alcançar dados sem escopo.
+	const ctx = await requireAuthWithPermission("storage", level)
+	const isGlobal = ctx.permissions.some(
+		(p) => p.module === "storage" && p.level >= level && p.kitchen_id === null && p.unit_id === null && p.mess_hall_id === null
+	)
+	if (!isGlobal) throw new Error("Requer permissão global de estoque para dados sem cozinha atribuída")
+	return ctx
+}
+
+/** Autentica, resolve a cozinha do documento e aplica o guard escopado. */
+async function requireStorageForDocument(level: 1 | 2, nfeDocumentId: string): Promise<{ userId: string }> {
+	const base = await requireAuthWithPermission("storage", level)
+	const { data: doc } = await inventory().from("nfe_document").select("kitchen_id").eq("id", nfeDocumentId).maybeSingle()
+	if (!doc) throw new Error("NF-e não encontrada")
+	await requireStorageForKitchen(level, doc.kitchen_id != null ? Number(doc.kitchen_id) : null)
+	return { userId: base.userId }
+}
+
 export interface NfeItemRow {
 	id: string
 	n_item: number
@@ -217,7 +243,7 @@ async function runMatchingForDocument(nfeDocumentId: string): Promise<{ matched:
 export const uploadNfeFn = createServerFn({ method: "POST" })
 	.validator(z.object({ xml: z.string().min(1), kitchenId: z.number().int().positive().optional() }))
 	.handler(async ({ data }) => {
-		const { userId } = await requireAuthWithPermission("storage", 2)
+		const { userId } = await requireStorageForKitchen(2, data.kitchenId ?? null)
 
 		const params = new URLSearchParams()
 		if (data.kitchenId != null) params.set("kitchen_id", String(data.kitchenId))
@@ -241,7 +267,7 @@ export const uploadNfeFn = createServerFn({ method: "POST" })
 export const runNfeMatchingFn = createServerFn({ method: "POST" })
 	.validator(z.object({ nfeDocumentId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 2)
+		await requireStorageForDocument(2, data.nfeDocumentId)
 		return runMatchingForDocument(data.nfeDocumentId)
 	})
 
@@ -249,7 +275,7 @@ export const runNfeMatchingFn = createServerFn({ method: "POST" })
 export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 	.validator(z.object({ kitchenId: z.number().int().positive().optional() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForKitchen(1, data.kitchenId ?? null)
 		const inv = inventory()
 
 		let query = inv
@@ -284,7 +310,7 @@ export const listNfeDocumentsFn = createServerFn({ method: "GET" })
 export const fetchNfeDocumentFn = createServerFn({ method: "GET" })
 	.validator(z.object({ nfeDocumentId: z.string().uuid() }))
 	.handler(async ({ data }) => {
-		await requireAuthWithPermission("storage", 1)
+		await requireStorageForDocument(1, data.nfeDocumentId)
 		const inv = inventory()
 
 		const { data: doc, error } = await inv.from("nfe_document").select("*").eq("id", data.nfeDocumentId).single()
@@ -300,8 +326,9 @@ export const fetchNfeItemSuggestionsFn = createServerFn({ method: "GET" })
 		await requireAuthWithPermission("storage", 1)
 		const inv = inventory()
 
-		const { data: item, error } = await inv.from("nfe_item").select("description, gtin").eq("id", data.nfeItemId).single()
+		const { data: item, error } = await inv.from("nfe_item").select("description, gtin, nfe_document_id").eq("id", data.nfeItemId).single()
 		if (error || !item?.description) return []
+		await requireStorageForDocument(1, item.nfe_document_id)
 
 		const brick =
 			item.gtin != null ? ((await gs1().from("gtin").select("gpc_brick_code").eq("gtin", item.gtin).maybeSingle()).data?.gpc_brick_code ?? null) : null
@@ -332,6 +359,7 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 
 		const { data: item, error: itemError } = await inv.from("nfe_item").select("*, nfe_document_id").eq("id", data.nfeItemId).single()
 		if (itemError || !item) throw new Error("Item de NF-e não encontrado")
+		await requireStorageForDocument(2, item.nfe_document_id)
 
 		// Resolve o SKU: direto por id, ou o default do purchase_item escolhido
 		// (preferindo o que tem conversão de unidade).
@@ -360,20 +388,9 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 		const perPackage = link?.unit_content_quantity ?? null
 		const qty = perPackage != null && perPackage > 0 && item.commercial_qty != null && item.commercial_qty > 0 ? item.commercial_qty * perPackage : null
 
-		const { error: updateError } = await inv
-			.from("nfe_item")
-			.update({
-				match_status: qty != null ? "matched" : "review",
-				ingredient_item_id: link?.id ?? null,
-				purchase_item_id: purchaseItemId,
-				ingredient_id: link?.ingredient_id ?? null,
-				matched_qty_base: qty,
-				updated_at: new Date().toISOString(),
-			})
-			.eq("id", data.nfeItemId)
-		if (updateError) throw new Error(`Erro ao resolver item: ${updateError.message}`)
-
-		// Aprendizado: próxima nota do mesmo fornecedor resolve sozinha
+		// Aprendizado ANTES do update do item (review: partial state). Se o mapa
+		// falhar, nada mudou; se o update do item falhar depois, o mapa já
+		// aprendido é idempotente e o retry da resolução converge.
 		const { data: doc } = await inv.from("nfe_document").select("supplier_cnpj").eq("id", item.nfe_document_id).single()
 		if (doc?.supplier_cnpj && item.supplier_code) {
 			const { error: mapError } = await gs1()
@@ -388,8 +405,21 @@ export const resolveNfeItemFn = createServerFn({ method: "POST" })
 					},
 					{ onConflict: "supplier_cnpj,supplier_code" }
 				)
-			if (mapError) throw new Error(`Item resolvido, mas falhou ao gravar o mapa do fornecedor: ${mapError.message}`)
+			if (mapError) throw new Error(`Falha ao gravar o mapa do fornecedor (item não alterado): ${mapError.message}`)
 		}
+
+		const { error: updateError } = await inv
+			.from("nfe_item")
+			.update({
+				match_status: qty != null ? "matched" : "review",
+				ingredient_item_id: link?.id ?? null,
+				purchase_item_id: purchaseItemId,
+				ingredient_id: link?.ingredient_id ?? null,
+				matched_qty_base: qty,
+				updated_at: new Date().toISOString(),
+			})
+			.eq("id", data.nfeItemId)
+		if (updateError) throw new Error(`Erro ao resolver item (mapa do fornecedor já aprendido — tente novamente): ${updateError.message}`)
 
 		return { status: qty != null ? "matched" : "review", matchedQtyBase: qty }
 	})

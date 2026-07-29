@@ -16,6 +16,22 @@
 import type { createClient } from "@supabase/supabase-js"
 import { fetchWithRetry } from "../../lib/fetch-with-retry.ts"
 
+/**
+ * Anti-SSRF: o download da publicação é um fetch server-side com URL vinda do
+ * chamador (rota admin ou CLI). Só publicações GS1 oficiais, sempre https —
+ * e SEM seguir redirects (um 302 para alvo interno/link-local furaria o
+ * allowlist verificado só na URL inicial).
+ */
+const GPC_ALLOWED_HOSTS = /(^|\.)gs1\.org$|(^|\.)gs1br\.org$/
+export function isAllowedGpcUrl(raw: string): boolean {
+	try {
+		const url = new URL(raw)
+		return url.protocol === "https:" && GPC_ALLOWED_HOSTS.test(url.hostname)
+	} catch {
+		return false
+	}
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: mesmo padrão de SupabaseAny dos importadores nutricionais
 type SupabaseAny = ReturnType<typeof createClient<any, any, any>>
 
@@ -108,7 +124,8 @@ export async function persistGpcBricks(supabase: SupabaseAny, rows: GpcBrickRow[
 
 /** Baixa a publicação de `url` e importa. Guard: zero bricks = layout mudou. */
 export async function importGpc(supabase: SupabaseAny, url: string): Promise<number> {
-	const res = await fetchWithRetry(url, { redirect: "follow" }, { label: "GPC" })
+	if (!isAllowedGpcUrl(url)) throw new Error("URL não permitida — apenas https em gs1.org/gs1br.org (sem redirects)")
+	const res = await fetchWithRetry(url, { redirect: "error" }, { label: "GPC" })
 	if (!res.ok) throw new Error(`Download da publicação GPC falhou: HTTP ${res.status}`)
 	const json = (await res.json()) as unknown
 	const rows = parseGpcPublication(json)
